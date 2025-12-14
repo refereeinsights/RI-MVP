@@ -1,4 +1,4 @@
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../../lib/supabaseClient";
 
 export default async function TournamentDetailPage({ params }: { params: { slug: string } }) {
   const { data, error } = await supabase
