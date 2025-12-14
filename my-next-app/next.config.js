@@ -1,0 +1,3 @@
+{
+  "reactStrictMode": true
+}
