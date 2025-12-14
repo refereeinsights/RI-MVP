@@ -52,8 +52,64 @@ export default function Home() {
           providing transparency into tournaments, schools, and assignors —
           powered by real referee experiences and unbiased insight.
         </p>
+
+        {/* Value props */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "1.5rem",
+            marginTop: "3rem",
+            textAlign: "left",
+          }}
+        >
+          <div>
+            <h3 style={{ marginBottom: "0.5rem" }}>Discover opportunities</h3>
+            <p style={{ color: "#333" }}>
+              Find tournaments and assignors with better visibility into what
+              you’re accepting.
+            </p>
+          </div>
+
+          <div>
+            <h3 style={{ marginBottom: "0.5rem" }}>
+              Rate tournaments & assignors
+            </h3>
+            <p style={{ color: "#333" }}>
+              Share real experiences to help raise the standard across
+              officiating.
+            </p>
+          </div>
+
+          <div>
+            <h3 style={{ marginBottom: "0.5rem" }}>
+              Make informed decisions
+            </h3>
+            <p style={{ color: "#333" }}>
+              Get insight on pay, organization, and professionalism before you
+              commit.
+            </p>
+          </div>
+        </div>
+
+        {/* Primary CTA */}
+        <div style={{ marginTop: "3.5rem" }}>
+          <a
+            href="#"
+            style={{
+              display: "inline-block",
+              padding: "0.9rem 1.75rem",
+              border: "2px solid #000",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              fontSize: "0.875rem",
+            }}
+          >
+            Join the referee waitlist
+          </a>
+        </div>
       </section>
     </main>
   );
 }
-
