@@ -1,14 +1,14 @@
-Here are the contents for the file: /my-next-app/my-next-app/app/page.tsx
-
-import React from 'react';
-
-const HomePage = () => {
+export default function Home() {
   return (
-    <main>
-      <h1>Welcome to My Next.js App!</h1>
-      <p>This is the home page of your Next.js application.</p>
+    <main style={{ padding: "4rem 2rem", fontFamily: "system-ui, sans-serif" }}>
+      <h1 style={{ fontSize: "3rem", margin: 0 }}>Referee Insights</h1>
+      <p style={{ fontSize: "1.25rem", fontWeight: 700, marginTop: "0.75rem" }}>
+        Insight before you accept.
+      </p>
+      <p style={{ maxWidth: 720, marginTop: "1.25rem" }}>
+        Helping officials make smarter assignment decisions through insight,
+        transparency, and community feedback.
+      </p>
     </main>
   );
-};
-
-export default HomePage;
+}
