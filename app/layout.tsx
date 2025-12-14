@@ -1,22 +1,37 @@
-import React from 'react';
+import type { ReactNode } from "react";
+import "./globals.css";
 
-const Layout = ({ children }) => {
+export const metadata = {
+  title: "Referee Insights",
+  description: "Insight before you accept.",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <html lang="en">
-      <head>
-        <title>My Next App</title>
-      </head>
       <body>
-        <header>
-          <h1>Welcome to My Next App</h1>
+        <header style={{ padding: "1rem", borderBottom: "2px solid #000" }}>
+          <h1 style={{ margin: 0 }}>Referee Insights</h1>
         </header>
-        <main>{children}</main>
-        <footer>
-          <p>&copy; {new Date().getFullYear()} My Next App. All rights reserved.</p>
+
+        <main style={{ minHeight: "70vh" }}>{children}</main>
+
+        <footer
+          style={{
+            padding: "1rem",
+            borderTop: "2px solid #000",
+            textAlign: "center",
+          }}
+        >
+          <p>
+            © {new Date().getFullYear()} Referee Insights. All rights reserved.
+          </p>
         </footer>
       </body>
     </html>
   );
-};
-
-export default Layout;
+}
