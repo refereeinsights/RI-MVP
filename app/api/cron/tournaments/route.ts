@@ -4,11 +4,6 @@ import * as cheerio from "cheerio";
 
 export const runtime = "nodejs";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 type TournamentRow = {
   name: string;
   slug: string;
@@ -31,6 +26,17 @@ type TournamentRow = {
 };
 
 const ALLOWED_STATES = new Set(["WA", "OR", "CA", "ID", "NV", "AZ", "HI"]);
+
+function getSupabase() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  return createClient(url, key);
+}
 
 function toISODateUTC(year: number, monthIndex0: number, day: number): string {
   const d = new Date(Date.UTC(year, monthIndex0, day, 12, 0, 0));
@@ -94,6 +100,7 @@ function parseDateCell(
   const explicitIdx = explicitMonthMatch
     ? monthNameToIndex0(explicitMonthMatch[1])
     : null;
+
   const monthIdx = explicitIdx !== null ? explicitIdx : defaultMonthIdx;
 
   const dayRangeMatch = dateText.match(/(\d{1,2})(?:\s*-\s*(\d{1,2}))?/);
@@ -112,7 +119,7 @@ function parseDateCell(
 
 function inNextNineMonths(startISO?: string | null): boolean {
   if (!startISO) return false;
-  const start = new Date(startISO + "T00:00:00Z");
+  const start = new Date(`${startISO}T00:00:00Z`);
   if (Number.isNaN(start.getTime())) return false;
 
   const now = new Date();
@@ -129,6 +136,22 @@ function inferLevel(ageGroups: string): string | null {
   return "youth";
 }
 
+function isValidTournamentRow(t: TournamentRow): boolean {
+  return Boolean(
+    t &&
+      typeof t.name === "string" &&
+      t.name.trim().length > 0 &&
+      typeof t.slug === "string" &&
+      t.slug.trim().length > 0 &&
+      typeof t.sport === "string" &&
+      t.sport.trim().length > 0 &&
+      typeof t.state === "string" &&
+      t.state.trim().length > 0 &&
+      typeof t.source_url === "string" &&
+      t.source_url.trim().length > 0
+  );
+}
+
 async function getNewTournaments(): Promise<TournamentRow[]> {
   const listUrl = "https://usclubsoccer.org/list-of-sanctioned-tournaments/";
 
@@ -143,15 +166,12 @@ async function getNewTournaments(): Promise<TournamentRow[]> {
 
   const $ = cheerio.load(html);
 
-  // Lightweight counters (one summary log)
   let totalRows = 0;
   let rowsAllowedState = 0;
   let rowsInWindow = 0;
 
   const results: TournamentRow[] = [];
 
-  // ✅ FIX: Pair each month heading to the table that follows it,
-  // rather than relying on global table indexes.
   const monthHeadingEls = $("h2")
     .toArray()
     .map((h) => $(h))
@@ -225,6 +245,7 @@ async function getNewTournaments(): Promise<TournamentRow[]> {
           club ? `, hosted by ${club}` : ""
         }.`,
         confidence,
+        status: "published",
       });
     }
   }
@@ -239,22 +260,6 @@ async function getNewTournaments(): Promise<TournamentRow[]> {
   return results;
 }
 
-function isValidTournamentRow(t: TournamentRow): boolean {
-  return Boolean(
-    t &&
-      typeof t.name === "string" &&
-      t.name.trim().length > 0 &&
-      typeof t.slug === "string" &&
-      t.slug.trim().length > 0 &&
-      typeof t.sport === "string" &&
-      t.sport.trim().length > 0 &&
-      typeof t.state === "string" &&
-      t.state.trim().length > 0 &&
-      typeof t.source_url === "string" &&
-      t.source_url.trim().length > 0
-  );
-}
-
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -263,13 +268,6 @@ export async function GET(req: Request) {
 
     if (!process.env.CRON_SECRET || token !== process.env.CRON_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json(
-        { error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
-        { status: 500 }
-      );
     }
 
     console.log("RI tournament cron running", { dryRun });
@@ -294,7 +292,44 @@ export async function GET(req: Request) {
     }
 
     const nowIso = new Date().toISOString();
-    const rows: TournamentRow[] = valid.map((t) => ({
-      ...t,
-      source_last_seen_at: nowIso,
-      status: t.status ?? "published",
+    const rows: TournamentRow[] = valid.map((t) => {
+      return {
+        ...t,
+        source_last_seen_at: nowIso,
+        status: t.status ?? "published",
+      };
+    });
+
+    if (dryRun) {
+      return NextResponse.json({
+        dryRun: true,
+        wouldInsert: rows.length,
+        tournaments: rows,
+      });
+    }
+
+    const supabase = getSupabase();
+
+    const { data, error } = await supabase
+      .from("tournaments")
+      .upsert(rows, { onConflict: "slug" })
+      .select("id, slug");
+
+    if (error) {
+      console.error("Supabase upsert error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      dryRun: false,
+      upserted: data?.length ?? 0,
+      rows: data ?? [],
+    });
+  } catch (err: any) {
+    console.error("Cron failed:", err);
+    return NextResponse.json(
+      { error: "Cron failed", detail: err?.message ?? String(err) },
+      { status: 500 }
+    );
+  }
+}
