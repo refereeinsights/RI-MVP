@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import * as cheerio from "cheerio";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type TournamentRow = {
   name: string;
@@ -282,54 +284,4 @@ export async function GET(req: Request) {
       });
     }
 
-    const valid = discovered.filter(isValidTournamentRow);
-    if (!valid.length) {
-      return NextResponse.json({
-        dryRun,
-        upserted: 0,
-        message: "No valid tournaments to upsert",
-      });
-    }
-
-    const nowIso = new Date().toISOString();
-    const rows: TournamentRow[] = valid.map((t) => {
-      return {
-        ...t,
-        source_last_seen_at: nowIso,
-        status: t.status ?? "published",
-      };
-    });
-
-    if (dryRun) {
-      return NextResponse.json({
-        dryRun: true,
-        wouldInsert: rows.length,
-        tournaments: rows,
-      });
-    }
-
-    const supabase = getSupabase();
-
-    const { data, error } = await supabase
-      .from("tournaments")
-      .upsert(rows, { onConflict: "slug" })
-      .select("id, slug");
-
-    if (error) {
-      console.error("Supabase upsert error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      dryRun: false,
-      upserted: data?.length ?? 0,
-      rows: data ?? [],
-    });
-  } catch (err: any) {
-    console.error("Cron failed:", err);
-    return NextResponse.json(
-      { error: "Cron failed", detail: err?.message ?? String(err) },
-      { status: 500 }
-    );
-  }
-}
+    const valid = dis
