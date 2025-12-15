@@ -49,3 +49,4 @@ export default async function TournamentDetailPage({ params }: { params: { slug:
     </main>
   );
 }
+// force-change Sun Dec 14 16:40:21 PST 2025
