@@ -33,7 +33,6 @@ type TournamentRow = {
 const ALLOWED_STATES = new Set(["WA", "OR", "CA", "ID", "NV", "AZ", "HI"]);
 
 function toISODateUTC(year: number, monthIndex0: number, day: number): string {
-  // Use UTC to avoid timezone date shifting
   const d = new Date(Date.UTC(year, monthIndex0, day, 12, 0, 0));
   return d.toISOString().slice(0, 10);
 }
@@ -74,10 +73,14 @@ function getDomain(url: string): string | null {
   }
 }
 
-function parseDateCell(monthYear: string, dateTextRaw: string): { start?: string; end?: string } {
-  // monthYear: "December 2025"
-  // dateText examples: "December 6-7", "December 6", "Dec 6-7", sometimes with commas
-  const dateText = dateTextRaw.replace(/\u2013|\u2014/g, "-").replace(/,/g, " ").trim();
+function parseDateCell(
+  monthYear: string,
+  dateTextRaw: string
+): { start?: string; end?: string } {
+  const dateText = dateTextRaw
+    .replace(/\u2013|\u2014/g, "-")
+    .replace(/,/g, " ")
+    .trim();
 
   const monthYearMatch = monthYear.match(/^([A-Za-z]+)\s+(\d{4})$/);
   if (!monthYearMatch) return {};
@@ -87,22 +90,18 @@ function parseDateCell(monthYear: string, dateTextRaw: string): { start?: string
   const defaultMonthIdx = monthNameToIndex0(defaultMonthName);
   if (defaultMonthIdx === null) return {};
 
-  // Try to find an explicit month name in the date cell; otherwise use monthYear heading
   const explicitMonthMatch = dateText.match(/^([A-Za-z]+)\s+/);
-  const monthIdx =
-    explicitMonthMatch && monthNameToIndex0(explicitMonthMatch[1]) !== null
-      ? (monthNameToIndex0(explicitMonthMatch[1]) as number)
-      : defaultMonthIdx;
+  const explicitIdx = explicitMonthMatch
+    ? monthNameToIndex0(explicitMonthMatch[1])
+    : null;
+  const monthIdx = explicitIdx !== null ? explicitIdx : defaultMonthIdx;
 
-  // Extract first day and optional range
-  // Matches: "December 6-7", "December 6 - 7", "December 6", "Dec 6-7"
   const dayRangeMatch = dateText.match(/(\d{1,2})(?:\s*-\s*(\d{1,2}))?/);
   if (!dayRangeMatch) return {};
 
   const startDay = parseInt(dayRangeMatch[1], 10);
   const endDay = dayRangeMatch[2] ? parseInt(dayRangeMatch[2], 10) : startDay;
 
-  // Basic validity
   if (startDay < 1 || startDay > 31 || endDay < 1 || endDay > 31) return {};
 
   return {
@@ -132,95 +131,105 @@ function inferLevel(ageGroups: string): string | null {
 
 async function getNewTournaments(): Promise<TournamentRow[]> {
   const listUrl = "https://usclubsoccer.org/list-of-sanctioned-tournaments/";
+
   const res = await fetch(listUrl, { cache: "no-store" });
   if (!res.ok) {
-    console.error("US Club Soccer fetch failed", res.status);
+    console.error("USClub fetch failed:", res.status);
     return [];
   }
 
   const html = await res.text();
   const $ = cheerio.load(html);
 
-  const results: TournamentRow[] = [];
-
-  // Month headings are typically h2 like "December 2025", "January 2026", etc.
   const monthHeadings = $("h2")
     .toArray()
-    .map((h) => $(h))
-    .filter(($h) => /^\w+\s+\d{4}$/.test($h.text().trim()));
+    .map((h) => $(h).text().trim())
+    .filter((t) => /^\w+\s+\d{4}$/.test(t));
 
-  for (const $h of monthHeadings) {
-    const monthYear = $h.text().trim();
+  const tables = $("table").toArray();
+  const pairCount = Math.min(monthHeadings.length, tables.length);
 
-    // Collect tables until the next month heading
-    let node = $h.next();
-    while (node.length) {
-      if (node.is("h2") && /^\w+\s+\d{4}$/.test(node.text().trim())) break;
+  // Lightweight counters (one summary log)
+  let totalRows = 0;
+  let rowsAllowedState = 0;
+  let rowsInWindow = 0;
 
-      const tables = node.is("table") ? node : node.find("table");
-      tables.each((_, table) => {
-        const $table = $(table);
-        $table.find("tbody tr").each((__, tr) => {
-          const tds = $(tr).find("td");
-          if (tds.length < 4) return;
+  const results: TournamentRow[] = [];
 
-          const datesText = $(tds[0]).text().trim();
-          const tournamentCell = $(tds[1]);
-          const state = $(tds[2]).text().trim().toUpperCase();
-          const club = tds.length >= 4 ? $(tds[3]).text().trim() : "";
-          const ageGroups = tds.length >= 5 ? $(tds[4]).text().trim() : "";
+  for (let i = 0; i < pairCount; i++) {
+    const monthYear = monthHeadings[i];
+    const $table = $(tables[i]);
 
-          if (!state || !ALLOWED_STATES.has(state)) return;
+    const trs = $table.find("tr").toArray();
+    for (const tr of trs) {
+      const tds = $(tr).find("td");
+      if (tds.length < 4) continue;
 
-          const link = tournamentCell.find("a").first();
-          const name = link.text().trim() || tournamentCell.text().trim();
-          const href = (link.attr("href") || "").trim();
+      totalRows++;
 
-          if (!name) return;
+      const datesText = $(tds[0]).text().trim();
+      const tournamentCell = $(tds[1]);
 
-          const { start, end } = parseDateCell(monthYear, datesText);
+      const stateRaw = $(tds[2]).text().trim().toUpperCase();
+      const stateMatch = stateRaw.match(/\b[A-Z]{2}\b/);
+      const state = stateMatch ? stateMatch[0] : "";
 
-          // If we can't confidently place it in the window, skip (keeps data quality high)
-          if (!inNextNineMonths(start ?? null)) return;
+      const club = tds.length >= 4 ? $(tds[3]).text().trim() : "";
+      const ageGroups = tds.length >= 5 ? $(tds[4]).text().trim() : "";
 
-          const start_date = start ?? null;
-          const end_date = end ?? start ?? null;
+      if (!state || !ALLOWED_STATES.has(state)) continue;
+      rowsAllowedState++;
 
-          const slugBase = `${name}-${state}-${start_date ?? "unknown"}`;
-          const slug = slugify(slugBase);
+      const link = tournamentCell.find("a").first();
+      const name = link.text().trim() || tournamentCell.text().trim();
+      const href = (link.attr("href") || "").trim();
 
-          const source_url = href && href.startsWith("http") ? href : listUrl;
-          const source_domain = getDomain(source_url) ?? "usclubsoccer.org";
+      if (!name) continue;
 
-          const level = inferLevel(ageGroups);
+      const { start, end } = parseDateCell(monthYear, datesText);
+      if (!start) continue;
+      if (!inNextNineMonths(start)) continue;
+      rowsInWindow++;
 
-          const confidence =
-            start_date && state ? (club || ageGroups ? 85 : 80) : 70;
+      const start_date = start ?? null;
+      const end_date = end ?? start ?? null;
 
-          results.push({
-            name,
-            slug,
-            sport: "soccer",
-            level,
-            state,
-            city: null, // US Club list typically doesn't include city
-            venue: null,
-            address: null,
-            start_date,
-            end_date,
-            source_url,
-            source_domain,
-            source_title: "US Club Soccer – Sanctioned Tournaments",
-            summary: `US Club Soccer–sanctioned tournament listed for ${state}${club ? `, hosted by ${club}` : ""}.`,
-            confidence,
-            // status omitted → DB default 'published'
-          });
-        });
+      const slug = slugify(`${name}-${state}-${start_date ?? "unknown"}`);
+
+      const source_url = href && href.startsWith("http") ? href : listUrl;
+      const source_domain = getDomain(source_url) ?? "usclubsoccer.org";
+
+      const level = inferLevel(ageGroups);
+      const confidence = start_date ? 85 : 70;
+
+      results.push({
+        name,
+        slug,
+        sport: "soccer",
+        level,
+        state,
+        city: null,
+        venue: null,
+        address: null,
+        start_date,
+        end_date,
+        source_url,
+        source_domain,
+        source_title: "US Club Soccer – Sanctioned Tournaments",
+        summary: `US Club Soccer–sanctioned tournament listed for ${state}${
+          club ? `, hosted by ${club}` : ""
+        }.`,
+        confidence,
       });
-
-      node = node.next();
     }
   }
+
+  console.log("USClub summary:", {
+    totalRows,
+    rowsAllowedState,
+    rowsInWindow,
+    results: results.length,
+  });
 
   return results;
 }
@@ -272,7 +281,6 @@ export async function GET(req: Request) {
       });
     }
 
-    // Stamp last-seen time so you can track freshness over time
     const nowIso = new Date().toISOString();
     const rows: TournamentRow[] = valid.map((t) => ({
       ...t,
