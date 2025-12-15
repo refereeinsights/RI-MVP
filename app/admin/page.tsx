@@ -1,4 +1,4 @@
-import SportsPickerClient from "./SportsPickerClient";
+import SportsPickerClient from "@/components/SportsPickerClient";
 
 import {
   requireAdmin,

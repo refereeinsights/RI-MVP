@@ -78,11 +78,21 @@ export default function RootLayout({
               Tournaments
             </a>
 
-            {/* Future nav items */}
-            {/*
-            <a href="/assignors">Assignors</a>
-            <a href="/clubs">Clubs</a>
-            */}
+            <a
+              href="/signup"
+              style={{
+                color: "#ffffff",
+                fontSize: "0.8rem",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.14em",
+                textDecoration: "none",
+                paddingBottom: "0.25rem",
+                borderBottom: "2px solid rgba(255,255,255,0.6)",
+              }}
+            >
+              Signup
+            </a>
           </nav>
         </header>
 
