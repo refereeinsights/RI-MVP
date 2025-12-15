@@ -1,57 +1,52 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-export const runtime = "nodejs"; // keep secrets server-side
+export const runtime = "nodejs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-type TournamentRow = {
-  name: string;
-  slug: string;
-  sport: "soccer";
-  level?: string | null;
-  state: string;
-  city: string;
-  venue?: string | null;
-  address?: string | null;
-  start_date: string; // YYYY-MM-DD
-  end_date: string;   // YYYY-MM-DD
-  source_url: string;
-  source_domain: string;
-  summary: string;
-  status: "published";
-  confidence: number;
-};
-
 export async function GET(req: Request) {
-  // (Optional) simple auth so only Vercel cron can call it
-  const auth = req.headers.get("authorization");
-  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const { searchParams } = new URL(req.url);
+  const token = searchParams.get("token");
+
+  if (token !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 1) Fetch newly discovered tournaments from YOUR pipeline
-  // Replace this stub with your weekly discovery output
-  const newTournaments: TournamentRow[] = []; // <- fill from scraper/AI
+  console.log("RI tournament cron running");
 
-  if (!newTournaments.length) {
-    return NextResponse.json({ inserted: 0, message: "No new tournaments" });
-  }
+  const newTournaments = [
+    {
+      name: "RI Test Tournament",
+      slug: "ri-test-tournament-seattle-wa-2026-03-01",
+      sport: "soccer",
+      level: "youth",
+      state: "WA",
+      city: "Seattle",
+      venue: null,
+      address: null,
+      start_date: "2026-03-01",
+      end_date: "2026-03-02",
+      source_url: "https://example.com",
+      source_domain: "example.com",
+      summary: "Test tournament to validate cron ingestion.",
+      status: "published",
+      confidence: 95,
+    },
+  ];
 
-  // 2) Upsert to prevent duplicates
-  // If you used composite unique index, you can set onConflict to those fields
-  const { error, data } = await supabase
+  const { data, error } = await supabase
     .from("tournaments")
     .upsert(newTournaments, {
       onConflict: "name,city,state,start_date",
-      ignoreDuplicates: false,
     })
     .select("id, slug");
 
   if (error) {
+    console.error(error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
