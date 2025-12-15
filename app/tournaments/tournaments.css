@@ -55,15 +55,14 @@
 }
 
 /* ===== Header block ===== */
-..headerBlock {
+.headerBlock {
   position: relative;
   padding: 1rem 1rem 0.75rem;
-  text-align: center;          /* ← centers text */
+  text-align: center;          /* centers text */
   display: flex;
   flex-direction: column;
-  align-items: center;         /* ← keeps it visually centered */
+  align-items: center;         /* keeps it visually centered */
 }
-
 
 .title {
   margin: 0;
@@ -158,7 +157,7 @@
   padding: 0.75rem;
 }
 
-..card {
+.card {
   position: relative;
   border-radius: 14px;
   padding: 1.05rem 1rem 1rem;
@@ -179,7 +178,6 @@
     transform 220ms ease-out;
 }
 
-
 /* Stadium-light glow on hover */
 .card:hover {
   transform: translateY(-2px);
@@ -194,7 +192,6 @@
     0 0 48px rgba(255,255,255,0.18),   /* outer bloom */
     0 0 90px rgba(255,255,255,0.12);   /* stadium light haze */
 }
-
 
 .card::before {
   content: "";
