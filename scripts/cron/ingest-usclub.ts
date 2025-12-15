@@ -1,10 +1,11 @@
 import fs from "fs";
 import path from "path";
-import { parseUSClubSoccer } from "@/lib/parsers/usClubSoccer";
-import { upsertTournamentFromSource } from "@/lib/tournaments/upsertFromSource";
+
+// if scripts/cron is at repoRoot/scripts/cron and lib is at repoRoot/lib
+import { parseUSClubSoccer } from "../../lib/parsers/usClubSoccer";
+import { upsertTournamentFromSource } from "../../lib/tournaments/upsertFromSource";
 
 async function main() {
-  // Replace with live fetch when ready
   const html = fs.readFileSync(
     path.join(process.cwd(), "fixtures/usclub.html"),
     "utf-8"
@@ -25,12 +26,7 @@ async function main() {
     }
   }
 
-  console.log({
-    source: "us_club_soccer",
-    total: tournaments.length,
-    success,
-    failed,
-  });
+  console.log({ source: "us_club_soccer", total: tournaments.length, success, failed });
 }
 
 main().catch((err) => {
