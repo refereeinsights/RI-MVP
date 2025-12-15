@@ -27,16 +27,25 @@ type TournamentRow = {
   confidence?: number; // default 50
 };
 
+type IngestDebug = {
+  source: "usclubsoccer";
+  listUrl: string;
+  httpStatus?: number;
+  htmlLength?: number;
+  monthHeadingsFound: number;
+  firstMonthHeading?: string | null;
+  totalRows: number;
+  rowsAllowedState: number;
+  rowsInWindow: number;
+  results: number;
+};
+
 const ALLOWED_STATES = new Set(["WA", "OR", "CA", "ID", "NV", "AZ", "HI"]);
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !key) {
-    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  }
-
+  if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   return createClient(url, key);
 }
 
@@ -99,10 +108,7 @@ function parseDateCell(
   if (defaultMonthIdx === null) return {};
 
   const explicitMonthMatch = dateText.match(/^([A-Za-z]+)\s+/);
-  const explicitIdx = explicitMonthMatch
-    ? monthNameToIndex0(explicitMonthMatch[1])
-    : null;
-
+  const explicitIdx = explicitMonthMatch ? monthNameToIndex0(explicitMonthMatch[1]) : null;
   const monthIdx = explicitIdx !== null ? explicitIdx : defaultMonthIdx;
 
   const dayRangeMatch = dateText.match(/(\d{1,2})(?:\s*-\s*(\d{1,2}))?/);
@@ -119,16 +125,19 @@ function parseDateCell(
   };
 }
 
+// Compare using date-only to avoid timezone/time-of-day surprises
 function inNextNineMonths(startISO?: string | null): boolean {
   if (!startISO) return false;
-  const start = new Date(`${startISO}T00:00:00Z`);
+
+  const start = new Date(`${startISO}T12:00:00Z`);
   if (Number.isNaN(start.getTime())) return false;
 
   const now = new Date();
-  const endWindow = new Date();
-  endWindow.setMonth(endWindow.getMonth() + 9);
+  const nowMid = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0));
+  const endWindow = new Date(nowMid);
+  endWindow.setUTCMonth(endWindow.getUTCMonth() + 9);
 
-  return start >= now && start <= endWindow;
+  return start >= nowMid && start <= endWindow;
 }
 
 function inferLevel(ageGroups: string): string | null {
@@ -154,36 +163,56 @@ function isValidTournamentRow(t: TournamentRow): boolean {
   );
 }
 
-async function getNewTournaments(): Promise<TournamentRow[]> {
+async function getNewTournaments(): Promise<{ results: TournamentRow[]; debug: IngestDebug }> {
   const listUrl = "https://usclubsoccer.org/list-of-sanctioned-tournaments/";
 
-  const res = await fetch(listUrl, { cache: "no-store" });
+  const debug: IngestDebug = {
+    source: "usclubsoccer",
+    listUrl,
+    monthHeadingsFound: 0,
+    firstMonthHeading: null,
+    totalRows: 0,
+    rowsAllowedState: 0,
+    rowsInWindow: 0,
+    results: 0,
+  };
+
+  const res = await fetch(listUrl, {
+    cache: "no-store",
+    headers: {
+      // Helps avoid “bot/interstitial” HTML variants in server environments
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "accept-language": "en-US,en;q=0.9",
+    },
+  });
+
+  debug.httpStatus = res.status;
+
   if (!res.ok) {
     console.error("USClub fetch failed:", res.status);
-    return [];
+    return { results: [], debug };
   }
 
   const html = await res.text();
-  console.log("USClub HTML length:", html.length);
+  debug.htmlLength = html.length;
 
   const $ = cheerio.load(html);
 
-  let totalRows = 0;
-  let rowsAllowedState = 0;
-  let rowsInWindow = 0;
-
   const results: TournamentRow[] = [];
 
-  // ✅ Pair each month heading to the table that follows it
   const monthHeadingEls = $("h2")
     .toArray()
     .map((h) => $(h))
     .filter(($h) => /^\w+\s+\d{4}$/.test($h.text().trim()));
 
-  console.log("USClub month headings found:", monthHeadingEls.length);
+  debug.monthHeadingsFound = monthHeadingEls.length;
+  debug.firstMonthHeading = monthHeadingEls[0]?.text().trim() ?? null;
 
   for (const $h of monthHeadingEls) {
     const monthYear = $h.text().trim();
+
     const $table = $h.nextAll("table").first();
     if ($table.length === 0) continue;
 
@@ -192,7 +221,7 @@ async function getNewTournaments(): Promise<TournamentRow[]> {
       const tds = $(tr).find("td");
       if (tds.length < 4) continue;
 
-      totalRows++;
+      debug.totalRows++;
 
       const datesText = $(tds[0]).text().trim();
       const tournamentCell = $(tds[1]);
@@ -205,7 +234,7 @@ async function getNewTournaments(): Promise<TournamentRow[]> {
       const ageGroups = tds.length >= 5 ? $(tds[4]).text().trim() : "";
 
       if (!state || !ALLOWED_STATES.has(state)) continue;
-      rowsAllowedState++;
+      debug.rowsAllowedState++;
 
       const link = tournamentCell.find("a").first();
       const name = link.text().trim() || tournamentCell.text().trim();
@@ -215,12 +244,13 @@ async function getNewTournaments(): Promise<TournamentRow[]> {
       const { start, end } = parseDateCell(monthYear, datesText);
       if (!start) continue;
       if (!inNextNineMonths(start)) continue;
-      rowsInWindow++;
+      debug.rowsInWindow++;
 
       const start_date = start ?? null;
       const end_date = end ?? start ?? null;
 
       const slug = slugify(`${name}-${state}-${start_date ?? "unknown"}`);
+
       const source_url = href && href.startsWith("http") ? href : listUrl;
       const source_domain = getDomain(source_url) ?? "usclubsoccer.org";
 
@@ -241,23 +271,17 @@ async function getNewTournaments(): Promise<TournamentRow[]> {
         source_url,
         source_domain,
         source_title: "US Club Soccer – Sanctioned Tournaments",
-        summary: `US Club Soccer–sanctioned tournament listed for ${state}${
-          club ? `, hosted by ${club}` : ""
-        }.`,
+        summary: `US Club Soccer–sanctioned tournament listed for ${state}${club ? `, hosted by ${club}` : ""}.`,
         confidence,
         status: "published",
       });
     }
   }
 
-  console.log("USClub summary:", {
-    totalRows,
-    rowsAllowedState,
-    rowsInWindow,
-    results: results.length,
-  });
+  debug.results = results.length;
+  console.log("USClub debug:", debug);
 
-  return results;
+  return { results, debug };
 }
 
 export async function GET(req: Request) {
@@ -272,13 +296,15 @@ export async function GET(req: Request) {
 
     console.log("RI tournament cron running", { dryRun });
 
-    const discovered = await getNewTournaments();
+    const { results: discovered, debug } = await getNewTournaments();
 
+    // Always return debug on dryRun so you can see WHY it is empty
     if (!discovered.length) {
       return NextResponse.json({
         dryRun,
         upserted: 0,
         message: "No new tournaments",
+        debug,
       });
     }
 
@@ -288,6 +314,7 @@ export async function GET(req: Request) {
         dryRun,
         upserted: 0,
         message: "No valid tournaments to upsert",
+        debug,
       });
     }
 
@@ -302,6 +329,7 @@ export async function GET(req: Request) {
       return NextResponse.json({
         dryRun: true,
         wouldInsert: rows.length,
+        debug,
         tournaments: rows,
       });
     }
@@ -315,12 +343,13 @@ export async function GET(req: Request) {
 
     if (error) {
       console.error("Supabase upsert error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: error.message, debug }, { status: 500 });
     }
 
     return NextResponse.json({
       dryRun: false,
       upserted: data?.length ?? 0,
+      debug,
       rows: data ?? [],
     });
   } catch (err: any) {
