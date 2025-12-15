@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { TournamentRow } from "@/types/tournament";
+import { TournamentRow } from "@/lib/types/tournament";
 
 export function parseUSClubSoccer(html: string): TournamentRow[] {
   const $ = cheerio.load(html);
