@@ -25,20 +25,41 @@ export default function RootLayout({
         {/* Header */}
         <header
           style={{
-            padding: "1.5rem 1rem",
+            padding: "1.25rem 2rem",
             borderBottom: "2px solid #000",
             display: "flex",
-            justifyContent: "center",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
         >
-          <Image
-            src="/logo-stacked-bw.png"
-            alt="Referee Insights logo"
-            width={260}
-            height={260}
-            priority
-            style={{ height: "auto", width: "200px" }}
-          />
+          {/* Logo / Home */}
+          <a href="/" style={{ display: "inline-block" }}>
+            <Image
+              src="/logo-stacked-bw.png"
+              alt="Referee Insights logo"
+              width={200}
+              height={200}
+              priority
+              style={{ height: "auto", width: "160px" }}
+            />
+          </a>
+
+          {/* Navigation */}
+          <nav style={{ display: "flex", gap: "1.5rem" }}>
+            <a
+              href="/tournaments"
+              style={{
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                fontSize: "0.75rem",
+                textDecoration: "none",
+                color: "#000",
+              }}
+            >
+              Tournaments
+            </a>
+          </nav>
         </header>
 
         {/* Main content */}
@@ -59,4 +80,5 @@ export default function RootLayout({
     </html>
   );
 }
+
 
