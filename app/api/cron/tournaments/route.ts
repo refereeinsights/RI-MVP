@@ -174,6 +174,7 @@ async function getNewTournaments(): Promise<TournamentRow[]> {
 
   const results: TournamentRow[] = [];
 
+  // ✅ Pair each month heading to the table that follows it
   const monthHeadingEls = $("h2")
     .toArray()
     .map((h) => $(h))
@@ -183,9 +184,8 @@ async function getNewTournaments(): Promise<TournamentRow[]> {
 
   for (const $h of monthHeadingEls) {
     const monthYear = $h.text().trim();
-
     const $table = $h.nextAll("table").first();
-    if (!$table || $table.length === 0) continue;
+    if ($table.length === 0) continue;
 
     const trs = $table.find("tr").toArray();
     for (const tr of trs) {
@@ -210,7 +210,6 @@ async function getNewTournaments(): Promise<TournamentRow[]> {
       const link = tournamentCell.find("a").first();
       const name = link.text().trim() || tournamentCell.text().trim();
       const href = (link.attr("href") || "").trim();
-
       if (!name) continue;
 
       const { start, end } = parseDateCell(monthYear, datesText);
@@ -222,7 +221,6 @@ async function getNewTournaments(): Promise<TournamentRow[]> {
       const end_date = end ?? start ?? null;
 
       const slug = slugify(`${name}-${state}-${start_date ?? "unknown"}`);
-
       const source_url = href && href.startsWith("http") ? href : listUrl;
       const source_domain = getDomain(source_url) ?? "usclubsoccer.org";
 
@@ -284,4 +282,52 @@ export async function GET(req: Request) {
       });
     }
 
-    const valid = dis
+    const valid = discovered.filter(isValidTournamentRow);
+    if (!valid.length) {
+      return NextResponse.json({
+        dryRun,
+        upserted: 0,
+        message: "No valid tournaments to upsert",
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+    const rows: TournamentRow[] = valid.map((t) => ({
+      ...t,
+      source_last_seen_at: nowIso,
+      status: t.status ?? "published",
+    }));
+
+    if (dryRun) {
+      return NextResponse.json({
+        dryRun: true,
+        wouldInsert: rows.length,
+        tournaments: rows,
+      });
+    }
+
+    const supabase = getSupabase();
+
+    const { data, error } = await supabase
+      .from("tournaments")
+      .upsert(rows, { onConflict: "slug" })
+      .select("id, slug");
+
+    if (error) {
+      console.error("Supabase upsert error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      dryRun: false,
+      upserted: data?.length ?? 0,
+      rows: data ?? [],
+    });
+  } catch (err: any) {
+    console.error("Cron failed:", err);
+    return NextResponse.json(
+      { error: "Cron failed", detail: err?.message ?? String(err) },
+      { status: 500 }
+    );
+  }
+}
