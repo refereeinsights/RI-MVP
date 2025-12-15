@@ -139,15 +139,9 @@ async function getNewTournaments(): Promise<TournamentRow[]> {
   }
 
   const html = await res.text();
+  console.log("USClub HTML length:", html.length);
+
   const $ = cheerio.load(html);
-
-  const monthHeadings = $("h2")
-    .toArray()
-    .map((h) => $(h).text().trim())
-    .filter((t) => /^\w+\s+\d{4}$/.test(t));
-
-  const tables = $("table").toArray();
-  const pairCount = Math.min(monthHeadings.length, tables.length);
 
   // Lightweight counters (one summary log)
   let totalRows = 0;
@@ -156,9 +150,20 @@ async function getNewTournaments(): Promise<TournamentRow[]> {
 
   const results: TournamentRow[] = [];
 
-  for (let i = 0; i < pairCount; i++) {
-    const monthYear = monthHeadings[i];
-    const $table = $(tables[i]);
+  // ✅ FIX: Pair each month heading to the table that follows it,
+  // rather than relying on global table indexes.
+  const monthHeadingEls = $("h2")
+    .toArray()
+    .map((h) => $(h))
+    .filter(($h) => /^\w+\s+\d{4}$/.test($h.text().trim()));
+
+  console.log("USClub month headings found:", monthHeadingEls.length);
+
+  for (const $h of monthHeadingEls) {
+    const monthYear = $h.text().trim();
+
+    const $table = $h.nextAll("table").first();
+    if (!$table || $table.length === 0) continue;
 
     const trs = $table.find("tr").toArray();
     for (const tr of trs) {
@@ -260,6 +265,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
+        { status: 500 }
+      );
+    }
+
     console.log("RI tournament cron running", { dryRun });
 
     const discovered = await getNewTournaments();
@@ -285,36 +297,4 @@ export async function GET(req: Request) {
     const rows: TournamentRow[] = valid.map((t) => ({
       ...t,
       source_last_seen_at: nowIso,
-    }));
-
-    if (dryRun) {
-      return NextResponse.json({
-        dryRun: true,
-        wouldInsert: rows.length,
-        tournaments: rows,
-      });
-    }
-
-    const { data, error } = await supabase
-      .from("tournaments")
-      .upsert(rows, { onConflict: "slug" })
-      .select("id, slug");
-
-    if (error) {
-      console.error("Supabase upsert error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      dryRun: false,
-      upserted: data?.length ?? 0,
-      rows: data ?? [],
-    });
-  } catch (err: any) {
-    console.error("Cron failed:", err);
-    return NextResponse.json(
-      { error: "Cron failed", detail: err?.message ?? String(err) },
-      { status: 500 }
-    );
-  }
-}
+      status: t.status ?? "published",
