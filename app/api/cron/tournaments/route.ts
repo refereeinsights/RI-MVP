@@ -41,7 +41,7 @@ export async function GET(req: Request) {
   const { data, error } = await supabase
     .from("tournaments")
     .upsert(newTournaments, {
-      onConflict: "name,city,state,start_date",
+      onConflict: "slug",
     })
     .select("id, slug");
 
