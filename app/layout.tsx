@@ -25,40 +25,64 @@ export default function RootLayout({
         {/* Header */}
         <header
           style={{
-            padding: "1.25rem 2rem",
-            borderBottom: "2px solid #000",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            backgroundColor: "#0F3D2E", // deep pitch green
+            borderBottom: "3px solid rgba(255,255,255,0.15)",
           }}
         >
-          {/* Logo / Home */}
-          <a href="/" style={{ display: "inline-block" }}>
-            <Image
-              src="/logo-stacked-bw.png"
-              alt="Referee Insights logo"
-              width={200}
-              height={200}
-              priority
-              style={{ height: "auto", width: "160px" }}
-            />
-          </a>
+          {/* Logo row */}
+          <div
+            style={{
+              padding: "1.5rem 1rem 0.75rem",
+              display: "flex",
+              justifyContent: "center",
+            }}
+          >
+            <a href="/" style={{ display: "inline-block" }}>
+              <Image
+                src="/logo-stacked-bw.png"
+                alt="Referee Insights logo"
+                width={220}
+                height={220}
+                priority
+                style={{
+                  height: "auto",
+                  width: "180px",
+                  filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.35))",
+                }}
+              />
+            </a>
+          </div>
 
-          {/* Navigation */}
-          <nav style={{ display: "flex", gap: "1.5rem" }}>
+          {/* Navigation row */}
+          <nav
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: "2rem",
+              paddingBottom: "0.9rem",
+            }}
+          >
             <a
               href="/tournaments"
               style={{
-                fontWeight: 600,
+                color: "#ffffff",
+                fontSize: "0.8rem",
+                fontWeight: 700,
                 textTransform: "uppercase",
-                letterSpacing: "0.1em",
-                fontSize: "0.75rem",
+                letterSpacing: "0.14em",
                 textDecoration: "none",
-                color: "#000",
+                paddingBottom: "0.25rem",
+                borderBottom: "2px solid rgba(255,255,255,0.6)",
               }}
             >
               Tournaments
             </a>
+
+            {/* Future nav items */}
+            {/*
+            <a href="/assignors">Assignors</a>
+            <a href="/clubs">Clubs</a>
+            */}
           </nav>
         </header>
 
@@ -80,5 +104,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-

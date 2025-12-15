@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/tournaments?token=ri_cron_9fB2KxM7eQWcA4HhPZt6R8D3NVaJYdLs",
+      "schedule": "0 16 * * 1"
+    }
+  ]
+}
