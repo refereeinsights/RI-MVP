@@ -31,11 +31,13 @@ export default function SportsPickerClient({
 
   return (
     <div>
-      <div style={{ fontWeight: 900, fontSize: 13, marginBottom: 6 }}>Sports</div>
+      <div style={{ fontWeight: 900, fontSize: 13, marginBottom: 6, textAlign: "center" }}>
+        Sports
+      </div>
 
       <input type="hidden" name={name} value={csv} />
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
         {SPORTS.map((s) => {
           const isOn = selected.has(s.key);
           return (
@@ -45,8 +47,10 @@ export default function SportsPickerClient({
               onClick={() => toggle(s.key)}
               style={{
                 display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
-                gap: 8,
+                justifyContent: "center",
+                gap: 6,
                 padding: "10px 12px",
                 borderRadius: 12,
                 border: "1px solid #111",
@@ -54,11 +58,13 @@ export default function SportsPickerClient({
                 color: isOn ? "#fff" : "#111",
                 fontWeight: 900,
                 cursor: "pointer",
+                minWidth: 94,
+                textAlign: "center",
               }}
               aria-pressed={isOn}
             >
-              <span style={{ fontSize: 18, lineHeight: 1 }}>{s.icon}</span>
-              <span>{s.label}</span>
+              <span style={{ fontSize: 24, lineHeight: 1.1 }}>{s.icon}</span>
+              <span style={{ fontSize: 13 }}>{s.label}</span>
             </button>
           );
         })}
