@@ -171,7 +171,14 @@ export default function SignUpPage() {
           }}
         >
           <div style={{ textAlign: "center" }}>
-            <label style={{ display: "block", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>
+            <label
+              style={{
+                display: "block",
+                fontWeight: 800,
+                fontSize: 13,
+                marginBottom: 6,
+              }}
+            >
               Email
             </label>
             <input
@@ -190,7 +197,14 @@ export default function SignUpPage() {
           </div>
 
           <div style={{ textAlign: "center" }}>
-            <label style={{ display: "block", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>
+            <label
+              style={{
+                display: "block",
+                fontWeight: 800,
+                fontSize: 13,
+                marginBottom: 6,
+              }}
+            >
               Password
             </label>
             <input
@@ -213,7 +227,14 @@ export default function SignUpPage() {
           </div>
 
           <div style={{ textAlign: "center" }}>
-            <label style={{ display: "block", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>
+            <label
+              style={{
+                display: "block",
+                fontWeight: 800,
+                fontSize: 13,
+                marginBottom: 6,
+              }}
+            >
               Public handle
             </label>
             <input
@@ -242,13 +263,22 @@ export default function SignUpPage() {
                 </span>
               )}
               {!checkingHandle && handleAvailable === null && (
-                <span>3–20 characters: lowercase letters, numbers, underscores</span>
+                <span>
+                  3–20 characters: lowercase letters, numbers, underscores
+                </span>
               )}
             </div>
           </div>
 
           <div style={{ textAlign: "center" }}>
-            <label style={{ display: "block", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>
+            <label
+              style={{
+                display: "block",
+                fontWeight: 800,
+                fontSize: 13,
+                marginBottom: 6,
+              }}
+            >
               Real name (private)
             </label>
             <input
@@ -270,7 +300,14 @@ export default function SignUpPage() {
           </div>
 
           <div style={{ textAlign: "center" }}>
-            <label style={{ display: "block", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>
+            <label
+              style={{
+                display: "block",
+                fontWeight: 800,
+                fontSize: 13,
+                marginBottom: 6,
+              }}
+            >
               Years as a referee
             </label>
             <input
@@ -292,7 +329,7 @@ export default function SignUpPage() {
 
           {/* Sports picker writes hidden input name="sports" */}
           <div style={{ marginTop: 2 }}>
-            <SportsPickerClient name="sports" label="Sports" />
+            <SportsPickerClient name="sports" defaultSelected={[]} />
           </div>
 
           <button
@@ -314,7 +351,8 @@ export default function SignUpPage() {
           </button>
 
           <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}>
-            By creating an account, you agree to follow the Referee Insights community guidelines.
+            By creating an account, you agree to follow the Referee Insights
+            community guidelines.
           </div>
         </form>
       </div>
