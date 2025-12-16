@@ -17,6 +17,8 @@ type Tournament = {
   source_url: string;
 };
 
+const FILTER_SPORTS = ["soccer", "basketball", "football"] as const;
+
 function formatDate(iso: string | null) {
   if (!iso) return "";
   const d = new Date(iso + "T00:00:00");
@@ -60,12 +62,21 @@ function cardVariant(sport: string | null) {
 export default async function TournamentsPage({
   searchParams,
 }: {
-  searchParams?: { q?: string; state?: string; month?: string };
+  searchParams?: { q?: string; state?: string; month?: string; sports?: string | string[] };
 }) {
   const supabase = createSupabaseServerClient();
   const q = (searchParams?.q ?? "").trim();
   const state = (searchParams?.state ?? "").trim().toUpperCase();
   const month = (searchParams?.month ?? "").trim(); // YYYY-MM
+  const sportsParam = searchParams?.sports;
+  const sportsSelectedRaw = Array.isArray(sportsParam)
+    ? sportsParam
+    : sportsParam
+    ? [sportsParam]
+    : [];
+  const sportsSelected = sportsSelectedRaw
+    .map((s) => s.toLowerCase())
+    .filter((s): s is (typeof FILTER_SPORTS)[number] => FILTER_SPORTS.includes(s as any));
 
   let query = supabase
     .from("tournaments")
@@ -91,6 +102,9 @@ export default async function TournamentsPage({
     const startISO = start.toISOString().slice(0, 10);
     const endISO = end.toISOString().slice(0, 10);
     query = query.gte("start_date", startISO).lt("start_date", endISO);
+  }
+  if (sportsSelected.length) {
+    query = query.in("sport", sportsSelected);
   }
 
   const { data, error } = await query;
@@ -159,6 +173,23 @@ export default async function TournamentsPage({
           <div className="actionsRow">
             <button className="smallBtn" type="submit">Apply</button>
             <a className="smallBtn" href="/tournaments">Reset</a>
+          </div>
+
+          <div className="sportsRow">
+            <span className="label" style={{ marginBottom: 0 }}>Sports</span>
+            <div className="sportsToggleWrap">
+              {FILTER_SPORTS.map((sport) => (
+                <label key={sport} className="sportToggle">
+                  <input
+                    type="checkbox"
+                    name="sports"
+                    value={sport}
+                    defaultChecked={sportsSelected.includes(sport)}
+                  />
+                  <span>{sport.charAt(0).toUpperCase() + sport.slice(1)}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </form>
 

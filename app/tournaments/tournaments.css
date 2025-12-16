@@ -110,6 +110,39 @@
   justify-content: flex-end;
 }
 
+.sportsRow {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+
+.sportsToggleWrap {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.sportToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.65);
+  background: rgba(0,0,0,0.25);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.sportToggle input {
+  accent-color: #fff;
+}
+
 .smallBtn {
   display: inline-block;
   padding: 0.7rem 0.9rem;
