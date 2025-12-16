@@ -32,6 +32,7 @@ export default function SignUpPage() {
 
   const [checkingHandle, setCheckingHandle] = useState(false);
   const [handleAvailable, setHandleAvailable] = useState<boolean | null>(null);
+  const [agreed, setAgreed] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -62,6 +63,11 @@ export default function SignUpPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    if (!agreed) {
+      setError("Please agree to the Terms of Service and Privacy Policy.");
+      return;
+    }
 
     const formData = new FormData(e.currentTarget);
     const sportsCsv = String(formData.get("sports") || "");
@@ -330,12 +336,39 @@ export default function SignUpPage() {
 
           {/* Sports picker writes hidden input name="sports" */}
           <div style={{ marginTop: 2 }}>
-            <SportsPickerClient name="sports" defaultSelected={[]} />
-          </div>
+          <SportsPickerClient name="sports" defaultSelected={[]} />
+        </div>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 13,
+              textAlign: "left",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+            />
+            <span>
+              I agree to the{" "}
+              <a href="/terms" target="_blank" rel="noreferrer">
+                Terms of Service
+              </a>{" "}
+              and{" "}
+              <a href="/privacy" target="_blank" rel="noreferrer">
+                Privacy Policy
+              </a>
+              .
+            </span>
+          </label>
 
           <button
             type="submit"
-            disabled={checkingHandle || handleAvailable === false}
+            disabled={checkingHandle || handleAvailable === false || !agreed}
             style={{
               width: "100%",
               padding: "12px 14px",
@@ -345,7 +378,7 @@ export default function SignUpPage() {
               color: "white",
               fontWeight: 900,
               cursor: "pointer",
-              opacity: checkingHandle || handleAvailable === false ? 0.6 : 1,
+              opacity: checkingHandle || handleAvailable === false || !agreed ? 0.6 : 1,
             }}
           >
             Create account

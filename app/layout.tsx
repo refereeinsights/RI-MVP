@@ -111,9 +111,27 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             borderTop: "2px solid #000",
             textAlign: "center",
             fontSize: "14px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            alignItems: "center",
           }}
         >
-          © {new Date().getFullYear()} Referee Insights. All rights reserved.
+          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center" }}>
+            <a href="/terms" style={{ textDecoration: "none", color: "inherit" }}>
+              Terms of Service
+            </a>
+            <a href="/privacy" style={{ textDecoration: "none", color: "inherit" }}>
+              Privacy Policy
+            </a>
+            <a href="/disclaimer" style={{ textDecoration: "none", color: "inherit" }}>
+              Review &amp; Content Disclaimer
+            </a>
+          </div>
+          <p style={{ margin: 0 }}>
+            By using Referee Insights, you agree to our Terms and Privacy Policy.
+          </p>
+          <div>© {new Date().getFullYear()} Referee Insights. All rights reserved.</div>
         </footer>
       </body>
     </html>
