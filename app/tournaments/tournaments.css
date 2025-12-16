@@ -223,6 +223,13 @@
   flex-wrap: wrap;
 }
 
+.sportIcon {
+  margin-top: 0.85rem;
+  font-size: 2rem;
+  text-align: center;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.35);
+}
+
 .btn {
   display: inline-block;
   padding: 0.55rem 0.85rem;

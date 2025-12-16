@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { signUpUser, isHandleAvailable, normalizeHandle } from "@/lib/auth";
 import type { Sport } from "@/lib/auth";
 import SportsPickerClient from "@/components/SportsPickerClient";
+import ReferralCTA from "@/components/ReferralCTA";
 
 const ALLOWED_SPORTS: Sport[] = ["soccer", "basketball", "football"];
 
@@ -113,6 +114,9 @@ export default function SignUpPage() {
             <br />
             You must verify your email before posting reviews.
           </p>
+          <div style={{ marginTop: 24 }}>
+            <ReferralCTA placement="signup_success_referral" />
+          </div>
         </div>
       </div>
     );

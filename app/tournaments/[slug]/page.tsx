@@ -1,4 +1,6 @@
 import Link from "next/link";
+import ReferralCTA from "@/components/ReferralCTA";
+import AdSlot from "@/components/AdSlot";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import "../tournaments.css";
 
@@ -6,6 +8,22 @@ function formatDate(iso: string | null) {
   if (!iso) return "";
   const d = new Date(iso + "T00:00:00");
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function sportIcon(sport: string | null) {
+  const normalized = (sport ?? "").toLowerCase();
+  switch (normalized) {
+    case "soccer":
+      return "⚽";
+    case "football":
+      return "🏈";
+    case "baseball":
+      return "⚾";
+    case "basketball":
+      return "🏀";
+    default:
+      return "🏅";
+  }
 }
 
 export default async function TournamentDetailPage({
@@ -16,7 +34,7 @@ export default async function TournamentDetailPage({
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
     .from("tournaments")
-    .select("name,city,state,start_date,end_date,summary,source_url,level,venue,address")
+    .select("name,city,state,start_date,end_date,summary,source_url,level,venue,address,sport")
     .eq("slug", params.slug)
     .single();
 
@@ -71,6 +89,18 @@ export default async function TournamentDetailPage({
             {data.summary ||
               "Tournament details sourced from public listings. More referee insights coming soon."}
           </p>
+
+          <div className="sportIcon" aria-label={data.sport ?? "tournament sport"} style={{ marginTop: "1rem" }}>
+            {sportIcon(data.sport)}
+          </div>
+
+          <div style={{ marginTop: "1.5rem" }}>
+            <ReferralCTA placement="tournament_referral" />
+          </div>
+
+          <div style={{ marginTop: "1rem", display: "flex", justifyContent: "center" }}>
+            <AdSlot placement="tournament_detail_mid" />
+          </div>
 
           <div className="actions">
             <a className="btn" href={data.source_url} target="_blank" rel="noreferrer">

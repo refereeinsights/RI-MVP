@@ -1,3 +1,6 @@
+import ReferralCTA from "@/components/ReferralCTA";
+import AdSlot from "@/components/AdSlot";
+
 export default function Home() {
   return (
     <main
@@ -92,6 +95,10 @@ export default function Home() {
           </div>
         </div>
 
+        <div style={{ marginTop: "3rem" }}>
+          <ReferralCTA placement="home_referral" />
+        </div>
+
         {/* Primary CTA */}
         <div style={{ marginTop: "3.5rem" }}>
           <a
@@ -108,6 +115,10 @@ export default function Home() {
           >
             Join the referee waitlist
           </a>
+        </div>
+
+        <div style={{ marginTop: "3rem", display: "flex", justifyContent: "center" }}>
+          <AdSlot placement="home_footer_banner" />
         </div>
       </section>
     </main>

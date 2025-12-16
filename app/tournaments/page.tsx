@@ -1,4 +1,6 @@
 import Link from "next/link";
+import AdSlot from "@/components/AdSlot";
+import ReferralCTA from "@/components/ReferralCTA";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import "./tournaments.css";
 
@@ -6,6 +8,7 @@ type Tournament = {
   id: string;
   name: string;
   slug: string;
+  sport: string | null;
   level: string | null;
   state: string;
   city: string | null;
@@ -32,6 +35,22 @@ function monthOptions(count = 9) {
   return out;
 }
 
+function sportIcon(sport: string | null) {
+  const normalized = (sport ?? "").toLowerCase();
+  switch (normalized) {
+    case "soccer":
+      return "⚽";
+    case "football":
+      return "🏈";
+    case "baseball":
+      return "⚾";
+    case "basketball":
+      return "🏀";
+    default:
+      return "🏅";
+  }
+}
+
 export default async function TournamentsPage({
   searchParams,
 }: {
@@ -44,7 +63,7 @@ export default async function TournamentsPage({
 
   let query = supabase
     .from("tournaments")
-    .select("id,name,slug,level,state,city,start_date,end_date,source_url,status,is_canonical")
+    .select("id,name,slug,sport,level,state,city,start_date,end_date,source_url,status,is_canonical")
     .eq("status", "published")
     .eq("is_canonical", true)
     .order("start_date", { ascending: true });
@@ -137,6 +156,16 @@ export default async function TournamentsPage({
           </div>
         </form>
 
+        <div
+          style={{
+            marginTop: "1rem",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <AdSlot placement="tournaments_sidebar" />
+        </div>
+
         <div className="grid">
           {tournaments.map((t) => (
             <article key={t.id} className="card">
@@ -157,6 +186,10 @@ export default async function TournamentsPage({
                 <Link className="btn" href={`/tournaments/${t.slug}`}>View details</Link>
                 <a className="btn" href={t.source_url} target="_blank" rel="noreferrer">Official site</a>
               </div>
+
+              <div className="sportIcon" aria-label={t.sport ?? "tournament sport"}>
+                {sportIcon(t.sport)}
+              </div>
             </article>
           ))}
         </div>
@@ -164,6 +197,10 @@ export default async function TournamentsPage({
         {tournaments.length === 0 && (
           <p className="empty">No tournaments match those filters yet.</p>
         )}
+
+        <div style={{ marginTop: "2.5rem" }}>
+          <ReferralCTA placement="tournament_referral" />
+        </div>
       </section>
     </main>
   );
