@@ -95,5 +95,16 @@ export async function fetchUserBadges(user_id: string) {
     .order("awarded_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as UserBadgeRow[];
+  return (data ?? []).map((row) => ({
+    badge_id: row.badge_id,
+    status: row.status,
+    awarded_at: row.awarded_at,
+    badges: row.badges
+      ? {
+          id: row.badges.id,
+          code: row.badges.code ?? null,
+          label: row.badges.label ?? null,
+        }
+      : null,
+  }));
 }
