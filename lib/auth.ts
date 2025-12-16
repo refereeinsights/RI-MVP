@@ -38,6 +38,9 @@ export async function signUpUser(input: {
 
   if (handle.length < 3) throw new Error("Handle must be at least 3 characters.");
   if (handle.length > 20) throw new Error("Handle must be 20 characters or less.");
+  if (!input.sports || input.sports.length === 0) {
+    throw new Error("Select at least one sport.");
+  }
 
   // send metadata to auth.users so your trigger can populate profiles
   const { data, error } = await supabase.auth.signUp({

@@ -68,6 +68,11 @@ export default function SignUpPage() {
     const sports = parseSports(sportsCsv);
     const years = yearsRefereeing.trim() ? Number(yearsRefereeing) : null;
 
+    if (sports.length === 0) {
+      setError("Select at least one sport you officiate.");
+      return;
+    }
+
     try {
       await signUpUser({
         email,
