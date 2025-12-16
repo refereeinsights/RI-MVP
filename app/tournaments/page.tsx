@@ -1,7 +1,10 @@
 import Link from "next/link";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import AdSlot from "@/components/AdSlot";
 import ReferralCTA from "@/components/ReferralCTA";
+import RefereeWhistleBadge from "@/components/RefereeWhistleBadge";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import type { RefereeWhistleScore } from "@/lib/types/refereeReview";
 import "./tournaments.css";
 
 type Tournament = {
@@ -125,6 +128,10 @@ export default async function TournamentsPage({
   }
 
   const tournaments = (data ?? []) as Tournament[];
+  const whistleMap = await loadWhistleScores(
+    supabase,
+    tournaments.map((t) => t.id)
+  );
   const months = monthOptions(9);
 
   return (
@@ -206,6 +213,13 @@ export default async function TournamentsPage({
         <div className="grid">
           {tournaments.map((t) => (
             <article key={t.id} className={`card ${cardVariant(t.sport)}`}>
+              <div className="cardWhistle">
+                <RefereeWhistleBadge
+                  score={whistleMap.get(t.id)?.ai_score ?? null}
+                  reviewCount={whistleMap.get(t.id)?.review_count ?? 0}
+                  status={whistleMap.get(t.id)?.status}
+                />
+              </div>
               <h2>{t.name}</h2>
 
               <p className="meta">
@@ -241,4 +255,24 @@ export default async function TournamentsPage({
       </section>
     </main>
   );
+}
+
+async function loadWhistleScores(
+  supabase: SupabaseClient,
+  ids: string[]
+): Promise<Map<string, RefereeWhistleScore>> {
+  const map = new Map<string, RefereeWhistleScore>();
+  const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+  if (!uniqueIds.length) return map;
+
+  const { data, error } = await supabase
+    .from("tournament_referee_scores")
+    .select("tournament_id,ai_score,review_count,summary,status,updated_at")
+    .in("tournament_id", uniqueIds);
+
+  if (error || !data) return map;
+  for (const row of data as RefereeWhistleScore[]) {
+    map.set(row.tournament_id, row);
+  }
+  return map;
 }

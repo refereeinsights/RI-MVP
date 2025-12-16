@@ -1,7 +1,12 @@
 import Link from "next/link";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import ReferralCTA from "@/components/ReferralCTA";
 import AdSlot from "@/components/AdSlot";
+import RefereeWhistleBadge from "@/components/RefereeWhistleBadge";
+import RefereeReviewList from "@/components/RefereeReviewList";
+import RefereeReviewForm from "@/components/RefereeReviewForm";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import type { RefereeReviewPublic, RefereeWhistleScore } from "@/lib/types/refereeReview";
 import "../tournaments.css";
 
 function formatDate(iso: string | null) {
@@ -32,9 +37,13 @@ export default async function TournamentDetailPage({
   params: { slug: string };
 }) {
   const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { data, error } = await supabase
     .from("tournaments")
-    .select("name,city,state,start_date,end_date,summary,source_url,level,venue,address,sport")
+    .select("id,name,city,state,start_date,end_date,summary,source_url,level,venue,address,sport")
     .eq("slug", params.slug)
     .single();
 
@@ -52,6 +61,27 @@ export default async function TournamentDetailPage({
         </section>
       </main>
     );
+  }
+
+  const whistleScore = await loadWhistleScore(supabase, data.id);
+  const reviews = await loadPublicReviews(supabase, data.id);
+
+  let canSubmitReview = false;
+  let disabledMessage: string | null = "Sign in to submit a referee review.";
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_referee_verified")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (profile?.is_referee_verified) {
+      canSubmitReview = true;
+      disabledMessage = null;
+    } else {
+      disabledMessage = "Only verified referees can submit reviews.";
+    }
   }
 
   return (
@@ -90,6 +120,50 @@ export default async function TournamentDetailPage({
               "Tournament details sourced from public listings. More referee insights coming soon."}
           </p>
 
+          <div className="refereeInsights">
+            <div className="refereeInsights__header">
+              <div>
+                <h2>Referee whistle score</h2>
+                <p className="refereeInsights__subhead">
+                  AI-generated confidence from verified referee submissions.
+                </p>
+              </div>
+              <RefereeWhistleBadge
+                score={whistleScore?.ai_score ?? null}
+                reviewCount={whistleScore?.review_count ?? 0}
+                status={whistleScore?.status}
+                summary={whistleScore?.summary ?? undefined}
+                size="large"
+                showLabel
+              />
+            </div>
+
+            <p className="refereeInsights__summary">
+              {whistleScore?.summary ||
+                "Referee whistle scores appear once verified officials report back from their assignments."}
+              {whistleScore?.status === "needs_moderation" && (
+                <strong style={{ marginLeft: "0.4rem", color: "#c62828" }}>
+                  This tournament is currently under moderator review.
+                </strong>
+              )}
+            </p>
+
+            <div className="refereeInsights__layout">
+              <div className="refereeInsights__column">
+                <h3>Recent referee reviews</h3>
+                <RefereeReviewList reviews={reviews} />
+              </div>
+              <div className="refereeInsights__column">
+                <RefereeReviewForm
+                  tournamentId={data.id}
+                  tournamentName={data.name}
+                  canSubmit={canSubmitReview}
+                  disabledMessage={disabledMessage}
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="sportIcon" aria-label={data.sport ?? "tournament sport"} style={{ marginTop: "1rem" }}>
             {sportIcon(data.sport)}
           </div>
@@ -114,4 +188,26 @@ export default async function TournamentDetailPage({
       </section>
     </main>
   );
+}
+
+async function loadWhistleScore(supabase: SupabaseClient, id: string) {
+  const { data } = await supabase
+    .from("tournament_referee_scores")
+    .select("tournament_id,ai_score,review_count,summary,status,updated_at")
+    .eq("tournament_id", id)
+    .maybeSingle();
+  return (data ?? null) as RefereeWhistleScore | null;
+}
+
+async function loadPublicReviews(supabase: SupabaseClient, id: string) {
+  const { data } = await supabase
+    .from("tournament_referee_reviews_public")
+    .select(
+      "id,tournament_id,created_at,reviewer_handle,reviewer_level,worked_games,overall_score,logistics_score,facilities_score,pay_score,support_score,shift_detail"
+    )
+    .eq("tournament_id", id)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  return (data ?? []) as RefereeReviewPublic[];
 }

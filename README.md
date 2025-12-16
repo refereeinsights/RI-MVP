@@ -61,6 +61,18 @@ Use `tsx scripts/ingest-csv.ts [options] <path-to-csv>` to push tournament rows 
 - Run with `--dry-run` first to validate rows without writing: `tsx scripts/ingest-csv.ts --dry-run --source=us_club_soccer ./path/to/file.csv`.
 - Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in your environment before running without `--dry-run`.
 
+## Referee review schema
+
+The new referee review UI expects the following database objects:
+
+1. `profiles` table gains a boolean `is_referee_verified default false`. Only admins should flip this flag. RLS should allow a user to select their own row.
+2. `tournament_referee_reviews` table (RLS on) with at least: `id uuid primary key default gen_random_uuid()`, `tournament_id uuid references tournaments`, `user_id uuid references auth.users`, `created_at timestamptz default now()`, `overall_score smallint`, `logistics_score smallint`, `facilities_score smallint`, `pay_score smallint`, `support_score smallint`, `worked_games smallint`, `shift_detail text`, `status text default 'pending'`. RLS: verified users can `insert` with `auth.uid() = user_id`, and no direct `select`.
+3. `tournament_referee_reviews_public` view that exposes sanitized fields for the UI by joining `tournament_referee_reviews` with `profiles` (to pull `handle`/`years_refereeing` as `reviewer_handle`/`reviewer_level`) and filtering to rows where `status = 'approved'`.
+4. `tournament_referee_scores` materialized table/view storing one row per tournament with: `tournament_id`, `ai_score numeric`, `review_count integer`, `summary text`, `status text default 'clear'`, `updated_at timestamptz`. Grant read access to the anon role.
+5. A cron/Edge Function that (a) ingests new referee reviews, (b) recomputes the whistle score (simple weighted average, or call your moderation/LLM pipeline), (c) sets `status = 'needs_moderation'` when the computed score < 50 or when abuse filters trip, and (d) writes a short `summary`.
+
+Whenever `tournament_referee_reviews` changes you should also enqueue your “AI whistle score” worker so the badge/summary stays current.
+
 ## Contributing
 
 Feel free to submit issues and pull requests to improve this project. 
