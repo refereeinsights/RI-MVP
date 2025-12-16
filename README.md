@@ -53,6 +53,14 @@ To get started with this project, follow these steps:
 - `build`: Builds the application for production.
 - `start`: Starts the production server.
 
+## CSV Ingestion Tool
+
+Use `tsx scripts/ingest-csv.ts [options] <path-to-csv>` to push tournament rows from a CSV into Supabase.
+
+- Columns must include `name`, `state`, `source_url`, and either a `source` column or `--source=<source>` CLI flag. Optional columns (city, level, start_date, end_date, etc.) will be picked up automatically.
+- Run with `--dry-run` first to validate rows without writing: `tsx scripts/ingest-csv.ts --dry-run --source=us_club_soccer ./path/to/file.csv`.
+- Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in your environment before running without `--dry-run`.
+
 ## Contributing
 
 Feel free to submit issues and pull requests to improve this project. 

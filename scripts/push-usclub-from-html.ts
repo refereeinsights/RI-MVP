@@ -2,6 +2,7 @@
 import fs from "fs";
 import path from "path";
 import * as cheerio from "cheerio";
+import { buildTournamentSlug } from "@/lib/tournaments/slug";
 
 type TournamentRow = {
   name: string;
@@ -63,15 +64,6 @@ function monthNameToIndex0(name: string): number | null {
     december: 11,
   };
   return map[m] ?? null;
-}
-
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .trim()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
 }
 
 function getDomain(url: string): string | null {
@@ -182,6 +174,7 @@ function parseTournamentTable(
     const stateRaw = $(tds[2]).text().trim().toUpperCase();
     const stateMatch = stateRaw.match(/\b[A-Z]{2}\b/);
     const state = stateMatch ? stateMatch[0] : "";
+    const city: string | null = null;
 
     const club = tds.length >= 4 ? $(tds[3]).text().trim() : "";
     const ageGroups = tds.length >= 5 ? $(tds[4]).text().trim() : "";
@@ -202,7 +195,11 @@ function parseTournamentTable(
     const start_date = start ?? null;
     const end_date = end ?? start ?? null;
 
-    const slug = slugify(`${name}-${state}-${start_date ?? "unknown"}`);
+    const slug = buildTournamentSlug({
+      name,
+      city,
+      state,
+    });
     const source_url = href && href.startsWith("http") ? href : listUrl;
     const source_domain = getDomain(source_url) ?? "usclubsoccer.org";
 
@@ -215,7 +212,7 @@ function parseTournamentTable(
       sport: "soccer",
       level,
       state,
-      city: null,
+      city,
       venue: null,
       address: null,
       start_date,

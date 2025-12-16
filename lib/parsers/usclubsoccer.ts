@@ -44,7 +44,6 @@ export function parseUSClubSoccer(html: string): TournamentRow[] {
         name,
         city,
         state,
-        start_date,
       }),
       sport: "soccer",
       level: "youth",
