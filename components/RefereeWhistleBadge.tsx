@@ -29,11 +29,11 @@ export default function RefereeWhistleBadge({
   showLabel = false,
 }: Props) {
   const tone = toneFromScore(score, status);
-  const label =
-    score === null || Number.isNaN(score) ? "Awaiting refs" : `${Math.round(score)}%`;
+  const awaiting = score === null || Number.isNaN(score);
+  const label = awaiting ? "Not reviewed" : `${Math.round(score)}%`;
   const tooltip = summary
     ? `${label} • ${summary}`
-    : score === null
+    : awaiting
     ? "No referee reviews yet"
     : `${label} whistle score from referees`;
 
@@ -59,7 +59,9 @@ export default function RefereeWhistleBadge({
         </svg>
       </div>
       <div className="whistleBadge__meta">
-        <div className="whistleBadge__score">{label}</div>
+        <div className={`whistleBadge__score ${awaiting ? "whistleBadge__score--wide" : ""}`}>
+          {label}
+        </div>
         {showLabel && (
           <div className="whistleBadge__label">
             {status === "needs_moderation" ? "Under review" : "Referee score"}

@@ -379,14 +379,19 @@
   display: inline-flex;
   justify-content: center;
   align-items: center;
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
 }
 
 .whistleBadge__score {
   font-size: 1rem;
   font-weight: 800;
   line-height: 1;
+  white-space: nowrap;
+}
+
+.whistleBadge__score--wide {
+  font-size: 0.95rem;
 }
 
 .whistleBadge__meta {

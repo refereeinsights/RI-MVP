@@ -65,13 +65,20 @@ function cardVariant(sport: string | null) {
 export default async function TournamentsPage({
   searchParams,
 }: {
-  searchParams?: { q?: string; state?: string; month?: string; sports?: string | string[] };
+  searchParams?: {
+    q?: string;
+    state?: string;
+    month?: string;
+    sports?: string | string[];
+    reviewed?: string;
+  };
 }) {
   const supabase = createSupabaseServerClient();
   const q = (searchParams?.q ?? "").trim();
   const state = (searchParams?.state ?? "").trim().toUpperCase();
   const month = (searchParams?.month ?? "").trim(); // YYYY-MM
   const sportsParam = searchParams?.sports;
+  const reviewedOnly = (searchParams?.reviewed ?? "").toLowerCase() === "true";
   const sportsSelectedRaw = Array.isArray(sportsParam)
     ? sportsParam
     : sportsParam
@@ -127,12 +134,15 @@ export default async function TournamentsPage({
     );
   }
 
-  const tournaments = (data ?? []) as Tournament[];
+  const tournamentsData = (data ?? []) as Tournament[];
   const whistleMap = await loadWhistleScores(
     supabase,
-    tournaments.map((t) => t.id)
+    tournamentsData.map((t) => t.id)
   );
   const months = monthOptions(9);
+  const tournaments = reviewedOnly
+    ? tournamentsData.filter((t) => (whistleMap.get(t.id)?.review_count ?? 0) > 0)
+    : tournamentsData;
 
   return (
     <main className="pitchWrap">
@@ -185,6 +195,15 @@ export default async function TournamentsPage({
           <div className="sportsRow">
             <span className="label" style={{ marginBottom: 0 }}>Sports</span>
             <div className="sportsToggleWrap">
+              <label className="sportToggle">
+                <input
+                  type="checkbox"
+                  name="reviewed"
+                  value="true"
+                  defaultChecked={reviewedOnly}
+                />
+                <span>Reviewed only</span>
+              </label>
               {FILTER_SPORTS.map((sport) => (
                 <label key={sport} className="sportToggle">
                   <input

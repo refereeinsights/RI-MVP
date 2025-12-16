@@ -1,4 +1,5 @@
 import SportsPickerClient from "@/components/SportsPickerClient";
+import { redirect } from "next/navigation";
 
 import {
   requireAdmin,
@@ -22,16 +23,34 @@ function safeSportsArray(value: any): string[] {
   return [];
 }
 
+function redirectWithNotice(target: FormDataEntryValue | null, notice: string) {
+  const base =
+    typeof target === "string" && target.length > 0 ? target : "/admin";
+  const joiner = base.includes("?") ? "&" : "?";
+  redirect(`${base}${joiner}notice=${encodeURIComponent(notice)}`);
+}
+
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: { tab?: Tab; q?: string; vstatus?: VStatus };
+  searchParams: { tab?: Tab; q?: string; vstatus?: VStatus; notice?: string };
 }) {
   await requireAdmin();
 
   const tab: Tab = (searchParams.tab as Tab) ?? "verification";
   const q = searchParams.q ?? "";
   const vstatus: VStatus = (searchParams.vstatus as VStatus) ?? "pending";
+  const notice = searchParams.notice ?? "";
+
+  const params = new URLSearchParams();
+  params.set("tab", tab);
+  if (tab === "verification") {
+    params.set("vstatus", vstatus);
+  }
+  if (q) {
+    params.set("q", q);
+  }
+  const adminBasePath = params.toString() ? `/admin?${params.toString()}` : "/admin";
 
   const badges = await adminListBadges();
 
@@ -48,6 +67,7 @@ export default async function AdminPage({
     const role = String(formData.get("role") || "");
     const years = String(formData.get("years_refereeing") || "").trim();
     const sportsCsv = String(formData.get("sports") || "").trim();
+    const redirectTo = formData.get("redirect_to");
 
     await adminUpdateUserProfile({
       user_id,
@@ -57,71 +77,87 @@ export default async function AdminPage({
         ? sportsCsv.split(",").map((s) => s.trim()).filter(Boolean)
         : null,
     });
+
+    redirectWithNotice(redirectTo, "Profile updated");
   }
 
   async function setDisabled(formData: FormData) {
     "use server";
     const user_id = String(formData.get("user_id") || "");
     const disabled = String(formData.get("disabled") || "") === "true";
+    const redirectTo = formData.get("redirect_to");
     await adminSetUserDisabled(user_id, disabled);
+    redirectWithNotice(redirectTo, disabled ? "User disabled" : "User enabled");
   }
 
   async function awardBadgeAction(formData: FormData) {
     "use server";
     const user_id = String(formData.get("user_id") || "");
     const badge_id = Number(formData.get("badge_id"));
+    const redirectTo = formData.get("redirect_to");
     if (!user_id || !badge_id) return;
     await adminAwardBadge({ user_id, badge_id });
+    redirectWithNotice(redirectTo, "Badge awarded");
   }
 
   async function resendConfirmationAction(formData: FormData) {
     "use server";
     const email = String(formData.get("email") || "").trim();
+    const redirectTo = formData.get("redirect_to");
     if (!email) return;
     await adminResendConfirmationEmail({ email });
+    redirectWithNotice(redirectTo, "Confirmation email sent");
   }
 
   async function revokeBadgeAction(formData: FormData) {
     "use server";
     const user_id = String(formData.get("user_id") || "");
     const badge_id = Number(formData.get("badge_id"));
+    const redirectTo = formData.get("redirect_to");
     if (!user_id || !badge_id) return;
     await adminRevokeBadge({ user_id, badge_id });
+    redirectWithNotice(redirectTo, "Badge revoked");
   }
 
   async function approveVerificationAction(formData: FormData) {
     "use server";
     const request_id = Number(formData.get("request_id"));
     const admin_notes = String(formData.get("admin_notes") || "").trim();
+    const redirectTo = formData.get("redirect_to");
 
     await adminSetVerificationStatus({
       request_id,
       status: "approved",
       admin_notes: admin_notes || null,
     });
+    redirectWithNotice(redirectTo, "Verification approved");
   }
 
   async function rejectVerificationAction(formData: FormData) {
     "use server";
     const request_id = Number(formData.get("request_id"));
     const admin_notes = String(formData.get("admin_notes") || "").trim();
+    const redirectTo = formData.get("redirect_to");
 
     await adminSetVerificationStatus({
       request_id,
       status: "rejected",
       admin_notes: admin_notes || null,
     });
+    redirectWithNotice(redirectTo, "Verification rejected");
   }
 
   async function quickApproveVerificationAction(formData: FormData) {
     "use server";
     const request_id = Number(formData.get("request_id"));
+    const redirectTo = formData.get("redirect_to");
 
     await adminSetVerificationStatus({
       request_id,
       status: "approved",
       admin_notes: null,
     });
+    redirectWithNotice(redirectTo, "Verification approved");
   }
 
   const tabLink = (t: Tab) =>
@@ -171,6 +207,36 @@ export default async function AdminPage({
       <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 10 }}>
         Admin Dashboard
       </h1>
+
+      {notice && (
+        <div
+          style={{
+            background: "#e0f2f1",
+            border: "1px solid #26a69a",
+            color: "#004d40",
+            padding: "10px 14px",
+            borderRadius: 10,
+            marginBottom: 16,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <span>{notice}</span>
+          <a
+            href={adminBasePath}
+            style={{
+              fontSize: 12,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              color: "#004d40",
+            }}
+          >
+            Dismiss
+          </a>
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
@@ -284,6 +350,7 @@ export default async function AdminPage({
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                         <form action={quickApproveVerificationAction}>
                           <input type="hidden" name="request_id" value={r.id} />
+                          <input type="hidden" name="redirect_to" value={adminBasePath} />
                           <button
                             style={{
                               padding: "10px 12px",
@@ -302,6 +369,7 @@ export default async function AdminPage({
 
                         <form action={approveVerificationAction} style={{ display: "grid", gap: 8 }}>
                           <input type="hidden" name="request_id" value={r.id} />
+                          <input type="hidden" name="redirect_to" value={adminBasePath} />
                           <input
                             name="admin_notes"
                             placeholder="Admin notes (optional)"
@@ -328,6 +396,7 @@ export default async function AdminPage({
 
                         <form action={rejectVerificationAction} style={{ display: "grid", gap: 8 }}>
                           <input type="hidden" name="request_id" value={r.id} />
+                          <input type="hidden" name="redirect_to" value={adminBasePath} />
                           <input
                             name="admin_notes"
                             placeholder="Reason / admin notes"
@@ -429,6 +498,7 @@ export default async function AdminPage({
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
                     <form action={updateUser}>
                       <input type="hidden" name="user_id" value={u.user_id} />
+                      <input type="hidden" name="redirect_to" value={adminBasePath} />
 
                       <div style={{ display: "grid", gap: 10, minWidth: 360 }}>
                         <input
@@ -467,6 +537,7 @@ export default async function AdminPage({
                       <form action={setDisabled}>
                         <input type="hidden" name="user_id" value={u.user_id} />
                         <input type="hidden" name="disabled" value="true" />
+                        <input type="hidden" name="redirect_to" value={adminBasePath} />
                         <button
                           style={{
                             padding: "10px 12px",
@@ -483,6 +554,7 @@ export default async function AdminPage({
                       <form action={setDisabled}>
                         <input type="hidden" name="user_id" value={u.user_id} />
                         <input type="hidden" name="disabled" value="false" />
+                        <input type="hidden" name="redirect_to" value={adminBasePath} />
                         <button
                           style={{
                             padding: "10px 12px",
@@ -499,6 +571,7 @@ export default async function AdminPage({
 
                       <form action={resendConfirmationAction}>
                         <input type="hidden" name="email" value={u.email} />
+                        <input type="hidden" name="redirect_to" value={adminBasePath} />
                         <button
                           style={{
                             padding: "10px 12px",
@@ -582,6 +655,7 @@ export default async function AdminPage({
                       <form key={b.badge_id} action={revokeBadgeAction}>
                         <input type="hidden" name="user_id" value={u.user_id} />
                         <input type="hidden" name="badge_id" value={b.badge_id} />
+                        <input type="hidden" name="redirect_to" value={adminBasePath} />
                         <button
                           title="Click to revoke"
                           style={{
@@ -602,6 +676,7 @@ export default async function AdminPage({
 
                 <form action={awardBadgeAction} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <input type="hidden" name="user_id" value={u.user_id} />
+                  <input type="hidden" name="redirect_to" value={adminBasePath} />
                   <select
                     name="badge_id"
                     style={{ padding: 8, borderRadius: 10, border: "1px solid #bbb" }}

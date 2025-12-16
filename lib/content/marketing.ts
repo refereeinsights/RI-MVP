@@ -1,7 +1,4 @@
-export type AdPlacement =
-  | "home_footer_banner"
-  | "tournaments_sidebar"
-  | "tournament_detail_mid";
+export type AdPlacement = "home_footer_banner" | "tournaments_sidebar" | "tournament_detail_mid";
 
 export interface AdCreative {
   id: AdPlacement;
@@ -12,6 +9,8 @@ export interface AdCreative {
   href: string;
   background?: string;
 }
+
+type AdCreativeRotation = AdCreative | AdCreative[];
 
 export type ReferralPlacement =
   | "home_referral"
@@ -29,34 +28,121 @@ export interface ReferralCreative {
   copyHint?: string;
 }
 
-export const AD_PLACEMENTS: Record<AdPlacement, AdCreative> = {
-  home_footer_banner: {
-    id: "home_footer_banner",
-    eyebrow: "Sponsored insight",
-    title: "Assignors you can trust",
-    body: "Partner spotlight: Cascade Cup Staffing shares pay rates ahead of time. Tap through to see open weekends.",
-    ctaLabel: "View sponsor",
-    href: "https://refereeinsights.com/sponsors/cascade-cup",
-    background: "#0b2f23",
-  },
-  tournaments_sidebar: {
-    id: "tournaments_sidebar",
-    eyebrow: "Partner offer",
-    title: "Gear up for tournament season",
-    body: "Get 15% off referee kits from ProLine with code REFINSIGHTS.",
-    ctaLabel: "Shop ProLine",
-    href: "https://refereeinsights.com/referral/proline",
-    background: "#10291f",
-  },
-  tournament_detail_mid: {
-    id: "tournament_detail_mid",
-    eyebrow: "Referral bonus",
-    title: "Share insights, earn swag",
-    body: "Refer fellow officials to Rate & Review and get limited edition badges.",
-    ctaLabel: "Copy your link",
-    href: "https://refereeinsights.com/referrals",
-    background: "#1b3528",
-  },
+export const AD_PLACEMENTS: Record<AdPlacement, AdCreativeRotation> = {
+  home_footer_banner: [
+    {
+      id: "home_footer_banner",
+      eyebrow: "Gear pick",
+      title: "Tournament whistles, vetted",
+      body: "See two Fox 40 staples refs pack for soccer weekends plus disclosure details.",
+      ctaLabel: "View whistle guide",
+      href: "/gear/soccer/whistles",
+      background: "#0b2f23",
+    },
+    {
+      id: "home_footer_banner",
+      eyebrow: "Gear pick",
+      title: "Uniform refresh",
+      body: "Short and long sleeve kits plus shorts and socks—verify colors and stock up.",
+      ctaLabel: "Browse uniforms",
+      href: "/gear/soccer/uniforms",
+      background: "#0b2f23",
+    },
+    {
+      id: "home_footer_banner",
+      eyebrow: "Gear pick",
+      title: "Assistant flags & case",
+      body: "Grab a durable flag set plus carry case refs rely on for tight lines.",
+      ctaLabel: "Shop flags",
+      href: "/gear/soccer/flags",
+      background: "#0b2f23",
+    },
+    {
+      id: "home_footer_banner",
+      eyebrow: "Gear pick",
+      title: "Cards & match notes",
+      body: "Wallet, notebook, and coin to keep your match control kit tidy.",
+      ctaLabel: "Browse cards",
+      href: "/gear/soccer/cards",
+      background: "#0b2f23",
+    },
+  ],
+  tournaments_sidebar: [
+    {
+      id: "tournaments_sidebar",
+      eyebrow: "Gear tip",
+      title: "Whistles refs actually use",
+      body: "Classic Fox 40 picks with affiliate disclosure—grab a backup before your next center.",
+      ctaLabel: "Browse whistles",
+      href: "/gear/soccer/whistles",
+      background: "#10291f",
+    },
+    {
+      id: "tournaments_sidebar",
+      eyebrow: "Gear tip",
+      title: "Uniform basics restocked",
+      body: "Pro shirts, shorts, and socks so you always have the right color combo.",
+      ctaLabel: "See uniform kit",
+      href: "/gear/soccer/uniforms",
+      background: "#10291f",
+    },
+    {
+      id: "tournaments_sidebar",
+      eyebrow: "Gear tip",
+      title: "Touchline-ready flags",
+      body: "Flag set and carry case so AR kits stay sharp all weekend.",
+      ctaLabel: "View flag kit",
+      href: "/gear/soccer/flags",
+      background: "#10291f",
+    },
+    {
+      id: "tournaments_sidebar",
+      eyebrow: "Gear tip",
+      title: "Cards & toss coins",
+      body: "Restock wallets, notebooks, and accessories before your next slate.",
+      ctaLabel: "See match kit",
+      href: "/gear/soccer/cards",
+      background: "#10291f",
+    },
+  ],
+  tournament_detail_mid: [
+    {
+      id: "tournament_detail_mid",
+      eyebrow: "Pack smarter",
+      title: "Need a spare whistle?",
+      body: "Fox 40 Classic and Pearl listed neutrally so you can restock fast ahead of kickoff.",
+      ctaLabel: "See picks",
+      href: "/gear/soccer/whistles",
+      background: "#1b3528",
+    },
+    {
+      id: "tournament_detail_mid",
+      eyebrow: "Pack smarter",
+      title: "Uniform set dialed in",
+      body: "Short/long sleeve tops, shorts, and socks listed neutrally for match prep.",
+      ctaLabel: "View uniforms",
+      href: "/gear/soccer/uniforms",
+      background: "#1b3528",
+    },
+    {
+      id: "tournament_detail_mid",
+      eyebrow: "Pack smarter",
+      title: "Assistant ref flag set",
+      body: "Line-ready flags plus protective case to survive doubleheaders.",
+      ctaLabel: "Check flags",
+      href: "/gear/soccer/flags",
+      background: "#1b3528",
+    },
+    {
+      id: "tournament_detail_mid",
+      eyebrow: "Pack smarter",
+      title: "Cards & match wallet",
+      body: "Red/yellow wallet, notes, and coin with full affiliate disclosure.",
+      ctaLabel: "Shop cards",
+      href: "/gear/soccer/cards",
+      background: "#1b3528",
+    },
+  ],
 };
 
 export const REFERRAL_PLACEMENTS: Record<ReferralPlacement, ReferralCreative> = {

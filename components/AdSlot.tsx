@@ -1,5 +1,14 @@
-import type { AdPlacement } from "@/lib/content/marketing";
+import type { AdPlacement, AdCreative } from "@/lib/content/marketing";
 import { AD_PLACEMENTS } from "@/lib/content/marketing";
+
+function pickCreative(entry?: AdCreative | AdCreative[]): AdCreative | null {
+  if (!entry) return null;
+  if (Array.isArray(entry)) {
+    if (entry.length === 0) return null;
+    return entry[Math.floor(Math.random() * entry.length)];
+  }
+  return entry;
+}
 
 export default function AdSlot({
   placement,
@@ -8,7 +17,7 @@ export default function AdSlot({
   placement: AdPlacement;
   className?: string;
 }) {
-  const ad = AD_PLACEMENTS[placement];
+  const ad = pickCreative(AD_PLACEMENTS[placement]);
   if (!ad) return null;
 
   return (
@@ -38,7 +47,7 @@ export default function AdSlot({
         </div>
       )}
       <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>{ad.title}</div>
-      <p style={{ margin: 0, lineHeight: 1.5 }}>{ad.body}</p>
+      <p style={{ margin: 0, lineHeight: 1.5, color: "rgba(255,255,255,0.78)" }}>{ad.body}</p>
       <a
         href={ad.href}
         style={{
