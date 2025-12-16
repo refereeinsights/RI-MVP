@@ -14,11 +14,7 @@ export const metadata = {
   description: "INSIGHT BEFORE YOU ACCEPT",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className={inter.className}>
@@ -96,8 +92,17 @@ export default function RootLayout({
           </nav>
         </header>
 
-        {/* Main content */}
-        <main style={{ minHeight: "70vh" }}>{children}</main>
+        {/* Main content (CENTER CHILDREN HORIZONTALLY) */}
+        <main
+          style={{
+            minHeight: "70vh",
+            display: "flex",
+            justifyContent: "center",
+            width: "100%",
+          }}
+        >
+          {children}
+        </main>
 
         {/* Footer */}
         <footer

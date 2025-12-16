@@ -1,8 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { signUpUser, isHandleAvailable, normalizeHandle } from "@/lib/auth";
+import type { Sport } from "@/lib/auth";
 import SportsPickerClient from "@/components/SportsPickerClient";
+
+const ALLOWED_SPORTS: Sport[] = ["soccer", "basketball", "football"];
+
+function parseSports(csv: string): Sport[] {
+  const raw = csv
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+
+  const out: Sport[] = [];
+  for (const v of raw) {
+    if ((ALLOWED_SPORTS as string[]).includes(v) && !out.includes(v as Sport)) {
+      out.push(v as Sport);
+    }
+  }
+  return out;
+}
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
@@ -10,7 +28,6 @@ export default function SignUpPage() {
   const [handle, setHandle] = useState("");
   const [realName, setRealName] = useState("");
   const [yearsRefereeing, setYearsRefereeing] = useState("");
-
   const [sportsCsv, setSportsCsv] = useState("");
 
   const [checkingHandle, setCheckingHandle] = useState(false);
@@ -46,14 +63,8 @@ export default function SignUpPage() {
     e.preventDefault();
     setError(null);
 
-    const sports = sportsCsv
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const years = yearsRefereeing.trim()
-      ? Number(yearsRefereeing)
-      : null;
+    const sports = parseSports(sportsCsv);
+    const years = yearsRefereeing.trim() ? Number(yearsRefereeing) : null;
 
     try {
       await signUpUser({
@@ -73,10 +84,30 @@ export default function SignUpPage() {
 
   if (success) {
     return (
-      <div className="flex justify-center py-16 px-4">
-        <div className="w-full max-w-md p-6 border rounded text-center bg-white">
-          <h1 className="text-xl font-semibold mb-2">Check your email</h1>
-          <p className="text-sm text-gray-600">
+      <div
+        style={{
+          width: "100%",
+          padding: "4rem 1rem",
+          display: "flex",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 520,
+            background: "white",
+            borderRadius: 14,
+            padding: 24,
+            boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+            border: "1px solid #ddd",
+            textAlign: "center",
+          }}
+        >
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900 }}>
+            Check your email
+          </h1>
+          <p style={{ marginTop: 10, fontSize: 14, color: "#444" }}>
             We’ve sent a verification link to <strong>{email}</strong>.
             <br />
             You must verify your email before posting reviews.
@@ -87,19 +118,51 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="flex justify-center py-16 px-4">
-      <div className="w-full max-w-md bg-white border rounded-xl shadow-md p-6 text-center">
-        <h1 className="text-2xl font-bold mb-4">Create your account</h1>
+    <div
+      style={{
+        width: "100%",
+        padding: "4rem 1rem",
+        display: "flex",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 520,
+          background: "white",
+          borderRadius: 14,
+          padding: 24,
+          boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+          border: "1px solid #ddd",
+          textAlign: "center",
+        }}
+      >
+        <h1 style={{ margin: 0, fontSize: 30, fontWeight: 900 }}>
+          Create your account
+        </h1>
 
         {error && (
-          <div className="mb-3 text-sm text-red-600 border border-red-200 p-2 rounded">
+          <div
+            style={{
+              marginTop: 12,
+              marginBottom: 12,
+              color: "#b00020",
+              border: "1px solid rgba(176,0,32,0.25)",
+              background: "rgba(176,0,32,0.06)",
+              padding: 10,
+              borderRadius: 12,
+              fontSize: 13,
+              fontWeight: 700,
+            }}
+          >
             {error}
           </div>
         )}
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4"
+          style={{ marginTop: 18, display: "grid", gap: 14 }}
           onChange={() => {
             const el = document.querySelector<HTMLInputElement>(
               'input[name="sports"]'
@@ -107,35 +170,50 @@ export default function SignUpPage() {
             if (el) setSportsCsv(el.value || "");
           }}
         >
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
+          <div style={{ textAlign: "center" }}>
+            <label style={{ display: "block", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>
+              Email
+            </label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-center"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid #bbb",
+                textAlign: "center",
+              }}
             />
           </div>
 
-          {/* Password */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
+          <div style={{ textAlign: "center" }}>
+            <label style={{ display: "block", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>
+              Password
+            </label>
             <input
               type="password"
               required
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-center"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid #bbb",
+                textAlign: "center",
+              }}
             />
-            <p className="text-xs text-gray-500 mt-1">At least 8 characters</p>
+            <div style={{ marginTop: 6, fontSize: 12, color: "#555" }}>
+              At least 8 characters
+            </div>
           </div>
 
-          {/* Handle */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
+          <div style={{ textAlign: "center" }}>
+            <label style={{ display: "block", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>
               Public handle
             </label>
             <input
@@ -143,29 +221,34 @@ export default function SignUpPage() {
               required
               value={handle}
               onChange={(e) => checkHandle(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-center"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid #bbb",
+                textAlign: "center",
+              }}
             />
-            <div className="mt-1 text-xs">
-              {checkingHandle && (
-                <span className="text-gray-500">Checking availability…</span>
-              )}
+            <div style={{ marginTop: 6, fontSize: 12, color: "#555" }}>
+              {checkingHandle && <span>Checking availability…</span>}
               {!checkingHandle && handleAvailable === true && (
-                <span className="text-green-600">Handle is available</span>
+                <span style={{ color: "#0a7a2f", fontWeight: 800 }}>
+                  Handle is available
+                </span>
               )}
               {!checkingHandle && handleAvailable === false && (
-                <span className="text-red-600">Handle is already taken</span>
+                <span style={{ color: "#b00020", fontWeight: 800 }}>
+                  Handle is already taken
+                </span>
               )}
               {!checkingHandle && handleAvailable === null && (
-                <span className="text-gray-500">
-                  3–20 characters: lowercase letters, numbers, underscores
-                </span>
+                <span>3–20 characters: lowercase letters, numbers, underscores</span>
               )}
             </div>
           </div>
 
-          {/* Real name */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
+          <div style={{ textAlign: "center" }}>
+            <label style={{ display: "block", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>
               Real name (private)
             </label>
             <input
@@ -173,16 +256,21 @@ export default function SignUpPage() {
               required
               value={realName}
               onChange={(e) => setRealName(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-center"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid #bbb",
+                textAlign: "center",
+              }}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <div style={{ marginTop: 6, fontSize: 12, color: "#555" }}>
               Used for verification and moderation. Never shown publicly.
-            </p>
+            </div>
           </div>
 
-          {/* Years */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
+          <div style={{ textAlign: "center" }}>
+            <label style={{ display: "block", fontWeight: 800, fontSize: 13, marginBottom: 6 }}>
               Years as a referee
             </label>
             <input
@@ -191,27 +279,43 @@ export default function SignUpPage() {
               max={80}
               value={yearsRefereeing}
               onChange={(e) => setYearsRefereeing(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-center"
               placeholder="e.g. 5"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid #bbb",
+                textAlign: "center",
+              }}
             />
           </div>
 
-          {/* Sports picker */}
-          <SportsPickerClient name="sports" label="Sports" />
+          {/* Sports picker writes hidden input name="sports" */}
+          <div style={{ marginTop: 2 }}>
+            <SportsPickerClient name="sports" label="Sports" />
+          </div>
 
-          {/* Create account */}
           <button
             type="submit"
             disabled={checkingHandle || handleAvailable === false}
-            className="w-full mt-2 px-4 py-2 rounded-lg font-semibold text-white bg-black disabled:opacity-60"
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              borderRadius: 14,
+              border: "none",
+              background: "#111",
+              color: "white",
+              fontWeight: 900,
+              cursor: "pointer",
+              opacity: checkingHandle || handleAvailable === false ? 0.6 : 1,
+            }}
           >
             Create account
           </button>
 
-          <p className="text-xs text-gray-500">
-            By creating an account, you agree to follow the Referee Insights
-            community guidelines.
-          </p>
+          <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}>
+            By creating an account, you agree to follow the Referee Insights community guidelines.
+          </div>
         </form>
       </div>
     </div>
