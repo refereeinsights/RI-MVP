@@ -1,12 +1,5 @@
 import Link from "next/link";
-
-const AMAZON_TAG = "refereeinsigh-20";
-
-function withAmazonTag(url: string) {
-  if (!url) return url;
-  if (url.includes("tag=")) return url;
-  return `${url}${url.includes("?") ? "&" : "?"}tag=${AMAZON_TAG}`;
-}
+import { amazonImageUrl, withAmazonTag } from "@/lib/amazon";
 
 function AffiliateDisclosure() {
   return (
@@ -20,16 +13,25 @@ function AffiliateDisclosure() {
   );
 }
 
-const items = [
+type FlagItem = {
+  name: string;
+  description: string;
+  url: string;
+  asin: string;
+};
+
+const items: FlagItem[] = [
   {
     name: "Assistant Referee Flag Set (Soccer)",
     description: "Two-flag set commonly used by assistant referees during matches.",
     url: "https://www.amazon.com/dp/B01MZ1FQ0P",
+    asin: "B01MZ1FQ0P",
   },
   {
     name: "Assistant Referee Flag Carry Case",
     description: "Protective case for storing and transporting referee flags.",
     url: "https://www.amazon.com/dp/B07Q4S2H2B",
+    asin: "B07Q4S2H2B",
   },
 ];
 
@@ -54,6 +56,12 @@ export default function SoccerFlagsPage() {
       >
         {items.map((item) => (
           <div key={item.name} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
+            <img
+              src={amazonImageUrl(item.asin)}
+              alt={item.name}
+              style={{ width: "100%", borderRadius: 12, marginBottom: 12, objectFit: "cover" }}
+              loading="lazy"
+            />
             <h3>{item.name}</h3>
             <p>{item.description}</p>
             <a href={withAmazonTag(item.url)} target="_blank" rel="noopener noreferrer sponsored">

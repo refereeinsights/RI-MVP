@@ -1,31 +1,37 @@
 import Link from "next/link";
+import { amazonImageUrl, withAmazonTag } from "@/lib/amazon";
 
-const AMAZON_TAG = "refereeinsigh-20";
+type UniformItem = {
+  name: string;
+  description: string;
+  url: string;
+  asin: string;
+};
 
-function withAmazonTag(url: string) {
-  return url.includes("tag=") ? url : `${url}${url.includes("?") ? "&" : "?"}tag=${AMAZON_TAG}`;
-}
-
-const items = [
+const items: UniformItem[] = [
   {
     name: "Short Sleeve Soccer Referee Jersey",
     description: "Short sleeve referee jersey suitable for match use. Verify league color requirements.",
     url: "https://www.amazon.com/dp/B07Z8K7Y6M",
+    asin: "B07Z8K7Y6M",
   },
   {
     name: "Long Sleeve Soccer Referee Jersey",
     description: "Long sleeve referee jersey for cooler weather matches.",
     url: "https://www.amazon.com/dp/B07Z8M2Y5K",
+    asin: "B07Z8M2Y5K",
   },
   {
     name: "Referee Shorts (Black)",
     description: "Black referee shorts with pockets designed for match use.",
     url: "https://www.amazon.com/dp/B07Z8KJY8F",
+    asin: "B07Z8KJY8F",
   },
   {
     name: "Referee Socks (Black)",
     description: "Knee-high referee socks commonly worn with official uniforms.",
     url: "https://www.amazon.com/dp/B07Z8L4X9H",
+    asin: "B07Z8L4X9H",
   },
 ];
 
@@ -42,6 +48,12 @@ export default function SoccerUniformsPage() {
       <div style={{ display: "grid", gap: 16 }}>
         {items.map((item) => (
           <div key={item.name} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
+            <img
+              src={amazonImageUrl(item.asin)}
+              alt={item.name}
+              style={{ width: "100%", borderRadius: 12, marginBottom: 12, objectFit: "cover" }}
+              loading="lazy"
+            />
             <h3>{item.name}</h3>
             <p>{item.description}</p>
             <a href={withAmazonTag(item.url)} target="_blank" rel="noopener noreferrer sponsored">
