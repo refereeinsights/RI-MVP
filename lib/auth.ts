@@ -35,6 +35,7 @@ export async function signUpUser(input: {
 }) {
   const email = input.email.trim().toLowerCase();
   const handle = normalizeHandle(input.handle);
+  const sportsCsv = input.sports.map((s) => s.trim()).filter(Boolean).join(",");
 
   if (handle.length < 3) throw new Error("Handle must be at least 3 characters.");
   if (handle.length > 20) throw new Error("Handle must be 20 characters or less.");
@@ -51,7 +52,7 @@ export async function signUpUser(input: {
         handle,
         real_name: input.realName,
         years_refereeing: input.yearsRefereeing,
-        sports: input.sports, // stored as array in metadata
+        sports: sportsCsv, // trigger expects CSV string
       },
     },
   });
