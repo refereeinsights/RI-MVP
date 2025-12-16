@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import Image from "next/image";
+import Link from "next/link";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import "./globals.css";
 
 /* Load brand font */
@@ -14,7 +16,12 @@ export const metadata = {
   description: "INSIGHT BEFORE YOU ACCEPT",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <html lang="en">
       <body className={inter.className}>
@@ -53,42 +60,81 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <nav
             style={{
               display: "flex",
+              alignItems: "center",
               justifyContent: "center",
               gap: "2rem",
               paddingBottom: "0.9rem",
+              position: "relative",
+              width: "100%",
+              maxWidth: 960,
+              margin: "0 auto",
             }}
           >
-            <a
-              href="/tournaments"
+            <div
               style={{
-                color: "#ffffff",
-                fontSize: "0.8rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.14em",
-                textDecoration: "none",
-                paddingBottom: "0.25rem",
-                borderBottom: "2px solid rgba(255,255,255,0.6)",
+                display: "flex",
+                gap: "2rem",
+                position: "absolute",
+                left: "50%",
+                transform: "translateX(-50%)",
               }}
             >
-              Tournaments
-            </a>
+              <a
+                href="/tournaments"
+                style={{
+                  color: "#ffffff",
+                  fontSize: "0.8rem",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.14em",
+                  textDecoration: "none",
+                  paddingBottom: "0.25rem",
+                  borderBottom: "2px solid rgba(255,255,255,0.6)",
+                }}
+              >
+                Tournaments
+              </a>
 
-            <a
-              href="/signup"
+              <a
+                href="/signup"
+                style={{
+                  color: "#ffffff",
+                  fontSize: "0.8rem",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.14em",
+                  textDecoration: "none",
+                  paddingBottom: "0.25rem",
+                  borderBottom: "2px solid rgba(255,255,255,0.6)",
+                }}
+              >
+                Signup
+              </a>
+            </div>
+
+            <Link
+              href={user ? "/account" : "/account/login"}
+              title={user ? "My account" : "Sign in"}
               style={{
-                color: "#ffffff",
-                fontSize: "0.8rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.14em",
-                textDecoration: "none",
-                paddingBottom: "0.25rem",
-                borderBottom: "2px solid rgba(255,255,255,0.6)",
+                marginLeft: "auto",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "999px",
+                border: `2px solid ${
+                  user ? "rgba(76,175,80,0.9)" : "rgba(244,67,54,0.9)"
+                }`,
+                padding: "2px",
+                background: user ? "rgba(76,175,80,0.2)" : "rgba(244,67,54,0.2)",
               }}
             >
-              Signup
-            </a>
+              <Image
+                src="/referee-avatar.svg"
+                alt="Account"
+                width={40}
+                height={40}
+              />
+            </Link>
           </nav>
         </header>
 
