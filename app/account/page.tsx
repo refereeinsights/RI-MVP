@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import AccountForm from "@/components/AccountForm";
-import { fetchOrCreateProfile, type ProfileRow } from "@/lib/profile";
+import { fetchOrCreateProfile, fetchUserBadges, type ProfileRow, type UserBadgeRow } from "@/lib/profile";
+
+const BADGE_IMAGE_MAP: Record<string, { src: string; alt: string }> = {
+  founding_referee: { src: "/founding-referee.png", alt: "Founding referee badge" },
+  verified_referee: { src: "/verified-referee.png", alt: "Verified referee badge" },
+  top_contributor: { src: "/top-contributor.png", alt: "Top contributor badge" },
+};
 
 export default async function AccountPage() {
   const supabase = createSupabaseServerClient();
@@ -99,6 +105,21 @@ export default async function AccountPage() {
     );
   }
 
+  let badgeImages: { src: string; alt: string }[] = [];
+  try {
+    const userBadges: UserBadgeRow[] = await fetchUserBadges(user.id);
+    const seen = new Set<string>();
+    for (const badge of userBadges) {
+      const code = badge.badges?.code ?? undefined;
+      if (code && BADGE_IMAGE_MAP[code] && !seen.has(code)) {
+        seen.add(code);
+        badgeImages.push(BADGE_IMAGE_MAP[code]);
+      }
+    }
+  } catch (err) {
+    console.error("Failed to load badge images", err);
+  }
+
   return (
     <main
       style={{
@@ -121,7 +142,7 @@ export default async function AccountPage() {
         }}
       >
         <h1 style={{ margin: 0, textAlign: "center" }}>My account</h1>
-        <AccountForm profile={profile} />
+        <AccountForm profile={profile} badgeImages={badgeImages} />
         <form
           action="/api/logout"
           method="post"

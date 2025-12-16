@@ -5,17 +5,7 @@ export function withAmazonTag(url: string) {
   return url.includes("tag=") ? url : `${url}${url.includes("?") ? "&" : "?"}tag=${AMAZON_TAG}`;
 }
 
-export function amazonImageUrl(asin: string, format = "_SL500_") {
-  const params = new URLSearchParams({
-    _encoding: "UTF8",
-    ASIN: asin,
-    Format: format,
-    ID: "AsinImage",
-    MarketPlace: "US",
-    ServiceVersion: "20070822",
-    WS: "1",
-    tag: AMAZON_TAG,
-    language: "en_US",
-  });
-  return `https://ws-na.amazon-adsystem.com/widgets/q?${params.toString()}`;
+export function amazonImageUrl(asin: string, size: 150 | 300 | 500 = 300) {
+  const cleanAsin = asin.replace(/[^A-Za-z0-9]/g, "");
+  return `https://images-na.ssl-images-amazon.com/images/P/${cleanAsin}.01._SL${size}_.jpg`;
 }

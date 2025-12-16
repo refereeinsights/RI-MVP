@@ -10,6 +10,17 @@ export type ProfileRow = {
   email_opt_in_marketing: boolean | null;
 };
 
+export type UserBadgeRow = {
+  badge_id: number;
+  status: string | null;
+  awarded_at: string | null;
+  badges: {
+    id: number;
+    code: string | null;
+    label: string | null;
+  } | null;
+};
+
 export async function fetchOrCreateProfile(
   user_id: string,
   email?: string,
@@ -74,4 +85,15 @@ export async function fetchOrCreateProfile(
   }
 
   throw new Error("Could not create profile. Please contact support.");
+}
+
+export async function fetchUserBadges(user_id: string) {
+  const { data, error } = await supabaseAdmin
+    .from("user_badges")
+    .select("badge_id,status,awarded_at,badges(id,code,label)")
+    .eq("user_id", user_id)
+    .order("awarded_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as UserBadgeRow[];
 }

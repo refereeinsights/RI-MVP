@@ -83,8 +83,8 @@ export default function SoccerWhistlesPage() {
     {
       name: "Fox 40 Classic Pealess Whistle",
       description: "Pealess whistle commonly used by soccer referees in all weather conditions.",
-      amazonUrl: "https://www.amazon.com/dp/B0006VQJQ2",
-      asin: "B0006VQJQ2",
+      amazonUrl: "https://amzn.to/4alCmZQ",
+      asin: "B07TSL4498",
     },
     {
       name: "Fox 40 Pearl Whistle",

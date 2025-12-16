@@ -11,9 +11,10 @@ type AccountFormProps = {
     real_name: string | null;
     years_refereeing: number | null;
   };
+  badgeImages?: { src: string; alt: string }[];
 };
 
-export default function AccountForm({ profile }: AccountFormProps) {
+export default function AccountForm({ profile, badgeImages = [] }: AccountFormProps) {
   const [realName, setRealName] = useState(profile.real_name ?? "");
   const [years, setYears] = useState(
     profile.years_refereeing ? String(profile.years_refereeing) : ""
@@ -113,6 +114,30 @@ export default function AccountForm({ profile }: AccountFormProps) {
           }}
         />
       </div>
+
+      {badgeImages.length > 0 && (
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Earned badges</div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 16,
+              flexWrap: "wrap",
+            }}
+          >
+            {badgeImages.map((image) => (
+              <img
+                key={image.src}
+                src={image.src}
+                alt={image.alt}
+                style={{ width: 120, height: "auto" }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {status === "error" && error && (
         <div style={{ color: "#b00020", fontSize: 13 }}>{error}</div>
