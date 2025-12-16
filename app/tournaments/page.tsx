@@ -51,6 +51,12 @@ function sportIcon(sport: string | null) {
   }
 }
 
+function cardVariant(sport: string | null) {
+  const normalized = (sport ?? "").toLowerCase();
+  if (normalized === "basketball") return "card-basketball";
+  return "card-grass";
+}
+
 export default async function TournamentsPage({
   searchParams,
 }: {
@@ -168,7 +174,7 @@ export default async function TournamentsPage({
 
         <div className="grid">
           {tournaments.map((t) => (
-            <article key={t.id} className="card">
+            <article key={t.id} className={`card ${cardVariant(t.sport)}`}>
               <h2>{t.name}</h2>
 
               <p className="meta">

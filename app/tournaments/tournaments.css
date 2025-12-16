@@ -34,24 +34,7 @@
 }
 
 .field::after {
-  content: "";
-  position: absolute;
-  inset: 12px;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      90deg,
-      transparent 49.75%,
-      rgba(255, 255, 255, 0.35) 49.75%,
-      rgba(255, 255, 255, 0.35) 50.25%,
-      transparent 50.25%
-    ),
-    radial-gradient(
-      circle at 50% 50%,
-      transparent 0 78px,
-      rgba(255, 255, 255, 0.35) 78px 80px,
-      transparent 80px
-    );
+  content: none;
 }
 
 /* ===== Header block ===== */
@@ -161,7 +144,6 @@
   position: relative;
   border-radius: 14px;
   padding: 1.05rem 1rem 1rem;
-
   background: rgba(0, 0, 0, 0.20);
   backdrop-filter: blur(6px);
 
@@ -178,6 +160,30 @@
     transform 220ms ease-out;
 }
 
+.card.card-grass {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.08) 0px,
+      rgba(255,255,255,0.08) 22px,
+      transparent 22px,
+      transparent 44px
+    ),
+    linear-gradient(135deg, rgba(33,99,49,0.94), rgba(13,57,32,0.94));
+}
+
+.card.card-basketball {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(55,28,12,0.2) 0px,
+      rgba(55,28,12,0.2) 10px,
+      transparent 10px,
+      transparent 20px
+    ),
+    linear-gradient(135deg, rgba(205,133,63,0.95), rgba(153,82,30,0.95));
+  border-color: rgba(255,255,255,0.35);
+}
 /* Stadium-light glow on hover */
 .card:hover {
   transform: translateY(-2px);
