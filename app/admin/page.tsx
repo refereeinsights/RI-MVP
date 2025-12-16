@@ -11,6 +11,7 @@ import {
   adminRevokeBadge,
   adminListVerificationRequests,
   adminSetVerificationStatus,
+  adminResendConfirmationEmail,
 } from "@/lib/admin";
 
 type Tab = "users" | "verification" | "badges";
@@ -71,6 +72,13 @@ export default async function AdminPage({
     const badge_id = Number(formData.get("badge_id"));
     if (!user_id || !badge_id) return;
     await adminAwardBadge({ user_id, badge_id });
+  }
+
+  async function resendConfirmationAction(formData: FormData) {
+    "use server";
+    const email = String(formData.get("email") || "").trim();
+    if (!email) return;
+    await adminResendConfirmationEmail({ email });
   }
 
   async function revokeBadgeAction(formData: FormData) {
@@ -486,6 +494,21 @@ export default async function AdminPage({
                           }}
                         >
                           Enable
+                        </button>
+                      </form>
+
+                      <form action={resendConfirmationAction}>
+                        <input type="hidden" name="email" value={u.email} />
+                        <button
+                          style={{
+                            padding: "10px 12px",
+                            borderRadius: 10,
+                            border: "1px solid #555",
+                            background: "#fff",
+                            fontWeight: 900,
+                          }}
+                        >
+                          Resend confirmation
                         </button>
                       </form>
                     </div>

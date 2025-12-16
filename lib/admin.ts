@@ -78,6 +78,17 @@ export async function adminSetUserDisabled(user_id: string, disabled: boolean) {
   if (error) throw error;
 }
 
+export async function adminResendConfirmationEmail(params: { email: string }) {
+  await requireAdmin();
+
+  const { error } = await supabaseAdmin.auth.resend({
+    type: "signup",
+    email: params.email,
+  });
+
+  if (error) throw error;
+}
+
 /** BADGES **/
 export async function adminListBadges() {
   await requireAdmin();
