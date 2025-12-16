@@ -28,7 +28,6 @@ export default function SignUpPage() {
   const [handle, setHandle] = useState("");
   const [realName, setRealName] = useState("");
   const [yearsRefereeing, setYearsRefereeing] = useState("");
-  const [sportsCsv, setSportsCsv] = useState("");
 
   const [checkingHandle, setCheckingHandle] = useState(false);
   const [handleAvailable, setHandleAvailable] = useState<boolean | null>(null);
@@ -63,6 +62,8 @@ export default function SignUpPage() {
     e.preventDefault();
     setError(null);
 
+    const formData = new FormData(e.currentTarget);
+    const sportsCsv = String(formData.get("sports") || "");
     const sports = parseSports(sportsCsv);
     const years = yearsRefereeing.trim() ? Number(yearsRefereeing) : null;
 
@@ -160,16 +161,7 @@ export default function SignUpPage() {
           </div>
         )}
 
-        <form
-          onSubmit={handleSubmit}
-          style={{ marginTop: 18, display: "grid", gap: 14 }}
-          onChange={() => {
-            const el = document.querySelector<HTMLInputElement>(
-              'input[name="sports"]'
-            );
-            if (el) setSportsCsv(el.value || "");
-          }}
-        >
+        <form onSubmit={handleSubmit} style={{ marginTop: 18, display: "grid", gap: 14 }}>
           <div style={{ textAlign: "center" }}>
             <label
               style={{

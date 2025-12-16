@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { supabase } from "../../lib/supabaseClient";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import "./tournaments.css";
 
 type Tournament = {
@@ -37,6 +37,7 @@ export default async function TournamentsPage({
 }: {
   searchParams?: { q?: string; state?: string; month?: string };
 }) {
+  const supabase = createSupabaseServerClient();
   const q = (searchParams?.q ?? "").trim();
   const state = (searchParams?.state ?? "").trim().toUpperCase();
   const month = (searchParams?.month ?? "").trim(); // YYYY-MM

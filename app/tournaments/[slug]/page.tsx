@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { supabase } from "../../../lib/supabaseClient";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import "../tournaments.css";
 
 function formatDate(iso: string | null) {
@@ -13,6 +13,7 @@ export default async function TournamentDetailPage({
 }: {
   params: { slug: string };
 }) {
+  const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
     .from("tournaments")
     .select("name,city,state,start_date,end_date,summary,source_url,level,venue,address")
