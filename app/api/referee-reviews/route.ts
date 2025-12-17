@@ -80,10 +80,14 @@ export async function POST(request: Request) {
       .eq("user_id", user.id)
       .maybeSingle();
 
+    const reviewerHandle =
+      typeof reviewerProfile?.handle === "string" ? reviewerProfile.handle : null;
+    const fallbackEmail = typeof user.email === "string" ? user.email : null;
+
     sendLowScoreAlertEmail({
       tournamentName: body.tournament_name ?? "Unknown tournament",
       tournamentId: body.tournament_id,
-      reviewerHandle: reviewerProfile?.handle ?? user.email ?? user.id,
+      reviewerHandle: reviewerHandle ?? fallbackEmail ?? user.id,
       minScore,
       scores,
     }).catch((err) => {

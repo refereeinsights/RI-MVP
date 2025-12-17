@@ -1,6 +1,8 @@
 import SportsPickerClient from "@/components/SportsPickerClient";
 import { redirect } from "next/navigation";
 
+export const runtime = "nodejs";
+
 import {
   requireAdmin,
   adminSearchUsers,
@@ -28,6 +30,8 @@ import {
   adminUpdateRefereeContact,
   adminDeleteRefereeContact,
   adminFindTournamentIdBySlug,
+  type AdminBadgeRow,
+  type AdminUserRow,
   type ReviewStatus,
   type ContactStatus,
 } from "@/lib/admin";
@@ -92,9 +96,9 @@ export default async function AdminPage({
   }
   const adminBasePath = params.toString() ? `/admin?${params.toString()}` : "/admin";
 
-  const badges = await adminListBadges();
+  const badges: AdminBadgeRow[] = await adminListBadges();
 
-  const users =
+  const users: AdminUserRow[] =
     tab === "users" || tab === "badges" ? (q ? await adminSearchUsers(q) : []) : [];
 
   const requests =

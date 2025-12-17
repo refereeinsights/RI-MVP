@@ -163,7 +163,7 @@ async function resolveTournamentId(
     .from("tournaments")
     .select("id")
     .eq("slug", value)
-    .maybeSingle();
+    .maybeSingle<{ id: string }>();
   if (error && error.code !== "PGRST116") {
     throw error;
   }

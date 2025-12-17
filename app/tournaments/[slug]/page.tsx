@@ -14,6 +14,22 @@ import type { RawWhistleScoreRow } from "@/lib/tournamentSeries";
 import type { RefereeReviewPublic, RefereeWhistleScore } from "@/lib/types/refereeReview";
 import "../tournaments.css";
 
+type TournamentDetailRow = {
+  id: string;
+  slug: string | null;
+  name: string;
+  city: string | null;
+  state: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  summary: string | null;
+  source_url: string | null;
+  level: string | null;
+  venue: string | null;
+  address: string | null;
+  sport: string | null;
+};
+
 function formatDate(iso: string | null) {
   if (!iso) return "";
   const d = new Date(iso + "T00:00:00");
@@ -61,9 +77,11 @@ export default async function TournamentDetailPage({
 
   const { data, error } = await supabase
     .from("tournaments")
-    .select("id,slug,name,city,state,start_date,end_date,summary,source_url,level,venue,address,sport")
+    .select(
+      "id,slug,name,city,state,start_date,end_date,summary,source_url,level,venue,address,sport"
+    )
     .eq("slug", params.slug)
-    .single();
+    .single<TournamentDetailRow>();
 
   if (error || !data) {
     return (

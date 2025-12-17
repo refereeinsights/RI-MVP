@@ -15,6 +15,11 @@
     "level": "regional"
   },
   {
+    "url": "https://home.gotsoccer.com/events.aspx",
+    "sport": "soccer",
+    "level": "national"
+  },
+  {
     "url": "https://www.usyouthsoccer.org/events/",
     "sport": "soccer",
     "level": "national"

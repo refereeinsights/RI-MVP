@@ -1,9 +1,10 @@
 import type { AdapterResult, CrawlSeed, RunContext } from "../types";
 import { appendRunLog } from "../storage";
+import crawlFindYouthSports from "./findyouthsports";
+import crawlGoTSoccer from "./gotsoccer";
 import crawlSportsEngine from "./sportsengine";
 import crawlTravelSports from "./travelsports";
 import crawlUSYouthSoccer from "./usyouthsoccer";
-import crawlFindYouthSports from "./findyouthsports";
 
 type AdapterFn = (seed: CrawlSeed, ctx: RunContext) => Promise<AdapterResult>;
 
@@ -14,6 +15,7 @@ const ADAPTERS: Record<string, AdapterFn> = {
   "discover.sportsengineplay.com": crawlSportsEngine,
   "www.findyouthsports.com": crawlFindYouthSports,
   "findyouthsports.com": crawlFindYouthSports,
+  "home.gotsoccer.com": crawlGoTSoccer,
 };
 
 export async function runAdapter(

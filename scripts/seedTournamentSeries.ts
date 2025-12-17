@@ -32,6 +32,30 @@ type SeriesSeed = {
   duplicates: DuplicateSeed[];
 };
 
+type TournamentRow = {
+  id: string;
+  slug: string;
+  name: string;
+  sport: string | null;
+  level: string | null;
+  state: string | null;
+  city: string | null;
+  venue: string | null;
+  address: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  source_url: string | null;
+  source_domain: string | null;
+  source_title: string | null;
+  source_last_seen_at: string | null;
+  summary: string | null;
+  notes: string | null;
+  status: string | null;
+  confidence: number | null;
+  is_canonical: boolean | null;
+  canonical_tournament_id: string | null;
+};
+
 const REVIEW_USER_ID = process.env.SEED_REVIEW_USER_ID ?? "5c9ceea2-39c2-4831-accb-1d14bc89ae70";
 
 const SERIES: SeriesSeed[] = [
@@ -115,12 +139,12 @@ function redate(date: string | null, year: number) {
   return `${year}-${month}-${day}`;
 }
 
-async function ensureDuplicate(baseSlug: string, dup: DuplicateSeed) {
+async function ensureDuplicate(baseSlug: string, dup: DuplicateSeed): Promise<string> {
   const { data: base, error } = await supabaseAdmin
     .from("tournaments")
     .select("*")
     .eq("slug", baseSlug)
-    .single();
+    .single<TournamentRow>();
 
   if (error || !base) {
     throw new Error(`Base tournament ${baseSlug} not found: ${error?.message}`);
@@ -131,7 +155,7 @@ async function ensureDuplicate(baseSlug: string, dup: DuplicateSeed) {
     .from("tournaments")
     .select("id")
     .eq("slug", newSlug)
-    .maybeSingle();
+    .maybeSingle<{ id: string }>();
 
   if (existing?.id) {
     console.log(`Duplicate ${newSlug} already exists`);
@@ -165,14 +189,14 @@ async function ensureDuplicate(baseSlug: string, dup: DuplicateSeed) {
     .from("tournaments")
     .insert(insertPayload)
     .select("id")
-    .single();
+    .single<{ id: string }>();
 
   if (insertError || !inserted) {
     throw new Error(`Failed to insert duplicate for ${baseSlug}: ${insertError?.message}`);
   }
 
   console.log(`Created duplicate ${newSlug}`);
-  return inserted.id as string;
+  return inserted.id;
 }
 
 async function ensureScore(tournamentId: string, seed?: ScoreSeed) {
@@ -234,7 +258,7 @@ async function main() {
       .from("tournaments")
       .select("id")
       .eq("slug", series.baseSlug)
-      .maybeSingle();
+      .maybeSingle<{ id: string }>();
 
     if (!base?.id) {
       console.warn(`Skipping ${series.baseSlug} (not found)`);

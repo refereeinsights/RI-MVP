@@ -13,6 +13,23 @@ import type {
 type VerificationStatus = "pending" | "approved" | "rejected";
 export type ReviewStatus = "pending" | "approved" | "rejected";
 export type ContactStatus = "pending" | "verified" | "rejected";
+export type AdminUserRow = {
+  user_id: string;
+  email: string | null;
+  handle: string | null;
+  real_name: string | null;
+  years_refereeing: number | null;
+  sports: string[] | null;
+  role: string | null;
+  created_at: string | null;
+};
+export type AdminBadgeRow = {
+  id: number;
+  code: string | null;
+  label: string | null;
+  description: string | null;
+  is_public: boolean | null;
+};
 
 /**
  * If not logged in -> redirect to /admin/login
@@ -46,7 +63,7 @@ export async function requireAdmin() {
 }
 
 /** USERS **/
-export async function adminSearchUsers(q: string) {
+export async function adminSearchUsers(q: string): Promise<AdminUserRow[]> {
   await requireAdmin();
   const query = q.trim();
 
@@ -58,7 +75,7 @@ export async function adminSearchUsers(q: string) {
     .limit(50);
 
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as AdminUserRow[];
 }
 
 export async function adminUpdateUserProfile(input: {
@@ -98,7 +115,7 @@ export async function adminResendConfirmationEmail(params: { email: string }) {
 }
 
 /** BADGES **/
-export async function adminListBadges() {
+export async function adminListBadges(): Promise<AdminBadgeRow[]> {
   await requireAdmin();
 
   const { data, error } = await supabaseAdmin
@@ -107,7 +124,7 @@ export async function adminListBadges() {
     .order("id", { ascending: true });
 
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as AdminBadgeRow[];
 }
 
 export async function adminGetUserBadges(user_id: string) {
@@ -515,7 +532,7 @@ export async function adminFindTournamentIdBySlug(slug: string): Promise<string 
     .from("tournaments")
     .select("id")
     .eq("slug", slug)
-    .maybeSingle();
+    .maybeSingle<{ id: string }>();
   if (error && error.code !== "PGRST116") throw error;
   return data?.id ?? null;
 }
@@ -543,12 +560,19 @@ export async function adminListTournamentContacts(
   ) as string[];
   let tournamentMap = new Map<string, { name: string | null; slug: string | null; city: string | null; state: string | null }>();
   if (tournamentIds.length) {
+    type TournamentRow = {
+      id: string;
+      name: string | null;
+      slug: string | null;
+      city: string | null;
+      state: string | null;
+    };
     const { data: tournamentRows } = await supabaseAdmin
       .from("tournaments")
       .select("id,name,slug,city,state")
       .in("id", tournamentIds);
-    tournamentMap = new Map(
-      (tournamentRows ?? []).map((row) => [
+    tournamentMap = new Map<string, { name: string | null; slug: string | null; city: string | null; state: string | null }>(
+      ((tournamentRows ?? []) as TournamentRow[]).map((row) => [
         row.id,
         {
           name: row.name ?? null,
