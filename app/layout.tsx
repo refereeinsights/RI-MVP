@@ -96,6 +96,22 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               </a>
 
               <a
+                href="/schools/review"
+                style={{
+                  color: "#ffffff",
+                  fontSize: "0.8rem",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.14em",
+                  textDecoration: "none",
+                  paddingBottom: "0.25rem",
+                  borderBottom: "2px solid rgba(255,255,255,0.6)",
+                }}
+              >
+                Schools
+              </a>
+
+              <a
                 href="/signup"
                 style={{
                   color: "#ffffff",
