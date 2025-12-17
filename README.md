@@ -149,6 +149,7 @@ create table public.school_referee_reviews (
   school_id uuid references public.schools(id) on delete cascade,
   user_id uuid references auth.users(id) on delete cascade,
   created_at timestamptz default now(),
+  sport text not null default 'soccer',
   overall_score smallint not null,
   logistics_score smallint not null,
   facilities_score smallint not null,
@@ -186,10 +187,14 @@ select
   r.support_score,
   r.worked_games,
   r.shift_detail,
+  s.name as school_name,
+  s.city as school_city,
+  s.state as school_state,
   p.handle as reviewer_handle,
   p.years_refereeing as reviewer_level
 from public.school_referee_reviews r
 join public.profiles p on p.user_id = r.user_id
+left join public.schools s on s.id = r.school_id
 where r.status = 'approved';
 
 grant select on public.school_referee_reviews_public to anon;

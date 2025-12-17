@@ -1,8 +1,16 @@
 import type { RefereeReviewPublic } from "@/lib/types/refereeReview";
 import { badgeImagesForCodes } from "@/lib/badges";
 
+type ReviewWithSchool = RefereeReviewPublic & {
+  // optional school info for listings like /schools
+  school_name?: string | null;
+  school_city?: string | null;
+  school_state?: string | null;
+  sport?: string | null;
+};
+
 type Props = {
-  reviews: RefereeReviewPublic[];
+  reviews: ReviewWithSchool[];
 };
 
 function formatDate(iso: string) {
@@ -38,6 +46,14 @@ function WhistleScale({ score, size }: { score: number; size?: "small" | "large"
   );
 }
 
+function reviewSportClass(sport?: string | null) {
+  const normalized = sport?.toLowerCase();
+  if (normalized === "soccer") return "reviewCard--soccer";
+  if (normalized === "basketball") return "reviewCard--basketball";
+  if (normalized === "football") return "reviewCard--football";
+  return "";
+}
+
 export default function RefereeReviewList({ reviews }: Props) {
   if (!reviews.length) {
     return (
@@ -50,15 +66,15 @@ export default function RefereeReviewList({ reviews }: Props) {
   return (
     <div className="reviewList">
       {reviews.map((review) => (
-        <article key={review.id} className="reviewCard">
+        <article key={review.id} className={`reviewCard ${reviewSportClass(review.sport)}`}>
           <header className="reviewCard__header">
             <div>
               <div className="reviewCard__handle">
                 {review.reviewer_handle}
-                {review.reviewer_badges && review.reviewer_badges.length > 0 && (
-                  <span className="reviewCard__badges">
-                    {badgeImagesForCodes(review.reviewer_badges).map((image) => (
-                      <img
+            {review.reviewer_badges && review.reviewer_badges.length > 0 && (
+              <span className="reviewCard__badges">
+                {badgeImagesForCodes(review.reviewer_badges).map((image) => (
+                  <img
                         key={`${review.id}-${image.src}`}
                         src={image.src}
                         alt={image.alt}
@@ -69,6 +85,16 @@ export default function RefereeReviewList({ reviews }: Props) {
                 )}
               </div>
               <div className="reviewCard__meta">
+                {review.school_name && (
+                  <>
+                    <strong>{review.school_name}</strong>
+                    <span>
+                      {" "}
+                      • {[review.school_city, review.school_state].filter(Boolean).join(", ")}
+                    </span>
+                    <br />
+                  </>
+                )}
                 {formatDate(review.created_at)}
                 {review.worked_games ? ` • ${review.worked_games} game${review.worked_games === 1 ? "" : "s"}` : ""}
                 {review.reviewer_level ? ` • ${review.reviewer_level}` : ""}

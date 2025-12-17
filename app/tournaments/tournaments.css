@@ -607,6 +607,75 @@
   border-radius: 12px;
   padding: 0.9rem;
   color: #fefefe;
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+}
+
+.reviewList .reviewCard.reviewCard--soccer,
+.reviewList .reviewCard.reviewCard--basketball,
+.reviewList .reviewCard.reviewCard--football {
+  color: #fefefe;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  border-color: rgba(255,255,255,0.4);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.25),
+    0 10px 26px rgba(0,0,0,0.25);
+}
+
+.reviewList .reviewCard.reviewCard--soccer {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.08) 0px,
+      rgba(255,255,255,0.08) 22px,
+      transparent 22px,
+      transparent 44px
+    ),
+    linear-gradient(135deg, rgba(33,99,49,0.94), rgba(13,57,32,0.94));
+}
+
+.reviewList .reviewCard.reviewCard--basketball {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(55,28,12,0.2) 0px,
+      rgba(55,28,12,0.2) 10px,
+      transparent 10px,
+      transparent 20px
+    ),
+    linear-gradient(135deg, rgba(205,133,63,0.95), rgba(153,82,30,0.95));
+}
+
+.reviewList .reviewCard.reviewCard--football {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.08) 0px,
+      rgba(255,255,255,0.08) 18px,
+      transparent 18px,
+      transparent 36px
+    ),
+    linear-gradient(135deg, rgba(125,78,32,0.95), rgba(80,46,18,0.95));
+}
+
+.reviewList .reviewCard.reviewCard--soccer .reviewCard__handle,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__handle,
+.reviewList .reviewCard.reviewCard--football .reviewCard__handle,
+.reviewList .reviewCard.reviewCard--soccer .reviewCard__meta,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__meta,
+.reviewList .reviewCard.reviewCard--football .reviewCard__meta {
+  color: rgba(255,255,255,0.92);
+}
+
+.reviewList .reviewCard.reviewCard--soccer .reviewCard__scores dt,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__scores dt,
+.reviewList .reviewCard.reviewCard--football .reviewCard__scores dt {
+  color: rgba(255,255,255,0.85);
+}
+
+.reviewList .reviewCard.reviewCard--soccer .reviewCard__body,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__body,
+.reviewList .reviewCard.reviewCard--football .reviewCard__body {
+  color: rgba(255,255,255,0.95);
 }
 
 .reviewCard__header {
@@ -617,12 +686,11 @@
 }
 
 .reviewCard__handle {
-  font-weight: 700;
-}
-.reviewCard__handle {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  font-weight: 700;
+  color: #0b1727;
 }
 
 .reviewCard__badges {
@@ -647,7 +715,8 @@
 .whistleScale__icon {
   width: 20px;
   height: 12px;
-  background-color: rgba(255,255,255,0.12);
+  background-color: #ffffff;
+  border: 1px solid rgba(0,0,0,0.1);
   mask: url("/whistle-icon.svg") center / contain no-repeat;
   -webkit-mask: url("/whistle-icon.svg") center / contain no-repeat;
   transition: background-color 160ms ease, box-shadow 160ms ease;
@@ -655,6 +724,7 @@
 
 .whistleScale__icon--filled {
   background-color: #ffd24c;
+  border-color: #f3a500;
   box-shadow: 0 1px 2px rgba(0,0,0,0.25);
 }
 
@@ -665,7 +735,7 @@
 
 .reviewCard__meta {
   font-size: 0.75rem;
-  color: rgba(255,255,255,0.75);
+  color: rgba(0,0,0,0.7);
 }
 
 .reviewCard__overall {
@@ -683,7 +753,7 @@
 
 .reviewCard__scores dt {
   font-weight: 600;
-  color: rgba(255,255,255,0.8);
+  color: rgba(0,0,0,0.75);
 }
 
 .reviewCard__scores dd {
@@ -693,19 +763,19 @@
 
 .reviewCard__body {
   margin: 0;
-  color: rgba(255,255,255,0.92);
+  color: rgba(0,0,0,0.85);
   line-height: 1.4;
 }
 
 .reviewEmpty {
-  border: 1px dashed rgba(255,255,255,0.3);
+  border: 1px dashed rgba(0,0,0,0.25);
   border-radius: 10px;
   padding: 0.9rem;
   font-size: 0.9rem;
-  color: #fefefe;
+  color: rgba(0,0,0,0.7);
 }
 .reviewEmpty p {
-  color: #fff;
+  color: rgba(0,0,0,0.85);
 }
 
 

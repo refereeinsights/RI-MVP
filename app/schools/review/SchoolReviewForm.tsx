@@ -2,15 +2,25 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+type PrefillSchool = {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  address?: string | null;
+};
+
 type Props = {
   canSubmit: boolean;
   disabledMessage?: string;
+  initialSchool?: PrefillSchool | null;
 };
 
 type SubmitState = "idle" | "saving" | "success" | "error";
 
 type SchoolSuggestion = {
-  placeId: string;
+  placeId?: string | null;
+  schoolId?: string | null;
   name: string;
   formattedAddress: string;
   city: string | null;
@@ -19,15 +29,45 @@ type SchoolSuggestion = {
   longitude: number | null;
 };
 
-export default function SchoolReviewForm({ canSubmit, disabledMessage }: Props) {
-  const [query, setQuery] = useState("");
+const SPORT_OPTIONS = [
+  { label: "Soccer", value: "soccer" },
+  { label: "Basketball", value: "basketball" },
+  { label: "Football", value: "football" },
+] as const;
+
+function formatPrefill(initialSchool?: PrefillSchool | null) {
+  if (!initialSchool) return "";
+  const location = [initialSchool.city, initialSchool.state].filter(Boolean).join(", ");
+  if (initialSchool.address) return `${initialSchool.name} – ${initialSchool.address}`;
+  return location ? `${initialSchool.name} – ${location}` : initialSchool.name;
+}
+
+export default function SchoolReviewForm({ canSubmit, disabledMessage, initialSchool }: Props) {
+  const [query, setQuery] = useState(formatPrefill(initialSchool));
   const [suggestions, setSuggestions] = useState<SchoolSuggestion[]>([]);
-  const [selected, setSelected] = useState<SchoolSuggestion | null>(null);
+  const [selected, setSelected] = useState<SchoolSuggestion | null>(
+    initialSchool
+      ? {
+          schoolId: initialSchool.id,
+          name: initialSchool.name,
+          formattedAddress:
+            initialSchool.address ??
+            [initialSchool.city, initialSchool.state].filter(Boolean).join(", "),
+          city: initialSchool.city,
+          state: initialSchool.state,
+          latitude: null,
+          longitude: null,
+          placeId: null,
+        }
+      : null
+  );
+  const [searchEnabled, setSearchEnabled] = useState(!initialSchool);
   const [searching, setSearching] = useState(false);
   const [state, setState] = useState<SubmitState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!searchEnabled) return;
     if (!query.trim()) {
       setSuggestions([]);
       return;
@@ -53,11 +93,13 @@ export default function SchoolReviewForm({ canSubmit, disabledMessage }: Props) 
       controller.abort();
       clearTimeout(timeout);
     };
-  }, [query]);
+  }, [query, searchEnabled]);
 
   function handleSelect(suggestion: SchoolSuggestion) {
     setSelected(suggestion);
-    setQuery(`${suggestion.name} – ${suggestion.formattedAddress}`);
+    setQuery(
+      `${suggestion.name}${suggestion.formattedAddress ? ` – ${suggestion.formattedAddress}` : ""}`
+    );
     setSuggestions([]);
   }
 
@@ -78,13 +120,32 @@ export default function SchoolReviewForm({ canSubmit, disabledMessage }: Props) 
 
     const form = event.currentTarget;
     const formData = new FormData(form);
+    const sportValue = String(formData.get("sport") ?? "");
+    if (!SPORT_OPTIONS.some((opt) => opt.value === sportValue)) {
+      setErrorMessage("Select a sport.");
+      setState("error");
+      return;
+    }
     const payload = {
-      school: selected,
+    school_id: selected.schoolId ?? null,
+    school:
+      selected.schoolId != null
+        ? null
+          : {
+              name: selected.name,
+              city: selected.city,
+              state: selected.state,
+              address: selected.formattedAddress ?? "",
+              placeId: selected.placeId ?? null,
+              latitude: selected.latitude ?? null,
+              longitude: selected.longitude ?? null,
+            },
       overall_score: Number(formData.get("overall_score") ?? 0),
       logistics_score: Number(formData.get("logistics_score") ?? 0),
       facilities_score: Number(formData.get("facilities_score") ?? 0),
       pay_score: Number(formData.get("pay_score") ?? 0),
       support_score: Number(formData.get("support_score") ?? 0),
+      sport: sportValue,
       worked_games: formData.get("worked_games")
         ? Number(formData.get("worked_games"))
         : null,
@@ -115,8 +176,24 @@ export default function SchoolReviewForm({ canSubmit, disabledMessage }: Props) 
         throw new Error(json?.error ?? "Unable to submit review.");
       }
       form.reset();
-      setSelected(null);
-      setQuery("");
+      if (initialSchool && !searchEnabled) {
+        setSelected({
+          schoolId: initialSchool.id,
+          name: initialSchool.name,
+          formattedAddress:
+            initialSchool.address ??
+            [initialSchool.city, initialSchool.state].filter(Boolean).join(", "),
+          city: initialSchool.city,
+          state: initialSchool.state,
+          latitude: null,
+          longitude: null,
+          placeId: null,
+        });
+        setQuery(formatPrefill(initialSchool));
+      } else {
+        setSelected(null);
+        setQuery("");
+      }
       setState("success");
     } catch (err: any) {
       setState("error");
@@ -142,27 +219,47 @@ export default function SchoolReviewForm({ canSubmit, disabledMessage }: Props) 
   }
 
   return (
-    <form className="schoolReviewForm" onSubmit={handleSubmit}>
+  <form className="schoolReviewForm" onSubmit={handleSubmit}>
       <label className="schoolReviewForm__search">
         <span>School name</span>
         <input
           type="text"
           placeholder="Start typing a school name…"
           value={query}
+          readOnly={!searchEnabled}
           onChange={(event) => {
             setQuery(event.target.value);
             setSelected(null);
           }}
         />
-        {searching && <small>Searching…</small>}
-        {suggestions.length > 0 && (
+        {!searchEnabled && initialSchool && (
+          <small style={{ color: "rgba(0,0,0,0.7)" }}>
+            Prefilled with {initialSchool.name}.{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setSearchEnabled(true);
+                setSelected(null);
+                setQuery("");
+              }}
+              style={{
+                border: "none",
+                background: "none",
+                color: "#0f3d2e",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Select another school
+            </button>
+          </small>
+        )}
+        {searchEnabled && searching && <small>Searching…</small>}
+        {searchEnabled && suggestions.length > 0 && (
           <ul className="suggestions">
             {suggestions.map((suggestion) => (
-              <li key={suggestion.placeId}>
-                <button
-                  type="button"
-                  onClick={() => handleSelect(suggestion)}
-                >
+              <li key={suggestion.placeId ?? suggestion.schoolId ?? suggestion.name}>
+                <button type="button" onClick={() => handleSelect(suggestion)}>
                   <strong>{suggestion.name}</strong>
                   <span>{suggestion.formattedAddress}</span>
                 </button>
@@ -179,9 +276,20 @@ export default function SchoolReviewForm({ canSubmit, disabledMessage }: Props) 
         </div>
       )}
 
+      <label>
+        <span>Sport</span>
+        <select name="sport" defaultValue="soccer" required>
+          {SPORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <p className="instruction">
-        Rate each category from 1 to 5 whistles (1 = unacceptable, 5 = outstanding) and give context
-        about logistics, crew support, safety, and pay expectations at this school.
+        Rate each category from 1 to 5 whistles (1 = unacceptable, 5 = outstanding) and provide
+        details about logistics, support, and pay expectations.
       </p>
 
       <div className="grid">
@@ -298,7 +406,8 @@ export default function SchoolReviewForm({ canSubmit, disabledMessage }: Props) 
           grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
           gap: 1rem;
         }
-        input[type=\"number\"],
+        input[type="number"],
+        select,
         textarea {
           border: 1px solid rgba(0, 0, 0, 0.2);
           border-radius: 12px;

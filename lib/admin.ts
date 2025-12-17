@@ -230,6 +230,31 @@ export type AdminTournamentReview = {
   } | null;
 };
 
+export type AdminSchoolReview = {
+  id: string;
+  school_id: string;
+  user_id: string;
+  created_at: string;
+  status: ReviewStatus;
+  sport: string | null;
+  overall_score: number;
+  logistics_score: number;
+  facilities_score: number;
+  pay_score: number;
+  support_score: number;
+  worked_games: number | null;
+  shift_detail: string | null;
+  reviewer?: {
+    handle: string | null;
+    email: string | null;
+  } | null;
+  school?: {
+    name: string | null;
+    city: string | null;
+    state: string | null;
+  } | null;
+};
+
 export async function adminListTournamentReviews(status: ReviewStatus = "pending") {
   await requireAdmin();
 
@@ -286,6 +311,7 @@ export async function adminListTournamentReviews(status: ReviewStatus = "pending
         user_id: row.user_id,
         created_at: row.created_at,
         status: row.status,
+        sport: row.sport ?? null,
         overall_score: row.overall_score,
         logistics_score: row.logistics_score,
         facilities_score: row.facilities_score,
@@ -338,5 +364,104 @@ export async function adminDeleteTournamentReview(review_id: string) {
     .delete()
     .eq("id", review_id);
 
+  if (error) throw error;
+}
+
+export async function adminListSchoolReviews(status: ReviewStatus = "pending") {
+  await requireAdmin();
+
+  const { data, error } = await supabaseAdmin
+    .from("school_referee_reviews")
+    .select(
+      "id,school_id,user_id,created_at,status,sport,overall_score,logistics_score,facilities_score,pay_score,support_score,worked_games,shift_detail"
+    )
+    .eq("status", status)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error) throw error;
+
+  const reviews = data ?? [];
+  if (!reviews.length) return [];
+
+  const userIds = Array.from(new Set(reviews.map((row) => row.user_id).filter(Boolean)));
+  const schoolIds = Array.from(new Set(reviews.map((row) => row.school_id).filter(Boolean)));
+
+  const [{ data: profileRows }, { data: schoolRows }] = await Promise.all([
+    userIds.length
+      ? supabaseAdmin.from("profiles").select("user_id,handle,email").in("user_id", userIds)
+      : Promise.resolve({ data: [] }),
+    schoolIds.length
+      ? supabaseAdmin.from("schools").select("id,name,city,state").in("id", schoolIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const profileMap = new Map(
+    (profileRows ?? []).map((p: any) => [p.user_id, { handle: p.handle ?? null, email: p.email ?? null }])
+  );
+  const schoolMap = new Map(
+    (schoolRows ?? []).map((s: any) => [
+      s.id,
+      { name: s.name ?? null, city: s.city ?? null, state: s.state ?? null },
+    ])
+  );
+
+  return reviews.map(
+    (row) =>
+      ({
+        id: row.id,
+        school_id: row.school_id,
+        user_id: row.user_id,
+        created_at: row.created_at,
+        status: row.status,
+        overall_score: row.overall_score,
+        logistics_score: row.logistics_score,
+        facilities_score: row.facilities_score,
+        pay_score: row.pay_score,
+        support_score: row.support_score,
+        worked_games: row.worked_games,
+        shift_detail: row.shift_detail,
+        reviewer: profileMap.get(row.user_id) ?? null,
+        school: schoolMap.get(row.school_id) ?? null,
+      }) as AdminSchoolReview
+  );
+}
+
+export async function adminUpdateSchoolReview(params: {
+  review_id: string;
+  updates: {
+    status?: ReviewStatus;
+    overall_score?: number;
+    logistics_score?: number;
+    facilities_score?: number;
+    pay_score?: number;
+    support_score?: number;
+    worked_games?: number | null;
+    shift_detail?: string | null;
+  };
+}) {
+  await requireAdmin();
+  const updatePayload: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(params.updates)) {
+    if (typeof value !== "undefined") {
+      updatePayload[key] = value;
+    }
+  }
+  if (Object.keys(updatePayload).length === 0) return;
+
+  const { error } = await supabaseAdmin
+    .from("school_referee_reviews")
+    .update(updatePayload)
+    .eq("id", params.review_id);
+  if (error) throw error;
+}
+
+export async function adminDeleteSchoolReview(review_id: string) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin
+    .from("school_referee_reviews")
+    .delete()
+    .eq("id", review_id);
   if (error) throw error;
 }

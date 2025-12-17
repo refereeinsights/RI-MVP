@@ -16,11 +16,15 @@ import {
   adminListTournamentReviews,
   adminUpdateTournamentReview,
   adminDeleteTournamentReview,
+  adminListSchoolReviews,
+  adminUpdateSchoolReview,
+  adminDeleteSchoolReview,
   type ReviewStatus,
 } from "@/lib/admin";
 
-type Tab = "users" | "verification" | "badges" | "reviews";
+type Tab = "users" | "verification" | "badges" | "reviews" | "school-reviews";
 type VStatus = "pending" | "approved" | "rejected";
+const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
 
 function safeSportsArray(value: any): string[] {
   if (Array.isArray(value)) return value.filter(Boolean).map(String);
@@ -76,6 +80,8 @@ export default async function AdminPage({
 
   const reviewSubmissions =
     tab === "reviews" ? await adminListTournamentReviews(reviewStatus) : [];
+  const schoolReviewSubmissions =
+    tab === "school-reviews" ? await adminListSchoolReviews(reviewStatus) : [];
 
   async function updateUser(formData: FormData) {
     "use server";
@@ -231,13 +237,72 @@ export default async function AdminPage({
     redirectWithNotice(redirectTo, "Review deleted");
   }
 
+  async function updateSchoolReviewAction(formData: FormData) {
+    "use server";
+    const review_id = String(formData.get("review_id") || "");
+    if (!review_id) return;
+
+    const redirectTo = formData.get("redirect_to");
+    const statusInput = String(formData.get("status") || "pending");
+    const normalizedStatus: ReviewStatus =
+      statusInput === "approved" || statusInput === "rejected" ? statusInput : "pending";
+
+    const numberFields = [
+      "overall_score",
+      "logistics_score",
+      "facilities_score",
+      "pay_score",
+      "support_score",
+    ] as const;
+
+    const updates: Record<string, any> = {
+      status: normalizedStatus,
+    };
+
+    for (const field of numberFields) {
+      const raw = formData.get(field);
+      const value = raw !== null ? Number(raw) : null;
+      if (typeof value === "number" && Number.isFinite(value)) {
+        updates[field] = value;
+      }
+    }
+
+    const workedGamesRaw = formData.get("worked_games");
+    if (workedGamesRaw !== null && workedGamesRaw !== "") {
+      const value = Number(workedGamesRaw);
+      updates.worked_games = Number.isFinite(value) ? value : null;
+    } else {
+      updates.worked_games = null;
+    }
+
+    const shiftDetail = String(formData.get("shift_detail") || "").trim();
+    updates.shift_detail = shiftDetail || null;
+
+    const sportValue = String(formData.get("sport") || "");
+    if (sportValue && SCHOOL_SPORTS.includes(sportValue)) {
+      updates.sport = sportValue;
+    }
+
+    await adminUpdateSchoolReview({ review_id, updates });
+    redirectWithNotice(redirectTo, "Review updated");
+  }
+
+  async function deleteSchoolReviewAction(formData: FormData) {
+    "use server";
+    const review_id = String(formData.get("review_id") || "");
+    if (!review_id) return;
+    const redirectTo = formData.get("redirect_to");
+    await adminDeleteSchoolReview(review_id);
+    redirectWithNotice(redirectTo, "Review deleted");
+  }
+
   const tabLink = (t: Tab) => {
     const sp = new URLSearchParams();
     sp.set("tab", t);
     if (t === "verification") {
       sp.set("vstatus", vstatus);
     }
-    if (t === "reviews") {
+    if (t === "reviews" || t === "school-reviews") {
       sp.set("rstatus", reviewStatus);
     }
     if (q) {
@@ -248,6 +313,7 @@ export default async function AdminPage({
 
   const vLink = (s: VStatus) => `/admin?tab=verification&vstatus=${s}`;
   const reviewLink = (s: ReviewStatus) => `/admin?tab=reviews&rstatus=${s}`;
+  const schoolReviewLink = (s: ReviewStatus) => `/admin?tab=school-reviews&rstatus=${s}`;
 
   const TabButton = ({ t, label }: { t: Tab; label: string }) => (
     <a
@@ -326,6 +392,7 @@ export default async function AdminPage({
         <TabButton t="users" label="Users" />
         <TabButton t="badges" label="Badges" />
         <TabButton t="reviews" label="Tournament reviews" />
+        <TabButton t="school-reviews" label="School reviews" />
       </div>
 
       {/* VERIFICATION TAB */}
@@ -1113,6 +1180,298 @@ export default async function AdminPage({
                         type="submit"
                       >
                         Delete review
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* SCHOOL REVIEWS TAB */}
+      {tab === "school-reviews" && (
+        <section style={{ marginBottom: 22 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 10,
+            }}
+          >
+            <h2 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>
+              School referee reviews
+            </h2>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <a
+                href={schoolReviewLink("pending")}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 999,
+                  border: "1px solid #111",
+                  background: reviewStatus === "pending" ? "#111" : "#fff",
+                  color: reviewStatus === "pending" ? "#fff" : "#111",
+                  fontWeight: 900,
+                  textDecoration: "none",
+                  fontSize: 13,
+                }}
+              >
+                Pending
+              </a>
+              <a
+                href={schoolReviewLink("approved")}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 999,
+                  border: "1px solid #111",
+                  background: reviewStatus === "approved" ? "#111" : "#fff",
+                  color: reviewStatus === "approved" ? "#fff" : "#111",
+                  fontWeight: 900,
+                  textDecoration: "none",
+                  fontSize: 13,
+                }}
+              >
+                Approved
+              </a>
+              <a
+                href={schoolReviewLink("rejected")}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 999,
+                  border: "1px solid #111",
+                  background: reviewStatus === "rejected" ? "#111" : "#fff",
+                  color: reviewStatus === "rejected" ? "#fff" : "#111",
+                  fontWeight: 900,
+                  textDecoration: "none",
+                  fontSize: 13,
+                }}
+              >
+                Rejected
+              </a>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 10, color: "#555", fontSize: 13 }}>
+            Showing: <strong>{reviewStatus}</strong> ({schoolReviewSubmissions.length})
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            {schoolReviewSubmissions.length === 0 ? (
+              <div style={{ color: "#555" }}>No reviews.</div>
+            ) : (
+              schoolReviewSubmissions.map((review) => (
+                <div
+                  key={review.id}
+                  style={{
+                    border: "1px solid #ddd",
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 12,
+                    background: "#fff",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ minWidth: 280 }}>
+                      <div style={{ fontWeight: 900 }}>
+                        {review.school?.name ?? "Unknown school"}
+                      </div>
+                      <div style={{ color: "#555", fontSize: 13 }}>
+                        {review.school?.city ? `${review.school.city}, ` : ""}
+                        {review.school?.state ?? ""}
+                        {review.sport ? ` • ${review.sport}` : ""}
+                      </div>
+                      <div style={{ marginTop: 6, color: "#555", fontSize: 13 }}>
+                        Reviewer: @{review.reviewer?.handle ?? "unknown"} (
+                        {review.reviewer?.email ?? "no email"})
+                      </div>
+                      <div style={{ color: "#555", fontSize: 13 }}>
+                        Submitted: {new Date(review.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <div style={{ minWidth: 180, fontSize: 13, color: "#333" }}>
+                      <strong>Scores (1-5)</strong>
+                      <div>Overall: {review.overall_score} / 5</div>
+                      <div>Logistics: {review.logistics_score} / 5</div>
+                      <div>Facilities: {review.facilities_score} / 5</div>
+                      <div>Pay: {review.pay_score} / 5</div>
+                      <div>Support: {review.support_score} / 5</div>
+                      <div>Worked games: {review.worked_games ?? "—"}</div>
+                    </div>
+                  </div>
+
+                  {review.shift_detail ? (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: 10,
+                        borderRadius: 10,
+                        background: "#f9f9f9",
+                        fontSize: 13,
+                        color: "#444",
+                      }}
+                    >
+                      {review.shift_detail}
+                    </div>
+                  ) : null}
+
+                  <div
+                    style={{
+                      marginTop: 12,
+                      display: "flex",
+                      gap: 16,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <form action={updateSchoolReviewAction} style={{ flex: 1, minWidth: 280 }}>
+                      <input type="hidden" name="review_id" value={review.id} />
+                      <input type="hidden" name="redirect_to" value={adminBasePath} />
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                          gap: 10,
+                        }}
+                      >
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Overall
+                          <input
+                            name="overall_score"
+                            defaultValue={review.overall_score}
+                            style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                          />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Logistics
+                          <input
+                            name="logistics_score"
+                            defaultValue={review.logistics_score}
+                            style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                          />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Facilities
+                          <input
+                            name="facilities_score"
+                            defaultValue={review.facilities_score}
+                            style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                          />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Pay
+                          <input
+                            name="pay_score"
+                            defaultValue={review.pay_score}
+                            style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                          />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Support
+                          <input
+                            name="support_score"
+                            defaultValue={review.support_score}
+                            style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                          />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Worked games
+                          <input
+                            name="worked_games"
+                            defaultValue={review.worked_games ?? ""}
+                            style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                          />
+                        </label>
+                      </div>
+                      <label style={{ fontSize: 12, fontWeight: 700, display: "block", marginTop: 10 }}>
+                        Shift detail
+                        <textarea
+                          name="shift_detail"
+                          defaultValue={review.shift_detail ?? ""}
+                          style={{
+                            width: "100%",
+                            padding: 8,
+                            borderRadius: 8,
+                            border: "1px solid #ccc",
+                            minHeight: 90,
+                          }}
+                        />
+                      </label>
+
+                      <select
+                        name="status"
+                        defaultValue={review.status}
+                        style={{
+                          marginTop: 10,
+                          padding: 8,
+                          borderRadius: 8,
+                          border: "1px solid #111",
+                          fontWeight: 700,
+                        }}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+
+                      <label style={{ fontSize: 12, fontWeight: 700, marginTop: 8 }}>
+                        Sport
+                        <select
+                          name="sport"
+                          defaultValue={review.sport ?? "soccer"}
+                          style={{
+                            width: "100%",
+                            padding: 8,
+                            borderRadius: 8,
+                            border: "1px solid #111",
+                            marginTop: 4,
+                          }}
+                        >
+                          {SCHOOL_SPORTS.map((sport) => (
+                            <option key={sport} value={sport}>
+                              {sport.charAt(0).toUpperCase() + sport.slice(1)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <button
+                        style={{
+                          marginTop: 10,
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: "none",
+                          background: "#0a7a2f",
+                          color: "#fff",
+                          fontWeight: 900,
+                        }}
+                      >
+                        Save
+                      </button>
+                    </form>
+
+                    <form action={deleteSchoolReviewAction} style={{ alignSelf: "flex-start" }}>
+                      <input type="hidden" name="review_id" value={review.id} />
+                      <input type="hidden" name="redirect_to" value={adminBasePath} />
+                      <button
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: "1px solid #b00020",
+                          background: "#fff",
+                          color: "#b00020",
+                          fontWeight: 900,
+                        }}
+                      >
+                        Delete
                       </button>
                     </form>
                   </div>

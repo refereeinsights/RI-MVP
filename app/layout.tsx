@@ -92,11 +92,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   borderBottom: "2px solid rgba(255,255,255,0.6)",
                 }}
               >
-                Tournaments
+                Tournament Reviews
               </a>
 
               <a
-                href="/schools/review"
+                href="/schools"
                 style={{
                   color: "#ffffff",
                   fontSize: "0.8rem",
@@ -108,7 +108,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   borderBottom: "2px solid rgba(255,255,255,0.6)",
                 }}
               >
-                Schools
+                School Reviews
               </a>
 
               <a

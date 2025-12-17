@@ -12,6 +12,8 @@ const NUMBER_FIELDS = [
   "support_score",
 ] as const;
 
+const ALLOWED_SPORTS = ["soccer", "basketball", "football"] as const;
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body) {
@@ -35,32 +37,52 @@ export async function POST(request: Request) {
     );
   }
 
-  const schoolInput = {
-    name: String(body?.school?.name ?? "").trim(),
-    city: String(body?.school?.city ?? "").trim(),
-    state: String(body?.school?.state ?? "").trim(),
-    address: body?.school?.address ?? null,
-    placeId: body?.school?.placeId ?? null,
-    latitude:
-      typeof body?.school?.latitude === "number" ? Number(body.school.latitude) : null,
-    longitude:
-      typeof body?.school?.longitude === "number" ? Number(body.school.longitude) : null,
-  };
-
-  if (!schoolInput.name || !schoolInput.city || !schoolInput.state) {
-    return NextResponse.json({ error: "Select a school before submitting." }, { status: 400 });
+  let schoolRow: any = null;
+  if (body.school_id) {
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from("schools")
+      .select("*")
+      .eq("id", body.school_id)
+      .maybeSingle();
+    if (existingError || !existing) {
+      return NextResponse.json({ error: "Invalid school_id." }, { status: 400 });
+    }
+    schoolRow = existing;
   }
 
-  let schoolRow;
-  try {
-    schoolRow = await findOrCreateSchool(schoolInput);
-  } catch (error: any) {
-    return NextResponse.json({ error: error?.message ?? "Unable to save school." }, { status: 400 });
+  if (!schoolRow) {
+    const schoolInput = {
+      name: String(body?.school?.name ?? "").trim(),
+      city: String(body?.school?.city ?? "").trim(),
+      state: String(body?.school?.state ?? "").trim(),
+      address: body?.school?.address ?? null,
+      placeId: body?.school?.placeId ?? null,
+      latitude:
+        typeof body?.school?.latitude === "number" ? Number(body.school.latitude) : null,
+      longitude:
+        typeof body?.school?.longitude === "number" ? Number(body.school.longitude) : null,
+    };
+
+    if (!schoolInput.name || !schoolInput.city || !schoolInput.state) {
+      return NextResponse.json({ error: "Select a school before submitting." }, { status: 400 });
+    }
+
+    try {
+      schoolRow = await findOrCreateSchool(schoolInput);
+    } catch (error: any) {
+      return NextResponse.json({ error: error?.message ?? "Unable to save school." }, { status: 400 });
+    }
   }
+
+  const sport =
+    typeof body.sport === "string" && (ALLOWED_SPORTS as readonly string[]).includes(body.sport)
+      ? body.sport
+      : "soccer";
 
   const payload: Record<string, any> = {
     school_id: schoolRow.id,
     user_id: user.id,
+    sport,
     shift_detail: typeof body.shift_detail === "string" ? body.shift_detail.slice(0, 1200) : null,
     worked_games:
       typeof body.worked_games === "number" && Number.isFinite(body.worked_games)
