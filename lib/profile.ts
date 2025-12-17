@@ -95,18 +95,19 @@ export async function fetchUserBadges(user_id: string) {
     .order("awarded_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => ({
-    badge_id: row.badge_id,
-    status: row.status,
-    awarded_at: row.awarded_at,
-    badges: row.badges
-      ? Array.isArray(row.badges)
-        ? row.badges[0] ?? null
-        : {
-            id: row.badges.id,
-            code: row.badges.code ?? null,
-            label: row.badges.label ?? null,
+  return (data ?? []).map((row) => {
+    const badge = row.badges ? (Array.isArray(row.badges) ? row.badges[0] : row.badges) : null;
+    return {
+      badge_id: row.badge_id,
+      status: row.status,
+      awarded_at: row.awarded_at,
+      badges: badge
+        ? {
+            id: badge.id,
+            code: badge.code ?? null,
+            label: badge.label ?? null,
           }
-      : null,
-  }));
+        : null,
+    };
+  });
 }
