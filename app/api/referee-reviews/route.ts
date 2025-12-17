@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { userIsVerifiedReferee } from "@/lib/refereeVerification";
+import { sendLowScoreAlertEmail } from "@/lib/email";
 
 const NUMBER_FIELDS = [
   "overall_score",
@@ -25,17 +27,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Sign in to submit a review." }, { status: 401 });
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("user_id,is_referee_verified")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (profileError) {
-    return NextResponse.json({ error: profileError.message }, { status: 500 });
-  }
-
-  if (!profile?.is_referee_verified) {
+  const isVerified = await userIsVerifiedReferee(supabase, user.id);
+  if (!isVerified) {
     return NextResponse.json(
       { error: "Only verified referees can submit reviews." },
       { status: 403 }
@@ -58,6 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing tournament_id." }, { status: 400 });
   }
 
+  const scores: Record<string, number> = {};
   for (const field of NUMBER_FIELDS) {
     const value = Number(body[field]);
     if (!Number.isFinite(value) || value < 0 || value > 100) {
@@ -67,6 +61,7 @@ export async function POST(request: Request) {
       );
     }
     payload[field] = value;
+    scores[field] = value;
   }
 
   const { error } = await supabaseAdmin
@@ -75,6 +70,25 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const minScore = Math.min(...Object.values(scores));
+  if (Number.isFinite(minScore) && minScore < 50) {
+    const { data: reviewerProfile } = await supabase
+      .from("profiles")
+      .select("handle")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    sendLowScoreAlertEmail({
+      tournamentName: body.tournament_name ?? "Unknown tournament",
+      tournamentId: body.tournament_id,
+      reviewerHandle: reviewerProfile?.handle ?? user.email ?? user.id,
+      minScore,
+      scores,
+    }).catch((err) => {
+      console.error("Failed to send low-score alert", err);
+    });
   }
 
   return NextResponse.json({ success: true });

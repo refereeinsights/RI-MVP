@@ -73,6 +73,16 @@ The new referee review UI expects the following database objects:
 
 Whenever `tournament_referee_reviews` changes you should also enqueue your “AI whistle score” worker so the badge/summary stays current.
 
+## Low-score alert emails
+
+Set the following environment variables to enable automatic admin alerts whenever an individual category score falls below 50:
+
+- `RESEND_API_KEY`: Server-side API key for https://resend.com (or compatible endpoint our helper calls).
+- `REVIEW_ALERT_EMAILS`: Comma-separated list of admin email addresses that should receive the alert.
+- `REVIEW_ALERT_FROM` (optional): Custom “from” value if you don’t want the default `Referee Insights <refereeinsights@gmail.com>`.
+
+Without these variables the alert request is skipped but the referee review submission still succeeds.
+
 ## Contributing
 
 Feel free to submit issues and pull requests to improve this project. 

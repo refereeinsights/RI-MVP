@@ -5,6 +5,7 @@ import { supabaseAdmin } from "./supabaseAdmin";
 import { createSupabaseServerClient } from "./supabaseServer";
 
 type VerificationStatus = "pending" | "approved" | "rejected";
+export type ReviewStatus = "pending" | "approved" | "rejected";
 
 /**
  * If not logged in -> redirect to /admin/login
@@ -200,6 +201,115 @@ export async function adminSetVerificationStatus(params: {
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", params.request_id);
+
+  if (error) throw error;
+}
+
+/** TOURNAMENT REVIEWS **/
+export type AdminTournamentReview = {
+  id: string;
+  tournament_id: string;
+  user_id: string;
+  created_at: string;
+  status: ReviewStatus;
+  overall_score: number;
+  logistics_score: number;
+  facilities_score: number;
+  pay_score: number;
+  support_score: number;
+  worked_games: number | null;
+  shift_detail: string | null;
+  reviewer?: {
+    handle: string | null;
+    email: string | null;
+  } | null;
+  tournament?: {
+    name: string | null;
+    city: string | null;
+    state: string | null;
+  } | null;
+};
+
+export async function adminListTournamentReviews(status: ReviewStatus = "pending") {
+  await requireAdmin();
+
+  let query = supabaseAdmin
+    .from("tournament_referee_reviews")
+    .select(
+      `
+      id,
+      tournament_id,
+      user_id,
+      created_at,
+      status,
+      overall_score,
+      logistics_score,
+      facilities_score,
+      pay_score,
+      support_score,
+      worked_games,
+      shift_detail,
+      reviewer:profiles!tournament_referee_reviews_user_id_fkey (
+        handle,
+        email
+      ),
+      tournament:tournaments!tournament_referee_reviews_tournament_id_fkey (
+        name,
+        city,
+        state
+      )
+    `
+    )
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (status) {
+    query = query.eq("status", status);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as AdminTournamentReview[];
+}
+
+export async function adminUpdateTournamentReview(params: {
+  review_id: string;
+  updates: {
+    status?: ReviewStatus;
+    overall_score?: number;
+    logistics_score?: number;
+    facilities_score?: number;
+    pay_score?: number;
+    support_score?: number;
+    worked_games?: number | null;
+    shift_detail?: string | null;
+  };
+}) {
+  await requireAdmin();
+  const updatePayload: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(params.updates)) {
+    if (typeof value !== "undefined") {
+      updatePayload[key] = value;
+    }
+  }
+
+  if (Object.keys(updatePayload).length === 0) return;
+
+  const { error } = await supabaseAdmin
+    .from("tournament_referee_reviews")
+    .update(updatePayload)
+    .eq("id", params.review_id);
+
+  if (error) throw error;
+}
+
+export async function adminDeleteTournamentReview(review_id: string) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin
+    .from("tournament_referee_reviews")
+    .delete()
+    .eq("id", review_id);
 
   if (error) throw error;
 }

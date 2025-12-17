@@ -13,9 +13,13 @@ import {
   adminListVerificationRequests,
   adminSetVerificationStatus,
   adminResendConfirmationEmail,
+  adminListTournamentReviews,
+  adminUpdateTournamentReview,
+  adminDeleteTournamentReview,
+  type ReviewStatus,
 } from "@/lib/admin";
 
-type Tab = "users" | "verification" | "badges";
+type Tab = "users" | "verification" | "badges" | "reviews";
 type VStatus = "pending" | "approved" | "rejected";
 
 function safeSportsArray(value: any): string[] {
@@ -33,19 +37,29 @@ function redirectWithNotice(target: FormDataEntryValue | null, notice: string) {
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: { tab?: Tab; q?: string; vstatus?: VStatus; notice?: string };
+  searchParams: {
+    tab?: Tab;
+    q?: string;
+    vstatus?: VStatus;
+    rstatus?: ReviewStatus;
+    notice?: string;
+  };
 }) {
   await requireAdmin();
 
   const tab: Tab = (searchParams.tab as Tab) ?? "verification";
   const q = searchParams.q ?? "";
   const vstatus: VStatus = (searchParams.vstatus as VStatus) ?? "pending";
+  const reviewStatus: ReviewStatus = (searchParams.rstatus as ReviewStatus) ?? "pending";
   const notice = searchParams.notice ?? "";
 
   const params = new URLSearchParams();
   params.set("tab", tab);
   if (tab === "verification") {
     params.set("vstatus", vstatus);
+  }
+  if (tab === "reviews") {
+    params.set("rstatus", reviewStatus);
   }
   if (q) {
     params.set("q", q);
@@ -59,6 +73,9 @@ export default async function AdminPage({
 
   const requests =
     tab === "verification" ? await adminListVerificationRequests(vstatus) : [];
+
+  const reviewSubmissions =
+    tab === "reviews" ? await adminListTournamentReviews(reviewStatus) : [];
 
   async function updateUser(formData: FormData) {
     "use server";
@@ -160,12 +177,77 @@ export default async function AdminPage({
     redirectWithNotice(redirectTo, "Verification approved");
   }
 
-  const tabLink = (t: Tab) =>
-    `/admin?tab=${t}${
-      t !== "verification" ? "" : `&vstatus=${vstatus}`
-    }${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+  async function updateReviewAction(formData: FormData) {
+    "use server";
+    const review_id = String(formData.get("review_id") || "");
+    if (!review_id) return;
+
+    const redirectTo = formData.get("redirect_to");
+    const statusInput = String(formData.get("status") || "pending");
+    const normalizedStatus: ReviewStatus =
+      statusInput === "approved" || statusInput === "rejected" ? statusInput : "pending";
+
+    const numberFields = [
+      "overall_score",
+      "logistics_score",
+      "facilities_score",
+      "pay_score",
+      "support_score",
+    ] as const;
+
+    const updates: Record<string, any> = {
+      status: normalizedStatus,
+    };
+
+    for (const field of numberFields) {
+      const raw = formData.get(field);
+      const value = raw !== null ? Number(raw) : null;
+      if (typeof value === "number" && Number.isFinite(value)) {
+        updates[field] = value;
+      }
+    }
+
+    const workedGamesRaw = formData.get("worked_games");
+    if (workedGamesRaw !== null && workedGamesRaw !== "") {
+      const value = Number(workedGamesRaw);
+      updates.worked_games = Number.isFinite(value) ? value : null;
+    } else {
+      updates.worked_games = null;
+    }
+
+    const shiftDetail = String(formData.get("shift_detail") || "").trim();
+    updates.shift_detail = shiftDetail || null;
+
+    await adminUpdateTournamentReview({ review_id, updates });
+    redirectWithNotice(redirectTo, "Review updated");
+  }
+
+  async function deleteReviewAction(formData: FormData) {
+    "use server";
+    const review_id = String(formData.get("review_id") || "");
+    if (!review_id) return;
+    const redirectTo = formData.get("redirect_to");
+    await adminDeleteTournamentReview(review_id);
+    redirectWithNotice(redirectTo, "Review deleted");
+  }
+
+  const tabLink = (t: Tab) => {
+    const sp = new URLSearchParams();
+    sp.set("tab", t);
+    if (t === "verification") {
+      sp.set("vstatus", vstatus);
+    }
+    if (t === "reviews") {
+      sp.set("rstatus", reviewStatus);
+    }
+    if (q) {
+      sp.set("q", q);
+    }
+    return `/admin?${sp.toString()}`;
+  };
 
   const vLink = (s: VStatus) => `/admin?tab=verification&vstatus=${s}`;
+  const reviewLink = (s: ReviewStatus) => `/admin?tab=reviews&rstatus=${s}`;
 
   const TabButton = ({ t, label }: { t: Tab; label: string }) => (
     <a
@@ -243,6 +325,7 @@ export default async function AdminPage({
         <TabButton t="verification" label="Verification" />
         <TabButton t="users" label="Users" />
         <TabButton t="badges" label="Badges" />
+        <TabButton t="reviews" label="Tournament reviews" />
       </div>
 
       {/* VERIFICATION TAB */}
@@ -713,3 +796,331 @@ export default async function AdminPage({
     </div>
   );
 }
+      {/* REVIEWS TAB */}
+      {tab === "reviews" && (
+        <section style={{ marginBottom: 22 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 10,
+            }}
+          >
+            <h2 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>
+              Tournament referee reviews
+            </h2>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <a
+                href={reviewLink("pending")}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 999,
+                  border: "1px solid #111",
+                  background: reviewStatus === "pending" ? "#111" : "#fff",
+                  color: reviewStatus === "pending" ? "#fff" : "#111",
+                  fontWeight: 900,
+                  textDecoration: "none",
+                  fontSize: 13,
+                }}
+              >
+                Pending
+              </a>
+              <a
+                href={reviewLink("approved")}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 999,
+                  border: "1px solid #111",
+                  background: reviewStatus === "approved" ? "#111" : "#fff",
+                  color: reviewStatus === "approved" ? "#fff" : "#111",
+                  fontWeight: 900,
+                  textDecoration: "none",
+                  fontSize: 13,
+                }}
+              >
+                Approved
+              </a>
+              <a
+                href={reviewLink("rejected")}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 999,
+                  border: "1px solid #111",
+                  background: reviewStatus === "rejected" ? "#111" : "#fff",
+                  color: reviewStatus === "rejected" ? "#fff" : "#111",
+                  fontWeight: 900,
+                  textDecoration: "none",
+                  fontSize: 13,
+                }}
+              >
+                Rejected
+              </a>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 10, color: "#555", fontSize: 13 }}>
+            Showing: <strong>{reviewStatus}</strong> ({reviewSubmissions.length})
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            {reviewSubmissions.length === 0 ? (
+              <div style={{ color: "#555" }}>No reviews.</div>
+            ) : (
+              reviewSubmissions.map((review) => (
+                <div
+                  key={review.id}
+                  style={{
+                    border: "1px solid #ddd",
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 12,
+                    background: "#fff",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ minWidth: 280 }}>
+                      <div style={{ fontWeight: 900 }}>
+                        {review.tournament?.name ?? "Unknown tournament"}
+                      </div>
+                      <div style={{ color: "#555", fontSize: 13 }}>
+                        {review.tournament?.city ? `${review.tournament.city}, ` : ""}
+                        {review.tournament?.state ?? ""}
+                      </div>
+                      <div style={{ marginTop: 6, color: "#555", fontSize: 13 }}>
+                        Reviewer: @{review.reviewer?.handle ?? "unknown"} (
+                        {review.reviewer?.email ?? "no email"})
+                      </div>
+                      <div style={{ color: "#555", fontSize: 13 }}>
+                        Submitted: {new Date(review.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <div style={{ minWidth: 180, fontSize: 13, color: "#333" }}>
+                      <strong>Scores</strong>
+                      <div>Overall: {review.overall_score}</div>
+                      <div>Logistics: {review.logistics_score}</div>
+                      <div>Facilities: {review.facilities_score}</div>
+                      <div>Pay: {review.pay_score}</div>
+                      <div>Support: {review.support_score}</div>
+                      <div>Worked games: {review.worked_games ?? "—"}</div>
+                    </div>
+                  </div>
+
+                  {review.shift_detail ? (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: 10,
+                        borderRadius: 10,
+                        background: "#f9f9f9",
+                        fontSize: 13,
+                        color: "#444",
+                      }}
+                    >
+                      {review.shift_detail}
+                    </div>
+                  ) : null}
+
+                  <div
+                    style={{
+                      marginTop: 12,
+                      display: "flex",
+                      gap: 16,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <form action={updateReviewAction} style={{ flex: 1, minWidth: 280 }}>
+                      <input type="hidden" name="review_id" value={review.id} />
+                      <input type="hidden" name="redirect_to" value={adminBasePath} />
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                          gap: 10,
+                        }}
+                      >
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Overall
+                          <input
+                            type="number"
+                            name="overall_score"
+                            defaultValue={review.overall_score}
+                            min={0}
+                            max={100}
+                            step={5}
+                            style={{
+                              width: "100%",
+                              padding: 8,
+                              borderRadius: 10,
+                              border: "1px solid #bbb",
+                            }}
+                          />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Logistics
+                          <input
+                            type="number"
+                            name="logistics_score"
+                            defaultValue={review.logistics_score}
+                            min={0}
+                            max={100}
+                            step={5}
+                            style={{
+                              width: "100%",
+                              padding: 8,
+                              borderRadius: 10,
+                              border: "1px solid #bbb",
+                            }}
+                          />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Facilities
+                          <input
+                            type="number"
+                            name="facilities_score"
+                            defaultValue={review.facilities_score}
+                            min={0}
+                            max={100}
+                            step={5}
+                            style={{
+                              width: "100%",
+                              padding: 8,
+                              borderRadius: 10,
+                              border: "1px solid #bbb",
+                            }}
+                          />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Pay accuracy
+                          <input
+                            type="number"
+                            name="pay_score"
+                            defaultValue={review.pay_score}
+                            min={0}
+                            max={100}
+                            step={5}
+                            style={{
+                              width: "100%",
+                              padding: 8,
+                              borderRadius: 10,
+                              border: "1px solid #bbb",
+                            }}
+                          />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Organizer support
+                          <input
+                            type="number"
+                            name="support_score"
+                            defaultValue={review.support_score}
+                            min={0}
+                            max={100}
+                            step={5}
+                            style={{
+                              width: "100%",
+                              padding: 8,
+                              borderRadius: 10,
+                              border: "1px solid #bbb",
+                            }}
+                          />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Games worked
+                          <input
+                            type="number"
+                            name="worked_games"
+                            defaultValue={review.worked_games ?? ""}
+                            min={0}
+                            max={30}
+                            style={{
+                              width: "100%",
+                              padding: 8,
+                              borderRadius: 10,
+                              border: "1px solid #bbb",
+                            }}
+                          />
+                        </label>
+                      </div>
+
+                      <label style={{ display: "block", marginTop: 10, fontSize: 12, fontWeight: 700 }}>
+                        Shift detail
+                        <textarea
+                          name="shift_detail"
+                          defaultValue={review.shift_detail ?? ""}
+                          rows={3}
+                          style={{
+                            width: "100%",
+                            padding: 8,
+                            borderRadius: 10,
+                            border: "1px solid #bbb",
+                            marginTop: 4,
+                          }}
+                        />
+                      </label>
+
+                      <label style={{ display: "block", marginTop: 10, fontSize: 12, fontWeight: 700 }}>
+                        Status
+                        <select
+                          name="status"
+                          defaultValue={review.status}
+                          style={{
+                            width: "100%",
+                            padding: 8,
+                            borderRadius: 10,
+                            border: "1px solid #bbb",
+                            marginTop: 4,
+                          }}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="approved">Approved</option>
+                          <option value="rejected">Rejected</option>
+                        </select>
+                      </label>
+
+                      <button
+                        style={{
+                          marginTop: 12,
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: "none",
+                          background: "#111",
+                          color: "#fff",
+                          fontWeight: 900,
+                        }}
+                      >
+                        Save changes
+                      </button>
+                    </form>
+
+                    <form action={deleteReviewAction} style={{ alignSelf: "flex-start" }}>
+                      <input type="hidden" name="review_id" value={review.id} />
+                      <input type="hidden" name="redirect_to" value={adminBasePath} />
+                      <button
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: "1px solid #b00020",
+                          background: "#fff",
+                          color: "#b00020",
+                          fontWeight: 900,
+                        }}
+                        type="submit"
+                      >
+                        Delete review
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      )}

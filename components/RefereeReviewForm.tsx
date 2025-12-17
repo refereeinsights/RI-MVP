@@ -82,8 +82,9 @@ export default function RefereeReviewForm({
     <form className="reviewForm" onSubmit={handleSubmit}>
       <h3>Share your experience</h3>
       <p className="reviewForm__hint">
-        Scores are private to referees until approved. Add as much context as possible—logistics,
-        support, and anything crews should know before accepting games.
+        Scores are private to referees until approved. Rate each category on a 0–100 scale in
+        increments of 5 (0 = unacceptable, 100 = outstanding) and add as much context as
+        possible—logistics, support, and anything crews should know before accepting games.
       </p>
 
       <div className="reviewForm__grid">

@@ -6,6 +6,7 @@ import RefereeWhistleBadge from "@/components/RefereeWhistleBadge";
 import RefereeReviewList from "@/components/RefereeReviewList";
 import RefereeReviewForm from "@/components/RefereeReviewForm";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { userIsVerifiedReferee } from "@/lib/refereeVerification";
 import type { RefereeReviewPublic, RefereeWhistleScore } from "@/lib/types/refereeReview";
 import "../tournaments.css";
 
@@ -70,13 +71,8 @@ export default async function TournamentDetailPage({
   let disabledMessage: string | null = "Sign in to submit a referee review.";
 
   if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_referee_verified")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (profile?.is_referee_verified) {
+    const isVerified = await userIsVerifiedReferee(supabase, user.id);
+    if (isVerified) {
       canSubmitReview = true;
       disabledMessage = null;
     } else {
