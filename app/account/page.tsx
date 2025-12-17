@@ -2,12 +2,7 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import AccountForm from "@/components/AccountForm";
 import { fetchOrCreateProfile, fetchUserBadges, type ProfileRow, type UserBadgeRow } from "@/lib/profile";
-
-const BADGE_IMAGE_MAP: Record<string, { src: string; alt: string }> = {
-  founding_referee: { src: "/founding-referee.png", alt: "Founding referee badge" },
-  verified_referee: { src: "/verified-referee.png", alt: "Verified referee badge" },
-  top_contributor: { src: "/top-contributor.png", alt: "Top contributor badge" },
-};
+import { BADGE_IMAGE_MAP } from "@/lib/badges";
 
 export default async function AccountPage() {
   const supabase = createSupabaseServerClient();

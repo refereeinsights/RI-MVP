@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import ReferralCTA from "@/components/ReferralCTA";
 import AdSlot from "@/components/AdSlot";
@@ -6,6 +7,7 @@ import RefereeWhistleBadge from "@/components/RefereeWhistleBadge";
 import RefereeReviewList from "@/components/RefereeReviewList";
 import RefereeReviewForm from "@/components/RefereeReviewForm";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { userIsVerifiedReferee } from "@/lib/refereeVerification";
 import type { RefereeReviewPublic, RefereeWhistleScore } from "@/lib/types/refereeReview";
 import "../tournaments.css";
@@ -205,5 +207,71 @@ async function loadPublicReviews(supabase: SupabaseClient, id: string) {
     .order("created_at", { ascending: false })
     .limit(10);
 
-  return (data ?? []) as RefereeReviewPublic[];
+  const reviews = (data ?? []) as RefereeReviewPublic[];
+  const handles = Array.from(new Set(reviews.map((r) => r.reviewer_handle).filter(Boolean)));
+  if (!handles.length) return reviews;
+
+  const badgeMap = await fetchReviewerBadgeCodes(handles);
+  return reviews.map((review) => ({
+    ...review,
+    reviewer_badges: badgeMap[review.reviewer_handle] ?? [],
+  }));
 }
+
+const fetchReviewerBadgeCodes = unstable_cache(
+  async (handlesInput: string[]) => {
+    const handles = Array.from(new Set(handlesInput.filter(Boolean)));
+    if (!handles.length) return {} as Record<string, string[]>;
+
+    const { data: profileRows, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("user_id,handle")
+      .in("handle", handles);
+
+    if (profileError) {
+      console.error("Failed to load reviewer profiles for badges", profileError);
+      return {};
+    }
+
+    const handleToUser = new Map<string, string>();
+    (profileRows ?? []).forEach((row: any) => {
+      if (row?.handle && row?.user_id) {
+        handleToUser.set(row.handle, row.user_id);
+      }
+    });
+
+    const userIds = Array.from(new Set(Array.from(handleToUser.values()).filter(Boolean)));
+    if (!userIds.length) return {};
+
+    const { data: badgeRows, error: badgeError } = await supabaseAdmin
+      .from("user_badges")
+      .select("user_id,badges(code)")
+      .in("user_id", userIds);
+
+    if (badgeError) {
+      console.error("Failed to load reviewer badges", badgeError);
+      return {};
+    }
+
+    const userBadgeMap = new Map<string, string[]>();
+    (badgeRows ?? []).forEach((row: any) => {
+      if (!row?.user_id) return;
+      const existing = userBadgeMap.get(row.user_id) ?? [];
+      const codes: string[] = Array.isArray(row.badges)
+        ? row.badges.map((b: any) => b?.code).filter(Boolean)
+        : row.badges?.code
+        ? [row.badges.code]
+        : [];
+      userBadgeMap.set(row.user_id, Array.from(new Set([...existing, ...codes])));
+    });
+
+    const result: Record<string, string[]> = {};
+    for (const [handle, userId] of handleToUser.entries()) {
+      result[handle] = userId ? userBadgeMap.get(userId) ?? [] : [];
+    }
+
+    return result;
+  },
+  ["reviewer-badge-codes"],
+  { revalidate: 60 * 60 * 24 * 7 }
+);

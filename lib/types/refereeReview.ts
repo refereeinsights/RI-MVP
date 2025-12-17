@@ -15,6 +15,7 @@ export type RefereeReviewPublic = {
   created_at: string;
   reviewer_handle: string;
   reviewer_level?: string | null;
+  reviewer_badges?: string[] | null;
   worked_games?: number | null;
   overall_score: number;
   logistics_score: number;

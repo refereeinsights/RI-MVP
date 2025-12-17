@@ -1,4 +1,5 @@
 import type { RefereeReviewPublic } from "@/lib/types/refereeReview";
+import { badgeImagesForCodes } from "@/lib/badges";
 
 type Props = {
   reviews: RefereeReviewPublic[];
@@ -29,7 +30,21 @@ export default function RefereeReviewList({ reviews }: Props) {
         <article key={review.id} className="reviewCard">
           <header className="reviewCard__header">
             <div>
-              <div className="reviewCard__handle">{review.reviewer_handle}</div>
+              <div className="reviewCard__handle">
+                {review.reviewer_handle}
+                {review.reviewer_badges && review.reviewer_badges.length > 0 && (
+                  <span className="reviewCard__badges">
+                    {badgeImagesForCodes(review.reviewer_badges).map((image) => (
+                      <img
+                        key={`${review.id}-${image.src}`}
+                        src={image.src}
+                        alt={image.alt}
+                        loading="lazy"
+                      />
+                    ))}
+                  </span>
+                )}
+              </div>
               <div className="reviewCard__meta">
                 {formatDate(review.created_at)}
                 {review.worked_games ? ` • ${review.worked_games} game${review.worked_games === 1 ? "" : "s"}` : ""}
