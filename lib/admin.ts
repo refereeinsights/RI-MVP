@@ -261,7 +261,7 @@ export async function adminListTournamentReviews(status: ReviewStatus = "pending
   const { data, error } = await supabaseAdmin
     .from("tournament_referee_reviews")
     .select(
-      "id,tournament_id,user_id,created_at,status,overall_score,logistics_score,facilities_score,pay_score,support_score,worked_games,shift_detail"
+      "id,tournament_id,user_id,created_at,status,overall_score,logistics_score,facilities_score,pay_score,support_score,worked_games,shift_detail,sport"
     )
     .eq("status", status)
     .order("created_at", { ascending: false })
