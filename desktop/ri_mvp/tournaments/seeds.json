@@ -1,5 +1,20 @@
 [
   {
+    "url": "https://travelsports.com",
+    "sport": "soccer",
+    "level": "regional"
+  },
+  {
+    "url": "https://discover.sportsengineplay.com/tournaments",
+    "sport": "soccer",
+    "level": "regional"
+  },
+  {
+    "url": "https://www.findyouthsports.com",
+    "sport": "soccer",
+    "level": "regional"
+  },
+  {
     "url": "https://www.usyouthsoccer.org/events/",
     "sport": "soccer",
     "level": "national"

@@ -22,11 +22,13 @@ export type UserBadgeRow = {
   } | null;
 };
 
+type DBProfileRow = ProfileRow;
+
 export async function fetchOrCreateProfile(
   user_id: string,
   email?: string,
   metadata?: Record<string, any>
-) {
+): Promise<ProfileRow> {
   const { data, error } = await supabaseAdmin
     .from("profiles")
     .select(
@@ -39,7 +41,7 @@ export async function fetchOrCreateProfile(
     throw new Error(error.message);
   }
 
-  if (data) return data;
+  if (data) return data as DBProfileRow;
 
   if (!email) {
     throw new Error("Profile missing and email unavailable.");
@@ -81,7 +83,7 @@ export async function fetchOrCreateProfile(
       .single();
 
     if (!insertError) {
-      return inserted;
+      return inserted as DBProfileRow;
     }
 
     if (insertError.message && insertError.message.includes("profiles_handle_key")) {
