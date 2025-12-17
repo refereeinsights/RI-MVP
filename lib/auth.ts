@@ -1,19 +1,17 @@
 import { supabase } from "@/lib/supabaseClient";
+import {
+  normalizeHandle,
+  handleContainsProhibitedTerm,
+  isHandleAllowed,
+} from "./handles";
 
 export type Sport = "soccer" | "basketball" | "football";
 
-export function normalizeHandle(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 20);
-}
+export { normalizeHandle } from "./handles";
 
 export async function isHandleAvailable(handle: string): Promise<boolean> {
   const normalized = normalizeHandle(handle);
-  if (normalized.length < 3) return false;
+  if (!isHandleAllowed(normalized)) return false;
 
   const { data, error } = await supabase
     .from("profiles")
@@ -39,6 +37,9 @@ export async function signUpUser(input: {
 
   if (handle.length < 3) throw new Error("Handle must be at least 3 characters.");
   if (handle.length > 20) throw new Error("Handle must be 20 characters or less.");
+  if (handleContainsProhibitedTerm(handle)) {
+    throw new Error("Handle contains language we do not allow. Please choose another handle.");
+  }
   if (!input.sports || input.sports.length === 0) {
     throw new Error("Select at least one sport.");
   }

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabaseAdmin";
+import { normalizeHandle, handleContainsProhibitedTerm } from "./handles";
 
 export type ProfileRow = {
   user_id: string;
@@ -44,14 +45,23 @@ export async function fetchOrCreateProfile(
     throw new Error("Profile missing and email unavailable.");
   }
 
-  const baseHandle =
+  const rawHandleCandidate =
     (metadata?.handle as string | undefined)?.replace(/[^\w]+/g, "") ||
     email.split("@")[0].replace(/[^\w]+/g, "") ||
     `ref-${user_id.slice(0, 6)}`;
 
-  let attemptHandle = baseHandle.slice(0, 20) || `ref-${user_id.slice(0, 6)}`;
+  const fallbackHandle = normalizeHandle(`ref-${user_id.slice(0, 6)}`) || `ref-${user_id.slice(0, 6)}`;
+  let attemptHandle = normalizeHandle(rawHandleCandidate) || fallbackHandle;
+  if (!attemptHandle || handleContainsProhibitedTerm(attemptHandle)) {
+    attemptHandle = fallbackHandle;
+  }
 
   for (let i = 0; i < 5; i++) {
+    if (!attemptHandle || attemptHandle.length < 3 || handleContainsProhibitedTerm(attemptHandle)) {
+      attemptHandle = normalizeHandle(`${fallbackHandle}${Math.floor(Math.random() * 900 + 100)}`);
+      continue;
+    }
+
     const { data: inserted, error: insertError } = await supabaseAdmin
       .from("profiles")
       .insert([
@@ -75,9 +85,7 @@ export async function fetchOrCreateProfile(
     }
 
     if (insertError.message && insertError.message.includes("profiles_handle_key")) {
-      attemptHandle = `${baseHandle}${Math.floor(Math.random() * 900 + 100)}`
-        .replace(/[^\w]+/g, "")
-        .slice(0, 20);
+      attemptHandle = normalizeHandle(`${rawHandleCandidate}${Math.floor(Math.random() * 900 + 100)}`);
       continue;
     }
 
