@@ -1,0 +1,33 @@
+.feedbackPage {
+  width: 100%;
+  padding: 3rem 1rem 4rem;
+  display: flex;
+  justify-content: center;
+}
+
+.feedbackCard {
+  width: 100%;
+  max-width: 620px;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 2.5rem;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.feedbackCard h1 {
+  margin: 0;
+  font-size: 2rem;
+  color: #0f2a16;
+}
+
+.intro {
+  margin: 0.75rem 0 2rem;
+  color: #2d3a2f;
+}
+
+@media (max-width: 640px) {
+  .feedbackCard {
+    padding: 1.75rem;
+  }
+}

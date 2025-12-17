@@ -4,6 +4,8 @@ import AdSlot from "@/components/AdSlot";
 import ReferralCTA from "@/components/ReferralCTA";
 import RefereeWhistleBadge from "@/components/RefereeWhistleBadge";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { aggregateWhistleScoreRows, loadSeriesTournamentIds } from "@/lib/tournamentSeries";
+import type { RawWhistleScoreRow, TournamentSeriesEntry } from "@/lib/tournamentSeries";
 import type { RefereeWhistleScore } from "@/lib/types/refereeReview";
 import "./tournaments.css";
 
@@ -135,22 +137,23 @@ export default async function TournamentsPage({
   }
 
   const tournamentsData = (data ?? []) as Tournament[];
-  const whistleMap = await loadWhistleScores(
+  const seriesMap = await loadSeriesTournamentIds(
     supabase,
-    tournamentsData.map((t) => t.id)
+    tournamentsData.map((t) => ({ id: t.id, slug: t.slug }))
   );
+  const whistleMap = await loadWhistleScores(supabase, seriesMap);
   const months = monthOptions(9);
   const tournaments = reviewedOnly
     ? tournamentsData.filter((t) => (whistleMap.get(t.id)?.review_count ?? 0) > 0)
     : tournamentsData;
 
   return (
-    <main className="pitchWrap">
-      <section className="field">
+    <main className="pitchWrap tournamentsWrap">
+      <section className="field tournamentsField">
         <div className="headerBlock">
           <h1 className="title">Upcoming Tournaments</h1>
           <p className="subtitle">
-            West Coast soccer tournaments from public listings. Dates and details may change—always confirm on the official site.
+            Youth soccer, basketball and football tournaments from public listings. Dates and details may change—always confirm on the official site.
           </p>
         </div>
 
@@ -278,10 +281,16 @@ export default async function TournamentsPage({
 
 async function loadWhistleScores(
   supabase: SupabaseClient,
-  ids: string[]
+  seriesMap: Map<string, TournamentSeriesEntry>
 ): Promise<Map<string, RefereeWhistleScore>> {
   const map = new Map<string, RefereeWhistleScore>();
-  const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+  if (!seriesMap.size) return map;
+
+  const uniqueIds = Array.from(
+    new Set(
+      Array.from(seriesMap.values()).flatMap((entry) => entry.tournamentIds)
+    )
+  ).filter(Boolean);
   if (!uniqueIds.length) return map;
 
   const { data, error } = await supabase
@@ -290,8 +299,25 @@ async function loadWhistleScores(
     .in("tournament_id", uniqueIds);
 
   if (error || !data) return map;
-  for (const row of data as RefereeWhistleScore[]) {
-    map.set(row.tournament_id, row);
+
+  const rowMap = new Map<string, RawWhistleScoreRow>();
+  for (const row of data as RawWhistleScoreRow[]) {
+    rowMap.set(row.tournament_id, row);
+  }
+
+  for (const [canonicalId, entry] of seriesMap.entries()) {
+    const rows = entry.tournamentIds
+      .map((id) => rowMap.get(id))
+      .filter((row): row is RawWhistleScoreRow => Boolean(row));
+    const aggregated = aggregateWhistleScoreRows(rows);
+    map.set(canonicalId, {
+      tournament_id: canonicalId,
+      ai_score: aggregated.ai_score,
+      review_count: aggregated.review_count ?? 0,
+      summary: aggregated.summary,
+      status: aggregated.status,
+      updated_at: null,
+    });
   }
   return map;
 }

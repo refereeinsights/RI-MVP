@@ -61,6 +61,17 @@ Use `tsx scripts/ingest-csv.ts [options] <path-to-csv>` to push tournament rows 
 - Run with `--dry-run` first to validate rows without writing: `tsx scripts/ingest-csv.ts --dry-run --source=us_club_soccer ./path/to/file.csv`.
 - Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in your environment before running without `--dry-run`.
 
+## Tournament series aggregation
+
+Many tournaments repeat yearly. The UI now groups “series” together so a 2026 event inherits the whistle score and recent reviews from 2025, 2024, etc. To opt into this behavior:
+
+- Slug pattern: give the canonical event a slug plus year suffix, e.g. `jr-hardwood-invite-2025`, `jr-hardwood-invite-2026`. The helper in `lib/tournamentSeries.ts` trims a trailing `-YYYY` to find the series slug.
+- Canonical rows: keep importing new years as separate rows (`is_canonical = true` only on the current year). As long as the slug follows the `base-YYYY` pattern the new row is automatically associated with prior years.
+- Retroactive data: if an older row did not include a year suffix you can manually update its slug or create a duplicate row with the correct naming. The aggregation query fetches both exact matches and `slug` values that start with `base-`.
+- Whistle metrics: `aggregateWhistleScoreRows` weights AI scores by review count across every tournament ID in the series. Referee review lists also pull the latest 10 submissions from all years, so referees can see historical context immediately.
+
+If you ever need to break a tournament out of a series, just change its slug to a unique base that does not share the same prefix.
+
 ## Referee review schema
 
 The new referee review UI expects the following database objects:
@@ -93,6 +104,17 @@ We use `@sentry/nextjs` for automatic error reporting. Configure these env vars 
 - Optional: `SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_REPLAYS_SESSION_SAMPLE_RATE`, `SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE`
 
 If no DSN is provided, Sentry stays disabled locally.
+
+## Feedback intake (Google Sheets)
+
+The public `/feedback` page posts to `/api/feedback`, which appends rows into a Google Sheet using a service account. Required environment variables:
+
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` (replace literal `\n` with actual newlines)
+- `GOOGLE_SHEETS_SPREADSHEET_ID`
+- `GOOGLE_SHEETS_TAB_NAME` (optional, defaults to `feedback`)
+
+One-time setup: run `npx tsx scripts/createFeedbackSheet.ts` to create a spreadsheet titled “RI MVP Feedback” with the correct header row. The script prints the spreadsheet ID—save it to `GOOGLE_SHEETS_SPREADSHEET_ID`.
 
 ## Handle moderation
 

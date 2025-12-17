@@ -9,6 +9,8 @@ import RefereeReviewForm from "@/components/RefereeReviewForm";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { userIsVerifiedReferee } from "@/lib/refereeVerification";
+import { aggregateWhistleScoreRows, loadSeriesTournamentIds } from "@/lib/tournamentSeries";
+import type { RawWhistleScoreRow } from "@/lib/tournamentSeries";
 import type { RefereeReviewPublic, RefereeWhistleScore } from "@/lib/types/refereeReview";
 import "../tournaments.css";
 
@@ -34,6 +36,12 @@ function sportIcon(sport: string | null) {
   }
 }
 
+function detailPanelVariant(sport: string | null) {
+  const normalized = (sport ?? "").toLowerCase();
+  if (normalized === "basketball") return "detailPanel detailPanel--basketball";
+  return "detailPanel detailPanel--grass";
+}
+
 function formatWhistleAverage(score: number | null) {
   if (score === null || Number.isNaN(score)) return null;
   const whistles = Math.round((score / 20) * 10) / 10; // convert percentage to 1-5 scale
@@ -53,7 +61,7 @@ export default async function TournamentDetailPage({
 
   const { data, error } = await supabase
     .from("tournaments")
-    .select("id,name,city,state,start_date,end_date,summary,source_url,level,venue,address,sport")
+    .select("id,slug,name,city,state,start_date,end_date,summary,source_url,level,venue,address,sport")
     .eq("slug", params.slug)
     .single();
 
@@ -73,8 +81,12 @@ export default async function TournamentDetailPage({
     );
   }
 
-  const whistleScore = await loadWhistleScore(supabase, data.id);
-  const reviews = await loadPublicReviews(supabase, data.id);
+  const seriesMap = await loadSeriesTournamentIds(supabase, [{ id: data.id, slug: data.slug }]);
+  const seriesEntry = seriesMap.get(data.id);
+  const relatedTournamentIds = seriesEntry?.tournamentIds ?? [data.id];
+
+  const whistleScore = await loadWhistleScore(supabase, relatedTournamentIds);
+  const reviews = await loadPublicReviews(supabase, relatedTournamentIds);
 
   let canSubmitReview = false;
   let disabledMessage: string | null = "Sign in to submit a referee review.";
@@ -90,15 +102,15 @@ export default async function TournamentDetailPage({
   }
 
   return (
-    <main className="pitchWrap">
-      <section className="field">
+    <main className="pitchWrap tournamentsWrap">
+      <section className="field tournamentsField detailField">
         <div className="breadcrumbs">
           <Link href="/tournaments">Tournaments</Link>
           <span>›</span>
           <span>{data.name}</span>
         </div>
 
-        <div className="detailPanel">
+        <div className={detailPanelVariant(data.sport)}>
           <h1 className="detailTitle">{data.name}</h1>
 
           <p className="detailMeta">
@@ -213,22 +225,52 @@ export default async function TournamentDetailPage({
   );
 }
 
-async function loadWhistleScore(supabase: SupabaseClient, id: string) {
+async function loadWhistleScore(
+  supabase: SupabaseClient,
+  ids: string[]
+): Promise<RefereeWhistleScore> {
+  const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+  const anchorId = uniqueIds[0] ?? "";
+  if (!uniqueIds.length) {
+    return {
+      tournament_id: anchorId,
+      ai_score: null,
+      review_count: 0,
+      summary: null,
+      status: "clear",
+      updated_at: null,
+    };
+  }
+
   const { data } = await supabase
     .from("tournament_referee_scores")
     .select("tournament_id,ai_score,review_count,summary,status,updated_at")
-    .eq("tournament_id", id)
-    .maybeSingle();
-  return (data ?? null) as RefereeWhistleScore | null;
+    .in("tournament_id", uniqueIds);
+
+  const aggregated = aggregateWhistleScoreRows((data ?? []) as RawWhistleScoreRow[]);
+  return {
+    tournament_id: anchorId,
+    ai_score: aggregated.ai_score,
+    review_count: aggregated.review_count ?? 0,
+    summary: aggregated.summary,
+    status: aggregated.status,
+    updated_at: null,
+  };
 }
 
-async function loadPublicReviews(supabase: SupabaseClient, id: string) {
+async function loadPublicReviews(
+  supabase: SupabaseClient,
+  ids: string[]
+): Promise<RefereeReviewPublic[]> {
+  const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+  if (!uniqueIds.length) return [];
+
   const { data } = await supabase
     .from("tournament_referee_reviews_public")
     .select(
       "id,tournament_id,created_at,reviewer_handle,reviewer_level,worked_games,overall_score,logistics_score,facilities_score,pay_score,support_score,shift_detail"
     )
-    .eq("tournament_id", id)
+    .in("tournament_id", uniqueIds)
     .order("created_at", { ascending: false })
     .limit(10);
 

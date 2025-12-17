@@ -173,6 +173,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <a href="/disclaimer" style={{ textDecoration: "none", color: "inherit" }}>
               Review &amp; Content Disclaimer
             </a>
+            <a href="/feedback" style={{ textDecoration: "none", color: "inherit" }}>
+              Feedback
+            </a>
           </div>
           <p style={{ margin: 0 }}>
             By using Referee Insights, you agree to our Terms and Privacy Policy.
