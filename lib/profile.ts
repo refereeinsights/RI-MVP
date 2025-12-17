@@ -100,11 +100,13 @@ export async function fetchUserBadges(user_id: string) {
     status: row.status,
     awarded_at: row.awarded_at,
     badges: row.badges
-      ? {
-          id: row.badges.id,
-          code: row.badges.code ?? null,
-          label: row.badges.label ?? null,
-        }
+      ? Array.isArray(row.badges)
+        ? row.badges[0] ?? null
+        : {
+            id: row.badges.id,
+            code: row.badges.code ?? null,
+            label: row.badges.label ?? null,
+          }
       : null,
   }));
 }
