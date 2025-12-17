@@ -34,6 +34,13 @@ function sportIcon(sport: string | null) {
   }
 }
 
+function formatWhistleAverage(score: number | null) {
+  if (score === null || Number.isNaN(score)) return null;
+  const whistles = Math.round((score / 20) * 10) / 10; // convert percentage to 1-5 scale
+  if (!Number.isFinite(whistles)) return null;
+  return whistles % 1 === 0 ? whistles.toFixed(0) : whistles.toFixed(1);
+}
+
 export default async function TournamentDetailPage({
   params,
 }: {
@@ -136,15 +143,33 @@ export default async function TournamentDetailPage({
               />
             </div>
 
-            <p className="refereeInsights__summary">
-              {whistleScore?.summary ||
-                "Referee whistle scores appear once verified officials report back from their assignments."}
-              {whistleScore?.status === "needs_moderation" && (
-                <strong style={{ marginLeft: "0.4rem", color: "#c62828" }}>
-                  This tournament is currently under moderator review.
-                </strong>
-              )}
-            </p>
+            {(() => {
+              const averageWhistle =
+                whistleScore?.ai_score != null ? formatWhistleAverage(whistleScore.ai_score) : null;
+              const reviewCount = whistleScore?.review_count ?? 0;
+              const averageText =
+                averageWhistle && reviewCount > 0
+                  ? `Refs rate this ${averageWhistle} whistle${averageWhistle === "1" ? "" : "s"} across ${reviewCount} review${
+                      reviewCount === 1 ? "" : "s"
+                    }.`
+                  : null;
+
+              const summaryText =
+                averageText ||
+                whistleScore?.summary ||
+                "Referee whistle scores appear once verified officials report back from their assignments.";
+
+              return (
+                <p className="refereeInsights__summary">
+                  {summaryText}
+                  {whistleScore?.status === "needs_moderation" && (
+                    <strong style={{ marginLeft: "0.4rem", color: "#c62828" }}>
+                      This tournament is currently under moderator review.
+                    </strong>
+                  )}
+                </p>
+              );
+            })()}
 
             <div className="refereeInsights__layout">
               <div className="refereeInsights__column">
@@ -175,7 +200,7 @@ export default async function TournamentDetailPage({
           </div>
 
           <div className="actions">
-            <a className="btn" href={data.source_url} target="_blank" rel="noreferrer">
+            <a className="btn" href={data.source_url} target="_blank" rel="noopener noreferrer">
               Visit official site
             </a>
             <Link className="btn" href="/tournaments">
@@ -218,60 +243,64 @@ async function loadPublicReviews(supabase: SupabaseClient, id: string) {
   }));
 }
 
-const fetchReviewerBadgeCodes = unstable_cache(
-  async (handlesInput: string[]) => {
-    const handles = Array.from(new Set(handlesInput.filter(Boolean)));
-    if (!handles.length) return {} as Record<string, string[]>;
+async function fetchReviewerBadgeCodes(handlesInput: string[]) {
+  const handles = Array.from(new Set(handlesInput.filter(Boolean)));
+  if (!handles.length) return {} as Record<string, string[]>;
 
-    const { data: profileRows, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("user_id,handle")
-      .in("handle", handles);
+  const load = unstable_cache(
+    async () => {
+      const { data: profileRows, error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .select("user_id,handle")
+        .in("handle", handles);
 
-    if (profileError) {
-      console.error("Failed to load reviewer profiles for badges", profileError);
-      return {};
-    }
-
-    const handleToUser = new Map<string, string>();
-    (profileRows ?? []).forEach((row: any) => {
-      if (row?.handle && row?.user_id) {
-        handleToUser.set(row.handle, row.user_id);
+      if (profileError) {
+        console.error("Failed to load reviewer profiles for badges", profileError);
+        return {};
       }
-    });
 
-    const userIds = Array.from(new Set(Array.from(handleToUser.values()).filter(Boolean)));
-    if (!userIds.length) return {};
+      const handleToUser = new Map<string, string>();
+      (profileRows ?? []).forEach((row: any) => {
+        if (row?.handle && row?.user_id) {
+          handleToUser.set(row.handle, row.user_id);
+        }
+      });
 
-    const { data: badgeRows, error: badgeError } = await supabaseAdmin
-      .from("user_badges")
-      .select("user_id,badges(code)")
-      .in("user_id", userIds);
+      const userIds = Array.from(new Set(Array.from(handleToUser.values()).filter(Boolean)));
+      if (!userIds.length) return {};
 
-    if (badgeError) {
-      console.error("Failed to load reviewer badges", badgeError);
-      return {};
-    }
+      const { data: badgeRows, error: badgeError } = await supabaseAdmin
+        .from("user_badges")
+        .select("user_id,badges(code)")
+        .in("user_id", userIds);
 
-    const userBadgeMap = new Map<string, string[]>();
-    (badgeRows ?? []).forEach((row: any) => {
-      if (!row?.user_id) return;
-      const existing = userBadgeMap.get(row.user_id) ?? [];
-      const codes: string[] = Array.isArray(row.badges)
-        ? row.badges.map((b: any) => b?.code).filter(Boolean)
-        : row.badges?.code
-        ? [row.badges.code]
-        : [];
-      userBadgeMap.set(row.user_id, Array.from(new Set([...existing, ...codes])));
-    });
+      if (badgeError) {
+        console.error("Failed to load reviewer badges", badgeError);
+        return {};
+      }
 
-    const result: Record<string, string[]> = {};
-    for (const [handle, userId] of handleToUser.entries()) {
-      result[handle] = userId ? userBadgeMap.get(userId) ?? [] : [];
-    }
+      const userBadgeMap = new Map<string, string[]>();
+      (badgeRows ?? []).forEach((row: any) => {
+        if (!row?.user_id) return;
+        const existing = userBadgeMap.get(row.user_id) ?? [];
+        const codes: string[] = Array.isArray(row.badges)
+          ? row.badges.map((b: any) => b?.code).filter(Boolean)
+          : row.badges?.code
+          ? [row.badges.code]
+          : [];
+        userBadgeMap.set(row.user_id, Array.from(new Set([...existing, ...codes])));
+      });
 
-    return result;
-  },
-  ["reviewer-badge-codes"],
-  { revalidate: 60 * 60 * 24 * 7 }
-);
+      const result: Record<string, string[]> = {};
+      for (const [handle, userId] of handleToUser.entries()) {
+        result[handle] = userId ? userBadgeMap.get(userId) ?? [] : [];
+      }
+
+      return result;
+    },
+    ["reviewer-badge-codes", ...handles.sort()],
+    { revalidate: 60 * 60 * 24 * 7 }
+  );
+
+  return load();
+}

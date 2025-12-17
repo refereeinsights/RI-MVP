@@ -20,6 +20,12 @@ function toneFromScore(
   return "red";
 }
 
+function formatWhistles(score: number | null) {
+  if (score === null || Number.isNaN(score)) return null;
+  const whistles = Math.round((score / 20) * 10) / 10;
+  return whistles % 1 === 0 ? whistles.toFixed(0) : whistles.toFixed(1);
+}
+
 export default function RefereeWhistleBadge({
   score,
   reviewCount = 0,
@@ -30,12 +36,13 @@ export default function RefereeWhistleBadge({
 }: Props) {
   const tone = toneFromScore(score, status);
   const awaiting = score === null || Number.isNaN(score);
-  const label = awaiting ? "Not reviewed" : `${Math.round(score)}%`;
+  const whistles = formatWhistles(score);
+  const label = awaiting || !whistles ? "Not reviewed" : `${whistles} whistle${Number(whistles) === 1 ? "" : "s"}`;
   const tooltip = summary
     ? `${label} • ${summary}`
     : awaiting
     ? "No referee reviews yet"
-    : `${label} whistle score from referees`;
+    : `${label} from referees`;
 
   return (
     <div
@@ -59,9 +66,7 @@ export default function RefereeWhistleBadge({
         </svg>
       </div>
       <div className="whistleBadge__meta">
-        <div className={`whistleBadge__score ${awaiting ? "whistleBadge__score--wide" : ""}`}>
-          {label}
-        </div>
+        <div className={`whistleBadge__score ${awaiting ? "whistleBadge__score--wide" : ""}`}>{label}</div>
         {showLabel && (
           <div className="whistleBadge__label">
             {status === "needs_moderation" ? "Under review" : "Referee score"}

@@ -15,6 +15,29 @@ function formatDate(iso: string) {
   });
 }
 
+function clampScore(score: number | null | undefined) {
+  const value = Number(score);
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(5, Math.max(1, Math.round(value)));
+}
+
+function WhistleScale({ score, size }: { score: number; size?: "small" | "large" }) {
+  const filled = clampScore(score);
+  return (
+    <span
+      className={`whistleScale whistleScale--${size ?? "small"}`}
+      aria-label={`${filled} out of 5 whistles`}
+    >
+      {Array.from({ length: 5 }).map((_, index) => (
+        <span
+          key={index}
+          className={`whistleScale__icon ${index < filled ? "whistleScale__icon--filled" : ""}`}
+        />
+      ))}
+    </span>
+  );
+}
+
 export default function RefereeReviewList({ reviews }: Props) {
   if (!reviews.length) {
     return (
@@ -51,22 +74,25 @@ export default function RefereeReviewList({ reviews }: Props) {
                 {review.reviewer_level ? ` • ${review.reviewer_level}` : ""}
               </div>
             </div>
-            <div className="reviewCard__overall">{Math.round(review.overall_score)}%</div>
+            <div className="reviewCard__overall">
+              <WhistleScale score={review.overall_score} size="large" />
+            </div>
           </header>
 
           <dl className="reviewCard__scores">
-            <div>
-              <dt>Logistics</dt>
-              <dd>{Math.round(review.logistics_score)}%</dd>
-            </div>
-            <div>
-              <dt>Facilities</dt>
-              <dd>{Math.round(review.facilities_score)}%</dd>
-            </div>
-            <div>
-              <dt>Pay &amp; Support</dt>
-              <dd>{Math.round((review.pay_score + review.support_score) / 2)}%</dd>
-            </div>
+            {[
+              { label: "Logistics", value: review.logistics_score },
+              { label: "Facilities", value: review.facilities_score },
+              { label: "Pay", value: review.pay_score },
+              { label: "Support", value: review.support_score },
+            ].map((item) => (
+              <div key={item.label}>
+                <dt>{item.label}</dt>
+                <dd>
+                  <WhistleScale score={item.value} />
+                </dd>
+              </div>
+            ))}
           </dl>
 
           {review.shift_detail && (

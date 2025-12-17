@@ -902,12 +902,12 @@ export default async function AdminPage({
                       </div>
                     </div>
                     <div style={{ minWidth: 180, fontSize: 13, color: "#333" }}>
-                      <strong>Scores</strong>
-                      <div>Overall: {review.overall_score}</div>
-                      <div>Logistics: {review.logistics_score}</div>
-                      <div>Facilities: {review.facilities_score}</div>
-                      <div>Pay: {review.pay_score}</div>
-                      <div>Support: {review.support_score}</div>
+                      <strong>Scores (1-5)</strong>
+                      <div>Overall: {review.overall_score} / 5</div>
+                      <div>Logistics: {review.logistics_score} / 5</div>
+                      <div>Facilities: {review.facilities_score} / 5</div>
+                      <div>Pay: {review.pay_score} / 5</div>
+                      <div>Support: {review.support_score} / 5</div>
                       <div>Worked games: {review.worked_games ?? "—"}</div>
                     </div>
                   </div>
@@ -951,9 +951,9 @@ export default async function AdminPage({
                             type="number"
                             name="overall_score"
                             defaultValue={review.overall_score}
-                            min={0}
-                            max={100}
-                            step={5}
+                            min={1}
+                            max={5}
+                            step={1}
                             style={{
                               width: "100%",
                               padding: 8,
@@ -968,9 +968,9 @@ export default async function AdminPage({
                             type="number"
                             name="logistics_score"
                             defaultValue={review.logistics_score}
-                            min={0}
-                            max={100}
-                            step={5}
+                            min={1}
+                            max={5}
+                            step={1}
                             style={{
                               width: "100%",
                               padding: 8,
@@ -985,9 +985,9 @@ export default async function AdminPage({
                             type="number"
                             name="facilities_score"
                             defaultValue={review.facilities_score}
-                            min={0}
-                            max={100}
-                            step={5}
+                            min={1}
+                            max={5}
+                            step={1}
                             style={{
                               width: "100%",
                               padding: 8,
@@ -1002,9 +1002,9 @@ export default async function AdminPage({
                             type="number"
                             name="pay_score"
                             defaultValue={review.pay_score}
-                            min={0}
-                            max={100}
-                            step={5}
+                            min={1}
+                            max={5}
+                            step={1}
                             style={{
                               width: "100%",
                               padding: 8,
@@ -1019,9 +1019,9 @@ export default async function AdminPage({
                             type="number"
                             name="support_score"
                             defaultValue={review.support_score}
-                            min={0}
-                            max={100}
-                            step={5}
+                            min={1}
+                            max={5}
+                            step={1}
                             style={{
                               width: "100%",
                               padding: 8,

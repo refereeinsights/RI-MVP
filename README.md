@@ -71,6 +71,8 @@ The new referee review UI expects the following database objects:
 4. `tournament_referee_scores` materialized table/view storing one row per tournament with: `tournament_id`, `ai_score numeric`, `review_count integer`, `summary text`, `status text default 'clear'`, `updated_at timestamptz`. Grant read access to the anon role.
 5. A cron/Edge Function that (a) ingests new referee reviews, (b) recomputes the whistle score (simple weighted average, or call your moderation/LLM pipeline), (c) sets `status = 'needs_moderation'` when the computed score < 50 or when abuse filters trip, and (d) writes a short `summary`.
 
+All score fields are stored as integers from 1–5 (number of “whistles”). Convert legacy percentage data before surfacing it in the UI.
+
 Whenever `tournament_referee_reviews` changes you should also enqueue your “AI whistle score” worker so the badge/summary stays current.
 
 ## Low-score alert emails
@@ -81,7 +83,7 @@ Set the following environment variables to enable automatic admin alerts wheneve
 - `REVIEW_ALERT_EMAILS`: Comma-separated list of admin email addresses that should receive the alert.
 - `REVIEW_ALERT_FROM` (optional): Custom “from” value if you don’t want the default `Referee Insights <refereeinsights@gmail.com>`.
 
-Without these variables the alert request is skipped but the referee review submission still succeeds.
+Without these variables the alert request is skipped but the referee review submission still succeeds. Alerts fire when any whistle rating is below 3 (≤2 out of 5).
 
 ## Handle moderation
 

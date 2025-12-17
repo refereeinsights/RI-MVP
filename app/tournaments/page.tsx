@@ -254,7 +254,7 @@ export default async function TournamentsPage({
 
               <div className="actions">
                 <Link className="btn" href={`/tournaments/${t.slug}`}>View details</Link>
-                <a className="btn" href={t.source_url} target="_blank" rel="noreferrer">Official site</a>
+                <a className="btn" href={t.source_url} target="_blank" rel="noopener noreferrer">Official site</a>
               </div>
 
               <div className="sportIcon" aria-label={t.sport ?? "tournament sport"}>

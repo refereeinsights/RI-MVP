@@ -54,9 +54,9 @@ export async function POST(request: Request) {
   const scores: Record<string, number> = {};
   for (const field of NUMBER_FIELDS) {
     const value = Number(body[field]);
-    if (!Number.isFinite(value) || value < 0 || value > 100) {
+    if (!Number.isFinite(value) || value < 1 || value > 5) {
       return NextResponse.json(
-        { error: `Field ${field} must be between 0 and 100.` },
+        { error: `Field ${field} must be between 1 and 5.` },
         { status: 400 }
       );
     }
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   }
 
   const minScore = Math.min(...Object.values(scores));
-  if (Number.isFinite(minScore) && minScore < 50) {
+  if (Number.isFinite(minScore) && minScore < 3) {
     const { data: reviewerProfile } = await supabase
       .from("profiles")
       .select("handle")
