@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 const FEEDBACK_TYPES = [
   "Bug",
@@ -17,7 +18,6 @@ export default function FeedbackForm() {
   const [userAgent, setUserAgent] = useState("");
   const [status, setStatus] = useState<SubmitState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [debugDetails, setDebugDetails] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -42,7 +42,6 @@ export default function FeedbackForm() {
 
     setStatus("submitting");
     setErrorMessage(null);
-    setDebugDetails(null);
 
     try {
       const res = await fetch("/api/feedback", {
@@ -55,25 +54,28 @@ export default function FeedbackForm() {
       try {
         json = rawText ? JSON.parse(rawText) : null;
       } catch {
-        // keep json null; expose in debug block below
+        // ignore JSON parse errors; we'll report below via Sentry
       }
       if (!res.ok || !json?.ok) {
-        setDebugDetails(
-          JSON.stringify(
-            {
-              status: res.status,
-              statusText: res.statusText,
-              body: rawText?.slice(0, 2000) ?? "",
-            },
-            null,
-            2
-          )
-        );
+        Sentry.captureMessage("Feedback submission failed", {
+          level: "error",
+          extra: {
+            status: res.status,
+            statusText: res.statusText,
+            responseBody: rawText?.slice(0, 2000) ?? "",
+          },
+        });
         throw new Error(json?.error ?? `Unable to send feedback (HTTP ${res.status}).`);
       }
       setStatus("success");
       formElement?.reset();
     } catch (error: any) {
+      Sentry.captureException(error, {
+        extra: {
+          type: payload.type,
+          page_url: payload.page_url,
+        },
+      });
       setStatus("error");
       setErrorMessage(error?.message ?? "Something went wrong. Please try again.");
     }
@@ -118,12 +120,7 @@ export default function FeedbackForm() {
         <input type="hidden" name="user_agent" value={userAgent} />
 
         {status === "error" && errorMessage && (
-          <>
-            <p className="errorMessage">{errorMessage}</p>
-            {debugDetails && (
-              <pre className="debugBlock">{debugDetails}</pre>
-            )}
-          </>
+          <p className="errorMessage">{errorMessage}</p>
         )}
 
         <button type="submit" disabled={status === "submitting"}>
@@ -188,15 +185,6 @@ export default function FeedbackForm() {
           color: #b00020;
           font-weight: 600;
           margin: 0;
-        }
-        .debugBlock {
-          background: #1f1f1f;
-          color: #e5e5e5;
-          font-size: 0.8rem;
-          padding: 0.75rem;
-          border-radius: 8px;
-          overflow-x: auto;
-          max-height: 220px;
         }
       `}</style>
     </>
