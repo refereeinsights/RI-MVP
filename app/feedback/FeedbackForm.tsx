@@ -30,7 +30,8 @@ export default function FeedbackForm() {
     event.preventDefault();
     if (status === "submitting") return;
 
-    const formData = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const formData = new FormData(formElement);
     const payload = {
       type: formData.get("type"),
       message: formData.get("message"),
@@ -71,7 +72,7 @@ export default function FeedbackForm() {
         throw new Error(json?.error ?? `Unable to send feedback (HTTP ${res.status}).`);
       }
       setStatus("success");
-      (event.currentTarget as HTMLFormElement).reset();
+      formElement?.reset();
     } catch (error: any) {
       setStatus("error");
       setErrorMessage(error?.message ?? "Something went wrong. Please try again.");
