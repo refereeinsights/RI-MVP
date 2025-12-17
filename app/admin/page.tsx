@@ -19,10 +19,27 @@ import {
   adminListSchoolReviews,
   adminUpdateSchoolReview,
   adminDeleteSchoolReview,
+  adminListTournamentContacts,
+  adminCreateTournamentContact,
+  adminUpdateTournamentContact,
+  adminDeleteTournamentContact,
+  adminListRefereeContacts,
+  adminCreateRefereeContact,
+  adminUpdateRefereeContact,
+  adminDeleteRefereeContact,
+  adminFindTournamentIdBySlug,
   type ReviewStatus,
+  type ContactStatus,
 } from "@/lib/admin";
 
-type Tab = "users" | "verification" | "badges" | "reviews" | "school-reviews";
+type Tab =
+  | "users"
+  | "verification"
+  | "badges"
+  | "reviews"
+  | "school-reviews"
+  | "tournament-contacts"
+  | "referee-contacts";
 type VStatus = "pending" | "approved" | "rejected";
 const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
 
@@ -46,6 +63,7 @@ export default async function AdminPage({
     q?: string;
     vstatus?: VStatus;
     rstatus?: ReviewStatus;
+    cstatus?: ContactStatus;
     notice?: string;
   };
 }) {
@@ -55,6 +73,7 @@ export default async function AdminPage({
   const q = searchParams.q ?? "";
   const vstatus: VStatus = (searchParams.vstatus as VStatus) ?? "pending";
   const reviewStatus: ReviewStatus = (searchParams.rstatus as ReviewStatus) ?? "pending";
+  const contactStatus: ContactStatus = (searchParams.cstatus as ContactStatus) ?? "pending";
   const notice = searchParams.notice ?? "";
 
   const params = new URLSearchParams();
@@ -62,8 +81,11 @@ export default async function AdminPage({
   if (tab === "verification") {
     params.set("vstatus", vstatus);
   }
-  if (tab === "reviews") {
+  if (tab === "reviews" || tab === "school-reviews") {
     params.set("rstatus", reviewStatus);
+  }
+  if (tab === "tournament-contacts") {
+    params.set("cstatus", contactStatus);
   }
   if (q) {
     params.set("q", q);
@@ -82,6 +104,10 @@ export default async function AdminPage({
     tab === "reviews" ? await adminListTournamentReviews(reviewStatus) : [];
   const schoolReviewSubmissions =
     tab === "school-reviews" ? await adminListSchoolReviews(reviewStatus) : [];
+  const tournamentContacts =
+    tab === "tournament-contacts" ? await adminListTournamentContacts(contactStatus) : [];
+  const refereeContacts =
+    tab === "referee-contacts" ? await adminListRefereeContacts() : [];
 
   async function updateUser(formData: FormData) {
     "use server";
@@ -296,6 +322,127 @@ export default async function AdminPage({
     redirectWithNotice(redirectTo, "Review deleted");
   }
 
+  async function createTournamentContactAction(formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to");
+    const typeInput = String(formData.get("contact_type") || "general").toLowerCase();
+    const allowedTypes = ["assignor", "director", "general"];
+    const statusInput = String(formData.get("status") || "pending").toLowerCase();
+    const allowedStatuses: ContactStatus[] = ["pending", "verified", "rejected"];
+    const tournamentIdInput = String(formData.get("tournament_id") || "").trim();
+    const tournamentSlug = String(formData.get("tournament_slug") || "").trim();
+
+    let tournament_id = tournamentIdInput || null;
+    if (!tournament_id && tournamentSlug) {
+      tournament_id = await adminFindTournamentIdBySlug(tournamentSlug);
+    }
+
+    await adminCreateTournamentContact({
+      tournament_id,
+      type: allowedTypes.includes(typeInput) ? (typeInput as any) : "general",
+      status: allowedStatuses.includes(statusInput as ContactStatus)
+        ? (statusInput as ContactStatus)
+        : "pending",
+      name: (formData.get("name") as string) || null,
+      email: (formData.get("email") as string) || null,
+      phone: (formData.get("phone") as string) || null,
+      source_url: (formData.get("source_url") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+      confidence: formData.get("confidence")
+        ? Number(formData.get("confidence"))
+        : null,
+    });
+
+    redirectWithNotice(redirectTo, "Tournament contact added");
+  }
+
+  async function updateTournamentContactAction(formData: FormData) {
+    "use server";
+    const id = String(formData.get("contact_id") || "");
+    if (!id) return;
+    const redirectTo = formData.get("redirect_to");
+    const statusInput = String(formData.get("status") || "").toLowerCase();
+    const allowedStatuses: ContactStatus[] = ["pending", "verified", "rejected"];
+
+    const updates: any = {};
+    if (allowedStatuses.includes(statusInput as ContactStatus)) {
+      updates.status = statusInput;
+    }
+    const confidenceRaw = formData.get("confidence");
+    if (confidenceRaw && confidenceRaw !== "") {
+      const value = Number(confidenceRaw);
+      if (Number.isFinite(value)) updates.confidence = value;
+    }
+    const notes = String(formData.get("notes") || "").trim();
+    updates.notes = notes || null;
+
+    await adminUpdateTournamentContact(id, updates);
+    redirectWithNotice(redirectTo, "Tournament contact updated");
+  }
+
+  async function deleteTournamentContactAction(formData: FormData) {
+    "use server";
+    const id = String(formData.get("contact_id") || "");
+    if (!id) return;
+    const redirectTo = formData.get("redirect_to");
+    await adminDeleteTournamentContact(id);
+    redirectWithNotice(redirectTo, "Tournament contact deleted");
+  }
+
+  async function createRefereeContactAction(formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to");
+    await adminCreateRefereeContact({
+      name: (formData.get("name") as string) || null,
+      organization: (formData.get("organization") as string) || null,
+      role: (formData.get("role") as string) || null,
+      email: (formData.get("email") as string) || null,
+      phone: (formData.get("phone") as string) || null,
+      state: (formData.get("state") as string) || null,
+      city: (formData.get("city") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+      source_url: (formData.get("source_url") as string) || null,
+    });
+    redirectWithNotice(redirectTo, "Referee contact added");
+  }
+
+  async function updateRefereeContactAction(formData: FormData) {
+    "use server";
+    const id = String(formData.get("contact_id") || "");
+    if (!id) return;
+    const redirectTo = formData.get("redirect_to");
+
+    const updates: any = {};
+    ["name", "organization", "role", "email", "phone", "state", "city"].forEach((field) => {
+      if (formData.has(field)) {
+        const value = String(formData.get(field) || "").trim();
+        updates[field] = value || null;
+      }
+    });
+
+    if (formData.has("notes")) {
+      const notes = String(formData.get("notes") || "").trim();
+      updates.notes = notes || null;
+    }
+
+    if (formData.has("source_url")) {
+      const url = String(formData.get("source_url") || "").trim();
+      updates.source_url = url || null;
+    }
+
+    await adminUpdateRefereeContact(id, updates);
+    redirectWithNotice(redirectTo, "Referee contact updated");
+  }
+
+  async function deleteRefereeContactAction(formData: FormData) {
+    "use server";
+    const id = String(formData.get("contact_id") || "");
+    if (!id) return;
+    const redirectTo = formData.get("redirect_to");
+    await adminDeleteRefereeContact(id);
+    redirectWithNotice(redirectTo, "Referee contact deleted");
+  }
+
   const tabLink = (t: Tab) => {
     const sp = new URLSearchParams();
     sp.set("tab", t);
@@ -304,6 +451,9 @@ export default async function AdminPage({
     }
     if (t === "reviews" || t === "school-reviews") {
       sp.set("rstatus", reviewStatus);
+    }
+    if (t === "tournament-contacts") {
+      sp.set("cstatus", contactStatus);
     }
     if (q) {
       sp.set("q", q);
@@ -314,6 +464,8 @@ export default async function AdminPage({
   const vLink = (s: VStatus) => `/admin?tab=verification&vstatus=${s}`;
   const reviewLink = (s: ReviewStatus) => `/admin?tab=reviews&rstatus=${s}`;
   const schoolReviewLink = (s: ReviewStatus) => `/admin?tab=school-reviews&rstatus=${s}`;
+  const tournamentContactLink = (s: ContactStatus) =>
+    `/admin?tab=tournament-contacts&cstatus=${s}`;
 
   const TabButton = ({ t, label }: { t: Tab; label: string }) => (
     <a
@@ -393,6 +545,8 @@ export default async function AdminPage({
         <TabButton t="badges" label="Badges" />
         <TabButton t="reviews" label="Tournament reviews" />
         <TabButton t="school-reviews" label="School reviews" />
+        <TabButton t="tournament-contacts" label="Tournament contacts" />
+        <TabButton t="referee-contacts" label="Referee contacts" />
       </div>
 
       {/* VERIFICATION TAB */}
@@ -581,6 +735,455 @@ export default async function AdminPage({
                   <div style={{ marginTop: 10, color: "#555", fontSize: 12 }}>
                     Approving awards <strong>Verified Referee</strong> via your DB trigger.
                   </div>
+                </div>
+              ))
+            )}
+          </div>
+      </section>
+    )}
+
+      {/* TOURNAMENT CONTACTS */}
+      {tab === "tournament-contacts" && (
+        <section style={{ marginBottom: 22 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 10,
+            }}
+          >
+            <h2 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>Tournament contacts</h2>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {(["pending", "verified", "rejected"] as ContactStatus[]).map((status) => (
+                <a
+                  key={status}
+                  href={tournamentContactLink(status)}
+                  style={{
+                    padding: "8px 10px",
+                    borderRadius: 999,
+                    border: "1px solid #111",
+                    background: contactStatus === status ? "#111" : "#fff",
+                    color: contactStatus === status ? "#fff" : "#111",
+                    fontWeight: 900,
+                    textDecoration: "none",
+                    fontSize: 13,
+                  }}
+                >
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginTop: 10, color: "#555", fontSize: 13 }}>
+            Showing: <strong>{contactStatus}</strong> ({tournamentContacts.length})
+          </div>
+
+          <div
+            style={{
+              marginTop: 16,
+              padding: 16,
+              borderRadius: 12,
+              border: "1px solid #ddd",
+              background: "#fff",
+            }}
+          >
+            <h3 style={{ marginTop: 0, fontSize: 16 }}>Add tournament contact</h3>
+            <form action={createTournamentContactAction} style={{ display: "grid", gap: 12 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Tournament ID
+                  <input
+                    type="text"
+                    name="tournament_id"
+                    placeholder="Optional UUID"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Tournament slug
+                  <input
+                    type="text"
+                    name="tournament_slug"
+                    placeholder="Used if ID omitted"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Contact type
+                  <select
+                    name="contact_type"
+                    defaultValue="assignor"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  >
+                    <option value="assignor">Assignor</option>
+                    <option value="director">Director</option>
+                    <option value="general">General</option>
+                  </select>
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Status
+                  <select
+                    name="status"
+                    defaultValue="pending"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="verified">Verified</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </label>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Name
+                  <input
+                    type="text"
+                    name="name"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Email
+                  <input
+                    type="email"
+                    name="email"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Phone
+                  <input
+                    type="text"
+                    name="phone"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Confidence (0-100)
+                  <input
+                    type="number"
+                    name="confidence"
+                    min={0}
+                    max={100}
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+              </div>
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                Source URL
+                <input
+                  type="url"
+                  name="source_url"
+                  style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                />
+              </label>
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                Notes
+                <textarea
+                  name="notes"
+                  rows={3}
+                  style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                />
+              </label>
+              <button
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: "#111",
+                  color: "#fff",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  alignSelf: "flex-start",
+                }}
+              >
+                Add contact
+              </button>
+            </form>
+          </div>
+
+          <div style={{ marginTop: 16 }}>
+            {tournamentContacts.length === 0 ? (
+              <div style={{ color: "#555" }}>No contacts yet.</div>
+            ) : (
+              tournamentContacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  style={{
+                    border: "1px solid #ddd",
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 12,
+                    background: "#fff",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 900 }}>
+                        {contact.name || "Unnamed contact"} ({contact.type})
+                      </div>
+                      <div style={{ fontSize: 13, color: "#555" }}>
+                        {contact.email || "No email"} • {contact.phone || "No phone"}
+                      </div>
+                      {contact.tournament ? (
+                        <div style={{ fontSize: 13, color: "#555" }}>
+                          {contact.tournament.name} ({contact.tournament.city ?? "?"},{" "}
+                          {contact.tournament.state ?? "?"})
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 13, color: "#777" }}>No tournament linked</div>
+                      )}
+                      <div style={{ fontSize: 12, color: "#777", marginTop: 4 }}>
+                        Added {new Date(contact.created_at).toLocaleString()}
+                      </div>
+                      {contact.source_url ? (
+                        <div style={{ fontSize: 12, marginTop: 4 }}>
+                          <a href={contact.source_url} target="_blank" rel="noreferrer">
+                            Source ↗
+                          </a>
+                        </div>
+                      ) : null}
+                    </div>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <form action={updateTournamentContactAction} style={{ display: "grid", gap: 8 }}>
+                        <input type="hidden" name="contact_id" value={contact.id} />
+                        <input type="hidden" name="redirect_to" value={adminBasePath} />
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Status
+                          <select
+                            name="status"
+                            defaultValue={contact.status}
+                            style={{ padding: 8, borderRadius: 8, border: "1px solid #bbb" }}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="verified">Verified</option>
+                            <option value="rejected">Rejected</option>
+                          </select>
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Confidence
+                          <input
+                            type="number"
+                            name="confidence"
+                            min={0}
+                            max={100}
+                            defaultValue={contact.confidence ?? undefined}
+                            style={{ padding: 8, borderRadius: 8, border: "1px solid #bbb" }}
+                          />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Notes
+                          <textarea
+                            name="notes"
+                            rows={3}
+                            defaultValue={contact.notes ?? ""}
+                            style={{ padding: 8, borderRadius: 8, border: "1px solid #bbb", minWidth: 220 }}
+                          />
+                        </label>
+                        <button
+                          style={{
+                            padding: "10px 12px",
+                            borderRadius: 10,
+                            border: "none",
+                            background: "#111",
+                            color: "#fff",
+                            fontWeight: 900,
+                          }}
+                        >
+                          Save
+                        </button>
+                      </form>
+                      <form action={deleteTournamentContactAction}>
+                        <input type="hidden" name="contact_id" value={contact.id} />
+                        <input type="hidden" name="redirect_to" value={adminBasePath} />
+                        <button
+                          style={{
+                            padding: "10px 12px",
+                            borderRadius: 10,
+                            border: "1px solid #c62828",
+                            background: "#fff",
+                            color: "#c62828",
+                            fontWeight: 900,
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* REFEREE CONTACTS */}
+      {tab === "referee-contacts" && (
+        <section style={{ marginBottom: 22 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 900, marginTop: 0 }}>Referee / assignor contacts</h2>
+          <div
+            style={{
+              marginTop: 16,
+              padding: 16,
+              borderRadius: 12,
+              border: "1px solid #ddd",
+              background: "#fff",
+            }}
+          >
+            <h3 style={{ marginTop: 0, fontSize: 16 }}>Add referee contact</h3>
+            <form action={createRefereeContactAction} style={{ display: "grid", gap: 12 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+                {["name", "organization", "role", "email", "phone", "state", "city"].map((field) => (
+                  <label key={field} style={{ fontSize: 12, fontWeight: 700 }}>
+                    {field.charAt(0).toUpperCase() + field.slice(1)}
+                    <input
+                      type="text"
+                      name={field}
+                      style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                    />
+                  </label>
+                ))}
+              </div>
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                Source URL
+                <input
+                  type="url"
+                  name="source_url"
+                  style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                />
+              </label>
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                Notes
+                <textarea
+                  name="notes"
+                  rows={3}
+                  style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                />
+              </label>
+              <button
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: "#111",
+                  color: "#fff",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  alignSelf: "flex-start",
+                }}
+              >
+                Add contact
+              </button>
+            </form>
+          </div>
+
+          <div style={{ marginTop: 16 }}>
+            {refereeContacts.length === 0 ? (
+              <div style={{ color: "#555" }}>No referee contacts yet.</div>
+            ) : (
+              refereeContacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  style={{
+                    border: "1px solid #ddd",
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 12,
+                    background: "#fff",
+                  }}
+                >
+                  <div style={{ fontWeight: 900 }}>{contact.name ?? "Unnamed contact"}</div>
+                  <div style={{ fontSize: 13, color: "#555" }}>
+                    {contact.organization ?? "No org"} • {contact.role ?? "No role"}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#555" }}>
+                    {contact.email || "No email"} • {contact.phone || "No phone"}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#555" }}>
+                    {contact.city ?? "City ?"}, {contact.state ?? "State ?"}
+                  </div>
+                  {contact.source_url ? (
+                    <div style={{ fontSize: 12, marginTop: 4 }}>
+                      <a href={contact.source_url} target="_blank" rel="noreferrer">
+                        Source ↗
+                      </a>
+                    </div>
+                  ) : null}
+
+                  <form
+                    action={updateRefereeContactAction}
+                    style={{ marginTop: 10, display: "grid", gap: 8 }}
+                  >
+                    <input type="hidden" name="contact_id" value={contact.id} />
+                    <input type="hidden" name="redirect_to" value={adminBasePath} />
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 8 }}>
+                      {["name", "organization", "role", "email", "phone", "state", "city"].map((field) => (
+                        <label key={field} style={{ fontSize: 12, fontWeight: 700 }}>
+                          {field.charAt(0).toUpperCase() + field.slice(1)}
+                          <input
+                            type="text"
+                            name={field}
+                            defaultValue={(contact as any)[field] ?? ""}
+                            style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #bbb" }}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Source URL
+                      <input
+                        type="text"
+                        name="source_url"
+                        defaultValue={contact.source_url ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #bbb" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Notes
+                      <textarea
+                        name="notes"
+                        rows={3}
+                        defaultValue={contact.notes ?? ""}
+                        style={{ padding: 8, borderRadius: 8, border: "1px solid #bbb" }}
+                      />
+                    </label>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      <button
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: "none",
+                          background: "#111",
+                          color: "#fff",
+                          fontWeight: 900,
+                        }}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </form>
+                  <form action={deleteRefereeContactAction} style={{ marginTop: 8 }}>
+                    <input type="hidden" name="contact_id" value={contact.id} />
+                    <input type="hidden" name="redirect_to" value={adminBasePath} />
+                    <button
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid #c62828",
+                        background: "#fff",
+                        color: "#c62828",
+                        fontWeight: 900,
+                      }}
+                    >
+                      Delete contact
+                    </button>
+                  </form>
                 </div>
               ))
             )}

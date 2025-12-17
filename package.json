@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "tournament-crawl": "tsx scripts/tournament-crawl/index.ts",
+    "tournament-crawl:build": "tsc -p tsconfig.tournament-crawl.json",
+    "tournament-crawl:run": "node dist-tournament-crawl/scripts/tournament-crawl/index.js"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.31.0",

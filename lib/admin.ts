@@ -3,9 +3,16 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { createSupabaseServerClient } from "./supabaseServer";
+import type {
+  TournamentContactInsert,
+  TournamentContactUpdate,
+  RefereeContactInsert,
+  RefereeContactUpdate,
+} from "@/lib/types/supabase";
 
 type VerificationStatus = "pending" | "approved" | "rejected";
 export type ReviewStatus = "pending" | "approved" | "rejected";
+export type ContactStatus = "pending" | "verified" | "rejected";
 
 /**
  * If not logged in -> redirect to /admin/login
@@ -255,6 +262,42 @@ export type AdminSchoolReview = {
   } | null;
 };
 
+export type AdminTournamentContact = {
+  id: string;
+  tournament_id: string | null;
+  type: "assignor" | "director" | "general";
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  source_url: string | null;
+  confidence: number | null;
+  status: ContactStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  tournament?: {
+    name: string | null;
+    slug: string | null;
+    city: string | null;
+    state: string | null;
+  } | null;
+};
+
+export type AdminRefereeContact = {
+  id: string;
+  name: string | null;
+  organization: string | null;
+  role: string | null;
+  email: string | null;
+  phone: string | null;
+  state: string | null;
+  city: string | null;
+  notes: string | null;
+  source_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export async function adminListTournamentReviews(status: ReviewStatus = "pending") {
   await requireAdmin();
 
@@ -463,5 +506,124 @@ export async function adminDeleteSchoolReview(review_id: string) {
     .from("school_referee_reviews")
     .delete()
     .eq("id", review_id);
+  if (error) throw error;
+}
+
+export async function adminFindTournamentIdBySlug(slug: string): Promise<string | null> {
+  await requireAdmin();
+  const { data, error } = await supabaseAdmin
+    .from("tournaments")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (error && error.code !== "PGRST116") throw error;
+  return data?.id ?? null;
+}
+
+/** CONTACTS **/
+export async function adminListTournamentContacts(
+  status?: ContactStatus
+): Promise<AdminTournamentContact[]> {
+  await requireAdmin();
+  let query = supabaseAdmin
+    .from("tournament_contacts")
+    .select(
+      "id,tournament_id,type,name,email,phone,source_url,confidence,status,notes,created_at,updated_at"
+    )
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (status) {
+    query = query.eq("status", status);
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  const rows = data ?? [];
+  const tournamentIds = Array.from(
+    new Set(rows.map((row) => row.tournament_id).filter(Boolean))
+  ) as string[];
+  let tournamentMap = new Map<string, { name: string | null; slug: string | null; city: string | null; state: string | null }>();
+  if (tournamentIds.length) {
+    const { data: tournamentRows } = await supabaseAdmin
+      .from("tournaments")
+      .select("id,name,slug,city,state")
+      .in("id", tournamentIds);
+    tournamentMap = new Map(
+      (tournamentRows ?? []).map((row) => [
+        row.id,
+        {
+          name: row.name ?? null,
+          slug: row.slug ?? null,
+          city: row.city ?? null,
+          state: row.state ?? null,
+        },
+      ])
+    );
+  }
+  return rows.map((row) => ({
+    ...row,
+    tournament: row.tournament_id ? tournamentMap.get(row.tournament_id) ?? null : null,
+  }));
+}
+
+export async function adminCreateTournamentContact(
+  payload: TournamentContactInsert
+) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin.from("tournament_contacts").insert(payload);
+  if (error) throw error;
+}
+
+export async function adminUpdateTournamentContact(
+  id: string,
+  updates: TournamentContactUpdate
+) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin
+    .from("tournament_contacts")
+    .update(updates)
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function adminDeleteTournamentContact(id: string) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin.from("tournament_contacts").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function adminListRefereeContacts(): Promise<AdminRefereeContact[]> {
+  await requireAdmin();
+  const { data, error } = await supabaseAdmin
+    .from("referee_contacts")
+    .select(
+      "id,name,organization,role,email,phone,state,city,notes,source_url,created_at,updated_at"
+    )
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function adminCreateRefereeContact(payload: RefereeContactInsert) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin.from("referee_contacts").insert(payload);
+  if (error) throw error;
+}
+
+export async function adminUpdateRefereeContact(
+  id: string,
+  updates: RefereeContactUpdate
+) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin
+    .from("referee_contacts")
+    .update(updates)
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function adminDeleteRefereeContact(id: string) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin.from("referee_contacts").delete().eq("id", id);
   if (error) throw error;
 }
