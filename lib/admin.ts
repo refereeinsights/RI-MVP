@@ -233,74 +233,70 @@ export type AdminTournamentReview = {
 export async function adminListTournamentReviews(status: ReviewStatus = "pending") {
   await requireAdmin();
 
-  let query = supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("tournament_referee_reviews")
     .select(
-      `
-      id,
-      tournament_id,
-      user_id,
-      created_at,
-      status,
-      overall_score,
-      logistics_score,
-      facilities_score,
-      pay_score,
-      support_score,
-      worked_games,
-      shift_detail,
-      reviewer:profiles!tournament_referee_reviews_user_id_fkey (
-        handle,
-        email
-      ),
-      tournament:tournaments!tournament_referee_reviews_tournament_id_fkey (
-        name,
-        city,
-        state
-      )
-    `
+      "id,tournament_id,user_id,created_at,status,overall_score,logistics_score,facilities_score,pay_score,support_score,worked_games,shift_detail"
     )
+    .eq("status", status)
     .order("created_at", { ascending: false })
     .limit(200);
 
-  if (status) {
-    query = query.eq("status", status);
-  }
-
-  const { data, error } = await query;
   if (error) throw error;
 
-  return (data ?? []).map((row: any) => {
-    const reviewer = Array.isArray(row.reviewer) ? row.reviewer[0] : row.reviewer;
-    const tournament = Array.isArray(row.tournament) ? row.tournament[0] : row.tournament;
-    return {
-      id: row.id,
-      tournament_id: row.tournament_id,
-      user_id: row.user_id,
-      created_at: row.created_at,
-      status: row.status,
-      overall_score: row.overall_score,
-      logistics_score: row.logistics_score,
-      facilities_score: row.facilities_score,
-      pay_score: row.pay_score,
-      support_score: row.support_score,
-      worked_games: row.worked_games,
-      shift_detail: row.shift_detail,
-      reviewer: reviewer
-        ? {
-            handle: reviewer.handle ?? null,
-            email: reviewer.email ?? null,
-          }
-        : null,
-      tournament: tournament
-        ? {
-            name: tournament.name ?? null,
-            city: tournament.city ?? null,
-            state: tournament.state ?? null,
-          }
-        : null,
-    } as AdminTournamentReview;
-  });
+  const reviews = data ?? [];
+  if (reviews.length === 0) return [];
+
+  const userIds = Array.from(new Set(reviews.map((row) => row.user_id).filter(Boolean)));
+  const tournamentIds = Array.from(
+    new Set(reviews.map((row) => row.tournament_id).filter(Boolean))
+  );
+
+  const [{ data: profileRows }, { data: tournamentRows }] = await Promise.all([
+    userIds.length
+      ? supabaseAdmin
+          .from("profiles")
+          .select("user_id,handle,email")
+          .in("user_id", userIds)
+      : Promise.resolve({ data: [] }),
+    tournamentIds.length
+      ? supabaseAdmin
+          .from("tournaments")
+          .select("id,name,city,state")
+          .in("id", tournamentIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const profileMap = new Map(
+    (profileRows ?? []).map((p: any) => [p.user_id, { handle: p.handle ?? null, email: p.email ?? null }])
+  );
+
+  const tournamentMap = new Map(
+    (tournamentRows ?? []).map((t: any) => [
+      t.id,
+      { name: t.name ?? null, city: t.city ?? null, state: t.state ?? null },
+    ])
+  );
+
+  return reviews.map(
+    (row) =>
+      ({
+        id: row.id,
+        tournament_id: row.tournament_id,
+        user_id: row.user_id,
+        created_at: row.created_at,
+        status: row.status,
+        overall_score: row.overall_score,
+        logistics_score: row.logistics_score,
+        facilities_score: row.facilities_score,
+        pay_score: row.pay_score,
+        support_score: row.support_score,
+        worked_games: row.worked_games,
+        shift_detail: row.shift_detail,
+        reviewer: profileMap.get(row.user_id) ?? null,
+        tournament: tournamentMap.get(row.tournament_id) ?? null,
+      }) as AdminTournamentReview
+  );
 }
 
 export async function adminUpdateTournamentReview(params: {
