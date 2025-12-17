@@ -17,6 +17,7 @@ export default function FeedbackForm() {
   const [userAgent, setUserAgent] = useState("");
   const [status, setStatus] = useState<SubmitState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [debugDetails, setDebugDetails] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -40,6 +41,7 @@ export default function FeedbackForm() {
 
     setStatus("submitting");
     setErrorMessage(null);
+    setDebugDetails(null);
 
     try {
       const res = await fetch("/api/feedback", {
@@ -47,9 +49,26 @@ export default function FeedbackForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json().catch(() => null);
+      const rawText = await res.text();
+      let json: any = null;
+      try {
+        json = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        // keep json null; expose in debug block below
+      }
       if (!res.ok || !json?.ok) {
-        throw new Error(json?.error ?? "Unable to send feedback.");
+        setDebugDetails(
+          JSON.stringify(
+            {
+              status: res.status,
+              statusText: res.statusText,
+              body: rawText?.slice(0, 2000) ?? "",
+            },
+            null,
+            2
+          )
+        );
+        throw new Error(json?.error ?? `Unable to send feedback (HTTP ${res.status}).`);
       }
       setStatus("success");
       (event.currentTarget as HTMLFormElement).reset();
@@ -98,7 +117,12 @@ export default function FeedbackForm() {
         <input type="hidden" name="user_agent" value={userAgent} />
 
         {status === "error" && errorMessage && (
-          <p className="errorMessage">{errorMessage}</p>
+          <>
+            <p className="errorMessage">{errorMessage}</p>
+            {debugDetails && (
+              <pre className="debugBlock">{debugDetails}</pre>
+            )}
+          </>
         )}
 
         <button type="submit" disabled={status === "submitting"}>
@@ -163,6 +187,15 @@ export default function FeedbackForm() {
           color: #b00020;
           font-weight: 600;
           margin: 0;
+        }
+        .debugBlock {
+          background: #1f1f1f;
+          color: #e5e5e5;
+          font-size: 0.8rem;
+          padding: 0.75rem;
+          border-radius: 8px;
+          overflow-x: auto;
+          max-height: 220px;
         }
       `}</style>
     </>
