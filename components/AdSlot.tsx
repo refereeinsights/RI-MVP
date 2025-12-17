@@ -1,6 +1,5 @@
 import type { AdPlacement, AdCreative } from "@/lib/content/marketing";
 import { AD_PLACEMENTS } from "@/lib/content/marketing";
-import { amazonImageUrl } from "@/lib/amazon";
 
 function pickCreative(entry?: AdCreative | AdCreative[]): AdCreative | null {
   if (!entry) return null;
@@ -20,8 +19,6 @@ export default function AdSlot({
 }) {
   const ad = pickCreative(AD_PLACEMENTS[placement]);
   if (!ad) return null;
-
-  const imageSrc = ad.imageUrl ?? (ad.asin ? amazonImageUrl(ad.asin) : null);
 
   const isExternal = /^https?:\/\//i.test(ad.href);
 
@@ -50,20 +47,6 @@ export default function AdSlot({
         >
           {ad.eyebrow}
         </div>
-      )}
-      {imageSrc && (
-        <img
-          src={imageSrc}
-          alt={ad.imageAlt ?? ad.title}
-          loading="lazy"
-          style={{
-            width: "100%",
-            borderRadius: 12,
-            marginBottom: 12,
-            maxHeight: 180,
-            objectFit: "cover",
-          }}
-        />
       )}
       <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>{ad.title}</div>
       <p style={{ margin: 0, lineHeight: 1.5, color: "rgba(255,255,255,0.78)" }}>{ad.body}</p>

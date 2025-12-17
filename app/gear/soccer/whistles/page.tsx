@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { amazonImageUrl, withAmazonTag } from "@/lib/amazon";
+import { withAmazonTag } from "@/lib/amazon";
 
 type WhistleItem = {
   name: string;
   description: string;
   amazonUrl: string;
-  asin: string;
 };
 
 export const metadata = {
@@ -39,8 +38,6 @@ function AffiliateDisclosure() {
 }
 
 function GearCard({ item }: { item: WhistleItem }) {
-  const imageSrc = amazonImageUrl(item.asin);
-
   return (
     <div
       style={{
@@ -50,12 +47,6 @@ function GearCard({ item }: { item: WhistleItem }) {
         background: "white",
       }}
     >
-      <img
-        src={imageSrc}
-        alt={item.name}
-        style={{ width: "100%", borderRadius: 12, marginBottom: 12, objectFit: "cover" }}
-        loading="lazy"
-      />
       <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{item.name}</div>
       <div style={{ lineHeight: 1.5, marginBottom: 12, color: "rgba(0,0,0,0.75)" }}>{item.description}</div>
 
@@ -84,13 +75,11 @@ export default function SoccerWhistlesPage() {
       name: "Fox 40 Classic Pealess Whistle",
       description: "Pealess whistle commonly used by soccer referees in all weather conditions.",
       amazonUrl: "https://amzn.to/4alCmZQ",
-      asin: "B07TSL4498",
     },
     {
       name: "Fox 40 Pearl Whistle",
       description: "Compact pealess whistle with a slightly different tone; preferred by some officials.",
       amazonUrl: "https://www.amazon.com/dp/B0006VQJUG",
-      asin: "B0006VQJUG",
     },
   ];
 

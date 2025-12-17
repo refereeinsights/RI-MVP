@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { amazonImageUrl, withAmazonTag } from "@/lib/amazon";
+import { withAmazonTag } from "@/lib/amazon";
 
 function AffiliateDisclosure() {
   return (
@@ -17,7 +17,6 @@ type FlagItem = {
   name: string;
   description: string;
   url: string;
-  asin: string;
 };
 
 const items: FlagItem[] = [
@@ -25,13 +24,11 @@ const items: FlagItem[] = [
     name: "Assistant Referee Flag Set (Soccer)",
     description: "Two-flag set commonly used by assistant referees during matches.",
     url: "https://www.amazon.com/Great-Call-Athletics-Assistant-Linesman/dp/B0C4V3W3F1",
-    asin: "B0C4V3W3F1",
   },
   {
     name: "Assistant Referee Flag Carry Case",
     description: "Protective case for storing and transporting referee flags.",
     url: "https://www.amazon.com/KESYOO-Carrying-Football-Volleyball-Competitions/dp/B0F331H45S",
-    asin: "B0F331H45S",
   },
 ];
 
@@ -56,12 +53,6 @@ export default function SoccerFlagsPage() {
       >
         {items.map((item) => (
           <div key={item.name} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
-            <img
-              src={amazonImageUrl(item.asin)}
-              alt={item.name}
-              style={{ width: "100%", borderRadius: 12, marginBottom: 12, objectFit: "cover" }}
-              loading="lazy"
-            />
             <h3>{item.name}</h3>
             <p>{item.description}</p>
             <a href={withAmazonTag(item.url)} target="_blank" rel="noopener noreferrer sponsored">
