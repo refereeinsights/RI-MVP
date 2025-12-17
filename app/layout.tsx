@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import PostHogClientProvider from "@/providers/PostHogProvider";
 import "./globals.css";
 
 /* Load brand font */
@@ -25,179 +26,181 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en">
       <body className={inter.className}>
-        {/* Header */}
-        <header
-          style={{
-            backgroundColor: "#0F3D2E", // deep pitch green
-            borderBottom: "3px solid rgba(255,255,255,0.15)",
-          }}
-        >
-          {/* Logo row */}
-          <div
+        <PostHogClientProvider>
+          {/* Header */}
+          <header
             style={{
-              padding: "1.5rem 1rem 0.75rem",
-              display: "flex",
-              justifyContent: "center",
+              backgroundColor: "#0F3D2E", // deep pitch green
+              borderBottom: "3px solid rgba(255,255,255,0.15)",
             }}
           >
-            <a href="/" style={{ display: "inline-block" }}>
-              <Image
-                src="/logo-stacked-bw.png"
-                alt="Referee Insights logo"
-                width={220}
-                height={220}
-                priority
-                style={{
-                  height: "auto",
-                  width: "180px",
-                  filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.35))",
-                }}
-              />
-            </a>
-          </div>
-
-          {/* Navigation row */}
-          <nav
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "2rem",
-              paddingBottom: "0.9rem",
-              position: "relative",
-              width: "100%",
-              maxWidth: 960,
-              margin: "0 auto",
-            }}
-          >
+            {/* Logo row */}
             <div
               style={{
+                padding: "1.5rem 1rem 0.75rem",
                 display: "flex",
-                gap: "2rem",
-                position: "absolute",
-                left: "50%",
-                transform: "translateX(-50%)",
+                justifyContent: "center",
               }}
             >
-              <a
-                href="/tournaments"
-                style={{
-                  color: "#ffffff",
-                  fontSize: "0.8rem",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.14em",
-                  textDecoration: "none",
-                  paddingBottom: "0.25rem",
-                  borderBottom: "2px solid rgba(255,255,255,0.6)",
-                }}
-              >
-                Tournament Reviews
-              </a>
-
-              <a
-                href="/schools"
-                style={{
-                  color: "#ffffff",
-                  fontSize: "0.8rem",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.14em",
-                  textDecoration: "none",
-                  paddingBottom: "0.25rem",
-                  borderBottom: "2px solid rgba(255,255,255,0.6)",
-                }}
-              >
-                School Reviews
-              </a>
-
-              <a
-                href="/signup"
-                style={{
-                  color: "#ffffff",
-                  fontSize: "0.8rem",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.14em",
-                  textDecoration: "none",
-                  paddingBottom: "0.25rem",
-                  borderBottom: "2px solid rgba(255,255,255,0.6)",
-                }}
-              >
-                Signup
+              <a href="/" style={{ display: "inline-block" }}>
+                <Image
+                  src="/logo-stacked-bw.png"
+                  alt="Referee Insights logo"
+                  width={220}
+                  height={220}
+                  priority
+                  style={{
+                    height: "auto",
+                    width: "180px",
+                    filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.35))",
+                  }}
+                />
               </a>
             </div>
 
-            <Link
-              href={user ? "/account" : "/account/login"}
-              title={user ? "My account" : "Sign in"}
+            {/* Navigation row */}
+            <nav
               style={{
-                marginLeft: "auto",
-                display: "inline-flex",
+                display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                borderRadius: "999px",
-                border: `2px solid ${
-                  user ? "rgba(76,175,80,0.9)" : "rgba(244,67,54,0.9)"
-                }`,
-                padding: "2px",
-                background: user ? "rgba(76,175,80,0.2)" : "rgba(244,67,54,0.2)",
+                gap: "2rem",
+                paddingBottom: "0.9rem",
+                position: "relative",
+                width: "100%",
+                maxWidth: 960,
+                margin: "0 auto",
               }}
             >
-              <Image
-                src="/referee-avatar.svg"
-                alt="Account"
-                width={40}
-                height={40}
-              />
-            </Link>
-          </nav>
-        </header>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "2rem",
+                  position: "absolute",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                }}
+              >
+                <a
+                  href="/tournaments"
+                  style={{
+                    color: "#ffffff",
+                    fontSize: "0.8rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.14em",
+                    textDecoration: "none",
+                    paddingBottom: "0.25rem",
+                    borderBottom: "2px solid rgba(255,255,255,0.6)",
+                  }}
+                >
+                  Tournament Reviews
+                </a>
 
-        {/* Main content (CENTER CHILDREN HORIZONTALLY) */}
-        <main
-          style={{
-            minHeight: "70vh",
-            display: "flex",
-            justifyContent: "center",
-            width: "100%",
-          }}
-        >
-          {children}
-        </main>
+                <a
+                  href="/schools"
+                  style={{
+                    color: "#ffffff",
+                    fontSize: "0.8rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.14em",
+                    textDecoration: "none",
+                    paddingBottom: "0.25rem",
+                    borderBottom: "2px solid rgba(255,255,255,0.6)",
+                  }}
+                >
+                  School Reviews
+                </a>
 
-        {/* Footer */}
-        <footer
-          style={{
-            padding: "1rem",
-            borderTop: "2px solid #000",
-            textAlign: "center",
-            fontSize: "14px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            alignItems: "center",
-          }}
-        >
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center" }}>
-            <a href="/terms" style={{ textDecoration: "none", color: "inherit" }}>
-              Terms of Service
-            </a>
-            <a href="/privacy" style={{ textDecoration: "none", color: "inherit" }}>
-              Privacy Policy
-            </a>
-            <a href="/disclaimer" style={{ textDecoration: "none", color: "inherit" }}>
-              Review &amp; Content Disclaimer
-            </a>
-            <a href="/feedback" style={{ textDecoration: "none", color: "inherit" }}>
-              Feedback
-            </a>
-          </div>
-          <p style={{ margin: 0 }}>
-            By using Referee Insights, you agree to our Terms and Privacy Policy.
-          </p>
-          <div>© {new Date().getFullYear()} Referee Insights. All rights reserved.</div>
-        </footer>
+                <a
+                  href="/signup"
+                  style={{
+                    color: "#ffffff",
+                    fontSize: "0.8rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.14em",
+                    textDecoration: "none",
+                    paddingBottom: "0.25rem",
+                    borderBottom: "2px solid rgba(255,255,255,0.6)",
+                  }}
+                >
+                  Signup
+                </a>
+              </div>
+
+              <Link
+                href={user ? "/account" : "/account/login"}
+                title={user ? "My account" : "Sign in"}
+                style={{
+                  marginLeft: "auto",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: "999px",
+                  border: `2px solid ${
+                    user ? "rgba(76,175,80,0.9)" : "rgba(244,67,54,0.9)"
+                  }`,
+                  padding: "2px",
+                  background: user ? "rgba(76,175,80,0.2)" : "rgba(244,67,54,0.2)",
+                }}
+              >
+                <Image
+                  src="/referee-avatar.svg"
+                  alt="Account"
+                  width={40}
+                  height={40}
+                />
+              </Link>
+            </nav>
+          </header>
+
+          {/* Main content (CENTER CHILDREN HORIZONTALLY) */}
+          <main
+            style={{
+              minHeight: "70vh",
+              display: "flex",
+              justifyContent: "center",
+              width: "100%",
+            }}
+          >
+            {children}
+          </main>
+
+          {/* Footer */}
+          <footer
+            style={{
+              padding: "1rem",
+              borderTop: "2px solid #000",
+              textAlign: "center",
+              fontSize: "14px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              alignItems: "center",
+            }}
+          >
+            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center" }}>
+              <a href="/terms" style={{ textDecoration: "none", color: "inherit" }}>
+                Terms of Service
+              </a>
+              <a href="/privacy" style={{ textDecoration: "none", color: "inherit" }}>
+                Privacy Policy
+              </a>
+              <a href="/disclaimer" style={{ textDecoration: "none", color: "inherit" }}>
+                Review &amp; Content Disclaimer
+              </a>
+              <a href="/feedback" style={{ textDecoration: "none", color: "inherit" }}>
+                Feedback
+              </a>
+            </div>
+            <p style={{ margin: 0 }}>
+              By using Referee Insights, you agree to our Terms and Privacy Policy.
+            </p>
+            <div>© {new Date().getFullYear()} Referee Insights. All rights reserved.</div>
+          </footer>
+        </PostHogClientProvider>
       </body>
     </html>
   );
