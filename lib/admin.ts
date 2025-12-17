@@ -269,7 +269,38 @@ export async function adminListTournamentReviews(status: ReviewStatus = "pending
 
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []) as AdminTournamentReview[];
+
+  return (data ?? []).map((row: any) => {
+    const reviewer = Array.isArray(row.reviewer) ? row.reviewer[0] : row.reviewer;
+    const tournament = Array.isArray(row.tournament) ? row.tournament[0] : row.tournament;
+    return {
+      id: row.id,
+      tournament_id: row.tournament_id,
+      user_id: row.user_id,
+      created_at: row.created_at,
+      status: row.status,
+      overall_score: row.overall_score,
+      logistics_score: row.logistics_score,
+      facilities_score: row.facilities_score,
+      pay_score: row.pay_score,
+      support_score: row.support_score,
+      worked_games: row.worked_games,
+      shift_detail: row.shift_detail,
+      reviewer: reviewer
+        ? {
+            handle: reviewer.handle ?? null,
+            email: reviewer.email ?? null,
+          }
+        : null,
+      tournament: tournament
+        ? {
+            name: tournament.name ?? null,
+            city: tournament.city ?? null,
+            state: tournament.state ?? null,
+          }
+        : null,
+    } as AdminTournamentReview;
+  });
 }
 
 export async function adminUpdateTournamentReview(params: {

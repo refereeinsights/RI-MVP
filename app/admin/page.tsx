@@ -793,9 +793,7 @@ export default async function AdminPage({
           })}
         </section>
       )}
-    </div>
-  );
-}
+
       {/* REVIEWS TAB */}
       {tab === "reviews" && (
         <section style={{ marginBottom: 22 }}>
@@ -1124,3 +1122,6 @@ export default async function AdminPage({
           </div>
         </section>
       )}
+    </div>
+  );
+}
