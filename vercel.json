@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/whistles?token=ri_cron_9fB2KxM7eQWcA4HhPZt6R8D3NVaJYdLs",
-      "schedule": "0 * * * *"
+      "schedule": "0 5 * * *"
     }
   ]
 }
