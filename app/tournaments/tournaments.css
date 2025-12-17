@@ -470,9 +470,15 @@
 }
 
 .refereeInsights__column {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 1rem;
   background: rgba(0,0,0,0.2);
   border-radius: 14px;
   padding: 1rem;
+  color: #fefefe;
   border: 1px solid rgba(255,255,255,0.15);
 }
 
@@ -487,6 +493,7 @@
   border: 1px solid rgba(255,255,255,0.25);
   border-radius: 12px;
   padding: 0.9rem;
+  color: #fefefe;
 }
 
 .reviewCard__header {
@@ -538,8 +545,12 @@
   border-radius: 10px;
   padding: 0.9rem;
   font-size: 0.9rem;
-  color: rgba(255,255,255,0.85);
+  color: #fefefe;
 }
+.reviewEmpty p {
+  color: #fff;
+}
+
 
 .reviewForm {
   display: flex;
@@ -612,10 +623,20 @@
 }
 
 .reviewFormDisabled {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
   padding: 1rem;
   border-radius: 10px;
   border: 1px dashed rgba(255,255,255,0.4);
-  color: rgba(255,255,255,0.9);
+  color: #fefefe;
   background: rgba(0,0,0,0.2);
   font-size: 0.9rem;
+}
+.reviewFormDisabled p {
+  color: #fff;
 }

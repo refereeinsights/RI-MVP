@@ -24,14 +24,14 @@ const items: FlagItem[] = [
   {
     name: "Assistant Referee Flag Set (Soccer)",
     description: "Two-flag set commonly used by assistant referees during matches.",
-    url: "https://www.amazon.com/dp/B01MZ1FQ0P",
-    asin: "B01MZ1FQ0P",
+    url: "https://www.amazon.com/Great-Call-Athletics-Assistant-Linesman/dp/B0C4V3W3F1",
+    asin: "B0C4V3W3F1",
   },
   {
     name: "Assistant Referee Flag Carry Case",
     description: "Protective case for storing and transporting referee flags.",
-    url: "https://www.amazon.com/dp/B07Q4S2H2B",
-    asin: "B07Q4S2H2B",
+    url: "https://www.amazon.com/KESYOO-Carrying-Football-Volleyball-Competitions/dp/B0F331H45S",
+    asin: "B0F331H45S",
   },
 ];
 

@@ -7,5 +7,5 @@ export function withAmazonTag(url: string) {
 
 export function amazonImageUrl(asin: string, size: 150 | 300 | 500 = 300) {
   const cleanAsin = asin.replace(/[^A-Za-z0-9]/g, "");
-  return `https://images-na.ssl-images-amazon.com/images/P/${cleanAsin}.01._SL${size}_.jpg`;
+  return `https://m.media-amazon.com/images/I/${cleanAsin}._SL${size}_.jpg`;
 }
