@@ -85,6 +85,15 @@ Set the following environment variables to enable automatic admin alerts wheneve
 
 Without these variables the alert request is skipped but the referee review submission still succeeds. Alerts fire when any whistle rating is below 3 (≤2 out of 5).
 
+## Error monitoring (Sentry)
+
+We use `@sentry/nextjs` for automatic error reporting. Configure these env vars to enable it:
+
+- `SENTRY_DSN` (or `NEXT_PUBLIC_SENTRY_DSN` for client-side capture)
+- Optional: `SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_REPLAYS_SESSION_SAMPLE_RATE`, `SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE`
+
+If no DSN is provided, Sentry stays disabled locally.
+
 ## Handle moderation
 
 User handles are automatically normalized (lowercase, underscores, 20 characters max) and checked against a small list of banned words/slurs. You can extend the blocklist by setting `PROHIBITED_HANDLE_TERMS` to a comma-separated list (e.g. `PROHIBITED_HANDLE_TERMS="term1,term2"`). Any handle containing those sequences will be rejected both on signup and during automatic profile creation.
