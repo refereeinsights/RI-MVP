@@ -116,6 +116,99 @@ The public `/feedback` page posts to `/api/feedback`, which appends rows into a 
 
 One-time setup: run `npx tsx scripts/createFeedbackSheet.ts` to create a spreadsheet titled “RI MVP Feedback” with the correct header row. The script prints the spreadsheet ID—save it to `GOOGLE_SHEETS_SPREADSHEET_ID`.
 
+## Google Places (school reviews)
+
+Verified referees can now submit reviews for individual schools. The school search field calls Google Places Text Search so we can normalize addresses and avoid duplicates. Add the following env var wherever the API runs:
+
+- `GOOGLE_PLACES_API_KEY` — server-side key with Places API + Places API (New) enabled. No referer restrictions if it’s only used on the server.
+
+The `/api/schools/search` route proxies these requests and the `/api/schools/reviews` handler ensures the Supabase `schools` table is populated or re-used per Google Place ID.
+
+## School review schema
+
+To power the `/schools/review` flow you’ll need the following tables/views (patterns match the tournament reviews):
+
+```sql
+-- 1. Canonical school directory
+create table public.schools (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  city text not null,
+  state text not null,
+  address text,
+  slug text not null unique,
+  google_place_id text unique,
+  latitude double precision,
+  longitude double precision,
+  created_at timestamptz default now()
+);
+
+-- 2. Raw school reviews (only verified refs can insert)
+create table public.school_referee_reviews (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid references public.schools(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  overall_score smallint not null,
+  logistics_score smallint not null,
+  facilities_score smallint not null,
+  pay_score smallint not null,
+  support_score smallint not null,
+  worked_games smallint,
+  shift_detail text,
+  status text not null default 'pending'
+);
+
+-- RLS: verified refs can insert their own row, no select.
+alter table public.school_referee_reviews enable row level security;
+create policy "verified refs insert school reviews"
+  on public.school_referee_reviews
+  for insert
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.profiles p
+      where p.user_id = auth.uid()
+        and coalesce(p.is_referee_verified, false) = true
+    )
+  );
+
+-- 3. Public view for the UI (join with profiles/badges as needed)
+create view public.school_referee_reviews_public as
+select
+  r.id,
+  r.school_id,
+  r.created_at,
+  r.overall_score,
+  r.logistics_score,
+  r.facilities_score,
+  r.pay_score,
+  r.support_score,
+  r.worked_games,
+  r.shift_detail,
+  p.handle as reviewer_handle,
+  p.years_refereeing as reviewer_level
+from public.school_referee_reviews r
+join public.profiles p on p.user_id = r.user_id
+where r.status = 'approved';
+
+grant select on public.school_referee_reviews_public to anon;
+
+-- 4. Aggregated scores (same schema as tournament_referee_scores)
+create table public.school_referee_scores (
+  school_id uuid primary key references public.schools(id) on delete cascade,
+  ai_score numeric,
+  review_count integer default 0,
+  summary text,
+  status text default 'clear',
+  updated_at timestamptz default now()
+);
+
+grant select on public.school_referee_scores to anon;
+```
+
+Run your existing whistle-score worker against `school_referee_reviews` so `school_referee_scores` stays current. Once these objects exist, the `/api/schools/reviews` endpoint and UI will work end-to-end.
+
 ## Handle moderation
 
 User handles are automatically normalized (lowercase, underscores, 20 characters max) and checked against a small list of banned words/slurs. You can extend the blocklist by setting `PROHIBITED_HANDLE_TERMS` to a comma-separated list (e.g. `PROHIBITED_HANDLE_TERMS="term1,term2"`). Any handle containing those sequences will be rejected both on signup and during automatic profile creation.
