@@ -609,9 +609,22 @@ export default async function AdminPage({
     const filename = file.name.toLowerCase();
 
     let records: TournamentRow[] = [];
+    let dropSummary = "";
     if (filename.endsWith(".csv")) {
       const { rows } = parseCsv(contents);
-      const { kept } = cleanCsvRows(rows);
+      const { kept, dropped } = cleanCsvRows(rows);
+      if (dropped.length) {
+        const sampleReasons = dropped
+          .slice(0, 3)
+          .map((entry) => entry.reason)
+          .join(", ");
+        dropSummary = `${dropped.length} row(s) skipped (${sampleReasons})`;
+      }
+      if (!kept.length) {
+        const message =
+          dropSummary || "CSV parsed but no usable tournaments remained after cleaning.";
+        return redirectWithNotice(redirectTo, message);
+      }
       records = csvRowsToTournamentRows(kept, { status, source });
     } else if (
       filename.endsWith(".html") ||
@@ -638,7 +651,8 @@ export default async function AdminPage({
       result.failures.length === 0
         ? `Imported ${result.success} tournament(s).`
         : `Imported ${result.success} tournament(s), ${result.failures.length} failed.`;
-    return redirectWithNotice(redirectTo, message);
+    const finalMessage = dropSummary ? `${message} ${dropSummary}` : message;
+    return redirectWithNotice(redirectTo, finalMessage);
   }
 
   const tabLink = (t: Tab) => {
@@ -1095,7 +1109,13 @@ export default async function AdminPage({
                 >
                   <thead>
                     <tr style={{ background: "#f5f5f5" }}>
-                      <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}></th>
+                      <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>
+                        <input
+                          type="checkbox"
+                          id="tournament-select-all"
+                          aria-label="Select all pending tournaments"
+                        />
+                      </th>
                       <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Tournament</th>
                       <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Location</th>
                       <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Dates</th>
@@ -1108,7 +1128,12 @@ export default async function AdminPage({
                     {pendingTournaments.map((t) => (
                       <tr key={t.id}>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                          <input type="checkbox" name="selected" value={t.id} />
+                          <input
+                            className="pending-tournament-checkbox"
+                            type="checkbox"
+                            name="selected"
+                            value={t.id}
+                          />
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
                           <div style={{ fontWeight: 700 }}>{t.name}</div>
@@ -1163,6 +1188,11 @@ export default async function AdminPage({
                   </tbody>
                 </table>
               </div>
+              <script
+                dangerouslySetInnerHTML={{
+                  __html: `(function(){function init(){var master=document.getElementById("tournament-select-all");if(!master)return;var boxes=[].slice.call(document.querySelectorAll(".pending-tournament-checkbox"));master.addEventListener("change",function(){boxes.forEach(function(cb){cb.checked=master.checked;});});}if(document.readyState!=="loading"){init();}else{document.addEventListener("DOMContentLoaded",init);}})();`,
+                }}
+              />
             </form>
           )}
         </section>
