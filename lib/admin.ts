@@ -571,7 +571,7 @@ export async function adminFindTournamentIdBySlugOrName(
     .ilike("name", `%${trimmed}%`)
     .limit(1);
   if (nameError) throw nameError;
-  return nameMatches?.[0]?.id ?? null;
+  return (nameMatches?.[0]?.id as string | undefined) ?? null;
 }
 
 /** CONTACTS **/
