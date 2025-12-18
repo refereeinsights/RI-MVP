@@ -36,6 +36,7 @@ import {
   adminListPendingTournaments,
   adminUpdateTournamentStatus,
   adminDeleteTournament,
+  type AdminPendingTournament,
   type AdminBadgeRow,
   type AdminUserRow,
   type ReviewStatus,
@@ -142,7 +143,7 @@ export default async function AdminPage({
     tab === "tournament-contacts" ? await adminListTournamentContacts(contactStatus) : [];
   const refereeContacts =
     tab === "referee-contacts" ? await adminListRefereeContacts() : [];
-  const pendingTournaments =
+  const pendingTournaments: AdminPendingTournament[] =
     tab === "tournament-submissions" ? await adminListPendingTournaments() : [];
 
   async function updateUser(formData: FormData) {

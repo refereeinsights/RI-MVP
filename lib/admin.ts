@@ -779,8 +779,28 @@ export async function adminListPendingTournaments() {
     .order("updated_at", { ascending: false })
     .limit(200);
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as AdminPendingTournament[];
 }
+
+export type AdminPendingTournament = {
+  id: string;
+  name: string;
+  slug: string;
+  sport: string;
+  level?: string | null;
+  state?: string | null;
+  city?: string | null;
+  venue?: string | null;
+  address?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  source_url?: string | null;
+  source_domain?: string | null;
+  summary?: string | null;
+  referee_pay?: string | null;
+  referee_contact?: string | null;
+  updated_at?: string | null;
+};
 
 export async function adminUpdateTournamentStatus(params: {
   tournament_id: string;
