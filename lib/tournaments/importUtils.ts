@@ -280,7 +280,7 @@ export function extractUSClubTournamentsFromHtml(
       source: opts.source ?? "us_club_soccer",
       source_event_id: slug,
       source_url: absolute,
-      source_domain,
+      source_domain: sourceDomain,
       raw: summary,
     });
   });
