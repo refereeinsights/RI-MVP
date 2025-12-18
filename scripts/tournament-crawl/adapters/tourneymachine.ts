@@ -19,7 +19,29 @@ function absoluteUrl(url: string, base: string) {
 }
 
 function looksLikeDetailLink(url: string) {
+  if (!/tourneymachine\.com/i.test(url)) return false;
+  if (/\/public\/mobile\/(Tour|Schedule|Event)Info/i.test(url)) return true;
   return /tourneymachine\.com\/e\//i.test(url) || /tourneymachine\.com\/tours\//i.test(url);
+}
+
+function extractLocationText($$: cheerio.CheerioAPI) {
+  const explicit = extractText($$, ".event-location") || extractText($$, ".location");
+  if (explicit && /,\s*[A-Z]{2}/.test(explicit)) {
+    return explicit;
+  }
+  let fallback: string | null = null;
+  $$("p,span,li,div")
+    .not("script,style")
+    .each((_, element) => {
+      if (fallback) return false;
+      const text = $$(element).text().trim();
+      if (text && /,\s*[A-Z]{2}/.test(text)) {
+        fallback = text;
+        return false;
+      }
+      return undefined;
+    });
+  return fallback ?? "";
 }
 
 function extractText($$: cheerio.CheerioAPI, selector: string) {
@@ -87,9 +109,9 @@ export default async function crawlTourneyMachine(
         null;
 
       const locationText =
-        extractText($$, ".event-location") ||
-        extractText($$, ".location") ||
-        extractText($$, ".address");
+        extractLocationText($$) ||
+        extractText($$, ".address") ||
+        "";
       const { city, state } = locationText ? extractCityState(locationText) : { city: null, state: null };
 
       const slug = generateSlug(title, city, state, ctx.slugRegistry);

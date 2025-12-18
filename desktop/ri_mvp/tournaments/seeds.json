@@ -45,12 +45,17 @@
     "level": "national"
   },
   {
-    "url": "https://www.tourneymachine.com/basketball",
+    "url": "https://tourneymachine.com/public/mobile/Locations.aspx?sport=Basketball",
     "sport": "basketball",
     "level": "national"
   },
   {
-    "url": "https://www.tourneymachine.com/football",
+    "url": "https://tourneymachine.com/public/mobile/Locations.aspx?sport=Football",
+    "sport": "football",
+    "level": "national"
+  },
+  {
+    "url": "https://tourneymachine.com/public/mobile/Locations.aspx?sport=Soccer",
     "sport": "football",
     "level": "national"
   },

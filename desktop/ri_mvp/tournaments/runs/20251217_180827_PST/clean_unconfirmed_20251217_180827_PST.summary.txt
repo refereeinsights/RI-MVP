@@ -1,0 +1,5 @@
+Input rows: 148
+Kept rows: 97
+Dropped rows: 51
+  - missing city/state: 28
+  - references other sport: 23

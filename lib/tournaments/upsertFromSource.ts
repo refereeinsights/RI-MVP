@@ -32,9 +32,11 @@ export async function upsertTournamentFromSource(row: TournamentRow) {
         address: row.address ?? null,
         start_date: row.start_date ?? null,
         end_date: row.end_date ?? null,
+        summary: row.summary ?? null,
         status: row.status,
-        last_seen_at: now,
         updated_at: now,
+        source_url: row.source_url,
+        source_domain: row.source_domain,
       },
       { onConflict: "slug" }
     )
@@ -60,7 +62,16 @@ export async function upsertTournamentFromSource(row: TournamentRow) {
       { onConflict: "source,source_event_id" }
     );
 
-  if (lErr) throw lErr;
+  if (lErr) {
+    // Ignore missing table in environments that have not created tournament_listings yet.
+    if ((lErr as any)?.code === "42P01") {
+      console.warn(
+        "tournament_listings table missing; skipping listing upsert. Create the table to enable per-source tracking."
+      );
+    } else {
+      throw lErr;
+    }
+  }
 
   return tournament.id;
 }

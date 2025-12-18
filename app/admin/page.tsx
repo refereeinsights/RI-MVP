@@ -33,6 +33,8 @@ import {
   adminFindTournamentIdBySlugOrName,
   adminLinkRefereeContactToTournament,
   adminUnlinkRefereeContactFromTournament,
+  adminListPendingTournaments,
+  adminUpdateTournamentStatus,
   type AdminBadgeRow,
   type AdminUserRow,
   type ReviewStatus,
@@ -46,7 +48,8 @@ type Tab =
   | "reviews"
   | "school-reviews"
   | "tournament-contacts"
-  | "referee-contacts";
+  | "referee-contacts"
+  | "tournament-submissions";
 type VStatus = "pending" | "approved" | "rejected";
 const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
 const CONTACT_TYPES = ["assignor", "director", "general", "referee_coordinator"] as const;
@@ -117,6 +120,8 @@ export default async function AdminPage({
     tab === "tournament-contacts" ? await adminListTournamentContacts(contactStatus) : [];
   const refereeContacts =
     tab === "referee-contacts" ? await adminListRefereeContacts() : [];
+  const pendingTournaments =
+    tab === "tournament-submissions" ? await adminListPendingTournaments() : [];
 
   async function updateUser(formData: FormData) {
     "use server";
@@ -519,6 +524,24 @@ export default async function AdminPage({
     redirectWithNotice(redirectTo, "Contact unlinked");
   }
 
+  async function approveTournamentAction(formData: FormData) {
+    "use server";
+    const tournamentId = String(formData.get("tournament_id") || "");
+    if (!tournamentId) return;
+    const redirectTo = formData.get("redirect_to");
+    await adminUpdateTournamentStatus({ tournament_id: tournamentId, status: "published" });
+    redirectWithNotice(redirectTo, "Tournament approved");
+  }
+
+  async function archiveTournamentAction(formData: FormData) {
+    "use server";
+    const tournamentId = String(formData.get("tournament_id") || "");
+    if (!tournamentId) return;
+    const redirectTo = formData.get("redirect_to");
+    await adminUpdateTournamentStatus({ tournament_id: tournamentId, status: "archived" });
+    redirectWithNotice(redirectTo, "Tournament archived");
+  }
+
   const tabLink = (t: Tab) => {
     const sp = new URLSearchParams();
     sp.set("tab", t);
@@ -623,6 +646,7 @@ export default async function AdminPage({
         <TabButton t="school-reviews" label="School reviews" />
         <TabButton t="tournament-contacts" label="Tournament contacts" />
         <TabButton t="referee-contacts" label="Referee contacts" />
+        <TabButton t="tournament-submissions" label="Tournament submissions" />
       </div>
 
       {/* VERIFICATION TAB */}
@@ -817,6 +841,98 @@ export default async function AdminPage({
           </div>
       </section>
     )}
+
+      {/* TOURNAMENT SUBMISSIONS */}
+      {tab === "tournament-submissions" && (
+        <section style={{ marginBottom: 22 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <h2 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>Tournament submissions</h2>
+              <p style={{ color: "#555", marginTop: 4, fontSize: 13 }}>
+                Imported tournaments awaiting approval. Approving publishes them to the public list.
+              </p>
+            </div>
+            <div style={{ fontSize: 13, color: "#555", alignSelf: "center" }}>
+              Pending: <strong>{pendingTournaments.length}</strong>
+            </div>
+          </div>
+
+          {pendingTournaments.length === 0 ? (
+            <div style={{ marginTop: 12, color: "#555" }}>No pending tournaments right now.</div>
+          ) : (
+            <div style={{ marginTop: 16, display: "grid", gap: 14 }}>
+              {pendingTournaments.map((t) => (
+                <div
+                  key={t.id}
+                  style={{
+                    border: "1px solid #ddd",
+                    borderRadius: 14,
+                    padding: 16,
+                    background: "#fff",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 900 }}>{t.name}</div>
+                      <div style={{ fontSize: 13, color: "#555" }}>
+                        {t.city ? `${t.city}, ` : ""}
+                        {t.state ?? "State unknown"} • {t.sport} {t.level ? `• ${t.level}` : ""}
+                      </div>
+                      {(t.start_date || t.end_date) && (
+                        <div style={{ fontSize: 12, color: "#777" }}>
+                          {t.start_date ?? "TBD"} {t.end_date && t.end_date !== t.start_date ? `– ${t.end_date}` : ""}
+                        </div>
+                      )}
+                      {t.summary && (
+                        <p style={{ marginTop: 8, fontSize: 13, color: "#444" }}>{t.summary}</p>
+                      )}
+                      {t.source_url && (
+                        <a href={t.source_url} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+                          Source ↗ ({t.source_domain ?? "link"})
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+                    <form action={approveTournamentAction}>
+                      <input type="hidden" name="tournament_id" value={t.id} />
+                      <input type="hidden" name="redirect_to" value={adminBasePath} />
+                      <button
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: "none",
+                          background: "#0a7a2f",
+                          color: "#fff",
+                          fontWeight: 900,
+                        }}
+                      >
+                        Approve
+                      </button>
+                    </form>
+                    <form action={archiveTournamentAction}>
+                      <input type="hidden" name="tournament_id" value={t.id} />
+                      <input type="hidden" name="redirect_to" value={adminBasePath} />
+                      <button
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: "1px solid #b00020",
+                          background: "#fff",
+                          color: "#b00020",
+                          fontWeight: 900,
+                        }}
+                      >
+                        Archive
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* TOURNAMENT CONTACTS */}
       {tab === "tournament-contacts" && (

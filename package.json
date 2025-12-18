@@ -8,7 +8,10 @@
     "start": "next start",
     "tournament-crawl": "tsx scripts/tournament-crawl/index.ts",
     "tournament-crawl:build": "tsc -p tsconfig.tournament-crawl.json",
-    "tournament-crawl:run": "node dist-tournament-crawl/scripts/tournament-crawl/index.js"
+    "tournament-crawl:run": "node dist-tournament-crawl/scripts/tournament-crawl/index.js",
+    "clean-unconfirmed": "tsx scripts/tournament-crawl/clean-unconfirmed.ts",
+    "process-usclubsoccer-html": "tsx scripts/tournament-crawl/process-usclubsoccer-html.ts",
+    "import-cleaned-tournaments": "tsx scripts/tournament-crawl/import-cleaned-tournaments.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.31.0",
@@ -24,6 +27,7 @@
   "devDependencies": {
     "@types/node": "^20.14.9",
     "@types/react": "^18.3.3",
+    "playwright": "^1.57.0",
     "tsx": "^4.21.0",
     "typescript": "^5.4.5"
   }

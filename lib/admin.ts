@@ -9,6 +9,7 @@ import type {
   RefereeContactInsert,
   RefereeContactUpdate,
 } from "@/lib/types/supabase";
+import type { TournamentStatus } from "@/lib/types/tournament";
 
 type VerificationStatus = "pending" | "approved" | "rejected";
 export type ReviewStatus = "pending" | "approved" | "rejected";
@@ -764,5 +765,32 @@ export async function adminUnlinkRefereeContactFromTournament(link_id: string) {
     .from("tournament_referee_contacts")
     .delete()
     .eq("id", link_id);
+  if (error) throw error;
+}
+
+export async function adminListPendingTournaments() {
+  await requireAdmin();
+  const { data, error } = await supabaseAdmin
+    .from("tournaments")
+    .select("id,name,slug,sport,level,state,city,start_date,end_date,source_url,source_domain,summary,updated_at")
+    .eq("status", "draft")
+    .order("updated_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function adminUpdateTournamentStatus(params: {
+  tournament_id: string;
+  status: TournamentStatus;
+}) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin
+    .from("tournaments")
+    .update({
+      status: params.status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", params.tournament_id);
   if (error) throw error;
 }

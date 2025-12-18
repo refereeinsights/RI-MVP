@@ -4,7 +4,8 @@ export type TournamentSource =
   | "us_club_soccer"
   | "cal_south"
   | "gotsoccer"
-  | "soccerwire";
+  | "soccerwire"
+  | "external_crawl";
 
 /**
  * Canonical tournament row (Phase-1 MVP)
@@ -13,7 +14,7 @@ export type TournamentSource =
 export interface TournamentRow {
   name: string;
   slug: string;
-  sport: "soccer";
+  sport: "soccer" | "basketball" | "football";
   level?: string | null;
 
   state?: string | null;
