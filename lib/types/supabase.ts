@@ -31,6 +31,9 @@ type PublicTables = {
       city: string | null;
       notes: string | null;
       source_url: string | null;
+      type: "assignor" | "director" | "general" | "referee_coordinator";
+      status: "pending" | "verified" | "rejected";
+      confidence: number | null;
       created_at: string;
       updated_at: string;
     };
@@ -45,6 +48,9 @@ type PublicTables = {
       city?: string | null;
       notes?: string | null;
       source_url?: string | null;
+      type?: "assignor" | "director" | "general" | "referee_coordinator";
+      status?: "pending" | "verified" | "rejected";
+      confidence?: number | null;
       created_at?: string;
       updated_at?: string;
     };
@@ -59,10 +65,50 @@ type PublicTables = {
       city?: string | null;
       notes?: string | null;
       source_url?: string | null;
+      type?: "assignor" | "director" | "general" | "referee_coordinator";
+      status?: "pending" | "verified" | "rejected";
+      confidence?: number | null;
       created_at?: string;
       updated_at?: string;
     };
     Relationships: [];
+  };
+  tournament_referee_contacts: {
+    Row: {
+      id: string;
+      tournament_id: string;
+      referee_contact_id: string;
+      notes: string | null;
+      created_at: string;
+    };
+    Insert: {
+      id?: string;
+      tournament_id: string;
+      referee_contact_id: string;
+      notes?: string | null;
+      created_at?: string;
+    };
+    Update: {
+      id?: string;
+      tournament_id?: string;
+      referee_contact_id?: string;
+      notes?: string | null;
+      created_at?: string;
+    };
+    Relationships: [
+      {
+        foreignKeyName: "tournament_referee_contacts_referee_contact_id_fkey";
+        columns: ["referee_contact_id"];
+        referencedRelation: "referee_contacts";
+        referencedColumns: ["id"];
+      },
+      {
+        foreignKeyName: "tournament_referee_contacts_tournament_id_fkey";
+        columns: ["tournament_id"];
+        referencedRelation: "tournaments";
+        referencedColumns: ["id"];
+      }
+    ];
   };
   tournament_contacts: {
     Row: {
@@ -143,3 +189,10 @@ export type RefereeContactInsert =
   Database["public"]["Tables"]["referee_contacts"]["Insert"];
 export type RefereeContactUpdate =
   Database["public"]["Tables"]["referee_contacts"]["Update"];
+
+export type TournamentRefereeContactRow =
+  Database["public"]["Tables"]["tournament_referee_contacts"]["Row"];
+export type TournamentRefereeContactInsert =
+  Database["public"]["Tables"]["tournament_referee_contacts"]["Insert"];
+export type TournamentRefereeContactUpdate =
+  Database["public"]["Tables"]["tournament_referee_contacts"]["Update"];

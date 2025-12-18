@@ -20,6 +20,66 @@
     "level": "national"
   },
   {
+    "url": "https://www.infosports.com/soccer/",
+    "sport": "soccer",
+    "level": "national"
+  },
+  {
+    "url": "https://www.infosports.com/basketball/",
+    "sport": "basketball",
+    "level": "national"
+  },
+  {
+    "url": "https://www.infosports.com/football/",
+    "sport": "football",
+    "level": "national"
+  },
+  {
+    "url": "https://basketball.exposureevents.com/youth-basketball-tournaments",
+    "sport": "basketball",
+    "level": "national"
+  },
+  {
+    "url": "https://www.usab.com/play/youth",
+    "sport": "basketball",
+    "level": "national"
+  },
+  {
+    "url": "https://www.tourneymachine.com/basketball",
+    "sport": "basketball",
+    "level": "national"
+  },
+  {
+    "url": "https://www.tourneymachine.com/football",
+    "sport": "football",
+    "level": "national"
+  },
+  {
+    "url": "https://www.usafootball.com/tournaments-events",
+    "sport": "football",
+    "level": "national"
+  },
+  {
+    "url": "https://www.eventconnect.io/events",
+    "sport": "soccer",
+    "level": "national"
+  },
+  {
+    "url": "https://www.playnaia.com/youth-events",
+    "sport": "basketball",
+    "level": "national"
+  },
+  {
+    "url": "https://www.soccerwire.com/soccer-tournament-directory",
+    "sport": "soccer",
+    "level": "national"
+  },
+  {
+    "url": "https://usclubsoccer.org/list-of-sanctioned-tournaments/",
+    "sport": "soccer",
+    "level": "national"
+  },
+  {
     "url": "https://www.usyouthsoccer.org/events/",
     "sport": "soccer",
     "level": "national"

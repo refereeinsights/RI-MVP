@@ -236,6 +236,7 @@ export type AdminTournamentReview = {
   user_id: string;
   created_at: string;
   status: ReviewStatus;
+  sport: string | null;
   overall_score: number;
   logistics_score: number;
   facilities_score: number;
@@ -251,6 +252,7 @@ export type AdminTournamentReview = {
     name: string | null;
     city: string | null;
     state: string | null;
+    sport: string | null;
   } | null;
 };
 
@@ -311,8 +313,19 @@ export type AdminRefereeContact = {
   city: string | null;
   notes: string | null;
   source_url: string | null;
+  type: "assignor" | "director" | "general" | "referee_coordinator";
+  status: ContactStatus;
+  confidence: number | null;
   created_at: string;
   updated_at: string;
+  tournaments?: {
+    link_id: string;
+    id: string;
+    name: string | null;
+    slug: string | null;
+    city: string | null;
+    state: string | null;
+  }[];
 };
 
 export async function adminListTournamentReviews(status: ReviewStatus = "pending") {
@@ -321,7 +334,7 @@ export async function adminListTournamentReviews(status: ReviewStatus = "pending
   const { data, error } = await supabaseAdmin
     .from("tournament_referee_reviews")
     .select(
-      "id,tournament_id,user_id,created_at,status,overall_score,logistics_score,facilities_score,pay_score,support_score,worked_games,shift_detail,sport"
+      "id,tournament_id,user_id,created_at,status,overall_score,logistics_score,facilities_score,pay_score,support_score,worked_games,shift_detail"
     )
     .eq("status", status)
     .order("created_at", { ascending: false })
@@ -347,7 +360,7 @@ export async function adminListTournamentReviews(status: ReviewStatus = "pending
     tournamentIds.length
       ? supabaseAdmin
           .from("tournaments")
-          .select("id,name,city,state")
+          .select("id,name,city,state,sport")
           .in("id", tournamentIds)
       : Promise.resolve({ data: [] }),
   ]);
@@ -359,7 +372,7 @@ export async function adminListTournamentReviews(status: ReviewStatus = "pending
   const tournamentMap = new Map(
     (tournamentRows ?? []).map((t: any) => [
       t.id,
-      { name: t.name ?? null, city: t.city ?? null, state: t.state ?? null },
+      { name: t.name ?? null, city: t.city ?? null, state: t.state ?? null, sport: t.sport ?? null },
     ])
   );
 
@@ -371,7 +384,7 @@ export async function adminListTournamentReviews(status: ReviewStatus = "pending
         user_id: row.user_id,
         created_at: row.created_at,
         status: row.status,
-        sport: row.sport ?? null,
+        sport: tournamentMap.get(row.tournament_id)?.sport ?? null,
         overall_score: row.overall_score,
         logistics_score: row.logistics_score,
         facilities_score: row.facilities_score,
@@ -537,6 +550,30 @@ export async function adminFindTournamentIdBySlug(slug: string): Promise<string 
   return data?.id ?? null;
 }
 
+export async function adminFindTournamentIdBySlugOrName(
+  query: string
+): Promise<string | null> {
+  await requireAdmin();
+  const trimmed = query.trim();
+  if (!trimmed) return null;
+
+  const { data: slugMatch, error: slugError } = await supabaseAdmin
+    .from("tournaments")
+    .select("id")
+    .eq("slug", trimmed)
+    .maybeSingle<{ id: string }>();
+  if (slugError && slugError.code !== "PGRST116") throw slugError;
+  if (slugMatch?.id) return slugMatch.id;
+
+  const { data: nameMatches, error: nameError } = await supabaseAdmin
+    .from("tournaments")
+    .select("id")
+    .ilike("name", `%${trimmed}%`)
+    .limit(1);
+  if (nameError) throw nameError;
+  return nameMatches?.[0]?.id ?? null;
+}
+
 /** CONTACTS **/
 export async function adminListTournamentContacts(
   status?: ContactStatus
@@ -620,12 +657,64 @@ export async function adminListRefereeContacts(): Promise<AdminRefereeContact[]>
   const { data, error } = await supabaseAdmin
     .from("referee_contacts")
     .select(
-      "id,name,organization,role,email,phone,state,city,notes,source_url,created_at,updated_at"
+      `
+      id,
+      name,
+      organization,
+      role,
+      email,
+      phone,
+      state,
+      city,
+      notes,
+      source_url,
+      type,
+      status,
+      confidence,
+      created_at,
+      updated_at,
+      tournament_links:tournament_referee_contacts (
+        id,
+        tournament_id,
+        notes,
+        tournaments (
+          id,
+          name,
+          slug,
+          city,
+          state
+        )
+      )
+    `
     )
     .order("created_at", { ascending: false })
     .limit(200);
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    name: row.name,
+    organization: row.organization,
+    role: row.role,
+    email: row.email,
+    phone: row.phone,
+    state: row.state,
+    city: row.city,
+    notes: row.notes,
+    source_url: row.source_url,
+    type: (row.type ?? "general") as AdminRefereeContact["type"],
+    status: (row.status ?? "pending") as ContactStatus,
+    confidence: row.confidence ?? null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    tournaments: (row.tournament_links ?? []).map((link: any) => ({
+      link_id: link.id,
+      id: link.tournaments?.id ?? link.tournament_id,
+      name: link.tournaments?.name ?? null,
+      slug: link.tournaments?.slug ?? null,
+      city: link.tournaments?.city ?? null,
+      state: link.tournaments?.state ?? null,
+    })),
+  }));
 }
 
 export async function adminCreateRefereeContact(payload: RefereeContactInsert) {
@@ -649,5 +738,31 @@ export async function adminUpdateRefereeContact(
 export async function adminDeleteRefereeContact(id: string) {
   await requireAdmin();
   const { error } = await supabaseAdmin.from("referee_contacts").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function adminLinkRefereeContactToTournament(params: {
+  contact_id: string;
+  tournament_id: string;
+  notes?: string | null;
+}) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin.from("tournament_referee_contacts").upsert(
+    {
+      tournament_id: params.tournament_id,
+      referee_contact_id: params.contact_id,
+      notes: params.notes ?? null,
+    },
+    { onConflict: "tournament_id,referee_contact_id" }
+  );
+  if (error) throw error;
+}
+
+export async function adminUnlinkRefereeContactFromTournament(link_id: string) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin
+    .from("tournament_referee_contacts")
+    .delete()
+    .eq("id", link_id);
   if (error) throw error;
 }

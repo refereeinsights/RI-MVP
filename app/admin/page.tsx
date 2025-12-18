@@ -30,6 +30,9 @@ import {
   adminUpdateRefereeContact,
   adminDeleteRefereeContact,
   adminFindTournamentIdBySlug,
+  adminFindTournamentIdBySlugOrName,
+  adminLinkRefereeContactToTournament,
+  adminUnlinkRefereeContactFromTournament,
   type AdminBadgeRow,
   type AdminUserRow,
   type ReviewStatus,
@@ -46,6 +49,8 @@ type Tab =
   | "referee-contacts";
 type VStatus = "pending" | "approved" | "rejected";
 const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
+const CONTACT_TYPES = ["assignor", "director", "general", "referee_coordinator"] as const;
+const CONTACT_STATUSES: ContactStatus[] = ["pending", "verified", "rejected"];
 
 function safeSportsArray(value: any): string[] {
   if (Array.isArray(value)) return value.filter(Boolean).map(String);
@@ -334,11 +339,11 @@ export default async function AdminPage({
     const statusInput = String(formData.get("status") || "pending").toLowerCase();
     const allowedStatuses: ContactStatus[] = ["pending", "verified", "rejected"];
     const tournamentIdInput = String(formData.get("tournament_id") || "").trim();
-    const tournamentSlug = String(formData.get("tournament_slug") || "").trim();
+    const tournamentSlugOrName = String(formData.get("tournament_slug") || "").trim();
 
     let tournament_id = tournamentIdInput || null;
-    if (!tournament_id && tournamentSlug) {
-      tournament_id = await adminFindTournamentIdBySlug(tournamentSlug);
+    if (!tournament_id && tournamentSlugOrName) {
+      tournament_id = await adminFindTournamentIdBySlugOrName(tournamentSlugOrName);
     }
 
     await adminCreateTournamentContact({
@@ -396,6 +401,11 @@ export default async function AdminPage({
   async function createRefereeContactAction(formData: FormData) {
     "use server";
     const redirectTo = formData.get("redirect_to");
+    const typeInput = String(formData.get("contact_type") || "general").toLowerCase();
+    const statusInput = String(formData.get("status") || "pending").toLowerCase();
+    const confidenceRaw = String(formData.get("confidence") || "").trim();
+    const confidence =
+      confidenceRaw === "" ? null : Number.isFinite(Number(confidenceRaw)) ? Number(confidenceRaw) : null;
     await adminCreateRefereeContact({
       name: (formData.get("name") as string) || null,
       organization: (formData.get("organization") as string) || null,
@@ -406,6 +416,13 @@ export default async function AdminPage({
       city: (formData.get("city") as string) || null,
       notes: (formData.get("notes") as string) || null,
       source_url: (formData.get("source_url") as string) || null,
+      type: CONTACT_TYPES.includes(typeInput as any)
+        ? (typeInput as (typeof CONTACT_TYPES)[number])
+        : "general",
+      status: CONTACT_STATUSES.includes(statusInput as ContactStatus)
+        ? (statusInput as ContactStatus)
+        : "pending",
+      confidence,
     });
     redirectWithNotice(redirectTo, "Referee contact added");
   }
@@ -434,6 +451,26 @@ export default async function AdminPage({
       updates.source_url = url || null;
     }
 
+    if (formData.has("contact_type")) {
+      const typeValue = String(formData.get("contact_type") || "").toLowerCase();
+      if (CONTACT_TYPES.includes(typeValue as any)) {
+        updates.type = typeValue;
+      }
+    }
+
+    if (formData.has("status")) {
+      const statusValue = String(formData.get("status") || "").toLowerCase();
+      if (CONTACT_STATUSES.includes(statusValue as ContactStatus)) {
+        updates.status = statusValue;
+      }
+    }
+
+    if (formData.has("confidence")) {
+      const confidenceRaw = String(formData.get("confidence") || "").trim();
+      updates.confidence =
+        confidenceRaw === "" ? null : Number.isFinite(Number(confidenceRaw)) ? Number(confidenceRaw) : null;
+    }
+
     await adminUpdateRefereeContact(id, updates);
     redirectWithNotice(redirectTo, "Referee contact updated");
   }
@@ -445,6 +482,41 @@ export default async function AdminPage({
     const redirectTo = formData.get("redirect_to");
     await adminDeleteRefereeContact(id);
     redirectWithNotice(redirectTo, "Referee contact deleted");
+  }
+
+  async function linkRefereeContactAction(formData: FormData) {
+    "use server";
+    const contactId = String(formData.get("contact_id") || "");
+    const redirectTo = formData.get("redirect_to");
+    const lookup = String(formData.get("tournament_slug") || "").trim();
+    const notes = String(formData.get("link_notes") || "").trim();
+
+    if (!contactId || !lookup) {
+      redirectWithNotice(redirectTo, "Tournament name or slug required");
+      return;
+    }
+
+    const tournamentId = await adminFindTournamentIdBySlugOrName(lookup);
+    if (!tournamentId) {
+      redirectWithNotice(redirectTo, "Tournament not found");
+      return;
+    }
+
+    await adminLinkRefereeContactToTournament({
+      contact_id: contactId,
+      tournament_id: tournamentId,
+      notes: notes || null,
+    });
+    redirectWithNotice(redirectTo, "Contact linked to tournament");
+  }
+
+  async function unlinkRefereeContactAction(formData: FormData) {
+    "use server";
+    const linkId = String(formData.get("link_id") || "");
+    if (!linkId) return;
+    const redirectTo = formData.get("redirect_to");
+    await adminUnlinkRefereeContactFromTournament(linkId);
+    redirectWithNotice(redirectTo, "Contact unlinked");
   }
 
   const tabLink = (t: Tab) => {
@@ -808,7 +880,7 @@ export default async function AdminPage({
                   />
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
-                  Tournament slug
+                  Tournament slug or name
                   <input
                     type="text"
                     name="tournament_slug"
@@ -1054,6 +1126,48 @@ export default async function AdminPage({
                   </label>
                 ))}
               </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Contact type
+                  <select
+                    name="contact_type"
+                    defaultValue="assignor"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  >
+                    {CONTACT_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type.replace("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Status
+                  <select
+                    name="status"
+                    defaultValue="pending"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  >
+                    {CONTACT_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Confidence (0-100)
+                  <input
+                    type="number"
+                    name="confidence"
+                    min="0"
+                    max="100"
+                    step="1"
+                    placeholder="e.g. 80"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+              </div>
               <label style={{ fontSize: 12, fontWeight: 700 }}>
                 Source URL
                 <input
@@ -1112,6 +1226,54 @@ export default async function AdminPage({
                   <div style={{ fontSize: 13, color: "#555" }}>
                     {contact.city ?? "City ?"}, {contact.state ?? "State ?"}
                   </div>
+                  <div style={{ fontSize: 12, color: "#333", marginTop: 4 }}>
+                    Type: {contact.type.replace("_", " ")} | Status: {contact.status}{" "}
+                    {typeof contact.confidence === "number" ? `| Confidence: ${contact.confidence}` : ""}
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 13 }}>
+                    <div style={{ fontWeight: 700 }}>Linked tournaments</div>
+                    {contact.tournaments && contact.tournaments.length > 0 ? (
+                      <ul style={{ paddingLeft: 18, margin: "6px 0" }}>
+                        {contact.tournaments.map((tournament) => (
+                          <li key={tournament.link_id} style={{ marginBottom: 4 }}>
+                            <div>
+                              {tournament.name ?? tournament.slug ?? "Unknown tournament"}
+                              {tournament.city ? ` • ${tournament.city}, ${tournament.state ?? ""}` : ""}
+                            </div>
+                            {tournament.slug ? (
+                              <div style={{ fontSize: 12 }}>
+                                <a href={`/tournaments/${tournament.slug}`} target="_blank" rel="noreferrer">
+                                  View tournament ↗
+                                </a>
+                              </div>
+                            ) : null}
+                            <form
+                              action={unlinkRefereeContactAction}
+                              style={{ marginTop: 4, display: "inline-block" }}
+                            >
+                              <input type="hidden" name="link_id" value={tournament.link_id} />
+                              <input type="hidden" name="redirect_to" value={adminBasePath} />
+                              <button
+                                style={{
+                                  padding: "4px 8px",
+                                  borderRadius: 8,
+                                  border: "1px solid #c62828",
+                                  background: "#fff",
+                                  color: "#c62828",
+                                  fontSize: 12,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Remove link
+                              </button>
+                            </form>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div style={{ fontSize: 12, color: "#777" }}>Not linked to any tournaments yet.</div>
+                    )}
+                  </div>
                   {contact.source_url ? (
                     <div style={{ fontSize: 12, marginTop: 4 }}>
                       <a href={contact.source_url} target="_blank" rel="noreferrer">
@@ -1138,6 +1300,47 @@ export default async function AdminPage({
                           />
                         </label>
                       ))}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 8 }}>
+                      <label style={{ fontSize: 12, fontWeight: 700 }}>
+                        Contact type
+                        <select
+                          name="contact_type"
+                          defaultValue={contact.type}
+                          style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #bbb" }}
+                        >
+                          {CONTACT_TYPES.map((type) => (
+                            <option key={type} value={type}>
+                              {type.replace("_", " ")}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label style={{ fontSize: 12, fontWeight: 700 }}>
+                        Status
+                        <select
+                          name="status"
+                          defaultValue={contact.status}
+                          style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #bbb" }}
+                        >
+                          {CONTACT_STATUSES.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label style={{ fontSize: 12, fontWeight: 700 }}>
+                        Confidence (0-100)
+                        <input
+                          type="number"
+                          name="confidence"
+                          min="0"
+                          max="100"
+                          defaultValue={contact.confidence ?? ""}
+                          style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #bbb" }}
+                        />
+                      </label>
                     </div>
                     <label style={{ fontSize: 12, fontWeight: 700 }}>
                       Source URL
@@ -1171,6 +1374,43 @@ export default async function AdminPage({
                         Save
                       </button>
                     </div>
+                  </form>
+                  <form
+                    action={linkRefereeContactAction}
+                    style={{ marginTop: 12, display: "grid", gap: 8, background: "#f8f8f8", padding: 12, borderRadius: 10 }}
+                  >
+                    <input type="hidden" name="contact_id" value={contact.id} />
+                    <input type="hidden" name="redirect_to" value={adminBasePath} />
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Tournament slug or name
+                      <input
+                        type="text"
+                        name="tournament_slug"
+                        placeholder="e.g. jr-hardwood-invite-auburn-wa-2025"
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #bbb" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Link notes (optional)
+                      <input
+                        type="text"
+                        name="link_notes"
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #bbb" }}
+                      />
+                    </label>
+                    <button
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        border: "none",
+                        background: "#124f30",
+                        color: "#fff",
+                        fontWeight: 700,
+                        width: "fit-content",
+                      }}
+                    >
+                      Link to tournament
+                    </button>
                   </form>
                   <form action={deleteRefereeContactAction} style={{ marginTop: 8 }}>
                     <input type="hidden" name="contact_id" value={contact.id} />

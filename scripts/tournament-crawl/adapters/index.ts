@@ -4,7 +4,16 @@ import crawlFindYouthSports from "./findyouthsports";
 import crawlGoTSoccer from "./gotsoccer";
 import crawlSportsEngine from "./sportsengine";
 import crawlTravelSports from "./travelsports";
+import crawlInfoSports from "./infosports";
+import crawlExposureEvents from "./exposureevents";
+import crawlUSClubSoccer from "./usclubsoccer";
 import crawlUSYouthSoccer from "./usyouthsoccer";
+import crawlUSAB from "./usab";
+import crawlTourneyMachine from "./tourneymachine";
+import crawlUSAFootball from "./usafootball";
+import crawlEventConnect from "./eventconnect";
+import crawlPlayNAIA from "./playnaia";
+import crawlSoccerWire from "./soccerwire";
 
 type AdapterFn = (seed: CrawlSeed, ctx: RunContext) => Promise<AdapterResult>;
 
@@ -16,6 +25,17 @@ const ADAPTERS: Record<string, AdapterFn> = {
   "www.findyouthsports.com": crawlFindYouthSports,
   "findyouthsports.com": crawlFindYouthSports,
   "home.gotsoccer.com": crawlGoTSoccer,
+  "www.infosports.com": crawlInfoSports,
+  "infosports.com": crawlInfoSports,
+  "usclubsoccer.org": crawlUSClubSoccer,
+  "basketball.exposureevents.com": crawlExposureEvents,
+  "www.usab.com": crawlUSAB,
+  "www.tourneymachine.com": crawlTourneyMachine,
+  "tourneymachine.com": crawlTourneyMachine,
+  "www.usafootball.com": crawlUSAFootball,
+  "www.eventconnect.io": crawlEventConnect,
+  "www.playnaia.com": crawlPlayNAIA,
+  "www.soccerwire.com": crawlSoccerWire,
 };
 
 export async function runAdapter(
