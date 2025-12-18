@@ -35,11 +35,25 @@ import {
   adminUnlinkRefereeContactFromTournament,
   adminListPendingTournaments,
   adminUpdateTournamentStatus,
+  adminDeleteTournament,
   type AdminBadgeRow,
   type AdminUserRow,
   type ReviewStatus,
   type ContactStatus,
 } from "@/lib/admin";
+import {
+  cleanCsvRows,
+  csvRowsToTournamentRows,
+  extractHtmlFromMhtml,
+  extractUSClubTournamentsFromHtml,
+  importTournamentRecords,
+  parseCsv,
+} from "@/lib/tournaments/importUtils";
+import type {
+  TournamentRow,
+  TournamentSource,
+  TournamentStatus,
+} from "@/lib/types/tournament";
 
 type Tab =
   | "users"
@@ -54,13 +68,21 @@ type VStatus = "pending" | "approved" | "rejected";
 const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
 const CONTACT_TYPES = ["assignor", "director", "general", "referee_coordinator"] as const;
 const CONTACT_STATUSES: ContactStatus[] = ["pending", "verified", "rejected"];
+const TOURNAMENT_SPORTS = ["soccer", "basketball", "football"] as const;
+const TOURNAMENT_SOURCES: TournamentSource[] = [
+  "external_crawl",
+  "us_club_soccer",
+  "soccerwire",
+  "gotsoccer",
+  "cal_south",
+];
 
 function safeSportsArray(value: any): string[] {
   if (Array.isArray(value)) return value.filter(Boolean).map(String);
   return [];
 }
 
-function redirectWithNotice(target: FormDataEntryValue | null, notice: string) {
+function redirectWithNotice(target: FormDataEntryValue | null, notice: string): never {
   const base =
     typeof target === "string" && target.length > 0 ? target : "/admin";
   const joiner = base.includes("?") ? "&" : "?";
@@ -542,6 +564,82 @@ export default async function AdminPage({
     redirectWithNotice(redirectTo, "Tournament archived");
   }
 
+  async function bulkTournamentAction(formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to");
+    const action = String(formData.get("bulk_action") || "");
+    const ids = formData.getAll("selected") as string[];
+    if (!ids.length) {
+      return redirectWithNotice(redirectTo, "Select at least one tournament.");
+    }
+    if (action === "approve") {
+      await Promise.all(ids.map((id) => adminUpdateTournamentStatus({ tournament_id: id, status: "published" })));
+      return redirectWithNotice(redirectTo, `${ids.length} tournament(s) approved.`);
+    } else if (action === "archive") {
+      await Promise.all(ids.map((id) => adminUpdateTournamentStatus({ tournament_id: id, status: "archived" })));
+      return redirectWithNotice(redirectTo, `${ids.length} tournament(s) archived.`);
+    } else if (action === "delete") {
+      await Promise.all(ids.map((id) => adminDeleteTournament(id)));
+      return redirectWithNotice(redirectTo, `${ids.length} tournament(s) deleted.`);
+    } else {
+      return redirectWithNotice(redirectTo, "Unknown bulk action.");
+    }
+  }
+
+  async function importTournamentsAction(formData: FormData) {
+    "use server";
+    const file = formData.get("upload") as File | null;
+    const redirectTo = formData.get("redirect_to");
+    if (!file || file.size === 0) {
+      return redirectWithNotice(redirectTo, "Please choose a file to import.");
+    }
+
+    const treatConfirmed = String(formData.get("treat_confirmed") || "") === "on";
+    const status: TournamentStatus = treatConfirmed ? "published" : "draft";
+    const source = (formData.get("source") as TournamentSource) ?? "external_crawl";
+    const fallbackSportInput = String(formData.get("fallback_sport") || "soccer").toLowerCase();
+    const fallbackSport = TOURNAMENT_SPORTS.includes(fallbackSportInput as any)
+      ? (fallbackSportInput as (typeof TOURNAMENT_SPORTS)[number])
+      : "soccer";
+    const fallbackLevel = String(formData.get("fallback_level") || "").trim() || null;
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const contents = buffer.toString("utf8");
+    const filename = file.name.toLowerCase();
+
+    let records: TournamentRow[] = [];
+    if (filename.endsWith(".csv")) {
+      const { rows } = parseCsv(contents);
+      const { kept } = cleanCsvRows(rows);
+      records = csvRowsToTournamentRows(kept, { status, source });
+    } else if (
+      filename.endsWith(".html") ||
+      filename.endsWith(".htm") ||
+      filename.endsWith(".mhtml")
+    ) {
+      const html = filename.endsWith(".mhtml") ? extractHtmlFromMhtml(contents) : contents;
+      records = extractUSClubTournamentsFromHtml(html, {
+        sport: fallbackSport,
+        level: fallbackLevel,
+        status,
+        source,
+      });
+    } else {
+      return redirectWithNotice(redirectTo, "Unsupported file type. Use CSV, HTML, or MHTML.");
+    }
+
+    if (!records.length) {
+      return redirectWithNotice(redirectTo, "No tournaments detected in the uploaded file.");
+    }
+
+    const result = await importTournamentRecords(records);
+    const message =
+      result.failures.length === 0
+        ? `Imported ${result.success} tournament(s).`
+        : `Imported ${result.success} tournament(s), ${result.failures.length} failed.`;
+    return redirectWithNotice(redirectTo, message);
+  }
+
   const tabLink = (t: Tab) => {
     const sp = new URLSearchParams();
     sp.set("tab", t);
@@ -849,7 +947,8 @@ export default async function AdminPage({
             <div>
               <h2 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>Tournament submissions</h2>
               <p style={{ color: "#555", marginTop: 4, fontSize: 13 }}>
-                Imported tournaments awaiting approval. Approving publishes them to the public list.
+                Upload CSV/HTML files to clean + import tournaments as drafts or confirmed entries. Approve/Archive/Delete
+                directly below.
               </p>
             </div>
             <div style={{ fontSize: 13, color: "#555", alignSelf: "center" }}>
@@ -857,79 +956,213 @@ export default async function AdminPage({
             </div>
           </div>
 
+          <div
+            style={{
+              marginTop: 16,
+              border: "1px solid #ddd",
+              borderRadius: 14,
+              padding: 16,
+              background: "#fff",
+            }}
+          >
+            <h3 style={{ marginTop: 0 }}>Upload tournaments</h3>
+            <form
+              action={importTournamentsAction}
+              encType="multipart/form-data"
+              style={{ display: "grid", gap: 12 }}
+            >
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                File (.csv, .html, .htm, .mhtml)
+                <input
+                  type="file"
+                  name="upload"
+                  accept=".csv,.html,.htm,.mhtml"
+                  required
+                  style={{ width: "100%", marginTop: 4 }}
+                />
+              </label>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Source
+                  <select name="source" defaultValue="external_crawl" style={{ width: "100%", padding: 8 }}>
+                    {TOURNAMENT_SOURCES.map((src) => (
+                      <option key={src} value={src}>
+                        {src}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Sport (used for HTML files)
+                  <select name="fallback_sport" defaultValue="soccer" style={{ width: "100%", padding: 8 }}>
+                    {TOURNAMENT_SPORTS.map((sport) => (
+                      <option key={sport} value={sport}>
+                        {sport}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Level (optional)
+                  <input
+                    type="text"
+                    name="fallback_level"
+                    placeholder="e.g. regional"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+              </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                <input type="checkbox" name="treat_confirmed" />
+                Mark as confirmed/published
+              </label>
+              <button
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: "#111",
+                  color: "#fff",
+                  fontWeight: 900,
+                  width: "fit-content",
+                }}
+              >
+                Run cleaner & import
+              </button>
+            </form>
+          </div>
+
           {pendingTournaments.length === 0 ? (
-            <div style={{ marginTop: 12, color: "#555" }}>No pending tournaments right now.</div>
+            <div style={{ marginTop: 16, color: "#555" }}>No pending tournaments right now.</div>
           ) : (
-            <div style={{ marginTop: 16, display: "grid", gap: 14 }}>
-              {pendingTournaments.map((t) => (
-                <div
-                  key={t.id}
+            <form action={bulkTournamentAction} style={{ marginTop: 16 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                <button
+                  name="bulk_action"
+                  value="approve"
                   style={{
-                    border: "1px solid #ddd",
-                    borderRadius: 14,
-                    padding: 16,
-                    background: "#fff",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "none",
+                    background: "#0a7a2f",
+                    color: "#fff",
+                    fontWeight: 900,
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                    <div>
-                      <div style={{ fontSize: 16, fontWeight: 900 }}>{t.name}</div>
-                      <div style={{ fontSize: 13, color: "#555" }}>
-                        {t.city ? `${t.city}, ` : ""}
-                        {t.state ?? "State unknown"} • {t.sport} {t.level ? `• ${t.level}` : ""}
-                      </div>
-                      {(t.start_date || t.end_date) && (
-                        <div style={{ fontSize: 12, color: "#777" }}>
-                          {t.start_date ?? "TBD"} {t.end_date && t.end_date !== t.start_date ? `– ${t.end_date}` : ""}
-                        </div>
-                      )}
-                      {t.summary && (
-                        <p style={{ marginTop: 8, fontSize: 13, color: "#444" }}>{t.summary}</p>
-                      )}
-                      {t.source_url && (
-                        <a href={t.source_url} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
-                          Source ↗ ({t.source_domain ?? "link"})
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-                    <form action={approveTournamentAction}>
-                      <input type="hidden" name="tournament_id" value={t.id} />
-                      <input type="hidden" name="redirect_to" value={adminBasePath} />
-                      <button
-                        style={{
-                          padding: "10px 12px",
-                          borderRadius: 10,
-                          border: "none",
-                          background: "#0a7a2f",
-                          color: "#fff",
-                          fontWeight: 900,
-                        }}
-                      >
-                        Approve
-                      </button>
-                    </form>
-                    <form action={archiveTournamentAction}>
-                      <input type="hidden" name="tournament_id" value={t.id} />
-                      <input type="hidden" name="redirect_to" value={adminBasePath} />
-                      <button
-                        style={{
-                          padding: "10px 12px",
-                          borderRadius: 10,
-                          border: "1px solid #b00020",
-                          background: "#fff",
-                          color: "#b00020",
-                          fontWeight: 900,
-                        }}
-                      >
-                        Archive
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  Approve selected
+                </button>
+                <button
+                  name="bulk_action"
+                  value="archive"
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #b98500",
+                    background: "#fff",
+                    color: "#b98500",
+                    fontWeight: 900,
+                  }}
+                >
+                  Archive selected
+                </button>
+                <button
+                  name="bulk_action"
+                  value="delete"
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #b00020",
+                    background: "#fff",
+                    color: "#b00020",
+                    fontWeight: 900,
+                  }}
+                >
+                  Delete selected
+                </button>
+              </div>
+
+              <div style={{ overflowX: "auto" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: 13,
+                    minWidth: 700,
+                  }}
+                >
+                  <thead>
+                    <tr style={{ background: "#f5f5f5" }}>
+                      <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}></th>
+                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Tournament</th>
+                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Location</th>
+                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Dates</th>
+                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Venue & address</th>
+                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Referee info</th>
+                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Source</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingTournaments.map((t) => (
+                      <tr key={t.id}>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                          <input type="checkbox" name="selected" value={t.id} />
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                          <div style={{ fontWeight: 700 }}>{t.name}</div>
+                          <div style={{ color: "#666" }}>Slug: {t.slug}</div>
+                          <div style={{ color: "#666" }}>
+                            Sport: {t.sport} {t.level ? `• ${t.level}` : ""}
+                          </div>
+                          {t.summary && (
+                            <div style={{ marginTop: 4, color: "#444" }}>
+                              {t.summary.length > 160 ? `${t.summary.slice(0, 160)}…` : t.summary}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.city ? `${t.city}, ` : ""}
+                          {t.state ?? "State unknown"}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.start_date || t.end_date ? (
+                            <>
+                              {t.start_date ?? "TBD"}
+                              {t.end_date && t.end_date !== t.start_date ? ` – ${t.end_date}` : ""}
+                            </>
+                          ) : (
+                            "TBD"
+                          )}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.venue ? <div>{t.venue}</div> : <div>Venue TBD</div>}
+                          {t.address && <div style={{ color: "#777" }}>{t.address}</div>}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.referee_pay ? <div>Pay: {t.referee_pay}</div> : <div>Pay info TBD</div>}
+                          {t.referee_contact && (
+                            <div style={{ color: "#777" }}>Contact: {t.referee_contact}</div>
+                          )}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.source_url ? (
+                            <a href={t.source_url} target="_blank" rel="noreferrer">
+                              {t.source_domain ?? "link"}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                          <div style={{ fontSize: 12, color: "#999" }}>
+                            Updated {t.updated_at ? new Date(t.updated_at).toLocaleDateString() : "–"}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </form>
           )}
         </section>
       )}

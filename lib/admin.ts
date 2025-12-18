@@ -772,7 +772,9 @@ export async function adminListPendingTournaments() {
   await requireAdmin();
   const { data, error } = await supabaseAdmin
     .from("tournaments")
-    .select("id,name,slug,sport,level,state,city,start_date,end_date,source_url,source_domain,summary,updated_at")
+    .select(
+      "id,name,slug,sport,level,state,city,venue,address,start_date,end_date,source_url,source_domain,summary,referee_pay,referee_contact,updated_at"
+    )
     .eq("status", "draft")
     .order("updated_at", { ascending: false })
     .limit(200);
@@ -792,5 +794,11 @@ export async function adminUpdateTournamentStatus(params: {
       updated_at: new Date().toISOString(),
     })
     .eq("id", params.tournament_id);
+  if (error) throw error;
+}
+
+export async function adminDeleteTournament(tournament_id: string) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin.from("tournaments").delete().eq("id", tournament_id);
   if (error) throw error;
 }
