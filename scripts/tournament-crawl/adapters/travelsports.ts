@@ -25,6 +25,25 @@ function extractCityState(text: string) {
   return { city: null, state: null };
 }
 
+function extractLocationText($$: cheerio.CheerioAPI) {
+  const displayText = $$(".location").first().text().trim();
+  if (displayText && /,\s*[A-Z]{2}/.test(displayText)) {
+    return displayText;
+  }
+
+  let fallback: string | null = null;
+  $$("p,span,li,div").each((_, element) => {
+    if (fallback) return false;
+    const text = $$(element).text().trim();
+    if (text && /,\s*[A-Z]{2}/.test(text)) {
+      fallback = text;
+      return false;
+    }
+    return undefined;
+  });
+  return fallback ?? "";
+}
+
 export default async function crawlTravelSports(
   seed: CrawlSeed,
   ctx: RunContext
@@ -81,17 +100,8 @@ export default async function crawlTravelSports(
           .trim() ||
         null;
 
-      const locationText =
-        $$(".location")
-          .first()
-          .text()
-          .trim() ||
-        $$("p:contains(','")
-          .first()
-          .text()
-          .trim() ||
-        "";
-      const { city, state } = extractCityState(locationText);
+      const locationText = extractLocationText($$);
+      const { city, state } = locationText ? extractCityState(locationText) : { city: null, state: null };
 
       const slug = generateSlug(title, city, state, ctx.slugRegistry);
 
