@@ -741,6 +741,22 @@
 .reviewCard__overall {
   font-weight: 800;
   font-size: 1.2rem;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.reviewCard__sport {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  color: inherit;
+  background-color: rgba(255,255,255,0.08);
 }
 
 .reviewCard__scores {

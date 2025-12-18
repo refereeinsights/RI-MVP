@@ -106,6 +106,19 @@ export default async function SchoolsPage({
   }
 
   const recentReviews = await loadRecentSchoolReviews(supabase);
+  const sportReviewStats = SPORT_FILTERS.map((sport) => ({
+    sport,
+    count: recentReviews.filter((review) => (review.sport ?? "").toLowerCase() === sport).length,
+  }));
+  const lastReviewTimestamp = recentReviews[0]?.created_at
+    ? new Date(recentReviews[0].created_at).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : null;
 
   return (
     <main className="pitchWrap tournamentsWrap">
@@ -118,64 +131,158 @@ export default async function SchoolsPage({
           </p>
         </div>
 
-        <form className="filters" method="GET" action="/schools">
-          <div>
-            <label className="label" htmlFor="q">
-              Search
+        <form
+          method="GET"
+          action="/schools"
+          style={{
+            marginTop: 20,
+            borderRadius: 20,
+            border: "1px solid rgba(255,255,255,0.6)",
+            background: "rgba(0,0,0,0.08)",
+            padding: "18px 18px 12px",
+            display: "grid",
+            gap: 14,
+          }}
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 12,
+            }}
+          >
+            <label style={{ display: "flex", flexDirection: "column", fontWeight: 700, color: "#0b1f14" }}>
+              <span style={{ marginBottom: 6 }}>Search</span>
+              <input
+                id="q"
+                name="q"
+                placeholder="School name or city"
+                defaultValue={q}
+                style={{
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.2)",
+                  padding: "0.7rem 0.9rem",
+                  fontSize: 15,
+                }}
+              />
             </label>
-            <input
-              id="q"
-              name="q"
-              className="input"
-              placeholder="School name or city"
-              defaultValue={q}
-            />
+
+            <label style={{ display: "flex", flexDirection: "column", fontWeight: 700, color: "#0b1f14" }}>
+              <span style={{ marginBottom: 6 }}>State</span>
+              <select
+                id="state"
+                name="state"
+                defaultValue={state}
+                style={{
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.2)",
+                  padding: "0.7rem 0.9rem",
+                  fontSize: 15,
+                  backgroundColor: "#fff",
+                }}
+              >
+                <option value="">All</option>
+                {FILTER_STATES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
-          <div>
-            <label className="label" htmlFor="state">
-              State
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 12,
+              alignItems: "center",
+            }}
+          >
+            <label style={{ fontWeight: 700, color: "#0b1f14" }}>
+              <span style={{ display: "block", marginBottom: 6 }}>Reviewed only</span>
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 10,
+                  borderRadius: 999,
+                  border: "1px solid rgba(0,0,0,0.2)",
+                  padding: "0.4rem 0.8rem",
+                  background: "#fff",
+                }}
+              >
+                <input type="checkbox" name="reviewed" value="true" defaultChecked={reviewedOnly} />
+                <span style={{ fontWeight: 600 }}>Only schools with whistle scores</span>
+              </label>
             </label>
-            <select id="state" name="state" className="select" defaultValue={state}>
-              <option value="">All</option>
-              {FILTER_STATES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+
+            <div>
+              <span style={{ display: "block", fontWeight: 700, color: "#0b1f14", marginBottom: 6 }}>
+                Sports
+              </span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {SPORT_FILTERS.map((sport) => (
+                  <label
+                    key={sport}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      borderRadius: 999,
+                      border: "1px solid rgba(0,0,0,0.2)",
+                      padding: "0.35rem 0.8rem",
+                      background: sportsSelected.includes(sport) ? "#0f3d2e" : "#fff",
+                      color: sportsSelected.includes(sport) ? "#fff" : "#0b1f14",
+                      fontWeight: 600,
+                      textTransform: "capitalize",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      name="sports"
+                      value={sport}
+                      defaultChecked={sportsSelected.includes(sport)}
+                      style={{ accentColor: "#0f3d2e" }}
+                    />
+                    {sport}
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="actionsRow">
-            <button className="smallBtn" type="submit">
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <button
+              className="smallBtn"
+              type="submit"
+              style={{
+                borderRadius: 999,
+                border: "none",
+                padding: "0.55rem 1.4rem",
+                fontWeight: 800,
+                background: "#0f3d2e",
+                color: "#fff",
+                cursor: "pointer",
+              }}
+            >
               Apply
             </button>
-            <a className="smallBtn" href="/schools">
+            <a
+              className="smallBtn"
+              href="/schools"
+              style={{
+                borderRadius: 999,
+                border: "1px solid rgba(0,0,0,0.3)",
+                padding: "0.5rem 1.3rem",
+                fontWeight: 700,
+                color: "#111",
+                textDecoration: "none",
+                background: "#fff",
+              }}
+            >
               Reset
             </a>
-          </div>
-
-          <div className="sportsRow">
-            <span className="label" style={{ marginBottom: 0 }}>
-              Sports
-            </span>
-            <div className="sportsToggleWrap">
-              <label className="sportToggle">
-                <input type="checkbox" name="reviewed" value="true" defaultChecked={reviewedOnly} />
-                <span>Reviewed only</span>
-              </label>
-              {SPORT_FILTERS.map((sport) => (
-                <label key={sport} className="sportToggle">
-                  <input
-                    type="checkbox"
-                    name="sports"
-                    value={sport}
-                    defaultChecked={sportsSelected.includes(sport)}
-                  />
-                  <span>{sport.charAt(0).toUpperCase() + sport.slice(1)}</span>
-                </label>
-              ))}
-            </div>
           </div>
         </form>
 
@@ -204,32 +311,101 @@ export default async function SchoolsPage({
           </Link>
         </div>
 
-        <div
+        <section
           style={{
-            marginTop: 24,
-            border: "1px dashed rgba(255,255,255,0.6)",
+            marginTop: 28,
             borderRadius: 20,
-            padding: "16px 18px",
-            background: "rgba(0,0,0,0.06)",
+            border: "1px solid rgba(255,255,255,0.55)",
+            background: "#fff",
+            color: "#0f241a",
+            padding: "18px",
+            boxShadow: "0 10px 28px rgba(0,0,0,0.18)",
           }}
         >
-          <div style={{ textAlign: "right", marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <p style={{ fontSize: 12, letterSpacing: 1.2, textTransform: "uppercase", margin: 0, color: "#0f3d2e" }}>
+                Recent referee reviews
+              </p>
+              <h3 style={{ margin: "4px 0 0", fontSize: 22 }}>Field, locker room, and pay updates</h3>
+            </div>
             <a
               href="/schools/review"
               style={{
-                color: "#111",
+                padding: "0.5rem 1.2rem",
+                borderRadius: 999,
+                border: "1px solid rgba(0,0,0,0.15)",
                 textDecoration: "none",
-                fontWeight: 600,
-                fontSize: 14,
+                fontWeight: 700,
+                color: "#0f3d2e",
+                background: "#f6faf7",
               }}
             >
               + Share your school review
             </a>
           </div>
-          <RefereeReviewList reviews={recentReviews} />
-        </div>
+          {recentReviews.length > 0 && (
+            <div
+              style={{
+                marginTop: 14,
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
+                gap: 12,
+              }}
+            >
+              {sportReviewStats.map((stat) => (
+                <div
+                  key={stat.sport}
+                  style={{
+                    borderRadius: 14,
+                    padding: "0.8rem",
+                    background:
+                      stat.sport === "basketball"
+                        ? "linear-gradient(135deg,#f4a261,#c96c23)"
+                        : stat.sport === "football"
+                        ? "linear-gradient(135deg,#8c5a27,#5b3311)"
+                        : "linear-gradient(135deg,#0d4c2b,#07331c)",
+                    color: "#fff",
+                    boxShadow: "0 8px 18px rgba(0,0,0,0.15)",
+                  }}
+                >
+                  <div style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", opacity: 0.8 }}>
+                    {stat.sport}
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 800 }}>
+                    {stat.count}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.85 }}>reviews this week</div>
+                </div>
+              ))}
+              {lastReviewTimestamp && (
+                <div
+                  style={{
+                    borderRadius: 14,
+                    padding: "0.8rem",
+                    background: "linear-gradient(135deg,#1c2624,#121b19)",
+                    color: "#fefefe",
+                    boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
+                  }}
+                >
+                  <div style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", opacity: 0.7 }}>
+                    Last submission
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 700 }}>{lastReviewTimestamp}</div>
+                  <div style={{ fontSize: 12, opacity: 0.75 }}>Auto-refreshes after moderator approval</div>
+                </div>
+              )}
+            </div>
+          )}
+          <div style={{ marginTop: 16 }}>
+            <RefereeReviewList reviews={recentReviews} />
+          </div>
+        </section>
 
-        <div className="grid" style={{ marginTop: 18 }}>
+        <div className="grid" style={{ marginTop: 24 }}>
+          <div style={{ gridColumn: "1 / -1", color: "rgba(255,255,255,0.9)", marginBottom: 10 }}>
+            Showing <strong>{filteredSchools.length}</strong> school{filteredSchools.length === 1 ? "" : "s"}
+          </div>
           {filteredSchools.map((school) => {
             const score = scoreMap.get(school.id);
             return (
@@ -245,8 +421,25 @@ export default async function SchoolsPage({
                 <p className="meta">
                   <strong>{school.state ?? "??"}</strong>
                   {school.city ? ` • ${school.city}` : ""}
+                  {score?.sport && (
+                    <span style={{ marginLeft: 6, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(0,0,0,0.25)", fontSize: 11 }}>
+                      {score.sport}
+                    </span>
+                  )}
                 </p>
-                <p className="dates">{score?.summary ?? "Waiting for the first verified review."}</p>
+                <p className="dates">
+                  {score?.review_count ? (
+                    <>
+                      {score.review_count} verified review{score.review_count === 1 ? "" : "s"}
+                      <br />
+                      <span style={{ color: "rgba(255,255,255,0.85)" }}>
+                        {score?.summary ?? "Officials are still weighing in."}
+                      </span>
+                    </>
+                  ) : (
+                    "Waiting for the first verified review."
+                  )}
+                </p>
 
                 <div className="actions">
                   <Link className="btn" href={`/schools/review?school_id=${school.id}`}>

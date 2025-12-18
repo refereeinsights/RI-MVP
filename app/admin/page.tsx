@@ -1,4 +1,6 @@
 import SportsPickerClient from "@/components/SportsPickerClient";
+import TournamentLookup from "@/components/TournamentLookup";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export const runtime = "nodejs";
@@ -64,7 +66,7 @@ type Tab =
   | "school-reviews"
   | "tournament-contacts"
   | "referee-contacts"
-  | "tournament-submissions";
+  | "tournament-uploads";
 type VStatus = "pending" | "approved" | "rejected";
 const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
 const CONTACT_TYPES = ["assignor", "director", "general", "referee_coordinator"] as const;
@@ -144,7 +146,7 @@ export default async function AdminPage({
   const refereeContacts =
     tab === "referee-contacts" ? await adminListRefereeContacts() : [];
   const pendingTournaments: AdminPendingTournament[] =
-    tab === "tournament-submissions" ? await adminListPendingTournaments() : [];
+    tab === "tournament-uploads" ? await adminListPendingTournaments() : [];
 
   async function updateUser(formData: FormData) {
     "use server";
@@ -516,15 +518,19 @@ export default async function AdminPage({
     "use server";
     const contactId = String(formData.get("contact_id") || "");
     const redirectTo = formData.get("redirect_to");
+    const selectedId = String(formData.get("tournament_id") || "").trim();
     const lookup = String(formData.get("tournament_slug") || "").trim();
     const notes = String(formData.get("link_notes") || "").trim();
 
-    if (!contactId || !lookup) {
-      redirectWithNotice(redirectTo, "Tournament name or slug required");
+    if (!contactId || (!selectedId && !lookup)) {
+      redirectWithNotice(redirectTo, "Tournament selection required");
       return;
     }
 
-    const tournamentId = await adminFindTournamentIdBySlugOrName(lookup);
+    let tournamentId = selectedId;
+    if (!tournamentId && lookup) {
+      tournamentId = await adminFindTournamentIdBySlugOrName(lookup);
+    }
     if (!tournamentId) {
       redirectWithNotice(redirectTo, "Tournament not found");
       return;
@@ -610,15 +616,18 @@ export default async function AdminPage({
 
     let records: TournamentRow[] = [];
     let dropSummary = "";
+    let csvOriginalRowCount: number | null = null;
+    let csvDropReasons: string[] = [];
     if (filename.endsWith(".csv")) {
       const { rows } = parseCsv(contents);
+      csvOriginalRowCount = rows.length;
       const { kept, dropped } = cleanCsvRows(rows);
       if (dropped.length) {
-        const sampleReasons = dropped
-          .slice(0, 3)
-          .map((entry) => entry.reason)
-          .join(", ");
-        dropSummary = `${dropped.length} row(s) skipped (${sampleReasons})`;
+        csvDropReasons = dropped.slice(0, 3).map((entry) => {
+          const name = entry.row?.name || entry.row?.slug || "row";
+          return `${name}: ${entry.reason}`;
+        });
+        dropSummary = `${dropped.length} row(s) skipped by cleaner`;
       }
       if (!kept.length) {
         const message =
@@ -647,12 +656,31 @@ export default async function AdminPage({
     }
 
     const result = await importTournamentRecords(records);
-    const message =
+    const noticeParts: string[] = [];
+    noticeParts.push(
       result.failures.length === 0
-        ? `Imported ${result.success} tournament(s).`
-        : `Imported ${result.success} tournament(s), ${result.failures.length} failed.`;
-    const finalMessage = dropSummary ? `${message} ${dropSummary}` : message;
-    return redirectWithNotice(redirectTo, finalMessage);
+        ? `Imported ${result.success} tournament${result.success === 1 ? "" : "s"}.`
+        : `Imported ${result.success} tournament(s); ${result.failures.length} failed.`
+    );
+
+    if (dropSummary) {
+      const detail = csvDropReasons.length ? ` ${csvDropReasons.join("; ")}` : "";
+      noticeParts.push(`${dropSummary}.${detail}`);
+    }
+    if (csvOriginalRowCount !== null && records.length < csvOriginalRowCount) {
+      noticeParts.push(`Cleaner kept ${records.length}/${csvOriginalRowCount} rows.`);
+    }
+    if (result.failures.length) {
+      const examples = result.failures
+        .slice(0, 2)
+        .map((failure) => failure.error.replace(/\s+/g, " ").trim())
+        .filter(Boolean);
+      if (examples.length) {
+        noticeParts.push(`Sample failure: ${examples.join(" | ")}`);
+      }
+    }
+
+    return redirectWithNotice(redirectTo, noticeParts.join(" ").trim());
   }
 
   const tabLink = (t: Tab) => {
@@ -759,7 +787,7 @@ export default async function AdminPage({
         <TabButton t="school-reviews" label="School reviews" />
         <TabButton t="tournament-contacts" label="Tournament contacts" />
         <TabButton t="referee-contacts" label="Referee contacts" />
-        <TabButton t="tournament-submissions" label="Tournament submissions" />
+        <TabButton t="tournament-uploads" label="Tournament uploads" />
       </div>
 
       {/* VERIFICATION TAB */}
@@ -955,15 +983,15 @@ export default async function AdminPage({
       </section>
     )}
 
-      {/* TOURNAMENT SUBMISSIONS */}
-      {tab === "tournament-submissions" && (
+      {/* TOURNAMENT UPLOADS */}
+      {tab === "tournament-uploads" && (
         <section style={{ marginBottom: 22 }}>
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>Tournament submissions</h2>
+              <h2 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>Tournament uploads</h2>
               <p style={{ color: "#555", marginTop: 4, fontSize: 13 }}>
-                Upload CSV/HTML files to clean + import tournaments as drafts or confirmed entries. Approve/Archive/Delete
-                directly below.
+                Run the cleaner/importer on CSV or HTML files and stage tournaments as drafts or confirmed entries.
+                Approve, archive, or delete the imports below once they look good.
               </p>
             </div>
             <div style={{ fontSize: 13, color: "#555", alignSelf: "center" }}>
@@ -981,11 +1009,7 @@ export default async function AdminPage({
             }}
           >
             <h3 style={{ marginTop: 0 }}>Upload tournaments</h3>
-            <form
-              action={importTournamentsAction}
-              encType="multipart/form-data"
-              style={{ display: "grid", gap: 12 }}
-            >
+            <form action={importTournamentsAction} style={{ display: "grid", gap: 12 }}>
               <input type="hidden" name="redirect_to" value={adminBasePath} />
               <label style={{ fontSize: 12, fontWeight: 700 }}>
                 File (.csv, .html, .htm, .mhtml)
@@ -1032,6 +1056,10 @@ export default async function AdminPage({
                 <input type="checkbox" name="treat_confirmed" />
                 Mark as confirmed/published
               </label>
+              <p style={{ fontSize: 12, color: "#777", margin: 0 }}>
+                Cleaner removes duplicate slugs, missing locations, off-sport entries, and invalid URLs. A summary
+                appears in the notice banner after import.
+              </p>
               <button
                 style={{
                   padding: "10px 12px",
@@ -1049,7 +1077,29 @@ export default async function AdminPage({
           </div>
 
           {pendingTournaments.length === 0 ? (
-            <div style={{ marginTop: 16, color: "#555" }}>No pending tournaments right now.</div>
+            <div
+              style={{
+                marginTop: 16,
+                color: "#555",
+                border: "1px solid #ddd",
+                borderRadius: 14,
+                padding: 16,
+                background: "#f8f8f8",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <strong>No pending tournaments.</strong> Upload a CSV/HTML file above to add new drafts.
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <Link href="/tournaments" style={{ color: "#0f3d2e", fontWeight: 600 }}>
+                  View live tournaments →
+                </Link>
+              </div>
+            </div>
           ) : (
             <form action={bulkTournamentAction} style={{ marginTop: 16 }}>
               <input type="hidden" name="redirect_to" value={adminBasePath} />
@@ -1097,6 +1147,13 @@ export default async function AdminPage({
                   Delete selected
                 </button>
               </div>
+              <div
+                id="tournament-selection-summary"
+                style={{ fontSize: 13, color: "#444", marginBottom: 8 }}
+                aria-live="polite"
+              >
+                No tournaments selected
+              </div>
 
               <div style={{ overflowX: "auto" }}>
                 <table
@@ -1110,11 +1167,14 @@ export default async function AdminPage({
                   <thead>
                     <tr style={{ background: "#f5f5f5" }}>
                       <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>
-                        <input
-                          type="checkbox"
-                          id="tournament-select-all"
-                          aria-label="Select all pending tournaments"
-                        />
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                          <input
+                            type="checkbox"
+                            id="tournament-select-all"
+                            aria-label="Select or deselect all pending tournaments"
+                          />
+                          <span style={{ color: "#333", fontWeight: 600 }}>All</span>
+                        </label>
                       </th>
                       <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Tournament</th>
                       <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Location</th>
@@ -1190,7 +1250,7 @@ export default async function AdminPage({
               </div>
               <script
                 dangerouslySetInnerHTML={{
-                  __html: `(function(){function init(){var master=document.getElementById("tournament-select-all");if(!master)return;var boxes=[].slice.call(document.querySelectorAll(".pending-tournament-checkbox"));master.addEventListener("change",function(){boxes.forEach(function(cb){cb.checked=master.checked;});});}if(document.readyState!=="loading"){init();}else{document.addEventListener("DOMContentLoaded",init);}})();`,
+                  __html: `(function(){function init(){var master=document.getElementById("tournament-select-all");var summary=document.getElementById("tournament-selection-summary");if(!master||!summary)return;var boxes=[].slice.call(document.querySelectorAll(".pending-tournament-checkbox"));var update=function(){var checked=boxes.filter(function(cb){return cb.checked;}).length;if(!boxes.length){summary.textContent="No tournaments available";master.checked=false;master.indeterminate=false;return;}if(checked===0){summary.textContent="No tournaments selected";master.checked=false;master.indeterminate=false;}else{summary.textContent=checked+" tournament"+(checked===1?"":"s")+" selected";master.checked=checked===boxes.length;master.indeterminate=checked>0&&checked<boxes.length;}};master.addEventListener("change",function(){boxes.forEach(function(cb){cb.checked=master.checked;});master.indeterminate=false;update();});boxes.forEach(function(cb){cb.addEventListener("change",update);});update();}if(document.readyState!=="loading"){init();}else{document.addEventListener("DOMContentLoaded",init);}})();`,
                 }}
               />
             </form>
@@ -1249,25 +1309,13 @@ export default async function AdminPage({
             <h3 style={{ marginTop: 0, fontSize: 16 }}>Add tournament contact</h3>
             <form action={createTournamentContactAction} style={{ display: "grid", gap: 12 }}>
               <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <TournamentLookup
+                label="Tournament"
+                onSelectFieldName="tournament_id"
+                fallbackFieldName="tournament_slug"
+                description="Start typing a slug or name; select a tournament to auto-fill its ID."
+              />
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-                <label style={{ fontSize: 12, fontWeight: 700 }}>
-                  Tournament ID
-                  <input
-                    type="text"
-                    name="tournament_id"
-                    placeholder="Optional UUID"
-                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
-                  />
-                </label>
-                <label style={{ fontSize: 12, fontWeight: 700 }}>
-                  Tournament slug or name
-                  <input
-                    type="text"
-                    name="tournament_slug"
-                    placeholder="Used if ID omitted"
-                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
-                  />
-                </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Contact type
                   <select
@@ -1761,15 +1809,12 @@ export default async function AdminPage({
                   >
                     <input type="hidden" name="contact_id" value={contact.id} />
                     <input type="hidden" name="redirect_to" value={adminBasePath} />
-                    <label style={{ fontSize: 12, fontWeight: 700 }}>
-                      Tournament slug or name
-                      <input
-                        type="text"
-                        name="tournament_slug"
-                        placeholder="e.g. jr-hardwood-invite-auburn-wa-2025"
-                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #bbb" }}
-                      />
-                    </label>
+                    <TournamentLookup
+                      label="Tournament to link"
+                      onSelectFieldName="tournament_id"
+                      fallbackFieldName="tournament_slug"
+                      description="Select a tournament or paste the slug manually."
+                    />
                     <label style={{ fontSize: 12, fontWeight: 700 }}>
                       Link notes (optional)
                       <input

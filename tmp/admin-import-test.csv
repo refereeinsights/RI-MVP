@@ -1,0 +1,7 @@
+name,slug,sport,state,city,source_url,summary
+Valid Classic,valid-classic,soccer,WA,Seattle,https://example.com/valid,Legit soccer event with verified assignor.
+Missing Slug,,soccer,WA,Seattle,https://example.com/missing-slug,Row should drop because slug is blank.
+Bad Sport,bad-sport,swimming,CA,San Jose,https://example.com/swim,Contains a non-target sport and should drop.
+No Location,no-location,soccer,,,https://example.com/no-location,Missing city/state data triggers cleaner removal.
+Duplicate Classic,valid-classic,soccer,WA,Seattle,https://example.com/dup,Duplicate slug of valid entry to trigger duplicate drop.
+Bad URL,bad-url,soccer,OR,Portland,,Missing source URL so cleaner skips it.

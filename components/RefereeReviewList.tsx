@@ -101,6 +101,9 @@ export default function RefereeReviewList({ reviews }: Props) {
               </div>
             </div>
             <div className="reviewCard__overall">
+              {review.sport && (
+                <span className="reviewCard__sport">{review.sport}</span>
+              )}
               <WhistleScale score={review.overall_score} size="large" />
             </div>
           </header>
