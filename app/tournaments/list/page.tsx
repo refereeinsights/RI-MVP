@@ -31,11 +31,14 @@ async function insertTournament(payload: Record<string, any>) {
   const baseSlug = payload.slug as string;
   let slug = baseSlug || `submission-${Date.now()}`;
   let lastError: any = null;
+  const body: Record<string, any> = { ...payload };
+  let retriedWithoutSource = false;
 
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const record = { ...body, slug, source_event_id: slug };
     const { data, error } = await supabaseAdmin
       .from("tournaments")
-      .insert({ ...payload, slug, source_event_id: slug })
+      .insert(record)
       .select("id,slug")
       .single();
     if (!error && data) {
@@ -43,6 +46,18 @@ async function insertTournament(payload: Record<string, any>) {
     }
     if (error && (error as any)?.code === "23505") {
       slug = `${baseSlug}-${Math.floor(Math.random() * 10000).toString().padStart(4, "0")}`;
+      lastError = error;
+      continue;
+    }
+    if (
+      error &&
+      (error as any)?.code === "42703" &&
+      !retriedWithoutSource &&
+      body.source !== undefined &&
+      String(error.message || "").includes("source")
+    ) {
+      delete body.source;
+      retriedWithoutSource = true;
       lastError = error;
       continue;
     }
