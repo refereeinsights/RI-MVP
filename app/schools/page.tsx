@@ -1,6 +1,7 @@
 import Link from "next/link";
 import RefereeWhistleBadge from "@/components/RefereeWhistleBadge";
 import RefereeReviewList from "@/components/RefereeReviewList";
+import InsightDisclaimer from "@/components/InsightDisclaimer";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import type { RefereeReviewPublic, RefereeWhistleScoreStatus } from "@/lib/types/refereeReview";
 import "../tournaments/tournaments.css";
@@ -40,8 +41,9 @@ function cardVariant(sport: string | null) {
 }
 
 export const metadata = {
-  title: "School Reviews | Referee Insights",
-  description: "Browse whistle scores and reviews for schools reported by verified referees.",
+  title: "School Insights | RefereeInsights",
+  description:
+    "Referee insight on schools, venues, and organizers — focused on clarity, safety, and professionalism.",
 };
 
 export default async function SchoolsPage({
@@ -82,7 +84,7 @@ export default async function SchoolsPage({
       <main className="pitchWrap">
         <section className="field">
           <div className="headerBlock">
-            <h1 className="title">School reviews</h1>
+            <h1 className="title">School Insights</h1>
             <p className="subtitle">Error loading schools: {error.message}</p>
           </div>
         </section>
@@ -124,11 +126,55 @@ export default async function SchoolsPage({
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
         <div className="headerBlock">
-          <h1 className="title">Referee School Reviews</h1>
-          <p className="subtitle">
-            Search for schools and see whistle scores from verified officials. All submissions go through moderator review
-            and whistle scores aggregate once enough reviews are approved.
+          <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
+            School Insights
+          </h1>
+          <p
+            className="subtitle"
+            style={{
+              marginTop: 8,
+              maxWidth: 680,
+              fontSize: 14,
+              color: "#4b5563",
+              lineHeight: 1.5,
+            }}
+          >
+            Referee insight on schools, venues, and organizers — focused on clarity, safety, and professionalism.
           </p>
+          <InsightDisclaimer />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-start",
+              gap: 10,
+              flexWrap: "wrap",
+              marginTop: 10,
+              marginBottom: 12,
+            }}
+          >
+            <a
+              href="/feedback?type=school&name=School%20Insights&url=/schools"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                textDecoration: "none",
+                color: "#0b1f14",
+                background: "rgba(0,0,0,0.04)",
+                border: "1px solid rgba(0,0,0,0.12)",
+                borderRadius: 999,
+                padding: "6px 12px",
+                fontWeight: 700,
+                fontSize: 13,
+              }}
+            >
+              Report an Issue
+            </a>
+            <span style={{ fontSize: 12, color: "#0b1f14" }}>
+              Flag incorrect info, safety concerns, or policy violations.
+            </span>
+          </div>
         </div>
 
         <form
@@ -156,7 +202,7 @@ export default async function SchoolsPage({
               <input
                 id="q"
                 name="q"
-                placeholder="School name or city"
+                placeholder="Search schools / venues / organizers..."
                 defaultValue={q}
                 style={{
                   borderRadius: 12,
@@ -445,6 +491,18 @@ export default async function SchoolsPage({
                   <Link className="btn" href={`/schools/review?school_id=${school.id}`}>
                     Add review
                   </Link>
+                  <a
+                    className="btn"
+                    href={`/schools/review?intent=claim&entity_type=school&school_id=${school.id}&school_slug=${encodeURIComponent(
+                      school.slug ?? ""
+                    )}&source_url=${encodeURIComponent("/schools")}`}
+                    style={{
+                      background: "rgba(255,255,255,0.1)",
+                      border: "1px solid rgba(255,255,255,0.4)",
+                    }}
+                  >
+                    Claim this listing
+                  </a>
                 </div>
               </article>
             );

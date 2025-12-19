@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { aggregateWhistleScoreRows, loadSeriesTournamentIds } from "@/lib/tournamentSeries";
 import type { RawWhistleScoreRow, TournamentSeriesEntry } from "@/lib/tournamentSeries";
 import type { RefereeWhistleScore } from "@/lib/types/refereeReview";
+import InsightDisclaimer from "@/components/InsightDisclaimer";
 import "./tournaments.css";
 
 type Tournament = {
@@ -20,6 +21,12 @@ type Tournament = {
   start_date: string | null;
   end_date: string | null;
   source_url: string;
+};
+
+export const metadata = {
+  title: "Tournament Insights | RefereeInsights",
+  description:
+    "Referee-submitted insight on pay, organization, and on-site experience — so you can decide with confidence.",
 };
 
 const FILTER_SPORTS = ["soccer", "basketball", "football"] as const;
@@ -152,10 +159,55 @@ export default async function TournamentsPage({
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
         <div className="headerBlock">
-          <h1 className="title">Upcoming Tournaments</h1>
-          <p className="subtitle">
-            Youth soccer, basketball and football tournaments from public listings. Dates and details may change—always confirm on the official site.
+          <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
+            Tournament Insights
+          </h1>
+          <p
+            className="subtitle"
+            style={{
+              marginTop: 8,
+              maxWidth: 680,
+              fontSize: 14,
+              color: "#4b5563",
+              lineHeight: 1.5,
+            }}
+          >
+            Referee-submitted insight on pay, organization, and on-site experience — so you can decide with confidence.
           </p>
+          <InsightDisclaimer />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-start",
+              gap: 10,
+              flexWrap: "wrap",
+              marginTop: 10,
+              marginBottom: 12,
+            }}
+          >
+            <a
+              href="/feedback?type=tournament&name=Tournament%20Insights&url=/tournaments"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                textDecoration: "none",
+                color: "#0b1f14",
+                background: "rgba(0,0,0,0.04)",
+                border: "1px solid rgba(0,0,0,0.12)",
+                borderRadius: 999,
+                padding: "6px 12px",
+                fontWeight: 700,
+                fontSize: 13,
+              }}
+            >
+              Report an Issue
+            </a>
+            <span style={{ fontSize: 12, color: "#0b1f14" }}>
+              Flag incorrect info, safety concerns, or policy violations.
+            </span>
+          </div>
           <div
             style={{
               marginTop: 12,
@@ -192,7 +244,7 @@ export default async function TournamentsPage({
               id="q"
               name="q"
               className="input"
-              placeholder="Tournament name or city"
+              placeholder="Search tournaments..."
               defaultValue={q}
             />
           </div>

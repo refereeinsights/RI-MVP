@@ -8,12 +8,15 @@ type PrefillSchool = {
   city: string;
   state: string;
   address?: string | null;
+  slug?: string | null;
 };
 
 type Props = {
   canSubmit: boolean;
   disabledMessage?: string;
   initialSchool?: PrefillSchool | null;
+  claimIntent?: boolean;
+  claimSourceUrl?: string | null;
 };
 
 type SubmitState = "idle" | "saving" | "success" | "error";
@@ -42,7 +45,13 @@ function formatPrefill(initialSchool?: PrefillSchool | null) {
   return location ? `${initialSchool.name} – ${location}` : initialSchool.name;
 }
 
-export default function SchoolReviewForm({ canSubmit, disabledMessage, initialSchool }: Props) {
+export default function SchoolReviewForm({
+  canSubmit,
+  disabledMessage,
+  initialSchool,
+  claimIntent = false,
+  claimSourceUrl = null,
+}: Props) {
   const [query, setQuery] = useState(formatPrefill(initialSchool));
   const [suggestions, setSuggestions] = useState<SchoolSuggestion[]>([]);
   const [selected, setSelected] = useState<SchoolSuggestion | null>(
@@ -126,11 +135,22 @@ export default function SchoolReviewForm({ canSubmit, disabledMessage, initialSc
       setState("error");
       return;
     }
+    const submissionIntent = String(formData.get("submission_intent") ?? "");
+    const claimedSchoolId = String(formData.get("claimed_school_id") ?? "").trim();
+    const claimedSchoolSlug = String(formData.get("claimed_school_slug") ?? "").trim();
+    const claimedSourceUrl = String(formData.get("source_url") ?? "").trim();
+
+    let shiftDetail = String(formData.get("shift_detail") ?? "").trim();
+    if (submissionIntent === "claim") {
+      const claimNote = `\n\nClaim request for existing listing: ${claimedSchoolId || claimedSchoolSlug || "unknown id"}${claimedSourceUrl ? ` • Source: ${claimedSourceUrl}` : ""}`;
+      shiftDetail = `${shiftDetail}${claimNote}`;
+    }
+
     const payload = {
-    school_id: selected.schoolId ?? null,
-    school:
-      selected.schoolId != null
-        ? null
+      school_id: selected.schoolId ?? null,
+      school:
+        selected.schoolId != null
+          ? null
           : {
               name: selected.name,
               city: selected.city,
@@ -149,7 +169,7 @@ export default function SchoolReviewForm({ canSubmit, disabledMessage, initialSc
       worked_games: formData.get("worked_games")
         ? Number(formData.get("worked_games"))
         : null,
-      shift_detail: String(formData.get("shift_detail") ?? "").trim(),
+      shift_detail: shiftDetail,
     };
 
     if (
@@ -220,6 +240,14 @@ export default function SchoolReviewForm({ canSubmit, disabledMessage, initialSc
 
   return (
   <form className="schoolReviewForm" onSubmit={handleSubmit}>
+      {claimIntent ? (
+        <>
+          <input type="hidden" name="submission_intent" value="claim" />
+          <input type="hidden" name="claimed_school_id" value={initialSchool?.id ?? ""} />
+          <input type="hidden" name="claimed_school_slug" value={initialSchool?.slug ?? ""} />
+          <input type="hidden" name="source_url" value={claimSourceUrl ?? ""} />
+        </>
+      ) : null}
       <label className="schoolReviewForm__search">
         <span>School name</span>
         <input
@@ -340,6 +368,11 @@ export default function SchoolReviewForm({ canSubmit, disabledMessage, initialSc
       <button type="submit" disabled={state === "saving"}>
         {state === "saving" ? "Submitting…" : "Submit school review"}
       </button>
+      {claimIntent ? (
+        <p style={{ margin: 0, fontSize: 13, color: "#374151" }}>
+          Claim requests are reviewed before updates go live.
+        </p>
+      ) : null}
 
       <style jsx>{`
         .schoolReviewForm {

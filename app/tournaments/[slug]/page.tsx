@@ -155,6 +155,48 @@ export default async function TournamentDetailPage({
               "Tournament details sourced from public listings. More referee insights coming soon."}
           </p>
 
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+            <a
+              href={`/feedback?type=tournament&name=${encodeURIComponent(
+                data.name
+              )}&url=${encodeURIComponent(`/tournaments/${data.slug ?? params.slug}`)}`}
+              style={{
+                textDecoration: "none",
+                fontWeight: 700,
+                fontSize: 13,
+                padding: "6px 12px",
+                borderRadius: 999,
+                border: "1px solid rgba(0,0,0,0.18)",
+                background: "rgba(0,0,0,0.04)",
+                color: "#0b1f14",
+              }}
+            >
+              Report an Issue
+            </a>
+            <a
+              href={`/tournaments/list?intent=claim&entity_type=tournament&tournament_slug=${encodeURIComponent(
+                data.slug ?? ""
+              )}&tournament_id=${encodeURIComponent(data.id)}&source_url=${encodeURIComponent(
+                `/tournaments/${data.slug ?? params.slug}`
+              )}`}
+              style={{
+                textDecoration: "none",
+                fontWeight: 700,
+                fontSize: 13,
+                padding: "6px 12px",
+                borderRadius: 999,
+                border: "1px solid rgba(0,0,0,0.18)",
+                background: "rgba(0,0,0,0.02)",
+                color: "#0b1f14",
+              }}
+            >
+              Claim this listing
+            </a>
+            <span style={{ fontSize: 12, color: "#4b5563" }}>
+              Request verified contact info and updates.
+            </span>
+          </div>
+
           <div className="refereeInsights">
             <div className="refereeInsights__header">
               <div>

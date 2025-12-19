@@ -1,16 +1,9 @@
 import type { ReactNode } from "react";
-import { Inter } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import PostHogClientProvider from "@/providers/PostHogProvider";
 import "./globals.css";
-
-/* Load brand font */
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata = {
   title: "Referee Insights",
@@ -25,7 +18,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body>
         <PostHogClientProvider>
           {/* Header */}
           <header
@@ -118,7 +111,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     borderBottom: "2px solid rgba(255,255,255,0.6)",
                   }}
                 >
-                  Tournament Reviews
+                  Tournament Insights
                 </a>
 
                 <a
@@ -134,7 +127,23 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     borderBottom: "2px solid rgba(255,255,255,0.6)",
                   }}
                 >
-                  School Reviews
+                  School Insights
+                </a>
+
+                <a
+                  href="/how-it-works"
+                  style={{
+                    color: "#ffffff",
+                    fontSize: "0.8rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.14em",
+                    textDecoration: "none",
+                    paddingBottom: "0.25rem",
+                    borderBottom: "2px solid rgba(255,255,255,0.6)",
+                  }}
+                >
+                  How it works
                 </a>
 
                 <a

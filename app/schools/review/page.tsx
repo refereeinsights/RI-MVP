@@ -12,7 +12,13 @@ export const metadata = {
 export default async function SchoolReviewPage({
   searchParams,
 }: {
-  searchParams?: { school_id?: string };
+  searchParams?: {
+    school_id?: string;
+    intent?: string;
+    entity_type?: string;
+    school_slug?: string;
+    source_url?: string;
+  };
 }) {
   const supabase = createSupabaseServerClient();
   const {
@@ -32,13 +38,25 @@ export default async function SchoolReviewPage({
     }
   }
 
-  let initialSchool = null;
+  const intent = (searchParams?.intent ?? "").trim();
+  const entityType = (searchParams?.entity_type ?? "").trim();
   const schoolId = (searchParams?.school_id ?? "").trim();
-  if (schoolId) {
+  const schoolSlug = (searchParams?.school_slug ?? "").trim();
+  const sourceUrl = (searchParams?.source_url ?? "").trim();
+
+  let initialSchool = null;
+  if (schoolId || schoolSlug) {
     const { data: school } = await supabase
       .from("schools")
-      .select("id,name,city,state,address")
-      .eq("id", schoolId)
+      .select("id,name,city,state,address,slug")
+      .or(
+        [
+          schoolId ? `id.eq.${schoolId}` : "",
+          schoolSlug ? `slug.eq.${schoolSlug}` : "",
+        ]
+          .filter(Boolean)
+          .join(",")
+      )
       .maybeSingle();
     if (!school) {
       return notFound();
@@ -49,6 +67,7 @@ export default async function SchoolReviewPage({
       city: school.city ?? "",
       state: school.state ?? "",
       address: school.address ?? null,
+      slug: school.slug ?? null,
     };
   }
 
@@ -74,6 +93,8 @@ export default async function SchoolReviewPage({
         canSubmit={canSubmit}
         disabledMessage={disabledMessage}
         initialSchool={initialSchool}
+        claimIntent={intent === "claim" && entityType === "school"}
+        claimSourceUrl={sourceUrl}
       />
     </main>
   );

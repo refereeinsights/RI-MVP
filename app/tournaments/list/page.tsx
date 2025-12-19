@@ -106,6 +106,11 @@ async function listTournament(formData: FormData) {
     (formData.get("assignor_state") as string | null)?.trim()?.toUpperCase() || null;
   const assignor_notes = (formData.get("assignor_notes") as string | null)?.trim() || null;
 
+  const submission_intent = (formData.get("submission_intent") as string | null)?.trim() || null;
+  const claimed_slug = (formData.get("claimed_slug") as string | null)?.trim() || null;
+  const claimed_id = (formData.get("claimed_id") as string | null)?.trim() || null;
+  const source_url = (formData.get("source_url") as string | null)?.trim() || null;
+
   if (!name || !sport || !websiteInput) {
     redirectWithMessage({ error: "Tournament name, sport, and official website are required." });
   }
@@ -141,11 +146,15 @@ async function listTournament(formData: FormData) {
       address,
       start_date,
       end_date,
-      summary,
+      summary: submission_intent === "claim"
+        ? [summary, `Claim submission for existing listing: ${claimed_id ?? ""} ${claimed_slug ?? ""}`]
+            .filter(Boolean)
+            .join("\n\n")
+        : summary,
       status: "draft",
       is_canonical: true,
-      source: "public_submission",
-      source_url: normalizedUrl,
+      source: submission_intent === "claim" ? "claim_submission" : "public_submission",
+      source_url: source_url || normalizedUrl,
       source_domain: sourceDomain,
       referee_pay,
       referee_contact: refereeContactSummary,
@@ -221,13 +230,66 @@ export const metadata = {
     "List tournament details, assignor contacts, and referee pay info so crews know what to expect before accepting assignments.",
 };
 
-export default function TournamentSubmissionPage({
+export default async function TournamentSubmissionPage({
   searchParams,
 }: {
-  searchParams?: { success?: string; error?: string };
+  searchParams?: {
+    success?: string;
+    error?: string;
+    intent?: string;
+    entity_type?: string;
+    tournament_slug?: string;
+    tournament_id?: string;
+    source_url?: string;
+  };
 }) {
   const success = searchParams?.success === "1";
   const error = searchParams?.error ?? "";
+  const intent = (searchParams?.intent ?? "").trim();
+  const entityType = (searchParams?.entity_type ?? "").trim();
+  const claimedSlug = (searchParams?.tournament_slug ?? "").trim();
+  const claimedId = (searchParams?.tournament_id ?? "").trim();
+  const claimedSourceUrl = (searchParams?.source_url ?? "").trim();
+
+  type TournamentRecord = {
+    name?: string | null;
+    sport?: string | null;
+    city?: string | null;
+    state?: string | null;
+    source_url?: string | null;
+  };
+
+  let prefill: {
+    name?: string;
+    sport?: string;
+    city?: string | null;
+    state?: string | null;
+    website?: string | null;
+  } | null = null;
+
+  if (intent === "claim" && entityType === "tournament" && (claimedSlug || claimedId)) {
+    const { data } = await supabaseAdmin
+      .from("tournaments")
+      .select("name,sport,city,state,source_url")
+      .or(
+        [
+          claimedId ? `id.eq.${claimedId}` : "",
+          claimedSlug ? `slug.eq.${claimedSlug}` : "",
+        ]
+          .filter(Boolean)
+          .join(",")
+      )
+      .maybeSingle<TournamentRecord>();
+    if (data) {
+      prefill = {
+        name: data.name ?? "",
+        sport: data.sport ?? "",
+        city: data.city ?? null,
+        state: data.state ?? null,
+        website: data.source_url ?? null,
+      };
+    }
+  }
 
   return (
     <main
@@ -276,6 +338,14 @@ export default function TournamentSubmissionPage({
 
         <form action={listTournament} style={{ display: "grid", gap: 20 }}>
           <input type="hidden" name="redirect_to" value="/tournaments/list" />
+          {intent === "claim" && entityType === "tournament" ? (
+            <>
+              <input type="hidden" name="submission_intent" value="claim" />
+              <input type="hidden" name="claimed_slug" value={claimedSlug} />
+              <input type="hidden" name="claimed_id" value={claimedId} />
+              <input type="hidden" name="source_url" value={claimedSourceUrl} />
+            </>
+          ) : null}
           <section
             style={{
               border: "1px solid #e2e8f0",
@@ -292,6 +362,8 @@ export default function TournamentSubmissionPage({
                   name="name"
                   type="text"
                   placeholder="Spring Cup"
+                  defaultValue={prefill?.name ?? ""}
+                  readOnly={Boolean(prefill?.name)}
                   style={{ width: "100%", marginTop: 6, padding: 10, borderRadius: 10, border: "1px solid #cbd5f5" }}
                 />
               </label>
@@ -300,6 +372,7 @@ export default function TournamentSubmissionPage({
                 <select
                   required
                   name="sport"
+                  defaultValue={prefill?.sport ?? ""}
                   style={{ width: "100%", marginTop: 6, padding: 10, borderRadius: 10, border: "1px solid #cbd5f5" }}
                 >
                   <option value="">Choose sport</option>
@@ -325,6 +398,7 @@ export default function TournamentSubmissionPage({
                   name="city"
                   type="text"
                   placeholder="Spokane"
+                  defaultValue={prefill?.city ?? ""}
                   style={{ width: "100%", marginTop: 6, padding: 10, borderRadius: 10, border: "1px solid #cbd5f5" }}
                 />
               </label>
@@ -335,6 +409,7 @@ export default function TournamentSubmissionPage({
                   type="text"
                   maxLength={2}
                   placeholder="WA"
+                  defaultValue={prefill?.state ?? ""}
                   style={{ width: "100%", marginTop: 6, padding: 10, borderRadius: 10, border: "1px solid #cbd5f5" }}
                 />
               </label>
@@ -379,6 +454,8 @@ export default function TournamentSubmissionPage({
                   name="website"
                   type="url"
                   placeholder="https://example.com"
+                  defaultValue={prefill?.website ?? ""}
+                  readOnly={Boolean(prefill?.website)}
                   style={{ width: "100%", marginTop: 6, padding: 10, borderRadius: 10, border: "1px solid #cbd5f5" }}
                 />
               </label>
@@ -573,9 +650,15 @@ export default function TournamentSubmissionPage({
             >
               List tournament
             </button>
-            <span style={{ fontSize: 13, color: "#4b5563" }}>
-              We review every submission and publish once verified.
-            </span>
+            {intent === "claim" && entityType === "tournament" ? (
+              <span style={{ fontSize: 13, color: "#4b5563" }}>
+                Claim requests are reviewed before updates go live.
+              </span>
+            ) : (
+              <span style={{ fontSize: 13, color: "#4b5563" }}>
+                We review every submission and publish once verified.
+              </span>
+            )}
           </div>
         </form>
       </section>
