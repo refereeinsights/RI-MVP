@@ -738,7 +738,8 @@ export default async function AdminPage({
 
     const sportValue = (formData.get("sport") as string | null)?.trim() ?? "";
     const subTypeRaw = (formData.get("sub_type") as string | null)?.trim() ?? "";
-    const subType = subTypeRaw && isSubmissionType(subTypeRaw) ? subTypeRaw : null;
+    const subType: TournamentSubmissionType | null =
+      subTypeRaw && isSubmissionType(subTypeRaw) ? subTypeRaw : null;
     const stateValue = stringOrNull("state");
     const startDate = stringOrNull("start_date");
     const endDate = stringOrNull("end_date");
