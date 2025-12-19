@@ -179,10 +179,10 @@ async function listTournament(formData: FormData) {
           if (error) throw error;
           if (referee?.id) {
             await supabaseAdmin.from("tournament_referee_contacts").insert({
-              tournament_id: tournament.id,
-              referee_contact_id: referee.id,
+              tournament_id: tournament.id as any,
+              referee_contact_id: referee.id as any,
               notes: assignor_notes,
-            });
+            } as any);
           }
         })()
       );
