@@ -12,11 +12,11 @@ export type ProfileRow = {
 };
 
 export type UserBadgeRow = {
-  badge_id: number;
+  badge_id: string | number;
   status: string | null;
   awarded_at: string | null;
   badges: {
-    id: number;
+    id: string | number;
     code: string | null;
     label: string | null;
   } | null;
@@ -97,6 +97,13 @@ export async function fetchOrCreateProfile(
   throw new Error("Could not create profile. Please contact support.");
 }
 
+type BadgeRow = {
+  badge_id: string;
+  status: string;
+  awarded_at: string | null;
+  badges?: { id: string; code?: string | null; label?: string | null } | { id: string; code?: string | null; label?: string | null }[];
+};
+
 export async function fetchUserBadges(user_id: string) {
   const { data, error } = await supabaseAdmin
     .from("user_badges")
@@ -105,8 +112,9 @@ export async function fetchUserBadges(user_id: string) {
     .order("awarded_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => {
-    const badge = row.badges ? (Array.isArray(row.badges) ? row.badges[0] : row.badges) : null;
+  return (data ?? []).map((row: BadgeRow) => {
+    const badgeValue = row.badges;
+    const badge = Array.isArray(badgeValue) ? badgeValue[0] : badgeValue ?? null;
     return {
       badge_id: row.badge_id,
       status: row.status,
