@@ -6,6 +6,7 @@ import AdSlot from "@/components/AdSlot";
 import RefereeWhistleBadge from "@/components/RefereeWhistleBadge";
 import RefereeReviewList from "@/components/RefereeReviewList";
 import RefereeReviewForm from "@/components/RefereeReviewForm";
+import DecisionSignals from "@/components/DecisionSignals";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { userIsVerifiedReferee } from "@/lib/refereeVerification";
@@ -196,6 +197,8 @@ export default async function TournamentDetailPage({
               Request verified contact info and updates.
             </span>
           </div>
+
+          <DecisionSignals />
 
           <div className="refereeInsights">
             <div className="refereeInsights__header">
