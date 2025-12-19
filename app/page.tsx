@@ -102,7 +102,7 @@ export default function Home() {
         {/* Primary CTA */}
         <div style={{ marginTop: "3.5rem" }}>
           <a
-            href="#"
+            href="/referrals"
             style={{
               display: "inline-block",
               padding: "0.9rem 1.75rem",

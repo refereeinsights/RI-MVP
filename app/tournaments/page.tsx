@@ -109,8 +109,9 @@ export default async function TournamentsPage({
 
   if (month && /^\d{4}-\d{2}$/.test(month)) {
     const [y, m] = month.split("-").map(Number);
-    const start = new Date(y, m - 1, 1);
-    const end = new Date(y, m, 1);
+    // Use UTC to avoid timezone drift moving the month window
+    const start = new Date(Date.UTC(y, m - 1, 1));
+    const end = new Date(Date.UTC(y, m, 1));
     const startISO = start.toISOString().slice(0, 10);
     const endISO = end.toISOString().slice(0, 10);
     query = query.gte("start_date", startISO).lt("start_date", endISO);
