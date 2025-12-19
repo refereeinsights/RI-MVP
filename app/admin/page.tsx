@@ -436,7 +436,14 @@ export default async function AdminPage({
     const confidenceRaw = String(formData.get("confidence") || "").trim();
     const confidence =
       confidenceRaw === "" ? null : Number.isFinite(Number(confidenceRaw)) ? Number(confidenceRaw) : null;
-    await adminCreateRefereeContact({
+    const selectedTournamentId = String(formData.get("tournament_id") || "").trim();
+    const tournamentLookup = String(formData.get("tournament_slug") || "").trim();
+    let tournamentId: string | null = selectedTournamentId || null;
+    if (!tournamentId && tournamentLookup) {
+      tournamentId = await adminFindTournamentIdBySlugOrName(tournamentLookup);
+    }
+
+    const newContactId = await adminCreateRefereeContact({
       name: (formData.get("name") as string) || null,
       organization: (formData.get("organization") as string) || null,
       role: (formData.get("role") as string) || null,
@@ -454,7 +461,18 @@ export default async function AdminPage({
         : "pending",
       confidence,
     });
-    redirectWithNotice(redirectTo, "Referee contact added");
+    if (newContactId && tournamentId) {
+      await adminLinkRefereeContactToTournament({
+        contact_id: newContactId,
+        tournament_id: tournamentId,
+        notes: null,
+      });
+      redirectWithNotice(redirectTo, "Referee contact added and linked");
+    } else if (newContactId && tournamentLookup && !tournamentId) {
+      redirectWithNotice(redirectTo, "Contact added (tournament not found)");
+    } else {
+      redirectWithNotice(redirectTo, "Referee contact added");
+    }
   }
 
   async function updateRefereeContactAction(formData: FormData) {
@@ -1542,6 +1560,12 @@ export default async function AdminPage({
             <h3 style={{ marginTop: 0, fontSize: 16 }}>Add referee contact</h3>
             <form action={createRefereeContactAction} style={{ display: "grid", gap: 12 }}>
               <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <TournamentLookup
+                label="Link to tournament (optional)"
+                onSelectFieldName="tournament_id"
+                fallbackFieldName="tournament_slug"
+                description="Start typing a slug or name; select a tournament to auto-link this contact."
+              />
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
                 {["name", "organization", "role", "email", "phone", "state", "city"].map((field) => (
                   <label key={field} style={{ fontSize: 12, fontWeight: 700 }}>

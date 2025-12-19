@@ -718,10 +718,17 @@ export async function adminListRefereeContacts(): Promise<AdminRefereeContact[]>
   }));
 }
 
-export async function adminCreateRefereeContact(payload: RefereeContactInsert) {
+export async function adminCreateRefereeContact(
+  payload: RefereeContactInsert
+): Promise<string | null> {
   await requireAdmin();
-  const { error } = await supabaseAdmin.from("referee_contacts").insert(payload);
+  const { data, error } = await supabaseAdmin
+    .from("referee_contacts")
+    .insert(payload)
+    .select("id")
+    .single<{ id: string }>();
   if (error) throw error;
+  return data?.id ?? null;
 }
 
 export async function adminUpdateRefereeContact(
