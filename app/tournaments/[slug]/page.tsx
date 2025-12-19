@@ -106,6 +106,10 @@ export default async function TournamentDetailPage({
 
   const whistleScore = await loadWhistleScore(supabase, relatedTournamentIds);
   const reviews = await loadPublicReviews(supabase, relatedTournamentIds);
+  const detailPath = `/tournaments/${data.slug ?? params.slug}`;
+  const addInsightHref = `/tournaments/list?intent=insight&entity_type=tournament&tournament_slug=${encodeURIComponent(
+    data.slug ?? ""
+  )}&tournament_id=${encodeURIComponent(data.id)}&source_url=${encodeURIComponent(detailPath)}`;
 
   let canSubmitReview = false;
   let disabledMessage: string | null = "Sign in to submit a referee review.";
@@ -199,6 +203,36 @@ export default async function TournamentDetailPage({
           </div>
 
           <DecisionSignals />
+
+          <div
+            style={{
+              marginTop: 8,
+              marginBottom: 16,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <a
+              href={addInsightHref}
+              style={{
+                textDecoration: "none",
+                fontWeight: 700,
+                fontSize: 13,
+                padding: "6px 12px",
+                borderRadius: 999,
+                border: "1px solid rgba(0,0,0,0.18)",
+                background: "rgba(0,0,0,0.02)",
+                color: "#0b1f14",
+              }}
+            >
+              Add referee insight
+            </a>
+            <span style={{ fontSize: 12, color: "#4b5563" }}>
+              Help other officials decide before accepting.
+            </span>
+          </div>
 
           <div className="refereeInsights">
             <div className="refereeInsights__header">
