@@ -141,16 +141,19 @@ async function listTournament(formData: FormData) {
 
     if (organizer_name || organizer_email || organizer_phone || organizer_notes) {
       extraInserts.push(
-        supabaseAdmin.from("tournament_contacts").insert({
-          tournament_id: tournament.id,
-          type: "director",
-          name: organizer_name,
-          email: organizer_email,
-          phone: organizer_phone,
-          status: "pending",
-          source_url: normalizedUrl,
-          notes: organizer_notes,
-        })
+        (async () => {
+          const { error } = await supabaseAdmin.from("tournament_contacts").insert({
+            tournament_id: tournament.id,
+            type: "director",
+            name: organizer_name,
+            email: organizer_email,
+            phone: organizer_phone,
+            status: "pending",
+            source_url: normalizedUrl,
+            notes: organizer_notes,
+          });
+          if (error) throw error;
+        })()
       );
     }
 
