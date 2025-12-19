@@ -205,6 +205,13 @@ function normalizeDate(value?: string): string | null {
   return parsed.toISOString().slice(0, 10);
 }
 
+function normalizeBoolean(value?: string): boolean | null {
+  if (!value) return null;
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return null;
+  return ["1", "true", "yes", "cash"].includes(trimmed);
+}
+
 function getDomain(url: string): string | null {
   try {
     const hostname = new URL(url).hostname;
@@ -261,6 +268,7 @@ function normalizeTournamentRow(
   const venue = pick(data, "venue") || null;
   const address = pick(data, "address") || null;
   const summary = pick(data, "summary") || null;
+  const cashTournament = normalizeBoolean(pick(data, "cash_tournament", "cash")) ?? false;
 
   const confidenceRaw = pick(data, "confidence");
   let confidence: number | undefined;
@@ -298,6 +306,8 @@ function normalizeTournamentRow(
     slug,
     sport: "soccer",
     level,
+    sub_type: "internet",
+    cash_tournament: cashTournament,
     state,
     city: city ?? null,
     venue,

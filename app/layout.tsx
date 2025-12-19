@@ -82,6 +82,30 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 }}
               >
                 <a
+                  href="/tournaments/list"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    color: "#0f2a1a",
+                    background: "#ffd700",
+                    borderRadius: 999,
+                    padding: "6px 14px",
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.12em",
+                    textDecoration: "none",
+                    marginRight: 14,
+                    boxShadow: "0 6px 14px rgba(0,0,0,0.25)",
+                  }}
+                  title="Submit a tournament"
+                >
+                  <span aria-hidden="true">🏆</span>
+                  <span style={{ color: "#0a1f12" }}>List your tournament</span>
+                </a>
+
+                <a
                   href="/tournaments"
                   style={{
                     color: "#ffffff",

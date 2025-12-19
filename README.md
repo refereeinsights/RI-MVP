@@ -61,6 +61,39 @@ Use `tsx scripts/ingest-csv.ts [options] <path-to-csv>` to push tournament rows 
 - Run with `--dry-run` first to validate rows without writing: `tsx scripts/ingest-csv.ts --dry-run --source=us_club_soccer ./path/to/file.csv`.
 - Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in your environment before running without `--dry-run`.
 
+## Tournament submission subtype
+
+We track how each tournament entered the system so admins can prioritize vetting. Add the `sub_type` column (and seed existing rows) with:
+
+```sql
+alter table public.tournaments
+  add column if not exists sub_type text
+  check (sub_type in ('internet','website','paid','admin'))
+  default 'internet';
+
+update public.tournaments
+  set sub_type = 'internet'
+  where sub_type is null;
+```
+
+- `internet`: default for crawled/imported events.
+- `website`: submissions via the public `/tournaments/list` form.
+- `paid`: reserved for future promoted listings.
+- `admin`: records created manually inside the admin dashboard.
+
+Once the column exists, redeploy so the new form and admin UI surface the subtype.
+
+### Cash-tournament flag
+
+Public submissions can now flag tournaments that pay crews in cash. Add the boolean column with:
+
+```sql
+alter table public.tournaments
+  add column if not exists cash_tournament boolean default false;
+```
+
+Rows with `NULL` are treated as `false`.
+
 ## Tournament series aggregation
 
 Many tournaments repeat yearly. The UI now groups “series” together so a 2026 event inherits the whistle score and recent reviews from 2025, 2024, etc. To opt into this behavior:

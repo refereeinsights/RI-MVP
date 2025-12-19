@@ -155,6 +155,32 @@ export default async function TournamentsPage({
           <p className="subtitle">
             Youth soccer, basketball and football tournaments from public listings. Dates and details may change—always confirm on the official site.
           </p>
+          <div
+            style={{
+              marginTop: 12,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 12,
+              background: "#052b16",
+              padding: "10px 16px",
+              borderRadius: 999,
+            }}
+          >
+            <Link
+              href="/tournaments/list"
+              style={{
+                color: "#fff",
+                fontWeight: 700,
+                textDecoration: "none",
+                letterSpacing: "0.05em",
+              }}
+            >
+              + List your tournament
+            </Link>
+            <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13 }}>
+              Share dates, pay info, and assignor contacts
+            </span>
+          </div>
         </div>
 
         {/* Filters */}

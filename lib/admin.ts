@@ -9,7 +9,10 @@ import type {
   RefereeContactInsert,
   RefereeContactUpdate,
 } from "@/lib/types/supabase";
-import type { TournamentStatus } from "@/lib/types/tournament";
+import type {
+  TournamentStatus,
+  TournamentSubmissionType,
+} from "@/lib/types/tournament";
 
 type VerificationStatus = "pending" | "approved" | "rejected";
 export type ReviewStatus = "pending" | "approved" | "rejected";
@@ -780,7 +783,7 @@ export async function adminListPendingTournaments() {
   const { data, error } = await supabaseAdmin
     .from("tournaments")
     .select(
-      "id,name,slug,sport,level,state,city,venue,address,start_date,end_date,source_url,source_domain,summary,referee_pay,referee_contact,updated_at"
+      "id,name,slug,sport,level,state,city,venue,address,start_date,end_date,source_url,source_domain,summary,referee_pay,referee_contact,sub_type,updated_at,cash_tournament"
     )
     .eq("status", "draft")
     .order("updated_at", { ascending: false })
@@ -795,6 +798,8 @@ export type AdminPendingTournament = {
   slug: string;
   sport: string;
   level?: string | null;
+  sub_type?: TournamentSubmissionType | null;
+  cash_tournament?: boolean | null;
   state?: string | null;
   city?: string | null;
   venue?: string | null;
@@ -808,6 +813,94 @@ export type AdminPendingTournament = {
   referee_contact?: string | null;
   updated_at?: string | null;
 };
+
+export type AdminListedTournament = {
+  id: string;
+  name: string;
+  slug: string;
+  sport: string;
+  level?: string | null;
+  sub_type?: TournamentSubmissionType | null;
+  cash_tournament?: boolean | null;
+  state?: string | null;
+  city?: string | null;
+  venue?: string | null;
+  address?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  summary?: string | null;
+  referee_pay?: string | null;
+  referee_contact?: string | null;
+  source_url?: string | null;
+  source_domain?: string | null;
+};
+
+export async function adminSearchPublishedTournaments(
+  query?: string
+): Promise<AdminListedTournament[]> {
+  await requireAdmin();
+  let request = supabaseAdmin
+    .from("tournaments")
+    .select(
+      "id,name,slug,sport,level,sub_type,cash_tournament,state,city,venue,address,start_date,end_date,summary,referee_pay,referee_contact,source_url,source_domain"
+    )
+    .eq("status", "published")
+    .eq("is_canonical", true)
+    .order("updated_at", { ascending: false })
+    .limit(100);
+
+  const trimmed = query?.trim();
+  if (trimmed) {
+    request = request.or(
+      `name.ilike.%${trimmed}%,slug.ilike.%${trimmed}%,city.ilike.%${trimmed}%,state.ilike.%${trimmed}%`
+    );
+  }
+
+  const { data, error } = await request;
+  if (error) throw error;
+  return (data ?? []) as AdminListedTournament[];
+}
+
+export async function adminUpdateTournamentDetails(params: {
+  tournament_id: string;
+  updates: Partial<{
+    name: string | null;
+    sport: string | null;
+    level: string | null;
+    sub_type: TournamentSubmissionType | null;
+    cash_tournament: boolean;
+    state: string | null;
+    city: string | null;
+    venue: string | null;
+    address: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    summary: string | null;
+    referee_pay: string | null;
+    referee_contact: string | null;
+    source_url: string | null;
+    source_domain: string | null;
+  }>;
+}) {
+  await requireAdmin();
+  const updatePayload: Record<string, any> = {};
+  for (const [key, value] of Object.entries(params.updates)) {
+    if (typeof value === "undefined") continue;
+    if (key === "cash_tournament") {
+      updatePayload[key] = Boolean(value);
+    } else {
+      updatePayload[key] = value;
+    }
+  }
+  if (!Object.keys(updatePayload).length) return;
+  updatePayload.updated_at = new Date().toISOString();
+
+  const { error } = await supabaseAdmin
+    .from("tournaments")
+    .update(updatePayload)
+    .eq("id", params.tournament_id);
+  if (error) throw error;
+}
 
 export async function adminUpdateTournamentStatus(params: {
   tournament_id: string;

@@ -489,11 +489,31 @@
 }
 
 .whistleBadge__icon {
+  width: 38px;
+  height: 38px;
   display: inline-flex;
   justify-content: center;
   align-items: center;
-  width: 38px;
-  height: 38px;
+  position: relative;
+}
+.whistleBadge__icon::before {
+  content: "";
+  width: 32px;
+  height: 32px;
+  display: block;
+  background-image: url("/whistle-score.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: brightness(0) invert(1);
+  transition: filter 160ms ease;
+}
+
+.whistleBadge--green .whistleBadge__icon::before,
+.whistleBadge--yellow .whistleBadge__icon::before,
+.whistleBadge--red .whistleBadge__icon::before {
+  filter: brightness(0) invert(74%) sepia(82%) saturate(829%) hue-rotate(2deg)
+    brightness(1.02) contrast(1.05);
 }
 
 .whistleBadge__score {
@@ -715,17 +735,20 @@
 .whistleScale__icon {
   width: 20px;
   height: 12px;
-  background-color: #ffffff;
-  border: 1px solid rgba(0,0,0,0.1);
-  mask: url("/whistle-icon.svg") center / contain no-repeat;
-  -webkit-mask: url("/whistle-icon.svg") center / contain no-repeat;
-  transition: background-color 160ms ease, box-shadow 160ms ease;
+  display: inline-block;
+  background-image: url("/whistle-score.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: brightness(0) invert(1);
+  opacity: 0.75;
+  transition: filter 160ms ease, opacity 160ms ease;
 }
 
 .whistleScale__icon--filled {
-  background-color: #ffd24c;
-  border-color: #f3a500;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  filter: brightness(0) invert(74%) sepia(82%) saturate(829%) hue-rotate(2deg)
+    brightness(1.02) contrast(1.05);
+  opacity: 1;
 }
 
 .whistleScale--large .whistleScale__icon {

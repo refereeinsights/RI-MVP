@@ -1,6 +1,11 @@
 import * as cheerio from "cheerio";
 
-import type { TournamentRow, TournamentSource, TournamentStatus } from "@/lib/types/tournament";
+import type {
+  TournamentRow,
+  TournamentSource,
+  TournamentStatus,
+  TournamentSubmissionType,
+} from "@/lib/types/tournament";
 import { upsertTournamentFromSource } from "@/lib/tournaments/upsertFromSource";
 
 export type CsvRow = Record<string, string>;
@@ -181,7 +186,7 @@ export function cleanCsvRows(rows: CsvRow[]) {
 
 export function csvRowsToTournamentRows(
   rows: CsvRow[],
-  opts: { status: TournamentStatus; source: TournamentSource }
+  opts: { status: TournamentStatus; source: TournamentSource; subType?: TournamentSubmissionType }
 ): TournamentRow[] {
   const records: TournamentRow[] = [];
   for (const row of rows) {
@@ -195,11 +200,14 @@ export function csvRowsToTournamentRows(
       continue;
     }
 
+    const cashFlag = (row.cash_tournament ?? row.cash ?? "").toLowerCase();
     const record: TournamentRow = {
       name: row.name,
       slug: row.slug,
       sport,
       level: normalize(row.level) || null,
+      sub_type: opts.subType ?? "internet",
+      cash_tournament: cashFlag === "true" || cashFlag === "1" || cashFlag === "yes",
       state: row.state || null,
       city: row.city || null,
       venue: normalize(row.venue) || null,
@@ -233,6 +241,7 @@ export function extractUSClubTournamentsFromHtml(
     level?: string | null;
     status: TournamentStatus;
     source?: TournamentSource;
+    subType?: TournamentSubmissionType;
   }
 ): TournamentRow[] {
   const $ = cheerio.load(html);
@@ -268,6 +277,8 @@ export function extractUSClubTournamentsFromHtml(
       name: title,
       slug,
       sport: opts.sport,
+      sub_type: opts.subType ?? "internet",
+      cash_tournament: false,
       level: opts.level ?? null,
       state,
       city,

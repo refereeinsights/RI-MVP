@@ -5,7 +5,14 @@ export type TournamentSource =
   | "cal_south"
   | "gotsoccer"
   | "soccerwire"
-  | "external_crawl";
+  | "external_crawl"
+  | "public_submission";
+
+export type TournamentSubmissionType =
+  | "internet"
+  | "website"
+  | "paid"
+  | "admin";
 
 /**
  * Canonical tournament row (Phase-1 MVP)
@@ -16,6 +23,8 @@ export interface TournamentRow {
   slug: string;
   sport: "soccer" | "basketball" | "football";
   level?: string | null;
+  sub_type?: TournamentSubmissionType | null;
+  cash_tournament?: boolean | null;
 
   state?: string | null;
   city?: string | null;

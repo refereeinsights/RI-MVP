@@ -2,6 +2,7 @@ import SportsPickerClient from "@/components/SportsPickerClient";
 import TournamentLookup from "@/components/TournamentLookup";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 
 export const runtime = "nodejs";
 
@@ -39,6 +40,9 @@ import {
   adminUpdateTournamentStatus,
   adminDeleteTournament,
   type AdminPendingTournament,
+  adminSearchPublishedTournaments,
+  adminUpdateTournamentDetails,
+  type AdminListedTournament,
   type AdminBadgeRow,
   type AdminUserRow,
   type ReviewStatus,
@@ -66,7 +70,8 @@ type Tab =
   | "school-reviews"
   | "tournament-contacts"
   | "referee-contacts"
-  | "tournament-uploads";
+  | "tournament-uploads"
+  | "tournament-listings";
 type VStatus = "pending" | "approved" | "rejected";
 const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
 const CONTACT_TYPES = ["assignor", "director", "general", "referee_coordinator"] as const;
@@ -78,7 +83,14 @@ const TOURNAMENT_SOURCES: TournamentSource[] = [
   "soccerwire",
   "gotsoccer",
   "cal_south",
+  "public_submission",
 ];
+const SUBMISSION_LABELS: Record<string, string> = {
+  internet: "Crawler/import",
+  website: "Public submission",
+  paid: "Paid submission",
+  admin: "Admin upload",
+};
 
 function safeSportsArray(value: any): string[] {
   if (Array.isArray(value)) return value.filter(Boolean).map(String);
@@ -147,6 +159,13 @@ export default async function AdminPage({
     tab === "referee-contacts" ? await adminListRefereeContacts() : [];
   const pendingTournaments: AdminPendingTournament[] =
     tab === "tournament-uploads" ? await adminListPendingTournaments() : [];
+  const listedTournaments: AdminListedTournament[] =
+    tab === "tournament-listings" ? await adminSearchPublishedTournaments(q) : [];
+
+  const formatDateInput = (value?: string | null) => {
+    if (!value) return "";
+    return value.slice(0, 10);
+  };
 
   async function updateUser(formData: FormData) {
     "use server";
@@ -652,7 +671,7 @@ export default async function AdminPage({
           dropSummary || "CSV parsed but no usable tournaments remained after cleaning.";
         return redirectWithNotice(redirectTo, message);
       }
-      records = csvRowsToTournamentRows(kept, { status, source });
+      records = csvRowsToTournamentRows(kept, { status, source, subType: "admin" });
     } else if (
       filename.endsWith(".html") ||
       filename.endsWith(".htm") ||
@@ -664,6 +683,7 @@ export default async function AdminPage({
         level: fallbackLevel,
         status,
         source,
+        subType: "admin",
       });
     } else {
       return redirectWithNotice(redirectTo, "Unsupported file type. Use CSV, HTML, or MHTML.");
@@ -699,6 +719,72 @@ export default async function AdminPage({
     }
 
     return redirectWithNotice(redirectTo, noticeParts.join(" ").trim());
+  }
+
+  async function updateTournamentDetailsAction(formData: FormData) {
+    "use server";
+    const tournament_id = String(formData.get("tournament_id") || "");
+    if (!tournament_id) return;
+    const redirectTo = formData.get("redirect_to");
+
+    const stringOrNull = (key: string) => {
+      const value = (formData.get(key) as string | null)?.trim() ?? "";
+      return value ? value : null;
+    };
+
+    const sportValue = (formData.get("sport") as string | null)?.trim() ?? "";
+    const subType = (formData.get("sub_type") as string | null)?.trim() ?? "";
+    const stateValue = stringOrNull("state");
+    const startDate = stringOrNull("start_date");
+    const endDate = stringOrNull("end_date");
+    const summary = stringOrNull("summary");
+    const sourceUrlInput = stringOrNull("source_url");
+
+    let normalizedUrl = sourceUrlInput;
+    if (sourceUrlInput) {
+      try {
+        normalizedUrl = new URL(sourceUrlInput).toString();
+      } catch {
+        try {
+          normalizedUrl = new URL(`https://${sourceUrlInput}`).toString();
+        } catch {
+          normalizedUrl = sourceUrlInput;
+        }
+      }
+    }
+    let sourceDomain: string | null = null;
+    if (normalizedUrl) {
+      try {
+        sourceDomain = new URL(normalizedUrl).hostname.replace(/^www\./, "");
+      } catch {
+        sourceDomain = null;
+      }
+    }
+
+    await adminUpdateTournamentDetails({
+      tournament_id,
+      updates: {
+        name: stringOrNull("name"),
+        sport: sportValue || null,
+        level: stringOrNull("level"),
+        sub_type: subType || null,
+        cash_tournament: formData.get("cash_tournament") === "on",
+        city: stringOrNull("city"),
+        state: stateValue ? stateValue.toUpperCase() : null,
+        venue: stringOrNull("venue"),
+        address: stringOrNull("address"),
+        start_date: startDate,
+        end_date: endDate,
+        summary,
+        referee_pay: stringOrNull("referee_pay"),
+        referee_contact: stringOrNull("referee_contact"),
+        source_url: normalizedUrl,
+        source_domain: sourceDomain,
+      },
+    });
+
+    revalidatePath("/tournaments");
+    redirectWithNotice(redirectTo, "Tournament details updated");
   }
 
   const tabLink = (t: Tab) => {
@@ -806,6 +892,7 @@ export default async function AdminPage({
         <TabButton t="tournament-contacts" label="Tournament contacts" />
         <TabButton t="referee-contacts" label="Referee contacts" />
         <TabButton t="tournament-uploads" label="Tournament uploads" />
+        <TabButton t="tournament-listings" label="Tournament listings" />
       </div>
 
       {/* VERIFICATION TAB */}
@@ -1000,6 +1087,297 @@ export default async function AdminPage({
           </div>
       </section>
     )}
+
+      {/* TOURNAMENT LISTINGS */}
+      {tab === "tournament-listings" && (
+        <section style={{ marginBottom: 22 }}>
+          <div style={{ marginBottom: 12 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>Tournament details</h2>
+            <p style={{ color: "#555", fontSize: 13, marginTop: 6 }}>
+              Search published tournaments and update the information shown on the public listings page.
+            </p>
+          </div>
+          <form
+            method="GET"
+            action="/admin"
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 10,
+              alignItems: "center",
+              marginBottom: 16,
+            }}
+          >
+            <input type="hidden" name="tab" value="tournament-listings" />
+            <input
+              type="text"
+              name="q"
+              placeholder="Search by name, slug, city, or state"
+              defaultValue={q}
+              style={{
+                flex: "1 1 260px",
+                padding: 10,
+                borderRadius: 10,
+                border: "1px solid #bbb",
+              }}
+            />
+            <button
+              type="submit"
+              style={{
+                padding: "10px 16px",
+                borderRadius: 999,
+                border: "none",
+                background: "#111",
+                color: "#fff",
+                fontWeight: 800,
+              }}
+            >
+              Search
+            </button>
+            <a
+              href="/admin?tab=tournament-listings"
+              style={{
+                padding: "10px 16px",
+                borderRadius: 999,
+                border: "1px solid #111",
+                textDecoration: "none",
+                color: "#111",
+                fontWeight: 800,
+              }}
+            >
+              Reset
+            </a>
+          </form>
+          {listedTournaments.length === 0 ? (
+            <div style={{ color: "#555", border: "1px dashed #ccc", padding: 16, borderRadius: 12 }}>
+              {q
+                ? "No tournaments matched your search."
+                : "Enter a search above to load tournaments. Recent published events will appear here."}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {listedTournaments.map((t) => (
+                <form
+                  key={t.id}
+                  action={updateTournamentDetailsAction}
+                  style={{
+                    border: "1px solid #ddd",
+                    borderRadius: 14,
+                    padding: 16,
+                    background: "#fff",
+                    display: "grid",
+                    gap: 12,
+                  }}
+                >
+                  <input type="hidden" name="redirect_to" value={adminBasePath} />
+                  <input type="hidden" name="tournament_id" value={t.id} />
+                  <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                    <div>
+                      <div style={{ fontWeight: 900 }}>{t.name}</div>
+                      <div style={{ fontSize: 12, color: "#666" }}>Slug: {t.slug}</div>
+                    </div>
+                    <Link href={`/tournaments/${t.slug}`} target="_blank" style={{ fontSize: 13 }}>
+                      View public page ↗
+                    </Link>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+                      gap: 12,
+                    }}
+                  >
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Name
+                      <input
+                        type="text"
+                        name="name"
+                        defaultValue={t.name}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Sport
+                      <select
+                        name="sport"
+                        defaultValue={t.sport}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      >
+                        {TOURNAMENT_SPORTS.map((sport) => (
+                          <option key={sport} value={sport}>
+                            {sport}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Level
+                      <input
+                        type="text"
+                        name="level"
+                        defaultValue={t.level ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Submission type
+                      <select
+                        name="sub_type"
+                        defaultValue={t.sub_type ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      >
+                        <option value="">(auto)</option>
+                        {Object.keys(SUBMISSION_LABELS).map((key) => (
+                          <option key={key} value={key}>
+                            {SUBMISSION_LABELS[key] ?? key}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700, display: "flex", alignItems: "flex-end", gap: 6 }}>
+                      <input
+                        type="checkbox"
+                        name="cash_tournament"
+                        defaultChecked={Boolean(t.cash_tournament)}
+                        style={{ width: 18, height: 18 }}
+                      />
+                      Cash tournament
+                    </label>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+                      gap: 12,
+                    }}
+                  >
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      City
+                      <input
+                        type="text"
+                        name="city"
+                        defaultValue={t.city ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      State
+                      <input
+                        type="text"
+                        name="state"
+                        defaultValue={t.state ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Venue
+                      <input
+                        type="text"
+                        name="venue"
+                        defaultValue={t.venue ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Address
+                      <input
+                        type="text"
+                        name="address"
+                        defaultValue={t.address ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+                      gap: 12,
+                    }}
+                  >
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Start date
+                      <input
+                        type="date"
+                        name="start_date"
+                        defaultValue={formatDateInput(t.start_date)}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      End date
+                      <input
+                        type="date"
+                        name="end_date"
+                        defaultValue={formatDateInput(t.end_date)}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                  </div>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Summary
+                    <textarea
+                      name="summary"
+                      rows={3}
+                      defaultValue={t.summary ?? ""}
+                      style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                    />
+                  </label>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+                      gap: 12,
+                    }}
+                  >
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Tournament website
+                      <input
+                        type="url"
+                        name="source_url"
+                        defaultValue={t.source_url ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Referee pay
+                      <input
+                        type="text"
+                        name="referee_pay"
+                        defaultValue={t.referee_pay ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Referee contact summary
+                      <input
+                        type="text"
+                        name="referee_contact"
+                        defaultValue={t.referee_contact ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 10,
+                        border: "none",
+                        background: "#111",
+                        color: "#fff",
+                        fontWeight: 900,
+                      }}
+                    >
+                      Save changes
+                    </button>
+                  </div>
+                </form>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* TOURNAMENT UPLOADS */}
       {tab === "tournament-uploads" && (
@@ -1248,6 +1626,9 @@ export default async function AdminPage({
                           {t.referee_contact && (
                             <div style={{ color: "#777" }}>Contact: {t.referee_contact}</div>
                           )}
+                          {t.cash_tournament && (
+                            <div style={{ color: "#0f5132", fontWeight: 600 }}>Cash tournament</div>
+                          )}
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
                           {t.source_url ? (
@@ -1260,6 +1641,11 @@ export default async function AdminPage({
                           <div style={{ fontSize: 12, color: "#999" }}>
                             Updated {t.updated_at ? new Date(t.updated_at).toLocaleDateString() : "–"}
                           </div>
+                          {t.sub_type && (
+                            <div style={{ fontSize: 12, color: "#0f3d2e", marginTop: 4 }}>
+                              {SUBMISSION_LABELS[t.sub_type] ?? t.sub_type}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
