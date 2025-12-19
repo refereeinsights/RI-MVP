@@ -35,7 +35,7 @@ async function insertTournament(payload: Record<string, any>) {
   let retriedWithoutSource = false;
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    const record = { ...body, slug, source_event_id: slug };
+    const record = { ...body, slug };
     const { data, error } = await supabaseAdmin
       .from("tournaments")
       .insert(record)
