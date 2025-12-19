@@ -60,6 +60,7 @@ import type {
   TournamentRow,
   TournamentSource,
   TournamentStatus,
+  TournamentSubmissionType,
 } from "@/lib/types/tournament";
 
 type Tab =
@@ -85,12 +86,15 @@ const TOURNAMENT_SOURCES: TournamentSource[] = [
   "cal_south",
   "public_submission",
 ];
+const SUBMISSION_TYPES = ["internet", "website", "paid", "admin"] as const;
 const SUBMISSION_LABELS: Record<string, string> = {
   internet: "Crawler/import",
   website: "Public submission",
   paid: "Paid submission",
   admin: "Admin upload",
 };
+const isSubmissionType = (value: string): value is TournamentSubmissionType =>
+  SUBMISSION_TYPES.includes(value as (typeof SUBMISSION_TYPES)[number]);
 
 function safeSportsArray(value: any): string[] {
   if (Array.isArray(value)) return value.filter(Boolean).map(String);
@@ -733,7 +737,8 @@ export default async function AdminPage({
     };
 
     const sportValue = (formData.get("sport") as string | null)?.trim() ?? "";
-    const subType = (formData.get("sub_type") as string | null)?.trim() ?? "";
+    const subTypeRaw = (formData.get("sub_type") as string | null)?.trim() ?? "";
+    const subType = subTypeRaw && isSubmissionType(subTypeRaw) ? subTypeRaw : null;
     const stateValue = stringOrNull("state");
     const startDate = stringOrNull("start_date");
     const endDate = stringOrNull("end_date");
@@ -767,7 +772,7 @@ export default async function AdminPage({
         name: stringOrNull("name"),
         sport: sportValue || null,
         level: stringOrNull("level"),
-        sub_type: subType || null,
+        sub_type: subType,
         cash_tournament: formData.get("cash_tournament") === "on",
         city: stringOrNull("city"),
         state: stateValue ? stateValue.toUpperCase() : null,
