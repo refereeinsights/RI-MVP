@@ -143,7 +143,7 @@ async function listTournament(formData: FormData) {
       extraInserts.push(
         (async () => {
           const { error } = await supabaseAdmin.from("tournament_contacts").insert({
-            tournament_id: tournament.id,
+            tournament_id: tournament.id as any,
             type: "director",
             name: organizer_name,
             email: organizer_email,
@@ -151,7 +151,7 @@ async function listTournament(formData: FormData) {
             status: "pending",
             source_url: normalizedUrl,
             notes: organizer_notes,
-          });
+          } as any);
           if (error) throw error;
         })()
       );
