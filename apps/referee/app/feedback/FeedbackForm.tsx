@@ -161,13 +161,16 @@ export default function FeedbackForm() {
         button {
           border: none;
           border-radius: 999px;
-          padding: 0.9rem 1.5rem;
+          padding: 0.95rem 1.5rem;
           font-weight: 700;
           font-size: 1rem;
           background: #0f3d2e;
           color: #fff;
           cursor: pointer;
           transition: opacity 0.2s ease;
+          min-height: 48px;
+          width: 100%;
+          text-align: center;
         }
         button:disabled {
           opacity: 0.7;

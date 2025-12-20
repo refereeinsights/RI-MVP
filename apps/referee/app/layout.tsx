@@ -30,25 +30,54 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             {/* Logo row */}
             <div
               style={{
-                padding: "1.5rem 1rem 0.75rem",
+                padding: "1.1rem 1rem 0.6rem",
                 display: "flex",
-                justifyContent: "center",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "0.75rem",
+                maxWidth: 1200,
+                margin: "0 auto",
               }}
             >
               <a href="/" style={{ display: "inline-block" }}>
                 <Image
                   src="/logo-stacked-bw.png"
                   alt="Referee Insights logo"
-                  width={220}
+                  width={190}
                   height={220}
                   priority
                   style={{
                     height: "auto",
-                    width: "180px",
+                    width: "155px",
                     filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.35))",
                   }}
                 />
               </a>
+              <Link
+                href={user ? "/account" : "/account/login"}
+                title={user ? "My account" : "Sign in"}
+                style={{
+                  marginLeft: "auto",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: "999px",
+                  border: `2px solid ${
+                    user ? "rgba(76,175,80,0.9)" : "rgba(244,67,54,0.9)"
+                  }`,
+                  padding: "2px",
+                  background: user ? "rgba(76,175,80,0.2)" : "rgba(244,67,54,0.2)",
+                  minWidth: 44,
+                  minHeight: 44,
+                }}
+              >
+                <Image
+                  src="/referee-avatar.svg"
+                  alt="Account"
+                  width={36}
+                  height={36}
+                />
+              </Link>
             </div>
 
             {/* Navigation row */}
@@ -57,21 +86,23 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: "2rem",
-                paddingBottom: "0.9rem",
+                gap: "1.5rem",
+                padding: "0 1rem 0.9rem",
                 position: "relative",
                 width: "100%",
-                maxWidth: 960,
+                maxWidth: 1200,
                 margin: "0 auto",
+                flexWrap: "wrap",
               }}
             >
               <div
                 style={{
                   display: "flex",
-                  gap: "2rem",
-                  position: "absolute",
-                  left: "50%",
-                  transform: "translateX(-50%)",
+                  gap: "1.3rem",
+                  flexWrap: "wrap",
+                  justifyContent: "center",
+                  width: "100%",
+                  paddingTop: "0.35rem",
                 }}
               >
                 <a
@@ -91,6 +122,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     textDecoration: "none",
                     marginRight: 14,
                     boxShadow: "0 6px 14px rgba(0,0,0,0.25)",
+                    minHeight: 44,
                   }}
                   title="Submit a tournament"
                 >
@@ -102,7 +134,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   href="/tournaments"
                   style={{
                     color: "#ffffff",
-                    fontSize: "0.8rem",
+                    fontSize: "0.82rem",
                     fontWeight: 700,
                     textTransform: "uppercase",
                     letterSpacing: "0.14em",
@@ -118,7 +150,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   href="/schools"
                   style={{
                     color: "#ffffff",
-                    fontSize: "0.8rem",
+                    fontSize: "0.82rem",
                     fontWeight: 700,
                     textTransform: "uppercase",
                     letterSpacing: "0.14em",
@@ -134,7 +166,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   href="/how-it-works"
                   style={{
                     color: "#ffffff",
-                    fontSize: "0.8rem",
+                    fontSize: "0.82rem",
                     fontWeight: 700,
                     textTransform: "uppercase",
                     letterSpacing: "0.14em",
@@ -150,7 +182,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   href="/signup"
                   style={{
                     color: "#ffffff",
-                    fontSize: "0.8rem",
+                    fontSize: "0.82rem",
                     fontWeight: 700,
                     textTransform: "uppercase",
                     letterSpacing: "0.14em",
@@ -163,29 +195,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 </a>
               </div>
 
-              <Link
-                href={user ? "/account" : "/account/login"}
-                title={user ? "My account" : "Sign in"}
-                style={{
-                  marginLeft: "auto",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: "999px",
-                  border: `2px solid ${
-                    user ? "rgba(76,175,80,0.9)" : "rgba(244,67,54,0.9)"
-                  }`,
-                  padding: "2px",
-                  background: user ? "rgba(76,175,80,0.2)" : "rgba(244,67,54,0.2)",
-                }}
-              >
-                <Image
-                  src="/referee-avatar.svg"
-                  alt="Account"
-                  width={40}
-                  height={40}
-                />
-              </Link>
             </nav>
           </header>
 

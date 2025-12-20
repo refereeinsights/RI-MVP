@@ -125,7 +125,7 @@ export default async function SchoolsPage({
   return (
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
-        <div className="headerBlock">
+        <div className="headerBlock" style={{ padding: "1.25rem 1rem 1rem" }}>
           <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
             School Insights
           </h1>
@@ -141,41 +141,41 @@ export default async function SchoolsPage({
           >
             Referee insight on schools, venues, and organizers — focused on clarity, safety, and professionalism.
           </p>
-          <InsightDisclaimer />
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              gap: 10,
-              flexWrap: "wrap",
-              marginTop: 10,
-              marginBottom: 12,
-            }}
-          >
-            <a
-              href="/feedback?type=school&name=School%20Insights&url=/schools"
+            <InsightDisclaimer />
+            <div
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                textDecoration: "none",
-                color: "#0b1f14",
-                background: "rgba(0,0,0,0.04)",
-                border: "1px solid rgba(0,0,0,0.12)",
-                borderRadius: 999,
-                padding: "6px 12px",
-                fontWeight: 700,
-                fontSize: 13,
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "flex-start",
+                gap: 10,
+                flexWrap: "wrap",
+                marginTop: 10,
+                marginBottom: 12,
               }}
             >
-              Report an Issue
-            </a>
-            <span style={{ fontSize: 12, color: "#0b1f14" }}>
-              Flag incorrect info, safety concerns, or policy violations.
-            </span>
+              <a
+                href="/feedback?type=school&name=School%20Insights&url=/schools"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  textDecoration: "none",
+                  color: "#0b1f14",
+                  background: "rgba(0,0,0,0.04)",
+                  border: "1px solid rgba(0,0,0,0.12)",
+                  borderRadius: 999,
+                  padding: "6px 12px",
+                  fontWeight: 700,
+                  fontSize: 13,
+                }}
+              >
+                Report an Issue
+              </a>
+              <span style={{ fontSize: 12, color: "#0b1f14" }}>
+                Flag incorrect info, safety concerns, or policy violations.
+              </span>
+            </div>
           </div>
-        </div>
 
         <form
           method="GET"

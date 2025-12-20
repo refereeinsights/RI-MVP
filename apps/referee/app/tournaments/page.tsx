@@ -200,6 +200,7 @@ export default async function TournamentsPage({
                 padding: "6px 12px",
                 fontWeight: 700,
                 fontSize: 13,
+                minHeight: 40,
               }}
             >
               Report an Issue
@@ -217,6 +218,7 @@ export default async function TournamentsPage({
               background: "#052b16",
               padding: "10px 16px",
               borderRadius: 999,
+              flexWrap: "wrap",
             }}
           >
             <Link
@@ -226,6 +228,10 @@ export default async function TournamentsPage({
                 fontWeight: 700,
                 textDecoration: "none",
                 letterSpacing: "0.05em",
+                minHeight: 40,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
               + List your tournament

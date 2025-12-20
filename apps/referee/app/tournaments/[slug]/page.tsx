@@ -160,7 +160,15 @@ export default async function TournamentDetailPage({
               "Tournament details sourced from public listings. More referee insights coming soon."}
           </p>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginBottom: 14,
+            }}
+          >
             <a
               href={`/feedback?type=tournament&name=${encodeURIComponent(
                 data.name
@@ -174,6 +182,7 @@ export default async function TournamentDetailPage({
                 border: "1px solid rgba(0,0,0,0.18)",
                 background: "rgba(0,0,0,0.04)",
                 color: "#0b1f14",
+                minHeight: 40,
               }}
             >
               Report an Issue
@@ -193,6 +202,7 @@ export default async function TournamentDetailPage({
                 border: "1px solid rgba(0,0,0,0.18)",
                 background: "rgba(0,0,0,0.02)",
                 color: "#0b1f14",
+                minHeight: 40,
               }}
             >
               Claim this listing

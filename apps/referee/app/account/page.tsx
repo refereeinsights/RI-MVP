@@ -19,7 +19,7 @@ export default async function AccountPage() {
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          padding: "2rem",
+          padding: "1.5rem 1rem",
         }}
       >
         <div
@@ -28,7 +28,7 @@ export default async function AccountPage() {
             maxWidth: 520,
             background: "#fff",
             borderRadius: 18,
-            padding: "2rem",
+            padding: "1.5rem",
             boxShadow: "0 20px 40px rgba(0,0,0,0.12)",
             border: "1px solid #eee",
             textAlign: "center",
@@ -76,7 +76,7 @@ export default async function AccountPage() {
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          padding: "2rem",
+          padding: "1.5rem 1rem",
         }}
       >
         <div
@@ -85,7 +85,7 @@ export default async function AccountPage() {
             maxWidth: 520,
             background: "#fff",
             borderRadius: 18,
-            padding: "2rem",
+            padding: "1.5rem",
             boxShadow: "0 20px 40px rgba(0,0,0,0.12)",
             border: "1px solid #eee",
             textAlign: "center",
@@ -122,7 +122,7 @@ export default async function AccountPage() {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        padding: "2rem",
+        padding: "1.5rem 1rem",
       }}
     >
       <div
@@ -131,7 +131,7 @@ export default async function AccountPage() {
           maxWidth: 640,
           background: "#fff",
           borderRadius: 18,
-          padding: "2rem",
+          padding: "1.5rem",
           boxShadow: "0 20px 40px rgba(0,0,0,0.12)",
           border: "1px solid #eee",
         }}

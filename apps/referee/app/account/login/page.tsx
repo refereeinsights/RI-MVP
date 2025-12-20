@@ -44,16 +44,16 @@ export default function AccountLoginPage() {
         padding: 24,
       }}
     >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          background: "white",
-          borderRadius: 12,
-          padding: 20,
-          boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-        }}
-      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 420,
+            background: "white",
+            borderRadius: 12,
+            padding: 20,
+            boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+          }}
+        >
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, textAlign: "center" }}>
           Account Login
         </h1>
@@ -121,6 +121,7 @@ export default function AccountLoginPage() {
               fontWeight: 800,
               cursor: "pointer",
               opacity: loading ? 0.7 : 1,
+              minHeight: 46,
             }}
           >
             {loading ? "Signing in…" : "Sign in"}

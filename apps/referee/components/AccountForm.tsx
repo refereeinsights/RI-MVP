@@ -160,6 +160,8 @@ export default function AccountForm({ profile, badgeImages = [] }: AccountFormPr
           fontWeight: 900,
           cursor: "pointer",
           opacity: status === "saving" ? 0.7 : 1,
+          minHeight: 46,
+          width: "100%",
         }}
       >
         {status === "saving" ? "Saving…" : "Save changes"}
