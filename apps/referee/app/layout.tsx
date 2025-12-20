@@ -41,14 +41,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             >
               <a href="/" style={{ display: "inline-block" }}>
                 <Image
-                  src="/logo-stacked-bw.png"
+                  src="/refereeinsights_transparent.png"
                   alt="Referee Insights logo"
-                  width={190}
-                  height={220}
+                  width={200}
+                  height={200}
                   priority
                   style={{
                     height: "auto",
-                    width: "155px",
+                    width: "160px",
                     filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.35))",
                   }}
                 />
