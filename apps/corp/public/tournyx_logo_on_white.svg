@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="Tournyx logo on white background">
+  <!--
+    Tournyx (clean flat vector) — white background version
+    Colors:
+      Navy: #0B1F3B
+      Electric: #007BFF
+      White: #FFFFFF
+  -->
+  <defs>
+    <style>
+      .navy { fill: #0B1F3B; }
+      .electric { fill: #007BFF; }
+      .stroke-white { stroke: #FFFFFF; stroke-width: 32; stroke-linecap: round; stroke-linejoin: round; }
+      .stroke-electric { stroke: #007BFF; stroke-width: 44; stroke-linecap: round; stroke-linejoin: round; }
+      .wordmark { fill:#0B1F3B; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; font-weight: 800; letter-spacing: 6px; }
+    </style>
+  </defs>
+
+  <!-- White background -->
+  <rect x="0" y="0" width="1024" height="1024" fill="#FFFFFF"/>
+
+  <!-- Icon group (centered, above wordmark) -->
+  <g>
+    <!-- Ticket / bracket base (navy) -->
+    <path class="navy" d="
+      M280 284
+      H744
+      C770 284 792 306 792 332
+      V468
+      C764 472 744 496 744 524
+      C744 552 764 576 792 580
+      V692
+      C792 718 770 740 744 740
+      H280
+      C254 740 232 718 232 692
+      V580
+      C260 576 280 552 280 524
+      C280 496 260 472 232 468
+      V332
+      C232 306 254 284 280 284
+      Z" />
+
+    <!-- Three insight bars (electric) -->
+    <rect class="electric" x="646" y="262" width="70" height="210" rx="18"/>
+    <rect class="electric" x="566" y="312" width="70" height="160" rx="18"/>
+    <rect class="electric" x="486" y="362" width="70" height="110" rx="18"/>
+
+    <!-- White ring behind check (flat) -->
+    <circle cx="470" cy="540" r="140" fill="#FFFFFF"/>
+    <!-- Electric inner circle -->
+    <circle cx="470" cy="540" r="112" class="electric"/>
+
+    <!-- White checkmark stroke -->
+    <path class="stroke-white" fill="none" d="M412 542 L454 590 L548 486"/>
+
+    <!-- Electric rising stroke (verification -> insights) -->
+    <path class="stroke-electric" fill="none" d="M460 616 L704 372"/>
+    <!-- White highlight to keep separation -->
+    <path class="stroke-white" fill="none" d="M468 608 L704 372"/>
+
+    <!-- Minimal sports cue (two simple arcs) -->
+    <path class="stroke-white" fill="none" d="M602 610 C676 610 714 574 744 540"/>
+    <path class="stroke-white" fill="none" d="M602 650 C688 650 732 604 764 560"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text class="wordmark" x="512" y="900" font-size="132" text-anchor="middle">TOURNYX</text>
+</svg>

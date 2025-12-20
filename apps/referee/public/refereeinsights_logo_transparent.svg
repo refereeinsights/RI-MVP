@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="Referee Insights logo">
+  <title>Referee Insights</title>
+
+  <!-- Icon group -->
+  <g id="icon" fill="#000000">
+    <!-- Whistle body (rounded bar) -->
+    <path d="M574 214
+             H780
+             a22 22 0 0 1 22 22
+             v76
+             a22 22 0 0 1-22 22
+             H574
+             Z"/>
+
+    <!-- Main ring -->
+    <path d="M436 190
+             c-90 0-162 72-162 162
+             s72 162 162 162
+             s162-72 162-162
+             s-72-162-162-162
+             Z
+             M436 262
+             c50 0 90 40 90 90
+             s-40 90-90 90
+             s-90-40-90-90
+             s40-90 90-90
+             Z" fill-rule="evenodd"/>
+
+    <!-- Left side bumper -->
+    <path d="M268 322
+             c0-28 22-50 50-50
+             h18
+             a16 16 0 0 1 0 100
+             h-18
+             c-28 0-50-22-50-50
+             Z"/>
+
+    <!-- Small top notch (cut-out look) -->
+    <path d="M498 204
+             h34
+             v54
+             a17 17 0 0 1-34 0
+             Z"/>
+
+    <!-- Burst lines -->
+    <path d="M512 154
+             a14 14 0 0 1 14 14
+             v56
+             a14 14 0 0 1-28 0
+             v-56
+             a14 14 0 0 1 14-14
+             Z"/>
+    <path d="M458 170
+             a14 14 0 0 1 19-5
+             l28 49
+             a14 14 0 1 1-24 14
+             l-28-49
+             a14 14 0 0 1 5-19
+             Z"/>
+    <path d="M566 165
+             a14 14 0 0 1 19 5
+             l-28 49
+             a14 14 0 1 1-24-14
+             l28-49
+             a14 14 0 0 1 5-19
+             Z"/>
+  </g>
+
+  <!-- Wordmark -->
+  <g id="wordmark" fill="#000000">
+    <text x="512" y="640"
+          text-anchor="middle"
+          font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
+          font-size="120"
+          font-weight="500"
+          letter-spacing="-0.5">Referee Insights</text>
+
+    <text x="512" y="728"
+          text-anchor="middle"
+          font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
+          font-size="40"
+          font-weight="500"
+          letter-spacing="6">INSIGHT BEFORE YOU ACCEPT</text>
+  </g>
+</svg>
