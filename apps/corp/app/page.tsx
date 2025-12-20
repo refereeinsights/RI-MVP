@@ -8,42 +8,60 @@ const featurePoints = [
   "Designed for moderation and accountability",
 ];
 
+const valueStrip = [
+  "Trusted insight",
+  "Moderated submissions",
+  "Built for accountability",
+];
+
 export default function Home() {
   return (
     <main className="page">
-      <section className="section hero">
+      <header className="section" style={{ marginBottom: "1.5rem" }}>
         <div className="logo-row">
           <Image
             src="/tournyx-logo.png"
             alt="Tournyx logo"
             className="logo-mark"
-            width={240}
-            height={110}
+            width={200}
+            height={80}
             priority
           />
           <span className="eyebrow">Platform</span>
         </div>
-        <h1 className="headline">Clarity for Competition.</h1>
-        <p className="subhead">
-          Tournyx builds insight-driven tools that help officials, organizers,
-          and participants make better decisions around youth sports
-          tournaments.
-        </p>
-        <div className="cta-row">
-          <Link
-            href="https://www.refereeinsights.com"
-            className="button primary"
-            prefetch={false}
-          >
-            Explore RefereeInsights
-          </Link>
-          <Link
-            href="mailto:hello@tournyx.com"
-            className="button ghost"
-            prefetch={false}
-          >
-            Contact
-          </Link>
+      </header>
+
+      <section className="section hero">
+        <div className="hero-content">
+          <h1 className="headline">Clarity for Competition.</h1>
+          <p className="subhead">
+            Tournyx builds insight-driven tools that help officials, organizers,
+            and participants make better decisions around youth sports
+            tournaments.
+          </p>
+          <div className="cta-row">
+            <Link
+              href="https://www.refereeinsights.com"
+              className="button primary"
+              prefetch={false}
+            >
+              Explore RefereeInsights
+            </Link>
+            <Link
+              href="mailto:hello@tournyx.com"
+              className="button ghost"
+              prefetch={false}
+            >
+              Contact
+            </Link>
+          </div>
+          <div className="value-strip">
+            {valueStrip.map((item) => (
+              <div key={item} className="value-pill">
+                {item}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
