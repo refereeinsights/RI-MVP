@@ -286,6 +286,29 @@ export default async function TournamentDetailPage({
                 <RefereeReviewList reviews={reviews} />
               </div>
               <div className="refereeInsights__column">
+                <div
+                  style={{
+                    marginBottom: 12,
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(0,0,0,0.08)",
+                    background: "rgba(0,0,0,0.02)",
+                    fontSize: 13,
+                    color: "#374151",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <strong style={{ display: "block", marginBottom: 4, fontSize: 13, color: "#111827" }}>
+                    Don’t see your tournament?
+                  </strong>
+                  Add it first so refs can submit insight:{" "}
+                  <a
+                    href="/tournaments/list?intent=insight"
+                    style={{ color: "#0f5132", fontWeight: 700, textDecoration: "underline" }}
+                  >
+                    add a tournament
+                  </a>.
+                </div>
                 <RefereeReviewForm
                   tournamentId={data.id}
                   tournamentName={data.name}
