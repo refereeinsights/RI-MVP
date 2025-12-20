@@ -2,10 +2,14 @@
   "name": "ri-mvp",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "dev": "cd apps/referee && next dev",
+    "build": "cd apps/referee && next build",
+    "start": "cd apps/referee && next start"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.31.0",
