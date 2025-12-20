@@ -17,22 +17,18 @@ const valueStrip = [
 export default function Home() {
   return (
     <main className="page">
-      <header className="section" style={{ marginBottom: "1.5rem" }}>
-        <div className="logo-row">
-          <Image
-            src="/tournyx-logo.png"
-            alt="Tournyx logo"
-            className="logo-mark"
-            width={200}
-            height={80}
-            priority
-          />
-          <span className="eyebrow">Platform</span>
-        </div>
-      </header>
-
       <section className="section hero">
         <div className="hero-content">
+          <div className="logo-row">
+            <Image
+              src="/tournyx_logo_on_white.svg"
+              alt="Tournyx"
+              className="logo-mark"
+              width={240}
+              height={120}
+              priority
+            />
+          </div>
           <h1 className="headline">Clarity for Competition.</h1>
           <p className="subhead">
             Tournyx builds insight-driven tools that help officials, organizers,
