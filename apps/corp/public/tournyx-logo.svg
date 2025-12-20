@@ -1,0 +1,6 @@
+<svg width="200" height="40" viewBox="0 0 200 40" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Tournyx">
+  <rect width="200" height="40" rx="8" fill="#0f172a"/>
+  <text x="16" y="26" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">
+    Tournyx
+  </text>
+</svg>
