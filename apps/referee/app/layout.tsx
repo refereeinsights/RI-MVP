@@ -49,14 +49,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 }}
               >
                 <Image
-                  src="/logo-stacked-bw.png"
+                  src="/refereeinsights_transparent.png"
                   alt="Referee Insights logo"
-                  width={190}
-                  height={220}
+                  width={200}
+                  height={200}
                   priority
                   style={{
                     height: "auto",
-                    width: "155px",
+                    width: "160px",
                     filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.35))",
                     maxWidth: "210px",
                     margin: "0 auto",
