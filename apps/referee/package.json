@@ -1,15 +1,11 @@
 {
-  "name": "ri-mvp",
+  "name": "referee-app",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
-    "dev": "npm run dev --workspace referee-app",
-    "build": "npm run build --workspace referee-app",
-    "start": "npm run start --workspace referee-app"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.31.0",
