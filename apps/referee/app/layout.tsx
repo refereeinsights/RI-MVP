@@ -32,14 +32,22 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               style={{
                 padding: "1.1rem 1rem 0.6rem",
                 display: "flex",
-                justifyContent: "space-between",
+                justifyContent: "center",
                 alignItems: "center",
                 gap: "0.75rem",
                 maxWidth: 1200,
                 margin: "0 auto",
+                flexWrap: "wrap",
               }}
             >
-              <a href="/" style={{ display: "inline-block" }}>
+              <a
+                href="/"
+                style={{
+                  display: "inline-block",
+                  textAlign: "center",
+                  width: "100%",
+                }}
+              >
                 <Image
                   src="/logo-stacked-bw.png"
                   alt="Referee Insights logo"
@@ -50,6 +58,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     height: "auto",
                     width: "155px",
                     filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.35))",
+                    maxWidth: "210px",
+                    margin: "0 auto",
                   }}
                 />
               </a>
