@@ -81,7 +81,6 @@ export async function POST(request: Request) {
       message: trimmedMessage,
       email: payload.email?.trim() || null,
       page_url: payload.page_url || null,
-      user_agent: payload.user_agent || null,
       status: "new",
       source: "web",
     });
