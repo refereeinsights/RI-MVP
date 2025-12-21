@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSheetsClient, getSpreadsheetConfig } from "@/lib/googleSheets";
+import { createClient } from "@supabase/supabase-js";
 
 const ALLOWED_TYPES = ["Bug", "Feature Request", "Content Issue", "Safety/Trust", "Other"] as const;
 const MAX_MESSAGE_LENGTH = 2000;
@@ -59,30 +59,71 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: errorMessage }, { status: 400 });
   }
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return NextResponse.json(
+      { ok: false, error: "Server is missing Supabase credentials." },
+      { status: 500 }
+    );
+  }
+
   try {
-    const sheets = createSheetsClient();
-    const { spreadsheetId, tabName } = getSpreadsheetConfig();
-    if (!spreadsheetId) {
-      throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID");
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const trimmedMessage = payload.message?.trim() ?? "";
+
+    const { error } = await supabase.from("feedback").insert({
+      type: payload.type,
+      message: trimmedMessage,
+      email: payload.email?.trim() || null,
+      page_url: payload.page_url || null,
+      user_agent: payload.user_agent || null,
+      status: "new",
+      source: "web",
+    });
+
+    if (error) {
+      throw error;
     }
 
-    const values = [
-      [
-        new Date().toISOString(),
-        payload.type,
-        payload?.message?.trim(),
-        payload.email?.trim() ?? "",
-        payload.page_url ?? "",
-        payload.user_agent ?? "",
-      ],
-    ];
+    // Best-effort GitHub issue creation (optional, never blocks user)
+    const ghToken = process.env.GITHUB_TOKEN;
+    const ghOwner = process.env.GITHUB_OWNER;
+    const ghRepo = process.env.GITHUB_REPO;
+    if (ghToken && ghOwner && ghRepo) {
+      const issueTitle = `[Feedback] ${payload.type} - ${trimmedMessage.slice(0, 60)}…`;
+      const issueBody = [
+        `**Type:** ${payload.type}`,
+        `**Message:**`,
+        trimmedMessage,
+        ``,
+        `**Email:** ${payload.email?.trim() || "N/A"}`,
+        `**Page:** ${payload.page_url || "N/A"}`,
+        `**User agent:** ${payload.user_agent || "N/A"}`,
+      ].join("\n");
 
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: `${tabName || "feedback"}!A:F`,
-      valueInputOption: "RAW",
-      requestBody: { values },
-    });
+      try {
+        await fetch(`https://api.github.com/repos/${ghOwner}/${ghRepo}/issues`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${ghToken}`,
+            "Content-Type": "application/json",
+            "User-Agent": "feedback-hook",
+          },
+          body: JSON.stringify({
+            title: issueTitle,
+            body: issueBody,
+            labels: ["feedback"],
+          }),
+        });
+      } catch (err) {
+        console.error("GitHub issue creation failed", err);
+      }
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error: any) {
