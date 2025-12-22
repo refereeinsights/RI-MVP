@@ -182,8 +182,9 @@ export const REFERRAL_PLACEMENTS: Record<ReferralPlacement, ReferralCreative> = 
     title: "Know a ref working this event?",
     body: "Invite them to leave an honest review after the weekend and keep the assignments transparent.",
     highlights: ["Takes 2 minutes", "Anonymous feedback", "Helps future crews"],
-    ctaLabel: "Invite a ref",
-    href: "https://refereeinsights.com/referrals",
+    ctaLabel: "Invite a ref to review",
+    // Send to invite form so we can track who invited.
+    href: "/invites/new",
   },
   signup_success_referral: {
     id: "signup_success_referral",
