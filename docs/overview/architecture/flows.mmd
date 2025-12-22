@@ -1,0 +1,45 @@
+```mermaid
+flowchart TD
+  subgraph Public_Web
+    A[Anon visitor\n/Home] --> B[Tournament Insights list\n/tournaments]
+    A --> C[School Insights list\n/schools]
+    A --> D[Feedback form\n/feedback]
+    B --> E[View tournament detail\n/tournaments/[slug]]
+    C --> F[School review form\n/schools/review]
+  end
+
+  subgraph Auth_Flow
+    L[Login /account/login] --> M[Session via Supabase]
+    N[Signup /signup] --> M
+    M --> O[Account /account]
+    M --> F
+    M --> P[Submit tournament review\n/api/referee-reviews]
+    M --> Q[Submit school review\n/api/schools/reviews]
+    M --> R[Email preferences]
+  end
+
+  subgraph Admin
+    S[Admin login /admin/login] --> T[Admin dashboard /admin]
+    T --> U[Admin tournament search\n/api/admin/tournaments/search]
+  end
+
+  subgraph Services
+    X[Supabase DB/Auth]:::svc
+    Y[Sentry]:::svc
+    Z[PostHog]:::svc
+    GH[GitHub Issues]:::svc
+    RS[Resend Email]:::svc
+    GP[Google Places]:::svc
+    GS[Google Sheets (legacy/scripts)]:::svc
+  end
+
+  D -->|POST /api/feedback| X
+  D -->|optional| GH
+  P --> X
+  Q --> X
+  U --> X
+  F --> X
+  M --> X
+
+  classDef svc fill:#eef6ff,stroke:#4b7bec;
+```
