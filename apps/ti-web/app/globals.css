@@ -40,31 +40,17 @@ a {
   border-radius: 16px;
   padding: 20px 20px 24px;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.logoMark {
+.logoBlock {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: 0.4px;
-  color: #0f172a;
-  margin-bottom: 14px;
-}
-
-.logoImage {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-}
-
-.logoImage img {
-  display: block;
-  max-width: 46px;
-  max-height: 46px;
+  gap: 12px;
+  flex-direction: column;
+  margin-bottom: 4px;
 }
 
 h1 {
@@ -78,7 +64,31 @@ h1 {
   margin: 12px 0 0;
   font-size: 16px;
   line-height: 1.6;
-  max-width: 640px;
+  max-width: 680px;
+}
+
+.heroLogo {
+  display: block;
+  height: auto;
+  max-width: min(360px, 90vw);
+  object-fit: contain;
+}
+
+.subBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #475569;
+}
+
+.subBrandLabel {
+  opacity: 0.8;
+}
+
+.subBrandLink {
+  font-weight: 600;
+  color: #0f172a;
 }
 
 .bodyCard {
@@ -124,9 +134,32 @@ h1 {
 }
 
 .cta {
-  margin-top: 12px;
-  color: #2563eb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  min-height: 44px;
+  border-radius: 12px;
   font-weight: 600;
+  gap: 8px;
+  border: 1px solid #1d4ed8;
+  color: #1d4ed8;
+}
+
+.cta.primary {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.cta.secondary {
+  background: transparent;
+}
+
+.ctaRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
 }
 
 @media (min-width: 640px) {
@@ -138,5 +171,9 @@ h1 {
   }
   .muted {
     font-size: 17px;
+  }
+  .logoBlock {
+    flex-direction: row;
+    align-items: center;
   }
 }
