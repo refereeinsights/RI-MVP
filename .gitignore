@@ -10,6 +10,9 @@ out/
 # dependencies
 node_modules/
 
+# shared asset copies
+apps/*/public/svg/
+
 # supabase CLI artifacts
 supabase/
 
