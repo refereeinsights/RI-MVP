@@ -33,6 +33,9 @@ type SchoolReviewRow = {
 const FILTER_STATES = ["WA", "OR", "CA"] as const;
 const SPORT_FILTERS = ["soccer", "basketball", "football"] as const;
 
+// Cache school listings for 5 minutes to reduce Supabase load.
+export const revalidate = 300;
+
 function cardVariant(sport: string | null) {
   const normalized = (sport ?? "").toLowerCase();
   if (normalized === "basketball") return "card-basketball";

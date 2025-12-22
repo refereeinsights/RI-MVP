@@ -31,6 +31,9 @@ type TournamentDetailRow = {
   sport: string | null;
 };
 
+// Revalidate tournament detail pages every 5 minutes.
+export const revalidate = 300;
+
 function formatDate(iso: string | null) {
   if (!iso) return "";
   const d = new Date(iso + "T00:00:00");

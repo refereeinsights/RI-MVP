@@ -23,6 +23,9 @@ type Tournament = {
   source_url: string;
 };
 
+// Cache this listing for 5 minutes to reduce Supabase load while keeping results fresh.
+export const revalidate = 300;
+
 export const metadata = {
   title: "Tournament Insights | RefereeInsights",
   description:
