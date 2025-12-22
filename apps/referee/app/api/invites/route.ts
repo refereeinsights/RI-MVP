@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { sendEmail } from "@/lib/email";
 
 type InvitePayload = {
   referee_email?: string;
@@ -71,17 +72,21 @@ export async function POST(request: Request) {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { error: insertError } = await supabase.from("review_invites").insert({
-      referee_email: payload.referee_email?.trim(),
-      referee_name: payload.referee_name?.trim() || null,
-      tournament_slug: payload.tournament_slug || null,
-      tournament_id: payload.tournament_id || null,
-      note: payload.note?.trim() || null,
-      source_url: payload.source_url?.trim() || null,
-      source_user_id: sourceUserId,
-      source_email: sourceEmail,
-      status: "pending",
-    });
+    const { data: inserted, error: insertError } = await supabase
+      .from("review_invites")
+      .insert({
+        referee_email: payload.referee_email?.trim(),
+        referee_name: payload.referee_name?.trim() || null,
+        tournament_slug: payload.tournament_slug || null,
+        tournament_id: payload.tournament_id || null,
+        note: payload.note?.trim() || null,
+        source_url: payload.source_url?.trim() || null,
+        source_user_id: sourceUserId,
+        source_email: sourceEmail,
+        status: "pending",
+      })
+      .select("id")
+      .single();
 
     if (insertError) {
       console.error("invite insert failed", insertError);
@@ -91,7 +96,59 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ ok: true });
+    const inviteId = inserted?.id;
+    const origin = (() => {
+      try {
+        const url = new URL(request.url);
+        return `${url.protocol}//${url.host}`;
+      } catch {
+        return process.env.NEXT_PUBLIC_SITE_URL || "";
+      }
+    })();
+
+    const linkParams = new URLSearchParams();
+    if (payload.tournament_slug) linkParams.set("tournament_slug", payload.tournament_slug);
+    const inviteLink = `${origin}/reviews/new${linkParams.toString() ? `?${linkParams.toString()}` : ""}`;
+
+    const subject = payload.tournament_slug
+      ? `Share insight on ${payload.tournament_slug}`
+      : "Share your tournament insight";
+    const recipient = payload.referee_email?.trim() as string;
+    const refName = payload.referee_name?.trim();
+
+    let sendSucceeded = false;
+    try {
+      await sendEmail({
+        to: recipient,
+        subject,
+        html: `
+          <div>
+            <p>${refName ? `${refName},` : "Hi,"}</p>
+            <p>You were invited to share referee insight after the event.</p>
+            <p>
+              <a href="${inviteLink}">Leave your insight</a>
+            </p>
+            <p>Thanks for helping crews stay informed.</p>
+          </div>
+        `,
+        text: `You were invited to share referee insight. Submit here: ${inviteLink}`,
+      });
+      sendSucceeded = true;
+    } catch (sendErr) {
+      console.error("invite email failed", sendErr);
+    }
+
+    if (inviteId) {
+      await supabase
+        .from("review_invites")
+        .update({
+          status: sendSucceeded ? "sent" : "failed",
+          sent_at: sendSucceeded ? new Date().toISOString() : null,
+        })
+        .eq("id", inviteId);
+    }
+
+    return NextResponse.json({ ok: true, status: sendSucceeded ? "sent" : "pending" });
   } catch (err: any) {
     console.error("invite unexpected error", err);
     return NextResponse.json(
