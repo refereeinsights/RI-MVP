@@ -8,15 +8,28 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        site: [ri, corp, ti]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - run: npm install
-      - name: Run Playwright suite
-        run: npm run test
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+      - name: Select base URL for matrix site
+        run: |
+          case "${{ matrix.site }}" in
+            ri) echo "BASE_URL=${{ secrets.RI_TARGET_URL }}" >> $GITHUB_ENV ;;
+            corp) echo "BASE_URL=${{ secrets.CORP_TARGET_URL }}" >> $GITHUB_ENV ;;
+            ti) echo "BASE_URL=${{ secrets.TI_TARGET_URL }}" >> $GITHUB_ENV ;;
+          esac
+      - name: Run Playwright suite for site
+        run: npx playwright test tests/${{ matrix.site }}.spec.ts --reporter=line
         env:
+          BASE_URL: ${{ env.BASE_URL }}
           RI_TARGET_URL: ${{ secrets.RI_TARGET_URL }}
           RI_ADMIN_EMAIL: ${{ secrets.RI_ADMIN_EMAIL }}
           RI_ADMIN_PASSWORD: ${{ secrets.RI_ADMIN_PASSWORD }}
@@ -27,7 +40,8 @@ jobs:
           GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
           GOOGLE_SHEETS_TAB_NAME: ${{ secrets.GOOGLE_SHEETS_TAB_NAME }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-      - name: Feedback smoke script
+      - name: Feedback smoke script (RI only)
+        if: matrix.site == 'ri'
         run: npm run smoke:feedback
         env:
           RI_TARGET_URL: ${{ secrets.RI_TARGET_URL }}
