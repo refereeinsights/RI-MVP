@@ -53,17 +53,18 @@ a {
   margin-bottom: 14px;
 }
 
-.logoIcon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);
+.logoImage {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-weight: 800;
-  font-size: 16px;
+  width: 46px;
+  height: 46px;
+}
+
+.logoImage img {
+  display: block;
+  max-width: 46px;
+  max-height: 46px;
 }
 
 h1 {

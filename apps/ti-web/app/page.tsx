@@ -4,7 +4,9 @@ export default function Home() {
       <div className="shell">
         <section className="hero">
           <div className="logoMark" aria-label="TournamentInsights logo">
-            <span className="logoIcon">TI</span>
+            <span className="logoImage" role="img" aria-label="TournamentInsights">
+              <img src="/ti-logo.png" alt="TournamentInsights" />
+            </span>
             <span>TournamentInsights</span>
           </div>
           <h1>Insight Before You Commit.</h1>
