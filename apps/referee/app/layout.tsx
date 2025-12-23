@@ -77,8 +77,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 <Image
                   src="/referee-avatar.svg"
                   alt="Account"
-                  width={36}
-                  height={36}
+                  width={42}
+                  height={42}
                 />
               </Link>
             </div>
