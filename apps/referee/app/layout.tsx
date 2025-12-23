@@ -108,9 +108,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   paddingTop: "0.35rem",
                 }}
               >
-                <a
-                  href="/tournaments/list"
-                  style={{
+              <a
+                href="/tournaments/list"
+                style={{
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 8,
@@ -132,6 +132,25 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   <span aria-hidden="true">🏆</span>
                   <span style={{ color: "#0a1f12" }}>List your tournament</span>
                 </a>
+
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,0.12)",
+                    color: "#ffffff",
+                    fontSize: "0.72rem",
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    border: "1px solid rgba(255,255,255,0.3)",
+                  }}
+                >
+                  Pre-Beta
+                </span>
 
                 <a
                   href="/tournaments"
@@ -242,6 +261,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             </div>
             <p style={{ margin: 0 }}>
               By using Referee Insights, you agree to our Terms and Privacy Policy.
+            </p>
+            <p style={{ margin: 0, fontSize: 12, color: "#555" }}>
+              Referee Insights is currently in pre-beta. Features and availability may change.
             </p>
             <div>© {new Date().getFullYear()} Referee Insights. All rights reserved.</div>
           </footer>
