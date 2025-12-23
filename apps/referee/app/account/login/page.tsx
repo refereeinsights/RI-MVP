@@ -95,11 +95,11 @@ export default function AccountLoginPage() {
             />
           </div>
 
-          <div style={{ textAlign: "center" }}>
-            <label style={{ display: "block", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
-              Password
-            </label>
-            <input
+      <div style={{ textAlign: "center" }}>
+        <label style={{ display: "block", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
+          Password
+        </label>
+        <input
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               type="password"
@@ -111,41 +111,43 @@ export default function AccountLoginPage() {
                 borderRadius: 10,
                 border: "1px solid #bbb",
                 textAlign: "center",
+            }}
+          />
+          <div style={{ marginTop: 8, fontSize: 12 }}>
+            <button
+              type="button"
+              onClick={async () => {
+                setErr(null);
+                setInfo(null);
+                const targetEmail = email.trim();
+                if (!targetEmail) {
+                  setErr("Enter your email above first.");
+                  return;
+                }
+                try {
+                  setLoading(true);
+                  const res = await fetch("/api/auth/send-reset", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: targetEmail }),
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (!res.ok || data?.ok === false) {
+                    setErr(data?.error || "Unable to send reset link right now.");
+                  } else {
+                    setInfo("Check your email for a password reset link.");
+                  }
+                } catch {
+                  setErr("Unable to send reset link right now.");
+                } finally {
+                  setLoading(false);
+                }
               }}
-            />
-            <div style={{ marginTop: 8, fontSize: 12 }}>
-              <button
-                type="button"
-                onClick={async () => {
-                  setErr(null);
-                  setInfo(null);
-                  const targetEmail = email.trim();
-                  if (!targetEmail) {
-                    setErr("Enter your email above first.");
-                    return;
-                  }
-                  try {
-                    const origin =
-                      typeof window !== "undefined"
-                        ? window.location.origin
-                        : process.env.NEXT_PUBLIC_SITE_URL;
-                    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
-                      redirectTo: `${origin}/account/reset-password`,
-                    });
-                    if (error) {
-                      setErr(error.message);
-                    } else {
-                      setInfo("Check your email for a password reset link.");
-                    }
-                  } catch {
-                    setErr("Unable to send reset link right now.");
-                  }
-                }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#0a7a2f",
-                  cursor: "pointer",
+              style={{
+                background: "none",
+                border: "none",
+                color: "#0a7a2f",
+                cursor: "pointer",
                   textDecoration: "underline",
                   padding: 0,
                 }}
