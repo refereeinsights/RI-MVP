@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function ResetPasswordPage() {
@@ -9,6 +9,40 @@ export default function ResetPasswordPage() {
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  // On mount, try to establish the recovery session from the URL hash
+  // Supabase sends access_token/refresh_token in the fragment (#)
+  // If we can't set the session, the page will show an error.
+  useEffect(() => {
+    let cancelled = false;
+    async function hydrateSession() {
+      setErr(null);
+      try {
+        const hash = typeof window !== "undefined" ? window.location.hash : "";
+        const params = new URLSearchParams(hash.replace(/^#/, ""));
+        const access_token = params.get("access_token");
+        const refresh_token = params.get("refresh_token");
+        if (access_token && refresh_token) {
+          const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+          if (error) throw error;
+        }
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (!data.session) throw new Error("Auth session missing! Use the email link to retry.");
+        if (!cancelled) setSessionReady(true);
+      } catch (e: any) {
+        if (!cancelled) {
+          setErr(e?.message || "Recovery link is invalid or expired. Please request a new one.");
+          setSessionReady(false);
+        }
+      }
+    }
+    hydrateSession();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -124,7 +158,7 @@ export default function ResetPasswordPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !sessionReady}
             style={{
               width: "100%",
               padding: "12px 14px",
@@ -134,7 +168,7 @@ export default function ResetPasswordPage() {
               color: "white",
               fontWeight: 800,
               cursor: "pointer",
-              opacity: loading ? 0.7 : 1,
+              opacity: loading || !sessionReady ? 0.7 : 1,
               minHeight: 46,
             }}
           >
