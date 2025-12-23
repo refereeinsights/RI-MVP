@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { aggregateWhistleScoreRows, loadSeriesTournamentIds } from "@/lib/tournamentSeries";
 import type { RawWhistleScoreRow, TournamentSeriesEntry } from "@/lib/tournamentSeries";
 import type { RefereeWhistleScore } from "@/lib/types/refereeReview";
+import { getSportCardClass } from "@/lib/ui/sportBackground";
 import InsightDisclaimer from "@/components/InsightDisclaimer";
 import "./tournaments.css";
 
@@ -85,6 +86,7 @@ export default async function TournamentsPage({
     month?: string;
     sports?: string | string[];
     reviewed?: string;
+    includePast?: string;
   };
 }) {
   const supabase = createSupabaseServerClient();
@@ -94,6 +96,7 @@ export default async function TournamentsPage({
   const month = (searchParams?.month ?? "").trim(); // YYYY-MM
   const sportsParam = searchParams?.sports;
   const reviewedOnly = (searchParams?.reviewed ?? "").toLowerCase() === "true";
+  const includePast = (searchParams?.includePast ?? "").toLowerCase() === "true";
   const sportsSelectedRaw = Array.isArray(sportsParam)
     ? sportsParam
     : sportsParam
@@ -109,6 +112,12 @@ export default async function TournamentsPage({
     .eq("status", "published")
     .eq("is_canonical", true)
     .order("start_date", { ascending: true });
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (!includePast) {
+    // Show only upcoming (or currently running) tournaments by default
+    query = query.or(`start_date.gte.${today},end_date.gte.${today}`);
+  }
 
   if (state === "WA" || state === "OR" || state === "CA") {
     query = query.eq("state", state);
@@ -294,6 +303,15 @@ export default async function TournamentsPage({
                   <span>{sport.charAt(0).toUpperCase() + sport.slice(1)}</span>
                 </label>
               ))}
+              <label className="sportToggle">
+                <input
+                  type="checkbox"
+                  name="includePast"
+                  value="true"
+                  defaultChecked={includePast}
+                />
+                <span>Include past events</span>
+              </label>
             </div>
           </div>
         </form>
@@ -310,7 +328,7 @@ export default async function TournamentsPage({
 
         <div className="grid">
           {tournaments.map((t) => (
-            <article key={t.id} className={`card ${cardVariant(t.sport)}`}>
+            <article key={t.id} className={`card ${getSportCardClass(t.sport)}`}>
               <div className="cardWhistle">
                 <RefereeWhistleBadge
                   score={whistleMap.get(t.id)?.ai_score ?? null}
@@ -331,6 +349,28 @@ export default async function TournamentsPage({
                 {formatDate(t.start_date)}
                 {t.end_date && t.end_date !== t.start_date ? ` – ${formatDate(t.end_date)}` : ""}
               </p>
+
+              {(!includePast && t.start_date && t.start_date < today && t.end_date && t.end_date < today) ||
+              (includePast && t.start_date && t.start_date < today && (!t.end_date || t.end_date < today)) ? (
+                <p
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    background: "rgba(0,0,0,0.06)",
+                    color: "#374151",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    width: "fit-content",
+                    marginTop: 4,
+                    marginBottom: 0,
+                  }}
+                >
+                  Past event
+                </p>
+              ) : null}
 
               <div className="actions">
                 <Link className="btn" href={`/tournaments/${t.slug}`}>View details</Link>
