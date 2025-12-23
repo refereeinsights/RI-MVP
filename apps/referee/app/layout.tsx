@@ -10,7 +10,7 @@ export const metadata = {
   title: "Referee Insights",
   description: "INSIGHT BEFORE YOU ACCEPT",
   icons: {
-    icon: "/refereeinsights_mark.svg",
+    icon: "/refereeinsights_logo_stacked_bw.svg",
   },
 };
 

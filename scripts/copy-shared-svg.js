@@ -15,6 +15,15 @@ const refereeAvatarSource = path.resolve(source, "ri", "referee_avatar.svg");
 const refereeAvatarDest = path.resolve(__dirname, "..", "apps", "referee", "public", "referee-avatar.svg");
 const refereeMarkSource = path.resolve(source, "ri", "refereeinsights_mark.svg");
 const refereeMarkDest = path.resolve(__dirname, "..", "apps", "referee", "public", "refereeinsights_mark.svg");
+const refereeStackedSource = path.resolve(source, "ri", "refereeinsights_logo_stacked_bw.svg");
+const refereeStackedDest = path.resolve(
+  __dirname,
+  "..",
+  "apps",
+  "referee",
+  "public",
+  "refereeinsights_logo_stacked_bw.svg"
+);
 
 function copyDir(src, dest) {
   if (!fs.existsSync(src)) return;
@@ -42,6 +51,10 @@ try {
   if (fs.existsSync(refereeMarkSource)) {
     fs.copyFileSync(refereeMarkSource, refereeMarkDest);
     console.log(`Copied referee mark to ${refereeMarkDest}`);
+  }
+  if (fs.existsSync(refereeStackedSource)) {
+    fs.copyFileSync(refereeStackedSource, refereeStackedDest);
+    console.log(`Copied referee stacked logo to ${refereeStackedDest}`);
   }
 } catch (err) {
   console.error("Failed to copy referee avatar", err);
