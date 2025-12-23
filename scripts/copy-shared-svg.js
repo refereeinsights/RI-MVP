@@ -11,7 +11,7 @@ const targets = [
   path.resolve(__dirname, "..", "apps", "ti-web", "public", "svg"),
   path.resolve(__dirname, "..", "apps", "referee", "public", "svg"),
 ];
-const refereeAvatarSource = path.resolve(source, "ri", "referee_avator.svg");
+const refereeAvatarSource = path.resolve(source, "ri", "referee_avatar.svg");
 const refereeAvatarDest = path.resolve(__dirname, "..", "apps", "referee", "public", "referee-avatar.svg");
 
 function copyDir(src, dest) {
