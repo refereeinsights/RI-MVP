@@ -21,6 +21,7 @@ type TournamentDetailRow = {
   name: string;
   city: string | null;
   state: string | null;
+  zip?: string | null;
   start_date: string | null;
   end_date: string | null;
   summary: string | null;
@@ -82,7 +83,7 @@ export default async function TournamentDetailPage({
   const { data, error } = await supabase
     .from("tournaments")
     .select(
-      "id,slug,name,city,state,start_date,end_date,summary,source_url,level,venue,address,sport"
+      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,level,venue,address,sport"
     )
     .eq("slug", params.slug)
     .single<TournamentDetailRow>();
@@ -142,6 +143,7 @@ export default async function TournamentDetailPage({
           <p className="detailMeta">
             <strong>{data.state}</strong>
             {data.city ? ` • ${data.city}` : ""}
+            {data.zip ? ` • ${data.zip}` : ""}
             {data.level ? ` • ${data.level}` : ""}
           </p>
 

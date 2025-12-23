@@ -18,6 +18,7 @@ type Tournament = {
   level: string | null;
   state: string;
   city: string | null;
+  zip?: string | null;
   start_date: string | null;
   end_date: string | null;
   source_url: string;
@@ -80,6 +81,7 @@ export default async function TournamentsPage({
   searchParams?: {
     q?: string;
     state?: string;
+    zip?: string;
     month?: string;
     sports?: string | string[];
     reviewed?: string;
@@ -88,6 +90,7 @@ export default async function TournamentsPage({
   const supabase = createSupabaseServerClient();
   const q = (searchParams?.q ?? "").trim();
   const state = (searchParams?.state ?? "").trim().toUpperCase();
+  const zip = (searchParams?.zip ?? "").trim();
   const month = (searchParams?.month ?? "").trim(); // YYYY-MM
   const sportsParam = searchParams?.sports;
   const reviewedOnly = (searchParams?.reviewed ?? "").toLowerCase() === "true";
@@ -102,7 +105,7 @@ export default async function TournamentsPage({
 
   let query = supabase
     .from("tournaments")
-    .select("id,name,slug,sport,level,state,city,start_date,end_date,source_url,status,is_canonical")
+    .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,status,is_canonical")
     .eq("status", "published")
     .eq("is_canonical", true)
     .order("start_date", { ascending: true });
@@ -115,6 +118,9 @@ export default async function TournamentsPage({
     // simple name/city search (Supabase OR syntax)
     // Note: this uses ilike for partial matches
     query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
+  }
+  if (zip) {
+    query = query.eq("zip", zip);
   }
 
   if (month && /^\d{4}-\d{2}$/.test(month)) {
@@ -238,6 +244,19 @@ export default async function TournamentsPage({
           </div>
 
           <div>
+            <label className="label" htmlFor="zip">ZIP</label>
+            <input
+              id="zip"
+              name="zip"
+              className="input"
+              placeholder="e.g. 98101"
+              defaultValue={zip}
+              inputMode="numeric"
+              pattern="\\d*"
+            />
+          </div>
+
+          <div>
             <label className="label" htmlFor="month">Month</label>
             <select id="month" name="month" className="select" defaultValue={month}>
               <option value="">Any</option>
@@ -304,6 +323,7 @@ export default async function TournamentsPage({
               <p className="meta">
                 <strong>{t.state}</strong>
                 {t.city ? ` • ${t.city}` : ""}
+                {t.zip ? ` • ${t.zip}` : ""}
                 {t.level ? ` • ${t.level}` : ""}
               </p>
 

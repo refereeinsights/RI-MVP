@@ -31,11 +31,17 @@ export async function signUpUser(input: {
   yearsRefereeing: number | null;
   sports: Sport[];
   referralCode?: string | null;
+  zip?: string | null;
+  city?: string | null;
+  state?: string | null;
 }) {
   const email = input.email.trim().toLowerCase();
   const handle = normalizeHandle(input.handle);
   const sportsCsv = input.sports.map((s) => s.trim()).filter(Boolean).join(",");
   const referralCode = input.referralCode?.trim() || null;
+  const zip = input.zip?.trim() || null;
+  const city = input.city?.trim() || null;
+  const state = input.state?.trim().toUpperCase() || null;
 
   if (handle.length < 3) throw new Error("Handle must be at least 3 characters.");
   if (handle.length > 20) throw new Error("Handle must be 20 characters or less.");
@@ -73,6 +79,9 @@ export async function signUpUser(input: {
         sports: sportsCsv, // trigger expects CSV string
         referrer_id: referrerId,
         referral_code: referralCode,
+        zip,
+        city,
+        state,
       },
     },
   });

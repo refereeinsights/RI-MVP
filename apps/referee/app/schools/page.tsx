@@ -12,6 +12,7 @@ type School = {
   slug: string | null;
   city: string | null;
   state: string | null;
+  zip?: string | null;
 };
 
 type SchoolReviewRow = {
@@ -52,11 +53,18 @@ export const metadata = {
 export default async function SchoolsPage({
   searchParams,
 }: {
-  searchParams?: { q?: string; state?: string; reviewed?: string; sports?: string | string[] };
+  searchParams?: {
+    q?: string;
+    state?: string;
+    zip?: string;
+    reviewed?: string;
+    sports?: string | string[];
+  };
 }) {
   const supabase = createSupabaseServerClient();
   const q = (searchParams?.q ?? "").trim();
   const state = (searchParams?.state ?? "").trim().toUpperCase();
+  const zip = (searchParams?.zip ?? "").trim();
   const reviewedOnly = (searchParams?.reviewed ?? "").toLowerCase() === "true";
   const sportsParam = searchParams?.sports;
   const sportsSelectedRaw = Array.isArray(sportsParam)
@@ -70,7 +78,7 @@ export default async function SchoolsPage({
 
   let query = supabase
     .from("schools")
-    .select("id,name,slug,city,state")
+    .select("id,name,slug,city,state,zip")
     .order("name", { ascending: true });
 
   if (state && FILTER_STATES.includes(state as any)) {
@@ -79,6 +87,9 @@ export default async function SchoolsPage({
 
   if (q) {
     query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
+  }
+  if (zip) {
+    query = query.eq("zip", zip);
   }
 
   const { data, error } = await query;
@@ -237,6 +248,24 @@ export default async function SchoolsPage({
                   </option>
                 ))}
               </select>
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", fontWeight: 700, color: "#0b1f14" }}>
+              <span style={{ marginBottom: 6 }}>ZIP</span>
+              <input
+                id="zip"
+                name="zip"
+                placeholder="e.g. 98101"
+                defaultValue={zip}
+                inputMode="numeric"
+                pattern="\\d*"
+                style={{
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.2)",
+                  padding: "0.7rem 0.9rem",
+                  fontSize: 15,
+                }}
+              />
             </label>
           </div>
 
@@ -470,6 +499,7 @@ export default async function SchoolsPage({
                 <p className="meta">
                   <strong>{school.state ?? "??"}</strong>
                   {school.city ? ` • ${school.city}` : ""}
+                  {school.zip ? ` • ${school.zip}` : ""}
                   {score?.sport && (
                     <span style={{ marginLeft: 6, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(0,0,0,0.25)", fontSize: 11 }}>
                       {score.sport}

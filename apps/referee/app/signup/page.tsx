@@ -32,6 +32,9 @@ export default function SignUpPage() {
   const [handle, setHandle] = useState("");
   const [realName, setRealName] = useState("");
   const [yearsRefereeing, setYearsRefereeing] = useState("");
+  const [zip, setZip] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
 
   const [checkingHandle, setCheckingHandle] = useState(false);
   const [handleAvailable, setHandleAvailable] = useState<boolean | null>(null);
@@ -91,6 +94,9 @@ export default function SignUpPage() {
         yearsRefereeing: years,
         sports,
         referralCode: referralCode || null,
+        zip: zip.trim() || null,
+        city: city.trim() || null,
+        state: state.trim().toUpperCase() || null,
       });
 
       setSuccess(true);
@@ -336,6 +342,75 @@ export default function SignUpPage() {
                 textAlign: "center",
               }}
             />
+          </div>
+
+          <div style={{ textAlign: "center" }}>
+            <label
+              style={{
+                display: "block",
+                fontWeight: 800,
+                fontSize: 13,
+                marginBottom: 6,
+              }}
+            >
+              ZIP / Postal code (optional)
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="\\d*"
+              value={zip}
+              onChange={(e) => setZip(e.target.value)}
+              placeholder="e.g. 98101"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid #bbb",
+                textAlign: "center",
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
+              gap: 12,
+              textAlign: "left",
+            }}
+          >
+            <label style={{ display: "flex", flexDirection: "column", fontWeight: 800, fontSize: 13 }}>
+              <span style={{ marginBottom: 6 }}>City (optional)</span>
+              <input
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="e.g. Seattle"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid #bbb",
+                }}
+              />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", fontWeight: 800, fontSize: 13 }}>
+              <span style={{ marginBottom: 6 }}>State (optional)</span>
+              <input
+                type="text"
+                value={state}
+                onChange={(e) => setState(e.target.value.toUpperCase())}
+                placeholder="e.g. WA"
+                maxLength={2}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid #bbb",
+                }}
+              />
+            </label>
           </div>
 
           {/* Sports picker writes hidden input name="sports" */}
