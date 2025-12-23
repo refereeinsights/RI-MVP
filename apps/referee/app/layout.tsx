@@ -1,13 +1,16 @@
 import type { ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import PostHogClientProvider from "@/providers/PostHogProvider";
+import HeaderLogo from "@/components/HeaderLogo";
 import "./globals.css";
 
 export const metadata = {
   title: "Referee Insights",
   description: "INSIGHT BEFORE YOU ACCEPT",
+  icons: {
+    icon: "/svg/refereeinsights_mark.svg",
+  },
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -48,20 +51,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   width: "100%",
                 }}
               >
-                <Image
-                  src="/refereeinsights_transparent.png"
-                  alt="Referee Insights logo"
-                  width={200}
-                  height={200}
-                  priority
-                  style={{
-                    height: "auto",
-                    width: "160px",
-                    filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.35))",
-                    maxWidth: "210px",
-                    margin: "0 auto",
-                  }}
-                />
+                <div style={{ display: "inline-flex", justifyContent: "center" }}>
+                  <HeaderLogo />
+                </div>
               </a>
               <Link
                 href={user ? "/account" : "/account/login"}
