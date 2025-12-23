@@ -49,7 +49,7 @@ export default function HowItWorksPage() {
             letterSpacing: "0.05em",
           }}
         >
-          Browse Tournament Insights
+          Browse Tournament Reviews
         </a>
       </section>
     </main>

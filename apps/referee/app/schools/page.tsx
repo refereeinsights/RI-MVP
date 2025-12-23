@@ -44,7 +44,7 @@ function cardVariant(sport: string | null) {
 }
 
 export const metadata = {
-  title: "School Insights | RefereeInsights",
+  title: "School Reviews | RefereeInsights",
   description:
     "Referee insight on schools, venues, and organizers — focused on clarity, safety, and professionalism.",
 };
@@ -87,7 +87,7 @@ export default async function SchoolsPage({
       <main className="pitchWrap">
         <section className="field">
           <div className="headerBlock">
-            <h1 className="title">School Insights</h1>
+            <h1 className="title">School Reviews</h1>
             <p className="subtitle">Error loading schools: {error.message}</p>
           </div>
         </section>
@@ -130,7 +130,7 @@ export default async function SchoolsPage({
       <section className="field tournamentsField">
         <div className="headerBlock" style={{ padding: "1.25rem 1rem 1rem" }}>
           <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
-            School Insights
+            School Reviews
           </h1>
           <p
             className="subtitle"

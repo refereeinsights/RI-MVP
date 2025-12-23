@@ -27,7 +27,7 @@ type Tournament = {
 export const revalidate = 300;
 
 export const metadata = {
-  title: "Tournament Insights | RefereeInsights",
+  title: "Tournament Reviews | RefereeInsights",
   description:
     "Referee-submitted insight on pay, organization, and on-site experience — so you can decide with confidence.",
 };
@@ -163,7 +163,7 @@ export default async function TournamentsPage({
       <section className="field tournamentsField">
         <div className="headerBlock">
           <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
-            Tournament Insights
+            Tournament Reviews
           </h1>
           <p
             className="subtitle"
@@ -210,37 +210,6 @@ export default async function TournamentsPage({
             </a>
             <span style={{ fontSize: 12, color: "#0b1f14" }}>
               Flag incorrect info, safety concerns, or policy violations.
-            </span>
-          </div>
-          <div
-            style={{
-              marginTop: 12,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 12,
-              background: "#052b16",
-              padding: "10px 16px",
-              borderRadius: 999,
-              flexWrap: "wrap",
-            }}
-          >
-            <Link
-              href="/tournaments/list"
-              style={{
-                color: "#fff",
-                fontWeight: 700,
-                textDecoration: "none",
-                letterSpacing: "0.05em",
-                minHeight: 40,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              + List your tournament
-            </Link>
-            <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13 }}>
-              Share dates, pay info, and assignor contacts
             </span>
           </div>
         </div>

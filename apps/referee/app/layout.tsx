@@ -10,7 +10,7 @@ export const metadata = {
   title: "Referee Insights",
   description: "INSIGHT BEFORE YOU ACCEPT",
   icons: {
-    icon: "/svg/refereeinsights_mark.svg",
+    icon: "/svg/ri/refereeinsights_mark.svg",
   },
 };
 
@@ -165,7 +165,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     borderBottom: "2px solid rgba(255,255,255,0.6)",
                   }}
                 >
-                  Tournament Insights
+                  Tournament Reviews
                 </a>
 
                 <a
@@ -181,7 +181,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     borderBottom: "2px solid rgba(255,255,255,0.6)",
                   }}
                 >
-                  School Insights
+                  School Reviews
                 </a>
 
                 <a
