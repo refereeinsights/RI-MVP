@@ -13,13 +13,13 @@ jobs:
         site: [ri, corp, ti]
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
-          fetch-depth: 0
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Clone backend repo
+        run: |
+          git clone --depth 1 https://github.com/refereeinsights/backend.git RI_Backend
 
       - name: Install dependencies (RI_Backend)
         working-directory: RI_Backend
