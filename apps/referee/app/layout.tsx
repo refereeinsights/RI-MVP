@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import PostHogClientProvider from "@/providers/PostHogProvider";
 import HeaderLogo from "@/components/HeaderLogo";
