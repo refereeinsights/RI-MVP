@@ -11,6 +11,8 @@ const targets = [
   path.resolve(__dirname, "..", "apps", "ti-web", "public", "svg"),
   path.resolve(__dirname, "..", "apps", "referee", "public", "svg"),
 ];
+const refereeAvatarSource = path.resolve(source, "ri", "referee_avator.svg");
+const refereeAvatarDest = path.resolve(__dirname, "..", "apps", "referee", "public", "referee-avatar.svg");
 
 function copyDir(src, dest) {
   if (!fs.existsSync(src)) return;
@@ -27,4 +29,15 @@ if (!fs.existsSync(source)) {
 for (const target of targets) {
   copyDir(source, target);
   console.log(`Copied shared SVGs to ${target}`);
+}
+
+// Also drop the header avatar into referee/public
+try {
+  if (fs.existsSync(refereeAvatarSource)) {
+    fs.copyFileSync(refereeAvatarSource, refereeAvatarDest);
+    console.log(`Copied referee avatar to ${refereeAvatarDest}`);
+  }
+} catch (err) {
+  console.error("Failed to copy referee avatar", err);
+  process.exit(1);
 }
