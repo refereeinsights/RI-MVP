@@ -7,10 +7,15 @@ import HeaderLogo from "@/components/HeaderLogo";
 import "./globals.css";
 
 export const metadata = {
-  title: "Referee Insights",
-  description: "INSIGHT BEFORE YOU ACCEPT",
+  title: "Referee Insights — Insight Before You Accept",
+  description: "Referee-first insights on tournaments so you can decide before accepting assignments.",
   icons: {
-    icon: "/refereeinsights_logo_stacked_bw.svg",
+    icon: [
+      { url: "/refereeinsights_mark.svg", type: "image/svg+xml" },
+      { url: "/refereeinsights_black_on_white.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: "/refereeinsights_mark.svg",
+    apple: "/refereeinsights_black_on_white.png",
   },
 };
 
