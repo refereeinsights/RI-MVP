@@ -13,6 +13,8 @@ const targets = [
 ];
 const refereeAvatarSource = path.resolve(source, "ri", "referee_avatar.svg");
 const refereeAvatarDest = path.resolve(__dirname, "..", "apps", "referee", "public", "referee-avatar.svg");
+const refereeMarkSource = path.resolve(source, "ri", "refereeinsights_mark.svg");
+const refereeMarkDest = path.resolve(__dirname, "..", "apps", "referee", "public", "refereeinsights_mark.svg");
 
 function copyDir(src, dest) {
   if (!fs.existsSync(src)) return;
@@ -36,6 +38,10 @@ try {
   if (fs.existsSync(refereeAvatarSource)) {
     fs.copyFileSync(refereeAvatarSource, refereeAvatarDest);
     console.log(`Copied referee avatar to ${refereeAvatarDest}`);
+  }
+  if (fs.existsSync(refereeMarkSource)) {
+    fs.copyFileSync(refereeMarkSource, refereeMarkDest);
+    console.log(`Copied referee mark to ${refereeMarkDest}`);
   }
 } catch (err) {
   console.error("Failed to copy referee avatar", err);
