@@ -30,10 +30,12 @@ export async function signUpUser(input: {
   realName: string;
   yearsRefereeing: number | null;
   sports: Sport[];
+  referralCode?: string | null;
 }) {
   const email = input.email.trim().toLowerCase();
   const handle = normalizeHandle(input.handle);
   const sportsCsv = input.sports.map((s) => s.trim()).filter(Boolean).join(",");
+  const referralCode = input.referralCode?.trim() || null;
 
   if (handle.length < 3) throw new Error("Handle must be at least 3 characters.");
   if (handle.length > 20) throw new Error("Handle must be 20 characters or less.");
@@ -42,6 +44,21 @@ export async function signUpUser(input: {
   }
   if (!input.sports || input.sports.length === 0) {
     throw new Error("Select at least one sport.");
+  }
+
+  // Try to resolve referrer id (best-effort; ignore if not found/RLS blocked)
+  let referrerId: string | null = null;
+  if (referralCode) {
+    try {
+      const { data } = await supabase
+        .from("referral_codes" as any)
+        .select("user_id")
+        .eq("code", referralCode)
+        .maybeSingle();
+      referrerId = (data as any)?.user_id ?? null;
+    } catch (err) {
+      console.warn("referral lookup failed", err);
+    }
   }
 
   // send metadata to auth.users so your trigger can populate profiles
@@ -54,6 +71,8 @@ export async function signUpUser(input: {
         real_name: input.realName,
         years_refereeing: input.yearsRefereeing,
         sports: sportsCsv, // trigger expects CSV string
+        referrer_id: referrerId,
+        referral_code: referralCode,
       },
     },
   });

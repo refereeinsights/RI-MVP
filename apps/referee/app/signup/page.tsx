@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { signUpUser, isHandleAvailable, normalizeHandle } from "@/lib/auth";
 import type { Sport } from "@/lib/auth";
 import SportsPickerClient from "@/components/SportsPickerClient";
@@ -24,6 +25,8 @@ function parseSports(csv: string): Sport[] {
 }
 
 export default function SignUpPage() {
+  const searchParams = useSearchParams();
+  const referralCode = searchParams.get("ref");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [handle, setHandle] = useState("");
@@ -87,6 +90,7 @@ export default function SignUpPage() {
         realName,
         yearsRefereeing: years,
         sports,
+        referralCode: referralCode || null,
       });
 
       setSuccess(true);

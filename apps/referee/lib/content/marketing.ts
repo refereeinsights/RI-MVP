@@ -173,7 +173,7 @@ export const REFERRAL_PLACEMENTS: Record<ReferralPlacement, ReferralCreative> = 
     body: "Bring three trusted officials into Referee Insights to unlock beta badges, verified waitlist priority, and early assignor intel.",
     highlights: ["Unique invite link", "Track referrals in your profile", "Priority access to new markets"],
     ctaLabel: "Get your link",
-    href: "https://refereeinsights.com/referrals",
+    href: "/referrals",
     copyHint: "Share anywhere—text, email, crew chats.",
   },
   tournament_referral: {
@@ -193,7 +193,7 @@ export const REFERRAL_PLACEMENTS: Record<ReferralPlacement, ReferralCreative> = 
     body: "Share your fresh account with partners. Each verified referral moves you up the queue.",
     highlights: ["Top of waitlist", "Unlock verified badge faster", "Earn limited swag"],
     ctaLabel: "Share invite",
-    href: "https://refereeinsights.com/referrals",
+    href: "/referrals",
     copyHint: "We’ll email your unique link once you confirm your address.",
   },
 };
