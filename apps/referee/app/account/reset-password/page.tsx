@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function AccountLoginPage() {
-  const [email, setEmail] = useState("");
+export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -14,23 +14,28 @@ export default function AccountLoginPage() {
     e.preventDefault();
     setErr(null);
     setInfo(null);
+
+    if (!password || password.length < 8) {
+      setErr("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirm) {
+      setErr("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
-
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-
+      const { error } = await supabase.auth.updateUser({ password });
       if (error) {
         setErr(error.message);
         return;
       }
-
-      await supabase.auth.getSession();
-      window.location.href = "/account";
+      setInfo("Password updated. You can now continue to your account.");
+      setPassword("");
+      setConfirm("");
     } catch {
-      setErr("Login failed");
+      setErr("Unable to update password right now.");
     } finally {
       setLoading(false);
     }
@@ -41,26 +46,26 @@ export default function AccountLoginPage() {
       style={{
         minHeight: "100vh",
         display: "flex",
-        justifyContent: "center",
         alignItems: "center",
+        justifyContent: "center",
         padding: 24,
       }}
     >
-        <div
-          style={{
-            width: "100%",
-            maxWidth: 420,
-            background: "white",
-            borderRadius: 12,
-        padding: 20,
-        boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-      }}
-    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 420,
+          background: "white",
+          borderRadius: 12,
+          padding: 20,
+          boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+        }}
+      >
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, textAlign: "center" }}>
-          Account Login
+          Reset your password
         </h1>
         <p style={{ marginTop: 8, marginBottom: 16, textAlign: "center", color: "#555", fontSize: 13 }}>
-          Sign in to manage your profile.
+          Enter a new password for your Referee Insights account.
         </p>
 
         {err && (
@@ -77,14 +82,15 @@ export default function AccountLoginPage() {
         <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
           <div style={{ textAlign: "center" }}>
             <label style={{ display: "block", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
-              Email
+              New password
             </label>
             <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              type="email"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              minLength={8}
               required
-              autoComplete="email"
+              autoComplete="new-password"
               style={{
                 width: "100%",
                 padding: "10px 12px",
@@ -97,14 +103,15 @@ export default function AccountLoginPage() {
 
           <div style={{ textAlign: "center" }}>
             <label style={{ display: "block", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
-              Password
+              Confirm password
             </label>
             <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
               type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              minLength={8}
               required
-              autoComplete="current-password"
+              autoComplete="new-password"
               style={{
                 width: "100%",
                 padding: "10px 12px",
@@ -113,46 +120,6 @@ export default function AccountLoginPage() {
                 textAlign: "center",
               }}
             />
-            <div style={{ marginTop: 8, fontSize: 12 }}>
-              <button
-                type="button"
-                onClick={async () => {
-                  setErr(null);
-                  setInfo(null);
-                  const targetEmail = email.trim();
-                  if (!targetEmail) {
-                    setErr("Enter your email above first.");
-                    return;
-                  }
-                  try {
-                    const origin =
-                      typeof window !== "undefined"
-                        ? window.location.origin
-                        : process.env.NEXT_PUBLIC_SITE_URL;
-                    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
-                      redirectTo: `${origin}/account/reset-password`,
-                    });
-                    if (error) {
-                      setErr(error.message);
-                    } else {
-                      setInfo("Check your email for a password reset link.");
-                    }
-                  } catch {
-                    setErr("Unable to send reset link right now.");
-                  }
-                }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#0a7a2f",
-                  cursor: "pointer",
-                  textDecoration: "underline",
-                  padding: 0,
-                }}
-              >
-                Forgot my password
-              </button>
-            </div>
           </div>
 
           <button
@@ -171,7 +138,7 @@ export default function AccountLoginPage() {
               minHeight: 46,
             }}
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? "Updating…" : "Update password"}
           </button>
         </form>
       </div>
