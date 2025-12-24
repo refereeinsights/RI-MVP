@@ -33,12 +33,16 @@ async function saveAlerts(formData: FormData) {
       .maybeSingle(),
   ]);
 
-  const isAdmin = profile?.role === "admin";
+  const profileRole = profile && typeof profile === "object" && "role" in profile ? (profile as any).role : null;
+  const subObj =
+    sub && typeof sub === "object" && "product" in sub ? (sub as any) : null;
+
+  const isAdmin = profileRole === "admin";
   const isPlus =
-    sub &&
-    sub.product === "ri" &&
-    sub.plan === "referee_plus" &&
-    ["active", "trialing"].includes(sub.status ?? "");
+    subObj &&
+    subObj.product === "ri" &&
+    subObj.plan === "referee_plus" &&
+    ["active", "trialing"].includes(subObj.status ?? "");
   const canEdit = isAdmin || isPlus;
   if (!canEdit) {
     throw new Error("Referee Plus is required to edit alerts.");
@@ -94,12 +98,16 @@ export default async function AlertsPage() {
       .maybeSingle(),
   ]);
 
-  const isAdmin = profile?.role === "admin";
+  const profileRole = profile && typeof profile === "object" && "role" in profile ? (profile as any).role : null;
+  const subsObj =
+    subs && typeof subs === "object" && "product" in subs ? (subs as any) : null;
+
+  const isAdmin = profileRole === "admin";
   const isPlus =
-    subs &&
-    subs.product === "ri" &&
-    subs.plan === "referee_plus" &&
-    ["active", "trialing"].includes(subs.status ?? "");
+    subsObj &&
+    subsObj.product === "ri" &&
+    subsObj.plan === "referee_plus" &&
+    ["active", "trialing"].includes(subsObj.status ?? "");
 
   const canEdit = isAdmin || isPlus;
 
