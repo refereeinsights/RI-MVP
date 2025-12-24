@@ -101,6 +101,8 @@ export default async function AlertsPage() {
   const profileRole = profile && typeof profile === "object" && "role" in profile ? (profile as any).role : null;
   const subsObj =
     subs && typeof subs === "object" && "product" in subs ? (subs as any) : null;
+  const prefsObj =
+    prefs && typeof prefs === "object" && "home_zip" in prefs ? (prefs as any) : null;
 
   const isAdmin = profileRole === "admin";
   const isPlus =
@@ -112,10 +114,10 @@ export default async function AlertsPage() {
   const canEdit = isAdmin || isPlus;
 
   const pref: AlertPreference = {
-    home_zip: prefs?.home_zip ?? "",
-    radius_miles: prefs?.radius_miles ?? 50,
-    enabled: prefs?.enabled ?? false,
-    frequency: prefs?.frequency ?? "weekly",
+    home_zip: prefsObj?.home_zip ?? "",
+    radius_miles: prefsObj?.radius_miles ?? 50,
+    enabled: prefsObj?.enabled ?? false,
+    frequency: prefsObj?.frequency ?? "weekly",
   };
 
   return (

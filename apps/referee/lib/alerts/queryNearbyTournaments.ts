@@ -93,7 +93,7 @@ export async function queryNearbyTournaments(params: {
 
   if (error) throw error;
 
-  const rows = (data ?? []) as TournamentRow[];
+  const rows = Array.isArray(data) ? (data as unknown as TournamentRow[]) : [];
   const results: NearbyTournament[] = [];
 
   for (const row of rows) {
