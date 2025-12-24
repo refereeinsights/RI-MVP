@@ -352,6 +352,58 @@
     ),
     #123223;
 }
+
+/* Detail panel sport surfaces */
+.detailPanel.bg-sport-default {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.12)),
+    #0f2a22;
+}
+
+.detailPanel.bg-sport-soccer {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.10)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255,255,255,0.06) 0 90px,
+      rgba(0,0,0,0.04) 90px 180px
+    ),
+    #0f2a22;
+}
+
+.detailPanel.bg-sport-basketball {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.10)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255,255,255,0.05) 0 70px,
+      rgba(0,0,0,0.04) 70px 140px
+    ),
+    #2b1c12;
+  border-color: rgba(255,255,255,0.35);
+}
+
+.detailPanel.bg-sport-baseball {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.10)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(255,255,255,0.05) 0 30px,
+      rgba(0,0,0,0.04) 30px 60px
+    ),
+    #2a2f36;
+}
+
+.detailPanel.bg-sport-football {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.12)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.06) 0 8px,
+      transparent 8px 42px
+    ),
+    #123223;
+}
 /* Stadium-light glow on hover */
 .card:hover {
   transform: translateY(-2px);

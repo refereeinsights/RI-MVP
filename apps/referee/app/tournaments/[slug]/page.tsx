@@ -13,6 +13,7 @@ import { userIsVerifiedReferee } from "@/lib/refereeVerification";
 import { aggregateWhistleScoreRows, loadSeriesTournamentIds } from "@/lib/tournamentSeries";
 import type { RawWhistleScoreRow } from "@/lib/tournamentSeries";
 import type { RefereeReviewPublic, RefereeWhistleScore } from "@/lib/types/refereeReview";
+import { getSportCardClass } from "@/lib/ui/sportBackground";
 import "../tournaments.css";
 
 type TournamentDetailRow = {
@@ -58,9 +59,7 @@ function sportIcon(sport: string | null) {
 }
 
 function detailPanelVariant(sport: string | null) {
-  const normalized = (sport ?? "").toLowerCase();
-  if (normalized === "basketball") return "detailPanel detailPanel--basketball";
-  return "detailPanel detailPanel--grass";
+  return `detailPanel ${getSportCardClass(sport)}`;
 }
 
 function formatWhistleAverage(score: number | null) {
