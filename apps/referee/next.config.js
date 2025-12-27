@@ -9,7 +9,7 @@ const nextConfig = {
   webpack: (config) => {
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
-      "@ri-backend": require("path").join(__dirname, "../RI_Backend/src"),
+      "@ri-backend": require("path").join(__dirname, "../../RI_Backend/src"),
     };
     return config;
   },
