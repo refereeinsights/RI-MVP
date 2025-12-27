@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AdminNav from "@/components/admin/AdminNav";
+import { tiVenueMapUrl } from "@/lib/ti/publicUrls";
 
 type VenueRow = {
   id: string;
@@ -56,7 +57,7 @@ export default async function AdminVenuesPage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "2fr 1fr 1.5fr 1fr",
+            gridTemplateColumns: "2fr 1fr 1.5fr 1.5fr",
             background: "#f9fafb",
             fontWeight: 700,
             fontSize: 13,
@@ -77,7 +78,7 @@ export default async function AdminVenuesPage() {
               key={v.id}
               style={{
                 display: "grid",
-                gridTemplateColumns: "2fr 1fr 1.5fr 1fr",
+                gridTemplateColumns: "2fr 1fr 1.5fr 1.5fr",
                 padding: "10px 12px",
                 gap: 8,
                 borderTop: "1px solid #f1f5f9",
@@ -90,7 +91,7 @@ export default async function AdminVenuesPage() {
                 {v.city || "—"}, {v.state || "—"}
               </div>
               <div style={{ fontFamily: "monospace", fontSize: 12, overflowWrap: "anywhere" }}>{v.id}</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <Link
                   href={`/admin/owls-eye?venueId=${v.id}`}
                   style={{
@@ -104,6 +105,49 @@ export default async function AdminVenuesPage() {
                 >
                   Run Owl&apos;s Eye
                 </Link>
+                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", width: "100%" }}>
+                  <input
+                    value={tiVenueMapUrl(v.id)}
+                    readOnly
+                    style={{
+                      flex: "1 1 160px",
+                      minWidth: 160,
+                      padding: "6px 8px",
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 12,
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(tiVenueMapUrl(v.id))}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                      background: "#f8fafc",
+                      cursor: "pointer",
+                      fontSize: 12,
+                    }}
+                  >
+                    Copy
+                  </button>
+                  <Link
+                    href={tiVenueMapUrl(v.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      textDecoration: "none",
+                      fontSize: 12,
+                    }}
+                  >
+                    Open
+                  </Link>
+                </div>
               </div>
             </div>
           ))

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import OwlsEyeBrandingOverlay from "@/components/admin/OwlsEyeBrandingOverlay";
+import { tiVenueMapUrl } from "@/lib/ti/publicUrls";
 
 type Sport = "soccer" | "basketball";
 type RunStatus = "idle" | "running" | "error" | "success";
@@ -428,6 +429,51 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
                 style={{ width: "100%" }}
               />
             </label>
+            {venueId && (
+              <div style={{ display: "grid", gap: 6 }}>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>Public map URL</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <input
+                    value={tiVenueMapUrl(venueId)}
+                    readOnly
+                    style={{
+                      flex: "1 1 220px",
+                      minWidth: 220,
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(tiVenueMapUrl(venueId))}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                      background: "#f8fafc",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Copy
+                  </button>
+                  <a
+                    href={tiVenueMapUrl(venueId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      textDecoration: "none",
+                    }}
+                  >
+                    Open
+                  </a>
+                </div>
+              </div>
+            )}
 
             <label>
               <div>Sport</div>

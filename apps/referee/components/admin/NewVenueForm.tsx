@@ -107,20 +107,66 @@ export function NewVenueForm() {
           >
             {createdId}
           </pre>
-          <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Link
-              href={`/admin/owls-eye?venueId=${createdId}`}
-              style={{
-                padding: "10px 14px",
-                borderRadius: 10,
-                background: "#111827",
-                color: "white",
-                fontWeight: 800,
-                textDecoration: "none",
-              }}
-            >
-              Run Owl&apos;s Eye
-            </Link>
+          <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <Link
+                href={`/admin/owls-eye?venueId=${createdId}`}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "#111827",
+                  color: "white",
+                  fontWeight: 800,
+                  textDecoration: "none",
+                }}
+              >
+                Run Owl&apos;s Eye
+              </Link>
+            </div>
+
+            <div style={{ display: "grid", gap: 6 }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>Public map URL</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <input
+                  value={tiVenueMapUrl(createdId)}
+                  readOnly
+                  style={{
+                    flex: "1 1 220px",
+                    minWidth: 220,
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(tiVenueMapUrl(createdId))}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    background: "#f8fafc",
+                    cursor: "pointer",
+                  }}
+                >
+                  Copy
+                </button>
+                <Link
+                  href={tiVenueMapUrl(createdId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    textDecoration: "none",
+                  }}
+                >
+                  Open
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -129,3 +175,4 @@ export function NewVenueForm() {
 }
 
 export default NewVenueForm;
+import { tiVenueMapUrl } from "@/lib/ti/publicUrls";
