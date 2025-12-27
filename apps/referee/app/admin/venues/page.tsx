@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AdminNav from "@/components/admin/AdminNav";
-import { tiVenueMapUrl } from "@/lib/ti/publicUrls";
+import PublicMapUrlRow from "@/components/admin/PublicMapUrlRow";
 
 type VenueRow = {
   id: string;
@@ -105,49 +105,7 @@ export default async function AdminVenuesPage() {
                 >
                   Run Owl&apos;s Eye
                 </Link>
-                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", width: "100%" }}>
-                  <input
-                    value={tiVenueMapUrl(v.id)}
-                    readOnly
-                    style={{
-                      flex: "1 1 160px",
-                      minWidth: 160,
-                      padding: "6px 8px",
-                      borderRadius: 8,
-                      border: "1px solid #e5e7eb",
-                      fontSize: 12,
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => navigator.clipboard.writeText(tiVenueMapUrl(v.id))}
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: 8,
-                      border: "1px solid #e5e7eb",
-                      background: "#f8fafc",
-                      cursor: "pointer",
-                      fontSize: 12,
-                    }}
-                  >
-                    Copy
-                  </button>
-                  <Link
-                    href={tiVenueMapUrl(v.id)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: 8,
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
-                      textDecoration: "none",
-                      fontSize: 12,
-                    }}
-                  >
-                    Open
-                  </Link>
-                </div>
+                <PublicMapUrlRow venueId={v.id} compact />
               </div>
             </div>
           ))
