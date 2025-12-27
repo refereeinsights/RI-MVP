@@ -24,11 +24,22 @@ function isUuid(value: string) {
   return UUID_REGEX.test(value);
 }
 
-async function safeUpsert(table: string, payload: Record<string, any>): Promise<{ ok: boolean; message?: string }> {
+async function safeUpsert(
+  table: string,
+  payload: Record<string, any>,
+  options?: { ignoreMissingColumns?: boolean }
+): Promise<{ ok: boolean; message?: string }> {
   try {
     const supabase = getAdminSupabase();
     const { error } = await supabase.from(table).upsert(payload);
     if (error) {
+      if (
+        options?.ignoreMissingColumns &&
+        (error.code === "42P01" || error.code === "42703" || error.code === "PGRST204")
+      ) {
+        // Skip missing column/table errors when allowed.
+        return { ok: true, message: "table_or_column_missing" };
+      }
       if (error.code === "42P01" || error.code === "42703") {
         return { ok: false, message: `${table} table missing` };
       }
@@ -40,11 +51,21 @@ async function safeUpsert(table: string, payload: Record<string, any>): Promise<
   }
 }
 
-async function safeInsert(table: string, payloads: Record<string, any>[]): Promise<{ ok: boolean; message?: string }> {
+async function safeInsert(
+  table: string,
+  payloads: Record<string, any>[],
+  options?: { ignoreMissingColumns?: boolean }
+): Promise<{ ok: boolean; message?: string }> {
   try {
     const supabase = getAdminSupabase();
     const { error } = await supabase.from(table).insert(payloads);
     if (error) {
+      if (
+        options?.ignoreMissingColumns &&
+        (error.code === "42P01" || error.code === "42703" || error.code === "PGRST204")
+      ) {
+        return { ok: true, message: "table_or_column_missing" };
+      }
       if (error.code === "42P01" || error.code === "42703") {
         return { ok: false, message: `${table} table missing` };
       }
@@ -68,15 +89,19 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
   const startedAt = new Date().toISOString();
   const fieldMapUrl = input.publishedMapUrl ?? null;
 
-  const runResult = await safeUpsert("owls_eye_runs", {
-    run_id: runId,
-    venue_id: input.venueId,
-    sport: input.sport,
-    status: "running",
-    error_message: null,
-    created_at: startedAt,
-    updated_at: startedAt,
-  });
+  const runResult = await safeUpsert(
+    "owls_eye_runs",
+    {
+      run_id: runId,
+      venue_id: input.venueId,
+      sport: input.sport,
+      status: "running",
+      error_message: null,
+      created_at: startedAt,
+      updated_at: startedAt,
+    },
+    { ignoreMissingColumns: true }
+  );
   if (!runResult.ok) {
     return { runId, status: "failed", message: runResult.message ?? "Could not record run" };
   }
@@ -93,7 +118,7 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
         source: "manual_trigger",
         created_at: startedAt,
       },
-    ]);
+    ], { ignoreMissingColumns: true });
     if (!mapInsert.ok && mapInsert.message) {
       failureMessage = failureMessage ?? mapInsert.message;
     }
@@ -130,25 +155,33 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
   }
 
   if (failureMessage) {
-    await safeUpsert("owls_eye_runs", {
-      run_id: runId,
-      venue_id: input.venueId,
-      sport: input.sport,
-      status: "failed",
-      error_message: failureMessage,
-      updated_at: new Date().toISOString(),
-    });
+    await safeUpsert(
+      "owls_eye_runs",
+      {
+        run_id: runId,
+        venue_id: input.venueId,
+        sport: input.sport,
+        status: "failed",
+        error_message: failureMessage,
+        updated_at: new Date().toISOString(),
+      },
+      { ignoreMissingColumns: true }
+    );
     return { runId, status: "failed", message: failureMessage };
   }
 
-  const completed = await safeUpsert("owls_eye_runs", {
-    run_id: runId,
-    venue_id: input.venueId,
-    sport: input.sport,
-    status: "complete",
-    error_message: null,
-    updated_at: new Date().toISOString(),
-  });
+  const completed = await safeUpsert(
+    "owls_eye_runs",
+    {
+      run_id: runId,
+      venue_id: input.venueId,
+      sport: input.sport,
+      status: "complete",
+      error_message: null,
+      updated_at: new Date().toISOString(),
+    },
+    { ignoreMissingColumns: true }
+  );
 
   if (!completed.ok) {
     return { runId, status: "failed", message: completed.message ?? "Run completion not recorded" };
