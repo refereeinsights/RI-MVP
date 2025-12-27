@@ -47,14 +47,16 @@ async function fetchRun(runId: string) {
     }
 
     const foodResp = await supabase
-      .from("owls_eye_food")
+      .from("owls_eye_nearby_food" as any)
       .select("*")
       .eq("run_id", runId)
-      .limit(5);
+      .order("is_sponsor", { ascending: false })
+      .order("distance_meters", { ascending: true })
+      .order("name", { ascending: true });
 
-    let foodItems: any[] = [];
+    let nearbyItems: any[] = [];
     if (foodResp.data) {
-      foodItems = foodResp.data;
+      nearbyItems = foodResp.data;
     } else if (foodResp.error && foodResp.error.code !== "42P01" && foodResp.error.code !== "42703") {
       throw foodResp.error;
     }
@@ -69,13 +71,28 @@ async function fetchRun(runId: string) {
             legend: [],
           }
         : undefined,
-      nearbyFood: foodItems.map((f) => ({
-        name: f.name,
-        distanceMiles: f.distance_miles ?? undefined,
-        address: f.address ?? "",
-        isSponsor: Boolean(f.is_sponsored),
-        sponsorClickUrl: f.sponsor_click_url ?? undefined,
-      })),
+      nearby: {
+        food: nearbyItems
+          .filter((f) => (f.category ?? "food") === "food")
+          .map((f) => ({
+            name: f.name,
+            distance_meters: f.distance_meters ?? null,
+            address: f.address ?? "",
+            is_sponsor: Boolean(f.is_sponsor),
+            sponsor_click_url: f.sponsor_click_url ?? undefined,
+            maps_url: f.maps_url ?? undefined,
+          })),
+        coffee: nearbyItems
+          .filter((f) => f.category === "coffee")
+          .map((f) => ({
+            name: f.name,
+            distance_meters: f.distance_meters ?? null,
+            address: f.address ?? "",
+            is_sponsor: Boolean(f.is_sponsor),
+            sponsor_click_url: f.sponsor_click_url ?? undefined,
+            maps_url: f.maps_url ?? undefined,
+          })),
+      },
       annotations: [],
     };
   } catch (err) {

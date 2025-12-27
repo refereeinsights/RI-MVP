@@ -4,10 +4,11 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { runVenueScan } from "@/server/owlseye/jobs/runVenueScan";
 import { getLatestOwlReport } from "@/server/owlseye/pipeline/getLatestReport";
+import { getAdminSupabase } from "@/server/owlseye/supabase/admin";
 
 type Sport = "soccer" | "basketball";
 type RunResponse =
-  | { ok: true; report: Awaited<ReturnType<typeof runVenueScan>> }
+  | { ok: true; report: Awaited<ReturnType<typeof runVenueScan>> & { nearby?: any } }
   | { ok: false; error: string; report?: Awaited<ReturnType<typeof runVenueScan>> };
 
 function isUuid(value: string) {
@@ -120,7 +121,45 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json<RunResponse>({ ok: true, report: result });
+    let nearby: any = null;
+    try {
+      const supabase = getAdminSupabase();
+      const { data } = await supabase
+        .from("owls_eye_nearby_food" as any)
+        .select("*")
+        .eq("run_id", result.runId)
+        .order("is_sponsor", { ascending: false })
+        .order("distance_meters", { ascending: true })
+        .order("name", { ascending: true });
+      if (data) {
+        nearby = {
+          food: data
+            .filter((f: any) => (f.category ?? "food") === "food")
+            .map((f: any) => ({
+              name: f.name,
+              distance_meters: f.distance_meters ?? null,
+              address: f.address ?? "",
+              is_sponsor: Boolean(f.is_sponsor),
+              sponsor_click_url: f.sponsor_click_url ?? undefined,
+              maps_url: f.maps_url ?? undefined,
+            })),
+          coffee: data
+            .filter((f: any) => f.category === "coffee")
+            .map((f: any) => ({
+              name: f.name,
+              distance_meters: f.distance_meters ?? null,
+              address: f.address ?? "",
+              is_sponsor: Boolean(f.is_sponsor),
+              sponsor_click_url: f.sponsor_click_url ?? undefined,
+              maps_url: f.maps_url ?? undefined,
+            })),
+        };
+      }
+    } catch (err) {
+      console.error("[owlseye] Nearby fetch in run route failed", err);
+    }
+
+    return NextResponse.json<RunResponse>({ ok: true, report: { ...result, nearby } });
   } catch (err) {
     return NextResponse.json<RunResponse>(
       { ok: false, error: err instanceof Error ? err.message : "unknown error" },

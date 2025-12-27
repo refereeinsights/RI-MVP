@@ -22,6 +22,10 @@ type RunReport = {
   status?: string;
   message?: string;
   map?: { imageUrl?: string | null; url?: string | null };
+  nearby?: {
+    food?: NearbyItem[];
+    coffee?: NearbyItem[];
+  };
 };
 
 type OwlsEyePanelProps = {
@@ -160,6 +164,61 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
     return map.imageUrl || map.url || null;
   })();
 
+  const metersToMiles = (meters?: number | null) => {
+    if (meters == null) return null;
+    const miles = meters / 1609.34;
+    return Math.round(miles * 10) / 10;
+  };
+
+  const renderNearbyList = (items: NearbyItem[] | undefined, label: string) => {
+    if (!items || items.length === 0) return <div style={{ color: "#6b7280" }}>No {label} found.</div>;
+    return (
+      <div style={{ display: "grid", gap: 8 }}>
+        {items.map((item, idx) => {
+          const distance = metersToMiles(item.distance_meters);
+          return (
+            <div
+              key={`${item.name}-${idx}`}
+              style={{
+                border: "1px solid #e5e7eb",
+                borderRadius: 8,
+                padding: 10,
+                display: "grid",
+                gap: 4,
+                background: item.is_sponsor ? "#fff7ed" : "white",
+              }}
+            >
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontWeight: 700 }}>{item.name}</span>
+                {item.is_sponsor && (
+                  <span style={{ fontSize: 11, background: "#f97316", color: "white", padding: "2px 6px", borderRadius: 6 }}>
+                    Sponsor
+                  </span>
+                )}
+              </div>
+              {distance != null && (
+                <div style={{ fontSize: 12, color: "#4b5563" }}>{distance} mi</div>
+              )}
+              {item.address && <div style={{ fontSize: 12, color: "#4b5563" }}>{item.address}</div>}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                {item.maps_url && (
+                  <a href={item.maps_url} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+                    Directions
+                  </a>
+                )}
+                {item.is_sponsor && item.sponsor_click_url && (
+                  <a href={item.sponsor_click_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#c2410c" }}>
+                    Offer
+                  </a>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div style={{ padding: embedded ? 0 : "24px", maxWidth: 900 }}>
       <h1>Owl&apos;s Eye Admin</h1>
@@ -276,7 +335,30 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
 
               {mapImageUrl && (
                 <div style={{ marginTop: 14 }}>
-                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Field map</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                    <div style={{ fontWeight: 600 }}>Field map</div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(mapImageUrl);
+                          setRunMessage("Map URL copied");
+                        } catch (err) {
+                          setRunMessage(err instanceof Error ? err.message : "Copy failed");
+                          setRunStatus("error");
+                        }
+                      }}
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        background: "#f8fafc",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Copy map URL
+                    </button>
+                  </div>
                   <div
                     style={{
                       position: "relative",
@@ -293,6 +375,20 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
                   </div>
                 </div>
               )}
+
+              <div style={{ marginTop: 16 }}>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>Nearby</div>
+                <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, marginBottom: 6 }}>Food</div>
+                    {renderNearbyList(runReport.nearby?.food, "food")}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, marginBottom: 6 }}>Coffee</div>
+                    {renderNearbyList(runReport.nearby?.coffee, "coffee")}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -300,3 +396,11 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
     </div>
   );
 }
+type NearbyItem = {
+  name: string;
+  address?: string;
+  distance_meters?: number | null;
+  is_sponsor?: boolean;
+  sponsor_click_url?: string;
+  maps_url?: string;
+};

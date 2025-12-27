@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
-import { searchNearbyFood } from "../google/places";
 import { getAdminSupabase } from "../supabase/admin";
+import { upsertNearbyForRun } from "@/owlseye/nearby/upsertNearby";
 
 type Sport = "soccer" | "basketball";
 
@@ -99,24 +99,34 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
     }
   }
 
-  const nearby = await searchNearbyFood({ lat: 0, lng: 0 });
-  if (nearby.length > 0) {
-    const foodInsert = await safeInsert(
-      "owls_eye_food",
-      nearby.map((item) => ({
-        run_id: runId,
-        venue_id: input.venueId,
-        name: item.name,
-        address: item.address,
-        place_id: item.placeId ?? null,
-        lat: item.lat,
-        lng: item.lng,
-        created_at: startedAt,
-      }))
-    );
-    if (!foodInsert.ok && foodInsert.message) {
-      failureMessage = failureMessage ?? foodInsert.message;
+  // Nearby amenities (non-blocking)
+  try {
+    const supabase = getAdminSupabase();
+    const venueResp = await supabase
+      .from("venues" as any)
+      .select("latitude,longitude,lat,lng")
+      .eq("id", input.venueId)
+      .maybeSingle();
+
+    const lat =
+      (venueResp.data as any)?.latitude ??
+      (venueResp.data as any)?.lat ??
+      null;
+    const lng =
+      (venueResp.data as any)?.longitude ??
+      (venueResp.data as any)?.lng ??
+      null;
+
+    if (typeof lat === "number" && typeof lng === "number" && isFinite(lat) && isFinite(lng)) {
+      await upsertNearbyForRun({
+        supabaseAdmin: supabase,
+        runId,
+        venueLat: lat,
+        venueLng: lng,
+      });
     }
+  } catch (err) {
+    console.error("[owlseye] Nearby fetch failed", err);
   }
 
   if (failureMessage) {
