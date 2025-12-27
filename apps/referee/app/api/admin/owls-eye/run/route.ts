@@ -109,22 +109,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "venue_not_found" }, { status: 404 });
     }
 
-    const latestReport = await getLatestOwlReport({ venue_id: venueId, sport });
-    if (latestReport && latestReport.expires_at) {
-      const expires = new Date(latestReport.expires_at);
-      if (!isNaN(expires.valueOf()) && expires > new Date() && !force) {
-        return NextResponse.json(
-          {
-            ok: false,
-            code: "REPORT_EXISTS",
-            message: "Owl's Eye report already exists and is not expired. Use force=true to refresh.",
-            existing: {
-              computed_at: latestReport.computed_at,
-              expires_at: latestReport.expires_at,
+    let latestReport: Awaited<ReturnType<typeof getLatestOwlReport>> = null;
+    try {
+      latestReport = await getLatestOwlReport({ venue_id: venueId, sport });
+      if (latestReport && latestReport.expires_at) {
+        const expires = new Date(latestReport.expires_at);
+        if (!isNaN(expires.valueOf()) && expires > new Date() && !force) {
+          return NextResponse.json(
+            {
+              ok: false,
+              code: "REPORT_EXISTS",
+              message: "Owl's Eye report already exists and is not expired. Use force=true to refresh.",
+              existing: {
+                computed_at: latestReport.computed_at,
+                expires_at: latestReport.expires_at,
+              },
             },
-          },
-          { status: 409 }
-        );
+            { status: 409 }
+          );
+        }
+      }
+    } catch (err) {
+      const errCode = (err as any)?.code;
+      if (errCode === "42P01" || errCode === "42703" || errCode === "PGRST205") {
+        console.warn("[owlseye] owl_reports table missing or not cached; proceeding without dedupe");
+      } else {
+        console.error("[owlseye] getLatestOwlReport failed", err);
       }
     }
 
