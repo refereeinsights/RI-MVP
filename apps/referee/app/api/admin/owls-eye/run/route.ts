@@ -24,7 +24,6 @@ type VenueRow = {
   city: string | null;
   state: string | null;
   zip: string | null;
-  sport: Sport | null;
 };
 
 async function ensureAdminRequest() {
@@ -79,7 +78,7 @@ export async function POST(request: Request) {
     try {
       const resp = await supabaseAdmin
         .from("venues" as any)
-        .select("id,name,address1,street,city,state,zip,sport")
+        .select("id,name,address1,street,city,state,zip")
         .eq("id", venueId)
         .maybeSingle();
       venue = resp.data as VenueRow | null;
@@ -88,7 +87,7 @@ export async function POST(request: Request) {
         // Retry with minimal fields if columns are missing
         const fallback = await supabaseAdmin
           .from("venues" as any)
-          .select("id,name,city,state,zip,sport")
+          .select("id,name,city,state,zip")
           .eq("id", venueId)
           .maybeSingle();
         venue = fallback.data as VenueRow | null;
