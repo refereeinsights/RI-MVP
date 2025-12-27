@@ -19,7 +19,7 @@ function isUuid(value: string) {
 type VenueRow = {
   id: string;
   name: string | null;
-  street: string | null;
+  address1: string | null;
   city: string | null;
   state: string | null;
   zip: string | null;
@@ -42,7 +42,7 @@ async function ensureAdminRequest() {
 }
 
 function buildAddress(venue: VenueRow) {
-  const parts = [venue.street, venue.city, venue.state, venue.zip].filter(Boolean);
+  const parts = [venue.address1, venue.city, venue.state, venue.zip].filter(Boolean);
   return parts.join(", ");
 }
 
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
   try {
     const { data: venue, error: venueError } = await supabaseAdmin
       .from("venues" as any)
-      .select("id,name,street,city,state,zip,sport")
+      .select("id,name,address1,city,state,zip,sport")
       .eq("id", venueId)
       .maybeSingle();
 
