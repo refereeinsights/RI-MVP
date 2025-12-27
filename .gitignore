@@ -18,6 +18,8 @@ apps/*/public/svg/
 
 # supabase CLI artifacts
 supabase/
+!apps/referee/src/server/owlseye/supabase/
+!apps/referee/src/server/owlseye/supabase/*
 
 # logs
 npm-debug.log*
