@@ -6,6 +6,14 @@ const nextConfig = {
   experimental: {
     externalDir: true,
   },
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      "@/server": require("path").join(__dirname, "src/server"),
+      "@server": require("path").join(__dirname, "src/server"),
+    };
+    return config;
+  },
 };
 
 const sentryWebpackPluginOptions = {
