@@ -100,7 +100,10 @@ export async function POST(request: Request) {
 
     if (venueError) {
       console.error("Owl's Eye venue lookup failed", venueError);
-      return NextResponse.json({ error: "venue_lookup_failed" }, { status: 500 });
+      return NextResponse.json(
+        { error: "venue_lookup_failed", code: (venueError as any)?.code, message: (venueError as any)?.message },
+        { status: 500 }
+      );
     }
 
     if (!venue) {
