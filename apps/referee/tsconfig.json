@@ -17,8 +17,8 @@
     "plugins": [{ "name": "next" }],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "@ri-backend/*": ["../../RI_Backend/src/*"]
+      "@/*": ["./*", "./src/*"],
+      "@server/*": ["./src/server/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

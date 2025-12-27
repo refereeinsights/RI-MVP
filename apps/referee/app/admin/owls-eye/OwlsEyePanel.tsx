@@ -4,30 +4,36 @@ import { useEffect, useMemo, useState } from "react";
 
 type RunStatus = "idle" | "running" | "error" | "complete";
 
-type Artifact = { url?: string | null; map_kind?: string | null };
-
 type RunPayload = {
-  run?: { run_id?: string; status?: string; error_message?: string | null };
-  artifacts?: Artifact[];
-  annotations?: Array<{ x: number; y: number; icon?: string }>;
-  nearby_food?: Array<{ name: string; address?: string; navigation_url?: string; is_sponsored?: boolean }>;
+  runId: string;
+  status: string;
+  message?: string;
+  map?: { imageUrl?: string | null; north?: any; legend?: string[] };
+  annotations?: Array<{ type?: string; x: number; y: number; label?: string; confidence?: number }>;
+  nearbyFood?: Array<{
+    name: string;
+    distanceMiles?: number;
+    address?: string;
+    isSponsor?: boolean;
+    sponsorClickUrl?: string;
+  }>;
 };
 
 type OwlsEyePanelProps = {
   embedded?: boolean;
+  adminToken?: string;
 };
 
-export default function OwlsEyePanel({ embedded = false }: OwlsEyePanelProps) {
+export default function OwlsEyePanel({ embedded = false, adminToken }: OwlsEyePanelProps) {
   const [venueId, setVenueId] = useState("");
   const [sport, setSport] = useState<"soccer" | "basketball">("soccer");
-  const [address, setAddress] = useState("");
   const [mapUrl, setMapUrl] = useState("");
   const [runId, setRunId] = useState<string | null>(null);
   const [status, setStatus] = useState<RunStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [runData, setRunData] = useState<RunPayload | null>(null);
 
-  const latestArtifact = useMemo(() => runData?.artifacts?.[0], [runData]);
+  const latestMapUrl = useMemo(() => runData?.map?.imageUrl ?? null, [runData]);
 
   const startRun = async () => {
     setStatus("running");
@@ -37,12 +43,14 @@ export default function OwlsEyePanel({ embedded = false }: OwlsEyePanelProps) {
     try {
       const resp = await fetch("/api/admin/owls-eye/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { "x-owls-eye-admin-token": adminToken } : {}),
+        },
         body: JSON.stringify({
           venueId: venueId.trim(),
           sport,
-          address: address.trim(),
-          mapUrl: mapUrl.trim() || undefined,
+          fieldMapUrl: mapUrl.trim() || undefined,
           mode: "manual",
         }),
       });
@@ -68,7 +76,9 @@ export default function OwlsEyePanel({ embedded = false }: OwlsEyePanelProps) {
     let cancelled = false;
     const interval = setInterval(async () => {
       try {
-        const resp = await fetch(`/api/admin/owls-eye/run/${runId}`);
+        const resp = await fetch(`/api/admin/owls-eye/run/${runId}`, {
+          headers: adminToken ? { "x-owls-eye-admin-token": adminToken } : undefined,
+        });
         const json = await resp.json();
         if (cancelled) return;
 
@@ -80,8 +90,8 @@ export default function OwlsEyePanel({ embedded = false }: OwlsEyePanelProps) {
         }
 
         setRunData(json);
-        if (json?.run?.status === "complete" || json?.run?.status === "failed") {
-          setStatus(json?.run?.status === "complete" ? "complete" : "error");
+        if (json?.status === "complete" || json?.status === "failed") {
+          setStatus(json?.status === "complete" ? "complete" : "error");
           clearInterval(interval);
         }
       } catch (err) {
@@ -96,7 +106,7 @@ export default function OwlsEyePanel({ embedded = false }: OwlsEyePanelProps) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [runId]);
+  }, [runId, adminToken]);
 
   return (
     <div style={{ padding: embedded ? 0 : "24px", maxWidth: 900 }}>
@@ -123,16 +133,6 @@ export default function OwlsEyePanel({ embedded = false }: OwlsEyePanelProps) {
         </label>
 
         <label>
-          <div>Address</div>
-          <input
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="123 Main St, City, ST"
-            style={{ width: "100%" }}
-          />
-        </label>
-
-        <label>
           <div>Published Map URL (optional)</div>
           <input
             value={mapUrl}
@@ -151,13 +151,13 @@ export default function OwlsEyePanel({ embedded = false }: OwlsEyePanelProps) {
       {runData && (
         <div style={{ marginTop: 24 }}>
           <h2>Run</h2>
-          <pre style={{ background: "#f6f8fa", padding: 12 }}>{JSON.stringify(runData.run ?? {}, null, 2)}</pre>
+          <pre style={{ background: "#f6f8fa", padding: 12 }}>{JSON.stringify(runData, null, 2)}</pre>
 
-          {latestArtifact?.url && (
+          {latestMapUrl && (
             <div style={{ marginTop: 12 }}>
-              <div>Map artifact ({latestArtifact.map_kind ?? "latest"}):</div>
+              <div>Map artifact:</div>
               <img
-                src={latestArtifact.url}
+                src={latestMapUrl}
                 alt="Map artifact"
                 style={{ maxWidth: "100%", border: "1px solid #ccc", marginTop: 8 }}
               />
@@ -166,14 +166,14 @@ export default function OwlsEyePanel({ embedded = false }: OwlsEyePanelProps) {
 
           <div style={{ marginTop: 12 }}>
             <div>Nearby food:</div>
-            {(runData.nearby_food ?? []).length === 0 && <div>No nearby food records</div>}
-            {(runData.nearby_food ?? []).map((f, idx) => (
+            {(runData.nearbyFood ?? []).length === 0 && <div>No nearby food records</div>}
+            {(runData.nearbyFood ?? []).map((f, idx) => (
               <div key={`${f.name}-${idx}`} style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <span>{f.name}</span>
-                {f.is_sponsored && <span style={{ fontSize: 12, color: "#d35400" }}>Sponsored</span>}
-                {f.navigation_url && (
-                  <a href={f.navigation_url} target="_blank" rel="noreferrer">
-                    map
+                {f.isSponsor && <span style={{ fontSize: 12, color: "#d35400" }}>Sponsored</span>}
+                {f.sponsorClickUrl && (
+                  <a href={f.sponsorClickUrl} target="_blank" rel="noreferrer">
+                    details
                   </a>
                 )}
               </div>

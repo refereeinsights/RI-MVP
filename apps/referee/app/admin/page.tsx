@@ -123,6 +123,8 @@ export default async function AdminPage({
   };
 }) {
   await requireAdmin();
+  const owlsEyeAdminToken =
+    process.env.NEXT_PUBLIC_OWLS_EYE_ADMIN_TOKEN ?? process.env.OWLS_EYE_ADMIN_TOKEN ?? "";
 
   const tab: Tab = (searchParams.tab as Tab) ?? "verification";
   const q = searchParams.q ?? "";
@@ -906,7 +908,7 @@ export default async function AdminPage({
 
       {tab === "owls-eye" && (
         <section style={{ marginBottom: 22 }}>
-          <OwlsEyePanel embedded />
+          <OwlsEyePanel embedded adminToken={owlsEyeAdminToken || undefined} />
         </section>
       )}
 
