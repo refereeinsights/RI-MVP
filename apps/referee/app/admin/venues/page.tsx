@@ -17,13 +17,17 @@ export const runtime = "nodejs";
 export default async function AdminVenuesPage() {
   await requireAdmin();
 
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("venues" as any)
     .select("id,name,city,state,created_at")
     .order("created_at", { ascending: false })
     .limit(50);
 
-  const venues: VenueRow[] = Array.isArray(data) ? data : [];
+  if (error) {
+    throw error;
+  }
+
+  const venues: VenueRow[] = Array.isArray(data) ? (data as VenueRow[]) : [];
 
   return (
     <div style={{ padding: 24 }}>
