@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { getAdminSupabase } from "../supabase/admin";
-import { upsertNearbyForRun } from "@/owlseye/nearby/upsertNearby";
+import { upsertNearbyForRun } from "@/owlseye/nearby/upsertNearbyForRun";
 
 type Sport = "soccer" | "basketball";
 

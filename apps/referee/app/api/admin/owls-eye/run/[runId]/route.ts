@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getAdminSupabase } from "@/server/owlseye/supabase/admin";
+import { upsertNearbyForRun } from "@/owlseye/nearby/upsertNearbyForRun";
 
 type Sport = "soccer" | "basketball";
 
@@ -105,9 +106,45 @@ export async function GET(request: Request, context: { params: { runId: string }
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const forceNearby = searchParams.get("force") === "true" || searchParams.get("forceNearby") === "true";
   const runId = context.params.runId;
   if (!runId || !isUuid(runId)) {
     return NextResponse.json({ error: "invalid_run_id" }, { status: 400 });
+  }
+
+  if (forceNearby) {
+    try {
+      const supabase = getAdminSupabase();
+      const runResp = await supabase.from("owls_eye_runs" as any).select("venue_id").eq("run_id", runId).maybeSingle();
+      const venueId = runResp.data?.venue_id;
+      if (venueId) {
+        const venueResp = await supabase
+          .from("venues" as any)
+          .select("latitude,longitude,lat,lng")
+          .eq("id", venueId)
+          .maybeSingle();
+        const lat =
+          (venueResp.data as any)?.latitude ??
+          (venueResp.data as any)?.lat ??
+          null;
+        const lng =
+          (venueResp.data as any)?.longitude ??
+          (venueResp.data as any)?.lng ??
+          null;
+        if (typeof lat === "number" && typeof lng === "number" && isFinite(lat) && isFinite(lng)) {
+          await upsertNearbyForRun({
+            supabaseAdmin: supabase,
+            runId,
+            venueLat: lat,
+            venueLng: lng,
+            force: true,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("[owlseye] force nearby failed", err);
+    }
   }
 
   const payload = await fetchRun(runId);

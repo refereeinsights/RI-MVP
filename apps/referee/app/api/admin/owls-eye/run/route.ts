@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { runVenueScan } from "@/server/owlseye/jobs/runVenueScan";
 import { getLatestOwlReport } from "@/server/owlseye/pipeline/getLatestReport";
 import { getAdminSupabase } from "@/server/owlseye/supabase/admin";
+import { upsertNearbyForRun } from "@/owlseye/nearby/upsertNearbyForRun";
 
 type Sport = "soccer" | "basketball";
 type RunResponse =
@@ -123,7 +124,31 @@ export async function POST(request: Request) {
 
     let nearby: any = null;
     try {
+      // ensure nearby exists (force refresh for immediate response)
       const supabase = getAdminSupabase();
+      const venueResp = await supabase
+        .from("venues" as any)
+        .select("latitude,longitude,lat,lng")
+        .eq("id", venueId)
+        .maybeSingle();
+      const lat =
+        (venueResp.data as any)?.latitude ??
+        (venueResp.data as any)?.lat ??
+        null;
+      const lng =
+        (venueResp.data as any)?.longitude ??
+        (venueResp.data as any)?.lng ??
+        null;
+      if (typeof lat === "number" && typeof lng === "number" && isFinite(lat) && isFinite(lng)) {
+        await upsertNearbyForRun({
+          supabaseAdmin: supabase,
+          runId: result.runId,
+          venueLat: lat,
+          venueLng: lng,
+          force: true,
+        });
+      }
+
       const { data } = await supabase
         .from("owls_eye_nearby_food" as any)
         .select("*")

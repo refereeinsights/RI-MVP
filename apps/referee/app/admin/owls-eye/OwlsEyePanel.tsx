@@ -17,11 +17,20 @@ type VenueSearchResult = {
   sport: string | null;
 };
 
+type NearbyItem = {
+  name: string;
+  address?: string;
+  distance_meters?: number | null;
+  is_sponsor?: boolean;
+  sponsor_click_url?: string;
+  maps_url?: string;
+};
+
 type RunReport = {
   runId?: string;
   status?: string;
   message?: string;
-  map?: { imageUrl?: string | null; url?: string | null };
+  map?: { imageUrl?: string | null; url?: string | null; north?: number | null };
   nearby?: {
     food?: NearbyItem[];
     coffee?: NearbyItem[];
@@ -39,6 +48,75 @@ function truncateId(value: string) {
   return `${value.slice(0, 8)}…${value.slice(-4)}`;
 }
 
+function SunPathOverlay({
+  north,
+  enabled,
+}: {
+  north: number | null;
+  enabled: boolean;
+}) {
+  if (!enabled) return null;
+  const baseAngle = typeof north === "number" ? north : 0; // degrees, 0 = north-up
+  const westAngle = baseAngle - 90; // west (E -> W arrow points west)
+  const size = 120;
+  const center = { x: size / 2, y: size / 2 };
+  const length = size * 0.7;
+  const angleRad = (westAngle * Math.PI) / 180;
+  const dx = (Math.cos(angleRad) * length) / 2;
+  const dy = (Math.sin(angleRad) * length) / 2;
+  const start = { x: center.x - dx, y: center.y - dy };
+  const end = { x: center.x + dx, y: center.y + dy };
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 12,
+        right: 12,
+        width: size,
+        height: size / 2,
+        pointerEvents: "none",
+        opacity: 0.28,
+      }}
+    >
+      <svg width="100%" height="100%" viewBox={`0 0 ${size} ${size / 2}`} style={{ overflow: "visible" }}>
+        <defs>
+          <marker
+            id="sunpath-arrowhead"
+            markerWidth="8"
+            markerHeight="8"
+            refX="4"
+            refY="4"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M0,0 L8,4 L0,8 z" fill="#111" />
+          </marker>
+        </defs>
+        <line
+          x1={start.x}
+          y1={start.y}
+          x2={end.x}
+          y2={end.y}
+          stroke="#111"
+          strokeWidth={2}
+          markerEnd="url(#sunpath-arrowhead)"
+        />
+        <text
+          x={center.x}
+          y={start.y - 8}
+          textAnchor="middle"
+          fontSize={12}
+          fill="#111"
+          opacity={0.9}
+        >
+          Sun path (E → W)
+        </text>
+      </svg>
+    </div>
+  );
+}
+
 export default function OwlsEyePanel({ embedded = false, adminToken, initialVenueId }: OwlsEyePanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -53,6 +131,8 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
   const [runStatus, setRunStatus] = useState<RunStatus>("idle");
   const [runMessage, setRunMessage] = useState<string | null>(null);
   const [runReport, setRunReport] = useState<RunReport | null>(null);
+  const [nearbyTab, setNearbyTab] = useState<"food" | "coffee">("food");
+  const [sunPathEnabled, setSunPathEnabled] = useState(true);
 
   useEffect(() => {
     if (initialVenueId) {
@@ -164,10 +244,38 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
     return map.imageUrl || map.url || null;
   })();
 
+  const mapNorth = (() => {
+    const map = (runReport as any)?.map;
+    if (!map) return null;
+    const northVal = map.north;
+    return typeof northVal === "number" && isFinite(northVal) ? northVal : null;
+  })();
+
   const metersToMiles = (meters?: number | null) => {
     if (meters == null) return null;
     const miles = meters / 1609.34;
     return Math.round(miles * 10) / 10;
+  };
+
+  const refreshNearby = async () => {
+    if (!runReport?.runId) return;
+    setRunMessage(null);
+    try {
+      const resp = await fetch(`/api/admin/owls-eye/run/${runReport.runId}?force=true`, {
+        headers: sharedHeaders,
+      });
+      const json = await resp.json();
+      if (!resp.ok) {
+        setRunMessage(json?.error || json?.message || "Refresh failed");
+        setRunStatus("error");
+        return;
+      }
+      setRunReport((prev) => ({ ...(prev || {}), nearby: json?.nearby || json?.nearbyFood || json?.nearby }));
+      setRunMessage("Nearby refreshed");
+    } catch (err) {
+      setRunStatus("error");
+      setRunMessage(err instanceof Error ? err.message : "Refresh failed");
+    }
   };
 
   const renderNearbyList = (items: NearbyItem[] | undefined, label: string) => {
@@ -188,26 +296,49 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
                 background: item.is_sponsor ? "#fff7ed" : "white",
               }}
             >
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
                 <span style={{ fontWeight: 700 }}>{item.name}</span>
-                {item.is_sponsor && (
-                  <span style={{ fontSize: 11, background: "#f97316", color: "white", padding: "2px 6px", borderRadius: 6 }}>
-                    Sponsor
-                  </span>
-                )}
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  {distance != null && <span style={{ fontSize: 12, color: "#4b5563" }}>{distance} mi</span>}
+                  {item.is_sponsor && (
+                    <span style={{ fontSize: 11, background: "#f97316", color: "white", padding: "2px 6px", borderRadius: 6 }}>
+                      Sponsor
+                    </span>
+                  )}
+                </div>
               </div>
-              {distance != null && (
-                <div style={{ fontSize: 12, color: "#4b5563" }}>{distance} mi</div>
-              )}
               {item.address && <div style={{ fontSize: 12, color: "#4b5563" }}>{item.address}</div>}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
                 {item.maps_url && (
-                  <a href={item.maps_url} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+                  <a
+                    href={item.maps_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      fontSize: 13,
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                      background: "#f8fafc",
+                    }}
+                  >
                     Directions
                   </a>
                 )}
                 {item.is_sponsor && item.sponsor_click_url && (
-                  <a href={item.sponsor_click_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#c2410c" }}>
+                  <a
+                    href={item.sponsor_click_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      fontSize: 13,
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #f97316",
+                      background: "#fff7ed",
+                      color: "#c2410c",
+                    }}
+                  >
                     Offer
                   </a>
                 )}
@@ -358,6 +489,14 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
                     >
                       Copy map URL
                     </button>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                      <input
+                        type="checkbox"
+                        checked={sunPathEnabled}
+                        onChange={(e) => setSunPathEnabled(e.target.checked)}
+                      />
+                      Sun path overlay
+                    </label>
                   </div>
                   <div
                     style={{
@@ -371,21 +510,96 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
                       alt="Field map artifact"
                       style={{ maxWidth: "100%", display: "block", border: "1px solid #ccc" }}
                     />
+                    <SunPathOverlay north={mapNorth} enabled={sunPathEnabled} />
                     <OwlsEyeBrandingOverlay />
                   </div>
                 </div>
               )}
 
               <div style={{ marginTop: 16 }}>
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>Nearby</div>
-                <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-                  <div>
-                    <div style={{ fontWeight: 600, marginBottom: 6 }}>Food</div>
-                    {renderNearbyList(runReport.nearby?.food, "food")}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ fontWeight: 600 }}>Nearby</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => setNearbyTab("food")}
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 999,
+                        border: "1px solid #111",
+                        background: nearbyTab === "food" ? "#111" : "#fff",
+                        color: nearbyTab === "food" ? "#fff" : "#111",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Food
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNearbyTab("coffee")}
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 999,
+                        border: "1px solid #111",
+                        background: nearbyTab === "coffee" ? "#111" : "#fff",
+                        color: nearbyTab === "coffee" ? "#fff" : "#111",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Coffee
+                    </button>
                   </div>
+                  {runReport?.runId && (
+                    <button
+                      type="button"
+                      onClick={refreshNearby}
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        background: "#f8fafc",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Refresh Nearby
+                    </button>
+                  )}
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  {nearbyTab === "food"
+                    ? renderNearbyList(runReport.nearby?.food, "food")
+                    : renderNearbyList(runReport.nearby?.coffee, "coffee")}
+                </div>
+                <div style={{ marginTop: 12, fontSize: 12, color: "#4b5563", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <svg width="32" height="10" viewBox="0 0 32 10" style={{ opacity: 0.6 }}>
+                    <defs>
+                      <marker
+                        id="sunpath-legend-arrowhead"
+                        markerWidth="6"
+                        markerHeight="6"
+                        refX="3"
+                        refY="3"
+                        orient="auto"
+                        markerUnits="strokeWidth"
+                      >
+                        <path d="M0,0 L6,3 L0,6 z" fill="#111" />
+                      </marker>
+                    </defs>
+                    <line
+                      x1={2}
+                      y1={5}
+                      x2={28}
+                      y2={5}
+                      stroke="#111"
+                      strokeWidth={2}
+                      markerEnd="url(#sunpath-legend-arrowhead)"
+                    />
+                  </svg>
                   <div>
-                    <div style={{ fontWeight: 600, marginBottom: 6 }}>Coffee</div>
-                    {renderNearbyList(runReport.nearby?.coffee, "coffee")}
+                    <div>Sun path (E → W) — general direction only</div>
+                    <div>Use North arrow for orientation; sun varies by time of day/season</div>
                   </div>
                 </div>
               </div>
@@ -396,11 +610,3 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
     </div>
   );
 }
-type NearbyItem = {
-  name: string;
-  address?: string;
-  distance_meters?: number | null;
-  is_sponsor?: boolean;
-  sponsor_click_url?: string;
-  maps_url?: string;
-};
