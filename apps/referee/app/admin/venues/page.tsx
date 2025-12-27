@@ -41,8 +41,10 @@ export default async function AdminVenuesPage() {
 
     const latestMapByVenue: Record<string, string> = {};
     for (const row of maps ?? []) {
-      if (!latestMapByVenue[row.venue_id]) {
-        latestMapByVenue[row.venue_id] = row.url;
+      const vid = (row as any)?.venue_id;
+      const url = (row as any)?.url;
+      if (vid && url && !latestMapByVenue[vid]) {
+        latestMapByVenue[vid] = url;
       }
     }
     venues.forEach((v) => {
