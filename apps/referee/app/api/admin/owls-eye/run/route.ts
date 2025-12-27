@@ -206,9 +206,10 @@ export async function POST(request: Request) {
       console.error("[owlseye] Nearby fetch in run route failed", err);
     }
 
-    return NextResponse.json<RunResponse>({ ok: true, report: { ...result, nearby } });
+    return NextResponse.json({ ok: true, report: { ...result, nearby } });
   } catch (err) {
-    return NextResponse.json<RunResponse>(
+    console.error("[owlseye] run POST failed", err);
+    return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "unknown error" },
       { status: 500 }
     );
