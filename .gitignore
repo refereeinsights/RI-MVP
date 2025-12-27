@@ -3,6 +3,9 @@
 .env
 apps/*/.env.local
 
+# OS-specific
+**/.DS_Store
+
 # next
 .next/
 out/
@@ -23,3 +26,6 @@ yarn-error.log*
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# fixtures with restricted permissions
+apps/referee/fixtures/uclub_files/
