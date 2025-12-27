@@ -908,6 +908,20 @@ export default async function AdminPage({
         <TabButton t="tournament-uploads" label="Tournament uploads" />
         <TabButton t="tournament-listings" label="Tournament listings" />
         <TabButton t="owls-eye" label="Owl's Eye" />
+        <a
+          href="/admin/venues"
+          style={{
+            padding: "10px 12px",
+            borderRadius: 999,
+            border: "1px solid #111",
+            background: "#fff",
+            color: "#111",
+            fontWeight: 900,
+            textDecoration: "none",
+          }}
+        >
+          Venues
+        </a>
       </div>
 
       {tab === "owls-eye" && (

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import OwlsEyeBrandingOverlay from "@/components/admin/OwlsEyeBrandingOverlay";
+
 type Sport = "soccer" | "basketball";
 type RunStatus = "idle" | "running" | "error" | "success";
 
@@ -19,6 +21,7 @@ type RunReport = {
   runId?: string;
   status?: string;
   message?: string;
+  map?: { imageUrl?: string | null; url?: string | null };
 };
 
 type OwlsEyePanelProps = {
@@ -151,6 +154,12 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
     }
   };
 
+  const mapImageUrl = (() => {
+    const map = (runReport as any)?.map;
+    if (!map) return null;
+    return map.imageUrl || map.url || null;
+  })();
+
   return (
     <div style={{ padding: embedded ? 0 : "24px", maxWidth: 900 }}>
       <h1>Owl&apos;s Eye Admin</h1>
@@ -264,6 +273,26 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
               <pre style={{ background: "#f6f8fa", padding: 12, overflowX: "auto" }}>
                 {JSON.stringify(runReport, null, 2)}
               </pre>
+
+              {mapImageUrl && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Field map</div>
+                  <div
+                    style={{
+                      position: "relative",
+                      display: "inline-block",
+                      maxWidth: "100%",
+                    }}
+                  >
+                    <img
+                      src={mapImageUrl}
+                      alt="Field map artifact"
+                      style={{ maxWidth: "100%", display: "block", border: "1px solid #ccc" }}
+                    />
+                    <OwlsEyeBrandingOverlay />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
