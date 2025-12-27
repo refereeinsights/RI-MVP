@@ -1,186 +1,273 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-type RunStatus = "idle" | "running" | "error" | "complete";
+type Sport = "soccer" | "basketball";
+type RunStatus = "idle" | "running" | "error" | "success";
 
-type RunPayload = {
-  runId: string;
-  status: string;
+type VenueSearchResult = {
+  venue_id: string;
+  name: string | null;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  sport: string | null;
+};
+
+type RunReport = {
+  runId?: string;
+  status?: string;
   message?: string;
-  map?: { imageUrl?: string | null; north?: any; legend?: string[] };
-  annotations?: Array<{ type?: string; x: number; y: number; label?: string; confidence?: number }>;
-  nearbyFood?: Array<{
-    name: string;
-    distanceMiles?: number;
-    address?: string;
-    isSponsor?: boolean;
-    sponsorClickUrl?: string;
-  }>;
 };
 
 type OwlsEyePanelProps = {
   embedded?: boolean;
   adminToken?: string;
+  initialVenueId?: string;
 };
 
-export default function OwlsEyePanel({ embedded = false, adminToken }: OwlsEyePanelProps) {
-  const [venueId, setVenueId] = useState("");
-  const [sport, setSport] = useState<"soccer" | "basketball">("soccer");
-  const [mapUrl, setMapUrl] = useState("");
-  const [runId, setRunId] = useState<string | null>(null);
-  const [status, setStatus] = useState<RunStatus>("idle");
-  const [message, setMessage] = useState<string | null>(null);
-  const [runData, setRunData] = useState<RunPayload | null>(null);
+function truncateId(value: string) {
+  if (value.length <= 12) return value;
+  return `${value.slice(0, 8)}…${value.slice(-4)}`;
+}
 
-  const latestMapUrl = useMemo(() => runData?.map?.imageUrl ?? null, [runData]);
+export default function OwlsEyePanel({ embedded = false, adminToken, initialVenueId }: OwlsEyePanelProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<VenueSearchResult[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [copiedVenueId, setCopiedVenueId] = useState<string | null>(null);
+
+  const [venueId, setVenueId] = useState(initialVenueId ?? "");
+  const [sport, setSport] = useState<Sport>("soccer");
+  const [mapUrl, setMapUrl] = useState("");
+  const [runStatus, setRunStatus] = useState<RunStatus>("idle");
+  const [runMessage, setRunMessage] = useState<string | null>(null);
+  const [runReport, setRunReport] = useState<RunReport | null>(null);
+
+  useEffect(() => {
+    if (initialVenueId) {
+      setVenueId(initialVenueId);
+    }
+  }, [initialVenueId]);
+
+  const sharedHeaders = adminToken ? { "x-owls-eye-admin-token": adminToken } : {};
+
+  const searchVenues = async () => {
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchError("Enter at least 2 characters to search.");
+      setHasSearched(false);
+      setSearchResults([]);
+      return;
+    }
+
+    setSearching(true);
+    setHasSearched(true);
+    setSearchError(null);
+    setSearchResults([]);
+
+    try {
+      const resp = await fetch(`/api/admin/venues/search?q=${encodeURIComponent(query)}`, {
+        headers: sharedHeaders,
+      });
+      const json = await resp.json();
+
+      if (!resp.ok) {
+        setSearchError(json?.error || json?.message || "Search failed.");
+        return;
+      }
+
+      setSearchResults(Array.isArray(json?.results) ? json.results : []);
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : "Search failed.");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleCopy = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedVenueId(id);
+      setTimeout(() => setCopiedVenueId(null), 1500);
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : "Could not copy ID.");
+    }
+  };
+
+  const handleUseVenue = (venue: VenueSearchResult) => {
+    setVenueId(venue.venue_id);
+    const normalizedSport = (venue.sport || "").toLowerCase();
+    if (normalizedSport === "soccer" || normalizedSport === "basketball") {
+      setSport(normalizedSport);
+    }
+  };
 
   const startRun = async () => {
-    setStatus("running");
-    setMessage(null);
-    setRunData(null);
+    const trimmedVenueId = venueId.trim();
+    if (!trimmedVenueId) {
+      setRunStatus("error");
+      setRunMessage("Venue ID is required.");
+      return;
+    }
+
+    setRunStatus("running");
+    setRunMessage(null);
+    setRunReport(null);
 
     try {
       const resp = await fetch("/api/admin/owls-eye/run", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(adminToken ? { "x-owls-eye-admin-token": adminToken } : {}),
+          ...sharedHeaders,
         },
         body: JSON.stringify({
-          venueId: venueId.trim(),
+          venue_id: trimmedVenueId,
           sport,
-          fieldMapUrl: mapUrl.trim() || undefined,
-          mode: "manual",
+          published_map_url: mapUrl.trim() || undefined,
         }),
       });
 
       const json = await resp.json();
-      if (!resp.ok) {
-        setStatus("error");
-        setMessage(json?.message || json?.error || "Run failed");
+      const errorMessage = json?.error || json?.message;
+
+      if (!resp.ok || json?.ok === false) {
+        setRunStatus("error");
+        setRunMessage(errorMessage || "Run failed.");
+        setRunReport(json?.report ?? json);
         return;
       }
 
-      setRunId(json.runId);
-      setMessage("Run started; polling status…");
+      setRunStatus("success");
+      setRunMessage("Owl's Eye run completed.");
+      setRunReport(json?.report ?? json);
     } catch (err) {
-      setStatus("error");
-      setMessage(err instanceof Error ? err.message : "Unknown error");
+      setRunStatus("error");
+      setRunMessage(err instanceof Error ? err.message : "Unknown error");
     }
   };
-
-  useEffect(() => {
-    if (!runId) return;
-
-    let cancelled = false;
-    const interval = setInterval(async () => {
-      try {
-        const resp = await fetch(`/api/admin/owls-eye/run/${runId}`, {
-          headers: adminToken ? { "x-owls-eye-admin-token": adminToken } : undefined,
-        });
-        const json = await resp.json();
-        if (cancelled) return;
-
-        if (!resp.ok) {
-          setStatus("error");
-          setMessage(json?.message || json?.error || "Lookup failed");
-          clearInterval(interval);
-          return;
-        }
-
-        setRunData(json);
-        if (json?.status === "complete" || json?.status === "failed") {
-          setStatus(json?.status === "complete" ? "complete" : "error");
-          clearInterval(interval);
-        }
-      } catch (err) {
-        if (cancelled) return;
-        setStatus("error");
-        setMessage(err instanceof Error ? err.message : "Unknown error");
-        clearInterval(interval);
-      }
-    }, 2000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [runId, adminToken]);
 
   return (
     <div style={{ padding: embedded ? 0 : "24px", maxWidth: 900 }}>
       <h1>Owl&apos;s Eye Admin</h1>
-      <p>Trigger a manual scan and poll its status.</p>
+      <p>Search venues and trigger a manual Owl&apos;s Eye run.</p>
 
-      <div style={{ display: "grid", gap: 12, marginTop: 16, maxWidth: 560 }}>
-        <label>
-          <div>Venue ID (UUID)</div>
-          <input
-            value={venueId}
-            onChange={(e) => setVenueId(e.target.value)}
-            placeholder="uuid"
-            style={{ width: "100%" }}
-          />
-        </label>
-
-        <label>
-          <div>Sport</div>
-          <select value={sport} onChange={(e) => setSport(e.target.value as any)} style={{ width: "100%" }}>
-            <option value="soccer">Soccer</option>
-            <option value="basketball">Basketball</option>
-          </select>
-        </label>
-
-        <label>
-          <div>Published Map URL (optional)</div>
-          <input
-            value={mapUrl}
-            onChange={(e) => setMapUrl(e.target.value)}
-            placeholder="https://example.com/map.pdf"
-            style={{ width: "100%" }}
-          />
-        </label>
-
-        <button onClick={startRun} disabled={status === "running"}>
-          {status === "running" ? "Running…" : "Run Owl's Eye Scan"}
-        </button>
-        {message && <div style={{ color: status === "error" ? "red" : "inherit" }}>{message}</div>}
-      </div>
-
-      {runData && (
-        <div style={{ marginTop: 24 }}>
-          <h2>Run</h2>
-          <pre style={{ background: "#f6f8fa", padding: 12 }}>{JSON.stringify(runData, null, 2)}</pre>
-
-          {latestMapUrl && (
-            <div style={{ marginTop: 12 }}>
-              <div>Map artifact:</div>
-              <img
-                src={latestMapUrl}
-                alt="Map artifact"
-                style={{ maxWidth: "100%", border: "1px solid #ccc", marginTop: 8 }}
+      <div style={{ display: "grid", gap: 24, marginTop: 12 }}>
+        <div style={{ border: "1px solid #ddd", padding: 16, borderRadius: 8 }}>
+          <h2 style={{ marginTop: 0 }}>Venue Search</h2>
+          <div style={{ display: "grid", gap: 8, maxWidth: 520 }}>
+            <label>
+              <div>Search (name, address, city, state)</div>
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Start typing a venue..."
+                style={{ width: "100%" }}
               />
-            </div>
+            </label>
+            <button onClick={searchVenues} disabled={searching}>
+              {searching ? "Searching…" : "Search"}
+            </button>
+            {searchError && <div style={{ color: "red" }}>{searchError}</div>}
+          </div>
+
+          {hasSearched && !searching && searchResults.length === 0 && !searchError && (
+            <div style={{ marginTop: 12, color: "#555" }}>No venues found.</div>
           )}
 
-          <div style={{ marginTop: 12 }}>
-            <div>Nearby food:</div>
-            {(runData.nearbyFood ?? []).length === 0 && <div>No nearby food records</div>}
-            {(runData.nearbyFood ?? []).map((f, idx) => (
-              <div key={`${f.name}-${idx}`} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span>{f.name}</span>
-                {f.isSponsor && <span style={{ fontSize: 12, color: "#d35400" }}>Sponsored</span>}
-                {f.sponsorClickUrl && (
-                  <a href={f.sponsorClickUrl} target="_blank" rel="noreferrer">
-                    details
-                  </a>
-                )}
-              </div>
-            ))}
-          </div>
+          {searchResults.length > 0 && (
+            <div style={{ marginTop: 16, display: "grid", gap: 8 }}>
+              {searchResults.map((venue) => {
+                const locationParts = [venue.city, venue.state].filter(Boolean).join(", ");
+                const venueLabel = venue.name || "Unnamed venue";
+                const idDisplay = truncateId(venue.venue_id);
+                return (
+                  <div
+                    key={venue.venue_id}
+                    style={{
+                      border: "1px solid #e1e4e8",
+                      borderRadius: 6,
+                      padding: 10,
+                      display: "grid",
+                      gap: 4,
+                    }}
+                  >
+                    <div style={{ fontWeight: 600 }}>{venueLabel}</div>
+                    <div style={{ color: "#444" }}>
+                      {locationParts || "City/state unknown"}
+                      {venue.street ? ` — ${venue.street}` : ""}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: "monospace", fontSize: 12 }}>{idDisplay}</span>
+                      <button onClick={() => handleCopy(venue.venue_id)} style={{ padding: "4px 8px" }}>
+                        {copiedVenueId === venue.venue_id ? "Copied" : "Copy ID"}
+                      </button>
+                      <button onClick={() => handleUseVenue(venue)} style={{ padding: "4px 8px" }}>
+                        Use
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+
+        <div style={{ border: "1px solid #ddd", padding: 16, borderRadius: 8, maxWidth: 560 }}>
+          <h2 style={{ marginTop: 0 }}>Generate Owl&apos;s Eye</h2>
+          <div style={{ display: "grid", gap: 12 }}>
+            <label>
+              <div>Venue ID (UUID)</div>
+              <input
+                value={venueId}
+                onChange={(e) => setVenueId(e.target.value)}
+                placeholder="uuid"
+                style={{ width: "100%" }}
+              />
+            </label>
+
+            <label>
+              <div>Sport</div>
+              <select value={sport} onChange={(e) => setSport(e.target.value as Sport)} style={{ width: "100%" }}>
+                <option value="soccer">Soccer</option>
+                <option value="basketball">Basketball</option>
+              </select>
+            </label>
+
+            <label>
+              <div>Published Map URL (optional)</div>
+              <input
+                value={mapUrl}
+                onChange={(e) => setMapUrl(e.target.value)}
+                placeholder="https://example.com/map.pdf"
+                style={{ width: "100%" }}
+              />
+            </label>
+
+            <button onClick={startRun} disabled={runStatus === "running"}>
+              {runStatus === "running" ? "Running…" : "Run Owl's Eye"}
+            </button>
+            {runMessage && (
+              <div style={{ color: runStatus === "error" ? "red" : "green" }}>
+                {runMessage}
+              </div>
+            )}
+          </div>
+
+          {runReport && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Run response</div>
+              <pre style={{ background: "#f6f8fa", padding: 12, overflowX: "auto" }}>
+                {JSON.stringify(runReport, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

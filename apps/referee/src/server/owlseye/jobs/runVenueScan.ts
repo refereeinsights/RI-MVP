@@ -6,15 +6,16 @@ import { getAdminSupabase } from "../supabase/admin";
 type Sport = "soccer" | "basketball";
 
 type RunInput = {
-  runId: string;
+  runId?: string;
   venueId: string;
   sport: Sport;
-  fieldMapUrl?: string | null;
+  publishedMapUrl?: string | null;
+  address?: string | null;
 };
 
 type RunResult =
-  | { status: "complete"; message?: string }
-  | { status: "failed"; message: string };
+  | { runId: string; status: "complete"; message?: string }
+  | { runId: string; status: "failed"; message: string };
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -57,14 +58,15 @@ async function safeInsert(table: string, payloads: Record<string, any>[]): Promi
 
 export async function runVenueScan(input: RunInput): Promise<RunResult> {
   if (!input?.venueId || !isUuid(input.venueId)) {
-    return { status: "failed", message: "Invalid venueId" };
+    return { runId: "", status: "failed", message: "Invalid venueId" };
   }
   if (input.sport !== "soccer" && input.sport !== "basketball") {
-    return { status: "failed", message: "Invalid sport" };
+    return { runId: "", status: "failed", message: "Invalid sport" };
   }
 
-  const runId = input.runId || randomUUID();
+  const runId = input.runId && isUuid(input.runId) ? input.runId : randomUUID();
   const startedAt = new Date().toISOString();
+  const fieldMapUrl = input.publishedMapUrl ?? null;
 
   const runResult = await safeUpsert("owls_eye_runs", {
     run_id: runId,
@@ -76,18 +78,18 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
     updated_at: startedAt,
   });
   if (!runResult.ok) {
-    return { status: "failed", message: runResult.message ?? "Could not record run" };
+    return { runId, status: "failed", message: runResult.message ?? "Could not record run" };
   }
 
   let failureMessage: string | null = null;
 
-  if (input.sport === "soccer" && input.fieldMapUrl) {
+  if (input.sport === "soccer" && fieldMapUrl) {
     const mapInsert = await safeInsert("owls_eye_map_artifacts", [
       {
         venue_id: input.venueId,
         sport: input.sport,
         map_kind: "soccer_field_map",
-        url: input.fieldMapUrl,
+        url: fieldMapUrl,
         source: "manual_trigger",
         created_at: startedAt,
       },
@@ -126,7 +128,7 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
       error_message: failureMessage,
       updated_at: new Date().toISOString(),
     });
-    return { status: "failed", message: failureMessage };
+    return { runId, status: "failed", message: failureMessage };
   }
 
   const completed = await safeUpsert("owls_eye_runs", {
@@ -139,8 +141,8 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
   });
 
   if (!completed.ok) {
-    return { status: "failed", message: completed.message ?? "Run completion not recorded" };
+    return { runId, status: "failed", message: completed.message ?? "Run completion not recorded" };
   }
 
-  return { status: "complete" };
+  return { runId, status: "complete" };
 }
