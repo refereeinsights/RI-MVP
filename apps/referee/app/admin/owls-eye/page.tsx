@@ -1,3 +1,4 @@
+import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import OwlsEyePanel from "./OwlsEyePanel";
 
@@ -8,5 +9,10 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
   const adminToken = process.env.NEXT_PUBLIC_OWLS_EYE_ADMIN_TOKEN ?? process.env.OWLS_EYE_ADMIN_TOKEN ?? "";
   const venueId = searchParams?.venueId ?? "";
 
-  return <OwlsEyePanel adminToken={adminToken || undefined} initialVenueId={venueId || undefined} />;
+  return (
+    <div style={{ padding: 24 }}>
+      <AdminNav />
+      <OwlsEyePanel embedded adminToken={adminToken || undefined} initialVenueId={venueId || undefined} />
+    </div>
+  );
 }

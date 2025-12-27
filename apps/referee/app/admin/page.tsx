@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import OwlsEyePanel from "./owls-eye/OwlsEyePanel";
+import AdminNav from "@/components/admin/AdminNav";
 
 export const runtime = "nodejs";
 
@@ -861,6 +862,9 @@ export default async function AdminPage({
       <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 10 }}>
         Admin Dashboard
       </h1>
+      <div style={{ marginBottom: 12 }}>
+        <AdminNav />
+      </div>
 
       {notice && (
         <div
