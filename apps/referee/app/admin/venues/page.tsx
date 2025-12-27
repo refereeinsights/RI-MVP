@@ -11,6 +11,7 @@ type VenueRow = {
   city: string | null;
   state: string | null;
   created_at?: string | null;
+  map_url?: string | null;
 };
 
 export const runtime = "nodejs";
@@ -29,6 +30,25 @@ export default async function AdminVenuesPage() {
   }
 
   const venues: VenueRow[] = Array.isArray(data) ? (data as VenueRow[]) : [];
+
+  if (venues.length > 0) {
+    const venueIds = venues.map((v) => v.id);
+    const { data: maps } = await supabaseAdmin
+      .from("owls_eye_map_artifacts" as any)
+      .select("venue_id,url,created_at")
+      .in("venue_id", venueIds)
+      .order("created_at", { ascending: false });
+
+    const latestMapByVenue: Record<string, string> = {};
+    for (const row of maps ?? []) {
+      if (!latestMapByVenue[row.venue_id]) {
+        latestMapByVenue[row.venue_id] = row.url;
+      }
+    }
+    venues.forEach((v) => {
+      v.map_url = latestMapByVenue[v.id] ?? null;
+    });
+  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -106,6 +126,25 @@ export default async function AdminVenuesPage() {
                   Run Owl&apos;s Eye
                 </Link>
                 <PublicMapUrlRow venueId={v.id} compact />
+                {v.map_url ? (
+                  <Link
+                    href={v.map_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                      background: "#e0f2fe",
+                      textDecoration: "none",
+                      fontSize: 12,
+                    }}
+                  >
+                    View Owl&apos;s Eye Map
+                  </Link>
+                ) : (
+                  <span style={{ fontSize: 12, color: "#6b7280" }}>No Owl&apos;s Eye map yet</span>
+                )}
               </div>
             </div>
           ))

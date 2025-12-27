@@ -74,11 +74,29 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { data: venue, error: venueError } = await supabaseAdmin
-      .from("venues" as any)
-      .select("id,name,address1,street,city,state,zip,sport")
-      .eq("id", venueId)
-      .maybeSingle();
+    let venue: VenueRow | null = null;
+    let venueError: any = null;
+    try {
+      const resp = await supabaseAdmin
+        .from("venues" as any)
+        .select("id,name,address1,street,city,state,zip,sport")
+        .eq("id", venueId)
+        .maybeSingle();
+      venue = resp.data as VenueRow | null;
+      venueError = resp.error;
+      if (venueError && (venueError.code === "42703" || venueError.code === "42P01")) {
+        // Retry with minimal fields if columns are missing
+        const fallback = await supabaseAdmin
+          .from("venues" as any)
+          .select("id,name,city,state,zip,sport")
+          .eq("id", venueId)
+          .maybeSingle();
+        venue = fallback.data as VenueRow | null;
+        venueError = fallback.error;
+      }
+    } catch (err) {
+      venueError = err;
+    }
 
     if (venueError) {
       console.error("Owl's Eye venue lookup failed", venueError);
