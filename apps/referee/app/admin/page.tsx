@@ -3,6 +3,7 @@ import TournamentLookup from "@/components/TournamentLookup";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import OwlsEyePanel from "./owls-eye/OwlsEyePanel";
 
 export const runtime = "nodejs";
 
@@ -72,7 +73,8 @@ type Tab =
   | "tournament-contacts"
   | "referee-contacts"
   | "tournament-uploads"
-  | "tournament-listings";
+  | "tournament-listings"
+  | "owls-eye";
 type VStatus = "pending" | "approved" | "rejected";
 const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
 const CONTACT_TYPES = ["assignor", "director", "general", "referee_coordinator"] as const;
@@ -899,7 +901,14 @@ export default async function AdminPage({
         <TabButton t="referee-contacts" label="Referee contacts" />
         <TabButton t="tournament-uploads" label="Tournament uploads" />
         <TabButton t="tournament-listings" label="Tournament listings" />
+        <TabButton t="owls-eye" label="Owl's Eye" />
       </div>
+
+      {tab === "owls-eye" && (
+        <section style={{ marginBottom: 22 }}>
+          <OwlsEyePanel embedded />
+        </section>
+      )}
 
       {/* VERIFICATION TAB */}
       {tab === "verification" && (
