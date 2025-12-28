@@ -36,6 +36,12 @@ type RunReport = {
     food?: NearbyItem[];
     coffee?: NearbyItem[];
   };
+  nearby_meta?: {
+    ok?: boolean;
+    message?: string;
+    foodCount?: number;
+    coffeeCount?: number;
+  };
 };
 
 type OwlsEyePanelProps = {
@@ -565,6 +571,14 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
               <div style={{ marginTop: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <div style={{ fontWeight: 600 }}>Nearby</div>
+                  {runReport?.nearby_meta?.message && (
+                    <span style={{ fontSize: 12, color: "#4b5563" }}>
+                      Status: {runReport.nearby_meta.message}
+                      {runReport.nearby_meta.foodCount != null || runReport.nearby_meta.coffeeCount != null
+                        ? ` (food ${runReport.nearby_meta.foodCount ?? 0}, coffee ${runReport.nearby_meta.coffeeCount ?? 0})`
+                        : ""}
+                    </span>
+                  )}
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
                       type="button"
