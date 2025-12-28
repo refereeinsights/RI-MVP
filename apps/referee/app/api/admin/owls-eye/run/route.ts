@@ -155,6 +155,7 @@ export async function POST(request: Request) {
     }
 
     let nearby: any = null;
+    let nearbyMeta: any = null;
     try {
       // ensure nearby exists (force refresh for immediate response)
       const supabase = getAdminSupabase();
@@ -166,13 +167,17 @@ export async function POST(request: Request) {
       const lat = (venueResp.data as any)?.latitude ?? null;
       const lng = (venueResp.data as any)?.longitude ?? null;
       if (typeof lat === "number" && typeof lng === "number" && isFinite(lat) && isFinite(lng)) {
-        await upsertNearbyForRun({
+        const nearbyResult = await upsertNearbyForRun({
           supabaseAdmin: supabase,
           runId: result.runId,
           venueLat: lat,
           venueLng: lng,
           force: true,
         });
+        nearbyMeta = nearbyResult;
+        if (!nearbyResult?.ok) {
+          console.warn("[owlseye] Nearby upsert result", nearbyResult);
+        }
       }
 
       const { data } = await supabase
@@ -210,7 +215,7 @@ export async function POST(request: Request) {
       console.error("[owlseye] Nearby fetch in run route failed", err);
     }
 
-    return NextResponse.json({ ok: true, report: { ...result, nearby } });
+    return NextResponse.json({ ok: true, report: { ...result, nearby, nearby_meta: nearbyMeta } });
   } catch (err) {
     const message =
       err instanceof Error

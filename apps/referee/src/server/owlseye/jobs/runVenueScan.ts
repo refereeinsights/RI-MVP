@@ -139,12 +139,15 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
     const lng = (venueResp.data as any)?.longitude ?? null;
 
     if (typeof lat === "number" && typeof lng === "number" && isFinite(lat) && isFinite(lng)) {
-      await upsertNearbyForRun({
+      const nearbyResult = await upsertNearbyForRun({
         supabaseAdmin: supabase,
         runId,
         venueLat: lat,
         venueLng: lng,
       });
+      if (!nearbyResult?.ok) {
+        console.warn("[owlseye] Nearby upsert result", nearbyResult);
+      }
     }
   } catch (err) {
     console.error("[owlseye] Nearby fetch failed", err);

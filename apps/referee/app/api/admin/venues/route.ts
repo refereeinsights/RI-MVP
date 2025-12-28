@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { geocodeAddress } from "@/lib/google/geocodeAddress";
 
 type VenueRow = {
   id: string;
@@ -75,6 +76,18 @@ export async function POST(request: Request) {
   const allowedSports = ["soccer", "basketball", "football"];
   const sportValue = allowedSports.includes(sport) ? sport : null;
 
+  let latitude: number | null = null;
+  let longitude: number | null = null;
+  const geocodeKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
+  if (geocodeKey) {
+    const fullAddress = [address1, city, state, zip].filter(Boolean).join(", ");
+    const geo = await geocodeAddress(fullAddress, geocodeKey);
+    if (geo) {
+      latitude = geo.lat;
+      longitude = geo.lng;
+    }
+  }
+
   const insertPayload = {
     name,
     address1,
@@ -83,6 +96,8 @@ export async function POST(request: Request) {
     zip: zip || null,
     notes,
     sport: sportValue,
+    latitude,
+    longitude,
   };
 
   const { data, error } = await supabaseAdmin
