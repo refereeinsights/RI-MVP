@@ -11,7 +11,7 @@ type UpsertParams = {
   force?: boolean;
 };
 
-const DEFAULT_RADIUS = 2500;
+const DEFAULT_RADIUS = 16093; // ~10 miles in meters
 const DEFAULT_LIMIT = 8;
 
 function mapsUrl(placeId: string) {

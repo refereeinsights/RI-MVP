@@ -632,6 +632,14 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
                     ? renderNearbyList(runReport.nearby?.food, "food")
                     : renderNearbyList(runReport.nearby?.coffee, "coffee")}
                 </div>
+                {runReport?.nearby_meta && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#111" }}>Nearby debug</div>
+                    <pre style={{ background: "#f6f8fa", padding: 10, borderRadius: 8, fontSize: 12, overflowX: "auto" }}>
+                      {JSON.stringify(runReport.nearby_meta, null, 2)}
+                    </pre>
+                  </div>
+                )}
                 <div style={{ marginTop: 12, fontSize: 12, color: "#4b5563", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <svg width="32" height="10" viewBox="0 0 32 10" style={{ opacity: 0.6 }}>
                     <defs>
