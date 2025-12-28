@@ -33,23 +33,48 @@ export default async function AdminVenuesPage() {
 
   if (venues.length > 0) {
     const venueIds = venues.map((v) => v.id);
-    const { data: maps } = await supabaseAdmin
-      .from("owls_eye_map_artifacts" as any)
-      .select("venue_id,url,created_at")
-      .in("venue_id", venueIds)
-      .order("created_at", { ascending: false });
+    // Fetch latest run per venue
+    try {
+      const { data: runs } = await supabaseAdmin
+        .from("owls_eye_runs" as any)
+        .select("run_id,venue_id,updated_at,created_at")
+        .in("venue_id", venueIds)
+        .order("updated_at", { ascending: false });
 
-    const latestMapByVenue: Record<string, string> = {};
-    for (const row of maps ?? []) {
-      const vid = (row as any)?.venue_id;
-      const url = (row as any)?.url;
-      if (vid && url && !latestMapByVenue[vid]) {
-        latestMapByVenue[vid] = url;
+      const latestRunByVenue: Record<string, string> = {};
+      for (const row of runs ?? []) {
+        const vid = (row as any)?.venue_id;
+        const rid = (row as any)?.run_id;
+        if (vid && rid && !latestRunByVenue[vid]) {
+          latestRunByVenue[vid] = rid;
+        }
       }
+
+      const runIds = Object.values(latestRunByVenue);
+      if (runIds.length > 0) {
+        const { data: maps } = await supabaseAdmin
+          .from("owls_eye_map_artifacts" as any)
+          .select("run_id,image_url,created_at")
+          .in("run_id", runIds)
+          .order("created_at", { ascending: false });
+
+        const mapByRun: Record<string, string> = {};
+        for (const row of maps ?? []) {
+          const rid = (row as any)?.run_id;
+          const url = (row as any)?.image_url;
+          if (rid && url && !mapByRun[rid]) {
+            mapByRun[rid] = url;
+          }
+        }
+
+        venues.forEach((v) => {
+          const rid = latestRunByVenue[v.id];
+          v.map_url = rid ? mapByRun[rid] ?? null : null;
+        });
+      }
+    } catch (err) {
+      // If map tables are missing, just leave map_url null
     }
-    venues.forEach((v) => {
-      v.map_url = latestMapByVenue[v.id] ?? null;
-    });
   }
 
   return (

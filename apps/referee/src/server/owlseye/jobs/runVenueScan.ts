@@ -109,16 +109,18 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
   let failureMessage: string | null = null;
 
   if (input.sport === "soccer" && fieldMapUrl) {
-    const mapInsert = await safeInsert("owls_eye_map_artifacts", [
-      {
-        venue_id: input.venueId,
-        sport: input.sport,
-        map_kind: "soccer_field_map",
-        url: fieldMapUrl,
-        source: "manual_trigger",
-        created_at: startedAt,
-      },
-    ], { ignoreMissingColumns: true });
+    const mapInsert = await safeInsert(
+      "owls_eye_map_artifacts",
+      [
+        {
+          run_id: runId,
+          map_kind: "soccer_field_map",
+          image_url: fieldMapUrl,
+          created_at: startedAt,
+        },
+      ],
+      { ignoreMissingColumns: true }
+    );
     if (!mapInsert.ok && mapInsert.message) {
       failureMessage = failureMessage ?? mapInsert.message;
     }

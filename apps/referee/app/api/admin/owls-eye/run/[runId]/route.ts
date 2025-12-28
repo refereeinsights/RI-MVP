@@ -32,10 +32,9 @@ async function fetchRun(runId: string) {
     }
 
     const artifactResp = await supabase
-      .from("owls_eye_map_artifacts")
-      .select("*")
-      .eq("venue_id", run.venue_id)
-      .eq("sport", run.sport as Sport)
+      .from("owls_eye_map_artifacts" as any)
+      .select("run_id,image_url,north_bearing_degrees,created_at")
+      .eq("run_id", run.run_id)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -67,8 +66,8 @@ async function fetchRun(runId: string) {
       run,
       map: artifact
         ? {
-            imageUrl: artifact.url,
-            north: artifact.north ?? undefined,
+            imageUrl: (artifact as any).image_url ?? null,
+            north: (artifact as any).north_bearing_degrees ?? undefined,
             legend: [],
           }
         : undefined,
