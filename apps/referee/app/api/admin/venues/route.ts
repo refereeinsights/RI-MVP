@@ -9,6 +9,7 @@ type VenueRow = {
   city: string | null;
   state: string | null;
   created_at?: string | null;
+  sport?: string | null;
 };
 
 async function ensureAdminRequest() {
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabaseAdmin
     .from("venues" as any)
-    .select("id,name,city,state,created_at")
+    .select("id,name,city,state,sport,created_at")
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -65,10 +66,14 @@ export async function POST(request: Request) {
   const state = typeof payload?.state === "string" ? payload.state.trim() : "";
   const zip = typeof payload?.zip === "string" ? payload.zip.trim() : "";
   const notes = typeof payload?.notes === "string" ? payload.notes.trim() : null;
+  const sport = typeof payload?.sport === "string" ? payload.sport.trim().toLowerCase() : "";
 
   if (!name || !address1 || !city || !state) {
     return NextResponse.json({ error: "missing_required_fields" }, { status: 400 });
   }
+
+  const allowedSports = ["soccer", "basketball", "football"];
+  const sportValue = allowedSports.includes(sport) ? sport : null;
 
   const insertPayload = {
     name,
@@ -77,6 +82,7 @@ export async function POST(request: Request) {
     state,
     zip: zip || null,
     notes,
+    sport: sportValue,
   };
 
   const { data, error } = await supabaseAdmin

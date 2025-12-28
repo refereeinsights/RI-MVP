@@ -46,11 +46,11 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabaseAdmin
     .from("venues" as any)
-    .select("id,name,street,city,state,zip,sport")
+    .select("id,name,address1,city,state,zip,sport")
     .or(
       [
         `name.ilike.%${query}%`,
-        `street.ilike.%${query}%`,
+        `address1.ilike.%${query}%`,
         `city.ilike.%${query}%`,
         `state.ilike.%${query}%`,
       ].join(",")
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
   const results: VenueSearchResult[] = (data ?? []).map((row: any) => ({
     venue_id: row.id,
     name: row.name ?? null,
-    street: row.street ?? null,
+    street: row.address1 ?? null,
     city: row.city ?? null,
     state: row.state ?? null,
     zip: row.zip ?? null,

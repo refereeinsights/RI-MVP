@@ -10,6 +10,7 @@ type VenueRow = {
   name: string | null;
   city: string | null;
   state: string | null;
+  sport?: string | null;
   created_at?: string | null;
   map_url?: string | null;
 };
@@ -21,7 +22,7 @@ export default async function AdminVenuesPage() {
 
   const { data, error } = await supabaseAdmin
     .from("venues" as any)
-    .select("id,name,city,state,created_at")
+    .select("id,name,city,state,sport,created_at")
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -104,7 +105,7 @@ export default async function AdminVenuesPage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "2fr 1fr 1.5fr 1.5fr",
+            gridTemplateColumns: "1.5fr 1fr 0.8fr 1.4fr 1.6fr",
             background: "#f9fafb",
             fontWeight: 700,
             fontSize: 13,
@@ -114,6 +115,7 @@ export default async function AdminVenuesPage() {
         >
           <div>Name</div>
           <div>City / State</div>
+          <div>Sport</div>
           <div>UUID</div>
           <div>Actions</div>
         </div>
@@ -125,7 +127,7 @@ export default async function AdminVenuesPage() {
               key={v.id}
               style={{
                 display: "grid",
-                gridTemplateColumns: "2fr 1fr 1.5fr 1.5fr",
+                gridTemplateColumns: "1.5fr 1fr 0.8fr 1.4fr 1.6fr",
                 padding: "10px 12px",
                 gap: 8,
                 borderTop: "1px solid #f1f5f9",
@@ -137,6 +139,7 @@ export default async function AdminVenuesPage() {
               <div>
                 {v.city || "—"}, {v.state || "—"}
               </div>
+              <div>{v.sport || "—"}</div>
               <div style={{ fontFamily: "monospace", fontSize: 12, overflowWrap: "anywhere" }}>{v.id}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <Link

@@ -160,17 +160,11 @@ export async function POST(request: Request) {
       const supabase = getAdminSupabase();
       const venueResp = await supabase
         .from("venues" as any)
-        .select("latitude,longitude,lat,lng")
+        .select("latitude,longitude")
         .eq("id", venueId)
         .maybeSingle();
-      const lat =
-        (venueResp.data as any)?.latitude ??
-        (venueResp.data as any)?.lat ??
-        null;
-      const lng =
-        (venueResp.data as any)?.longitude ??
-        (venueResp.data as any)?.lng ??
-        null;
+      const lat = (venueResp.data as any)?.latitude ?? null;
+      const lng = (venueResp.data as any)?.longitude ?? null;
       if (typeof lat === "number" && typeof lng === "number" && isFinite(lat) && isFinite(lng)) {
         await upsertNearbyForRun({
           supabaseAdmin: supabase,

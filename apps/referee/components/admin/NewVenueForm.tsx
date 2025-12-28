@@ -3,11 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 
+import { tiVenueMapUrl } from "@/lib/ti/publicUrls";
+
 export function NewVenueForm() {
   const [name, setName] = useState("");
   const [address1, setAddress1] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  const [sport, setSport] = useState("soccer");
   const [zip, setZip] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,6 +32,7 @@ export function NewVenueForm() {
           address1,
           city,
           state,
+          sport,
           zip: zip || undefined,
           notes: notes || undefined,
         }),
@@ -66,6 +70,18 @@ export function NewVenueForm() {
         <label>
           <div>State</div>
           <input value={state} onChange={(e) => setState(e.target.value)} required style={{ width: "100%" }} />
+        </label>
+        <label>
+          <div>Sport</div>
+          <select
+            value={sport}
+            onChange={(e) => setSport(e.target.value)}
+            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+          >
+            <option value="soccer">Soccer</option>
+            <option value="basketball">Basketball</option>
+            <option value="football">Football</option>
+          </select>
         </label>
         <label>
           <div>ZIP (optional)</div>
@@ -175,4 +191,3 @@ export function NewVenueForm() {
 }
 
 export default NewVenueForm;
-import { tiVenueMapUrl } from "@/lib/ti/publicUrls";
