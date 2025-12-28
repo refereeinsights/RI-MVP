@@ -26,11 +26,13 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
     const resp = await fetch(url.toString(), { method: "GET" });
     if (!resp.ok) {
       const message = await resp.text();
-      console.error("[owlseye] Nearby search failed", message);
+      console.error("[owlseye] Nearby search failed HTTP", resp.status, message);
       return [];
     }
 
     const json = (await resp.json()) as {
+      status?: string;
+      error_message?: string;
       results?: Array<{
         place_id?: string;
         name?: string;
@@ -39,6 +41,10 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
         geometry?: { location?: { lat?: number; lng?: number } };
       }>;
     };
+
+    if (json.status && json.status !== "OK") {
+      console.warn("[owlseye] Nearby search status", json.status, json.error_message || "");
+    }
 
     return (json.results ?? [])
       .map((r) => {
