@@ -167,15 +167,15 @@ export async function POST(request: Request) {
       const lat = (venueResp.data as any)?.latitude ?? null;
       const lng = (venueResp.data as any)?.longitude ?? null;
       if (typeof lat === "number" && typeof lng === "number" && isFinite(lat) && isFinite(lng)) {
-        const nearbyResult = await upsertNearbyForRun({
+        const nearbyResult = (await upsertNearbyForRun({
           supabaseAdmin: supabase,
           runId: result.runId,
           venueLat: lat,
           venueLng: lng,
           force: true,
-        });
+        })) as any;
         nearbyMeta = nearbyResult;
-        if (!nearbyResult?.ok) {
+        if (nearbyResult && nearbyResult.ok === false) {
           console.warn("[owlseye] Nearby upsert result", nearbyResult);
         }
       }
