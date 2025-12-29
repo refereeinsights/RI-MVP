@@ -4,6 +4,8 @@ import fetchNearbyPlaces from "@/lib/google/nearbySearch";
 type UpsertParams = {
   supabaseAdmin: any;
   runId: string;
+  venueId?: string;
+  sport?: "soccer" | "basketball";
   venueLat: number;
   venueLng: number;
   radiusMeters?: number;
@@ -16,6 +18,24 @@ const DEFAULT_LIMIT = 8;
 
 function mapsUrl(placeId: string) {
   return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(placeId)}`;
+}
+
+function buildSponsorRow(runId: string) {
+  const name = process.env.OWLSEYE_SPONSOR_NAME;
+  const address = process.env.OWLSEYE_SPONSOR_ADDRESS;
+  const clickUrl = process.env.OWLSEYE_SPONSOR_CLICK_URL;
+  if (!name) return null;
+  const placeId = `sponsor-${runId}`;
+  return {
+    run_id: runId,
+    place_id: placeId,
+    name,
+    category: "food" as const, // will be preserved as sponsor
+    address: address ?? "",
+    distance_meters: 0,
+    maps_url: clickUrl ?? undefined,
+    is_sponsor: true,
+  };
 }
 
 type NearbyResult = {
@@ -67,23 +87,77 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     return { ok: false, message: err instanceof Error ? err.message : "nearby_fetch_failed" };
   }
 
+  const classifyCategory = (name: string, fallback: "food" | "coffee"): "food" | "coffee" => {
+    const lower = (name || "").toLowerCase();
+    if (lower.includes("coffee") || lower.includes("espresso") || lower.includes("cafe") || lower.includes("café")) {
+      return "coffee";
+    }
+    return fallback;
+  };
+
   const toRows = (items: any[], category: "food" | "coffee") =>
     items.slice(0, limitPerCategory).map((item) => ({
       run_id: runId,
       place_id: item.place_id,
       name: item.name,
-      category,
+      category: classifyCategory(item.name, category),
       address: item.address ?? "",
       distance_meters: haversineMeters({ lat: venueLat, lng: venueLng }, { lat: item.lat, lng: item.lng }),
       maps_url: mapsUrl(item.place_id),
+      is_sponsor: false,
     }));
 
-  const rows = [...toRows(foodResults, "food"), ...toRows(coffeeResults, "coffee")];
-  if (rows.length === 0) {
+  const sponsorRow = buildSponsorRow(runId);
+
+  const rows = [
+    ...(sponsorRow ? [sponsorRow] : []),
+    ...toRows(foodResults, "food"),
+    ...toRows(coffeeResults, "coffee"),
+  ];
+  const uniqueRows: typeof rows = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    if (seen.has(row.place_id)) continue; // avoid conflicts if the same place appears in both categories/sponsor
+    seen.add(row.place_id);
+    uniqueRows.push(row);
+  }
+  if (uniqueRows.length === 0) {
     return { ok: true, message: "no_results", foodCount: foodResults.length, coffeeCount: coffeeResults.length };
   }
 
-  const { error } = await supabaseAdmin.from("owls_eye_nearby_food" as any).upsert(rows, {
+  // Ensure a matching run row exists to satisfy FK constraints, regardless of column naming.
+  try {
+    let runCheck = await supabaseAdmin.from("owls_eye_runs" as any).select("id,run_id").eq("run_id", runId).maybeSingle();
+    let missingRunIdColumn = false;
+    if (runCheck.error?.code === "42703" || runCheck.error?.code === "PGRST204") {
+      missingRunIdColumn = true;
+      runCheck = await supabaseAdmin.from("owls_eye_runs" as any).select("id").eq("id", runId).maybeSingle();
+    }
+    if (!runCheck.data && !runCheck.error) {
+      const nowIso = new Date().toISOString();
+      const insertPayload: Record<string, any> = {
+        id: runId,
+        sport: params.sport,
+        status: "running",
+        created_at: nowIso,
+        run_type: "manual",
+      };
+      if (params.venueId) {
+        insertPayload.venue_id = params.venueId;
+      }
+      if (!missingRunIdColumn) {
+        insertPayload.run_id = runId;
+      }
+      const { error: insertError } = await supabaseAdmin.from("owls_eye_runs" as any).upsert(insertPayload);
+      if (insertError && insertError.code !== "42703" && insertError.code !== "42P01" && insertError.code !== "PGRST204") {
+        console.warn("[owlseye] could not create run placeholder for nearby", insertError);
+      }
+    }
+  } catch (err) {
+    console.warn("[owlseye] run placeholder check failed", err);
+  }
+
+  const { error } = await supabaseAdmin.from("owls_eye_nearby_food" as any).upsert(uniqueRows, {
     onConflict: "run_id,place_id",
   });
 

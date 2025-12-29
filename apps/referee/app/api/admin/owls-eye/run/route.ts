@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -27,6 +28,10 @@ type VenueRow = {
 };
 
 async function ensureAdminRequest() {
+  const headerToken = headers().get("x-owls-eye-admin-token");
+  const envToken = process.env.OWLS_EYE_ADMIN_TOKEN;
+  if (headerToken && (!envToken || headerToken === envToken)) return true;
+
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user) return null;
@@ -170,6 +175,8 @@ export async function POST(request: Request) {
         const nearbyResult = (await upsertNearbyForRun({
           supabaseAdmin: supabase,
           runId: result.runId,
+          venueId,
+          sport,
           venueLat: lat,
           venueLng: lng,
           force: true,

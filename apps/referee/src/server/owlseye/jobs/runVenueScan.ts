@@ -31,14 +31,43 @@ async function safeUpsert(
 ): Promise<{ ok: boolean; message?: string }> {
   try {
     const supabase = getAdminSupabase();
-    const { error } = await supabase.from(table).upsert(payload);
+    const attemptPayload = payload;
+    const { error } = await supabase.from(table).upsert(attemptPayload);
     if (error) {
-      if (
-        options?.ignoreMissingColumns &&
-        (error.code === "42P01" || error.code === "42703" || error.code === "PGRST204")
-      ) {
-        // Skip missing column/table errors when allowed.
+      if (options?.ignoreMissingColumns && (error.code === "42P01" || error.code === "PGRST204")) {
+        // Table missing; allow caller to proceed.
         return { ok: true, message: "table_or_column_missing" };
+      }
+      if (error.code === "42703" || error.code === "PGRST204") {
+        // Column mismatch: retry with sanitized payload (id instead of run_id, drop extras).
+        const allowed = new Set([
+          "id",
+          "run_id",
+          "venue_id",
+          "sport",
+          "status",
+          "run_type",
+          "started_at",
+          "completed_at",
+          "ttl_until",
+          "inputs",
+          "outputs",
+          "cost_cents",
+          "created_at",
+        ]);
+        const fallbackPayload: Record<string, any> = {};
+        for (const [k, v] of Object.entries(payload)) {
+          if (allowed.has(k)) fallbackPayload[k] = v;
+        }
+        // If run_id column is missing, rely on id.
+        if ("run_id" in fallbackPayload) {
+          fallbackPayload.id = fallbackPayload.id ?? fallbackPayload.run_id;
+          delete fallbackPayload.run_id;
+        }
+        const retry = await supabase.from(table).upsert(fallbackPayload);
+        if (!retry.error) {
+          return { ok: true, message: "column_mismatch_sanitized" };
+        }
       }
       if (error.code === "42P01" || error.code === "42703") {
         return { ok: false, message: `${table} table missing` };
@@ -66,6 +95,16 @@ async function safeInsert(
       ) {
         return { ok: true, message: "table_or_column_missing" };
       }
+      if (error.code === "42703") {
+        // Retry inserts mapping run_id -> id when column is missing.
+        const mapped = payloads.map((p) =>
+          "run_id" in p && !("id" in p) ? { ...p, id: p.run_id, run_id: undefined } : p
+        );
+        const retry = await supabase.from(table).insert(mapped);
+        if (!retry.error) {
+          return { ok: true, message: "run_id_column_missing" };
+        }
+      }
       if (error.code === "42P01" || error.code === "42703") {
         return { ok: false, message: `${table} table missing` };
       }
@@ -92,11 +131,14 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
   const runResult = await safeUpsert(
     "owls_eye_runs",
     {
+      id: runId,
       run_id: runId,
       venue_id: input.venueId,
       sport: input.sport,
+      run_type: "manual",
       status: "running",
       error_message: null,
+      started_at: startedAt,
       created_at: startedAt,
       updated_at: startedAt,
     },
@@ -113,6 +155,7 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
       "owls_eye_map_artifacts",
       [
         {
+          id: runId,
           run_id: runId,
           map_kind: "soccer_field_map",
           image_url: fieldMapUrl,
@@ -142,6 +185,8 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
       const nearbyResult = (await upsertNearbyForRun({
         supabaseAdmin: supabase,
         runId,
+        venueId: input.venueId,
+        sport: input.sport,
         venueLat: lat,
         venueLng: lng,
       })) as any;
@@ -157,11 +202,15 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
     await safeUpsert(
       "owls_eye_runs",
       {
+        id: runId,
         run_id: runId,
         venue_id: input.venueId,
         sport: input.sport,
+        run_type: "manual",
         status: "failed",
         error_message: failureMessage,
+        started_at: startedAt,
+        completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
       { ignoreMissingColumns: true }
@@ -172,11 +221,15 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
   const completed = await safeUpsert(
     "owls_eye_runs",
     {
+      id: runId,
       run_id: runId,
       venue_id: input.venueId,
       sport: input.sport,
+      run_type: "manual",
       status: "complete",
       error_message: null,
+      started_at: startedAt,
+      completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
     { ignoreMissingColumns: true }

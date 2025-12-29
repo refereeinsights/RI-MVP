@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getAdminSupabase } from "@/server/owlseye/supabase/admin";
 import { upsertNearbyForRun } from "@/owlseye/nearby/upsertNearbyForRun";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type Sport = "soccer" | "basketball";
 
@@ -9,17 +11,35 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-function authorizedAdmin(request: Request) {
+async function ensureAdmin(request: Request) {
   const token = process.env.OWLS_EYE_ADMIN_TOKEN;
-  if (!token) return false;
   const header = request.headers.get("x-owls-eye-admin-token");
-  return Boolean(header && header === token);
+  if (header && (!token || header === token)) return true;
+
+  try {
+    const supabase = createSupabaseServerClient();
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data?.user) return false;
+
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("role")
+      .eq("user_id", data.user.id)
+      .maybeSingle();
+
+    return profile?.role === "admin";
+  } catch {
+    return false;
+  }
 }
 
 async function fetchRun(runId: string) {
   try {
     const supabase = getAdminSupabase();
-    const runResp = await supabase.from("owls_eye_runs").select("*").eq("run_id", runId).maybeSingle();
+    let runResp = await supabase.from("owls_eye_runs").select("*").eq("run_id", runId).maybeSingle();
+    if (runResp.error?.code === "42703") {
+      runResp = await supabase.from("owls_eye_runs").select("*").eq("id", runId).maybeSingle();
+    }
     if (runResp.error) {
       if (runResp.error.code === "42P01" || runResp.error.code === "42703") {
         return { status: "unknown", message: "Run table not found yet" };
@@ -31,10 +51,12 @@ async function fetchRun(runId: string) {
       return { status: "unknown", message: "Run not found" };
     }
 
+    const resolvedRunId = (run as any).run_id ?? (run as any).id ?? runId;
+
     const artifactResp = await supabase
       .from("owls_eye_map_artifacts" as any)
       .select("run_id,image_url,north_bearing_degrees,created_at")
-      .eq("run_id", run.run_id)
+      .eq("run_id", resolvedRunId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -49,7 +71,7 @@ async function fetchRun(runId: string) {
     const foodResp = await supabase
       .from("owls_eye_nearby_food" as any)
       .select("*")
-      .eq("run_id", runId)
+      .eq("run_id", resolvedRunId)
       .order("is_sponsor", { ascending: false })
       .order("distance_meters", { ascending: true })
       .order("name", { ascending: true });
@@ -101,55 +123,67 @@ async function fetchRun(runId: string) {
 }
 
 export async function GET(request: Request, context: { params: { runId: string } }) {
-  if (!authorizedAdmin(request)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  try {
+    if (!(await ensureAdmin(request))) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
 
-  const { searchParams } = new URL(request.url);
-  const forceNearby = searchParams.get("force") === "true" || searchParams.get("forceNearby") === "true";
-  const runId = context.params.runId;
-  if (!runId || !isUuid(runId)) {
-    return NextResponse.json({ error: "invalid_run_id" }, { status: 400 });
-  }
+    const { searchParams } = new URL(request.url);
+    const forceNearby = searchParams.get("force") === "true" || searchParams.get("forceNearby") === "true";
+    const runId = context.params.runId;
+    if (!runId || !isUuid(runId)) {
+      return NextResponse.json({ error: "invalid_run_id" }, { status: 400 });
+    }
 
-  if (forceNearby) {
-    try {
+    if (forceNearby) {
+      try {
       const supabase = getAdminSupabase();
-      const runResp = await supabase.from("owls_eye_runs" as any).select("venue_id").eq("run_id", runId).maybeSingle();
+      let runResp = await supabase.from("owls_eye_runs" as any).select("venue_id,run_id,id").eq("run_id", runId).maybeSingle();
+      if (runResp.error?.code === "42703") {
+        runResp = await supabase.from("owls_eye_runs" as any).select("venue_id,id,sport").eq("id", runId).maybeSingle();
+      }
       const venueId = runResp.data?.venue_id;
+      const runSport = (runResp.data as any)?.sport as Sport | undefined;
       if (venueId) {
         const venueResp = await supabase
           .from("venues" as any)
           .select("latitude,longitude,lat,lng")
           .eq("id", venueId)
-          .maybeSingle();
-        const lat =
-          (venueResp.data as any)?.latitude ??
-          (venueResp.data as any)?.lat ??
-          null;
-        const lng =
-          (venueResp.data as any)?.longitude ??
-          (venueResp.data as any)?.lng ??
-          null;
+            .maybeSingle();
+          const lat =
+            (venueResp.data as any)?.latitude ??
+            (venueResp.data as any)?.lat ??
+            null;
+          const lng =
+            (venueResp.data as any)?.longitude ??
+            (venueResp.data as any)?.lng ??
+            null;
         if (typeof lat === "number" && typeof lng === "number" && isFinite(lat) && isFinite(lng)) {
           await upsertNearbyForRun({
             supabaseAdmin: supabase,
-            runId,
+            runId: (runResp.data as any)?.run_id ?? (runResp.data as any)?.id ?? runId,
+            venueId,
+            sport: runSport,
             venueLat: lat,
             venueLng: lng,
             force: true,
           });
         }
+        }
+      } catch (err) {
+        console.error("[owlseye] force nearby failed", err);
       }
-    } catch (err) {
-      console.error("[owlseye] force nearby failed", err);
     }
-  }
 
-  const payload = await fetchRun(runId);
-  if ("message" in payload && payload.status === "unknown") {
-    return NextResponse.json({ runId, status: "unknown", message: payload.message });
-  }
+    const payload = await fetchRun(runId);
+    if ("message" in payload && payload.status === "unknown") {
+      return NextResponse.json({ runId, status: "unknown", message: payload.message });
+    }
 
-  return NextResponse.json({ runId, ...payload });
+    return NextResponse.json({ runId, ...payload });
+  } catch (err) {
+    console.error("[owlseye] run GET failed", err);
+    const message = err instanceof Error ? err.message : "unknown_error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
