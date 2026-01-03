@@ -20,19 +20,11 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
   const { lat, lng, radiusMeters, type, apiKey } = opts;
   const endpoint = "https://places.googleapis.com/v1/places:searchNearby";
   const fieldMask = "places.id,places.displayName,places.formattedAddress,places.location";
+  const includedTypes = type === "cafe" ? ["cafe", "coffee_shop"] : [type];
 
-  const mapPlaces = (places: any[] | undefined, filterType?: "restaurant" | "cafe"): NearbyResult[] =>
+  const mapPlaces = (places: any[] | undefined): NearbyResult[] =>
     (places ?? [])
       .map((p) => {
-        const placeTypes: string[] = Array.isArray((p as any).types) ? (p as any).types : [];
-        const primaryType: string | undefined = (p as any).primaryType;
-        if (filterType) {
-          const matchesPrimary = primaryType ? primaryType.includes(filterType) : false;
-          const matchesTypes = placeTypes.some((t) => t.includes(filterType));
-          if (!matchesPrimary && !matchesTypes) {
-            return null;
-          }
-        }
         const placeId = p.id || (p.name ? p.name.split("/").pop() || "" : "");
         const name = p.displayName?.text || "";
         const latVal = p.location?.latitude;
@@ -48,7 +40,7 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
     if (fixturePath) {
       const raw = await readFile(fixturePath, "utf8");
       const parsed = JSON.parse(raw) as { places?: any[] };
-      const mapped = mapPlaces(parsed.places, type);
+      const mapped = mapPlaces(parsed.places);
       console.log("[owlseye] Places API (new) using fixture", {
         path: fixturePath,
         count: mapped.length,
@@ -70,7 +62,7 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
           radius: radiusMeters,
         },
       },
-      includedTypes: [type],
+      includedTypes,
     };
 
     const resp = await fetch(endpoint, {
@@ -103,7 +95,7 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
       console.warn("[owlseye] Nearby search status", json.error.message);
     }
 
-    const mapped = mapPlaces(json.places, type);
+    const mapped = mapPlaces(json.places);
 
     if (mapped.length > 0) {
       const sample = mapped[0];

@@ -34,7 +34,7 @@ async function safeUpsert(
     const attemptPayload = payload;
     const { error } = await supabase.from(table).upsert(attemptPayload);
     if (error) {
-      if (options?.ignoreMissingColumns && (error.code === "42P01" || error.code === "PGRST204")) {
+      if (options?.ignoreMissingColumns && error.code === "42P01") {
         // Table missing; allow caller to proceed.
         return { ok: true, message: "table_or_column_missing" };
       }
@@ -91,11 +91,11 @@ async function safeInsert(
     if (error) {
       if (
         options?.ignoreMissingColumns &&
-        (error.code === "42P01" || error.code === "42703" || error.code === "PGRST204")
+        (error.code === "42P01")
       ) {
         return { ok: true, message: "table_or_column_missing" };
       }
-      if (error.code === "42703") {
+      if (error.code === "42703" || error.code === "PGRST204") {
         // Retry inserts mapping run_id -> id when column is missing.
         const mapped = payloads.map((p) =>
           "run_id" in p && !("id" in p) ? { ...p, id: p.run_id, run_id: undefined } : p

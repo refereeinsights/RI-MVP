@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type RunRow = { run_id: string; updated_at: string | null };
+type RunRow = { id: string; run_id: string | null; updated_at: string | null };
 type ArtifactRow = { image_url: string | null; north_bearing_degrees: number | null; created_at: string | null };
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -32,7 +32,7 @@ export default async function VenueMapPage({ params }: { params: { venueId: stri
   try {
     const runs = await fetchSupabase<RunRow[]>(
       "owls_eye_runs",
-      `select=run_id,updated_at&venue_id=eq.${venueId}&order=updated_at.desc&limit=1`
+      `select=id,run_id,updated_at&venue_id=eq.${venueId}&order=updated_at.desc&limit=1`
     );
     latestRun = runs?.[0] ?? null;
   } catch (err) {
@@ -40,11 +40,13 @@ export default async function VenueMapPage({ params }: { params: { venueId: stri
   }
 
   let artifact: ArtifactRow | null = null;
-  if (latestRun?.run_id) {
+  const resolvedRunId = latestRun?.run_id || latestRun?.id || null;
+
+  if (resolvedRunId) {
     try {
       const artifacts = await fetchSupabase<ArtifactRow[]>(
         "owls_eye_map_artifacts",
-        `select=image_url,north_bearing_degrees,created_at&run_id=eq.${latestRun.run_id}&order=created_at.desc&limit=1`
+        `select=image_url,north_bearing_degrees,created_at&run_id=eq.${resolvedRunId}&order=created_at.desc&limit=1`
       );
       artifact = artifacts?.[0] ?? null;
     } catch (err) {

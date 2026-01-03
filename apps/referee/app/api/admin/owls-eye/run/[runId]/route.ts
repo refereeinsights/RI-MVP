@@ -37,7 +37,7 @@ async function fetchRun(runId: string) {
   try {
     const supabase = getAdminSupabase();
     let runResp = await supabase.from("owls_eye_runs").select("*").eq("run_id", runId).maybeSingle();
-    if (runResp.error?.code === "42703") {
+    if (!runResp.data && !runResp.error) {
       runResp = await supabase.from("owls_eye_runs").select("*").eq("id", runId).maybeSingle();
     }
     if (runResp.error) {
@@ -135,11 +135,11 @@ export async function GET(request: Request, context: { params: { runId: string }
       return NextResponse.json({ error: "invalid_run_id" }, { status: 400 });
     }
 
-    if (forceNearby) {
-      try {
+  if (forceNearby) {
+    try {
       const supabase = getAdminSupabase();
-      let runResp = await supabase.from("owls_eye_runs" as any).select("venue_id,run_id,id").eq("run_id", runId).maybeSingle();
-      if (runResp.error?.code === "42703") {
+      let runResp = await supabase.from("owls_eye_runs" as any).select("venue_id,run_id,id,sport").eq("run_id", runId).maybeSingle();
+      if (!runResp.data && !runResp.error) {
         runResp = await supabase.from("owls_eye_runs" as any).select("venue_id,id,sport").eq("id", runId).maybeSingle();
       }
       const venueId = runResp.data?.venue_id;
