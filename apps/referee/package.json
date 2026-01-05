@@ -7,7 +7,8 @@
     "dev": "next dev",
     "prebuild": "node ../../scripts/copy-shared-svg.js",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "TMPDIR=../../tmp tsx --test src/server/enrichment/enrichment.test.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.31.0",

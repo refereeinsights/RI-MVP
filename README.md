@@ -119,6 +119,16 @@ All score fields are stored as integers from 1–5 (number of “whistles”). C
 
 Whenever `tournament_referee_reviews` changes you should also enqueue your “AI whistle score” worker so the badge/summary stays current.
 
+## Tournament Site Harvester (MVP)
+
+- Apply SQL migration: `supabase/migrations/20250105_tournament_enricher.sql` (creates job + candidate tables with admin-only RLS).
+- Admin UI: `/admin/tournaments/enrichment` (select tournaments with URLs, queue jobs, run now, review recent jobs).
+- Backend runner: POST `/api/admin/tournaments/enrichment/run?limit=10` (admin/service only) pulls queued jobs, fetches up to 8 pages per tournament, extracts contacts/venues/referee comp signals deterministically (no LLM).
+- Queue jobs: POST `/api/admin/tournaments/enrichment/queue` with `{"tournament_ids":["..."]}` (admin only).
+- Environment: uses existing Supabase service role (`SUPABASE_SERVICE_ROLE_KEY`). Optional admin header for run endpoint: `x-admin-secret` matching `ADMIN_SECRET`.
+- Smoke tests: `scripts/smoke.sh` (Supabase/Places), enrichment tests: `npm run test` in `apps/referee`.
+- Rate limits: 10s fetch timeout, 1MB cap, 8 pages max, per-domain 500ms delay; PDF links recorded without download.
+
 ## Low-score alert emails
 
 Set the following environment variables to enable automatic admin alerts whenever an individual category score falls below 50:

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import OwlsEyePanel from "./owls-eye/OwlsEyePanel";
 import AdminNav from "@/components/admin/AdminNav";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
@@ -50,6 +51,7 @@ import {
   type ReviewStatus,
   type ContactStatus,
 } from "@/lib/admin";
+import { queueEnrichmentJobs } from "@/server/enrichment/pipeline";
 import {
   cleanCsvRows,
   csvRowsToTournamentRows,
@@ -166,6 +168,16 @@ export default async function AdminPage({
     tab === "tournament-contacts" ? await adminListTournamentContacts(contactStatus) : [];
   const refereeContacts =
     tab === "referee-contacts" ? await adminListRefereeContacts() : [];
+  const tournamentsMissingContacts =
+    tab === "tournament-contacts"
+      ? await supabaseAdmin
+          .from("tournaments" as any)
+          .select("id,name,url")
+          .not("url", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(50)
+          .then((res) => res.data ?? [])
+      : [];
   const pendingTournaments: AdminPendingTournament[] =
     tab === "tournament-uploads" ? await adminListPendingTournaments() : [];
   const listedTournaments: AdminListedTournament[] =
@@ -204,6 +216,32 @@ export default async function AdminPage({
     const redirectTo = formData.get("redirect_to");
     await adminSetUserDisabled(user_id, disabled);
     redirectWithNotice(redirectTo, disabled ? "User disabled" : "User enabled");
+  }
+
+  async function queueEnrichmentAction(formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to");
+    const idFromLookup = String(formData.get("tournament_id") || "").trim();
+    const idFromSelect = String(formData.get("tournament_id_select") || "").trim();
+    const tournament_id = idFromLookup || idFromSelect;
+
+    if (!tournament_id) {
+      redirectWithNotice(redirectTo, "Missing tournament id");
+    }
+    try {
+      await queueEnrichmentJobs([tournament_id]);
+    } catch (err: any) {
+      // Let framework redirects bubble through
+      if (typeof err?.message === "string" && err.message.includes("NEXT_REDIRECT")) {
+        throw err;
+      }
+      const msg =
+        typeof err?.message === "string"
+          ? `Queue failed: ${err.message}`
+          : "Queue failed";
+      redirectWithNotice(redirectTo, msg);
+    }
+    redirectWithNotice(redirectTo, "Enrichment queued");
   }
 
   async function awardBadgeAction(formData: FormData) {
@@ -1745,6 +1783,46 @@ export default async function AdminPage({
               background: "#fff",
             }}
           >
+            <h3 style={{ marginTop: 0, fontSize: 16 }}>Queue site enrichment</h3>
+            <form action={queueEnrichmentAction} style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <TournamentLookup
+                label="Tournament"
+                onSelectFieldName="tournament_id"
+                fallbackFieldName="tournament_slug"
+                description="Select a tournament with a website URL to queue the enrichment crawl."
+              />
+              <button
+                type="submit"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #0f3d2e",
+                  background: "#0f3d2e",
+                  color: "#fff",
+                  fontWeight: 700,
+                  width: "fit-content",
+                }}
+              >
+                Queue enrichment
+              </button>
+              <a
+                href="/admin/tournaments/enrichment"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #0f3d2e",
+                  background: "#fff",
+                  color: "#0f3d2e",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  width: "fit-content",
+                }}
+              >
+                View results
+              </a>
+            </form>
+
             <h3 style={{ marginTop: 0, fontSize: 16 }}>Add tournament contact</h3>
             <form action={createTournamentContactAction} style={{ display: "grid", gap: 12 }}>
               <input type="hidden" name="redirect_to" value={adminBasePath} />
