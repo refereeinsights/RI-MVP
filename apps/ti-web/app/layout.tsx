@@ -13,6 +13,9 @@ export const metadata: Metadata = {
     apple: "/ti-logo.png",
     shortcut: "/ti-logo.png",
   },
+};
+
+export const viewport = {
   themeColor: "#0f3d2e",
 };
 

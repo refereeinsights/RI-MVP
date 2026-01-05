@@ -16,6 +16,8 @@ type NearbyOptions = {
   apiKey: string;
 };
 
+const REQUEST_TIMEOUT_MS = 6000;
+
 export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResult[]> {
   const { lat, lng, radiusMeters, type, apiKey } = opts;
   const endpoint = "https://places.googleapis.com/v1/places:searchNearby";
@@ -52,6 +54,9 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
     console.warn("[owlseye] Failed to read fixture; falling back to API", err);
   }
 
+  const abort = new AbortController();
+  const timeout = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
+
   try {
     const body = {
       maxResultCount: 20,
@@ -73,6 +78,7 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
         "X-Goog-FieldMask": fieldMask,
       },
       body: JSON.stringify(body),
+      signal: abort.signal,
     });
     if (!resp.ok) {
       const message = await resp.text();
@@ -111,6 +117,8 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
   } catch (err) {
     console.error("[owlseye] Nearby search error", err);
     return [];
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

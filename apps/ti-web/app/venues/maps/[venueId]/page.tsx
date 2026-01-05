@@ -5,6 +5,9 @@ type ArtifactRow = { image_url: string | null; north_bearing_degrees: number | n
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const REVALIDATE_SECONDS = 300;
+
+export const revalidate = REVALIDATE_SECONDS;
 
 async function fetchSupabase<T>(path: string, search: string): Promise<T> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
@@ -17,7 +20,8 @@ async function fetchSupabase<T>(path: string, search: string): Promise<T> {
       Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       Accept: "application/json",
     },
-    cache: "no-store",
+    // Cache for a few minutes to avoid hammering Supabase for static artifacts.
+    next: { revalidate: REVALIDATE_SECONDS },
   });
   if (!resp.ok) {
     throw new Error(`Supabase request failed: ${resp.status} ${await resp.text()}`);

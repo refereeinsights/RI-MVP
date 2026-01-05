@@ -179,7 +179,8 @@ export async function POST(request: Request) {
           sport,
           venueLat: lat,
           venueLng: lng,
-          force: true,
+          // Only force refresh when requested; otherwise reuse cached nearby rows to save Places calls.
+          force,
         })) as any;
         nearbyMeta = nearbyResult;
         if (nearbyResult && nearbyResult.ok === false) {
