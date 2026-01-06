@@ -25,6 +25,9 @@ export function AdminNav() {
       <Link href="/admin" style={linkStyle}>
         Admin Home
       </Link>
+      <Link href="/admin/tournaments/dashboard" style={linkStyle}>
+        Tournaments dashboard
+      </Link>
       <Link href="/admin/venues" style={linkStyle}>
         Venues
       </Link>

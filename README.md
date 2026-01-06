@@ -53,6 +53,11 @@ To get started with this project, follow these steps:
 - `build`: Builds the application for production.
 - `start`: Starts the production server.
 
+## Admin tournament tools (MVP)
+
+- Paste URL → Draft + Enrichment: in the admin “Tournament uploads” tab you can paste a tournament URL, choose a sport, and it will fetch metadata (title/description/dates/location), create a draft tournament, and queue the enrichment job automatically.
+- Ops dashboard: visit `/admin/tournaments/dashboard` (admin only) to filter by sport/state/date and view counts, coverage, enrichment success, and “needs attention” rows.
+
 ## CSV Ingestion Tool
 
 Use `tsx scripts/ingest-csv.ts [options] <path-to-csv>` to push tournament rows from a CSV into Supabase.

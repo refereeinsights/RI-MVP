@@ -66,6 +66,7 @@ import type {
   TournamentStatus,
   TournamentSubmissionType,
 } from "@/lib/types/tournament";
+import { createTournamentFromUrl } from "@/server/admin/pasteUrl";
 
 type Tab =
   | "users"
@@ -766,6 +767,27 @@ export default async function AdminPage({
     }
 
     return redirectWithNotice(redirectTo, noticeParts.join(" ").trim());
+  }
+
+  async function createFromUrlAction(formData: FormData) {
+    "use server";
+    const url = String(formData.get("tournament_url") || "").trim();
+    const sportRaw = String(formData.get("tournament_sport") || "soccer").toLowerCase();
+    const redirectTo = formData.get("redirect_to");
+    const sport = TOURNAMENT_SPORTS.includes(sportRaw as any) ? (sportRaw as any) : "soccer";
+    if (!url) {
+      return redirectWithNotice(redirectTo, "URL is required.");
+    }
+    try {
+      const res = await createTournamentFromUrl({ url, sport, status: "draft", source: "external_crawl" });
+      return redirectWithNotice(
+        redirectTo,
+        `Created "${res.meta.name ?? res.slug}" and queued enrichment.`
+      );
+    } catch (err: any) {
+      console.error("[createFromUrl]", err);
+      return redirectWithNotice(redirectTo, `Failed to create from URL: ${err?.message ?? "unknown error"}`);
+    }
   }
 
   async function updateTournamentDetailsAction(formData: FormData) {
@@ -1477,6 +1499,47 @@ export default async function AdminPage({
               background: "#fff",
             }}
           >
+            <h3 style={{ marginTop: 0 }}>Create from URL</h3>
+            <form action={createFromUrlAction} style={{ display: "grid", gap: 10, marginBottom: 16 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                Tournament URL
+                <input
+                  type="url"
+                  name="tournament_url"
+                  placeholder="https://example.com/event"
+                  required
+                  style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                />
+              </label>
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                Sport
+                <select name="tournament_sport" defaultValue="soccer" style={{ width: "100%", padding: 8 }}>
+                  {TOURNAMENT_SPORTS.map((sport) => (
+                    <option key={sport} value={sport}>
+                      {sport}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#0f172a",
+                  color: "#fff",
+                  fontWeight: 800,
+                  width: "fit-content",
+                }}
+              >
+                Create Pending from URL
+              </button>
+              <p style={{ fontSize: 12, color: "#555", margin: 0 }}>
+                Fetches metadata (title, description, dates, location) and queues enrichment automatically.
+              </p>
+            </form>
+
             <h3 style={{ marginTop: 0 }}>Upload tournaments</h3>
             <form action={importTournamentsAction} style={{ display: "grid", gap: 12 }}>
               <input type="hidden" name="redirect_to" value={adminBasePath} />
