@@ -46,17 +46,17 @@ export async function upsertRegistry(input: RegistryUpsertInput) {
     is_active: input.is_active ?? true,
     last_swept_at: null,
   };
-  const { data, error } = await supabaseAdmin
+  const { data, error } = (await supabaseAdmin
     .from("tournament_sources" as any)
     .upsert(payload, { onConflict: "source_url" })
     .select("id,source_url")
-    .single();
-  if (error) throw error;
-  return { registry_id: data.id as string, canonical };
+    .single()) as { data: { id: string } | null; error: any };
+  if (error || !data) throw error ?? new Error("registry_upsert_failed");
+  return { registry_id: data.id, canonical };
 }
 
 export async function insertRun(input: RunInsertInput) {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = (await supabaseAdmin
     .from("tournament_sources" as any)
     .insert({
       source_url: input.source_url,
@@ -71,9 +71,9 @@ export async function insertRun(input: RunInsertInput) {
       extract_confidence: input.extract_confidence ?? null,
     })
     .select("id")
-    .single();
-  if (error) throw error;
-  return data.id as string;
+    .single()) as { data: { id: string } | null; error: any };
+  if (error || !data) throw error ?? new Error("run_insert_failed");
+  return data.id;
 }
 
 export async function updateRegistrySweep(registry_id: string, status: "ok" | "warn" | "error", summary: string) {
