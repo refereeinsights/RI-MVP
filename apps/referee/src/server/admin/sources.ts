@@ -56,6 +56,10 @@ export async function upsertRegistry(input: RegistryUpsertInput) {
 }
 
 export async function insertRun(input: RunInsertInput) {
+  const conf =
+    input.extract_confidence === undefined || input.extract_confidence === null
+      ? null
+      : Math.round(input.extract_confidence * 100);
   const { data, error } = (await supabaseAdmin
     .from("tournament_sources" as any)
     .insert({
@@ -68,7 +72,7 @@ export async function insertRun(input: RunInsertInput) {
       title: input.title ?? null,
       content_hash: input.content_hash ?? null,
       extracted_json: input.extracted_json ?? null,
-      extract_confidence: input.extract_confidence ?? null,
+      extract_confidence: conf,
     })
     .select("id")
     .single()) as { data: { id: string } | null; error: any };
