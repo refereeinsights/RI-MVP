@@ -70,6 +70,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         )}`
       );
     } catch (err: any) {
+      if (err?.digest) throw err;
       redirect(
         `/admin/tournaments/sources?notice=${encodeURIComponent(
           `Save failed: ${err?.message ?? "unknown error"}`
