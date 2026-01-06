@@ -649,25 +649,9 @@
   justify-content: center;
   align-items: center;
   position: relative;
-}
-.whistleBadge__icon::before {
-  content: "";
-  width: 32px;
-  height: 32px;
-  display: block;
-  background-image: url("/whistle-score.png");
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  filter: brightness(0) invert(1);
-  transition: filter 160ms ease;
-}
-
-.whistleBadge--green .whistleBadge__icon::before,
-.whistleBadge--yellow .whistleBadge__icon::before,
-.whistleBadge--red .whistleBadge__icon::before {
-  filter: brightness(0) invert(74%) sepia(82%) saturate(829%) hue-rotate(2deg)
-    brightness(1.02) contrast(1.05);
 }
 
 .whistleBadge__score {
@@ -793,6 +777,17 @@
   color: #fefefe;
   font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
 }
+.reviewCard,
+.reviewCard p,
+.reviewCard dt,
+.reviewCard dd,
+.reviewCard .reviewCard__meta,
+.reviewCard .reviewCard__handle,
+.reviewCard .reviewCard__overall,
+.reviewCard .reviewCard__body {
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
 
 .reviewList .reviewCard.reviewCard--soccer,
 .reviewList .reviewCard.reviewCard--basketball,
@@ -849,16 +844,25 @@
 .reviewList .reviewCard.reviewCard--football .reviewCard__meta {
   color: rgba(255,255,255,0.92);
 }
+.reviewCard__meta {
+  color: rgba(255,255,255,0.9);
+}
 
 .reviewList .reviewCard.reviewCard--soccer .reviewCard__scores dt,
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__scores dt,
 .reviewList .reviewCard.reviewCard--football .reviewCard__scores dt {
   color: rgba(255,255,255,0.85);
 }
+.reviewCard__scores dt {
+  color: rgba(255,255,255,0.9);
+}
 
 .reviewList .reviewCard.reviewCard--soccer .reviewCard__body,
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__body,
 .reviewList .reviewCard.reviewCard--football .reviewCard__body {
+  color: rgba(255,255,255,0.95);
+}
+.reviewCard__body {
   color: rgba(255,255,255,0.95);
 }
 
@@ -904,14 +908,16 @@
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  filter: brightness(0) invert(1);
-  opacity: 0.75;
-  transition: filter 160ms ease, opacity 160ms ease;
+  filter: none;
+  opacity: 1;
+  transition: filter 160ms ease, opacity 160ms ease, background-color 160ms ease, border-color 160ms ease;
+  border: 1px solid rgba(255,255,255,0.85);
+  border-radius: 2px;
+  background-color: rgba(0,0,0,0.12);
 }
 
 .whistleScale__icon--filled {
-  filter: brightness(0) invert(74%) sepia(82%) saturate(829%) hue-rotate(2deg)
-    brightness(1.02) contrast(1.05);
+  filter: none;
   opacity: 1;
 }
 
@@ -955,18 +961,20 @@
 }
 
 .reviewCard__scores dt {
-  font-weight: 600;
-  color: rgba(0,0,0,0.75);
+  font-weight: 700;
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
 
 .reviewCard__scores dd {
   margin: 0.15rem 0 0;
   font-weight: 700;
+  color: #ffffff !important;
 }
 
 .reviewCard__body {
   margin: 0;
-  color: rgba(0,0,0,0.85);
+  color: rgba(255,255,255,0.95);
   line-height: 1.4;
 }
 

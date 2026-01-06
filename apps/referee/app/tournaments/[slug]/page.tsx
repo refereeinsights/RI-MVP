@@ -166,11 +166,16 @@ export default async function TournamentDetailPage({
 
           <div
             style={{
-              display: "flex",
+              display: "inline-flex",
               gap: 10,
               flexWrap: "wrap",
               alignItems: "center",
               marginBottom: 14,
+              background: "rgba(255,255,255,0.9)",
+              border: "1px solid #d9e3f0",
+              borderRadius: 14,
+              padding: "10px 12px",
+              boxShadow: "0 3px 10px rgba(0,0,0,0.18)",
             }}
           >
             <a
@@ -181,12 +186,13 @@ export default async function TournamentDetailPage({
                 textDecoration: "none",
                 fontWeight: 700,
                 fontSize: 13,
-                padding: "6px 12px",
+                padding: "10px 16px",
                 borderRadius: 999,
-                border: "1px solid rgba(0,0,0,0.18)",
-                background: "rgba(0,0,0,0.04)",
-                color: "#0b1f14",
-                minHeight: 40,
+                border: "1px solid #d9e3f0",
+                background: "#ffffff",
+                color: "#0b172a",
+                minHeight: 42,
+                boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
               }}
             >
               Report an Issue
@@ -201,17 +207,18 @@ export default async function TournamentDetailPage({
                 textDecoration: "none",
                 fontWeight: 700,
                 fontSize: 13,
-                padding: "6px 12px",
+                padding: "10px 16px",
                 borderRadius: 999,
-                border: "1px solid rgba(0,0,0,0.18)",
-                background: "rgba(0,0,0,0.02)",
-                color: "#0b1f14",
-                minHeight: 40,
+                border: "1px solid #d9e3f0",
+                background: "#ffffff",
+                color: "#0b172a",
+                minHeight: 42,
+                boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
               }}
             >
               Claim this listing
             </a>
-            <span style={{ fontSize: 12, color: "#4b5563" }}>
+            <span style={{ fontSize: 12, color: "#0b172a", fontWeight: 700 }}>
               Request verified contact info and updates.
             </span>
           </div>
@@ -234,16 +241,17 @@ export default async function TournamentDetailPage({
                 textDecoration: "none",
                 fontWeight: 700,
                 fontSize: 13,
-                padding: "6px 12px",
+                padding: "10px 16px",
                 borderRadius: 999,
-                border: "1px solid rgba(0,0,0,0.18)",
-                background: "rgba(0,0,0,0.02)",
-                color: "#0b1f14",
+                border: "1px solid #d9e3f0",
+                background: "#ffffff",
+                color: "#0b172a",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
               }}
             >
               Add referee insight
             </a>
-            <span style={{ fontSize: 12, color: "#4b5563" }}>
+            <span style={{ fontSize: 12, color: "#ffffff", fontWeight: 700, textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
               Help other officials decide before accepting.
             </span>
           </div>
@@ -251,7 +259,7 @@ export default async function TournamentDetailPage({
           <div className="refereeInsights">
             <div className="refereeInsights__header">
               <div>
-                <h2>Referee whistle score</h2>
+                <h2 style={{ color: "#ffffff", textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>Referee Score Card</h2>
                 <p className="refereeInsights__subhead">
                   AI-generated confidence from verified referee submissions.
                 </p>
@@ -296,7 +304,7 @@ export default async function TournamentDetailPage({
 
             <div className="refereeInsights__layout">
               <div className="refereeInsights__column">
-                <h3>Recent referee reviews</h3>
+                <h3 style={{ color: "#ffffff", textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>Recent referee reviews</h3>
                 <RefereeReviewList reviews={reviews} />
               </div>
               <div className="refereeInsights__column">
@@ -308,11 +316,11 @@ export default async function TournamentDetailPage({
                     border: "1px solid rgba(0,0,0,0.08)",
                     background: "rgba(0,0,0,0.02)",
                     fontSize: 13,
-                    color: "#374151",
+                    color: "#ffffff",
                     lineHeight: 1.5,
                   }}
                 >
-                  <strong style={{ display: "block", marginBottom: 4, fontSize: 13, color: "#111827" }}>
+                  <strong style={{ display: "block", marginBottom: 4, fontSize: 13, color: "#ffffff" }}>
                     Don’t see your tournament?
                   </strong>
                   Add it first so refs can submit insight:{" "}

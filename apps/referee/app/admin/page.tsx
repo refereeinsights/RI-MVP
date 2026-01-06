@@ -1521,6 +1521,97 @@ export default async function AdminPage({
                   />
                 </label>
               </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Fallback name (optional)
+                  <input
+                    type="text"
+                    name="fallback_name"
+                    placeholder="Tournament name"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Start date (optional)
+                  <input type="date" name="fallback_start_date" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  End date (optional)
+                  <input type="date" name="fallback_end_date" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Venue (optional)
+                  <input
+                    type="text"
+                    name="fallback_venue"
+                    placeholder="Venue name"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  City (optional)
+                  <input
+                    type="text"
+                    name="fallback_city"
+                    placeholder="City"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  State (optional)
+                  <input
+                    type="text"
+                    name="fallback_state"
+                    placeholder="State"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Zip (optional)
+                  <input
+                    type="text"
+                    name="fallback_zip"
+                    placeholder="Zip"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Source URL (optional)
+                  <input
+                    type="url"
+                    name="fallback_source_url"
+                    placeholder="https://example.com"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Contact email (optional)
+                  <input
+                    type="email"
+                    name="fallback_contact_email"
+                    placeholder="contact@example.com"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Contact phone (optional)
+                  <input
+                    type="text"
+                    name="fallback_contact_phone"
+                    placeholder="(555) 123-4567"
+                    style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                  />
+                </label>
+              </div>
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                Summary/notes (optional)
+                <textarea
+                  name="fallback_summary"
+                  rows={3}
+                  placeholder="Short description"
+                  style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                />
+              </label>
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
                 <input type="checkbox" name="treat_confirmed" />
                 Mark as confirmed/published

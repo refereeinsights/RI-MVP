@@ -44,6 +44,17 @@ export default function RefereeWhistleBadge({
     ? "No referee reviews yet"
     : `${label} from referees`;
 
+  const whistleValue = whistles ? Number(whistles) : null;
+  let iconPath = "/shared-assets/svg/ri/yellow_card_transparent.svg";
+  if (whistleValue !== null) {
+    if (whistleValue < 2) iconPath = "/shared-assets/svg/ri/red_card_transparent.svg";
+    else if (whistleValue > 3.7) iconPath = "/shared-assets/svg/ri/green_card_transparent.svg";
+    else iconPath = "/shared-assets/svg/ri/yellow_card_transparent.svg";
+  }
+  const iconStyle: React.CSSProperties = {
+    backgroundImage: `url(${iconPath})`,
+  };
+
   return (
     <div
       className={`whistleBadge whistleBadge--${tone} ${
@@ -51,7 +62,7 @@ export default function RefereeWhistleBadge({
       }`}
       title={tooltip}
     >
-      <div className="whistleBadge__icon" aria-hidden />
+      <div className="whistleBadge__icon" aria-hidden style={iconStyle} />
       <div className="whistleBadge__meta">
         <div className={`whistleBadge__score ${awaiting ? "whistleBadge__score--wide" : ""}`}>{label}</div>
         {showLabel && (

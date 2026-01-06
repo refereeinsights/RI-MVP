@@ -31,6 +31,37 @@ function clampScore(score: number | null | undefined) {
 
 function WhistleScale({ score, size }: { score: number; size?: "small" | "large" }) {
   const filled = clampScore(score);
+  const iconForIndex = (index: number) => {
+    if (index >= filled) {
+      return {
+        url: null,
+        filter: undefined,
+        backgroundColor: "rgba(255,255,255,0.08)",
+        borderColor: "rgba(255,255,255,0.7)",
+      };
+    }
+    const whistleEquivalent = (index + 1) * (5 / 5); // map position to 1-5
+    if (whistleEquivalent < 2)
+      return {
+        url: "/shared-assets/svg/ri/red_card_transparent.svg",
+        filter: "brightness(1.1)",
+        backgroundColor: "#ef4444",
+        borderColor: "#ef4444",
+      };
+    if (whistleEquivalent > 3.7)
+      return {
+        url: "/shared-assets/svg/ri/green_card_transparent.svg",
+        filter: "brightness(1.2) saturate(1.3)",
+        backgroundColor: "#22c55e",
+        borderColor: "#22c55e",
+      };
+    return {
+      url: "/shared-assets/svg/ri/yellow_card_transparent.svg",
+      filter: "brightness(1.1)",
+      backgroundColor: "#facc15",
+      borderColor: "#facc15",
+    };
+  };
   return (
     <span
       className={`whistleScale whistleScale--${size ?? "small"}`}
@@ -40,6 +71,12 @@ function WhistleScale({ score, size }: { score: number; size?: "small" | "large"
         <span
           key={index}
           className={`whistleScale__icon ${index < filled ? "whistleScale__icon--filled" : ""}`}
+          style={{
+            backgroundImage: iconForIndex(index).url ? `url(${iconForIndex(index).url})` : undefined,
+            filter: iconForIndex(index).filter,
+            backgroundColor: iconForIndex(index).backgroundColor,
+            borderColor: iconForIndex(index).borderColor ?? "rgba(255,255,255,0.7)",
+          }}
         />
       ))}
     </span>
@@ -58,7 +95,9 @@ export default function RefereeReviewList({ reviews }: Props) {
   if (!reviews.length) {
     return (
       <div className="reviewEmpty">
-        <p>No referee feedback has been shared yet. Be the first to report back from the field.</p>
+        <p style={{ color: "#ffffff", textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
+          No referee feedback has been shared yet. Be the first to report back from the field.
+        </p>
       </div>
     );
   }
