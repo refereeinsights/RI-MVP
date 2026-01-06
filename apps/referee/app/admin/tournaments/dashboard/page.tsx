@@ -77,6 +77,38 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   const venuePct = total ? Math.round((withVenue / total) * 100) : 0;
   const compPct = total ? Math.round((new Set(comps.map((c: any) => c.tournament_id)).size / total) * 100) : 0;
 
+  // Top sources (run rows in last 30 days)
+  const thirtyAgo = addDays(-30);
+  const runsRes = await supabase
+    .from("tournament_sources" as any)
+    .select("id,source_url,url,extracted_json,fetched_at")
+    .gte("fetched_at", thirtyAgo)
+    .not("fetched_at", "is", null);
+  const runs = (runsRes.data ?? []).filter((r: any) => {
+    const action = r.extracted_json?.action;
+    return action === "preview" || action === "import";
+  });
+
+  const topSourceMap = new Map<
+    string,
+    { discovered: number; imported: number; lastRun: string | null }
+  >();
+  runs.forEach((run: any) => {
+    const key = run.source_url || run.url;
+    if (!key) return;
+    const ex = run.extracted_json || {};
+    const discovered = Number(ex.discovered_count ?? 0) || 0;
+    const imported = Number(ex.imported_count ?? 0) || 0;
+    const row = topSourceMap.get(key) ?? { discovered: 0, imported: 0, lastRun: null };
+    row.discovered += discovered;
+    row.imported += imported;
+    row.lastRun = row.lastRun && run.fetched_at ? (row.lastRun > run.fetched_at ? row.lastRun : run.fetched_at) : run.fetched_at;
+    topSourceMap.set(key, row);
+  });
+  const topSources = Array.from(topSourceMap.entries())
+    .sort((a, b) => (b[1].discovered || b[1].imported) - (a[1].discovered || a[1].imported))
+    .slice(0, 5);
+
   const byStateMap = new Map<
     string,
     { total: number; venue: number; enriched: number; errors: number; stalePending: number }
@@ -144,6 +176,42 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
             <div style={{ fontSize: 20, fontWeight: 900 }}>{card.value}</div>
           </div>
         ))}
+      </div>
+
+      <h2 style={{ marginTop: 0 }}>Top sources (last 30d)</h2>
+      <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12, background: "#fff", marginBottom: 16 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr>
+              {["Source URL", "Discovered", "Imported", "Yield", "Last run"].map((h) => (
+                <th key={h} style={{ textAlign: "left", padding: "6px 4px", borderBottom: "1px solid #eee" }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {topSources.map(([url, row]) => {
+              const yieldPct = (row.discovered || row.imported) ? Math.round((row.imported / Math.max(row.discovered || 1, 1)) * 100) : 0;
+              return (
+                <tr key={url}>
+                  <td style={{ padding: "6px 4px", maxWidth: 260, wordBreak: "break-all" }}>{url}</td>
+                  <td style={{ padding: "6px 4px" }}>{row.discovered}</td>
+                  <td style={{ padding: "6px 4px" }}>{row.imported}</td>
+                  <td style={{ padding: "6px 4px" }}>{yieldPct}%</td>
+                  <td style={{ padding: "6px 4px" }}>{row.lastRun ? new Date(row.lastRun).toLocaleString() : "—"}</td>
+                </tr>
+              );
+            })}
+            {!topSources.length && (
+              <tr>
+                <td colSpan={5} style={{ padding: 8, color: "#666" }}>
+                  No recent source runs.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       <h2 style={{ marginTop: 0 }}>By state</h2>

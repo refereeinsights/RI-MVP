@@ -4,6 +4,7 @@ import { buildTournamentSlug } from "@/lib/tournaments/slug";
 import type { TournamentRow, TournamentStatus, TournamentSource } from "@/lib/types/tournament";
 import { queueEnrichmentJobs } from "@/server/enrichment/pipeline";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { insertRun, normalizeSourceUrl, upsertRegistry, updateRunExtractedJson } from "./sources";
 
 const FETCH_TIMEOUT_MS = 10000;
 const MAX_BYTES = 1024 * 1024;
@@ -123,9 +124,19 @@ export function extractCityStateGuess(text: string): { city: string; state: stri
     "MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA",
     "WA","WV","WI","WY",
   ];
-  const match = text.match(/([A-Za-z .'-]{3,}),\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/);
+  const match = text.match(/([A-Za-z .'-]{3,}?)(?:,|\s+)\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/);
   if (match) {
-    return { city: match[1].trim(), state: match[2].toUpperCase() };
+    let city = match[1].trim();
+    // If the phrase contains " in X", keep the tail after the last " in "
+    const inIdx = city.toLowerCase().lastIndexOf(" in ");
+    if (inIdx !== -1) {
+      city = city.slice(inIdx + 4).trim();
+    }
+    // If city still has multiple comma parts, take the last part
+    if (city.includes(",")) {
+      city = city.split(",").pop()!.trim();
+    }
+    return { city, state: match[2].toUpperCase() };
   }
   for (const st of states) {
     const idx = text.indexOf(`, ${st}`);
@@ -155,10 +166,11 @@ export async function createTournamentFromUrl(params: {
   const status: TournamentStatus = params.status ?? "draft";
   const source: TournamentSource = params.source ?? "external_crawl";
 
+  const { canonical, host } = normalizeSourceUrl(url);
   const html = await fetchHtml(url);
   if (!html) throw new Error("failed_to_fetch_html");
 
-  const parsedUrl = new URL(url);
+  const parsedUrl = new URL(canonical);
   const meta = parseMetadata(html);
   const slug = buildTournamentSlug({
     name: meta.name || parsedUrl.hostname,
@@ -183,19 +195,37 @@ export async function createTournamentFromUrl(params: {
     status,
     confidence: undefined,
     source,
-    source_event_id: url,
-    source_url: url,
+    source_event_id: canonical,
+    source_url: canonical,
     source_domain: parsedUrl.hostname,
     raw: null,
   };
 
+  const registry = await upsertRegistry({ source_url: canonical, source_type: "series_site", sport });
   const tournamentId = await upsertTournamentFromSource(row);
   await queueEnrichmentJobs([tournamentId]);
 
+  const runId = await insertRun({
+    registry_id: registry.registry_id,
+    source_url: canonical,
+    url: canonical,
+    http_status: 200,
+    domain: host,
+    title: meta.name ?? parsedUrl.hostname,
+    extracted_json: { action: "paste_url", tournament_id: tournamentId, created: true },
+    extract_confidence: meta.warnings.length ? 0.5 : 0.8,
+  });
+
   await supabaseAdmin
     .from("tournaments" as any)
-    .update({ image_url: meta.image_url ?? null })
+    .update({
+      image_url: meta.image_url ?? null,
+      discovery_source_id: registry.registry_id,
+      discovery_sweep_id: runId,
+    })
     .eq("id", tournamentId);
 
-  return { tournamentId, meta, slug };
+  await updateRunExtractedJson(runId, { action: "paste_url", tournament_id: tournamentId, created: true });
+
+  return { tournamentId, meta, slug, registry_id: registry.registry_id, run_id: runId };
 }

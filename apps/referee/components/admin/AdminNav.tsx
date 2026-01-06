@@ -28,6 +28,9 @@ export function AdminNav() {
       <Link href="/admin/tournaments/dashboard" style={linkStyle}>
         Tournaments dashboard
       </Link>
+      <Link href="/admin/tournaments/sources" style={linkStyle}>
+        Sources
+      </Link>
       <Link href="/admin/venues" style={linkStyle}>
         Venues
       </Link>

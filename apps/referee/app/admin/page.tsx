@@ -67,6 +67,13 @@ import type {
   TournamentSubmissionType,
 } from "@/lib/types/tournament";
 import { createTournamentFromUrl } from "@/server/admin/pasteUrl";
+import {
+  insertRun as insertSourceRun,
+  normalizeSourceUrl,
+  upsertRegistry as upsertSourceRegistry,
+  updateRegistrySweep,
+  updateRunExtractedJson,
+} from "@/server/admin/sources";
 
 type Tab =
   | "users"
@@ -694,6 +701,15 @@ export default async function AdminPage({
       ? (fallbackSportInput as (typeof TOURNAMENT_SPORTS)[number])
       : "soccer";
     const fallbackLevel = String(formData.get("fallback_level") || "").trim() || null;
+    const fallbackName = String(formData.get("fallback_name") || "").trim() || null;
+    const fallbackVenue = String(formData.get("fallback_venue") || "").trim() || null;
+    const fallbackCity = String(formData.get("fallback_city") || "").trim() || null;
+    const fallbackState = String(formData.get("fallback_state") || "").trim() || null;
+    const fallbackZip = String(formData.get("fallback_zip") || "").trim() || null;
+    const fallbackSourceUrlRaw = String(formData.get("fallback_source_url") || "").trim() || "";
+    const fallbackContactEmail = String(formData.get("fallback_contact_email") || "").trim() || null;
+    const fallbackContactPhone = String(formData.get("fallback_contact_phone") || "").trim() || null;
+    const fallbackSummary = String(formData.get("fallback_summary") || "").trim() || null;
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const contents = buffer.toString("utf8");
@@ -741,6 +757,50 @@ export default async function AdminPage({
       return redirectWithNotice(redirectTo, "No tournaments detected in the uploaded file.");
     }
 
+    // apply fallbacks to records where missing
+    records = records.map((r) => ({
+      ...r,
+      name: r.name || fallbackName || r.slug,
+      venue: r.venue ?? fallbackVenue,
+      city: r.city ?? fallbackCity,
+      state: r.state ?? fallbackState,
+      zip: (r as any).zip ?? fallbackZip,
+      source_url: r.source_url || fallbackSourceUrlRaw || r.source_url,
+      summary: r.summary ?? fallbackSummary,
+      referee_contact: (r as any).referee_contact ?? fallbackContactEmail ?? fallbackContactPhone ?? null,
+    }));
+
+    let registryId: string | null = null;
+    let runId: string | null = null;
+    const normalizedSourceUrl = fallbackSourceUrlRaw ? normalizeSourceUrl(fallbackSourceUrlRaw).canonical : null;
+
+    if (normalizedSourceUrl) {
+      const registry = await upsertSourceRegistry({
+        source_url: normalizedSourceUrl,
+        source_type: "platform_listing",
+        sport: fallbackSport,
+        state: fallbackState,
+        city: fallbackCity,
+        notes: `Upload: ${filename}`,
+        is_active: true,
+      });
+      registryId = registry.registry_id;
+      runId = await insertSourceRun({
+        registry_id: registry.registry_id,
+        source_url: normalizedSourceUrl,
+        url: normalizedSourceUrl,
+        http_status: 200,
+        title: filename,
+        extracted_json: {
+          action: "import",
+          discovered_count: records.length,
+          warnings: csvDropReasons.slice(0, 3),
+          params: { sport: fallbackSport, state: fallbackState, city: fallbackCity },
+        },
+        extract_confidence: 0.6,
+      });
+    }
+
     const result = await importTournamentRecords(records);
     const noticeParts: string[] = [];
     noticeParts.push(
@@ -763,6 +823,25 @@ export default async function AdminPage({
         .filter(Boolean);
       if (examples.length) {
         noticeParts.push(`Sample failure: ${examples.join(" | ")}`);
+      }
+    }
+
+    if (runId) {
+      await updateRunExtractedJson(runId, {
+        action: "import",
+        discovered_count: records.length,
+        imported_count: result.success,
+        duplicates_skipped_count: result.failures.length,
+        params: { sport: fallbackSport, state: fallbackState, city: fallbackCity },
+      });
+    }
+    if (registryId) {
+      await updateRegistrySweep(registryId, "ok", `Discovered ${records.length}, imported ${result.success}`);
+      if (result.tournamentIds?.length) {
+        await supabaseAdmin
+          .from("tournaments" as any)
+          .update({ discovery_source_id: registryId, discovery_sweep_id: runId })
+          .in("id", result.tournamentIds);
       }
     }
 

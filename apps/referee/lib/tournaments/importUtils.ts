@@ -322,15 +322,17 @@ function generateSlug(name: string, city: string | null, state: string | null) {
 export async function importTournamentRecords(records: TournamentRow[]) {
   let success = 0;
   const failures: { record: TournamentRow; error: string }[] = [];
+  const tournamentIds: string[] = [];
 
   for (const record of records) {
     try {
-      await upsertTournamentFromSource(record);
+      const id = await upsertTournamentFromSource(record);
+      if (id) tournamentIds.push(id);
       success++;
     } catch (error) {
       failures.push({ record, error: (error as Error).message });
     }
   }
 
-  return { success, failures };
+  return { success, failures, tournamentIds };
 }
