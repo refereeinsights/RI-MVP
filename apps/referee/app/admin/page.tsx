@@ -57,6 +57,8 @@ import {
   csvRowsToTournamentRows,
   extractHtmlFromMhtml,
   extractUSClubTournamentsFromHtml,
+  extractEventsFromJsonLd,
+  extractGrassrootsCalendar,
   importTournamentRecords,
   parseCsv,
 } from "@/lib/tournaments/importUtils";
@@ -66,7 +68,7 @@ import type {
   TournamentStatus,
   TournamentSubmissionType,
 } from "@/lib/types/tournament";
-import { createTournamentFromUrl } from "@/server/admin/pasteUrl";
+import { createTournamentFromUrl, fetchHtml } from "@/server/admin/pasteUrl";
 import {
   insertRun as insertSourceRun,
   normalizeSourceUrl,
@@ -131,6 +133,7 @@ export default async function AdminPage({
     rstatus?: ReviewStatus;
     cstatus?: ContactStatus;
     notice?: string;
+    fallback_source_url?: string;
   };
 }) {
   await requireAdmin();
@@ -143,6 +146,7 @@ export default async function AdminPage({
   const reviewStatus: ReviewStatus = (searchParams.rstatus as ReviewStatus) ?? "pending";
   const contactStatus: ContactStatus = (searchParams.cstatus as ContactStatus) ?? "pending";
   const notice = searchParams.notice ?? "";
+  const fallbackSourceUrlParam = searchParams.fallback_source_url ?? "";
 
   const params = new URLSearchParams();
   params.set("tab", tab);
@@ -689,10 +693,6 @@ export default async function AdminPage({
     "use server";
     const file = formData.get("upload") as File | null;
     const redirectTo = formData.get("redirect_to");
-    if (!file || file.size === 0) {
-      return redirectWithNotice(redirectTo, "Please choose a file to import.");
-    }
-
     const treatConfirmed = String(formData.get("treat_confirmed") || "") === "on";
     const status: TournamentStatus = treatConfirmed ? "published" : "draft";
     const source = (formData.get("source") as TournamentSource) ?? "external_crawl";
@@ -711,46 +711,101 @@ export default async function AdminPage({
     const fallbackContactPhone = String(formData.get("fallback_contact_phone") || "").trim() || null;
     const fallbackSummary = String(formData.get("fallback_summary") || "").trim() || null;
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const contents = buffer.toString("utf8");
-    const filename = file.name.toLowerCase();
-
     let records: TournamentRow[] = [];
     let dropSummary = "";
     let csvOriginalRowCount: number | null = null;
     let csvDropReasons: string[] = [];
-    if (filename.endsWith(".csv")) {
-      const { rows } = parseCsv(contents);
-      csvOriginalRowCount = rows.length;
-      const { kept, dropped } = cleanCsvRows(rows);
-      if (dropped.length) {
-        csvDropReasons = dropped.slice(0, 3).map((entry) => {
-          const name = entry.row?.name || entry.row?.slug || "row";
-          return `${name}: ${entry.reason}`;
+    const normalizedSourceUrl = fallbackSourceUrlRaw ? normalizeSourceUrl(fallbackSourceUrlRaw).canonical : null;
+    const fileProvided = file && file.size > 0;
+
+    if (fileProvided) {
+      const buffer = Buffer.from(await file!.arrayBuffer());
+      const contents = buffer.toString("utf8");
+      const filename = file!.name.toLowerCase();
+
+      if (filename.endsWith(".csv")) {
+        const { rows } = parseCsv(contents);
+        csvOriginalRowCount = rows.length;
+        const { kept, dropped } = cleanCsvRows(rows);
+        if (dropped.length) {
+          csvDropReasons = dropped.slice(0, 3).map((entry) => {
+            const name = entry.row?.name || entry.row?.slug || "row";
+            return `${name}: ${entry.reason}`;
+          });
+          dropSummary = `${dropped.length} row(s) skipped by cleaner`;
+        }
+        if (!kept.length) {
+          const message =
+            dropSummary || "CSV parsed but no usable tournaments remained after cleaning.";
+          return redirectWithNotice(redirectTo, message);
+        }
+        records = csvRowsToTournamentRows(kept, { status, source, subType: "admin" });
+      } else if (
+        filename.endsWith(".html") ||
+        filename.endsWith(".htm") ||
+        filename.endsWith(".mhtml")
+      ) {
+        const html = filename.endsWith(".mhtml") ? extractHtmlFromMhtml(contents) : contents;
+        records = extractUSClubTournamentsFromHtml(html, {
+          sport: fallbackSport,
+          level: fallbackLevel,
+          status,
+          source,
+          subType: "admin",
         });
-        dropSummary = `${dropped.length} row(s) skipped by cleaner`;
+      } else {
+        return redirectWithNotice(redirectTo, "Unsupported file type. Use CSV, HTML, or MHTML.");
       }
-      if (!kept.length) {
-        const message =
-          dropSummary || "CSV parsed but no usable tournaments remained after cleaning.";
-        return redirectWithNotice(redirectTo, message);
+    } else if (normalizedSourceUrl && normalizedSourceUrl.includes("grassroots365.com")) {
+      const candidates = new Set<string>();
+      candidates.add(normalizedSourceUrl);
+      try {
+        const u = new URL(normalizedSourceUrl);
+        if (u.pathname !== "/calendar/") {
+          candidates.add(`${u.origin}/calendar/`);
+        }
+        candidates.add(`${u.origin}/calendar/?print=true`);
+        candidates.add(`${u.origin}/calendar/?vtype=list`);
+      } catch {
+        // ignore URL parsing errors; still try the original
       }
-      records = csvRowsToTournamentRows(kept, { status, source, subType: "admin" });
-    } else if (
-      filename.endsWith(".html") ||
-      filename.endsWith(".htm") ||
-      filename.endsWith(".mhtml")
-    ) {
-      const html = filename.endsWith(".mhtml") ? extractHtmlFromMhtml(contents) : contents;
-      records = extractUSClubTournamentsFromHtml(html, {
-        sport: fallbackSport,
-        level: fallbackLevel,
-        status,
-        source,
-        subType: "admin",
-      });
+
+      let parsedFrom = "";
+      for (const candidate of candidates) {
+        const html = await fetchHtml(candidate);
+        if (!html) continue;
+        // Try JSON-LD first, then fallback to table parser.
+        let parsed: TournamentRow[] = extractEventsFromJsonLd(html, {
+          sport: fallbackSport,
+          status,
+          source,
+          fallbackUrl: candidate,
+        });
+        if (!parsed.length) {
+          parsed = extractGrassrootsCalendar(html, {
+            sport: fallbackSport,
+            status,
+            source,
+            fallbackUrl: candidate,
+          });
+        }
+        if (parsed.length) {
+          records = parsed;
+          parsedFrom = candidate;
+          break;
+        }
+      }
+
+      if (!records.length) {
+        return redirectWithNotice(
+          redirectTo,
+          "Sweep fetched but no events were parsed from grassroots365 (tried calendar variants)."
+        );
+      } else {
+        dropSummary = `Parsed ${records.length} events from ${parsedFrom || normalizedSourceUrl}`;
+      }
     } else {
-      return redirectWithNotice(redirectTo, "Unsupported file type. Use CSV, HTML, or MHTML.");
+      return redirectWithNotice(redirectTo, "Please choose a file to import.");
     }
 
     if (!records.length) {
@@ -762,8 +817,8 @@ export default async function AdminPage({
       ...r,
       name: r.name || fallbackName || r.slug,
       venue: r.venue ?? fallbackVenue,
-      city: r.city ?? fallbackCity,
-      state: r.state ?? fallbackState,
+      city: r.city ?? fallbackCity ?? "Unknown",
+      state: r.state ?? fallbackState ?? "NA",
       zip: (r as any).zip ?? fallbackZip,
       source_url: r.source_url || fallbackSourceUrlRaw || r.source_url,
       summary: r.summary ?? fallbackSummary,
@@ -772,16 +827,16 @@ export default async function AdminPage({
 
     let registryId: string | null = null;
     let runId: string | null = null;
-    const normalizedSourceUrl = fallbackSourceUrlRaw ? normalizeSourceUrl(fallbackSourceUrlRaw).canonical : null;
 
     if (normalizedSourceUrl) {
+      const uploadLabel = fileProvided ? file!.name.toLowerCase() : "live-fetch";
       const registry = await upsertSourceRegistry({
         source_url: normalizedSourceUrl,
         source_type: "platform_listing",
         sport: fallbackSport,
         state: fallbackState,
         city: fallbackCity,
-        notes: `Upload: ${filename}`,
+        notes: `Upload: ${uploadLabel}`,
         is_active: true,
       });
       registryId = registry.registry_id;
@@ -790,7 +845,7 @@ export default async function AdminPage({
         source_url: normalizedSourceUrl,
         url: normalizedSourceUrl,
         http_status: 200,
-        title: filename,
+        title: uploadLabel,
         extracted_json: {
           action: "import",
           discovered_count: records.length,
@@ -848,6 +903,89 @@ export default async function AdminPage({
     return redirectWithNotice(redirectTo, noticeParts.join(" ").trim());
   }
 
+  async function dedupePendingTournamentsAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-uploads";
+    const { data, error } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("id,name,city,state,start_date,created_at")
+      .eq("status", "pending");
+    if (error) {
+      return redirectWithNotice(redirectTo, `Cleanup failed: ${error.message}`);
+    }
+    if (!data || !data.length) {
+      return redirectWithNotice(redirectTo, "Cleanup: no pending tournaments found.");
+    }
+
+    const keep = new Map<string, { id: string; created_at: string }>();
+    const dupes: string[] = [];
+    for (const row of data) {
+      const key = `${(row.name || "").toLowerCase().trim()}|${(row.city || "").toLowerCase().trim()}|${(row.state || "").toLowerCase().trim()}|${row.start_date || ""}`;
+      if (!keep.has(key)) {
+        keep.set(key, { id: row.id, created_at: row.created_at });
+      } else {
+        const existing = keep.get(key)!;
+        if (row.created_at < existing.created_at) {
+          dupes.push(existing.id);
+          keep.set(key, { id: row.id, created_at: row.created_at });
+        } else {
+          dupes.push(row.id);
+        }
+      }
+    }
+    if (!dupes.length) {
+      return redirectWithNotice(redirectTo, "Cleanup: no duplicates found (name/city/state/start_date).");
+    }
+    const { error: delErr } = await supabaseAdmin.from("tournaments" as any).delete().in("id", dupes);
+    if (delErr) {
+      return redirectWithNotice(redirectTo, `Cleanup failed: ${delErr.message}`);
+    }
+    return redirectWithNotice(redirectTo, `Cleanup removed ${dupes.length} pending duplicate(s).`);
+  }
+
+  async function queuePendingEnrichmentAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-uploads";
+    const { data: pending, error: pendingErr } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("id")
+      .eq("status", "pending")
+      .eq("enrichment_skip", false);
+    if (pendingErr) {
+      return redirectWithNotice(redirectTo, `Queue failed: ${pendingErr.message}`);
+    }
+    const ids = (pending ?? []).map((r) => r.id);
+    if (!ids.length) {
+      return redirectWithNotice(redirectTo, "No pending tournaments to queue.");
+    }
+    const { data: existingJobs, error: jobErr } = await supabaseAdmin
+      .from("tournament_enrichment_jobs" as any)
+      .select("tournament_id,status")
+      .in("tournament_id", ids);
+    if (jobErr) {
+      return redirectWithNotice(redirectTo, `Queue failed: ${jobErr.message}`);
+    }
+    const blocked = new Set(
+      (existingJobs ?? [])
+        .filter((j) => ["queued", "running", "done"].includes(String(j.status)))
+        .map((j) => j.tournament_id)
+    );
+    const toQueue = ids.filter((id) => !blocked.has(id));
+    if (!toQueue.length) {
+      return redirectWithNotice(redirectTo, "All pending tournaments already have enrichment jobs.");
+    }
+    const payload = toQueue.map((id) => ({ tournament_id: id }));
+    const { error: insertErr } = await supabaseAdmin
+      .from("tournament_enrichment_jobs" as any)
+      .insert(payload, { ignoreDuplicates: true });
+    if (insertErr) {
+      return redirectWithNotice(redirectTo, `Queue failed: ${insertErr.message}`);
+    }
+    return redirectWithNotice(redirectTo, `Queued enrichment for ${payload.length} pending tournament(s).`);
+  }
+
   async function createFromUrlAction(formData: FormData) {
     "use server";
     const url = String(formData.get("tournament_url") || "").trim();
@@ -864,6 +1002,10 @@ export default async function AdminPage({
         `Created "${res.meta.name ?? res.slug}" and queued enrichment.`
       );
     } catch (err: any) {
+      // Let Next.js redirect errors bubble through so we don't surface NEXT_REDIRECT as a failure notice.
+      if (err?.digest && String(err.digest).includes("NEXT_REDIRECT")) {
+        throw err;
+      }
       console.error("[createFromUrl]", err);
       return redirectWithNotice(redirectTo, `Failed to create from URL: ${err?.message ?? "unknown error"}`);
     }
@@ -1047,6 +1189,20 @@ export default async function AdminPage({
         <TabButton t="tournament-uploads" label="Tournament uploads" />
         <TabButton t="tournament-listings" label="Tournament listings" />
         <TabButton t="owls-eye" label="Owl's Eye" />
+        <a
+          href="/admin/tournaments/enrichment"
+          style={{
+            padding: "10px 12px",
+            borderRadius: 999,
+            border: "1px solid #111",
+            background: "#fff",
+            color: "#111",
+            fontWeight: 900,
+            textDecoration: "none",
+          }}
+        >
+          Enrichment
+        </a>
         <a
           href="/admin/venues"
           style={{
@@ -1587,6 +1743,7 @@ export default async function AdminPage({
                   type="url"
                   name="tournament_url"
                   placeholder="https://example.com/event"
+                  defaultValue={fallbackSourceUrlParam}
                   required
                   style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
                 />
@@ -1628,7 +1785,6 @@ export default async function AdminPage({
                   type="file"
                   name="upload"
                   accept=".csv,.html,.htm,.mhtml"
-                  required
                   style={{ width: "100%", marginTop: 4 }}
                 />
               </label>
@@ -1722,6 +1878,7 @@ export default async function AdminPage({
                   <input
                     type="url"
                     name="fallback_source_url"
+                    defaultValue={fallbackSourceUrlParam}
                     placeholder="https://example.com"
                     style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
                   />
@@ -1762,18 +1919,55 @@ export default async function AdminPage({
                 Cleaner removes duplicate slugs, missing locations, off-sport entries, and invalid URLs. A summary
                 appears in the notice banner after import.
               </p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  type="submit"
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "none",
+                    background: "#111",
+                    color: "#fff",
+                    fontWeight: 900,
+                    width: "fit-content",
+                  }}
+                >
+                  Run cleaner & import
+                </button>
+              </div>
+            </form>
+            <form action={queuePendingEnrichmentAction} style={{ marginTop: 8 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
               <button
+                type="submit"
                 style={{
                   padding: "10px 12px",
                   borderRadius: 10,
-                  border: "none",
-                  background: "#111",
-                  color: "#fff",
-                  fontWeight: 900,
+                  border: "1px solid #555",
+                  background: "#fff",
+                  color: "#111",
+                  fontWeight: 800,
                   width: "fit-content",
                 }}
               >
-                Run cleaner & import
+                Queue enrichment for pending
+              </button>
+            </form>
+            <form action={dedupePendingTournamentsAction} style={{ marginTop: 8 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <button
+                type="submit"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #555",
+                  background: "#fff",
+                  color: "#111",
+                  fontWeight: 800,
+                  width: "fit-content",
+                }}
+              >
+                Cleanup pending duplicates
               </button>
             </form>
           </div>

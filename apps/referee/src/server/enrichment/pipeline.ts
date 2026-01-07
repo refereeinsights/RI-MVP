@@ -181,7 +181,15 @@ export async function runQueuedEnrichment(limit = 10) {
 
 export async function queueEnrichmentJobs(tournamentIds: string[]) {
   if (!tournamentIds.length) return { inserted: 0 };
-  const rows = tournamentIds.map((tid) => ({ tournament_id: tid, status: "queued" }));
+  // Filter out tournaments that are marked to skip.
+  const { data: allowed, error: fetchErr } = await supabaseAdmin
+    .from("tournaments" as any)
+    .select("id")
+    .in("id", tournamentIds)
+    .eq("enrichment_skip", false);
+  if (fetchErr) throw fetchErr;
+  const rows = (allowed ?? []).map((t: any) => ({ tournament_id: t.id, status: "queued" }));
+  if (!rows.length) return { inserted: 0 };
   const resp = await supabaseAdmin.from("tournament_enrichment_jobs" as any).insert(rows);
   if (resp.error && resp.error.code !== "23505") {
     // 23505 = unique violation (duplicate queued/running job); ignore to keep idempotent

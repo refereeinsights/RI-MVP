@@ -55,7 +55,7 @@ async function loadData() {
   }
   const tournamentsResp = await supabaseAdmin
     .from("tournaments" as any)
-    .select("id,name,source_url,state")
+    .select("id,name,source_url,state,enrichment_skip")
     .order("created_at", { ascending: false })
     .limit(25);
   const tournamentLookup = new Map<string, { name: string | null; url: string | null }>(
@@ -69,6 +69,11 @@ async function loadData() {
     .select("id,tournament_id,status,created_at,started_at,finished_at,pages_fetched_count,last_error,tournaments(name,source_url)")
     .order("created_at", { ascending: false })
     .limit(20);
+  const blocked = new Set<string>(
+    (jobsResp.data ?? [])
+      .filter((j: any) => ["queued", "running", "done"].includes(String(j.status)))
+      .map((j: any) => j.tournament_id)
+  );
   const contactsResp = await supabaseAdmin
     .from("tournament_contact_candidates" as any)
     .select("id,tournament_id,email,phone,role_normalized,source_url,confidence,created_at")
@@ -92,12 +97,14 @@ async function loadData() {
     .limit(25);
   return {
     tournaments:
-      (tournamentsResp.data ?? []).map((t: any) => ({
-        id: t.id,
-        name: t.name ?? null,
-        state: t.state ?? null,
-        url: t.source_url ?? null,
-      })) as Tournament[],
+      (tournamentsResp.data ?? [])
+        .filter((t: any) => !t.enrichment_skip && !blocked.has(t.id))
+        .map((t: any) => ({
+          id: t.id,
+          name: t.name ?? null,
+          state: t.state ?? null,
+          url: t.source_url ?? null,
+        })) as Tournament[],
     jobs:
       (jobsResp.data ?? []).map((j: any) => {
         const fallback = tournamentLookup.get(j.tournament_id) ?? { name: null, url: null };

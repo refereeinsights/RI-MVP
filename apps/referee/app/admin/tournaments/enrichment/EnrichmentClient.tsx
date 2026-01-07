@@ -89,11 +89,37 @@ export default function EnrichmentClient({
     setStatus(json.error ? `Queue failed: ${json.error}` : "Queued");
   };
 
+  const skipTournament = async (tournamentId: string) => {
+    setStatus("Skipping...");
+    const res = await fetch("/api/admin/tournaments/enrichment/skip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tournament_id: tournamentId }),
+    });
+    const json = await res.json();
+    setStatus(json.error ? `Skip failed: ${json.error}` : "Skipped");
+  };
+
   const runNow = async () => {
     setStatus("Running...");
     const res = await fetch("/api/admin/tournaments/enrichment/run", { method: "POST" });
     const json = await res.json();
     setStatus(json.error ? `Run failed: ${json.error}` : "Run triggered");
+  };
+
+  const refreshPage = () => {
+    window.location.reload();
+  };
+
+  const skip = async (tournamentId: string) => {
+    setStatus("Skipping...");
+    const res = await fetch("/api/admin/tournaments/enrichment/skip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tournament_id: tournamentId }),
+    });
+    const json = await res.json();
+    setStatus(json.error ? `Skip failed: ${json.error}` : "Skipped");
   };
 
   const search = async () => {
@@ -139,6 +165,22 @@ export default function EnrichmentClient({
       <p style={{ color: "#4b5563", marginBottom: 16 }}>
         Queue enrichment jobs for tournaments with URLs. Jobs fetch up to 8 pages per tournament and extract contacts, venues, and referee comp signals.
       </p>
+      <div style={{ marginBottom: 12 }}>
+        <a
+          href="/admin"
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "1px solid #111",
+            background: "#fff",
+            color: "#111",
+            fontWeight: 700,
+            textDecoration: "none",
+          }}
+        >
+          Back to Admin
+        </a>
+      </div>
 
       <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 12 }}>
         <button onClick={() => queue()} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff" }}>
@@ -146,6 +188,9 @@ export default function EnrichmentClient({
         </button>
         <button onClick={runNow} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#fff", color: "#0f3d2e" }}>
           Run Now (limit 10)
+        </button>
+        <button onClick={refreshPage} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #9ca3af", background: "#f9fafb", color: "#111827" }}>
+          Refresh
         </button>
         <span style={{ color: "#555" }}>{status}</span>
       </div>
@@ -182,6 +227,15 @@ export default function EnrichmentClient({
                 >
                   Queue
                 </button>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    skipTournament(t.id);
+                  }}
+                  style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #b00020", background: "#fff", color: "#b00020", fontSize: 12 }}
+                >
+                  Skip
+                </button>
               </label>
             ))}
           </div>
@@ -215,6 +269,17 @@ export default function EnrichmentClient({
                     </>
                   ) : null}
                   <div style={{ color: "#6b7280", fontSize: 11 }}>ID: {job.tournament_id}</div>
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      skip(job.tournament_id);
+                    }}
+                    style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #b00020", background: "#fff", color: "#b00020", fontSize: 12 }}
+                  >
+                    Skip enrichment
+                  </button>
                 </div>
               </div>
             ))}

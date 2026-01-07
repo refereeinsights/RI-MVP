@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { createClient } from "@supabase/supabase-js";
 
 import type {
   TournamentRow,
@@ -116,6 +117,16 @@ function referencesOtherSports(text: string) {
   return OTHER_SPORT_KEYWORDS.some((keyword) => lower.includes(keyword));
 }
 
+function makeUniqueSlug(base: string, seen: Set<string>) {
+  let candidate = base;
+  let counter = 2;
+  while (seen.has(candidate.toLowerCase())) {
+    candidate = `${base}-${counter}`;
+    counter++;
+  }
+  return candidate;
+}
+
 export function cleanCsvRows(rows: CsvRow[]) {
   const kept: CsvRow[] = [];
   const dropped: { row: CsvRow; reason: string }[] = [];
@@ -129,16 +140,6 @@ export function cleanCsvRows(rows: CsvRow[]) {
     }
     if (name.length > 180) {
       dropped.push({ row, reason: "name too long" });
-      continue;
-    }
-    const slug = normalize(row.slug);
-    if (!slug) {
-      dropped.push({ row, reason: "missing slug" });
-      continue;
-    }
-    const slugKey = slug.toLowerCase();
-    if (seenSlugs.has(slugKey)) {
-      dropped.push({ row, reason: "duplicate slug" });
       continue;
     }
 
@@ -168,11 +169,14 @@ export function cleanCsvRows(rows: CsvRow[]) {
       continue;
     }
 
+    const baseSlug = normalize(row.slug) || generateSlug(name, city || null, state || null);
+    const uniqueSlug = makeUniqueSlug(baseSlug, seenSlugs);
+    const slugKey = uniqueSlug.toLowerCase();
     seenSlugs.add(slugKey);
     kept.push({
       ...row,
       name,
-      slug,
+      slug: uniqueSlug,
       sport: sportRaw,
       state,
       city,
@@ -307,7 +311,7 @@ function extractCityState(text: string) {
   return { city: null, state: null };
 }
 
-function generateSlug(name: string, city: string | null, state: string | null) {
+export function generateSlug(name: string, city: string | null, state: string | null) {
   const parts = [name];
   if (city) parts.push(city);
   if (state) parts.push(state);
@@ -319,12 +323,62 @@ function generateSlug(name: string, city: string | null, state: string | null) {
     .slice(0, 120);
 }
 
+function supabaseAdmin() {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("Missing Supabase env vars");
+  }
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+}
+
+function triKey(record: TournamentRow) {
+  const name = (record.name || "").toLowerCase().trim();
+  const city = (record.city || "").toLowerCase().trim();
+  const state = (record.state || "").toLowerCase().trim();
+  const start = record.start_date || "";
+  return `${name}|${city}|${state}|${start}`;
+}
+
 export async function importTournamentRecords(records: TournamentRow[]) {
   let success = 0;
   const failures: { record: TournamentRow; error: string }[] = [];
   const tournamentIds: string[] = [];
+  const seenKeys = new Set<string>();
+  const supabase = supabaseAdmin();
 
   for (const record of records) {
+    const key = triKey(record);
+    if (seenKeys.has(key)) {
+      failures.push({ record, error: "Duplicate in upload (same name/city/state/start_date)" });
+      continue;
+    }
+
+    if (record.name && record.start_date) {
+      const { data: existing, error: dupErr } = await supabase
+        .from("tournaments")
+        .select("id")
+        .eq("status", "pending")
+        .eq("name", record.name)
+        .eq("city", record.city ?? null)
+        .eq("state", record.state ?? null)
+        .eq("start_date", record.start_date)
+        .limit(1)
+        .maybeSingle();
+      if (dupErr) {
+        failures.push({ record, error: dupErr.message });
+        continue;
+      }
+      if (existing) {
+        failures.push({
+          record,
+          error: "Skipped: pending tournament with same name/city/state/start_date exists",
+        });
+        continue;
+      }
+    }
+
+    seenKeys.add(key);
     try {
       const id = await upsertTournamentFromSource(record);
       if (id) tournamentIds.push(id);
@@ -335,4 +389,228 @@ export async function importTournamentRecords(records: TournamentRow[]) {
   }
 
   return { success, failures, tournamentIds };
+}
+
+// Extract events from JSON-LD scripts (schema.org Event)
+export function extractEventsFromJsonLd(
+  html: string,
+  opts: { sport: TournamentRow["sport"]; status: TournamentStatus; source: TournamentSource; fallbackUrl?: string | null }
+): TournamentRow[] {
+  const $ = cheerio.load(html);
+  const scripts = $('script[type="application/ld+json"]');
+  const events: TournamentRow[] = [];
+
+  scripts.each((_, el) => {
+    const text = $(el).contents().text();
+    if (!text) return;
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return;
+    }
+    const maybeArray = Array.isArray(data) ? data : [data];
+    for (const item of maybeArray) {
+      if (!item) continue;
+      if (item["@type"] !== "Event") continue;
+      const name = (item.name || "").trim();
+      if (!name) continue;
+      const start = item.startDate ? String(item.startDate).slice(0, 10) : null;
+      const loc = item.location || {};
+      const addressText =
+        (loc.address && typeof loc.address === "string" ? loc.address : loc.address?.streetAddress || "") || "";
+      let city: string | null = null;
+      let state: string | null = null;
+      const addrMatch = addressText.match(/([A-Za-z .'-]+),\s*([A-Z]{2})\b/);
+      if (addrMatch) {
+        city = addrMatch[1].trim();
+        state = addrMatch[2].trim();
+      }
+      const slug = generateSlug(name, city, state);
+      const url = (item.url as string) || opts.fallbackUrl || "";
+      let sourceDomain = "";
+      try {
+        if (url) sourceDomain = new URL(url).hostname;
+      } catch {
+        sourceDomain = "";
+      }
+
+      events.push({
+        name,
+        slug,
+        sport: opts.sport,
+        level: loc.name ?? null,
+        sub_type: "admin",
+        cash_tournament: false,
+        state: state ?? null,
+        city: city ?? null,
+        venue: loc.name ?? null,
+        address: addressText || null,
+        start_date: start,
+        end_date: start,
+        summary: item.description ?? null,
+        status: opts.status,
+        source: opts.source,
+        source_event_id: url || slug,
+        source_url: url || opts.fallbackUrl || "",
+        source_domain: sourceDomain,
+        raw: item,
+      });
+    }
+  });
+
+  return events;
+}
+
+function parseDateRange(text: string): { start: string | null; end: string | null } {
+  const rangeRegex = /([A-Za-z]+)\s+(\d{1,2})(?:[-–](\d{1,2}))?,\s*(\d{4})/;
+  const singleRegex = /([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})/;
+  const months = [
+    "january","february","march","april","may","june","july","august","september","october","november","december"
+  ];
+  const toIso = (m: string, d: string, y: string) => {
+    const idx = months.indexOf(m.toLowerCase());
+    if (idx === -1) return null;
+    const mm = String(idx + 1).padStart(2, "0");
+    const dd = String(Number(d)).padStart(2, "0");
+    return `${y}-${mm}-${dd}`;
+  };
+  const rangeMatch = text.match(rangeRegex);
+  if (rangeMatch) {
+    const [, m, d1, d2, y] = rangeMatch;
+    const start = toIso(m, d1, y);
+    const end = d2 ? toIso(m, d2, y) : start;
+    return { start: start ?? null, end: end ?? start ?? null };
+  }
+  const singleMatch = text.match(singleRegex);
+  if (singleMatch) {
+    const [, m, d, y] = singleMatch;
+    const iso = toIso(m, d, y);
+    return { start: iso, end: iso };
+  }
+  return { start: null, end: null };
+}
+
+// Domain-specific extractor for grassroots365.com calendar tables.
+export function extractGrassrootsCalendar(
+  html: string,
+  opts: { sport: TournamentRow["sport"]; status: TournamentStatus; source: TournamentSource; fallbackUrl?: string | null }
+): TournamentRow[] {
+  const $ = cheerio.load(html);
+  const rows: TournamentRow[] = [];
+
+  // 1) Try to parse the embedded console.log JSON that contains all events by month.
+  const consoleMatch = html.match(/console\.log\((\{[\s\S]*?\})\);/);
+  if (consoleMatch) {
+    try {
+      const data = JSON.parse(consoleMatch[1]);
+      for (const monthKey of Object.keys(data)) {
+        const events = Array.isArray(data[monthKey]) ? data[monthKey] : [];
+        for (const ev of events) {
+          const datesStr = typeof ev.dates === "string" ? ev.dates : "";
+          const dateParts = datesStr.split("|").map((d: string) => d.trim()).filter(Boolean);
+          const firstDate = dateParts[0] || "";
+          const lastDate = dateParts[dateParts.length - 1] || firstDate;
+          const startParsed = parseDateRange(firstDate);
+          const endParsed = parseDateRange(lastDate);
+          const locText = (ev.locations as string | undefined) || "";
+          let city: string | null = null;
+          let state: string | null = null;
+          const cityStateMatch = locText.match(/\(([A-Za-z .'-]+),\s*([A-Z]{2})\)/);
+          if (cityStateMatch) {
+            city = cityStateMatch[1].trim();
+            state = cityStateMatch[2].trim();
+          }
+          const name: string = ev.name || ev.short_name || "Unnamed event";
+          const slug = generateSlug(name, city, state);
+          const url = (ev.link as string | undefined) || opts.fallbackUrl || "";
+          let sourceDomain = "";
+          try {
+            if (url) sourceDomain = new URL(url).hostname;
+          } catch {
+            sourceDomain = "";
+          }
+          rows.push({
+            name,
+            slug,
+            sport: opts.sport,
+            level: null,
+            sub_type: "admin",
+            cash_tournament: false,
+            state: state ?? "NA",
+            city: city ?? "Unknown",
+            venue: locText ? locText.replace(/\s*\([^)]+\)\s*$/, "").trim() || locText : null,
+            address: locText || null,
+            start_date: startParsed.start,
+            end_date: endParsed.end ?? startParsed.start,
+            summary: ev.description ?? datesStr,
+            status: opts.status,
+            source: opts.source,
+            source_event_id: ev.id ? String(ev.id) : `${slug}-${startParsed.start ?? datesStr}`,
+            source_url: url,
+            source_domain: sourceDomain,
+            raw: ev,
+          });
+        }
+      }
+    } catch (err) {
+      // ignore JSON parse errors; fall back to table parsing
+    }
+  }
+
+  // 2) Parse visible tables as fallback.
+  const tables = $(".calendarMonthContainer table");
+  tables.each((_, table) => {
+    $(table)
+      .find("tr")
+      .each((idx, tr) => {
+        if (idx === 0) return; // skip header
+        const cells = $(tr).find("td");
+        if (cells.length < 3) return;
+        const dateText = $(cells[0]).text().replace(/\s+/g, " ").trim();
+        const name = $(cells[1]).text().replace(/\s+/g, " ").trim();
+        const locText = $(cells[2]).text().replace(/\s+/g, " ").trim();
+        if (!name) return;
+        const { start, end } = parseDateRange(dateText);
+        let city: string | null = null;
+        let state: string | null = null;
+        const cityStateMatch = locText.match(/\(([A-Za-z .'-]+),\s*([A-Z]{2})\)/);
+        if (cityStateMatch) {
+          city = cityStateMatch[1].trim();
+          state = cityStateMatch[2].trim();
+        }
+        const venue = locText.replace(/\s*\([^)]+\)\s*$/, "").trim() || locText;
+        const slug = generateSlug(name, city, state);
+        const url = opts.fallbackUrl || "";
+        let sourceDomain = "";
+        try {
+          if (url) sourceDomain = new URL(url).hostname;
+        } catch {
+          sourceDomain = "";
+        }
+
+        rows.push({
+          name,
+          slug,
+          sport: opts.sport,
+          level: null,
+          sub_type: "admin",
+          cash_tournament: false,
+          state: state ?? "NA",
+          city: city ?? "Unknown",
+          venue: venue || null,
+          address: locText || null,
+          start_date: start,
+          end_date: end ?? start,
+          summary: dateText,
+          status: opts.status,
+          source: opts.source,
+          source_event_id: `${slug}-${start ?? dateText}`,
+          source_url: url,
+          source_domain: sourceDomain,
+          raw: { date: dateText, venue: locText },
+        });
+      });
+  });
+  return rows;
 }
