@@ -989,7 +989,7 @@ export default async function AdminPage({
     const payload = toQueue.map((id) => ({ tournament_id: id }));
     const { error: insertErr } = await supabaseAdmin
       .from("tournament_enrichment_jobs" as any)
-      .insert(payload, { ignoreDuplicates: true });
+      .insert(payload, { defaultToNull: false });
     if (insertErr) {
       return redirectWithNotice(redirectTo, `Queue failed: ${insertErr.message}`);
     }
