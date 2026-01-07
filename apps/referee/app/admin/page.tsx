@@ -978,7 +978,7 @@ export default async function AdminPage({
       return redirectWithNotice(redirectTo, `Queue failed: ${jobErr.message}`);
     }
     const blocked = new Set(
-      (existingJobs ?? [])
+      ((existingJobs ?? []) as { tournament_id: string; status?: string | null }[])
         .filter((j) => ["queued", "running", "done"].includes(String(j.status)))
         .map((j) => j.tournament_id)
     );
