@@ -1001,8 +1001,22 @@ export default async function AdminPage({
     "use server";
     await requireAdmin();
     const redirectTo = formData.get("redirect_to") || "/admin";
+
+    const describeError = (err: any) => {
+      if (!err) return "unknown error";
+      const parts = [err.message, err.code, err.details, err.hint].filter(Boolean);
+      if (parts.length) return parts.join(" | ");
+      try {
+        return JSON.stringify(err).slice(0, 300);
+      } catch {
+        return String(err);
+      }
+    };
+
     try {
+      console.log("refreshWhistleScoresAction: starting");
       const result = await recomputeAllWhistleScores();
+      console.log("refreshWhistleScoresAction: result", result);
       const tournament = (result as any).tournament ?? {};
       const school = (result as any).school ?? {};
       const msg = [
@@ -1012,7 +1026,20 @@ export default async function AdminPage({
       ].join(" ");
       return redirectWithNotice(redirectTo, msg);
     } catch (error: any) {
-      return redirectWithNotice(redirectTo, `Whistle refresh failed: ${error?.message ?? "unknown error"}`);
+      // Let Next.js redirect errors bubble so the redirect works as intended.
+      const digest = (error as any)?.digest ?? (error as any)?.message ?? "";
+      if (typeof digest === "string" && digest.includes("NEXT_REDIRECT")) {
+        throw error;
+      }
+      // Log server-side so we can see the root cause behind NEXT_REDIRECT
+      console.error("refreshWhistleScoresAction error", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+        stack: error?.stack,
+      });
+      return redirectWithNotice(redirectTo, `Whistle refresh failed: ${describeError(error)}`);
     }
   }
 

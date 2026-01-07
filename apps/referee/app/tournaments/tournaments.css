@@ -1108,6 +1108,39 @@
   border-radius: 999px;
   border: 1px solid rgba(47, 111, 237, 0.22);
 }
+.schoolsPage .whistleBadge {
+  background: #fff;
+  color: var(--school-ink);
+  border-color: rgba(47, 111, 237, 0.25);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+}
+.schoolsPage .whistleBadge__reviews {
+  color: var(--school-muted);
+}
+.schoolsPage .whistleBadge--green {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #065f46;
+}
+.schoolsPage .whistleBadge--yellow {
+  background: rgba(252, 211, 77, 0.18);
+  border-color: rgba(252, 211, 77, 0.45);
+  color: #92400e;
+}
+.schoolsPage .whistleBadge--red {
+  background: rgba(248, 113, 113, 0.16);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #7f1d1d;
+}
+.schoolsPage .whistleBadge--muted {
+  background: rgba(15, 23, 42, 0.08);
+  border-color: rgba(15, 23, 42, 0.2);
+  color: var(--school-ink);
+}
+.schoolsPage .schoolsCount {
+  color: var(--school-ink);
+  font-weight: 600;
+}
 
 .schoolsPage .schoolsHeader {
   position: relative;

@@ -479,8 +479,8 @@ export default async function SchoolsPage({
           </div>
         </section>
 
-        <div className="grid" style={{ marginTop: 24 }}>
-          <div style={{ gridColumn: "1 / -1", color: "rgba(255,255,255,0.9)", marginBottom: 10 }}>
+          <div className="grid" style={{ marginTop: 24 }}>
+          <div className="schoolsCount" style={{ gridColumn: "1 / -1", marginBottom: 10 }}>
             Showing <strong>{filteredSchools.length}</strong> school{filteredSchools.length === 1 ? "" : "s"}
           </div>
           {filteredSchools.map((school) => {

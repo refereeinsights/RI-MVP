@@ -46,6 +46,13 @@ async function aggregateForEntity(config: EntityConfig): Promise<AggregateSummar
     .select(`${config.entityColumn},overall_score,status`);
 
   if (error) {
+    console.error("whistleScores: load error", {
+      table: config.reviewsTable,
+      message: error.message,
+      code: error.code,
+      details: (error as any).details,
+      hint: (error as any).hint,
+    });
     throw new Error(
       `Failed to load ${config.summaryLabel} reviews: ${error.message ?? String(error)}`
     );
@@ -84,6 +91,13 @@ async function aggregateForEntity(config: EntityConfig): Promise<AggregateSummar
       .from(config.scoresTable)
       .upsert(payload, { onConflict: config.entityColumn });
     if (upsertError) {
+      console.error("whistleScores: upsert error", {
+        table: config.scoresTable,
+        message: upsertError.message,
+        code: (upsertError as any).code,
+        details: (upsertError as any).details,
+        hint: (upsertError as any).hint,
+      });
       throw new Error(
         `Failed to upsert ${config.summaryLabel} scores: ${upsertError.message ?? upsertError}`
       );
@@ -114,11 +128,14 @@ async function aggregateForEntity(config: EntityConfig): Promise<AggregateSummar
 }
 
 export async function recomputeAllWhistleScores() {
+  console.log("whistleScores: start");
   const results: Record<string, AggregateSummary> = {};
 
   for (const config of ENTITY_CONFIGS) {
+    console.log("whistleScores: aggregating", config.summaryLabel);
     results[config.summaryLabel] = await aggregateForEntity(config);
   }
 
+  console.log("whistleScores: done", results);
   return results;
 }

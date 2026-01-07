@@ -32,8 +32,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           {/* Header */}
           <header
             style={{
-              backgroundColor: "#0F3D2E", // deep pitch green
-              borderBottom: "3px solid rgba(255,255,255,0.15)",
+              backgroundColor: "#14523d", // slightly lighter, less saturated green
+              backgroundImage:
+                "linear-gradient(180deg, #14523d 0%, #14523d 88%, rgba(20, 82, 61, 0) 100%)",
+              borderBottom: "1px solid rgba(255,255,255,0.12)",
             }}
           >
             {/* Logo row */}
@@ -167,7 +169,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     letterSpacing: "0.14em",
                     textDecoration: "none",
                     paddingBottom: "0.25rem",
-                    borderBottom: "2px solid rgba(255,255,255,0.6)",
+                    borderBottom: "2px solid #2F6FED",
                   }}
                 >
                   Tournament Reviews
@@ -183,7 +185,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     letterSpacing: "0.14em",
                     textDecoration: "none",
                     paddingBottom: "0.25rem",
-                    borderBottom: "2px solid rgba(255,255,255,0.6)",
+                    borderBottom: "2px solid #2F6FED",
                   }}
                 >
                   School Reviews
@@ -199,7 +201,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     letterSpacing: "0.14em",
                     textDecoration: "none",
                     paddingBottom: "0.25rem",
-                    borderBottom: "2px solid rgba(255,255,255,0.6)",
+                    borderBottom: "2px solid #2F6FED",
                   }}
                 >
                   How it works
