@@ -1003,8 +1003,8 @@ export default async function AdminPage({
     const redirectTo = formData.get("redirect_to") || "/admin";
     try {
       const result = await recomputeAllWhistleScores();
-      const tournament = result.tournament ?? {};
-      const school = result.school ?? {};
+      const tournament = (result as any).tournament ?? {};
+      const school = (result as any).school ?? {};
       const msg = [
         "Whistle scores refreshed.",
         `Tournaments: processed ${tournament.processed ?? 0}, upserted ${tournament.upserted ?? 0}, deleted ${tournament.deleted ?? 0}.`,
