@@ -76,6 +76,7 @@ import {
   updateRegistrySweep,
   updateRunExtractedJson,
 } from "@/server/admin/sources";
+import { recomputeAllWhistleScores } from "@/lib/whistleScores";
 
 type Tab =
   | "users"
@@ -994,6 +995,25 @@ export default async function AdminPage({
       return redirectWithNotice(redirectTo, `Queue failed: ${insertErr.message}`);
     }
     return redirectWithNotice(redirectTo, `Queued enrichment for ${payload.length} pending tournament(s).`);
+  }
+
+  async function refreshWhistleScoresAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const redirectTo = formData.get("redirect_to") || "/admin";
+    try {
+      const result = await recomputeAllWhistleScores();
+      const tournament = result.tournament ?? {};
+      const school = result.school ?? {};
+      const msg = [
+        "Whistle scores refreshed.",
+        `Tournaments: processed ${tournament.processed ?? 0}, upserted ${tournament.upserted ?? 0}, deleted ${tournament.deleted ?? 0}.`,
+        `Schools: processed ${school.processed ?? 0}, upserted ${school.upserted ?? 0}, deleted ${school.deleted ?? 0}.`,
+      ].join(" ");
+      return redirectWithNotice(redirectTo, msg);
+    } catch (error: any) {
+      return redirectWithNotice(redirectTo, `Whistle refresh failed: ${error?.message ?? "unknown error"}`);
+    }
   }
 
   async function createFromUrlAction(formData: FormData) {
@@ -1962,6 +1982,26 @@ export default async function AdminPage({
               >
                 Queue enrichment for pending
               </button>
+            </form>
+            <form action={refreshWhistleScoresAction} style={{ marginTop: 8 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <button
+                type="submit"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #555",
+                  background: "#fff",
+                  color: "#111",
+                  fontWeight: 800,
+                  width: "fit-content",
+                }}
+              >
+                Refresh referee scorecards
+              </button>
+              <p style={{ fontSize: 12, color: "#777", margin: "6px 0 0 0" }}>
+                Recomputes whistle scores for tournaments and schools from approved reviews.
+              </p>
             </form>
             <form action={dedupePendingTournamentsAction} style={{ marginTop: 8 }}>
               <input type="hidden" name="redirect_to" value={adminBasePath} />
