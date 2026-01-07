@@ -965,7 +965,8 @@ export default async function AdminPage({
     if (pendingErr) {
       return redirectWithNotice(redirectTo, `Queue failed: ${pendingErr.message}`);
     }
-    const ids = (pending ?? []).map((r) => r.id);
+    const rows = (pending ?? []) as { id: string }[];
+    const ids = rows.map((r) => r.id);
     if (!ids.length) {
       return redirectWithNotice(redirectTo, "No pending tournaments to queue.");
     }
