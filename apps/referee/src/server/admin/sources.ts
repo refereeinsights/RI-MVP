@@ -98,12 +98,12 @@ export async function insertRun(input: RunInsertInput) {
     .single()) as { data: { id: string } | null; error: any };
 
   if (error && (error as any)?.code === "23505") {
-    const existing = await supabaseAdmin
+    const existing = (await supabaseAdmin
       .from("tournament_sources" as any)
       .select("id")
       .eq("url", input.url)
       .limit(1)
-      .single();
+      .single()) as { data: { id: string } | null; error: any };
     if (existing.data?.id) return existing.data.id as string;
   }
 
