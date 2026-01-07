@@ -137,7 +137,7 @@ export default async function SchoolsPage({
     : null;
 
   return (
-    <main className="pitchWrap tournamentsWrap">
+    <main className="pitchWrap tournamentsWrap schoolsPage">
       <section className="field tournamentsField">
         <div className="headerBlock" style={{ padding: "1.25rem 1rem 1rem" }}>
           <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>

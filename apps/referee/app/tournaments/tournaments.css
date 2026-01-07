@@ -989,6 +989,41 @@
   color: rgba(0,0,0,0.85);
 }
 
+/* ===== Schools page contrast tweaks ===== */
+.schoolsPage .card {
+  background: #f7f7f7;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 16px rgba(0, 0, 0, 0.12);
+}
+.schoolsPage .card::before {
+  background: #cbd5e1;
+}
+.schoolsPage .card h2,
+.schoolsPage .meta,
+.schoolsPage .dates {
+  color: #0f172a;
+  text-shadow: none;
+}
+.schoolsPage .card .btn {
+  color: #0f172a;
+  border: 1px solid #0f172a;
+  background: #fff;
+}
+.schoolsPage .card .btn:hover {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+}
+.schoolsPage .reviewEmpty {
+  border-color: rgba(0, 0, 0, 0.35);
+  color: #0f172a;
+}
+.schoolsPage .reviewEmpty p {
+  color: #0f172a;
+  text-shadow: none;
+}
+
 
 .reviewForm {
   display: flex;
