@@ -176,7 +176,7 @@ export default async function TournamentsPage({
   return (
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
-        <div className="headerBlock">
+        <div className="headerBlock brandedHeader">
           <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
             Tournament Reviews
           </h1>
@@ -186,7 +186,6 @@ export default async function TournamentsPage({
               marginTop: 8,
               maxWidth: 680,
               fontSize: 14,
-              color: "#4b5563",
               lineHeight: 1.5,
             }}
           >

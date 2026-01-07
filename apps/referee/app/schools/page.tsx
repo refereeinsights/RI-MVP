@@ -139,7 +139,7 @@ export default async function SchoolsPage({
   return (
     <main className="pitchWrap tournamentsWrap schoolsPage">
       <section className="field tournamentsField">
-        <div className="headerBlock" style={{ padding: "1.25rem 1rem 1rem" }}>
+        <div className="headerBlock schoolsHeader brandedHeader">
           <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
             School Reviews
           </h1>
@@ -149,7 +149,6 @@ export default async function SchoolsPage({
               marginTop: 8,
               maxWidth: 680,
               fontSize: 14,
-              color: "#4b5563",
               lineHeight: 1.5,
             }}
           >
@@ -543,7 +542,9 @@ export default async function SchoolsPage({
         </div>
 
         {filteredSchools.length === 0 && (
-          <p className="empty">No schools match those filters yet.</p>
+          <div className="schoolsEmpty">
+            <p className="empty">No schools match those filters yet.</p>
+          </div>
         )}
       </section>
     </main>

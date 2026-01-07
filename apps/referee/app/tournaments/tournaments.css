@@ -56,7 +56,7 @@
   display: none;
 }
 
-.tournamentsField .headerBlock {
+.tournamentsField .headerBlock:not(.brandedHeader) {
   background: #fff;
   border-radius: 18px;
   padding: 1.5rem 1.5rem 1.25rem;
@@ -990,40 +990,194 @@
 }
 
 /* ===== Schools page contrast tweaks ===== */
+.schoolsPage {
+  --school-accent: #2F6FED;
+  --school-bg: #F6F8FC;
+  --school-card: #FFFFFF;
+  --school-border: rgba(15, 23, 42, 0.10);
+  --school-ink: #0F172A;
+  --school-muted: rgba(15, 23, 42, 0.65);
+}
+
+.schoolsPage .pitchWrap {
+  background:
+    radial-gradient(600px 400px at 10% 5%, rgba(47, 111, 237, 0.1), transparent 55%),
+    linear-gradient(180deg, var(--school-bg), #ffffff);
+}
+
 .schoolsPage .card {
-  background: #f7f7f7;
-  color: #0f172a;
-  border-color: #cbd5e1;
+  background: var(--school-card);
+  color: var(--school-ink);
+  border-color: var(--school-border);
   box-shadow: 0 10px 16px rgba(0, 0, 0, 0.12);
+  transition:
+    transform 180ms ease-out,
+    box-shadow 180ms ease-out,
+    border-color 180ms ease-out;
+}
+.schoolsPage .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 20px rgba(0, 0, 0, 0.12);
+  border-color: rgba(47, 111, 237, 0.25);
 }
 .schoolsPage .card::before {
-  background: #cbd5e1;
+  background: var(--school-border);
 }
 .schoolsPage .card h2,
 .schoolsPage .meta,
 .schoolsPage .dates {
-  color: #0f172a;
+  color: var(--school-ink);
   text-shadow: none;
 }
 .schoolsPage .card .btn {
-  color: #0f172a;
-  border: 1px solid #0f172a;
+  color: var(--school-ink);
+  border: 1px solid var(--school-ink);
   background: #fff;
 }
 .schoolsPage .card .btn:hover {
-  background: #0f172a;
+  background: var(--school-ink);
   color: #fff;
-  border-color: #0f172a;
+  border-color: var(--school-ink);
 }
 .schoolsPage .reviewEmpty {
   border-color: rgba(0, 0, 0, 0.35);
-  color: #0f172a;
+  color: var(--school-ink);
 }
 .schoolsPage .reviewEmpty p {
-  color: #0f172a;
+  color: var(--school-ink);
   text-shadow: none;
 }
 
+.schoolsPage .schoolsEmpty {
+  background: rgba(47, 111, 237, 0.06);
+  border: 1px solid rgba(47, 111, 237, 0.16);
+  border-radius: 14px;
+  padding: 1rem;
+  color: var(--school-ink);
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.05);
+}
+
+.schoolsPage .pill {
+  background: rgba(47, 111, 237, 0.08);
+  border: 1px solid rgba(47, 111, 237, 0.25);
+  color: rgba(15, 23, 42, 0.85);
+}
+
+.schoolsPage .sportChips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.schoolsPage .sportChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--school-ink);
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.16);
+}
+.schoolsPage .sportChip.sport-soccer {
+  background: rgba(16, 185, 129, 0.10);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #065f46;
+}
+.schoolsPage .sportChip.sport-basketball {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.28);
+  color: #92400e;
+}
+.schoolsPage .sportChip.sport-football {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.28);
+  color: #1d4ed8;
+}
+.schoolsPage .sportChip.sport-baseball {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.28);
+  color: #991b1b;
+}
+
+.schoolsPage .cardWhistle {
+  background: rgba(47, 111, 237, 0.04);
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(47, 111, 237, 0.22);
+}
+
+.schoolsPage .schoolsHeader {
+  position: relative;
+  padding: 1.25rem 1rem 1rem;
+  background:
+    linear-gradient(180deg,
+      rgba(47, 111, 237, 0.45) 0%,
+      rgba(247, 251, 255, 0.96) 55%,
+      #ffffff 100%),
+    #f8fbff;
+  border: 1px solid rgba(47, 111, 237, 0.28);
+  border-radius: 18px;
+  box-shadow: 0 14px 22px rgba(0, 0, 0, 0.09);
+  overflow: hidden;
+  color: #0f172a;
+}
+.schoolsPage .schoolsHeader::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 6px;
+  background: linear-gradient(180deg, var(--school-accent), rgba(47, 111, 237, 0.35));
+}
+.schoolsPage .schoolsHeader > * {
+  position: relative;
+  z-index: 1;
+}
+.schoolsPage .schoolsHeader .title {
+  color: var(--school-ink);
+}
+.schoolsPage .schoolsHeader .subtitle {
+  color: var(--school-muted);
+}
+
+.brandedHeader {
+  position: relative;
+  padding: 1.25rem 1rem 1rem;
+  background:
+    linear-gradient(180deg,
+      rgba(47, 111, 237, 0.45) 0%,
+      rgba(247, 251, 255, 0.96) 55%,
+      #ffffff 100%),
+    #f8fbff;
+  border: 1px solid rgba(47, 111, 237, 0.28);
+  border-radius: 18px;
+  box-shadow: 0 14px 22px rgba(0, 0, 0, 0.09);
+  overflow: hidden;
+  color: #0f172a;
+  text-align: center;
+}
+.brandedHeader::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 6px;
+  background: linear-gradient(180deg, rgba(47, 111, 237, 1), rgba(47, 111, 237, 0.35));
+}
+.brandedHeader > * {
+  position: relative;
+  z-index: 1;
+}
+.brandedHeader .title {
+  color: #0f172a;
+  margin-bottom: 0.4rem;
+}
+.brandedHeader .subtitle {
+  color: rgba(15, 23, 42, 0.65);
+  margin: 0 auto;
+  max-width: 720px;
+}
 
 .reviewForm {
   display: flex;
