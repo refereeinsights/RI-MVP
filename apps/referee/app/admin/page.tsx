@@ -914,13 +914,22 @@ export default async function AdminPage({
     if (error) {
       return redirectWithNotice(redirectTo, `Cleanup failed: ${error.message}`);
     }
-    if (!data || !data.length) {
+    if (!data || !Array.isArray(data) || !data.length) {
       return redirectWithNotice(redirectTo, "Cleanup: no pending tournaments found.");
     }
 
+    const rows = data as {
+      id: string;
+      name?: string | null;
+      city?: string | null;
+      state?: string | null;
+      start_date?: string | null;
+      created_at: string;
+    }[];
+
     const keep = new Map<string, { id: string; created_at: string }>();
     const dupes: string[] = [];
-    for (const row of data) {
+    for (const row of rows) {
       const key = `${(row.name || "").toLowerCase().trim()}|${(row.city || "").toLowerCase().trim()}|${(row.state || "").toLowerCase().trim()}|${row.start_date || ""}`;
       if (!keep.has(key)) {
         keep.set(key, { id: row.id, created_at: row.created_at });
