@@ -824,6 +824,24 @@
     linear-gradient(135deg, rgba(205,133,63,0.95), rgba(153,82,30,0.95));
 }
 
+.reviewList .reviewCard.reviewCard--basketball,
+.reviewList .reviewCard.reviewCard--basketball p,
+.reviewList .reviewCard.reviewCard--basketball dt,
+.reviewList .reviewCard.reviewCard--basketball dd,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__meta,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__handle,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__overall,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__body {
+  color: #111111;
+  text-shadow: none;
+}
+
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__meta,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__scores dt,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__body {
+  color: rgba(0, 0, 0, 0.85);
+}
+
 .reviewList .reviewCard.reviewCard--football {
   background:
     repeating-linear-gradient(
