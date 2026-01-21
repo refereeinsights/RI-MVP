@@ -3,7 +3,13 @@ import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { normalizeSourceUrl, upsertRegistry } from "@/server/admin/sources";
+import {
+  normalizeSourceUrl,
+  upsertRegistry,
+  getSkipReason,
+} from "@/server/admin/sources";
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
 
 const IGNORE_STATUSES = new Set([
   "dead",
@@ -15,9 +21,11 @@ const IGNORE_STATUSES = new Set([
   "duplicate_source",
 ]);
 
+type Filter = "all" | "untested" | "keep" | "ignored" | "needs_review";
+
 export const runtime = "nodejs";
 
-type SearchParams = { source_url?: string; notice?: string };
+type SearchParams = { source_url?: string; notice?: string; filter?: Filter };
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
@@ -28,6 +36,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   await requireAdmin();
   const notice = searchParams.notice ?? "";
   const selectedUrl = searchParams.source_url ? normalizeSourceUrl(searchParams.source_url).canonical : null;
+  const filter: Filter = (searchParams.filter as Filter) || "all";
 
   const registryRes = await supabaseAdmin
     .from("tournament_sources" as any)
@@ -102,10 +111,119 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     const { error } = await supabaseAdmin
       .from("tournament_sources" as any)
       .update({ review_status, review_notes, is_active, ignore_until: ignore_until || null })
-      .eq("id", id);
+      .eq("id", id)
+      .is("tournament_id", null);
     const noticeMsg = error ? `Status update failed: ${error.message}` : "Updated source status";
-    redirect(`/admin/tournaments/sources?notice=${encodeURIComponent(noticeMsg)}${selectedUrl ? `&source_url=${encodeURIComponent(selectedUrl)}` : ""}`);
+    redirect(
+      `/admin/tournaments/sources?notice=${encodeURIComponent(noticeMsg)}${
+        selectedUrl ? `&source_url=${encodeURIComponent(selectedUrl)}` : ""
+      }`
+    );
   }
+
+  async function quickAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const id = String(formData.get("id") || "");
+    const action = String(formData.get("action") || "");
+    const redirectUrl = formData.get("redirect") as string | null;
+    const updates: any = {};
+    if (action === "keep") {
+      updates.review_status = "keep";
+      updates.is_active = true;
+    } else if (action === "dead") {
+      updates.review_status = "dead";
+      updates.is_active = false;
+    } else if (action === "login") {
+      updates.review_status = "login_required";
+      updates.is_active = false;
+    } else if (action === "js_only") {
+      updates.review_status = "js_only";
+      updates.is_active = false;
+    } else if (action === "paywalled") {
+      updates.review_status = "paywalled";
+      updates.is_active = false;
+    } else if (action === "blocked") {
+      updates.review_status = "blocked_403";
+      const now = new Date();
+      now.setDate(now.getDate() + 7);
+      updates.ignore_until = now.toISOString();
+      updates.is_active = false;
+    } else if (action === "clear_block") {
+      updates.review_status = "needs_review";
+      updates.ignore_until = null;
+      updates.is_active = true;
+    }
+    if (!Object.keys(updates).length) {
+      redirect(redirectUrl || "/admin/tournaments/sources");
+    }
+    const { error } = await supabaseAdmin
+      .from("tournament_sources" as any)
+      .update(updates)
+      .eq("id", id)
+      .is("tournament_id", null);
+    const msg = error ? `Quick action failed: ${error.message}` : "Updated source";
+    redirect(`${redirectUrl || "/admin/tournaments/sources"}?notice=${encodeURIComponent(msg)}`);
+  }
+
+  async function exportCsv() {
+    "use server";
+    await requireAdmin();
+    const { data, error } = await supabaseAdmin
+      .from("tournament_sources" as any)
+      .select(
+        "source_url,normalized_host,source_type,sport,state,city,review_status,review_notes,is_active,ignore_until,last_tested_at,last_swept_at,last_sweep_status,last_sweep_summary"
+      )
+      .is("tournament_id", null);
+    if (error) {
+      redirect(`/admin/tournaments/sources?notice=${encodeURIComponent(error.message)}`);
+    }
+    const rows = data ?? [];
+    const header = [
+      "source_url",
+      "normalized_host",
+      "source_type",
+      "sport",
+      "state",
+      "city",
+      "review_status",
+      "review_notes",
+      "is_active",
+      "ignore_until",
+      "last_tested_at",
+      "last_swept_at",
+      "last_sweep_status",
+      "last_sweep_summary",
+    ];
+    const csv = [
+      header.join(","),
+      ...rows.map((r: any) =>
+        header
+          .map((h) => {
+            const val = r[h];
+            if (val === null || val === undefined) return "";
+            const str = String(val).replace(/"/g, '""');
+            return `"${str}"`;
+          })
+          .join(",")
+      ),
+    ].join("\n");
+    const hdrs = new Headers(headers());
+    hdrs.set("content-type", "text/csv");
+    hdrs.set("content-disposition", `attachment; filename="sources.csv"`);
+    return new NextResponse(csv, { status: 200, headers: hdrs });
+  }
+
+  const filtered = registryRows.filter((row: any) => {
+    if (filter === "untested") return (row.review_status || "untested") === "untested";
+    if (filter === "keep") return (row.review_status || "") === "keep";
+    if (filter === "needs_review") return (row.review_status || "") === "needs_review";
+    if (filter === "ignored") {
+      const reason = getSkipReason(row);
+      return !!reason;
+    }
+    return true;
+  });
 
   return (
     <div style={{ padding: 24 }}>
@@ -116,6 +234,55 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
           {notice}
         </div>
       )}
+
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+        {(["all", "untested", "keep", "ignored", "needs_review"] as Filter[]).map((f) => (
+          <Link
+            key={f}
+            href={`/admin/tournaments/sources?filter=${f}`}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              background: filter === f ? "#e0f2fe" : "#f9fafb",
+              color: "#0f172a",
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            {f}
+          </Link>
+        ))}
+        <Link
+          href="/admin/tournaments/sources/discover"
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            border: "1px solid #0f172a",
+            background: "#0f172a",
+            color: "#fff",
+            fontWeight: 700,
+            textDecoration: "none",
+          }}
+        >
+          Discover
+        </Link>
+        <form action={exportCsv} style={{ marginLeft: "auto" }}>
+          <button
+            type="submit"
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              background: "#0f172a",
+              color: "#fff",
+              fontWeight: 700,
+            }}
+          >
+            Export CSV
+          </button>
+        </form>
+      </div>
 
       <div style={{ display: "grid", gap: 16, marginBottom: 16 }}>
         <form action={upsertSource} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
@@ -197,6 +364,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                   "City",
                   "Status",
                   "Active",
+                  "Ignore until",
                   "Last tested",
                   "Last sweep",
                   "Summary",
@@ -209,11 +377,9 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
               </tr>
             </thead>
             <tbody>
-              {registryRows.map((row: any) => {
-                const ignore =
-                  !row.is_active ||
-                  IGNORE_STATUSES.has(row.review_status) ||
-                  (row.ignore_until && new Date(row.ignore_until) > new Date());
+              {filtered.map((row: any) => {
+                const reason = getSkipReason(row);
+                const ignore = !!reason;
                 return (
                   <tr key={row.id} style={ignore ? { opacity: 0.65 } : undefined}>
                     <td style={{ padding: "6px 4px" }}>
@@ -256,6 +422,8 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                         <input type="checkbox" name="is_active" defaultChecked={!!row.is_active} />
                         active
                       </label>
+                      <input type="hidden" name="review_notes" value={row.review_notes ?? ""} />
+                      <input type="hidden" name="ignore_until" value={row.ignore_until ?? ""} />
                       <button
                         type="submit"
                         style={{
@@ -271,6 +439,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                     </form>
                   </td>
                   <td style={{ padding: "6px 4px" }}>{row.is_active ? "Yes" : "No"}</td>
+                  <td style={{ padding: "6px 4px" }}>{row.ignore_until ? new Date(row.ignore_until).toLocaleDateString() : "—"}</td>
                   <td style={{ padding: "6px 4px" }}>{formatDate(row.last_tested_at)}</td>
                   <td style={{ padding: "6px 4px" }}>
                     {formatDate(row.last_swept_at)}
@@ -278,26 +447,58 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                   </td>
                   <td style={{ padding: "6px 4px", maxWidth: 220 }}>{row.last_sweep_summary || "—"}</td>
                     <td style={{ padding: "6px 4px" }}>
-                      {ignore ? (
-                        <span style={{ color: "#991b1b", fontWeight: 700 }}>
-                          {row.is_active ? row.review_status || "ignored" : "inactive"}
-                          {row.ignore_until ? ` (until ${new Date(row.ignore_until).toLocaleDateString()})` : ""}
-                        </span>
-                      ) : (
-                        <Link
-                          href={`/admin?tab=tournament-uploads&fallback_source_url=${encodeURIComponent(row.source_url)}`}
-                          style={{ color: "#2563eb", fontWeight: 700 }}
-                        >
-                          Sweep
-                        </Link>
-                      )}
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        {ignore ? (
+                          <span style={{ color: "#991b1b", fontWeight: 700 }}>
+                            {reason}
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/admin?tab=tournament-uploads&fallback_source_url=${encodeURIComponent(row.source_url)}`}
+                            style={{ color: "#2563eb", fontWeight: 700 }}
+                          >
+                            Sweep
+                          </Link>
+                        )}
+                        <form action={quickAction}>
+                          <input type="hidden" name="id" value={row.id} />
+                          <input type="hidden" name="redirect" value={`/admin/tournaments/sources?filter=${filter}`} />
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                            {[
+                              ["keep", "Keep"],
+                              ["dead", "Dead"],
+                              ["login", "Login"],
+                              ["js_only", "JS"],
+                              ["paywalled", "Paywall"],
+                              ["blocked", "Block7d"],
+                              ["clear_block", "Clear"],
+                            ].map(([action, label]) => (
+                              <button
+                                key={action}
+                                name="action"
+                                value={action}
+                                type="submit"
+                                style={{
+                                  padding: "4px 6px",
+                                  borderRadius: 6,
+                                  border: "1px solid #d1d5db",
+                                  background: "#f9fafb",
+                                  fontSize: 11,
+                                }}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 );
               })}
-              {!registryRows.length && (
+              {!filtered.length && (
                 <tr>
-                  <td colSpan={9} style={{ padding: 8, color: "#666" }}>
+                  <td colSpan={11} style={{ padding: 8, color: "#666" }}>
                     No sources yet.
                   </td>
                 </tr>

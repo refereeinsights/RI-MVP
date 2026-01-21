@@ -1,0 +1,237 @@
+import AdminNav from "@/components/admin/AdminNav";
+import { requireAdmin } from "@/lib/admin";
+import { normalizeSourceUrl, upsertRegistry } from "@/server/admin/sources";
+
+type SearchParams = {
+  notice?: string;
+  sport?: string | string[];
+  state?: string | string[];
+  etype?: string | string[];
+  pay?: string;
+  hotel?: string;
+  meals?: string;
+  pdf?: string;
+};
+
+function asArray(val: string | string[] | undefined): string[] {
+  if (!val) return [];
+  return Array.isArray(val) ? val : [val];
+}
+
+function buildQueriesFromParams(params: SearchParams): string[] {
+  const sports = asArray(params.sport).filter(Boolean);
+  const states = asArray(params.state).filter(Boolean);
+  const eventTypes = asArray(params.etype).filter(Boolean);
+  const includePay = params.pay === "on";
+  const includeHotel = params.hotel === "on";
+  const includeMeals = params.meals === "on";
+  const pdfFirst = params.pdf === "on";
+
+  const baseTerms = ['("referee" OR "officials" OR "assignor" OR "referee coordinator")'];
+  const extras: string[] = [];
+  if (eventTypes.length) extras.push(`(${eventTypes.map((e) => `"${e}"`).join(" OR ")})`);
+  if (includePay) extras.push('("referee pay" OR "officials pay" OR "referee fees" OR "referee rates")');
+  if (includeHotel) extras.push("(hotel OR housing OR lodging)");
+  if (includeMeals) extras.push('("meals" OR "per diem" OR stipend)');
+  if (sports.length) extras.push(`(${sports.join(" OR ")})`);
+  if (states.length) extras.push(`(${states.map((s) => `"${s}"`).join(" OR ")})`);
+
+  const negatives = "-casino -gambling -booking -concert -tickets";
+  const pdf = pdfFirst ? "(filetype:pdf OR filetype:doc OR filetype:docx)" : "";
+
+  const body = [...baseTerms, ...extras].join(" AND ");
+  if (!body) return [];
+  const queries: string[] = [];
+  for (let i = 0; i < Math.max(6, extras.length + 2); i++) {
+    queries.push([body, pdf, negatives].filter(Boolean).join(" "));
+  }
+  return queries.slice(0, 10);
+}
+
+async function addToMaster(formData: FormData) {
+  "use server";
+  await requireAdmin();
+  const raw = String(formData.get("urls") || "");
+  const source_type = String(formData.get("source_type") || "").trim() || null;
+  const sport = String(formData.get("sport_default") || "").trim() || null;
+  const state = String(formData.get("state_default") || "").trim() || null;
+  const city = String(formData.get("city_default") || "").trim() || null;
+  const notesPrefix = String(formData.get("notes_prefix") || "").trim();
+  const urls = raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  let added = 0;
+  for (const u of urls) {
+    const { canonical } = normalizeSourceUrl(u);
+    await upsertRegistry({
+      source_url: canonical,
+      source_type,
+      sport,
+      state,
+      city,
+      notes: notesPrefix ? `${notesPrefix} ${canonical}` : null,
+      review_status: "needs_review",
+    });
+    added++;
+  }
+  return { added };
+}
+
+export default async function DiscoverPage({ searchParams }: { searchParams: SearchParams }) {
+  await requireAdmin();
+  const notice = searchParams.notice ?? "";
+  const queries = buildQueriesFromParams(searchParams);
+
+  return (
+    <div style={{ padding: 24 }}>
+      <AdminNav />
+      <h1 style={{ fontSize: 20, fontWeight: 900, marginBottom: 12 }}>Discover sources</h1>
+      {notice && (
+        <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", padding: 8, borderRadius: 8, marginBottom: 12 }}>
+          {notice}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr", marginBottom: 24 }}>
+        <form method="get" style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>Search query builder</h2>
+          <div style={{ display: "grid", gap: 8, marginTop: 8, gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
+            <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+              Sports
+              <select name="sport" multiple style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db", minHeight: 90 }}>
+                {["soccer", "basketball", "football"].map((s) => (
+                  <option key={s} value={s} selected={asArray(searchParams.sport).includes(s)}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+              States
+              <select name="state" multiple style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db", minHeight: 90 }}>
+                {["WA", "OR", "CA", "AZ", "NV", "UT", "ID", "MT"].map((s) => (
+                  <option key={s} value={s} selected={asArray(searchParams.state).includes(s)}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+              Event types
+              <select name="etype" multiple style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db", minHeight: 90 }}>
+                {["tournament", "showcase", "invitational", "cup", "classic"].map((s) => (
+                  <option key={s} value={s} selected={asArray(searchParams.etype).includes(s)}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div style={{ display: "grid", gap: 6, paddingTop: 18 }}>
+              {[
+                ["pay", "Pay terms"],
+                ["hotel", "Hotel / housing"],
+                ["meals", "Meals / per diem"],
+                ["pdf", "PDF-first"],
+              ].map(([name, label]) => (
+                <label key={name} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
+                  <input type="checkbox" name={name} defaultChecked={(searchParams as any)[name] === "on"} /> {label}
+                </label>
+              ))}
+            </div>
+          </div>
+          <button
+            type="submit"
+            style={{
+              marginTop: 10,
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: "none",
+              background: "#0f172a",
+              color: "#fff",
+              fontWeight: 800,
+            }}
+          >
+            Generate queries
+          </button>
+          {queries.length > 0 && (
+            <div style={{ marginTop: 12, display: "grid", gap: 6 }}>
+              {queries.map((q, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    padding: 8,
+                    border: "1px dashed #d1d5db",
+                    borderRadius: 8,
+                    background: "#f9fafb",
+                    fontSize: 13,
+                  }}
+                >
+                  {q}
+                </div>
+              ))}
+            </div>
+          )}
+        </form>
+
+        <form action={addToMaster} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>Paste candidate URLs</h2>
+          <div style={{ display: "grid", gap: 8, marginTop: 8, gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
+            <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+              Default source type
+              <select name="source_type" style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}>
+                <option value="">(auto)</option>
+                <option value="venue_calendar">Venue calendar</option>
+                <option value="club_calendar">Club calendar</option>
+                <option value="league_calendar">League calendar</option>
+                <option value="series_site">Series site</option>
+                <option value="platform_listing">Platform listing</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+              Sport
+              <input name="sport_default" placeholder="soccer" style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }} />
+            </label>
+            <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+              State
+              <input name="state_default" placeholder="WA" style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }} />
+            </label>
+            <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+              City
+              <input name="city_default" placeholder="Seattle" style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }} />
+            </label>
+            <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+              Notes prefix
+              <input name="notes_prefix" placeholder="#discovered_via:manual_search" style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }} />
+            </label>
+          </div>
+          <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700, marginTop: 8 }}>
+            URLs (one per line)
+            <textarea
+              name="urls"
+              rows={8}
+              style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db", width: "100%" }}
+              placeholder="https://example.com/events&#10;https://club.com/calendar"
+            />
+          </label>
+          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            <button
+              type="submit"
+              style={{
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: "none",
+                background: "#0f172a",
+                color: "#fff",
+                fontWeight: 800,
+              }}
+            >
+              Add to master list
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

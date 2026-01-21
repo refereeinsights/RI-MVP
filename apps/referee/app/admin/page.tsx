@@ -71,6 +71,8 @@ import type {
 import { createTournamentFromUrl, fetchHtml } from "@/server/admin/pasteUrl";
 import {
   insertRun as insertSourceRun,
+  ensureRegistryRow,
+  getSkipReason,
   normalizeSourceUrl,
   upsertRegistry as upsertSourceRegistry,
   updateRegistrySweep,
@@ -697,6 +699,7 @@ export default async function AdminPage({
     const treatConfirmed = String(formData.get("treat_confirmed") || "") === "on";
     const status: TournamentStatus = treatConfirmed ? "published" : "draft";
     const source = (formData.get("source") as TournamentSource) ?? "external_crawl";
+    const overrideSkip = String(formData.get("override_skip") || "") === "on";
     const fallbackSportInput = String(formData.get("fallback_sport") || "soccer").toLowerCase();
     const fallbackSport = TOURNAMENT_SPORTS.includes(fallbackSportInput as any)
       ? (fallbackSportInput as (typeof TOURNAMENT_SPORTS)[number])
@@ -758,6 +761,23 @@ export default async function AdminPage({
         return redirectWithNotice(redirectTo, "Unsupported file type. Use CSV, HTML, or MHTML.");
       }
     } else if (normalizedSourceUrl && normalizedSourceUrl.includes("grassroots365.com")) {
+      // Respect source skip settings unless override is checked.
+      const { row } = await ensureRegistryRow(normalizedSourceUrl, {
+        source_url: normalizedSourceUrl,
+        source_type: "platform_listing",
+        sport: fallbackSport,
+        state: fallbackState,
+        city: fallbackCity,
+        is_active: true,
+      });
+      const skipReason = getSkipReason(row);
+      if (skipReason && !overrideSkip) {
+        return redirectWithNotice(
+          redirectTo,
+          `Sweep skipped: ${skipReason}. Update the source status or enable override.`
+        );
+      }
+
       const candidates = new Set<string>();
       candidates.add(normalizedSourceUrl);
       try {
@@ -1048,11 +1068,34 @@ export default async function AdminPage({
     const url = String(formData.get("tournament_url") || "").trim();
     const sportRaw = String(formData.get("tournament_sport") || "soccer").toLowerCase();
     const redirectTo = formData.get("redirect_to");
+    const overrideSkip = String(formData.get("override_skip") || "") === "on";
     const sport = TOURNAMENT_SPORTS.includes(sportRaw as any) ? (sportRaw as any) : "soccer";
     if (!url) {
       return redirectWithNotice(redirectTo, "URL is required.");
     }
     try {
+      // Skip guard: respect source labeling unless override is checked.
+      const { canonical } = normalizeSourceUrl(url);
+      const { row } = await ensureRegistryRow(canonical, {
+        source_url: canonical,
+        source_type: "platform_listing",
+        sport,
+        is_active: true,
+      });
+      const skipReason = getSkipReason(row);
+      if (skipReason && !overrideSkip) {
+        return redirectWithNotice(
+          redirectTo,
+          `Skipped: ${skipReason}. Update source status or enable override.`
+        );
+      }
+
+      // Mark as tested when we attempt the fetch.
+      await supabaseAdmin
+        .from("tournament_sources" as any)
+        .update({ last_tested_at: new Date().toISOString() })
+        .eq("id", row.id);
+
       const res = await createTournamentFromUrl({ url, sport, status: "draft", source: "external_crawl" });
       return redirectWithNotice(
         redirectTo,
@@ -1815,6 +1858,10 @@ export default async function AdminPage({
                   ))}
                 </select>
               </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 700 }}>
+                <input type="checkbox" name="override_skip" />
+                Override source skip guard
+              </label>
               <button
                 style={{
                   padding: "8px 12px",
@@ -1967,6 +2014,10 @@ export default async function AdminPage({
                   placeholder="Short description"
                   style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
                 />
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                <input type="checkbox" name="override_skip" />
+                Override source skip guard (when using source URL)
               </label>
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
                 <input type="checkbox" name="treat_confirmed" />
@@ -2950,12 +3001,15 @@ export default async function AdminPage({
                       <input type="hidden" name="redirect_to" value={adminBasePath} />
 
                       <div style={{ display: "grid", gap: 10, minWidth: 360 }}>
-                        <input
+                        <select
                           name="role"
                           defaultValue={u.role ?? ""}
-                          placeholder="role (admin/user)"
                           style={{ padding: 8, borderRadius: 10, border: "1px solid #bbb" }}
-                        />
+                        >
+                          <option value="">user</option>
+                          <option value="user">user</option>
+                          <option value="admin">admin</option>
+                        </select>
 
                         <input
                           name="years_refereeing"

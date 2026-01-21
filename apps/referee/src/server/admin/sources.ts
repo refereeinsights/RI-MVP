@@ -25,6 +25,25 @@ export type RunInsertInput = {
   extract_confidence?: number | null;
 };
 
+export type RegistryRow = {
+  id: string;
+  source_url: string;
+  url?: string | null;
+  is_active?: boolean | null;
+  review_status?: string | null;
+  review_notes?: string | null;
+  ignore_until?: string | null;
+};
+
+const IGNORED_STATUSES = new Set([
+  "dead",
+  "login_required",
+  "paywalled",
+  "js_only",
+  "deprecated",
+  "duplicate_source",
+]);
+
 export function normalizeSourceUrl(raw: string): { canonical: string; host: string } {
   const trimmed = raw.trim();
   const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
@@ -70,6 +89,79 @@ export async function upsertRegistry(input: RegistryUpsertInput) {
 
   if (error || !data) throw error ?? new Error("registry_upsert_failed");
   return { registry_id: data.id, canonical };
+}
+
+export async function getRegistryRowByUrl(
+  canonicalUrl: string
+): Promise<{ row: RegistryRow | null; error: any }> {
+  const { data, error } = await supabaseAdmin
+    .from("tournament_sources" as any)
+    .select("id,source_url,url,is_active,review_status,review_notes,ignore_until")
+    .eq("url", canonicalUrl)
+    .is("tournament_id", null)
+    .limit(1)
+    .maybeSingle();
+  return { row: (data as RegistryRow | null) ?? null, error };
+}
+
+export async function ensureRegistryRow(
+  source_url: string,
+  defaults: Partial<RegistryUpsertInput> = {}
+): Promise<{ canonical: string; row: RegistryRow }> {
+  const { canonical, host } = normalizeSourceUrl(source_url);
+  const existing = await getRegistryRowByUrl(canonical);
+  if (existing.row) {
+    return { canonical, row: existing.row };
+  }
+  const createDefaults: RegistryUpsertInput = {
+    source_url: canonical,
+    source_type: defaults.source_type ?? null,
+    sport: defaults.sport ?? null,
+    state: defaults.state ?? null,
+    city: defaults.city ?? null,
+    notes: defaults.notes ?? null,
+    is_active: defaults.is_active ?? true,
+    review_status: defaults.review_status ?? "untested",
+    review_notes: defaults.review_notes ?? null,
+    ignore_until: defaults.ignore_until ?? null,
+  };
+  const { registry_id } = await upsertRegistry(createDefaults);
+  return {
+    canonical,
+    row: {
+      id: registry_id,
+      source_url: canonical,
+      url: canonical,
+      is_active: createDefaults.is_active ?? true,
+      review_status: createDefaults.review_status ?? "untested",
+      review_notes: createDefaults.review_notes ?? null,
+      ignore_until: createDefaults.ignore_until ?? null,
+    },
+  };
+}
+
+export function getSkipReason(row: RegistryRow | null): string | null {
+  if (!row) return null;
+  if (row.is_active === false) return "Inactive source";
+  const status = (row.review_status || "").trim();
+  if (IGNORED_STATUSES.has(status)) {
+    return `Marked ${status.replace("_", " ")}`;
+  }
+  if (status === "blocked_403") {
+    if (row.ignore_until) {
+      const until = new Date(row.ignore_until);
+      if (until > new Date()) {
+        return `Blocked until ${until.toLocaleDateString()}`;
+      }
+    }
+  }
+  if (row.ignore_until) {
+    const until = new Date(row.ignore_until);
+    if (until > new Date()) {
+      return `Ignored until ${until.toLocaleDateString()}`;
+    }
+  }
+  return null;
 }
 
 export async function insertRun(input: RunInsertInput) {
