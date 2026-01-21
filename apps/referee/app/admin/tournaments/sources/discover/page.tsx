@@ -1,6 +1,7 @@
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { normalizeSourceUrl, upsertRegistry } from "@/server/admin/sources";
+import { redirect } from "next/navigation";
 
 type SearchParams = {
   notice?: string;
@@ -75,7 +76,9 @@ async function addToMaster(formData: FormData) {
     });
     added++;
   }
-  return { added };
+  redirect(
+    `/admin/tournaments/sources/discover?notice=${encodeURIComponent(`Added ${added} URL${added === 1 ? "" : "s"}`)}`
+  );
 }
 
 export default async function DiscoverPage({ searchParams }: { searchParams: SearchParams }) {
