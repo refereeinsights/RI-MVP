@@ -8,8 +8,6 @@ import {
   upsertRegistry,
   getSkipReason,
 } from "@/server/admin/sources";
-import { headers } from "next/headers";
-import { NextResponse } from "next/server";
 
 const IGNORE_STATUSES = new Set([
   "dead",
@@ -166,54 +164,6 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     redirect(`${redirectUrl || "/admin/tournaments/sources"}?notice=${encodeURIComponent(msg)}`);
   }
 
-  async function exportCsv() {
-    "use server";
-    await requireAdmin();
-    const { data, error } = await supabaseAdmin
-      .from("tournament_sources" as any)
-      .select(
-        "source_url,normalized_host,source_type,sport,state,city,review_status,review_notes,is_active,ignore_until,last_tested_at,last_swept_at,last_sweep_status,last_sweep_summary"
-      )
-      .is("tournament_id", null);
-    if (error) {
-      redirect(`/admin/tournaments/sources?notice=${encodeURIComponent(error.message)}`);
-    }
-    const rows = data ?? [];
-    const header = [
-      "source_url",
-      "normalized_host",
-      "source_type",
-      "sport",
-      "state",
-      "city",
-      "review_status",
-      "review_notes",
-      "is_active",
-      "ignore_until",
-      "last_tested_at",
-      "last_swept_at",
-      "last_sweep_status",
-      "last_sweep_summary",
-    ];
-    const csv = [
-      header.join(","),
-      ...rows.map((r: any) =>
-        header
-          .map((h) => {
-            const val = r[h];
-            if (val === null || val === undefined) return "";
-            const str = String(val).replace(/"/g, '""');
-            return `"${str}"`;
-          })
-          .join(",")
-      ),
-    ].join("\n");
-    const hdrs = new Headers(headers());
-    hdrs.set("content-type", "text/csv");
-    hdrs.set("content-disposition", `attachment; filename="sources.csv"`);
-    return new NextResponse(csv, { status: 200, headers: hdrs });
-  }
-
   const filtered = registryRows.filter((row: any) => {
     if (filter === "untested") return (row.review_status || "untested") === "untested";
     if (filter === "keep") return (row.review_status || "") === "keep";
@@ -267,21 +217,21 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         >
           Discover
         </Link>
-        <form action={exportCsv} style={{ marginLeft: "auto" }}>
-          <button
-            type="submit"
-            style={{
-              padding: "6px 10px",
-              borderRadius: 8,
-              border: "1px solid #d1d5db",
-              background: "#0f172a",
-              color: "#fff",
-              fontWeight: 700,
-            }}
-          >
-            Export CSV
-          </button>
-        </form>
+        <a
+          href="/api/admin/tournaments/sources/export"
+          style={{
+            marginLeft: "auto",
+            padding: "6px 10px",
+            borderRadius: 8,
+            border: "1px solid #d1d5db",
+            background: "#0f172a",
+            color: "#fff",
+            fontWeight: 700,
+            textDecoration: "none",
+          }}
+        >
+          Export CSV
+        </a>
       </div>
 
       <div style={{ display: "grid", gap: 16, marginBottom: 16 }}>
