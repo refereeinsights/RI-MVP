@@ -246,6 +246,7 @@ export type AdminTournamentReview = {
   facilities_score: number;
   pay_score: number;
   support_score: number;
+  sideline_score: number;
   worked_games: number | null;
   shift_detail: string | null;
   reviewer?: {
@@ -272,6 +273,7 @@ export type AdminSchoolReview = {
   facilities_score: number;
   pay_score: number;
   support_score: number;
+  sideline_score: number;
   worked_games: number | null;
   shift_detail: string | null;
   reviewer?: {
@@ -450,7 +452,7 @@ export async function adminListSchoolReviews(status: ReviewStatus = "pending") {
   const { data, error } = await supabaseAdmin
     .from("school_referee_reviews")
     .select(
-      "id,school_id,user_id,created_at,status,sport,overall_score,logistics_score,facilities_score,pay_score,support_score,worked_games,shift_detail"
+      "id,school_id,user_id,created_at,status,sport,overall_score,logistics_score,facilities_score,pay_score,support_score,sideline_score,worked_games,shift_detail"
     )
     .eq("status", status)
     .order("created_at", { ascending: false })
@@ -496,6 +498,7 @@ export async function adminListSchoolReviews(status: ReviewStatus = "pending") {
         facilities_score: row.facilities_score,
         pay_score: row.pay_score,
         support_score: row.support_score,
+        sideline_score: row.sideline_score,
         worked_games: row.worked_games,
         shift_detail: row.shift_detail,
         reviewer: profileMap.get(row.user_id) ?? null,
@@ -513,6 +516,7 @@ export async function adminUpdateSchoolReview(params: {
     facilities_score?: number;
     pay_score?: number;
     support_score?: number;
+    sideline_score?: number;
     worked_games?: number | null;
     shift_detail?: string | null;
   };

@@ -345,6 +345,7 @@ export default async function AdminPage({
       "facilities_score",
       "pay_score",
       "support_score",
+      "sideline_score",
     ] as const;
 
     const updates: Record<string, any> = {
@@ -3328,6 +3329,7 @@ export default async function AdminPage({
                       <div>Facilities: {review.facilities_score} / 5</div>
                       <div>Pay: {review.pay_score} / 5</div>
                       <div>Support: {review.support_score} / 5</div>
+                      <div>Sideline: {review.sideline_score} / 5</div>
                       <div>Worked games: {review.worked_games ?? "—"}</div>
                     </div>
                   </div>
@@ -3732,6 +3734,14 @@ export default async function AdminPage({
                           <input
                             name="support_score"
                             defaultValue={review.support_score}
+                            style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                          />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Sideline
+                          <input
+                            name="sideline_score"
+                            defaultValue={review.sideline_score}
                             style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
                           />
                         </label>

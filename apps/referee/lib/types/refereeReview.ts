@@ -22,5 +22,6 @@ export type RefereeReviewPublic = {
   facilities_score: number;
   pay_score: number;
   support_score: number;
+  sideline_score?: number | null;
   shift_detail?: string | null;
 };

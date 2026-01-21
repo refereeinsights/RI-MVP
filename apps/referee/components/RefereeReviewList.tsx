@@ -153,14 +153,17 @@ export default function RefereeReviewList({ reviews }: Props) {
               { label: "Facilities", value: review.facilities_score },
               { label: "Pay", value: review.pay_score },
               { label: "Support", value: review.support_score },
-            ].map((item) => (
-              <div key={item.label}>
-                <dt>{item.label}</dt>
-                <dd>
-                  <WhistleScale score={item.value} />
-                </dd>
-              </div>
-            ))}
+              { label: "Sideline", value: review.sideline_score },
+            ]
+              .filter((item) => item.value !== null && typeof item.value !== "undefined")
+              .map((item) => (
+                <div key={item.label}>
+                  <dt>{item.label}</dt>
+                  <dd>
+                    <WhistleScale score={item.value} />
+                  </dd>
+                </div>
+              ))}
           </dl>
 
           {review.shift_detail && (

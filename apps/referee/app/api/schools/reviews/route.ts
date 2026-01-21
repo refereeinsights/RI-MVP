@@ -10,6 +10,7 @@ const NUMBER_FIELDS = [
   "facilities_score",
   "pay_score",
   "support_score",
+  "sideline_score",
 ] as const;
 
 const ALLOWED_SPORTS = ["soccer", "basketball", "football"] as const;

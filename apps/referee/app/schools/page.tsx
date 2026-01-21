@@ -27,6 +27,7 @@ type SchoolReviewRow = {
   facilities_score: number;
   pay_score: number;
   support_score: number;
+  sideline_score: number;
   shift_detail?: string | null;
   sport?: string | null;
 };
@@ -591,7 +592,7 @@ async function loadRecentSchoolReviews(
   const { data } = await supabase
     .from("school_referee_reviews_public")
     .select(
-      "id,school_id,created_at,reviewer_handle,reviewer_level,worked_games,overall_score,logistics_score,facilities_score,pay_score,support_score,shift_detail,school_name,school_city,school_state,sport"
+      "id,school_id,created_at,reviewer_handle,reviewer_level,worked_games,overall_score,logistics_score,facilities_score,pay_score,support_score,sideline_score,shift_detail,school_name,school_city,school_state,sport"
     )
     .order("created_at", { ascending: false })
     .limit(5);

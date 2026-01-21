@@ -165,6 +165,7 @@ export default function SchoolReviewForm({
       facilities_score: Number(formData.get("facilities_score") ?? 0),
       pay_score: Number(formData.get("pay_score") ?? 0),
       support_score: Number(formData.get("support_score") ?? 0),
+      sideline_score: Number(formData.get("sideline_score") ?? 0),
       sport: sportValue,
       worked_games: formData.get("worked_games")
         ? Number(formData.get("worked_games"))
@@ -173,7 +174,14 @@ export default function SchoolReviewForm({
     };
 
     if (
-      [payload.overall_score, payload.logistics_score, payload.facilities_score, payload.pay_score, payload.support_score].some(
+      [
+        payload.overall_score,
+        payload.logistics_score,
+        payload.facilities_score,
+        payload.pay_score,
+        payload.support_score,
+        payload.sideline_score,
+      ].some(
         (value) => Number.isNaN(value) || value < 1 || value > 5
       )
     ) {
@@ -340,6 +348,10 @@ export default function SchoolReviewForm({
         <label>
           <span>School support &amp; security</span>
           <input type="number" name="support_score" min={1} max={5} step={1} required />
+        </label>
+        <label>
+          <span>Sideline / crowd / fans</span>
+          <input type="number" name="sideline_score" min={1} max={5} step={1} required />
         </label>
         <label>
           <span>Games worked</span>
