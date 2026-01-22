@@ -26,6 +26,13 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString();
 }
 
+function parseIds(formData: FormData) {
+  return formData
+    .getAll("record_ids")
+    .map((value) => String(value))
+    .filter(Boolean);
+}
+
 function AssignorAdminNav() {
   return (
     <div style={{ display: "flex", gap: 10, margin: "12px 0 18px" }}>
@@ -101,6 +108,25 @@ export default async function AssignorReviewPage({ searchParams }: { searchParam
     redirect("/admin/assignors/review?notice=Approved");
   }
 
+  async function bulkApproveAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const ids = parseIds(formData);
+    if (!ids.length) return;
+    for (const id of ids) {
+      const { error: rpcError } = await (supabaseAdmin as any).rpc("process_assignor_source_record", {
+        p_source_record_id: id,
+      });
+      if (rpcError) {
+        console.error("bulk process_assignor_source_record failed", rpcError);
+        redirect("/admin/assignors/review?error=approve");
+      }
+    }
+    revalidatePath("/admin/assignors/review");
+    revalidatePath("/admin/assignors");
+    redirect("/admin/assignors/review?notice=Approved");
+  }
+
   async function rejectAction(formData: FormData) {
     "use server";
     await requireAdmin();
@@ -118,6 +144,23 @@ export default async function AssignorReviewPage({ searchParams }: { searchParam
     redirect("/admin/assignors/review?notice=Rejected");
   }
 
+  async function bulkRejectAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const ids = parseIds(formData);
+    if (!ids.length) return;
+    const { error: updateError } = await supabaseAdmin
+      .from("assignor_source_records" as any)
+      .update({ review_status: "rejected" })
+      .in("id", ids);
+    if (updateError) {
+      console.error("bulk reject failed", updateError);
+      redirect("/admin/assignors/review?error=reject");
+    }
+    revalidatePath("/admin/assignors/review");
+    redirect("/admin/assignors/review?notice=Rejected");
+  }
+
   async function blockAction(formData: FormData) {
     "use server";
     await requireAdmin();
@@ -129,6 +172,23 @@ export default async function AssignorReviewPage({ searchParams }: { searchParam
       .eq("id", id);
     if (updateError) {
       console.error("assignor_source_records block failed", updateError);
+      redirect("/admin/assignors/review?error=block");
+    }
+    revalidatePath("/admin/assignors/review");
+    redirect("/admin/assignors/review?notice=Blocked");
+  }
+
+  async function bulkBlockAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const ids = parseIds(formData);
+    if (!ids.length) return;
+    const { error: updateError } = await supabaseAdmin
+      .from("assignor_source_records" as any)
+      .update({ review_status: "blocked" })
+      .in("id", ids);
+    if (updateError) {
+      console.error("bulk block failed", updateError);
       redirect("/admin/assignors/review?error=block");
     }
     revalidatePath("/admin/assignors/review");
@@ -168,6 +228,60 @@ export default async function AssignorReviewPage({ searchParams }: { searchParam
         </div>
       ) : null}
 
+      <form
+        id="bulk-assignor-review"
+        action={bulkApproveAction}
+        style={{
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          marginBottom: 12,
+          alignItems: "center",
+        }}
+      >
+        <button
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "none",
+            background: "#0a7a2f",
+            color: "#fff",
+            fontWeight: 800,
+          }}
+        >
+          Approve &amp; Upsert selected
+        </button>
+        <button
+          formAction={bulkRejectAction}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "1px solid #b91c1c",
+            background: "#fff",
+            color: "#b91c1c",
+            fontWeight: 800,
+          }}
+        >
+          Reject selected
+        </button>
+        <button
+          formAction={bulkBlockAction}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "1px solid #6b7280",
+            background: "#f3f4f6",
+            color: "#111827",
+            fontWeight: 800,
+          }}
+        >
+          Block selected
+        </button>
+        <div style={{ fontSize: 12, color: "#555" }}>
+          Select rows below to enable bulk actions.
+        </div>
+      </form>
+
       {records.length === 0 ? (
         <div style={{ color: "#555" }}>No records waiting for review.</div>
       ) : (
@@ -188,6 +302,10 @@ export default async function AssignorReviewPage({ searchParams }: { searchParam
               >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <div style={{ minWidth: 260 }}>
+                    <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                      <input type="checkbox" name="record_ids" value={record.id} form="bulk-assignor-review" />
+                      Select
+                    </label>
                     <div style={{ fontWeight: 900, fontSize: 16 }}>{raw.name ?? "Unnamed assignor"}</div>
                     <div style={{ color: "#555", fontSize: 13 }}>
                       {raw.email ?? "—"} {raw.phone ? `• ${raw.phone}` : ""}
