@@ -142,7 +142,12 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
       <form style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
         <label style={{ fontSize: 12, fontWeight: 700 }}>
           Sport
-          <input name="sport" defaultValue={sport} placeholder="soccer" style={{ padding: 6, borderRadius: 8, border: "1px solid #ccc" }} />
+          <select name="sport" defaultValue={sport} style={{ padding: 6, borderRadius: 8, border: "1px solid #ccc" }}>
+            <option value="">All</option>
+            <option value="soccer">Soccer</option>
+            <option value="basketball">Basketball</option>
+            <option value="football">Football</option>
+          </select>
         </label>
         <label style={{ fontSize: 12, fontWeight: 700 }}>
           States (comma separated)
