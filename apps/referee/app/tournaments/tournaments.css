@@ -996,6 +996,23 @@
   line-height: 1.4;
 }
 
+.reviewList .reviewCard.reviewCard--basketball,
+.reviewList .reviewCard.reviewCard--basketball p,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__meta,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__handle,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__overall,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__body,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__sport {
+  color: #111111;
+  text-shadow: none;
+}
+
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__scores dt,
+.reviewList .reviewCard.reviewCard--basketball .reviewCard__scores dd {
+  color: #111111 !important;
+  text-shadow: none;
+}
+
 .reviewEmpty {
   border: 1px dashed rgba(0,0,0,0.25);
   border-radius: 10px;
