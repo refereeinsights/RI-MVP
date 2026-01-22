@@ -31,6 +31,15 @@ export function AdminNav() {
       <Link href="/admin/tournaments/sources" style={linkStyle}>
         Sources
       </Link>
+      <Link href="/admin/assignors" style={linkStyle}>
+        Assignors
+      </Link>
+      <Link href="/admin/assignors/review" style={linkStyle}>
+        Assignors review
+      </Link>
+      <Link href="/admin/assignors/sources" style={linkStyle}>
+        Assignors sources
+      </Link>
       <Link href="/admin/venues" style={linkStyle}>
         Venues
       </Link>

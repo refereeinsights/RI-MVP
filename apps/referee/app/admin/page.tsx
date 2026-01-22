@@ -197,6 +197,17 @@ export default async function AdminPage({
     tab === "tournament-uploads" ? await adminListPendingTournaments() : [];
   const listedTournaments: AdminListedTournament[] =
     tab === "tournament-listings" ? await adminSearchPublishedTournaments(q) : [];
+  const { count: assignorNeedsReviewCount, error: assignorNeedsReviewError } =
+    await supabaseAdmin
+      .from("assignor_source_records" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("review_status", "needs_review");
+  if (assignorNeedsReviewError) {
+    console.error("Assignor review count failed", assignorNeedsReviewError);
+  }
+  const assignorNeedsReviewLabel = assignorNeedsReviewError
+    ? "—"
+    : String(assignorNeedsReviewCount ?? 0);
 
   const formatDateInput = (value?: string | null) => {
     if (!value) return "";
@@ -1277,6 +1288,84 @@ export default async function AdminPage({
           </a>
         </div>
       )}
+
+      <section
+        style={{
+          border: "1px solid #ddd",
+          borderRadius: 14,
+          padding: 16,
+          background: "#fff",
+          marginBottom: 18,
+          display: "grid",
+          gap: 10,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 16 }}>Assignors</div>
+            <div style={{ color: "#555", fontSize: 13 }}>
+              Review and manage assignor contacts (sources, crawls, directory).
+            </div>
+          </div>
+          <div
+            style={{
+              alignSelf: "flex-start",
+              padding: "6px 10px",
+              borderRadius: 999,
+              border: "1px solid #111",
+              fontWeight: 800,
+              fontSize: 12,
+              background: "#f8fafc",
+            }}
+          >
+            Needs review: {assignorNeedsReviewLabel}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <a
+            href="/admin/assignors"
+            style={{
+              padding: "8px 12px",
+              borderRadius: 999,
+              border: "1px solid #111",
+              background: "#111",
+              color: "#fff",
+              fontWeight: 900,
+              textDecoration: "none",
+            }}
+          >
+            Open Assignors
+          </a>
+          <a
+            href="/admin/assignors/review"
+            style={{
+              padding: "8px 12px",
+              borderRadius: 999,
+              border: "1px solid #111",
+              background: "#fff",
+              color: "#111",
+              fontWeight: 900,
+              textDecoration: "none",
+            }}
+          >
+            Review queue
+          </a>
+          <a
+            href="/admin/assignors/sources"
+            style={{
+              padding: "8px 12px",
+              borderRadius: 999,
+              border: "1px solid #111",
+              background: "#fff",
+              color: "#111",
+              fontWeight: 900,
+              textDecoration: "none",
+            }}
+          >
+            Sources
+          </a>
+        </div>
+      </section>
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
