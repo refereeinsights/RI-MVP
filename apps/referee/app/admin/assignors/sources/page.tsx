@@ -147,6 +147,33 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
     redirect("/admin/assignors/sources?notice=Run%20created");
   }
 
+  async function runCnraCrawlAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const source_id = String(formData.get("source_id") || "");
+    const zip = String(formData.get("zip") || "").trim();
+    const radiusRaw = String(formData.get("radius_miles") || "").trim();
+    const cookie = String(formData.get("cookie") || "").trim();
+    const radius_miles = Number(radiusRaw);
+    if (!source_id || !zip || !Number.isFinite(radius_miles)) {
+      redirect("/admin/assignors/sources?error=cnra_input");
+    }
+    const body: Record<string, any> = { zip, radius_miles, source_id };
+    if (cookie) body.cookie = cookie;
+    const { data, error: invokeError } = await (supabaseAdmin as any).functions.invoke(
+      "assignor-crawl-cnra",
+      { body }
+    );
+    if (invokeError) {
+      console.error("assignor-crawl-cnra failed", invokeError);
+      redirect("/admin/assignors/sources?error=cnra_invoke");
+    }
+    revalidatePath("/admin/assignors/sources");
+    revalidatePath("/admin/assignors/review");
+    const inserted = data?.inserted ?? 0;
+    redirect(`/admin/assignors/sources?notice=${encodeURIComponent(`CNRA inserted ${inserted} records`)}`);
+  }
+
   return (
     <div style={{ padding: 24 }}>
       <AdminNav />
@@ -169,6 +196,7 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
         <div style={{ display: "grid", gap: 14 }}>
           {sources.map((source) => {
             const runs = runsBySource.get(source.id) ?? [];
+            const isCnra = source.source_url === "https://www.cnra.net/assignor/";
             return (
               <div key={source.id} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 14, background: "#fff" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -186,6 +214,57 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
                   </div>
                   <div style={{ fontSize: 12, color: "#555" }}>Created: {formatDate(source.created_at)}</div>
                 </div>
+
+                {isCnra ? (
+                  <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                    <div style={{ fontWeight: 800, marginBottom: 6 }}>Run CNRA crawl</div>
+                    <form action={runCnraCrawlAction} style={{ display: "grid", gap: 8 }}>
+                      <input type="hidden" name="source_id" value={source.id} />
+                      <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Zip
+                          <input name="zip" placeholder="94110" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Radius (miles)
+                          <input
+                            name="radius_miles"
+                            type="number"
+                            min={1}
+                            max={200}
+                            defaultValue={50}
+                            style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                          />
+                        </label>
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Cookie (optional)
+                          <input
+                            name="cookie"
+                            type="password"
+                            placeholder="cf_clearance=..."
+                            style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                          />
+                        </label>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#64748b" }}>
+                        Optional: only if CNRA blocks the request.
+                      </div>
+                      <button
+                        style={{
+                          justifySelf: "flex-start",
+                          padding: "8px 12px",
+                          borderRadius: 8,
+                          border: "none",
+                          background: "#0f172a",
+                          color: "#fff",
+                          fontWeight: 800,
+                        }}
+                      >
+                        Run CNRA Crawl
+                      </button>
+                    </form>
+                  </div>
+                ) : null}
 
                 <div style={{ marginTop: 10, borderTop: "1px solid #eee", paddingTop: 10 }}>
                   <div style={{ fontWeight: 700, marginBottom: 6 }}>Recent crawl runs</div>
