@@ -81,7 +81,7 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
   const { data: runRows } = sourceIds.length
     ? await supabaseAdmin
         .from("assignor_crawl_runs" as any)
-        .select("id,source_id,started_at,finished_at,status,query_text")
+        .select("id,source_id,started_at,finished_at,status,query_text,query_payload")
         .in("source_id", sourceIds)
         .order("started_at", { ascending: false })
         .limit(400)
@@ -166,7 +166,13 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
     );
     if (invokeError) {
       console.error("assignor-crawl-cnra failed", invokeError);
-      redirect("/admin/assignors/sources?error=cnra_invoke");
+      const msg = encodeURIComponent(invokeError.message ?? "Invoke failed");
+      redirect(`/admin/assignors/sources?error=${msg}`);
+    }
+    if (data?.error) {
+      console.error("assignor-crawl-cnra returned error", data);
+      const msg = encodeURIComponent(String(data.error).slice(0, 180));
+      redirect(`/admin/assignors/sources?error=${msg}`);
     }
     revalidatePath("/admin/assignors/sources");
     revalidatePath("/admin/assignors/review");
@@ -197,6 +203,18 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
           {sources.map((source) => {
             const runs = runsBySource.get(source.id) ?? [];
             const isCnra = source.source_url === "https://www.cnra.net/assignor/";
+            const cnraSearches = isCnra
+              ? runs
+                  .map((run: any) => ({
+                    id: run.id,
+                    started_at: run.started_at,
+                    status: run.status,
+                    zip: run.query_payload?.zip ?? null,
+                    radius: run.query_payload?.radius_miles ?? null,
+                  }))
+                  .filter((row) => row.zip && row.radius)
+                  .slice(0, 10)
+              : [];
             return (
               <div key={source.id} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 14, background: "#fff" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -263,6 +281,32 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
                         Run CNRA Crawl
                       </button>
                     </form>
+                    {cnraSearches.length > 0 && (
+                      <div style={{ marginTop: 12 }}>
+                        <div style={{ fontWeight: 700, marginBottom: 6 }}>Recent CNRA searches</div>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                          <thead>
+                            <tr>
+                              {["Zip", "Radius (mi)", "Started", "Status"].map((h) => (
+                                <th key={h} style={{ textAlign: "left", padding: "6px 4px", borderBottom: "1px solid #e2e8f0" }}>
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {cnraSearches.map((row) => (
+                              <tr key={row.id}>
+                                <td style={{ padding: "6px 4px" }}>{row.zip}</td>
+                                <td style={{ padding: "6px 4px" }}>{row.radius}</td>
+                                <td style={{ padding: "6px 4px" }}>{formatDate(row.started_at)}</td>
+                                <td style={{ padding: "6px 4px" }}>{row.status ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 ) : null}
 

@@ -192,6 +192,22 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 </a>
 
                 <a
+                  href="/assignors"
+                  style={{
+                    color: "#ffffff",
+                    fontSize: "0.82rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.14em",
+                    textDecoration: "none",
+                    paddingBottom: "0.25rem",
+                    borderBottom: "2px solid #2F6FED",
+                  }}
+                >
+                  Assignors
+                </a>
+
+                <a
                   href="/how-it-works"
                   style={{
                     color: "#ffffff",
