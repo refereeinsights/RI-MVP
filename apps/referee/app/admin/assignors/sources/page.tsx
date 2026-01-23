@@ -28,6 +28,7 @@ type CrawlRun = {
   finished_at: string | null;
   status: string | null;
   query_text: string | null;
+  query_payload?: any;
 };
 
 function formatDate(value?: string | null) {
@@ -192,7 +193,7 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
       ) : null}
       {error ? (
         <div style={{ background: "#fee2e2", border: "1px solid #fecaca", padding: 8, borderRadius: 8, marginBottom: 10 }}>
-          Action failed. Try again.
+          {`Action failed: ${decodeURIComponent(error)}`}
         </div>
       ) : null}
 
@@ -204,16 +205,26 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
             const runs = runsBySource.get(source.id) ?? [];
             const isCnra = source.source_url === "https://www.cnra.net/assignor/";
             const cnraSearches = isCnra
-              ? runs
-                  .map((run: any) => ({
-                    id: run.id,
-                    started_at: run.started_at,
-                    status: run.status,
-                    zip: run.query_payload?.zip ?? null,
-                    radius: run.query_payload?.radius_miles ?? null,
-                  }))
-                  .filter((row) => row.zip && row.radius)
-                  .slice(0, 10)
+              ? (() => {
+                  const uniqueByZip = new Map<string, any>();
+                  const ordered: any[] = [];
+                  for (const run of runs) {
+                    const zip = run.query_payload?.zip ?? null;
+                    const radius = run.query_payload?.radius_miles ?? null;
+                    if (!zip || !radius) continue;
+                    if (uniqueByZip.has(zip)) continue;
+                    const row = {
+                      id: run.id,
+                      started_at: run.started_at,
+                      status: run.status,
+                      zip,
+                      radius,
+                    };
+                    uniqueByZip.set(zip, row);
+                    ordered.push(row);
+                  }
+                  return ordered.slice(0, 10);
+                })()
               : [];
             return (
               <div key={source.id} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 14, background: "#fff" }}>
