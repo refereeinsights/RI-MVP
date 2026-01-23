@@ -161,18 +161,23 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
     }
     const body: Record<string, any> = { zip, radius_miles, source_id };
     if (cookie) body.cookie = cookie;
-    const { data, error: invokeError } = await (supabaseAdmin as any).functions.invoke(
-      "assignor-crawl-cnra",
-      { body }
-    );
-    if (invokeError) {
-      console.error("assignor-crawl-cnra failed", invokeError);
-      const msg = encodeURIComponent(invokeError.message ?? "Invoke failed");
-      redirect(`/admin/assignors/sources?error=${msg}`);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+    if (!supabaseUrl || !serviceKey) {
+      redirect("/admin/assignors/sources?error=missing_supabase_env");
     }
-    if (data?.error) {
-      console.error("assignor-crawl-cnra returned error", data);
-      const msg = encodeURIComponent(String(data.error).slice(0, 180));
+    const resp = await fetch(`${supabaseUrl}/functions/v1/assignor-crawl-cnra`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    const text = await resp.text();
+    const data = text ? JSON.parse(text) : {};
+    if (!resp.ok || data?.error) {
+      const msg = encodeURIComponent(String(data?.error ?? `HTTP ${resp.status}`).slice(0, 180));
       redirect(`/admin/assignors/sources?error=${msg}`);
     }
     revalidatePath("/admin/assignors/sources");
