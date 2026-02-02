@@ -29,6 +29,7 @@ function pickPrimary(rows: any[], kind: "email" | "phone") {
 }
 
 export async function POST(req: Request) {
+  const cacheHeaders = { "Cache-Control": "no-store" };
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
@@ -36,13 +37,13 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: cacheHeaders });
   }
 
   const body = await req.json().catch(() => null);
   const assignorId = body?.assignor_id ? String(body.assignor_id) : "";
   if (!assignorId) {
-    return NextResponse.json({ error: "missing_assignor_id" }, { status: 400 });
+    return NextResponse.json({ error: "missing_assignor_id" }, { status: 400, headers: cacheHeaders });
   }
 
   const { data: profile, error: profileError } = await supabaseAdmin
@@ -51,12 +52,12 @@ export async function POST(req: Request) {
     .eq("user_id", user.id)
     .maybeSingle();
   if (profileError) {
-    return NextResponse.json({ error: "profile_lookup_failed" }, { status: 500 });
+    return NextResponse.json({ error: "profile_lookup_failed" }, { status: 500, headers: cacheHeaders });
   }
 
   const termsAccepted = !!(profile as any)?.contact_terms_accepted_at;
   if (!termsAccepted) {
-    return NextResponse.json({ error: "terms_required" }, { status: 403 });
+    return NextResponse.json({ error: "terms_required" }, { status: 403, headers: cacheHeaders });
   }
 
   const ipHeader = getHeaderValue("x-forwarded-for") || getHeaderValue("x-real-ip") || "unknown";
@@ -84,7 +85,7 @@ export async function POST(req: Request) {
   ]);
 
   if ((userCount ?? 0) >= USER_LIMIT_PER_DAY || (ipCount ?? 0) >= IP_LIMIT_PER_DAY) {
-    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+    return NextResponse.json({ error: "rate_limited" }, { status: 429, headers: cacheHeaders });
   }
 
   await supabaseAdmin.from("rate_limit_events" as any).insert({
@@ -100,7 +101,7 @@ export async function POST(req: Request) {
 
   if (contactsError) {
     console.error("reveal: contacts fetch failed", contactsError);
-    return NextResponse.json({ error: "contacts_unavailable" }, { status: 500 });
+    return NextResponse.json({ error: "contacts_unavailable" }, { status: 500, headers: cacheHeaders });
   }
 
   const email = pickPrimary(contactRows ?? [], "email");
@@ -113,5 +114,5 @@ export async function POST(req: Request) {
     user_agent_hash: uaHash,
   });
 
-  return NextResponse.json({ email, phone });
+  return NextResponse.json({ email, phone }, { headers: cacheHeaders });
 }
