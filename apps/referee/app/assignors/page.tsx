@@ -56,8 +56,10 @@ async function acceptContactTerms() {
 
   const { error } = await supabaseAdmin
     .from("profiles" as any)
-    .update({ contact_terms_accepted_at: new Date().toISOString() })
-    .eq("user_id", user.id);
+    .upsert(
+      { user_id: user.id, contact_terms_accepted_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    );
 
   if (error) {
     throw error;
