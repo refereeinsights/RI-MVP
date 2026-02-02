@@ -156,7 +156,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     border: "1px solid rgba(255,255,255,0.3)",
                   }}
                 >
-                  Pre-Beta
+                  Public Beta
                 </span>
 
                 <a
@@ -286,9 +286,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               By using Referee Insights, you agree to our Terms and Privacy Policy.
             </p>
             <p style={{ margin: 0, fontSize: 12, color: "#555" }}>
-              Referee Insights is currently in pre-beta. Features and availability may change.
+              RefereeInsights is currently in public beta. Features and availability may change.
             </p>
-            <div>© {new Date().getFullYear()} Referee Insights. All rights reserved.</div>
+            <div>© {new Date().getFullYear()} RefereeInsights™. All rights reserved.</div>
+            <div style={{ fontSize: 12, color: "#555" }}>
+              RefereeInsights™ is a trademark of Referee Insights.
+            </div>
           </footer>
         </PostHogClientProvider>
       </body>

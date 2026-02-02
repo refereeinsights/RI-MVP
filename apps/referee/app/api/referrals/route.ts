@@ -60,12 +60,20 @@ export async function GET(req: Request) {
   let code = existing?.code as string | undefined;
   if (!code) {
     code = shorten(user.id);
-    await supabaseService.from("referral_codes" as any).upsert({ user_id: user.id, code });
+    await supabaseService
+      .from("referral_codes" as any)
+      .upsert({ user_id: user.id, code, updated_at: new Date().toISOString() });
   }
+
+  const { count } = await supabaseService
+    .from("referrals" as any)
+    .select("id", { count: "exact", head: true })
+    .eq("referrer_id", user.id);
 
   return NextResponse.json({
     ok: true,
     code,
     link: `${origin}/signup?ref=${code}`,
+    count: count ?? 0,
   });
 }

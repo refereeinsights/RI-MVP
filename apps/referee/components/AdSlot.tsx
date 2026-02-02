@@ -1,5 +1,6 @@
 import type { AdPlacement, AdCreative } from "@/lib/content/marketing";
 import { AD_PLACEMENTS } from "@/lib/content/marketing";
+import { ENABLE_GEAR_TIPS } from "@/lib/featureFlags";
 
 function pickCreative(entry?: AdCreative | AdCreative[]): AdCreative | null {
   if (!entry) return null;
@@ -17,6 +18,7 @@ export default function AdSlot({
   placement: AdPlacement;
   className?: string;
 }) {
+  if (!ENABLE_GEAR_TIPS) return null;
   const ad = pickCreative(AD_PLACEMENTS[placement]);
   if (!ad) return null;
 
