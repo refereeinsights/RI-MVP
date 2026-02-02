@@ -1,5 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import AssignorContactCells from "./AssignorContactCells";
 import "../tournaments/tournaments.css";
 
 type SearchParams = {
@@ -16,14 +20,11 @@ type AssignorRow = {
   base_state: string | null;
   last_seen_at: string | null;
   confidence: number | null;
+  masked_email?: string | null;
+  masked_phone?: string | null;
 };
 
 const SPORT_OPTIONS = ["soccer", "basketball", "football"] as const;
-
-function formatDate(value?: string | null) {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-}
 
 function asArray(value?: string | string[]) {
   if (!value) return [];
@@ -36,27 +37,57 @@ function lastNameSortKey(name?: string | null) {
   return (parts[parts.length - 1] ?? "").toLowerCase();
 }
 
-function normalizeType(row: any) {
-  return String(row?.type ?? row?.contact_type ?? row?.kind ?? "").toLowerCase();
-}
-
 export const metadata = {
   title: "Assignor Directory | RefereeInsights",
   description:
-    "Read-only directory of approved assignors with contact details, locations, and sports coverage.",
+    "Directory of approved assignors with coverage details. Contact info requires login.",
 };
+
+async function acceptContactTerms() {
+  "use server";
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/account/login");
+  }
+
+  const { error } = await supabaseAdmin
+    .from("profiles" as any)
+    .update({ contact_terms_accepted_at: new Date().toISOString() })
+    .eq("user_id", user.id);
+
+  if (error) {
+    throw error;
+  }
+
+  revalidatePath("/assignors");
+}
 
 export default async function AssignorsPage({ searchParams }: { searchParams?: SearchParams }) {
   const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const q = (searchParams?.q ?? "").trim();
   const sport = (searchParams?.sport ?? "").trim().toLowerCase();
   const state = (searchParams?.state ?? "").trim().toUpperCase();
   const citySelections = asArray(searchParams?.city).map((c) => c.trim()).filter(Boolean);
 
+  const { data: profile } = user
+    ? await supabase
+        .from("profiles" as any)
+        .select("contact_terms_accepted_at")
+        .eq("user_id", user.id)
+        .maybeSingle()
+    : { data: null as any };
+  const termsAccepted = !!(profile as any)?.contact_terms_accepted_at;
+
   let query = supabase
-    .from("assignors")
-    .select("id,display_name,base_city,base_state,last_seen_at,confidence")
-    .eq("review_status", "approved")
+    .from("assignor_directory_public" as any)
+    .select("id,display_name,base_city,base_state,last_seen_at,confidence,masked_email,masked_phone")
     .order("last_seen_at", { ascending: false })
     .limit(200);
 
@@ -139,27 +170,6 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
     return aKey.localeCompare(bKey);
   });
 
-  const { data: contactRows } = ids.length
-    ? await supabase
-        .from("assignor_contacts")
-        .select("assignor_id,type,value,normalized_value,is_primary")
-        .in("assignor_id", ids)
-    : { data: [] as any[] };
-
-  const contactsByAssignor = new Map<string, any[]>();
-  (contactRows ?? []).forEach((row: any) => {
-    const list = contactsByAssignor.get(row.assignor_id) ?? [];
-    list.push(row);
-    contactsByAssignor.set(row.assignor_id, list);
-  });
-
-  const pickPrimary = (rows: any[], kind: "email" | "phone") => {
-    const filtered = rows.filter((r) => normalizeType(r) === kind);
-    const primary = filtered.find((r) => r.is_primary);
-    const fallback = filtered[0];
-    return (primary ?? fallback)?.value ?? (primary ?? fallback)?.normalized_value ?? null;
-  };
-
   return (
     <main className="pitchWrap tournamentsWrap schoolsPage">
       <section className="field tournamentsField">
@@ -176,9 +186,60 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
               lineHeight: 1.5,
             }}
           >
-            Read-only listing of approved assignors with coverage and contact details.
+            Read-only listing of approved assignors with coverage details. Contact info is available after sign-in.
           </p>
         </div>
+
+        {!user ? (
+          <div
+            style={{
+              marginTop: 16,
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px solid rgba(15, 23, 42, 0.2)",
+              background: "#fff",
+              fontSize: 13,
+            }}
+          >
+            <strong>Sign in to view contact details.</strong>{" "}
+            <Link href="/account/login" style={{ color: "#0f172a", fontWeight: 700 }}>
+              Go to login
+            </Link>
+          </div>
+        ) : !termsAccepted ? (
+          <div
+            style={{
+              marginTop: 16,
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px solid rgba(15, 23, 42, 0.2)",
+              background: "#fff",
+              fontSize: 13,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <span>To view contact details, please accept the contact access terms.</span>
+            <form action={acceptContactTerms}>
+              <button
+                type="submit"
+                className="btn"
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 999,
+                  background: "#0f172a",
+                  color: "#fff",
+                  border: "1px solid #0f172a",
+                }}
+              >
+                Accept &amp; Reveal
+              </button>
+            </form>
+          </div>
+        ) : null}
 
         <form
           method="GET"
@@ -303,7 +364,7 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr>
-                  {["Name", "Email", "Phone", "Location", "Sports"].map((h) => (
+                  {["Name", "Email", "Phone", "Location", "Sports", "Claim / Remove"].map((h) => (
                     <th key={h} style={{ textAlign: "left", padding: "6px 4px", borderBottom: "1px solid #eee" }}>
                       {h}
                     </th>
@@ -313,25 +374,36 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
               <tbody>
                 {assignors.length === 0 ? (
                   <tr>
-                    <td colSpan={5} style={{ padding: 8, color: "#666" }}>
+                    <td colSpan={6} style={{ padding: 8, color: "#666" }}>
                       No assignors found.
                     </td>
                   </tr>
                 ) : (
                   assignors.map((assignor) => {
-                    const rowContacts = contactsByAssignor.get(assignor.id) ?? [];
-                    const email = pickPrimary(rowContacts, "email");
-                    const phone = pickPrimary(rowContacts, "phone");
                     const sports = sportsByAssignor.get(assignor.id) ?? [];
                     return (
                       <tr key={assignor.id}>
                         <td style={{ padding: "6px 4px", fontWeight: 700 }}>{assignor.display_name ?? "Unnamed"}</td>
-                        <td style={{ padding: "6px 4px" }}>{email ?? "—"}</td>
-                        <td style={{ padding: "6px 4px" }}>{phone ?? "—"}</td>
+                        <AssignorContactCells
+                          assignorId={assignor.id}
+                          maskedEmail={assignor.masked_email}
+                          maskedPhone={assignor.masked_phone}
+                          canReveal={!!user && termsAccepted}
+                          needsTerms={!!user && !termsAccepted}
+                          showSignIn={!user}
+                        />
                         <td style={{ padding: "6px 4px" }}>
                           {[assignor.base_city, assignor.base_state].filter(Boolean).join(", ") || "—"}
                         </td>
                         <td style={{ padding: "6px 4px" }}>{sports.length ? sports.join(", ") : "—"}</td>
+                        <td style={{ padding: "6px 4px" }}>
+                          <Link
+                            href={`/assignors/claim?assignor_id=${assignor.id}`}
+                            style={{ color: "#0f172a", fontWeight: 700 }}
+                          >
+                            Claim / Remove
+                          </Link>
+                        </td>
                       </tr>
                     );
                   })

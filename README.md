@@ -266,6 +266,15 @@ Run your existing whistle-score worker against `school_referee_reviews` so `scho
 
 User handles are automatically normalized (lowercase, underscores, 20 characters max) and checked against a small list of banned words/slurs. You can extend the blocklist by setting `PROHIBITED_HANDLE_TERMS` to a comma-separated list (e.g. `PROHIBITED_HANDLE_TERMS="term1,term2"`). Any handle containing those sequences will be rejected both on signup and during automatic profile creation.
 
+## Assignor Directory public beta checklist
+
+- Logged out: `/assignors` shows masked email/phone only, no `mailto:`/`tel:` links, and a sign-in CTA.
+- Logged in (terms not accepted): masked contact info with “Accept & Reveal” prompt; accepting terms updates `profiles.contact_terms_accepted_at`.
+- Logged in (terms accepted): Reveal button returns full email/phone and logs to `contact_access_log`.
+- Rate limiting: multiple reveals over limit returns 429 and blocks additional reveals.
+- Claim/remove: `/assignors/claim?assignor_id=<id>` inserts into `assignor_claim_requests` and shows thank-you state.
+- RLS: anon cannot select from `assignor_contacts` or `contact_access_log`.
+
 ## Contributing
 
 Feel free to submit issues and pull requests to improve this project. 
