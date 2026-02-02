@@ -74,17 +74,3 @@ jobs:
         with:
           name: smoke-report-${{ matrix.site }}
           path: RI_Backend/test-results/smoke-${{ matrix.site }}.xml
-
-      - name: Email smoke report
-        if: ${{ always() && secrets.SMTP_SERVER != '' && secrets.SMOKE_REPORT_EMAIL != '' }}
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "Nightly smoke report (${{ matrix.site }}) - ${{ job.status }}"
-          to: ${{ secrets.SMOKE_REPORT_EMAIL }}
-          from: ${{ secrets.SMTP_FROM }}
-          body: "Attached: Playwright JUnit report for ${{ matrix.site }}. Job status: ${{ job.status }}."
-          attachments: RI_Backend/test-results/smoke-${{ matrix.site }}.xml
