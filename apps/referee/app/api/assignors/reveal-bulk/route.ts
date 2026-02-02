@@ -4,9 +4,9 @@ import { createHash } from "node:crypto";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-const USER_LIMIT_PER_DAY = 60;
-const IP_LIMIT_PER_DAY = 200;
-const RATE_LIMIT_KEY = "assignor_reveal";
+const USER_LIMIT_PER_DAY = 10;
+const IP_LIMIT_PER_DAY = 30;
+const RATE_LIMIT_KEY = "assignor_reveal_page";
 
 function hashValue(value: string) {
   const secret = process.env.CONTACT_ACCESS_HASH_SECRET ?? "local-dev";
@@ -40,9 +40,9 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => null);
-  const assignorId = body?.assignor_id ? String(body.assignor_id) : "";
-  if (!assignorId) {
-    return NextResponse.json({ error: "missing_assignor_id" }, { status: 400 });
+  const assignorIds = Array.isArray(body?.assignor_ids) ? body.assignor_ids.map(String) : [];
+  if (!assignorIds.length) {
+    return NextResponse.json({ error: "missing_assignor_ids" }, { status: 400 });
   }
 
   const { data: profile, error: profileError } = await supabaseAdmin
@@ -96,22 +96,38 @@ export async function POST(req: Request) {
   const { data: contactRows, error: contactsError } = await supabaseAdmin
     .from("assignor_contacts" as any)
     .select("assignor_id,type,value,normalized_value,is_primary")
-    .eq("assignor_id", assignorId);
+    .in("assignor_id", assignorIds);
 
   if (contactsError) {
-    console.error("reveal: contacts fetch failed", contactsError);
+    console.error("reveal-bulk: contacts fetch failed", contactsError);
     return NextResponse.json({ error: "contacts_unavailable" }, { status: 500 });
   }
 
-  const email = pickPrimary(contactRows ?? [], "email");
-  const phone = pickPrimary(contactRows ?? [], "phone");
-
-  await supabaseAdmin.from("contact_access_log" as any).insert({
-    user_id: user.id,
-    assignor_id: assignorId,
-    ip_hash: ipHash,
-    user_agent_hash: uaHash,
+  const grouped = new Map<string, any[]>();
+  (contactRows ?? []).forEach((row: any) => {
+    const list = grouped.get(row.assignor_id) ?? [];
+    list.push(row);
+    grouped.set(row.assignor_id, list);
   });
 
-  return NextResponse.json({ email, phone });
+  const response: Record<string, { email: string | null; phone: string | null }> = {};
+  assignorIds.forEach((id) => {
+    const rows = grouped.get(id) ?? [];
+    response[id] = {
+      email: pickPrimary(rows, "email"),
+      phone: pickPrimary(rows, "phone"),
+    };
+  });
+
+  const logRows = assignorIds.map((id) => ({
+    user_id: user.id,
+    assignor_id: id,
+    ip_hash: ipHash,
+    user_agent_hash: uaHash,
+  }));
+  if (logRows.length) {
+    await supabaseAdmin.from("contact_access_log" as any).insert(logRows);
+  }
+
+  return NextResponse.json(response);
 }

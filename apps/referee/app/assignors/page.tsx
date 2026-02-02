@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import AssignorContactCells from "./AssignorContactCells";
+import AssignorDirectoryTable from "./AssignorDirectoryTable";
+import AcceptTermsModal from "./AcceptTermsModal";
 import "../tournaments/tournaments.css";
 
 type SearchParams = {
@@ -43,42 +42,6 @@ export const metadata = {
     "Directory of approved assignors with coverage details. Contact info requires login.",
 };
 
-async function acceptContactTerms() {
-  "use server";
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/account/login");
-  }
-
-  const { data: existing, error: existingError } = await supabaseAdmin
-    .from("profiles" as any)
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (existingError) {
-    console.error("acceptContactTerms: profile lookup failed", existingError);
-    throw existingError;
-  }
-
-  const payload = { user_id: user.id, contact_terms_accepted_at: new Date().toISOString() };
-  const existingUserId = (existing as any)?.user_id;
-  const { error } = existingUserId
-    ? await supabaseAdmin.from("profiles" as any).update(payload).eq("user_id", user.id)
-    : await supabaseAdmin.from("profiles" as any).insert(payload);
-
-  if (error) {
-    console.error("acceptContactTerms: update failed", error);
-    throw error;
-  }
-
-  revalidatePath("/assignors");
-}
-
 export default async function AssignorsPage({ searchParams }: { searchParams?: SearchParams }) {
   const supabase = createSupabaseServerClient();
   const {
@@ -88,14 +51,18 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
   const sport = (searchParams?.sport ?? "").trim().toLowerCase();
   const state = (searchParams?.state ?? "").trim().toUpperCase();
   const citySelections = asArray(searchParams?.city).map((c) => c.trim()).filter(Boolean);
+  const termsAcceptedNotice = searchParams?.terms === "accepted";
 
-  const { data: profile } = user
-    ? await supabase
+  const { data: profile, error: profileError } = user
+    ? await supabaseAdmin
         .from("profiles" as any)
         .select("contact_terms_accepted_at")
         .eq("user_id", user.id)
         .maybeSingle()
-    : { data: null as any };
+    : { data: null as any, error: null as any };
+  if (profileError) {
+    console.error("assignors: profile lookup failed", profileError);
+  }
   const termsAccepted = !!(profile as any)?.contact_terms_accepted_at;
 
   let query = supabase
@@ -203,6 +170,21 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
           </p>
         </div>
 
+        {termsAcceptedNotice ? (
+          <div
+            style={{
+              marginTop: 16,
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px solid rgba(15, 23, 42, 0.2)",
+              background: "#fff",
+              fontSize: 13,
+            }}
+          >
+            Thanks — contact access terms accepted.
+          </div>
+        ) : null}
+
         {!user ? (
           <div
             style={{
@@ -235,22 +217,8 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
               flexWrap: "wrap",
             }}
           >
-            <span>To view contact details, please accept the contact access terms.</span>
-            <form action={acceptContactTerms}>
-              <button
-                type="submit"
-                className="btn"
-                style={{
-                  padding: "8px 14px",
-                  borderRadius: 999,
-                  background: "#0f172a",
-                  color: "#fff",
-                  border: "1px solid #0f172a",
-                }}
-              >
-                Accept &amp; Reveal
-              </button>
-            </form>
+            <span>To view contact details, please review and accept the contact access terms.</span>
+            <AcceptTermsModal />
           </div>
         ) : null}
 
@@ -373,57 +341,13 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
           <div className="schoolsCount" style={{ marginBottom: 10 }}>
             Showing <strong>{assignors.length}</strong> assignor{assignors.length === 1 ? "" : "s"}
           </div>
-          <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12, background: "#fff" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr>
-                  {["Name", "Email", "Phone", "Location", "Sports", "Claim / Remove"].map((h) => (
-                    <th key={h} style={{ textAlign: "left", padding: "6px 4px", borderBottom: "1px solid #eee" }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {assignors.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ padding: 8, color: "#666" }}>
-                      No assignors found.
-                    </td>
-                  </tr>
-                ) : (
-                  assignors.map((assignor) => {
-                    const sports = sportsByAssignor.get(assignor.id) ?? [];
-                    return (
-                      <tr key={assignor.id}>
-                        <td style={{ padding: "6px 4px", fontWeight: 700 }}>{assignor.display_name ?? "Unnamed"}</td>
-                        <AssignorContactCells
-                          assignorId={assignor.id}
-                          maskedEmail={assignor.masked_email}
-                          maskedPhone={assignor.masked_phone}
-                          canReveal={!!user && termsAccepted}
-                          needsTerms={!!user && !termsAccepted}
-                          showSignIn={!user}
-                        />
-                        <td style={{ padding: "6px 4px" }}>
-                          {[assignor.base_city, assignor.base_state].filter(Boolean).join(", ") || "—"}
-                        </td>
-                        <td style={{ padding: "6px 4px" }}>{sports.length ? sports.join(", ") : "—"}</td>
-                        <td style={{ padding: "6px 4px" }}>
-                          <Link
-                            href={`/assignors/claim?assignor_id=${assignor.id}`}
-                            style={{ color: "#0f172a", fontWeight: 700 }}
-                          >
-                            Claim / Remove
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+          <AssignorDirectoryTable
+            assignors={assignors}
+            sportsByAssignor={Object.fromEntries(sportsByAssignor)}
+            canReveal={!!user && termsAccepted}
+            needsTerms={!!user && !termsAccepted}
+            showSignIn={!user}
+          />
         </div>
       </section>
     </main>
