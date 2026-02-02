@@ -54,14 +54,24 @@ async function acceptContactTerms() {
     redirect("/account/login");
   }
 
-  const { error } = await supabaseAdmin
+  const { data: existing, error: existingError } = await supabaseAdmin
     .from("profiles" as any)
-    .upsert(
-      { user_id: user.id, contact_terms_accepted_at: new Date().toISOString() },
-      { onConflict: "user_id" }
-    );
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existingError) {
+    console.error("acceptContactTerms: profile lookup failed", existingError);
+    throw existingError;
+  }
+
+  const payload = { user_id: user.id, contact_terms_accepted_at: new Date().toISOString() };
+  const { error } = existing?.user_id
+    ? await supabaseAdmin.from("profiles" as any).update(payload).eq("user_id", user.id)
+    : await supabaseAdmin.from("profiles" as any).insert(payload);
 
   if (error) {
+    console.error("acceptContactTerms: update failed", error);
     throw error;
   }
 
