@@ -10,6 +10,7 @@ type SearchParams = {
   state?: string;
   sport?: string;
   city?: string | string[];
+  terms?: string;
 };
 
 type AssignorRow = {
