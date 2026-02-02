@@ -66,7 +66,8 @@ async function acceptContactTerms() {
   }
 
   const payload = { user_id: user.id, contact_terms_accepted_at: new Date().toISOString() };
-  const { error } = existing?.user_id
+  const existingUserId = (existing as any)?.user_id;
+  const { error } = existingUserId
     ? await supabaseAdmin.from("profiles" as any).update(payload).eq("user_id", user.id)
     : await supabaseAdmin.from("profiles" as any).insert(payload);
 
