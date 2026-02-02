@@ -39,7 +39,7 @@ jobs:
 
       - name: Run Playwright suite for site
         working-directory: RI_Backend
-        run: npx playwright test tests/${{ matrix.site }}.spec.ts --reporter=line
+        run: npx playwright test tests/${{ matrix.site }}.spec.ts --reporter=line,junit
         env:
           BASE_URL: ${{ env.BASE_URL }}
           RI_TARGET_URL: ${{ secrets.RI_TARGET_URL }}
@@ -52,6 +52,8 @@ jobs:
           GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
           GOOGLE_SHEETS_TAB_NAME: ${{ secrets.GOOGLE_SHEETS_TAB_NAME }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PLAYWRIGHT_JUNIT_OUTPUT_DIR: test-results
+          PLAYWRIGHT_JUNIT_OUTPUT_NAME: smoke-${{ matrix.site }}.xml
 
       - name: Feedback smoke script (RI only)
         if: matrix.site == 'ri'
@@ -65,3 +67,24 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
           GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
           GOOGLE_SHEETS_TAB_NAME: ${{ secrets.GOOGLE_SHEETS_TAB_NAME }}
+
+      - name: Upload smoke test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report-${{ matrix.site }}
+          path: RI_Backend/test-results/smoke-${{ matrix.site }}.xml
+
+      - name: Email smoke report
+        if: ${{ always() && secrets.SMTP_SERVER != '' && secrets.SMOKE_REPORT_EMAIL != '' }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "Nightly smoke report (${{ matrix.site }}) - ${{ job.status }}"
+          to: ${{ secrets.SMOKE_REPORT_EMAIL }}
+          from: ${{ secrets.SMTP_FROM }}
+          body: "Attached: Playwright JUnit report for ${{ matrix.site }}. Job status: ${{ job.status }}."
+          attachments: RI_Backend/test-results/smoke-${{ matrix.site }}.xml
