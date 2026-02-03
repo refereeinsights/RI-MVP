@@ -102,7 +102,7 @@ function pickCoverage(lines: string[]) {
   return coverageLines.join(" ");
 }
 
-function parseContact(lines: string[], rawText: string) {
+function parseContact(lines: string[], rawText: string, links: string[]) {
   let contactRole: string | null = null;
   let contactName: string | null = null;
 
@@ -127,7 +127,11 @@ function parseContact(lines: string[], rawText: string) {
     }
   }
 
-  const emails = extractEmails(rawText);
+  const mailtoEmails = links
+    .filter((href) => href.startsWith("mailto:"))
+    .map((href) => href.replace(/^mailto:/i, "").split("?")[0].trim())
+    .filter(Boolean);
+  const emails = Array.from(new Set([...extractEmails(rawText), ...mailtoEmails]));
   const phones = extractPhones(rawText);
   const email = emails[0] ?? null;
   const phone = phones[0] ?? null;
@@ -162,21 +166,22 @@ function extractAssociations(html: string): AssociationRecord[] {
     if (!name) return;
 
     const contentNode = node.find(".elementor-tab-content").first();
-    const rawText = normalizeText(contentNode.text());
-    if (!rawText) return;
-
-    const lines = splitLines(contentNode.text());
-    const links = contentNode
+    const linkList = contentNode
       .find("a[href]")
       .toArray()
       .map((el) => $(el).attr("href") || "")
       .filter(Boolean);
+    const rawText = normalizeText([contentNode.text(), linkList.join(" ")].join(" "));
+    if (!rawText) return;
+
+    const lines = splitLines(contentNode.text());
+    const links = linkList;
     const website = links.find((href) => href.startsWith("http")) || null;
 
     const coverage = pickCoverage(lines);
     const address = pickAddress(lines);
     const meeting = pickMeetingLocation(lines);
-    const contact = parseContact(lines, rawText);
+    const contact = parseContact(lines, rawText, links);
     const city = parseCity(rawText) ?? parseCity(address ?? "") ?? null;
 
     const normalizedBlock = normalizeText([name, rawText].join(" "));
@@ -239,6 +244,8 @@ function buildExternalId(record: AssociationRecord) {
 function buildRawPayload(record: AssociationRecord) {
   return {
     name: record.name,
+    email: record.contact_email,
+    phone: record.contact_phone,
     assignor_type: ASSIGNOR_TYPE,
     sport: DEFAULT_SPORT,
     state: DEFAULT_STATE,
@@ -282,6 +289,7 @@ async function fetchPage() {
 async function run() {
   const html = await fetchPage();
   const records = extractAssociations(html);
+  const forceUpdate = process.env.FORCE_UPDATE === "true";
 
   const sourceId = await ensureSourceId();
   const externalIds = records.map(buildExternalId);
@@ -328,7 +336,11 @@ async function run() {
     }
 
     const existingHash = String(existing.raw?.source_hash ?? "");
-    if (existingHash && existingHash === record.source_hash) {
+    const existingEmail = (existing.raw as any)?.email ?? null;
+    const existingPhone = (existing.raw as any)?.phone ?? null;
+    const missingContact =
+      (!existingEmail && record.contact_email) || (!existingPhone && record.contact_phone);
+    if (!forceUpdate && existingHash && existingHash === record.source_hash && !missingContact) {
       skipped += 1;
       if (existing.review_status === "needs_review") needsReview += 1;
       continue;
