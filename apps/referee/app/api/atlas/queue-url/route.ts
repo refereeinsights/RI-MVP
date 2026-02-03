@@ -29,11 +29,11 @@ async function ensureAssignorSourceId(defaultSport: string | null, defaultState:
   const SOURCE_URL = "atlas://discover";
   const SOURCE_NAME = "Atlas Discovery";
 
-  const { data: existing, error } = await supabaseAdmin
+  const { data: existing, error } = (await supabaseAdmin
     .from("assignor_sources" as any)
     .select("id")
     .eq("source_url", SOURCE_URL)
-    .maybeSingle();
+    .maybeSingle()) as { data: { id: string } | null; error: any };
   if (error) throw new Error(`assignor_sources lookup failed: ${error.message}`);
   if (existing?.id) return existing.id as string;
 
