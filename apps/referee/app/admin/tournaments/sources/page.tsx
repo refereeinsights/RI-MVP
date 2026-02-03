@@ -14,6 +14,7 @@ const IGNORE_STATUSES = new Set([
   "login_required",
   "paywalled",
   "js_only",
+  "pdf_only",
   "blocked_403",
   "deprecated",
   "duplicate_source",
@@ -24,6 +25,28 @@ type Filter = "all" | "untested" | "keep" | "ignored" | "needs_review";
 export const runtime = "nodejs";
 
 type SearchParams = { source_url?: string; notice?: string; filter?: Filter };
+
+const SPORT_OPTIONS = [
+  "soccer",
+  "futsal",
+  "basketball",
+  "baseball",
+  "softball",
+  "lacrosse",
+  "volleyball",
+  "football",
+  "wrestling",
+  "hockey",
+  "other",
+] as const;
+
+const SOURCE_TYPE_OPTIONS = [
+  "tournament_platform",
+  "governing_body",
+  "league",
+  "club",
+  "directory",
+] as const;
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
@@ -65,6 +88,9 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     }
     const source_type = String(formData.get("source_type") || "").trim() || null;
     const sport = String(formData.get("sport") || "").trim() || null;
+    if (!source_type || !sport) {
+      redirect(`/admin/tournaments/sources?notice=${encodeURIComponent("Sport and source type are required")}`);
+    }
     const state = String(formData.get("state") || "").trim() || null;
     const city = String(formData.get("city") || "").trim() || null;
     const notes = String(formData.get("notes") || "").trim() || null;
@@ -249,19 +275,25 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
             </label>
             <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
               Source type
-              <select name="source_type" defaultValue="" style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}>
-                <option value="">(auto)</option>
-                <option value="venue_calendar">Venue calendar</option>
-                <option value="club_calendar">Club calendar</option>
-                <option value="league_calendar">League calendar</option>
-                <option value="series_site">Series site</option>
-                <option value="platform_listing">Platform listing</option>
-                <option value="other">Other</option>
+              <select name="source_type" required defaultValue="" style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}>
+                <option value="">Select type</option>
+                {SOURCE_TYPE_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
               </select>
             </label>
             <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
               Sport
-              <input name="sport" placeholder="soccer" style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }} />
+              <select name="sport" required defaultValue="" style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}>
+                <option value="">Select sport</option>
+                {SPORT_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
             </label>
             <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
               State
@@ -357,6 +389,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                           "js_only",
                           "login_required",
                           "dead",
+                          "pdf_only",
                           "paywalled",
                           "blocked_403",
                           "duplicate_source",

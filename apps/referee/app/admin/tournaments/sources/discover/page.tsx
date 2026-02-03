@@ -3,6 +3,28 @@ import { requireAdmin } from "@/lib/admin";
 import { normalizeSourceUrl, upsertRegistry } from "@/server/admin/sources";
 import { redirect } from "next/navigation";
 
+const SPORT_OPTIONS = [
+  "soccer",
+  "futsal",
+  "basketball",
+  "baseball",
+  "softball",
+  "lacrosse",
+  "volleyball",
+  "football",
+  "wrestling",
+  "hockey",
+  "other",
+] as const;
+
+const SOURCE_TYPE_OPTIONS = [
+  "tournament_platform",
+  "governing_body",
+  "league",
+  "club",
+  "directory",
+] as const;
+
 type SearchParams = {
   notice?: string;
   sport?: string | string[];
@@ -55,6 +77,13 @@ async function addToMaster(formData: FormData) {
   const raw = String(formData.get("urls") || "");
   const source_type = String(formData.get("source_type") || "").trim() || null;
   const sport = String(formData.get("sport_default") || "").trim() || null;
+  if (!source_type || !sport) {
+    redirect(
+      `/admin/tournaments/sources/discover?notice=${encodeURIComponent(
+        "Sport and source type are required."
+      )}`
+    );
+  }
   const state = String(formData.get("state_default") || "").trim() || null;
   const city = String(formData.get("city_default") || "").trim() || null;
   const notesPrefix = String(formData.get("notes_prefix") || "").trim();
@@ -103,7 +132,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Sea
             <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
               Sports
               <select name="sport" multiple style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db", minHeight: 90 }}>
-                {["soccer", "basketball", "football"].map((s) => (
+                {SPORT_OPTIONS.map((s) => (
                   <option key={s} value={s} selected={asArray(searchParams.sport).includes(s)}>
                     {s}
                   </option>
@@ -182,19 +211,25 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Sea
           <div style={{ display: "grid", gap: 8, marginTop: 8, gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
             <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
               Default source type
-              <select name="source_type" style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}>
-                <option value="">(auto)</option>
-                <option value="venue_calendar">Venue calendar</option>
-                <option value="club_calendar">Club calendar</option>
-                <option value="league_calendar">League calendar</option>
-                <option value="series_site">Series site</option>
-                <option value="platform_listing">Platform listing</option>
-                <option value="other">Other</option>
+              <select name="source_type" required style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}>
+                <option value="">Select type</option>
+                {SOURCE_TYPE_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
               </select>
             </label>
             <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
               Sport
-              <input name="sport_default" placeholder="soccer" style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }} />
+              <select name="sport_default" required style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}>
+                <option value="">Select sport</option>
+                {SPORT_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
             </label>
             <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
               State
