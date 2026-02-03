@@ -30,6 +30,9 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
   const [sourceType, setSourceType] = useState("");
   const [target, setTarget] = useState(defaultTarget === "assignor" ? "assignor" : "tournament");
   const [state, setState] = useState("");
+  const [perQueryLimit, setPerQueryLimit] = useState(10);
+  const [maxTotal, setMaxTotal] = useState(100);
+  const [hideUpdated, setHideUpdated] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -59,8 +62,8 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
           sport,
           source_type: target === "tournament" ? sourceType : undefined,
           state: state.trim() || undefined,
-          result_limit_per_query: 10,
-          max_total_urls: 100,
+          result_limit_per_query: perQueryLimit,
+          max_total_urls: maxTotal,
         }),
       });
       const data = await res.json();
@@ -154,6 +157,9 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
     }
   }
 
+  const visibleResults =
+    summary?.results?.filter((row) => (hideUpdated ? row.status !== "updated" : true)) ?? [];
+
   return (
     <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginTop: 12 }}>
       <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>Run discovery</h3>
@@ -213,6 +219,28 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
             style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}
           />
         </label>
+        <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+          Results per query
+          <input
+            type="number"
+            min={1}
+            max={50}
+            value={perQueryLimit}
+            onChange={(e) => setPerQueryLimit(Number(e.target.value))}
+            style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}
+          />
+        </label>
+        <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+          Max total URLs
+          <input
+            type="number"
+            min={1}
+            max={200}
+            value={maxTotal}
+            onChange={(e) => setMaxTotal(Number(e.target.value))}
+            style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}
+          />
+        </label>
       </div>
       {queryPreview.length > 0 && (
         <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
@@ -258,10 +286,18 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
             >
               Open review queue →
             </a>
+            <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12 }}>
+              <input
+                type="checkbox"
+                checked={hideUpdated}
+                onChange={(e) => setHideUpdated(e.target.checked)}
+              />
+              Hide updated
+            </label>
           </div>
-          {summary.results.length > 0 && (
+          {visibleResults.length > 0 && (
             <div style={{ display: "grid", gap: 8 }}>
-              {summary.results.slice(0, 12).map((row) => (
+              {visibleResults.slice(0, 12).map((row) => (
                 <div key={row.url} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 10 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>{row.domain || row.url}</div>
                   <div style={{ fontSize: 12, color: "#475569", marginBottom: 6 }}>{row.url}</div>
