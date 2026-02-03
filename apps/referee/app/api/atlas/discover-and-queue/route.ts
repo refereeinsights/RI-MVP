@@ -173,12 +173,12 @@ export async function POST(req: Request) {
     const normalized = normalizeSourceUrl(item.url).canonical;
     if (target === "assignor") {
       const externalId = `atlas_${hashValue(normalized)}`;
-      const { data: existingAssignor } = await supabaseAdmin
+      const { data: existingAssignor } = (await supabaseAdmin
         .from("assignor_source_records" as any)
         .select("id")
         .eq("source_id", assignorSourceId)
         .eq("external_id", externalId)
-        .maybeSingle();
+        .maybeSingle()) as { data: { id: string } | null; error: any };
       if (existingAssignor?.id) {
         skipped_existing += 1;
         previews.push({ ...item, url: normalized, status: "existing" });
