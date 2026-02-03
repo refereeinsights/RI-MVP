@@ -7,7 +7,10 @@ import {
   normalizeSourceUrl,
   upsertRegistry,
   getSkipReason,
+  ensureRegistryRow,
+  updateRegistrySweep,
 } from "@/server/admin/sources";
+import { createTournamentFromUrl } from "@/server/admin/pasteUrl";
 
 const IGNORE_STATUSES = new Set([
   "dead",
@@ -47,6 +50,7 @@ const SOURCE_TYPE_OPTIONS = [
   "club",
   "directory",
 ] as const;
+const TOURNAMENT_SPORTS = ["soccer", "basketball", "football"] as const;
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
@@ -188,6 +192,66 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       .is("tournament_id", null);
     const msg = error ? `Quick action failed: ${error.message}` : "Updated source";
     redirect(`${redirectUrl || "/admin/tournaments/sources"}?notice=${encodeURIComponent(msg)}`);
+  }
+
+  async function sweepSourceAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const id = String(formData.get("id") || "");
+    const sourceUrl = String(formData.get("source_url") || "").trim();
+    const sportRaw = String(formData.get("sport") || "soccer").toLowerCase();
+    const overrideSkip = String(formData.get("override_skip") || "") === "on";
+    if (!id || !sourceUrl) {
+      redirect(`/admin/tournaments/sources?notice=${encodeURIComponent("Missing source URL")}`);
+    }
+
+    const sport = TOURNAMENT_SPORTS.includes(sportRaw as any) ? (sportRaw as any) : "soccer";
+    const { canonical } = normalizeSourceUrl(sourceUrl);
+    const { row } = await ensureRegistryRow(canonical, {
+      source_url: canonical,
+      source_type: null,
+      sport,
+      is_active: true,
+    });
+    const skipReason = getSkipReason(row);
+    if (skipReason && !overrideSkip) {
+      return redirect(
+        `/admin/tournaments/sources?notice=${encodeURIComponent(
+          `Sweep skipped: ${skipReason}. Update source status or enable override.`
+        )}&source_url=${encodeURIComponent(canonical)}`
+      );
+    }
+
+    await supabaseAdmin
+      .from("tournament_sources" as any)
+      .update({ last_tested_at: new Date().toISOString() })
+      .eq("id", row.id);
+
+    try {
+      const res = await createTournamentFromUrl({
+        url: canonical,
+        sport,
+        status: "draft",
+        source: "external_crawl",
+      });
+      await updateRegistrySweep(row.id, "ok", `Created "${res.meta.name ?? res.slug}"`);
+      redirect(
+        `/admin/tournaments/sources?notice=${encodeURIComponent(
+          `Created "${res.meta.name ?? res.slug}" and queued enrichment.`
+        )}&source_url=${encodeURIComponent(canonical)}`
+      );
+    } catch (err: any) {
+      await updateRegistrySweep(
+        row.id,
+        "error",
+        `Sweep failed: ${String(err?.message ?? "unknown error").slice(0, 180)}`
+      );
+      redirect(
+        `/admin/tournaments/sources?notice=${encodeURIComponent(
+          `Sweep failed: ${err?.message ?? "unknown error"}`
+        )}&source_url=${encodeURIComponent(canonical)}`
+      );
+    }
   }
 
   const filtered = registryRows.filter((row: any) => {
@@ -432,16 +496,27 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                     <td style={{ padding: "6px 4px" }}>
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         {ignore ? (
-                          <span style={{ color: "#991b1b", fontWeight: 700 }}>
-                            {reason}
-                          </span>
+                          <span style={{ color: "#991b1b", fontWeight: 700 }}>{reason}</span>
                         ) : (
-                          <Link
-                            href={`/admin?tab=tournament-uploads&fallback_source_url=${encodeURIComponent(row.source_url)}`}
-                            style={{ color: "#2563eb", fontWeight: 700 }}
-                          >
-                            Sweep
-                          </Link>
+                          <form action={sweepSourceAction}>
+                            <input type="hidden" name="id" value={row.id} />
+                            <input type="hidden" name="source_url" value={row.source_url} />
+                            <input type="hidden" name="sport" value={row.sport ?? "soccer"} />
+                            <button
+                              type="submit"
+                              style={{
+                                padding: "4px 6px",
+                                borderRadius: 6,
+                                border: "1px solid #2563eb",
+                                background: "#eff6ff",
+                                color: "#1d4ed8",
+                                fontSize: 12,
+                                fontWeight: 700,
+                              }}
+                            >
+                              Sweep now
+                            </button>
+                          </form>
                         )}
                         <form action={quickAction}>
                           <input type="hidden" name="id" value={row.id} />
