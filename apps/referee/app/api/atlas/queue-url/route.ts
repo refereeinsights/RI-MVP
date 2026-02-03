@@ -84,12 +84,12 @@ export async function POST(req: Request) {
   if (target === "assignor") {
     const sourceId = await ensureAssignorSourceId(sport || null, state || null);
     const externalId = `atlas_${hashValue(normalized)}`;
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = (await supabaseAdmin
       .from("assignor_source_records" as any)
       .select("id")
       .eq("source_id", sourceId)
       .eq("external_id", externalId)
-      .maybeSingle();
+      .maybeSingle()) as { data: { id: string } | null; error: any };
     if (existing?.id) return jsonResponse({ ok: true, status: "existing" });
 
     const raw = {
