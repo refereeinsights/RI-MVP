@@ -5,11 +5,13 @@ export type AtlasSearchResult = {
   domain: string | null;
 };
 
-type Provider = "serpapi" | "bing";
+type Provider = "serpapi" | "bing" | "brave";
 
 function getProvider(): Provider {
   const raw = (process.env.ATLAS_SEARCH_PROVIDER || "serpapi").toLowerCase();
-  return raw === "bing" ? "bing" : "serpapi";
+  if (raw === "bing") return "bing";
+  if (raw === "brave") return "brave";
+  return "serpapi";
 }
 
 function clampLimit(limit: number) {
@@ -50,6 +52,32 @@ export async function atlasSearch(query: string, limit: number): Promise<AtlasSe
       url: row.url,
       title: row.name ?? null,
       snippet: row.snippet ?? null,
+      domain: domainFromUrl(row.url),
+    }));
+  }
+
+  if (provider === "brave") {
+    const key = process.env.BRAVE_SEARCH_KEY;
+    if (!key) throw new Error("BRAVE_SEARCH_KEY missing");
+    const url = new URL("https://api.search.brave.com/res/v1/web/search");
+    url.searchParams.set("q", query);
+    url.searchParams.set("count", String(count));
+    const resp = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "X-Subscription-Token": key,
+      },
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Brave search failed: ${resp.status} ${text}`);
+    }
+    const json = await resp.json();
+    const rows = json?.web?.results ?? [];
+    return rows.map((row: any) => ({
+      url: row.url,
+      title: row.title ?? null,
+      snippet: row.description ?? null,
       domain: domainFromUrl(row.url),
     }));
   }
