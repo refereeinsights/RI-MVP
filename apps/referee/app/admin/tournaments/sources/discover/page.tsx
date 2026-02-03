@@ -34,6 +34,7 @@ type SearchParams = {
   hotel?: string;
   meals?: string;
   pdf?: string;
+  custom?: string;
 };
 
 function asArray(val: string | string[] | undefined): string[] {
@@ -69,6 +70,33 @@ function buildQueriesFromParams(params: SearchParams): string[] {
     queries.push([body, pdf, negatives].filter(Boolean).join(" "));
   }
   return queries.slice(0, 10);
+}
+
+type CustomQuery = {
+  query: string;
+  query_type: "custom";
+  source: "manual";
+};
+
+function parseCustomQueries(raw: string | undefined) {
+  const warnings: string[] = [];
+  if (!raw) return { queries: [] as CustomQuery[], warnings };
+  const lines = raw
+    .split(/\r?\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const queries: CustomQuery[] = [];
+  lines.forEach((line) => {
+    if (line.length > 300) {
+      warnings.push(`Skipped a line over 300 characters.`);
+      return;
+    }
+    if (/^https?:\/\//i.test(line)) {
+      warnings.push(`Custom query looks like a URL: ${line}`);
+    }
+    queries.push({ query: line, query_type: "custom", source: "manual" });
+  });
+  return { queries, warnings };
 }
 
 async function addToMaster(formData: FormData) {
@@ -113,7 +141,9 @@ async function addToMaster(formData: FormData) {
 export default async function DiscoverPage({ searchParams }: { searchParams: SearchParams }) {
   await requireAdmin();
   const notice = searchParams.notice ?? "";
-  const queries = buildQueriesFromParams(searchParams);
+  const builderQueries = buildQueriesFromParams(searchParams);
+  const { queries: customQueries, warnings } = parseCustomQueries(searchParams.custom);
+  const mergedQueries = Array.from(new Set([...builderQueries, ...customQueries.map((q) => q.query)]));
 
   return (
     <div style={{ padding: 24 }}>
@@ -172,6 +202,16 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Sea
               ))}
             </div>
           </div>
+          <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700, marginTop: 10 }}>
+            Custom search query (advanced, optional)
+            <textarea
+              name="custom"
+              rows={4}
+              defaultValue={searchParams.custom ?? ""}
+              style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db", width: "100%" }}
+              placeholder="one query per line"
+            />
+          </label>
           <button
             type="submit"
             style={{
@@ -186,9 +226,27 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Sea
           >
             Generate queries
           </button>
-          {queries.length > 0 && (
+          {warnings.length > 0 && (
+            <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+              {warnings.map((msg, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    padding: 8,
+                    border: "1px solid #fde68a",
+                    borderRadius: 8,
+                    background: "#fffbeb",
+                    fontSize: 12,
+                  }}
+                >
+                  {msg}
+                </div>
+              ))}
+            </div>
+          )}
+          {mergedQueries.length > 0 && (
             <div style={{ marginTop: 12, display: "grid", gap: 6 }}>
-              {queries.map((q, idx) => (
+              {mergedQueries.map((q, idx) => (
                 <div
                   key={idx}
                   style={{
