@@ -1,0 +1,22 @@
+-- Extend assignors schema for association-level sourced records
+alter table if exists public.assignors
+  add column if not exists assignor_type text,
+  add column if not exists name text,
+  add column if not exists sport text,
+  add column if not exists state text,
+  add column if not exists city text,
+  add column if not exists coverage_areas text,
+  add column if not exists website_url text,
+  add column if not exists contact_name text,
+  add column if not exists contact_role text,
+  add column if not exists contact_email text,
+  add column if not exists contact_phone text,
+  add column if not exists meeting_location_text text,
+  add column if not exists address_text text,
+  add column if not exists source_name text,
+  add column if not exists source_url text,
+  add column if not exists verification_status text,
+  add column if not exists ingest_method text,
+  add column if not exists last_ingested_at timestamptz,
+  add column if not exists source_hash text,
+  add column if not exists raw_source_text text;
