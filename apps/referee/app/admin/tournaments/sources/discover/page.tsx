@@ -2,6 +2,7 @@ import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { normalizeSourceUrl, upsertRegistry } from "@/server/admin/sources";
 import { redirect } from "next/navigation";
+import RunDiscovery from "./RunDiscovery";
 
 const SPORT_OPTIONS = [
   "soccer",
@@ -262,6 +263,11 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Sea
               ))}
             </div>
           )}
+          <RunDiscovery
+            queries={mergedQueries}
+            sportOptions={SPORT_OPTIONS}
+            sourceTypeOptions={SOURCE_TYPE_OPTIONS}
+          />
         </form>
 
         <form action={addToMaster} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
