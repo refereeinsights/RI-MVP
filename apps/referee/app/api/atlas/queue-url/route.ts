@@ -37,7 +37,7 @@ async function ensureAssignorSourceId(defaultSport: string | null, defaultState:
   if (error) throw new Error(`assignor_sources lookup failed: ${error.message}`);
   if (existing?.id) return existing.id as string;
 
-  const { data: created, error: insertError } = await supabaseAdmin
+  const { data: created, error: insertError } = (await supabaseAdmin
     .from("assignor_sources" as any)
     .insert({
       source_name: SOURCE_NAME,
@@ -47,7 +47,7 @@ async function ensureAssignorSourceId(defaultSport: string | null, defaultState:
       is_active: true,
     })
     .select("id")
-    .single();
+    .single()) as { data: { id: string } | null; error: any };
   if (insertError || !created?.id) {
     throw new Error(`assignor_sources insert failed: ${insertError?.message ?? "unknown error"}`);
   }
