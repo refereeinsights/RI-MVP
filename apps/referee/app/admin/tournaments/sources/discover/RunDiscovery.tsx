@@ -22,11 +22,13 @@ type Props = {
   queries: string[];
   sportOptions: readonly string[];
   sourceTypeOptions: readonly string[];
+  defaultTarget: string;
 };
 
-export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions }: Props) {
+export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions, defaultTarget }: Props) {
   const [sport, setSport] = useState("");
   const [sourceType, setSourceType] = useState("");
+  const [target, setTarget] = useState(defaultTarget === "assignor" ? "assignor" : "tournament");
   const [state, setState] = useState("");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,8 +44,8 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions 
       setError("Generate queries first.");
       return;
     }
-    if (!sport || !sourceType) {
-      setError("Sport and source type are required.");
+    if (!sport || (!sourceType && target === "tournament")) {
+      setError(target === "tournament" ? "Sport and source type are required." : "Sport is required.");
       return;
     }
     setRunning(true);
@@ -53,8 +55,9 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           queries,
+          target,
           sport,
-          source_type: sourceType,
+          source_type: target === "tournament" ? sourceType : undefined,
           state: state.trim() || undefined,
           result_limit_per_query: 10,
           max_total_urls: 100,
@@ -113,6 +116,44 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions 
     }
   }
 
+  async function queueResult(row: ResultRow, nextTarget: "tournament" | "assignor") {
+    setError(null);
+    if (!sport || (!sourceType && nextTarget === "tournament")) {
+      setError(nextTarget === "tournament" ? "Sport and source type are required." : "Sport is required.");
+      return;
+    }
+    try {
+      const res = await fetch("/api/atlas/queue-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: row.url,
+          target: nextTarget,
+          sport,
+          source_type: nextTarget === "tournament" ? sourceType : undefined,
+          state: state.trim() || undefined,
+          title: row.title ?? undefined,
+          snippet: row.snippet ?? undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data?.error || "Queue failed");
+        return;
+      }
+      setSummary((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev };
+        next.results = prev.results.map((r) =>
+          r.url === row.url ? { ...r, status: "updated" } : r
+        );
+        return next;
+      });
+    } catch (err: any) {
+      setError(err?.message || "Queue failed");
+    }
+  }
+
   return (
     <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginTop: 12 }}>
       <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>Run discovery</h3>
@@ -120,6 +161,17 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions 
         Run generated queries and queue results for review. This does not auto-publish.
       </p>
       <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
+        <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+          Target (required)
+          <select
+            value={target}
+            onChange={(e) => setTarget(e.target.value === "assignor" ? "assignor" : "tournament")}
+            style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}
+          >
+            <option value="tournament">Tournament sources</option>
+            <option value="assignor">Assignor sources</option>
+          </select>
+        </label>
         <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
           Sport (required)
           <select
@@ -135,21 +187,23 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions 
             ))}
           </select>
         </label>
-        <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
-          Source type (required)
-          <select
-            value={sourceType}
-            onChange={(e) => setSourceType(e.target.value)}
-            style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}
-          >
-            <option value="">Select type</option>
-            {sourceTypeOptions.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        </label>
+        {target === "tournament" ? (
+          <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+            Source type (required)
+            <select
+              value={sourceType}
+              onChange={(e) => setSourceType(e.target.value)}
+              style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}
+            >
+              <option value="">Select type</option>
+              {sourceTypeOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
           State (optional)
           <input
@@ -214,6 +268,23 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions 
                   {row.title && <div style={{ fontSize: 12, fontWeight: 600 }}>{row.title}</div>}
                   {row.snippet && <div style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>{row.snippet}</div>}
                   <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                    {(["tournament", "assignor"] as const).map((nextTarget) => (
+                      <button
+                        key={nextTarget}
+                        type="button"
+                        onClick={() => queueResult(row, nextTarget)}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: 8,
+                          border: "1px solid #d1d5db",
+                          background: "#f9fafb",
+                          fontSize: 12,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {`Queue as ${nextTarget}`}
+                      </button>
+                    ))}
                     {(["keep", "dead", "login_required", "pdf_only"] as const).map((action) => (
                       <button
                         key={action}

@@ -3,6 +3,7 @@ import { atlasSearch, getSearchProviderName } from "@/server/atlas/search";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getRegistryRowByUrl, normalizeSourceUrl, upsertRegistry } from "@/server/admin/sources";
+import crypto from "crypto";
 
 type ResultPreview = {
   url: string;
@@ -74,6 +75,39 @@ function normalizeDiscoveredUrl(raw: string) {
   return { url: canonical, host };
 }
 
+async function ensureAssignorSourceId(defaultSport: string | null, defaultState: string | null) {
+  const SOURCE_URL = "atlas://discover";
+  const SOURCE_NAME = "Atlas Discovery";
+
+  const { data: existing, error } = await supabaseAdmin
+    .from("assignor_sources" as any)
+    .select("id")
+    .eq("source_url", SOURCE_URL)
+    .maybeSingle();
+  if (error) throw new Error(`assignor_sources lookup failed: ${error.message}`);
+  if (existing?.id) return existing.id as string;
+
+  const { data: created, error: insertError } = await supabaseAdmin
+    .from("assignor_sources" as any)
+    .insert({
+      source_name: SOURCE_NAME,
+      source_url: SOURCE_URL,
+      default_sport: defaultSport,
+      default_state: defaultState,
+      is_active: true,
+    })
+    .select("id")
+    .single();
+  if (insertError || !created?.id) {
+    throw new Error(`assignor_sources insert failed: ${insertError?.message ?? "unknown error"}`);
+  }
+  return created.id as string;
+}
+
+function hashValue(value: string) {
+  return crypto.createHash("sha256").update(value).digest("hex").slice(0, 16);
+}
+
 export async function POST(req: Request) {
   const admin = await requireAdminUser();
   if (admin.error) return admin.error;
@@ -89,8 +123,9 @@ export async function POST(req: Request) {
   if (!queries.length) return jsonResponse({ error: "queries_required" }, 400);
   const sport = typeof body?.sport === "string" ? body.sport.trim() : "";
   const source_type = typeof body?.source_type === "string" ? body.source_type.trim() : "";
+  const target = typeof body?.target === "string" ? body.target.trim() : "tournament";
   const state = typeof body?.state === "string" ? body.state.trim() : "";
-  if (!sport || !source_type) {
+  if (!sport || (target === "tournament" && !source_type)) {
     return jsonResponse({ error: "sport_and_source_type_required" }, 400);
   }
 
@@ -131,9 +166,51 @@ export async function POST(req: Request) {
   let inserted = 0;
   let skipped_existing = 0;
   const previews: ResultPreview[] = [];
+  const assignorSourceId =
+    target === "assignor" ? await ensureAssignorSourceId(sport || null, state || null) : null;
 
   for (const item of deduped.values()) {
     const normalized = normalizeSourceUrl(item.url).canonical;
+    if (target === "assignor") {
+      const externalId = `atlas_${hashValue(normalized)}`;
+      const { data: existingAssignor } = await supabaseAdmin
+        .from("assignor_source_records" as any)
+        .select("id")
+        .eq("source_id", assignorSourceId)
+        .eq("external_id", externalId)
+        .maybeSingle();
+      if (existingAssignor?.id) {
+        skipped_existing += 1;
+        previews.push({ ...item, url: normalized, status: "existing" });
+        continue;
+      }
+      const raw = {
+        name: item.title ?? item.domain ?? normalized,
+        website_url: normalized,
+        source_url: normalized,
+        sport,
+        state,
+        search_title: item.title ?? null,
+        search_snippet: item.snippet ?? null,
+        discovered_via: "atlas",
+      };
+      const { error } = await supabaseAdmin.from("assignor_source_records" as any).insert({
+        source_id: assignorSourceId,
+        external_id: externalId,
+        raw,
+        confidence: 35,
+        review_status: "needs_review",
+      });
+      if (error) {
+        skipped_existing += 1;
+        previews.push({ ...item, url: normalized, status: "existing" });
+        continue;
+      }
+      inserted += 1;
+      previews.push({ ...item, url: normalized, status: "inserted" });
+      continue;
+    }
+
     const existing = await getRegistryRowByUrl(normalized);
     if (existing.row) {
       skipped_existing += 1;

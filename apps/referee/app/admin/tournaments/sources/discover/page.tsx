@@ -28,6 +28,7 @@ const SOURCE_TYPE_OPTIONS = [
 
 type SearchParams = {
   notice?: string;
+  target?: string;
   sport?: string | string[];
   state?: string | string[];
   etype?: string | string[];
@@ -44,6 +45,7 @@ function asArray(val: string | string[] | undefined): string[] {
 }
 
 function buildQueriesFromParams(params: SearchParams): string[] {
+  const target = (params.target ?? "tournament").toString();
   const sports = asArray(params.sport).filter(Boolean);
   const states = asArray(params.state).filter(Boolean);
   const eventTypes = asArray(params.etype).filter(Boolean);
@@ -52,7 +54,10 @@ function buildQueriesFromParams(params: SearchParams): string[] {
   const includeMeals = params.meals === "on";
   const pdfFirst = params.pdf === "on";
 
-  const baseTerms = ['("referee" OR "officials" OR "assignor" OR "referee coordinator")'];
+  const baseTerms =
+    target === "assignor"
+      ? ['("assignor" OR "referee assignor" OR "assigning" OR "assignments")', '("referee" OR "officials")']
+      : ['("tournament" OR "event schedule" OR "tournament schedule" OR "tournament director")'];
   const extras: string[] = [];
   if (eventTypes.length) extras.push(`(${eventTypes.map((e) => `"${e}"`).join(" OR ")})`);
   if (includePay) extras.push('("referee pay" OR "officials pay" OR "referee fees" OR "referee rates")');
@@ -61,7 +66,10 @@ function buildQueriesFromParams(params: SearchParams): string[] {
   if (sports.length) extras.push(`(${sports.join(" OR ")})`);
   if (states.length) extras.push(`(${states.map((s) => `"${s}"`).join(" OR ")})`);
 
-  const negatives = "-casino -gambling -booking -concert -tickets";
+  const negatives =
+    target === "assignor"
+      ? "-casino -gambling -booking -concert -tickets -ticketsale"
+      : "-casino -gambling -booking -concert -tickets -assignor -assignors -refereeassignor -arbiter";
   const pdf = pdfFirst ? "(filetype:pdf OR filetype:doc OR filetype:docx)" : "";
 
   const body = [...baseTerms, ...extras].join(" AND ");
@@ -142,6 +150,7 @@ async function addToMaster(formData: FormData) {
 export default async function DiscoverPage({ searchParams }: { searchParams: SearchParams }) {
   await requireAdmin();
   const notice = searchParams.notice ?? "";
+  const target = (searchParams.target ?? "tournament").toString();
   const builderQueries = buildQueriesFromParams(searchParams);
   const { queries: customQueries, warnings } = parseCustomQueries(searchParams.custom);
   const mergedQueries = Array.from(new Set([...builderQueries, ...customQueries.map((q) => q.query)]));
@@ -160,6 +169,13 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Sea
         <form method="get" style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>Search query builder</h2>
           <div style={{ display: "grid", gap: 8, marginTop: 8, gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
+            <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+              Target
+              <select name="target" defaultValue={target} style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}>
+                <option value="tournament">Tournament sources</option>
+                <option value="assignor">Assignor sources</option>
+              </select>
+            </label>
             <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
               Sports
               <select name="sport" multiple style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db", minHeight: 90 }}>
@@ -267,6 +283,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Sea
             queries={mergedQueries}
             sportOptions={SPORT_OPTIONS}
             sourceTypeOptions={SOURCE_TYPE_OPTIONS}
+            defaultTarget={target}
           />
         </form>
 
