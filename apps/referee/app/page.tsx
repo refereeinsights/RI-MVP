@@ -55,6 +55,29 @@ export default function Home() {
           providing transparency into tournaments, schools, and assignors —
           powered by real referee experiences and unbiased insight.
         </p>
+        <p
+          style={{
+            maxWidth: 720,
+            margin: "0.75rem auto 0",
+            fontSize: "0.95rem",
+            lineHeight: 1.6,
+            color: "#333",
+          }}
+        >
+          RefereeInsights is in public beta — features and data are evolving.
+        </p>
+        <p
+          style={{
+            maxWidth: 720,
+            margin: "0.5rem auto 0",
+            fontSize: "0.95rem",
+            lineHeight: 1.6,
+            color: "#333",
+          }}
+        >
+          Assignor contact details are protected and only visible to registered
+          users.
+        </p>
 
         {/* Value props */}
         <div
@@ -113,7 +136,7 @@ export default function Home() {
               fontSize: "0.875rem",
             }}
           >
-            Join the referee waitlist
+            Get your invite link
           </a>
         </div>
 
