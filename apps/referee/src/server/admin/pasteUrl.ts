@@ -873,10 +873,10 @@ function findMonthIndexInText(text: string): number | null {
 
 function normalizeUSClubDateText(input: string): string {
   return input
-    .replace(/\\u00a0/g, " ")
-    .replace(/[\\u2010-\\u2015\\u2212]/g, "-")
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
     .replace(/,/g, " ")
-    .replace(/\\s+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
