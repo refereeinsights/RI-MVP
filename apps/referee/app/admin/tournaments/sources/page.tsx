@@ -301,21 +301,22 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         throw err;
       }
       if (err instanceof SweepError) {
-        const payload = {
-          version: 1,
-          source_url: canonical,
-          final_url: err.diagnostics?.final_url ?? null,
-          http_status: err.diagnostics?.status ?? null,
-          error_code: err.code,
-          message: err.message,
-          content_type: err.diagnostics?.content_type ?? null,
-          bytes: err.diagnostics?.bytes ?? null,
-          timing_ms: timingMs,
-          redirect_count: err.diagnostics?.redirect_count ?? null,
-          redirect_chain: err.diagnostics?.redirect_chain ?? [],
-          location_header: err.diagnostics?.location_header ?? null,
-          extracted_count: null,
-        };
+          const payload = {
+            version: 1,
+            source_url: canonical,
+            final_url: err.diagnostics?.final_url ?? null,
+            http_status: err.diagnostics?.status ?? null,
+            error_code: err.code,
+            message: err.message,
+            content_type: err.diagnostics?.content_type ?? null,
+            bytes: err.diagnostics?.bytes ?? null,
+            timing_ms: timingMs,
+            redirect_count: err.diagnostics?.redirect_count ?? null,
+            redirect_chain: err.diagnostics?.redirect_chain ?? [],
+            location_header: err.diagnostics?.location_header ?? null,
+            extracted_count: null,
+            usclub: (err.diagnostics as any)?.usclub ?? null,
+          };
         const logId = await insertSourceLog({
           source_id: registryRow.id,
           action: "sweep",
