@@ -24,6 +24,14 @@ export type SweepDiagnostics = {
     inferred_year?: number | null;
     first_table_rows?: string[][];
     parsed_dates?: { raw: string; parsed: { start?: string; end?: string } }[];
+    normalized?: string;
+    explicit_idx?: number | null;
+    month_idx_text?: number | null;
+    default_month_idx?: number | null;
+    month_idx?: number | null;
+    year?: number | null;
+    start_day?: number | null;
+    end_day?: number | null;
   } | null;
 };
 

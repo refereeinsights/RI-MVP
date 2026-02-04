@@ -648,10 +648,21 @@ function getUSClubDiagnostics(html: string) {
       });
   }
   const firstDates = firstRows.slice(1, 4).map((row) => row[0] || "").filter(Boolean);
-  const parsedDates = firstDates.map((text) => ({
-    raw: text,
-    parsed: parseUSClubDateCell("", text, inferredYear ?? null),
-  }));
+  const parsedDates = firstDates.map((text) => {
+    const debug = parseUSClubDateCellDebug(text, inferredYear ?? null);
+    return {
+      raw: text,
+      normalized: debug.normalized,
+      explicit_idx: debug.explicitIdx,
+      month_idx_text: debug.monthIdxFromText,
+      default_month_idx: debug.defaultMonthIdx,
+      month_idx: debug.monthIdx,
+      year: debug.year,
+      start_day: debug.startDay,
+      end_day: debug.endDay,
+      parsed: debug.parsed,
+    };
+  });
   return {
     month_headers: monthHeaders.slice(0, 3),
     month_header_count: monthHeaders.length,
@@ -729,12 +740,7 @@ function parseUSClubDateCell(
   dateTextRaw: string,
   inferredYear: number | null
 ): { start?: string; end?: string } {
-  const dateText = dateTextRaw
-    .replace(/\\u00a0/g, " ")
-    .replace(/[\\u2010-\\u2015\\u2212]/g, "-")
-    .replace(/,/g, " ")
-    .replace(/\\s+/g, " ")
-    .trim();
+  const dateText = normalizeUSClubDateText(dateTextRaw);
   const match = monthYear.match(/^([A-Za-z]+)\\s+(\\d{4})$/);
   const defaultMonthName = match ? match[1] : "";
   const year = match ? parseInt(match[2], 10) : inferredYear ?? new Date().getUTCFullYear();
@@ -764,6 +770,37 @@ function parseUSClubDateCell(
     start: toISODateUTC(year, monthIdx, startDay),
     end: toISODateUTC(year, monthIdx, endDay),
   };
+}
+
+function parseUSClubDateCellDebug(dateTextRaw: string, inferredYear: number | null) {
+  const normalized = normalizeUSClubDateText(dateTextRaw);
+  const explicitMonthMatch = normalized.match(/^([A-Za-z]+)\\s+/);
+  const explicitIdx = explicitMonthMatch ? monthNameToIndex0(explicitMonthMatch[1]) : null;
+  const monthIdxFromText = explicitIdx !== null ? explicitIdx : findMonthIndexInText(normalized);
+  const defaultMonthIdx: number | null = null;
+  const monthIdx = monthIdxFromText !== null ? monthIdxFromText : null;
+  const year = inferredYear ?? new Date().getUTCFullYear();
+  let startDay: number | null = null;
+  let endDay: number | null = null;
+  const dayRangeMatch = normalized.match(/(\\d{1,2})(?:\\s*(?:-|to)\\s*(\\d{1,2}))?/i);
+  if (dayRangeMatch) {
+    startDay = parseInt(dayRangeMatch[1], 10);
+    endDay = dayRangeMatch[2] ? parseInt(dayRangeMatch[2], 10) : startDay;
+  } else {
+    const nums = normalized.match(/\\d{1,2}/g) || [];
+    if (nums.length) {
+      startDay = parseInt(nums[0], 10);
+      endDay = nums.length > 1 ? parseInt(nums[1], 10) : startDay;
+    }
+  }
+  const parsed =
+    monthIdx === null || !startDay
+      ? {}
+      : {
+          start: toISODateUTC(year, monthIdx, startDay),
+          end: toISODateUTC(year, monthIdx, endDay ?? startDay),
+        };
+  return { normalized, explicitIdx, monthIdxFromText, defaultMonthIdx, monthIdx, year, startDay, endDay, parsed };
 }
 
 function monthNameToIndex0(name: string): number | null {
@@ -827,9 +864,18 @@ function findMonthIndexInText(text: string): number | null {
   ];
   for (let i = 0; i < names.length; i += 1) {
     const name = names[i];
-    if (new RegExp(`\\\\b${name}\\\\b`, "i").test(lower)) return i;
+    if (new RegExp(`\\b${name}\\b`, "i").test(lower)) return i;
   }
   return null;
+}
+
+function normalizeUSClubDateText(input: string): string {
+  return input
+    .replace(/\\u00a0/g, " ")
+    .replace(/[\\u2010-\\u2015\\u2212]/g, "-")
+    .replace(/,/g, " ")
+    .replace(/\\s+/g, " ")
+    .trim();
 }
 
 function toISODateUTC(year: number, monthIndex0: number, day: number): string {
