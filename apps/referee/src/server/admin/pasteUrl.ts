@@ -614,14 +614,14 @@ function parseUSClubSanctionedTournaments(html: string): TournamentRow[] {
 
   for (const node of nodes) {
     const $node = $(node);
-    if (node.tagName === "h2") {
+    if ($node.is("h2")) {
       const t = $node.text().trim();
       if (/^[A-Za-z]+\\s+\\d{4}$/.test(t)) {
         currentMonthYear = t;
       }
       continue;
     }
-    if (node.tagName === "table") {
+    if ($node.is("table")) {
       if (!currentMonthYear) continue;
       results.push(...parseUSClubTable($, currentMonthYear, $node));
       currentMonthYear = null;
