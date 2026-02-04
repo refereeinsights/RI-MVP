@@ -767,20 +767,32 @@ function parseUSClubDateCell(
 }
 
 function monthNameToIndex0(name: string): number | null {
-  const m = name.trim().toLowerCase();
+  const m = name.trim().toLowerCase().replace(/\.$/, "");
   const map: Record<string, number> = {
     january: 0,
+    jan: 0,
     february: 1,
+    feb: 1,
     march: 2,
+    mar: 2,
     april: 3,
+    apr: 3,
     may: 4,
     june: 5,
+    jun: 5,
     july: 6,
+    jul: 6,
     august: 7,
+    aug: 7,
     september: 8,
+    sep: 8,
+    sept: 8,
     october: 9,
+    oct: 9,
     november: 10,
+    nov: 10,
     december: 11,
+    dec: 11,
   };
   return map[m] ?? null;
 }
@@ -800,6 +812,18 @@ function findMonthIndexInText(text: string): number | null {
     "october",
     "november",
     "december",
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "sept",
+    "oct",
+    "nov",
+    "dec",
   ];
   for (let i = 0; i < names.length; i += 1) {
     const name = names[i];
