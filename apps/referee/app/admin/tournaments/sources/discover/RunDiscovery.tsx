@@ -69,9 +69,14 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
           max_total_urls: maxTotal,
         }),
       });
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
       if (!res.ok) {
-        setError(data?.error || "Run failed");
+        setError(data?.error || `Run failed (${res.status})`);
         return;
       }
       const nextSummary: Summary = {
@@ -107,9 +112,14 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, action }),
       });
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
       if (!res.ok) {
-        setError(data?.error || "Update failed");
+        setError(data?.error || `Update failed (${res.status})`);
         return;
       }
       setSummary((prev) => {
@@ -145,9 +155,14 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
           snippet: row.snippet ?? undefined,
         }),
       });
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
       if (!res.ok) {
-        setError(data?.error || "Queue failed");
+        setError(data?.error || `Queue failed (${res.status})`);
         return;
       }
       setSummary((prev) => {

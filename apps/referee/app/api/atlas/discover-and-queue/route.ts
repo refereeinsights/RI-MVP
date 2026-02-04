@@ -96,147 +96,154 @@ function hashValue(value: string) {
 }
 
 export async function POST(req: Request) {
-  const admin = await requireAdminUser();
-  if (admin.error) return admin.error;
-
-  let body: any = null;
   try {
-    body = await req.json();
-  } catch {
-    return jsonResponse({ error: "invalid_json" }, 400);
-  }
+    const admin = await requireAdminUser();
+    if (admin.error) return admin.error;
 
-  const queries = Array.isArray(body?.queries) ? body.queries.map((q: any) => String(q || "").trim()).filter(Boolean) : [];
-  if (!queries.length) return jsonResponse({ error: "queries_required" }, 400);
-  const sport = typeof body?.sport === "string" ? body.sport.trim() : "";
-  const source_type = typeof body?.source_type === "string" ? body.source_type.trim() : "";
-  const target = typeof body?.target === "string" ? body.target.trim() : "tournament";
-  const state = typeof body?.state === "string" ? body.state.trim() : "";
-  if (!sport || (target === "tournament" && !source_type)) {
-    return jsonResponse({ error: "sport_and_source_type_required" }, 400);
-  }
+    let body: any = null;
+    try {
+      body = await req.json();
+    } catch {
+      return jsonResponse({ error: "invalid_json" }, 400);
+    }
 
-  let perQueryLimit = Number(body?.result_limit_per_query ?? 10);
-  if (!Number.isFinite(perQueryLimit)) perQueryLimit = 10;
-  perQueryLimit = Math.max(1, Math.min(50, Math.floor(perQueryLimit)));
+    const queries = Array.isArray(body?.queries) ? body.queries.map((q: any) => String(q || "").trim()).filter(Boolean) : [];
+    if (!queries.length) return jsonResponse({ error: "queries_required" }, 400);
+    const sport = typeof body?.sport === "string" ? body.sport.trim() : "";
+    const source_type = typeof body?.source_type === "string" ? body.source_type.trim() : "";
+    const target = typeof body?.target === "string" ? body.target.trim() : "tournament";
+    const state = typeof body?.state === "string" ? body.state.trim() : "";
+    if (!sport || (target === "tournament" && !source_type)) {
+      return jsonResponse({ error: "sport_and_source_type_required" }, 400);
+    }
 
-  let maxTotal = Number(body?.max_total_urls ?? 100);
-  if (!Number.isFinite(maxTotal)) maxTotal = 100;
-  maxTotal = Math.max(1, Math.min(200, Math.floor(maxTotal)));
+    let perQueryLimit = Number(body?.result_limit_per_query ?? 10);
+    if (!Number.isFinite(perQueryLimit)) perQueryLimit = 10;
+    perQueryLimit = Math.max(1, Math.min(50, Math.floor(perQueryLimit)));
 
-  if (!consumeRate(admin.user!.id, queries.length)) {
-    return jsonResponse({ error: "rate_limited" }, 429);
-  }
+    let maxTotal = Number(body?.max_total_urls ?? 100);
+    if (!Number.isFinite(maxTotal)) maxTotal = 100;
+    maxTotal = Math.max(1, Math.min(200, Math.floor(maxTotal)));
 
-  const deduped = new Map<string, { url: string; title?: string | null; snippet?: string | null; domain?: string | null }>();
-  let totalFound = 0;
-  let duplicates_dropped = 0;
+    if (!consumeRate(admin.user!.id, queries.length)) {
+      return jsonResponse({ error: "rate_limited" }, 429);
+    }
 
-  for (const query of queries) {
-    const results = await atlasSearch(query, perQueryLimit);
-    totalFound += results.length;
-    for (const result of results) {
-      const normalized = normalizeDiscoveredUrl(result.url);
-      if (!normalized) continue;
-      if (deduped.has(normalized.url)) {
-        duplicates_dropped += 1;
-        continue;
+    const deduped = new Map<string, { url: string; title?: string | null; snippet?: string | null; domain?: string | null }>();
+    let totalFound = 0;
+    let duplicates_dropped = 0;
+
+    for (const query of queries) {
+      const results = await atlasSearch(query, perQueryLimit);
+      totalFound += results.length;
+      for (const result of results) {
+        const normalized = normalizeDiscoveredUrl(result.url);
+        if (!normalized) continue;
+        if (deduped.has(normalized.url)) {
+          duplicates_dropped += 1;
+          continue;
+        }
+        deduped.set(normalized.url, {
+          url: normalized.url,
+          title: result.title ?? null,
+          snippet: result.snippet ?? null,
+          domain: result.domain ?? normalized.host,
+        });
+        if (deduped.size >= maxTotal) break;
       }
-      deduped.set(normalized.url, {
-        url: normalized.url,
-        title: result.title ?? null,
-        snippet: result.snippet ?? null,
-        domain: result.domain ?? normalized.host,
-      });
       if (deduped.size >= maxTotal) break;
     }
-    if (deduped.size >= maxTotal) break;
-  }
 
-  let inserted = 0;
-  let skipped_existing = 0;
-  let skipped_terminal = 0;
-  const previews: ResultPreview[] = [];
-  const assignorSourceId =
-    target === "assignor" ? await ensureAssignorSourceId(sport || null, state || null) : null;
+    let inserted = 0;
+    let skipped_existing = 0;
+    let skipped_terminal = 0;
+    const previews: ResultPreview[] = [];
+    const assignorSourceId =
+      target === "assignor" ? await ensureAssignorSourceId(sport || null, state || null) : null;
 
-  for (const item of deduped.values()) {
-    const normalized = normalizeSourceUrl(item.url).canonical;
-    if (target === "assignor") {
-      const externalId = `atlas_${hashValue(normalized)}`;
-      const { data: existingAssignor } = (await supabaseAdmin
-        .from("assignor_source_records" as any)
-        .select("id")
-        .eq("source_id", assignorSourceId)
-        .eq("external_id", externalId)
-        .maybeSingle()) as { data: { id: string } | null; error: any };
-      if (existingAssignor?.id) {
-        skipped_existing += 1;
-        previews.push({ ...item, url: normalized, status: "existing" });
+    for (const item of deduped.values()) {
+      const normalized = normalizeSourceUrl(item.url).canonical;
+      if (target === "assignor") {
+        const externalId = `atlas_${hashValue(normalized)}`;
+        const { data: existingAssignor } = (await supabaseAdmin
+          .from("assignor_source_records" as any)
+          .select("id")
+          .eq("source_id", assignorSourceId)
+          .eq("external_id", externalId)
+          .maybeSingle()) as { data: { id: string } | null; error: any };
+        if (existingAssignor?.id) {
+          skipped_existing += 1;
+          previews.push({ ...item, url: normalized, status: "existing" });
+          continue;
+        }
+        const raw = {
+          name: item.title ?? item.domain ?? normalized,
+          website_url: normalized,
+          source_url: normalized,
+          sport,
+          state,
+          search_title: item.title ?? null,
+          search_snippet: item.snippet ?? null,
+          discovered_via: "atlas",
+        };
+        const { error } = await supabaseAdmin.from("assignor_source_records" as any).insert({
+          source_id: assignorSourceId,
+          external_id: externalId,
+          raw,
+          confidence: 35,
+          review_status: "needs_review",
+        });
+        if (error) {
+          skipped_existing += 1;
+          previews.push({ ...item, url: normalized, status: "existing" });
+          continue;
+        }
+        inserted += 1;
+        previews.push({ ...item, url: normalized, status: "inserted" });
         continue;
       }
-      const raw = {
-        name: item.title ?? item.domain ?? normalized,
-        website_url: normalized,
+
+      const existing = await getRegistryRowByUrl(normalized);
+      if (existing.row) {
+        const status = (existing.row.review_status || "").trim();
+        if (TERMINAL_REVIEW_STATUSES.has(status)) {
+          skipped_terminal += 1;
+          previews.push({ ...item, url: normalized, status: "terminal" });
+        } else {
+          skipped_existing += 1;
+          previews.push({ ...item, url: normalized, status: "existing" });
+        }
+        continue;
+      }
+      await upsertRegistry({
         source_url: normalized,
+        source_type,
         sport,
-        state,
-        search_title: item.title ?? null,
-        search_snippet: item.snippet ?? null,
-        discovered_via: "atlas",
-      };
-      const { error } = await supabaseAdmin.from("assignor_source_records" as any).insert({
-        source_id: assignorSourceId,
-        external_id: externalId,
-        raw,
-        confidence: 35,
+        state: state || null,
         review_status: "needs_review",
+        review_notes: "discovered via atlas",
+        is_active: true,
       });
-      if (error) {
-        skipped_existing += 1;
-        previews.push({ ...item, url: normalized, status: "existing" });
-        continue;
-      }
       inserted += 1;
       previews.push({ ...item, url: normalized, status: "inserted" });
-      continue;
     }
 
-    const existing = await getRegistryRowByUrl(normalized);
-    if (existing.row) {
-      const status = (existing.row.review_status || "").trim();
-      if (TERMINAL_REVIEW_STATUSES.has(status)) {
-        skipped_terminal += 1;
-        previews.push({ ...item, url: normalized, status: "terminal" });
-      } else {
-        skipped_existing += 1;
-        previews.push({ ...item, url: normalized, status: "existing" });
-      }
-      continue;
-    }
-    await upsertRegistry({
-      source_url: normalized,
-      source_type,
-      sport,
-      state: state || null,
-      review_status: "needs_review",
-      review_notes: "discovered via atlas",
-      is_active: true,
+    const sample_urls = previews.slice(0, 10).map((p) => p.url);
+
+    return jsonResponse({
+      inserted,
+      skipped_existing,
+      skipped_terminal,
+      duplicates_dropped,
+      total_found: totalFound,
+      sample_urls,
+      results: previews,
+      meta: { provider: getSearchProviderName(), fetched_at: new Date().toISOString() },
     });
-    inserted += 1;
-    previews.push({ ...item, url: normalized, status: "inserted" });
+  } catch (err: any) {
+    return jsonResponse(
+      { error: "internal_error", message: String(err?.message ?? "unknown error") },
+      500
+    );
   }
-
-  const sample_urls = previews.slice(0, 10).map((p) => p.url);
-
-  return jsonResponse({
-    inserted,
-    skipped_existing,
-    skipped_terminal,
-    duplicates_dropped,
-    total_found: totalFound,
-    sample_urls,
-    results: previews,
-    meta: { provider: getSearchProviderName(), fetched_at: new Date().toISOString() },
-  });
 }
