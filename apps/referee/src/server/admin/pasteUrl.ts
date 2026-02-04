@@ -407,6 +407,7 @@ type GrassrootsEvent = {
   id?: string | number | null;
   nickname?: string | null;
   name?: string | null;
+  short_name?: string | null;
   dates?: string | null;
   locations?: string | null;
   short_locations?: string | null;
@@ -482,7 +483,9 @@ function extractCityState(input?: string | null): { city: string | null; state: 
 }
 
 function mapGrassrootsEvent(event: GrassrootsEvent, sport: TournamentRow["sport"]): TournamentRow | null {
-  const name = (event.name || event.nickname || "").trim();
+  const rawName = (event.name || event.nickname || "").trim();
+  const shortName = (event.short_name || "").trim();
+  const name = rawName.startsWith("G365 ") && shortName ? shortName : rawName;
   const link = event.link ? event.link.trim() : null;
   if (!name || !link) return null;
   const dates = (event.dates || "").split("|").map((d) => d.trim()).filter(Boolean);
