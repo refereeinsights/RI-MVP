@@ -29,6 +29,7 @@ type Props = {
 };
 
 export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions, defaultTarget }: Props) {
+  const [localQueries, setLocalQueries] = useState(() => queries);
   const [sport, setSport] = useState("");
   const [sourceType, setSourceType] = useState("");
   const [target, setTarget] = useState(defaultTarget === "assignor" ? "assignor" : "tournament");
@@ -40,8 +41,8 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
 
-  const hasQueries = queries.length > 0;
-  const queryPreview = useMemo(() => queries.slice(0, 6), [queries]);
+  const hasQueries = localQueries.length > 0;
+  const queryPreview = useMemo(() => localQueries.slice(0, 6), [localQueries]);
 
   async function runDiscovery() {
     setError(null);
@@ -60,7 +61,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          queries,
+          queries: localQueries,
           target,
           sport,
           source_type: target === "tournament" ? sourceType : undefined,
@@ -274,12 +275,27 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
       {queryPreview.length > 0 && (
         <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
           {queryPreview.map((q, idx) => (
-            <div key={idx} style={{ fontSize: 12, color: "#475569" }}>
-              {q}
+            <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: "#475569" }}>
+              <span style={{ flex: 1 }}>{q}</span>
+              <button
+                type="button"
+                onClick={() => setLocalQueries((prev) => prev.filter((_, i) => i !== idx))}
+                style={{
+                  padding: "2px 6px",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  background: "#f9fafb",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#991b1b",
+                }}
+              >
+                Remove
+              </button>
             </div>
           ))}
-          {queries.length > queryPreview.length && (
-            <div style={{ fontSize: 12, color: "#94a3b8" }}>+{queries.length - queryPreview.length} more queries</div>
+          {localQueries.length > queryPreview.length && (
+            <div style={{ fontSize: 12, color: "#94a3b8" }}>+{localQueries.length - queryPreview.length} more queries</div>
           )}
         </div>
       )}
