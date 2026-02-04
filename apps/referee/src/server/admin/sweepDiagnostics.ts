@@ -17,6 +17,12 @@ export type SweepDiagnostics = {
   redirect_chain?: { status: number; location: string }[];
   location_header?: string | null;
   provider?: string | null;
+  usclub?: {
+    month_headers?: string[];
+    month_header_count?: number;
+    table_count?: number;
+    first_table_rows?: string[][];
+  } | null;
 };
 
 export class SweepError extends Error {
