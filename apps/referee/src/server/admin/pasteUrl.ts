@@ -635,16 +635,16 @@ function getUSClubDiagnostics(html: string) {
   const firstTable = tables.length ? $(tables[0]) : null;
   let firstRows: string[][] = [];
   if (firstTable) {
-    firstRows = firstTable
+    firstTable
       .find("tr")
       .slice(0, 3)
-      .map((_, tr) =>
-        $(tr)
+      .each((_, tr) => {
+        const row = $(tr)
           .find("td,th")
           .map((_, td) => $(td).text().trim().replace(/\\s+/g, " "))
-          .get()
-      )
-      .get() as string[][];
+          .get();
+        firstRows.push(row);
+      });
   }
   return {
     month_headers: monthHeaders.slice(0, 3),
