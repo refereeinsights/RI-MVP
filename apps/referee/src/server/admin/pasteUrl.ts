@@ -731,7 +731,7 @@ function parseUSClubDateCell(
 ): { start?: string; end?: string } {
   const dateText = dateTextRaw
     .replace(/\\u00a0/g, " ")
-    .replace(/\\u2013|\\u2014/g, "-")
+    .replace(/[\\u2010-\\u2015\\u2212]/g, "-")
     .replace(/,/g, " ")
     .replace(/\\s+/g, " ")
     .trim();
@@ -745,10 +745,21 @@ function parseUSClubDateCell(
   const monthIdx =
     monthIdxFromText !== null ? monthIdxFromText : defaultMonthIdx !== null ? defaultMonthIdx : null;
   if (monthIdx === null) return {};
+  let startDay: number | null = null;
+  let endDay: number | null = null;
   const dayRangeMatch = dateText.match(/(\\d{1,2})(?:\\s*(?:-|to)\\s*(\\d{1,2}))?/i);
-  if (!dayRangeMatch) return {};
-  const startDay = parseInt(dayRangeMatch[1], 10);
-  const endDay = dayRangeMatch[2] ? parseInt(dayRangeMatch[2], 10) : startDay;
+  if (dayRangeMatch) {
+    startDay = parseInt(dayRangeMatch[1], 10);
+    endDay = dayRangeMatch[2] ? parseInt(dayRangeMatch[2], 10) : startDay;
+  } else {
+    const nums = dateText.match(/\\d{1,2}/g) || [];
+    if (nums.length) {
+      startDay = parseInt(nums[0], 10);
+      endDay = nums.length > 1 ? parseInt(nums[1], 10) : startDay;
+    }
+  }
+  if (!startDay) return {};
+  if (!endDay) endDay = startDay;
   return {
     start: toISODateUTC(year, monthIdx, startDay),
     end: toISODateUTC(year, monthIdx, endDay),
