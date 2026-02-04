@@ -225,7 +225,8 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       .select("id,source_url,url,is_active,review_status,review_notes,ignore_until")
       .eq("id", id)
       .maybeSingle();
-    if (rowError || !row) {
+    const registryRow = row as any;
+    if (rowError || !registryRow) {
       redirect(`/admin/tournaments/sources?notice=${encodeURIComponent("Source not found")}`);
     }
     await supabaseAdmin
@@ -236,10 +237,10 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         normalized_url: normalized,
         normalized_host: host,
       })
-      .eq("id", row.id);
-    const skipReason = getSkipReason(row);
+      .eq("id", registryRow.id);
+    const skipReason = getSkipReason(registryRow);
     if (skipReason && !overrideSkip) {
-      await updateRegistrySweep(row.id, "warn", `Skipped: ${skipReason}`);
+      await updateRegistrySweep(registryRow.id, "warn", `Skipped: ${skipReason}`);
       return redirect(
         `/admin/tournaments/sources?notice=${encodeURIComponent(
           `Sweep skipped: ${skipReason}. Update source status or enable override.`
@@ -250,7 +251,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     await supabaseAdmin
       .from("tournament_sources" as any)
       .update({ last_tested_at: new Date().toISOString() })
-      .eq("id", row.id);
+      .eq("id", registryRow.id);
 
     const startedAt = Date.now();
     try {
@@ -276,13 +277,13 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         extracted_count: 1,
       };
       const logId = await insertSourceLog({
-        source_id: row.id,
+        source_id: registryRow.id,
         action: "sweep",
         level: "info",
         payload,
       });
       await updateRegistrySweep(
-        row.id,
+        registryRow.id,
         "ok",
         buildSweepSummary(null, "Sweep succeeded", res.diagnostics ?? {}, { log_id: logId })
       );
@@ -313,13 +314,13 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
           extracted_count: null,
         };
         const logId = await insertSourceLog({
-          source_id: row.id,
+          source_id: registryRow.id,
           action: "sweep",
           level: "error",
           payload,
         });
         await updateRegistrySweep(
-          row.id,
+          registryRow.id,
           err.code,
           buildSweepSummary(err.code, err.message, err.diagnostics, { log_id: logId })
         );
@@ -342,13 +343,13 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
             extracted_count: null,
           };
           const logId = await insertSourceLog({
-            source_id: row.id,
+            source_id: registryRow.id,
             action: "sweep",
             level: "error",
             payload,
           });
           await updateRegistrySweep(
-            row.id,
+            registryRow.id,
             "fetch_failed",
             buildSweepSummary("fetch_failed", payload.message, {}, { log_id: logId })
           );
@@ -369,13 +370,13 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
             extracted_count: null,
           };
           const logId = await insertSourceLog({
-            source_id: row.id,
+            source_id: registryRow.id,
             action: "sweep",
             level: "error",
             payload,
           });
           await updateRegistrySweep(
-            row.id,
+            registryRow.id,
             "extractor_error",
             buildSweepSummary("extractor_error", payload.message, {}, { log_id: logId })
           );
