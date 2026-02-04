@@ -17,11 +17,21 @@ type FetchDiagnostics = {
   bytes: number;
   final_url: string;
   redirect_count: number;
+  redirect_chain: { status: number; location: string }[];
+  location_header: string | null;
 };
 
-async function fetchWithRedirects(startUrl: string): Promise<{ resp: Response; finalUrl: string; redirectCount: number }> {
+async function fetchWithRedirects(startUrl: string): Promise<{
+  resp: Response;
+  finalUrl: string;
+  redirectCount: number;
+  redirectChain: { status: number; location: string }[];
+  lastLocation: string | null;
+}> {
   let currentUrl = startUrl;
   let redirectCount = 0;
+  const redirectChain: { status: number; location: string }[] = [];
+  let lastLocation: string | null = null;
   while (true) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -38,8 +48,10 @@ async function fetchWithRedirects(startUrl: string): Promise<{ resp: Response; f
     if (resp.status >= 300 && resp.status < 400) {
       const next = resp.headers.get("location");
       if (!next) {
-        return { resp, finalUrl: currentUrl, redirectCount };
+        return { resp, finalUrl: currentUrl, redirectCount, redirectChain, lastLocation };
       }
+      lastLocation = next;
+      redirectChain.push({ status: resp.status, location: next });
       redirectCount += 1;
       if (redirectCount > MAX_REDIRECTS) {
         throw new SweepError("redirect_blocked", "Too many redirects", {
@@ -47,12 +59,14 @@ async function fetchWithRedirects(startUrl: string): Promise<{ resp: Response; f
           content_type: resp.headers.get("content-type"),
           final_url: currentUrl,
           redirect_count: redirectCount,
+          redirect_chain: redirectChain,
+          location_header: lastLocation,
         });
       }
       currentUrl = new URL(next, currentUrl).toString();
       continue;
     }
-    return { resp, finalUrl: resp.url || currentUrl, redirectCount };
+    return { resp, finalUrl: resp.url || currentUrl, redirectCount, redirectChain, lastLocation };
   }
 }
 
@@ -65,11 +79,15 @@ async function fetchHtmlWithDiagnostics(url: string): Promise<{ html: string; di
   let resp: Response;
   let finalUrl = url;
   let redirectCount = 0;
+  let redirectChain: { status: number; location: string }[] = [];
+  let lastLocation: string | null = null;
   try {
     const result = await fetchWithRedirects(url);
     resp = result.resp;
     finalUrl = result.finalUrl;
     redirectCount = result.redirectCount;
+    redirectChain = result.redirectChain;
+    lastLocation = result.lastLocation;
   } catch (err: any) {
     if (err instanceof SweepError) throw err;
     throw new SweepError("fetch_failed", "Request failed", { final_url: finalUrl });
@@ -83,6 +101,8 @@ async function fetchHtmlWithDiagnostics(url: string): Promise<{ html: string; di
       content_type: contentType,
       final_url: finalUrl,
       redirect_count: redirectCount,
+      redirect_chain: redirectChain,
+      location_header: lastLocation,
     });
   }
 
@@ -107,6 +127,8 @@ async function fetchHtmlWithDiagnostics(url: string): Promise<{ html: string; di
       bytes,
       final_url: finalUrl,
       redirect_count: redirectCount,
+      redirect_chain: redirectChain,
+      location_header: lastLocation,
     });
   }
 
@@ -122,6 +144,8 @@ async function fetchHtmlWithDiagnostics(url: string): Promise<{ html: string; di
       bytes,
       final_url: finalUrl,
       redirect_count: redirectCount,
+      redirect_chain: redirectChain,
+      location_header: lastLocation,
     },
   };
 }
@@ -324,5 +348,5 @@ export async function createTournamentFromUrl(params: {
 
   await updateRunExtractedJson(runId, { action: "paste_url", tournament_id: tournamentId, created: true });
 
-  return { tournamentId, meta, slug, registry_id: registry.registry_id, run_id: runId };
+  return { tournamentId, meta, slug, registry_id: registry.registry_id, run_id: runId, diagnostics };
 }

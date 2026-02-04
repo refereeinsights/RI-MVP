@@ -211,7 +211,7 @@ export async function insertRun(input: RunInsertInput) {
   return data.id;
 }
 
-export async function updateRegistrySweep(registry_id: string, status: "ok" | "warn" | "error", summary: string) {
+export async function updateRegistrySweep(registry_id: string, status: string, summary: string) {
   await supabaseAdmin
     .from("tournament_sources" as any)
     .update({
@@ -221,6 +221,43 @@ export async function updateRegistrySweep(registry_id: string, status: "ok" | "w
       last_sweep_summary: summary,
     })
     .eq("id", registry_id);
+}
+
+export async function insertSourceLog(input: {
+  source_id: string;
+  action: "sweep" | "test_fetch" | "discover";
+  level: "info" | "warn" | "error";
+  payload: any;
+}): Promise<string> {
+  const { data, error } = (await supabaseAdmin
+    .from("tournament_source_logs" as any)
+    .insert({
+      source_id: input.source_id,
+      action: input.action,
+      level: input.level,
+      payload: input.payload,
+    })
+    .select("id")
+    .single()) as { data: { id: string } | null; error: any };
+  if (error || !data?.id) throw error ?? new Error("log_insert_failed");
+  return data.id;
+}
+
+export async function ensureDiscoveryLogSourceId(): Promise<string> {
+  const DISCOVERY_URL = "https://atlas.discover";
+  const existing = await getRegistryRowByUrl(DISCOVERY_URL);
+  if (existing.row?.id) return existing.row.id;
+  const { registry_id } = await upsertRegistry({
+    source_url: DISCOVERY_URL,
+    source_type: null,
+    sport: null,
+    state: null,
+    city: null,
+    notes: "system discovery log source",
+    is_active: false,
+    review_status: "duplicate_source",
+  });
+  return registry_id;
 }
 
 export async function updateRunExtractedJson(run_id: string, extracted_json: any) {

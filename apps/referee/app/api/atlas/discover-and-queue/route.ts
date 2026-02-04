@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 import { atlasSearch, getSearchProviderName } from "@/server/atlas/search";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getRegistryRowByUrl, normalizeSourceUrl, TERMINAL_REVIEW_STATUSES, upsertRegistry } from "@/server/admin/sources";
+import {
+  getRegistryRowByUrl,
+  normalizeSourceUrl,
+  TERMINAL_REVIEW_STATUSES,
+  upsertRegistry,
+  insertSourceLog,
+  ensureDiscoveryLogSourceId,
+} from "@/server/admin/sources";
 import crypto from "crypto";
 
 type ResultPreview = {
@@ -133,6 +140,7 @@ export async function POST(req: Request) {
     let totalFound = 0;
     let duplicates_dropped = 0;
 
+    const startedAt = Date.now();
     for (const query of queries) {
       const results = await atlasSearch(query, perQueryLimit);
       totalFound += results.length;
@@ -229,6 +237,28 @@ export async function POST(req: Request) {
     }
 
     const sample_urls = previews.slice(0, 10).map((p) => p.url);
+
+    try {
+      const discoverySourceId = await ensureDiscoveryLogSourceId();
+      const logPayload = {
+        version: 1,
+        query: queries.join(" | "),
+        provider: getSearchProviderName(),
+        total_found: totalFound,
+        inserted,
+        skipped_existing,
+        skipped_terminal,
+        timing_ms: Date.now() - startedAt,
+      };
+      await insertSourceLog({
+        source_id: discoverySourceId,
+        action: "discover",
+        level: "info",
+        payload: logPayload,
+      });
+    } catch {
+      // Ignore logging failures for discovery runs
+    }
 
     return jsonResponse({
       inserted,

@@ -14,6 +14,8 @@ export type SweepDiagnostics = {
   bytes?: number;
   final_url?: string | null;
   redirect_count?: number;
+  redirect_chain?: { status: number; location: string }[];
+  location_header?: string | null;
   provider?: string | null;
 };
 
@@ -41,6 +43,11 @@ export function classifyHtmlPayload(contentType: string | null, bytes: number, m
   return null;
 }
 
-export function buildSweepSummary(code: SweepErrorCode, message: string, diagnostics: SweepDiagnostics) {
-  return JSON.stringify({ error_code: code, message, ...diagnostics });
+export function buildSweepSummary(
+  code: SweepErrorCode | null,
+  message: string,
+  diagnostics: SweepDiagnostics,
+  extras: Record<string, any> = {}
+) {
+  return JSON.stringify({ error_code: code, message, ...diagnostics, ...extras });
 }

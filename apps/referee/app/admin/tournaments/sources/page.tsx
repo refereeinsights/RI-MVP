@@ -9,9 +9,11 @@ import {
   getSkipReason,
   ensureRegistryRow,
   updateRegistrySweep,
+  insertSourceLog,
 } from "@/server/admin/sources";
 import { createTournamentFromUrl } from "@/server/admin/pasteUrl";
 import { SweepError, buildSweepSummary } from "@/server/admin/sweepDiagnostics";
+import SourceLogsClient from "./SourceLogsClient";
 
 type Filter = "all" | "untested" | "keep" | "ignored" | "needs_review";
 
@@ -239,6 +241,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       .update({ last_tested_at: new Date().toISOString() })
       .eq("id", row.id);
 
+    const startedAt = Date.now();
     try {
       const res = await createTournamentFromUrl({
         url: canonical,
@@ -246,33 +249,149 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         status: "draft",
         source: "external_crawl",
       });
-      await updateRegistrySweep(row.id, "ok", `Created "${res.meta.name ?? res.slug}"`);
+      const payload = {
+        version: 1,
+        source_url: canonical,
+        final_url: res.diagnostics?.final_url ?? null,
+        http_status: res.diagnostics?.status ?? null,
+        error_code: null,
+        message: "Sweep succeeded",
+        content_type: res.diagnostics?.content_type ?? null,
+        bytes: res.diagnostics?.bytes ?? null,
+        timing_ms: Date.now() - startedAt,
+        redirect_count: res.diagnostics?.redirect_count ?? null,
+        redirect_chain: res.diagnostics?.redirect_chain ?? [],
+        location_header: res.diagnostics?.location_header ?? null,
+        extracted_count: 1,
+      };
+      const logId = await insertSourceLog({
+        source_id: row.id,
+        action: "sweep",
+        level: "info",
+        payload,
+      });
+      await updateRegistrySweep(
+        row.id,
+        "ok",
+        buildSweepSummary(null, "Sweep succeeded", res.diagnostics ?? {}, { log_id: logId })
+      );
       redirect(
         `/admin/tournaments/sources?notice=${encodeURIComponent(
           `Created "${res.meta.name ?? res.slug}" and queued enrichment.`
         )}&source_url=${encodeURIComponent(canonical)}`
       );
     } catch (err: any) {
+      const timingMs = Date.now() - startedAt;
       if (err instanceof SweepError) {
+        const payload = {
+          version: 1,
+          source_url: canonical,
+          final_url: err.diagnostics?.final_url ?? null,
+          http_status: err.diagnostics?.status ?? null,
+          error_code: err.code,
+          message: err.message,
+          content_type: err.diagnostics?.content_type ?? null,
+          bytes: err.diagnostics?.bytes ?? null,
+          timing_ms: timingMs,
+          redirect_count: err.diagnostics?.redirect_count ?? null,
+          redirect_chain: err.diagnostics?.redirect_chain ?? [],
+          location_header: err.diagnostics?.location_header ?? null,
+          extracted_count: null,
+        };
+        const logId = await insertSourceLog({
+          source_id: row.id,
+          action: "sweep",
+          level: "error",
+          payload,
+        });
         await updateRegistrySweep(
           row.id,
-          "error",
-          buildSweepSummary(err.code, err.message, err.diagnostics)
+          err.code,
+          buildSweepSummary(err.code, err.message, err.diagnostics, { log_id: logId })
         );
       } else {
         const legacyMessage = String(err?.message ?? "");
-        if (legacyMessage === "failed_to_fetch_html") {
+        if (err?.digest && String(err.digest).includes("NEXT_REDIRECT")) {
+          const payload = {
+            version: 1,
+            source_url: canonical,
+            final_url: null,
+            http_status: null,
+            error_code: "redirect_blocked",
+            message: "Redirect blocked (Next.js redirect or loop)",
+            content_type: null,
+            bytes: null,
+            timing_ms: timingMs,
+            redirect_count: null,
+            redirect_chain: [],
+            location_header: null,
+            extracted_count: null,
+          };
+          const logId = await insertSourceLog({
+            source_id: row.id,
+            action: "sweep",
+            level: "error",
+            payload,
+          });
           await updateRegistrySweep(
             row.id,
-            "error",
-            buildSweepSummary("fetch_failed", "Request failed", {})
+            "redirect_blocked",
+            buildSweepSummary("redirect_blocked", payload.message, {}, { log_id: logId })
+          );
+        } else if (legacyMessage === "failed_to_fetch_html") {
+          const payload = {
+            version: 1,
+            source_url: canonical,
+            final_url: null,
+            http_status: null,
+            error_code: "fetch_failed",
+            message: "Request failed",
+            content_type: null,
+            bytes: null,
+            timing_ms: timingMs,
+            redirect_count: null,
+            redirect_chain: [],
+            location_header: null,
+            extracted_count: null,
+          };
+          const logId = await insertSourceLog({
+            source_id: row.id,
+            action: "sweep",
+            level: "error",
+            payload,
+          });
+          await updateRegistrySweep(
+            row.id,
+            "fetch_failed",
+            buildSweepSummary("fetch_failed", payload.message, {}, { log_id: logId })
           );
         } else {
-        await updateRegistrySweep(
-          row.id,
-          "error",
-          `Sweep failed: ${legacyMessage.slice(0, 180) || "unknown error"}`
-        );
+          const payload = {
+            version: 1,
+            source_url: canonical,
+            final_url: null,
+            http_status: null,
+            error_code: "extractor_error",
+            message: legacyMessage || "unknown error",
+            content_type: null,
+            bytes: null,
+            timing_ms: timingMs,
+            redirect_count: null,
+            redirect_chain: [],
+            location_header: null,
+            extracted_count: null,
+          };
+          const logId = await insertSourceLog({
+            source_id: row.id,
+            action: "sweep",
+            level: "error",
+            payload,
+          });
+          await updateRegistrySweep(
+            row.id,
+            "extractor_error",
+            buildSweepSummary("extractor_error", payload.message, {}, { log_id: logId })
+          );
         }
       }
       redirect(
@@ -562,7 +681,17 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                   <td style={{ padding: "6px 4px" }}>{formatDate(row.last_tested_at)}</td>
                   <td style={{ padding: "6px 4px" }}>
                     {formatDate(row.last_swept_at)}
-                    {row.last_sweep_status ? ` (${row.last_sweep_status})` : ""}
+                    {row.last_sweep_status ? (
+                      <>
+                        {" "}
+                        <SourceLogsClient
+                          sourceId={row.id}
+                          sourceUrl={row.source_url}
+                          status={row.last_sweep_status}
+                          compact
+                        />
+                      </>
+                    ) : null}
                   </td>
                   <td style={{ padding: "6px 4px", maxWidth: 260 }}>
                     {row.last_sweep_summary ? (() => {
@@ -572,7 +701,8 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                       } catch {
                         parsed = null;
                       }
-                      if (!parsed || !parsed.error_code) return row.last_sweep_summary;
+                      if (!parsed || (!parsed.error_code && !parsed.message)) return row.last_sweep_summary;
+                      const codeLabel = parsed.error_code ?? "ok";
                       return (
                         <div style={{ display: "grid", gap: 6 }}>
                           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -587,7 +717,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                                 fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
                               }}
                             >
-                              {parsed.error_code}
+                              {codeLabel}
                             </span>
                             <span style={{ fontSize: 12 }}>{parsed.message}</span>
                           </div>
@@ -626,6 +756,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                             </button>
                           </form>
                         )}
+                        <SourceLogsClient sourceId={row.id} sourceUrl={row.source_url} />
                         <form action={quickAction}>
                           <input type="hidden" name="id" value={row.id} />
                           <input type="hidden" name="redirect" value={`/admin/tournaments/sources?filter=${filter}`} />
