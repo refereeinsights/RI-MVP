@@ -832,14 +832,14 @@
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__handle,
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__overall,
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__body {
-  color: #111111;
-  text-shadow: none;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
 
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__meta,
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__scores dt,
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__body {
-  color: rgba(0, 0, 0, 0.85);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .reviewList .reviewCard.reviewCard--football {
@@ -1003,14 +1003,14 @@
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__overall,
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__body,
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__sport {
-  color: #111111;
-  text-shadow: none;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
 
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__scores dt,
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__scores dd {
-  color: #111111 !important;
-  text-shadow: none;
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
 
 .reviewEmpty {
