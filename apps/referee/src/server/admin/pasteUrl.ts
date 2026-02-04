@@ -609,18 +609,12 @@ function mapGrassrootsEvent(event: GrassrootsEvent, sport: TournamentRow["sport"
 function parseUSClubSanctionedTournaments(html: string): TournamentRow[] {
   const $ = cheerio.load(html);
   const results: TournamentRow[] = [];
-  const monthNodes = $("h2")
-    .toArray()
-    .map((node) => $(node))
-    .filter(($node) => /^[A-Za-z]+\\s+\\d{4}$/.test($node.text().trim()));
-
-  for (const $h2 of monthNodes) {
+  const tables = $("table.wptb-preview-table").toArray();
+  for (const table of tables) {
+    const $table = $(table);
+    const $h2 = $table.prevAll("h2").filter((_i, el) => /^[A-Za-z]+\\s+\\d{4}$/.test($(el).text().trim())).first();
     const monthYear = $h2.text().trim();
-    let $table = $h2.closest(".elementor-widget-wrap").find("table.wptb-preview-table").first();
-    if (!$table.length) {
-      $table = $h2.closest("section").find("table.wptb-preview-table").first();
-    }
-    if (!$table.length) continue;
+    if (!monthYear) continue;
     results.push(...parseUSClubTable($, monthYear, $table));
   }
 
