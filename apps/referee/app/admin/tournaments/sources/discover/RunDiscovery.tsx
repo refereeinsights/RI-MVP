@@ -8,6 +8,7 @@ type ResultRow = {
   snippet?: string | null;
   domain?: string | null;
   status: "inserted" | "existing" | "updated";
+  last_action?: "keep" | "dead" | "login_required" | "pdf_only" | "queue_tournament" | "queue_assignor" | null;
 };
 
 type Summary = {
@@ -83,6 +84,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
               snippet: r.snippet ?? null,
               domain: r.domain ?? null,
               status: r.status === "existing" ? "existing" : "inserted",
+              last_action: null,
             }))
           : [],
       };
@@ -110,7 +112,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
         if (!prev) return prev;
         const next = { ...prev };
         next.results = prev.results.map((r) =>
-          r.url === url ? { ...r, status: "updated" } : r
+          r.url === url ? { ...r, status: "updated", last_action: action } : r
         );
         return next;
       });
@@ -148,7 +150,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
         if (!prev) return prev;
         const next = { ...prev };
         next.results = prev.results.map((r) =>
-          r.url === row.url ? { ...r, status: "updated" } : r
+          r.url === row.url ? { ...r, status: "updated", last_action: `queue_${nextTarget}` } : r
         );
         return next;
       });
@@ -304,42 +306,85 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
                   {row.title && <div style={{ fontSize: 12, fontWeight: 600 }}>{row.title}</div>}
                   {row.snippet && <div style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>{row.snippet}</div>}
                   <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                    {(["tournament", "assignor"] as const).map((nextTarget) => (
-                      <button
-                        key={nextTarget}
-                        type="button"
-                        onClick={() => queueResult(row, nextTarget)}
-                        style={{
-                          padding: "6px 10px",
-                          borderRadius: 8,
-                          border: "1px solid #d1d5db",
-                          background: "#f9fafb",
-                          fontSize: 12,
-                          fontWeight: 700,
-                        }}
-                      >
-                        {`Queue as ${nextTarget}`}
-                      </button>
-                    ))}
-                    {(["keep", "dead", "login_required", "pdf_only"] as const).map((action) => (
-                      <button
-                        key={action}
-                        type="button"
-                        onClick={() => updateStatus(row.url, action)}
-                        style={{
-                          padding: "6px 10px",
-                          borderRadius: 8,
-                          border: "1px solid #d1d5db",
-                          background: "#f9fafb",
-                          fontSize: 12,
-                          fontWeight: 700,
-                        }}
-                      >
-                        {action.replace("_", " ")}
-                      </button>
-                    ))}
-                    <span style={{ fontSize: 11, color: "#94a3b8" }}>
-                      {row.status === "updated" ? "Updated" : row.status === "existing" ? "Already queued" : "Queued"}
+                    {(["tournament", "assignor"] as const).map((nextTarget) => {
+                      const isSelected = row.status === "updated" && row.last_action === `queue_${nextTarget}`;
+                      return (
+                        <button
+                          key={nextTarget}
+                          type="button"
+                          onClick={() => queueResult(row, nextTarget)}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: isSelected ? "1px solid #0f172a" : "1px solid #d1d5db",
+                            background: isSelected ? "#0f172a" : "#f9fafb",
+                            color: isSelected ? "#fff" : "#111827",
+                            fontSize: 12,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {`Queue as ${nextTarget}`}
+                        </button>
+                      );
+                    })}
+                    {(["keep", "dead", "login_required", "pdf_only"] as const).map((action) => {
+                      const isSelected = row.status === "updated" && row.last_action === action;
+                      return (
+                        <button
+                          key={action}
+                          type="button"
+                          onClick={() => updateStatus(row.url, action)}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: isSelected ? "1px solid #0f172a" : "1px solid #d1d5db",
+                            background: isSelected ? "#0f172a" : "#f9fafb",
+                            color: isSelected ? "#fff" : "#111827",
+                            fontSize: 12,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {action.replace("_", " ")}
+                        </button>
+                      );
+                    })}
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 800,
+                        color:
+                          row.last_action === "keep"
+                            ? "#065f46"
+                            : row.last_action === "dead"
+                            ? "#991b1b"
+                            : row.status === "updated"
+                            ? "#0f172a"
+                            : "#1f2937",
+                        background:
+                          row.last_action === "keep"
+                            ? "#d1fae5"
+                            : row.last_action === "dead"
+                            ? "#fee2e2"
+                            : row.status === "updated"
+                            ? "#e2e8f0"
+                            : "#f3f4f6",
+                        border:
+                          row.last_action === "keep"
+                            ? "1px solid #10b981"
+                            : row.last_action === "dead"
+                            ? "1px solid #ef4444"
+                            : row.status === "updated"
+                            ? "1px solid #0f172a"
+                            : "1px solid #cbd5f5",
+                        borderRadius: 999,
+                        padding: "2px 8px",
+                      }}
+                    >
+                      {row.status === "updated"
+                        ? `Updated${row.last_action ? ` (${row.last_action.replace(/_/g, " ")})` : ""}`
+                        : row.status === "existing"
+                        ? "Already queued"
+                        : "Queued"}
                     </span>
                   </div>
                 </div>
