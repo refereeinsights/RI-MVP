@@ -286,6 +286,51 @@ export async function createTournamentFromUrl(params: {
   const { html, diagnostics } = await fetchHtmlWithDiagnostics(url);
 
   const parsedUrl = new URL(canonical);
+
+  if (parsedUrl.hostname.includes("grassroots365.com") && parsedUrl.pathname.includes("/calendar")) {
+    const events = extractGrassrootsCalendarEvents(html);
+    if (!events || events.length === 0) {
+      throw new SweepError("html_received_no_events", "Calendar found but no events parsed", diagnostics);
+    }
+
+    const tournamentIds: string[] = [];
+    for (const event of events) {
+      const mapped = mapGrassrootsEvent(event, sport);
+      if (!mapped) continue;
+      const tournamentId = await upsertTournamentFromSource(mapped);
+      tournamentIds.push(tournamentId);
+    }
+
+    if (!tournamentIds.length) {
+      throw new SweepError("html_received_no_events", "Calendar parsed but no valid events mapped", diagnostics);
+    }
+
+    await queueEnrichmentJobs(tournamentIds);
+
+    const registry = await upsertRegistry({ source_url: canonical, source_type: "series_site", sport });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "Grassroots365 calendar",
+      extracted_json: { action: "calendar_import", extracted_count: tournamentIds.length },
+      extract_confidence: 0.7,
+    });
+    await updateRunExtractedJson(runId, { action: "calendar_import", extracted_count: tournamentIds.length });
+
+    return {
+      tournamentId: tournamentIds[0],
+      meta: { name: `Imported ${tournamentIds.length} events`, warnings: [] },
+      slug: "calendar-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: tournamentIds.length,
+    };
+  }
+
   let meta: ParsedMetadata;
   try {
     meta = parseMetadata(html);
@@ -355,5 +400,119 @@ export async function createTournamentFromUrl(params: {
 
   await updateRunExtractedJson(runId, { action: "paste_url", tournament_id: tournamentId, created: true });
 
-  return { tournamentId, meta, slug, registry_id: registry.registry_id, run_id: runId, diagnostics };
+  return { tournamentId, meta, slug, registry_id: registry.registry_id, run_id: runId, diagnostics, extracted_count: 1 };
+}
+
+type GrassrootsEvent = {
+  id?: string | number | null;
+  nickname?: string | null;
+  name?: string | null;
+  dates?: string | null;
+  locations?: string | null;
+  short_locations?: string | null;
+  link?: string | null;
+};
+
+function extractGrassrootsCalendarEvents(html: string): GrassrootsEvent[] | null {
+  const marker = "console.log(";
+  const idx = html.indexOf(marker);
+  if (idx === -1) return null;
+  const start = html.indexOf("{", idx);
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  let end = -1;
+  for (let i = start; i < html.length; i++) {
+    const ch = html[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+      } else if (ch === "\\") {
+        escape = true;
+      } else if (ch === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === "\"") {
+      inString = true;
+      continue;
+    }
+    if (ch === "{") depth += 1;
+    if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        end = i + 1;
+        break;
+      }
+    }
+  }
+  if (end === -1) return null;
+  const jsonText = html.slice(start, end);
+  let parsed: any;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    return null;
+  }
+  const events: GrassrootsEvent[] = [];
+  Object.values(parsed || {}).forEach((value: any) => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => events.push(item));
+    }
+  });
+  return events;
+}
+
+function parseDateString(value?: string | null) {
+  if (!value) return null;
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.toISOString().slice(0, 10);
+}
+
+function extractCityState(input?: string | null): { city: string | null; state: string | null } {
+  if (!input) return { city: null, state: null };
+  const matchParen = input.match(/\\(([^,]+),\\s*([A-Z]{2})\\)/);
+  if (matchParen) return { city: matchParen[1].trim(), state: matchParen[2].trim() };
+  const matchComma = input.match(/([^,]+),\\s*([A-Z]{2})/);
+  if (matchComma) return { city: matchComma[1].trim(), state: matchComma[2].trim() };
+  return { city: null, state: null };
+}
+
+function mapGrassrootsEvent(event: GrassrootsEvent, sport: TournamentRow["sport"]): TournamentRow | null {
+  const name = (event.name || event.nickname || "").trim();
+  const link = event.link ? event.link.trim() : null;
+  if (!name || !link) return null;
+  const dates = (event.dates || "").split("|").map((d) => d.trim()).filter(Boolean);
+  const startDate = parseDateString(dates[0]);
+  const endDate = parseDateString(dates[dates.length - 1]);
+  const locationRaw = (event.locations || event.short_locations || "").split("|")[0]?.trim() || "";
+  const { city, state } = extractCityState(locationRaw);
+  const slug = buildTournamentSlug({ name, city: city ?? undefined, state: state ?? undefined });
+  const parsedLink = new URL(link);
+
+  return {
+    name,
+    slug,
+    sport,
+    level: null,
+    sub_type: "internet",
+    cash_tournament: false,
+    state: state ?? "NA",
+    city: city ?? "Unknown",
+    venue: null,
+    address: null,
+    start_date: startDate,
+    end_date: endDate,
+    summary: null,
+    status: "draft",
+    confidence: undefined,
+    source: "external_crawl",
+    source_event_id: event.id ? String(event.id) : event.nickname ?? name,
+    source_url: link,
+    source_domain: parsedLink.hostname,
+    raw: event,
+  };
 }

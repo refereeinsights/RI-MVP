@@ -15,6 +15,7 @@ begin
       'keep',
       'needs_review',
       'low_yield',
+      'manual_html',
       'js_only',
       'login_required',
       'dead',

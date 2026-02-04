@@ -63,6 +63,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     "keep",
     "seasonal",
     "low_yield",
+    "manual_html",
     "pdf_only",
     "login_required",
     "paywalled",
@@ -274,7 +275,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         redirect_count: res.diagnostics?.redirect_count ?? null,
         redirect_chain: res.diagnostics?.redirect_chain ?? [],
         location_header: res.diagnostics?.location_header ?? null,
-        extracted_count: 1,
+        extracted_count: res.extracted_count ?? 1,
       };
       const logId = await insertSourceLog({
         source_id: registryRow.id,
@@ -289,7 +290,9 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       );
       redirect(
         `/admin/tournaments/sources?notice=${encodeURIComponent(
-          `Created "${res.meta.name ?? res.slug}" and queued enrichment.`
+          res.extracted_count && res.extracted_count > 1
+            ? `Imported ${res.extracted_count} events and queued enrichment.`
+            : `Created "${res.meta.name ?? res.slug}" and queued enrichment.`
         )}&source_url=${encodeURIComponent(canonical)}`
       );
     } catch (err: any) {
@@ -629,6 +632,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                           "keep",
                           "needs_review",
                           "low_yield",
+                          "manual_html",
                           "js_only",
                           "login_required",
                           "dead",
