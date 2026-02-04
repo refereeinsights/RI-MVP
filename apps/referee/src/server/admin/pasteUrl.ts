@@ -613,13 +613,13 @@ function mapGrassrootsEvent(event: GrassrootsEvent, sport: TournamentRow["sport"
 function parseUSClubSanctionedTournaments(html: string): TournamentRow[] {
   const $ = cheerio.load(html);
   const results: TournamentRow[] = [];
+  const inferredYear = inferUSClubYear(html);
   const tables = $("table.wptb-preview-table").toArray();
   for (const table of tables) {
     const $table = $(table);
     const $h2 = $table.prevAll("h2").filter((_i, el) => /^[A-Za-z]+\\s+\\d{4}$/.test($(el).text().trim())).first();
     const monthYear = $h2.text().trim();
-    if (!monthYear) continue;
-    results.push(...parseUSClubTable($, monthYear, $table));
+    results.push(...parseUSClubTable($, monthYear, $table, inferredYear));
   }
 
   return results.filter((row) => row.name && row.state && row.start_date);
@@ -627,6 +627,7 @@ function parseUSClubSanctionedTournaments(html: string): TournamentRow[] {
 
 function getUSClubDiagnostics(html: string) {
   const $ = cheerio.load(html);
+  const inferredYear = inferUSClubYear(html);
   const monthHeaders = $("h2")
     .toArray()
     .map((node) => $(node).text().trim())
@@ -650,6 +651,7 @@ function getUSClubDiagnostics(html: string) {
     month_headers: monthHeaders.slice(0, 3),
     month_header_count: monthHeaders.length,
     table_count: tables.length,
+    inferred_year: inferredYear,
     first_table_rows: firstRows,
   };
 }
@@ -657,7 +659,8 @@ function getUSClubDiagnostics(html: string) {
 function parseUSClubTable(
   $: cheerio.CheerioAPI,
   monthYear: string,
-  $table: cheerio.Cheerio<any>
+  $table: cheerio.Cheerio<any>,
+  inferredYear?: number | null
 ): TournamentRow[] {
   const out: TournamentRow[] = [];
   const rows = $table.find("tr").toArray();
@@ -676,7 +679,7 @@ function parseUSClubTable(
     if (!name) continue;
     const href = (link.attr("href") || "").trim();
 
-    const { start, end } = parseUSClubDateCell(monthYear, datesText);
+    const { start, end } = parseUSClubDateCell(monthYear, datesText, inferredYear ?? null);
     if (!start) continue;
 
     const slug = buildTournamentSlug({ name, city: undefined, state });
@@ -715,17 +718,21 @@ function parseUSClubTable(
   return out;
 }
 
-function parseUSClubDateCell(monthYear: string, dateTextRaw: string): { start?: string; end?: string } {
+function parseUSClubDateCell(
+  monthYear: string,
+  dateTextRaw: string,
+  inferredYear: number | null
+): { start?: string; end?: string } {
   const dateText = dateTextRaw.replace(/\\u2013|\\u2014/g, "-").replace(/,/g, " ").trim();
   const match = monthYear.match(/^([A-Za-z]+)\\s+(\\d{4})$/);
-  if (!match) return {};
-  const defaultMonthName = match[1];
-  const year = parseInt(match[2], 10);
+  const defaultMonthName = match ? match[1] : "";
+  const year = match ? parseInt(match[2], 10) : inferredYear ?? new Date().getUTCFullYear();
   const defaultMonthIdx = monthNameToIndex0(defaultMonthName);
-  if (defaultMonthIdx === null) return {};
   const explicitMonthMatch = dateText.match(/^([A-Za-z]+)\\s+/);
   const explicitIdx = explicitMonthMatch ? monthNameToIndex0(explicitMonthMatch[1]) : null;
-  const monthIdx = explicitIdx !== null ? explicitIdx : defaultMonthIdx;
+  const monthIdx =
+    explicitIdx !== null ? explicitIdx : defaultMonthIdx !== null ? defaultMonthIdx : null;
+  if (monthIdx === null) return {};
   const dayRangeMatch = dateText.match(/(\\d{1,2})(?:\\s*-\\s*(\\d{1,2}))?/);
   if (!dayRangeMatch) return {};
   const startDay = parseInt(dayRangeMatch[1], 10);
@@ -765,4 +772,14 @@ function inferUSClubLevel(ageGroups: string): string | null {
   if (!t) return null;
   if (t.includes("adult") || t.includes("open")) return "adult";
   return "youth";
+}
+
+function inferUSClubYear(html: string): number | null {
+  const metaMatch = html.match(/article:modified_time\" content=\"(\\d{4})-/i);
+  if (metaMatch) return parseInt(metaMatch[1], 10);
+  const jsonMatch = html.match(/dateModified\":\"(\\d{4})-/i);
+  if (jsonMatch) return parseInt(jsonMatch[1], 10);
+  const headingMatch = html.match(/([A-Za-z]+)\\s+(20\\d{2})/);
+  if (headingMatch) return parseInt(headingMatch[2], 10);
+  return null;
 }
