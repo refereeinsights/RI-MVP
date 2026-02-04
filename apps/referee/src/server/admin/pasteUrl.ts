@@ -278,12 +278,14 @@ export async function createTournamentFromUrl(params: {
   status?: TournamentStatus;
   source?: TournamentSource;
 }) {
-  const { url, sport } = params;
+  const { url } = params;
+  let sport = params.sport;
   const status: TournamentStatus = params.status ?? "draft";
   const source: TournamentSource = params.source ?? "external_crawl";
 
   const { canonical, host } = normalizeSourceUrl(url);
   const { html, diagnostics } = await fetchHtmlWithDiagnostics(url);
+  sport = detectSport({ html, canonical, host, fallback: sport });
 
   const parsedUrl = new URL(canonical);
 
@@ -401,6 +403,44 @@ export async function createTournamentFromUrl(params: {
   await updateRunExtractedJson(runId, { action: "paste_url", tournament_id: tournamentId, created: true });
 
   return { tournamentId, meta, slug, registry_id: registry.registry_id, run_id: runId, diagnostics, extracted_count: 1 };
+}
+
+function detectSport(params: {
+  html: string;
+  canonical: string;
+  host: string;
+  fallback: TournamentRow["sport"];
+}): TournamentRow["sport"] {
+  const host = params.host.toLowerCase();
+  if (host.includes("grassroots365.com")) return "basketball";
+  if (host.includes("exposureevents.com")) return "basketball";
+  if (host.includes("gotsoccer.com")) return "soccer";
+  if (host.includes("usclubsoccer.org") || host.includes("usyouthsoccer.org")) return "soccer";
+  if (host.includes("tournamentmachine.com")) return "basketball";
+  if (host.includes("tourneymachine.com")) return "basketball";
+  if (host.includes("statebasketballchampionship.com")) return "basketball";
+
+  const text = params.html.toLowerCase();
+  const score = {
+    soccer: 0,
+    basketball: 0,
+    football: 0,
+  };
+  const bump = (key: keyof typeof score, n: number) => {
+    score[key] += n;
+  };
+
+  if (text.includes("soccer")) bump("soccer", 3);
+  if (text.includes("futsal")) bump("soccer", 2);
+  if (text.includes("basketball")) bump("basketball", 3);
+  if (text.includes("hoops")) bump("basketball", 2);
+  if (text.includes("football")) bump("football", 3);
+  if (text.includes("gridiron")) bump("football", 2);
+  if (text.includes("varsity") || text.includes("junior varsity")) bump("football", 1);
+
+  const best = Object.entries(score).sort((a, b) => b[1] - a[1])[0];
+  if (best && best[1] > 0) return best[0] as TournamentRow["sport"];
+  return params.fallback;
 }
 
 type GrassrootsEvent = {
