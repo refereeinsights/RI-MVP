@@ -755,12 +755,12 @@ function parseUSClubDateCell(
   if (monthIdx === null) return {};
   let startDay: number | null = null;
   let endDay: number | null = null;
-  const dayRangeMatch = dateText.match(/(\\d{1,2})(?:\\s*(?:-|to)\\s*(\\d{1,2}))?/i);
+  const dayRangeMatch = dateText.match(/(\d{1,2})(?:\s*(?:-|to)\s*(\d{1,2}))?/i);
   if (dayRangeMatch) {
     startDay = parseInt(dayRangeMatch[1], 10);
     endDay = dayRangeMatch[2] ? parseInt(dayRangeMatch[2], 10) : startDay;
   } else {
-    const nums = dateText.match(/\\d{1,2}/g) || [];
+    const nums = dateText.match(/\d{1,2}/g) || [];
     if (nums.length) {
       startDay = parseInt(nums[0], 10);
       endDay = nums.length > 1 ? parseInt(nums[1], 10) : startDay;
@@ -784,12 +784,12 @@ function parseUSClubDateCellDebug(dateTextRaw: string, inferredYear: number | nu
   const year = inferredYear ?? new Date().getUTCFullYear();
   let startDay: number | null = null;
   let endDay: number | null = null;
-  const dayRangeMatch = normalized.match(/(\\d{1,2})(?:\\s*(?:-|to)\\s*(\\d{1,2}))?/i);
+  const dayRangeMatch = normalized.match(/(\d{1,2})(?:\s*(?:-|to)\s*(\d{1,2}))?/i);
   if (dayRangeMatch) {
     startDay = parseInt(dayRangeMatch[1], 10);
     endDay = dayRangeMatch[2] ? parseInt(dayRangeMatch[2], 10) : startDay;
   } else {
-    const nums = normalized.match(/\\d{1,2}/g) || [];
+    const nums = normalized.match(/\d{1,2}/g) || [];
     if (nums.length) {
       startDay = parseInt(nums[0], 10);
       endDay = nums.length > 1 ? parseInt(nums[1], 10) : startDay;
