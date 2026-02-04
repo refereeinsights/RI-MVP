@@ -633,9 +633,10 @@ function getUSClubDiagnostics(html: string) {
     .filter((text) => /^[A-Za-z]+\\s+\\d{4}$/.test(text));
   const tables = $("table.wptb-preview-table").toArray();
   const firstTable = tables.length ? $(tables[0]) : null;
-  const firstRows =
-    firstTable
-      ?.find("tr")
+  let firstRows: string[][] = [];
+  if (firstTable) {
+    firstRows = firstTable
+      .find("tr")
       .slice(0, 3)
       .map((_, tr) =>
         $(tr)
@@ -643,7 +644,8 @@ function getUSClubDiagnostics(html: string) {
           .map((_, td) => $(td).text().trim().replace(/\\s+/g, " "))
           .get()
       )
-      .get() ?? [];
+      .get() as string[][];
+  }
   return {
     month_headers: monthHeaders.slice(0, 3),
     month_header_count: monthHeaders.length,
