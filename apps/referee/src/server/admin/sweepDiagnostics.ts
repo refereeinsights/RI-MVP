@@ -25,6 +25,8 @@ export type SweepDiagnostics = {
     first_table_rows?: string[][];
     parsed_dates?: { raw: string; parsed: { start?: string; end?: string } }[];
     normalized?: string;
+    raw_codes?: number[];
+    normalized_codes?: number[];
     explicit_idx?: number | null;
     month_idx_text?: number | null;
     default_month_idx?: number | null;

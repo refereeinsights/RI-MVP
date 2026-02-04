@@ -652,7 +652,9 @@ function getUSClubDiagnostics(html: string) {
     const debug = parseUSClubDateCellDebug(text, inferredYear ?? null);
     return {
       raw: text,
+      raw_codes: Array.from(text).map((ch) => ch.charCodeAt(0)),
       normalized: debug.normalized,
+      normalized_codes: Array.from(debug.normalized).map((ch) => ch.charCodeAt(0)),
       explicit_idx: debug.explicitIdx,
       month_idx_text: debug.monthIdxFromText,
       default_month_idx: debug.defaultMonthIdx,
