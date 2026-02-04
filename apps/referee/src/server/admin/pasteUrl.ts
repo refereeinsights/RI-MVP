@@ -333,6 +333,52 @@ export async function createTournamentFromUrl(params: {
     };
   }
 
+  if (
+    parsedUrl.hostname.includes("usclubsoccer.org") &&
+    parsedUrl.pathname.includes("/list-of-sanctioned-tournaments")
+  ) {
+    const events = parseUSClubSanctionedTournaments(html);
+    if (!events.length) {
+      throw new SweepError("html_received_no_events", "US Club list parsed but no events found", diagnostics);
+    }
+
+    const tournamentIds: string[] = [];
+    for (const event of events) {
+      const tournamentId = await upsertTournamentFromSource({
+        ...event,
+        sport: "soccer",
+        status,
+        source: "us_club_soccer",
+      });
+      tournamentIds.push(tournamentId);
+    }
+
+    await queueEnrichmentJobs(tournamentIds);
+
+    const registry = await upsertRegistry({ source_url: canonical, source_type: "series_site", sport: "soccer" });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "US Club Soccer sanctioned tournaments",
+      extracted_json: { action: "usclub_import", extracted_count: tournamentIds.length },
+      extract_confidence: 0.7,
+    });
+    await updateRunExtractedJson(runId, { action: "usclub_import", extracted_count: tournamentIds.length });
+
+    return {
+      tournamentId: tournamentIds[0],
+      meta: { name: `Imported ${tournamentIds.length} events`, warnings: [] },
+      slug: "usclub-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: tournamentIds.length,
+    };
+  }
+
   let meta: ParsedMetadata;
   try {
     meta = parseMetadata(html);
@@ -558,4 +604,142 @@ function mapGrassrootsEvent(event: GrassrootsEvent, sport: TournamentRow["sport"
     source_domain: parsedLink.hostname,
     raw: event,
   };
+}
+
+function parseUSClubSanctionedTournaments(html: string): TournamentRow[] {
+  const $ = cheerio.load(html);
+  const results: TournamentRow[] = [];
+  const nodes = $("h2, table").toArray();
+  let currentMonthYear: string | null = null;
+
+  for (const node of nodes) {
+    const $node = $(node);
+    if (node.tagName === "h2") {
+      const t = $node.text().trim();
+      if (/^[A-Za-z]+\\s+\\d{4}$/.test(t)) {
+        currentMonthYear = t;
+      }
+      continue;
+    }
+    if (node.tagName === "table") {
+      if (!currentMonthYear) continue;
+      results.push(...parseUSClubTable($, currentMonthYear, $node));
+      currentMonthYear = null;
+    }
+  }
+
+  return results.filter((row) => row.name && row.state && row.start_date);
+}
+
+function parseUSClubTable(
+  $: cheerio.CheerioAPI,
+  monthYear: string,
+  $table: cheerio.Cheerio<any>
+): TournamentRow[] {
+  const out: TournamentRow[] = [];
+  const rows = $table.find("tr").toArray();
+  for (const tr of rows) {
+    const tds = $(tr).find("td");
+    if (tds.length < 3) continue;
+    const datesText = $(tds[0]).text().trim();
+    const tournamentCell = $(tds[1]);
+    const stateRaw = $(tds[2]).text().trim().toUpperCase();
+    const stateMatch = stateRaw.match(/\\b[A-Z]{2}\\b/);
+    const state = stateMatch ? stateMatch[0] : "";
+    if (!state) continue;
+
+    const link = tournamentCell.find("a").first();
+    const name = link.text().trim() || tournamentCell.text().trim();
+    if (!name) continue;
+    const href = (link.attr("href") || "").trim();
+
+    const { start, end } = parseUSClubDateCell(monthYear, datesText);
+    if (!start) continue;
+
+    const slug = buildTournamentSlug({ name, city: undefined, state });
+    const source_url =
+      href && href.startsWith("http") ? href : "https://usclubsoccer.org/list-of-sanctioned-tournaments/";
+    const source_domain = "usclubsoccer.org";
+    const club = tds.length >= 4 ? $(tds[3]).text().trim() : "";
+    const ageGroups = tds.length >= 5 ? $(tds[4]).text().trim() : "";
+    const level = inferUSClubLevel(ageGroups);
+
+    out.push({
+      name,
+      slug,
+      sport: "soccer",
+      level,
+      state,
+      city: null,
+      venue: null,
+      address: null,
+      start_date: start ?? null,
+      end_date: end ?? start ?? null,
+      source_url,
+      source_domain,
+      summary: `US Club Soccer–sanctioned tournament listed for ${state}${club ? `, hosted by ${club}` : ""}.`,
+      status: "draft",
+      confidence: 75,
+      source: "us_club_soccer",
+      source_event_id: `${name}|${state}|${datesText}`.toLowerCase().replace(/\\s+/g, "-"),
+      raw: {
+        dates: datesText,
+        club,
+        ageGroups,
+      },
+    });
+  }
+  return out;
+}
+
+function parseUSClubDateCell(monthYear: string, dateTextRaw: string): { start?: string; end?: string } {
+  const dateText = dateTextRaw.replace(/\\u2013|\\u2014/g, "-").replace(/,/g, " ").trim();
+  const match = monthYear.match(/^([A-Za-z]+)\\s+(\\d{4})$/);
+  if (!match) return {};
+  const defaultMonthName = match[1];
+  const year = parseInt(match[2], 10);
+  const defaultMonthIdx = monthNameToIndex0(defaultMonthName);
+  if (defaultMonthIdx === null) return {};
+  const explicitMonthMatch = dateText.match(/^([A-Za-z]+)\\s+/);
+  const explicitIdx = explicitMonthMatch ? monthNameToIndex0(explicitMonthMatch[1]) : null;
+  const monthIdx = explicitIdx !== null ? explicitIdx : defaultMonthIdx;
+  const dayRangeMatch = dateText.match(/(\\d{1,2})(?:\\s*-\\s*(\\d{1,2}))?/);
+  if (!dayRangeMatch) return {};
+  const startDay = parseInt(dayRangeMatch[1], 10);
+  const endDay = dayRangeMatch[2] ? parseInt(dayRangeMatch[2], 10) : startDay;
+  return {
+    start: toISODateUTC(year, monthIdx, startDay),
+    end: toISODateUTC(year, monthIdx, endDay),
+  };
+}
+
+function monthNameToIndex0(name: string): number | null {
+  const m = name.trim().toLowerCase();
+  const map: Record<string, number> = {
+    january: 0,
+    february: 1,
+    march: 2,
+    april: 3,
+    may: 4,
+    june: 5,
+    july: 6,
+    august: 7,
+    september: 8,
+    october: 9,
+    november: 10,
+    december: 11,
+  };
+  return map[m] ?? null;
+}
+
+function toISODateUTC(year: number, monthIndex0: number, day: number): string {
+  const d = new Date(Date.UTC(year, monthIndex0, day, 12, 0, 0));
+  return d.toISOString().slice(0, 10);
+}
+
+function inferUSClubLevel(ageGroups: string): string | null {
+  const t = (ageGroups || "").toLowerCase();
+  if (!t) return null;
+  if (t.includes("adult") || t.includes("open")) return "adult";
+  return "youth";
 }
