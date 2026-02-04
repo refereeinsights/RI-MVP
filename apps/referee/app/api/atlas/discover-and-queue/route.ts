@@ -241,9 +241,10 @@ export async function POST(req: Request) {
       meta: { provider: getSearchProviderName(), fetched_at: new Date().toISOString() },
     });
   } catch (err: any) {
-    return jsonResponse(
-      { error: "internal_error", message: String(err?.message ?? "unknown error") },
-      500
-    );
+    const message = String(err?.message ?? "unknown error");
+    if (message.includes("429") || message.toLowerCase().includes("rate limit")) {
+      return jsonResponse({ error: "provider_rate_limited", message }, 429);
+    }
+    return jsonResponse({ error: "internal_error", message }, 500);
   }
 }

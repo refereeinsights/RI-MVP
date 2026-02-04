@@ -76,7 +76,11 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
         data = null;
       }
       if (!res.ok) {
-        setError(data?.error || `Run failed (${res.status})`);
+        const label =
+          data?.error === "provider_rate_limited"
+            ? "Search provider rate limit reached. Try again in a minute."
+            : data?.error || `Run failed (${res.status})`;
+        setError(label);
         return;
       }
       const nextSummary: Summary = {
