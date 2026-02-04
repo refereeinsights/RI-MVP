@@ -647,12 +647,18 @@ function getUSClubDiagnostics(html: string) {
         firstRows.push(row);
       });
   }
+  const firstDates = firstRows.slice(1, 4).map((row) => row[0] || "").filter(Boolean);
+  const parsedDates = firstDates.map((text) => ({
+    raw: text,
+    parsed: parseUSClubDateCell("", text, inferredYear ?? null),
+  }));
   return {
     month_headers: monthHeaders.slice(0, 3),
     month_header_count: monthHeaders.length,
     table_count: tables.length,
     inferred_year: inferredYear,
     first_table_rows: firstRows,
+    parsed_dates: parsedDates,
   };
 }
 

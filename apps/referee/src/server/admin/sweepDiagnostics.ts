@@ -21,7 +21,9 @@ export type SweepDiagnostics = {
     month_headers?: string[];
     month_header_count?: number;
     table_count?: number;
+    inferred_year?: number | null;
     first_table_rows?: string[][];
+    parsed_dates?: { raw: string; parsed: { start?: string; end?: string } }[];
   } | null;
 };
 
