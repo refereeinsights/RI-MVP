@@ -95,7 +95,7 @@ export default function RefereeReviewList({ reviews }: Props) {
   if (!reviews.length) {
     return (
       <div className="reviewEmpty">
-        <p style={{ color: "#111", textShadow: "none" }}>
+        <p style={{ color: "#ffffff", textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>
           No referee feedback has been shared yet. Be the first to report back from the field.
         </p>
       </div>
