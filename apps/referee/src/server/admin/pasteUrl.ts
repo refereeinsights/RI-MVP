@@ -609,23 +609,19 @@ function mapGrassrootsEvent(event: GrassrootsEvent, sport: TournamentRow["sport"
 function parseUSClubSanctionedTournaments(html: string): TournamentRow[] {
   const $ = cheerio.load(html);
   const results: TournamentRow[] = [];
-  const nodes = $("h2, table").toArray();
-  let currentMonthYear: string | null = null;
+  const monthNodes = $("h2")
+    .toArray()
+    .map((node) => $(node))
+    .filter(($node) => /^[A-Za-z]+\\s+\\d{4}$/.test($node.text().trim()));
 
-  for (const node of nodes) {
-    const $node = $(node);
-    if ($node.is("h2")) {
-      const t = $node.text().trim();
-      if (/^[A-Za-z]+\\s+\\d{4}$/.test(t)) {
-        currentMonthYear = t;
-      }
-      continue;
+  for (const $h2 of monthNodes) {
+    const monthYear = $h2.text().trim();
+    let $table = $h2.closest(".elementor-widget-wrap").find("table.wptb-preview-table").first();
+    if (!$table.length) {
+      $table = $h2.closest("section").find("table.wptb-preview-table").first();
     }
-    if ($node.is("table")) {
-      if (!currentMonthYear) continue;
-      results.push(...parseUSClubTable($, currentMonthYear, $node));
-      currentMonthYear = null;
-    }
+    if (!$table.length) continue;
+    results.push(...parseUSClubTable($, monthYear, $table));
   }
 
   return results.filter((row) => row.name && row.state && row.start_date);
