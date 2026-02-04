@@ -723,17 +723,23 @@ function parseUSClubDateCell(
   dateTextRaw: string,
   inferredYear: number | null
 ): { start?: string; end?: string } {
-  const dateText = dateTextRaw.replace(/\\u2013|\\u2014/g, "-").replace(/,/g, " ").trim();
+  const dateText = dateTextRaw
+    .replace(/\\u00a0/g, " ")
+    .replace(/\\u2013|\\u2014/g, "-")
+    .replace(/,/g, " ")
+    .replace(/\\s+/g, " ")
+    .trim();
   const match = monthYear.match(/^([A-Za-z]+)\\s+(\\d{4})$/);
   const defaultMonthName = match ? match[1] : "";
   const year = match ? parseInt(match[2], 10) : inferredYear ?? new Date().getUTCFullYear();
   const defaultMonthIdx = monthNameToIndex0(defaultMonthName);
   const explicitMonthMatch = dateText.match(/^([A-Za-z]+)\\s+/);
   const explicitIdx = explicitMonthMatch ? monthNameToIndex0(explicitMonthMatch[1]) : null;
+  const monthIdxFromText = explicitIdx !== null ? explicitIdx : findMonthIndexInText(dateText);
   const monthIdx =
-    explicitIdx !== null ? explicitIdx : defaultMonthIdx !== null ? defaultMonthIdx : null;
+    monthIdxFromText !== null ? monthIdxFromText : defaultMonthIdx !== null ? defaultMonthIdx : null;
   if (monthIdx === null) return {};
-  const dayRangeMatch = dateText.match(/(\\d{1,2})(?:\\s*-\\s*(\\d{1,2}))?/);
+  const dayRangeMatch = dateText.match(/(\\d{1,2})(?:\\s*(?:-|to)\\s*(\\d{1,2}))?/i);
   if (!dayRangeMatch) return {};
   const startDay = parseInt(dayRangeMatch[1], 10);
   const endDay = dayRangeMatch[2] ? parseInt(dayRangeMatch[2], 10) : startDay;
@@ -762,6 +768,29 @@ function monthNameToIndex0(name: string): number | null {
   return map[m] ?? null;
 }
 
+function findMonthIndexInText(text: string): number | null {
+  const lower = text.toLowerCase();
+  const names = [
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+  ];
+  for (let i = 0; i < names.length; i += 1) {
+    const name = names[i];
+    if (new RegExp(`\\\\b${name}\\\\b`, "i").test(lower)) return i;
+  }
+  return null;
+}
+
 function toISODateUTC(year: number, monthIndex0: number, day: number): string {
   const d = new Date(Date.UTC(year, monthIndex0, day, 12, 0, 0));
   return d.toISOString().slice(0, 10);
@@ -775,9 +804,9 @@ function inferUSClubLevel(ageGroups: string): string | null {
 }
 
 function inferUSClubYear(html: string): number | null {
-  const metaMatch = html.match(/article:modified_time\" content=\"(\\d{4})-/i);
+  const metaMatch = html.match(/article:modified_time[^>]*content=['\\"](\\d{4})-/i);
   if (metaMatch) return parseInt(metaMatch[1], 10);
-  const jsonMatch = html.match(/dateModified\":\"(\\d{4})-/i);
+  const jsonMatch = html.match(/dateModified\"\\s*:\\s*\"(\\d{4})-/i);
   if (jsonMatch) return parseInt(jsonMatch[1], 10);
   const headingMatch = html.match(/([A-Za-z]+)\\s+(20\\d{2})/);
   if (headingMatch) return parseInt(headingMatch[2], 10);
