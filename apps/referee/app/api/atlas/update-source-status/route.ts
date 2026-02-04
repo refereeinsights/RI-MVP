@@ -60,8 +60,8 @@ export async function POST(req: Request) {
 
   const { error } = await supabaseAdmin
     .from("tournament_sources" as any)
-    .update(updates)
-    .eq("url", normalized)
+    .update({ ...updates, normalized_url: normalized, source_url: normalized, url: normalized })
+    .or(`normalized_url.eq.${normalized},url.eq.${normalized}`)
     .is("tournament_id", null);
 
   if (error) return jsonResponse({ error: "update_failed", details: error.message }, 500);

@@ -1,4 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { normalizeSourceUrl } from "@/lib/normalizeSourceUrl";
+
+export { normalizeSourceUrl };
 
 export type RegistryUpsertInput = {
   source_url: string;
@@ -29,14 +32,16 @@ export type RegistryRow = {
   id: string;
   source_url: string;
   url?: string | null;
+  normalized_url?: string | null;
   is_active?: boolean | null;
   review_status?: string | null;
   review_notes?: string | null;
   ignore_until?: string | null;
 };
 
-const IGNORED_STATUSES = new Set([
+export const TERMINAL_REVIEW_STATUSES = new Set([
   "dead",
+  "blocked_403",
   "login_required",
   "paywalled",
   "js_only",
@@ -44,21 +49,12 @@ const IGNORED_STATUSES = new Set([
   "duplicate_source",
 ]);
 
-export function normalizeSourceUrl(raw: string): { canonical: string; host: string } {
-  const trimmed = raw.trim();
-  const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  const url = new URL(withProto);
-  url.hash = "";
-  const canonical = url.toString();
-  const host = url.hostname.toLowerCase();
-  return { canonical, host };
-}
-
 export async function upsertRegistry(input: RegistryUpsertInput) {
-  const { canonical, host } = normalizeSourceUrl(input.source_url);
+  const { canonical, host, normalized } = normalizeSourceUrl(input.source_url);
   const payload = {
     source_url: canonical,
     url: canonical,
+    normalized_url: normalized,
     normalized_host: host,
     source_type: input.source_type ?? null,
     sport: input.sport ?? null,
@@ -71,33 +67,46 @@ export async function upsertRegistry(input: RegistryUpsertInput) {
     ignore_until: input.ignore_until ?? null,
     last_swept_at: null,
   };
+  const existing = await getRegistryRowByUrl(canonical);
+  if (existing.row?.id) {
+    const updates: any = {
+      source_url: canonical,
+      url: canonical,
+      normalized_url: normalized,
+      normalized_host: host,
+    };
+    if (input.source_type !== undefined) updates.source_type = input.source_type ?? null;
+    if (input.sport !== undefined) updates.sport = input.sport ?? null;
+    if (input.state !== undefined) updates.state = input.state ?? null;
+    if (input.city !== undefined) updates.city = input.city ?? null;
+    if (input.notes !== undefined) updates.notes = input.notes ?? null;
+    // Do not overwrite review_status/is_active/ignore_until on existing rows.
+    const { error } = await supabaseAdmin
+      .from("tournament_sources" as any)
+      .update(updates)
+      .eq("id", existing.row.id);
+    if (error) throw error;
+    return { registry_id: existing.row.id as string, canonical };
+  }
+
   const { data, error } = (await supabaseAdmin
     .from("tournament_sources" as any)
-    .upsert(payload, { onConflict: "url" })
+    .insert(payload)
     .select("id,source_url")
     .single()) as { data: { id: string } | null; error: any };
 
-  if (error && (error as any)?.code === "23505") {
-    const existing = (await supabaseAdmin
-      .from("tournament_sources" as any)
-      .select("id")
-      .eq("url", canonical)
-      .limit(1)
-      .single()) as { data: { id: string } | null; error: any };
-    if (existing.data?.id) return { registry_id: existing.data.id as string, canonical };
-  }
-
-  if (error || !data) throw error ?? new Error("registry_upsert_failed");
+  if (error || !data) throw error ?? new Error("registry_insert_failed");
   return { registry_id: data.id, canonical };
 }
 
 export async function getRegistryRowByUrl(
-  canonicalUrl: string
+  rawUrl: string
 ): Promise<{ row: RegistryRow | null; error: any }> {
+  const { canonical, normalized } = normalizeSourceUrl(rawUrl);
   const { data, error } = await supabaseAdmin
     .from("tournament_sources" as any)
-    .select("id,source_url,url,is_active,review_status,review_notes,ignore_until")
-    .eq("url", canonicalUrl)
+    .select("id,source_url,url,normalized_url,is_active,review_status,review_notes,ignore_until")
+    .or(`normalized_url.eq.${normalized},url.eq.${canonical}`)
     .is("tournament_id", null)
     .limit(1)
     .maybeSingle();
@@ -108,7 +117,7 @@ export async function ensureRegistryRow(
   source_url: string,
   defaults: Partial<RegistryUpsertInput> = {}
 ): Promise<{ canonical: string; row: RegistryRow }> {
-  const { canonical, host } = normalizeSourceUrl(source_url);
+  const { canonical, host, normalized } = normalizeSourceUrl(source_url);
   const existing = await getRegistryRowByUrl(canonical);
   if (existing.row) {
     return { canonical, row: existing.row };
@@ -132,6 +141,7 @@ export async function ensureRegistryRow(
       id: registry_id,
       source_url: canonical,
       url: canonical,
+      normalized_url: normalized,
       is_active: createDefaults.is_active ?? true,
       review_status: createDefaults.review_status ?? "untested",
       review_notes: createDefaults.review_notes ?? null,
@@ -144,16 +154,12 @@ export function getSkipReason(row: RegistryRow | null): string | null {
   if (!row) return null;
   if (row.is_active === false) return "Inactive source";
   const status = (row.review_status || "").trim();
-  if (IGNORED_STATUSES.has(status)) {
-    return `Marked ${status.replace("_", " ")}`;
-  }
-  if (status === "blocked_403") {
-    if (row.ignore_until) {
+  if (TERMINAL_REVIEW_STATUSES.has(status)) {
+    if (status === "blocked_403" && row.ignore_until) {
       const until = new Date(row.ignore_until);
-      if (until > new Date()) {
-        return `Blocked until ${until.toLocaleDateString()}`;
-      }
+      return `Blocked until ${until.toLocaleDateString()}`;
     }
+    return `Marked ${status.replace("_", " ")}`;
   }
   if (row.ignore_until) {
     const until = new Date(row.ignore_until);
@@ -169,9 +175,11 @@ export async function insertRun(input: RunInsertInput) {
     input.extract_confidence === undefined || input.extract_confidence === null
       ? null
       : Math.round(input.extract_confidence * 100);
+  const normalized = normalizeSourceUrl(input.url).normalized;
   const payload = {
     source_url: input.source_url,
     url: input.url,
+    normalized_url: normalized,
     tournament_id: null,
     fetched_at: new Date().toISOString(),
     http_status: input.http_status ?? null,
@@ -185,7 +193,7 @@ export async function insertRun(input: RunInsertInput) {
   // Upsert by url; on duplicate fallback to fetch existing id.
   const { data, error } = (await supabaseAdmin
     .from("tournament_sources" as any)
-    .upsert(payload, { onConflict: "url" })
+    .upsert(payload, { onConflict: "normalized_url" })
     .select("id")
     .single()) as { data: { id: string } | null; error: any };
 
@@ -193,7 +201,7 @@ export async function insertRun(input: RunInsertInput) {
     const existing = (await supabaseAdmin
       .from("tournament_sources" as any)
       .select("id")
-      .eq("url", input.url)
+      .or(`normalized_url.eq.${normalized},url.eq.${input.url}`)
       .limit(1)
       .single()) as { data: { id: string } | null; error: any };
     if (existing.data?.id) return existing.data.id as string;

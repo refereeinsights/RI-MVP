@@ -12,17 +12,6 @@ import {
 } from "@/server/admin/sources";
 import { createTournamentFromUrl } from "@/server/admin/pasteUrl";
 
-const IGNORE_STATUSES = new Set([
-  "dead",
-  "login_required",
-  "paywalled",
-  "js_only",
-  "pdf_only",
-  "blocked_403",
-  "deprecated",
-  "duplicate_source",
-]);
-
 type Filter = "all" | "untested" | "keep" | "ignored" | "needs_review";
 
 export const runtime = "nodejs";
@@ -215,6 +204,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     });
     const skipReason = getSkipReason(row);
     if (skipReason && !overrideSkip) {
+      await updateRegistrySweep(row.id, "warn", `Skipped: ${skipReason}`);
       return redirect(
         `/admin/tournaments/sources?notice=${encodeURIComponent(
           `Sweep skipped: ${skipReason}. Update source status or enable override.`

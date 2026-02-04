@@ -7,13 +7,15 @@ type ResultRow = {
   title?: string | null;
   snippet?: string | null;
   domain?: string | null;
-  status: "inserted" | "existing" | "updated";
+  status: "inserted" | "existing" | "terminal" | "updated";
   last_action?: "keep" | "dead" | "login_required" | "pdf_only" | "queue_tournament" | "queue_assignor" | null;
 };
 
 type Summary = {
   inserted: number;
   skipped_existing: number;
+  skipped_terminal: number;
+  duplicates_dropped: number;
   total_found: number;
   sample_urls: string[];
   results: ResultRow[];
@@ -75,6 +77,8 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
       const nextSummary: Summary = {
         inserted: data.inserted ?? 0,
         skipped_existing: data.skipped_existing ?? 0,
+        skipped_terminal: data.skipped_terminal ?? 0,
+        duplicates_dropped: data.duplicates_dropped ?? 0,
         total_found: data.total_found ?? 0,
         sample_urls: Array.isArray(data.sample_urls) ? data.sample_urls : [],
         results: Array.isArray(data.results)
@@ -83,7 +87,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
               title: r.title ?? null,
               snippet: r.snippet ?? null,
               domain: r.domain ?? null,
-              status: r.status === "existing" ? "existing" : "inserted",
+              status: r.status === "terminal" ? "terminal" : r.status === "existing" ? "existing" : "inserted",
               last_action: null,
             }))
           : [],
@@ -150,7 +154,11 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
         if (!prev) return prev;
         const next = { ...prev };
         next.results = prev.results.map((r) =>
-          r.url === row.url ? { ...r, status: "updated", last_action: `queue_${nextTarget}` } : r
+          r.url === row.url
+            ? data?.status === "terminal"
+              ? { ...r, status: "terminal", last_action: null }
+              : { ...r, status: "updated", last_action: `queue_${nextTarget}` }
+            : r
         );
         return next;
       });
@@ -282,6 +290,8 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
             <span><strong>Found:</strong> {summary.total_found}</span>
             <span><strong>Inserted:</strong> {summary.inserted}</span>
             <span><strong>Existing:</strong> {summary.skipped_existing}</span>
+            <span><strong>Skipped terminal:</strong> {summary.skipped_terminal}</span>
+            <span><strong>Duplicates dropped:</strong> {summary.duplicates_dropped}</span>
             <a
               href={`/admin/tournaments/sources?filter=needs_review`}
               style={{ color: "#0f172a", fontWeight: 700, textDecoration: "none" }}
@@ -355,25 +365,31 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
                         color:
                           row.last_action === "keep"
                             ? "#065f46"
-                            : row.last_action === "dead"
+                          : row.last_action === "dead"
                             ? "#991b1b"
-                            : row.status === "updated"
+                          : row.status === "terminal"
+                            ? "#7c2d12"
+                          : row.status === "updated"
                             ? "#0f172a"
                             : "#1f2937",
                         background:
                           row.last_action === "keep"
                             ? "#d1fae5"
-                            : row.last_action === "dead"
+                          : row.last_action === "dead"
                             ? "#fee2e2"
-                            : row.status === "updated"
+                          : row.status === "terminal"
+                            ? "#ffedd5"
+                          : row.status === "updated"
                             ? "#e2e8f0"
                             : "#f3f4f6",
                         border:
                           row.last_action === "keep"
                             ? "1px solid #10b981"
-                            : row.last_action === "dead"
+                          : row.last_action === "dead"
                             ? "1px solid #ef4444"
-                            : row.status === "updated"
+                          : row.status === "terminal"
+                            ? "1px solid #f97316"
+                          : row.status === "updated"
                             ? "1px solid #0f172a"
                             : "1px solid #cbd5f5",
                         borderRadius: 999,
@@ -382,6 +398,8 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
                     >
                       {row.status === "updated"
                         ? `Updated${row.last_action ? ` (${row.last_action.replace(/_/g, " ")})` : ""}`
+                        : row.status === "terminal"
+                        ? "Skipped (terminal)"
                         : row.status === "existing"
                         ? "Already queued"
                         : "Queued"}

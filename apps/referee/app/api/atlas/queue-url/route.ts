@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getRegistryRowByUrl, normalizeSourceUrl, upsertRegistry } from "@/server/admin/sources";
+import { getRegistryRowByUrl, normalizeSourceUrl, TERMINAL_REVIEW_STATUSES, upsertRegistry } from "@/server/admin/sources";
 import crypto from "crypto";
 
 function jsonResponse(body: any, status = 200) {
@@ -114,7 +114,13 @@ export async function POST(req: Request) {
   }
 
   const existing = await getRegistryRowByUrl(normalized);
-  if (existing.row) return jsonResponse({ ok: true, status: "existing" });
+  if (existing.row) {
+    const status = (existing.row.review_status || "").trim();
+    if (TERMINAL_REVIEW_STATUSES.has(status)) {
+      return jsonResponse({ ok: true, status: "terminal" });
+    }
+    return jsonResponse({ ok: true, status: "existing" });
+  }
   await upsertRegistry({
     source_url: normalized,
     source_type,

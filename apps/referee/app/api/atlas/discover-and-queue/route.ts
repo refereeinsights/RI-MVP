@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { atlasSearch, getSearchProviderName } from "@/server/atlas/search";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getRegistryRowByUrl, normalizeSourceUrl, upsertRegistry } from "@/server/admin/sources";
+import { getRegistryRowByUrl, normalizeSourceUrl, TERMINAL_REVIEW_STATUSES, upsertRegistry } from "@/server/admin/sources";
 import crypto from "crypto";
 
 type ResultPreview = {
@@ -10,7 +10,7 @@ type ResultPreview = {
   title?: string | null;
   snippet?: string | null;
   domain?: string | null;
-  status: "inserted" | "existing";
+  status: "inserted" | "existing" | "terminal";
 };
 
 const RATE_WINDOW_MS = 60_000;
@@ -54,25 +54,12 @@ function normalizeDiscoveredUrl(raw: string) {
   if (!raw) return null;
   const trimmed = raw.trim();
   if (!trimmed) return null;
-  const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  let url: URL;
   try {
-    url = new URL(withProto);
+    const { canonical, host } = normalizeSourceUrl(trimmed);
+    return { url: canonical, host };
   } catch {
     return null;
   }
-  url.hash = "";
-  const params = url.searchParams;
-  Array.from(params.keys()).forEach((key) => {
-    const lower = key.toLowerCase();
-    if (lower.startsWith("utm_") || lower === "gclid" || lower === "fbclid") {
-      params.delete(key);
-    }
-  });
-  url.search = params.toString();
-  const canonical = url.toString();
-  const host = url.hostname.toLowerCase();
-  return { url: canonical, host };
 }
 
 async function ensureAssignorSourceId(defaultSport: string | null, defaultState: string | null) {
@@ -143,6 +130,7 @@ export async function POST(req: Request) {
 
   const deduped = new Map<string, { url: string; title?: string | null; snippet?: string | null; domain?: string | null }>();
   let totalFound = 0;
+  let duplicates_dropped = 0;
 
   for (const query of queries) {
     const results = await atlasSearch(query, perQueryLimit);
@@ -150,21 +138,24 @@ export async function POST(req: Request) {
     for (const result of results) {
       const normalized = normalizeDiscoveredUrl(result.url);
       if (!normalized) continue;
-      if (!deduped.has(normalized.url)) {
-        deduped.set(normalized.url, {
-          url: normalized.url,
-          title: result.title ?? null,
-          snippet: result.snippet ?? null,
-          domain: result.domain ?? normalized.host,
-        });
-        if (deduped.size >= maxTotal) break;
+      if (deduped.has(normalized.url)) {
+        duplicates_dropped += 1;
+        continue;
       }
+      deduped.set(normalized.url, {
+        url: normalized.url,
+        title: result.title ?? null,
+        snippet: result.snippet ?? null,
+        domain: result.domain ?? normalized.host,
+      });
+      if (deduped.size >= maxTotal) break;
     }
     if (deduped.size >= maxTotal) break;
   }
 
   let inserted = 0;
   let skipped_existing = 0;
+  let skipped_terminal = 0;
   const previews: ResultPreview[] = [];
   const assignorSourceId =
     target === "assignor" ? await ensureAssignorSourceId(sport || null, state || null) : null;
@@ -213,8 +204,14 @@ export async function POST(req: Request) {
 
     const existing = await getRegistryRowByUrl(normalized);
     if (existing.row) {
-      skipped_existing += 1;
-      previews.push({ ...item, url: normalized, status: "existing" });
+      const status = (existing.row.review_status || "").trim();
+      if (TERMINAL_REVIEW_STATUSES.has(status)) {
+        skipped_terminal += 1;
+        previews.push({ ...item, url: normalized, status: "terminal" });
+      } else {
+        skipped_existing += 1;
+        previews.push({ ...item, url: normalized, status: "existing" });
+      }
       continue;
     }
     await upsertRegistry({
@@ -235,6 +232,8 @@ export async function POST(req: Request) {
   return jsonResponse({
     inserted,
     skipped_existing,
+    skipped_terminal,
+    duplicates_dropped,
     total_found: totalFound,
     sample_urls,
     results: previews,

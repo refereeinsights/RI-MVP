@@ -10,6 +10,7 @@
 
 import { load as cheerioLoad } from "cheerio";
 import { buildTournamentSlug } from "../apps/referee/lib/tournaments/slug";
+import { normalizeSourceUrl } from "../apps/referee/lib/normalizeSourceUrl";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -168,10 +169,13 @@ async function upsertTournament(candidate: Candidate, pageTitle?: string) {
 
 async function recordSource(tournamentId: string | null, candidate: Candidate, status: number, pageTitle?: string) {
   const { supabaseAdmin } = await import("../apps/referee/lib/supabaseAdmin");
-  const domain = buildDomain(candidate.sourceUrl);
+  const normalized = normalizeSourceUrl(candidate.sourceUrl);
+  const domain = buildDomain(normalized.canonical);
   const payload = {
     tournament_id: tournamentId,
-    url: candidate.sourceUrl,
+    url: normalized.canonical,
+    source_url: normalized.canonical,
+    normalized_url: normalized.normalized,
     domain,
     title: candidate.title ?? pageTitle ?? candidate.name,
     fetched_at: new Date().toISOString(),
@@ -181,7 +185,7 @@ async function recordSource(tournamentId: string | null, candidate: Candidate, s
     extract_confidence: 40,
   };
 
-  const { error } = await supabaseAdmin.from("tournament_sources").upsert(payload, { onConflict: "url" });
+  const { error } = await supabaseAdmin.from("tournament_sources").upsert(payload, { onConflict: "normalized_url" });
   if (error) {
     log("tournament_sources upsert error", { error, payload });
   }
