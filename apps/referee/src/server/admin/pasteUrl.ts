@@ -339,7 +339,11 @@ export async function createTournamentFromUrl(params: {
   ) {
     const events = parseUSClubSanctionedTournaments(html);
     if (!events.length) {
-      throw new SweepError("html_received_no_events", "US Club list parsed but no events found", diagnostics);
+      const extra = getUSClubDiagnostics(html);
+      throw new SweepError("html_received_no_events", "US Club list parsed but no events found", {
+        ...diagnostics,
+        usclub: extra,
+      });
     }
 
     const tournamentIds: string[] = [];
@@ -619,6 +623,33 @@ function parseUSClubSanctionedTournaments(html: string): TournamentRow[] {
   }
 
   return results.filter((row) => row.name && row.state && row.start_date);
+}
+
+function getUSClubDiagnostics(html: string) {
+  const $ = cheerio.load(html);
+  const monthHeaders = $("h2")
+    .toArray()
+    .map((node) => $(node).text().trim())
+    .filter((text) => /^[A-Za-z]+\\s+\\d{4}$/.test(text));
+  const tables = $("table.wptb-preview-table").toArray();
+  const firstTable = tables.length ? $(tables[0]) : null;
+  const firstRows =
+    firstTable
+      ?.find("tr")
+      .slice(0, 3)
+      .map((_, tr) =>
+        $(tr)
+          .find("td,th")
+          .map((_, td) => $(td).text().trim().replace(/\\s+/g, " "))
+          .get()
+      )
+      .get() ?? [];
+  return {
+    month_headers: monthHeaders.slice(0, 3),
+    month_header_count: monthHeaders.length,
+    table_count: tables.length,
+    first_table_rows: firstRows,
+  };
 }
 
 function parseUSClubTable(
