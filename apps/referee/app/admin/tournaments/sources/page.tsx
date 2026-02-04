@@ -219,13 +219,24 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     }
 
     const sport = TOURNAMENT_SPORTS.includes(sportRaw as any) ? (sportRaw as any) : "soccer";
-    const { canonical } = normalizeSourceUrl(sourceUrl);
-    const { row } = await ensureRegistryRow(canonical, {
-      source_url: canonical,
-      source_type: null,
-      sport,
-      is_active: true,
-    });
+    const { canonical, normalized, host } = normalizeSourceUrl(sourceUrl);
+    const { data: row, error: rowError } = await supabaseAdmin
+      .from("tournament_sources" as any)
+      .select("id,source_url,url,is_active,review_status,review_notes,ignore_until")
+      .eq("id", id)
+      .maybeSingle();
+    if (rowError || !row) {
+      redirect(`/admin/tournaments/sources?notice=${encodeURIComponent("Source not found")}`);
+    }
+    await supabaseAdmin
+      .from("tournament_sources" as any)
+      .update({
+        source_url: canonical,
+        url: canonical,
+        normalized_url: normalized,
+        normalized_host: host,
+      })
+      .eq("id", row.id);
     const skipReason = getSkipReason(row);
     if (skipReason && !overrideSkip) {
       await updateRegistrySweep(row.id, "warn", `Skipped: ${skipReason}`);
