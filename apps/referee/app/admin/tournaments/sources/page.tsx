@@ -282,6 +282,9 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       );
     } catch (err: any) {
       const timingMs = Date.now() - startedAt;
+      if (err?.digest && String(err.digest).includes("NEXT_REDIRECT")) {
+        throw err;
+      }
       if (err instanceof SweepError) {
         const payload = {
           version: 1,
@@ -311,34 +314,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         );
       } else {
         const legacyMessage = String(err?.message ?? "");
-        if (err?.digest && String(err.digest).includes("NEXT_REDIRECT")) {
-          const payload = {
-            version: 1,
-            source_url: canonical,
-            final_url: null,
-            http_status: null,
-            error_code: "redirect_blocked",
-            message: "Redirect blocked (Next.js redirect or loop)",
-            content_type: null,
-            bytes: null,
-            timing_ms: timingMs,
-            redirect_count: null,
-            redirect_chain: [],
-            location_header: null,
-            extracted_count: null,
-          };
-          const logId = await insertSourceLog({
-            source_id: row.id,
-            action: "sweep",
-            level: "error",
-            payload,
-          });
-          await updateRegistrySweep(
-            row.id,
-            "redirect_blocked",
-            buildSweepSummary("redirect_blocked", payload.message, {}, { log_id: logId })
-          );
-        } else if (legacyMessage === "failed_to_fetch_html") {
+        if (legacyMessage === "failed_to_fetch_html") {
           const payload = {
             version: 1,
             source_url: canonical,

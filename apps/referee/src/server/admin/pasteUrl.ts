@@ -48,7 +48,14 @@ async function fetchWithRedirects(startUrl: string): Promise<{
     if (resp.status >= 300 && resp.status < 400) {
       const next = resp.headers.get("location");
       if (!next) {
-        return { resp, finalUrl: currentUrl, redirectCount, redirectChain, lastLocation };
+        throw new SweepError("redirect_blocked", "Redirect missing Location header", {
+          status: resp.status,
+          content_type: resp.headers.get("content-type"),
+          final_url: currentUrl,
+          redirect_count: redirectCount,
+          redirect_chain: redirectChain,
+          location_header: lastLocation,
+        });
       }
       lastLocation = next;
       redirectChain.push({ status: resp.status, location: next });
