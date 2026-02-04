@@ -11,12 +11,13 @@ import {
   updateRegistrySweep,
 } from "@/server/admin/sources";
 import { createTournamentFromUrl } from "@/server/admin/pasteUrl";
+import { SweepError, buildSweepSummary } from "@/server/admin/sweepDiagnostics";
 
 type Filter = "all" | "untested" | "keep" | "ignored" | "needs_review";
 
 export const runtime = "nodejs";
 
-type SearchParams = { source_url?: string; notice?: string; filter?: Filter };
+type SearchParams = { source_url?: string; notice?: string; filter?: Filter; sort?: string; dir?: string };
 
 const SPORT_OPTIONS = [
   "soccer",
@@ -51,6 +52,27 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   const notice = searchParams.notice ?? "";
   const selectedUrl = searchParams.source_url ? normalizeSourceUrl(searchParams.source_url).canonical : null;
   const filter: Filter = (searchParams.filter as Filter) || "all";
+  const sort = searchParams.sort ?? "review_status";
+  const dir = searchParams.dir === "asc" ? "asc" : "desc";
+
+  const reviewPriority = [
+    "needs_review",
+    "untested",
+    "keep",
+    "seasonal",
+    "low_yield",
+    "pdf_only",
+    "login_required",
+    "paywalled",
+    "js_only",
+    "blocked_403",
+    "dead",
+    "deprecated",
+    "duplicate_source",
+  ];
+  const priorityIndex = new Map(reviewPriority.map((s, i) => [s, i]));
+  const getPriority = (status?: string | null) =>
+    priorityIndex.get((status || "untested").toLowerCase()) ?? reviewPriority.length + 1;
 
   const registryRes = await supabaseAdmin
     .from("tournament_sources" as any)
@@ -231,11 +253,28 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         )}&source_url=${encodeURIComponent(canonical)}`
       );
     } catch (err: any) {
-      await updateRegistrySweep(
-        row.id,
-        "error",
-        `Sweep failed: ${String(err?.message ?? "unknown error").slice(0, 180)}`
-      );
+      if (err instanceof SweepError) {
+        await updateRegistrySweep(
+          row.id,
+          "error",
+          buildSweepSummary(err.code, err.message, err.diagnostics)
+        );
+      } else {
+        const legacyMessage = String(err?.message ?? "");
+        if (legacyMessage === "failed_to_fetch_html") {
+          await updateRegistrySweep(
+            row.id,
+            "error",
+            buildSweepSummary("fetch_failed", "Request failed", {})
+          );
+        } else {
+        await updateRegistrySweep(
+          row.id,
+          "error",
+          `Sweep failed: ${legacyMessage.slice(0, 180) || "unknown error"}`
+        );
+        }
+      }
       redirect(
         `/admin/tournaments/sources?notice=${encodeURIComponent(
           `Sweep failed: ${err?.message ?? "unknown error"}`
@@ -254,6 +293,40 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     }
     return true;
   });
+
+  const sorted = filtered.slice().sort((a: any, b: any) => {
+    const activeRankA = a.is_active ? 0 : 1;
+    const activeRankB = b.is_active ? 0 : 1;
+    if (sort === "review_status") {
+      if (activeRankA !== activeRankB) return activeRankA - activeRankB;
+      const prA = getPriority(a.review_status);
+      const prB = getPriority(b.review_status);
+      if (prA !== prB) return prA - prB;
+      const aTime = a.last_swept_at ? new Date(a.last_swept_at).getTime() : 0;
+      const bTime = b.last_swept_at ? new Date(b.last_swept_at).getTime() : 0;
+      return bTime - aTime;
+    }
+    if (sort === "last_swept_at") {
+      const aTime = a.last_swept_at ? new Date(a.last_swept_at).getTime() : 0;
+      const bTime = b.last_swept_at ? new Date(b.last_swept_at).getTime() : 0;
+      return dir === "asc" ? aTime - bTime : bTime - aTime;
+    }
+    if (sort === "source_url") {
+      const cmp = String(a.source_url || "").localeCompare(String(b.source_url || ""), undefined, { sensitivity: "base" });
+      return dir === "asc" ? cmp : -cmp;
+    }
+    return 0;
+  });
+
+  const buildSortHref = (key: string) => {
+    const nextDir = sort === key && dir === "asc" ? "desc" : "asc";
+    const params = new URLSearchParams();
+    if (filter) params.set("filter", filter);
+    if (selectedUrl) params.set("source_url", selectedUrl);
+    params.set("sort", key);
+    params.set("dir", nextDir);
+    return `/admin/tournaments/sources?${params.toString()}`;
+  };
 
   return (
     <div style={{ padding: 24 }}>
@@ -393,27 +466,36 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
             <thead>
               <tr>
                 {[
-                  "Source URL",
-                  "Type",
-                  "Sport",
-                  "State",
-                  "City",
-                  "Status",
-                  "Active",
-                  "Ignore until",
-                  "Last tested",
-                  "Last sweep",
-                  "Summary",
-                  "Actions",
-                ].map((h) => (
-                  <th key={h} style={{ textAlign: "left", padding: "6px 4px", borderBottom: "1px solid #eee" }}>
-                    {h}
+                  { key: "source_url", label: "Source URL", sortable: true },
+                  { key: "source_type", label: "Type" },
+                  { key: "sport", label: "Sport" },
+                  { key: "state", label: "State" },
+                  { key: "city", label: "City" },
+                  { key: "review_status", label: "Status", sortable: true },
+                  { key: "is_active", label: "Active" },
+                  { key: "ignore_until", label: "Ignore until" },
+                  { key: "last_tested_at", label: "Last tested" },
+                  { key: "last_swept_at", label: "Last sweep", sortable: true },
+                  { key: "summary", label: "Summary" },
+                  { key: "actions", label: "Actions" },
+                ].map((col) => (
+                  <th key={col.label} style={{ textAlign: "left", padding: "6px 4px", borderBottom: "1px solid #eee" }}>
+                    {col.sortable ? (
+                      <Link
+                        href={buildSortHref(col.key)}
+                        style={{ color: "#0f172a", textDecoration: "none", fontWeight: 800 }}
+                      >
+                        {col.label}
+                      </Link>
+                    ) : (
+                      col.label
+                    )}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((row: any) => {
+              {sorted.map((row: any) => {
                 const reason = getSkipReason(row);
                 const ignore = !!reason;
                 return (
@@ -482,7 +564,43 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                     {formatDate(row.last_swept_at)}
                     {row.last_sweep_status ? ` (${row.last_sweep_status})` : ""}
                   </td>
-                  <td style={{ padding: "6px 4px", maxWidth: 220 }}>{row.last_sweep_summary || "—"}</td>
+                  <td style={{ padding: "6px 4px", maxWidth: 260 }}>
+                    {row.last_sweep_summary ? (() => {
+                      let parsed: any = null;
+                      try {
+                        parsed = JSON.parse(row.last_sweep_summary);
+                      } catch {
+                        parsed = null;
+                      }
+                      if (!parsed || !parsed.error_code) return row.last_sweep_summary;
+                      return (
+                        <div style={{ display: "grid", gap: 6 }}>
+                          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 800,
+                                padding: "2px 6px",
+                                borderRadius: 999,
+                                border: "1px solid #0f172a",
+                                background: "#f8fafc",
+                                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                              }}
+                            >
+                              {parsed.error_code}
+                            </span>
+                            <span style={{ fontSize: 12 }}>{parsed.message}</span>
+                          </div>
+                          <details>
+                            <summary style={{ cursor: "pointer", fontSize: 11 }}>Details</summary>
+                            <pre style={{ margin: "6px 0 0", fontSize: 11, whiteSpace: "pre-wrap" }}>
+                              {JSON.stringify(parsed, null, 2)}
+                            </pre>
+                          </details>
+                        </div>
+                      );
+                    })() : "—"}
+                  </td>
                     <td style={{ padding: "6px 4px" }}>
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         {ignore ? (

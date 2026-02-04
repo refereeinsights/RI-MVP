@@ -5,40 +5,125 @@ import type { TournamentRow, TournamentStatus, TournamentSource } from "@/lib/ty
 import { queueEnrichmentJobs } from "@/server/enrichment/pipeline";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { insertRun, normalizeSourceUrl, upsertRegistry, updateRunExtractedJson } from "./sources";
+import { SweepError, classifyHtmlPayload, httpErrorCode } from "./sweepDiagnostics";
 
 const FETCH_TIMEOUT_MS = 10000;
 const MAX_BYTES = 1024 * 1024;
+const MAX_REDIRECTS = 5;
+
+type FetchDiagnostics = {
+  status: number;
+  content_type: string | null;
+  bytes: number;
+  final_url: string;
+  redirect_count: number;
+};
+
+async function fetchWithRedirects(startUrl: string): Promise<{ resp: Response; finalUrl: string; redirectCount: number }> {
+  let currentUrl = startUrl;
+  let redirectCount = 0;
+  while (true) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    let resp: Response;
+    try {
+      resp = await fetch(currentUrl, {
+        redirect: "manual",
+        signal: controller.signal,
+        headers: { "user-agent": "RI-Admin-PasteURL/1.0" },
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (resp.status >= 300 && resp.status < 400) {
+      const next = resp.headers.get("location");
+      if (!next) {
+        return { resp, finalUrl: currentUrl, redirectCount };
+      }
+      redirectCount += 1;
+      if (redirectCount > MAX_REDIRECTS) {
+        throw new SweepError("redirect_blocked", "Too many redirects", {
+          status: resp.status,
+          content_type: resp.headers.get("content-type"),
+          final_url: currentUrl,
+          redirect_count: redirectCount,
+        });
+      }
+      currentUrl = new URL(next, currentUrl).toString();
+      continue;
+    }
+    return { resp, finalUrl: resp.url || currentUrl, redirectCount };
+  }
+}
 
 export async function fetchHtml(url: string): Promise<string | null> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const { html } = await fetchHtmlWithDiagnostics(url);
+  return html;
+}
+
+async function fetchHtmlWithDiagnostics(url: string): Promise<{ html: string; diagnostics: FetchDiagnostics }> {
+  let resp: Response;
+  let finalUrl = url;
+  let redirectCount = 0;
   try {
-    const resp = await fetch(url, {
-      redirect: "follow",
-      signal: controller.signal,
-      headers: { "user-agent": "RI-Admin-PasteURL/1.0" },
-    });
-    clearTimeout(timeout);
-    const ct = resp.headers.get("content-type") || "";
-    if (!ct.includes("text/html")) return null;
-    const reader = resp.body?.getReader();
-    if (!reader) return null;
-    const chunks: Uint8Array[] = [];
-    let received = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        received += value.length;
-        if (received > MAX_BYTES) break;
-        chunks.push(value);
-      }
-    }
-    return Buffer.concat(chunks).toString("utf8");
-  } catch (err) {
-    console.warn("[paste-url] fetch failed", url, err);
-    return null;
+    const result = await fetchWithRedirects(url);
+    resp = result.resp;
+    finalUrl = result.finalUrl;
+    redirectCount = result.redirectCount;
+  } catch (err: any) {
+    if (err instanceof SweepError) throw err;
+    throw new SweepError("fetch_failed", "Request failed", { final_url: finalUrl });
   }
+
+  const status = resp.status;
+  const contentType = resp.headers.get("content-type");
+  if (!resp.ok) {
+    throw new SweepError(httpErrorCode(status), `HTTP error ${status}`, {
+      status,
+      content_type: contentType,
+      final_url: finalUrl,
+      redirect_count: redirectCount,
+    });
+  }
+
+  let html = "";
+  try {
+    html = await resp.text();
+  } catch (err: any) {
+    throw new SweepError("fetch_failed", "Failed to read response body", {
+      status,
+      content_type: contentType,
+      final_url: finalUrl,
+      redirect_count: redirectCount,
+    });
+  }
+
+  const bytes = Buffer.byteLength(html);
+  const payloadIssue = classifyHtmlPayload(contentType, bytes);
+  if (payloadIssue) {
+    throw new SweepError(payloadIssue, "HTML payload failed validation", {
+      status,
+      content_type: contentType,
+      bytes,
+      final_url: finalUrl,
+      redirect_count: redirectCount,
+    });
+  }
+
+  if (bytes > MAX_BYTES) {
+    html = html.slice(0, MAX_BYTES);
+  }
+
+  return {
+    html,
+    diagnostics: {
+      status,
+      content_type: contentType,
+      bytes,
+      final_url: finalUrl,
+      redirect_count: redirectCount,
+    },
+  };
 }
 
 export type ParsedMetadata = {
@@ -167,11 +252,23 @@ export async function createTournamentFromUrl(params: {
   const source: TournamentSource = params.source ?? "external_crawl";
 
   const { canonical, host } = normalizeSourceUrl(url);
-  const html = await fetchHtml(url);
-  if (!html) throw new Error("failed_to_fetch_html");
+  const { html, diagnostics } = await fetchHtmlWithDiagnostics(url);
 
   const parsedUrl = new URL(canonical);
-  const meta = parseMetadata(html);
+  let meta: ParsedMetadata;
+  try {
+    meta = parseMetadata(html);
+  } catch (err: any) {
+    throw new SweepError("extractor_error", "Extractor threw while parsing HTML", diagnostics);
+  }
+
+  if (!meta.name && !meta.summary && !meta.start_date && !meta.end_date && !meta.city && !meta.state) {
+    throw new SweepError(
+      "html_received_no_events",
+      "HTML parsed but no tournament metadata was found",
+      diagnostics
+    );
+  }
   const slug = buildTournamentSlug({
     name: meta.name || parsedUrl.hostname,
     city: meta.city ?? undefined,
