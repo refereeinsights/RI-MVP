@@ -111,7 +111,7 @@ export default async function TournamentsPage({
     ? reviewedParam.includes("true")
     : reviewedParam
     ? reviewedParam.toLowerCase() === "true"
-    : true;
+    : false;
   const includePastParam = searchParams?.includePast;
   const includePast = Array.isArray(includePastParam)
     ? includePastParam.includes("true")
