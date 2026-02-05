@@ -34,14 +34,15 @@ export async function POST(request: Request) {
     .select("id,tournament_id,suggested_url")
     .eq("id", suggestionId)
     .maybeSingle();
-  if (error || !row) {
+  const suggestion = row as { id: string; tournament_id: string; suggested_url: string } | null;
+  if (error || !suggestion) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
   const updateTournament = await supabaseAdmin
     .from("tournaments" as any)
-    .update({ source_url: row.suggested_url })
-    .eq("id", row.tournament_id);
+    .update({ source_url: suggestion.suggested_url })
+    .eq("id", suggestion.tournament_id);
   if (updateTournament.error) {
     console.error("[url-suggestions] tournament update failed", updateTournament.error);
     return NextResponse.json({ error: "tournament_update_failed" }, { status: 500 });
