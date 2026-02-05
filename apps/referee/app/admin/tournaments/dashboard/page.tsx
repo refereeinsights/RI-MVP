@@ -6,12 +6,19 @@ export const runtime = "nodejs";
 
 type Search = {
   sport?: string;
-  state?: string;
+  state?: string | string[];
   start?: string;
   end?: string;
 };
 
 const DEFAULT_STATES = ["WA", "OR", "CA", "AZ", "NV", "CO", "UT", "ID", "MT"];
+const ALL_STATES = [
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
+  "HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+  "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
+  "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+  "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"
+];
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -26,10 +33,15 @@ function addDays(days: number) {
 export default async function TournamentsDashboard({ searchParams }: { searchParams: Search }) {
   await requireAdmin();
   const sport = searchParams.sport ?? "";
-  const stateParam = searchParams.state ?? "";
+  const stateParamRaw = searchParams.state ?? "";
   const start = searchParams.start || todayIso();
   const end = searchParams.end || addDays(90);
-  const states = stateParam ? stateParam.split(",").filter(Boolean) : DEFAULT_STATES;
+  const stateTokens = Array.isArray(stateParamRaw)
+    ? stateParamRaw.flatMap((s) => s.split(","))
+    : String(stateParamRaw).split(",");
+  const normalizedStates = stateTokens.map((s) => s.trim().toUpperCase()).filter(Boolean);
+  const useAllStates = normalizedStates.includes("ALL");
+  const states = useAllStates ? ALL_STATES : (normalizedStates.length ? normalizedStates : DEFAULT_STATES);
 
   const supabase = supabaseAdmin;
   let tQuery = supabase
@@ -76,6 +88,15 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   const sourcePct = total ? Math.round((withSource / total) * 100) : 0;
   const venuePct = total ? Math.round((withVenue / total) * 100) : 0;
   const compPct = total ? Math.round((new Set(comps.map((c: any) => c.tournament_id)).size / total) * 100) : 0;
+
+  const sportCounts = tournaments.reduce(
+    (acc: Record<string, number>, t: any) => {
+      const key = (t.sport || "unknown").toLowerCase();
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    },
+    {}
+  );
 
   // Top sources (run rows in last 30 days)
   const thirtyAgo = addDays(-30);
@@ -150,8 +171,24 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
           </select>
         </label>
         <label style={{ fontSize: 12, fontWeight: 700 }}>
-          States (comma separated)
-          <input name="state" defaultValue={stateParam || DEFAULT_STATES.join(",")} style={{ padding: 6, borderRadius: 8, border: "1px solid #ccc", minWidth: 220 }} />
+          States (pick list)
+          <select
+            name="state"
+            multiple
+            defaultValue={useAllStates ? ["ALL"] : states}
+            size={6}
+            style={{ padding: 6, borderRadius: 8, border: "1px solid #ccc", minWidth: 220 }}
+          >
+            <option value="ALL">All states</option>
+            {ALL_STATES.map((st) => (
+              <option key={st} value={st}>
+                {st}
+              </option>
+            ))}
+          </select>
+          <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
+            Tip: Hold Cmd/Ctrl to multi-select. Choose “All states” to include every state.
+          </div>
         </label>
         <label style={{ fontSize: 12, fontWeight: 700 }}>
           Start
@@ -171,6 +208,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
           { label: "Upcoming tournaments", value: total },
           { label: "Pending", value: pending },
           { label: "Approved", value: approved },
+          { label: "With source URL", value: withSource },
           { label: "% with source URL", value: `${sourcePct}%` },
           { label: "% with venue/address", value: `${venuePct}%` },
           { label: "Enrichment success", value: `${enrichedPct}%` },
@@ -181,6 +219,21 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
             <div style={{ fontSize: 20, fontWeight: 900 }}>{card.value}</div>
           </div>
         ))}
+      </div>
+
+      <h2 style={{ marginTop: 0 }}>Tournaments by sport</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginBottom: 20 }}>
+        {Object.entries(sportCounts)
+          .sort((a, b) => b[1] - a[1])
+          .map(([key, value]) => (
+            <div key={key} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12, background: "#fff" }}>
+              <div style={{ fontSize: 12, color: "#555" }}>{key}</div>
+              <div style={{ fontSize: 20, fontWeight: 900 }}>{value}</div>
+            </div>
+          ))}
+        {!Object.keys(sportCounts).length && (
+          <div style={{ color: "#666" }}>No tournaments in range.</div>
+        )}
       </div>
 
       <h2 style={{ marginTop: 0 }}>Top sources (last 30d)</h2>
