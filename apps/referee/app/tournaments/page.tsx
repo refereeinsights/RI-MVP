@@ -34,7 +34,18 @@ export const metadata = {
     "Referee-submitted insight on pay, organization, and on-site experience — so you can decide with confidence.",
 };
 
-const FILTER_SPORTS = ["soccer", "basketball", "football"] as const;
+const SPORTS_LABELS: Record<string, string> = {
+  soccer: "Soccer",
+  basketball: "Basketball",
+  football: "Football",
+  baseball: "Baseball",
+  softball: "Softball",
+  volleyball: "Volleyball",
+  lacrosse: "Lacrosse",
+  wrestling: "Wrestling",
+  hockey: "Hockey",
+  unknown: "Unknown",
+};
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -95,16 +106,22 @@ export default async function TournamentsPage({
   const zip = (searchParams?.zip ?? "").trim();
   const month = (searchParams?.month ?? "").trim(); // YYYY-MM
   const sportsParam = searchParams?.sports;
-  const reviewedOnly = (searchParams?.reviewed ?? "").toLowerCase() === "true";
-  const includePast = (searchParams?.includePast ?? "").toLowerCase() === "true";
+  const reviewedParam = searchParams?.reviewed;
+  const reviewedOnly = Array.isArray(reviewedParam)
+    ? reviewedParam.includes("true")
+    : reviewedParam
+    ? reviewedParam.toLowerCase() === "true"
+    : true;
+  const includePastParam = searchParams?.includePast;
+  const includePast = Array.isArray(includePastParam)
+    ? includePastParam.includes("true")
+    : (includePastParam ?? "").toLowerCase() === "true";
   const sportsSelectedRaw = Array.isArray(sportsParam)
     ? sportsParam
     : sportsParam
     ? [sportsParam]
     : [];
-  const sportsSelected = sportsSelectedRaw
-    .map((s) => s.toLowerCase())
-    .filter((s): s is (typeof FILTER_SPORTS)[number] => FILTER_SPORTS.includes(s as any));
+  const sportsSelected = sportsSelectedRaw.map((s) => s.toLowerCase()).filter(Boolean);
 
   let query = supabase
     .from("tournaments")
@@ -141,10 +158,6 @@ export default async function TournamentsPage({
     const endISO = end.toISOString().slice(0, 10);
     query = query.gte("start_date", startISO).lt("start_date", endISO);
   }
-  if (sportsSelected.length) {
-    query = query.in("sport", sportsSelected);
-  }
-
   const { data, error } = await query;
 
   if (error) {
@@ -169,9 +182,26 @@ export default async function TournamentsPage({
   );
   const whistleMap = await loadWhistleScores(supabase, seriesMap);
   const months = monthOptions(9);
-  const tournaments = reviewedOnly
+  const reviewedTournaments = reviewedOnly
     ? tournamentsData.filter((t) => (whistleMap.get(t.id)?.review_count ?? 0) > 0)
     : tournamentsData;
+
+  const sportsCounts = reviewedTournaments.reduce((acc: Record<string, number>, t) => {
+    const key = (t.sport ?? "unknown").toLowerCase();
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  const sportsSorted = Object.entries(sportsCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([sport, count]) => ({ sport, count }));
+
+  const tournaments = sportsSelected.length
+    ? reviewedTournaments.filter((t) => {
+        const key = (t.sport ?? "unknown").toLowerCase();
+        return sportsSelected.includes(key);
+      })
+    : reviewedTournaments;
 
   return (
     <main className="pitchWrap tournamentsWrap">
@@ -280,38 +310,42 @@ export default async function TournamentsPage({
           </div>
 
           <div className="sportsRow">
-            <span className="label" style={{ marginBottom: 0 }}>Sports</span>
-            <div className="sportsToggleWrap">
-              <label className="sportToggle">
-                <input
-                  type="checkbox"
-                  name="reviewed"
-                  value="true"
-                  defaultChecked={reviewedOnly}
-                />
-                <span>Reviewed only</span>
-              </label>
-              {FILTER_SPORTS.map((sport) => (
-                <label key={sport} className="sportToggle">
+            <details className="sportsToggleWrap" style={{ width: "100%" }}>
+              <summary className="label" style={{ cursor: "pointer" }}>Sports & filters</summary>
+              <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                <label className="sportToggle">
+                  <input type="hidden" name="reviewed" value="false" />
                   <input
                     type="checkbox"
-                    name="sports"
-                    value={sport}
-                    defaultChecked={sportsSelected.includes(sport)}
+                    name="reviewed"
+                    value="true"
+                    defaultChecked={reviewedOnly}
                   />
-                  <span>{sport.charAt(0).toUpperCase() + sport.slice(1)}</span>
+                  <span>Reviewed only</span>
                 </label>
-              ))}
-              <label className="sportToggle">
-                <input
-                  type="checkbox"
-                  name="includePast"
-                  value="true"
-                  defaultChecked={includePast}
-                />
-                <span>Include past events</span>
-              </label>
-            </div>
+                {sportsSorted.map(({ sport, count }) => (
+                  <label key={sport} className="sportToggle">
+                    <input
+                      type="checkbox"
+                      name="sports"
+                      value={sport}
+                      defaultChecked={sportsSelected.includes(sport)}
+                    />
+                    <span>{(SPORTS_LABELS[sport] || sport)} ({count})</span>
+                  </label>
+                ))}
+                <label className="sportToggle">
+                  <input type="hidden" name="includePast" value="false" />
+                  <input
+                    type="checkbox"
+                    name="includePast"
+                    value="true"
+                    defaultChecked={includePast}
+                  />
+                  <span>Include past events</span>
+                </label>
+              </div>
+            </details>
           </div>
         </form>
 
