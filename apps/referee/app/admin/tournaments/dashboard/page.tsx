@@ -200,6 +200,39 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
           End
           <input type="date" name="end" defaultValue={end} style={{ padding: 6, borderRadius: 8, border: "1px solid #ccc" }} />
         </label>
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+          <button
+            type="button"
+            onClick={(e) => {
+              const form = (e.currentTarget.closest("form") as HTMLFormElement) || null;
+              if (!form) return;
+              const startInput = form.querySelector('input[name="start"]') as HTMLInputElement | null;
+              const endInput = form.querySelector('input[name="end"]') as HTMLInputElement | null;
+              if (startInput) startInput.value = "";
+              if (endInput) endInput.value = "";
+              form.requestSubmit();
+            }}
+            style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #9ca3af", background: "#f9fafb", color: "#111827", fontWeight: 700 }}
+          >
+            Clear dates
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              const form = (e.currentTarget.closest("form") as HTMLFormElement) || null;
+              if (!form) return;
+              const year = new Date().getFullYear();
+              const startInput = form.querySelector('input[name="start"]') as HTMLInputElement | null;
+              const endInput = form.querySelector('input[name="end"]') as HTMLInputElement | null;
+              if (startInput) startInput.value = `${year}-01-01`;
+              if (endInput) endInput.value = `${year}-12-31`;
+              form.requestSubmit();
+            }}
+            style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #0f172a", background: "#0f172a", color: "#fff", fontWeight: 800 }}
+          >
+            This year
+          </button>
+        </div>
         <button style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#0f172a", color: "#fff", fontWeight: 800, alignSelf: "flex-end" }}>
           Apply
         </button>
