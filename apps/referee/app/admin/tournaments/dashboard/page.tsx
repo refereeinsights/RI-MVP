@@ -170,26 +170,28 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
             <option value="football">Football</option>
           </select>
         </label>
-        <label style={{ fontSize: 12, fontWeight: 700 }}>
-          States (pick list)
-          <select
-            name="state"
-            multiple
-            defaultValue={useAllStates ? ["ALL"] : states}
-            size={6}
-            style={{ padding: 6, borderRadius: 8, border: "1px solid #ccc", minWidth: 220 }}
-          >
-            <option value="ALL">All states</option>
-            {ALL_STATES.map((st) => (
-              <option key={st} value={st}>
-                {st}
-              </option>
-            ))}
-          </select>
-          <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
-            Tip: Hold Cmd/Ctrl to multi-select. Choose “All states” to include every state.
+        <details style={{ border: "1px solid #ddd", borderRadius: 8, padding: 8, background: "#fff" }}>
+          <summary style={{ fontSize: 12, fontWeight: 700, cursor: "pointer" }}>States</summary>
+          <div style={{ marginTop: 8 }}>
+            <select
+              name="state"
+              multiple
+              defaultValue={useAllStates ? ["ALL"] : states}
+              size={6}
+              style={{ padding: 6, borderRadius: 8, border: "1px solid #ccc", minWidth: 220 }}
+            >
+              <option value="ALL">All states</option>
+              {ALL_STATES.map((st) => (
+                <option key={st} value={st}>
+                  {st}
+                </option>
+              ))}
+            </select>
+            <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
+              Tip: Hold Cmd/Ctrl to multi-select. Choose “All states” to include every state.
+            </div>
           </div>
-        </label>
+        </details>
         <label style={{ fontSize: 12, fontWeight: 700 }}>
           Start
           <input type="date" name="start" defaultValue={start} style={{ padding: 6, borderRadius: 8, border: "1px solid #ccc" }} />
