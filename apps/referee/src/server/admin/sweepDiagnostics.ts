@@ -23,6 +23,12 @@ export type SweepDiagnostics = {
     table_count?: number;
     inferred_year?: number | null;
     first_table_rows?: string[][];
+    sample_rows?: Array<{
+      row: string[];
+      state_cell: string;
+      state_match: string | null;
+      fallback_state: string | null;
+    }>;
     parsed_dates?: { raw: string; parsed: { start?: string; end?: string } }[];
     normalized?: string;
     raw_codes?: number[];
