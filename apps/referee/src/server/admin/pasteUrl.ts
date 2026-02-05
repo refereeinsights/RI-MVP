@@ -10,6 +10,7 @@ import { SweepError, classifyHtmlPayload, httpErrorCode } from "./sweepDiagnosti
 const FETCH_TIMEOUT_MS = 10000;
 const MAX_BYTES = 1024 * 1024;
 const MAX_REDIRECTS = 5;
+const VERBOSE_SWEEP_LOGS = process.env.VERBOSE_SWEEP_LOGS === "true";
 
 type FetchDiagnostics = {
   status: number;
@@ -633,6 +634,13 @@ function getUSClubDiagnostics(html: string) {
     .map((node) => $(node).text().trim())
     .filter((text) => /^[A-Za-z]+\\s+\\d{4}$/.test(text));
   const tables = $("table.wptb-preview-table").toArray();
+  if (!VERBOSE_SWEEP_LOGS) {
+    return {
+      month_header_count: monthHeaders.length,
+      table_count: tables.length,
+      inferred_year: inferredYear,
+    };
+  }
   const firstTable = tables.length ? $(tables[0]) : null;
   let firstRows: string[][] = [];
   if (firstTable) {
@@ -665,12 +673,34 @@ function getUSClubDiagnostics(html: string) {
       parsed: debug.parsed,
     };
   });
+  const sampleRows =
+    firstTable
+      ?.find("tr")
+      .slice(0, 6)
+      .map((_, tr) => {
+        let cells = $(tr).find("td");
+        if (cells.length < 3) cells = $(tr).find("td,th");
+        const row = cells
+          .map((_, td) => $(td).text().trim().replace(/\\s+/g, " "))
+          .get();
+        const stateCell = row[2] ? row[2].toUpperCase() : "";
+        const stateMatch = stateCell.match(/\\b[A-Z]{2}\\b/);
+        const fallbackState = stateCell.replace(/[^A-Z]/g, "").slice(0, 2);
+        return {
+          row,
+          state_cell: stateCell,
+          state_match: stateMatch ? stateMatch[0] : null,
+          fallback_state: fallbackState || null,
+        };
+      })
+      .get() ?? [];
   return {
     month_headers: monthHeaders.slice(0, 3),
     month_header_count: monthHeaders.length,
     table_count: tables.length,
     inferred_year: inferredYear,
     first_table_rows: firstRows,
+    sample_rows: sampleRows,
     parsed_dates: parsedDates,
   };
 }
@@ -684,13 +714,17 @@ function parseUSClubTable(
   const out: TournamentRow[] = [];
   const rows = $table.find("tr").toArray();
   for (const tr of rows) {
-    const tds = $(tr).find("td");
-    if (tds.length < 3) continue;
-    const datesText = $(tds[0]).text().trim();
-    const tournamentCell = $(tds[1]);
-    const stateRaw = $(tds[2]).text().trim().toUpperCase();
+    let cells = $(tr).find("td");
+    if (cells.length < 3) {
+      cells = $(tr).find("td,th");
+    }
+    if (cells.length < 3) continue;
+    const datesText = $(cells[0]).text().trim();
+    const tournamentCell = $(cells[1]);
+    const stateRaw = $(cells[2]).text().trim().toUpperCase();
     const stateMatch = stateRaw.match(/\\b[A-Z]{2}\\b/);
-    const state = stateMatch ? stateMatch[0] : "";
+    const fallbackState = stateRaw.replace(/[^A-Z]/g, "").slice(0, 2);
+    const state = stateMatch ? stateMatch[0] : fallbackState;
     if (!state) continue;
 
     const link = tournamentCell.find("a").first();
@@ -705,8 +739,8 @@ function parseUSClubTable(
     const source_url =
       href && href.startsWith("http") ? href : "https://usclubsoccer.org/list-of-sanctioned-tournaments/";
     const source_domain = "usclubsoccer.org";
-    const club = tds.length >= 4 ? $(tds[3]).text().trim() : "";
-    const ageGroups = tds.length >= 5 ? $(tds[4]).text().trim() : "";
+    const club = cells.length >= 4 ? $(cells[3]).text().trim() : "";
+    const ageGroups = cells.length >= 5 ? $(cells[4]).text().trim() : "";
     const level = inferUSClubLevel(ageGroups);
 
     out.push({
