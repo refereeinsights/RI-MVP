@@ -27,6 +27,7 @@ type TournamentDetailRow = {
   end_date: string | null;
   summary: string | null;
   source_url: string | null;
+  official_website_url?: string | null;
   level: string | null;
   venue: string | null;
   address: string | null;
@@ -82,7 +83,7 @@ export default async function TournamentDetailPage({
   const { data, error } = await supabase
     .from("tournaments")
     .select(
-      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,level,venue,address,sport"
+      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,level,venue,address,sport"
     )
     .eq("slug", params.slug)
     .single<TournamentDetailRow>();
@@ -354,8 +355,8 @@ export default async function TournamentDetailPage({
           </div>
 
           <div className="actions">
-            {data.source_url ? (
-              <a className="btn" href={data.source_url} target="_blank" rel="noopener noreferrer">
+            {(data.official_website_url || data.source_url) ? (
+              <a className="btn" href={data.official_website_url || data.source_url} target="_blank" rel="noopener noreferrer">
                 Visit official site
               </a>
             ) : null}
@@ -364,7 +365,7 @@ export default async function TournamentDetailPage({
             </Link>
           </div>
 
-          {!data.source_url ? (
+          {!data.official_website_url ? (
             <div style={{ marginTop: 16, padding: 12, borderRadius: 10, border: "1px solid #d7d7d7", background: "#fff" }}>
               <strong style={{ display: "block", marginBottom: 6 }}>Know the official website?</strong>
               <form action="/api/tournaments/url-suggestions" method="post" style={{ display: "grid", gap: 8 }}>

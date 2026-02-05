@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
   const updateResp = await supabaseAdmin
     .from("tournaments" as any)
-    .update({ source_url: normalized })
+    .update({ official_website_url: normalized })
     .eq("id", tournamentId);
   if (updateResp.error) {
     console.error("[enrichment] manual apply failed", updateResp.error);

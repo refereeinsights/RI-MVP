@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
   const updateTournament = await supabaseAdmin
     .from("tournaments" as any)
-    .update({ source_url: suggestion.suggested_url })
+    .update({ official_website_url: suggestion.suggested_url })
     .eq("id", suggestion.tournament_id);
   if (updateTournament.error) {
     console.error("[url-suggestions] tournament update failed", updateTournament.error);

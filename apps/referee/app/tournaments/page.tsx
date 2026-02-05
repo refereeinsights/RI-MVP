@@ -23,6 +23,7 @@ type Tournament = {
   start_date: string | null;
   end_date: string | null;
   source_url: string;
+  official_website_url?: string | null;
 };
 
 // Cache this listing for 5 minutes to reduce Supabase load while keeping results fresh.
@@ -125,7 +126,7 @@ export default async function TournamentsPage({
 
   let query = supabase
     .from("tournaments")
-    .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,status,is_canonical")
+    .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url,status,is_canonical")
     .eq("status", "published")
     .eq("is_canonical", true)
     .order("start_date", { ascending: true });
@@ -407,7 +408,7 @@ export default async function TournamentsPage({
 
               <div className="actions">
                 <Link className="btn" href={`/tournaments/${t.slug}`}>View details</Link>
-                <a className="btn" href={t.source_url} target="_blank" rel="noopener noreferrer">Official site</a>
+                <a className="btn" href={t.official_website_url || t.source_url} target="_blank" rel="noopener noreferrer">Official site</a>
               </div>
 
               <div className="sportIcon" aria-label={t.sport ?? "tournament sport"}>

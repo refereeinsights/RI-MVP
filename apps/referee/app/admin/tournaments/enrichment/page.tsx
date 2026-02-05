@@ -6,10 +6,12 @@ type Tournament = { id: string; name: string | null; url: string | null; state: 
 type MissingUrlTournament = {
   id: string;
   name: string | null;
+  slug?: string | null;
   state: string | null;
   city: string | null;
   sport: string | null;
   level: string | null;
+  source_url?: string | null;
 };
 type Job = {
   id: string;
@@ -77,10 +79,11 @@ async function loadData() {
     .limit(25);
   const missingResp = await supabaseAdmin
     .from("tournaments" as any)
-    .select("id,name,state,city,sport,level,source_url,enrichment_skip")
-    .or("source_url.is.null,source_url.eq.")
+    .select("id,name,slug,state,city,sport,level,source_url,official_website_url,enrichment_skip,start_date")
+    .or("official_website_url.is.null,official_website_url.eq.")
     .eq("enrichment_skip", false)
-    .order("updated_at", { ascending: false })
+    .gte("start_date", new Date().toISOString().slice(0, 10))
+    .order("start_date", { ascending: true, nullsFirst: false })
     .limit(50);
   const tournamentLookup = new Map<string, { name: string | null; url: string | null }>(
     (tournamentsResp.data ?? []).map((t: any) => [
@@ -146,14 +149,17 @@ async function loadData() {
       }) as Job[],
     missing_urls:
       (missingResp.data ?? [])
-        .filter((t: any) => !t.source_url && !t.enrichment_skip)
+        .filter((t: any) => !t.official_website_url && !t.enrichment_skip)
         .map((t: any) => ({
           id: t.id,
           name: t.name ?? null,
+          slug: t.slug ?? null,
           state: t.state ?? null,
           city: t.city ?? null,
           sport: t.sport ?? null,
           level: t.level ?? null,
+          source_url: t.source_url ?? null,
+          start_date: t.start_date ?? null,
         })) as MissingUrlTournament[],
     contacts: (contactsResp.data ?? []) as ContactCandidate[],
     venues: (venuesResp.data ?? []) as VenueCandidate[],

@@ -682,6 +682,20 @@ export default async function AdminPage({
     redirectWithNotice(redirectTo, "Tournament archived");
   }
 
+  async function deleteTournamentAction(formData: FormData) {
+    "use server";
+    const tournamentId = String(formData.get("tournament_id") || "");
+    if (!tournamentId) return;
+    const redirectTo = formData.get("redirect_to");
+    const confirmed = String(formData.get("confirm_delete") || "") === "on";
+    if (!confirmed) {
+      return redirectWithNotice(redirectTo, "Confirm delete to proceed.");
+    }
+    await adminDeleteTournament(tournamentId);
+    revalidatePath("/tournaments");
+    redirectWithNotice(redirectTo, "Tournament deleted");
+  }
+
   async function bulkTournamentAction(formData: FormData) {
     "use server";
     const redirectTo = formData.get("redirect_to");
@@ -1890,6 +1904,23 @@ export default async function AdminPage({
                       }}
                     >
                       Save changes
+                    </button>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700 }}>
+                      <input type="checkbox" name="confirm_delete" />
+                      Confirm delete
+                    </label>
+                    <button
+                      formAction={deleteTournamentAction}
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 10,
+                        border: "1px solid #b00020",
+                        background: "#fff",
+                        color: "#b00020",
+                        fontWeight: 900,
+                      }}
+                    >
+                      Delete tournament
                     </button>
                   </div>
                 </form>

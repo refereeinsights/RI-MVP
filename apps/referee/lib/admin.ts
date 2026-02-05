@@ -855,9 +855,29 @@ export async function adminSearchPublishedTournaments(
 
   const trimmed = query?.trim();
   if (trimmed) {
-    request = request.or(
-      `name.ilike.%${trimmed}%,slug.ilike.%${trimmed}%,city.ilike.%${trimmed}%,state.ilike.%${trimmed}%`
-    );
+    const safe = trimmed.replace(/[%,]/g, " ").replace(/\s+/g, " ").trim();
+    const spacedPattern = safe.includes(" ") ? safe.split(" ").join("%") : safe;
+    const patterns = [safe, spacedPattern].filter(Boolean);
+    const clauses: string[] = [];
+    const fields = [
+      "name",
+      "slug",
+      "city",
+      "state",
+      "venue",
+      "address",
+      "summary",
+      "source_url",
+      "source_domain",
+      "referee_contact",
+      "referee_pay",
+    ];
+    patterns.forEach((pattern) => {
+      fields.forEach((field) => {
+        clauses.push(`${field}.ilike.%${pattern}%`);
+      });
+    });
+    request = request.or(clauses.join(","));
   }
 
   const { data, error } = await request;

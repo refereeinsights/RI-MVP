@@ -42,11 +42,15 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   const normalizedStates = stateTokens.map((s) => s.trim().toUpperCase()).filter(Boolean);
   const useAllStates = normalizedStates.includes("ALL");
   const states = useAllStates ? ALL_STATES : (normalizedStates.length ? normalizedStates : DEFAULT_STATES);
+  const stateParam = useAllStates ? "ALL" : states.join(",");
+  const baseParams = new URLSearchParams();
+  if (sport) baseParams.set("sport", sport);
+  if (stateParam) baseParams.set("state", stateParam);
 
   const supabase = supabaseAdmin;
   let tQuery = supabase
     .from("tournaments" as any)
-    .select("id,name,start_date,state,city,status,source_url,venue,address,sport")
+    .select("id,name,start_date,state,city,status,source_url,official_website_url,venue,address,sport")
     .gte("start_date", start)
     .lte("start_date", end);
   if (sport) tQuery = tQuery.eq("sport", sport);
@@ -56,10 +60,25 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
 
   const ids = tournaments.map((t: any) => t.id);
 
+  let byStateQuery = supabase
+    .from("tournaments" as any)
+    .select("id,name,start_date,state,city,status,source_url,official_website_url,venue,address,sport")
+    .gte("start_date", start)
+    .lte("start_date", end);
+  if (sport) byStateQuery = byStateQuery.eq("sport", sport);
+  const byStateRes = await byStateQuery;
+  const byStateTournaments = byStateRes.data ?? [];
+  const byStateIds = byStateTournaments.map((t: any) => t.id);
+
   const jobsRes = ids.length
     ? await supabase.from("tournament_enrichment_jobs" as any).select("tournament_id,status").in("tournament_id", ids)
     : { data: [] as any[], error: null };
   const jobs = jobsRes.data ?? [];
+
+  const byStateJobsRes = byStateIds.length
+    ? await supabase.from("tournament_enrichment_jobs" as any).select("tournament_id,status").in("tournament_id", byStateIds)
+    : { data: [] as any[], error: null };
+  const byStateJobs = byStateJobsRes.data ?? [];
 
   const compRes = ids.length
     ? await supabase
@@ -73,7 +92,8 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   const total = tournaments.length;
   const pending = tournaments.filter((t: any) => t.status === "draft").length;
   const approved = tournaments.filter((t: any) => t.status === "published").length;
-  const withSource = tournaments.filter((t: any) => t.source_url).length;
+  const withSource = tournaments.filter((t: any) => t.official_website_url).length;
+  const missingOfficial = total - withSource;
   const withVenue = tournaments.filter((t: any) => t.venue || t.address).length;
 
   const jobsByTid = new Map<string, any[]>();
@@ -81,6 +101,12 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
     const arr = jobsByTid.get(j.tournament_id) ?? [];
     arr.push(j);
     jobsByTid.set(j.tournament_id, arr);
+  });
+  const byStateJobsByTid = new Map<string, any[]>();
+  byStateJobs.forEach((j: any) => {
+    const arr = byStateJobsByTid.get(j.tournament_id) ?? [];
+    arr.push(j);
+    byStateJobsByTid.set(j.tournament_id, arr);
   });
   const jobsDone = Array.from(jobsByTid.values()).filter((arr) => arr.some((j) => j.status === "done")).length;
 
@@ -132,21 +158,26 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
 
   const byStateMap = new Map<
     string,
-    { total: number; venue: number; enriched: number; errors: number; stalePending: number }
+    { total: number; venue: number; enriched: number; errors: number; stalePending: number; sports: Record<string, number> }
   >();
   const staleDays = 21;
   const staleCutoff = addDays(-staleDays);
-  tournaments.forEach((t: any) => {
+  const sportKeys = new Set<string>();
+  byStateTournaments.forEach((t: any) => {
     const key = t.state || "Unknown";
-    const stateRow = byStateMap.get(key) ?? { total: 0, venue: 0, enriched: 0, errors: 0, stalePending: 0 };
+    const stateRow = byStateMap.get(key) ?? { total: 0, venue: 0, enriched: 0, errors: 0, stalePending: 0, sports: {} };
     stateRow.total += 1;
     if (t.venue || t.address) stateRow.venue += 1;
-    const jobArr = jobsByTid.get(t.id) ?? [];
+    const jobArr = byStateJobsByTid.get(t.id) ?? [];
     if (jobArr.some((j) => j.status === "done")) stateRow.enriched += 1;
     if (jobArr.some((j) => j.status === "error")) stateRow.errors += 1;
     if (t.status === "draft" && t.start_date && t.start_date < staleCutoff) stateRow.stalePending += 1;
+    const sportKey = (t.sport || "unknown").toLowerCase();
+    sportKeys.add(sportKey);
+    stateRow.sports[sportKey] = (stateRow.sports[sportKey] || 0) + 1;
     byStateMap.set(key, stateRow);
   });
+  const sportColumns = Array.from(sportKeys).sort((a, b) => a.localeCompare(b));
 
   const needsAttention = tournaments.filter((t: any) => {
     const jobArr = jobsByTid.get(t.id) ?? [];
@@ -201,37 +232,24 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
           <input type="date" name="end" defaultValue={end} style={{ padding: 6, borderRadius: 8, border: "1px solid #ccc" }} />
         </label>
         <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-          <button
-            type="button"
-            onClick={(e) => {
-              const form = (e.currentTarget.closest("form") as HTMLFormElement) || null;
-              if (!form) return;
-              const startInput = form.querySelector('input[name="start"]') as HTMLInputElement | null;
-              const endInput = form.querySelector('input[name="end"]') as HTMLInputElement | null;
-              if (startInput) startInput.value = "";
-              if (endInput) endInput.value = "";
-              form.requestSubmit();
-            }}
-            style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #9ca3af", background: "#f9fafb", color: "#111827", fontWeight: 700 }}
+          <a
+            href={`/admin/tournaments/dashboard?${baseParams.toString()}`}
+            style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #9ca3af", background: "#f9fafb", color: "#111827", fontWeight: 700, textDecoration: "none" }}
           >
             Clear dates
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              const form = (e.currentTarget.closest("form") as HTMLFormElement) || null;
-              if (!form) return;
+          </a>
+          <a
+            href={`/admin/tournaments/dashboard?${(() => {
+              const params = new URLSearchParams(baseParams);
               const year = new Date().getFullYear();
-              const startInput = form.querySelector('input[name="start"]') as HTMLInputElement | null;
-              const endInput = form.querySelector('input[name="end"]') as HTMLInputElement | null;
-              if (startInput) startInput.value = `${year}-01-01`;
-              if (endInput) endInput.value = `${year}-12-31`;
-              form.requestSubmit();
-            }}
-            style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #0f172a", background: "#0f172a", color: "#fff", fontWeight: 800 }}
+              params.set("start", `${year}-01-01`);
+              params.set("end", `${year}-12-31`);
+              return params.toString();
+            })()}`}
+            style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #0f172a", background: "#0f172a", color: "#fff", fontWeight: 800, textDecoration: "none" }}
           >
             This year
-          </button>
+          </a>
         </div>
         <button style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#0f172a", color: "#fff", fontWeight: 800, alignSelf: "flex-end" }}>
           Apply
@@ -250,8 +268,20 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
           { label: "% with comp accepted", value: `${compPct || "0"}%` },
         ].map((card) => (
           <div key={card.label} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12, background: "#fff" }}>
-            <div style={{ fontSize: 12, color: "#555" }}>{card.label}</div>
+            <div style={{ fontSize: 12, color: "#555", display: "flex", alignItems: "center", gap: 6 }}>
+              {card.label}
+              {card.label === "Official website" && (
+                <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 999, border: "1px solid #e2e8f0", background: "#f8fafc", color: "#334155" }}>
+                  {start} → {end}
+                </span>
+              )}
+            </div>
             <div style={{ fontSize: 20, fontWeight: 900 }}>{card.value}</div>
+            {card.label === "Official website" && (
+              <div style={{ marginTop: 4, fontSize: 11, color: "#64748b" }}>
+                Missing in range: {missingOfficial}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -312,7 +342,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
-              {["State", "Tournaments", "% Enriched", "% Venue", "Errors", "Pending >21d"].map((h) => (
+              {["State", "Tournaments", ...sportColumns.map((s) => `${s}`), "% Enriched", "% Venue", "Errors", "Pending >21d"].map((h) => (
                 <th key={h} style={{ textAlign: "left", padding: "6px 4px", borderBottom: "1px solid #eee" }}>
                   {h}
                 </th>
@@ -324,6 +354,11 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
               <tr key={st}>
                 <td style={{ padding: "6px 4px" }}>{st}</td>
                 <td style={{ padding: "6px 4px" }}>{row.total}</td>
+                {sportColumns.map((s) => (
+                  <td key={`${st}-${s}`} style={{ padding: "6px 4px" }}>
+                    {row.sports[s] ?? 0}
+                  </td>
+                ))}
                 <td style={{ padding: "6px 4px" }}>{row.total ? Math.round((row.enriched / row.total) * 100) : 0}%</td>
                 <td style={{ padding: "6px 4px" }}>{row.total ? Math.round((row.venue / row.total) * 100) : 0}%</td>
                 <td style={{ padding: "6px 4px" }}>{row.errors}</td>
@@ -332,7 +367,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
             ))}
             {!byStateMap.size && (
               <tr>
-                <td colSpan={6} style={{ padding: 8, color: "#666" }}>
+                <td colSpan={sportColumns.length + 6} style={{ padding: 8, color: "#666" }}>
                   No tournaments in range.
                 </td>
               </tr>

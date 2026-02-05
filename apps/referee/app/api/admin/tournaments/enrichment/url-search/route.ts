@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
   const { data: tournaments, error } = await supabaseAdmin
     .from("tournaments")
-    .select("id,name,state,city,sport,level,source_url")
+    .select("id,name,state,city,sport,level,source_url,official_website_url")
     .in("id", ids);
   if (error) {
     console.error("[enrichment] url search load failed", error);
@@ -44,8 +44,8 @@ export async function POST(request: Request) {
 
   const results: any[] = [];
   for (const row of tournaments ?? []) {
-    if (row.source_url) {
-      results.push({ tournament_id: row.id, skipped: "already_has_url", candidates: [] });
+    if (row.official_website_url) {
+      results.push({ tournament_id: row.id, skipped: "already_has_official_url", candidates: [] });
       continue;
     }
     const ctx = {
@@ -87,9 +87,9 @@ export async function POST(request: Request) {
         const candidateUrl = best.final_url || best.normalized;
         const updateResp = await supabaseAdmin
           .from("tournaments" as any)
-          .update({ source_url: candidateUrl })
+          .update({ official_website_url: candidateUrl })
           .eq("id", row.id)
-          .is("source_url", null);
+          .is("official_website_url", null);
         if (updateResp.error) {
           console.warn("[enrichment] auto-apply failed", updateResp.error);
         } else {

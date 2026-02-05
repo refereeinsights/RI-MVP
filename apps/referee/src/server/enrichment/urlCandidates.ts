@@ -28,6 +28,7 @@ export type UrlCandidate = UrlCandidateInput & {
 
 const MAX_RESULTS_PER_QUERY = 5;
 const AUTO_APPLY_THRESHOLD = 0.85;
+const QUERY_DELAY_MS = 1100;
 
 const STOP_WORDS = new Set([
   "the",
@@ -139,6 +140,9 @@ export async function findTournamentUrlCandidates(ctx: TournamentUrlContext) {
 
   for (const query of queries) {
     const rows = await atlasSearch(query, MAX_RESULTS_PER_QUERY);
+    if (queries.length > 1) {
+      await new Promise((resolve) => setTimeout(resolve, QUERY_DELAY_MS));
+    }
     for (const row of rows) {
       const normalized = normalizeSourceUrl(row.url).normalized;
       if (!normalized || seen.has(normalized)) continue;

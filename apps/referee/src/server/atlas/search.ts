@@ -18,6 +18,28 @@ async function throttleBrave() {
   braveLastRequestAt = Date.now();
 }
 
+async function braveFetchWithRetry(url: string, headers: Record<string, string>) {
+  const maxAttempts = 3;
+  let attempt = 0;
+  let lastText = "";
+  while (attempt < maxAttempts) {
+    attempt += 1;
+    await throttleBrave();
+    const resp = await fetch(url, { headers });
+    if (resp.status !== 429) return resp;
+    lastText = await resp.text();
+    const backoffMs = 1000 * Math.pow(2, attempt); // 2s, 4s, 8s
+    await new Promise((resolve) => setTimeout(resolve, backoffMs));
+  }
+  return {
+    ok: false,
+    status: 429,
+    async text() {
+      return lastText || "Rate limited";
+    },
+  } as Response;
+}
+
 function getProvider(): Provider {
   const raw = (process.env.ATLAS_SEARCH_PROVIDER || "serpapi").toLowerCase();
   if (raw === "bing") return "bing";
@@ -70,15 +92,12 @@ export async function atlasSearch(query: string, limit: number): Promise<AtlasSe
   if (provider === "brave") {
     const key = process.env.BRAVE_SEARCH_KEY;
     if (!key) throw new Error("BRAVE_SEARCH_KEY missing");
-    await throttleBrave();
     const url = new URL("https://api.search.brave.com/res/v1/web/search");
     url.searchParams.set("q", query);
     url.searchParams.set("count", String(count));
-    const resp = await fetch(url.toString(), {
-      headers: {
-        Accept: "application/json",
-        "X-Subscription-Token": key,
-      },
+    const resp = await braveFetchWithRetry(url.toString(), {
+      Accept: "application/json",
+      "X-Subscription-Token": key,
     });
     if (!resp.ok) {
       const text = await resp.text();

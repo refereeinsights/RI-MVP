@@ -7,10 +7,13 @@ type Tournament = { id: string; name: string | null; url: string | null; state: 
 type MissingUrlTournament = {
   id: string;
   name: string | null;
+  slug?: string | null;
   state: string | null;
   city: string | null;
   sport: string | null;
   level: string | null;
+  source_url?: string | null;
+  start_date?: string | null;
 };
 type Job = {
   id: string;
@@ -113,6 +116,7 @@ export default function EnrichmentClient({
   const [missingSelected, setMissingSelected] = React.useState<string[]>([]);
   const [urlSearchStatus, setUrlSearchStatus] = React.useState<string>("");
   const [urlResults, setUrlResults] = React.useState<Record<string, UrlSearchResult>>({});
+  const [manualUrls, setManualUrls] = React.useState<Record<string, string>>({});
 
   const toggle = (id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -177,7 +181,7 @@ export default function EnrichmentClient({
     setUrlSearchStatus("Search complete");
   };
 
-  const applyCandidate = async (tournamentId: string, candidateUrl: string) => {
+  const applyCandidate = async (tournamentId: string, candidateUrl: string, opts?: { refresh?: boolean }) => {
     setUrlSearchStatus("Applying URL...");
     const res = await fetch("/api/admin/tournaments/enrichment/url-apply", {
       method: "POST",
@@ -190,7 +194,7 @@ export default function EnrichmentClient({
       return;
     }
     setUrlSearchStatus("Applied");
-    refreshPage();
+    if (opts?.refresh !== false) refreshPage();
   };
 
   const reviewUrlSuggestion = async (suggestionId: string, action: "approve" | "reject") => {
@@ -257,6 +261,29 @@ export default function EnrichmentClient({
     if (type === "comp") setPendingComps((prev) => prev.filter((c) => c.id !== id));
   };
 
+  const applySourceUrlsForSelected = async () => {
+    const selected = missingUrls.filter((t) => missingSelected.includes(t.id) && t.source_url);
+    if (!selected.length) {
+      setUrlSearchStatus("No selected tournaments with source URLs.");
+      return;
+    }
+    setUrlSearchStatus(`Applying source URLs for ${selected.length} tournament(s)...`);
+    const res = await fetch("/api/admin/tournaments/enrichment/url-apply-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        rows: selected.map((t) => ({ tournament_id: t.id, candidate_url: t.source_url })),
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok || json.error) {
+      setUrlSearchStatus(`Apply failed: ${json.error || res.statusText}`);
+      return;
+    }
+    setUrlSearchStatus(`Applied ${json.applied ?? 0}/${json.total ?? selected.length}. Refreshing...`);
+    refreshPage();
+  };
+
   return (
     <main style={{ padding: "1rem", maxWidth: 1200, margin: "0 auto" }}>
       <h1 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: 12 }}>Tournament Enrichment</h1>
@@ -294,9 +321,9 @@ export default function EnrichmentClient({
       </div>
 
       <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16 }}>
-        <h2 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Find URLs for tournaments (missing URLs)</h2>
+        <h2 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Find official websites (missing official URL)</h2>
         <p style={{ color: "#4b5563", marginTop: 0 }}>
-          Search for official tournament or club URLs using Brave/Atlas. URLs with confidence ≥ 0.85 will be auto-applied.
+          Search for official tournament or club URLs using Brave/Atlas. URLs with confidence ≥ 0.85 will be auto-applied to official website.
         </p>
         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
           <button
@@ -304,6 +331,12 @@ export default function EnrichmentClient({
             style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff" }}
           >
             Search URLs
+          </button>
+          <button
+            onClick={applySourceUrlsForSelected}
+            style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #111", background: "#fff", color: "#111" }}
+          >
+            Use source URL as official (selected)
           </button>
           <span style={{ color: "#555" }}>{urlSearchStatus}</span>
         </div>
@@ -318,6 +351,80 @@ export default function EnrichmentClient({
                   <div style={{ fontWeight: 600 }}>{t.name ?? "Untitled"}</div>
                   <div style={{ color: "#4b5563", fontSize: 12 }}>
                     {t.city ?? "—"}, {t.state ?? "—"} {t.sport ? `• ${t.sport}` : ""} {t.level ? `• ${t.level}` : ""}
+                    {t.start_date ? ` • ${new Date(t.start_date).toLocaleDateString()}` : ""}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
+                    {t.slug ? (
+                      <a
+                        href={`/admin?tab=tournament-listings&q=${encodeURIComponent(t.slug)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "#0f172a", textDecoration: "underline", fontSize: 12 }}
+                      >
+                        Open listing
+                      </a>
+                    ) : (
+                      <a
+                        href={`/admin?tab=tournament-listings&q=${encodeURIComponent(t.name ?? "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "#0f172a", textDecoration: "underline", fontSize: 12 }}
+                      >
+                        Open listing
+                      </a>
+                    )}
+                    {t.slug ? (
+                      <a
+                        href={`/tournaments/${t.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "#4b5563", textDecoration: "underline", fontSize: 12 }}
+                      >
+                        View public page
+                      </a>
+                    ) : null}
+                  </div>
+                  {t.source_url ? (
+                    <div style={{ color: "#6b7280", fontSize: 12, display: "grid", gap: 6 }}>
+                      <div style={{ wordBreak: "break-all" }}>{t.source_url}</div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <a href={t.source_url} target="_blank" rel="noopener noreferrer" style={{ color: "#0f172a", textDecoration: "underline" }}>
+                          Open source URL
+                        </a>
+                        <span style={{ color: "#9ca3af" }}>|</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            applyCandidate(t.id, t.source_url!);
+                          }}
+                          style={{ padding: "2px 8px", borderRadius: 6, border: "1px solid #111", background: "#fff", color: "#111", fontSize: 12 }}
+                        >
+                          Use as official
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                    <input
+                      type="url"
+                      placeholder="Paste official website"
+                      value={manualUrls[t.id] ?? ""}
+                      onChange={(e) => setManualUrls((prev) => ({ ...prev, [t.id]: e.target.value }))}
+                      style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #ccc", minWidth: 240 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const val = (manualUrls[t.id] || "").trim();
+                        if (!val) return;
+                        applyCandidate(t.id, val);
+                      }}
+                      style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #0f172a", background: "#0f172a", color: "#fff", fontSize: 12 }}
+                    >
+                      Save official URL
+                    </button>
                   </div>
                 </div>
               </label>
@@ -334,13 +441,21 @@ export default function EnrichmentClient({
                 <div style={{ fontWeight: 700 }}>{tournament?.name ?? row.tournament_id}</div>
                 {row.error && <div style={{ color: "#b00020" }}>Search failed: {row.error}</div>}
                 {row.applied_url && (
-                  <div style={{ color: "#0f3d2e", fontWeight: 600 }}>Auto-applied: {row.applied_url}</div>
+                  <div style={{ color: "#0f3d2e", fontWeight: 600 }}>Auto-applied (official): {row.applied_url}</div>
                 )}
                 {candidates.map((c) => (
                   <div key={c.url} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600 }}>{c.title ?? c.url}</div>
-                      <div style={{ color: "#4b5563", fontSize: 12 }}>{c.url}</div>
+                      <div style={{ fontWeight: 600 }}>
+                        <a href={c.final_url ?? c.url} target="_blank" rel="noopener noreferrer" style={{ color: "#0f172a", textDecoration: "underline" }}>
+                          {c.title ?? c.url}
+                        </a>
+                      </div>
+                      <div style={{ color: "#4b5563", fontSize: 12 }}>
+                        <a href={c.final_url ?? c.url} target="_blank" rel="noopener noreferrer" style={{ color: "#4b5563", textDecoration: "underline" }}>
+                          {c.url}
+                        </a>
+                      </div>
                       {c.snippet && <div style={{ color: "#6b7280", fontSize: 12 }}>{c.snippet}</div>}
                     </div>
                     <div style={{ fontSize: 12, fontWeight: 700 }}>{Math.round(c.score * 100)}%</div>
@@ -352,6 +467,16 @@ export default function EnrichmentClient({
                     </button>
                   </div>
                 ))}
+                {tournament?.source_url ? (
+                  <div style={{ marginTop: 6 }}>
+                    <button
+                      onClick={() => applyCandidate(row.tournament_id, tournament.source_url!)}
+                      style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #111", background: "#fff", color: "#111", fontSize: 12 }}
+                    >
+                      Use source URL as official
+                    </button>
+                  </div>
+                ) : null}
               </div>
             );
           })}
