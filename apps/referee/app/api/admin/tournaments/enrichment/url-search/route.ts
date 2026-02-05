@@ -49,12 +49,12 @@ export async function POST(request: Request) {
       continue;
     }
     const ctx = {
-      id: row.id,
-      name: row.name ?? null,
-      state: row.state ?? null,
-      city: row.city ?? null,
-      sport: row.sport ?? null,
-      host_org: row.level ?? null,
+      id: String(row.id),
+      name: row.name ? String(row.name) : null,
+      state: row.state ? String(row.state) : null,
+      city: row.city ? String(row.city) : null,
+      sport: row.sport ? String(row.sport) : null,
+      host_org: row.level ? String(row.level) : null,
     };
     try {
       const { candidates, auto_apply_threshold } = await findTournamentUrlCandidates(ctx);
