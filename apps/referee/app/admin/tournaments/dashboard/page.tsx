@@ -46,7 +46,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   const supabase = supabaseAdmin;
   let tQuery = supabase
     .from("tournaments" as any)
-    .select("id,name,start_date,state,city,status,source_url,venue,address")
+    .select("id,name,start_date,state,city,status,source_url,venue,address,sport")
     .gte("start_date", start)
     .lte("start_date", end);
   if (sport) tQuery = tQuery.eq("sport", sport);
