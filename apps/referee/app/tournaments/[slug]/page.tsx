@@ -146,7 +146,7 @@ export default async function TournamentDetailPage({
       .from("tournament_engagement_rolling" as any)
       .select("tournament_id,clicks_7d,clicks_30d,clicks_90d,unique_users_30d")
       .eq("tournament_id", data.id)
-      .maybeSingle();
+      .maybeSingle<EngagementRow>();
     engagementRow = engagementData ?? null;
   }
 

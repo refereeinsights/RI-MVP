@@ -32,7 +32,13 @@ export async function GET(
     .from("tournaments" as any)
     .select("id,official_website_url,source_url,sport,discovery_source_id")
     .eq("id", tournamentId)
-    .maybeSingle();
+    .maybeSingle<{
+      id: string;
+      official_website_url: string | null;
+      source_url: string | null;
+      sport: string | null;
+      discovery_source_id: string | null;
+    }>();
   if (error || !data) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
