@@ -3,6 +3,14 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import EnrichmentClient from "./EnrichmentClient";
 
 type Tournament = { id: string; name: string | null; url: string | null; state: string | null };
+type MissingUrlTournament = {
+  id: string;
+  name: string | null;
+  state: string | null;
+  city: string | null;
+  sport: string | null;
+  level: string | null;
+};
 type Job = {
   id: string;
   tournament_id: string;
@@ -58,6 +66,13 @@ async function loadData() {
     .select("id,name,source_url,state,enrichment_skip")
     .order("created_at", { ascending: false })
     .limit(25);
+  const missingResp = await supabaseAdmin
+    .from("tournaments" as any)
+    .select("id,name,state,city,sport,level,source_url,enrichment_skip")
+    .or("source_url.is.null,source_url.eq.")
+    .eq("enrichment_skip", false)
+    .order("updated_at", { ascending: false })
+    .limit(50);
   const tournamentLookup = new Map<string, { name: string | null; url: string | null }>(
     (tournamentsResp.data ?? []).map((t: any) => [
       t.id,
@@ -114,6 +129,17 @@ async function loadData() {
           tournament_url: j.tournaments?.source_url ?? fallback.url,
         };
       }) as Job[],
+    missing_urls:
+      (missingResp.data ?? [])
+        .filter((t: any) => !t.source_url && !t.enrichment_skip)
+        .map((t: any) => ({
+          id: t.id,
+          name: t.name ?? null,
+          state: t.state ?? null,
+          city: t.city ?? null,
+          sport: t.sport ?? null,
+          level: t.level ?? null,
+        })) as MissingUrlTournament[],
     contacts: (contactsResp.data ?? []) as ContactCandidate[],
     venues: (venuesResp.data ?? []) as VenueCandidate[],
     comps: (compsResp.data ?? []) as CompCandidate[],
@@ -125,6 +151,7 @@ export default async function Page() {
   return (
     <EnrichmentClient
       tournaments={data.tournaments}
+      missingUrls={data.missing_urls}
       jobs={data.jobs}
       contacts={data.contacts}
       venues={data.venues}

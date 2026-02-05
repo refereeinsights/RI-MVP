@@ -4,6 +4,14 @@ import React from "react";
 import Link from "next/link";
 
 type Tournament = { id: string; name: string | null; url: string | null; state: string | null };
+type MissingUrlTournament = {
+  id: string;
+  name: string | null;
+  state: string | null;
+  city: string | null;
+  sport: string | null;
+  level: string | null;
+};
 type Job = {
   id: string;
   tournament_id: string;
@@ -45,6 +53,21 @@ type CompCandidate = {
   created_at: string | null;
 };
 
+type UrlSearchResult = {
+  tournament_id: string;
+  applied_url?: string | null;
+  auto_apply_threshold?: number;
+  error?: string;
+  candidates: Array<{
+    url: string;
+    score: number;
+    title: string | null;
+    snippet: string | null;
+    final_url: string | null;
+    content_type: string | null;
+  }>;
+};
+
 function formatDate(val: string | null) {
   if (!val) return "";
   return new Date(val).toLocaleString();
@@ -52,12 +75,14 @@ function formatDate(val: string | null) {
 
 export default function EnrichmentClient({
   tournaments,
+  missingUrls,
   jobs,
   contacts,
   venues,
   comps,
 }: {
   tournaments: Tournament[];
+  missingUrls: MissingUrlTournament[];
   jobs: Job[];
   contacts: ContactCandidate[];
   venues: VenueCandidate[];
@@ -71,9 +96,15 @@ export default function EnrichmentClient({
   const [pendingContacts, setPendingContacts] = React.useState<ContactCandidate[]>(contacts);
   const [pendingVenues, setPendingVenues] = React.useState<VenueCandidate[]>(venues);
   const [pendingComps, setPendingComps] = React.useState<CompCandidate[]>(comps);
+  const [missingSelected, setMissingSelected] = React.useState<string[]>([]);
+  const [urlSearchStatus, setUrlSearchStatus] = React.useState<string>("");
+  const [urlResults, setUrlResults] = React.useState<Record<string, UrlSearchResult>>({});
 
   const toggle = (id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+  const toggleMissing = (id: string) => {
+    setMissingSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const queue = async (ids?: string[]) => {
@@ -109,6 +140,43 @@ export default function EnrichmentClient({
 
   const refreshPage = () => {
     window.location.reload();
+  };
+
+  const searchUrls = async () => {
+    if (!missingSelected.length) return;
+    setUrlSearchStatus("Searching...");
+    const res = await fetch("/api/admin/tournaments/enrichment/url-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tournament_ids: missingSelected }),
+    });
+    const json = await res.json();
+    if (!res.ok || json.error) {
+      setUrlSearchStatus(`Search failed: ${json.error || res.statusText}`);
+      return;
+    }
+    const next: Record<string, UrlSearchResult> = { ...urlResults };
+    (json.results ?? []).forEach((row: UrlSearchResult) => {
+      next[row.tournament_id] = row;
+    });
+    setUrlResults(next);
+    setUrlSearchStatus("Search complete");
+  };
+
+  const applyCandidate = async (tournamentId: string, candidateUrl: string) => {
+    setUrlSearchStatus("Applying URL...");
+    const res = await fetch("/api/admin/tournaments/enrichment/url-apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tournament_id: tournamentId, candidate_url: candidateUrl }),
+    });
+    const json = await res.json();
+    if (!res.ok || json.error) {
+      setUrlSearchStatus(`Apply failed: ${json.error || res.statusText}`);
+      return;
+    }
+    setUrlSearchStatus("Applied");
+    refreshPage();
   };
 
   const skip = async (tournamentId: string) => {
@@ -194,6 +262,71 @@ export default function EnrichmentClient({
         </button>
         <span style={{ color: "#555" }}>{status}</span>
       </div>
+
+      <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16 }}>
+        <h2 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Find URLs for tournaments (missing URLs)</h2>
+        <p style={{ color: "#4b5563", marginTop: 0 }}>
+          Search for official tournament or club URLs using Brave/Atlas. URLs with confidence ≥ 0.85 will be auto-applied.
+        </p>
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <button
+            onClick={searchUrls}
+            style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff" }}
+          >
+            Search URLs
+          </button>
+          <span style={{ color: "#555" }}>{urlSearchStatus}</span>
+        </div>
+        <div style={{ maxHeight: 260, overflow: "auto", border: "1px solid #f1f1f1", borderRadius: 8 }}>
+          {missingUrls.length === 0 ? (
+            <div style={{ padding: 10, color: "#6b7280" }}>No tournaments missing URLs.</div>
+          ) : (
+            missingUrls.map((t) => (
+              <label key={t.id} style={{ display: "flex", gap: 8, padding: "6px 8px", alignItems: "center", borderBottom: "1px solid #f1f1f1" }}>
+                <input type="checkbox" checked={missingSelected.includes(t.id)} onChange={() => toggleMissing(t.id)} />
+                <div>
+                  <div style={{ fontWeight: 600 }}>{t.name ?? "Untitled"}</div>
+                  <div style={{ color: "#4b5563", fontSize: 12 }}>
+                    {t.city ?? "—"}, {t.state ?? "—"} {t.sport ? `• ${t.sport}` : ""} {t.level ? `• ${t.level}` : ""}
+                  </div>
+                </div>
+              </label>
+            ))
+          )}
+        </div>
+        <div style={{ marginTop: 8 }}>
+          {Object.values(urlResults).map((row) => {
+            const candidates = row.candidates ?? [];
+            if (!candidates.length && !row.applied_url && !row.error) return null;
+            const tournament = missingUrls.find((t) => t.id === row.tournament_id);
+            return (
+              <div key={row.tournament_id} style={{ marginTop: 10, borderTop: "1px solid #eee", paddingTop: 8 }}>
+                <div style={{ fontWeight: 700 }}>{tournament?.name ?? row.tournament_id}</div>
+                {row.error && <div style={{ color: "#b00020" }}>Search failed: {row.error}</div>}
+                {row.applied_url && (
+                  <div style={{ color: "#0f3d2e", fontWeight: 600 }}>Auto-applied: {row.applied_url}</div>
+                )}
+                {candidates.map((c) => (
+                  <div key={c.url} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>{c.title ?? c.url}</div>
+                      <div style={{ color: "#4b5563", fontSize: 12 }}>{c.url}</div>
+                      {c.snippet && <div style={{ color: "#6b7280", fontSize: 12 }}>{c.snippet}</div>}
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>{Math.round(c.score * 100)}%</div>
+                    <button
+                      onClick={() => applyCandidate(row.tournament_id, c.final_url ?? c.url)}
+                      style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #0f3d2e", background: "#fff", color: "#0f3d2e", fontSize: 12 }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16 }}>
         <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>

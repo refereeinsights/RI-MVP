@@ -6,6 +6,17 @@ export type AtlasSearchResult = {
 };
 
 type Provider = "serpapi" | "bing" | "brave";
+const BRAVE_MIN_INTERVAL_MS = 1000;
+let braveLastRequestAt = 0;
+
+async function throttleBrave() {
+  const now = Date.now();
+  const waitMs = Math.max(0, BRAVE_MIN_INTERVAL_MS - (now - braveLastRequestAt));
+  if (waitMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+  braveLastRequestAt = Date.now();
+}
 
 function getProvider(): Provider {
   const raw = (process.env.ATLAS_SEARCH_PROVIDER || "serpapi").toLowerCase();
@@ -59,6 +70,7 @@ export async function atlasSearch(query: string, limit: number): Promise<AtlasSe
   if (provider === "brave") {
     const key = process.env.BRAVE_SEARCH_KEY;
     if (!key) throw new Error("BRAVE_SEARCH_KEY missing");
+    await throttleBrave();
     const url = new URL("https://api.search.brave.com/res/v1/web/search");
     url.searchParams.set("q", query);
     url.searchParams.set("count", String(count));
