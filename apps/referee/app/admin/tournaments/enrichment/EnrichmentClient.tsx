@@ -52,6 +52,17 @@ type CompCandidate = {
   confidence: number | null;
   created_at: string | null;
 };
+type UrlSuggestion = {
+  id: string;
+  tournament_id: string;
+  suggested_url: string;
+  suggested_domain: string | null;
+  submitter_email: string | null;
+  status: string;
+  created_at: string;
+  tournament_name?: string | null;
+  tournament_state?: string | null;
+};
 
 type UrlSearchResult = {
   tournament_id: string;
@@ -80,6 +91,7 @@ export default function EnrichmentClient({
   contacts,
   venues,
   comps,
+  urlSuggestions,
 }: {
   tournaments: Tournament[];
   missingUrls: MissingUrlTournament[];
@@ -87,6 +99,7 @@ export default function EnrichmentClient({
   contacts: ContactCandidate[];
   venues: VenueCandidate[];
   comps: CompCandidate[];
+  urlSuggestions: UrlSuggestion[];
 }) {
   const [selected, setSelected] = React.useState<string[]>([]);
   const [status, setStatus] = React.useState<string>("");
@@ -96,6 +109,7 @@ export default function EnrichmentClient({
   const [pendingContacts, setPendingContacts] = React.useState<ContactCandidate[]>(contacts);
   const [pendingVenues, setPendingVenues] = React.useState<VenueCandidate[]>(venues);
   const [pendingComps, setPendingComps] = React.useState<CompCandidate[]>(comps);
+  const [pendingUrlSuggestions, setPendingUrlSuggestions] = React.useState<UrlSuggestion[]>(urlSuggestions);
   const [missingSelected, setMissingSelected] = React.useState<string[]>([]);
   const [urlSearchStatus, setUrlSearchStatus] = React.useState<string>("");
   const [urlResults, setUrlResults] = React.useState<Record<string, UrlSearchResult>>({});
@@ -177,6 +191,22 @@ export default function EnrichmentClient({
     }
     setUrlSearchStatus("Applied");
     refreshPage();
+  };
+
+  const reviewUrlSuggestion = async (suggestionId: string, action: "approve" | "reject") => {
+    setUrlSearchStatus(`${action}ing...`);
+    const res = await fetch(`/api/admin/tournaments/enrichment/url-suggestions/${action}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ suggestion_id: suggestionId }),
+    });
+    const json = await res.json();
+    if (!res.ok || json.error) {
+      setUrlSearchStatus(`Update failed: ${json.error || res.statusText}`);
+      return;
+    }
+    setPendingUrlSuggestions((prev) => prev.filter((row) => row.id !== suggestionId));
+    setUrlSearchStatus(action === "approve" ? "Approved" : "Rejected");
   };
 
   const skip = async (tournamentId: string) => {
@@ -326,6 +356,37 @@ export default function EnrichmentClient({
             );
           })}
         </div>
+      </section>
+
+      <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16 }}>
+        <h2 style={{ margin: "0 0 8px", fontSize: "1rem" }}>URL Suggestions (pending review)</h2>
+        {pendingUrlSuggestions.length === 0 ? (
+          <div style={{ color: "#6b7280" }}>No pending suggestions.</div>
+        ) : (
+          pendingUrlSuggestions.map((s) => (
+            <div key={s.id} style={{ borderTop: "1px solid #f1f1f1", padding: "8px 0" }}>
+              <div style={{ fontWeight: 700 }}>
+                {s.tournament_name ?? s.tournament_id} {s.tournament_state ? `(${s.tournament_state})` : ""}
+              </div>
+              <div style={{ color: "#4b5563", fontSize: 12 }}>{s.suggested_url}</div>
+              {s.submitter_email && <div style={{ color: "#6b7280", fontSize: 12 }}>Submitted by {s.submitter_email}</div>}
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <button
+                  onClick={() => reviewUrlSuggestion(s.id, "approve")}
+                  style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff", fontSize: 12 }}
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => reviewUrlSuggestion(s.id, "reject")}
+                  style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #b00020", background: "#fff", color: "#b00020", fontSize: 12 }}
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </section>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16 }}>

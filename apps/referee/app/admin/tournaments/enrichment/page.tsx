@@ -54,6 +54,15 @@ type CompCandidate = {
   confidence: number | null;
   created_at: string | null;
 };
+type UrlSuggestion = {
+  id: string;
+  tournament_id: string;
+  suggested_url: string;
+  suggested_domain: string | null;
+  submitter_email: string | null;
+  status: string;
+  created_at: string;
+};
 
 async function loadData() {
   const supabase = createSupabaseServerClient();
@@ -110,6 +119,12 @@ async function loadData() {
     .is("rejected_at", null)
     .order("created_at", { ascending: false })
     .limit(25);
+  const suggestionsResp = await supabaseAdmin
+    .from("tournament_url_suggestions" as any)
+    .select("id,tournament_id,suggested_url,suggested_domain,submitter_email,status,created_at,tournaments(name,state)")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(50);
   return {
     tournaments:
       (tournamentsResp.data ?? [])
@@ -143,6 +158,18 @@ async function loadData() {
     contacts: (contactsResp.data ?? []) as ContactCandidate[],
     venues: (venuesResp.data ?? []) as VenueCandidate[],
     comps: (compsResp.data ?? []) as CompCandidate[],
+    url_suggestions:
+      (suggestionsResp.data ?? []).map((row: any) => ({
+        id: row.id,
+        tournament_id: row.tournament_id,
+        suggested_url: row.suggested_url,
+        suggested_domain: row.suggested_domain ?? null,
+        submitter_email: row.submitter_email ?? null,
+        status: row.status ?? "pending",
+        created_at: row.created_at,
+        tournament_name: row.tournaments?.name ?? null,
+        tournament_state: row.tournaments?.state ?? null,
+      })) as (UrlSuggestion & { tournament_name?: string | null; tournament_state?: string | null })[],
   };
 }
 
@@ -156,6 +183,7 @@ export default async function Page() {
       contacts={data.contacts}
       venues={data.venues}
       comps={data.comps}
+      urlSuggestions={data.url_suggestions}
     />
   );
 }

@@ -354,13 +354,39 @@ export default async function TournamentDetailPage({
           </div>
 
           <div className="actions">
-            <a className="btn" href={data.source_url} target="_blank" rel="noopener noreferrer">
-              Visit official site
-            </a>
+            {data.source_url ? (
+              <a className="btn" href={data.source_url} target="_blank" rel="noopener noreferrer">
+                Visit official site
+              </a>
+            ) : null}
             <Link className="btn" href="/tournaments">
               Back to tournaments
             </Link>
           </div>
+
+          {!data.source_url ? (
+            <div style={{ marginTop: 16, padding: 12, borderRadius: 10, border: "1px solid #d7d7d7", background: "#fff" }}>
+              <strong style={{ display: "block", marginBottom: 6 }}>Know the official website?</strong>
+              <form action="/api/tournaments/url-suggestions" method="post" style={{ display: "grid", gap: 8 }}>
+                <input type="hidden" name="tournament_id" value={data.id} />
+                <input
+                  name="suggested_url"
+                  required
+                  placeholder="https://example.com/tournament"
+                  style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #ccc" }}
+                />
+                <input
+                  name="submitter_email"
+                  type="email"
+                  placeholder="Your email (optional)"
+                  style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #ccc" }}
+                />
+                <button type="submit" className="btn" style={{ width: "fit-content" }}>
+                  Submit URL
+                </button>
+              </form>
+            </div>
+          ) : null}
         </div>
       </section>
     </main>
