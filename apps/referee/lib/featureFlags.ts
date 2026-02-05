@@ -1,1 +1,3 @@
 export const ENABLE_GEAR_TIPS = process.env.NEXT_PUBLIC_ENABLE_GEAR_TIPS === "true";
+export const FEATURE_TOURNAMENT_ENGAGEMENT_BADGES =
+  process.env.FEATURE_TOURNAMENT_ENGAGEMENT_BADGES === "true";

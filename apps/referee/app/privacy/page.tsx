@@ -17,6 +17,7 @@ export default function PrivacyPage() {
             <li>Account information (such as email and username)</li>
             <li>User-submitted content (reviews, ratings, comments)</li>
             <li>Basic analytics and usage data (device/browser, pages visited)</li>
+            <li>Anonymized outbound link interactions (e.g., clicks to tournament websites)</li>
           </ul>
         </section>
 

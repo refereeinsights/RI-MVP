@@ -4,11 +4,13 @@ import AdSlot from "@/components/AdSlot";
 import ReferralCTA from "@/components/ReferralCTA";
 import RefereeWhistleBadge from "@/components/RefereeWhistleBadge";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { aggregateWhistleScoreRows, loadSeriesTournamentIds } from "@/lib/tournamentSeries";
 import type { RawWhistleScoreRow, TournamentSeriesEntry } from "@/lib/tournamentSeries";
 import type { RefereeWhistleScore } from "@/lib/types/refereeReview";
 import { getSportCardClass } from "@/lib/ui/sportBackground";
 import InsightDisclaimer from "@/components/InsightDisclaimer";
+import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
 import "./tournaments.css";
 
 type Tournament = {
@@ -24,6 +26,13 @@ type Tournament = {
   end_date: string | null;
   source_url: string;
   official_website_url?: string | null;
+};
+type EngagementRow = {
+  tournament_id: string;
+  clicks_7d: number | null;
+  clicks_30d: number | null;
+  clicks_90d: number | null;
+  unique_users_30d: number | null;
 };
 
 // Cache this listing for 5 minutes to reduce Supabase load while keeping results fresh.
@@ -86,6 +95,23 @@ function cardVariant(sport: string | null) {
   const normalized = (sport ?? "").toLowerCase();
   if (normalized === "basketball") return "card-basketball";
   return "card-grass";
+}
+
+function getEngagementSignals(row?: EngagementRow) {
+  if (!row) return [];
+  const clicks7 = row.clicks_7d ?? 0;
+  const clicks30 = row.clicks_30d ?? 0;
+  const clicks90 = row.clicks_90d ?? 0;
+  const unique30 = row.unique_users_30d ?? 0;
+  const hasUnique = unique30 > 0;
+  const popular = clicks30 >= 10 && (!hasUnique || unique30 >= 5);
+  const frequent = clicks90 >= 25 && (!hasUnique || unique30 >= 10);
+  const high = clicks30 >= 20 || (clicks30 >= 10 && clicks7 >= 5);
+  const ordered: string[] = [];
+  if (high) ordered.push("High engagement tournament");
+  if (popular) ordered.push("Popular this month");
+  if (frequent) ordered.push("Frequently visited by referees");
+  return ordered.slice(0, 2);
 }
 
 export default async function TournamentsPage({
@@ -203,6 +229,17 @@ export default async function TournamentsPage({
         return sportsSelected.includes(key);
       })
     : reviewedTournaments;
+
+  const engagementMap = new Map<string, EngagementRow>();
+  if (FEATURE_TOURNAMENT_ENGAGEMENT_BADGES && tournaments.length) {
+    const { data: engagementRows } = await supabaseAdmin
+      .from("tournament_engagement_rolling" as any)
+      .select("tournament_id,clicks_7d,clicks_30d,clicks_90d,unique_users_30d")
+      .in("tournament_id", tournaments.map((t) => t.id));
+    (engagementRows ?? []).forEach((row: EngagementRow) => {
+      engagementMap.set(row.tournament_id, row);
+    });
+  }
 
   return (
     <main className="pitchWrap tournamentsWrap">
@@ -406,9 +443,36 @@ export default async function TournamentsPage({
                 </p>
               ) : null}
 
+              {FEATURE_TOURNAMENT_ENGAGEMENT_BADGES ? (() => {
+                const signals = getEngagementSignals(engagementMap.get(t.id));
+                return signals.length ? (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                    {signals.map((label) => (
+                      <span
+                        key={label}
+                        title="Based on recent outbound link clicks from RefereeInsights users."
+                        style={{
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          border: "1px solid rgba(255,255,255,0.35)",
+                          background: "rgba(15,23,42,0.08)",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: "#0f172a",
+                        }}
+                      >
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                ) : null;
+              })() : null}
+
               <div className="actions">
                 <Link className="btn" href={`/tournaments/${t.slug}`}>View details</Link>
-                <a className="btn" href={t.official_website_url || t.source_url} target="_blank" rel="noopener noreferrer">Official site</a>
+                {(t.official_website_url || t.source_url) ? (
+                  <a className="btn" href={`/go/tournament/${t.id}`} target="_blank" rel="noopener noreferrer">Official site</a>
+                ) : null}
               </div>
 
               <div className="sportIcon" aria-label={t.sport ?? "tournament sport"}>

@@ -14,6 +14,7 @@ import { aggregateWhistleScoreRows, loadSeriesTournamentIds } from "@/lib/tourna
 import type { RawWhistleScoreRow } from "@/lib/tournamentSeries";
 import type { RefereeReviewPublic, RefereeWhistleScore } from "@/lib/types/refereeReview";
 import { getSportCardClass } from "@/lib/ui/sportBackground";
+import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
 import "../tournaments.css";
 
 type TournamentDetailRow = {
@@ -32,6 +33,13 @@ type TournamentDetailRow = {
   venue: string | null;
   address: string | null;
   sport: string | null;
+};
+type EngagementRow = {
+  tournament_id: string;
+  clicks_7d: number | null;
+  clicks_30d: number | null;
+  clicks_90d: number | null;
+  unique_users_30d: number | null;
 };
 
 // Revalidate tournament detail pages every 5 minutes.
@@ -68,6 +76,23 @@ function formatWhistleAverage(score: number | null) {
   const whistles = Math.round((score / 20) * 10) / 10; // convert percentage to 1-5 scale
   if (!Number.isFinite(whistles)) return null;
   return whistles % 1 === 0 ? whistles.toFixed(0) : whistles.toFixed(1);
+}
+
+function getEngagementSignals(row?: EngagementRow) {
+  if (!row) return [];
+  const clicks7 = row.clicks_7d ?? 0;
+  const clicks30 = row.clicks_30d ?? 0;
+  const clicks90 = row.clicks_90d ?? 0;
+  const unique30 = row.unique_users_30d ?? 0;
+  const hasUnique = unique30 > 0;
+  const popular = clicks30 >= 10 && (!hasUnique || unique30 >= 5);
+  const frequent = clicks90 >= 25 && (!hasUnique || unique30 >= 10);
+  const high = clicks30 >= 20 || (clicks30 >= 10 && clicks7 >= 5);
+  const ordered: string[] = [];
+  if (high) ordered.push("High engagement tournament");
+  if (popular) ordered.push("Popular this month");
+  if (frequent) ordered.push("Frequently visited by referees");
+  return ordered.slice(0, 2);
 }
 
 export default async function TournamentDetailPage({
@@ -114,6 +139,16 @@ export default async function TournamentDetailPage({
   const addInsightHref = `/tournaments/list?intent=insight&entity_type=tournament&tournament_slug=${encodeURIComponent(
     data.slug ?? ""
   )}&tournament_id=${encodeURIComponent(data.id)}&source_url=${encodeURIComponent(detailPath)}`;
+
+  let engagementRow: EngagementRow | null = null;
+  if (FEATURE_TOURNAMENT_ENGAGEMENT_BADGES) {
+    const { data: engagementData } = await supabaseAdmin
+      .from("tournament_engagement_rolling" as any)
+      .select("tournament_id,clicks_7d,clicks_30d,clicks_90d,unique_users_30d")
+      .eq("tournament_id", data.id)
+      .maybeSingle();
+    engagementRow = engagementData ?? null;
+  }
 
   let canSubmitReview = false;
   let disabledMessage: string | null = "Sign in to submit a referee review.";
@@ -354,9 +389,34 @@ export default async function TournamentDetailPage({
             <AdSlot placement="tournament_detail_mid" />
           </div>
 
+          {FEATURE_TOURNAMENT_ENGAGEMENT_BADGES ? (() => {
+            const signals = getEngagementSignals(engagementRow ?? undefined);
+            return signals.length ? (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                {signals.map((label) => (
+                  <span
+                    key={label}
+                    title="Based on recent outbound link clicks from RefereeInsights users."
+                    style={{
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(255,255,255,0.4)",
+                      background: "rgba(15,23,42,0.08)",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#0f172a",
+                    }}
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            ) : null;
+          })() : null}
+
           <div className="actions">
             {(data.official_website_url || data.source_url) ? (
-              <a className="btn" href={data.official_website_url || data.source_url} target="_blank" rel="noopener noreferrer">
+              <a className="btn" href={`/go/tournament/${data.id}`} target="_blank" rel="noopener noreferrer">
                 Visit official site
               </a>
             ) : null}
