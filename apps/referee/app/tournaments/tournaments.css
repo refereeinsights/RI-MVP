@@ -275,6 +275,27 @@
   padding: 0.75rem;
 }
 
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem 0;
+}
+
+.summaryGrid .card {
+  text-decoration: none;
+  color: inherit;
+}
+
+.summaryGrid .card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255,255,255,0.7);
+  box-shadow:
+    0 14px 28px rgba(0,0,0,0.28),
+    0 0 20px rgba(255,255,255,0.1);
+}
+
 .card {
   position: relative;
   border-radius: 14px;
@@ -293,6 +314,35 @@
     border-color 420ms ease-out,
     background 420ms ease-out,
     transform 220ms ease-out;
+}
+
+.card--mini {
+  padding: 0.85rem 0.9rem 0.9rem;
+  min-height: 110px;
+}
+
+.summaryCount {
+  font-size: 24px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.35);
+}
+
+.summaryLabel {
+  margin-top: 4px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: rgba(255,255,255,0.85);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.summaryIcon {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  font-size: 20px;
+  opacity: 0.85;
 }
 
 .cardWhistle {

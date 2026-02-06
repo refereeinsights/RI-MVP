@@ -241,6 +241,13 @@ export default async function TournamentsPage({
     });
   }
 
+  const demoSlug = "refereeinsights-demo-tournament";
+  const tournamentsSorted = [...tournaments].sort((a, b) => {
+    if (a.slug === demoSlug && b.slug !== demoSlug) return -1;
+    if (b.slug === demoSlug && a.slug !== demoSlug) return 1;
+    return 0;
+  });
+
   return (
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
@@ -397,8 +404,39 @@ export default async function TournamentsPage({
           <AdSlot placement="tournaments_sidebar" />
         </div>
 
+        {sportsSorted.length ? (
+          <div className="summaryGrid">
+            <article className="card card--mini bg-sport-default">
+              <div className="summaryCount">{tournamentsSorted.length}</div>
+              <div className="summaryLabel">Total tournaments</div>
+              <div className="summaryIcon" aria-hidden="true">🏟️</div>
+            </article>
+            {sportsSorted.map(({ sport, count }) => (
+              <Link
+                key={sport}
+                href={(() => {
+                  const params = new URLSearchParams();
+                  if (q) params.set("q", q);
+                  if (state) params.set("state", state);
+                  if (zip) params.set("zip", zip);
+                  if (month) params.set("month", month);
+                  if (reviewedOnly) params.set("reviewed", "true");
+                  if (includePast) params.set("includePast", "true");
+                  params.append("sports", sport);
+                  return `/tournaments?${params.toString()}`;
+                })()}
+                className={`card card--mini ${getSportCardClass(sport)}`}
+              >
+                <div className="summaryCount">{count}</div>
+                <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
+                <div className="summaryIcon" aria-hidden="true">{sportIcon(sport)}</div>
+              </Link>
+            ))}
+          </div>
+        ) : null}
+
         <div className="grid">
-          {tournaments.map((t) => (
+          {tournamentsSorted.map((t) => (
             <article key={t.id} className={`card ${getSportCardClass(t.sport)}`}>
               <div className="cardWhistle">
                 <RefereeWhistleBadge
