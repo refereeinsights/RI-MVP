@@ -70,7 +70,7 @@ async function aggregateForEntity(config: EntityConfig): Promise<AggregateSummar
     if (row.status !== "approved") continue;
     const entityId = row[config.entityColumn];
     const score = Number(row.overall_score);
-    if (!entityId || !Number.isFinite(score)) continue;
+    if (!entityId || !Number.isFinite(score) || score < 1 || score > 5) continue;
     const existing = entities.get(entityId) ?? { total: 0, count: 0 };
     existing.total += score;
     existing.count += 1;
