@@ -439,6 +439,8 @@ export default async function AdminPage({
     const sportValue = String(formData.get("sport") || "");
     if (sportValue && SCHOOL_SPORTS.includes(sportValue)) {
       updates.sport = sportValue;
+    } else if (!sportValue) {
+      updates.sport = null;
     }
 
     await adminUpdateSchoolReview({ review_id, updates });
@@ -3909,7 +3911,7 @@ export default async function AdminPage({
                         Sport
                         <select
                           name="sport"
-                          defaultValue={review.sport ?? "soccer"}
+                          defaultValue={review.sport ?? ""}
                           style={{
                             width: "100%",
                             padding: 8,
@@ -3918,6 +3920,7 @@ export default async function AdminPage({
                             marginTop: 4,
                           }}
                         >
+                          <option value="">Unspecified</option>
                           {SCHOOL_SPORTS.map((sport) => (
                             <option key={sport} value={sport}>
                               {sport.charAt(0).toUpperCase() + sport.slice(1)}
