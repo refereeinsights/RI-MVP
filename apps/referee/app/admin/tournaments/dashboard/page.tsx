@@ -131,14 +131,11 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
     .select("id,source_url,url,extracted_json,fetched_at")
     .gte("fetched_at", thirtyAgo)
     .not("fetched_at", "is", null);
-  const runs = (runsRes.data ?? []).filter((r: any) => {
-    const action = r.extracted_json?.action;
-    return action === "preview" || action === "import";
-  });
+  const runs = (runsRes.data ?? []).filter((r: any) => r.fetched_at);
 
   const topSourceMap = new Map<
     string,
-    { discovered: number; imported: number; lastRun: string | null }
+    { discovered: number; imported: number; lastRun: string | null; lastAction: string | null }
   >();
   runs.forEach((run: any) => {
     const key = run.source_url || run.url;
@@ -146,10 +143,13 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
     const ex = run.extracted_json || {};
     const discovered = Number(ex.discovered_count ?? 0) || 0;
     const imported = Number(ex.imported_count ?? 0) || 0;
-    const row = topSourceMap.get(key) ?? { discovered: 0, imported: 0, lastRun: null };
+    const row = topSourceMap.get(key) ?? { discovered: 0, imported: 0, lastRun: null, lastAction: null };
     row.discovered += discovered;
     row.imported += imported;
-    row.lastRun = row.lastRun && run.fetched_at ? (row.lastRun > run.fetched_at ? row.lastRun : run.fetched_at) : run.fetched_at;
+    if (!row.lastRun || (run.fetched_at && row.lastRun < run.fetched_at)) {
+      row.lastRun = run.fetched_at;
+      row.lastAction = ex.action ?? null;
+    }
     topSourceMap.set(key, row);
   });
   const topSources = Array.from(topSourceMap.entries())
@@ -306,7 +306,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
-              {["Source URL", "Discovered", "Imported", "Yield", "Last run"].map((h) => (
+              {["Source URL", "Action", "Discovered", "Imported", "Yield", "Last run"].map((h) => (
                 <th key={h} style={{ textAlign: "left", padding: "6px 4px", borderBottom: "1px solid #eee" }}>
                   {h}
                 </th>
@@ -319,6 +319,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
               return (
                 <tr key={url}>
                   <td style={{ padding: "6px 4px", maxWidth: 260, wordBreak: "break-all" }}>{url}</td>
+                  <td style={{ padding: "6px 4px", fontSize: 12, color: "#444" }}>{row.lastAction ?? "—"}</td>
                   <td style={{ padding: "6px 4px" }}>{row.discovered}</td>
                   <td style={{ padding: "6px 4px" }}>{row.imported}</td>
                   <td style={{ padding: "6px 4px" }}>{yieldPct}%</td>
@@ -328,7 +329,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
             })}
             {!topSources.length && (
               <tr>
-                <td colSpan={5} style={{ padding: 8, color: "#666" }}>
+                <td colSpan={6} style={{ padding: 8, color: "#666" }}>
                   No recent source runs.
                 </td>
               </tr>
