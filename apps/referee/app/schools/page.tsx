@@ -21,6 +21,8 @@ type SchoolReviewRow = {
   created_at: string;
   reviewer_handle: string;
   reviewer_level?: string | null;
+  is_demo?: boolean | null;
+  pinned_rank?: number | null;
   worked_games?: number | null;
   overall_score: number;
   logistics_score: number;
@@ -592,7 +594,7 @@ async function loadRecentSchoolReviews(
   const { data } = await supabase
     .from("school_referee_reviews_public")
     .select(
-      "id,school_id,created_at,reviewer_handle,reviewer_level,worked_games,overall_score,logistics_score,facilities_score,pay_score,support_score,sideline_score,shift_detail,school_name,school_city,school_state,sport"
+      "id,school_id,created_at,reviewer_handle,reviewer_level,worked_games,overall_score,logistics_score,facilities_score,pay_score,support_score,sideline_score,shift_detail,school_name,school_city,school_state,sport,is_demo,pinned_rank"
     )
     .order("created_at", { ascending: false })
     .limit(5);

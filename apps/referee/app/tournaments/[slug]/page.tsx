@@ -497,9 +497,10 @@ async function loadPublicReviews(
   const { data } = await supabase
     .from("tournament_referee_reviews_public")
     .select(
-      "id,tournament_id,created_at,reviewer_handle,reviewer_level,worked_games,overall_score,logistics_score,facilities_score,pay_score,support_score,shift_detail"
+      "id,tournament_id,created_at,reviewer_handle,reviewer_level,worked_games,overall_score,logistics_score,facilities_score,pay_score,support_score,shift_detail,is_demo,pinned_rank"
     )
     .in("tournament_id", uniqueIds)
+    .order("pinned_rank", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(10);
 

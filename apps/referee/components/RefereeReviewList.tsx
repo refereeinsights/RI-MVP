@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { RefereeReviewPublic } from "@/lib/types/refereeReview";
 import { badgeImagesForCodes } from "@/lib/badges";
 
@@ -123,6 +124,29 @@ export default function RefereeReviewList({ reviews }: Props) {
                   </span>
                 )}
               </div>
+              {review.is_demo ? (
+                <div style={{ marginTop: 6 }}>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      background: "rgba(255,255,255,0.12)",
+                      border: "1px solid rgba(255,255,255,0.35)",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#ffffff",
+                    }}
+                  >
+                    Sample Review
+                  </span>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", marginTop: 4 }}>
+                    Example content
+                  </div>
+                </div>
+              ) : null}
               <div className="reviewCard__meta">
                 {review.school_name && (
                   <>
@@ -171,6 +195,27 @@ export default function RefereeReviewList({ reviews }: Props) {
               {review.shift_detail}
             </p>
           )}
+          {review.is_demo ? (
+            <div style={{ marginTop: 10 }}>
+              <Link
+                href="/account/login"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  background: "#ffffff",
+                  color: "#0f172a",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textDecoration: "none",
+                }}
+              >
+                Log in to see full reviews and details
+              </Link>
+            </div>
+          ) : null}
         </article>
       ))}
     </div>
