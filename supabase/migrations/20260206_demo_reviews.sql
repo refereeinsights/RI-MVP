@@ -59,8 +59,8 @@ left join public.profiles p on p.user_id = r.user_id
 left join public.schools s on s.id = r.school_id
 where (r.status = 'approved') or (r.is_demo = true);
 
-alter view public.tournament_referee_reviews_public set (security_invoker = true);
-alter view public.school_referee_reviews_public set (security_invoker = true);
+alter view public.tournament_referee_reviews_public set (security_invoker = false);
+alter view public.school_referee_reviews_public set (security_invoker = false);
 
 do $$
 declare
