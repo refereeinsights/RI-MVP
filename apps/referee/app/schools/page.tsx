@@ -493,7 +493,7 @@ export default async function SchoolsPage({
             </div>
           )}
           <div style={{ marginTop: 16 }}>
-            <RefereeReviewList reviews={recentReviews} />
+            <RefereeReviewList reviews={recentReviews} showReviewerHandle={false} />
           </div>
         </section>
 
@@ -514,8 +514,10 @@ export default async function SchoolsPage({
                         style={{
                           fontSize: "0.7rem",
                           marginTop: 2,
-                          color: "rgba(255,255,255,0.85)",
+                          color: "rgba(255,255,255,0.95)",
                           textAlign: "center",
+                          textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                          fontWeight: 600,
                         }}
                       >
                         {`${(toWhistleScore(score?.ai_score ?? null) ?? 1).toFixed(1)} - ${score?.review_count ?? 0} verified review${(score?.review_count ?? 0) === 1 ? "" : "s"}`}

@@ -341,7 +341,7 @@ export default async function TournamentDetailPage({
             <div className="refereeInsights__layout">
               <div className="refereeInsights__column">
                 <h3 style={{ color: "#ffffff", textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>Recent referee reviews</h3>
-                <RefereeReviewList reviews={reviews} />
+                <RefereeReviewList reviews={reviews} showReviewerHandle={false} />
               </div>
               <div className="refereeInsights__column">
                 <div

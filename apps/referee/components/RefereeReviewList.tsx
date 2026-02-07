@@ -13,6 +13,7 @@ type ReviewWithSchool = RefereeReviewPublic & {
 type Props = {
   reviews: ReviewWithSchool[];
   showDetails?: boolean;
+  showReviewerHandle?: boolean;
 };
 
 function formatDate(iso: string) {
@@ -93,7 +94,11 @@ function reviewSportClass(sport?: string | null) {
   return "";
 }
 
-export default function RefereeReviewList({ reviews, showDetails = true }: Props) {
+export default function RefereeReviewList({
+  reviews,
+  showDetails = true,
+  showReviewerHandle = true,
+}: Props) {
   if (!reviews.length) {
     return (
       <div className="reviewEmpty">
@@ -114,10 +119,12 @@ export default function RefereeReviewList({ reviews, showDetails = true }: Props
             <div>
               {revealDetails ? (
                 <div className="reviewCard__handle">
-                  {review.reviewer_handle}
-                  {review.reviewer_badges && review.reviewer_badges.length > 0 && (
-                    <span className="reviewCard__badges">
-                      {badgeImagesForCodes(review.reviewer_badges).map((image) => (
+                  {showReviewerHandle ? review.reviewer_handle : "Verified referee"}
+                  {showReviewerHandle &&
+                    review.reviewer_badges &&
+                    review.reviewer_badges.length > 0 && (
+                      <span className="reviewCard__badges">
+                        {badgeImagesForCodes(review.reviewer_badges).map((image) => (
                         <img
                           key={`${review.id}-${image.src}`}
                           src={image.src}
