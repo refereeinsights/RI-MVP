@@ -1,6 +1,6 @@
 import Link from "next/link";
 import RefereeWhistleBadge from "@/components/RefereeWhistleBadge";
-import RefereeReviewList from "@/components/RefereeReviewList";
+import RefereeReviewList, { WhistleScale } from "@/components/RefereeReviewList";
 import InsightDisclaimer from "@/components/InsightDisclaimer";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import type { RefereeReviewPublic, RefereeWhistleScoreStatus } from "@/lib/types/refereeReview";
@@ -507,11 +507,21 @@ export default async function SchoolsPage({
             return (
               <article id={`school-${school.id}`} key={school.id} className={`card ${cardVariant(cardSport ?? null)}`}>
                 <div className="cardWhistle">
-                  <RefereeWhistleBadge
-                    score={score?.ai_score ?? null}
-                    reviewCount={score?.review_count ?? 0}
-                    status={score?.status}
-                  />
+                  {toWhistleScore(score?.ai_score ?? null) ? (
+                    <>
+                      <WhistleScale score={toWhistleScore(score?.ai_score ?? null) ?? 1} />
+                      <div
+                        style={{
+                          fontSize: "0.7rem",
+                          marginTop: 2,
+                          color: "rgba(255,255,255,0.85)",
+                          textAlign: "center",
+                        }}
+                      >
+                        {`${(toWhistleScore(score?.ai_score ?? null) ?? 1).toFixed(1)} - ${score?.review_count ?? 0} verified review${(score?.review_count ?? 0) === 1 ? "" : "s"}`}
+                      </div>
+                    </>
+                  ) : null}
                 </div>
                 <h2>{school.name ?? "Unnamed school"}</h2>
                 <p className="meta">
@@ -526,13 +536,7 @@ export default async function SchoolsPage({
                 </p>
                 <p className="dates">
                   {score?.review_count ? (
-                    <>
-                      {score.review_count} verified review{score.review_count === 1 ? "" : "s"}
-                      <br />
-                      <span style={{ color: "rgba(255,255,255,0.85)" }}>
-                        {score?.summary ?? "Officials are still weighing in."}
-                      </span>
-                    </>
+                    <span style={{ color: "rgba(255,255,255,0.85)" }} />
                   ) : (
                     "Waiting for the first verified review."
                   )}
@@ -579,6 +583,11 @@ type SchoolScore = {
   status: RefereeWhistleScoreStatus | null;
   sport: string | null;
 };
+
+function toWhistleScore(aiScore: number | null) {
+  if (!Number.isFinite(aiScore ?? NaN)) return null;
+  return Math.max(1, Math.min(5, (aiScore ?? 0) / 20));
+}
 
 async function loadSchoolScores(
   supabase: ReturnType<typeof createSupabaseServerClient>,

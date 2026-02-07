@@ -940,6 +940,41 @@
     linear-gradient(135deg, rgba(125,78,32,0.95), rgba(80,46,18,0.95));
 }
 
+/* School reviews: sport palette scoped to schools page only */
+.schoolsPage .reviewList .reviewCard.reviewCard--soccer {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.08) 0px,
+      rgba(255,255,255,0.08) 22px,
+      transparent 22px,
+      transparent 44px
+    ),
+    linear-gradient(135deg, rgba(22,92,48,0.95), rgba(12,51,29,0.95));
+}
+.schoolsPage .reviewList .reviewCard.reviewCard--basketball {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(64,32,12,0.22) 0px,
+      rgba(64,32,12,0.22) 10px,
+      transparent 10px,
+      transparent 20px
+    ),
+    linear-gradient(135deg, rgba(207,122,58,0.96), rgba(143,78,26,0.96));
+}
+.schoolsPage .reviewList .reviewCard.reviewCard--football {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.08) 0px,
+      rgba(255,255,255,0.08) 18px,
+      transparent 18px,
+      transparent 36px
+    ),
+    linear-gradient(135deg, rgba(118,72,30,0.96), rgba(70,40,18,0.96));
+}
+
 .reviewList .reviewCard.reviewCard--soccer .reviewCard__handle,
 .reviewList .reviewCard.reviewCard--basketball .reviewCard__handle,
 .reviewList .reviewCard.reviewCard--football .reviewCard__handle,
@@ -1134,6 +1169,53 @@
     box-shadow 180ms ease-out,
     border-color 180ms ease-out;
 }
+.schoolsPage .card.bg-sport-default {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.12)),
+    #0f2a22;
+}
+.schoolsPage .card.bg-sport-soccer {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.08) 0px,
+      rgba(255,255,255,0.08) 22px,
+      transparent 22px,
+      transparent 44px
+    ),
+    linear-gradient(135deg, rgba(33,99,49,0.94), rgba(13,57,32,0.94));
+}
+.schoolsPage .card.bg-sport-basketball {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(55,28,12,0.2) 0px,
+      rgba(55,28,12,0.2) 10px,
+      transparent 10px,
+      transparent 20px
+    ),
+    linear-gradient(135deg, rgba(205,133,63,0.95), rgba(153,82,30,0.95));
+}
+.schoolsPage .card.bg-sport-football {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.08) 0px,
+      rgba(255,255,255,0.08) 18px,
+      transparent 18px,
+      transparent 36px
+    ),
+    linear-gradient(135deg, rgba(125,78,32,0.95), rgba(80,46,18,0.95));
+}
+.schoolsPage .card.bg-sport-baseball {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255,255,255,0.05) 0 30px,
+      rgba(0,0,0,0.04) 30px 60px
+    ),
+    linear-gradient(135deg, rgba(42,47,54,0.96), rgba(23,27,33,0.96));
+}
 .schoolsPage .card:hover {
   transform: translateY(-2px);
   box-shadow:
@@ -1227,11 +1309,11 @@
 }
 
 .schoolsPage .cardWhistle {
-  background: rgba(0, 0, 0, 0.25);
-  padding: 0.4rem 0.6rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  backdrop-filter: blur(6px);
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  backdrop-filter: none;
 }
 .schoolsPage .whistleBadge {
   background: rgba(12, 28, 23, 0.92);

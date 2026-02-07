@@ -31,7 +31,7 @@ function clampScore(score: number | null | undefined) {
   return Math.min(5, Math.max(1, Math.round(value)));
 }
 
-function WhistleScale({ score, size }: { score: number; size?: "small" | "large" }) {
+export function WhistleScale({ score, size }: { score: number; size?: "small" | "large" }) {
   const filled = clampScore(score);
   const iconForIndex = (index: number) => {
     if (index >= filled) {
