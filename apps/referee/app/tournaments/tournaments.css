@@ -1113,24 +1113,22 @@
 /* ===== Schools page contrast tweaks ===== */
 .schoolsPage {
   --school-accent: #2F6FED;
-  --school-bg: #F6F8FC;
-  --school-card: #FFFFFF;
-  --school-border: rgba(15, 23, 42, 0.10);
   --school-ink: #0F172A;
   --school-muted: rgba(15, 23, 42, 0.65);
 }
 
 .schoolsPage .pitchWrap {
   background:
-    radial-gradient(600px 400px at 10% 5%, rgba(47, 111, 237, 0.1), transparent 55%),
-    linear-gradient(180deg, var(--school-bg), #ffffff);
+    radial-gradient(600px 400px at 10% 5%, rgba(47, 111, 237, 0.12), transparent 55%),
+    linear-gradient(180deg, rgba(16, 28, 24, 0.85), rgba(10, 18, 15, 0.95));
 }
 
 .schoolsPage .card {
-  background: var(--school-card);
-  color: var(--school-ink);
-  border-color: var(--school-border);
-  box-shadow: 0 10px 16px rgba(0, 0, 0, 0.12);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow:
+    0 10px 26px rgba(0,0,0,0.22),
+    0 0 0 rgba(255,255,255,0);
   transition:
     transform 180ms ease-out,
     box-shadow 180ms ease-out,
@@ -1138,50 +1136,55 @@
 }
 .schoolsPage .card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 20px rgba(0, 0, 0, 0.12);
-  border-color: rgba(47, 111, 237, 0.25);
+  box-shadow:
+    0 16px 38px rgba(0,0,0,0.28),
+    0 0 0 1px rgba(255,255,255,0.12),
+    0 0 22px rgba(255,255,255,0.25),
+    0 0 48px rgba(255,255,255,0.18),
+    0 0 90px rgba(255,255,255,0.12);
+  border-color: rgba(255, 255, 255, 0.85);
 }
 .schoolsPage .card::before {
-  background: var(--school-border);
+  background: rgba(255, 255, 255, 0.28);
 }
 .schoolsPage .card h2,
 .schoolsPage .meta,
 .schoolsPage .dates {
-  color: var(--school-ink);
-  text-shadow: none;
+  color: #ffffff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.35);
 }
 .schoolsPage .card .btn {
-  color: var(--school-ink);
-  border: 1px solid var(--school-ink);
-  background: #fff;
+  color: #ffffff;
+  border: 1px solid rgba(255,255,255,0.9);
+  background: transparent;
 }
 .schoolsPage .card .btn:hover {
-  background: var(--school-ink);
-  color: #fff;
-  border-color: var(--school-ink);
+  background: rgba(255,255,255,0.9);
+  color: #0f172a;
+  border-color: rgba(255,255,255,0.9);
 }
 .schoolsPage .reviewEmpty {
   border-color: rgba(0, 0, 0, 0.35);
-  color: var(--school-ink);
+  color: #ffffff;
 }
 .schoolsPage .reviewEmpty p {
-  color: var(--school-ink);
-  text-shadow: none;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
 
 .schoolsPage .schoolsEmpty {
-  background: rgba(47, 111, 237, 0.06);
-  border: 1px solid rgba(47, 111, 237, 0.16);
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(255,255,255,0.2);
   border-radius: 14px;
   padding: 1rem;
-  color: var(--school-ink);
-  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.05);
+  color: #ffffff;
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.12);
 }
 
 .schoolsPage .pill {
-  background: rgba(47, 111, 237, 0.08);
-  border: 1px solid rgba(47, 111, 237, 0.25);
-  color: rgba(15, 23, 42, 0.85);
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.9);
 }
 
 .schoolsPage .sportChips {
@@ -1198,68 +1201,70 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--school-ink);
-  background: rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(15, 23, 42, 0.16);
+  color: #ffffff;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25);
 }
 .schoolsPage .sportChip.sport-soccer {
-  background: rgba(16, 185, 129, 0.10);
-  border-color: rgba(16, 185, 129, 0.25);
-  color: #065f46;
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #eafff4;
 }
 .schoolsPage .sportChip.sport-basketball {
-  background: rgba(251, 191, 36, 0.12);
-  border-color: rgba(251, 191, 36, 0.28);
-  color: #92400e;
+  background: rgba(251, 191, 36, 0.2);
+  border-color: rgba(251, 191, 36, 0.35);
+  color: #fff3e3;
 }
 .schoolsPage .sportChip.sport-football {
-  background: rgba(59, 130, 246, 0.12);
-  border-color: rgba(59, 130, 246, 0.28);
-  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #eef2ff;
 }
 .schoolsPage .sportChip.sport-baseball {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.28);
-  color: #991b1b;
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fff0f0;
 }
 
 .schoolsPage .cardWhistle {
-  background: rgba(47, 111, 237, 0.04);
-  padding: 0.35rem 0.55rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.4rem 0.6rem;
   border-radius: 999px;
-  border: 1px solid rgba(47, 111, 237, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(6px);
 }
 .schoolsPage .whistleBadge {
-  background: #fff;
-  color: var(--school-ink);
-  border-color: rgba(47, 111, 237, 0.25);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+  background: rgba(12, 28, 23, 0.92);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.28);
 }
 .schoolsPage .whistleBadge__reviews {
-  color: var(--school-muted);
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 600;
 }
 .schoolsPage .whistleBadge--green {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.35);
-  color: #065f46;
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(110, 231, 183, 0.6);
+  color: #f0fff9;
 }
 .schoolsPage .whistleBadge--yellow {
-  background: rgba(252, 211, 77, 0.18);
-  border-color: rgba(252, 211, 77, 0.45);
-  color: #92400e;
+  background: rgba(251, 191, 36, 0.22);
+  border-color: rgba(253, 224, 71, 0.65);
+  color: #fff8e6;
 }
 .schoolsPage .whistleBadge--red {
-  background: rgba(248, 113, 113, 0.16);
-  border-color: rgba(248, 113, 113, 0.4);
-  color: #7f1d1d;
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(252, 165, 165, 0.65);
+  color: #fff1f1;
 }
 .schoolsPage .whistleBadge--muted {
-  background: rgba(15, 23, 42, 0.08);
-  border-color: rgba(15, 23, 42, 0.2);
-  color: var(--school-ink);
+  background: rgba(148, 163, 184, 0.22);
+  border-color: rgba(226, 232, 240, 0.6);
+  color: #f8fafc;
 }
 .schoolsPage .schoolsCount {
-  color: var(--school-ink);
+  color: rgba(255, 255, 255, 0.86);
   font-weight: 600;
 }
 

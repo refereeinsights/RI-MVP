@@ -42,9 +42,11 @@ export const revalidate = 300;
 
 function cardVariant(sport: string | null) {
   const normalized = (sport ?? "").toLowerCase();
-  if (normalized === "basketball") return "card-basketball";
-  if (normalized === "football") return "card-football";
-  return "card-grass";
+  if (normalized === "basketball") return "bg-sport-basketball";
+  if (normalized === "football") return "bg-sport-football";
+  if (normalized === "baseball") return "bg-sport-baseball";
+  if (normalized === "soccer") return "bg-sport-soccer";
+  return "bg-sport-default";
 }
 
 function sportIcon(sport: string | null) {
