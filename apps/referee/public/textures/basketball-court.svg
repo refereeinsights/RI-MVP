@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="wood" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#b06a2d"/>
+      <stop offset="100%" stop-color="#7a3e16"/>
+    </linearGradient>
+    <pattern id="planks" width="60" height="800" patternUnits="userSpaceOnUse">
+      <rect width="30" height="800" fill="rgba(255,255,255,0.08)"/>
+      <rect x="30" width="30" height="800" fill="rgba(0,0,0,0.06)"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="800" fill="url(#wood)"/>
+  <rect width="1200" height="800" fill="url(#planks)"/>
+  <rect x="120" y="60" width="960" height="680" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="4"/>
+  <circle cx="600" cy="400" r="120" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="4"/>
+</svg>

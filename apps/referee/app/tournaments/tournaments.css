@@ -376,53 +376,48 @@
 
 .card.bg-sport-default {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.12)),
-    #0f2a22;
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/textures/soccer-turf.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .card.bg-sport-soccer {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.10)),
-    repeating-linear-gradient(
-      90deg,
-      rgba(255,255,255,0.06) 0 90px,
-      rgba(0,0,0,0.04) 90px 180px
-    ),
-    #0f2a22;
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/textures/soccer-turf.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .card.bg-sport-basketball {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.10)),
-    repeating-linear-gradient(
-      90deg,
-      rgba(255,255,255,0.05) 0 70px,
-      rgba(0,0,0,0.04) 70px 140px
-    ),
-    #2b1c12;
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/textures/basketball-court.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   border-color: rgba(255,255,255,0.35);
 }
 
 .card.bg-sport-baseball {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.10)),
-    repeating-linear-gradient(
-      135deg,
-      rgba(255,255,255,0.05) 0 30px,
-      rgba(0,0,0,0.04) 30px 60px
-    ),
-    #2a2f36;
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/textures/baseball-field.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .card.bg-sport-football {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.12)),
-    repeating-linear-gradient(
-      0deg,
-      rgba(255,255,255,0.06) 0 8px,
-      transparent 8px 42px
-    ),
-    #123223;
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/textures/football-field.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* Detail panel sport surfaces */
@@ -888,26 +883,20 @@
 
 .reviewList .reviewCard.reviewCard--soccer {
   background:
-    repeating-linear-gradient(
-      0deg,
-      rgba(255,255,255,0.08) 0px,
-      rgba(255,255,255,0.08) 22px,
-      transparent 22px,
-      transparent 44px
-    ),
-    linear-gradient(135deg, rgba(33,99,49,0.94), rgba(13,57,32,0.94));
+    linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.45)),
+    url("/textures/soccer-turf.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .reviewList .reviewCard.reviewCard--basketball {
   background:
-    repeating-linear-gradient(
-      90deg,
-      rgba(55,28,12,0.2) 0px,
-      rgba(55,28,12,0.2) 10px,
-      transparent 10px,
-      transparent 20px
-    ),
-    linear-gradient(135deg, rgba(205,133,63,0.95), rgba(153,82,30,0.95));
+    linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.45)),
+    url("/textures/basketball-court.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .reviewList .reviewCard.reviewCard--basketball,
@@ -930,49 +919,37 @@
 
 .reviewList .reviewCard.reviewCard--football {
   background:
-    repeating-linear-gradient(
-      0deg,
-      rgba(255,255,255,0.08) 0px,
-      rgba(255,255,255,0.08) 18px,
-      transparent 18px,
-      transparent 36px
-    ),
-    linear-gradient(135deg, rgba(125,78,32,0.95), rgba(80,46,18,0.95));
+    linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.45)),
+    url("/textures/football-field.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* School reviews: sport palette scoped to schools page only */
 .schoolsPage .reviewList .reviewCard.reviewCard--soccer {
   background:
-    repeating-linear-gradient(
-      0deg,
-      rgba(255,255,255,0.08) 0px,
-      rgba(255,255,255,0.08) 22px,
-      transparent 22px,
-      transparent 44px
-    ),
-    linear-gradient(135deg, rgba(22,92,48,0.95), rgba(12,51,29,0.95));
+    linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.45)),
+    url("/textures/soccer-turf.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 .schoolsPage .reviewList .reviewCard.reviewCard--basketball {
   background:
-    repeating-linear-gradient(
-      90deg,
-      rgba(64,32,12,0.22) 0px,
-      rgba(64,32,12,0.22) 10px,
-      transparent 10px,
-      transparent 20px
-    ),
-    linear-gradient(135deg, rgba(207,122,58,0.96), rgba(143,78,26,0.96));
+    linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.45)),
+    url("/textures/basketball-court.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 .schoolsPage .reviewList .reviewCard.reviewCard--football {
   background:
-    repeating-linear-gradient(
-      0deg,
-      rgba(255,255,255,0.08) 0px,
-      rgba(255,255,255,0.08) 18px,
-      transparent 18px,
-      transparent 36px
-    ),
-    linear-gradient(135deg, rgba(118,72,30,0.96), rgba(70,40,18,0.96));
+    linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.45)),
+    url("/textures/football-field.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .reviewList .reviewCard.reviewCard--soccer .reviewCard__handle,
@@ -1171,50 +1148,43 @@
 }
 .schoolsPage .card.bg-sport-default {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.12)),
-    #0f2a22;
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/textures/soccer-turf.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 .schoolsPage .card.bg-sport-soccer {
   background:
-    repeating-linear-gradient(
-      0deg,
-      rgba(255,255,255,0.08) 0px,
-      rgba(255,255,255,0.08) 22px,
-      transparent 22px,
-      transparent 44px
-    ),
-    linear-gradient(135deg, rgba(33,99,49,0.94), rgba(13,57,32,0.94));
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/textures/soccer-turf.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 .schoolsPage .card.bg-sport-basketball {
   background:
-    repeating-linear-gradient(
-      90deg,
-      rgba(55,28,12,0.2) 0px,
-      rgba(55,28,12,0.2) 10px,
-      transparent 10px,
-      transparent 20px
-    ),
-    linear-gradient(135deg, rgba(205,133,63,0.95), rgba(153,82,30,0.95));
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/textures/basketball-court.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 .schoolsPage .card.bg-sport-football {
   background:
-    repeating-linear-gradient(
-      0deg,
-      rgba(255,255,255,0.08) 0px,
-      rgba(255,255,255,0.08) 18px,
-      transparent 18px,
-      transparent 36px
-    ),
-    linear-gradient(135deg, rgba(125,78,32,0.95), rgba(80,46,18,0.95));
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/textures/football-field.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 .schoolsPage .card.bg-sport-baseball {
   background:
-    repeating-linear-gradient(
-      135deg,
-      rgba(255,255,255,0.05) 0 30px,
-      rgba(0,0,0,0.04) 30px 60px
-    ),
-    linear-gradient(135deg, rgba(42,47,54,0.96), rgba(23,27,33,0.96));
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/textures/baseball-field.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 .schoolsPage .card:hover {
   transform: translateY(-2px);
