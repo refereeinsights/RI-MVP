@@ -77,6 +77,10 @@ export default async function SchoolsPage({
   };
 }) {
   const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isAuthed = !!user;
   const q = (searchParams?.q ?? "").trim();
   const state = (searchParams?.state ?? "").trim().toUpperCase();
   const zip = (searchParams?.zip ?? "").trim();
@@ -503,7 +507,11 @@ export default async function SchoolsPage({
             </div>
           )}
           <div style={{ marginTop: 16 }}>
-            <RefereeReviewList reviews={recentReviews} showReviewerHandle={false} />
+            <RefereeReviewList
+              reviews={recentReviews}
+              showReviewerHandle={false}
+              showDetails={isAuthed}
+            />
           </div>
         </section>
 
@@ -588,9 +596,15 @@ export default async function SchoolsPage({
                 </p>
 
                 <div className="actions actions--center">
-                  <Link className="btn" href={`/schools?school_id=${school.id}#school-${school.id}`}>
-                    View details
-                  </Link>
+                  {isAuthed ? (
+                    <Link className="btn" href={`/schools?school_id=${school.id}#school-${school.id}`}>
+                      View details
+                    </Link>
+                  ) : (
+                    <Link className="btn" href={`/account/login?next=${encodeURIComponent(`/schools?school_id=${school.id}`)}`}>
+                      Log in to view details
+                    </Link>
+                  )}
                   <Link className="btn" href={`/schools/review?school_id=${school.id}`}>
                     Add review
                   </Link>
