@@ -72,6 +72,7 @@ export default async function SchoolsPage({
     state?: string;
     zip?: string;
     reviewed?: string;
+    school_id?: string;
     sports?: string | string[];
   };
 }) {
