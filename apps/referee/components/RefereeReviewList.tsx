@@ -12,6 +12,7 @@ type ReviewWithSchool = RefereeReviewPublic & {
 
 type Props = {
   reviews: ReviewWithSchool[];
+  showDetails?: boolean;
 };
 
 function formatDate(iso: string) {
@@ -92,7 +93,7 @@ function reviewSportClass(sport?: string | null) {
   return "";
 }
 
-export default function RefereeReviewList({ reviews }: Props) {
+export default function RefereeReviewList({ reviews, showDetails = true }: Props) {
   if (!reviews.length) {
     return (
       <div className="reviewEmpty">
@@ -105,25 +106,29 @@ export default function RefereeReviewList({ reviews }: Props) {
 
   return (
     <div className="reviewList">
-      {reviews.map((review) => (
+      {reviews.map((review) => {
+        const revealDetails = showDetails || review.is_demo;
+        return (
         <article key={review.id} className={`reviewCard ${reviewSportClass(review.sport)}`}>
           <header className="reviewCard__header">
             <div>
-              <div className="reviewCard__handle">
-                {review.reviewer_handle}
-            {review.reviewer_badges && review.reviewer_badges.length > 0 && (
-              <span className="reviewCard__badges">
-                {badgeImagesForCodes(review.reviewer_badges).map((image) => (
-                  <img
-                        key={`${review.id}-${image.src}`}
-                        src={image.src}
-                        alt={image.alt}
-                        loading="lazy"
-                      />
-                    ))}
-                  </span>
-                )}
-              </div>
+              {revealDetails ? (
+                <div className="reviewCard__handle">
+                  {review.reviewer_handle}
+                  {review.reviewer_badges && review.reviewer_badges.length > 0 && (
+                    <span className="reviewCard__badges">
+                      {badgeImagesForCodes(review.reviewer_badges).map((image) => (
+                        <img
+                          key={`${review.id}-${image.src}`}
+                          src={image.src}
+                          alt={image.alt}
+                          loading="lazy"
+                        />
+                      ))}
+                    </span>
+                  )}
+                </div>
+              ) : null}
               {review.is_demo ? (
                 <div style={{ marginTop: 6 }}>
                   <span
@@ -159,8 +164,10 @@ export default function RefereeReviewList({ reviews }: Props) {
                   </>
                 )}
                 {formatDate(review.created_at)}
-                {review.worked_games ? ` • ${review.worked_games} game${review.worked_games === 1 ? "" : "s"}` : ""}
-                {review.reviewer_level ? ` • ${review.reviewer_level}` : ""}
+                {revealDetails && review.worked_games
+                  ? ` • ${review.worked_games} game${review.worked_games === 1 ? "" : "s"}`
+                  : ""}
+                {revealDetails && review.reviewer_level ? ` • ${review.reviewer_level}` : ""}
               </div>
             </div>
             <div className="reviewCard__overall">
@@ -171,31 +178,56 @@ export default function RefereeReviewList({ reviews }: Props) {
             </div>
           </header>
 
-          <dl className="reviewCard__scores">
-            {[
-              { label: "Logistics", value: review.logistics_score },
-              { label: "Facilities", value: review.facilities_score },
-              { label: "Pay", value: review.pay_score },
-              { label: "Support", value: review.support_score },
-              { label: "Sideline", value: review.sideline_score },
-            ]
-              .filter((item) => item.value !== null && typeof item.value !== "undefined")
-              .map((item) => (
-                <div key={item.label}>
-                  <dt>{item.label}</dt>
-                  <dd>
-                    <WhistleScale score={item.value} />
-                  </dd>
-                </div>
-              ))}
-          </dl>
+          {revealDetails ? (
+            <dl className="reviewCard__scores">
+              {[
+                { label: "Logistics", value: review.logistics_score },
+                { label: "Facilities", value: review.facilities_score },
+                { label: "Pay", value: review.pay_score },
+                { label: "Support", value: review.support_score },
+                { label: "Sideline", value: review.sideline_score },
+              ]
+                .filter((item) => item.value !== null && typeof item.value !== "undefined")
+                .map((item) => (
+                  <div key={item.label}>
+                    <dt>{item.label}</dt>
+                    <dd>
+                      <WhistleScale score={item.value} />
+                    </dd>
+                  </div>
+                ))}
+            </dl>
+          ) : null}
 
-          {review.shift_detail && (
+          {revealDetails && review.shift_detail ? (
             <p className="reviewCard__body">
               {review.shift_detail}
             </p>
-          )}
-          {review.is_demo ? (
+          ) : null}
+
+          {revealDetails ? (
+            review.is_demo ? (
+              <div style={{ marginTop: 10 }}>
+                <Link
+                  href="/account/login"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    background: "#ffffff",
+                    color: "#0f172a",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    textDecoration: "none",
+                  }}
+                >
+                  Log in to see full reviews and details
+                </Link>
+              </div>
+            ) : null
+          ) : (
             <div style={{ marginTop: 10 }}>
               <Link
                 href="/account/login"
@@ -212,12 +244,13 @@ export default function RefereeReviewList({ reviews }: Props) {
                   textDecoration: "none",
                 }}
               >
-                Log in to see full reviews and details
+                Log in to see full review details
               </Link>
             </div>
-          ) : null}
+          )}
         </article>
-      ))}
+      );
+      })}
     </div>
   );
 }

@@ -288,6 +288,25 @@
   color: inherit;
 }
 
+.summaryGrid .card--mini {
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.summaryGrid .summaryIcon {
+  position: static;
+  margin-top: 6px;
+  font-size: 20px;
+}
+
+.summaryGrid .summaryIcon--ri img {
+  width: 26px;
+  height: 26px;
+  opacity: 0.9;
+  display: block;
+}
+
 .summaryGrid .card:hover {
   transform: translateY(-2px);
   border-color: rgba(255,255,255,0.7);
@@ -308,6 +327,9 @@
   box-shadow:
     0 10px 26px rgba(0,0,0,0.22),
     0 0 0 rgba(255,255,255,0); /* glow starts at zero */
+
+  display: flex;
+  flex-direction: column;
 
   transition:
     box-shadow 420ms ease-out,
@@ -502,10 +524,16 @@
 }
 
 .actions {
-  margin-top: 0.95rem;
+  margin-top: auto;
+  padding-top: 0.6rem;
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.actions--center {
+  justify-content: center;
+  text-align: center;
 }
 @media (max-width: 640px) {
   .actions {
@@ -519,9 +547,12 @@
 }
 
 .sportIcon {
-  margin-top: 0.85rem;
+  margin-top: 0.9rem;
   font-size: 2rem;
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  line-height: 1;
   text-shadow: 0 2px 10px rgba(0,0,0,0.35);
 }
 
@@ -538,6 +569,11 @@
   text-decoration: none;
   color: #fff;
   text-shadow: 0 2px 10px rgba(0,0,0,0.35);
+}
+
+.btn--ghost {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.4);
 }
 
 .btn:hover {

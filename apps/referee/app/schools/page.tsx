@@ -47,6 +47,15 @@ function cardVariant(sport: string | null) {
   return "card-grass";
 }
 
+function sportIcon(sport: string | null) {
+  const normalized = (sport ?? "").toLowerCase();
+  if (normalized === "basketball") return "🏀";
+  if (normalized === "football") return "🏈";
+  if (normalized === "baseball") return "⚾";
+  if (normalized === "soccer") return "⚽";
+  return "🏅";
+}
+
 export const metadata = {
   title: "School Reviews | RefereeInsights",
   description:
@@ -114,10 +123,14 @@ export default async function SchoolsPage({
     supabase,
     schools.map((s) => s.id)
   );
+  const schoolSportMap = await loadSchoolSports(
+    supabase,
+    schools.map((s) => s.id)
+  );
 
-  let filteredSchools = reviewedOnly
-    ? schools.filter((s) => (scoreMap.get(s.id)?.review_count ?? 0) > 0)
-    : schools;
+  let filteredSchools = schools.filter(
+    (s) => (scoreMap.get(s.id)?.review_count ?? 0) > 0
+  );
 
   if (sportsSelected.length) {
     const sportIds = await loadSchoolIdsBySport(supabase, sportsSelected);
@@ -488,8 +501,9 @@ export default async function SchoolsPage({
           </div>
           {filteredSchools.map((school) => {
             const score = scoreMap.get(school.id);
+            const cardSport = schoolSportMap.get(school.id) ?? score?.sport ?? null;
             return (
-              <article key={school.id} className={`card ${cardVariant(score?.sport ?? null)}`}>
+              <article id={`school-${school.id}`} key={school.id} className={`card ${cardVariant(cardSport ?? null)}`}>
                 <div className="cardWhistle">
                   <RefereeWhistleBadge
                     score={score?.ai_score ?? null}
@@ -502,9 +516,9 @@ export default async function SchoolsPage({
                   <strong>{school.state ?? "??"}</strong>
                   {school.city ? ` • ${school.city}` : ""}
                   {school.zip ? ` • ${school.zip}` : ""}
-                  {score?.sport && (
+                  {cardSport && (
                     <span style={{ marginLeft: 6, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(0,0,0,0.25)", fontSize: 11 }}>
-                      {score.sport}
+                      {cardSport}
                     </span>
                   )}
                 </p>
@@ -522,23 +536,25 @@ export default async function SchoolsPage({
                   )}
                 </p>
 
-                <div className="actions">
+                <div className="actions actions--center">
+                  <Link className="btn" href={`/schools?school_id=${school.id}#school-${school.id}`}>
+                    View details
+                  </Link>
                   <Link className="btn" href={`/schools/review?school_id=${school.id}`}>
                     Add review
                   </Link>
+                </div>
+                <div className="actions actions--center">
                   <a
-                    className="btn"
+                    className="btn btn--ghost"
                     href={`/schools/review?intent=claim&entity_type=school&school_id=${school.id}&school_slug=${encodeURIComponent(
                       school.slug ?? ""
                     )}&source_url=${encodeURIComponent("/schools")}`}
-                    style={{
-                      background: "rgba(255,255,255,0.1)",
-                      border: "1px solid rgba(255,255,255,0.4)",
-                    }}
                   >
                     Claim this listing
                   </a>
                 </div>
+                <div className="sportIcon" aria-hidden="true">{sportIcon(cardSport ?? null)}</div>
               </article>
             );
           })}
@@ -583,6 +599,28 @@ async function loadSchoolScores(
       status: row.status ?? "clear",
       sport: row.sport ?? null,
     });
+  });
+
+  return map;
+}
+
+async function loadSchoolSports(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  ids: string[]
+): Promise<Map<string, string | null>> {
+  const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+  const map = new Map<string, string | null>();
+  if (!uniqueIds.length) return map;
+
+  const { data } = await supabase
+    .from("school_referee_reviews_public")
+    .select("school_id,sport,created_at")
+    .in("school_id", uniqueIds)
+    .order("created_at", { ascending: false });
+
+  (data ?? []).forEach((row: any) => {
+    if (!row?.school_id || map.has(row.school_id)) return;
+    map.set(row.school_id, row.sport ?? null);
   });
 
   return map;

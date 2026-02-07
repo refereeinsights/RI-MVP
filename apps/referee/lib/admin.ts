@@ -438,12 +438,32 @@ export async function adminUpdateTournamentReview(params: {
 
 export async function adminDeleteTournamentReview(review_id: string) {
   await requireAdmin();
+  const { data: reviewRow, error: reviewError } = await supabaseAdmin
+    .from("tournament_referee_reviews")
+    .select("tournament_id")
+    .eq("id", review_id)
+    .maybeSingle<{ tournament_id: string | null }>();
+  if (reviewError) throw reviewError;
+
   const { error } = await supabaseAdmin
     .from("tournament_referee_reviews")
     .delete()
     .eq("id", review_id);
 
   if (error) throw error;
+
+  const tournamentId = reviewRow?.tournament_id ?? null;
+  if (!tournamentId) return;
+
+  const { count } = await supabaseAdmin
+    .from("tournament_referee_reviews")
+    .select("id", { count: "exact", head: true })
+    .eq("tournament_id", tournamentId)
+    .eq("status", "approved");
+
+  if (!count || count === 0) {
+    await supabaseAdmin.from("tournament_referee_scores").delete().eq("tournament_id", tournamentId);
+  }
 }
 
 export async function adminListSchoolReviews(status: ReviewStatus = "pending") {
@@ -540,11 +560,32 @@ export async function adminUpdateSchoolReview(params: {
 
 export async function adminDeleteSchoolReview(review_id: string) {
   await requireAdmin();
+  const { data: reviewRow, error: reviewError } = await supabaseAdmin
+    .from("school_referee_reviews")
+    .select("school_id")
+    .eq("id", review_id)
+    .maybeSingle<{ school_id: string | null }>();
+  if (reviewError) throw reviewError;
+
   const { error } = await supabaseAdmin
     .from("school_referee_reviews")
     .delete()
     .eq("id", review_id);
   if (error) throw error;
+
+  const schoolId = reviewRow?.school_id ?? null;
+  if (!schoolId) return;
+
+  const { count } = await supabaseAdmin
+    .from("school_referee_reviews")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", schoolId)
+    .eq("status", "approved");
+
+  if (!count || count === 0) {
+    await supabaseAdmin.from("school_referee_scores").delete().eq("school_id", schoolId);
+    await supabaseAdmin.from("school_referee_scores_by_sport").delete().eq("school_id", schoolId);
+  }
 }
 
 export async function adminFindTournamentIdBySlug(slug: string): Promise<string | null> {
@@ -943,6 +984,7 @@ export async function adminUpdateTournamentStatus(params: {
 
 export async function adminDeleteTournament(tournament_id: string) {
   await requireAdmin();
+  await supabaseAdmin.from("tournament_referee_scores").delete().eq("tournament_id", tournament_id);
   const { error } = await supabaseAdmin.from("tournaments").delete().eq("id", tournament_id);
   if (error) throw error;
 }
