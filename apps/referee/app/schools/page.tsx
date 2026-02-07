@@ -572,6 +572,17 @@ export default async function SchoolsPage({
                         >
                           {`${(toWhistleScore(score?.ai_score ?? null) ?? 1).toFixed(1)} - ${score?.review_count ?? 0} verified review${(score?.review_count ?? 0) === 1 ? "" : "s"}`}
                         </div>
+                        <div
+                          style={{
+                            marginTop: 4,
+                            fontSize: 18,
+                            lineHeight: 1,
+                            display: "flex",
+                            justifyContent: "center",
+                          }}
+                        >
+                          {sportIcon(cardSport ?? null)}
+                        </div>
                       </>
                     ) : null
                   )}
@@ -619,7 +630,6 @@ export default async function SchoolsPage({
                     Claim this listing
                   </a>
                 </div>
-                <div className="sportIcon" aria-hidden="true">{sportIcon(cardSport ?? null)}</div>
               </article>
             );
           })}
