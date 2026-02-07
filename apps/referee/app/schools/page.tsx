@@ -80,6 +80,7 @@ export default async function SchoolsPage({
   const state = (searchParams?.state ?? "").trim().toUpperCase();
   const zip = (searchParams?.zip ?? "").trim();
   const reviewedOnly = (searchParams?.reviewed ?? "").toLowerCase() === "true";
+  const schoolIdFilter = (searchParams?.school_id ?? "").trim();
   const sportsParam = searchParams?.sports;
   const sportsSelectedRaw = Array.isArray(sportsParam)
     ? sportsParam
@@ -129,17 +130,25 @@ export default async function SchoolsPage({
     supabase,
     schools.map((s) => s.id)
   );
+  const schoolSportScores = await loadSchoolSportScores(
+    supabase,
+    schools.map((s) => s.id)
+  );
 
   let filteredSchools = schools.filter(
     (s) => (scoreMap.get(s.id)?.review_count ?? 0) > 0
   );
+
+  if (schoolIdFilter) {
+    filteredSchools = filteredSchools.filter((s) => s.id === schoolIdFilter);
+  }
 
   if (sportsSelected.length) {
     const sportIds = await loadSchoolIdsBySport(supabase, sportsSelected);
     filteredSchools = filteredSchools.filter((s) => sportIds.has(s.id));
   }
 
-  const recentReviews = await loadRecentSchoolReviews(supabase);
+  const recentReviews = await loadRecentSchoolReviews(supabase, schoolIdFilter);
   const sportReviewStats = SPORT_FILTERS.map((sport) => ({
     sport,
     count: recentReviews.filter((review) => (review.sport ?? "").toLowerCase() === sport).length,
@@ -503,27 +512,60 @@ export default async function SchoolsPage({
           </div>
           {filteredSchools.map((school) => {
             const score = scoreMap.get(school.id);
+            const sportScores = schoolSportScores.get(school.id) ?? [];
             const cardSport = schoolSportMap.get(school.id) ?? score?.sport ?? null;
             return (
               <article id={`school-${school.id}`} key={school.id} className={`card ${cardVariant(cardSport ?? null)}`}>
                 <div className="cardWhistle">
-                  {toWhistleScore(score?.ai_score ?? null) ? (
-                    <>
-                      <WhistleScale score={toWhistleScore(score?.ai_score ?? null) ?? 1} />
-                      <div
-                        style={{
-                          fontSize: "0.7rem",
-                          marginTop: 2,
-                          color: "rgba(255,255,255,0.95)",
-                          textAlign: "center",
-                          textShadow: "0 1px 2px rgba(0,0,0,0.6)",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {`${(toWhistleScore(score?.ai_score ?? null) ?? 1).toFixed(1)} - ${score?.review_count ?? 0} verified review${(score?.review_count ?? 0) === 1 ? "" : "s"}`}
-                      </div>
-                    </>
-                  ) : null}
+                  {sportScores.length > 1 ? (
+                    <div style={{ display: "flex", gap: sportScores.length >= 3 ? 10 : 16, alignItems: "flex-start" }}>
+                      {sportScores.map((sportScore) => {
+                        const whistle = toWhistleScore(sportScore.ai_score ?? null);
+                        if (!whistle) return null;
+                        const compact = sportScores.length >= 3;
+                        return (
+                          <div key={`${school.id}-${sportScore.sport}`} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                            <div style={{ transform: compact ? "scale(0.85)" : "scale(1)", transformOrigin: "top center" }}>
+                              <WhistleScale score={whistle} />
+                            </div>
+                            <div
+                              style={{
+                                fontSize: compact ? "0.65rem" : "0.7rem",
+                                marginTop: compact ? 0 : 2,
+                                color: "rgba(255,255,255,0.95)",
+                                textAlign: "center",
+                                textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {`${whistle.toFixed(1)} - ${sportScore.review_count ?? 0} review${(sportScore.review_count ?? 0) === 1 ? "" : "s"}`}
+                            </div>
+                            <div style={{ marginTop: compact ? 0 : 2, fontSize: compact ? 16 : 18, lineHeight: 1 }}>
+                              {sportIcon(sportScore.sport)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    toWhistleScore(score?.ai_score ?? null) ? (
+                      <>
+                        <WhistleScale score={toWhistleScore(score?.ai_score ?? null) ?? 1} />
+                        <div
+                          style={{
+                            fontSize: "0.7rem",
+                            marginTop: 2,
+                            color: "rgba(255,255,255,0.95)",
+                            textAlign: "center",
+                            textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {`${(toWhistleScore(score?.ai_score ?? null) ?? 1).toFixed(1)} - ${score?.review_count ?? 0} verified review${(score?.review_count ?? 0) === 1 ? "" : "s"}`}
+                        </div>
+                      </>
+                    ) : null
+                  )}
                 </div>
                 <h2>{school.name ?? "Unnamed school"}</h2>
                 <p className="meta">
@@ -585,6 +627,12 @@ type SchoolScore = {
   status: RefereeWhistleScoreStatus | null;
   sport: string | null;
 };
+type SchoolSportScore = {
+  school_id: string;
+  sport: string;
+  ai_score: number | null;
+  review_count: number;
+};
 
 function toWhistleScore(aiScore: number | null) {
   if (!Number.isFinite(aiScore ?? NaN)) return null;
@@ -639,16 +687,56 @@ async function loadSchoolSports(
   return map;
 }
 
-async function loadRecentSchoolReviews(
-  supabase: ReturnType<typeof createSupabaseServerClient>
-) {
+async function loadSchoolSportScores(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  ids: string[]
+): Promise<Map<string, SchoolSportScore[]>> {
+  const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+  const map = new Map<string, SchoolSportScore[]>();
+  if (!uniqueIds.length) return map;
+
   const { data } = await supabase
+    .from("school_referee_scores_by_sport")
+    .select("school_id,sport,ai_score,review_count")
+    .in("school_id", uniqueIds);
+
+  (data ?? []).forEach((row: any) => {
+    if (!row?.school_id || !row?.sport) return;
+    const entry: SchoolSportScore = {
+      school_id: row.school_id,
+      sport: row.sport,
+      ai_score: row.ai_score ?? null,
+      review_count: row.review_count ?? 0,
+    };
+    const existing = map.get(row.school_id) ?? [];
+    existing.push(entry);
+    map.set(row.school_id, existing);
+  });
+
+  map.forEach((entries, key) => {
+    entries.sort((a, b) => a.sport.localeCompare(b.sport));
+    map.set(key, entries);
+  });
+
+  return map;
+}
+
+async function loadRecentSchoolReviews(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  schoolIdFilter?: string
+) {
+  let query = supabase
     .from("school_referee_reviews_public")
     .select(
       "id,school_id,created_at,reviewer_handle,reviewer_level,worked_games,overall_score,logistics_score,facilities_score,pay_score,support_score,sideline_score,shift_detail,school_name,school_city,school_state,sport,is_demo,pinned_rank"
     )
-    .order("created_at", { ascending: false })
-    .limit(5);
+    .order("created_at", { ascending: false });
+
+  if (schoolIdFilter) {
+    query = query.eq("school_id", schoolIdFilter);
+  }
+
+  const { data } = await query.limit(5);
 
   const rows = (data ?? []) as SchoolReviewRow[];
 

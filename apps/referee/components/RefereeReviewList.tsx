@@ -94,6 +94,15 @@ function reviewSportClass(sport?: string | null) {
   return "";
 }
 
+function reviewSportIcon(sport?: string | null) {
+  const normalized = sport?.toLowerCase();
+  if (normalized === "soccer") return "⚽";
+  if (normalized === "basketball") return "🏀";
+  if (normalized === "football") return "🏈";
+  if (normalized === "baseball") return "⚾";
+  return "🏅";
+}
+
 export default function RefereeReviewList({
   reviews,
   showDetails = true,
@@ -182,6 +191,9 @@ export default function RefereeReviewList({
                 <span className="reviewCard__sport">{review.sport}</span>
               )}
               <WhistleScale score={review.overall_score} size="large" />
+              <div className="reviewCard__ball" aria-hidden="true">
+                {reviewSportIcon(review.sport)}
+              </div>
             </div>
           </header>
 

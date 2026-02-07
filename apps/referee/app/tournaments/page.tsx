@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import AdSlot from "@/components/AdSlot";
 import ReferralCTA from "@/components/ReferralCTA";
-import RefereeWhistleBadge from "@/components/RefereeWhistleBadge";
+import { WhistleScale } from "@/components/RefereeReviewList";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { aggregateWhistleScoreRows, loadSeriesTournamentIds } from "@/lib/tournamentSeries";
@@ -61,6 +61,11 @@ function formatDate(iso: string | null) {
   if (!iso) return "";
   const d = new Date(iso + "T00:00:00");
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function toWhistleScore(aiScore: number | null) {
+  if (!Number.isFinite(aiScore ?? NaN)) return null;
+  return Math.max(1, Math.min(5, (aiScore ?? 0) / 20));
 }
 
 function monthOptions(count = 9) {
@@ -441,11 +446,23 @@ export default async function TournamentsPage({
           {tournamentsSorted.map((t) => (
             <article key={t.id} className={`card ${getSportCardClass(t.sport)}`}>
               <div className="cardWhistle">
-                <RefereeWhistleBadge
-                  score={whistleMap.get(t.id)?.ai_score ?? null}
-                  reviewCount={whistleMap.get(t.id)?.review_count ?? 0}
-                  status={whistleMap.get(t.id)?.status}
-                />
+                {toWhistleScore(whistleMap.get(t.id)?.ai_score ?? null) ? (
+                  <>
+                    <WhistleScale score={toWhistleScore(whistleMap.get(t.id)?.ai_score ?? null) ?? 1} />
+                    <div
+                      style={{
+                        fontSize: "0.7rem",
+                        marginTop: 2,
+                        color: "rgba(255,255,255,0.95)",
+                        textAlign: "center",
+                        textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {`${(toWhistleScore(whistleMap.get(t.id)?.ai_score ?? null) ?? 1).toFixed(1)} - ${whistleMap.get(t.id)?.review_count ?? 0} verified review${(whistleMap.get(t.id)?.review_count ?? 0) === 1 ? "" : "s"}`}
+                    </div>
+                  </>
+                ) : null}
               </div>
               <h2>{t.name}</h2>
 
