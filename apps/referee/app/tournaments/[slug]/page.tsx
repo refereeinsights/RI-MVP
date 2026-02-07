@@ -3,8 +3,7 @@ import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import ReferralCTA from "@/components/ReferralCTA";
 import AdSlot from "@/components/AdSlot";
-import RefereeWhistleBadge from "@/components/RefereeWhistleBadge";
-import RefereeReviewList from "@/components/RefereeReviewList";
+import RefereeReviewList, { WhistleScale } from "@/components/RefereeReviewList";
 import RefereeReviewForm from "@/components/RefereeReviewForm";
 import DecisionSignals from "@/components/DecisionSignals";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
@@ -78,6 +77,11 @@ function formatWhistleAverage(score: number | null) {
   return whistles % 1 === 0 ? whistles.toFixed(0) : whistles.toFixed(1);
 }
 
+function toWhistleScore(aiScore: number | null) {
+  if (!Number.isFinite(aiScore ?? NaN)) return null;
+  return Math.max(1, Math.min(5, (aiScore ?? 0) / 20));
+}
+
 function getEngagementSignals(row?: EngagementRow) {
   if (!row) return [];
   const clicks7 = row.clicks_7d ?? 0;
@@ -134,7 +138,11 @@ export default async function TournamentDetailPage({
   const relatedTournamentIds = seriesEntry?.tournamentIds ?? [data.id];
 
   const whistleScore = await loadWhistleScore(supabase, relatedTournamentIds);
-  const reviews = await loadPublicReviews(supabase, relatedTournamentIds);
+  const reviewsRaw = await loadPublicReviews(supabase, relatedTournamentIds);
+  const reviews = reviewsRaw.map((review) => ({
+    ...review,
+    sport: review.sport ?? data.sport ?? null,
+  }));
   const detailPath = `/tournaments/${data.slug ?? params.slug}`;
   const addInsightHref = `/tournaments/list?intent=insight&entity_type=tournament&tournament_slug=${encodeURIComponent(
     data.slug ?? ""
@@ -300,14 +308,25 @@ export default async function TournamentDetailPage({
                   AI-generated confidence from verified referee submissions.
                 </p>
               </div>
-              <RefereeWhistleBadge
-                score={whistleScore?.ai_score ?? null}
-                reviewCount={whistleScore?.review_count ?? 0}
-                status={whistleScore?.status}
-                summary={whistleScore?.summary ?? undefined}
-                size="large"
-                showLabel
-              />
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                {toWhistleScore(whistleScore?.ai_score ?? null) ? (
+                  <>
+                    <WhistleScale score={toWhistleScore(whistleScore?.ai_score ?? null) ?? 1} size="large" />
+                    <div
+                      style={{
+                        fontSize: "0.7rem",
+                        marginTop: 4,
+                        color: "rgba(255,255,255,0.95)",
+                        textAlign: "center",
+                        textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {`${formatWhistleAverage(whistleScore?.ai_score ?? null) ?? "—"} - ${whistleScore?.review_count ?? 0} verified review${(whistleScore?.review_count ?? 0) === 1 ? "" : "s"}`}
+                    </div>
+                  </>
+                ) : null}
+              </div>
             </div>
 
             {(() => {
