@@ -141,7 +141,7 @@ export default async function TournamentDetailPage({
   const reviewsRaw = await loadPublicReviews(supabase, relatedTournamentIds);
   const reviews = reviewsRaw.map((review) => ({
     ...review,
-    sport: review.sport ?? data.sport ?? null,
+    sport: data.sport ?? null,
   }));
   const detailPath = `/tournaments/${data.slug ?? params.slug}`;
   const addInsightHref = `/tournaments/list?intent=insight&entity_type=tournament&tournament_slug=${encodeURIComponent(
