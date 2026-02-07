@@ -56,6 +56,7 @@ export async function POST(request: Request) {
       name: String(body?.school?.name ?? "").trim(),
       city: String(body?.school?.city ?? "").trim(),
       state: String(body?.school?.state ?? "").trim(),
+      zip: typeof body?.school?.zip === "string" ? body.school.zip.trim() : null,
       address: body?.school?.address ?? null,
       placeId: body?.school?.placeId ?? null,
       latitude:
@@ -73,6 +74,15 @@ export async function POST(request: Request) {
     } catch (error: any) {
       return NextResponse.json({ error: error?.message ?? "Unable to save school." }, { status: 400 });
     }
+  }
+  if (schoolRow && !schoolRow.zip && typeof body?.school?.zip === "string" && body.school.zip.trim()) {
+    const { data: updated } = await supabaseAdmin
+      .from("schools")
+      .update({ zip: body.school.zip.trim() })
+      .eq("id", schoolRow.id)
+      .select("*")
+      .maybeSingle();
+    if (updated) schoolRow = updated;
   }
 
   const sport =

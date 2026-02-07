@@ -48,7 +48,7 @@ export default async function SchoolReviewPage({
   if (schoolId || schoolSlug) {
     const { data: school } = await supabase
       .from("schools")
-      .select("id,name,city,state,address,slug")
+      .select("id,name,city,state,address,slug,zip")
       .or(
         [
           schoolId ? `id.eq.${schoolId}` : "",
@@ -67,6 +67,7 @@ export default async function SchoolReviewPage({
       city: school.city ?? "",
       state: school.state ?? "",
       address: school.address ?? null,
+      zip: school.zip ?? null,
       slug: school.slug ?? null,
     };
   }

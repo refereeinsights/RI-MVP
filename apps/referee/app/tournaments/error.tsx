@@ -5,7 +5,7 @@ export default function TournamentsError({ error }: { error: Error }) {
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
         <div className="headerBlock">
-          <h1 className="title">Tournament Reviews</h1>
+          <h1 className="title">Tournament Listings and Reviews</h1>
           <p className="subtitle">We hit a snag loading tournaments. Please retry shortly.</p>
           {process.env.NODE_ENV === "development" && error?.message ? (
             <p className="subtitle">

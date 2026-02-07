@@ -10,6 +10,7 @@ import type { RawWhistleScoreRow, TournamentSeriesEntry } from "@/lib/tournament
 import type { RefereeWhistleScore } from "@/lib/types/refereeReview";
 import { getSportCardClass } from "@/lib/ui/sportBackground";
 import InsightDisclaimer from "@/components/InsightDisclaimer";
+import StateMultiSelect from "./StateMultiSelect";
 import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
 import "./tournaments.css";
 
@@ -39,7 +40,7 @@ type EngagementRow = {
 export const revalidate = 300;
 
 export const metadata = {
-  title: "Tournament Reviews | RefereeInsights",
+  title: "Tournament Listings and Reviews | RefereeInsights",
   description:
     "Referee-submitted insight on pay, organization, and on-site experience — so you can decide with confidence.",
 };
@@ -124,8 +125,7 @@ export default async function TournamentsPage({
 }: {
   searchParams?: {
     q?: string;
-    state?: string;
-    zip?: string;
+    state?: string | string[];
     month?: string;
     sports?: string | string[];
     reviewed?: string;
@@ -134,8 +134,7 @@ export default async function TournamentsPage({
 }) {
   const supabase = createSupabaseServerClient();
   const q = (searchParams?.q ?? "").trim();
-  const state = (searchParams?.state ?? "").trim().toUpperCase();
-  const zip = (searchParams?.zip ?? "").trim();
+  const stateParam = searchParams?.state;
   const month = (searchParams?.month ?? "").trim(); // YYYY-MM
   const sportsParam = searchParams?.sports;
   const reviewedParam = searchParams?.reviewed;
@@ -154,6 +153,17 @@ export default async function TournamentsPage({
     ? [sportsParam]
     : [];
   const sportsSelected = sportsSelectedRaw.map((s) => s.toLowerCase()).filter(Boolean);
+  const stateSelectionsRaw = (Array.isArray(stateParam) ? stateParam : stateParam ? [stateParam] : [])
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+  const ALL_STATES_VALUE = "__ALL__";
+  const stateSelections = stateSelectionsRaw.filter((s) => s !== ALL_STATES_VALUE);
+  const isAllStates = stateSelections.length === 0 || stateSelectionsRaw.includes(ALL_STATES_VALUE);
+  const stateSummaryLabel = isAllStates
+    ? "All states"
+    : stateSelections.length <= 3
+    ? stateSelections.join(", ")
+    : `${stateSelections.length} states`;
 
   let query = supabase
     .from("tournaments")
@@ -168,19 +178,11 @@ export default async function TournamentsPage({
     query = query.or(`start_date.gte.${today},end_date.gte.${today}`);
   }
 
-  if (state === "WA" || state === "OR" || state === "CA") {
-    query = query.eq("state", state);
-  }
-
   if (q) {
     // simple name/city search (Supabase OR syntax)
     // Note: this uses ilike for partial matches
     query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
   }
-  if (zip) {
-    query = query.eq("zip", zip);
-  }
-
   if (month && /^\d{4}-\d{2}$/.test(month)) {
     const [y, m] = month.split("-").map(Number);
     // Use UTC to avoid timezone drift moving the month window
@@ -228,12 +230,22 @@ export default async function TournamentsPage({
     .sort((a, b) => b[1] - a[1])
     .map(([sport, count]) => ({ sport, count }));
 
-  const tournaments = sportsSelected.length
+  const tournamentsBySport = sportsSelected.length
     ? reviewedTournaments.filter((t) => {
         const key = (t.sport ?? "unknown").toLowerCase();
         return sportsSelected.includes(key);
       })
     : reviewedTournaments;
+  const availableStates = Array.from(
+    new Set(
+      tournamentsBySport
+        .map((t) => (t.state ?? "").trim().toUpperCase())
+        .filter(Boolean)
+    )
+  ).sort();
+  const tournaments = isAllStates
+    ? tournamentsBySport
+    : tournamentsBySport.filter((t) => stateSelections.includes((t.state ?? "").trim().toUpperCase()));
 
   const engagementMap = new Map<string, EngagementRow>();
   if (FEATURE_TOURNAMENT_ENGAGEMENT_BADGES && tournaments.length) {
@@ -258,7 +270,7 @@ export default async function TournamentsPage({
       <section className="field tournamentsField">
         <div className="headerBlock brandedHeader">
           <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
-            Tournament Reviews
+            Tournament Listings and Reviews
           </h1>
           <p
             className="subtitle"
@@ -322,25 +334,13 @@ export default async function TournamentsPage({
           </div>
 
           <div>
-            <label className="label" htmlFor="state">State</label>
-            <select id="state" name="state" className="select" defaultValue={state}>
-              <option value="">All</option>
-              <option value="WA">WA</option>
-              <option value="OR">OR</option>
-              <option value="CA">CA</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="label" htmlFor="zip">ZIP</label>
-            <input
-              id="zip"
-              name="zip"
-              className="input"
-              placeholder="e.g. 98101"
-              defaultValue={zip}
-              inputMode="numeric"
-              pattern="\\d*"
+            <span className="label">State</span>
+            <StateMultiSelect
+              availableStates={availableStates}
+              stateSelections={stateSelections}
+              isAllStates={isAllStates}
+              allStatesValue={ALL_STATES_VALUE}
+              summaryLabel={stateSummaryLabel}
             />
           </div>
 
@@ -354,48 +354,43 @@ export default async function TournamentsPage({
             </select>
           </div>
 
+          <div className="sportsRow">
+            <label className="sportToggle">
+              <input type="hidden" name="reviewed" value="false" />
+              <input
+                type="checkbox"
+                name="reviewed"
+                value="true"
+                defaultChecked={reviewedOnly}
+              />
+              <span>Reviewed only</span>
+            </label>
+            {sportsSorted.map(({ sport, count }) => (
+              <label key={sport} className="sportToggle">
+                <input
+                  type="checkbox"
+                  name="sports"
+                  value={sport}
+                  defaultChecked={sportsSelected.includes(sport)}
+                />
+                <span>{(SPORTS_LABELS[sport] || sport)} ({count})</span>
+              </label>
+            ))}
+            <label className="sportToggle">
+              <input type="hidden" name="includePast" value="false" />
+              <input
+                type="checkbox"
+                name="includePast"
+                value="true"
+                defaultChecked={includePast}
+              />
+              <span>Include past events</span>
+            </label>
+          </div>
+
           <div className="actionsRow">
             <button className="smallBtn" type="submit">Apply</button>
             <a className="smallBtn" href="/tournaments">Reset</a>
-          </div>
-
-          <div className="sportsRow">
-            <details className="sportsToggleWrap" style={{ width: "100%" }}>
-              <summary className="label" style={{ cursor: "pointer" }}>Sports & filters</summary>
-              <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
-                <label className="sportToggle">
-                  <input type="hidden" name="reviewed" value="false" />
-                  <input
-                    type="checkbox"
-                    name="reviewed"
-                    value="true"
-                    defaultChecked={reviewedOnly}
-                  />
-                  <span>Reviewed only</span>
-                </label>
-                {sportsSorted.map(({ sport, count }) => (
-                  <label key={sport} className="sportToggle">
-                    <input
-                      type="checkbox"
-                      name="sports"
-                      value={sport}
-                      defaultChecked={sportsSelected.includes(sport)}
-                    />
-                    <span>{(SPORTS_LABELS[sport] || sport)} ({count})</span>
-                  </label>
-                ))}
-                <label className="sportToggle">
-                  <input type="hidden" name="includePast" value="false" />
-                  <input
-                    type="checkbox"
-                    name="includePast"
-                    value="true"
-                    defaultChecked={includePast}
-                  />
-                  <span>Include past events</span>
-                </label>
-              </div>
-            </details>
           </div>
         </form>
 
@@ -424,12 +419,13 @@ export default async function TournamentsPage({
                 href={(() => {
                   const params = new URLSearchParams();
                   if (q) params.set("q", q);
-                  if (state) params.set("state", state);
-                  if (zip) params.set("zip", zip);
+                  if (!isAllStates) {
+                    stateSelections.forEach((st) => params.append("state", st));
+                  }
                   if (month) params.set("month", month);
-                  if (reviewedOnly) params.set("reviewed", "true");
-                  if (includePast) params.set("includePast", "true");
-                  params.append("sports", sport);
+                  params.set("reviewed", reviewedOnly ? "true" : "false");
+                  params.set("includePast", includePast ? "true" : "false");
+                  params.set("sports", sport);
                   return `/tournaments?${params.toString()}`;
                 })()}
                 className={`card card--mini ${getSportCardClass(sport)}`}

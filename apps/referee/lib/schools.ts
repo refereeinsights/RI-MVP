@@ -5,6 +5,7 @@ export type SchoolInput = {
   name: string;
   city: string;
   state: string;
+  zip?: string | null;
   address?: string | null;
   placeId?: string | null;
   latitude?: number | null;
@@ -43,6 +44,7 @@ export async function findOrCreateSchool(input: SchoolInput) {
     state,
     slug,
     address: input.address ?? null,
+    zip: input.zip ?? null,
     google_place_id: input.placeId ?? null,
     latitude: input.latitude ?? null,
     longitude: input.longitude ?? null,

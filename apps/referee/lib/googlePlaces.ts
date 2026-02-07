@@ -20,6 +20,7 @@ export type PlaceSuggestion = {
   formattedAddress: string;
   city: string | null;
   state: string | null;
+  zip: string | null;
   latitude: number | null;
   longitude: number | null;
 };
@@ -32,9 +33,10 @@ function getApiKey() {
   return key;
 }
 
-function extractCityAndState(components: AddressComponent[] = []) {
+function extractCityStateZip(components: AddressComponent[] = []) {
   let city: string | null = null;
   let state: string | null = null;
+  let zip: string | null = null;
 
   for (const component of components) {
     if (!component?.types) continue;
@@ -44,8 +46,11 @@ function extractCityAndState(components: AddressComponent[] = []) {
     if (component.types.includes("administrative_area_level_1")) {
       state = component.shortText ?? component.longText ?? state;
     }
+    if (component.types.includes("postal_code")) {
+      zip = component.longText ?? component.shortText ?? zip;
+    }
   }
-  return { city, state };
+  return { city, state, zip };
 }
 
 export async function searchSchools(query: string): Promise<PlaceSuggestion[]> {
@@ -75,13 +80,14 @@ export async function searchSchools(query: string): Promise<PlaceSuggestion[]> {
 
   const json = (await response.json()) as { places?: any[] };
   return (json.places ?? []).map((place) => {
-    const { city, state } = extractCityAndState(place?.addressComponents ?? []);
+    const { city, state, zip } = extractCityStateZip(place?.addressComponents ?? []);
     return {
       placeId: place?.id ?? "",
       name: place?.displayName?.text ?? place?.displayName ?? "Unknown school",
       formattedAddress: place?.formattedAddress ?? place?.shortFormattedAddress ?? "",
       city: city ?? null,
       state: state ?? null,
+      zip: zip ?? null,
       latitude: place?.location?.latitude ?? null,
       longitude: place?.location?.longitude ?? null,
     } as PlaceSuggestion;

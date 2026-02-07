@@ -8,6 +8,7 @@ type PrefillSchool = {
   city: string;
   state: string;
   address?: string | null;
+  zip?: string | null;
   slug?: string | null;
 };
 
@@ -28,6 +29,7 @@ type SchoolSuggestion = {
   formattedAddress: string;
   city: string | null;
   state: string | null;
+  zip: string | null;
   latitude: number | null;
   longitude: number | null;
 };
@@ -64,6 +66,7 @@ export default function SchoolReviewForm({
             [initialSchool.city, initialSchool.state].filter(Boolean).join(", "),
           city: initialSchool.city,
           state: initialSchool.state,
+          zip: initialSchool.zip ?? null,
           latitude: null,
           longitude: null,
           placeId: null,
@@ -150,11 +153,14 @@ export default function SchoolReviewForm({
       school_id: selected.schoolId ?? null,
       school:
         selected.schoolId != null
-          ? null
+          ? {
+              zip: selected.zip ?? null,
+            }
           : {
               name: selected.name,
               city: selected.city,
               state: selected.state,
+              zip: selected.zip ?? null,
               address: selected.formattedAddress ?? "",
               placeId: selected.placeId ?? null,
               latitude: selected.latitude ?? null,
@@ -213,6 +219,7 @@ export default function SchoolReviewForm({
             [initialSchool.city, initialSchool.state].filter(Boolean).join(", "),
           city: initialSchool.city,
           state: initialSchool.state,
+          zip: initialSchool.zip ?? null,
           latitude: null,
           longitude: null,
           placeId: null,
