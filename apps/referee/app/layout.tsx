@@ -24,6 +24,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const buildStamp = process.env.NEXT_PUBLIC_BUILD_ID ?? process.env.VERCEL_GIT_COMMIT_SHA;
+  const buildShort = buildStamp ? buildStamp.slice(0, 7) : null;
 
   return (
     <html lang="en">
@@ -292,6 +294,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <div style={{ fontSize: 12, color: "#555" }}>
               RefereeInsights™ is a trademark of Referee Insights.
             </div>
+            {buildShort ? (
+              <div style={{ fontSize: 11, color: "#777", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Build {buildShort}
+              </div>
+            ) : null}
           </footer>
         </PostHogClientProvider>
       </body>
