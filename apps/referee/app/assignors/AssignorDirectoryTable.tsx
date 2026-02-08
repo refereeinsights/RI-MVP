@@ -25,6 +25,16 @@ type AssignorDirectoryTableProps = {
 
 type RevealMap = Record<string, { email: string | null; phone: string | null }>;
 
+function normalizeCityLabel(value?: string | null) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return "";
+  return trimmed
+    .toLowerCase()
+    .split(" ")
+    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : ""))
+    .join(" ");
+}
+
 export default function AssignorDirectoryTable({
   assignors,
   sportsByAssignor,
@@ -106,7 +116,7 @@ export default function AssignorDirectoryTable({
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
         <thead>
           <tr>
-            {["Name", "Email", "Phone", "Location", "Sports", "Claim / Remove"].map((h) => (
+            {["Name", "Email", "Phone", "Location", "Sports"].map((h) => (
               <th key={h} style={{ textAlign: "left", padding: "6px 4px", borderBottom: "1px solid #eee" }}>
                 {h}
               </th>
@@ -116,7 +126,7 @@ export default function AssignorDirectoryTable({
         <tbody>
           {assignors.length === 0 ? (
             <tr>
-              <td colSpan={6} style={{ padding: 8, color: "#666" }}>
+              <td colSpan={5} style={{ padding: 8, color: "#666" }}>
                 No assignors found.
               </td>
             </tr>
@@ -141,14 +151,11 @@ export default function AssignorDirectoryTable({
                     onReveal={handleReveal}
                   />
                   <td style={{ padding: "6px 4px" }}>
-                    {[assignor.base_city, assignor.base_state].filter(Boolean).join(", ") || "—"}
+                    {[normalizeCityLabel(assignor.base_city), assignor.base_state]
+                      .filter(Boolean)
+                      .join(", ") || "—"}
                   </td>
                   <td style={{ padding: "6px 4px" }}>{sports.length ? sports.join(", ") : "—"}</td>
-                  <td style={{ padding: "6px 4px" }}>
-                    <Link href={`/assignors/claim?assignor_id=${assignor.id}`} style={{ color: "#0f172a", fontWeight: 700 }}>
-                      Claim / Remove
-                    </Link>
-                  </td>
                 </tr>
               );
             })

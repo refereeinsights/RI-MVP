@@ -4,6 +4,7 @@ import RefereeReviewList, { WhistleScale } from "@/components/RefereeReviewList"
 import InsightDisclaimer from "@/components/InsightDisclaimer";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import type { RefereeReviewPublic, RefereeWhistleScoreStatus } from "@/lib/types/refereeReview";
+import StateMultiSelect from "../tournaments/StateMultiSelect";
 import "../tournaments/tournaments.css";
 
 type School = {
@@ -34,7 +35,6 @@ type SchoolReviewRow = {
   sport?: string | null;
 };
 
-const FILTER_STATES = ["WA", "OR", "CA"] as const;
 const SPORT_FILTERS = ["soccer", "basketball", "football"] as const;
 
 // Cache school listings for 5 minutes to reduce Supabase load.
@@ -69,8 +69,9 @@ export default async function SchoolsPage({
 }: {
   searchParams?: {
     q?: string;
-    state?: string;
+    state?: string | string[];
     zip?: string;
+    distance?: string;
     reviewed?: string;
     school_id?: string;
     sports?: string | string[];
@@ -82,8 +83,10 @@ export default async function SchoolsPage({
   } = await supabase.auth.getUser();
   const isAuthed = !!user;
   const q = (searchParams?.q ?? "").trim();
-  const state = (searchParams?.state ?? "").trim().toUpperCase();
+  const stateParam = searchParams?.state;
   const zip = (searchParams?.zip ?? "").trim();
+  const distanceParam = (searchParams?.distance ?? "").trim();
+  const distanceMiles = distanceParam ? Number(distanceParam) : 0;
   const reviewedOnly = (searchParams?.reviewed ?? "").toLowerCase() === "true";
   const schoolIdFilter = (searchParams?.school_id ?? "").trim();
   const sportsParam = searchParams?.sports;
@@ -95,23 +98,26 @@ export default async function SchoolsPage({
   const sportsSelected = sportsSelectedRaw
     .map((s) => s.toLowerCase())
     .filter((s): s is (typeof SPORT_FILTERS)[number] => SPORT_FILTERS.includes(s as any));
+  const stateSelectionsRaw = (Array.isArray(stateParam) ? stateParam : stateParam ? [stateParam] : [])
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+  const ALL_STATES_VALUE = "__ALL__";
+  const stateSelections = stateSelectionsRaw.filter((s) => s !== ALL_STATES_VALUE);
+  const isAllStates = stateSelections.length === 0 || stateSelectionsRaw.includes(ALL_STATES_VALUE);
+  const stateSummaryLabel = isAllStates
+    ? "All states"
+    : stateSelections.length <= 3
+    ? stateSelections.join(", ")
+    : `${stateSelections.length} states`;
 
   let query = supabase
     .from("schools")
     .select("id,name,slug,city,state,zip")
     .order("name", { ascending: true });
 
-  if (state && FILTER_STATES.includes(state as any)) {
-    query = query.eq("state", state);
-  }
-
   if (q) {
     query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
   }
-  if (zip) {
-    query = query.eq("zip", zip);
-  }
-
   const { data, error } = await query;
   if (error) {
     return (
@@ -140,9 +146,10 @@ export default async function SchoolsPage({
     schools.map((s) => s.id)
   );
 
-  let filteredSchools = schools.filter(
-    (s) => (scoreMap.get(s.id)?.review_count ?? 0) > 0
-  );
+  const reviewedSchools = reviewedOnly
+    ? schools.filter((s) => (scoreMap.get(s.id)?.review_count ?? 0) > 0)
+    : schools;
+  let filteredSchools = reviewedSchools;
 
   if (schoolIdFilter) {
     filteredSchools = filteredSchools.filter((s) => s.id === schoolIdFilter);
@@ -151,6 +158,20 @@ export default async function SchoolsPage({
   if (sportsSelected.length) {
     const sportIds = await loadSchoolIdsBySport(supabase, sportsSelected);
     filteredSchools = filteredSchools.filter((s) => sportIds.has(s.id));
+  }
+  const hasZipDistance = !!zip && Number.isFinite(distanceMiles) && distanceMiles > 0;
+  if (hasZipDistance && /^\d{5}$/.test(zip)) {
+    filteredSchools = await filterSchoolsByDistance(supabase, filteredSchools, zip, distanceMiles);
+  } else if (zip) {
+    filteredSchools = filteredSchools.filter((s) => (s.zip ?? "") === zip);
+  }
+  const availableStates = Array.from(
+    new Set(filteredSchools.map((s) => (s.state ?? "").trim().toUpperCase()).filter(Boolean))
+  ).sort();
+  if (!isAllStates) {
+    filteredSchools = filteredSchools.filter((s) =>
+      stateSelections.includes((s.state ?? "").trim().toUpperCase())
+    );
   }
 
   const recentReviews = await loadRecentSchoolReviews(supabase, schoolIdFilter);
@@ -167,6 +188,15 @@ export default async function SchoolsPage({
         minute: "2-digit",
       })
     : null;
+
+  const isFiltering =
+    !!q ||
+    !!zip ||
+    (!!distanceParam && Number.isFinite(distanceMiles) && distanceMiles > 0) ||
+    reviewedOnly ||
+    sportsSelected.length > 0 ||
+    (stateSelectionsRaw.length > 0 && !isAllStates) ||
+    !!schoolIdFilter;
 
   return (
     <main className="pitchWrap tournamentsWrap schoolsPage">
@@ -222,176 +252,76 @@ export default async function SchoolsPage({
             </div>
           </div>
 
-        <form
-          method="GET"
-          action="/schools"
-          style={{
-            marginTop: 20,
-            borderRadius: 20,
-            border: "1px solid rgba(255,255,255,0.6)",
-            background: "rgba(0,0,0,0.08)",
-            padding: "18px 18px 12px",
-            display: "grid",
-            gap: 14,
-          }}
-        >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: 12,
-            }}
-          >
-            <label style={{ display: "flex", flexDirection: "column", fontWeight: 700, color: "#0b1f14" }}>
-              <span style={{ marginBottom: 6 }}>Search</span>
-              <input
-                id="q"
-                name="q"
-                placeholder="Search schools / venues / organizers..."
-                defaultValue={q}
-                style={{
-                  borderRadius: 12,
-                  border: "1px solid rgba(0,0,0,0.2)",
-                  padding: "0.7rem 0.9rem",
-                  fontSize: 15,
-                }}
-              />
-            </label>
-
-            <label style={{ display: "flex", flexDirection: "column", fontWeight: 700, color: "#0b1f14" }}>
-              <span style={{ marginBottom: 6 }}>State</span>
-              <select
-                id="state"
-                name="state"
-                defaultValue={state}
-                style={{
-                  borderRadius: 12,
-                  border: "1px solid rgba(0,0,0,0.2)",
-                  padding: "0.7rem 0.9rem",
-                  fontSize: 15,
-                  backgroundColor: "#fff",
-                }}
-              >
-                <option value="">All</option>
-                {FILTER_STATES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label style={{ display: "flex", flexDirection: "column", fontWeight: 700, color: "#0b1f14" }}>
-              <span style={{ marginBottom: 6 }}>ZIP</span>
-              <input
-                id="zip"
-                name="zip"
-                placeholder="e.g. 98101"
-                defaultValue={zip}
-                inputMode="numeric"
-                pattern="\\d*"
-                style={{
-                  borderRadius: 12,
-                  border: "1px solid rgba(0,0,0,0.2)",
-                  padding: "0.7rem 0.9rem",
-                  fontSize: 15,
-                }}
-              />
-            </label>
+        <form className="filters schoolsFilters" method="GET" action="/schools">
+          <div>
+            <label className="label" htmlFor="q">Search</label>
+            <input
+              id="q"
+              name="q"
+              className="input"
+              placeholder="Search schools / venues / organizers..."
+              defaultValue={q}
+            />
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: 12,
-              alignItems: "center",
-            }}
-          >
-            <label style={{ fontWeight: 700, color: "#0b1f14" }}>
-              <span style={{ display: "block", marginBottom: 6 }}>Reviewed only</span>
-              <label
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 10,
-                  borderRadius: 999,
-                  border: "1px solid rgba(0,0,0,0.2)",
-                  padding: "0.4rem 0.8rem",
-                  background: "#fff",
-                }}
-              >
-                <input type="checkbox" name="reviewed" value="true" defaultChecked={reviewedOnly} />
-                <span style={{ fontWeight: 600 }}>Only schools with whistle scores</span>
+          <div>
+            <span className="label">State</span>
+            <StateMultiSelect
+              availableStates={availableStates}
+              stateSelections={stateSelections}
+              isAllStates={isAllStates}
+              allStatesValue={ALL_STATES_VALUE}
+              summaryLabel={stateSummaryLabel}
+            />
+          </div>
+
+          <div>
+            <label className="label" htmlFor="zip">ZIP</label>
+            <input
+              id="zip"
+              name="zip"
+              className="input"
+              placeholder="e.g. 98101"
+              defaultValue={zip}
+              inputMode="numeric"
+              maxLength={5}
+              autoComplete="postal-code"
+            />
+          </div>
+
+          <div>
+            <label className="label" htmlFor="distance">Distance</label>
+            <select id="distance" name="distance" className="select" defaultValue={distanceParam}>
+              <option value="">Any</option>
+              <option value="5">5 miles</option>
+              <option value="10">10 miles</option>
+              <option value="25">25 miles</option>
+              <option value="50">50 miles</option>
+              <option value="100">100 miles</option>
+            </select>
+          </div>
+
+          <div className="sportsRow">
+            <label className="sportToggle">
+              <input type="checkbox" name="reviewed" value="true" defaultChecked={reviewedOnly} />
+              <span>Reviewed only</span>
+            </label>
+            {SPORT_FILTERS.map((sport) => (
+              <label key={sport} className="sportToggle">
+                <input
+                  type="checkbox"
+                  name="sports"
+                  value={sport}
+                  defaultChecked={sportsSelected.includes(sport)}
+                />
+                <span>{sport}</span>
               </label>
-            </label>
-
-            <div>
-              <span style={{ display: "block", fontWeight: 700, color: "#0b1f14", marginBottom: 6 }}>
-                Sports
-              </span>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                {SPORT_FILTERS.map((sport) => (
-                  <label
-                    key={sport}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      borderRadius: 999,
-                      border: "1px solid rgba(0,0,0,0.2)",
-                      padding: "0.35rem 0.8rem",
-                      background: sportsSelected.includes(sport) ? "#0f3d2e" : "#fff",
-                      color: sportsSelected.includes(sport) ? "#fff" : "#0b1f14",
-                      fontWeight: 600,
-                      textTransform: "capitalize",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      name="sports"
-                      value={sport}
-                      defaultChecked={sportsSelected.includes(sport)}
-                      style={{ accentColor: "#0f3d2e" }}
-                    />
-                    {sport}
-                  </label>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <button
-              className="smallBtn"
-              type="submit"
-              style={{
-                borderRadius: 999,
-                border: "none",
-                padding: "0.55rem 1.4rem",
-                fontWeight: 800,
-                background: "#0f3d2e",
-                color: "#fff",
-                cursor: "pointer",
-              }}
-            >
-              Apply
-            </button>
-            <a
-              className="smallBtn"
-              href="/schools"
-              style={{
-                borderRadius: 999,
-                border: "1px solid rgba(0,0,0,0.3)",
-                padding: "0.5rem 1.3rem",
-                fontWeight: 700,
-                color: "#111",
-                textDecoration: "none",
-                background: "#fff",
-              }}
-            >
-              Reset
-            </a>
+          <div className="actionsRow">
+            <button className="smallBtn" type="submit">Apply</button>
+            <a className="smallBtn" href="/schools">Reset</a>
           </div>
         </form>
 
@@ -400,6 +330,9 @@ export default async function SchoolsPage({
             marginTop: "1rem",
             display: "flex",
             justifyContent: "center",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 8,
           }}
         >
           <Link
@@ -418,8 +351,18 @@ export default async function SchoolsPage({
           >
             Submit a school review
           </Link>
+          <div style={{ fontSize: 12, color: "rgba(15, 23, 42, 0.65)" }}>
+            ZIP data:{" "}
+            <a
+              href="https://github.com/djbelieny/geoinfo-dataset"
+              style={{ color: "#0f172a", fontWeight: 700, textDecoration: "none" }}
+            >
+              GeoInfo Dataset (MIT)
+            </a>
+          </div>
         </div>
 
+        {!isFiltering && (
         <section
           style={{
             marginTop: 28,
@@ -514,6 +457,7 @@ export default async function SchoolsPage({
             />
           </div>
         </section>
+        )}
 
           <div className="grid" style={{ marginTop: 24 }}>
           <div className="schoolsCount" style={{ gridColumn: "1 / -1", marginBottom: 10 }}>
@@ -662,6 +606,72 @@ type SchoolSportScore = {
 function toWhistleScore(aiScore: number | null) {
   if (!Number.isFinite(aiScore ?? NaN)) return null;
   return Math.max(1, Math.min(5, (aiScore ?? 0) / 20));
+}
+
+type ZipCentroid = { zip: string; latitude: number | null; longitude: number | null };
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
+}
+
+function haversineMiles(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
+  const R = 3958.8;
+  const dLat = toRadians(b.lat - a.lat);
+  const dLon = toRadians(b.lon - a.lon);
+  const lat1 = toRadians(a.lat);
+  const lat2 = toRadians(b.lat);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+async function loadZipCentroids(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  zips: string[]
+): Promise<Map<string, ZipCentroid>> {
+  const map = new Map<string, ZipCentroid>();
+  const uniqueZips = Array.from(new Set(zips)).filter(Boolean);
+  if (!uniqueZips.length) return map;
+  const { data } = await supabase
+    .from("zip_centroids" as any)
+    .select("zip,latitude,longitude")
+    .in("zip", uniqueZips);
+  (data ?? []).forEach((row: any) => {
+    if (!row?.zip) return;
+    map.set(row.zip, {
+      zip: row.zip,
+      latitude: typeof row.latitude === "number" ? row.latitude : null,
+      longitude: typeof row.longitude === "number" ? row.longitude : null,
+    });
+  });
+  return map;
+}
+
+async function filterSchoolsByDistance(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  schools: School[],
+  originZip: string,
+  radiusMiles: number
+) {
+  const zips = schools.map((s) => s.zip ?? "").filter(Boolean);
+  const centroidMap = await loadZipCentroids(supabase, [originZip, ...zips]);
+  const origin = centroidMap.get(originZip);
+  if (!origin || origin.latitude == null || origin.longitude == null) {
+    return schools.filter((school) => (school.zip ?? "") === originZip);
+  }
+
+  return schools.filter((school) => {
+    const entry = school.zip ? centroidMap.get(school.zip) : null;
+    if (!entry || entry.latitude == null || entry.longitude == null) {
+      return (school.zip ?? "") === originZip;
+    }
+    const distance = haversineMiles(
+      { lat: origin.latitude, lon: origin.longitude },
+      { lat: entry.latitude, lon: entry.longitude }
+    );
+    return distance <= radiusMiles;
+  });
 }
 
 async function loadSchoolScores(

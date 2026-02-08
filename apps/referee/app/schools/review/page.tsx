@@ -97,6 +97,15 @@ export default async function SchoolReviewPage({
         claimIntent={intent === "claim" && entityType === "school"}
         claimSourceUrl={sourceUrl}
       />
+      <div style={{ marginTop: 18, fontSize: 12, color: "rgba(15, 23, 42, 0.65)" }}>
+        ZIP data:{" "}
+        <a
+          href="https://github.com/djbelieny/geoinfo-dataset"
+          style={{ color: "#0f172a", fontWeight: 700, textDecoration: "none" }}
+        >
+          GeoInfo Dataset (MIT)
+        </a>
+      </div>
     </main>
   );
 }

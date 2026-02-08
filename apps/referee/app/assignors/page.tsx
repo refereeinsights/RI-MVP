@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AssignorDirectoryTable from "./AssignorDirectoryTable";
 import AcceptTermsModal from "./AcceptTermsModal";
+import AssignorLocationFilters from "@/components/AssignorLocationFilters";
 import "../tournaments/tournaments.css";
 
 type SearchParams = {
@@ -10,6 +11,7 @@ type SearchParams = {
   state?: string;
   sport?: string;
   city?: string | string[];
+  zip?: string;
   terms?: string;
 };
 
@@ -25,10 +27,30 @@ type AssignorRow = {
 };
 
 const SPORT_OPTIONS = ["soccer", "basketball", "football"] as const;
+const STATE_ALIASES: Record<string, string[]> = {
+  California: ["CA", "California"],
+};
 
 function asArray(value?: string | string[]) {
   if (!value) return [];
   return Array.isArray(value) ? value : [value];
+}
+
+function normalizeStateDisplay(value?: string | null) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return "";
+  if (trimmed.toUpperCase() === "CA" || trimmed.toLowerCase() === "california") {
+    return "California";
+  }
+  return trimmed.toUpperCase();
+}
+
+function stateFilterValues(stateValue: string) {
+  if (!stateValue) return [];
+  if (stateValue === "California" || stateValue.toUpperCase() === "CA") {
+    return STATE_ALIASES.California;
+  }
+  return [stateValue];
 }
 
 function lastNameSortKey(name?: string | null) {
@@ -50,8 +72,10 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
   } = await supabase.auth.getUser();
   const q = (searchParams?.q ?? "").trim();
   const sport = (searchParams?.sport ?? "").trim().toLowerCase();
-  const state = (searchParams?.state ?? "").trim().toUpperCase();
+  const stateRaw = (searchParams?.state ?? "").trim();
+  const state = normalizeStateDisplay(stateRaw);
   const citySelections = asArray(searchParams?.city).map((c) => c.trim()).filter(Boolean);
+  const zip = (searchParams?.zip ?? "").trim();
   const termsAcceptedNotice = searchParams?.terms === "accepted";
 
   const { data: profile, error: profileError } = user
@@ -76,10 +100,44 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
     query = query.or(`display_name.ilike.%${q}%,base_city.ilike.%${q}%`);
   }
   if (state) {
-    query = query.eq("base_state", state);
+    const values = stateFilterValues(state);
+    query = values.length > 1 ? query.in("base_state", values) : query.eq("base_state", values[0]);
   }
-  if (citySelections.length) {
+  if (state && citySelections.length) {
     query = query.in("base_city", citySelections);
+  }
+  if (zip) {
+    const { data: zipRows } = await supabase
+      .from("assignor_zip_codes" as any)
+      .select("assignor_id")
+      .eq("zip", zip);
+    const ids = (zipRows ?? []).map((row: any) => row.assignor_id).filter(Boolean);
+    if (ids.length === 0) {
+      return (
+        <main className="pitchWrap tournamentsWrap schoolsPage">
+          <section className="field tournamentsField">
+            <div className="headerBlock schoolsHeader brandedHeader">
+              <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
+                Assignor Directory
+              </h1>
+              <p
+                className="subtitle"
+                style={{
+                  marginTop: 8,
+                  maxWidth: 680,
+                  fontSize: 14,
+                  lineHeight: 1.5,
+                }}
+              >
+                Read-only listing of approved assignors with coverage details. Contact info is available after sign-in.
+              </p>
+            </div>
+            <div style={{ marginTop: 24, color: "#555" }}>No assignors found for ZIP {zip}.</div>
+          </section>
+        </main>
+      );
+    }
+    query = query.in("id", ids);
   }
 
   const { data, error } = await query;
@@ -105,23 +163,22 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
     .eq("review_status", "approved")
     .limit(1000);
 
-  const states = Array.from(
-    new Set(
-      (filterRows ?? [])
-        .map((row: any) => String(row?.base_state ?? "").trim())
-        .filter(Boolean)
-        .map((s: string) => s.toUpperCase())
-    )
-  ).sort();
-
-  const cities = Array.from(
-    new Set(
-      (filterRows ?? [])
-        .filter((row: any) => !state || String(row?.base_state ?? "").toUpperCase() === state)
-        .map((row: any) => String(row?.base_city ?? "").trim())
-        .filter(Boolean)
-    )
-  ).sort((a, b) => a.localeCompare(b));
+  const citiesByState: Record<string, string[]> = {};
+  (filterRows ?? []).forEach((row: any) => {
+    const st = normalizeStateDisplay(row?.base_state ?? "");
+    const rawCity = String(row?.base_city ?? "").trim();
+    if (!st || !rawCity) return;
+    const cityKey = rawCity.toLowerCase();
+    const list = citiesByState[st] ?? [];
+    if (!list.some((c) => c.toLowerCase() === cityKey)) {
+      list.push(rawCity);
+    }
+    citiesByState[st] = list;
+  });
+  Object.keys(citiesByState).forEach((st) => {
+    citiesByState[st] = citiesByState[st].sort((a, b) => a.localeCompare(b));
+  });
+  const states = Object.keys(citiesByState).sort();
 
   const { data: coverageRows } = ids.length
     ? await supabase
@@ -259,6 +316,21 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
               />
             </label>
             <label style={{ display: "flex", flexDirection: "column", fontWeight: 700, color: "#0b1f14" }}>
+              <span style={{ marginBottom: 6 }}>ZIP</span>
+              <input
+                id="zip"
+                name="zip"
+                placeholder="e.g. 95030"
+                defaultValue={zip}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.2)",
+                  background: "#fff",
+                }}
+              />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", fontWeight: 700, color: "#0b1f14" }}>
               <span style={{ marginBottom: 6 }}>Sport</span>
               <select
                 name="sport"
@@ -278,49 +350,14 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
                 ))}
               </select>
             </label>
-            <label style={{ display: "flex", flexDirection: "column", fontWeight: 700, color: "#0b1f14" }}>
-              <span style={{ marginBottom: 6 }}>State</span>
-              <select
-                name="state"
-                defaultValue={state}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(0,0,0,0.2)",
-                  background: "#fff",
-                }}
-              >
-                <option value="">All</option>
-                {states.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label style={{ display: "flex", flexDirection: "column", fontWeight: 700, color: "#0b1f14" }}>
-              <span style={{ marginBottom: 6 }}>Cities</span>
-              <select
-                name="city"
-                multiple
-                defaultValue={citySelections}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(0,0,0,0.2)",
-                  background: "#fff",
-                  minHeight: 120,
-                }}
-              >
-                {cities.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <AssignorLocationFilters
+              states={states}
+              citiesByState={citiesByState}
+              initialState={state}
+              initialCities={citySelections}
+            />
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
             <button
               type="submit"
               className="btn"

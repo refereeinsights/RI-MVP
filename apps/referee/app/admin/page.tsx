@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import OwlsEyePanel from "./owls-eye/OwlsEyePanel";
 import AdminNav from "@/components/admin/AdminNav";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { lookupSchoolZip } from "@/lib/googlePlaces";
 
 export const runtime = "nodejs";
 
@@ -179,6 +180,16 @@ export default async function AdminPage({
     tab === "reviews" ? await adminListTournamentReviews(reviewStatus) : [];
   const schoolReviewSubmissions =
     tab === "school-reviews" ? await adminListSchoolReviews(reviewStatus) : [];
+  const schoolsMissingZip =
+    tab === "school-reviews"
+      ? await supabaseAdmin
+          .from("schools" as any)
+          .select("id,name,city,state,address,google_place_id,zip")
+          .or("zip.is.null,zip.eq.")
+          .order("name", { ascending: true })
+          .limit(50)
+          .then((res) => res.data ?? [])
+      : [];
   const tournamentContacts =
     tab === "tournament-contacts" ? await adminListTournamentContacts(contactStatus) : [];
   const refereeContacts =
@@ -454,6 +465,53 @@ export default async function AdminPage({
     const redirectTo = formData.get("redirect_to");
     await adminDeleteSchoolReview(review_id);
     redirectWithNotice(redirectTo, "Review deleted");
+  }
+
+  async function backfillSchoolZipAction(formData: FormData) {
+    "use server";
+    const schoolId = String(formData.get("school_id") || "").trim();
+    const redirectTo = formData.get("redirect_to");
+    if (!schoolId) {
+      return redirectWithNotice(redirectTo, "School id missing.");
+    }
+
+    const { data: school, error } = await supabaseAdmin
+      .from("schools")
+      .select("id,name,city,state,google_place_id,zip")
+      .eq("id", schoolId)
+      .maybeSingle();
+    if (error || !school) {
+      return redirectWithNotice(redirectTo, "School not found.");
+    }
+    if (school.zip) {
+      return redirectWithNotice(redirectTo, `ZIP already set for ${school.name}.`);
+    }
+
+    let zip: string | null = null;
+    try {
+      zip = await lookupSchoolZip({
+        placeId: school.google_place_id ?? null,
+        name: school.name ?? "",
+        city: school.city ?? null,
+        state: school.state ?? null,
+      });
+    } catch (err: any) {
+      return redirectWithNotice(redirectTo, `Lookup failed: ${err?.message ?? "unknown error"}`);
+    }
+
+    if (!zip) {
+      return redirectWithNotice(redirectTo, `No ZIP found for ${school.name}.`);
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from("schools")
+      .update({ zip })
+      .eq("id", schoolId);
+    if (updateError) {
+      return redirectWithNotice(redirectTo, `Update failed: ${updateError.message}`);
+    }
+
+    return redirectWithNotice(redirectTo, `ZIP updated for ${school.name}: ${zip}`);
   }
 
   async function createTournamentContactAction(formData: FormData) {
@@ -3733,6 +3791,64 @@ export default async function AdminPage({
 
           <div style={{ marginTop: 10, color: "#555", fontSize: 13 }}>
             Showing: <strong>{reviewStatus}</strong> ({schoolReviewSubmissions.length})
+          </div>
+
+          <div style={{ marginTop: 14, marginBottom: 16 }}>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>
+              Schools missing ZIPs ({schoolsMissingZip.length})
+            </div>
+            {schoolsMissingZip.length === 0 ? (
+              <div style={{ color: "#555", fontSize: 13 }}>All schools have ZIPs.</div>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {schoolsMissingZip.map((school: any) => (
+                  <div
+                    key={school.id}
+                    style={{
+                      border: "1px solid #ddd",
+                      borderRadius: 10,
+                      padding: 12,
+                      background: "#fff",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 800 }}>{school.name ?? "Unknown school"}</div>
+                      <div style={{ color: "#555", fontSize: 13 }}>
+                        {school.city ? `${school.city}, ` : ""}
+                        {school.state ?? ""}
+                      </div>
+                      {school.address ? (
+                        <div style={{ color: "#777", fontSize: 12 }}>{school.address}</div>
+                      ) : null}
+                      <div style={{ color: "#777", fontSize: 12 }}>
+                        Place ID: {school.google_place_id ? "Yes" : "No"}
+                      </div>
+                    </div>
+                    <form action={backfillSchoolZipAction} style={{ alignSelf: "center" }}>
+                      <input type="hidden" name="school_id" value={school.id} />
+                      <input type="hidden" name="redirect_to" value={adminBasePath} />
+                      <button
+                        type="submit"
+                        style={{
+                          padding: "8px 12px",
+                          borderRadius: 999,
+                          border: "1px solid #111",
+                          background: "#111",
+                          color: "#fff",
+                          fontWeight: 800,
+                        }}
+                      >
+                        Fetch ZIP
+                      </button>
+                    </form>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div style={{ marginTop: 12 }}>

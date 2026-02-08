@@ -2,6 +2,7 @@ import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import Link from "next/link";
+import AssignorZipBackfillList from "@/components/AssignorZipBackfillList";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,7 @@ type AssignorRow = {
   display_name: string | null;
   base_city: string | null;
   base_state: string | null;
+  zip?: string | null;
   last_seen_at: string | null;
   confidence: number | null;
   review_status: string | null;
@@ -66,7 +68,7 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
   const error = searchParams.error ?? "";
 
   const selectColumns =
-    "id,display_name,base_city,base_state,last_seen_at,confidence,review_status";
+    "id,display_name,base_city,base_state,zip,last_seen_at,confidence,review_status";
 
   let assignors: AssignorRow[] = [];
   if (!q) {
@@ -108,6 +110,15 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
   }
 
   const assignorIds = assignors.map((row) => row.id);
+
+  const assignorsMissingZip =
+    (await supabaseAdmin
+      .from("assignors" as any)
+      .select("id,display_name,base_city,base_state,zip")
+      .or("zip.is.null,zip.eq.")
+      .not("base_city", "is", null)
+      .limit(50)
+      .then((res) => res.data ?? [])) as AssignorRow[];
 
   const { data: contacts } = assignorIds.length
     ? await supabaseAdmin
@@ -182,11 +193,18 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
         </button>
       </form>
 
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontWeight: 900, marginBottom: 6 }}>
+          Assignors missing ZIPs ({assignorsMissingZip.length})
+        </div>
+        <AssignorZipBackfillList rows={assignorsMissingZip} />
+      </div>
+
       <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12, background: "#fff" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
-              {["Name", "Email", "Phone", "Location", "Sports", "Last Seen", "Confidence", "Status"].map((h) => (
+              {["Name", "Email", "Phone", "Location", "ZIP", "Sports", "Last Seen", "Confidence", "Status"].map((h) => (
                 <th key={h} style={{ textAlign: "left", padding: "6px 4px", borderBottom: "1px solid #eee" }}>
                   {h}
                 </th>
@@ -196,7 +214,7 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
           <tbody>
             {assignors.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ padding: 8, color: "#666" }}>
+                <td colSpan={9} style={{ padding: 8, color: "#666" }}>
                   No assignors found.
                 </td>
               </tr>
@@ -218,6 +236,7 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
                     <td style={{ padding: "6px 4px" }}>
                       {[assignor.base_city, assignor.base_state].filter(Boolean).join(", ") || "—"}
                     </td>
+                    <td style={{ padding: "6px 4px" }}>{assignor.zip ?? "—"}</td>
                     <td style={{ padding: "6px 4px" }}>{sports.length ? sports.join(", ") : "—"}</td>
                     <td style={{ padding: "6px 4px" }}>{formatDate(assignor.last_seen_at)}</td>
                     <td style={{ padding: "6px 4px" }}>{assignor.confidence ?? "—"}</td>
