@@ -4,11 +4,12 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AssignorDirectoryTable from "./AssignorDirectoryTable";
 import AcceptTermsModal from "./AcceptTermsModal";
 import AssignorLocationFilters from "@/components/AssignorLocationFilters";
+import StateMultiSelect from "../tournaments/StateMultiSelect";
 import "../tournaments/tournaments.css";
 
 type SearchParams = {
   q?: string;
-  state?: string;
+  state?: string | string[];
   sport?: string;
   city?: string | string[];
   zip?: string;
@@ -30,6 +31,7 @@ const SPORT_OPTIONS = ["soccer", "basketball", "football"] as const;
 const STATE_ALIASES: Record<string, string[]> = {
   California: ["CA", "California"],
 };
+const ALL_STATES_VALUE = "__ALL__";
 
 function asArray(value?: string | string[]) {
   if (!value) return [];
@@ -53,6 +55,14 @@ function stateFilterValues(stateValue: string) {
   return [stateValue];
 }
 
+function stateFilterValuesForSelections(selections: string[]) {
+  const values = new Set<string>();
+  selections.forEach((selection) => {
+    stateFilterValues(selection).forEach((val) => values.add(val));
+  });
+  return Array.from(values);
+}
+
 function lastNameSortKey(name?: string | null) {
   if (!name) return "";
   const parts = name.trim().split(/\s+/);
@@ -72,8 +82,18 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
   } = await supabase.auth.getUser();
   const q = (searchParams?.q ?? "").trim();
   const sport = (searchParams?.sport ?? "").trim().toLowerCase();
-  const stateRaw = (searchParams?.state ?? "").trim();
-  const state = normalizeStateDisplay(stateRaw);
+  const stateParam = searchParams?.state;
+  const stateSelectionsRaw = (Array.isArray(stateParam) ? stateParam : stateParam ? [stateParam] : [])
+    .map((s) => normalizeStateDisplay(s))
+    .filter(Boolean);
+  const stateSelections = stateSelectionsRaw.filter((s) => s !== ALL_STATES_VALUE);
+  const isAllStates = stateSelections.length === 0 || stateSelectionsRaw.includes(ALL_STATES_VALUE);
+  const stateSummaryLabel = isAllStates
+    ? "All states"
+    : stateSelections.length <= 3
+    ? stateSelections.join(", ")
+    : `${stateSelections.length} states`;
+  const stateFilterList = isAllStates ? [] : stateFilterValuesForSelections(stateSelections);
   const citySelections = asArray(searchParams?.city).map((c) => c.trim()).filter(Boolean);
   const zip = (searchParams?.zip ?? "").trim();
   const termsAcceptedNotice = searchParams?.terms === "accepted";
@@ -99,11 +119,10 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
   if (q) {
     query = query.or(`display_name.ilike.%${q}%,base_city.ilike.%${q}%`);
   }
-  if (state) {
-    const values = stateFilterValues(state);
-    query = values.length > 1 ? query.in("base_state", values) : query.eq("base_state", values[0]);
+  if (stateFilterList.length) {
+    query = stateFilterList.length > 1 ? query.in("base_state", stateFilterList) : query.eq("base_state", stateFilterList[0]);
   }
-  if (state && citySelections.length) {
+  if (stateFilterList.length && citySelections.length) {
     query = query.in("base_city", citySelections);
   }
   if (zip) {
@@ -350,11 +369,21 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
                 ))}
               </select>
             </label>
+            <div>
+              <span className="label">State</span>
+              <StateMultiSelect
+                availableStates={states}
+                stateSelections={stateSelections}
+                isAllStates={isAllStates}
+                allStatesValue={ALL_STATES_VALUE}
+                summaryLabel={stateSummaryLabel}
+              />
+            </div>
             <AssignorLocationFilters
-              states={states}
               citiesByState={citiesByState}
-              initialState={state}
               initialCities={citySelections}
+              stateSelections={stateSelections}
+              isAllStates={isAllStates}
             />
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>

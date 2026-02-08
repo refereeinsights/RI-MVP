@@ -37,6 +37,19 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString();
 }
 
+function extractAssignorCount(data: any) {
+  if (typeof data === "number") return data;
+  if (!data) return null;
+  if (typeof data === "object") {
+    if (typeof data.inserted === "number") return data.inserted;
+    if (typeof data.count === "number") return data.count;
+    if (typeof data.processed === "number") return data.processed;
+    if (typeof data.assignors === "number") return data.assignors;
+    if (Array.isArray(data) && typeof data[0] === "number") return data[0];
+  }
+  return null;
+}
+
 function AssignorAdminNav() {
   return (
     <div style={{ display: "flex", gap: 10, margin: "12px 0 18px" }}>
@@ -100,19 +113,6 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
       runsBySource.set(run.source_id, list);
     }
   });
-
-  function extractAssignorCount(data: any) {
-    if (typeof data === "number") return data;
-    if (!data) return null;
-    if (typeof data === "object") {
-      if (typeof data.inserted === "number") return data.inserted;
-      if (typeof data.count === "number") return data.count;
-      if (typeof data.processed === "number") return data.processed;
-      if (typeof data.assignors === "number") return data.assignors;
-      if (Array.isArray(data) && typeof data[0] === "number") return data[0];
-    }
-    return null;
-  }
 
   async function processRunAction(formData: FormData) {
     "use server";

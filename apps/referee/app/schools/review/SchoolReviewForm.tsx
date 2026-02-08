@@ -75,11 +75,15 @@ export default function SchoolReviewForm({
   );
   const [searchEnabled, setSearchEnabled] = useState(!initialSchool);
   const [searching, setSearching] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualCity, setManualCity] = useState("");
+  const [manualState, setManualState] = useState("");
   const [state, setState] = useState<SubmitState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!searchEnabled) return;
+    if (!searchEnabled || manualMode) return;
     if (!query.trim()) {
       setSuggestions([]);
       return;
@@ -105,10 +109,11 @@ export default function SchoolReviewForm({
       controller.abort();
       clearTimeout(timeout);
     };
-  }, [query, searchEnabled]);
+  }, [query, searchEnabled, manualMode]);
 
   function handleSelect(suggestion: SchoolSuggestion) {
     setSelected(suggestion);
+    setManualMode(false);
     setQuery(
       `${suggestion.name}${suggestion.formattedAddress ? ` – ${suggestion.formattedAddress}` : ""}`
     );
@@ -124,8 +129,24 @@ export default function SchoolReviewForm({
     event.preventDefault();
     if (!canSubmit || state === "saving") return;
 
-    if (!selected?.name || !selected.city || !selected.state) {
-      setErrorMessage("Select a school from the list before submitting.");
+    const manualSelection: SchoolSuggestion | null = manualMode
+      ? {
+          name: manualName.trim(),
+          formattedAddress: [manualCity.trim(), manualState.trim()].filter(Boolean).join(", "),
+          city: manualCity.trim() || null,
+          state: manualState.trim() || null,
+          zip: null,
+          latitude: null,
+          longitude: null,
+          placeId: null,
+          schoolId: null,
+        }
+      : null;
+
+    const resolvedSelection = selected ?? manualSelection;
+
+    if (!resolvedSelection?.name || !resolvedSelection.state) {
+      setErrorMessage("Select a school or enter a name and state.");
       setState("error");
       return;
     }
@@ -150,21 +171,21 @@ export default function SchoolReviewForm({
     }
 
     const payload = {
-      school_id: selected.schoolId ?? null,
+      school_id: resolvedSelection.schoolId ?? null,
       school:
-        selected.schoolId != null
+        resolvedSelection.schoolId != null
           ? {
-              zip: selected.zip ?? null,
+              zip: resolvedSelection.zip ?? null,
             }
           : {
-              name: selected.name,
-              city: selected.city,
-              state: selected.state,
-              zip: selected.zip ?? null,
-              address: selected.formattedAddress ?? "",
-              placeId: selected.placeId ?? null,
-              latitude: selected.latitude ?? null,
-              longitude: selected.longitude ?? null,
+              name: resolvedSelection.name,
+              city: resolvedSelection.city ?? null,
+              state: resolvedSelection.state,
+              zip: resolvedSelection.zip ?? null,
+              address: resolvedSelection.formattedAddress ?? "",
+              placeId: resolvedSelection.placeId ?? null,
+              latitude: resolvedSelection.latitude ?? null,
+              longitude: resolvedSelection.longitude ?? null,
             },
       overall_score: Number(formData.get("overall_score") ?? 0),
       logistics_score: Number(formData.get("logistics_score") ?? 0),
@@ -228,6 +249,10 @@ export default function SchoolReviewForm({
       } else {
         setSelected(null);
         setQuery("");
+        setManualName("");
+        setManualCity("");
+        setManualState("");
+        setManualMode(false);
       }
       setState("success");
     } catch (err: any) {
@@ -310,7 +335,73 @@ export default function SchoolReviewForm({
             ))}
           </ul>
         )}
+        {searchEnabled && !manualMode && (
+          <button
+            type="button"
+            className="manualToggle"
+            onClick={() => {
+              setManualMode(true);
+              setSelected(null);
+              setSuggestions([]);
+            }}
+          >
+            Can’t find your school? Add it manually.
+          </button>
+        )}
       </label>
+
+      {manualMode && (
+        <div className="manualBox">
+          <div className="manualHeader">
+            <div>
+              <strong>Manual school entry</strong>
+              <div className="manualHint">Name and state are required.</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setManualMode(false);
+                setManualName("");
+                setManualCity("");
+                setManualState("");
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+          <div className="manualGrid">
+            <label>
+              <span>School name</span>
+              <input
+                type="text"
+                value={manualName}
+                onChange={(event) => setManualName(event.target.value)}
+                required={manualMode}
+                placeholder="e.g. Garfield High School"
+              />
+            </label>
+            <label>
+              <span>City (optional)</span>
+              <input
+                type="text"
+                value={manualCity}
+                onChange={(event) => setManualCity(event.target.value)}
+                placeholder="e.g. Seattle"
+              />
+            </label>
+            <label>
+              <span>State</span>
+              <input
+                type="text"
+                value={manualState}
+                onChange={(event) => setManualState(event.target.value)}
+                required={manualMode}
+                placeholder="e.g. WA"
+              />
+            </label>
+          </div>
+        </div>
+      )}
 
       {placeSummary && (
         <div className="selectedSummary">
@@ -338,27 +429,63 @@ export default function SchoolReviewForm({
       <div className="grid">
         <label>
           <span>Overall experience</span>
-          <input type="number" name="overall_score" min={1} max={5} step={1} required />
+          <select name="overall_score" defaultValue="5" required>
+            <option value="5">5 - Outstanding</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1 - Unacceptable</option>
+          </select>
         </label>
         <label>
           <span>Logistics &amp; site access</span>
-          <input type="number" name="logistics_score" min={1} max={5} step={1} required />
+          <select name="logistics_score" defaultValue="5" required>
+            <option value="5">5 - Outstanding</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1 - Unacceptable</option>
+          </select>
         </label>
         <label>
           <span>Facilities / fields</span>
-          <input type="number" name="facilities_score" min={1} max={5} step={1} required />
+          <select name="facilities_score" defaultValue="5" required>
+            <option value="5">5 - Outstanding</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1 - Unacceptable</option>
+          </select>
         </label>
         <label>
           <span>Pay accuracy / timing</span>
-          <input type="number" name="pay_score" min={1} max={5} step={1} required />
+          <select name="pay_score" defaultValue="5" required>
+            <option value="5">5 - Outstanding</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1 - Unacceptable</option>
+          </select>
         </label>
         <label>
           <span>School support &amp; security</span>
-          <input type="number" name="support_score" min={1} max={5} step={1} required />
+          <select name="support_score" defaultValue="5" required>
+            <option value="5">5 - Outstanding</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1 - Unacceptable</option>
+          </select>
         </label>
         <label>
           <span>Sideline / crowd / fans</span>
-          <input type="number" name="sideline_score" min={1} max={5} step={1} required />
+          <select name="sideline_score" defaultValue="5" required>
+            <option value="5">5 - Outstanding</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1 - Unacceptable</option>
+          </select>
         </label>
         <label>
           <span>Games worked</span>
@@ -441,6 +568,45 @@ export default function SchoolReviewForm({
           display: block;
           color: rgba(0, 0, 0, 0.6);
           font-size: 0.85rem;
+        }
+        .manualToggle {
+          margin-top: 8px;
+          align-self: flex-start;
+          background: none;
+          border: none;
+          color: #0f3d2e;
+          font-weight: 700;
+          cursor: pointer;
+          padding: 0;
+        }
+        .manualBox {
+          border: 1px dashed rgba(15, 61, 46, 0.4);
+          border-radius: 14px;
+          padding: 14px;
+          background: rgba(15, 61, 46, 0.04);
+        }
+        .manualHeader {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: center;
+          margin-bottom: 10px;
+        }
+        .manualHeader button {
+          border: none;
+          background: none;
+          color: #0f3d2e;
+          font-weight: 700;
+          cursor: pointer;
+        }
+        .manualHint {
+          font-size: 0.85rem;
+          color: rgba(0, 0, 0, 0.6);
+        }
+        .manualGrid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+          gap: 12px;
         }
         .selectedSummary {
           border-left: 4px solid #0f3d2e;

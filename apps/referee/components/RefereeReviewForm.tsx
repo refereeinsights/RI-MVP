@@ -37,6 +37,7 @@ export default function RefereeReviewForm({
           ? Number(formData.get("worked_games"))
           : null,
         shift_detail: String(formData.get("shift_detail") ?? "").trim(),
+        cash_tournament: formData.get("cash_tournament") === "on",
       };
 
       if (
@@ -90,23 +91,57 @@ export default function RefereeReviewForm({
       <div className="reviewForm__grid">
         <label>
           <span>Overall shift score</span>
-          <input type="number" name="overall_score" min={1} max={5} step={1} required />
+          <select name="overall_score" defaultValue="5" required>
+            <option value="5">5 - Outstanding</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1 - Unacceptable</option>
+          </select>
         </label>
         <label>
           <span>Logistics &amp; scheduling</span>
-          <input type="number" name="logistics_score" min={1} max={5} step={1} required />
+          <select name="logistics_score" defaultValue="5" required>
+            <option value="5">5 - Outstanding</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1 - Unacceptable</option>
+          </select>
         </label>
         <label>
           <span>Facilities &amp; fields</span>
-          <input type="number" name="facilities_score" min={1} max={5} step={1} required />
+          <select name="facilities_score" defaultValue="5" required>
+            <option value="5">5 - Outstanding</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1 - Unacceptable</option>
+          </select>
         </label>
         <label>
           <span>Pay accuracy</span>
-          <input type="number" name="pay_score" min={1} max={5} step={1} required />
+          <select name="pay_score" defaultValue="5" required>
+            <option value="5">5 - Outstanding</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1 - Unacceptable</option>
+          </select>
         </label>
         <label>
           <span>Organizer support</span>
-          <input type="number" name="support_score" min={1} max={5} step={1} required />
+          <select name="support_score" defaultValue="5" required>
+            <option value="5">5 - Outstanding</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1 - Unacceptable</option>
+          </select>
+        </label>
+        <label style={{ gap: 10 }}>
+          <span>Cash tournament</span>
+          <input type="checkbox" name="cash_tournament" />
         </label>
         <label>
           <span>Games worked</span>

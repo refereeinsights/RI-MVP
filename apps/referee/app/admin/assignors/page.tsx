@@ -2,12 +2,14 @@ import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import Link from "next/link";
+import StateMultiSelect from "@/app/tournaments/StateMultiSelect";
+import "../../tournaments/tournaments.css";
 
 export const runtime = "nodejs";
 
 type SearchParams = {
   q?: string;
-  state?: string;
+  state?: string | string[];
   zip?: string;
   distance?: string;
   notice?: string;
@@ -125,7 +127,18 @@ function AssignorAdminNav() {
 export default async function AssignorsPage({ searchParams }: { searchParams: SearchParams }) {
   await requireAdmin();
   const q = (searchParams.q ?? "").trim();
-  const state = (searchParams.state ?? "").trim().toUpperCase();
+  const stateParam = searchParams.state;
+  const stateSelectionsRaw = (Array.isArray(stateParam) ? stateParam : stateParam ? [stateParam] : [])
+    .map((s) => String(s).trim().toUpperCase())
+    .filter(Boolean);
+  const ALL_STATES_VALUE = "__ALL__";
+  const stateSelections = stateSelectionsRaw.filter((s) => s !== ALL_STATES_VALUE);
+  const isAllStates = stateSelections.length === 0 || stateSelectionsRaw.includes(ALL_STATES_VALUE);
+  const stateSummaryLabel = isAllStates
+    ? "All states"
+    : stateSelections.length <= 3
+    ? stateSelections.join(", ")
+    : `${stateSelections.length} states`;
   const zip = (searchParams.zip ?? "").trim();
   const distanceParam = (searchParams.distance ?? "").trim();
   const distanceMiles = distanceParam ? Number(distanceParam) : 0;
@@ -174,9 +187,10 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
     }
   }
 
-  if (state) {
-    assignors = assignors.filter(
-      (row) => String(row.base_state ?? "").toUpperCase() === state
+  if (!isAllStates && stateSelections.length) {
+    const stateSet = new Set(stateSelections);
+    assignors = assignors.filter((row) =>
+      stateSet.has(String(row.base_state ?? "").toUpperCase())
     );
   }
   if (zip) {
@@ -193,6 +207,9 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
     }
   }
 
+  const allStates = Array.from(
+    new Set(assignors.map((row) => String(row.base_state ?? "").toUpperCase()).filter(Boolean))
+  ).sort();
   const assignorIds = assignors.map((row) => row.id);
   const { data: coverage } = assignorIds.length
     ? await supabaseAdmin
@@ -232,12 +249,16 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
           placeholder="Search assignors, email, phone..."
           style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #ccc", minWidth: 260 }}
         />
-        <input
-          name="state"
-          defaultValue={state}
-          placeholder="State (e.g. CA)"
-          style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #ccc", width: 140 }}
-        />
+        <div style={{ minWidth: 180 }}>
+          <span style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>State</span>
+          <StateMultiSelect
+            availableStates={allStates}
+            stateSelections={stateSelections}
+            isAllStates={isAllStates}
+            allStatesValue={ALL_STATES_VALUE}
+            summaryLabel={stateSummaryLabel}
+          />
+        </div>
         <input
           name="zip"
           defaultValue={zip}

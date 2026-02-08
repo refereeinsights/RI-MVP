@@ -14,10 +14,10 @@ export type SchoolInput = {
 
 export async function findOrCreateSchool(input: SchoolInput) {
   const name = input.name.trim();
-  const city = input.city.trim();
+  const city = input.city?.trim() ?? "";
   const state = input.state.trim();
-  if (!name || !city || !state) {
-    throw new Error("School name, city, and state are required.");
+  if (!name || !state) {
+    throw new Error("School name and state are required.");
   }
 
   const slug = buildTournamentSlug({ name, city, state });
@@ -40,7 +40,7 @@ export async function findOrCreateSchool(input: SchoolInput) {
 
   const payload = {
     name,
-    city,
+    city: city || null,
     state,
     slug,
     address: input.address ?? null,

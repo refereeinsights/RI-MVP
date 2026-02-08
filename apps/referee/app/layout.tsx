@@ -174,7 +174,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     borderBottom: "2px solid #2F6FED",
                   }}
                 >
-                  Tournament Reviews
+                  Tournament Directory
                 </a>
 
                 <a
@@ -206,7 +206,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     borderBottom: "2px solid #2F6FED",
                   }}
                 >
-                  Assignors
+                  Assignor Directory
                 </a>
 
                 <a

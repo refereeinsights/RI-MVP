@@ -72,6 +72,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  if (body?.cash_tournament === true) {
+    await supabaseAdmin
+      .from("tournaments")
+      .update({ cash_tournament: true })
+      .eq("id", payload.tournament_id);
+  }
+
   const minScore = Math.min(...Object.values(scores));
   if (Number.isFinite(minScore) && minScore < 3) {
     const { data: reviewerProfile } = await supabase

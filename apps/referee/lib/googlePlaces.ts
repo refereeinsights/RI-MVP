@@ -6,6 +6,7 @@ const FIELD_MASK = [
   "places.shortFormattedAddress",
   "places.location",
   "places.addressComponents",
+  "places.types",
 ].join(",");
 
 type AddressComponent = {
@@ -23,6 +24,7 @@ export type PlaceSuggestion = {
   zip: string | null;
   latitude: number | null;
   longitude: number | null;
+  types?: string[] | null;
 };
 
 function getApiKey() {
@@ -102,8 +104,30 @@ async function searchPlacesByText(query: string, includedType?: string) {
 }
 
 export async function searchSchools(query: string): Promise<PlaceSuggestion[]> {
-  const places = await searchPlacesByText(query, "school");
-  return places.map((place) => {
+  let places = await searchPlacesByText(query, "school");
+  if (!places.length && query.trim().length >= 3) {
+    places = await searchPlacesByText(`${query} high school`, "school");
+  }
+  if (!places.length && query.trim().length >= 3) {
+    places = await searchPlacesByText(query);
+  }
+  const schoolTypes = new Set([
+    "school",
+    "secondary_school",
+    "primary_school",
+    "middle_school",
+    "high_school",
+  ]);
+  return places
+    .filter((place) => {
+      const types: string[] = place?.types ?? [];
+      if (!types.length) {
+        const name = String(place?.displayName?.text ?? place?.displayName ?? "").toLowerCase();
+        return name.includes("school");
+      }
+      return types.some((t: string) => schoolTypes.has(t));
+    })
+    .map((place) => {
     const { city, state, zip } = extractCityStateZip(place?.addressComponents ?? []);
     return {
       placeId: place?.id ?? "",
@@ -114,6 +138,7 @@ export async function searchSchools(query: string): Promise<PlaceSuggestion[]> {
       zip: zip ?? null,
       latitude: place?.location?.latitude ?? null,
       longitude: place?.location?.longitude ?? null,
+      types: place?.types ?? null,
     } as PlaceSuggestion;
   });
 }

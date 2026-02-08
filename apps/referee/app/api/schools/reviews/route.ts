@@ -65,8 +65,11 @@ export async function POST(request: Request) {
         typeof body?.school?.longitude === "number" ? Number(body.school.longitude) : null,
     };
 
-    if (!schoolInput.name || !schoolInput.city || !schoolInput.state) {
-      return NextResponse.json({ error: "Select a school before submitting." }, { status: 400 });
+    if (!schoolInput.name || !schoolInput.state) {
+      return NextResponse.json(
+        { error: "School name and state are required." },
+        { status: 400 }
+      );
     }
 
     try {

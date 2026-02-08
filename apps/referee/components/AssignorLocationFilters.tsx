@@ -4,28 +4,29 @@ import { useMemo, useState } from "react";
 import CityMultiSelect from "./CityMultiSelect";
 
 type Props = {
-  states: string[];
   citiesByState: Record<string, string[]>;
-  initialState: string;
   initialCities: string[];
+  stateSelections?: string[];
+  isAllStates?: boolean;
 };
 
 export default function AssignorLocationFilters({
-  states,
   citiesByState,
-  initialState,
   initialCities,
+  stateSelections,
+  isAllStates,
 }: Props) {
-  const [selectedState, setSelectedState] = useState(initialState);
   const [selectedCities, setSelectedCities] = useState<string[]>(initialCities);
 
   const cityOptions = useMemo(() => {
-    const values = selectedState ? citiesByState[selectedState] ?? [] : [];
-    return values.map((value) => ({ value, label: toTitleCase(value) }));
-  }, [selectedState, citiesByState]);
+    if (isAllStates || !stateSelections || stateSelections.length === 0) return [];
+    const values = stateSelections.flatMap((st) => citiesByState[st] ?? []);
+    const unique = Array.from(new Set(values));
+    return unique.map((value) => ({ value, label: toTitleCase(value) }));
+  }, [citiesByState, isAllStates, stateSelections]);
 
   const summaryLabel =
-    !selectedState || cityOptions.length === 0
+    (isAllStates || !stateSelections || stateSelections.length === 0) || cityOptions.length === 0
       ? "Select state first"
       : selectedCities.length === 0
       ? "All cities"
@@ -33,39 +34,12 @@ export default function AssignorLocationFilters({
       ? selectedCities.map((c) => toTitleCase(c)).join(", ")
       : `${selectedCities.length} cities`;
 
-  function handleStateChange(next: string) {
-    setSelectedState(next);
-    setSelectedCities([]);
-  }
-
   return (
     <>
-      <label style={{ display: "flex", flexDirection: "column", fontWeight: 700, color: "#0b1f14" }}>
-        <span style={{ marginBottom: 6 }}>State</span>
-        <select
-          name="state"
-          value={selectedState}
-          onChange={(event) => handleStateChange(event.target.value)}
-          style={{
-            padding: "10px 12px",
-            borderRadius: 12,
-            border: "1px solid rgba(0,0,0,0.2)",
-            background: "#fff",
-          }}
-        >
-          <option value="">All</option>
-          {states.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </label>
-
       <div>
         <span className="label">Cities</span>
         <CityMultiSelect
-          disabled={!selectedState || cityOptions.length === 0}
+          disabled={isAllStates || !stateSelections || stateSelections.length === 0 || cityOptions.length === 0}
           summaryLabel={summaryLabel}
           options={cityOptions}
           selections={selectedCities}
