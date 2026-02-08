@@ -56,7 +56,7 @@ async function fetchAssignorIdsByRadius(originZip: string, radiusMiles: number) 
     .select("zip,latitude,longitude")
     .eq("zip", originZip)
     .limit(1);
-  const origin = originRows?.[0];
+  const origin = (originRows as any)?.[0] as { latitude?: number; longitude?: number } | undefined;
   if (!origin?.latitude || !origin?.longitude) return new Set<string>();
 
   const { data: assignorZipRows } = await supabaseAdmin

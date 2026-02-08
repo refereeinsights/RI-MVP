@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 type SearchParams = {
   notice?: string;
   error?: string;
+  run_id?: string;
 };
 
 type AssignorSource = {
@@ -70,6 +71,7 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
   await requireAdmin();
   const notice = searchParams.notice ?? "";
   const error = searchParams.error ?? "";
+  const runIdNotice = searchParams.run_id ?? "";
 
   const { data: sourceRows } = await supabaseAdmin
     .from("assignor_sources" as any)
@@ -99,21 +101,50 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
     }
   });
 
+  function extractAssignorCount(data: any) {
+    if (typeof data === "number") return data;
+    if (!data) return null;
+    if (typeof data === "object") {
+      if (typeof data.inserted === "number") return data.inserted;
+      if (typeof data.count === "number") return data.count;
+      if (typeof data.processed === "number") return data.processed;
+      if (typeof data.assignors === "number") return data.assignors;
+      if (Array.isArray(data) && typeof data[0] === "number") return data[0];
+    }
+    return null;
+  }
+
   async function processRunAction(formData: FormData) {
     "use server";
     await requireAdmin();
     const run_id = String(formData.get("run_id") || "");
     if (!run_id) return;
-    const { error: rpcError } = await (supabaseAdmin as any).rpc("process_assignor_crawl_run", {
+    const { data: rpcData, error: rpcError } = await (supabaseAdmin as any).rpc("process_assignor_crawl_run", {
       p_crawl_run_id: run_id,
     });
     if (rpcError) {
       console.error("process_assignor_crawl_run failed", rpcError);
       redirect("/admin/assignors/sources?error=process_run");
     }
+    const { data: sourceRows } = await supabaseAdmin
+      .from("assignor_source_records" as any)
+      .select("assignor_id")
+      .eq("crawl_run_id", run_id);
+    const assignorIds = Array.from(
+      new Set((sourceRows ?? []).map((row: any) => row.assignor_id).filter(Boolean))
+    ) as string[];
+    if (assignorIds.length) {
+      await supabaseAdmin
+        .from("assignors" as any)
+        .update({ review_status: "needs_review" })
+        .in("id", assignorIds);
+    }
     revalidatePath("/admin/assignors/sources");
     revalidatePath("/admin/assignors");
-    redirect("/admin/assignors/sources?notice=Run%20processed");
+    const extracted = extractAssignorCount(rpcData);
+    const noticeBase = extracted != null ? `Run processed: ${extracted} assignor(s)` : "Run processed";
+    const notice = assignorIds.length ? `${noticeBase} • ${assignorIds.length} queued for review` : noticeBase;
+    redirect(`/admin/assignors/sources?notice=${encodeURIComponent(notice)}&run_id=${run_id}`);
   }
 
   async function createRunAction(formData: FormData) {
@@ -370,6 +401,11 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
                                   Process Run
                                 </button>
                               </form>
+                              {notice && runIdNotice === run.id ? (
+                                <div style={{ marginTop: 6, fontSize: 12, color: "#166534" }}>
+                                  {notice}
+                                </div>
+                              ) : null}
                             </td>
                           </tr>
                         ))
