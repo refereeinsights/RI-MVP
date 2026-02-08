@@ -39,6 +39,7 @@ function AssignorAdminNav() {
       {[
         { href: "/admin/assignors", label: "Directory" },
         { href: "/admin/assignors/review", label: "Review" },
+        { href: "/admin/assignors/zip-missing", label: "Missing ZIPs" },
         { href: "/admin/assignors/sources", label: "Sources" },
       ].map((item) => (
         <a

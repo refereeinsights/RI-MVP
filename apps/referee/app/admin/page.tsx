@@ -490,10 +490,10 @@ export default async function AdminPage({
     let zip: string | null = null;
     try {
       zip = await lookupSchoolZip({
-        placeId: school.google_place_id ?? null,
-        name: school.name ?? "",
-        city: school.city ?? null,
-        state: school.state ?? null,
+        placeId: typeof school.google_place_id === "string" ? school.google_place_id : null,
+        name: typeof school.name === "string" ? school.name : "",
+        city: typeof school.city === "string" ? school.city : null,
+        state: typeof school.state === "string" ? school.state : null,
       });
     } catch (err: any) {
       return redirectWithNotice(redirectTo, `Lookup failed: ${err?.message ?? "unknown error"}`);
