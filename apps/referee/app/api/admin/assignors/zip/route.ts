@@ -21,14 +21,21 @@ export async function POST(request: Request) {
   if (error || !assignor) {
     return NextResponse.json({ ok: false, error: "Assignor not found." }, { status: 404 });
   }
-  if (!assignor.base_city) {
+  const assignorRow = assignor as {
+    id: string;
+    display_name?: string | null;
+    base_city?: string | null;
+    base_state?: string | null;
+    zip?: string | null;
+  };
+  if (!assignorRow.base_city) {
     return NextResponse.json({ ok: false, error: "Assignor missing city." }, { status: 400 });
   }
-  if (assignor.zip) {
+  if (assignorRow.zip) {
     return NextResponse.json({ ok: true, message: "ZIP already set." });
   }
 
-  const cityList = String(assignor.base_city)
+  const cityList = String(assignorRow.base_city)
     .split(",")
     .map((c) => toTitleCase(c))
     .filter(Boolean);
@@ -38,8 +45,8 @@ export async function POST(request: Request) {
   if (cityList.length <= 1) {
     try {
       zip = await lookupCityZip({
-        city: assignor.base_city,
-        state: assignor.base_state ?? null,
+        city: assignorRow.base_city,
+        state: assignorRow.base_state ?? null,
       });
     } catch (err: any) {
       return NextResponse.json(
@@ -54,8 +61,8 @@ export async function POST(request: Request) {
     const { data: fallbackRows, error: fallbackErr } = await supabaseAdmin
       .from("city_zip_codes" as any)
       .select("zip")
-      .in("city", cityList.length ? cityList : [toTitleCase(String(assignor.base_city))])
-      .eq("state", String(assignor.base_state ?? "").trim().toUpperCase())
+      .in("city", cityList.length ? cityList : [toTitleCase(String(assignorRow.base_city))])
+      .eq("state", String(assignorRow.base_state ?? "").trim().toUpperCase())
       .order("zip", { ascending: true });
     if (fallbackErr) {
       return NextResponse.json({ ok: false, error: "No ZIP found for city." }, { status: 404 });
@@ -63,7 +70,8 @@ export async function POST(request: Request) {
     (fallbackRows ?? []).forEach((row: any) => {
       if (row?.zip) zipSet.add(String(row.zip));
     });
-    zip = fallbackRows?.[0]?.zip ?? null;
+    const fallbackFirst = (fallbackRows as any)?.[0] as { zip?: string } | undefined;
+    zip = fallbackFirst?.zip ?? null;
   }
 
   if (!zip) {
