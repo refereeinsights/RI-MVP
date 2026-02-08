@@ -139,7 +139,7 @@ export default function RefereeReviewForm({
             <option value="1">1 - Unacceptable</option>
           </select>
         </label>
-        <label style={{ gap: 10 }}>
+        <label className="reviewForm__cash">
           <span>Cash tournament</span>
           <input type="checkbox" name="cash_tournament" />
         </label>
