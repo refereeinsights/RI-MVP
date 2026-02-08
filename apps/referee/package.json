@@ -11,6 +11,7 @@
     "test": "TMPDIR=../../tmp tsx --test src/server/enrichment/enrichment.test.ts"
   },
   "dependencies": {
+    "@plausible-analytics/tracker": "^0.4.4",
     "@sentry/nextjs": "^10.31.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.87.1",

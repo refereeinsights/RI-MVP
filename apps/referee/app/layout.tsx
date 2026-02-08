@@ -4,6 +4,7 @@ import Image from "next/image";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import PostHogClientProvider from "@/providers/PostHogProvider";
 import HeaderLogo from "@/components/HeaderLogo";
+import PlausibleAnalytics from "@/components/PlausibleAnalytics";
 import "./globals.css";
 
 export const metadata = {
@@ -30,6 +31,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en">
       <body>
+        <PlausibleAnalytics />
         <PostHogClientProvider>
           {/* Header */}
           <header
