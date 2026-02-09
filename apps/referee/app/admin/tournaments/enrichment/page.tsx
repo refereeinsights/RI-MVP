@@ -122,6 +122,21 @@ async function loadData() {
     .is("rejected_at", null)
     .order("created_at", { ascending: false })
     .limit(25);
+  const candidateIds = new Set<string>();
+  (contactsResp.data ?? []).forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
+  (venuesResp.data ?? []).forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
+  (compsResp.data ?? []).forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
+  let tournamentUrlLookup: Record<string, string | null> = {};
+  if (candidateIds.size > 0) {
+    const lookupResp = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("id,source_url")
+      .in("id", Array.from(candidateIds))
+      .limit(200);
+    tournamentUrlLookup = Object.fromEntries(
+      (lookupResp.data ?? []).map((row: any) => [row.id, row.source_url ?? null])
+    );
+  }
   const suggestionsResp = await supabaseAdmin
     .from("tournament_url_suggestions" as any)
     .select("id,tournament_id,suggested_url,suggested_domain,submitter_email,status,created_at,tournaments(name,state)")
@@ -164,6 +179,7 @@ async function loadData() {
     contacts: (contactsResp.data ?? []) as ContactCandidate[],
     venues: (venuesResp.data ?? []) as VenueCandidate[],
     comps: (compsResp.data ?? []) as CompCandidate[],
+    tournament_url_lookup: tournamentUrlLookup,
     url_suggestions:
       (suggestionsResp.data ?? []).map((row: any) => ({
         id: row.id,
@@ -190,6 +206,7 @@ export default async function Page() {
       venues={data.venues}
       comps={data.comps}
       urlSuggestions={data.url_suggestions}
+      tournamentUrlLookup={data.tournament_url_lookup}
     />
   );
 }

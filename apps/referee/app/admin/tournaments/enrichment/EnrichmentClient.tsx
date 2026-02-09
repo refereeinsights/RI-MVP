@@ -95,6 +95,7 @@ export default function EnrichmentClient({
   venues,
   comps,
   urlSuggestions,
+  tournamentUrlLookup,
 }: {
   tournaments: Tournament[];
   missingUrls: MissingUrlTournament[];
@@ -103,6 +104,7 @@ export default function EnrichmentClient({
   venues: VenueCandidate[];
   comps: CompCandidate[];
   urlSuggestions: UrlSuggestion[];
+  tournamentUrlLookup: Record<string, string | null>;
 }) {
   const [selected, setSelected] = React.useState<string[]>([]);
   const [status, setStatus] = React.useState<string>("");
@@ -117,6 +119,10 @@ export default function EnrichmentClient({
   const [urlSearchStatus, setUrlSearchStatus] = React.useState<string>("");
   const [urlResults, setUrlResults] = React.useState<Record<string, UrlSearchResult>>({});
   const [manualUrls, setManualUrls] = React.useState<Record<string, string>>({});
+  const tournamentUrlFor = React.useCallback(
+    (tournamentId: string) => tournamentUrlLookup[tournamentId] ?? null,
+    [tournamentUrlLookup]
+  );
 
   const toggle = (id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -563,7 +569,7 @@ export default function EnrichmentClient({
         <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
           <h2 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Recent Jobs</h2>
           <div style={{ maxHeight: 360, overflow: "auto" }}>
-            {jobs.map((job) => (
+            {jobs.filter((job) => job.status !== "done").map((job) => (
               <div key={job.id} style={{ padding: "6px 4px", borderBottom: "1px solid #f1f1f1" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ fontWeight: 600 }}>{job.status}</span>
@@ -619,6 +625,18 @@ export default function EnrichmentClient({
                   <div style={{ color: "#4b5563" }}>
                     <Link href={`/tournaments/${c.tournament_id}`}>{c.tournament_id}</Link> • conf: {c.confidence ?? 0}
                   </div>
+                  {tournamentUrlFor(c.tournament_id) ? (
+                    <div>
+                      <a
+                        href={tournamentUrlFor(c.tournament_id) ?? "#"}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "#0f3d2e" }}
+                      >
+                        tournament site
+                      </a>
+                    </div>
+                  ) : null}
                   {c.source_url ? (
                     <a href={c.source_url} target="_blank" rel="noreferrer" style={{ color: "#0f3d2e" }}>
                       source
@@ -659,6 +677,18 @@ export default function EnrichmentClient({
                   <div style={{ color: "#4b5563" }}>
                     <Link href={`/tournaments/${v.tournament_id}`}>{v.tournament_id}</Link> • conf: {v.confidence ?? 0}
                   </div>
+                  {tournamentUrlFor(v.tournament_id) ? (
+                    <div>
+                      <a
+                        href={tournamentUrlFor(v.tournament_id) ?? "#"}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "#0f3d2e" }}
+                      >
+                        tournament site
+                      </a>
+                    </div>
+                  ) : null}
                   {v.source_url ? (
                     <a href={v.source_url} target="_blank" rel="noreferrer" style={{ color: "#0f3d2e" }}>
                       source
@@ -699,6 +729,18 @@ export default function EnrichmentClient({
                   <div style={{ color: "#4b5563" }}>
                     <Link href={`/tournaments/${c.tournament_id}`}>{c.tournament_id}</Link> • conf: {c.confidence ?? 0}
                   </div>
+                  {tournamentUrlFor(c.tournament_id) ? (
+                    <div>
+                      <a
+                        href={tournamentUrlFor(c.tournament_id) ?? "#"}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "#0f3d2e" }}
+                      >
+                        tournament site
+                      </a>
+                    </div>
+                  ) : null}
                   {c.source_url ? (
                     <a href={c.source_url} target="_blank" rel="noreferrer" style={{ color: "#0f3d2e" }}>
                       source
