@@ -248,6 +248,57 @@
   transform: translateY(0);
 }
 
+.adminAssignors .stateDropdown {
+  position: relative;
+}
+
+.adminAssignors .stateSummary {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: #fff;
+  font-size: 13px;
+}
+
+.adminAssignors .stateMenu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  width: 220px;
+  max-height: 280px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+  padding: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 160ms ease, transform 160ms ease;
+  z-index: 50;
+}
+
+.adminAssignors .stateMenu.stateMenu--open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.adminAssignors .stateMenu .sportToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: 8px;
+}
+
+.adminAssignors .stateMenu .sportToggle:hover {
+  background: #f8fafc;
+}
+
 .tournamentsField .input::placeholder {
   color: rgba(16,34,19,0.35);
 }

@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { normalizeStateAbbr } from "@/lib/usStates";
 
 export const runtime = "nodejs";
 
@@ -128,7 +130,7 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
     }
     const { data: sourceRows } = await supabaseAdmin
       .from("assignor_source_records" as any)
-      .select("assignor_id")
+      .select("assignor_id,raw")
       .eq("crawl_run_id", run_id);
     const assignorIds = Array.from(
       new Set((sourceRows ?? []).map((row: any) => row.assignor_id).filter(Boolean))
@@ -138,6 +140,14 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
         .from("assignors" as any)
         .update({ review_status: "needs_review" })
         .in("id", assignorIds);
+    }
+    for (const row of sourceRows ?? []) {
+      const assignorId = (row as any)?.assignor_id ?? null;
+      const rawState = (row as any)?.raw?.state ?? null;
+      const normalized = normalizeStateAbbr(rawState);
+      if (assignorId && normalized) {
+        await supabaseAdmin.from("assignors" as any).update({ base_state: normalized }).eq("id", assignorId);
+      }
     }
     revalidatePath("/admin/assignors/sources");
     revalidatePath("/admin/assignors");
@@ -163,21 +173,98 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
       }
     }
 
-    const { error: insertError } = await supabaseAdmin
+    const { data: sourceRow } = await supabaseAdmin
+      .from("assignor_sources" as any)
+      .select("id,default_sport,default_state")
+      .eq("id", source_id)
+      .maybeSingle();
+
+    const defaultSport = typeof (sourceRow as any)?.default_sport === "string" ? (sourceRow as any).default_sport : "";
+    const defaultState = typeof (sourceRow as any)?.default_state === "string" ? (sourceRow as any).default_state : "";
+    if (!defaultSport) {
+      redirect("/admin/assignors/sources?error=missing_source_sport");
+    }
+
+    const { data: createdRun, error: insertError } = await supabaseAdmin
       .from("assignor_crawl_runs" as any)
       .insert({
         source_id,
         query_text,
         query_payload,
         status: "running",
-      });
+      })
+      .select("id");
 
     if (insertError) {
       console.error("assignor_crawl_runs insert failed", insertError);
       redirect("/admin/assignors/sources?error=create_run");
     }
+    const runId = (createdRun as any)?.[0]?.id;
+    if (!runId) {
+      revalidatePath("/admin/assignors/sources");
+      redirect("/admin/assignors/sources?notice=Run%20created");
+    }
+
+    const queries: string[] = [];
+    if (query_text) queries.push(query_text);
+    if (query_payload) {
+      const payloadQueries = Array.isArray((query_payload as any).queries)
+        ? (query_payload as any).queries.map((q: any) => String(q || "").trim()).filter(Boolean)
+        : [];
+      if (payloadQueries.length) queries.push(...payloadQueries);
+      const payloadQ = String((query_payload as any).q ?? "").trim();
+      if (payloadQ) queries.push(payloadQ);
+    }
+    const uniqueQueries = Array.from(new Set(queries)).filter(Boolean);
+    if (!uniqueQueries.length) {
+      redirect(`/admin/assignors/sources?error=missing_query&run_id=${runId}`);
+    }
+
+    const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/+$/, "");
+    const resp = await fetch(`${baseUrl}/api/atlas/discover-and-queue`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: cookies().toString(),
+      },
+      body: JSON.stringify({
+        queries: uniqueQueries,
+        sport: defaultSport,
+        state: defaultState,
+        target: "assignor",
+        crawl_run_id: runId,
+      }),
+    });
+    const discoveryJson = await resp.json().catch(() => null);
+    if (!resp.ok || discoveryJson?.error) {
+      const msg = encodeURIComponent(String(discoveryJson?.error ?? `HTTP ${resp.status}`).slice(0, 180));
+      await supabaseAdmin
+        .from("assignor_crawl_runs" as any)
+        .update({ status: "failed", finished_at: new Date().toISOString() })
+        .eq("id", runId);
+      redirect(`/admin/assignors/sources?error=${msg}&run_id=${runId}`);
+    }
+
+    await supabaseAdmin
+      .from("assignor_crawl_runs" as any)
+      .update({ status: "success", finished_at: new Date().toISOString() })
+      .eq("id", runId);
+
+    const { data: sourceRows } = await supabaseAdmin
+      .from("assignor_source_records" as any)
+      .select("id")
+      .eq("crawl_run_id", runId)
+      .eq("review_status", "needs_review");
+    const reviewCount = sourceRows?.length ?? 0;
+
     revalidatePath("/admin/assignors/sources");
-    redirect("/admin/assignors/sources?notice=Run%20created");
+    revalidatePath("/admin/assignors/review");
+    const inserted = Number(discoveryJson?.inserted ?? 0);
+    const discoveryNote = Number.isFinite(inserted) ? ` • ${inserted} URL(s) discovered` : "";
+    const reviewNote = ` • ${reviewCount} record(s) ready for review`;
+    redirect(
+      `/admin/assignors/sources?notice=${encodeURIComponent(`Crawl complete${discoveryNote}${reviewNote}`)}&run_id=${runId}`
+    );
   }
 
   async function runCnraCrawlAction(formData: FormData) {
@@ -443,7 +530,7 @@ export default async function AssignorSourcesPage({ searchParams }: { searchPara
                         fontWeight: 800,
                       }}
                     >
-                      Create Crawl Run
+                      Create & Crawl Run
                     </button>
                   </form>
                 </div>

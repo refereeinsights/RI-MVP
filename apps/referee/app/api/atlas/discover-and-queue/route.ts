@@ -120,6 +120,7 @@ export async function POST(req: Request) {
     const source_type = typeof body?.source_type === "string" ? body.source_type.trim() : "";
     const target = typeof body?.target === "string" ? body.target.trim() : "tournament";
     const state = typeof body?.state === "string" ? body.state.trim() : "";
+    const crawlRunId = typeof body?.crawl_run_id === "string" ? body.crawl_run_id.trim() : "";
     if (!sport || (target === "tournament" && !source_type)) {
       return jsonResponse({ error: "sport_and_source_type_required" }, 400);
     }
@@ -200,6 +201,7 @@ export async function POST(req: Request) {
           raw,
           confidence: 35,
           review_status: "needs_review",
+          crawl_run_id: crawlRunId || null,
         });
         if (error) {
           skipped_existing += 1;

@@ -5,6 +5,7 @@ import AssignorDirectoryTable from "./AssignorDirectoryTable";
 import AcceptTermsModal from "./AcceptTermsModal";
 import AssignorLocationFilters from "@/components/AssignorLocationFilters";
 import StateMultiSelect from "../tournaments/StateMultiSelect";
+import { normalizeStateDisplay, stateAliases } from "@/lib/usStates";
 import "../tournaments/tournaments.css";
 
 type SearchParams = {
@@ -28,9 +29,6 @@ type AssignorRow = {
 };
 
 const SPORT_OPTIONS = ["soccer", "basketball", "football"] as const;
-const STATE_ALIASES: Record<string, string[]> = {
-  California: ["CA", "California"],
-};
 const ALL_STATES_VALUE = "__ALL__";
 
 function asArray(value?: string | string[]) {
@@ -38,21 +36,8 @@ function asArray(value?: string | string[]) {
   return Array.isArray(value) ? value : [value];
 }
 
-function normalizeStateDisplay(value?: string | null) {
-  const trimmed = String(value ?? "").trim();
-  if (!trimmed) return "";
-  if (trimmed.toUpperCase() === "CA" || trimmed.toLowerCase() === "california") {
-    return "California";
-  }
-  return trimmed.toUpperCase();
-}
-
 function stateFilterValues(stateValue: string) {
-  if (!stateValue) return [];
-  if (stateValue === "California" || stateValue.toUpperCase() === "CA") {
-    return STATE_ALIASES.California;
-  }
-  return [stateValue];
+  return stateAliases(stateValue);
 }
 
 function stateFilterValuesForSelections(selections: string[]) {

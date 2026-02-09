@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { normalizeStateAbbr } from "@/lib/usStates";
 
 export const runtime = "nodejs";
 
@@ -104,6 +105,20 @@ export default async function AssignorReviewPage({ searchParams }: { searchParam
       console.error("process_assignor_source_record failed", rpcError);
       redirect("/admin/assignors/review?error=approve");
     }
+    const { data: recordRow } = await supabaseAdmin
+      .from("assignor_source_records" as any)
+      .select("assignor_id,raw")
+      .eq("id", id)
+      .maybeSingle();
+    const assignorId = (recordRow as any)?.assignor_id ?? null;
+    const rawState = (recordRow as any)?.raw?.state ?? null;
+    const normalizedState = normalizeStateAbbr(rawState);
+    if (assignorId && normalizedState) {
+      await supabaseAdmin
+        .from("assignors" as any)
+        .update({ base_state: normalizedState })
+        .eq("id", assignorId);
+    }
     revalidatePath("/admin/assignors/review");
     revalidatePath("/admin/assignors");
     redirect("/admin/assignors/review?notice=Approved");
@@ -121,6 +136,20 @@ export default async function AssignorReviewPage({ searchParams }: { searchParam
       if (rpcError) {
         console.error("bulk process_assignor_source_record failed", rpcError);
         redirect("/admin/assignors/review?error=approve");
+      }
+      const { data: recordRow } = await supabaseAdmin
+        .from("assignor_source_records" as any)
+        .select("assignor_id,raw")
+        .eq("id", id)
+        .maybeSingle();
+      const assignorId = (recordRow as any)?.assignor_id ?? null;
+      const rawState = (recordRow as any)?.raw?.state ?? null;
+      const normalizedState = normalizeStateAbbr(rawState);
+      if (assignorId && normalizedState) {
+        await supabaseAdmin
+          .from("assignors" as any)
+          .update({ base_state: normalizedState })
+          .eq("id", assignorId);
       }
     }
     revalidatePath("/admin/assignors/review");
@@ -196,6 +225,44 @@ export default async function AssignorReviewPage({ searchParams }: { searchParam
     redirect("/admin/assignors/review?notice=Blocked");
   }
 
+  async function updateRecordAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const id = String(formData.get("id") || "");
+    if (!id) return;
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from("assignor_source_records" as any)
+      .select("raw")
+      .eq("id", id)
+      .maybeSingle();
+    if (existingError) {
+      console.error("assignor_source_records fetch failed", existingError);
+      redirect("/admin/assignors/review?error=update");
+    }
+    const raw = ((existing as any)?.raw ?? {}) as Record<string, any>;
+    const normalizedState = normalizeStateAbbr(String(formData.get("state") || "").trim());
+    const updates = {
+      name: String(formData.get("name") || "").trim() || raw.name || null,
+      organization: String(formData.get("organization") || "").trim() || raw.organization || null,
+      email: String(formData.get("email") || "").trim() || raw.email || null,
+      phone: String(formData.get("phone") || "").trim() || raw.phone || null,
+      city: String(formData.get("city") || "").trim() || raw.city || null,
+      state: normalizedState || raw.state || null,
+      sport: String(formData.get("sport") || "").trim() || raw.sport || null,
+      website_url: String(formData.get("website_url") || "").trim() || raw.website_url || null,
+    };
+    const { error: updateError } = await supabaseAdmin
+      .from("assignor_source_records" as any)
+      .update({ raw: { ...raw, ...updates } })
+      .eq("id", id);
+    if (updateError) {
+      console.error("assignor_source_records update failed", updateError);
+      redirect("/admin/assignors/review?error=update");
+    }
+    revalidatePath("/admin/assignors/review");
+    redirect("/admin/assignors/review?notice=Updated");
+  }
+
   async function processRunAction(formData: FormData) {
     "use server";
     await requireAdmin();
@@ -207,6 +274,18 @@ export default async function AssignorReviewPage({ searchParams }: { searchParam
     if (rpcError) {
       console.error("process_assignor_crawl_run failed", rpcError);
       redirect("/admin/assignors/review?error=process_run");
+    }
+    const { data: sourceRows } = await supabaseAdmin
+      .from("assignor_source_records" as any)
+      .select("assignor_id,raw")
+      .eq("crawl_run_id", crawl_run_id);
+    for (const row of sourceRows ?? []) {
+      const assignorId = (row as any)?.assignor_id ?? null;
+      const rawState = (row as any)?.raw?.state ?? null;
+      const normalized = normalizeStateAbbr(rawState);
+      if (assignorId && normalized) {
+        await supabaseAdmin.from("assignors" as any).update({ base_state: normalized }).eq("id", assignorId);
+      }
     }
     revalidatePath("/admin/assignors/review");
     revalidatePath("/admin/assignors");
@@ -291,6 +370,7 @@ export default async function AssignorReviewPage({ searchParams }: { searchParam
             const raw = record.raw ?? {};
             const source = record.source_id ? sourceMap.get(record.source_id) : null;
             const orgName = raw.organization ?? raw.org_name ?? raw.org ?? null;
+            const websiteUrl = raw.website_url ?? raw.source_url ?? raw.url ?? null;
             return (
               <div
                 key={record.id}
@@ -317,6 +397,13 @@ export default async function AssignorReviewPage({ searchParams }: { searchParam
                     {orgName ? (
                       <div style={{ color: "#555", fontSize: 13 }}>Org: {orgName}</div>
                     ) : null}
+                    {websiteUrl ? (
+                      <div style={{ marginTop: 6 }}>
+                        <a href={websiteUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#0f172a" }}>
+                          {websiteUrl}
+                        </a>
+                      </div>
+                    ) : null}
                   </div>
                   <div style={{ minWidth: 200, fontSize: 13, color: "#333" }}>
                     <div>Confidence: {record.confidence ?? "—"}</div>
@@ -330,6 +417,95 @@ export default async function AssignorReviewPage({ searchParams }: { searchParam
                     ) : null}
                   </div>
                 </div>
+
+                <form action={updateRecordAction} style={{ marginTop: 12 }}>
+                  <input type="hidden" name="id" value={record.id} />
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 10,
+                      gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+                    }}
+                  >
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Name
+                      <input
+                        name="name"
+                        defaultValue={raw.name ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Organization
+                      <input
+                        name="organization"
+                        defaultValue={orgName ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Email
+                      <input
+                        name="email"
+                        defaultValue={raw.email ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Phone
+                      <input
+                        name="phone"
+                        defaultValue={raw.phone ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      City
+                      <input
+                        name="city"
+                        defaultValue={raw.city ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      State
+                      <input
+                        name="state"
+                        defaultValue={raw.state ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Sport
+                      <input
+                        name="sport"
+                        defaultValue={raw.sport ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Website URL
+                      <input
+                        name="website_url"
+                        defaultValue={websiteUrl ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                  </div>
+                  <button
+                    style={{
+                      marginTop: 10,
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #0f172a",
+                      background: "#0f172a",
+                      color: "#fff",
+                      fontWeight: 800,
+                    }}
+                  >
+                    Save edits
+                  </button>
+                </form>
 
                 <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
                   <form action={approveAction}>

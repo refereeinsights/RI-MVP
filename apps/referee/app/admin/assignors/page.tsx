@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import Link from "next/link";
 import StateMultiSelect from "@/app/tournaments/StateMultiSelect";
+import { normalizeStateAbbr, normalizeStateDisplay, stateAliases } from "@/lib/usStates";
 import "../../tournaments/tournaments.css";
 
 export const runtime = "nodejs";
@@ -129,7 +130,7 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
   const q = (searchParams.q ?? "").trim();
   const stateParam = searchParams.state;
   const stateSelectionsRaw = (Array.isArray(stateParam) ? stateParam : stateParam ? [stateParam] : [])
-    .map((s) => String(s).trim().toUpperCase())
+    .map((s) => normalizeStateDisplay(String(s)))
     .filter(Boolean);
   const ALL_STATES_VALUE = "__ALL__";
   const stateSelections = stateSelectionsRaw.filter((s) => s !== ALL_STATES_VALUE);
@@ -139,6 +140,9 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
     : stateSelections.length <= 3
     ? stateSelections.join(", ")
     : `${stateSelections.length} states`;
+  const stateFilterList = isAllStates
+    ? []
+    : Array.from(new Set(stateSelections.flatMap((selection) => stateAliases(selection))));
   const zip = (searchParams.zip ?? "").trim();
   const distanceParam = (searchParams.distance ?? "").trim();
   const distanceMiles = distanceParam ? Number(distanceParam) : 0;
@@ -150,18 +154,28 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
 
   let assignors: AssignorRow[] = [];
   if (!q) {
-    const { data } = await supabaseAdmin
+    let baseQuery = supabaseAdmin
       .from("assignors" as any)
       .select(selectColumns)
       .order("last_seen_at", { ascending: false })
-      .limit(100);
+      .neq("review_status", "rejected")
+      .limit(200);
+    if (stateFilterList.length) {
+      baseQuery = baseQuery.in("base_state", stateFilterList);
+    }
+    const { data } = await baseQuery;
     assignors = (data ?? []) as AssignorRow[];
   } else {
-    const { data: nameMatches } = await supabaseAdmin
+    let nameQuery = supabaseAdmin
       .from("assignors" as any)
       .select(selectColumns)
       .ilike("display_name", `%${q}%`)
-      .limit(100);
+      .neq("review_status", "rejected")
+      .limit(200);
+    if (stateFilterList.length) {
+      nameQuery = nameQuery.in("base_state", stateFilterList);
+    }
+    const { data: nameMatches } = await nameQuery;
 
     const { data: contactMatches } = await supabaseAdmin
       .from("assignor_contacts" as any)
@@ -176,11 +190,16 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
     ).filter((id) => !seen.has(id)) as string[];
 
     if (contactIds.length) {
-      const { data: contactAssignors } = await supabaseAdmin
+      let contactQuery = supabaseAdmin
         .from("assignors" as any)
         .select(selectColumns)
         .in("id", contactIds)
-        .limit(100);
+        .neq("review_status", "rejected")
+        .limit(200);
+      if (stateFilterList.length) {
+        contactQuery = contactQuery.in("base_state", stateFilterList);
+      }
+      const { data: contactAssignors } = await contactQuery;
       assignors = [...nameRows, ...((contactAssignors ?? []) as AssignorRow[])].slice(0, 100);
     } else {
       assignors = nameRows;
@@ -189,9 +208,7 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
 
   if (!isAllStates && stateSelections.length) {
     const stateSet = new Set(stateSelections);
-    assignors = assignors.filter((row) =>
-      stateSet.has(String(row.base_state ?? "").toUpperCase())
-    );
+    assignors = assignors.filter((row) => stateSet.has(normalizeStateDisplay(row.base_state)));
   }
   if (zip) {
     if (Number.isFinite(distanceMiles) && distanceMiles > 0) {
@@ -207,8 +224,12 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
     }
   }
 
+  const { data: stateRows } = await supabaseAdmin
+    .from("assignors" as any)
+    .select("base_state")
+    .limit(1500);
   const allStates = Array.from(
-    new Set(assignors.map((row) => String(row.base_state ?? "").toUpperCase()).filter(Boolean))
+    new Set((stateRows ?? []).map((row: any) => normalizeStateDisplay(row?.base_state)).filter(Boolean))
   ).sort();
   const assignorIds = assignors.map((row) => row.id);
   const { data: coverage } = assignorIds.length
@@ -227,7 +248,7 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
   });
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="adminAssignors" style={{ padding: 24 }}>
       <AdminNav />
       <h1 style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>Assignors Directory</h1>
       <AssignorAdminNav />
@@ -333,7 +354,7 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
                       </Link>
                     </td>
                     <td style={{ padding: "6px 4px" }}>
-                      {[assignor.base_city, assignor.base_state].filter(Boolean).join(", ") || "—"}
+                      {[assignor.base_city, normalizeStateAbbr(assignor.base_state)].filter(Boolean).join(", ") || "—"}
                     </td>
                     <td style={{ padding: "6px 4px" }}>{assignor.zip ?? "—"}</td>
                     <td style={{ padding: "6px 4px" }}>{sports.length ? sports.join(", ") : "—"}</td>
@@ -363,6 +384,7 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
           </tbody>
         </table>
       </div>
+
     </div>
   );
 }

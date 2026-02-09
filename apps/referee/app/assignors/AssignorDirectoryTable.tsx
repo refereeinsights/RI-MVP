@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import AssignorContactCells from "./AssignorContactCells";
+import { normalizeStateAbbr } from "@/lib/usStates";
 
 type AssignorRow = {
   id: string;
@@ -151,7 +152,7 @@ export default function AssignorDirectoryTable({
                     onReveal={handleReveal}
                   />
                   <td style={{ padding: "6px 4px" }}>
-                    {[normalizeCityLabel(assignor.base_city), assignor.base_state]
+                    {[normalizeCityLabel(assignor.base_city), normalizeStateAbbr(assignor.base_state)]
                       .filter(Boolean)
                       .join(", ") || "—"}
                   </td>
