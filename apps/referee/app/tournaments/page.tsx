@@ -283,6 +283,32 @@ export default async function TournamentsPage({
           >
             Referee-submitted insight on pay, organization, and on-site experience — so you can decide with confidence.
           </p>
+          <div
+            className="subtitle"
+            style={{
+              marginTop: 12,
+              maxWidth: 860,
+              fontSize: 14,
+              lineHeight: 1.6,
+              color: "#1f2937",
+            }}
+          >
+            <p style={{ marginTop: 0 }}>
+              RefereeInsights is building a public beta directory for tournaments so officials can evaluate assignments
+              before committing. Listings are compiled from public sources and may be incomplete or outdated; we show
+              what we have and invite corrections. This page is designed to help referees compare events by location,
+              timing, and sport while we gather verified insights from working crews. As reviews and decision signals
+              arrive, you will see richer context like logistics, support, and on-site conditions. Until then, treat each
+              listing as a starting point, not a promise of quality or pay.
+            </p>
+            <p>
+              If you are working an event, you can help improve the directory by reporting issues or submitting verified
+              updates. We are intentionally conservative about what we claim — no ratings or guarantees, just factual
+              details that can be sourced and confirmed. The goal is simple: a referee-first resource that reduces
+              surprises and helps crews plan travel, time, and expectations. Thank you for helping us grow this catalog
+              responsibly as the public beta expands.
+            </p>
+          </div>
           <InsightDisclaimer />
           <div
             style={{

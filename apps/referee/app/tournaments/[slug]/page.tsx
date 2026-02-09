@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
+import type { Metadata } from "next";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import ReferralCTA from "@/components/ReferralCTA";
 import AdSlot from "@/components/AdSlot";
@@ -43,6 +44,8 @@ type EngagementRow = {
 
 // Revalidate tournament detail pages every 5 minutes.
 export const revalidate = 300;
+
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -99,6 +102,64 @@ function getEngagementSignals(row?: EngagementRow) {
   return ordered.slice(0, 2);
 }
 
+function buildLocationLabel(city: string | null, state: string | null) {
+  const parts = [city, state].filter(Boolean);
+  if (!parts.length) return "";
+  return `(${parts.join(", ")})`;
+}
+
+function buildCanonicalUrl(slug: string) {
+  return `${SITE_ORIGIN}/tournaments/${slug}`;
+}
+
+function normalizeSportSlug(sport: string) {
+  return sport.trim().toLowerCase().replace(/\s+/g, "-");
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { slug: string };
+}): Promise<Metadata> {
+  type TournamentMeta = {
+    name: string | null;
+    city: string | null;
+    state: string | null;
+    start_date: string | null;
+    slug: string | null;
+  };
+  const { data, error } = await supabaseAdmin
+    .from("tournaments" as any)
+    .select("name,city,state,start_date,slug")
+    .eq("slug", params.slug)
+    .maybeSingle<TournamentMeta>();
+  if (error || !data) {
+    return {
+      title: "Tournament listing | RefereeInsights",
+      description:
+        "Public beta tournament listing. Tournament details sourced from public listings. Referee insights coming soon.",
+      alternates: {
+        canonical: buildCanonicalUrl(params.slug),
+      },
+    };
+  }
+  const year = data.start_date ? new Date(`${data.start_date}T00:00:00`).getFullYear() : null;
+  const locationLabel = buildLocationLabel(data.city ?? null, data.state ?? null);
+  const titlePrefix = year ? `${year} ` : "";
+  const title = `${titlePrefix}${data.name}${locationLabel ? ` ${locationLabel}` : ""} | RefereeInsights`;
+  const description = `Public beta listing for ${data.name}${
+    locationLabel ? ` ${locationLabel}` : ""
+  }. Tournament details sourced from public listings. Referee insights coming soon.`;
+  const canonical = buildCanonicalUrl(data.slug ?? params.slug);
+  return {
+    title,
+    description,
+    alternates: {
+      canonical,
+    },
+  };
+}
+
 export default async function TournamentDetailPage({
   params,
 }: {
@@ -147,6 +208,37 @@ export default async function TournamentDetailPage({
   const addInsightHref = `/tournaments/list?intent=insight&entity_type=tournament&tournament_slug=${encodeURIComponent(
     data.slug ?? ""
   )}&tournament_id=${encodeURIComponent(data.id)}&source_url=${encodeURIComponent(detailPath)}`;
+  const canonicalUrl = buildCanonicalUrl(data.slug ?? params.slug);
+  const eventLd: Record<string, any> = {
+    "@context": "https://schema.org",
+    "@type": "Event",
+    name: data.name,
+    url: canonicalUrl,
+  };
+  const sportSlug = data.sport ? normalizeSportSlug(data.sport) : null;
+  if (data.start_date) eventLd.startDate = data.start_date;
+  if (data.end_date) eventLd.endDate = data.end_date;
+  const hasLocation = data.venue || data.address || data.city || data.state || data.zip;
+  if (hasLocation) {
+    const address: Record<string, string> = {};
+    if (data.address) address.streetAddress = data.address;
+    if (data.city) address.addressLocality = data.city;
+    if (data.state) address.addressRegion = data.state;
+    if (data.zip) address.postalCode = data.zip;
+    if (data.state) address.addressCountry = "US";
+    eventLd.location = {
+      "@type": "Place",
+      ...(data.venue ? { name: data.venue } : {}),
+      ...(Object.keys(address).length
+        ? {
+            address: {
+              "@type": "PostalAddress",
+              ...address,
+            },
+          }
+        : {}),
+    };
+  }
 
   let engagementRow: EngagementRow | null = null;
   if (FEATURE_TOURNAMENT_ENGAGEMENT_BADGES) {
@@ -173,6 +265,10 @@ export default async function TournamentDetailPage({
 
   return (
     <main className="pitchWrap tournamentsWrap">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(eventLd) }}
+      />
       <section className="field tournamentsField detailField">
         <div className="breadcrumbs">
           <Link href="/tournaments">Tournaments</Link>
@@ -195,6 +291,24 @@ export default async function TournamentDetailPage({
             {data.end_date && data.end_date !== data.start_date ? ` – ${formatDate(data.end_date)}` : ""}
           </p>
 
+          {data.sport && sportSlug ? (
+            <p className="detailMeta">
+              Browse:{" "}
+              <Link href={`/tournaments/hubs/${sportSlug}`}>
+                {data.sport} tournaments
+              </Link>
+              {data.state ? (
+                <>
+                  {" "}
+                  •{" "}
+                  <Link href={`/tournaments/hubs/${sportSlug}/${data.state.toLowerCase()}`}>
+                    {data.sport} in {data.state}
+                  </Link>
+                </>
+              ) : null}
+            </p>
+          ) : null}
+
           {(data.venue || data.address) && (
             <p className="detailMeta">
               {data.venue ? `${data.venue}` : ""}
@@ -207,6 +321,34 @@ export default async function TournamentDetailPage({
             {data.summary ||
               "Tournament details sourced from public listings. More referee insights coming soon."}
           </p>
+
+          <p className="detailBody" style={{ marginTop: 10 }}>
+            This listing is part of RefereeInsights public beta. We’re building a
+            referee-first directory so officials can quickly understand tournament
+            logistics and working conditions before accepting assignments. Insights and
+            decision signals will appear here as they’re collected and verified over time.
+          </p>
+
+          <div
+            style={{
+              marginTop: 10,
+              marginBottom: 14,
+              background: "rgba(255,255,255,0.9)",
+              border: "1px solid #d9e3f0",
+              borderRadius: 14,
+              padding: "10px 12px",
+              boxShadow: "0 3px 10px rgba(0,0,0,0.18)",
+              maxWidth: 900,
+            }}
+          >
+            <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4, color: "#0b172a" }}>
+              ⏳ Insights still being collected
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.45, color: "#22324a" }}>
+              If you’re working this event, you can help by reporting issues or requesting
+              verified updates. More signals will appear as the directory fills in.
+            </div>
+          </div>
 
           <div
             style={{
