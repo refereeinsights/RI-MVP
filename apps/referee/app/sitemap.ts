@@ -16,9 +16,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const rows = (data ?? []) as Array<{ slug: string; sport: string | null; state: string | null; updated_at?: string | null }>;
   const entries: MetadataRoute.Sitemap = [];
+  const seen = new Set<string>();
   const now = new Date();
 
   const add = (path: string, lastModified?: string | null) => {
+    const url = `${SITE_ORIGIN}${path}`;
+    if (seen.has(url)) return;
+    seen.add(url);
     entries.push({
       url: `${SITE_ORIGIN}${path}`,
       lastModified: lastModified ? new Date(lastModified) : now,
