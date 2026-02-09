@@ -25,9 +25,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const buildStamp = process.env.NEXT_PUBLIC_BUILD_ID ?? process.env.VERCEL_GIT_COMMIT_SHA;
-  const buildShort = buildStamp ? buildStamp.slice(0, 7) : null;
-
   return (
     <html lang="en">
       <body>
@@ -108,6 +105,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 margin: "0 auto",
                 flexWrap: "wrap",
               }}
+              className="siteHeaderNav"
             >
               <div
                 style={{
@@ -174,9 +172,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     textDecoration: "none",
                     paddingBottom: "0.25rem",
                     borderBottom: "2px solid #2F6FED",
+                    display: "inline-flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    lineHeight: 1.05,
+                    textAlign: "center",
                   }}
                 >
-                  Tournament Directory
+                  <span>Tournament</span>
+                  <span>Directory</span>
                 </a>
 
                 <a
@@ -190,9 +194,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     textDecoration: "none",
                     paddingBottom: "0.25rem",
                     borderBottom: "2px solid #2F6FED",
+                    display: "inline-flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    lineHeight: 1.05,
+                    textAlign: "center",
                   }}
                 >
-                  School Reviews
+                  <span>School</span>
+                  <span>Reviews</span>
                 </a>
 
                 <a
@@ -206,9 +216,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     textDecoration: "none",
                     paddingBottom: "0.25rem",
                     borderBottom: "2px solid #2F6FED",
+                    display: "inline-flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    lineHeight: 1.05,
+                    textAlign: "center",
                   }}
                 >
-                  Assignor Directory
+                  <span>Assignor</span>
+                  <span>Directory</span>
                 </a>
 
                 <a
@@ -222,9 +238,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     textDecoration: "none",
                     paddingBottom: "0.25rem",
                     borderBottom: "2px solid #2F6FED",
+                    display: "inline-flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    lineHeight: 1.05,
+                    textAlign: "center",
                   }}
                 >
-                  How it works
+                  <span>How it</span>
+                  <span>Works</span>
                 </a>
 
                 <a
@@ -238,12 +260,17 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     textDecoration: "none",
                     paddingBottom: "0.25rem",
                     borderBottom: "2px solid rgba(255,255,255,0.6)",
+                    display: "inline-flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    lineHeight: 1.05,
+                    textAlign: "center",
                   }}
                 >
-                  Signup
+                  <span>Sign</span>
+                  <span>Up</span>
                 </a>
               </div>
-
             </nav>
           </header>
 
@@ -296,11 +323,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <div style={{ fontSize: 12, color: "#555" }}>
               RefereeInsights™ is a trademark of Referee Insights.
             </div>
-            {buildShort ? (
-              <div style={{ fontSize: 11, color: "#777", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                Build {buildShort}
-              </div>
-            ) : null}
           </footer>
         </PostHogClientProvider>
       </body>

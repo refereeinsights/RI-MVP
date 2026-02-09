@@ -19,6 +19,8 @@ type AssignorDetailRow = {
   review_status: string | null;
 };
 
+const SPORT_OPTIONS = ["soccer", "basketball", "football"] as const;
+
 function normalizeContact(type: string, value: string) {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -58,6 +60,15 @@ export default async function AssignorDetailPage({
   const phoneContact = primaryContact("phone");
   const websiteContact = primaryContact("website");
   const notice = searchParams?.notice ?? "";
+  const { data: coverageRows } = assignor
+    ? await supabaseAdmin
+        .from("assignor_coverage" as any)
+        .select("sport")
+        .eq("assignor_id", assignor.id)
+    : { data: [] as any[] };
+  const coverageSports = new Set(
+    (coverageRows ?? []).map((row: any) => String(row?.sport ?? "").toLowerCase()).filter(Boolean)
+  );
 
   async function updateAssignorAction(formData: FormData) {
     "use server";
@@ -113,6 +124,16 @@ export default async function AssignorDetailPage({
       });
       if (insertError) {
         redirect(`/admin/assignors/${id}?notice=${encodeURIComponent(`Save failed: ${insertError.message}`)}`);
+      }
+    }
+
+    const selectedSports = SPORT_OPTIONS.filter((sport) => formData.get(`sport_${sport}`) === "on");
+    await supabaseAdmin.from("assignor_coverage" as any).delete().eq("assignor_id", id);
+    if (selectedSports.length) {
+      const rows = selectedSports.map((sport) => ({ assignor_id: id, sport }));
+      const { error: coverageError } = await supabaseAdmin.from("assignor_coverage" as any).insert(rows);
+      if (coverageError) {
+        redirect(`/admin/assignors/${id}?notice=${encodeURIComponent(`Save failed: ${coverageError.message}`)}`);
       }
     }
     revalidatePath(`/admin/assignors/${id}`);
@@ -234,6 +255,21 @@ export default async function AssignorDetailPage({
                 </a>
               </div>
             ) : null}
+            <div style={{ fontSize: 12, fontWeight: 700 }}>
+              Sports
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
+                {SPORT_OPTIONS.map((sport) => (
+                  <label key={sport} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <input
+                      type="checkbox"
+                      name={`sport_${sport}`}
+                      defaultChecked={coverageSports.has(sport)}
+                    />
+                    <span style={{ textTransform: "capitalize" }}>{sport}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
             <button
               style={{
                 padding: "10px 12px",

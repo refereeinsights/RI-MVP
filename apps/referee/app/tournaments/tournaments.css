@@ -248,6 +248,18 @@
   transform: translateY(0);
 }
 
+.siteHeaderNav a {
+  line-height: 1.05;
+}
+
+@media (max-width: 720px) {
+  .siteHeaderNav a {
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    line-height: 1.1;
+  }
+}
+
 .adminAssignors .stateDropdown {
   position: relative;
 }

@@ -224,6 +224,18 @@ export default async function AssignorsPage({ searchParams }: { searchParams: Se
     }
   }
 
+  const sortKey = (value?: string | null) => (value ?? "").toLowerCase();
+  const statusRank = (value?: string | null) => (value === "needs_review" ? 0 : 1);
+  assignors = [...assignors].sort((a, b) => {
+    const statusDiff = statusRank(a.review_status) - statusRank(b.review_status);
+    if (statusDiff !== 0) return statusDiff;
+    const stateDiff = sortKey(a.base_state).localeCompare(sortKey(b.base_state));
+    if (stateDiff !== 0) return stateDiff;
+    const cityDiff = sortKey(a.base_city).localeCompare(sortKey(b.base_city));
+    if (cityDiff !== 0) return cityDiff;
+    return sortKey(a.display_name).localeCompare(sortKey(b.display_name));
+  });
+
   const { data: stateRows } = await supabaseAdmin
     .from("assignors" as any)
     .select("base_state")
