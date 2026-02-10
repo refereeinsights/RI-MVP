@@ -154,6 +154,8 @@ export default function EnrichmentClient({
   const [manualUrls, setManualUrls] = React.useState<Record<string, string>>({});
   const [applyStatus, setApplyStatus] = React.useState<Record<string, string>>({});
   const [selectedItems, setSelectedItems] = React.useState<Record<string, Set<string>>>({});
+  const [batchLimit, setBatchLimit] = React.useState<number>(50);
+  const [batchStatus, setBatchStatus] = React.useState<string>("");
   const tournamentUrlFor = React.useCallback(
     (tournamentId: string) => tournamentUrlLookup[tournamentId] ?? null,
     [tournamentUrlLookup]
@@ -420,6 +422,30 @@ export default function EnrichmentClient({
       return;
     }
     setUrlSearchStatus(`Applied ${json.applied ?? 0}/${json.total ?? selected.length}. Refreshing...`);
+    refreshPage();
+  };
+
+  const runBatch = async () => {
+    setBatchStatus("Running...");
+    const res = await fetch("/api/admin/tournaments/enrichment/queue-all", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ limit: batchLimit }),
+    });
+    const raw = await res.text();
+    let json: any = null;
+    try {
+      json = raw ? JSON.parse(raw) : null;
+    } catch {
+      json = null;
+    }
+    if (!res.ok || json?.error) {
+      setBatchStatus(`Run failed: ${json?.error || res.statusText}`);
+      return;
+    }
+    setBatchStatus(
+      `Queued ${json.queued ?? 0} tournament(s). Ran enrichment for ${json.ran ?? 0}.`
+    );
     refreshPage();
   };
 
@@ -847,6 +873,28 @@ export default function EnrichmentClient({
           </div>
         </section>
       </div>
+
+      <section style={{ marginTop: 20, border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
+        <h2 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Run enrichment for tournaments with URLs</h2>
+        <div style={{ display: "grid", gap: 8, maxWidth: 420 }}>
+          <label style={{ fontSize: 12, color: "#4b5563" }}>Max tournaments to queue</label>
+          <input
+            type="number"
+            min={1}
+            max={200}
+            value={batchLimit}
+            onChange={(e) => setBatchLimit(Number(e.target.value || 0))}
+            style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+          />
+          <button
+            onClick={runBatch}
+            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff", fontWeight: 700 }}
+          >
+            Run enrichment batch
+          </button>
+          {batchStatus ? <div style={{ fontSize: 12, color: "#4b5563" }}>{batchStatus}</div> : null}
+        </div>
+      </section>
 
       <section style={{ marginTop: 20, border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
         <h2 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Approve enrichment by tournament</h2>

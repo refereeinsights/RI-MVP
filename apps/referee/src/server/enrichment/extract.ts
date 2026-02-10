@@ -108,8 +108,29 @@ function isLikelyEmail(email: string) {
     return false;
   }
   if (!domain.includes(".")) return false;
+  const domainRoot = domain.split(".")[0] || "";
+  if (domainRoot.length < 2) return false;
   const tld = domain.split(".").pop() || "";
   if (tld.length < 2 || tld.length > 6) return false;
+  const blockedTlds = new Set([
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "svg",
+    "webp",
+    "css",
+    "js",
+    "json",
+    "pdf",
+    "woff",
+    "woff2",
+    "ttf",
+    "eot",
+    "map",
+    "ico",
+  ]);
+  if (blockedTlds.has(tld)) return false;
   return true;
 }
 
@@ -239,7 +260,8 @@ function extractContacts(html: string, url: string): ContactCandidate[] {
       urlLower.includes("contact") || urlLower.includes("info") || normalizedHtml.toLowerCase().includes("contact us");
     const globalLower = normalizedHtml.toLowerCase();
 
-    const email = entry.value.includes("@") || entry.value.includes("[at") ? normalizeEmail(entry.value) : null;
+    let email = entry.value.includes("@") || entry.value.includes("[at") ? normalizeEmail(entry.value) : null;
+    if (email && !isLikelyEmail(email)) email = null;
     const phone = entry.value.match(PHONE_REGEX) ? entry.value.trim() : null;
 
     const hasContact = Boolean(email || phone);
@@ -309,6 +331,7 @@ function extractContacts(html: string, url: string): ContactCandidate[] {
 
   // Ensure at least one contact exists for any tokenized email (for test robustness)
   for (const email of tokenEmails) {
+    if (!isLikelyEmail(email)) continue;
     const exists = contacts.some((c) => c.email === email);
     if (!exists) {
       const { role } = classifyRole(normalizedHtml.slice(0, 240));
@@ -331,6 +354,9 @@ function extractContacts(html: string, url: string): ContactCandidate[] {
     const fallback = html.match(/([A-Z0-9._%+-]+)\s*\[\s*at\s*\]\s*([A-Z0-9.-]+)\s*\[\s*dot\s*\]\s*([A-Z]{2,})/i);
     if (fallback) {
       const email = `${fallback[1]}@${fallback[2]}.${fallback[3]}`.toLowerCase();
+      if (!isLikelyEmail(email)) {
+        // skip noisy tokens that look like assets
+      } else {
       contacts.push({
         tournament_id: "",
         role_raw: "contact",
@@ -342,11 +368,13 @@ function extractContacts(html: string, url: string): ContactCandidate[] {
         evidence_text: html.slice(0, 300),
         confidence: 0.5,
       });
+      }
     }
   }
 
   // Absolute safety net for tests: if no contact contains the target email string but we parsed one, add it.
   for (const email of tokenEmails) {
+    if (!isLikelyEmail(email)) continue;
     if (!contacts.some((c) => c.email === email)) {
       contacts.push({
         tournament_id: "",
@@ -365,17 +393,19 @@ function extractContacts(html: string, url: string): ContactCandidate[] {
   // If no contact emails captured, fall back to the first parsed email string.
   if (!contacts.some((c) => c.email) && windows.some((w) => w.value.includes("@"))) {
     const first = windows.find((w) => w.value.includes("@"))!.value.toLowerCase();
-    contacts.push({
-      tournament_id: "",
-      role_raw: "contact",
-      role_normalized: "GENERAL",
-      name: extractName(html) ?? null,
-      email: first,
-      phone: null,
-      source_url: url,
-      evidence_text: html.slice(0, 300),
-      confidence: 0.5,
-    });
+    if (isLikelyEmail(first)) {
+      contacts.push({
+        tournament_id: "",
+        role_raw: "contact",
+        role_normalized: "GENERAL",
+        name: extractName(html) ?? null,
+        email: first,
+        phone: null,
+        source_url: url,
+        evidence_text: html.slice(0, 300),
+        confidence: 0.5,
+      });
+    }
   }
 
   // If the page mentions a tournament director anywhere and we have an email, ensure at least one TD contact.
