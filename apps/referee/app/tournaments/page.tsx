@@ -550,7 +550,18 @@ export default async function TournamentsPage({
               <div className="actions">
                 <Link className="btn" href={`/tournaments/${t.slug}`}>View details</Link>
                 {(t.official_website_url || t.source_url) ? (
-                  <a className="btn" href={`/go/tournament/${t.id}`} target="_blank" rel="noopener noreferrer">Official site</a>
+                  <a
+                    className="btn"
+                    href={
+                      t.slug === "refereeinsights-demo-tournament"
+                        ? `/tournaments/${t.slug}`
+                        : `/go/tournament/${t.id}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Official site
+                  </a>
                 ) : null}
               </div>
 
