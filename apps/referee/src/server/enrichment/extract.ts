@@ -465,8 +465,22 @@ function extractComp($: cheerio.CheerioAPI, url: string): { comps: CompCandidate
   const pdfs: CompCandidate[] = [];
   const text = $.text();
   const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const urlLower = (url || "").toLowerCase();
+  const pageHasRefereeContext =
+    urlLower.includes("referee") ||
+    urlLower.includes("referees") ||
+    urlLower.includes("officials") ||
+    urlLower.includes("assignor") ||
+    urlLower.includes("refs");
 
   lines.forEach((line, idx) => {
+    const lowerLine = line.toLowerCase();
+    const lineHasRefereeContext =
+      lowerLine.includes("referee") ||
+      lowerLine.includes("officials") ||
+      lowerLine.includes("assignor") ||
+      lowerLine.includes("refs");
+    const allowTravel = pageHasRefereeContext || lineHasRefereeContext;
     if (!line.includes("$") && !TRAVEL_KEYWORDS.some((k) => line.toLowerCase().includes(k))) return;
     const windowLines = [lines[idx - 1], line, lines[idx + 1]].filter(Boolean);
     const evidence = windowLines.join(" | ").slice(0, 400);
@@ -492,8 +506,9 @@ function extractComp($: cheerio.CheerioAPI, url: string): { comps: CompCandidate
       (RATE_KEYWORDS.some((k) => lower.includes(k)) ? 0.1 : 0);
 
     const travelContext = windowLines.find((l) => TRAVEL_KEYWORDS.some((k) => l.toLowerCase().includes(k)));
+    const travelAllowed = allowTravel && Boolean(travelContext);
 
-    if (amountMin || TRAVEL_KEYWORDS.some((k) => lower.includes(k))) {
+    if (amountMin || travelAllowed) {
       comps.push({
         tournament_id: "",
         rate_text: line || null,
@@ -501,7 +516,7 @@ function extractComp($: cheerio.CheerioAPI, url: string): { comps: CompCandidate
         rate_amount_max: amountMax ?? amountMin ?? null,
         rate_unit: rateUnit,
         division_context: divisionMatch ? divisionMatch[1] : null,
-        travel_housing_text: travelContext ? travelContext.slice(0, 400) : null,
+        travel_housing_text: travelAllowed ? travelContext?.slice(0, 400) ?? null : null,
         assigning_platforms: ASSIGNING_PLATFORMS.filter((p) => lower.includes(p)),
         source_url: url,
         evidence_text: evidence,
@@ -587,6 +602,9 @@ export function rankLinks($: cheerio.CheerioAPI, baseUrl: URL): string[] {
       keywordHits.forEach((k) => {
         if (path.includes(k) || text.includes(k)) score += 2;
       });
+      if (path.includes("referee") || path.includes("referees") || path.includes("officials") || path.includes("assignor") || text.includes("referee") || text.includes("officials")) {
+        score += 6;
+      }
       if (!score) score = 1; // keep root-linked pages
       scores[key] = Math.max(scores[key] || 0, score);
     } catch {

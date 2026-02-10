@@ -51,7 +51,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   let tQuery = supabase
     .from("tournaments" as any)
     .select("id,name,start_date,state,city,status,source_url,official_website_url,venue,address,sport")
-    .gte("start_date", start);
+    .or(`start_date.gte.${start},start_date.is.null`);
   if (end) tQuery = tQuery.lte("start_date", end);
   if (sport) tQuery = tQuery.eq("sport", sport);
   if (states.length) tQuery = tQuery.in("state", states);
@@ -63,7 +63,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   let byStateQuery = supabase
     .from("tournaments" as any)
     .select("id,name,start_date,state,city,status,source_url,official_website_url,venue,address,sport")
-    .gte("start_date", start);
+    .or(`start_date.gte.${start},start_date.is.null`);
   if (end) byStateQuery = byStateQuery.lte("start_date", end);
   if (sport) byStateQuery = byStateQuery.eq("sport", sport);
   const byStateRes = await byStateQuery;
@@ -124,11 +124,11 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
     {}
   );
 
-  // Top sources (run rows in last 30 days)
+  // Top sources (log rows in last 30 days)
   const thirtyAgo = addDays(-30);
   const runsRes = await supabase
-    .from("tournament_sources" as any)
-    .select("id,source_url,url,extracted_json,fetched_at")
+    .from("tournament_source_logs" as any)
+    .select("id,source_url,fetched_at,extracted_json")
     .gte("fetched_at", thirtyAgo)
     .not("fetched_at", "is", null);
   const runs = (runsRes.data ?? []).filter((r: any) => r.fetched_at);
@@ -351,7 +351,9 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
             </tr>
           </thead>
           <tbody>
-            {Array.from(byStateMap.entries()).map(([st, row]) => (
+            {Array.from(byStateMap.entries())
+              .sort((a, b) => (b[1].total ?? 0) - (a[1].total ?? 0))
+              .map(([st, row]) => (
               <tr key={st}>
                 <td style={{ padding: "6px 4px" }}>{st}</td>
                 <td style={{ padding: "6px 4px" }}>{row.total}</td>
