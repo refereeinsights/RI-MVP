@@ -53,6 +53,7 @@ import {
   type ContactStatus,
 } from "@/lib/admin";
 import { queueEnrichmentJobs } from "@/server/enrichment/pipeline";
+import { runQueuedEnrichment } from "@/server/enrichment/pipeline";
 import {
   cleanCsvRows,
   csvRowsToTournamentRows,
@@ -312,6 +313,90 @@ export default async function AdminPage({
       redirectWithNotice(redirectTo, msg);
     }
     redirectWithNotice(redirectTo, "Enrichment queued");
+  }
+
+  async function discoverTournamentContactsAction(formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to");
+    const limitInput = Number(formData.get("limit") ?? "10");
+    const limit = Number.isFinite(limitInput) ? Math.max(1, Math.min(limitInput, 25)) : 10;
+
+    const { data: tournaments, error } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("id,official_website_url,source_url,enrichment_skip,tournament_director,referee_contact")
+      .eq("enrichment_skip", false)
+      .or("official_website_url.not.is.null,source_url.not.is.null")
+      .is("tournament_director", null)
+      .is("referee_contact", null)
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      redirectWithNotice(redirectTo, `Contact discovery failed: ${error.message}`);
+    }
+
+    const tournamentIds = (tournaments ?? []).map((t: any) => t.id).filter(Boolean);
+    if (!tournamentIds.length) {
+      redirectWithNotice(redirectTo, "No tournaments missing contact info.");
+    }
+
+    await queueEnrichmentJobs(tournamentIds);
+    await runQueuedEnrichment(Math.min(20, tournamentIds.length));
+
+    const { data: candidates } = await supabaseAdmin
+      .from("tournament_contact_candidates" as any)
+      .select("id,tournament_id,role_normalized,name,email,phone,source_url,confidence")
+      .in("tournament_id", tournamentIds)
+      .is("accepted_at", null)
+      .is("rejected_at", null)
+      .limit(200);
+
+    const existingResp = await supabaseAdmin
+      .from("tournament_contacts" as any)
+      .select("tournament_id,type,name,email,phone")
+      .in("tournament_id", tournamentIds);
+
+    const existingKeys = new Set<string>();
+    (existingResp.data ?? []).forEach((row: any) => {
+      const key = `${row.tournament_id}|${row.type}|${row.name ?? ""}|${row.email ?? ""}|${row.phone ?? ""}`;
+      existingKeys.add(key.toLowerCase());
+    });
+
+    const toInsert = (candidates ?? []).map((row: any) => {
+      let type: "assignor" | "director" | "general" = "general";
+      if (row.role_normalized === "TD") type = "director";
+      if (row.role_normalized === "ASSIGNOR") type = "assignor";
+      return {
+        tournament_id: row.tournament_id,
+        type,
+        name: row.name ?? null,
+        email: row.email ?? null,
+        phone: row.phone ?? null,
+        source_url: row.source_url ?? null,
+        confidence: row.confidence ?? null,
+        status: "pending",
+        notes: "Auto-discovered from tournament site.",
+      };
+    }).filter((row: any) => {
+      const key = `${row.tournament_id}|${row.type}|${row.name ?? ""}|${row.email ?? ""}|${row.phone ?? ""}`;
+      return !existingKeys.has(key.toLowerCase());
+    });
+
+    if (toInsert.length) {
+      await supabaseAdmin.from("tournament_contacts" as any).insert(toInsert);
+      const candidateIds = (candidates ?? []).map((c: any) => c.id).filter(Boolean);
+      if (candidateIds.length) {
+        await supabaseAdmin
+          .from("tournament_contact_candidates" as any)
+          .update({ accepted_at: new Date().toISOString() })
+          .in("id", candidateIds);
+      }
+    }
+
+    redirectWithNotice(
+      redirectTo,
+      `Contact discovery queued for ${tournamentIds.length} tournament(s). Added ${toInsert.length} pending contact(s).`
+    );
   }
 
   async function awardBadgeAction(formData: FormData) {
@@ -2633,6 +2718,39 @@ export default async function AdminPage({
               background: "#fff",
             }}
           >
+            <h3 style={{ marginTop: 0, fontSize: 16 }}>Discover contacts for missing tournaments</h3>
+            <form action={discoverTournamentContactsAction} style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                Max tournaments to scan
+                <input
+                  type="number"
+                  name="limit"
+                  min={1}
+                  max={25}
+                  defaultValue={10}
+                  style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                />
+              </label>
+              <button
+                type="submit"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #0f3d2e",
+                  background: "#0f3d2e",
+                  color: "#fff",
+                  fontWeight: 700,
+                  width: "fit-content",
+                }}
+              >
+                Discover contacts
+              </button>
+              <p style={{ fontSize: 12, color: "#555", margin: 0 }}>
+                Queues enrichment for tournaments missing contact info, then promotes discovered contacts to the review queue.
+              </p>
+            </form>
+
             <h3 style={{ marginTop: 0, fontSize: 16 }}>Queue site enrichment</h3>
             <form action={queueEnrichmentAction} style={{ display: "grid", gap: 12, marginBottom: 16 }}>
               <input type="hidden" name="redirect_to" value={adminBasePath} />

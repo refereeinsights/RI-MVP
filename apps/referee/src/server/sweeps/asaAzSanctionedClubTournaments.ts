@@ -805,6 +805,14 @@ export async function sweepAsaAzSanctionedClubTournaments(params: {
     if (imported_ids.length) {
       await queueEnrichmentJobs(imported_ids);
     }
+
+    // Backfill state for any existing ASA tournaments (accepted/published or draft) missing AZ.
+    await supabaseAdmin
+      .from("tournaments" as any)
+      .update({ state: "AZ" })
+      .eq("source_url", ASA_URL)
+      .or("state.is.null,state.eq.")
+      .select("id");
   }
 
   return {

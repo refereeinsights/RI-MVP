@@ -121,14 +121,14 @@ async function upsertCandidates(
 async function processJob(job: JobRow) {
   const tournamentResp = await supabaseAdmin
     .from("tournaments" as any)
-    .select("id,name,source_url")
+    .select("id,name,source_url,official_website_url")
     .eq("id", job.tournament_id)
     .maybeSingle();
   if (tournamentResp.error) {
     throw tournamentResp.error;
   }
   const t = tournamentResp.data as any;
-  const tourneyUrl = t?.source_url ?? null;
+  const tourneyUrl = t?.official_website_url ?? t?.source_url ?? null;
   if (!tourneyUrl) {
     throw new Error("tournament_url_missing");
   }

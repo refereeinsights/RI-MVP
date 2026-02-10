@@ -35,7 +35,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   const sport = searchParams.sport ?? "";
   const stateParamRaw = searchParams.state ?? "";
   const start = searchParams.start || todayIso();
-  const end = searchParams.end || addDays(90);
+  const end = searchParams.end ?? "";
   const stateTokens = Array.isArray(stateParamRaw)
     ? stateParamRaw.flatMap((s) => s.split(","))
     : String(stateParamRaw).split(",");
@@ -51,8 +51,8 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   let tQuery = supabase
     .from("tournaments" as any)
     .select("id,name,start_date,state,city,status,source_url,official_website_url,venue,address,sport")
-    .gte("start_date", start)
-    .lte("start_date", end);
+    .gte("start_date", start);
+  if (end) tQuery = tQuery.lte("start_date", end);
   if (sport) tQuery = tQuery.eq("sport", sport);
   if (states.length) tQuery = tQuery.in("state", states);
   const tournamentsRes = await tQuery;
@@ -63,8 +63,8 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   let byStateQuery = supabase
     .from("tournaments" as any)
     .select("id,name,start_date,state,city,status,source_url,official_website_url,venue,address,sport")
-    .gte("start_date", start)
-    .lte("start_date", end);
+    .gte("start_date", start);
+  if (end) byStateQuery = byStateQuery.lte("start_date", end);
   if (sport) byStateQuery = byStateQuery.eq("sport", sport);
   const byStateRes = await byStateQuery;
   const byStateTournaments = byStateRes.data ?? [];
@@ -272,7 +272,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
               {card.label}
               {card.label === "Official website" && (
                 <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 999, border: "1px solid #e2e8f0", background: "#f8fafc", color: "#334155" }}>
-                  {start} → {end}
+                  {start} → {end || "Future"}
                 </span>
               )}
             </div>
