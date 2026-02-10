@@ -29,6 +29,8 @@ type TournamentDetailRow = {
   summary: string | null;
   source_url: string | null;
   official_website_url?: string | null;
+  referee_contact?: string | null;
+  tournament_director?: string | null;
   level: string | null;
   venue: string | null;
   address: string | null;
@@ -173,7 +175,7 @@ export default async function TournamentDetailPage({
   const { data, error } = await supabase
     .from("tournaments")
     .select(
-      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,level,venue,address,sport"
+      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,referee_contact,tournament_director,level,venue,address,sport"
     )
     .eq("slug", params.slug)
     .single<TournamentDetailRow>();
@@ -204,6 +206,11 @@ export default async function TournamentDetailPage({
     ...review,
     sport: data.sport ?? null,
   }));
+  const { count: pendingContactsCount } = await supabaseAdmin
+    .from("tournament_contacts" as any)
+    .select("id", { count: "exact", head: true })
+    .eq("tournament_id", data.id)
+    .eq("status", "pending");
   const detailPath = `/tournaments/${data.slug ?? params.slug}`;
   const addInsightHref = `/tournaments/list?intent=insight&entity_type=tournament&tournament_slug=${encodeURIComponent(
     data.slug ?? ""
@@ -316,6 +323,47 @@ export default async function TournamentDetailPage({
               {data.address ? `${data.address}` : ""}
             </p>
           )}
+
+          <div
+            style={{
+              marginTop: 8,
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid rgba(0,0,0,0.08)",
+              background: "rgba(255,255,255,0.85)",
+              fontSize: 13,
+              color: "#0b172a",
+              maxWidth: 520,
+            }}
+          >
+            <div style={{ fontWeight: 800, marginBottom: 4 }}>Tournament contacts</div>
+            {user ? (
+              <div style={{ display: "grid", gap: 4 }}>
+                <div>Director: {data.tournament_director ?? "—"}</div>
+                <div>Referee contact: {data.referee_contact ?? "—"}</div>
+              </div>
+            ) : data.tournament_director || data.referee_contact ? (
+              <div>
+                Contact info is available for verified users.{" "}
+                <Link href="/account/login" style={{ fontWeight: 700 }}>
+                  Sign in
+                </Link>{" "}
+                to view.
+              </div>
+            ) : (
+              <div>
+                No verified contact info yet.{" "}
+                <Link href="/tournaments/list?intent=contact" style={{ fontWeight: 700 }}>
+                  Sign in to add.
+                </Link>
+              </div>
+            )}
+            {pendingContactsCount ? (
+              <div style={{ marginTop: 6, fontSize: 12, color: "#0f172a" }}>
+                Pending review: {pendingContactsCount}
+              </div>
+            ) : null}
+          </div>
 
           <p className="detailBody">
             {data.summary ||

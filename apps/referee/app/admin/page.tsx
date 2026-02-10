@@ -216,6 +216,39 @@ export default async function AdminPage({
   if (assignorNeedsReviewError) {
     console.error("Assignor review count failed", assignorNeedsReviewError);
   }
+  const [
+    { count: pendingVerificationCount },
+    { count: pendingTournamentReviewCount },
+    { count: pendingSchoolReviewCount },
+    { count: pendingTournamentContactCount },
+    { count: pendingRefereeContactCount },
+    { count: pendingUploadsCount },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("referee_verification_requests" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    supabaseAdmin
+      .from("tournament_referee_reviews" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    supabaseAdmin
+      .from("school_referee_reviews" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    supabaseAdmin
+      .from("tournament_contacts" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    supabaseAdmin
+      .from("referee_contacts" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    supabaseAdmin
+      .from("tournaments" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "draft"),
+  ]);
   const assignorNeedsReviewLabel = assignorNeedsReviewError
     ? "—"
     : String(assignorNeedsReviewCount ?? 0);
@@ -1289,7 +1322,7 @@ export default async function AdminPage({
   const tournamentContactLink = (s: ContactStatus) =>
     `/admin?tab=tournament-contacts&cstatus=${s}`;
 
-  const TabButton = ({ t, label }: { t: Tab; label: string }) => (
+  const TabButton = ({ t, label, count }: { t: Tab; label: string; count?: number | null }) => (
     <a
       href={tabLink(t)}
       style={{
@@ -1300,9 +1333,31 @@ export default async function AdminPage({
         color: tab === t ? "#fff" : "#111",
         fontWeight: 900,
         textDecoration: "none",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
       }}
     >
       {label}
+      {count && count > 0 ? (
+        <span
+          style={{
+            minWidth: 20,
+            height: 20,
+            borderRadius: 999,
+            background: tab === t ? "#fff" : "#111",
+            color: tab === t ? "#111" : "#fff",
+            fontSize: 11,
+            fontWeight: 900,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 6px",
+          }}
+        >
+          {count}
+        </span>
+      ) : null}
     </a>
   );
 
@@ -1420,9 +1475,31 @@ export default async function AdminPage({
               color: "#111",
               fontWeight: 900,
               textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
             }}
           >
             Review queue
+            {assignorNeedsReviewCount && assignorNeedsReviewCount > 0 ? (
+              <span
+                style={{
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: 999,
+                  background: "#111",
+                  color: "#fff",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0 6px",
+                }}
+              >
+                {assignorNeedsReviewCount}
+              </span>
+            ) : null}
           </a>
           <a
             href="/admin/assignors/sources"
@@ -1434,23 +1511,45 @@ export default async function AdminPage({
               color: "#111",
               fontWeight: 900,
               textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
             }}
           >
             Sources
+            {assignorNeedsReviewCount && assignorNeedsReviewCount > 0 ? (
+              <span
+                style={{
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: 999,
+                  background: "#111",
+                  color: "#fff",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0 6px",
+                }}
+              >
+                {assignorNeedsReviewCount}
+              </span>
+            ) : null}
           </a>
         </div>
       </section>
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
-        <TabButton t="verification" label="Verification" />
+        <TabButton t="verification" label="Verification" count={pendingVerificationCount ?? 0} />
         <TabButton t="users" label="Users" />
         <TabButton t="badges" label="Badges" />
-        <TabButton t="reviews" label="Tournament reviews" />
-        <TabButton t="school-reviews" label="School reviews" />
-        <TabButton t="tournament-contacts" label="Tournament contacts" />
-        <TabButton t="referee-contacts" label="Referee contacts" />
-        <TabButton t="tournament-uploads" label="Tournament uploads" />
+        <TabButton t="reviews" label="Tournament reviews" count={pendingTournamentReviewCount ?? 0} />
+        <TabButton t="school-reviews" label="School reviews" count={pendingSchoolReviewCount ?? 0} />
+        <TabButton t="tournament-contacts" label="Tournament contacts" count={pendingTournamentContactCount ?? 0} />
+        <TabButton t="referee-contacts" label="Referee contacts" count={pendingRefereeContactCount ?? 0} />
+        <TabButton t="tournament-uploads" label="Tournament uploads" count={pendingUploadsCount ?? 0} />
         <TabButton t="tournament-listings" label="Tournament listings" />
         <TabButton t="owls-eye" label="Owl's Eye" />
         <a
