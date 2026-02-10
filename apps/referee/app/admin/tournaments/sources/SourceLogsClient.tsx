@@ -20,7 +20,7 @@ type Props = {
 function formatTime(value: string) {
   const dt = new Date(value);
   if (Number.isNaN(dt.getTime())) return value;
-  return dt.toLocaleString();
+  return dt.toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
 }
 
 function summarize(payload: any) {

@@ -1,4 +1,4 @@
-import { ContactCandidate, VenueCandidate, CompCandidate, PageResult } from "./types";
+import { ContactCandidate, VenueCandidate, CompCandidate, DateCandidate, PageResult } from "./types";
 import { extractFromPage, rankLinks } from "./extract";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -61,13 +61,16 @@ async function politeFetch(url: string): Promise<string | null> {
   }
 }
 
-async function scrapeTournament(url: string): Promise<{ pages: number; contacts: ContactCandidate[]; venues: VenueCandidate[]; comps: CompCandidate[] }> {
+async function scrapeTournament(
+  url: string
+): Promise<{ pages: number; contacts: ContactCandidate[]; venues: VenueCandidate[]; comps: CompCandidate[]; dates: DateCandidate[] }> {
   const seen = new Set<string>();
   const queue: string[] = [url];
   let pagesFetched = 0;
   const contacts: ContactCandidate[] = [];
   const venues: VenueCandidate[] = [];
   const comps: CompCandidate[] = [];
+  const dates: DateCandidate[] = [];
 
   while (queue.length && pagesFetched < MAX_PAGES) {
     const nextUrl = queue.shift()!;
@@ -82,6 +85,7 @@ async function scrapeTournament(url: string): Promise<{ pages: number; contacts:
     contacts.push(...pageResults.contacts);
     venues.push(...pageResults.venues);
     comps.push(...pageResults.comps, ...pageResults.pdfHints);
+    dates.push(...pageResults.dates);
 
     // Seed queue with ranked links from this page
     try {
@@ -95,26 +99,112 @@ async function scrapeTournament(url: string): Promise<{ pages: number; contacts:
     }
   }
 
-  return { pages: pagesFetched, contacts, venues, comps };
+  return { pages: pagesFetched, contacts, venues, comps, dates };
 }
 
 async function upsertCandidates(
   tournamentId: string,
   contacts: ContactCandidate[],
   venues: VenueCandidate[],
-  comps: CompCandidate[]
+  comps: CompCandidate[],
+  dates: DateCandidate[]
 ) {
   const withTid = <T extends { tournament_id: string }>(rows: T[]) =>
     rows.map((r) => ({ ...r, tournament_id: tournamentId }));
 
+  const norm = (val: string | null | undefined) => (val ?? "").trim().toLowerCase();
+  const normEmail = (val: string | null | undefined) => norm(val);
+  const normPhone = (val: string | null | undefined) => (val ?? "").replace(/\D+/g, "");
+
   if (contacts.length) {
-    await supabaseAdmin.from("tournament_contact_candidates" as any).insert(withTid(contacts));
+    const { data: existing } = await supabaseAdmin
+      .from("tournament_contact_candidates" as any)
+      .select("role_normalized,name,email,phone")
+      .eq("tournament_id", tournamentId)
+      .is("accepted_at", null)
+      .is("rejected_at", null);
+    const existingSig = new Set(
+      (existing ?? []).map(
+        (c: any) =>
+          [c.role_normalized ?? "", norm(c.name), normEmail(c.email), normPhone(c.phone)].join("|")
+      )
+    );
+    const batchSig = new Set<string>();
+    const deduped = contacts.filter((c) => {
+      const sig = [
+        c.role_normalized ?? "",
+        norm(c.name),
+        normEmail(c.email),
+        normPhone(c.phone),
+      ].join("|");
+      if (existingSig.has(sig) || batchSig.has(sig)) return false;
+      batchSig.add(sig);
+      return true;
+    });
+    if (deduped.length) {
+      await supabaseAdmin.from("tournament_contact_candidates" as any).insert(withTid(deduped));
+    }
   }
   if (venues.length) {
-    await supabaseAdmin.from("tournament_venue_candidates" as any).insert(withTid(venues));
+    const { data: existing } = await supabaseAdmin
+      .from("tournament_venue_candidates" as any)
+      .select("venue_name,address_text")
+      .eq("tournament_id", tournamentId)
+      .is("accepted_at", null)
+      .is("rejected_at", null);
+    const existingSig = new Set((existing ?? []).map((v: any) => [norm(v.venue_name), norm(v.address_text)].join("|")));
+    const batchSig = new Set<string>();
+    const deduped = venues.filter((v) => {
+      const sig = [norm(v.venue_name), norm(v.address_text)].join("|");
+      if (existingSig.has(sig) || batchSig.has(sig)) return false;
+      batchSig.add(sig);
+      return true;
+    });
+    if (deduped.length) {
+      await supabaseAdmin.from("tournament_venue_candidates" as any).insert(withTid(deduped));
+    }
   }
   if (comps.length) {
-    await supabaseAdmin.from("tournament_referee_comp_candidates" as any).insert(withTid(comps));
+    const { data: existing } = await supabaseAdmin
+      .from("tournament_referee_comp_candidates" as any)
+      .select("rate_text,travel_housing_text")
+      .eq("tournament_id", tournamentId)
+      .is("accepted_at", null)
+      .is("rejected_at", null);
+    const existingSig = new Set(
+      (existing ?? []).map((c: any) => [norm(c.rate_text), norm(c.travel_housing_text)].join("|"))
+    );
+    const batchSig = new Set<string>();
+    const deduped = comps.filter((c) => {
+      const sig = [norm(c.rate_text), norm(c.travel_housing_text)].join("|");
+      if (existingSig.has(sig) || batchSig.has(sig)) return false;
+      batchSig.add(sig);
+      return true;
+    });
+    if (deduped.length) {
+      await supabaseAdmin.from("tournament_referee_comp_candidates" as any).insert(withTid(deduped));
+    }
+  }
+  if (dates.length) {
+    const { data: existing } = await supabaseAdmin
+      .from("tournament_date_candidates" as any)
+      .select("date_text,start_date,end_date")
+      .eq("tournament_id", tournamentId)
+      .is("accepted_at", null)
+      .is("rejected_at", null);
+    const existingSig = new Set(
+      (existing ?? []).map((d: any) => [norm(d.date_text), d.start_date ?? "", d.end_date ?? ""].join("|"))
+    );
+    const batchSig = new Set<string>();
+    const deduped = dates.filter((d) => {
+      const sig = [norm(d.date_text), d.start_date ?? "", d.end_date ?? ""].join("|");
+      if (existingSig.has(sig) || batchSig.has(sig)) return false;
+      batchSig.add(sig);
+      return true;
+    });
+    if (deduped.length) {
+      await supabaseAdmin.from("tournament_date_candidates" as any).insert(withTid(deduped));
+    }
   }
 }
 
@@ -133,7 +223,13 @@ async function processJob(job: JobRow) {
     throw new Error("tournament_url_missing");
   }
   const scrape = await scrapeTournament(tourneyUrl);
-  await upsertCandidates(job.tournament_id, scrape.contacts.slice(0, 20), scrape.venues.slice(0, 10), scrape.comps.slice(0, 5));
+  await upsertCandidates(
+    job.tournament_id,
+    scrape.contacts.slice(0, 20),
+    scrape.venues.slice(0, 10),
+    scrape.comps.slice(0, 5),
+    scrape.dates.slice(0, 5)
+  );
   return scrape.pages;
 }
 

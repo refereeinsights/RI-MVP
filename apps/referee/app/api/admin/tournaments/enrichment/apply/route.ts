@@ -1,0 +1,293 @@
+import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+
+type Item = { kind: "contact" | "venue" | "date" | "comp-rate" | "comp-hotel" | "comp-cash"; id: string };
+
+async function ensureAdmin() {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data?.user) return null;
+
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("role")
+    .eq("user_id", data.user.id)
+    .maybeSingle();
+  if (!profile || profile.role !== "admin") return null;
+  return data.user;
+}
+
+export async function POST(request: Request) {
+  const admin = await ensureAdmin();
+  if (!admin) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+  const tournamentId = String(body?.tournament_id ?? "").trim();
+  const items: Item[] = Array.isArray(body?.items) ? body.items : [];
+  if (!tournamentId || !items.length) {
+    return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+  }
+
+  const contactIds = items.filter((i) => i.kind === "contact").map((i) => i.id);
+  const venueIds = items.filter((i) => i.kind === "venue").map((i) => i.id);
+  const dateIds = items.filter((i) => i.kind === "date").map((i) => i.id);
+  const compIds = items
+    .filter((i) => i.kind === "comp-rate" || i.kind === "comp-hotel" || i.kind === "comp-cash")
+    .map((i) => i.id);
+
+  const updates: Record<string, any> = {};
+  const now = new Date().toISOString();
+
+  if (venueIds.length) {
+    const { data: venues } = await supabaseAdmin
+      .from("tournament_venue_candidates" as any)
+      .select("id,tournament_id,venue_name,address_text")
+      .in("id", venueIds)
+      .eq("tournament_id", tournamentId);
+    const venue = ((venues ?? []) as any[])[0] as any;
+    if (venue?.venue_name) updates.venue = venue.venue_name;
+    if (venue?.address_text) updates.address = venue.address_text;
+  }
+
+  if (dateIds.length) {
+    const { data: dates } = await supabaseAdmin
+      .from("tournament_date_candidates" as any)
+      .select("id,tournament_id,start_date,end_date")
+      .in("id", dateIds)
+      .eq("tournament_id", tournamentId);
+    const date = ((dates ?? []) as any[])[0] as any;
+    if (date?.start_date) updates.start_date = date.start_date;
+    if (date?.end_date) updates.end_date = date.end_date;
+  }
+
+  if (compIds.length) {
+    const { data: comps } = await supabaseAdmin
+      .from("tournament_referee_comp_candidates" as any)
+      .select("id,tournament_id,rate_text,travel_housing_text")
+      .in("id", compIds)
+      .eq("tournament_id", tournamentId);
+    const comp = ((comps ?? []) as any[])[0] as any;
+    if (items.some((i) => i.kind === "comp-rate") && comp?.rate_text) {
+      updates.referee_pay = comp.rate_text;
+    }
+    if (items.some((i) => i.kind === "comp-hotel") && comp?.travel_housing_text) {
+      updates.referee_hotel_info = comp.travel_housing_text;
+    }
+    if (items.some((i) => i.kind === "comp-cash")) {
+      updates.cash_tournament = true;
+    }
+  }
+
+  if (contactIds.length) {
+    const { data: contacts } = await supabaseAdmin
+      .from("tournament_contact_candidates" as any)
+      .select("id,tournament_id,role_normalized,name,email,phone,source_url,confidence")
+      .in("id", contactIds)
+      .eq("tournament_id", tournamentId);
+    const existingResp = await supabaseAdmin
+      .from("tournament_contacts" as any)
+      .select("type,name,email,phone")
+      .eq("tournament_id", tournamentId);
+    const existing = (existingResp.data ?? []) as Array<{
+      type: string | null;
+      name: string | null;
+      email: string | null;
+      phone: string | null;
+    }>;
+    const toInsert: any[] = [];
+    const normalizeEmail = (val: string | null) => (val ?? "").trim().toLowerCase();
+    const normalizePhone = (val: string | null) => (val ?? "").replace(/\D+/g, "");
+    const normalizeName = (val: string | null) => (val ?? "").trim().toLowerCase();
+
+    const selectedRows = (contacts ?? []) as any[];
+    const selectedSig = new Set(
+      selectedRows.map((c) =>
+        [
+          c.role_normalized ?? "",
+          normalizeName(c.name),
+          normalizeEmail(c.email),
+          normalizePhone(c.phone),
+        ].join("|")
+      )
+    );
+
+    for (const c of selectedRows) {
+      const role = c.role_normalized === "TD" ? "director" : c.role_normalized === "ASSIGNOR" ? "assignor" : "general";
+      const exists = existing.some(
+        (e) =>
+          e.type === role &&
+          (e.name ?? "") === (c.name ?? "") &&
+          (e.email ?? "") === (c.email ?? "") &&
+          (e.phone ?? "") === (c.phone ?? "")
+      );
+      const confRaw = c.confidence ?? null;
+      const confVal =
+        confRaw == null
+          ? null
+          : Number.isFinite(confRaw)
+            ? confRaw <= 1
+              ? Math.round(confRaw * 100)
+              : Math.round(confRaw)
+            : null;
+      if (!exists) {
+        toInsert.push({
+          tournament_id: tournamentId,
+          type: role,
+          name: c.name ?? null,
+          email: c.email ?? null,
+          phone: c.phone ?? null,
+          source_url: c.source_url ?? null,
+          confidence: confVal,
+          status: "verified",
+        });
+      }
+
+      if (c.role_normalized === "TD") {
+        if (c.name) updates.tournament_director = c.name;
+        if (c.email) updates.tournament_director_email = c.email;
+        if (c.phone) updates.tournament_director_phone = c.phone;
+      }
+      if (c.role_normalized === "ASSIGNOR") {
+        if (c.name) updates.referee_contact = c.name;
+        if (c.email) updates.referee_contact_email = c.email;
+        if (c.phone) updates.referee_contact_phone = c.phone;
+      }
+    }
+    if (toInsert.length) {
+      const { error } = await supabaseAdmin.from("tournament_contacts" as any).insert(toInsert);
+      if (error) throw error;
+    }
+    const { data: allCandidates } = await supabaseAdmin
+      .from("tournament_contact_candidates" as any)
+      .select("id,role_normalized,name,email,phone")
+      .eq("tournament_id", tournamentId)
+      .is("accepted_at", null)
+      .is("rejected_at", null);
+    const dupContactIds = (allCandidates ?? [])
+      .filter((c: any) =>
+        selectedSig.has(
+          [
+            c.role_normalized ?? "",
+            normalizeName(c.name),
+            normalizeEmail(c.email),
+            normalizePhone(c.phone),
+          ].join("|")
+        )
+      )
+      .map((c: any) => c.id);
+    if (dupContactIds.length) {
+      await supabaseAdmin
+        .from("tournament_contact_candidates" as any)
+        .update({ accepted_at: now, rejected_at: null })
+        .in("id", dupContactIds);
+    }
+  }
+
+  if (Object.keys(updates).length) {
+    const { error } = await supabaseAdmin
+      .from("tournaments" as any)
+      .update({ ...updates, updated_at: now })
+      .eq("id", tournamentId);
+    if (error) throw error;
+  }
+
+  if (venueIds.length) {
+    const { data: venues } = await supabaseAdmin
+      .from("tournament_venue_candidates" as any)
+      .select("id,venue_name,address_text")
+      .in("id", venueIds)
+      .eq("tournament_id", tournamentId);
+    const normalizeVenue = (val: string | null) => (val ?? "").trim().toLowerCase();
+    const selectedSig = new Set(
+      ((venues ?? []) as any[]).map((v) => [normalizeVenue(v.venue_name), normalizeVenue(v.address_text)].join("|"))
+    );
+    const { data: allVenues } = await supabaseAdmin
+      .from("tournament_venue_candidates" as any)
+      .select("id,venue_name,address_text")
+      .eq("tournament_id", tournamentId)
+      .is("accepted_at", null)
+      .is("rejected_at", null);
+    const dupVenueIds = (allVenues ?? [])
+      .filter((v: any) => selectedSig.has([normalizeVenue(v.venue_name), normalizeVenue(v.address_text)].join("|")))
+      .map((v: any) => v.id);
+    if (dupVenueIds.length) {
+      await supabaseAdmin
+        .from("tournament_venue_candidates" as any)
+        .update({ accepted_at: now, rejected_at: null })
+        .in("id", dupVenueIds);
+    }
+  }
+  if (dateIds.length) {
+    const { data: dates } = await supabaseAdmin
+      .from("tournament_date_candidates" as any)
+      .select("id,date_text,start_date,end_date")
+      .in("id", dateIds)
+      .eq("tournament_id", tournamentId);
+    const normalizeDate = (val: string | null) => (val ?? "").trim().toLowerCase();
+    const selectedSig = new Set(
+      ((dates ?? []) as any[]).map((d) =>
+        [normalizeDate(d.date_text), d.start_date ?? "", d.end_date ?? ""].join("|")
+      )
+    );
+    const { data: allDates } = await supabaseAdmin
+      .from("tournament_date_candidates" as any)
+      .select("id,date_text,start_date,end_date")
+      .eq("tournament_id", tournamentId)
+      .is("accepted_at", null)
+      .is("rejected_at", null);
+    const dupDateIds = (allDates ?? [])
+      .filter((d: any) => selectedSig.has([normalizeDate(d.date_text), d.start_date ?? "", d.end_date ?? ""].join("|")))
+      .map((d: any) => d.id);
+    if (dupDateIds.length) {
+      await supabaseAdmin
+        .from("tournament_date_candidates" as any)
+        .update({ accepted_at: now, rejected_at: null })
+        .in("id", dupDateIds);
+    }
+  }
+  if (compIds.length) {
+    const { data: comps } = await supabaseAdmin
+      .from("tournament_referee_comp_candidates" as any)
+      .select("id,rate_text,travel_housing_text")
+      .in("id", compIds)
+      .eq("tournament_id", tournamentId);
+    const normalizeComp = (val: string | null) => (val ?? "").trim().toLowerCase();
+    const selectedSig = new Set(
+      ((comps ?? []) as any[]).map((c) =>
+        [normalizeComp(c.rate_text), normalizeComp(c.travel_housing_text)].join("|")
+      )
+    );
+    const { data: allComps } = await supabaseAdmin
+      .from("tournament_referee_comp_candidates" as any)
+      .select("id,rate_text,travel_housing_text")
+      .eq("tournament_id", tournamentId)
+      .is("accepted_at", null)
+      .is("rejected_at", null);
+    const dupCompIds = (allComps ?? [])
+      .filter((c: any) => selectedSig.has([normalizeComp(c.rate_text), normalizeComp(c.travel_housing_text)].join("|")))
+      .map((c: any) => c.id);
+    if (dupCompIds.length) {
+      await supabaseAdmin
+        .from("tournament_referee_comp_candidates" as any)
+        .update({ accepted_at: now, rejected_at: null })
+        .in("id", dupCompIds);
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    updated_fields: Object.keys(updates),
+    applied: {
+      contacts: contactIds.length,
+      venues: venueIds.length,
+      dates: dateIds.length,
+      comp: compIds.length,
+    },
+  });
+}

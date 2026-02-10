@@ -196,6 +196,15 @@ export default async function AdminPage({
     tab === "tournament-contacts" ? await adminListTournamentContacts(contactStatus) : [];
   const refereeContacts =
     tab === "referee-contacts" ? await adminListRefereeContacts() : [];
+  const enrichmentJobs =
+    tab === "tournament-contacts"
+      ? await supabaseAdmin
+          .from("tournament_enrichment_jobs" as any)
+          .select("id,tournament_id,status,created_at,started_at,finished_at,pages_fetched_count,last_error,tournaments(name,source_url,official_website_url)")
+          .order("created_at", { ascending: false })
+          .limit(10)
+          .then((res) => res.data ?? [])
+      : [];
   const tournamentsMissingContacts =
     tab === "tournament-contacts"
       ? await supabaseAdmin
@@ -397,6 +406,38 @@ export default async function AdminPage({
     redirectWithNotice(
       redirectTo,
       `Contact discovery queued for ${tournamentIds.length} tournament(s). Added ${toInsert.length} pending contact(s).`
+    );
+  }
+
+  async function runEnrichmentForAllAction(formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to");
+    const limitInput = Number(formData.get("limit") ?? "50");
+    const limit = Number.isFinite(limitInput) ? Math.max(1, Math.min(limitInput, 500)) : 50;
+
+    const { data: tournaments, error } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("id,official_website_url,source_url,enrichment_skip")
+      .eq("enrichment_skip", false)
+      .or("official_website_url.not.is.null,source_url.not.is.null")
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      redirectWithNotice(redirectTo, `Enrichment queue failed: ${error.message}`);
+    }
+
+    const tournamentIds = (tournaments ?? []).map((t: any) => t.id).filter(Boolean);
+    if (!tournamentIds.length) {
+      redirectWithNotice(redirectTo, "No tournaments with URLs found.");
+    }
+
+    await queueEnrichmentJobs(tournamentIds);
+    const runCount = Math.min(20, tournamentIds.length);
+    await runQueuedEnrichment(runCount);
+    redirectWithNotice(
+      redirectTo,
+      `Queued ${tournamentIds.length} tournament(s). Ran enrichment for ${runCount}.`
     );
   }
 
@@ -1633,7 +1674,7 @@ export default async function AdminPage({
         <TabButton t="badges" label="Badges" />
         <TabButton t="reviews" label="Tournament reviews" count={pendingTournamentReviewCount ?? 0} />
         <TabButton t="school-reviews" label="School reviews" count={pendingSchoolReviewCount ?? 0} />
-        <TabButton t="tournament-contacts" label="Tournament contacts" count={pendingTournamentContactCount ?? 0} />
+        <TabButton t="tournament-contacts" label="Tournament enrichment" count={pendingTournamentContactCount ?? 0} />
         <TabButton t="referee-contacts" label="Referee contacts" count={pendingRefereeContactCount ?? 0} />
         <TabButton t="tournament-uploads" label="Tournament uploads" count={pendingUploadsCount ?? 0} />
         <TabButton t="tournament-listings" label="Tournament listings" />
@@ -2679,7 +2720,7 @@ export default async function AdminPage({
               gap: 10,
             }}
           >
-            <h2 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>Tournament contacts</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>Tournament enrichment</h2>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {(["pending", "verified", "rejected"] as ContactStatus[]).map((status) => (
                 <a
@@ -2715,6 +2756,92 @@ export default async function AdminPage({
               background: "#fff",
             }}
           >
+            <h3 style={{ marginTop: 0, fontSize: 16 }}>Run enrichment for tournaments with URLs</h3>
+            <form action={runEnrichmentForAllAction} style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                Max tournaments to queue
+                <input
+                  type="number"
+                  name="limit"
+                  min={1}
+                  max={500}
+                  defaultValue={50}
+                  style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                />
+              </label>
+              <button
+                type="submit"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #0f3d2e",
+                  background: "#0f3d2e",
+                  color: "#fff",
+                  fontWeight: 700,
+                  width: "fit-content",
+                }}
+              >
+                Run enrichment batch
+              </button>
+              <p style={{ fontSize: 12, color: "#555", margin: 0 }}>
+                Queues enrichment for tournaments with URLs and runs the next batch immediately.
+              </p>
+            </form>
+
+            <h3 style={{ marginTop: 0, fontSize: 16 }}>Latest enrichment runs</h3>
+            <div style={{ overflowX: "auto", marginBottom: 16 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 640 }}>
+                <thead>
+                  <tr style={{ background: "#f5f5f5" }}>
+                    <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Tournament</th>
+                    <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>URL</th>
+                    <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Status</th>
+                    <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Pages</th>
+                    <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Started</th>
+                    <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Finished</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {enrichmentJobs.length ? (
+                    enrichmentJobs.map((job: any) => {
+                      const url = job.tournaments?.official_website_url ?? job.tournaments?.source_url ?? "";
+                      return (
+                        <tr key={job.id}>
+                          <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                            {job.tournaments?.name ?? "—"}
+                          </td>
+                          <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                            {url ? (
+                              <a href={url} target="_blank" rel="noreferrer">
+                                {url}
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{job.status ?? "—"}</td>
+                          <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{job.pages_fetched_count ?? "—"}</td>
+                          <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                            {job.started_at ? new Date(job.started_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles" }) : "—"}
+                          </td>
+                          <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                            {job.finished_at ? new Date(job.finished_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles" }) : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td style={{ padding: 8, borderBottom: "1px solid #eee" }} colSpan={6}>
+                        No enrichment runs yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
             <h3 style={{ marginTop: 0, fontSize: 16 }}>Discover contacts for missing tournaments</h3>
             <form action={discoverTournamentContactsAction} style={{ display: "grid", gap: 12, marginBottom: 16 }}>
               <input type="hidden" name="redirect_to" value={adminBasePath} />

@@ -34,9 +34,20 @@ export type CompCandidate = {
   confidence?: number | null;
 };
 
+export type DateCandidate = {
+  tournament_id: string;
+  date_text?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  source_url?: string | null;
+  evidence_text?: string | null;
+  confidence?: number | null;
+};
+
 export type PageResult = {
   contacts: ContactCandidate[];
   venues: VenueCandidate[];
   comps: CompCandidate[];
   pdfHints: CompCandidate[];
+  dates: DateCandidate[];
 };

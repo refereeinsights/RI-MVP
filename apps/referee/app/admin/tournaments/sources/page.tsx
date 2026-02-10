@@ -57,7 +57,7 @@ const TOURNAMENT_SPORTS = ["soccer", "basketball", "football"] as const;
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
 }
 
 export default async function SourcesPage({ searchParams }: { searchParams: SearchParams }) {

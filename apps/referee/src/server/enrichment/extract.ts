@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { ContactCandidate, VenueCandidate, CompCandidate, PageResult } from "./types";
+import { ContactCandidate, VenueCandidate, CompCandidate, DateCandidate, PageResult } from "./types";
 
 const EMAIL_REGEX =
   /[A-Z0-9._%+-]+(?:\s*(?:\[at\]|\(at\)|@)\s*)[A-Z0-9.-]+(?:\.|\s*(?:\[dot\]|\(dot\))\s*)[A-Z]{2,}/gim;
@@ -41,6 +41,51 @@ const TRAVEL_KEYWORDS = [
 ];
 
 const ASSIGNING_PLATFORMS = ["arbiter", "arbitersports", "assignr", "gameofficials", "zebraweb"];
+const MONTHS = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+];
+
+function parseMonthDate(text: string): { start?: string; end?: string; dateText?: string } | null {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const monthPattern = new RegExp(
+    `\\b(${MONTHS.join("|")})\\s+(\\d{1,2})(?:\\s*[-–]\\s*(\\d{1,2}))?(?:,?\\s*(\\d{4}))?`,
+    "i"
+  );
+  const match = normalized.match(monthPattern);
+  if (!match) return null;
+  const monthName = match[1].toLowerCase();
+  const monthIdx = MONTHS.indexOf(monthName);
+  if (monthIdx < 0) return null;
+  const dayStart = Number(match[2]);
+  const dayEnd = match[3] ? Number(match[3]) : dayStart;
+  const year = match[4] ? Number(match[4]) : null;
+  const dateText = match[0].trim();
+
+  if (!year || !dayStart) {
+    return { dateText };
+  }
+  const startDate = new Date(Date.UTC(year, monthIdx, dayStart));
+  const endDate = new Date(Date.UTC(year, monthIdx, dayEnd));
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return { dateText };
+  }
+  return {
+    start: startDate.toISOString().slice(0, 10),
+    end: endDate.toISOString().slice(0, 10),
+    dateText,
+  };
+}
 
 function normalizeEmail(raw: string) {
   return raw
@@ -481,6 +526,33 @@ function extractComp($: cheerio.CheerioAPI, url: string): { comps: CompCandidate
   return { comps, pdfs };
 }
 
+function extractDates($: cheerio.CheerioAPI, url: string): DateCandidate[] {
+  const dates: DateCandidate[] = [];
+  const text = $.text();
+  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const seen = new Set<string>();
+
+  for (const line of lines) {
+    const parsed = parseMonthDate(line);
+    if (!parsed || (!parsed.start && !parsed.dateText)) continue;
+    const key = `${parsed.start ?? ""}|${parsed.end ?? ""}|${parsed.dateText ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const confidence = parsed.start ? 0.6 : 0.3;
+    dates.push({
+      tournament_id: "",
+      date_text: parsed.dateText ?? line.slice(0, 120),
+      start_date: parsed.start ?? null,
+      end_date: parsed.end ?? null,
+      source_url: url,
+      evidence_text: line.slice(0, 400),
+      confidence,
+    });
+    if (dates.length >= 10) break;
+  }
+  return dates;
+}
+
 export function extractFromPage(html: string, url: string): PageResult {
   const $ = cheerio.load(html);
   // Remove script/style contents to avoid picking up analytics variable names as emails.
@@ -488,12 +560,14 @@ export function extractFromPage(html: string, url: string): PageResult {
   const contacts = extractContacts($.text(), url);
   const venues = extractVenues($, url);
   const compRes = extractComp($, url);
+  const dates = extractDates($, url);
 
   return {
     contacts,
     venues,
     comps: compRes.comps,
     pdfHints: compRes.pdfs,
+    dates,
   };
 }
 

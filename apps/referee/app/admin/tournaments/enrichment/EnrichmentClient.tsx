@@ -55,6 +55,16 @@ type CompCandidate = {
   confidence: number | null;
   created_at: string | null;
 };
+type DateCandidate = {
+  id: string;
+  tournament_id: string;
+  date_text: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  source_url: string | null;
+  confidence: number | null;
+  created_at: string | null;
+};
 type UrlSuggestion = {
   id: string;
   tournament_id: string;
@@ -82,6 +92,24 @@ type UrlSearchResult = {
   }>;
 };
 
+type CandidateTournament = {
+  name: string | null;
+  slug: string | null;
+  state: string | null;
+  city: string | null;
+  url: string | null;
+};
+
+type ReviewItem = {
+  key: string;
+  kind: "contact" | "venue" | "date" | "comp-rate" | "comp-hotel" | "comp-cash";
+  id: string;
+  label: string;
+  detail?: string | null;
+  sourceUrl?: string | null;
+  confidence?: number | null;
+};
+
 function formatDate(val: string | null) {
   if (!val) return "";
   return new Date(val).toLocaleString();
@@ -94,8 +122,10 @@ export default function EnrichmentClient({
   contacts,
   venues,
   comps,
+  dates,
   urlSuggestions,
   tournamentUrlLookup,
+  candidateTournaments,
 }: {
   tournaments: Tournament[];
   missingUrls: MissingUrlTournament[];
@@ -103,8 +133,10 @@ export default function EnrichmentClient({
   contacts: ContactCandidate[];
   venues: VenueCandidate[];
   comps: CompCandidate[];
+  dates: DateCandidate[];
   urlSuggestions: UrlSuggestion[];
   tournamentUrlLookup: Record<string, string | null>;
+  candidateTournaments: Record<string, CandidateTournament>;
 }) {
   const [selected, setSelected] = React.useState<string[]>([]);
   const [status, setStatus] = React.useState<string>("");
@@ -114,15 +146,137 @@ export default function EnrichmentClient({
   const [pendingContacts, setPendingContacts] = React.useState<ContactCandidate[]>(contacts);
   const [pendingVenues, setPendingVenues] = React.useState<VenueCandidate[]>(venues);
   const [pendingComps, setPendingComps] = React.useState<CompCandidate[]>(comps);
+  const [pendingDates, setPendingDates] = React.useState<DateCandidate[]>(dates);
   const [pendingUrlSuggestions, setPendingUrlSuggestions] = React.useState<UrlSuggestion[]>(urlSuggestions);
   const [missingSelected, setMissingSelected] = React.useState<string[]>([]);
   const [urlSearchStatus, setUrlSearchStatus] = React.useState<string>("");
   const [urlResults, setUrlResults] = React.useState<Record<string, UrlSearchResult>>({});
   const [manualUrls, setManualUrls] = React.useState<Record<string, string>>({});
+  const [applyStatus, setApplyStatus] = React.useState<Record<string, string>>({});
+  const [selectedItems, setSelectedItems] = React.useState<Record<string, Set<string>>>({});
   const tournamentUrlFor = React.useCallback(
     (tournamentId: string) => tournamentUrlLookup[tournamentId] ?? null,
     [tournamentUrlLookup]
   );
+
+  const reviewGroups = React.useMemo(() => {
+    const groups = new Map<string, ReviewItem[]>();
+    const push = (tournamentId: string, item: ReviewItem) => {
+      const list = groups.get(tournamentId) ?? [];
+      list.push(item);
+      groups.set(tournamentId, list);
+    };
+    pendingContacts.forEach((c) => {
+      const role = c.role_normalized === "TD" ? "Tournament director" : c.role_normalized === "ASSIGNOR" ? "Referee contact" : "General contact";
+      const detail = [c.email, c.phone].filter(Boolean).join(" • ");
+      push(c.tournament_id, {
+        key: `contact:${c.id}`,
+        kind: "contact",
+        id: c.id,
+        label: role,
+        detail: detail || c.email || c.phone || "—",
+        sourceUrl: c.source_url,
+        confidence: c.confidence,
+      });
+    });
+    pendingVenues.forEach((v) => {
+      push(v.tournament_id, {
+        key: `venue:${v.id}`,
+        kind: "venue",
+        id: v.id,
+        label: "Venue & address",
+        detail: [v.venue_name, v.address_text].filter(Boolean).join(" • "),
+        sourceUrl: v.source_url,
+        confidence: v.confidence,
+      });
+    });
+    pendingDates.forEach((d) => {
+      const detail =
+        d.start_date || d.end_date
+          ? `${d.start_date ?? "?"} → ${d.end_date ?? d.start_date ?? "?"}`
+          : d.date_text ?? "—";
+      push(d.tournament_id, {
+        key: `date:${d.id}`,
+        kind: "date",
+        id: d.id,
+        label: "Dates",
+        detail,
+        sourceUrl: d.source_url,
+        confidence: d.confidence,
+      });
+    });
+    pendingComps.forEach((c) => {
+      if (c.rate_text) {
+        push(c.tournament_id, {
+          key: `comp-rate:${c.id}`,
+          kind: "comp-rate",
+          id: c.id,
+          label: "Referee comp",
+          detail: c.rate_text,
+          sourceUrl: c.source_url,
+          confidence: c.confidence,
+        });
+      }
+      if (c.travel_housing_text) {
+        push(c.tournament_id, {
+          key: `comp-hotel:${c.id}`,
+          kind: "comp-hotel",
+          id: c.id,
+          label: "Referee hotels / travel",
+          detail: c.travel_housing_text,
+          sourceUrl: c.source_url,
+          confidence: c.confidence,
+        });
+      }
+      const cashHit = `${c.rate_text ?? ""} ${c.travel_housing_text ?? ""}`.toLowerCase().includes("cash");
+      if (cashHit) {
+        push(c.tournament_id, {
+          key: `comp-cash:${c.id}`,
+          kind: "comp-cash",
+          id: c.id,
+          label: "Cash tournament",
+          detail: "Cash indicated in comp text",
+          sourceUrl: c.source_url,
+          confidence: c.confidence,
+        });
+      }
+    });
+    const deduped = new Map<string, ReviewItem[]>();
+    groups.forEach((items, tid) => {
+      const seen = new Map<string, ReviewItem>();
+      items.forEach((item) => {
+        const sig = [
+          item.kind,
+          item.label.toLowerCase(),
+          (item.detail ?? "").toLowerCase().trim(),
+        ].join("|");
+        const existing = seen.get(sig);
+        if (!existing || (item.confidence ?? 0) > (existing.confidence ?? 0)) {
+          seen.set(sig, item);
+        }
+      });
+      deduped.set(tid, Array.from(seen.values()));
+    });
+    return deduped;
+  }, [pendingContacts, pendingVenues, pendingDates, pendingComps]);
+
+  React.useEffect(() => {
+    setSelectedItems((prev) => {
+      const next: Record<string, Set<string>> = { ...prev };
+      reviewGroups.forEach((items, tid) => {
+        const existing = next[tid];
+        if (!existing) {
+          next[tid] = new Set(items.map((i) => i.key));
+          return;
+        }
+        items.forEach((i) => existing.add(i.key));
+      });
+      Object.keys(next).forEach((tid) => {
+        if (!reviewGroups.has(tid)) delete next[tid];
+      });
+      return { ...next };
+    });
+  }, [reviewGroups]);
 
   const toggle = (id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -246,27 +400,6 @@ export default function EnrichmentClient({
     setSearching(false);
   };
 
-  const act = async (
-    type: "contact" | "venue" | "comp",
-    id: string,
-    action: "accept" | "reject" | "delete"
-  ) => {
-    const res = await fetch("/api/admin/tournaments/enrichment/update", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type, id, action }),
-    });
-    const json = await res.json();
-    if (!res.ok || json.error) {
-      setStatus(`Action failed: ${json.error || res.statusText}`);
-      return;
-    }
-    setStatus(`${action}d`);
-    if (type === "contact") setPendingContacts((prev) => prev.filter((c) => c.id !== id));
-    if (type === "venue") setPendingVenues((prev) => prev.filter((v) => v.id !== id));
-    if (type === "comp") setPendingComps((prev) => prev.filter((c) => c.id !== id));
-  };
-
   const applySourceUrlsForSelected = async () => {
     const selected = missingUrls.filter((t) => missingSelected.includes(t.id) && t.source_url);
     if (!selected.length) {
@@ -288,6 +421,109 @@ export default function EnrichmentClient({
     }
     setUrlSearchStatus(`Applied ${json.applied ?? 0}/${json.total ?? selected.length}. Refreshing...`);
     refreshPage();
+  };
+
+  const toggleReviewItem = (tournamentId: string, key: string) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev[tournamentId] ?? []);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return { ...prev, [tournamentId]: next };
+    });
+  };
+
+  const toggleAllReviewItems = (tournamentId: string, items: ReviewItem[]) => {
+    setSelectedItems((prev) => {
+      const current = prev[tournamentId] ?? new Set<string>();
+      const allSelected = items.every((item) => current.has(item.key));
+      const nextSet = new Set<string>();
+      if (!allSelected) {
+        items.forEach((item) => nextSet.add(item.key));
+      }
+      return { ...prev, [tournamentId]: nextSet };
+    });
+  };
+
+  const applyReviewItems = async (tournamentId: string) => {
+    const items = reviewGroups.get(tournamentId) ?? [];
+    const selected = selectedItems[tournamentId] ?? new Set<string>();
+    const payload = items.filter((item) => selected.has(item.key)).map((item) => ({ kind: item.kind, id: item.id }));
+    if (!payload.length) {
+      setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Select at least one item." }));
+      return;
+    }
+    setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Applying..." }));
+    const res = await fetch("/api/admin/tournaments/enrichment/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tournament_id: tournamentId, items: payload }),
+    });
+    const raw = await res.text();
+    let json: any = null;
+    try {
+      json = raw ? JSON.parse(raw) : null;
+    } catch {
+      json = null;
+    }
+    if (!res.ok || json?.error) {
+      setApplyStatus((prev) => ({ ...prev, [tournamentId]: `Apply failed: ${json?.error || res.statusText}` }));
+      return;
+    }
+    setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Applied successfully." }));
+
+    const contactIds = new Set(payload.filter((p: any) => p.kind === "contact").map((p: any) => p.id));
+    const venueIds = new Set(payload.filter((p: any) => p.kind === "venue").map((p: any) => p.id));
+    const dateIds = new Set(payload.filter((p: any) => p.kind === "date").map((p: any) => p.id));
+    const compIds = new Set(
+      payload
+        .filter((p: any) => p.kind === "comp-rate" || p.kind === "comp-hotel" || p.kind === "comp-cash")
+        .map((p: any) => p.id)
+    );
+
+    if (contactIds.size) setPendingContacts((prev) => prev.filter((c) => !contactIds.has(c.id)));
+    if (venueIds.size) setPendingVenues((prev) => prev.filter((v) => !venueIds.has(v.id)));
+    if (dateIds.size) setPendingDates((prev) => prev.filter((d) => !dateIds.has(d.id)));
+    if (compIds.size) setPendingComps((prev) => prev.filter((c) => !compIds.has(c.id)));
+  };
+
+  const deleteReviewItems = async (tournamentId: string) => {
+    const items = reviewGroups.get(tournamentId) ?? [];
+    const selected = selectedItems[tournamentId] ?? new Set<string>();
+    const payload = items.filter((item) => selected.has(item.key)).map((item) => ({ kind: item.kind, id: item.id }));
+    if (!payload.length) {
+      setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Select at least one item." }));
+      return;
+    }
+    setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Deleting..." }));
+    const res = await fetch("/api/admin/tournaments/enrichment/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: payload }),
+    });
+    const raw = await res.text();
+    let json: any = null;
+    try {
+      json = raw ? JSON.parse(raw) : null;
+    } catch {
+      json = null;
+    }
+    if (!res.ok || json?.error) {
+      setApplyStatus((prev) => ({ ...prev, [tournamentId]: `Delete failed: ${json?.error || res.statusText}` }));
+      return;
+    }
+    setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Deleted selected items." }));
+    const contactIds = new Set(payload.filter((p: any) => p.kind === "contact").map((p: any) => p.id));
+    const venueIds = new Set(payload.filter((p: any) => p.kind === "venue").map((p: any) => p.id));
+    const dateIds = new Set(payload.filter((p: any) => p.kind === "date").map((p: any) => p.id));
+    const compIds = new Set(
+      payload
+        .filter((p: any) => p.kind === "comp-rate" || p.kind === "comp-hotel" || p.kind === "comp-cash")
+        .map((p: any) => p.id)
+    );
+    if (contactIds.size) setPendingContacts((prev) => prev.filter((c) => !contactIds.has(c.id)));
+    if (venueIds.size) setPendingVenues((prev) => prev.filter((v) => !venueIds.has(v.id)));
+    if (dateIds.size) setPendingDates((prev) => prev.filter((d) => !dateIds.has(d.id)));
+    if (compIds.size) setPendingComps((prev) => prev.filter((c) => !compIds.has(c.id)));
   };
 
   return (
@@ -613,164 +849,78 @@ export default function EnrichmentClient({
       </div>
 
       <section style={{ marginTop: 20, border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
-        <h2 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Pending Candidates</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
-          <div style={{ border: "1px solid #f1f1f1", borderRadius: 10, padding: 10 }}>
-            <h3 style={{ marginTop: 0, fontSize: 14 }}>Contacts</h3>
-            <div style={{ maxHeight: 240, overflow: "auto", fontSize: 12 }}>
-              {pendingContacts.map((c) => (
-                <div key={c.id} style={{ borderBottom: "1px solid #f5f5f5", padding: "6px 0" }}>
-                  <div style={{ fontWeight: 700 }}>{c.role_normalized ?? "GENERAL"}</div>
-                  <div>{c.email ?? c.phone ?? "—"}</div>
-                  <div style={{ color: "#4b5563" }}>
-                    <Link href={`/tournaments/${c.tournament_id}`}>{c.tournament_id}</Link> • conf: {c.confidence ?? 0}
-                  </div>
-                  {tournamentUrlFor(c.tournament_id) ? (
-                    <div>
-                      <a
-                        href={tournamentUrlFor(c.tournament_id) ?? "#"}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: "#0f3d2e" }}
-                      >
-                        tournament site
-                      </a>
+        <h2 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Approve enrichment by tournament</h2>
+        {reviewGroups.size === 0 ? (
+          <div style={{ color: "#6b7280" }}>No pending enrichment items.</div>
+        ) : (
+          Array.from(reviewGroups.entries()).map(([tournamentId, items]) => {
+            const info = candidateTournaments[tournamentId];
+            const selected = selectedItems[tournamentId] ?? new Set<string>();
+            const allSelected = items.every((item) => selected.has(item.key));
+            return (
+              <div key={tournamentId} style={{ borderTop: "1px solid #f1f1f1", paddingTop: 12, marginTop: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+                  <div style={{ minWidth: 240 }}>
+                    <div style={{ fontWeight: 800 }}>{info?.name ?? tournamentId}</div>
+                    <div style={{ color: "#4b5563", fontSize: 12 }}>
+                      {info?.city ?? "—"}, {info?.state ?? "—"}
                     </div>
-                  ) : null}
-                  {c.source_url ? (
-                    <a href={c.source_url} target="_blank" rel="noreferrer" style={{ color: "#0f3d2e" }}>
-                      source
-                    </a>
-                  ) : null}
-                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                    <div style={{ color: "#6b7280", fontSize: 12 }}>ID: {tournamentId}</div>
+                    {info?.url ? (
+                      <a href={info.url} target="_blank" rel="noreferrer" style={{ color: "#0f3d2e", fontSize: 12 }}>
+                        {info.url}
+                      </a>
+                    ) : null}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <button
-                      onClick={() => act("contact", c.id, "accept")}
-                      style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff" }}
+                      onClick={() => toggleAllReviewItems(tournamentId, items)}
+                      style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #111", background: "#fff", color: "#111", fontSize: 12 }}
                     >
-                      Accept
+                      {allSelected ? "Clear all" : "Select all"}
                     </button>
                     <button
-                      onClick={() => act("contact", c.id, "reject")}
-                      style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #e11d48", background: "#fff", color: "#e11d48" }}
+                      onClick={() => applyReviewItems(tournamentId)}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff", fontSize: 12 }}
                     >
-                      Reject
+                      Apply
                     </button>
                     <button
-                      onClick={() => act("contact", c.id, "delete")}
-                      style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #9ca3af", background: "#fff", color: "#6b7280" }}
+                      onClick={() => deleteReviewItems(tournamentId)}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #b00020", background: "#fff", color: "#b00020", fontSize: 12 }}
                     >
                       Delete
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ border: "1px solid #f1f1f1", borderRadius: 10, padding: 10 }}>
-            <h3 style={{ marginTop: 0, fontSize: 14 }}>Venues</h3>
-            <div style={{ maxHeight: 240, overflow: "auto", fontSize: 12 }}>
-              {pendingVenues.map((v) => (
-                <div key={v.id} style={{ borderBottom: "1px solid #f5f5f5", padding: "6px 0" }}>
-                  <div style={{ fontWeight: 700 }}>{v.venue_name ?? "Venue"}</div>
-                  <div>{v.address_text ?? "—"}</div>
-                  <div style={{ color: "#4b5563" }}>
-                    <Link href={`/tournaments/${v.tournament_id}`}>{v.tournament_id}</Link> • conf: {v.confidence ?? 0}
+                {applyStatus[tournamentId] ? (
+                  <div style={{ marginTop: 6, color: applyStatus[tournamentId]?.includes("failed") ? "#b00020" : "#0f5132", fontSize: 12 }}>
+                    {applyStatus[tournamentId]}
                   </div>
-                  {tournamentUrlFor(v.tournament_id) ? (
-                    <div>
-                      <a
-                        href={tournamentUrlFor(v.tournament_id) ?? "#"}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: "#0f3d2e" }}
-                      >
-                        tournament site
-                      </a>
-                    </div>
-                  ) : null}
-                  {v.source_url ? (
-                    <a href={v.source_url} target="_blank" rel="noreferrer" style={{ color: "#0f3d2e" }}>
-                      source
-                    </a>
-                  ) : null}
-                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                    <button
-                      onClick={() => act("venue", v.id, "accept")}
-                      style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff" }}
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => act("venue", v.id, "reject")}
-                      style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #e11d48", background: "#fff", color: "#e11d48" }}
-                    >
-                      Reject
-                    </button>
-                    <button
-                      onClick={() => act("venue", v.id, "delete")}
-                      style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #9ca3af", background: "#fff", color: "#6b7280" }}
-                    >
-                      Delete
-                    </button>
-                  </div>
+                ) : null}
+                <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                  {items.map((item) => (
+                    <label key={item.key} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                      <input type="checkbox" checked={selected.has(item.key)} onChange={() => toggleReviewItem(tournamentId, item.key)} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700 }}>{item.label}</div>
+                        {item.detail ? <div style={{ color: "#4b5563", fontSize: 12 }}>{item.detail}</div> : null}
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: "#6b7280" }}>
+                          {item.confidence != null ? <span>conf: {item.confidence}</span> : null}
+                          {item.sourceUrl ? (
+                            <a href={item.sourceUrl} target="_blank" rel="noreferrer" style={{ color: "#0f3d2e" }}>
+                              source
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ border: "1px solid #f1f1f1", borderRadius: 10, padding: 10 }}>
-            <h3 style={{ marginTop: 0, fontSize: 14 }}>Referee Comp</h3>
-            <div style={{ maxHeight: 240, overflow: "auto", fontSize: 12 }}>
-              {pendingComps.map((c) => (
-                <div key={c.id} style={{ borderBottom: "1px solid #f5f5f5", padding: "6px 0" }}>
-                  <div style={{ fontWeight: 700 }}>{c.rate_text ?? "Rates"}</div>
-                  <div style={{ color: "#4b5563" }}>{c.travel_housing_text ?? ""}</div>
-                  <div style={{ color: "#4b5563" }}>
-                    <Link href={`/tournaments/${c.tournament_id}`}>{c.tournament_id}</Link> • conf: {c.confidence ?? 0}
-                  </div>
-                  {tournamentUrlFor(c.tournament_id) ? (
-                    <div>
-                      <a
-                        href={tournamentUrlFor(c.tournament_id) ?? "#"}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: "#0f3d2e" }}
-                      >
-                        tournament site
-                      </a>
-                    </div>
-                  ) : null}
-                  {c.source_url ? (
-                    <a href={c.source_url} target="_blank" rel="noreferrer" style={{ color: "#0f3d2e" }}>
-                      source
-                    </a>
-                  ) : null}
-                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                    <button
-                      onClick={() => act("comp", c.id, "accept")}
-                      style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff" }}
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => act("comp", c.id, "reject")}
-                      style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #e11d48", background: "#fff", color: "#e11d48" }}
-                    >
-                      Reject
-                    </button>
-                    <button
-                      onClick={() => act("comp", c.id, "delete")}
-                      style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #9ca3af", background: "#fff", color: "#6b7280" }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+              </div>
+            );
+          })
+        )}
       </section>
     </main>
   );
