@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import OwlsEyePanel from "./owls-eye/OwlsEyePanel";
 import AdminNav from "@/components/admin/AdminNav";
+import PendingTournamentSelection from "@/components/admin/PendingTournamentSelection";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { lookupSchoolZip } from "@/lib/googlePlaces";
 
@@ -2660,11 +2661,7 @@ export default async function AdminPage({
                   </tbody>
                 </table>
               </div>
-              <script
-                dangerouslySetInnerHTML={{
-                  __html: `(function(){function init(){var master=document.getElementById("tournament-select-all");var summary=document.getElementById("tournament-selection-summary");if(!master||!summary)return;var boxes=[].slice.call(document.querySelectorAll(".pending-tournament-checkbox"));var update=function(){var checked=boxes.filter(function(cb){return cb.checked;}).length;if(!boxes.length){summary.textContent="No tournaments available";master.checked=false;master.indeterminate=false;return;}if(checked===0){summary.textContent="No tournaments selected";master.checked=false;master.indeterminate=false;}else{summary.textContent=checked+" tournament"+(checked===1?"":"s")+" selected";master.checked=checked===boxes.length;master.indeterminate=checked>0&&checked<boxes.length;}};master.addEventListener("change",function(){boxes.forEach(function(cb){cb.checked=master.checked;});master.indeterminate=false;update();});boxes.forEach(function(cb){cb.addEventListener("change",update);});update();}if(document.readyState!=="loading"){init();}else{document.addEventListener("DOMContentLoaded",init);}})();`,
-                }}
-              />
+              <PendingTournamentSelection />
             </form>
           )}
         </section>

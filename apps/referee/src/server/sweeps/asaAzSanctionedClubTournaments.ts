@@ -234,12 +234,14 @@ async function enrichTournament(url: string) {
       phones: [],
       names: [],
       hints: [],
+      date_hint: null as string | null,
     };
   }
   const emails = extractEmails(html);
   const phones = extractPhones(html);
   const names = extractContactNames(html);
   const hints = detectRegistrationHints(url, html);
+  const dateHint = findDateInText(html);
 
   const $ = cheerio.load(html);
   const contactLink = $("a")
@@ -268,6 +270,7 @@ async function enrichTournament(url: string) {
     phones: uniqueList(phones),
     names: uniqueList(names),
     hints: uniqueList(hints),
+    date_hint: dateHint,
   };
 }
 
@@ -408,6 +411,17 @@ function linesFromHtml(html: string) {
     .replace(/<\/div>/gi, "\n");
   const stripped = withBreaks.replace(/<[^>]*>/g, "");
   return splitLines(stripped);
+}
+
+function linesFromColumn($col: cheerio.Cheerio<any>) {
+  const strongs = $col
+    .find("strong")
+    .map((_, el) => $col.find(el).text().trim())
+    .get()
+    .filter(Boolean);
+  if (strongs.length) return strongs;
+  const html = $col.html() || "";
+  return linesFromHtml(html);
 }
 
 function findDateInText(text: string) {
@@ -597,7 +611,7 @@ function parseColumnsLayout(html: string): AsaTournamentRecord[] {
     if (!textCol || !linkCol) return;
 
     const rawHtml = textCol.html() || "";
-    let lines = linesFromHtml(rawHtml);
+    let lines = linesFromColumn(textCol);
     if (!lines.some((line) => DATE_PATTERN.test(line))) {
       const rawText = rawHtml.replace(/<[^>]*>/g, " ");
       const dateHint = findDateInText(rawText);
@@ -725,6 +739,9 @@ async function enrichRecords(records: AsaTournamentRecord[]) {
       current.extracted_contacts_phones = enriched.phones;
       current.extracted_contact_names = enriched.names;
       current.registration_hints = enriched.hints;
+      if (!current.date_range_text && enriched.date_hint) {
+        current.date_range_text = enriched.date_hint;
+      }
     }
   });
   await Promise.all(tasks);
