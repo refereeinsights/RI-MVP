@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "npm run dev --workspace referee-app",
     "build": "npm run build --workspace referee-app",
-    "start": "npm run start --workspace referee-app"
+    "start": "npm run start --workspace referee-app",
+    "sweep:asa-az": "WRITE_DB=false tsx --tsconfig apps/referee/tsconfig.json apps/referee/scripts/smoke_sweep_asa_az.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.31.0",

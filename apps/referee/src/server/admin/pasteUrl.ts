@@ -4,6 +4,7 @@ import { buildTournamentSlug } from "@/lib/tournaments/slug";
 import type { TournamentRow, TournamentStatus, TournamentSource } from "@/lib/types/tournament";
 import { queueEnrichmentJobs } from "@/server/enrichment/pipeline";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getAsaAzUrl, isAsaAzUrl, sweepAsaAzSanctionedClubTournaments } from "@/server/sweeps/asaAzSanctionedClubTournaments";
 import { insertRun, normalizeSourceUrl, upsertRegistry, updateRunExtractedJson } from "./sources";
 import { SweepError, classifyHtmlPayload, httpErrorCode } from "./sweepDiagnostics";
 
@@ -381,6 +382,57 @@ export async function createTournamentFromUrl(params: {
       run_id: runId,
       diagnostics,
       extracted_count: tournamentIds.length,
+    };
+  }
+
+  if (isAsaAzUrl(canonical)) {
+    const sweepResult = await sweepAsaAzSanctionedClubTournaments({
+      html,
+      status,
+      writeDb: true,
+    });
+
+    const registry = await upsertRegistry({
+      source_url: getAsaAzUrl(),
+      source_type: "association_directory",
+      sport: "soccer",
+      state: "AZ",
+      notes: "Arizona Soccer Association sanctioned club tournaments directory; contains tournament website links and director names.",
+    });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "Arizona Soccer Association sanctioned club tournaments",
+      extracted_json: {
+        action: "asa_az_import",
+        extracted_count: sweepResult.counts.found,
+        counts: sweepResult.counts,
+        sample: sweepResult.sample,
+      },
+      extract_confidence: 0.65,
+    });
+    await updateRunExtractedJson(runId, {
+      action: "asa_az_import",
+      extracted_count: sweepResult.counts.found,
+      counts: sweepResult.counts,
+      sample: sweepResult.sample,
+    });
+
+    return {
+      tournamentId: sweepResult.imported_ids[0] ?? "",
+      meta: { name: `Imported ${sweepResult.counts.found} events`, warnings: [] },
+      slug: "asa-az-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: sweepResult.counts.found,
+      details: {
+        counts: sweepResult.counts,
+        sample: sweepResult.sample,
+      },
     };
   }
 

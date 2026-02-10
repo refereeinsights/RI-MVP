@@ -24,6 +24,7 @@ const SOURCE_TYPE_OPTIONS = [
   "league",
   "club",
   "directory",
+  "association_directory",
 ] as const;
 
 type SearchParams = {

@@ -11,6 +11,7 @@ export type RegistryUpsertInput = {
   city?: string | null;
   notes?: string | null;
   is_active?: boolean | null;
+  is_custom_source?: boolean | null;
   review_status?: string | null;
   review_notes?: string | null;
   ignore_until?: string | null;
@@ -49,8 +50,14 @@ export const TERMINAL_REVIEW_STATUSES = new Set([
   "duplicate_source",
 ]);
 
+const CUSTOM_CRAWLER_HOSTS = new Set(["usclubsoccer.org", "azsoccerassociation.org"]);
+
 export async function upsertRegistry(input: RegistryUpsertInput) {
   const { canonical, host, normalized } = normalizeSourceUrl(input.source_url);
+  const isCustomSource =
+    input.is_custom_source !== undefined && input.is_custom_source !== null
+      ? input.is_custom_source
+      : CUSTOM_CRAWLER_HOSTS.has(host);
   const payload = {
     source_url: canonical,
     url: canonical,
@@ -62,6 +69,7 @@ export async function upsertRegistry(input: RegistryUpsertInput) {
     city: input.city ?? null,
     notes: input.notes ?? null,
     is_active: input.is_active ?? true,
+    is_custom_source: isCustomSource,
     review_status: input.review_status ?? "untested",
     review_notes: input.review_notes ?? null,
     ignore_until: input.ignore_until ?? null,
@@ -80,6 +88,10 @@ export async function upsertRegistry(input: RegistryUpsertInput) {
     if (input.state !== undefined) updates.state = input.state ?? null;
     if (input.city !== undefined) updates.city = input.city ?? null;
     if (input.notes !== undefined) updates.notes = input.notes ?? null;
+    if (input.is_custom_source !== undefined) updates.is_custom_source = input.is_custom_source;
+    if (input.is_custom_source === undefined && CUSTOM_CRAWLER_HOSTS.has(host)) {
+      updates.is_custom_source = true;
+    }
     // Do not overwrite review_status/is_active/ignore_until on existing rows.
     const { error } = await supabaseAdmin
       .from("tournament_sources" as any)
@@ -130,6 +142,7 @@ export async function ensureRegistryRow(
     city: defaults.city ?? null,
     notes: defaults.notes ?? null,
     is_active: defaults.is_active ?? true,
+    is_custom_source: defaults.is_custom_source ?? CUSTOM_CRAWLER_HOSTS.has(host),
     review_status: defaults.review_status ?? "untested",
     review_notes: defaults.review_notes ?? null,
     ignore_until: defaults.ignore_until ?? null,

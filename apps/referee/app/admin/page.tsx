@@ -2386,7 +2386,10 @@ export default async function AdminPage({
                       <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Dates</th>
                       <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Venue & address</th>
                       <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Referee info</th>
+                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Director</th>
+                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Referee contact</th>
                       <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Source</th>
+                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Website</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2432,12 +2435,15 @@ export default async function AdminPage({
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
                           {t.referee_pay ? <div>Pay: {t.referee_pay}</div> : <div>Pay info TBD</div>}
-                          {t.referee_contact && (
-                            <div style={{ color: "#777" }}>Contact: {t.referee_contact}</div>
-                          )}
                           {t.cash_tournament && (
                             <div style={{ color: "#0f5132", fontWeight: 600 }}>Cash tournament</div>
                           )}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.tournament_director ? t.tournament_director : "_"}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.referee_contact ? t.referee_contact : "_"}
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
                           {t.source_url ? (
@@ -2454,6 +2460,15 @@ export default async function AdminPage({
                             <div style={{ fontSize: 12, color: "#0f3d2e", marginTop: 4 }}>
                               {SUBMISSION_LABELS[t.sub_type] ?? t.sub_type}
                             </div>
+                          )}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.official_website_url ? (
+                            <a href={t.official_website_url} target="_blank" rel="noreferrer">
+                              {t.official_website_url}
+                            </a>
+                          ) : (
+                            "—"
                           )}
                         </td>
                       </tr>

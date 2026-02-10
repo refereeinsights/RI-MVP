@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import {
   normalizeSourceUrl,
   upsertRegistry,
+  getRegistryRowByUrl,
   getSkipReason,
   ensureRegistryRow,
   updateRegistrySweep,
@@ -19,7 +20,16 @@ type Filter = "all" | "untested" | "keep" | "ignored" | "needs_review";
 
 export const runtime = "nodejs";
 
-type SearchParams = { source_url?: string; notice?: string; filter?: Filter; sort?: string; dir?: string };
+type SearchParams = {
+  source_url?: string;
+  notice?: string;
+  filter?: Filter;
+  sort?: string;
+  dir?: string;
+  q?: string;
+  sport?: string;
+  state?: string;
+};
 
 const SPORT_OPTIONS = [
   "soccer",
@@ -41,6 +51,7 @@ const SOURCE_TYPE_OPTIONS = [
   "league",
   "club",
   "directory",
+  "association_directory",
 ] as const;
 const TOURNAMENT_SPORTS = ["soccer", "basketball", "football"] as const;
 
@@ -56,6 +67,9 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   const filter: Filter = (searchParams.filter as Filter) || "all";
   const sort = searchParams.sort ?? "review_status";
   const dir = searchParams.dir === "asc" ? "asc" : "desc";
+  const q = (searchParams.q ?? "").trim();
+  const sportFilter = (searchParams.sport ?? "").trim();
+  const stateFilter = (searchParams.state ?? "").trim().toUpperCase();
 
   const reviewPriority = [
     "needs_review",
@@ -80,7 +94,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   const registryRes = await supabaseAdmin
     .from("tournament_sources" as any)
     .select(
-      "id,source_url,source_type,sport,state,city,notes,is_active,review_status,review_notes,ignore_until,last_tested_at,last_swept_at,last_sweep_status,last_sweep_summary,fetched_at"
+      "id,source_url,source_type,sport,state,city,notes,is_active,is_custom_source,review_status,review_notes,ignore_until,last_tested_at,last_swept_at,last_sweep_status,last_sweep_summary,fetched_at"
     )
     .order("last_swept_at", { ascending: false })
     .order("fetched_at", { ascending: true });
@@ -117,6 +131,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
 
     try {
       const { canonical } = normalizeSourceUrl(source_url);
+      const existing = await getRegistryRowByUrl(canonical);
       await upsertRegistry({
         source_url: canonical,
         source_type,
@@ -127,8 +142,11 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         is_active,
         review_status,
       });
+      const noticeMsg = existing.row
+        ? "Source already exists. Updated existing entry."
+        : "Saved source";
       redirect(
-        `/admin/tournaments/sources?notice=${encodeURIComponent("Saved source")}&source_url=${encodeURIComponent(
+        `/admin/tournaments/sources?notice=${encodeURIComponent(noticeMsg)}&source_url=${encodeURIComponent(
           canonical
         )}`
       );
@@ -276,6 +294,11 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         redirect_chain: res.diagnostics?.redirect_chain ?? [],
         location_header: res.diagnostics?.location_header ?? null,
         extracted_count: res.extracted_count ?? 1,
+        count_found: res.details?.counts?.found ?? null,
+        count_with_website: res.details?.counts?.with_website ?? null,
+        count_with_email: res.details?.counts?.with_email ?? null,
+        count_with_phone: res.details?.counts?.with_phone ?? null,
+        sample: res.details?.sample ?? null,
       };
       const logId = await insertSourceLog({
         source_id: registryRow.id,
@@ -286,7 +309,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       await updateRegistrySweep(
         registryRow.id,
         "ok",
-        buildSweepSummary(null, "Sweep succeeded", res.diagnostics ?? {}, { log_id: logId })
+        JSON.stringify({ ...payload, log_id: logId })
       );
       redirect(
         `/admin/tournaments/sources?notice=${encodeURIComponent(
@@ -395,6 +418,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   }
 
   const filtered = registryRows.filter((row: any) => {
+    if (!row.is_active) return false;
     if (filter === "untested") return (row.review_status || "untested") === "untested";
     if (filter === "keep") return (row.review_status || "") === "keep";
     if (filter === "needs_review") return (row.review_status || "") === "needs_review";
@@ -402,6 +426,14 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       const reason = getSkipReason(row);
       return !!reason;
     }
+    return true;
+  }).filter((row: any) => {
+    if (q) {
+      const hay = String(row.source_url || "").toLowerCase();
+      if (!hay.includes(q.toLowerCase())) return false;
+    }
+    if (sportFilter && String(row.sport || "").toLowerCase() !== sportFilter.toLowerCase()) return false;
+    if (stateFilter && String(row.state || "").toUpperCase() !== stateFilter) return false;
     return true;
   });
 
@@ -426,6 +458,11 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       const cmp = String(a.source_url || "").localeCompare(String(b.source_url || ""), undefined, { sensitivity: "base" });
       return dir === "asc" ? cmp : -cmp;
     }
+    if (sort === "custom") {
+      const aCustom = a.is_custom_source ? 0 : 1;
+      const bCustom = b.is_custom_source ? 0 : 1;
+      return dir === "asc" ? aCustom - bCustom : bCustom - aCustom;
+    }
     return 0;
   });
 
@@ -434,6 +471,9 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     const params = new URLSearchParams();
     if (filter) params.set("filter", filter);
     if (selectedUrl) params.set("source_url", selectedUrl);
+    if (q) params.set("q", q);
+    if (sportFilter) params.set("sport", sportFilter);
+    if (stateFilter) params.set("state", stateFilter);
     params.set("sort", key);
     params.set("dir", nextDir);
     return `/admin/tournaments/sources?${params.toString()}`;
@@ -481,6 +521,20 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         >
           Discover
         </Link>
+        <Link
+          href="/admin?tab=tournament-uploads"
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            border: "1px solid #d1d5db",
+            background: "#f8fafc",
+            color: "#0f172a",
+            fontWeight: 700,
+            textDecoration: "none",
+          }}
+        >
+          Tournament uploads
+        </Link>
         <a
           href="/api/admin/tournaments/sources/export"
           style={{
@@ -497,6 +551,87 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
           Export CSV
         </a>
       </div>
+
+      <form
+        method="GET"
+        action="/admin/tournaments/sources"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+          gap: 8,
+          alignItems: "end",
+          marginBottom: 16,
+        }}
+      >
+        <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+          Search URL
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="usclubsoccer.org"
+            style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}
+          />
+        </label>
+        <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+          Sport
+          <select
+            name="sport"
+            defaultValue={sportFilter}
+            style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}
+          >
+            <option value="">All sports</option>
+            {SPORT_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+          State
+          <input
+            name="state"
+            defaultValue={stateFilter}
+            placeholder="WA"
+            style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}
+          />
+        </label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="submit"
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid #0f172a",
+              background: "#0f172a",
+              color: "#fff",
+              fontWeight: 700,
+            }}
+          >
+            Apply
+          </button>
+          <a
+            href="/admin/tournaments/sources"
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              background: "#f9fafb",
+              color: "#0f172a",
+              fontWeight: 700,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+            }}
+          >
+            Reset
+          </a>
+        </div>
+        {filter ? <input type="hidden" name="filter" value={filter} /> : null}
+        {sort ? <input type="hidden" name="sort" value={sort} /> : null}
+        {dir ? <input type="hidden" name="dir" value={dir} /> : null}
+        {selectedUrl ? <input type="hidden" name="source_url" value={selectedUrl} /> : null}
+      </form>
 
       <div style={{ display: "grid", gap: 16, marginBottom: 16 }}>
         <form action={upsertSource} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
@@ -578,6 +713,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
               <tr>
                 {[
                   { key: "source_url", label: "Source URL", sortable: true },
+                  { key: "custom", label: "Custom", sortable: true },
                   { key: "source_type", label: "Type" },
                   { key: "sport", label: "Sport" },
                   { key: "state", label: "State" },
@@ -610,12 +746,25 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                 const reason = getSkipReason(row);
                 const ignore = !!reason;
                 return (
-                  <tr key={row.id} style={ignore ? { opacity: 0.65 } : undefined}>
+                  <tr
+                    key={row.id}
+                    style={{
+                      ...(ignore ? { opacity: 0.65 } : undefined),
+                      ...(row.is_custom_source ? { background: "#ecfdf3" } : undefined),
+                    }}
+                  >
                     <td style={{ padding: "6px 4px" }}>
                       <Link href={`/admin/tournaments/sources?source_url=${encodeURIComponent(row.source_url)}`} style={{ color: "#0f172a", fontWeight: 700 }}>
                         {row.source_url}
                       </Link>
                     </td>
+                  <td style={{ padding: "6px 4px" }}>
+                    {row.is_custom_source ? (
+                      <span style={{ fontSize: 11, fontWeight: 800, color: "#065f46" }}>custom</span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td style={{ padding: "6px 4px" }}>{row.source_type || "—"}</td>
                   <td style={{ padding: "6px 4px" }}>{row.sport || "—"}</td>
                   <td style={{ padding: "6px 4px" }}>{row.state || "—"}</td>
@@ -687,7 +836,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                     ) : null}
                   </td>
                   <td style={{ padding: "6px 4px", maxWidth: 260 }}>
-                    {row.last_sweep_summary ? (() => {
+                  {row.last_sweep_summary ? (() => {
                       let parsed: any = null;
                       try {
                         parsed = JSON.parse(row.last_sweep_summary);
@@ -696,6 +845,12 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                       }
                       if (!parsed || (!parsed.error_code && !parsed.message)) return row.last_sweep_summary;
                       const codeLabel = parsed.error_code ?? "ok";
+                      const foundCount = parsed.count_found ?? parsed.extracted_count ?? null;
+                      const urlsCount =
+                        parsed.count_with_website ??
+                        parsed.discovered_count ??
+                        parsed.extracted_count ??
+                        null;
                       return (
                         <div style={{ display: "grid", gap: 6 }}>
                           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -713,6 +868,36 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                               {codeLabel}
                             </span>
                             <span style={{ fontSize: 12 }}>{parsed.message}</span>
+                            {foundCount != null ? (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  padding: "2px 6px",
+                                  borderRadius: 999,
+                                  border: "1px solid #059669",
+                                  background: "#ecfdf3",
+                                  color: "#047857",
+                                }}
+                              >
+                                Tournaments: {foundCount}
+                              </span>
+                            ) : null}
+                            {urlsCount != null ? (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  padding: "2px 6px",
+                                  borderRadius: 999,
+                                  border: "1px solid #1d4ed8",
+                                  background: "#eff6ff",
+                                  color: "#1d4ed8",
+                                }}
+                              >
+                                URLs: {urlsCount}
+                              </span>
+                            ) : null}
                           </div>
                           <details>
                             <summary style={{ cursor: "pointer", fontSize: 11 }}>Details</summary>
