@@ -2085,6 +2085,21 @@ export default async function AdminPage({
                 >
                   <input type="hidden" name="redirect_to" value={adminBasePath} />
                   <input type="hidden" name="tournament_id" value={t.id} />
+                  <details style={{ display: "grid", gap: 12 }}>
+                    <summary
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 8,
+                        cursor: "pointer",
+                        fontWeight: 900,
+                        listStyle: "none",
+                      }}
+                    >
+                      <span>{t.name}</span>
+                      <span style={{ fontSize: 12, color: "#444", fontWeight: 700 }}>Show details ▾</span>
+                    </summary>
                   <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                     <div>
                       <div style={{ fontWeight: 900 }}>{t.name}</div>
@@ -2510,6 +2525,7 @@ export default async function AdminPage({
                       Delete tournament
                     </button>
                   </div>
+                  </details>
                 </form>
               ))}
             </div>
