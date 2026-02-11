@@ -219,6 +219,20 @@ export default async function AdminPage({
     tab === "tournament-uploads" ? await adminListPendingTournaments() : [];
   const listedTournaments: AdminListedTournament[] =
     tab === "tournament-listings" ? await adminSearchPublishedTournaments(q) : [];
+  const listedVenueMap: Record<string, Array<{ id: string; name: string | null; address: string | null; city: string | null; state: string | null; zip: string | null }>> = {};
+  if (listedTournaments.length) {
+    const ids = listedTournaments.map((t) => t.id);
+    const { data: venueLinks } = await supabaseAdmin
+      .from("tournament_venues" as any)
+      .select("tournament_id,venues(id,name,address,city,state,zip)")
+      .in("tournament_id", ids);
+    (venueLinks ?? []).forEach((row: any) => {
+      if (!row.tournament_id || !row.venues) return;
+      const list = listedVenueMap[row.tournament_id] ?? [];
+      list.push(row.venues);
+      listedVenueMap[row.tournament_id] = list;
+    });
+  }
   const { count: assignorNeedsReviewCount, error: assignorNeedsReviewError } =
     await supabaseAdmin
       .from("assignor_source_records" as any)
@@ -1453,6 +1467,58 @@ export default async function AdminPage({
     redirectWithNotice(redirectTo, "Tournament details updated");
   }
 
+  async function addTournamentVenueAction(formData: FormData) {
+    "use server";
+    const tournament_id = String(formData.get("tournament_id") || "");
+    if (!tournament_id) return;
+    const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-listings";
+    const name = (formData.get("venue_name") as string | null)?.trim() || null;
+    const address = (formData.get("venue_address") as string | null)?.trim() || null;
+    const city = (formData.get("venue_city") as string | null)?.trim() || null;
+    const state = (formData.get("venue_state") as string | null)?.trim() || null;
+    const zip = (formData.get("venue_zip") as string | null)?.trim() || null;
+
+    if (!name && !address) {
+      return redirectWithNotice(redirectTo, "Venue name or address is required.");
+    }
+
+    const { data: tournamentRowRaw } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("sport,city,state")
+      .eq("id", tournament_id)
+      .maybeSingle();
+    const tournamentRow = tournamentRowRaw as any;
+
+    const { data: venueRowRaw, error: venueErr } = await supabaseAdmin
+      .from("venues" as any)
+      .upsert(
+        {
+          name,
+          address,
+          city: city ?? tournamentRow?.city ?? null,
+          state: state ?? tournamentRow?.state ?? null,
+          zip,
+          sport: tournamentRow?.sport ?? null,
+        },
+        { onConflict: "name,address,city,state" }
+      )
+      .select("id")
+      .maybeSingle();
+    const venueRow = venueRowRaw as any;
+    if (venueErr || !venueRow?.id) {
+      return redirectWithNotice(redirectTo, "Failed to save venue.");
+    }
+
+    const { error: linkErr } = await supabaseAdmin
+      .from("tournament_venues" as any)
+      .upsert({ tournament_id, venue_id: venueRow.id }, { onConflict: "tournament_id,venue_id" });
+    if (linkErr) {
+      return redirectWithNotice(redirectTo, "Failed to link venue.");
+    }
+
+    redirectWithNotice(redirectTo, "Venue added.");
+  }
+
   const tabLink = (t: Tab) => {
     const sp = new URLSearchParams();
     sp.set("tab", t);
@@ -2272,6 +2338,76 @@ export default async function AdminPage({
                         style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
                       />
                     </label>
+                  </div>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800 }}>Linked venues</div>
+                    {listedVenueMap[t.id]?.length ? (
+                      <ul style={{ margin: 0, paddingLeft: 18, color: "#555", fontSize: 12 }}>
+                        {listedVenueMap[t.id].map((v) => (
+                          <li key={v.id}>
+                            {[v.name, v.address, v.city, v.state, v.zip]
+                              .filter(Boolean)
+                              .join(" • ")}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div style={{ fontSize: 12, color: "#777" }}>No linked venues yet.</div>
+                    )}
+                    <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4 }}>Add another venue</div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
+                        gap: 10,
+                      }}
+                    >
+                      <input
+                        type="text"
+                        name="venue_name"
+                        placeholder="Venue name"
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                      <input
+                        type="text"
+                        name="venue_address"
+                        placeholder="Address"
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                      <input
+                        type="text"
+                        name="venue_city"
+                        placeholder="City"
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                      <input
+                        type="text"
+                        name="venue_state"
+                        placeholder="State"
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                      <input
+                        type="text"
+                        name="venue_zip"
+                        placeholder="Zip"
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </div>
+                    <div>
+                      <button
+                        formAction={addTournamentVenueAction}
+                        style={{
+                          padding: "8px 12px",
+                          borderRadius: 8,
+                          border: "1px solid #0f172a",
+                          background: "#fff",
+                          color: "#0f172a",
+                          fontWeight: 800,
+                        }}
+                      >
+                        Add venue
+                      </button>
+                    </div>
                   </div>
                   <div
                     style={{

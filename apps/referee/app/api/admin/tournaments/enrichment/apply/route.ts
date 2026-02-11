@@ -57,6 +57,37 @@ export async function POST(request: Request) {
     const venue = ((venues ?? []) as any[])[0] as any;
     if (venue?.venue_name) updates.venue = venue.venue_name;
     if (venue?.address_text) updates.address = venue.address_text;
+    if (venue?.venue_name || venue?.address_text) {
+      const { data: tournamentRowRaw } = await supabaseAdmin
+        .from("tournaments" as any)
+        .select("city,state,sport")
+        .eq("id", tournamentId)
+        .maybeSingle();
+      const tournamentRow = tournamentRowRaw as any;
+      const { data: upsertedRaw, error: upsertErr } = await supabaseAdmin
+        .from("venues" as any)
+        .upsert(
+          {
+            name: venue?.venue_name ?? null,
+            address: venue?.address_text ?? null,
+            city: tournamentRow?.city ?? null,
+            state: tournamentRow?.state ?? null,
+            sport: tournamentRow?.sport ?? null,
+          },
+          { onConflict: "name,address,city,state" }
+        )
+        .select("id")
+        .maybeSingle();
+      const upserted = upsertedRaw as any;
+      if (!upsertErr && upserted?.id) {
+        await supabaseAdmin
+          .from("tournament_venues" as any)
+          .upsert(
+            { tournament_id: tournamentId, venue_id: upserted.id },
+            { onConflict: "tournament_id,venue_id" }
+          );
+      }
+    }
   }
 
   if (dateIds.length) {

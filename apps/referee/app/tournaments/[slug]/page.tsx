@@ -199,6 +199,20 @@ export default async function TournamentDetailPage({
   const seriesMap = await loadSeriesTournamentIds(supabase, [{ id: data.id, slug: data.slug }]);
   const seriesEntry = seriesMap.get(data.id);
   const relatedTournamentIds = seriesEntry?.tournamentIds ?? [data.id];
+  const { data: venueLinks } = await supabaseAdmin
+    .from("tournament_venues" as any)
+    .select("venue_id,venues(id,name,address,city,state,zip)")
+    .eq("tournament_id", data.id);
+  const linkedVenues = (venueLinks ?? [])
+    .map((row: any) => row.venues)
+    .filter(Boolean) as Array<{
+    id: string;
+    name: string | null;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    zip: string | null;
+  }>;
 
   const whistleScore = await loadWhistleScore(supabase, relatedTournamentIds);
   const reviewsRaw = await loadPublicReviews(supabase, relatedTournamentIds);
@@ -321,6 +335,27 @@ export default async function TournamentDetailPage({
               {data.venue ? `${data.venue}` : ""}
               {data.venue && data.address ? " • " : ""}
               {data.address ? `${data.address}` : ""}
+            </p>
+          )}
+          {linkedVenues.length > 1 && (
+            <div className="detailMeta" style={{ marginTop: 6 }}>
+              <strong>Venues:</strong>
+              <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
+                {linkedVenues.map((v) => (
+                  <li key={v.id} style={{ marginBottom: 4 }}>
+                    {[v.name, v.address, v.city, v.state, v.zip]
+                      .filter(Boolean)
+                      .join(" • ")}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {!data.venue && !data.address && linkedVenues.length === 1 && (
+            <p className="detailMeta">
+              {[linkedVenues[0].name, linkedVenues[0].address, linkedVenues[0].city, linkedVenues[0].state, linkedVenues[0].zip]
+                .filter(Boolean)
+                .join(" • ")}
             </p>
           )}
 
