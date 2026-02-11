@@ -871,6 +871,7 @@ export type AdminListedTournament = {
   sub_type?: TournamentSubmissionType | null;
   cash_tournament?: boolean | null;
   cash_at_field?: boolean | null;
+  tournament_staff_verified?: boolean | null;
   referee_food?: string | null;
   facilities?: string | null;
   referee_tents?: string | null;
@@ -889,6 +890,11 @@ export type AdminListedTournament = {
   summary?: string | null;
   referee_pay?: string | null;
   referee_contact?: string | null;
+  referee_contact_email?: string | null;
+  referee_contact_phone?: string | null;
+  tournament_director?: string | null;
+  tournament_director_email?: string | null;
+  tournament_director_phone?: string | null;
   source_url?: string | null;
   source_domain?: string | null;
 };
@@ -900,7 +906,7 @@ export async function adminSearchPublishedTournaments(
   let request = supabaseAdmin
     .from("tournaments")
     .select(
-      "id,name,slug,sport,level,level_of_competition,sub_type,cash_tournament,cash_at_field,referee_food,facilities,referee_tents,travel_lodging,ref_game_schedule,ref_parking,ref_parking_cost,mentors,assigned_appropriately,state,city,venue,address,start_date,end_date,summary,referee_pay,referee_contact,source_url,source_domain"
+      "id,name,slug,sport,level,level_of_competition,sub_type,cash_tournament,cash_at_field,tournament_staff_verified,referee_food,facilities,referee_tents,travel_lodging,ref_game_schedule,ref_parking,ref_parking_cost,mentors,assigned_appropriately,state,city,venue,address,start_date,end_date,summary,referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,source_url,source_domain"
     )
     .eq("status", "published")
     .eq("is_canonical", true)
@@ -949,6 +955,7 @@ export async function adminUpdateTournamentDetails(params: {
     sub_type: TournamentSubmissionType | null;
     cash_tournament: boolean;
     cash_at_field: boolean | null;
+    tournament_staff_verified: boolean | null;
     referee_food: string | null;
     facilities: string | null;
     referee_tents: string | null;
@@ -967,6 +974,11 @@ export async function adminUpdateTournamentDetails(params: {
     summary: string | null;
     referee_pay: string | null;
     referee_contact: string | null;
+    referee_contact_email: string | null;
+    referee_contact_phone: string | null;
+    tournament_director: string | null;
+    tournament_director_email: string | null;
+    tournament_director_phone: string | null;
     source_url: string | null;
     source_domain: string | null;
   }>;

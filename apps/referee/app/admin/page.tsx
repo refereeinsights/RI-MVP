@@ -1449,6 +1449,7 @@ export default async function AdminPage({
         ref_parking_cost: refParkingCost,
         mentors,
         assigned_appropriately: assignedAppropriately,
+        tournament_staff_verified: formData.get("tournament_staff_verified") === "on",
         city: stringOrNull("city"),
         state: stateValue ? stateValue.toUpperCase() : null,
         venue: stringOrNull("venue"),
@@ -1458,6 +1459,11 @@ export default async function AdminPage({
         summary,
         referee_pay: stringOrNull("referee_pay"),
         referee_contact: stringOrNull("referee_contact"),
+        referee_contact_email: stringOrNull("referee_contact_email"),
+        referee_contact_phone: stringOrNull("referee_contact_phone"),
+        tournament_director: stringOrNull("tournament_director"),
+        tournament_director_email: stringOrNull("tournament_director_email"),
+        tournament_director_phone: stringOrNull("tournament_director_phone"),
         source_url: normalizedUrl,
         source_domain: sourceDomain,
       },
@@ -2181,6 +2187,15 @@ export default async function AdminPage({
                       />
                       Cash at field
                     </label>
+                    <label style={{ fontSize: 12, fontWeight: 700, display: "flex", alignItems: "flex-end", gap: 6 }}>
+                      <input
+                        type="checkbox"
+                        name="tournament_staff_verified"
+                        defaultChecked={Boolean(t.tournament_staff_verified)}
+                        style={{ width: 18, height: 18 }}
+                      />
+                      Staff verified
+                    </label>
                   </div>
                   <div
                     style={{
@@ -2431,6 +2446,60 @@ export default async function AdminPage({
                       gap: 12,
                     }}
                   >
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Tournament director
+                      <input
+                        type="text"
+                        name="tournament_director"
+                        defaultValue={t.tournament_director ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Director email
+                      <input
+                        type="email"
+                        name="tournament_director_email"
+                        defaultValue={t.tournament_director_email ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Director phone
+                      <input
+                        type="text"
+                        name="tournament_director_phone"
+                        defaultValue={t.tournament_director_phone ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Referee contact name
+                      <input
+                        type="text"
+                        name="referee_contact"
+                        defaultValue={t.referee_contact ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Referee contact email
+                      <input
+                        type="email"
+                        name="referee_contact_email"
+                        defaultValue={t.referee_contact_email ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Referee contact phone
+                      <input
+                        type="text"
+                        name="referee_contact_phone"
+                        defaultValue={t.referee_contact_phone ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
                     <label style={{ fontSize: 12, fontWeight: 700 }}>
                       Start date
                       <input
