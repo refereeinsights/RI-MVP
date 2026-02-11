@@ -2,9 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import AdminNav from "@/components/admin/AdminNav";
 import OutreachCopyButtons from "@/components/admin/OutreachCopyButtons";
+import OutreachTemplateEditor from "@/components/admin/OutreachTemplateEditor";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { buildColdOutreachEmail, buildFollowupEmail, buildTournamentUrl } from "@/lib/outreach";
+import { DEFAULT_TEMPLATES, buildTournamentUrl, renderOutreachTemplate } from "@/lib/outreach";
 
 export const runtime = "nodejs";
 
@@ -35,13 +36,31 @@ function buildMailto(to: string, subject: string, body: string) {
 export default async function OutreachPage({
   searchParams,
 }: {
-  searchParams?: { tab?: TabKey; notice?: string };
+  searchParams?: { tab?: TabKey; notice?: string; state?: string; sport?: string; start_from?: string; start_to?: string; q?: string };
 }) {
   await requireAdmin();
   const notice = searchParams?.notice ?? "";
   const tab: TabKey = (searchParams?.tab as TabKey) ?? "draft";
+  const state = (searchParams?.state ?? "").trim();
+  const sport = (searchParams?.sport ?? "").trim();
+  const startFrom = (searchParams?.start_from ?? "").trim();
+  const startTo = (searchParams?.start_to ?? "").trim();
+  const queryText = (searchParams?.q ?? "").trim();
 
   const nowIso = new Date().toISOString();
+
+  const { data: templateRows } = await supabaseAdmin
+    .from("outreach_email_templates" as any)
+    .select("key,name,subject_template,body_template,is_active,updated_at,updated_by")
+    .eq("is_active", true)
+    .in("key", ["tournament_initial", "tournament_followup"]);
+
+  const templateMap = new Map<string, any>();
+  (templateRows ?? []).forEach((row: any) => {
+    if (row?.key) templateMap.set(row.key, row);
+  });
+  const initialTemplate = templateMap.get("tournament_initial") ?? DEFAULT_TEMPLATES.tournament_initial;
+  const followupTemplate = templateMap.get("tournament_followup") ?? DEFAULT_TEMPLATES.tournament_followup;
 
   let query = supabaseAdmin
     .from("tournament_outreach" as any)
@@ -58,11 +77,43 @@ export default async function OutreachPage({
     query = query.eq("status", status);
   }
 
+  if (state) query = query.eq("tournaments.state", state);
+  if (sport) query = query.eq("tournaments.sport", sport);
+  if (startFrom) query = query.gte("tournaments.start_date", startFrom);
+  if (startTo) query = query.lte("tournaments.start_date", startTo);
+  if (queryText) query = query.ilike("tournaments.name", `%${queryText}%`);
+
   const { data: outreachRowsRaw } = await query.order("updated_at", { ascending: false });
   let outreachRows = (outreachRowsRaw ?? []) as any[];
 
   if (tab === "suppressed") {
     outreachRows = outreachRows.filter((row) => row.tournaments?.do_not_contact || ["suppressed", "closed"].includes(row.status));
+  }
+
+  async function saveTemplateAction(formData: FormData) {
+    "use server";
+    const admin = await requireAdmin();
+    const key = String(formData.get("template_key") || "");
+    const name = String(formData.get("template_name") || "").trim();
+    const subject = String(formData.get("subject_template") || "");
+    const body = String(formData.get("body_template") || "");
+
+    if (!key || !subject || !body) {
+      redirect("/admin/outreach?notice=Missing%20template%20data");
+    }
+
+    await supabaseAdmin
+      .from("outreach_email_templates" as any)
+      .upsert({
+        key,
+        name: name || key,
+        subject_template: subject,
+        body_template: body,
+        is_active: true,
+        updated_by: admin.id,
+      }, { onConflict: "key" });
+
+    redirect(`/admin/outreach?notice=${encodeURIComponent("Template saved")}`);
   }
 
   async function updateOutreachNotes(formData: FormData) {
@@ -189,11 +240,117 @@ export default async function OutreachPage({
           <p style={{ color: "#555", marginTop: 0 }}>
             Draft and track outreach to tournament staff. Email sending is manual.
           </p>
+          <div style={{ marginTop: 14, padding: 14, borderRadius: 12, border: "1px solid #d1d5db", background: "#fff" }}>
+            <details>
+              <summary style={{ cursor: "pointer", fontWeight: 800 }}>Email templates</summary>
+              <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+                <OutreachTemplateEditor
+                  initialTemplate={initialTemplate}
+                  followupTemplate={followupTemplate}
+                  defaultInitial={DEFAULT_TEMPLATES.tournament_initial}
+                  defaultFollowup={DEFAULT_TEMPLATES.tournament_followup}
+                  onSave={saveTemplateAction}
+                />
+              </div>
+            </details>
+          </div>
+          <form
+            method="GET"
+            action="/admin/outreach"
+            style={{
+              marginTop: 12,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
+              gap: 10,
+              alignItems: "end",
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 12,
+              padding: 12,
+            }}
+          >
+            <input type="hidden" name="tab" value={tab} />
+            <label style={{ fontSize: 12, fontWeight: 700 }}>
+              Tournament name
+              <input
+                type="text"
+                name="q"
+                placeholder="Search by name"
+                defaultValue={queryText}
+                style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+              />
+            </label>
+            <label style={{ fontSize: 12, fontWeight: 700 }}>
+              State
+              <input
+                type="text"
+                name="state"
+                placeholder="e.g. WA"
+                defaultValue={state}
+                style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+              />
+            </label>
+            <label style={{ fontSize: 12, fontWeight: 700 }}>
+              Sport
+              <select
+                name="sport"
+                defaultValue={sport}
+                style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+              >
+                <option value="">All sports</option>
+                <option value="soccer">Soccer</option>
+                <option value="basketball">Basketball</option>
+                <option value="football">Football</option>
+              </select>
+            </label>
+            <label style={{ fontSize: 12, fontWeight: 700 }}>
+              Start date from
+              <input
+                type="date"
+                name="start_from"
+                defaultValue={startFrom}
+                style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+              />
+            </label>
+            <label style={{ fontSize: 12, fontWeight: 700 }}>
+              Start date to
+              <input
+                type="date"
+                name="start_to"
+                defaultValue={startTo}
+                style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+              />
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="submit"
+                style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#111", color: "#fff", fontWeight: 800 }}
+              >
+                Apply filters
+              </button>
+              <a
+                href={`/admin/outreach?tab=${tab}`}
+                style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #111", color: "#111", fontWeight: 800, textDecoration: "none" }}
+              >
+                Reset
+              </a>
+            </div>
+          </form>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
             {(Object.keys(TAB_LABELS) as TabKey[]).map((key) => (
+              (() => {
+                const params = new URLSearchParams();
+                params.set("tab", key);
+                if (queryText) params.set("q", queryText);
+                if (state) params.set("state", state);
+                if (sport) params.set("sport", sport);
+                if (startFrom) params.set("start_from", startFrom);
+                if (startTo) params.set("start_to", startTo);
+                const href = `/admin/outreach?${params.toString()}`;
+                return (
               <Link
                 key={key}
-                href={`/admin/outreach?tab=${key}`}
+                href={href}
                 style={{
                   padding: "6px 10px",
                   borderRadius: 999,
@@ -207,6 +364,8 @@ export default async function OutreachPage({
               >
                 {TAB_LABELS[key]}
               </Link>
+                );
+              })()
             ))}
             <Link
               href="/admin/outreach/create"
@@ -239,10 +398,10 @@ export default async function OutreachPage({
                 const doNotContact = Boolean(tournament.do_not_contact);
                 const { subject, body } = row.email_subject_snapshot && row.email_body_snapshot
                   ? { subject: row.email_subject_snapshot, body: row.email_body_snapshot }
-                  : buildColdOutreachEmail(tournament, contactName);
+                  : renderOutreachTemplate(initialTemplate, tournament, contactName);
                 const followup = row.followup_subject_snapshot && row.followup_body_snapshot
                   ? { subject: row.followup_subject_snapshot, body: row.followup_body_snapshot }
-                  : buildFollowupEmail(tournament, contactName);
+                  : renderOutreachTemplate(followupTemplate, tournament, contactName);
                 const mailto = contactEmail ? buildMailto(contactEmail, subject, body) : "";
                 const followupMailto = contactEmail ? buildMailto(contactEmail, followup.subject, followup.body) : "";
 
