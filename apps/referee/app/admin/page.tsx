@@ -1,6 +1,7 @@
 import SportsPickerClient from "@/components/SportsPickerClient";
 import TournamentLookup from "@/components/TournamentLookup";
 import Link from "next/link";
+import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import OwlsEyePanel from "./owls-eye/OwlsEyePanel";
@@ -140,6 +141,8 @@ export default async function AdminPage({
     cstatus?: ContactStatus;
     notice?: string;
     fallback_source_url?: string;
+    staff_token?: string;
+    staff_token_tournament_id?: string;
   };
 }) {
   await requireAdmin();
@@ -152,6 +155,8 @@ export default async function AdminPage({
   const reviewStatus: ReviewStatus = (searchParams.rstatus as ReviewStatus) ?? "pending";
   const contactStatus: ContactStatus = (searchParams.cstatus as ContactStatus) ?? "pending";
   const notice = searchParams.notice ?? "";
+  const staffToken = searchParams.staff_token ?? "";
+  const staffTokenTournamentId = searchParams.staff_token_tournament_id ?? "";
   const fallbackSourceUrlParam = searchParams.fallback_source_url ?? "";
 
   const params = new URLSearchParams();
@@ -220,6 +225,7 @@ export default async function AdminPage({
   const listedTournaments: AdminListedTournament[] =
     tab === "tournament-listings" ? await adminSearchPublishedTournaments(q) : [];
   const listedVenueMap: Record<string, Array<{ id: string; name: string | null; address: string | null; city: string | null; state: string | null; zip: string | null }>> = {};
+  const listedStaffPendingMap: Record<string, number> = {};
   if (listedTournaments.length) {
     const ids = listedTournaments.map((t) => t.id);
     const { data: venueLinks } = await supabaseAdmin
@@ -231,6 +237,16 @@ export default async function AdminPage({
       const list = listedVenueMap[row.tournament_id] ?? [];
       list.push(row.venues);
       listedVenueMap[row.tournament_id] = list;
+    });
+
+    const { data: staffPending } = await supabaseAdmin
+      .from("tournament_staff_verification_submissions" as any)
+      .select("tournament_id")
+      .eq("status", "pending_admin_review")
+      .in("tournament_id", ids);
+    (staffPending ?? []).forEach((row: any) => {
+      if (!row.tournament_id) return;
+      listedStaffPendingMap[row.tournament_id] = (listedStaffPendingMap[row.tournament_id] ?? 0) + 1;
     });
   }
   const { count: assignorNeedsReviewCount, error: assignorNeedsReviewError } =
@@ -337,6 +353,42 @@ export default async function AdminPage({
       redirectWithNotice(redirectTo, msg);
     }
     redirectWithNotice(redirectTo, "Enrichment queued");
+  }
+
+  async function createStaffVerificationLinkAction(formData: FormData) {
+    "use server";
+    const admin = await requireAdmin();
+    const redirectTo = String(formData.get("redirect_to") || "/admin?tab=tournament-listings");
+    const tournament_id = String(formData.get("tournament_id") || "");
+    if (!tournament_id) {
+      redirectWithNotice(redirectTo, "Missing tournament id");
+    }
+
+    const nowIso = new Date().toISOString();
+    await supabaseAdmin
+      .from("tournament_staff_verify_tokens" as any)
+      .update({ expires_at: nowIso })
+      .eq("tournament_id", tournament_id)
+      .is("used_at", null);
+
+    const token = crypto.randomBytes(32).toString("base64url");
+    const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    await supabaseAdmin.from("tournament_staff_verify_tokens" as any).insert({
+      tournament_id,
+      token,
+      expires_at: expiresAt,
+      used_at: null,
+      created_by_user_id: admin.id,
+    });
+
+    const joiner = redirectTo.includes("?") ? "&" : "?";
+    redirect(
+      `${redirectTo}${joiner}notice=${encodeURIComponent(
+        "Staff verification link created."
+      )}&staff_token=${encodeURIComponent(token)}&staff_token_tournament_id=${encodeURIComponent(
+        tournament_id
+      )}`
+    );
   }
 
   async function discoverTournamentContactsAction(formData: FormData) {
@@ -2068,6 +2120,20 @@ export default async function AdminPage({
               Reset
             </a>
           </form>
+          {staffToken && staffTokenTournamentId ? (
+            <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, border: "1px solid #cbd5f5", background: "#eef2ff", fontSize: 13 }}>
+              Staff verification link created:
+              {" "}
+              <a
+                href={`${process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.refereeinsights.com"}/tournaments/verify/${staffToken}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontWeight: 700 }}
+              >
+                {`${process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.refereeinsights.com"}/tournaments/verify/${staffToken}`}
+              </a>
+            </div>
+          ) : null}
           {listedTournaments.length === 0 ? (
             <div style={{ color: "#555", border: "1px dashed #ccc", padding: 16, borderRadius: 12 }}>
               {q
@@ -2103,7 +2169,14 @@ export default async function AdminPage({
                         listStyle: "none",
                       }}
                     >
-                      <span>{t.name}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {t.name}
+                        {listedStaffPendingMap[t.id] ? (
+                          <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#fde68a", color: "#7c2d12" }}>
+                            Pending staff verification ({listedStaffPendingMap[t.id]})
+                          </span>
+                        ) : null}
+                      </span>
                       <span style={{ fontSize: 12, color: "#444", fontWeight: 700 }}>Show details ▾</span>
                     </summary>
                   <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
@@ -2114,6 +2187,31 @@ export default async function AdminPage({
                     <Link href={`/tournaments/${t.slug}`} target="_blank" style={{ fontSize: 13 }}>
                       View public page ↗
                     </Link>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                    <form action={createStaffVerificationLinkAction}>
+                      <input type="hidden" name="redirect_to" value={adminBasePath} />
+                      <input type="hidden" name="tournament_id" value={t.id} />
+                      <button
+                        type="submit"
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: 999,
+                          border: "1px solid #0f172a",
+                          background: "#fff",
+                          color: "#0f172a",
+                          fontWeight: 800,
+                          fontSize: 12,
+                        }}
+                      >
+                        Create staff verification link
+                      </button>
+                    </form>
+                    {staffToken && staffTokenTournamentId === t.id ? (
+                      <span style={{ fontSize: 12, color: "#1e3a8a" }}>
+                        Link ready for this tournament.
+                      </span>
+                    ) : null}
                   </div>
                   <div
                     style={{

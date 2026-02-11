@@ -29,5 +29,5 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   // Exclude public crawl targets so Googlebot can fetch without auth/cookies.
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|tournaments/verify).*)"],
 };

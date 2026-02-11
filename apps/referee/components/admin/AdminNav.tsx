@@ -31,6 +31,12 @@ export function AdminNav() {
         <Link href="/admin/tournaments/dashboard" style={linkStyle}>
           Tournaments dashboard
         </Link>
+        <Link href="/admin/outreach" style={linkStyle}>
+          Outreach
+        </Link>
+        <Link href="/admin/tournaments/staff-verification-queue" style={linkStyle}>
+          Staff verification
+        </Link>
         <Link href="/admin/tournaments/sources" style={linkStyle}>
           Sources
         </Link>

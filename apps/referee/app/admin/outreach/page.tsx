@@ -1,0 +1,396 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import AdminNav from "@/components/admin/AdminNav";
+import OutreachCopyButtons from "@/components/admin/OutreachCopyButtons";
+import { requireAdmin } from "@/lib/admin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { buildColdOutreachEmail, buildFollowupEmail, buildTournamentUrl } from "@/lib/outreach";
+
+export const runtime = "nodejs";
+
+type TabKey = "draft" | "sent" | "followup-due" | "followup-sent" | "replied" | "verified" | "suppressed";
+
+const TAB_LABELS: Record<TabKey, string> = {
+  draft: "Draft",
+  sent: "Sent",
+  "followup-due": "Follow-up due",
+  "followup-sent": "Follow-up sent",
+  replied: "Replied",
+  verified: "Verified",
+  suppressed: "Suppressed",
+};
+
+const DNC_REASONS = [
+  { value: "opted_out", label: "Opted out" },
+  { value: "wrong_person", label: "Wrong person" },
+  { value: "complaint", label: "Complaint" },
+  { value: "other", label: "Other" },
+];
+
+function buildMailto(to: string, subject: string, body: string) {
+  const params = new URLSearchParams({ subject, body });
+  return `mailto:${encodeURIComponent(to)}?${params.toString()}`;
+}
+
+export default async function OutreachPage({
+  searchParams,
+}: {
+  searchParams?: { tab?: TabKey; notice?: string };
+}) {
+  await requireAdmin();
+  const notice = searchParams?.notice ?? "";
+  const tab: TabKey = (searchParams?.tab as TabKey) ?? "draft";
+
+  const nowIso = new Date().toISOString();
+
+  let query = supabaseAdmin
+    .from("tournament_outreach" as any)
+    .select(
+      "id,tournament_id,contact_name,contact_email,status,email_subject_snapshot,email_body_snapshot,followup_subject_snapshot,followup_body_snapshot,sent_at,followup_due_at,followup_sent_at,replied_at,notes,created_at,updated_at,tournaments(id,name,slug,city,state,sport,do_not_contact,do_not_contact_reason,do_not_contact_at,tournament_director,tournament_director_email)"
+    );
+
+  if (tab === "followup-due") {
+    query = query.eq("status", "sent").lte("followup_due_at", nowIso);
+  } else if (tab === "suppressed") {
+    query = query.in("status", ["suppressed", "closed"]);
+  } else {
+    const status = tab === "followup-sent" ? "followup_sent" : tab;
+    query = query.eq("status", status);
+  }
+
+  const { data: outreachRowsRaw } = await query.order("updated_at", { ascending: false });
+  let outreachRows = (outreachRowsRaw ?? []) as any[];
+
+  if (tab === "suppressed") {
+    outreachRows = outreachRows.filter((row) => row.tournaments?.do_not_contact || ["suppressed", "closed"].includes(row.status));
+  }
+
+  async function updateOutreachNotes(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const outreachId = String(formData.get("outreach_id") || "");
+    const notes = String(formData.get("notes") || "").trim();
+    if (!outreachId) redirect("/admin/outreach?notice=Missing%20outreach%20id");
+    await supabaseAdmin.from("tournament_outreach" as any).update({ notes }).eq("id", outreachId);
+    redirect(`/admin/outreach?tab=${tab}&notice=${encodeURIComponent("Notes updated")}`);
+  }
+
+  async function markSent(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const outreachId = String(formData.get("outreach_id") || "");
+    if (!outreachId) redirect("/admin/outreach?notice=Missing%20outreach%20id");
+    const subject = String(formData.get("subject") || "");
+    const body = String(formData.get("body") || "");
+    await supabaseAdmin
+      .from("tournament_outreach" as any)
+      .update({
+        status: "sent",
+        sent_at: new Date().toISOString(),
+        followup_due_at: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        email_subject_snapshot: subject,
+        email_body_snapshot: body,
+      })
+      .eq("id", outreachId);
+    redirect(`/admin/outreach?tab=sent&notice=${encodeURIComponent("Marked sent")}`);
+  }
+
+  async function markFollowupSent(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const outreachId = String(formData.get("outreach_id") || "");
+    if (!outreachId) redirect("/admin/outreach?notice=Missing%20outreach%20id");
+    const subject = String(formData.get("subject") || "");
+    const body = String(formData.get("body") || "");
+    await supabaseAdmin
+      .from("tournament_outreach" as any)
+      .update({
+        status: "followup_sent",
+        followup_sent_at: new Date().toISOString(),
+        followup_subject_snapshot: subject,
+        followup_body_snapshot: body,
+      })
+      .eq("id", outreachId);
+    redirect(`/admin/outreach?tab=followup-sent&notice=${encodeURIComponent("Marked follow-up sent")}`);
+  }
+
+  async function markReplied(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const outreachId = String(formData.get("outreach_id") || "");
+    if (!outreachId) redirect("/admin/outreach?notice=Missing%20outreach%20id");
+    await supabaseAdmin
+      .from("tournament_outreach" as any)
+      .update({ status: "replied", replied_at: new Date().toISOString() })
+      .eq("id", outreachId);
+    redirect(`/admin/outreach?tab=replied&notice=${encodeURIComponent("Marked replied")}`);
+  }
+
+  async function markVerified(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const outreachId = String(formData.get("outreach_id") || "");
+    if (!outreachId) redirect("/admin/outreach?notice=Missing%20outreach%20id");
+    await supabaseAdmin
+      .from("tournament_outreach" as any)
+      .update({ status: "verified" })
+      .eq("id", outreachId);
+    redirect(`/admin/outreach?tab=verified&notice=${encodeURIComponent("Marked verified")}`);
+  }
+
+  async function markDnc(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const tournamentId = String(formData.get("tournament_id") || "");
+    const reason = String(formData.get("reason") || "other");
+    if (!tournamentId) redirect("/admin/outreach?notice=Missing%20tournament%20id");
+
+    await supabaseAdmin
+      .from("tournaments" as any)
+      .update({
+        do_not_contact: true,
+        do_not_contact_at: new Date().toISOString(),
+        do_not_contact_reason: reason,
+      })
+      .eq("id", tournamentId);
+
+    await supabaseAdmin
+      .from("tournament_outreach" as any)
+      .update({ status: "suppressed" })
+      .eq("tournament_id", tournamentId);
+
+    redirect(`/admin/outreach?tab=suppressed&notice=${encodeURIComponent("Marked do-not-contact")}`);
+  }
+
+  async function clearDnc(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const tournamentId = String(formData.get("tournament_id") || "");
+    if (!tournamentId) redirect("/admin/outreach?notice=Missing%20tournament%20id");
+
+    await supabaseAdmin
+      .from("tournaments" as any)
+      .update({
+        do_not_contact: false,
+        do_not_contact_at: null,
+        do_not_contact_reason: null,
+      })
+      .eq("id", tournamentId);
+
+    redirect(`/admin/outreach?tab=${tab}&notice=${encodeURIComponent("Cleared do-not-contact")}`);
+  }
+
+  return (
+    <main className="pitchWrap">
+      <section className="field">
+        <AdminNav />
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 900, marginBottom: 6 }}>Tournament outreach</h1>
+          <p style={{ color: "#555", marginTop: 0 }}>
+            Draft and track outreach to tournament staff. Email sending is manual.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+            {(Object.keys(TAB_LABELS) as TabKey[]).map((key) => (
+              <Link
+                key={key}
+                href={`/admin/outreach?tab=${key}`}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  border: tab === key ? "1px solid #0f172a" : "1px solid #d1d5db",
+                  background: tab === key ? "#0f172a" : "#fff",
+                  color: tab === key ? "#fff" : "#111",
+                  textDecoration: "none",
+                  fontSize: 12,
+                  fontWeight: 800,
+                }}
+              >
+                {TAB_LABELS[key]}
+              </Link>
+            ))}
+            <Link
+              href="/admin/outreach/create"
+              style={{
+                padding: "6px 10px",
+                borderRadius: 999,
+                border: "1px solid #0f172a",
+                background: "#fff",
+                color: "#0f172a",
+                textDecoration: "none",
+                fontSize: 12,
+                fontWeight: 800,
+                marginLeft: "auto",
+              }}
+            >
+              Create outreach rows
+            </Link>
+          </div>
+          {notice ? (
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 10, border: "1px solid #cbd5f5", background: "#eef2ff" }}>
+              {notice}
+            </div>
+          ) : null}
+          {outreachRows.length ? (
+            <div style={{ display: "grid", gap: 16, marginTop: 16 }}>
+              {outreachRows.map((row) => {
+                const tournament = row.tournaments ?? {};
+                const contactName = row.contact_name ?? tournament.tournament_director ?? null;
+                const contactEmail = row.contact_email ?? tournament.tournament_director_email ?? "";
+                const doNotContact = Boolean(tournament.do_not_contact);
+                const { subject, body } = row.email_subject_snapshot && row.email_body_snapshot
+                  ? { subject: row.email_subject_snapshot, body: row.email_body_snapshot }
+                  : buildColdOutreachEmail(tournament, contactName);
+                const followup = row.followup_subject_snapshot && row.followup_body_snapshot
+                  ? { subject: row.followup_subject_snapshot, body: row.followup_body_snapshot }
+                  : buildFollowupEmail(tournament, contactName);
+                const mailto = contactEmail ? buildMailto(contactEmail, subject, body) : "";
+                const followupMailto = contactEmail ? buildMailto(contactEmail, followup.subject, followup.body) : "";
+
+                return (
+                  <div key={row.id} style={{ border: "1px solid #ddd", borderRadius: 14, padding: 16, background: "#fff" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                      <div>
+                        <div style={{ fontWeight: 900 }}>{tournament.name ?? "Unknown tournament"}</div>
+                        <div style={{ fontSize: 12, color: "#666" }}>
+                          {tournament.city ?? ""}{tournament.city && tournament.state ? ", " : ""}{tournament.state ?? ""}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#666" }}>{contactEmail}</div>
+                        {doNotContact ? (
+                          <div style={{ marginTop: 6, display: "inline-flex", padding: "2px 8px", borderRadius: 999, background: "#fee2e2", color: "#991b1b", fontSize: 11, fontWeight: 800 }}>
+                            DNC
+                          </div>
+                        ) : null}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        {tournament.slug ? (
+                          <Link href={buildTournamentUrl(tournament.slug)} target="_blank" style={{ fontSize: 12 }}>
+                            View tournament ↗
+                          </Link>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                      <OutreachCopyButtons
+                        subject={subject}
+                        body={body}
+                        followupSubject={followup.subject}
+                        followupBody={followup.body}
+                        disabled={doNotContact}
+                      />
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        <a
+                          href={mailto}
+                          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #0f172a", background: doNotContact ? "#e5e7eb" : "#fff", color: "#0f172a", fontSize: 12, fontWeight: 800, textDecoration: "none", pointerEvents: doNotContact ? "none" : "auto" }}
+                        >
+                          Compose email
+                        </a>
+                        <a
+                          href={followupMailto}
+                          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #0f172a", background: doNotContact ? "#e5e7eb" : "#fff", color: "#0f172a", fontSize: 12, fontWeight: 800, textDecoration: "none", pointerEvents: doNotContact ? "none" : "auto" }}
+                        >
+                          Compose follow-up
+                        </a>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <form action={markSent}>
+                        <input type="hidden" name="outreach_id" value={row.id} />
+                        <input type="hidden" name="subject" value={subject} />
+                        <input type="hidden" name="body" value={body} />
+                        <button
+                          disabled={doNotContact}
+                          style={{ padding: "6px 10px", borderRadius: 8, border: "none", background: "#111", color: "#fff", fontSize: 12, fontWeight: 800, opacity: doNotContact ? 0.5 : 1 }}
+                        >
+                          Mark sent
+                        </button>
+                      </form>
+                      <form action={markFollowupSent}>
+                        <input type="hidden" name="outreach_id" value={row.id} />
+                        <input type="hidden" name="subject" value={followup.subject} />
+                        <input type="hidden" name="body" value={followup.body} />
+                        <button
+                          disabled={doNotContact}
+                          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #111", background: "#fff", color: "#111", fontSize: 12, fontWeight: 800, opacity: doNotContact ? 0.5 : 1 }}
+                        >
+                          Mark follow-up sent
+                        </button>
+                      </form>
+                      <form action={markReplied}>
+                        <input type="hidden" name="outreach_id" value={row.id} />
+                        <button
+                          disabled={doNotContact}
+                          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #111", background: "#fff", color: "#111", fontSize: 12, fontWeight: 800, opacity: doNotContact ? 0.5 : 1 }}
+                        >
+                          Mark replied
+                        </button>
+                      </form>
+                      <form action={markVerified}>
+                        <input type="hidden" name="outreach_id" value={row.id} />
+                        <button
+                          disabled={doNotContact}
+                          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #111", background: "#fff", color: "#111", fontSize: 12, fontWeight: 800, opacity: doNotContact ? 0.5 : 1 }}
+                        >
+                          Mark verified
+                        </button>
+                      </form>
+                    </div>
+
+                    <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                      <form action={updateOutreachNotes} style={{ display: "grid", gap: 6 }}>
+                        <input type="hidden" name="outreach_id" value={row.id} />
+                        <label style={{ fontSize: 12, fontWeight: 700 }}>
+                          Notes
+                          <textarea
+                            name="notes"
+                            defaultValue={row.notes ?? ""}
+                            rows={2}
+                            style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                          />
+                        </label>
+                        <button style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #111", background: "#fff", color: "#111", fontSize: 12, fontWeight: 800 }}>
+                          Save notes
+                        </button>
+                      </form>
+
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                        <form action={markDnc} style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                          <input type="hidden" name="tournament_id" value={tournament.id} />
+                          <select name="reason" defaultValue="opted_out" style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #ccc", fontSize: 12 }}>
+                            {DNC_REASONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </select>
+                          <button
+                            style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #b91c1c", background: "#fff", color: "#b91c1c", fontSize: 12, fontWeight: 800 }}
+                          >
+                            Mark Do Not Contact
+                          </button>
+                        </form>
+                        {doNotContact ? (
+                          <form action={clearDnc}>
+                            <input type="hidden" name="tournament_id" value={tournament.id} />
+                            <button
+                              style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #0f172a", background: "#fff", color: "#0f172a", fontSize: 12, fontWeight: 800 }}
+                            >
+                              Clear DNC
+                            </button>
+                          </form>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ marginTop: 16, padding: 16, borderRadius: 12, border: "1px dashed #cbd5f5", color: "#555" }}>
+              No outreach entries for this view.
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}
