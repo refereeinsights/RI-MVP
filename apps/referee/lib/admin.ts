@@ -867,8 +867,19 @@ export type AdminListedTournament = {
   slug: string;
   sport: string;
   level?: string | null;
+  level_of_competition?: string | null;
   sub_type?: TournamentSubmissionType | null;
   cash_tournament?: boolean | null;
+  cash_at_field?: boolean | null;
+  referee_food?: string | null;
+  facilities?: string | null;
+  referee_tents?: string | null;
+  travel_lodging?: string | null;
+  ref_game_schedule?: string | null;
+  ref_parking?: string | null;
+  ref_parking_cost?: string | null;
+  mentors?: string | null;
+  assigned_appropriately?: string | null;
   state?: string | null;
   city?: string | null;
   venue?: string | null;
@@ -889,7 +900,7 @@ export async function adminSearchPublishedTournaments(
   let request = supabaseAdmin
     .from("tournaments")
     .select(
-      "id,name,slug,sport,level,sub_type,cash_tournament,state,city,venue,address,start_date,end_date,summary,referee_pay,referee_contact,source_url,source_domain"
+      "id,name,slug,sport,level,level_of_competition,sub_type,cash_tournament,cash_at_field,referee_food,facilities,referee_tents,travel_lodging,ref_game_schedule,ref_parking,ref_parking_cost,mentors,assigned_appropriately,state,city,venue,address,start_date,end_date,summary,referee_pay,referee_contact,source_url,source_domain"
     )
     .eq("status", "published")
     .eq("is_canonical", true)
@@ -934,8 +945,19 @@ export async function adminUpdateTournamentDetails(params: {
     name: string | null;
     sport: string | null;
     level: string | null;
+    level_of_competition: string | null;
     sub_type: TournamentSubmissionType | null;
     cash_tournament: boolean;
+    cash_at_field: boolean | null;
+    referee_food: string | null;
+    facilities: string | null;
+    referee_tents: string | null;
+    travel_lodging: string | null;
+    ref_game_schedule: string | null;
+    ref_parking: string | null;
+    ref_parking_cost: string | null;
+    mentors: string | null;
+    assigned_appropriately: string | null;
     state: string | null;
     city: string | null;
     venue: string | null;

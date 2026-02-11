@@ -12,6 +12,18 @@ const NUMBER_FIELDS = [
   "support_score",
 ] as const;
 
+const ENUM_FIELDS: Record<string, string[]> = {
+  referee_food: ["snacks", "meal"],
+  facilities: ["restrooms", "portables"],
+  referee_tents: ["yes", "no"],
+  travel_lodging: ["hotel", "stipend"],
+  ref_game_schedule: ["too close", "just right", "too much down time"],
+  ref_parking: ["close", "a stroll", "a hike"],
+  ref_parking_cost: ["free", "paid"],
+  mentors: ["yes", "no"],
+  assigned_appropriately: ["yes", "no"],
+};
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body) {
@@ -44,6 +56,21 @@ export async function POST(request: Request) {
       typeof body.worked_games === "number" && Number.isFinite(body.worked_games)
         ? body.worked_games
         : null,
+    level_of_competition:
+      typeof body.level_of_competition === "string" && body.level_of_competition.trim()
+        ? body.level_of_competition.trim().slice(0, 120)
+        : null,
+    cash_at_field: body.cash_at_field === true ? true : false,
+    referee_food: typeof body.referee_food === "string" ? body.referee_food : null,
+    facilities: typeof body.facilities === "string" ? body.facilities : null,
+    referee_tents: typeof body.referee_tents === "string" ? body.referee_tents : null,
+    travel_lodging: typeof body.travel_lodging === "string" ? body.travel_lodging : null,
+    ref_game_schedule: typeof body.ref_game_schedule === "string" ? body.ref_game_schedule : null,
+    ref_parking: typeof body.ref_parking === "string" ? body.ref_parking : null,
+    ref_parking_cost: typeof body.ref_parking_cost === "string" ? body.ref_parking_cost : null,
+    mentors: typeof body.mentors === "string" ? body.mentors : null,
+    assigned_appropriately:
+      typeof body.assigned_appropriately === "string" ? body.assigned_appropriately : null,
     status: "pending",
   };
 
@@ -62,6 +89,27 @@ export async function POST(request: Request) {
     }
     payload[field] = value;
     scores[field] = value;
+  }
+
+  for (const [field, allowed] of Object.entries(ENUM_FIELDS)) {
+    const raw = payload[field];
+    if (raw == null || raw === "") {
+      payload[field] = null;
+      continue;
+    }
+    if (!allowed.includes(raw)) {
+      return NextResponse.json(
+        { error: `Field ${field} must be one of: ${allowed.join(", ")}.` },
+        { status: 400 }
+      );
+    }
+  }
+
+  if (payload.cash_at_field && body?.cash_tournament !== true) {
+    return NextResponse.json(
+      { error: "cash_at_field requires cash_tournament to be true." },
+      { status: 400 }
+    );
   }
 
   const { error } = await supabaseAdmin

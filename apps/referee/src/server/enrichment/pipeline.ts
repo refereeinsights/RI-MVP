@@ -1,4 +1,4 @@
-import { ContactCandidate, VenueCandidate, CompCandidate, DateCandidate, PageResult } from "./types";
+import { ContactCandidate, VenueCandidate, CompCandidate, DateCandidate, PageResult, AttributeCandidate } from "./types";
 import { extractFromPage, rankLinks } from "./extract";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -63,7 +63,14 @@ async function politeFetch(url: string): Promise<string | null> {
 
 async function scrapeTournament(
   url: string
-): Promise<{ pages: number; contacts: ContactCandidate[]; venues: VenueCandidate[]; comps: CompCandidate[]; dates: DateCandidate[] }> {
+): Promise<{
+  pages: number;
+  contacts: ContactCandidate[];
+  venues: VenueCandidate[];
+  comps: CompCandidate[];
+  dates: DateCandidate[];
+  attributes: AttributeCandidate[];
+}> {
   const seen = new Set<string>();
   const queue: string[] = [url];
   let pagesFetched = 0;
@@ -71,6 +78,7 @@ async function scrapeTournament(
   const venues: VenueCandidate[] = [];
   const comps: CompCandidate[] = [];
   const dates: DateCandidate[] = [];
+  const attributes: AttributeCandidate[] = [];
 
   while (queue.length && pagesFetched < MAX_PAGES) {
     const nextUrl = queue.shift()!;
@@ -86,6 +94,7 @@ async function scrapeTournament(
     venues.push(...pageResults.venues);
     comps.push(...pageResults.comps, ...pageResults.pdfHints);
     dates.push(...pageResults.dates);
+    attributes.push(...pageResults.attributes);
 
     // Seed queue with ranked links from this page
     try {
@@ -99,7 +108,7 @@ async function scrapeTournament(
     }
   }
 
-  return { pages: pagesFetched, contacts, venues, comps, dates };
+  return { pages: pagesFetched, contacts, venues, comps, dates, attributes };
 }
 
 async function upsertCandidates(
@@ -107,7 +116,8 @@ async function upsertCandidates(
   contacts: ContactCandidate[],
   venues: VenueCandidate[],
   comps: CompCandidate[],
-  dates: DateCandidate[]
+  dates: DateCandidate[],
+  attributes: AttributeCandidate[]
 ) {
   const withTid = <T extends { tournament_id: string }>(rows: T[]) =>
     rows.map((r) => ({ ...r, tournament_id: tournamentId }));
@@ -115,6 +125,7 @@ async function upsertCandidates(
   const norm = (val: string | null | undefined) => (val ?? "").trim().toLowerCase();
   const normEmail = (val: string | null | undefined) => norm(val);
   const normPhone = (val: string | null | undefined) => (val ?? "").replace(/\D+/g, "");
+  const normRole = (val: string | null | undefined) => (val ?? "GENERAL").trim().toUpperCase();
 
   if (contacts.length) {
     const { data: existing } = await supabaseAdmin
@@ -124,15 +135,14 @@ async function upsertCandidates(
       .is("accepted_at", null)
       .is("rejected_at", null);
     const existingSig = new Set(
-      (existing ?? []).map(
-        (c: any) =>
-          [c.role_normalized ?? "", norm(c.name), normEmail(c.email), normPhone(c.phone)].join("|")
+      (existing ?? []).map((c: any) =>
+        [normRole(c.role_normalized), norm(c.name), normEmail(c.email), normPhone(c.phone)].join("|")
       )
     );
     const batchSig = new Set<string>();
     const deduped = contacts.filter((c) => {
       const sig = [
-        c.role_normalized ?? "",
+        normRole(c.role_normalized),
         norm(c.name),
         normEmail(c.email),
         normPhone(c.phone),
@@ -167,16 +177,16 @@ async function upsertCandidates(
   if (comps.length) {
     const { data: existing } = await supabaseAdmin
       .from("tournament_referee_comp_candidates" as any)
-      .select("rate_text,travel_housing_text")
+      .select("rate_text,travel_lodging")
       .eq("tournament_id", tournamentId)
       .is("accepted_at", null)
       .is("rejected_at", null);
     const existingSig = new Set(
-      (existing ?? []).map((c: any) => [norm(c.rate_text), norm(c.travel_housing_text)].join("|"))
+      (existing ?? []).map((c: any) => [norm(c.rate_text), norm(c.travel_lodging)].join("|"))
     );
     const batchSig = new Set<string>();
     const deduped = comps.filter((c) => {
-      const sig = [norm(c.rate_text), norm(c.travel_housing_text)].join("|");
+      const sig = [norm(c.rate_text), norm(c.travel_lodging)].join("|");
       if (existingSig.has(sig) || batchSig.has(sig)) return false;
       batchSig.add(sig);
       return true;
@@ -206,6 +216,27 @@ async function upsertCandidates(
       await supabaseAdmin.from("tournament_date_candidates" as any).insert(withTid(deduped));
     }
   }
+  if (attributes.length) {
+    const { data: existing } = await supabaseAdmin
+      .from("tournament_attribute_candidates" as any)
+      .select("attribute_key,attribute_value,source_url")
+      .eq("tournament_id", tournamentId)
+      .is("accepted_at", null)
+      .is("rejected_at", null);
+    const existingSig = new Set(
+      (existing ?? []).map((a: any) => [norm(a.attribute_key), norm(a.attribute_value), norm(a.source_url)].join("|"))
+    );
+    const batchSig = new Set<string>();
+    const deduped = attributes.filter((a) => {
+      const sig = [norm(a.attribute_key), norm(a.attribute_value), norm(a.source_url)].join("|");
+      if (existingSig.has(sig) || batchSig.has(sig)) return false;
+      batchSig.add(sig);
+      return true;
+    });
+    if (deduped.length) {
+      await supabaseAdmin.from("tournament_attribute_candidates" as any).insert(withTid(deduped));
+    }
+  }
 }
 
 async function processJob(job: JobRow) {
@@ -228,7 +259,8 @@ async function processJob(job: JobRow) {
     scrape.contacts.slice(0, 20),
     scrape.venues.slice(0, 10),
     scrape.comps.slice(0, 5),
-    scrape.dates.slice(0, 5)
+    scrape.dates.slice(0, 5),
+    scrape.attributes.slice(0, 10)
   );
   return scrape.pages;
 }

@@ -51,7 +51,7 @@ type CompCandidate = {
   id: string;
   tournament_id: string;
   rate_text: string | null;
-  travel_housing_text: string | null;
+  travel_lodging: "hotel" | "stipend" | null;
   source_url: string | null;
   confidence: number | null;
   created_at: string | null;
@@ -63,6 +63,16 @@ type DateCandidate = {
   start_date: string | null;
   end_date: string | null;
   source_url: string | null;
+  confidence: number | null;
+  created_at: string | null;
+};
+type AttributeCandidate = {
+  id: string;
+  tournament_id: string;
+  attribute_key: string;
+  attribute_value: string;
+  source_url: string | null;
+  evidence_text: string | null;
   confidence: number | null;
   created_at: string | null;
 };
@@ -87,6 +97,7 @@ async function loadData() {
       venues: [],
       comps: [],
       dates: [],
+      attributes: [],
       missing_urls: [],
       tournament_url_lookup: {},
       candidate_tournaments: {},
@@ -138,7 +149,7 @@ async function loadData() {
     .limit(25);
   const compsResp = await supabaseAdmin
     .from("tournament_referee_comp_candidates" as any)
-    .select("id,tournament_id,rate_text,travel_housing_text,source_url,confidence,created_at")
+    .select("id,tournament_id,rate_text,travel_lodging,source_url,confidence,created_at")
     .is("accepted_at", null)
     .is("rejected_at", null)
     .order("created_at", { ascending: false })
@@ -150,11 +161,19 @@ async function loadData() {
     .is("rejected_at", null)
     .order("created_at", { ascending: false })
     .limit(25);
+  const attributesResp = await supabaseAdmin
+    .from("tournament_attribute_candidates" as any)
+    .select("id,tournament_id,attribute_key,attribute_value,source_url,evidence_text,confidence,created_at")
+    .is("accepted_at", null)
+    .is("rejected_at", null)
+    .order("created_at", { ascending: false })
+    .limit(50);
   const candidateIds = new Set<string>();
   (contactsResp.data ?? []).forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
   (venuesResp.data ?? []).forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
   (compsResp.data ?? []).forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
   (datesResp.data ?? []).forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
+  (attributesResp.data ?? []).forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
   let tournamentUrlLookup: Record<string, string | null> = {};
   let candidateTournamentLookup: Record<string, { name: string | null; slug: string | null; state: string | null; city: string | null; url: string | null }> = {};
   if (candidateIds.size > 0) {
@@ -222,6 +241,7 @@ async function loadData() {
     venues: (venuesResp.data ?? []) as VenueCandidate[],
     comps: (compsResp.data ?? []) as CompCandidate[],
     dates: (datesResp.data ?? []) as DateCandidate[],
+    attributes: (attributesResp.data ?? []) as AttributeCandidate[],
     tournament_url_lookup: tournamentUrlLookup,
     candidate_tournaments: candidateTournamentLookup,
     url_suggestions:
@@ -250,6 +270,7 @@ export default async function Page() {
       venues={data.venues}
       comps={data.comps}
       dates={data.dates}
+      attributes={data.attributes}
       urlSuggestions={data.url_suggestions}
       tournamentUrlLookup={data.tournament_url_lookup}
       candidateTournaments={data.candidate_tournaments}

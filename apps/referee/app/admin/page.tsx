@@ -1367,6 +1367,11 @@ export default async function AdminPage({
       const value = (formData.get(key) as string | null)?.trim() ?? "";
       return value ? value : null;
     };
+    const enumOrNull = (key: string, allowed: string[]) => {
+      const value = stringOrNull(key);
+      if (!value) return null;
+      return allowed.includes(value) ? value : null;
+    };
 
     const sportValue = (formData.get("sport") as string | null)?.trim() ?? "";
     const subTypeRaw = (formData.get("sub_type") as string | null)?.trim() ?? "";
@@ -1399,14 +1404,37 @@ export default async function AdminPage({
       }
     }
 
+    const cashTournament = formData.get("cash_tournament") === "on";
+    const cashAtField = formData.get("cash_at_field") === "on";
+    const refereeFood = enumOrNull("referee_food", ["snacks", "meal"]);
+    const facilities = enumOrNull("facilities", ["restrooms", "portables"]);
+    const refereeTents = enumOrNull("referee_tents", ["yes", "no"]);
+    const travelLodging = enumOrNull("travel_lodging", ["hotel", "stipend"]);
+    const refGameSchedule = enumOrNull("ref_game_schedule", ["too close", "just right", "too much down time"]);
+    const refParking = enumOrNull("ref_parking", ["close", "a stroll", "a hike"]);
+    const refParkingCost = enumOrNull("ref_parking_cost", ["free", "paid"]);
+    const mentors = enumOrNull("mentors", ["yes", "no"]);
+    const assignedAppropriately = enumOrNull("assigned_appropriately", ["yes", "no"]);
+
     await adminUpdateTournamentDetails({
       tournament_id,
       updates: {
         name: stringOrNull("name"),
         sport: sportValue || null,
         level: stringOrNull("level"),
+        level_of_competition: stringOrNull("level_of_competition"),
         sub_type: subType,
-        cash_tournament: formData.get("cash_tournament") === "on",
+        cash_tournament: cashTournament,
+        cash_at_field: cashTournament ? cashAtField : false,
+        referee_food: refereeFood,
+        facilities,
+        referee_tents: refereeTents,
+        travel_lodging: travelLodging,
+        ref_game_schedule: refGameSchedule,
+        ref_parking: refParking,
+        ref_parking_cost: refParkingCost,
+        mentors,
+        assigned_appropriately: assignedAppropriately,
         city: stringOrNull("city"),
         state: stateValue ? stateValue.toUpperCase() : null,
         venue: stringOrNull("venue"),
@@ -2062,6 +2090,143 @@ export default async function AdminPage({
                         style={{ width: 18, height: 18 }}
                       />
                       Cash tournament
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700, display: "flex", alignItems: "flex-end", gap: 6 }}>
+                      <input
+                        type="checkbox"
+                        name="cash_at_field"
+                        defaultChecked={Boolean(t.cash_at_field)}
+                        style={{ width: 18, height: 18 }}
+                      />
+                      Cash at field
+                    </label>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+                      gap: 12,
+                    }}
+                  >
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Level of competition
+                      <input
+                        type="text"
+                        name="level_of_competition"
+                        defaultValue={t.level_of_competition ?? ""}
+                        placeholder="e.g. premier, gold"
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Referee food
+                      <select
+                        name="referee_food"
+                        defaultValue={t.referee_food ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      >
+                        <option value="">Select</option>
+                        <option value="snacks">Snacks</option>
+                        <option value="meal">Meal</option>
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Facilities
+                      <select
+                        name="facilities"
+                        defaultValue={t.facilities ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      >
+                        <option value="">Select</option>
+                        <option value="restrooms">Restrooms</option>
+                        <option value="portables">Portables</option>
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Referee tents
+                      <select
+                        name="referee_tents"
+                        defaultValue={t.referee_tents ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      >
+                        <option value="">Select</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Travel lodging
+                      <select
+                        name="travel_lodging"
+                        defaultValue={t.travel_lodging ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      >
+                        <option value="">Select</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="stipend">Stipend</option>
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Game schedule
+                      <select
+                        name="ref_game_schedule"
+                        defaultValue={t.ref_game_schedule ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      >
+                        <option value="">Select</option>
+                        <option value="too close">Too close</option>
+                        <option value="just right">Just right</option>
+                        <option value="too much down time">Too much down time</option>
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Referee parking
+                      <select
+                        name="ref_parking"
+                        defaultValue={t.ref_parking ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      >
+                        <option value="">Select</option>
+                        <option value="close">Close</option>
+                        <option value="a stroll">A stroll</option>
+                        <option value="a hike">A hike</option>
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Parking cost
+                      <select
+                        name="ref_parking_cost"
+                        defaultValue={t.ref_parking_cost ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      >
+                        <option value="">Select</option>
+                        <option value="free">Free</option>
+                        <option value="paid">Paid</option>
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Mentors
+                      <select
+                        name="mentors"
+                        defaultValue={t.mentors ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      >
+                        <option value="">Select</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Assigned appropriately
+                      <select
+                        name="assigned_appropriately"
+                        defaultValue={t.assigned_appropriately ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      >
+                        <option value="">Select</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                      </select>
                     </label>
                   </div>
                   <div

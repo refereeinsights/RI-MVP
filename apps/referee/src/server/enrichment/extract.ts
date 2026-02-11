@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { ContactCandidate, VenueCandidate, CompCandidate, DateCandidate, PageResult } from "./types";
+import { ContactCandidate, VenueCandidate, CompCandidate, DateCandidate, PageResult, AttributeCandidate } from "./types";
 
 const EMAIL_REGEX =
   /[A-Z0-9._%+-]+(?:\s*(?:\[at\]|\(at\)|@)\s*)[A-Z0-9.-]+(?:\.|\s*(?:\[dot\]|\(dot\))\s*)[A-Z]{2,}/gim;
@@ -25,7 +25,29 @@ const ROLE_KEYWORDS = {
 };
 
 const VENUE_KEYWORDS = ["venue", "location", "field", "complex", "park", "facility"];
-const RATE_KEYWORDS = ["rate", "pay", "comp", "fee", "officials", "referee"];
+const RATE_KEYWORDS = ["rate", "pay", "comp", "officials", "referee"];
+const COMP_REFEREE_KEYWORDS = ["referee", "referees", "official", "officials", "assignor", "refs"];
+const COMP_NEGATIVE_KEYWORDS = [
+  "team fee",
+  "entry fee",
+  "registration fee",
+  "registration",
+  "deposit",
+  "tournament fee",
+  "club fee",
+  "per team",
+  "per player",
+  "player fee",
+  "gate fee",
+  "spectator fee",
+  "parking fee",
+  "vendor fee",
+  "hotel fee",
+  "lodging fee",
+  "payment plan",
+  "late fee",
+  "refund",
+];
 const TRAVEL_KEYWORDS = [
   "hotel",
   "housing",
@@ -490,29 +512,44 @@ function parseCurrency(str: string) {
   return match ? Number(match[1]) : null;
 }
 
+function extractTravelLodgingValue(text?: string | null): "hotel" | "stipend" | null {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  if (lower.includes("hotel") || lower.includes("lodging") || lower.includes("accommodation")) {
+    return "hotel";
+  }
+  if (
+    lower.includes("stipend") ||
+    lower.includes("per diem") ||
+    lower.includes("reimbursement") ||
+    lower.includes("mileage") ||
+    lower.includes("travel") ||
+    lower.includes("meals")
+  ) {
+    return "stipend";
+  }
+  return null;
+}
+
 function extractComp($: cheerio.CheerioAPI, url: string): { comps: CompCandidate[]; pdfs: CompCandidate[] } {
   const comps: CompCandidate[] = [];
   const pdfs: CompCandidate[] = [];
   const text = $.text();
   const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
   const urlLower = (url || "").toLowerCase();
-  const pageHasRefereeContext =
-    urlLower.includes("referee") ||
-    urlLower.includes("referees") ||
-    urlLower.includes("officials") ||
-    urlLower.includes("assignor") ||
-    urlLower.includes("refs");
+  const pageHasRefereeContext = COMP_REFEREE_KEYWORDS.some((k) => urlLower.includes(k));
 
   lines.forEach((line, idx) => {
     const lowerLine = line.toLowerCase();
-    const lineHasRefereeContext =
-      lowerLine.includes("referee") ||
-      lowerLine.includes("officials") ||
-      lowerLine.includes("assignor") ||
-      lowerLine.includes("refs");
-    const allowTravel = pageHasRefereeContext || lineHasRefereeContext;
-    if (!line.includes("$") && !TRAVEL_KEYWORDS.some((k) => line.toLowerCase().includes(k))) return;
+    const lineHasRefereeContext = COMP_REFEREE_KEYWORDS.some((k) => lowerLine.includes(k));
     const windowLines = [lines[idx - 1], line, lines[idx + 1]].filter(Boolean);
+    const windowLower = windowLines.join(" ").toLowerCase();
+    const hasRefereeContext =
+      pageHasRefereeContext || lineHasRefereeContext || COMP_REFEREE_KEYWORDS.some((k) => windowLower.includes(k));
+    const hasNegativeFeeSignal = COMP_NEGATIVE_KEYWORDS.some((k) => windowLower.includes(k));
+    const allowTravel = hasRefereeContext;
+    if (!line.includes("$") && !TRAVEL_KEYWORDS.some((k) => lowerLine.includes(k))) return;
+    if (hasNegativeFeeSignal && !hasRefereeContext) return;
     const evidence = windowLines.join(" | ").slice(0, 400);
     const amountMin = parseCurrency(line);
     let amountMax = amountMin;
@@ -533,12 +570,14 @@ function extractComp($: cheerio.CheerioAPI, url: string): { comps: CompCandidate
       (amountMin ? 0.4 : 0) +
       (rateUnit ? 0.2 : 0) +
       (divisionMatch ? 0.2 : 0) +
-      (RATE_KEYWORDS.some((k) => lower.includes(k)) ? 0.1 : 0);
+      (RATE_KEYWORDS.some((k) => lower.includes(k)) ? 0.1 : 0) +
+      (hasRefereeContext ? 0.1 : 0);
 
     const travelContext = windowLines.find((l) => TRAVEL_KEYWORDS.some((k) => l.toLowerCase().includes(k)));
     const travelAllowed = allowTravel && Boolean(travelContext);
+    const travelLodging = travelAllowed ? extractTravelLodgingValue(travelContext ?? null) : null;
 
-    if (amountMin || travelAllowed) {
+    if ((amountMin && hasRefereeContext) || travelAllowed) {
       comps.push({
         tournament_id: "",
         rate_text: line || null,
@@ -546,7 +585,7 @@ function extractComp($: cheerio.CheerioAPI, url: string): { comps: CompCandidate
         rate_amount_max: amountMax ?? amountMin ?? null,
         rate_unit: rateUnit,
         division_context: divisionMatch ? divisionMatch[1] : null,
-        travel_housing_text: travelAllowed ? travelContext?.slice(0, 400) ?? null : null,
+        travel_lodging: travelLodging,
         assigning_platforms: ASSIGNING_PLATFORMS.filter((p) => lower.includes(p)),
         source_url: url,
         evidence_text: evidence,
@@ -569,6 +608,115 @@ function extractComp($: cheerio.CheerioAPI, url: string): { comps: CompCandidate
   });
 
   return { comps, pdfs };
+}
+
+function extractAttributes($: cheerio.CheerioAPI, url: string): AttributeCandidate[] {
+  const candidates: AttributeCandidate[] = [];
+  const text = $.text();
+  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const urlLower = (url || "").toLowerCase();
+  const pageHasRefereeContext = COMP_REFEREE_KEYWORDS.some((k) => urlLower.includes(k));
+
+  const push = (
+    key: AttributeCandidate["attribute_key"],
+    value: string,
+    line: string,
+    confidence = 0.6
+  ) => {
+    candidates.push({
+      tournament_id: "",
+      attribute_key: key,
+      attribute_value: value,
+      source_url: url,
+      evidence_text: line.slice(0, 300),
+      confidence,
+    });
+  };
+
+  lines.forEach((line, idx) => {
+    const lower = line.toLowerCase();
+    const windowLines = [lines[idx - 1], line, lines[idx + 1]].filter(Boolean);
+    const windowLower = windowLines.join(" ").toLowerCase();
+    const hasRefereeContext =
+      pageHasRefereeContext || COMP_REFEREE_KEYWORDS.some((k) => windowLower.includes(k));
+
+    if (lower.includes("cash") && (lower.includes("field") || lower.includes("on site") || lower.includes("onsite"))) {
+      push("cash_at_field", "yes", line, 0.7);
+    }
+
+    if (hasRefereeContext) {
+      if (lower.includes("snack") || lower.includes("snacks")) {
+        push("referee_food", "snacks", line, 0.6);
+      } else if (lower.includes("meal") || lower.includes("lunch") || lower.includes("dinner") || lower.includes("breakfast")) {
+        push("referee_food", "meal", line, 0.6);
+      }
+    }
+
+    if (lower.includes("restroom") || lower.includes("bathroom")) {
+      push("facilities", "restrooms", line, 0.6);
+    } else if (lower.includes("portable") || lower.includes("porta")) {
+      push("facilities", "portables", line, 0.6);
+    }
+
+    if (lower.includes("referee tent") || lower.includes("ref tent") || lower.includes("officials tent")) {
+      if (lower.includes("no referee tent") || lower.includes("no ref tent") || lower.includes("no officials tent")) {
+        push("referee_tents", "no", line, 0.7);
+      } else {
+        push("referee_tents", "yes", line, 0.7);
+      }
+    }
+
+    if (hasRefereeContext && TRAVEL_KEYWORDS.some((k) => lower.includes(k))) {
+      const travelValue = extractTravelLodgingValue(line);
+      if (travelValue) {
+        push("travel_lodging", travelValue, line, 0.6);
+      }
+    }
+
+    if (lower.includes("schedule")) {
+      if (lower.includes("too close")) {
+        push("ref_game_schedule", "too close", line, 0.6);
+      } else if (lower.includes("just right")) {
+        push("ref_game_schedule", "just right", line, 0.6);
+      } else if (lower.includes("too much down time")) {
+        push("ref_game_schedule", "too much down time", line, 0.6);
+      }
+    }
+
+    if (lower.includes("parking")) {
+      if (lower.includes("free")) {
+        push("ref_parking_cost", "free", line, 0.6);
+      } else if (lower.includes("paid") || lower.includes("parking fee") || lower.includes("$")) {
+        push("ref_parking_cost", "paid", line, 0.6);
+      }
+
+      if (lower.includes("close") || lower.includes("adjacent") || lower.includes("near")) {
+        push("ref_parking", "close", line, 0.6);
+      } else if (lower.includes("stroll") || lower.includes("short walk")) {
+        push("ref_parking", "a stroll", line, 0.6);
+      } else if (lower.includes("hike") || lower.includes("long walk") || lower.includes("far")) {
+        push("ref_parking", "a hike", line, 0.6);
+      }
+    }
+
+    if (lower.includes("mentor")) {
+      if (lower.includes("no mentor") || lower.includes("no mentors") || lower.includes("without mentors")) {
+        push("mentors", "no", line, 0.6);
+      } else {
+        push("mentors", "yes", line, 0.6);
+      }
+    }
+
+    if (lower.includes("assigned appropriately") || lower.includes("appropriate assignments")) {
+      if (lower.includes("not assigned appropriately") || lower.includes("inappropriate")) {
+        push("assigned_appropriately", "no", line, 0.6);
+      } else {
+        push("assigned_appropriately", "yes", line, 0.6);
+      }
+    }
+  });
+
+  return candidates;
 }
 
 function extractDates($: cheerio.CheerioAPI, url: string): DateCandidate[] {
@@ -606,6 +754,7 @@ export function extractFromPage(html: string, url: string): PageResult {
   const venues = extractVenues($, url);
   const compRes = extractComp($, url);
   const dates = extractDates($, url);
+  const attributes = extractAttributes($, url);
 
   return {
     contacts,
@@ -613,6 +762,7 @@ export function extractFromPage(html: string, url: string): PageResult {
     comps: compRes.comps,
     pdfHints: compRes.pdfs,
     dates,
+    attributes,
   };
 }
 

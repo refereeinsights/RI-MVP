@@ -19,6 +19,7 @@ export default function RefereeReviewForm({
 }: Props) {
   const [state, setState] = useState<SubmitState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [cashTournament, setCashTournament] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,6 +39,17 @@ export default function RefereeReviewForm({
           : null,
         shift_detail: String(formData.get("shift_detail") ?? "").trim(),
         cash_tournament: formData.get("cash_tournament") === "on",
+        cash_at_field: formData.get("cash_at_field") === "on",
+        level_of_competition: String(formData.get("level_of_competition") ?? "").trim() || null,
+        referee_food: (formData.get("referee_food") as string | null) || null,
+        facilities: (formData.get("facilities") as string | null) || null,
+        referee_tents: (formData.get("referee_tents") as string | null) || null,
+        travel_lodging: (formData.get("travel_lodging") as string | null) || null,
+        ref_game_schedule: (formData.get("ref_game_schedule") as string | null) || null,
+        ref_parking: (formData.get("ref_parking") as string | null) || null,
+        ref_parking_cost: (formData.get("ref_parking_cost") as string | null) || null,
+        mentors: (formData.get("mentors") as string | null) || null,
+        assigned_appropriately: (formData.get("assigned_appropriately") as string | null) || null,
       };
 
       if (
@@ -64,6 +76,7 @@ export default function RefereeReviewForm({
         throw new Error(json?.error ?? "Unable to submit review.");
       }
       (event.target as HTMLFormElement).reset();
+      setCashTournament(false);
       setState("success");
     } catch (err: any) {
       setState("error");
@@ -141,11 +154,100 @@ export default function RefereeReviewForm({
         </label>
         <label className="reviewForm__cash">
           <span>Cash tournament</span>
-          <input type="checkbox" name="cash_tournament" />
+          <input
+            type="checkbox"
+            name="cash_tournament"
+            onChange={(event) => setCashTournament(event.currentTarget.checked)}
+          />
+        </label>
+        <label className="reviewForm__cash">
+          <span>Cash at field</span>
+          <input type="checkbox" name="cash_at_field" disabled={!cashTournament} />
         </label>
         <label>
           <span>Games worked</span>
           <input type="number" name="worked_games" min={0} max={30} placeholder="e.g. 4" />
+        </label>
+      </div>
+
+      <div className="reviewForm__grid" style={{ marginTop: 16 }}>
+        <label>
+          <span>Level of competition</span>
+          <input name="level_of_competition" type="text" placeholder="e.g. premier, gold, academy" />
+        </label>
+        <label>
+          <span>Referee food</span>
+          <select name="referee_food" defaultValue="">
+            <option value="">Select</option>
+            <option value="snacks">Snacks</option>
+            <option value="meal">Meal</option>
+          </select>
+        </label>
+        <label>
+          <span>Facilities</span>
+          <select name="facilities" defaultValue="">
+            <option value="">Select</option>
+            <option value="restrooms">Restrooms</option>
+            <option value="portables">Portables</option>
+          </select>
+        </label>
+        <label>
+          <span>Referee tents</span>
+          <select name="referee_tents" defaultValue="">
+            <option value="">Select</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </label>
+        <label>
+          <span>Travel lodging</span>
+          <select name="travel_lodging" defaultValue="">
+            <option value="">Select</option>
+            <option value="hotel">Hotel</option>
+            <option value="stipend">Stipend</option>
+          </select>
+        </label>
+        <label>
+          <span>Game schedule</span>
+          <select name="ref_game_schedule" defaultValue="">
+            <option value="">Select</option>
+            <option value="too close">Too close</option>
+            <option value="just right">Just right</option>
+            <option value="too much down time">Too much down time</option>
+          </select>
+        </label>
+        <label>
+          <span>Referee parking</span>
+          <select name="ref_parking" defaultValue="">
+            <option value="">Select</option>
+            <option value="close">Close</option>
+            <option value="a stroll">A stroll</option>
+            <option value="a hike">A hike</option>
+          </select>
+        </label>
+        <label>
+          <span>Parking cost</span>
+          <select name="ref_parking_cost" defaultValue="">
+            <option value="">Select</option>
+            <option value="free">Free</option>
+            <option value="paid">Paid</option>
+          </select>
+        </label>
+        <label>
+          <span>Mentors</span>
+          <select name="mentors" defaultValue="">
+            <option value="">Select</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </label>
+        <label>
+          <span>Assigned appropriately</span>
+          <select name="assigned_appropriately" defaultValue="">
+            <option value="">Select</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
         </label>
       </div>
 

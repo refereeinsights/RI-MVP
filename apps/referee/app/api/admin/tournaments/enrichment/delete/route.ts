@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type Item = {
-  kind: "contact" | "venue" | "date" | "comp-rate" | "comp-hotel" | "comp-cash";
+  kind: "contact" | "venue" | "date" | "comp-rate" | "comp-hotel" | "comp-cash" | "attribute";
   id: string;
 };
 
@@ -14,6 +14,7 @@ const TABLES: Record<Item["kind"], string> = {
   "comp-rate": "tournament_referee_comp_candidates",
   "comp-hotel": "tournament_referee_comp_candidates",
   "comp-cash": "tournament_referee_comp_candidates",
+  attribute: "tournament_attribute_candidates",
 };
 
 async function ensureAdmin() {
@@ -61,8 +62,9 @@ export async function POST(request: Request) {
         const normalizeEmail = (val: string | null) => (val ?? "").trim().toLowerCase();
         const normalizePhone = (val: string | null) => (val ?? "").replace(/\D+/g, "");
         const normalizeName = (val: string | null) => (val ?? "").trim().toLowerCase();
+        const normalizeRole = (val: string | null) => (val ?? "GENERAL").trim().toUpperCase();
         const sig = [
-          r.role_normalized ?? "",
+          normalizeRole(r.role_normalized ?? null),
           normalizeName(r.name),
           normalizeEmail(r.email),
           normalizePhone(r.phone),
@@ -75,7 +77,7 @@ export async function POST(request: Request) {
           .filter((c: any) =>
             sig ===
             [
-              c.role_normalized ?? "",
+              normalizeRole(c.role_normalized ?? null),
               normalizeName(c.name),
               normalizeEmail(c.email),
               normalizePhone(c.phone),
@@ -143,22 +145,47 @@ export async function POST(request: Request) {
     if (item.kind === "comp-rate" || item.kind === "comp-hotel" || item.kind === "comp-cash") {
       const { data: row } = await supabaseAdmin
         .from("tournament_referee_comp_candidates" as any)
-        .select("tournament_id,rate_text,travel_housing_text")
+        .select("tournament_id,rate_text,travel_lodging")
         .eq("id", item.id)
         .maybeSingle();
       if (row) {
         const r = row as any;
         const norm = (val: string | null) => (val ?? "").trim().toLowerCase();
-        const sig = [norm(r.rate_text), norm(r.travel_housing_text)].join("|");
+        const sig = [norm(r.rate_text), norm(r.travel_lodging)].join("|");
         const { data: allRows } = await supabaseAdmin
           .from("tournament_referee_comp_candidates" as any)
-          .select("id,rate_text,travel_housing_text")
+          .select("id,rate_text,travel_lodging")
           .eq("tournament_id", r.tournament_id ?? null);
         const ids = (allRows ?? [])
-          .filter((c: any) => sig === [norm(c.rate_text), norm(c.travel_housing_text)].join("|"))
+          .filter((c: any) => sig === [norm(c.rate_text), norm(c.travel_lodging)].join("|"))
           .map((c: any) => c.id);
         const { error } = await supabaseAdmin
           .from("tournament_referee_comp_candidates" as any)
+          .delete()
+          .in("id", ids.length ? ids : [item.id]);
+        if (error) return NextResponse.json({ error: error.message ?? "delete_failed" }, { status: 500 });
+        continue;
+      }
+    }
+    if (item.kind === "attribute") {
+      const { data: row } = await supabaseAdmin
+        .from("tournament_attribute_candidates" as any)
+        .select("tournament_id,attribute_key,attribute_value")
+        .eq("id", item.id)
+        .maybeSingle();
+      if (row) {
+        const r = row as any;
+        const norm = (val: string | null) => (val ?? "").trim().toLowerCase();
+        const sig = [norm(r.attribute_key), norm(r.attribute_value)].join("|");
+        const { data: allRows } = await supabaseAdmin
+          .from("tournament_attribute_candidates" as any)
+          .select("id,attribute_key,attribute_value")
+          .eq("tournament_id", r.tournament_id ?? null);
+        const ids = (allRows ?? [])
+          .filter((a: any) => sig === [norm(a.attribute_key), norm(a.attribute_value)].join("|"))
+          .map((a: any) => a.id);
+        const { error } = await supabaseAdmin
+          .from("tournament_attribute_candidates" as any)
           .delete()
           .in("id", ids.length ? ids : [item.id]);
         if (error) return NextResponse.json({ error: error.message ?? "delete_failed" }, { status: 500 });

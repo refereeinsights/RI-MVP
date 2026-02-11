@@ -45,6 +45,6 @@ describe("extractFromPage", () => {
     const comp = res.comps.find((c) => c.rate_amount_min === 60);
     assert(comp);
     assert(comp?.rate_amount_max === 75);
-    assert(comp?.travel_housing_text);
+    assert(comp?.travel_lodging);
   });
 });

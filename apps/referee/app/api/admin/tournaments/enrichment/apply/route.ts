@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-type Item = { kind: "contact" | "venue" | "date" | "comp-rate" | "comp-hotel" | "comp-cash"; id: string };
+type Item = {
+  kind: "contact" | "venue" | "date" | "comp-rate" | "comp-hotel" | "comp-cash" | "attribute";
+  id: string;
+};
 
 async function ensureAdmin() {
   const supabase = createSupabaseServerClient();
@@ -40,6 +43,7 @@ export async function POST(request: Request) {
   const compIds = items
     .filter((i) => i.kind === "comp-rate" || i.kind === "comp-hotel" || i.kind === "comp-cash")
     .map((i) => i.id);
+  const attributeIds = items.filter((i) => i.kind === "attribute").map((i) => i.id);
 
   const updates: Record<string, any> = {};
   const now = new Date().toISOString();
@@ -69,18 +73,48 @@ export async function POST(request: Request) {
   if (compIds.length) {
     const { data: comps } = await supabaseAdmin
       .from("tournament_referee_comp_candidates" as any)
-      .select("id,tournament_id,rate_text,travel_housing_text")
+      .select("id,tournament_id,rate_text,travel_lodging")
       .in("id", compIds)
       .eq("tournament_id", tournamentId);
     const comp = ((comps ?? []) as any[])[0] as any;
     if (items.some((i) => i.kind === "comp-rate") && comp?.rate_text) {
       updates.referee_pay = comp.rate_text;
     }
-    if (items.some((i) => i.kind === "comp-hotel") && comp?.travel_housing_text) {
-      updates.referee_hotel_info = comp.travel_housing_text;
+    if (items.some((i) => i.kind === "comp-hotel") && comp?.travel_lodging) {
+      updates.travel_lodging = comp.travel_lodging;
     }
     if (items.some((i) => i.kind === "comp-cash")) {
       updates.cash_tournament = true;
+    }
+  }
+
+  if (attributeIds.length) {
+    const { data: attributes } = await supabaseAdmin
+      .from("tournament_attribute_candidates" as any)
+      .select("id,tournament_id,attribute_key,attribute_value,confidence")
+      .in("id", attributeIds)
+      .eq("tournament_id", tournamentId);
+    const bestByKey = new Map<string, any>();
+    (attributes ?? []).forEach((a: any) => {
+      const existing = bestByKey.get(a.attribute_key);
+      if (!existing || (a.confidence ?? 0) > (existing.confidence ?? 0)) {
+        bestByKey.set(a.attribute_key, a);
+      }
+    });
+    for (const [key, candidate] of bestByKey.entries()) {
+      const value = candidate.attribute_value;
+      if (key === "cash_at_field") {
+        updates.cash_at_field = value === "yes";
+        if (value === "yes") updates.cash_tournament = true;
+      } else if (key === "referee_food") updates.referee_food = value;
+      else if (key === "facilities") updates.facilities = value;
+      else if (key === "referee_tents") updates.referee_tents = value;
+      else if (key === "travel_lodging") updates.travel_lodging = value;
+      else if (key === "ref_game_schedule") updates.ref_game_schedule = value;
+      else if (key === "ref_parking") updates.ref_parking = value;
+      else if (key === "ref_parking_cost") updates.ref_parking_cost = value;
+      else if (key === "mentors") updates.mentors = value;
+      else if (key === "assigned_appropriately") updates.assigned_appropriately = value;
     }
   }
 
@@ -104,12 +138,13 @@ export async function POST(request: Request) {
     const normalizeEmail = (val: string | null) => (val ?? "").trim().toLowerCase();
     const normalizePhone = (val: string | null) => (val ?? "").replace(/\D+/g, "");
     const normalizeName = (val: string | null) => (val ?? "").trim().toLowerCase();
+    const normalizeRole = (val: string | null) => (val ?? "GENERAL").trim().toUpperCase();
 
     const selectedRows = (contacts ?? []) as any[];
     const selectedSig = new Set(
       selectedRows.map((c) =>
         [
-          c.role_normalized ?? "",
+          normalizeRole(c.role_normalized ?? null),
           normalizeName(c.name),
           normalizeEmail(c.email),
           normalizePhone(c.phone),
@@ -173,7 +208,7 @@ export async function POST(request: Request) {
       .filter((c: any) =>
         selectedSig.has(
           [
-            c.role_normalized ?? "",
+            normalizeRole(c.role_normalized ?? null),
             normalizeName(c.name),
             normalizeEmail(c.email),
             normalizePhone(c.phone),
@@ -223,6 +258,37 @@ export async function POST(request: Request) {
         .in("id", dupVenueIds);
     }
   }
+
+  if (attributeIds.length) {
+    const { data: attrs } = await supabaseAdmin
+      .from("tournament_attribute_candidates" as any)
+      .select("id,attribute_key,attribute_value")
+      .in("id", attributeIds)
+      .eq("tournament_id", tournamentId);
+    const normalize = (val: string | null) => (val ?? "").trim().toLowerCase();
+    const selectedSig = new Set(
+      ((attrs ?? []) as any[]).map((a) =>
+        [normalize(a.attribute_key), normalize(a.attribute_value)].join("|")
+      )
+    );
+    const { data: allAttrs } = await supabaseAdmin
+      .from("tournament_attribute_candidates" as any)
+      .select("id,attribute_key,attribute_value")
+      .eq("tournament_id", tournamentId)
+      .is("accepted_at", null)
+      .is("rejected_at", null);
+    const dupAttrIds = (allAttrs ?? [])
+      .filter((a: any) =>
+        selectedSig.has([normalize(a.attribute_key), normalize(a.attribute_value)].join("|"))
+      )
+      .map((a: any) => a.id);
+    if (dupAttrIds.length) {
+      await supabaseAdmin
+        .from("tournament_attribute_candidates" as any)
+        .update({ accepted_at: now, rejected_at: null })
+        .in("id", dupAttrIds);
+    }
+  }
   if (dateIds.length) {
     const { data: dates } = await supabaseAdmin
       .from("tournament_date_candidates" as any)
@@ -254,23 +320,23 @@ export async function POST(request: Request) {
   if (compIds.length) {
     const { data: comps } = await supabaseAdmin
       .from("tournament_referee_comp_candidates" as any)
-      .select("id,rate_text,travel_housing_text")
+      .select("id,rate_text,travel_lodging")
       .in("id", compIds)
       .eq("tournament_id", tournamentId);
     const normalizeComp = (val: string | null) => (val ?? "").trim().toLowerCase();
     const selectedSig = new Set(
       ((comps ?? []) as any[]).map((c) =>
-        [normalizeComp(c.rate_text), normalizeComp(c.travel_housing_text)].join("|")
+        [normalizeComp(c.rate_text), normalizeComp(c.travel_lodging)].join("|")
       )
     );
     const { data: allComps } = await supabaseAdmin
       .from("tournament_referee_comp_candidates" as any)
-      .select("id,rate_text,travel_housing_text")
+      .select("id,rate_text,travel_lodging")
       .eq("tournament_id", tournamentId)
       .is("accepted_at", null)
       .is("rejected_at", null);
     const dupCompIds = (allComps ?? [])
-      .filter((c: any) => selectedSig.has([normalizeComp(c.rate_text), normalizeComp(c.travel_housing_text)].join("|")))
+      .filter((c: any) => selectedSig.has([normalizeComp(c.rate_text), normalizeComp(c.travel_lodging)].join("|")))
       .map((c: any) => c.id);
     if (dupCompIds.length) {
       await supabaseAdmin

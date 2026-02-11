@@ -50,7 +50,7 @@ type CompCandidate = {
   id: string;
   tournament_id: string;
   rate_text: string | null;
-  travel_housing_text: string | null;
+  travel_lodging: "hotel" | "stipend" | null;
   source_url: string | null;
   confidence: number | null;
   created_at: string | null;
@@ -62,6 +62,16 @@ type DateCandidate = {
   start_date: string | null;
   end_date: string | null;
   source_url: string | null;
+  confidence: number | null;
+  created_at: string | null;
+};
+type AttributeCandidate = {
+  id: string;
+  tournament_id: string;
+  attribute_key: string;
+  attribute_value: string;
+  source_url: string | null;
+  evidence_text: string | null;
   confidence: number | null;
   created_at: string | null;
 };
@@ -102,7 +112,7 @@ type CandidateTournament = {
 
 type ReviewItem = {
   key: string;
-  kind: "contact" | "venue" | "date" | "comp-rate" | "comp-hotel" | "comp-cash";
+  kind: "contact" | "venue" | "date" | "comp-rate" | "comp-hotel" | "comp-cash" | "attribute";
   id: string;
   label: string;
   detail?: string | null;
@@ -123,6 +133,7 @@ export default function EnrichmentClient({
   venues,
   comps,
   dates,
+  attributes,
   urlSuggestions,
   tournamentUrlLookup,
   candidateTournaments,
@@ -134,6 +145,7 @@ export default function EnrichmentClient({
   venues: VenueCandidate[];
   comps: CompCandidate[];
   dates: DateCandidate[];
+  attributes: AttributeCandidate[];
   urlSuggestions: UrlSuggestion[];
   tournamentUrlLookup: Record<string, string | null>;
   candidateTournaments: Record<string, CandidateTournament>;
@@ -147,6 +159,7 @@ export default function EnrichmentClient({
   const [pendingVenues, setPendingVenues] = React.useState<VenueCandidate[]>(venues);
   const [pendingComps, setPendingComps] = React.useState<CompCandidate[]>(comps);
   const [pendingDates, setPendingDates] = React.useState<DateCandidate[]>(dates);
+  const [pendingAttributes, setPendingAttributes] = React.useState<AttributeCandidate[]>(attributes);
   const [pendingUrlSuggestions, setPendingUrlSuggestions] = React.useState<UrlSuggestion[]>(urlSuggestions);
   const [missingSelected, setMissingSelected] = React.useState<string[]>([]);
   const [urlSearchStatus, setUrlSearchStatus] = React.useState<string>("");
@@ -219,18 +232,18 @@ export default function EnrichmentClient({
           confidence: c.confidence,
         });
       }
-      if (c.travel_housing_text) {
+      if (c.travel_lodging) {
         push(c.tournament_id, {
           key: `comp-hotel:${c.id}`,
           kind: "comp-hotel",
           id: c.id,
-          label: "Referee hotels / travel",
-          detail: c.travel_housing_text,
+          label: "Referee lodging",
+          detail: c.travel_lodging,
           sourceUrl: c.source_url,
           confidence: c.confidence,
         });
       }
-      const cashHit = `${c.rate_text ?? ""} ${c.travel_housing_text ?? ""}`.toLowerCase().includes("cash");
+      const cashHit = `${c.rate_text ?? ""} ${c.travel_lodging ?? ""}`.toLowerCase().includes("cash");
       if (cashHit) {
         push(c.tournament_id, {
           key: `comp-cash:${c.id}`,
@@ -242,6 +255,29 @@ export default function EnrichmentClient({
           confidence: c.confidence,
         });
       }
+    });
+    const attributeLabels: Record<string, string> = {
+      cash_at_field: "Cash at field",
+      referee_food: "Referee food",
+      facilities: "Facilities",
+      referee_tents: "Referee tents",
+      travel_lodging: "Travel lodging",
+      ref_game_schedule: "Game schedule",
+      ref_parking: "Referee parking",
+      ref_parking_cost: "Parking cost",
+      mentors: "Mentors",
+      assigned_appropriately: "Assigned appropriately",
+    };
+    pendingAttributes.forEach((a) => {
+      push(a.tournament_id, {
+        key: `attr:${a.id}`,
+        kind: "attribute",
+        id: a.id,
+        label: attributeLabels[a.attribute_key] ?? a.attribute_key,
+        detail: a.attribute_value,
+        sourceUrl: a.source_url,
+        confidence: a.confidence,
+      });
     });
     const deduped = new Map<string, ReviewItem[]>();
     groups.forEach((items, tid) => {
@@ -505,11 +541,13 @@ export default function EnrichmentClient({
         .filter((p: any) => p.kind === "comp-rate" || p.kind === "comp-hotel" || p.kind === "comp-cash")
         .map((p: any) => p.id)
     );
+    const attrIds = new Set(payload.filter((p: any) => p.kind === "attribute").map((p: any) => p.id));
 
     if (contactIds.size) setPendingContacts((prev) => prev.filter((c) => !contactIds.has(c.id)));
     if (venueIds.size) setPendingVenues((prev) => prev.filter((v) => !venueIds.has(v.id)));
     if (dateIds.size) setPendingDates((prev) => prev.filter((d) => !dateIds.has(d.id)));
     if (compIds.size) setPendingComps((prev) => prev.filter((c) => !compIds.has(c.id)));
+    if (attrIds.size) setPendingAttributes((prev) => prev.filter((c) => !attrIds.has(c.id)));
   };
 
   const deleteReviewItems = async (tournamentId: string) => {
@@ -546,10 +584,12 @@ export default function EnrichmentClient({
         .filter((p: any) => p.kind === "comp-rate" || p.kind === "comp-hotel" || p.kind === "comp-cash")
         .map((p: any) => p.id)
     );
+    const attrIds = new Set(payload.filter((p: any) => p.kind === "attribute").map((p: any) => p.id));
     if (contactIds.size) setPendingContacts((prev) => prev.filter((c) => !contactIds.has(c.id)));
     if (venueIds.size) setPendingVenues((prev) => prev.filter((v) => !venueIds.has(v.id)));
     if (dateIds.size) setPendingDates((prev) => prev.filter((d) => !dateIds.has(d.id)));
     if (compIds.size) setPendingComps((prev) => prev.filter((c) => !compIds.has(c.id)));
+    if (attrIds.size) setPendingAttributes((prev) => prev.filter((c) => !attrIds.has(c.id)));
   };
 
   return (

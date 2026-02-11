@@ -27,7 +27,7 @@ export type CompCandidate = {
   rate_amount_max?: number | null;
   rate_unit?: string | null;
   division_context?: string | null;
-  travel_housing_text?: string | null;
+  travel_lodging?: "hotel" | "stipend" | null;
   assigning_platforms?: string[] | null;
   source_url?: string | null;
   evidence_text?: string | null;
@@ -44,10 +44,30 @@ export type DateCandidate = {
   confidence?: number | null;
 };
 
+export type AttributeCandidate = {
+  tournament_id: string;
+  attribute_key:
+    | "cash_at_field"
+    | "referee_food"
+    | "facilities"
+    | "referee_tents"
+    | "travel_lodging"
+    | "ref_game_schedule"
+    | "ref_parking"
+    | "ref_parking_cost"
+    | "mentors"
+    | "assigned_appropriately";
+  attribute_value: string;
+  source_url?: string | null;
+  evidence_text?: string | null;
+  confidence?: number | null;
+};
+
 export type PageResult = {
   contacts: ContactCandidate[];
   venues: VenueCandidate[];
   comps: CompCandidate[];
   pdfHints: CompCandidate[];
   dates: DateCandidate[];
+  attributes: AttributeCandidate[];
 };
