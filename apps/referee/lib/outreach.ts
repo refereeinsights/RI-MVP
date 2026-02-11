@@ -1,8 +1,8 @@
 import type { AdminListedTournament } from "@/lib/admin";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.refereeinsights.com";
-const DEFAULT_SENDER_NAME = process.env.OUTREACH_SENDER_NAME ?? "RefereeInsights";
-const DEFAULT_SENDER_EMAIL = process.env.OUTREACH_SENDER_EMAIL ?? "info@refereeinsights.com";
+const DEFAULT_SENDER_NAME = process.env.OUTREACH_SENDER_NAME ?? "Rod";
+const DEFAULT_SENDER_EMAIL = process.env.OUTREACH_SENDER_EMAIL ?? "rod@refereeinsights.com";
 
 export const DEFAULT_TEMPLATES = {
   tournament_initial: {
@@ -10,14 +10,14 @@ export const DEFAULT_TEMPLATES = {
     name: "Tournament initial outreach",
     subject_template: "Quick verification for {{tournament_name}}",
     body_template:
-      "Hi {{first_name_or_there}},\n\nAs a tournament director, I always struggled to secure strong referees — especially for the most important games late in the weekend. As a referee, I often asked myself a different question: “Is this tournament worth my weekend?”\n\nWe built RefereeInsights to help solve both.\n\nWe’ve created a listing for {{tournament_name}}{{city_state_parens}} based on publicly available information. We’re inviting directors to verify key operational details (pay approach, check-in process, scheduling, hospitality/logistics) so referees have accurate information before committing.\n\nVerified events receive a “Tournament Staff Verified” badge indicating that operational details were confirmed by authorized staff. There’s no cost — the form takes about five minutes.\n\nWould you be open to reviewing the listing?\n\n{{tournament_url}}\n\nIf you prefer not to receive future outreach about this listing, just reply and I’ll mark this as do-not-contact.\n\nBest,\n{{sender_name}}\nRefereeInsights\n{{sender_email}}",
+      "Hello {{first_name_or_there}},\n\nAs a tournament director, I always struggled to secure strong referees — especially for the most important games late in the weekend. As a referee, I often asked myself a different question: “Is this tournament worth my weekend?”\n\nWe built RefereeInsights to help solve both.\n\nWe’ve created a listing for {{tournament_name}}{{city_state_parens}} based on publicly available information. We’re inviting directors to verify key operational details (pay approach, check-in process, scheduling, hospitality/logistics) so referees have accurate information before committing.\n\nVerified events receive a “Tournament Staff Verified” badge indicating that operational details were confirmed by authorized staff. There’s no cost — the form takes about five minutes.\n\nWould you be open to reviewing the listing?\n\n{{tournament_url}}\n\nIf you prefer not to receive future outreach about this listing, just reply and I’ll mark this as do-not-contact.\n\nBest,\n{{sender_name}}\nRefereeInsights\n{{sender_email}}",
   },
   tournament_followup: {
     key: "tournament_followup",
     name: "Tournament follow-up outreach",
     subject_template: "Re: {{tournament_name}} verification",
     body_template:
-      "Hi {{first_name_or_there}},\n\nJust bumping this in case it got buried. Happy to send the quick 5-minute verification form if helpful.\n\nListing:\n{{tournament_url}}\n\nIf you'd prefer not to receive outreach about this listing, just let me know.\n\nBest,\n{{sender_name}}",
+      "Hello {{first_name_or_there}},\n\nJust bumping this in case it got buried. Happy to send the quick 5-minute verification form if helpful.\n\nListing:\n{{tournament_url}}\n\nIf you'd prefer not to receive outreach about this listing, just let me know.\n\nBest,\n{{sender_name}}",
   },
 } as const;
 
@@ -37,9 +37,7 @@ export function renderOutreachTemplate(
   const cityState = [city, state].filter(Boolean).join(", ");
   const cityStateParens = cityState ? ` (${cityState})` : "";
   const firstName =
-    contactName && contactName.trim().length
-      ? contactName.trim().split(/\s+/)[0]
-      : "there";
+    contactName && contactName.trim().length ? contactName.trim().split(/\s+/)[0] : "";
   const replacements: Record<string, string> = {
     "{{tournament_name}}": tournamentName,
     "{{tournament_url}}": buildTournamentUrl(tournament.slug ?? ""),
@@ -55,8 +53,9 @@ export function renderOutreachTemplate(
       text
     );
 
-  return {
-    subject: apply(template.subject_template),
-    body: apply(template.body_template),
-  };
+  const subject = apply(template.subject_template);
+  let body = apply(template.body_template);
+  body = body.replace(/Hello\s+,/g, "Hello,").replace(/Hello\s{2,}/g, "Hello ");
+
+  return { subject, body };
 }

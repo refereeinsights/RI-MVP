@@ -17,8 +17,8 @@ type Props = {
   onSave: (formData: FormData) => void;
 };
 
-const DEFAULT_SENDER_NAME = "RefereeInsights";
-const DEFAULT_SENDER_EMAIL = "info@refereeinsights.com";
+const DEFAULT_SENDER_NAME = "Rod";
+const DEFAULT_SENDER_EMAIL = "rod@refereeinsights.com";
 
 function renderPreview(template: Template) {
   const replacements: Record<string, string> = {

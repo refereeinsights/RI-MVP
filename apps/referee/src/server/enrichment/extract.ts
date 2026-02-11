@@ -63,6 +63,36 @@ const TRAVEL_KEYWORDS = [
 ];
 
 const ASSIGNING_PLATFORMS = ["arbiter", "arbitersports", "assignr", "gameofficials", "zebraweb"];
+const CONTACT_CUE_KEYWORDS = [
+  "contact",
+  "questions",
+  "email",
+  "reach",
+  "director",
+  "tournament director",
+  "referee",
+  "assignor",
+  "officials",
+  "coordinator",
+  "support",
+  "info@",
+  "admin@",
+];
+const ALLOWED_TLDS = new Set([
+  "com",
+  "org",
+  "net",
+  "edu",
+  "gov",
+  "us",
+  "co",
+  "io",
+  "ai",
+  "club",
+  "sports",
+  "soccer",
+  "info",
+]);
 const MONTHS = [
   "january",
   "february",
@@ -126,14 +156,18 @@ function isLikelyEmail(email: string) {
   const lower = email.toLowerCase();
   const [local, domain] = lower.split("@");
   if (!local || !domain) return false;
+  if (local.length < 2) return false;
   if (local.startsWith("__") || local.includes("datalayer") || local.includes("gtag") || local.includes("monsterinsights") || local.includes("window") || local.includes("navigator")) {
     return false;
   }
   if (!domain.includes(".")) return false;
-  const domainRoot = domain.split(".")[0] || "";
+  const domainParts = domain.split(".");
+  const domainRoot = domainParts[0] || "";
   if (domainRoot.length < 2) return false;
-  const tld = domain.split(".").pop() || "";
+  if (domainParts.some((part) => part.length < 2)) return false;
+  const tld = domainParts.pop() || "";
   if (tld.length < 2 || tld.length > 6) return false;
+  if (!ALLOWED_TLDS.has(tld)) return false;
   const blockedTlds = new Set([
     "png",
     "jpg",
@@ -156,6 +190,11 @@ function isLikelyEmail(email: string) {
   return true;
 }
 
+function hasContactCue(text: string) {
+  const lower = text.toLowerCase();
+  return CONTACT_CUE_KEYWORDS.some((k) => lower.includes(k));
+}
+
 function classifyRole(window: string): { role: ContactCandidate["role_normalized"]; confidenceBoost: number } {
   const lower = window.toLowerCase();
   for (const role of ["TD", "ASSIGNOR", "GENERAL"] as const) {
@@ -171,15 +210,19 @@ function extractContacts(html: string, url: string): ContactCandidate[] {
   const windows: Array<{ value: string; index: number }> = [];
   const tokenEmails = new Set<string>();
   const urlLower = (url || "").toLowerCase();
+  const textOnly = cheerio.load(html).text();
   // Capture mailto/tel links even if not visible in text.
   const hrefEmails = Array.from(html.matchAll(/mailto:([^\s"'<>]+)/gi)).map((m) => m[1]);
   const hrefPhones = Array.from(html.matchAll(/tel:([0-9+().\s-]+)/gi)).map((m) => m[1]);
 
-  const normalizedHtml = html.replace(/\s+/g, " ");
+  const entityExpandedHtml = html
+    .replace(/&#64;|&commat;|&#x40;/gi, "@")
+    .replace(/&#46;|&period;|&#x2e;/gi, ".");
+  const normalizedHtml = entityExpandedHtml.replace(/\s+/g, " ");
   const expandedHtml = normalizedHtml
     .replace(/\[\s*at\s*\]|\(\s*at\s*\)|\bat\b/gi, "@")
     .replace(/\[\s*dot\s*\]|\(\s*dot\s*\)|\bdot\b/gi, ".");
-  const fullyReplaced = html
+  const fullyReplaced = entityExpandedHtml
     .replace(/\[\s*at\s*\]|\(\s*at\s*\)|\bat\b/gi, "@")
     .replace(/\[\s*dot\s*\]|\(\s*dot\s*\)|\bdot\b/gi, ".");
 
@@ -273,13 +316,17 @@ function extractContacts(html: string, url: string): ContactCandidate[] {
   }
 
   for (const entry of windows) {
-    const start = Math.max(0, entry.index - 120);
-    const end = Math.min(normalizedHtml.length, entry.index + 120);
+    const start = Math.max(0, entry.index - 240);
+    const end = Math.min(normalizedHtml.length, entry.index + 240);
     const snippet = normalizedHtml.slice(start, end);
     const name = extractName(snippet);
     let { role, confidenceBoost } = classifyRole(snippet);
     const pageHasContactCue =
-      urlLower.includes("contact") || urlLower.includes("info") || normalizedHtml.toLowerCase().includes("contact us");
+      urlLower.includes("contact") ||
+      urlLower.includes("info") ||
+      urlLower.includes("referee") ||
+      urlLower.includes("official") ||
+      normalizedHtml.toLowerCase().includes("contact us");
     const globalLower = normalizedHtml.toLowerCase();
 
     let email = entry.value.includes("@") || entry.value.includes("[at") ? normalizeEmail(entry.value) : null;
@@ -288,6 +335,23 @@ function extractContacts(html: string, url: string): ContactCandidate[] {
 
     const hasContact = Boolean(email || phone);
     if (!hasContact) continue;
+
+    // Require contact context for emails unless the email itself signals a role
+    if (email) {
+      const emailLower = email.toLowerCase();
+      const emailSelfCue =
+        emailLower.includes("info@") ||
+        emailLower.includes("contact@") ||
+        emailLower.includes("director@") ||
+        emailLower.includes("assignor@") ||
+        emailLower.includes("referee@") ||
+        emailLower.includes("officials@");
+      const contextCue =
+        hasContactCue(snippet) || hasContactCue(normalizedHtml) || hasContactCue(textOnly) || pageHasContactCue;
+      if (!contextCue && !emailSelfCue) {
+        continue;
+      }
+    }
 
     // Secondary role inference: email or snippet contains assignor/officals cues
     const lowerSnippet = snippet.toLowerCase();
@@ -750,7 +814,8 @@ export function extractFromPage(html: string, url: string): PageResult {
   const $ = cheerio.load(html);
   // Remove script/style contents to avoid picking up analytics variable names as emails.
   $("script,style").remove();
-  const contacts = extractContacts($.text(), url);
+  const cleanedHtml = $.html() || html;
+  const contacts = extractContacts(cleanedHtml, url);
   const venues = extractVenues($, url);
   const compRes = extractComp($, url);
   const dates = extractDates($, url);

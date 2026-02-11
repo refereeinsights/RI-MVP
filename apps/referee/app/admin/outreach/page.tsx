@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import AdminNav from "@/components/admin/AdminNav";
 import OutreachCopyButtons from "@/components/admin/OutreachCopyButtons";
 import OutreachTemplateEditor from "@/components/admin/OutreachTemplateEditor";
+import EmailDiscoveryPanel from "@/components/admin/EmailDiscoveryPanel";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { DEFAULT_TEMPLATES, buildTournamentUrl, renderOutreachTemplate } from "@/lib/outreach";
@@ -29,8 +30,8 @@ const DNC_REASONS = [
 ];
 
 function buildMailto(to: string, subject: string, body: string) {
-  const params = new URLSearchParams({ subject, body });
-  return `mailto:${encodeURIComponent(to)}?${params.toString()}`;
+  const encode = (value: string) => encodeURIComponent(value);
+  return `mailto:${encodeURIComponent(to)}?subject=${encode(subject)}&body=${encode(body)}`;
 }
 
 export default async function OutreachPage({
@@ -61,6 +62,20 @@ export default async function OutreachPage({
   });
   const initialTemplate = templateMap.get("tournament_initial") ?? DEFAULT_TEMPLATES.tournament_initial;
   const followupTemplate = templateMap.get("tournament_followup") ?? DEFAULT_TEMPLATES.tournament_followup;
+
+  const { data: sportEmailRows } = await supabaseAdmin
+    .from("tournaments" as any)
+    .select("sport,tournament_director_email");
+  const sportTotals = new Map<string, { total: number; withEmail: number }>();
+  (sportEmailRows ?? []).forEach((row: any) => {
+    const sportKey = row.sport ? String(row.sport).toLowerCase() : "unknown";
+    const entry = sportTotals.get(sportKey) ?? { total: 0, withEmail: 0 };
+    entry.total += 1;
+    const hasEmail = row.tournament_director_email && String(row.tournament_director_email).trim() !== "";
+    if (hasEmail) entry.withEmail += 1;
+    sportTotals.set(sportKey, entry);
+  });
+  const sportSummary = Array.from(sportTotals.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
   let query = supabaseAdmin
     .from("tournament_outreach" as any)
@@ -231,6 +246,21 @@ export default async function OutreachPage({
     redirect(`/admin/outreach?tab=${tab}&notice=${encodeURIComponent("Cleared do-not-contact")}`);
   }
 
+  async function updateTournamentEmailAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const tournamentId = String(formData.get("tournament_id") || "");
+    const email = String(formData.get("tournament_director_email") || "").trim();
+    if (!tournamentId || !email) {
+      redirect(`/admin/outreach?tab=${tab}&notice=${encodeURIComponent("Missing tournament or email")}`);
+    }
+    await supabaseAdmin
+      .from("tournaments" as any)
+      .update({ tournament_director_email: email })
+      .eq("id", tournamentId);
+    redirect(`/admin/outreach?tab=${tab}&notice=${encodeURIComponent("Email updated")}`);
+  }
+
   return (
     <main className="pitchWrap">
       <section className="field">
@@ -240,6 +270,27 @@ export default async function OutreachPage({
           <p style={{ color: "#555", marginTop: 0 }}>
             Draft and track outreach to tournament staff. Email sending is manual.
           </p>
+          <div style={{ marginTop: 12, padding: 14, borderRadius: 12, border: "1px solid #d1d5db", background: "#fff" }}>
+            <div style={{ fontWeight: 800, marginBottom: 8 }}>Director email coverage by sport</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
+              {sportSummary.length ? (
+                sportSummary.map(([sportKey, stats]) => (
+                  <div
+                    key={sportKey}
+                    style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 10, background: "#f9fafb" }}
+                  >
+                    <div style={{ fontWeight: 800, textTransform: "capitalize" }}>{sportKey}</div>
+                    <div style={{ fontSize: 13, color: "#374151" }}>
+                      {stats.withEmail} with director email
+                    </div>
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>of {stats.total} tournaments</div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ color: "#6b7280" }}>No tournaments found.</div>
+              )}
+            </div>
+          </div>
           <div style={{ marginTop: 14, padding: 14, borderRadius: 12, border: "1px solid #d1d5db", background: "#fff" }}>
             <details>
               <summary style={{ cursor: "pointer", fontWeight: 800 }}>Email templates</summary>
@@ -336,6 +387,7 @@ export default async function OutreachPage({
               </a>
             </div>
           </form>
+          <EmailDiscoveryPanel />
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
             {(Object.keys(TAB_LABELS) as TabKey[]).map((key) => (
               (() => {
@@ -390,7 +442,7 @@ export default async function OutreachPage({
             </div>
           ) : null}
           {outreachRows.length ? (
-            <div style={{ display: "grid", gap: 16, marginTop: 16 }}>
+            <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
               {outreachRows.map((row) => {
                 const tournament = row.tournaments ?? {};
                 const contactName = row.contact_name ?? tournament.tournament_director ?? null;
@@ -406,20 +458,28 @@ export default async function OutreachPage({
                 const followupMailto = contactEmail ? buildMailto(contactEmail, followup.subject, followup.body) : "";
 
                 return (
-                  <div key={row.id} style={{ border: "1px solid #ddd", borderRadius: 14, padding: 16, background: "#fff" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                      <div>
-                        <div style={{ fontWeight: 900 }}>{tournament.name ?? "Unknown tournament"}</div>
-                        <div style={{ fontSize: 12, color: "#666" }}>
-                          {tournament.city ?? ""}{tournament.city && tournament.state ? ", " : ""}{tournament.state ?? ""}
-                        </div>
-                        <div style={{ fontSize: 12, color: "#666" }}>{contactEmail}</div>
-                        {doNotContact ? (
-                          <div style={{ marginTop: 6, display: "inline-flex", padding: "2px 8px", borderRadius: 999, background: "#fee2e2", color: "#991b1b", fontSize: 11, fontWeight: 800 }}>
-                            DNC
+                  <details key={row.id} style={{ border: "1px solid #ddd", borderRadius: 14, padding: 12, background: "#fff" }}>
+                    <summary style={{ listStyle: "none", cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                        <div>
+                          <div style={{ fontWeight: 900 }}>{tournament.name ?? "Unknown tournament"}</div>
+                          <div style={{ fontSize: 12, color: "#666" }}>
+                            {tournament.city ?? ""}{tournament.city && tournament.state ? ", " : ""}{tournament.state ?? ""}
                           </div>
-                        ) : null}
+                          <div style={{ fontSize: 12, color: "#666" }}>{contactEmail}</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          {doNotContact ? (
+                            <div style={{ display: "inline-flex", padding: "2px 8px", borderRadius: 999, background: "#fee2e2", color: "#991b1b", fontSize: 11, fontWeight: 800 }}>
+                              DNC
+                            </div>
+                          ) : null}
+                          <span style={{ fontSize: 12, color: "#444", fontWeight: 700 }}>Show ▾</span>
+                        </div>
                       </div>
+                    </summary>
+
+                    <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         {tournament.slug ? (
                           <Link href={buildTournamentUrl(tournament.slug)} target="_blank" style={{ fontSize: 12 }}>
@@ -427,9 +487,29 @@ export default async function OutreachPage({
                           </Link>
                         ) : null}
                       </div>
-                    </div>
 
-                    <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                      {!contactEmail ? (
+                        <form action={updateTournamentEmailAction} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
+                          <input type="hidden" name="tournament_id" value={tournament.id} />
+                          <label style={{ fontSize: 12, fontWeight: 700 }}>
+                            Add director email
+                            <input
+                              type="email"
+                              name="tournament_director_email"
+                              placeholder="director@email.com"
+                              required
+                              style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                            />
+                          </label>
+                          <button
+                            type="submit"
+                            style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#0f172a", color: "#fff", fontWeight: 800 }}
+                          >
+                            Save email
+                          </button>
+                        </form>
+                      ) : null}
+
                       <OutreachCopyButtons
                         subject={subject}
                         body={body}
@@ -539,7 +619,7 @@ export default async function OutreachPage({
                         ) : null}
                       </div>
                     </div>
-                  </div>
+                  </details>
                 );
               })}
             </div>

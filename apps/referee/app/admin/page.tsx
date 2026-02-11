@@ -167,6 +167,7 @@ export default async function AdminPage({
   if (tab === "reviews" || tab === "school-reviews") {
     params.set("rstatus", reviewStatus);
   }
+  let emailDiscoveryHideSet = new Set<string>();
   if (tab === "tournament-contacts") {
     params.set("cstatus", contactStatus);
   }
@@ -220,10 +221,177 @@ export default async function AdminPage({
           .limit(50)
           .then((res) => res.data ?? [])
       : [];
+  let emailDiscoveryRun: { id: string; created_at: string } | null = null;
+  let emailDiscoveryResults: any[] = [];
+  let emailDiscoveryError: string | null = null;
+  if (tab === "tournament-contacts") {
+    const runResp = await supabaseAdmin
+      .from("tournament_email_discovery_runs" as any)
+      .select("id,created_at")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (runResp.error) {
+      emailDiscoveryError = runResp.error.message;
+    } else {
+      emailDiscoveryRun = runResp.data ?? null;
+    }
+    if (emailDiscoveryRun?.id) {
+      const resultsResp = await supabaseAdmin
+        .from("tournament_email_discovery_results" as any)
+        .select(
+          "id,run_id,source_url,discovered_emails,created_at,dismissed_at,tournaments(id,name,slug,city,state,official_website_url,source_url,tournament_director_email,referee_contact_email)"
+        )
+        .eq("run_id", emailDiscoveryRun.id)
+        .is("dismissed_at", null)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (resultsResp.error) {
+        emailDiscoveryError = resultsResp.error.message;
+      } else {
+        emailDiscoveryResults = resultsResp.data ?? [];
+      }
+    }
+    const resultIds = emailDiscoveryResults
+      .map((row: any) => {
+        const t = Array.isArray(row.tournaments) ? row.tournaments[0] : row.tournaments;
+        return t?.id as string | undefined;
+      })
+      .filter(Boolean) as string[];
+    if (resultIds.length) {
+      const { data: directorEmailRows } = await supabaseAdmin
+        .from("tournaments" as any)
+        .select("id")
+        .in("id", resultIds)
+        .not("tournament_director_email", "is", null);
+      (directorEmailRows ?? []).forEach((row: any) => row.id && emailDiscoveryHideSet.add(String(row.id)));
+
+      const { data: directorContactRows } = await supabaseAdmin
+        .from("tournament_contacts" as any)
+        .select("tournament_id")
+        .in("tournament_id", resultIds)
+        .eq("type", "director")
+        .not("email", "is", null);
+      (directorContactRows ?? []).forEach((row: any) => {
+        if (row.tournament_id) emailDiscoveryHideSet.add(String(row.tournament_id));
+      });
+    }
+  }
   const pendingTournaments: AdminPendingTournament[] =
     tab === "tournament-uploads" ? await adminListPendingTournaments() : [];
   const listedTournaments: AdminListedTournament[] =
     tab === "tournament-listings" ? await adminSearchPublishedTournaments(q) : [];
+  const duplicateCandidates =
+    tab === "tournament-listings"
+      ? await supabaseAdmin
+          .from("tournaments" as any)
+          .select("id,name,slug,city,state,start_date,end_date,official_website_url,source_url")
+          .or("official_website_url.not.is.null,source_url.not.is.null")
+          .order("updated_at", { ascending: false })
+          .limit(1500)
+          .then((res) => res.data ?? [])
+      : [];
+  const duplicateGroups = new Map<
+    string,
+    {
+      name: string;
+      url: string;
+      items: Array<{
+        id: string;
+        name: string | null;
+        slug: string | null;
+        city: string | null;
+        state: string | null;
+        start_date: string | null;
+        end_date: string | null;
+      }>;
+    }
+  >();
+  const duplicateByUrl = new Map<string, { url: string; items: any[] }>();
+  const duplicateByName = new Map<string, { name: string; items: any[] }>();
+  const normalizeUrl = (input: string) =>
+    input
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .split("?")[0]
+      .replace(/\/+$/, "");
+  const normalizeName = (input: string) =>
+    input
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  const duplicateDismissals =
+    tab === "tournament-listings"
+      ? await supabaseAdmin
+          .from("tournament_duplicate_dismissals" as any)
+          .select("key_type,key_value")
+          .then((res) => res.data ?? [])
+      : [];
+  const dismissedExact = new Set<string>();
+  const dismissedUrl = new Set<string>();
+  const dismissedName = new Set<string>();
+  duplicateDismissals.forEach((row: any) => {
+    if (row.key_type === "exact") dismissedExact.add(String(row.key_value));
+    if (row.key_type === "url") dismissedUrl.add(String(row.key_value));
+    if (row.key_type === "name") dismissedName.add(String(row.key_value));
+  });
+  if (duplicateCandidates.length) {
+    duplicateCandidates.forEach((row: any) => {
+      const name = (row.name ?? "").trim();
+      const url = (row.official_website_url ?? row.source_url ?? "").trim();
+      if (!name || !url) return;
+      const key = `${normalizeName(name)}|${normalizeUrl(url)}`;
+      const group = duplicateGroups.get(key) ?? { name, url, items: [] };
+      group.items.push({
+        id: row.id,
+        name: row.name ?? null,
+        slug: row.slug ?? null,
+        city: row.city ?? null,
+        state: row.state ?? null,
+        start_date: row.start_date ?? null,
+        end_date: row.end_date ?? null,
+      });
+      duplicateGroups.set(key, group);
+
+      const normUrl = normalizeUrl(url);
+      const urlGroup = duplicateByUrl.get(normUrl) ?? { url, items: [] };
+      urlGroup.items.push({
+        id: row.id,
+        name: row.name ?? null,
+        slug: row.slug ?? null,
+        city: row.city ?? null,
+        state: row.state ?? null,
+        start_date: row.start_date ?? null,
+        end_date: row.end_date ?? null,
+      });
+      duplicateByUrl.set(normUrl, urlGroup);
+
+      const normName = normalizeName(name);
+      const nameGroup = duplicateByName.get(normName) ?? { name, items: [] };
+      nameGroup.items.push({
+        id: row.id,
+        name: row.name ?? null,
+        slug: row.slug ?? null,
+        city: row.city ?? null,
+        state: row.state ?? null,
+        start_date: row.start_date ?? null,
+        end_date: row.end_date ?? null,
+        url,
+      });
+      duplicateByName.set(normName, nameGroup);
+    });
+  }
+  const suspectDuplicates = Array.from(duplicateGroups.entries())
+    .filter(([key, group]) => group.items.length > 1 && !dismissedExact.has(key))
+    .map(([, group]) => group);
+  const suspectByUrl = Array.from(duplicateByUrl.entries())
+    .filter(([key, group]) => group.items.length > 1 && !dismissedUrl.has(key))
+    .map(([, group]) => group);
+  const suspectByName = Array.from(duplicateByName.entries())
+    .filter(([key, group]) => group.items.length > 1 && !dismissedName.has(key))
+    .map(([, group]) => group);
   const listedVenueMap: Record<string, Array<{ id: string; name: string | null; address: string | null; city: string | null; state: string | null; zip: string | null }>> = {};
   const listedStaffPendingMap: Record<string, number> = {};
   if (listedTournaments.length) {
@@ -807,6 +975,172 @@ export default async function AdminPage({
     redirectWithNotice(redirectTo, "Tournament contact deleted");
   }
 
+  async function saveTournamentDirectorEmailAction(formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to");
+    const tournamentId = String(formData.get("tournament_id") || "").trim();
+    const email = String(formData.get("director_email") || "").trim();
+    if (!tournamentId) {
+      return redirectWithNotice(redirectTo, "Tournament id missing.");
+    }
+    if (!email) {
+      return redirectWithNotice(redirectTo, "Email is required.");
+    }
+
+    const { data: tournament } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("tournament_director")
+      .eq("id", tournamentId)
+      .maybeSingle();
+
+    const { error: updateError } = await supabaseAdmin
+      .from("tournaments" as any)
+      .update({ tournament_director_email: email })
+      .eq("id", tournamentId);
+    if (updateError) {
+      return redirectWithNotice(redirectTo, `Failed to save email: ${updateError.message}`);
+    }
+
+    const { data: existingContact } = await supabaseAdmin
+      .from("tournament_contacts" as any)
+      .select("id")
+      .eq("tournament_id", tournamentId)
+      .eq("type", "director")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (!existingContact) {
+      await supabaseAdmin.from("tournament_contacts" as any).insert({
+        tournament_id: tournamentId,
+        type: "director",
+        name: tournament?.tournament_director ?? null,
+        email,
+        status: "verified",
+        notes: "Manual director email from discovery results.",
+      });
+    }
+
+    return redirectWithNotice(redirectTo, "Director email saved.");
+  }
+
+  async function saveTournamentRefereeEmailAction(formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to");
+    const tournamentId = String(formData.get("tournament_id") || "").trim();
+    const email = String(formData.get("referee_email") || "").trim();
+    if (!tournamentId) {
+      return redirectWithNotice(redirectTo, "Tournament id missing.");
+    }
+    if (!email) {
+      return redirectWithNotice(redirectTo, "Email is required.");
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from("tournaments" as any)
+      .update({ referee_contact_email: email })
+      .eq("id", tournamentId);
+    if (updateError) {
+      return redirectWithNotice(redirectTo, `Failed to save email: ${updateError.message}`);
+    }
+
+    const { data: existingContact } = await supabaseAdmin
+      .from("tournament_contacts" as any)
+      .select("id")
+      .eq("tournament_id", tournamentId)
+      .eq("type", "assignor")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (!existingContact) {
+      await supabaseAdmin.from("tournament_contacts" as any).insert({
+        tournament_id: tournamentId,
+        type: "assignor",
+        email,
+        status: "verified",
+        notes: "Manual referee contact email from discovery results.",
+      });
+    }
+
+    return redirectWithNotice(redirectTo, "Referee contact email saved.");
+  }
+
+  async function dismissEmailDiscoveryResultAction(formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to");
+    const resultId = String(formData.get("result_id") || "").trim();
+    if (!resultId) {
+      return redirectWithNotice(redirectTo, "Result id missing.");
+    }
+    const { data: resultRow, error: resultError } = await supabaseAdmin
+      .from("tournament_email_discovery_results" as any)
+      .select("id,source_url,tournaments(id,official_website_url,source_url)")
+      .eq("id", resultId)
+      .maybeSingle();
+    if (resultError || !resultRow) {
+      return redirectWithNotice(redirectTo, "Result not found.");
+    }
+
+    const tournament = Array.isArray(resultRow.tournaments)
+      ? resultRow.tournaments[0]
+      : resultRow.tournaments;
+    const rawUrl =
+      resultRow.source_url ||
+      tournament?.official_website_url ||
+      tournament?.source_url ||
+      "";
+    const normalizeUrl = (input: string) =>
+      input
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
+        .split("?")[0]
+        .replace(/\/+$/, "");
+    const targetNorm = rawUrl ? normalizeUrl(rawUrl) : "";
+    let dismissedCount = 0;
+
+    if (targetNorm) {
+      let host = "";
+      try {
+        host = new URL(rawUrl).hostname.replace(/^www\./, "");
+      } catch {
+        host = targetNorm.split("/")[0] || "";
+      }
+      const { data: candidateTournaments } = await supabaseAdmin
+        .from("tournaments" as any)
+        .select("id,official_website_url,source_url")
+        .or(`official_website_url.ilike.%${host}%,source_url.ilike.%${host}%`);
+      const matchIds = (candidateTournaments ?? [])
+        .filter((row: any) => {
+          const url = row.official_website_url || row.source_url || "";
+          return url && normalizeUrl(url) === targetNorm;
+        })
+        .map((row: any) => row.id);
+      if (matchIds.length) {
+        const { error: updateError } = await supabaseAdmin
+          .from("tournament_email_discovery_results" as any)
+          .update({ dismissed_at: new Date().toISOString() })
+          .in("tournament_id", matchIds);
+        if (updateError) {
+          return redirectWithNotice(redirectTo, `Dismiss failed: ${updateError.message}`);
+        }
+        dismissedCount = matchIds.length;
+      }
+    }
+
+    if (!dismissedCount) {
+      const { error } = await supabaseAdmin
+        .from("tournament_email_discovery_results" as any)
+        .update({ dismissed_at: new Date().toISOString() })
+        .eq("id", resultId);
+      if (error) {
+        return redirectWithNotice(redirectTo, `Dismiss failed: ${error.message}`);
+      }
+      return redirectWithNotice(redirectTo, "Marked as no email found.");
+    }
+
+    return redirectWithNotice(redirectTo, `Marked ${dismissedCount} tournaments as no email found.`);
+  }
+
   async function createRefereeContactAction(formData: FormData) {
     "use server";
     const redirectTo = formData.get("redirect_to");
@@ -980,6 +1314,20 @@ export default async function AdminPage({
     await adminDeleteTournament(tournamentId);
     revalidatePath("/tournaments");
     redirectWithNotice(redirectTo, "Tournament deleted");
+  }
+
+  async function dismissDuplicateGroupAction(formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to");
+    const keyType = String(formData.get("key_type") || "").trim();
+    const keyValue = String(formData.get("key_value") || "").trim();
+    if (!keyType || !keyValue) {
+      return redirectWithNotice(redirectTo, "Missing duplicate key.");
+    }
+    await supabaseAdmin
+      .from("tournament_duplicate_dismissals" as any)
+      .upsert({ key_type: keyType, key_value: keyValue }, { onConflict: "key_type,key_value" });
+    return redirectWithNotice(redirectTo, "Marked as not duplicate.");
   }
 
   async function bulkTournamentAction(formData: FormData) {
@@ -2120,6 +2468,328 @@ export default async function AdminPage({
               Reset
             </a>
           </form>
+          <div
+            style={{
+              marginBottom: 16,
+              padding: 16,
+              borderRadius: 12,
+              border: "1px solid #ddd",
+              background: "#fff",
+            }}
+          >
+            <details>
+              <summary style={{ cursor: "pointer", fontWeight: 900 }}>
+                Suspect duplicates (exact name + URL) ({suspectDuplicates.length})
+              </summary>
+              <div style={{ marginTop: 12, display: "grid", gap: 16 }}>
+                {suspectDuplicates.length === 0 ? (
+                  <div style={{ color: "#555" }}>No duplicates found.</div>
+                ) : (
+                  suspectDuplicates.map((group) => (
+                    <div
+                      key={`${group.name}-${group.url}`}
+                      style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12 }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                        <div>
+                          <div style={{ fontWeight: 800 }}>{group.name}</div>
+                          <div style={{ fontSize: 12, color: "#555", marginBottom: 8 }}>
+                            {group.url}
+                          </div>
+                        </div>
+                        <form action={dismissDuplicateGroupAction}>
+                          <input type="hidden" name="redirect_to" value={adminBasePath} />
+                          <input
+                            type="hidden"
+                            name="key_type"
+                            value="exact"
+                          />
+                          <input
+                            type="hidden"
+                            name="key_value"
+                            value={`${normalizeName(group.name)}|${normalizeUrl(group.url)}`}
+                          />
+                          <button
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: 8,
+                              border: "1px solid #111",
+                              background: "#fff",
+                              color: "#111",
+                              fontWeight: 700,
+                            }}
+                          >
+                            Not a duplicate
+                          </button>
+                        </form>
+                      </div>
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ background: "#f9fafb" }}>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Dates</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>City/State</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Listing</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Delete</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {group.items.map((item) => (
+                              <tr key={item.id}>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  {item.start_date ?? "—"}
+                                  {item.end_date ? ` → ${item.end_date}` : ""}
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  {item.city ?? "—"}, {item.state ?? "—"}
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  <a
+                                    href={
+                                      item.slug
+                                        ? `/admin?tab=tournament-listings&q=${encodeURIComponent(item.slug)}`
+                                        : `/admin?tab=tournament-listings&q=${encodeURIComponent(item.name ?? "")}`
+                                    }
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    Open listing ↗
+                                  </a>
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  <form action={deleteTournamentAction} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                    <input type="hidden" name="tournament_id" value={item.id} />
+                                    <input type="hidden" name="redirect_to" value={adminBasePath} />
+                                    <label style={{ fontSize: 11 }}>
+                                      <input type="checkbox" name="confirm_delete" /> confirm
+                                    </label>
+                                    <button
+                                      style={{
+                                        padding: "4px 8px",
+                                        borderRadius: 8,
+                                        border: "1px solid #c62828",
+                                        background: "#fff",
+                                        color: "#c62828",
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
+                                  </form>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </details>
+            <details style={{ marginTop: 10 }}>
+              <summary style={{ cursor: "pointer", fontWeight: 900 }}>
+                Suspect duplicates (URL-only, normalized) ({suspectByUrl.length})
+              </summary>
+              <div style={{ marginTop: 12, display: "grid", gap: 16 }}>
+                {suspectByUrl.length === 0 ? (
+                  <div style={{ color: "#555" }}>No URL-only duplicates found.</div>
+                ) : (
+                  suspectByUrl.map((group) => (
+                    <div
+                      key={group.url}
+                      style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12 }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                        <div style={{ fontWeight: 800 }}>{group.url}</div>
+                        <form action={dismissDuplicateGroupAction}>
+                          <input type="hidden" name="redirect_to" value={adminBasePath} />
+                          <input type="hidden" name="key_type" value="url" />
+                          <input type="hidden" name="key_value" value={normalizeUrl(group.url)} />
+                          <button
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: 8,
+                              border: "1px solid #111",
+                              background: "#fff",
+                              color: "#111",
+                              fontWeight: 700,
+                            }}
+                          >
+                            Not a duplicate
+                          </button>
+                        </form>
+                      </div>
+                      <div style={{ overflowX: "auto", marginTop: 8 }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ background: "#f9fafb" }}>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Name</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Dates</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>City/State</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Listing</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Delete</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {group.items.map((item) => (
+                              <tr key={item.id}>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  {item.name ?? "—"}
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  {item.start_date ?? "—"}
+                                  {item.end_date ? ` → ${item.end_date}` : ""}
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  {item.city ?? "—"}, {item.state ?? "—"}
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  <a
+                                    href={
+                                      item.slug
+                                        ? `/admin?tab=tournament-listings&q=${encodeURIComponent(item.slug)}`
+                                        : `/admin?tab=tournament-listings&q=${encodeURIComponent(item.name ?? "")}`
+                                    }
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    Open listing ↗
+                                  </a>
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  <form action={deleteTournamentAction} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                    <input type="hidden" name="tournament_id" value={item.id} />
+                                    <input type="hidden" name="redirect_to" value={adminBasePath} />
+                                    <label style={{ fontSize: 11 }}>
+                                      <input type="checkbox" name="confirm_delete" /> confirm
+                                    </label>
+                                    <button
+                                      style={{
+                                        padding: "4px 8px",
+                                        borderRadius: 8,
+                                        border: "1px solid #c62828",
+                                        background: "#fff",
+                                        color: "#c62828",
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
+                                  </form>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </details>
+            <details style={{ marginTop: 10 }}>
+              <summary style={{ cursor: "pointer", fontWeight: 900 }}>
+                Suspect duplicates (name-only, normalized) ({suspectByName.length})
+              </summary>
+              <div style={{ marginTop: 12, display: "grid", gap: 16 }}>
+                {suspectByName.length === 0 ? (
+                  <div style={{ color: "#555" }}>No name-only duplicates found.</div>
+                ) : (
+                  suspectByName.map((group) => (
+                    <div
+                      key={group.name}
+                      style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12 }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                        <div style={{ fontWeight: 800 }}>{group.name}</div>
+                        <form action={dismissDuplicateGroupAction}>
+                          <input type="hidden" name="redirect_to" value={adminBasePath} />
+                          <input type="hidden" name="key_type" value="name" />
+                          <input type="hidden" name="key_value" value={normalizeName(group.name)} />
+                          <button
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: 8,
+                              border: "1px solid #111",
+                              background: "#fff",
+                              color: "#111",
+                              fontWeight: 700,
+                            }}
+                          >
+                            Not a duplicate
+                          </button>
+                        </form>
+                      </div>
+                      <div style={{ overflowX: "auto", marginTop: 8 }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ background: "#f9fafb" }}>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>URL</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Dates</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>City/State</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Listing</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Delete</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {group.items.map((item) => (
+                              <tr key={item.id}>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  {item.url ?? "—"}
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  {item.start_date ?? "—"}
+                                  {item.end_date ? ` → ${item.end_date}` : ""}
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  {item.city ?? "—"}, {item.state ?? "—"}
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  <a
+                                    href={
+                                      item.slug
+                                        ? `/admin?tab=tournament-listings&q=${encodeURIComponent(item.slug)}`
+                                        : `/admin?tab=tournament-listings&q=${encodeURIComponent(item.name ?? "")}`
+                                    }
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    Open listing ↗
+                                  </a>
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  <form action={deleteTournamentAction} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                    <input type="hidden" name="tournament_id" value={item.id} />
+                                    <input type="hidden" name="redirect_to" value={adminBasePath} />
+                                    <label style={{ fontSize: 11 }}>
+                                      <input type="checkbox" name="confirm_delete" /> confirm
+                                    </label>
+                                    <button
+                                      style={{
+                                        padding: "4px 8px",
+                                        borderRadius: 8,
+                                        border: "1px solid #c62828",
+                                        background: "#fff",
+                                        color: "#c62828",
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
+                                  </form>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </details>
+          </div>
           {staffToken && staffTokenTournamentId ? (
             <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, border: "1px solid #cbd5f5", background: "#eef2ff", fontSize: 13 }}>
               Staff verification link created:
@@ -2189,24 +2859,20 @@ export default async function AdminPage({
                     </Link>
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-                    <form action={createStaffVerificationLinkAction}>
-                      <input type="hidden" name="redirect_to" value={adminBasePath} />
-                      <input type="hidden" name="tournament_id" value={t.id} />
-                      <button
-                        type="submit"
-                        style={{
-                          padding: "6px 12px",
-                          borderRadius: 999,
-                          border: "1px solid #0f172a",
-                          background: "#fff",
-                          color: "#0f172a",
-                          fontWeight: 800,
-                          fontSize: 12,
-                        }}
-                      >
-                        Create staff verification link
-                      </button>
-                    </form>
+                    <button
+                      formAction={createStaffVerificationLinkAction}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: 999,
+                        border: "1px solid #0f172a",
+                        background: "#fff",
+                        color: "#0f172a",
+                        fontWeight: 800,
+                        fontSize: 12,
+                      }}
+                    >
+                      Create staff verification link
+                    </button>
                     {staffToken && staffTokenTournamentId === t.id ? (
                       <span style={{ fontSize: 12, color: "#1e3a8a" }}>
                         Link ready for this tournament.
@@ -3358,6 +4024,201 @@ export default async function AdminPage({
                 Queues enrichment for tournaments missing contact info, then promotes discovered contacts to the review queue.
               </p>
             </form>
+
+            <h3 style={{ marginTop: 0, fontSize: 16 }}>Latest email discovery results</h3>
+            <div style={{ fontSize: 12, color: "#555", marginBottom: 10 }}>
+              {emailDiscoveryRun?.created_at
+                ? `Last run: ${new Date(emailDiscoveryRun.created_at).toLocaleString("en-US", {
+                    timeZone: "America/Los_Angeles",
+                  })}`
+                : "Run discovery to see results."}
+            </div>
+            {emailDiscoveryError ? (
+              <div
+                style={{
+                  padding: 10,
+                  borderRadius: 8,
+                  border: "1px solid #c62828",
+                  background: "#fff5f5",
+                  color: "#b71c1c",
+                  fontSize: 12,
+                  marginBottom: 12,
+                }}
+              >
+                Email discovery error: {emailDiscoveryError}. If this mentions a missing relation, run the
+                `tournament_email_discovery_results` migration.
+              </div>
+            ) : null}
+            <div style={{ overflowX: "auto", marginBottom: 16 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 720 }}>
+                <thead>
+                  <tr style={{ background: "#f5f5f5" }}>
+                    <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Tournament</th>
+                    <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>URL</th>
+                    <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left", width: 260 }}>
+                      Discovered emails
+                    </th>
+                    <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Director email</th>
+                    <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Referee contact email</th>
+                    <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {emailDiscoveryResults.length ? (
+                    emailDiscoveryResults
+                      .filter((row: any) => {
+                        const tournament = Array.isArray(row.tournaments)
+                          ? row.tournaments[0]
+                          : row.tournaments;
+                        if (!tournament?.id) return true;
+                        return !emailDiscoveryHideSet.has(String(tournament.id));
+                      })
+                      .map((row: any) => {
+                      const tournament = Array.isArray(row.tournaments) ? row.tournaments[0] : row.tournaments;
+                      const url =
+                        row.source_url ||
+                        tournament?.official_website_url ||
+                        tournament?.source_url ||
+                        "";
+                      const emails = Array.isArray(row.discovered_emails)
+                        ? row.discovered_emails.filter(Boolean)
+                        : [];
+                      const suggestedEmail = emails[0] ?? "";
+                      const formId = `email-discovery-${row.id}`;
+                      return (
+                        <tr key={row.id}>
+                          <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                            <div style={{ fontWeight: 700 }}>
+                              {tournament?.name ?? "Unknown tournament"}
+                            </div>
+                            <div style={{ fontSize: 12, color: "#777" }}>
+                              {tournament?.city ?? "—"}, {tournament?.state ?? "—"}
+                            </div>
+                          </td>
+                          <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                            {url ? (
+                              <a href={url} target="_blank" rel="noreferrer">
+                                {url}
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td style={{ padding: 8, borderBottom: "1px solid #eee", maxWidth: 260 }}>
+                            <div style={{ wordBreak: "break-word", whiteSpace: "normal" }}>
+                              {emails.length ? emails.join(", ") : "—"}
+                            </div>
+                          </td>
+                          <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                            <input
+                              type="email"
+                              form={formId}
+                              name="director_email"
+                              defaultValue={tournament?.tournament_director_email ?? suggestedEmail}
+                              placeholder="director@example.com"
+                              style={{ padding: 6, borderRadius: 6, border: "1px solid #bbb", minWidth: 220 }}
+                            />
+                          </td>
+                          <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                            <input
+                              type="email"
+                              form={formId}
+                              name="referee_email"
+                              defaultValue={tournament?.referee_contact_email ?? ""}
+                              placeholder="assignor@example.com"
+                              style={{ padding: 6, borderRadius: 6, border: "1px solid #bbb", minWidth: 220 }}
+                            />
+                          </td>
+                          <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                            <div style={{ display: "grid", gap: 6 }}>
+                              <form id={formId} style={{ display: "none" }}>
+                                <input type="hidden" name="tournament_id" value={tournament?.id ?? ""} />
+                                <input type="hidden" name="redirect_to" value={adminBasePath} />
+                                <input type="hidden" name="result_id" value={row.id} />
+                              </form>
+                              <button
+                                form={formId}
+                                formAction={saveTournamentDirectorEmailAction}
+                                style={{
+                                  padding: "6px 10px",
+                                  borderRadius: 8,
+                                  border: "1px solid #0f3d2e",
+                                  background: "#0f3d2e",
+                                  color: "#fff",
+                                  fontWeight: 700,
+                                  width: "fit-content",
+                                }}
+                              >
+                                Save director email
+                              </button>
+                              <button
+                                form={formId}
+                                formAction={saveTournamentRefereeEmailAction}
+                                style={{
+                                  padding: "6px 10px",
+                                  borderRadius: 8,
+                                  border: "1px solid #0f3d2e",
+                                  background: "#0f3d2e",
+                                  color: "#fff",
+                                  fontWeight: 700,
+                                  width: "fit-content",
+                                }}
+                              >
+                                Save referee email
+                              </button>
+                              <a
+                                href={
+                                  tournament?.slug
+                                    ? `/admin?tab=tournament-listings&q=${encodeURIComponent(tournament.slug)}`
+                                    : tournament?.name
+                                    ? `/admin?tab=tournament-listings&q=${encodeURIComponent(tournament.name)}`
+                                    : "/admin?tab=tournament-listings"
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  padding: "6px 10px",
+                                  borderRadius: 8,
+                                  border: "1px solid #111",
+                                  background: "#fff",
+                                  color: "#111",
+                                  fontWeight: 700,
+                                  textDecoration: "none",
+                                  width: "fit-content",
+                                }}
+                              >
+                                Open listing
+                              </a>
+                              <button
+                                form={formId}
+                                formAction={dismissEmailDiscoveryResultAction}
+                                style={{
+                                  padding: "6px 10px",
+                                  borderRadius: 8,
+                                  border: "1px solid #c62828",
+                                  background: "#fff",
+                                  color: "#c62828",
+                                  fontWeight: 700,
+                                  width: "fit-content",
+                                }}
+                              >
+                                No email found
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td style={{ padding: 8, borderBottom: "1px solid #eee" }} colSpan={6}>
+                        No email discovery results yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
             <h3 style={{ marginTop: 0, fontSize: 16 }}>Queue site enrichment</h3>
             <form action={queueEnrichmentAction} style={{ display: "grid", gap: 12, marginBottom: 16 }}>
