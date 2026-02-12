@@ -50,7 +50,13 @@ export const TERMINAL_REVIEW_STATUSES = new Set([
   "duplicate_source",
 ]);
 
-const CUSTOM_CRAWLER_HOSTS = new Set(["usclubsoccer.org", "azsoccerassociation.org", "fysa.com", "ncsoccer.org"]);
+const CUSTOM_CRAWLER_HOSTS = new Set([
+  "usclubsoccer.org",
+  "azsoccerassociation.org",
+  "fysa.com",
+  "ncsoccer.org",
+  "enysoccer.com",
+]);
 
 export async function upsertRegistry(input: RegistryUpsertInput) {
   const { canonical, host, normalized } = normalizeSourceUrl(input.source_url);

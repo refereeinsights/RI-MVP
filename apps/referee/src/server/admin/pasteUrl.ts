@@ -485,6 +485,56 @@ export async function createTournamentFromUrl(params: {
     };
   }
 
+  if (parsedUrl.hostname.includes("enysoccer.com") && parsedUrl.pathname.includes("/events/category/sanctioned-tournaments")) {
+    const events = parseEnysoccerSanctionedTournaments(html);
+    if (!events.length) {
+      throw new SweepError("html_received_no_events", "ENYSA sanctioned list parsed but no events found", diagnostics);
+    }
+
+    const tournamentIds: string[] = [];
+    for (const event of events) {
+      const tournamentId = await upsertTournamentFromSource({
+        ...event,
+        sport: "soccer",
+        status,
+        source: "external_crawl",
+      });
+      tournamentIds.push(tournamentId);
+    }
+
+    await queueEnrichmentJobs(tournamentIds);
+
+    const registry = await upsertRegistry({
+      source_url: canonical,
+      source_type: "association_directory",
+      sport: "soccer",
+      state: "NY",
+      notes: "Eastern New York Youth Soccer Association sanctioned tournaments list.",
+      is_custom_source: true,
+    });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "ENYSA sanctioned tournaments",
+      extracted_json: { action: "enysoccer_import", extracted_count: tournamentIds.length },
+      extract_confidence: 0.7,
+    });
+    await updateRunExtractedJson(runId, { action: "enysoccer_import", extracted_count: tournamentIds.length });
+
+    return {
+      tournamentId: tournamentIds[0],
+      meta: { name: `Imported ${tournamentIds.length} events`, warnings: [] },
+      slug: "enysoccer-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: tournamentIds.length,
+    };
+  }
+
   if (isAsaAzUrl(canonical)) {
     const sweepResult = await sweepAsaAzSanctionedClubTournaments({
       html,
@@ -1093,6 +1143,201 @@ function buildNcsoccerRow(args: {
     source_url: sourceUrl,
     source_domain: sourceDomain,
     raw: { date_text: args.dateText, location: args.city ? `${args.city}, NC` : null },
+  };
+}
+
+function parseEnysoccerSanctionedTournaments(html: string): TournamentRow[] {
+  const $ = cheerio.load(html);
+  const results: TournamentRow[] = [];
+  const events = $(
+    ".tribe-events-calendar-list__event, .tribe-events-calendar-list__event-row, .tribe-events-calendar-list__event-wrapper"
+  ).toArray();
+
+  const parseEventContainer = (container: cheerio.Cheerio<any>) => {
+    const titleLink = container
+      .find(".tribe-events-calendar-list__event-title a, h3 a, h2 a")
+      .first();
+    const name = titleLink.text().trim();
+    if (!name) return;
+    const href = titleLink.attr("href") ?? "";
+    const containerText = container.text().replace(/\s+/g, " ").trim();
+    const dateText =
+      container
+        .find(".tribe-events-calendar-list__event-date-tag, .tribe-events-calendar-list__event-date-time, time")
+        .first()
+        .text()
+        .trim() || extractEnysoccerDateText(containerText);
+    const parsed = parseEnysoccerDateRange(dateText || "");
+    const location = parseEnysoccerLocation(container);
+
+    results.push(
+      buildEnysoccerRow({
+        name,
+        city: location.city,
+        venue: location.venue,
+        address: location.address,
+        dateText: dateText || "",
+        sourceUrl: href,
+        parsed,
+        rawLocation: location.raw,
+      })
+    );
+  };
+
+  if (events.length) {
+    events.forEach((el) => parseEventContainer($(el)));
+  } else {
+    const links = $("a[href*='/event/'], a[href*='/events/']").toArray();
+    links.forEach((el) => {
+      const link = $(el);
+      const name = link.text().trim();
+      if (!name) return;
+      const container = link.closest("article,li,div,section");
+      const text = container.text().replace(/\s+/g, " ").trim();
+      const dateText = extractEnysoccerDateText(text);
+      const parsed = parseEnysoccerDateRange(dateText || "");
+      const location = parseEnysoccerLocation(container);
+      results.push(
+        buildEnysoccerRow({
+          name,
+          city: location.city,
+          venue: location.venue,
+          address: location.address,
+          dateText: dateText || "",
+          sourceUrl: link.attr("href") ?? "",
+          parsed,
+          rawLocation: location.raw,
+        })
+      );
+    });
+  }
+
+  const deduped = new Map<string, TournamentRow>();
+  for (const row of results) {
+    if (!row.name) continue;
+    const key = `${row.name}|${row.city ?? ""}|${row.start_date ?? ""}|${row.source_url ?? ""}`;
+    if (!deduped.has(key)) deduped.set(key, row);
+  }
+  return Array.from(deduped.values());
+}
+
+function extractEnysoccerDateText(textRaw: string): string | null {
+  const normalized = textRaw.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  const range = normalized.match(
+    /([A-Za-z]+)\s+\d{1,2}(?:,\s*\d{4})?\s*-\s*([A-Za-z]+)?\s*\d{1,2}(?:,\s*\d{4})?/i
+  );
+  if (range) return range[0];
+  const single = normalized.match(/([A-Za-z]+)\s+\d{1,2},\s*\d{4}/i);
+  if (single) return single[0];
+  return null;
+}
+
+function parseEnysoccerLocation(container: cheerio.Cheerio<any>): {
+  venue: string | null;
+  address: string | null;
+  city: string | null;
+  raw: string | null;
+} {
+  const venueText = container
+    .find(".tribe-events-calendar-list__event-venue, .tribe-events-venue-details, .tribe-events-venue")
+    .first()
+    .text()
+    .replace(/\s+/g, " ")
+    .trim();
+  const raw = venueText || container.text().replace(/\s+/g, " ").trim();
+  if (!raw) return { venue: null, address: null, city: null, raw: null };
+
+  const cityMatch = raw.match(/([A-Za-z .'-]+),\s*NY\b/);
+  const city = cityMatch ? cityMatch[1].trim() : null;
+  const addressMatch = raw.match(/(\d{1,6}\s+[^,]+,\s*[A-Za-z .'-]+,\s*NY\b[^]*)/);
+  const address = addressMatch ? addressMatch[1].trim() : null;
+  let venue: string | null = null;
+  if (address && raw.includes(address)) {
+    venue = raw.replace(address, "").trim();
+  } else if (venueText) {
+    venue = venueText;
+  }
+  if (venue === raw) venue = null;
+  return { venue: venue || null, address, city, raw };
+}
+
+function parseEnysoccerDateRange(dateTextRaw: string): { start?: string; end?: string } {
+  const normalized = dateTextRaw
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+  const yearMatch = normalized.match(/(\d{4})/);
+  const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getUTCFullYear();
+
+  const range = normalized.match(
+    /^([A-Za-z]+)\s+(\d{1,2})(?:,\s*(\d{4}))?\s*-\s*([A-Za-z]+)?\s*(\d{1,2})(?:,\s*(\d{4}))?/
+  );
+  if (range) {
+    const startMonthIdx = monthNameToIndex0(range[1]);
+    const endMonthIdx = monthNameToIndex0(range[4] || range[1]);
+    const startDay = parseInt(range[2], 10);
+    const endDay = parseInt(range[5], 10);
+    const parsedYear = range[3] ? parseInt(range[3], 10) : range[6] ? parseInt(range[6], 10) : year;
+    const endYear = range[6] ? parseInt(range[6], 10) : parsedYear;
+    if (startMonthIdx !== null && endMonthIdx !== null) {
+      return {
+        start: toISODateUTC(parsedYear, startMonthIdx, startDay),
+        end: toISODateUTC(endYear, endMonthIdx, endDay),
+      };
+    }
+  }
+
+  const single = normalized.match(/^([A-Za-z]+)\s+(\d{1,2})(?:,\s*(\d{4}))?/);
+  if (single) {
+    const monthIdx = monthNameToIndex0(single[1]);
+    const day = parseInt(single[2], 10);
+    const parsedYear = single[3] ? parseInt(single[3], 10) : year;
+    if (monthIdx !== null) {
+      return {
+        start: toISODateUTC(parsedYear, monthIdx, day),
+        end: toISODateUTC(parsedYear, monthIdx, day),
+      };
+    }
+  }
+
+  return {};
+}
+
+function buildEnysoccerRow(args: {
+  name: string;
+  city: string | null;
+  venue: string | null;
+  address: string | null;
+  dateText: string;
+  sourceUrl: string;
+  parsed: { start?: string; end?: string };
+  rawLocation: string | null;
+}): TournamentRow {
+  const slug = buildTournamentSlug({ name: args.name, city: args.city ?? null, state: "NY" });
+  const sourceUrl = args.sourceUrl || "https://www.enysoccer.com/events/category/sanctioned-tournaments/";
+  const sourceDomain = sourceUrl.startsWith("http") ? new URL(sourceUrl).hostname : "www.enysoccer.com";
+  return {
+    name: args.name,
+    slug,
+    sport: "soccer",
+    level: null,
+    sub_type: "internet",
+    cash_tournament: false,
+    state: "NY",
+    city: args.city ?? null,
+    venue: args.venue ?? null,
+    address: args.address ?? null,
+    start_date: args.parsed.start ?? null,
+    end_date: args.parsed.end ?? args.parsed.start ?? null,
+    summary: "ENYSA sanctioned tournaments listing.",
+    status: "draft",
+    confidence: 0.6,
+    source: "external_crawl",
+    source_event_id: `${args.name}-${args.dateText}`,
+    source_url: sourceUrl,
+    source_domain: sourceDomain,
+    raw: { date_text: args.dateText, location: args.rawLocation },
   };
 }
 
