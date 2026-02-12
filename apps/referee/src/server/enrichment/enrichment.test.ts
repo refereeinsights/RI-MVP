@@ -22,6 +22,13 @@ const sampleRates = `
   <div>Hotel provided for out-of-town referees. Mileage reimbursement available.</div>
 `;
 
+const sampleDates = `
+  <section>
+    Tournament Dates: Mar 14-16, 2026
+    Registration deadline: 02/20/2026
+  </section>
+`;
+
 describe("extractFromPage", () => {
   it("extracts contact candidates with normalized email and role", () => {
     const res = extractFromPage(sampleContact, "https://example.com");
@@ -46,5 +53,13 @@ describe("extractFromPage", () => {
     assert(comp);
     assert(comp?.rate_amount_max === 75);
     assert(comp?.travel_lodging);
+  });
+
+  it("extracts date candidates from month and numeric formats", () => {
+    const res = extractFromPage(sampleDates, "https://example.com/dates");
+    const weekend = res.dates.find((d) => d.start_date === "2026-03-14" && d.end_date === "2026-03-16");
+    const deadline = res.dates.find((d) => d.start_date === "2026-02-20");
+    assert(weekend);
+    assert(deadline);
   });
 });

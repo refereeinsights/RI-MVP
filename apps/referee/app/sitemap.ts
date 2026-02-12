@@ -9,10 +9,8 @@ function normalizeSportSlug(raw: string) {
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const { data } = await supabaseAdmin
-    .from("tournaments" as any)
-    .select("slug,sport,state,updated_at,status,is_canonical")
-    .eq("status", "published")
-    .eq("is_canonical", true);
+    .from("tournaments_public" as any)
+    .select("slug,sport,state,updated_at");
 
   const rows = (data ?? []) as Array<{ slug: string; sport: string | null; state: string | null; updated_at?: string | null }>;
   const entries: MetadataRoute.Sitemap = [];

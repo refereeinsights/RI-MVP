@@ -1,0 +1,156 @@
+# Running Notes
+
+## 2026-02-12
+- Workflow:
+  - Keep `docs/notes.md` updated as changes are made so this file remains the running history.
+- Architecture snapshot (repo review):
+  - Monorepo workspaces: `apps/*` + `packages/*` (root `package.json`).
+  - Primary product app: `apps/referee` (Next.js App Router + API routes + admin tools).
+  - Additional sites: `apps/corp` (marketing) and `apps/ti-web` (holding page).
+  - Separate automation/integration test workspace: `RI_Backend` (Playwright + scripts).
+- Supabase architecture snapshot:
+  - Migration-first schema in `supabase/migrations`; heavy RLS usage with admin-gated policies.
+  - Core entities already present: `tournaments`, `tournament_sources`, `tournament_contacts`, `venues`, `tournament_venues`, `profiles`, `assignors`, `assignor_contacts`.
+  - Enrichment pipeline tables: `tournament_enrichment_jobs`, contact/venue/comp candidates, URL candidates/suggestions, source logs, attribute candidates.
+  - Outreach/staff verification tables: `tournament_outreach`, `outreach_email_templates`, `tournament_staff_verify_tokens`, `tournament_staff_verification_submissions`, `tournament_staff_verified` fields on tournaments.
+  - Discovery quality controls: `tournament_email_discovery_runs`, `tournament_email_discovery_results`, `tournament_dead_domains`, duplicate dismissals, enrichment skip/dismiss fields.
+  - Referrals + monetization/supporting tables: `referral_codes`, `referrals`, `outbound_clicks`.
+  - Edge function present: `supabase/functions/assignor-crawl-cnra/index.ts` (authorized CNRA crawl, writes to `assignor_crawl_runs` and related source tables).
+- Supabase deep map (table -> app usage):
+  - Tournament read surfaces:
+    - Public tournament pages and hubs read from `tournaments`, `tournament_referee_scores`, `tournament_referee_reviews_public`, `tournament_venues`, `tournament_contacts`, `tournament_engagement_rolling`.
+    - Files: `apps/referee/app/tournaments/page.tsx`, `apps/referee/app/tournaments/[slug]/page.tsx`, `apps/referee/app/tournaments/hubs/[sport]/page.tsx`, `apps/referee/app/tournaments/hubs/[sport]/[state]/page.tsx`.
+  - Tournament admin/enrichment:
+    - Admin dashboard, enrichment, and source tooling use `tournament_enrichment_jobs`, `tournament_contact_candidates`, `tournament_venue_candidates`, `tournament_referee_comp_candidates`, `tournament_date_candidates`, `tournament_attribute_candidates`, `tournament_sources`, `tournament_source_logs`, `tournament_url_candidates`, `tournament_url_suggestions`.
+    - Files: `apps/referee/app/admin/page.tsx`, `apps/referee/app/admin/tournaments/enrichment/page.tsx`, `apps/referee/src/server/enrichment/pipeline.ts`, `apps/referee/src/server/admin/sources.ts`, plus `/api/admin/tournaments/enrichment/*` routes.
+  - Email discovery and data hygiene:
+    - Admin flow reads/writes `tournament_email_discovery_runs` + `tournament_email_discovery_results`; dead-domain skiplist is `tournament_dead_domains`.
+    - Files: `apps/referee/app/admin/page.tsx`, `apps/referee/app/api/admin/tournaments/enrichment/email-discovery/route.ts`, migration `supabase/migrations/20260212_tournament_dead_domains.sql`.
+  - Tournament outreach + staff verification:
+    - Outreach tooling uses `tournament_outreach`, `outreach_email_templates`, `tournament_staff_verify_tokens`, `tournament_staff_verification_submissions`, and updates staff-verified fields on `tournaments`.
+    - Files: `apps/referee/app/admin/outreach/page.tsx`, `apps/referee/app/admin/tournaments/staff-verification-queue/page.tsx`, `apps/referee/app/tournaments/verify/[token]/page.tsx`.
+  - Reviews and scoring:
+    - Tournament reviews: `tournament_referee_reviews`, `tournament_referee_scores`, `tournament_referee_reviews_public`.
+    - School reviews: `schools`, `school_referee_reviews`, `school_referee_reviews_public`, `school_referee_scores`, `school_referee_scores_by_sport`.
+    - Files: `apps/referee/app/api/referee-reviews/route.ts`, `apps/referee/app/api/schools/reviews/route.ts`, `apps/referee/lib/whistleScores.ts`, `apps/referee/lib/admin.ts`.
+  - Assignor discovery + public directory:
+    - Assignor flows use `assignors`, `assignor_contacts`, `assignor_coverage`, `assignor_zip_codes`, `assignor_sources`, `assignor_crawl_runs`, `assignor_source_records`.
+    - Public-safe discovery view/function and audit/rate limit tables: `assignor_directory_public` / `assignor_directory_public_fn()`, `contact_access_log`, `assignor_claim_requests`, `rate_limit_events`.
+    - Files: `apps/referee/app/assignors/page.tsx`, `apps/referee/app/admin/assignors/*`, `apps/referee/app/api/atlas/*`, `supabase/functions/assignor-crawl-cnra/index.ts`.
+  - Accounts, referrals, clicks, alerts:
+    - Account and auth-adjacent usage: `profiles`, `badges`, `user_badges`, `referee_verification_requests`, `alert_preferences`, `subscriptions`.
+    - Referral/click tracking: `referral_codes`, `referrals`, `outbound_clicks`.
+    - Files: `apps/referee/lib/profile.ts`, `apps/referee/lib/admin.ts`, `apps/referee/app/account/alerts/page.tsx`, `apps/referee/app/api/referrals/route.ts`, `apps/referee/app/go/route.ts`.
+- RLS / policy posture (from migrations):
+  - Default pattern for sensitive ops tables is RLS enabled + admin-all policy via `public.is_admin()`.
+  - Public access is intentionally narrow:
+    - `assignor_directory_public` exposed for read with masked contact data.
+    - `tournament_url_suggestions` includes public insert policy for user submissions.
+    - `referral_codes`/`referrals` are self-scoped policies.
+  - Security hardening migration (`20250112_security_hardening.sql`) centrally enforced RLS across multiple legacy tables and added public-select + admin-write split for selected views/tables.
+- Follow-up items for future notes updates:
+  - Built route-to-table matrix doc: `docs/overview/architecture/supabase-map.md` (ownership, write paths, RLS posture, and high-risk endpoints).
+  - Add an RPC/function inventory (`process_assignor_crawl_run`, `process_assignor_source_record`, etc.) with ownership and side effects.
+  - Add a “critical write paths” checklist for admin flows (enrichment apply, outreach send, email discovery run).
+- Parser architecture docs:
+  - Added `docs/overview/architecture/parser-map.md` with parser trigger map, domain-specific parser inventory, enrichment extractor details, DB write mapping, diagnostics model, and current test coverage.
+  - Added parser runbook section with concrete manual test steps (admin flows, API endpoints, expected DB writes, test commands, and triage checklist).
+- Smoke validation run:
+  - `scripts/smoke.sh` passed when run with full network access (Supabase REST returned `200`, Google Places returned `200`, TI map check skipped due optional env vars not set).
+  - `npm run sweep:asa-az` passed after loading `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from `.env.local`; result: `found=50`, `with_website=50`, `with_email=49`, `with_phone=49`.
+  - `cd RI_Backend && npm run smoke:feedback` passed against local dev server (`localhost:3000`) and successfully inserted + cleaned up feedback row.
+- Cron smoke integration:
+  - Extended `apps/referee/app/api/cron/whistles/route.ts` to run lightweight smoke probes in the same scheduled cron call (no extra Vercel cron slot).
+  - Added checks: Supabase anon REST, `tournament_dead_domains` table queryability, Google Places nearby probe (skip when key missing), and ASA source reachability.
+  - Added opt-out toggle: `smoke=0`/`false`/`off`; smoke failures now return HTTP `500` with per-check details while still including whistle-run payload.
+  - Added optional cron report emails with detailed smoke + whistle JSON payloads.
+    - `CRON_REPORT_EMAILS` (comma-separated recipients)
+    - `CRON_REPORT_EMAIL_MODE` (`failures` default, `always`, `never`)
+    - `CRON_REPORT_FROM` (optional sender override)
+    - Uses existing `RESEND_API_KEY` mail transport.
+- State filter defaults:
+  - Updated `apps/referee/app/admin/tournaments/dashboard/page.tsx` so no selected state now defaults to **All states** (instead of the previous West-region subset), matching tournaments page behavior.
+- Tournaments count alignment notes:
+  - Count gap explanation (`/admin/tournaments/dashboard` vs `/tournaments`): admin dashboard includes multiple statuses and records with null dates; public tournaments page restricts to `status=published`, `is_canonical=true`, and excludes past events unless `includePast=true`.
+  - Added state-level counts to the state dropdown in public tournaments filters (`apps/referee/app/tournaments/page.tsx` and sport hubs in `apps/referee/app/tournaments/hubs/[sport]/page.tsx`) via shared `apps/referee/app/tournaments/StateMultiSelect.tsx`.
+- Soccer SEO state hubs:
+  - Added static SEO routes:
+    - `/tournaments/hubs/soccer/california`
+    - `/tournaments/hubs/soccer/florida`
+    - `/tournaments/hubs/soccer/arizona`
+    - `/tournaments/hubs/soccer/north-carolina`
+  - Refactored hub rendering into shared component `apps/referee/app/tournaments/hubs/_components/SportHubPage.tsx` and routed existing dynamic sport hub through it.
+  - State SEO pages now:
+    - enforce soccer + fixed state scope
+    - show only two toggles (`reviewed`, `past`) with URL persistence (`?reviewed=1&past=1`)
+    - replace search area with total-count block and update note
+    - include state-specific metadata + canonical + unique intro copy
+  - Added helper `getSoccerStateUpcomingCount` for metadata counts.
+  - UI tweak: centered the “Total tournaments” count block over the filter controls on state SEO pages by overriding the state-seo filter grid layout in `apps/referee/app/tournaments/hubs/_components/SportHubPage.tsx`.
+- Improved email discovery extraction:
+  - Added Cloudflare email decoding support (`data-cfemail` + `/cdn-cgi/l/email-protection`).
+  - Added text-only email scan after removing scripts/styles.
+  - Normalized mailto emails to strip query/fragment/punctuation.
+  - Prioritized contact/referee/assignor/staff/about links during crawl.
+- Email discovery UI:
+  - Added summary line: “Found emails for X of Y tournaments”.
+  - Added Run ID display next to latest run timestamp.
+- Dead domain skiplist:
+  - New table `public.tournament_dead_domains` via migration `supabase/migrations/20260212_tournament_dead_domains.sql`.
+  - Email discovery now DNS-checks domains; `ENOTFOUND` domains are recorded and skipped on future runs.
+- Commit: `ead8b99` “Improve email discovery and skip dead domains”.
+- Deep date backfill improvements:
+  - Added a deep date-search mode to enrichment batch (`/api/admin/tournaments/enrichment/queue-all`) with `missing_dates_only` + `deep_date_search` flags.
+  - Deep mode targets tournaments missing both `start_date` and `end_date`, crawls deeper (`maxPages=16`), and prioritizes date/schedule/calendar links.
+  - Enrichment admin UI now has a checkbox to run deep date search only for missing-date tournaments.
+  - Date extraction expanded to parse month abbreviations (`Mar 14-16, 2026`) and numeric formats (`02/20/2026`) in date-context lines.
+  - Added extraction test coverage for new date formats in `apps/referee/src/server/enrichment/enrichment.test.ts`.
+  - AZ run snapshot (manual execution):
+    - Targeted `AZ + soccer + published + canonical + missing start/end date` tournaments.
+    - Processed: `53`, errors: `0`.
+    - `tournaments` date fields recovered immediately: `0` (no auto-apply in deep run yet).
+    - New/existing pending date candidates for those tournaments: `161` total, `67` with parsed `start_date`/`end_date` (ready for admin apply workflow).
+- Enrichment queue UX improvement:
+  - Updated `apps/referee/app/admin/tournaments/enrichment/page.tsx` to load pending candidate rows with pagination across all candidate tables (instead of small per-table limits).
+  - This allows the “Approve enrichment by tournament” section to aggregate full pending data per tournament in one load, reducing repeat approvals for the same tournament across refreshes.
+  - Fixed missing tournament links in approval queue: candidate tournament lookup now fetches IDs in chunks (no `limit(200)` truncation), so URL links under tournament ID remain populated for full queues.
+- Oregon sanctioned tournaments parser:
+  - Added custom parser branch in `apps/referee/src/server/admin/pasteUrl.ts` for `oregonyouthsoccer.org/sanctioned-tournaments`.
+  - Parser reads sanctioned tournament paragraph/link entries, extracts tournament names + date ranges (including multi-weekend formats), and imports as OR soccer tournaments.
+  - Added source seed migration: `supabase/migrations/20260212_seed_oregon_custom_parser_source.sql`.
+  - Added parser test coverage in `apps/referee/src/server/admin/__tests__/pasteUrl.test.ts`.
+- Source registry UX:
+  - Added `oregonyouthsoccer.org` to custom-crawler host list in `apps/referee/src/server/admin/sources.ts` so Oregon source URLs auto-mark as `is_custom_source=true` (green custom indicator).
+  - Updated sources table sort in `apps/referee/app/admin/tournaments/sources/page.tsx` to include `created_at` and prioritize newer rows within review-status ordering, so newly added URLs float to the top more reliably.
+- Enrichment scope reduction (phone + venue):
+  - Stopped venue candidate creation in enrichment pipeline (`apps/referee/src/server/enrichment/pipeline.ts` now passes no venue candidates to persistence).
+  - Contact candidate persistence now nulls phone values before dedupe/insert so phone numbers are no longer carried through enrichment candidates.
+  - Approval UI no longer renders venue review items and contact details now show email only (`apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`).
+  - Enrichment page no longer fetches pending venue candidates (`apps/referee/app/admin/tournaments/enrichment/page.tsx`).
+  - Apply route no longer writes phone values from contact candidates into `tournament_contacts` or tournament phone fields (`apps/referee/app/api/admin/tournaments/enrichment/apply/route.ts`).
+  - One-time cleanup run completed:
+    - pending venue candidates: `0 -> 0`
+    - pending phone-bearing contact candidates: `970 -> 0` (deleted pending rows with phone values)
+- Tournament data hardening (anti-scrape phase 1-3):
+  - Added migration `supabase/migrations/20260212_tournaments_public_surface_and_rls.sql`:
+    - enables RLS on `public.tournaments`
+    - drops non-admin tournaments policies
+    - creates admin-only tournaments policy `admin_all_tournaments`
+    - creates constrained view `public.tournaments_public` (published + canonical fields only)
+    - revokes anon/authenticated access to `tournaments_public`; grants select to `service_role`
+  - Added controlled public API path:
+    - `apps/referee/app/api/tournaments/public/route.ts`
+    - supports filtered, paginated reads over the constrained public surface
+  - Updated public tournament surfaces to use the constrained server-side surface via `supabaseAdmin`:
+    - `apps/referee/app/tournaments/page.tsx`
+    - `apps/referee/app/tournaments/[slug]/page.tsx`
+    - `apps/referee/app/tournaments/hubs/_components/SportHubPage.tsx`
+    - `apps/referee/app/tournaments/hubs/[sport]/[state]/page.tsx`
+    - `apps/referee/app/sitemap.ts`
+
+### Actions to run after reboot
+- Apply migration: `supabase/migrations/20260212_tournament_dead_domains.sql`.
+
+### Notes
+- Email discovery runs are admin-only; use `/admin?tab=tournament-contacts` → “Discover contacts”.
+- If discovery appears stuck, check terminal logs for `[enricher]` errors; DNS failures are expected and now skipped.

@@ -3,7 +3,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import AdSlot from "@/components/AdSlot";
 import ReferralCTA from "@/components/ReferralCTA";
 import { WhistleScale } from "@/components/RefereeReviewList";
-import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { aggregateWhistleScoreRows, loadSeriesTournamentIds } from "@/lib/tournamentSeries";
 import type { RawWhistleScoreRow, TournamentSeriesEntry } from "@/lib/tournamentSeries";
@@ -132,7 +131,7 @@ export default async function TournamentsPage({
     includePast?: string;
   };
 }) {
-  const supabase = createSupabaseServerClient();
+  const supabase = supabaseAdmin;
   const q = (searchParams?.q ?? "").trim();
   const stateParam = searchParams?.state;
   const month = (searchParams?.month ?? "").trim(); // YYYY-MM
@@ -166,10 +165,8 @@ export default async function TournamentsPage({
     : `${stateSelections.length} states`;
 
   let query = supabase
-    .from("tournaments")
-    .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url,status,is_canonical")
-    .eq("status", "published")
-    .eq("is_canonical", true)
+    .from("tournaments_public" as any)
+    .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url")
     .order("start_date", { ascending: true });
 
   const today = new Date().toISOString().slice(0, 10);
@@ -243,6 +240,12 @@ export default async function TournamentsPage({
         .filter(Boolean)
     )
   ).sort();
+  const stateCounts = tournamentsBySport.reduce<Record<string, number>>((acc, t) => {
+    const key = (t.state ?? "").trim().toUpperCase();
+    if (!key) return acc;
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
   const tournaments = isAllStates
     ? tournamentsBySport
     : tournamentsBySport.filter((t) => stateSelections.includes((t.state ?? "").trim().toUpperCase()));
@@ -367,6 +370,8 @@ export default async function TournamentsPage({
               isAllStates={isAllStates}
               allStatesValue={ALL_STATES_VALUE}
               summaryLabel={stateSummaryLabel}
+              stateCounts={stateCounts}
+              totalCount={tournamentsBySport.length}
             />
           </div>
 

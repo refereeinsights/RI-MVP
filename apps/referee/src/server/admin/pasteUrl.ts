@@ -535,6 +535,56 @@ export async function createTournamentFromUrl(params: {
     };
   }
 
+  if (parsedUrl.hostname.includes("oregonyouthsoccer.org") && parsedUrl.pathname.includes("/sanctioned-tournaments")) {
+    const events = parseOregonSanctionedTournaments(html);
+    if (!events.length) {
+      throw new SweepError("html_received_no_events", "Oregon sanctioned list parsed but no events found", diagnostics);
+    }
+
+    const tournamentIds: string[] = [];
+    for (const event of events) {
+      const tournamentId = await upsertTournamentFromSource({
+        ...event,
+        sport: "soccer",
+        status,
+        source: "external_crawl",
+      });
+      tournamentIds.push(tournamentId);
+    }
+
+    await queueEnrichmentJobs(tournamentIds);
+
+    const registry = await upsertRegistry({
+      source_url: canonical,
+      source_type: "association_directory",
+      sport: "soccer",
+      state: "OR",
+      notes: "Oregon Youth Soccer sanctioned tournaments listing.",
+      is_custom_source: true,
+    });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "Oregon Youth Soccer sanctioned tournaments",
+      extracted_json: { action: "oys_oregon_import", extracted_count: tournamentIds.length },
+      extract_confidence: 0.7,
+    });
+    await updateRunExtractedJson(runId, { action: "oys_oregon_import", extracted_count: tournamentIds.length });
+
+    return {
+      tournamentId: tournamentIds[0],
+      meta: { name: `Imported ${tournamentIds.length} events`, warnings: [] },
+      slug: "oys-oregon-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: tournamentIds.length,
+    };
+  }
+
   if (isAsaAzUrl(canonical)) {
     const sweepResult = await sweepAsaAzSanctionedClubTournaments({
       html,
@@ -1219,6 +1269,145 @@ function parseEnysoccerSanctionedTournaments(html: string): TournamentRow[] {
     if (!deduped.has(key)) deduped.set(key, row);
   }
   return Array.from(deduped.values());
+}
+
+export function parseOregonSanctionedTournaments(html: string): TournamentRow[] {
+  const $ = cheerio.load(html);
+  const results: TournamentRow[] = [];
+  const entry = $(".entry-content").first();
+  const sectionRoot = entry.length ? entry : $("main, article, body").first();
+  const headingText = sectionRoot
+    .find("h1,h2,h3,h4,h5")
+    .toArray()
+    .map((el) => $(el).text().replace(/\s+/g, " ").trim())
+    .find((text) => /sanctioned tournaments/i.test(text));
+
+  const headingYears = headingText?.match(/(20\d{2})\D+(20\d{2})/);
+  const defaultYear = headingYears ? parseInt(headingYears[2], 10) : new Date().getUTCFullYear();
+
+  const rows = sectionRoot.find("p").toArray();
+  for (const row of rows) {
+    const $row = $(row);
+    const text = $row.text().replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+    if (!text) continue;
+    if (/complete this packet|register your tournaments|will appear below|email to/i.test(text)) continue;
+
+    const link = $row.find("a[href^='http']").first();
+    if (!link.length) continue;
+    const href = link.attr("href")?.trim() || "";
+    const linkText = link.text().replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+    if (!href || !linkText) continue;
+    if (!/\b(20\d{2})\b/.test(linkText)) continue;
+
+    const hostMatch = text.match(/^(.+?)\s*[–-]\s*/);
+    const host = hostMatch?.[1]?.trim() || null;
+    const parsed = parseOregonEventText(linkText, defaultYear);
+    if (!parsed?.name || !parsed.start) continue;
+
+    results.push(
+      buildOregonRow({
+        name: parsed.name,
+        host,
+        start: parsed.start,
+        end: parsed.end ?? parsed.start,
+        sourceUrl: href,
+        dateText: parsed.dateText,
+      })
+    );
+  }
+
+  const deduped = new Map<string, TournamentRow>();
+  for (const row of results) {
+    if (!row.name || !row.start_date) continue;
+    const key = `${row.name}|${row.start_date}|${row.end_date ?? ""}|${row.source_url ?? ""}`;
+    if (!deduped.has(key)) deduped.set(key, row);
+  }
+  return Array.from(deduped.values());
+}
+
+function parseOregonEventText(
+  textRaw: string,
+  defaultYear: number
+): { name: string; dateText: string; start?: string; end?: string } | null {
+  const text = textRaw
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+  const monthToken = text.match(
+    /\b(January|Jan|February|Feb|March|Mar|April|Apr|May|June|Jun|July|Jul|August|Aug|September|Sept|Sep|October|Oct|November|Nov|December|Dec)\b/i
+  );
+  if (!monthToken || monthToken.index == null) return null;
+  const name = text
+    .slice(0, monthToken.index)
+    .replace(/\s*[–,-]\s*$/, "")
+    .replace(/\b\d{4}\b\s*$/, "")
+    .trim();
+  const dateText = text.slice(monthToken.index).trim();
+  if (!name) return null;
+
+  const yearTail = dateText.match(/(20\d{2})\s*$/);
+  const inferredYear = yearTail ? parseInt(yearTail[1], 10) : defaultYear;
+  const segments = Array.from(
+    dateText.matchAll(
+      /([A-Za-z]{3,9})\s+(\d{1,2})(?:\s*(?:-|&|and|to)\s*(\d{1,2}))?(?:,\s*(20\d{2}))?/gi
+    )
+  );
+  if (!segments.length) return { name, dateText };
+
+  const starts: string[] = [];
+  const ends: string[] = [];
+  for (const seg of segments) {
+    const monthIdx = monthNameToIndex0(seg[1]);
+    if (monthIdx === null) continue;
+    const dayStart = parseInt(seg[2], 10);
+    const dayEnd = seg[3] ? parseInt(seg[3], 10) : dayStart;
+    const year = seg[4] ? parseInt(seg[4], 10) : inferredYear;
+    starts.push(toISODateUTC(year, monthIdx, dayStart));
+    ends.push(toISODateUTC(year, monthIdx, dayEnd));
+  }
+  if (!starts.length) return { name, dateText };
+
+  starts.sort();
+  ends.sort();
+  return { name, dateText, start: starts[0], end: ends[ends.length - 1] };
+}
+
+function buildOregonRow(args: {
+  name: string;
+  host: string | null;
+  start: string;
+  end: string;
+  sourceUrl: string;
+  dateText: string;
+}): TournamentRow {
+  const sourceUrl = args.sourceUrl || "https://www.oregonyouthsoccer.org/sanctioned-tournaments/";
+  const sourceDomain = sourceUrl.startsWith("http") ? new URL(sourceUrl).hostname : "www.oregonyouthsoccer.org";
+  return {
+    name: args.name,
+    slug: buildTournamentSlug({ name: args.name, city: null, state: "OR" }),
+    sport: "soccer",
+    level: null,
+    sub_type: "internet",
+    cash_tournament: false,
+    state: "OR",
+    city: null,
+    venue: null,
+    address: null,
+    start_date: args.start,
+    end_date: args.end,
+    summary: `Oregon Youth Soccer sanctioned tournament${args.host ? ` hosted by ${args.host}` : ""}.`,
+    status: "draft",
+    confidence: 0.65,
+    source: "external_crawl",
+    source_event_id: `${args.name}|${args.dateText}|${args.host ?? ""}`.toLowerCase().replace(/\s+/g, "-"),
+    source_url: sourceUrl,
+    source_domain: sourceDomain,
+    raw: {
+      date_text: args.dateText,
+      host_org: args.host,
+    },
+  };
 }
 
 function extractEnysoccerDateText(textRaw: string): string | null {

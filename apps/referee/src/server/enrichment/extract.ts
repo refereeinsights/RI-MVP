@@ -61,6 +61,22 @@ const TRAVEL_KEYWORDS = [
   "stipend",
   "airfare",
 ];
+const DATE_CONTEXT_KEYWORDS = [
+  "date",
+  "dates",
+  "calendar",
+  "schedule",
+  "event",
+  "events",
+  "weekend",
+  "registration",
+  "deadline",
+  "check-in",
+  "check in",
+  "kickoff",
+  "start",
+  "end",
+];
 
 const ASSIGNING_PLATFORMS = ["arbiter", "arbitersports", "assignr", "gameofficials", "zebraweb"];
 const CONTACT_CUE_KEYWORDS = [
@@ -115,48 +131,99 @@ const BLOCKED_EMAIL_LOCALS = [
   "helpdesk",
   "mailer-daemon",
 ];
-const MONTHS = [
-  "january",
-  "february",
-  "march",
-  "april",
-  "may",
-  "june",
-  "july",
-  "august",
-  "september",
-  "october",
-  "november",
-  "december",
-];
+function monthTokenToIndex(token: string): number {
+  const lower = token.toLowerCase().replace(/\.$/, "");
+  if (lower.startsWith("jan")) return 0;
+  if (lower.startsWith("feb")) return 1;
+  if (lower.startsWith("mar")) return 2;
+  if (lower.startsWith("apr")) return 3;
+  if (lower === "may") return 4;
+  if (lower.startsWith("jun")) return 5;
+  if (lower.startsWith("jul")) return 6;
+  if (lower.startsWith("aug")) return 7;
+  if (lower.startsWith("sep")) return 8;
+  if (lower.startsWith("oct")) return 9;
+  if (lower.startsWith("nov")) return 10;
+  if (lower.startsWith("dec")) return 11;
+  return -1;
+}
+
+function normalizeYear(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const num = Number(raw);
+  if (!Number.isFinite(num)) return null;
+  if (raw.length === 2) return 2000 + num;
+  return num;
+}
+
+function toIsoDate(year: number, monthIndex: number, day: number): string | null {
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || !Number.isFinite(day)) return null;
+  if (monthIndex < 0 || monthIndex > 11 || day < 1 || day > 31) return null;
+  const date = new Date(Date.UTC(year, monthIndex, day));
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== monthIndex ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return date.toISOString().slice(0, 10);
+}
 
 function parseMonthDate(text: string): { start?: string; end?: string; dateText?: string } | null {
   const normalized = text.replace(/\s+/g, " ").trim();
-  const monthPattern = new RegExp(
-    `\\b(${MONTHS.join("|")})\\s+(\\d{1,2})(?:\\s*[-–]\\s*(\\d{1,2}))?(?:,?\\s*(\\d{4}))?`,
-    "i"
-  );
+  const monthPattern =
+    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:\s*[-–]\s*(\d{1,2}))?(?:,?\s*(\d{4}))?/i;
   const match = normalized.match(monthPattern);
   if (!match) return null;
-  const monthName = match[1].toLowerCase();
-  const monthIdx = MONTHS.indexOf(monthName);
+  const monthIdx = monthTokenToIndex(match[1]);
   if (monthIdx < 0) return null;
   const dayStart = Number(match[2]);
   const dayEnd = match[3] ? Number(match[3]) : dayStart;
-  const year = match[4] ? Number(match[4]) : null;
+  const year = normalizeYear(match[4]);
   const dateText = match[0].trim();
 
   if (!year || !dayStart) {
     return { dateText };
   }
-  const startDate = new Date(Date.UTC(year, monthIdx, dayStart));
-  const endDate = new Date(Date.UTC(year, monthIdx, dayEnd));
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+  const start = toIsoDate(year, monthIdx, dayStart);
+  const end = toIsoDate(year, monthIdx, dayEnd);
+  if (!start || !end) {
     return { dateText };
   }
   return {
-    start: startDate.toISOString().slice(0, 10),
-    end: endDate.toISOString().slice(0, 10),
+    start,
+    end,
+    dateText,
+  };
+}
+
+function parseNumericDate(text: string): { start?: string; end?: string; dateText?: string } | null {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const numericPattern =
+    /\b(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?(?:\s*[-–]\s*(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?)?/;
+  const match = normalized.match(numericPattern);
+  if (!match) return null;
+  const startMonth = Number(match[1]);
+  const startDay = Number(match[2]);
+  const startYear = normalizeYear(match[3]);
+  const endMonth = match[4] ? Number(match[4]) : startMonth;
+  const endDay = match[5] ? Number(match[5]) : startDay;
+  const endYear = normalizeYear(match[6]) ?? startYear;
+  const dateText = match[0].trim();
+
+  if (!startYear) {
+    return { dateText };
+  }
+  const start = toIsoDate(startYear, startMonth - 1, startDay);
+  const end = toIsoDate(endYear ?? startYear, endMonth - 1, endDay);
+  if (!start || !end) {
+    return { dateText };
+  }
+  return {
+    start,
+    end,
     dateText,
   };
 }
@@ -859,12 +926,14 @@ function extractDates($: cheerio.CheerioAPI, url: string): DateCandidate[] {
   const seen = new Set<string>();
 
   for (const line of lines) {
-    const parsed = parseMonthDate(line);
+    const lower = line.toLowerCase();
+    const hasDateCue = DATE_CONTEXT_KEYWORDS.some((k) => lower.includes(k));
+    const parsed = parseMonthDate(line) ?? (hasDateCue ? parseNumericDate(line) : null);
     if (!parsed || (!parsed.start && !parsed.dateText)) continue;
     const key = `${parsed.start ?? ""}|${parsed.end ?? ""}|${parsed.dateText ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const confidence = parsed.start ? 0.6 : 0.3;
+    const confidence = parsed.start ? (hasDateCue ? 0.75 : 0.6) : 0.3;
     dates.push({
       tournament_id: "",
       date_text: parsed.dateText ?? line.slice(0, 120),
@@ -915,6 +984,14 @@ export function rankLinks($: cheerio.CheerioAPI, baseUrl: URL): string[] {
     "about",
     "help",
     "support",
+    "date",
+    "dates",
+    "schedule",
+    "calendar",
+    "event",
+    "events",
+    "register",
+    "registration",
   ];
   $("a[href]").each((_, el) => {
     const href = $(el).attr("href");

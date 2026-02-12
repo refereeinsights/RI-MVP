@@ -11,7 +11,6 @@ type Search = {
   end?: string;
 };
 
-const DEFAULT_STATES = ["WA", "OR", "CA", "AZ", "NV", "CO", "UT", "ID", "MT"];
 const ALL_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
   "HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
@@ -40,8 +39,8 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
     ? stateParamRaw.flatMap((s) => s.split(","))
     : String(stateParamRaw).split(",");
   const normalizedStates = stateTokens.map((s) => s.trim().toUpperCase()).filter(Boolean);
-  const useAllStates = normalizedStates.includes("ALL");
-  const states = useAllStates ? ALL_STATES : (normalizedStates.length ? normalizedStates : DEFAULT_STATES);
+  const useAllStates = normalizedStates.length === 0 || normalizedStates.includes("ALL");
+  const states = useAllStates ? ALL_STATES : normalizedStates;
   const stateParam = useAllStates ? "ALL" : states.join(",");
   const baseParams = new URLSearchParams();
   if (sport) baseParams.set("sport", sport);

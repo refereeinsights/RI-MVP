@@ -13,6 +13,7 @@ type JobRow = {
 type TournamentRow = { id: string; name: string | null; url: string | null };
 
 const MAX_PAGES = 8;
+const DEEP_DATE_MAX_PAGES = 16;
 const FETCH_TIMEOUT_MS = 10000;
 const MAX_BYTES = 1024 * 1024; // 1MB
 const PER_DOMAIN_DELAY_MS = 500;
@@ -62,7 +63,8 @@ async function politeFetch(url: string): Promise<string | null> {
 }
 
 async function scrapeTournament(
-  url: string
+  url: string,
+  options?: { maxPages?: number; dateFocus?: boolean }
 ): Promise<{
   pages: number;
   contacts: ContactCandidate[];
@@ -71,6 +73,8 @@ async function scrapeTournament(
   dates: DateCandidate[];
   attributes: AttributeCandidate[];
 }> {
+  const maxPages = Math.max(1, Math.min(options?.maxPages ?? MAX_PAGES, DEEP_DATE_MAX_PAGES));
+  const dateFocus = options?.dateFocus ?? false;
   const seen = new Set<string>();
   const queue: string[] = [url];
   let pagesFetched = 0;
@@ -80,7 +84,7 @@ async function scrapeTournament(
   const dates: DateCandidate[] = [];
   const attributes: AttributeCandidate[] = [];
 
-  while (queue.length && pagesFetched < MAX_PAGES) {
+  while (queue.length && pagesFetched < maxPages) {
     const nextUrl = queue.shift()!;
     if (seen.has(nextUrl)) continue;
     seen.add(nextUrl);
@@ -99,14 +103,16 @@ async function scrapeTournament(
     // Seed queue with ranked links from this page
     try {
       const ranked = rankLinks(require("cheerio").load(html), new URL(nextUrl));
-      const priorityRegex = /(contact|questions|referee|referees|officials|assignor|director|staff|tournament|about|help|support)/i;
+      const priorityRegex = dateFocus
+        ? /(date|dates|schedule|calendar|event|events|register|registration|contact|questions|referee|officials|assignor|director|staff|tournament|about|help|support)/i
+        : /(contact|questions|referee|referees|officials|assignor|director|staff|tournament|about|help|support)/i;
       const priority = ranked.filter((link) => priorityRegex.test(link)).slice(0, 2);
       for (const link of priority.reverse()) {
-        if (queue.length + seen.size >= MAX_PAGES + 5) break;
+        if (queue.length + seen.size >= maxPages + 5) break;
         if (!seen.has(link) && !queue.includes(link)) queue.unshift(link);
       }
       for (const link of ranked) {
-        if (queue.length + seen.size >= MAX_PAGES + 5) break;
+        if (queue.length + seen.size >= maxPages + 5) break;
         if (!seen.has(link)) queue.push(link);
       }
     } catch {
@@ -127,13 +133,14 @@ async function upsertCandidates(
 ) {
   const withTid = <T extends { tournament_id: string }>(rows: T[]) =>
     rows.map((r) => ({ ...r, tournament_id: tournamentId }));
+  const contactsNoPhone = contacts.map((c) => ({ ...c, phone: null }));
 
   const norm = (val: string | null | undefined) => (val ?? "").trim().toLowerCase();
   const normEmail = (val: string | null | undefined) => norm(val);
   const normPhone = (val: string | null | undefined) => (val ?? "").replace(/\D+/g, "");
   const normRole = (val: string | null | undefined) => (val ?? "GENERAL").trim().toUpperCase();
 
-  if (contacts.length) {
+  if (contactsNoPhone.length) {
     const { data: existing } = await supabaseAdmin
       .from("tournament_contact_candidates" as any)
       .select("role_normalized,name,email,phone")
@@ -146,7 +153,7 @@ async function upsertCandidates(
       )
     );
     const batchSig = new Set<string>();
-    const deduped = contacts.filter((c) => {
+    const deduped = contactsNoPhone.filter((c) => {
       const sig = [
         normRole(c.role_normalized),
         norm(c.name),
@@ -245,11 +252,14 @@ async function upsertCandidates(
   }
 }
 
-async function processJob(job: JobRow) {
+async function processTournamentById(
+  tournamentId: string,
+  options?: { maxPages?: number; dateFocus?: boolean }
+) {
   const tournamentResp = await supabaseAdmin
     .from("tournaments" as any)
     .select("id,name,source_url,official_website_url")
-    .eq("id", job.tournament_id)
+    .eq("id", tournamentId)
     .maybeSingle();
   if (tournamentResp.error) {
     throw tournamentResp.error;
@@ -259,11 +269,11 @@ async function processJob(job: JobRow) {
   if (!tourneyUrl) {
     throw new Error("tournament_url_missing");
   }
-  const scrape = await scrapeTournament(tourneyUrl);
+  const scrape = await scrapeTournament(tourneyUrl, options);
   await upsertCandidates(
-    job.tournament_id,
+    tournamentId,
     scrape.contacts.slice(0, 20),
-    scrape.venues.slice(0, 10),
+    [],
     scrape.comps.slice(0, 5),
     scrape.dates.slice(0, 5),
     scrape.attributes.slice(0, 10)
@@ -271,7 +281,11 @@ async function processJob(job: JobRow) {
   return scrape.pages;
 }
 
-export async function runQueuedEnrichment(limit = 10) {
+async function processJob(job: JobRow, options?: { maxPages?: number; dateFocus?: boolean }) {
+  return processTournamentById(job.tournament_id, options);
+}
+
+export async function runQueuedEnrichment(limit = 10, options?: { maxPages?: number; dateFocus?: boolean }) {
   const jobResp = await supabaseAdmin
     .from("tournament_enrichment_jobs" as any)
     .select("*")
@@ -288,7 +302,7 @@ export async function runQueuedEnrichment(limit = 10) {
       .update({ status: "running", attempt_count: (job.attempt_count ?? 0) + 1, started_at: new Date().toISOString(), last_error: null })
       .eq("id", job.id);
     try {
-      const pages = await processJob(job);
+      const pages = await processJob(job, options);
       await supabaseAdmin
         .from("tournament_enrichment_jobs" as any)
         .update({
@@ -308,6 +322,27 @@ export async function runQueuedEnrichment(limit = 10) {
         })
         .eq("id", job.id);
       results.push({ id: job.id, status: "error", pages: 0, error: err?.message });
+    }
+  }
+  return results;
+}
+
+export async function runEnrichmentForTournamentIds(
+  tournamentIds: string[],
+  options?: { maxPages?: number; dateFocus?: boolean }
+) {
+  const results: Array<{ tournament_id: string; status: string; pages: number; error?: string }> = [];
+  for (const tournamentId of tournamentIds) {
+    try {
+      const pages = await processTournamentById(tournamentId, options);
+      results.push({ tournament_id: tournamentId, status: "done", pages });
+    } catch (err: any) {
+      results.push({
+        tournament_id: tournamentId,
+        status: "error",
+        pages: 0,
+        error: err?.message ?? "unknown_error",
+      });
     }
   }
   return results;

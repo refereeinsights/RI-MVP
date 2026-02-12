@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSportCardClass } from "@/lib/ui/sportBackground";
 import "../../../tournaments.css";
 
@@ -59,12 +59,9 @@ export default async function SportStateTournamentHub({
 }) {
   const sportQuery = normalizeSportParam(params.sport);
   const stateQuery = params.state.trim().toUpperCase();
-  const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("tournaments")
-    .select("id,name,slug,city,state,sport,start_date,status,is_canonical")
-    .eq("status", "published")
-    .eq("is_canonical", true)
+  const { data, error } = await supabaseAdmin
+    .from("tournaments_public" as any)
+    .select("id,name,slug,city,state,sport,start_date")
     .eq("state", stateQuery)
     .ilike("sport", `%${sportQuery}%`)
     .order("start_date", { ascending: true });

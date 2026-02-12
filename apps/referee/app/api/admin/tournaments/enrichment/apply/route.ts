@@ -190,7 +190,7 @@ export async function POST(request: Request) {
           e.type === role &&
           (e.name ?? "") === (c.name ?? "") &&
           (e.email ?? "") === (c.email ?? "") &&
-          (e.phone ?? "") === (c.phone ?? "")
+          (e.phone ?? "") === ""
       );
       const confRaw = c.confidence ?? null;
       const confVal =
@@ -207,7 +207,7 @@ export async function POST(request: Request) {
           type: role,
           name: c.name ?? null,
           email: c.email ?? null,
-          phone: c.phone ?? null,
+          phone: null,
           source_url: c.source_url ?? null,
           confidence: confVal,
           status: "verified",
@@ -217,12 +217,10 @@ export async function POST(request: Request) {
       if (c.role_normalized === "TD") {
         if (c.name) updates.tournament_director = c.name;
         if (c.email) updates.tournament_director_email = c.email;
-        if (c.phone) updates.tournament_director_phone = c.phone;
       }
       if (c.role_normalized === "ASSIGNOR") {
         if (c.name) updates.referee_contact = c.name;
         if (c.email) updates.referee_contact_email = c.email;
-        if (c.phone) updates.referee_contact_phone = c.phone;
       }
     }
     if (toInsert.length) {

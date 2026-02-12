@@ -131,7 +131,7 @@ export async function generateMetadata({
     slug: string | null;
   };
   const { data, error } = await supabaseAdmin
-    .from("tournaments" as any)
+    .from("tournaments_public" as any)
     .select("name,city,state,start_date,slug")
     .eq("slug", params.slug)
     .maybeSingle<TournamentMeta>();
@@ -172,8 +172,8 @@ export default async function TournamentDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data, error } = await supabase
-    .from("tournaments")
+  const { data, error } = await supabaseAdmin
+    .from("tournaments_public" as any)
     .select(
       "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,referee_contact,tournament_director,level,venue,address,sport"
     )
@@ -196,7 +196,7 @@ export default async function TournamentDetailPage({
     );
   }
 
-  const seriesMap = await loadSeriesTournamentIds(supabase, [{ id: data.id, slug: data.slug }]);
+  const seriesMap = await loadSeriesTournamentIds(supabaseAdmin, [{ id: data.id, slug: data.slug }]);
   const seriesEntry = seriesMap.get(data.id);
   const relatedTournamentIds = seriesEntry?.tournamentIds ?? [data.id];
   const { data: venueLinks } = await supabaseAdmin
@@ -214,8 +214,8 @@ export default async function TournamentDetailPage({
     zip: string | null;
   }>;
 
-  const whistleScore = await loadWhistleScore(supabase, relatedTournamentIds);
-  const reviewsRaw = await loadPublicReviews(supabase, relatedTournamentIds);
+  const whistleScore = await loadWhistleScore(supabaseAdmin, relatedTournamentIds);
+  const reviewsRaw = await loadPublicReviews(supabaseAdmin, relatedTournamentIds);
   const reviews = reviewsRaw.map((review) => ({
     ...review,
     sport: data.sport ?? null,

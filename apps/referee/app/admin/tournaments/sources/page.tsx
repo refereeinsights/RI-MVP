@@ -94,7 +94,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   const registryRes = await supabaseAdmin
     .from("tournament_sources" as any)
     .select(
-      "id,source_url,source_type,sport,state,city,notes,is_active,is_custom_source,review_status,review_notes,ignore_until,last_tested_at,last_swept_at,last_sweep_status,last_sweep_summary,fetched_at"
+      "id,source_url,source_type,sport,state,city,notes,is_active,is_custom_source,review_status,review_notes,ignore_until,last_tested_at,last_swept_at,last_sweep_status,last_sweep_summary,fetched_at,created_at"
     )
     .order("last_swept_at", { ascending: false })
     .order("fetched_at", { ascending: true });
@@ -445,6 +445,9 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       const prA = getPriority(a.review_status);
       const prB = getPriority(b.review_status);
       if (prA !== prB) return prA - prB;
+      const aCreated = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bCreated = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (aCreated !== bCreated) return bCreated - aCreated;
       const aTime = a.last_swept_at ? new Date(a.last_swept_at).getTime() : 0;
       const bTime = b.last_swept_at ? new Date(b.last_swept_at).getTime() : 0;
       return bTime - aTime;

@@ -8,6 +8,8 @@ type Props = {
   isAllStates: boolean;
   allStatesValue: string;
   summaryLabel: string;
+  stateCounts?: Record<string, number>;
+  totalCount?: number;
 };
 
 export default function StateMultiSelect({
@@ -16,6 +18,8 @@ export default function StateMultiSelect({
   isAllStates,
   allStatesValue,
   summaryLabel,
+  stateCounts = {},
+  totalCount,
 }: Props) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -58,7 +62,7 @@ export default function StateMultiSelect({
             value={allStatesValue}
             defaultChecked={isAllStates}
           />
-          <span>All states</span>
+          <span>{`All states${typeof totalCount === "number" ? ` (${totalCount})` : ""}`}</span>
         </label>
         {availableStates.map((st) => (
           <label key={st} className="sportToggle">
@@ -68,7 +72,7 @@ export default function StateMultiSelect({
               value={st}
               defaultChecked={stateSelections.includes(st)}
             />
-            <span>{st}</span>
+            <span>{`${st}${typeof stateCounts[st] === "number" ? ` (${stateCounts[st]})` : ""}`}</span>
           </label>
         ))}
       </div>

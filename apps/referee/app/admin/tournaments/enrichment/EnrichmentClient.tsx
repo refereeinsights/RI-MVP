@@ -168,6 +168,7 @@ export default function EnrichmentClient({
   const [applyStatus, setApplyStatus] = React.useState<Record<string, string>>({});
   const [selectedItems, setSelectedItems] = React.useState<Record<string, Set<string>>>({});
   const [batchLimit, setBatchLimit] = React.useState<number>(50);
+  const [batchMissingDatesOnly, setBatchMissingDatesOnly] = React.useState<boolean>(false);
   const [batchStatus, setBatchStatus] = React.useState<string>("");
   const tournamentUrlFor = React.useCallback(
     (tournamentId: string) => tournamentUrlLookup[tournamentId] ?? null,
@@ -205,24 +206,14 @@ export default function EnrichmentClient({
     };
     pendingContacts.forEach((c) => {
       const role = c.role_normalized === "TD" ? "Tournament director" : c.role_normalized === "ASSIGNOR" ? "Referee contact" : "General contact";
-      const detail = [c.email, c.phone].filter(Boolean).join(" • ");
+      const detail = [c.email].filter(Boolean).join(" • ");
       upsert(c.tournament_id, {
         kind: "contact",
         id: c.id,
         label: role,
-        detail: detail || c.email || c.phone || "—",
+        detail: detail || c.email || "—",
         sourceUrl: c.source_url,
         confidence: c.confidence,
-      });
-    });
-    pendingVenues.forEach((v) => {
-      upsert(v.tournament_id, {
-        kind: "venue",
-        id: v.id,
-        label: "Venue & address",
-        detail: [v.venue_name, v.address_text].filter(Boolean).join(" • "),
-        sourceUrl: v.source_url,
-        confidence: v.confidence,
       });
     });
     pendingDates.forEach((d) => {
@@ -299,7 +290,7 @@ export default function EnrichmentClient({
       deduped.set(tid, Array.from(items.values()));
     });
     return deduped;
-  }, [pendingContacts, pendingVenues, pendingDates, pendingComps, pendingAttributes]);
+  }, [pendingContacts, pendingDates, pendingComps, pendingAttributes]);
 
   React.useEffect(() => {
     setSelectedItems((prev) => {
@@ -469,7 +460,11 @@ export default function EnrichmentClient({
     const res = await fetch("/api/admin/tournaments/enrichment/queue-all", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ limit: batchLimit }),
+      body: JSON.stringify({
+        limit: batchLimit,
+        missing_dates_only: batchMissingDatesOnly,
+        deep_date_search: batchMissingDatesOnly,
+      }),
     });
     const raw = await res.text();
     let json: any = null;
@@ -482,9 +477,16 @@ export default function EnrichmentClient({
       setBatchStatus(`Run failed: ${json?.error || res.statusText}`);
       return;
     }
-    setBatchStatus(
-      `Queued ${json.queued ?? 0} tournament(s). Ran enrichment for ${json.ran ?? 0}.`
-    );
+    if (json?.mode === "deep_date_search") {
+      const errorCount = Array.isArray(json?.errors) ? json.errors.length : 0;
+      setBatchStatus(
+        `Deep date search ran for ${json.ran ?? 0} tournament(s): ${json.done ?? 0} done, ${errorCount} errors.`
+      );
+    } else {
+      setBatchStatus(
+        `Queued ${json.queued ?? 0} tournament(s). Ran enrichment for ${json.ran ?? 0}.`
+      );
+    }
     refreshPage();
   };
 
@@ -933,11 +935,19 @@ export default function EnrichmentClient({
             onChange={(e) => setBatchLimit(Number(e.target.value || 0))}
             style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb" }}
           />
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#374151" }}>
+            <input
+              type="checkbox"
+              checked={batchMissingDatesOnly}
+              onChange={(e) => setBatchMissingDatesOnly(e.target.checked)}
+            />
+            Deep date search only for tournaments missing both start/end dates
+          </label>
           <button
             onClick={runBatch}
             style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff", fontWeight: 700 }}
           >
-            Run enrichment batch
+            {batchMissingDatesOnly ? "Run deep date search" : "Run enrichment batch"}
           </button>
           {batchStatus ? <div style={{ fontSize: 12, color: "#4b5563" }}>{batchStatus}</div> : null}
         </div>
