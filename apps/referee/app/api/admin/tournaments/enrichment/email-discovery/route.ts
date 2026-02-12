@@ -56,7 +56,8 @@ export async function POST(req: Request) {
     .insert({ created_by: admin.id })
     .select("id")
     .single();
-  if (runError || !runRow?.id) {
+  const runId = (runRow as { id: string } | null)?.id;
+  if (runError || !runId) {
     return NextResponse.json({ ok: false, error: "Failed to create discovery run." }, { status: 500 });
   }
 
@@ -142,7 +143,7 @@ export async function POST(req: Request) {
     });
     const sourceUrl = t.official_website_url ?? t.source_url ?? null;
     return {
-      run_id: runRow.id,
+      run_id: runId,
       tournament_id: t.id,
       source_url: sourceUrl,
       discovered_emails: emails,
@@ -158,6 +159,6 @@ export async function POST(req: Request) {
     message: `Queued ${tournamentIds.length} tournaments. Inserted ${toInsert.length} pending contact(s).`,
     inserted: toInsert.length,
     candidates: candidates?.length ?? 0,
-    run_id: runRow.id,
+    run_id: runId,
   });
 }

@@ -234,7 +234,7 @@ export default async function AdminPage({
     if (runResp.error) {
       emailDiscoveryError = runResp.error.message;
     } else {
-      emailDiscoveryRun = runResp.data ?? null;
+      emailDiscoveryRun = (runResp.data as { id: string; created_at: string } | null) ?? null;
     }
     if (emailDiscoveryRun?.id) {
       const resultsResp = await supabaseAdmin
@@ -992,6 +992,7 @@ export default async function AdminPage({
       .select("tournament_director")
       .eq("id", tournamentId)
       .maybeSingle();
+    const tournamentRow = (tournament as { tournament_director: string | null } | null) ?? null;
 
     const { error: updateError } = await supabaseAdmin
       .from("tournaments" as any)
@@ -1013,7 +1014,7 @@ export default async function AdminPage({
       await supabaseAdmin.from("tournament_contacts" as any).insert({
         tournament_id: tournamentId,
         type: "director",
-        name: tournament?.tournament_director ?? null,
+        name: tournamentRow?.tournament_director ?? null,
         email,
         status: "verified",
         notes: "Manual director email from discovery results.",
@@ -1080,11 +1081,12 @@ export default async function AdminPage({
       return redirectWithNotice(redirectTo, "Result not found.");
     }
 
-    const tournament = Array.isArray(resultRow.tournaments)
-      ? resultRow.tournaments[0]
-      : resultRow.tournaments;
+    const resultRowAny = resultRow as any;
+    const tournament = Array.isArray(resultRowAny.tournaments)
+      ? resultRowAny.tournaments[0]
+      : resultRowAny.tournaments;
     const rawUrl =
-      resultRow.source_url ||
+      resultRowAny.source_url ||
       tournament?.official_website_url ||
       tournament?.source_url ||
       "";
