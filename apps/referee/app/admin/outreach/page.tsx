@@ -5,6 +5,7 @@ import AdminNav from "@/components/admin/AdminNav";
 import OutreachCopyButtons from "@/components/admin/OutreachCopyButtons";
 import OutreachTemplateEditor from "@/components/admin/OutreachTemplateEditor";
 import EmailDiscoveryPanel from "@/components/admin/EmailDiscoveryPanel";
+import CopyLinkButton from "@/components/admin/CopyLinkButton";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { DEFAULT_TEMPLATES, buildTournamentUrl, renderOutreachTemplate } from "@/lib/outreach";
@@ -105,6 +106,29 @@ export default async function OutreachPage({
 
   if (tab === "suppressed") {
     outreachRows = outreachRows.filter((row) => row.tournaments?.do_not_contact || ["suppressed", "closed"].includes(row.status));
+  }
+
+  const outreachTournamentIds = Array.from(
+    new Set(
+      (outreachRows ?? [])
+        .map((row) => row.tournaments?.id)
+        .filter(Boolean)
+    )
+  ) as string[];
+  const activeStaffTokens = new Map<string, { token: string; expires_at: string }>();
+  if (outreachTournamentIds.length) {
+    const { data: tokenRows } = await supabaseAdmin
+      .from("tournament_staff_verify_tokens" as any)
+      .select("tournament_id,token,expires_at,created_at")
+      .in("tournament_id", outreachTournamentIds)
+      .is("used_at", null)
+      .gt("expires_at", nowIso)
+      .order("created_at", { ascending: false });
+    (tokenRows ?? []).forEach((row: any) => {
+      if (row?.tournament_id && !activeStaffTokens.has(row.tournament_id)) {
+        activeStaffTokens.set(row.tournament_id, { token: row.token, expires_at: row.expires_at });
+      }
+    });
   }
 
   async function saveTemplateAction(formData: FormData) {
@@ -468,6 +492,22 @@ export default async function OutreachPage({
             >
               Create outreach rows
             </Link>
+            <Link
+              href="/tournaments/verify-example"
+              target="_blank"
+              style={{
+                padding: "6px 10px",
+                borderRadius: 999,
+                border: "1px solid #0f172a",
+                background: "#fff",
+                color: "#0f172a",
+                textDecoration: "none",
+                fontSize: 12,
+                fontWeight: 800,
+              }}
+            >
+              Preview verification form
+            </Link>
           </div>
           {notice ? (
             <div style={{ marginTop: 12, padding: 12, borderRadius: 10, border: "1px solid #cbd5f5", background: "#eef2ff" }}>
@@ -485,6 +525,12 @@ export default async function OutreachPage({
               >
                 {`${process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.refereeinsights.com"}/tournaments/verify/${staffToken}`}
               </a>
+              <span style={{ marginLeft: 8 }}>
+                <CopyLinkButton
+                  text={`${process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.refereeinsights.com"}/tournaments/verify/${staffToken}`}
+                  label="Copy link"
+                />
+              </span>
             </div>
           ) : null}
           {outreachRows.length ? (
@@ -502,6 +548,18 @@ export default async function OutreachPage({
                   : renderOutreachTemplate(followupTemplate, tournament, contactName);
                 const mailto = contactEmail ? buildMailto(contactEmail, subject, body) : "";
                 const followupMailto = contactEmail ? buildMailto(contactEmail, followup.subject, followup.body) : "";
+                const staffTokenInfo = tournament.id ? activeStaffTokens.get(tournament.id) : null;
+                const staffTokenUrl = staffTokenInfo
+                  ? `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.refereeinsights.com"}/tournaments/verify/${staffTokenInfo.token}`
+                  : "";
+                const staffTokenExpires = staffTokenInfo?.expires_at
+                  ? new Date(staffTokenInfo.expires_at).toLocaleDateString("en-US", {
+                      timeZone: "America/Los_Angeles",
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })
+                  : "";
 
                 return (
                   <details key={row.id} style={{ border: "1px solid #ddd", borderRadius: 14, padding: 12, background: "#fff" }}>
@@ -525,8 +583,8 @@ export default async function OutreachPage({
                       </div>
                     </summary>
 
-                    <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         {tournament.slug ? (
                           <Link href={buildTournamentUrl(tournament.slug)} target="_blank" style={{ fontSize: 12 }}>
                             View tournament ↗
@@ -549,6 +607,14 @@ export default async function OutreachPage({
                             Create staff verification link
                           </button>
                         </form>
+                        {staffTokenInfo ? (
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: "#0f172a" }}>
+                            <span>
+                              Active link (expires {staffTokenExpires} PT)
+                            </span>
+                            <CopyLinkButton text={staffTokenUrl} label="Copy" />
+                          </div>
+                        ) : null}
                       </div>
 
                       {!contactEmail ? (
