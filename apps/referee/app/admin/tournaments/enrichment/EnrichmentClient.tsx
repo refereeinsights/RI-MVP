@@ -113,7 +113,7 @@ type CandidateTournament = {
 type ReviewItem = {
   key: string;
   kind: "contact" | "venue" | "date" | "comp-rate" | "comp-hotel" | "comp-cash" | "attribute";
-  id: string;
+  ids: string[];
   label: string;
   detail?: string | null;
   sourceUrl?: string | null;
@@ -175,17 +175,38 @@ export default function EnrichmentClient({
   );
 
   const reviewGroups = React.useMemo(() => {
-    const groups = new Map<string, ReviewItem[]>();
-    const push = (tournamentId: string, item: ReviewItem) => {
-      const list = groups.get(tournamentId) ?? [];
-      list.push(item);
-      groups.set(tournamentId, list);
+    const groups = new Map<string, Map<string, ReviewItem>>();
+    const signatureFor = (kind: ReviewItem["kind"], label: string, detail?: string | null) =>
+      [kind, label.toLowerCase(), (detail ?? "").toLowerCase().trim()].join("|");
+    const upsert = (tournamentId: string, item: Omit<ReviewItem, "key" | "ids"> & { id: string }) => {
+      const sig = signatureFor(item.kind, item.label, item.detail);
+      const key = `${item.kind}:${sig}`;
+      const existingMap = groups.get(tournamentId) ?? new Map<string, ReviewItem>();
+      const existing = existingMap.get(sig);
+      if (existing) {
+        existing.ids.push(item.id);
+        if ((item.confidence ?? 0) > (existing.confidence ?? 0)) {
+          existing.confidence = item.confidence ?? existing.confidence;
+          existing.sourceUrl = item.sourceUrl ?? existing.sourceUrl;
+        }
+        existingMap.set(sig, existing);
+      } else {
+        existingMap.set(sig, {
+          key,
+          kind: item.kind,
+          ids: [item.id],
+          label: item.label,
+          detail: item.detail,
+          sourceUrl: item.sourceUrl,
+          confidence: item.confidence,
+        });
+      }
+      groups.set(tournamentId, existingMap);
     };
     pendingContacts.forEach((c) => {
       const role = c.role_normalized === "TD" ? "Tournament director" : c.role_normalized === "ASSIGNOR" ? "Referee contact" : "General contact";
       const detail = [c.email, c.phone].filter(Boolean).join(" • ");
-      push(c.tournament_id, {
-        key: `contact:${c.id}`,
+      upsert(c.tournament_id, {
         kind: "contact",
         id: c.id,
         label: role,
@@ -195,8 +216,7 @@ export default function EnrichmentClient({
       });
     });
     pendingVenues.forEach((v) => {
-      push(v.tournament_id, {
-        key: `venue:${v.id}`,
+      upsert(v.tournament_id, {
         kind: "venue",
         id: v.id,
         label: "Venue & address",
@@ -210,8 +230,7 @@ export default function EnrichmentClient({
         d.start_date || d.end_date
           ? `${d.start_date ?? "?"} → ${d.end_date ?? d.start_date ?? "?"}`
           : d.date_text ?? "—";
-      push(d.tournament_id, {
-        key: `date:${d.id}`,
+      upsert(d.tournament_id, {
         kind: "date",
         id: d.id,
         label: "Dates",
@@ -222,8 +241,7 @@ export default function EnrichmentClient({
     });
     pendingComps.forEach((c) => {
       if (c.rate_text) {
-        push(c.tournament_id, {
-          key: `comp-rate:${c.id}`,
+        upsert(c.tournament_id, {
           kind: "comp-rate",
           id: c.id,
           label: "Referee comp",
@@ -233,8 +251,7 @@ export default function EnrichmentClient({
         });
       }
       if (c.travel_lodging) {
-        push(c.tournament_id, {
-          key: `comp-hotel:${c.id}`,
+        upsert(c.tournament_id, {
           kind: "comp-hotel",
           id: c.id,
           label: "Referee lodging",
@@ -245,8 +262,7 @@ export default function EnrichmentClient({
       }
       const cashHit = `${c.rate_text ?? ""} ${c.travel_lodging ?? ""}`.toLowerCase().includes("cash");
       if (cashHit) {
-        push(c.tournament_id, {
-          key: `comp-cash:${c.id}`,
+        upsert(c.tournament_id, {
           kind: "comp-cash",
           id: c.id,
           label: "Cash tournament",
@@ -269,8 +285,7 @@ export default function EnrichmentClient({
       assigned_appropriately: "Assigned appropriately",
     };
     pendingAttributes.forEach((a) => {
-      push(a.tournament_id, {
-        key: `attr:${a.id}`,
+      upsert(a.tournament_id, {
         kind: "attribute",
         id: a.id,
         label: attributeLabels[a.attribute_key] ?? a.attribute_key,
@@ -281,22 +296,10 @@ export default function EnrichmentClient({
     });
     const deduped = new Map<string, ReviewItem[]>();
     groups.forEach((items, tid) => {
-      const seen = new Map<string, ReviewItem>();
-      items.forEach((item) => {
-        const sig = [
-          item.kind,
-          item.label.toLowerCase(),
-          (item.detail ?? "").toLowerCase().trim(),
-        ].join("|");
-        const existing = seen.get(sig);
-        if (!existing || (item.confidence ?? 0) > (existing.confidence ?? 0)) {
-          seen.set(sig, item);
-        }
-      });
-      deduped.set(tid, Array.from(seen.values()));
+      deduped.set(tid, Array.from(items.values()));
     });
     return deduped;
-  }, [pendingContacts, pendingVenues, pendingDates, pendingComps]);
+  }, [pendingContacts, pendingVenues, pendingDates, pendingComps, pendingAttributes]);
 
   React.useEffect(() => {
     setSelectedItems((prev) => {
@@ -509,7 +512,9 @@ export default function EnrichmentClient({
   const applyReviewItems = async (tournamentId: string) => {
     const items = reviewGroups.get(tournamentId) ?? [];
     const selected = selectedItems[tournamentId] ?? new Set<string>();
-    const payload = items.filter((item) => selected.has(item.key)).map((item) => ({ kind: item.kind, id: item.id }));
+    const payload = items
+      .filter((item) => selected.has(item.key))
+      .flatMap((item) => item.ids.map((id) => ({ kind: item.kind, id })));
     if (!payload.length) {
       setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Select at least one item." }));
       return;
@@ -553,7 +558,9 @@ export default function EnrichmentClient({
   const deleteReviewItems = async (tournamentId: string) => {
     const items = reviewGroups.get(tournamentId) ?? [];
     const selected = selectedItems[tournamentId] ?? new Set<string>();
-    const payload = items.filter((item) => selected.has(item.key)).map((item) => ({ kind: item.kind, id: item.id }));
+    const payload = items
+      .filter((item) => selected.has(item.key))
+      .flatMap((item) => item.ids.map((id) => ({ kind: item.kind, id })));
     if (!payload.length) {
       setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Select at least one item." }));
       return;
@@ -993,6 +1000,11 @@ export default function EnrichmentClient({
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 700 }}>{item.label}</div>
                         {item.detail ? <div style={{ color: "#4b5563", fontSize: 12 }}>{item.detail}</div> : null}
+                        {item.ids.length > 1 ? (
+                          <div style={{ color: "#6b7280", fontSize: 11 }}>
+                            {item.ids.length} duplicates merged
+                          </div>
+                        ) : null}
                         <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: "#6b7280" }}>
                           {item.confidence != null ? <span>conf: {item.confidence}</span> : null}
                           {item.sourceUrl ? (

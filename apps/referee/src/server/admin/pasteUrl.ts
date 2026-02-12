@@ -385,6 +385,55 @@ export async function createTournamentFromUrl(params: {
     };
   }
 
+  if (parsedUrl.hostname.includes("fysa.com") && parsedUrl.pathname.includes("/2026-sanctioned-tournaments")) {
+    const events = parseFysaSanctionedTournaments(html);
+    if (!events.length) {
+      throw new SweepError("html_received_no_events", "FYSA sanctioned list parsed but no events found", diagnostics);
+    }
+
+    const tournamentIds: string[] = [];
+    for (const event of events) {
+      const tournamentId = await upsertTournamentFromSource({
+        ...event,
+        sport: "soccer",
+        status,
+        source: "external_crawl",
+      });
+      tournamentIds.push(tournamentId);
+    }
+
+    await queueEnrichmentJobs(tournamentIds);
+
+    const registry = await upsertRegistry({
+      source_url: canonical,
+      source_type: "association_directory",
+      sport: "soccer",
+      state: "FL",
+      notes: "Florida Youth Soccer Association sanctioned tournaments (2026).",
+    });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "FYSA sanctioned tournaments (2026)",
+      extracted_json: { action: "fysa_import", extracted_count: tournamentIds.length },
+      extract_confidence: 0.7,
+    });
+    await updateRunExtractedJson(runId, { action: "fysa_import", extracted_count: tournamentIds.length });
+
+    return {
+      tournamentId: tournamentIds[0],
+      meta: { name: `Imported ${tournamentIds.length} events`, warnings: [] },
+      slug: "fysa-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: tournamentIds.length,
+    };
+  }
+
   if (isAsaAzUrl(canonical)) {
     const sweepResult = await sweepAsaAzSanctionedClubTournaments({
       html,
@@ -676,6 +725,156 @@ function parseUSClubSanctionedTournaments(html: string): TournamentRow[] {
   }
 
   return results.filter((row) => row.name && row.state && row.start_date);
+}
+
+function parseFysaSanctionedTournaments(html: string): TournamentRow[] {
+  const $ = cheerio.load(html);
+  const results: TournamentRow[] = [];
+  const content = $(".entry-content");
+
+  const tableRows = content.find("table tr").toArray();
+  if (tableRows.length) {
+    for (const tr of tableRows) {
+      const cells = $(tr)
+        .find("td")
+        .map((_i, td) => $(td).text().trim().replace(/\s+/g, " "))
+        .get();
+      if (cells.length < 3) continue;
+      const [name, locationText, dateText] = cells;
+      const parsed = parseFysaDateRange(dateText || "");
+      const city = parseFysaCity(locationText);
+      const sourceUrl = extractFysaRowUrl($(tr)) ?? "";
+      if (!name || !dateText || !city) continue;
+      results.push(buildFysaRow({ name, city, dateText, sourceUrl, parsed }));
+    }
+  }
+
+  const lines = content
+    .text()
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  for (const line of lines) {
+    if (!line.includes("|")) continue;
+    const parts = line.split("|").map((part) => part.trim()).filter(Boolean);
+    if (parts.length < 3) continue;
+    const [name, locationText, dateText] = parts;
+    const parsed = parseFysaDateRange(dateText || "");
+    const city = parseFysaCity(locationText);
+    if (!name || !dateText || !city) continue;
+    results.push(buildFysaRow({ name, city, dateText, sourceUrl: "", parsed }));
+  }
+
+  const linkRows = content.find("a").toArray();
+  for (const link of linkRows) {
+    const href = $(link).attr("href") ?? "";
+    const name = $(link).text().trim();
+    if (!name || !href || !href.startsWith("http")) continue;
+    const container = $(link).closest("p,li,div,td");
+    const text = container.text().replace(/\s+/g, " ").trim();
+    if (!text) continue;
+    const rest = text.replace(name, "").trim();
+    const match = rest.match(/([A-Za-z .'-]+,\s*FL)\s+([A-Za-z].*\d{4})$/);
+    if (!match) continue;
+    const locationText = match[1];
+    const dateText = match[2];
+    const parsed = parseFysaDateRange(dateText);
+    const city = parseFysaCity(locationText);
+    if (!city) continue;
+    results.push(buildFysaRow({ name, city, dateText, sourceUrl: href, parsed }));
+  }
+
+  const deduped = new Map<string, TournamentRow>();
+  for (const row of results) {
+    const key = `${row.name}|${row.city}|${row.start_date ?? ""}|${row.source_url ?? ""}`;
+    if (!deduped.has(key)) deduped.set(key, row);
+  }
+  return Array.from(deduped.values()).filter((row) => row.name && row.start_date);
+}
+
+function extractFysaRowUrl($tr: cheerio.Cheerio<any>): string | null {
+  const link = $tr.find("a[href^='http']").first();
+  return link.length ? (link.attr("href") ?? null) : null;
+}
+
+function parseFysaCity(locationText: string): string | null {
+  const match = locationText.match(/^(.+?),\s*FL/i);
+  return match ? match[1].trim() : null;
+}
+
+function buildFysaRow(args: {
+  name: string;
+  city: string;
+  dateText: string;
+  sourceUrl: string;
+  parsed: { start?: string; end?: string };
+}): TournamentRow {
+  const slug = buildTournamentSlug({ name: args.name, city: args.city, state: "FL" });
+  const sourceUrl = args.sourceUrl || "https://www.fysa.com/2026-sanctioned-tournaments/";
+  const sourceDomain = sourceUrl.startsWith("http") ? new URL(sourceUrl).hostname : "www.fysa.com";
+  return {
+    name: args.name,
+    slug,
+    sport: "soccer",
+    level: null,
+    sub_type: "internet",
+    cash_tournament: false,
+    state: "FL",
+    city: args.city,
+    venue: null,
+    address: null,
+    start_date: args.parsed.start ?? null,
+    end_date: args.parsed.end ?? args.parsed.start ?? null,
+    summary: "FYSA sanctioned tournament listing.",
+    status: "draft",
+    confidence: 0.6,
+    source: "external_crawl",
+    source_event_id: `${args.name}-${args.dateText}`,
+    source_url: sourceUrl,
+    source_domain: sourceDomain,
+    raw: { date_text: args.dateText, location: `${args.city}, FL` },
+  };
+}
+
+function parseFysaDateRange(dateTextRaw: string): { start?: string; end?: string } {
+  const normalized = dateTextRaw
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+  const yearMatch = normalized.match(/(\d{4})/);
+  const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getUTCFullYear();
+
+  const monthRange = normalized.match(
+    /^([A-Za-z]+)\s+(\d{1,2})\s*-\s*([A-Za-z]+)\s+(\d{1,2}),\s*\d{4}/
+  );
+  if (monthRange) {
+    const startMonthIdx = monthNameToIndex0(monthRange[1]);
+    const endMonthIdx = monthNameToIndex0(monthRange[3]);
+    const startDay = parseInt(monthRange[2], 10);
+    const endDay = parseInt(monthRange[4], 10);
+    if (startMonthIdx !== null && endMonthIdx !== null) {
+      return {
+        start: toISODateUTC(year, startMonthIdx, startDay),
+        end: toISODateUTC(year, endMonthIdx, endDay),
+      };
+    }
+  }
+
+  const sameMonth = normalized.match(/^([A-Za-z]+)\s+(\d{1,2})(?:\s*-\s*(\d{1,2}))?,\s*(\d{4})/);
+  if (sameMonth) {
+    const monthIdx = monthNameToIndex0(sameMonth[1]);
+    const startDay = parseInt(sameMonth[2], 10);
+    const endDay = sameMonth[3] ? parseInt(sameMonth[3], 10) : startDay;
+    if (monthIdx !== null) {
+      return {
+        start: toISODateUTC(parseInt(sameMonth[4], 10), monthIdx, startDay),
+        end: toISODateUTC(parseInt(sameMonth[4], 10), monthIdx, endDay),
+      };
+    }
+  }
+
+  return {};
 }
 
 function getUSClubDiagnostics(html: string) {
