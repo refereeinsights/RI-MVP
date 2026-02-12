@@ -312,11 +312,23 @@ export default async function TournamentVerifyPage({ params, searchParams }: Ver
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Official website *
-                  <input type="url" name="official_website_url" required defaultValue={tournament.official_website_url ?? ""} style={{ width: "100%", padding: 8 }} />
+                  <textarea
+                    name="official_website_url"
+                    required
+                    defaultValue={tournament.official_website_url ?? ""}
+                    rows={2}
+                    style={{ width: "100%", padding: 8, resize: "vertical" }}
+                  />
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Tournament director *
-                  <input type="text" name="tournament_director" required defaultValue={tournament.tournament_director ?? ""} style={{ width: "100%", padding: 8 }} />
+                  <textarea
+                    name="tournament_director"
+                    required
+                    defaultValue={tournament.tournament_director ?? ""}
+                    rows={2}
+                    style={{ width: "100%", padding: 8, resize: "vertical" }}
+                  />
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Director email *
@@ -328,15 +340,33 @@ export default async function TournamentVerifyPage({ params, searchParams }: Ver
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Referee pay *
-                  <input type="text" name="referee_pay" required defaultValue={tournament.referee_pay ?? ""} style={{ width: "100%", padding: 8 }} />
+                  <textarea
+                    name="referee_pay"
+                    required
+                    defaultValue={tournament.referee_pay ?? ""}
+                    rows={2}
+                    style={{ width: "100%", padding: 8, resize: "vertical" }}
+                  />
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Venue (primary) *
-                  <input type="text" name="venue" required defaultValue={tournament.venue ?? ""} style={{ width: "100%", padding: 8 }} />
+                  <textarea
+                    name="venue"
+                    required
+                    defaultValue={tournament.venue ?? ""}
+                    rows={2}
+                    style={{ width: "100%", padding: 8, resize: "vertical" }}
+                  />
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Address *
-                  <input type="text" name="address" required defaultValue={tournament.address ?? ""} style={{ width: "100%", padding: 8 }} />
+                  <textarea
+                    name="address"
+                    required
+                    defaultValue={tournament.address ?? ""}
+                    rows={2}
+                    style={{ width: "100%", padding: 8, resize: "vertical" }}
+                  />
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   City *
@@ -348,7 +378,12 @@ export default async function TournamentVerifyPage({ params, searchParams }: Ver
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Referee contact
-                  <input type="text" name="referee_contact" defaultValue={tournament.referee_contact ?? ""} style={{ width: "100%", padding: 8 }} />
+                  <textarea
+                    name="referee_contact"
+                    defaultValue={tournament.referee_contact ?? ""}
+                    rows={2}
+                    style={{ width: "100%", padding: 8, resize: "vertical" }}
+                  />
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Referee contact email
