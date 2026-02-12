@@ -435,6 +435,56 @@ export async function createTournamentFromUrl(params: {
     };
   }
 
+  if (parsedUrl.hostname.includes("ncsoccer.org") && parsedUrl.pathname.includes("/events/list")) {
+    const events = parseNcsoccerEventsList(html);
+    if (!events.length) {
+      throw new SweepError("html_received_no_events", "NC Soccer events list parsed but no events found", diagnostics);
+    }
+
+    const tournamentIds: string[] = [];
+    for (const event of events) {
+      const tournamentId = await upsertTournamentFromSource({
+        ...event,
+        sport: "soccer",
+        status,
+        source: "external_crawl",
+      });
+      tournamentIds.push(tournamentId);
+    }
+
+    await queueEnrichmentJobs(tournamentIds);
+
+    const registry = await upsertRegistry({
+      source_url: canonical,
+      source_type: "association_directory",
+      sport: "soccer",
+      state: "NC",
+      notes: "North Carolina Youth Soccer Association events list.",
+      is_custom_source: true,
+    });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "NC Soccer events list",
+      extracted_json: { action: "ncsoccer_import", extracted_count: tournamentIds.length },
+      extract_confidence: 0.7,
+    });
+    await updateRunExtractedJson(runId, { action: "ncsoccer_import", extracted_count: tournamentIds.length });
+
+    return {
+      tournamentId: tournamentIds[0],
+      meta: { name: `Imported ${tournamentIds.length} events`, warnings: [] },
+      slug: "ncsoccer-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: tournamentIds.length,
+    };
+  }
+
   if (isAsaAzUrl(canonical)) {
     const sweepResult = await sweepAsaAzSanctionedClubTournaments({
       html,
@@ -904,6 +954,146 @@ function parseFysaDateRange(dateTextRaw: string): { start?: string; end?: string
   }
 
   return {};
+}
+
+function parseNcsoccerEventsList(html: string): TournamentRow[] {
+  const $ = cheerio.load(html);
+  const results: TournamentRow[] = [];
+  const events = $(".tribe-events-calendar-list__event, .tribe-events-calendar-list__event-row, .tribe-events-calendar-list__event-wrapper").toArray();
+
+  const parseEventContainer = (container: cheerio.Cheerio<any>) => {
+    const link = container
+      .find("a[href*='/ncsanctionedtournamentpage/'], a[href*='/event/'], a[href*='/events/']")
+      .first();
+    const href = link.attr("href") ?? "";
+    const name = link.text().trim();
+    if (!name) return;
+
+    const dateText = extractNcsoccerDateText(container.text());
+    const parsed = parseNcsoccerDateRange(dateText || "");
+    const city = parseNcsoccerCity(container.text());
+
+    results.push(buildNcsoccerRow({ name, city, dateText: dateText || "", sourceUrl: href, parsed }));
+  };
+
+  if (events.length) {
+    events.forEach((el) => parseEventContainer($(el)));
+  } else {
+    const links = $("a[href*='/ncsanctionedtournamentpage/'], a[href*='/event/']").toArray();
+    links.forEach((el) => {
+      const link = $(el);
+      const name = link.text().trim();
+      if (!name) return;
+      const container = link.closest("article,li,div,section");
+      const dateText = extractNcsoccerDateText(container.text());
+      const parsed = parseNcsoccerDateRange(dateText || "");
+      const city = parseNcsoccerCity(container.text());
+      results.push(buildNcsoccerRow({ name, city, dateText: dateText || "", sourceUrl: link.attr("href") ?? "", parsed }));
+    });
+  }
+
+  const deduped = new Map<string, TournamentRow>();
+  for (const row of results) {
+    if (!row.name) continue;
+    const key = `${row.name}|${row.city ?? ""}|${row.start_date ?? ""}|${row.source_url ?? ""}`;
+    if (!deduped.has(key)) deduped.set(key, row);
+  }
+  return Array.from(deduped.values());
+}
+
+function extractNcsoccerDateText(textRaw: string): string | null {
+  const normalized = textRaw.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  const rangeMatch = normalized.match(
+    /([A-Za-z]+)\s+\d{1,2}\s*-\s*(?:[A-Za-z]+\\s+)?\d{1,2}(?:,?\s*\d{4})?/
+  );
+  if (rangeMatch) return rangeMatch[0];
+  const singleMatch = normalized.match(/([A-Za-z]+)\s+\d{1,2},\s*\d{4}/);
+  if (singleMatch) return singleMatch[0];
+  return null;
+}
+
+function parseNcsoccerCity(textRaw: string): string | null {
+  const normalized = textRaw.replace(/\s+/g, " ").trim();
+  const match = normalized.match(/([A-Za-z .'-]+),\s*NC/);
+  if (match) return match[1].trim();
+  const simple = normalized.match(/([A-Za-z .'-]+)\s+NC/);
+  return simple ? simple[1].trim() : null;
+}
+
+function parseNcsoccerDateRange(dateTextRaw: string): { start?: string; end?: string } {
+  const normalized = dateTextRaw
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+  const yearMatch = normalized.match(/(\d{4})/);
+  const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getUTCFullYear();
+
+  const monthRange = normalized.match(
+    /^([A-Za-z]+)\s+(\d{1,2})\s*-\s*([A-Za-z]+)?\s*(\d{1,2})(?:,?\s*(\d{4}))?/
+  );
+  if (monthRange) {
+    const startMonthIdx = monthNameToIndex0(monthRange[1]);
+    const endMonthIdx = monthNameToIndex0(monthRange[3] || monthRange[1]);
+    const startDay = parseInt(monthRange[2], 10);
+    const endDay = parseInt(monthRange[4], 10);
+    const parsedYear = monthRange[5] ? parseInt(monthRange[5], 10) : year;
+    if (startMonthIdx !== null && endMonthIdx !== null) {
+      return {
+        start: toISODateUTC(parsedYear, startMonthIdx, startDay),
+        end: toISODateUTC(parsedYear, endMonthIdx, endDay),
+      };
+    }
+  }
+
+  const single = normalized.match(/^([A-Za-z]+)\s+(\d{1,2})(?:,?\s*(\d{4}))?/);
+  if (single) {
+    const monthIdx = monthNameToIndex0(single[1]);
+    const day = parseInt(single[2], 10);
+    const parsedYear = single[3] ? parseInt(single[3], 10) : year;
+    if (monthIdx !== null) {
+      return {
+        start: toISODateUTC(parsedYear, monthIdx, day),
+        end: toISODateUTC(parsedYear, monthIdx, day),
+      };
+    }
+  }
+
+  return {};
+}
+
+function buildNcsoccerRow(args: {
+  name: string;
+  city: string | null;
+  dateText: string;
+  sourceUrl: string;
+  parsed: { start?: string; end?: string };
+}): TournamentRow {
+  const slug = buildTournamentSlug({ name: args.name, city: args.city ?? null, state: "NC" });
+  const sourceUrl = args.sourceUrl || "https://www.ncsoccer.org/events/list/";
+  const sourceDomain = sourceUrl.startsWith("http") ? new URL(sourceUrl).hostname : "www.ncsoccer.org";
+  return {
+    name: args.name,
+    slug,
+    sport: "soccer",
+    level: null,
+    sub_type: "internet",
+    cash_tournament: false,
+    state: "NC",
+    city: args.city ?? null,
+    venue: null,
+    address: null,
+    start_date: args.parsed.start ?? null,
+    end_date: args.parsed.end ?? args.parsed.start ?? null,
+    summary: "NCYSA events listing.",
+    status: "draft",
+    confidence: 0.6,
+    source: "external_crawl",
+    source_event_id: `${args.name}-${args.dateText}`,
+    source_url: sourceUrl,
+    source_domain: sourceDomain,
+    raw: { date_text: args.dateText, location: args.city ? `${args.city}, NC` : null },
+  };
 }
 
 function getUSClubDiagnostics(html: string) {
