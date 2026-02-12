@@ -1,4 +1,5 @@
 import Link from "next/link";
+import crypto from "crypto";
 import { redirect } from "next/navigation";
 import AdminNav from "@/components/admin/AdminNav";
 import OutreachCopyButtons from "@/components/admin/OutreachCopyButtons";
@@ -37,7 +38,7 @@ function buildMailto(to: string, subject: string, body: string) {
 export default async function OutreachPage({
   searchParams,
 }: {
-  searchParams?: { tab?: TabKey; notice?: string; state?: string; sport?: string; start_from?: string; start_to?: string; q?: string };
+  searchParams?: { tab?: TabKey; notice?: string; state?: string; sport?: string; start_from?: string; start_to?: string; q?: string; staff_token?: string };
 }) {
   await requireAdmin();
   const notice = searchParams?.notice ?? "";
@@ -47,6 +48,7 @@ export default async function OutreachPage({
   const startFrom = (searchParams?.start_from ?? "").trim();
   const startTo = (searchParams?.start_to ?? "").trim();
   const queryText = (searchParams?.q ?? "").trim();
+  const staffToken = (searchParams?.staff_token ?? "").trim();
 
   const nowIso = new Date().toISOString();
 
@@ -129,6 +131,37 @@ export default async function OutreachPage({
       }, { onConflict: "key" });
 
     redirect(`/admin/outreach?notice=${encodeURIComponent("Template saved")}`);
+  }
+
+  async function createStaffVerificationLinkAction(formData: FormData) {
+    "use server";
+    const admin = await requireAdmin();
+    const redirectTo = String(formData.get("redirect_to") || "/admin/outreach");
+    const tournamentId = String(formData.get("tournament_id") || "");
+    if (!tournamentId) {
+      const joiner = redirectTo.includes("?") ? "&" : "?";
+      redirect(`${redirectTo}${joiner}notice=${encodeURIComponent("Missing tournament id")}`);
+    }
+
+    const nowIso = new Date().toISOString();
+    await supabaseAdmin
+      .from("tournament_staff_verify_tokens" as any)
+      .update({ expires_at: nowIso })
+      .eq("tournament_id", tournamentId)
+      .is("used_at", null);
+
+    const token = crypto.randomBytes(32).toString("base64url");
+    const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    await supabaseAdmin.from("tournament_staff_verify_tokens" as any).insert({
+      tournament_id: tournamentId,
+      token,
+      expires_at: expiresAt,
+      used_at: null,
+      created_by_user_id: admin.id,
+    });
+
+    const joiner = redirectTo.includes("?") ? "&" : "?";
+    redirect(`${redirectTo}${joiner}notice=${encodeURIComponent("Staff verification link created.")}&staff_token=${encodeURIComponent(token)}`);
   }
 
   async function updateOutreachNotes(formData: FormData) {
@@ -441,6 +474,19 @@ export default async function OutreachPage({
               {notice}
             </div>
           ) : null}
+          {staffToken ? (
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 10, border: "1px solid #cbd5f5", background: "#eef2ff", fontSize: 13 }}>
+              Staff verification link created:{" "}
+              <a
+                href={`${process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.refereeinsights.com"}/tournaments/verify/${staffToken}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontWeight: 700 }}
+              >
+                {`${process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.refereeinsights.com"}/tournaments/verify/${staffToken}`}
+              </a>
+            </div>
+          ) : null}
           {outreachRows.length ? (
             <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
               {outreachRows.map((row) => {
@@ -486,6 +532,23 @@ export default async function OutreachPage({
                             View tournament ↗
                           </Link>
                         ) : null}
+                        <form action={createStaffVerificationLinkAction}>
+                          <input type="hidden" name="tournament_id" value={tournament.id} />
+                          <input type="hidden" name="redirect_to" value={`/admin/outreach?tab=${tab}`} />
+                          <button
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: 8,
+                              border: "1px solid #0f172a",
+                              background: "#fff",
+                              color: "#0f172a",
+                              fontSize: 11,
+                              fontWeight: 800,
+                            }}
+                          >
+                            Create staff verification link
+                          </button>
+                        </form>
                       </div>
 
                       {!contactEmail ? (
