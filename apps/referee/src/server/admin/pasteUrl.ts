@@ -410,6 +410,7 @@ export async function createTournamentFromUrl(params: {
       sport: "soccer",
       state: "FL",
       notes: "Florida Youth Soccer Association sanctioned tournaments (2026).",
+      is_custom_source: true,
     });
     const runId = await insertRun({
       registry_id: registry.registry_id,
@@ -770,11 +771,26 @@ function parseFysaSanctionedTournaments(html: string): TournamentRow[] {
     const href = $(link).attr("href") ?? "";
     const name = $(link).text().trim();
     if (!name || !href || !href.startsWith("http")) continue;
-    const container = $(link).closest("p,li,div,td");
-    const text = container.text().replace(/\s+/g, " ").trim();
-    if (!text) continue;
-    const rest = text.replace(name, "").trim();
-    const match = rest.match(/([A-Za-z .'-]+,\s*FL)\s+([A-Za-z].*\d{4})$/);
+    let rest = "";
+    const siblings = content.contents().toArray();
+    const idx = siblings.indexOf(link);
+    if (idx >= 0) {
+      let buffer = "";
+      for (let i = idx + 1; i < siblings.length; i += 1) {
+        const node = siblings[i];
+        if (node.type === "tag" && node.name === "a") break;
+        buffer += ` ${$(node).text()}`;
+        if (/\d{4}/.test(buffer) && /,\s*FL/i.test(buffer)) break;
+      }
+      rest = buffer.replace(/\s+/g, " ").trim();
+    }
+    if (!rest) {
+      const container = $(link).closest("p,li,div,td");
+      const text = container.text().replace(/\s+/g, " ").trim();
+      if (!text) continue;
+      rest = text.replace(name, "").trim();
+    }
+    const match = rest.match(/([A-Za-z .'-]+,\s*FL)\s+([A-Za-z].*?\d{4})/);
     if (!match) continue;
     const locationText = match[1];
     const dateText = match[2];
@@ -870,6 +886,19 @@ function parseFysaDateRange(dateTextRaw: string): { start?: string; end?: string
       return {
         start: toISODateUTC(parseInt(sameMonth[4], 10), monthIdx, startDay),
         end: toISODateUTC(parseInt(sameMonth[4], 10), monthIdx, endDay),
+      };
+    }
+  }
+
+  const sameMonthNoComma = normalized.match(/^([A-Za-z]+)\s+(\d{1,2})(?:\s*-\s*(\d{1,2}))?\s+(\d{4})/);
+  if (sameMonthNoComma) {
+    const monthIdx = monthNameToIndex0(sameMonthNoComma[1]);
+    const startDay = parseInt(sameMonthNoComma[2], 10);
+    const endDay = sameMonthNoComma[3] ? parseInt(sameMonthNoComma[3], 10) : startDay;
+    if (monthIdx !== null) {
+      return {
+        start: toISODateUTC(parseInt(sameMonthNoComma[4], 10), monthIdx, startDay),
+        end: toISODateUTC(parseInt(sameMonthNoComma[4], 10), monthIdx, endDay),
       };
     }
   }
