@@ -99,6 +99,12 @@ async function scrapeTournament(
     // Seed queue with ranked links from this page
     try {
       const ranked = rankLinks(require("cheerio").load(html), new URL(nextUrl));
+      const priorityRegex = /(contact|questions|referee|referees|officials|assignor|director|staff|tournament|about|help|support)/i;
+      const priority = ranked.filter((link) => priorityRegex.test(link)).slice(0, 2);
+      for (const link of priority.reverse()) {
+        if (queue.length + seen.size >= MAX_PAGES + 5) break;
+        if (!seen.has(link) && !queue.includes(link)) queue.unshift(link);
+      }
       for (const link of ranked) {
         if (queue.length + seen.size >= MAX_PAGES + 5) break;
         if (!seen.has(link)) queue.push(link);

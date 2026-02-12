@@ -4047,6 +4047,20 @@ export default async function AdminPage({
                     timeZone: "America/Los_Angeles",
                   })}`
                 : "Run discovery to see results."}
+              {emailDiscoveryRun?.id ? (
+                <span style={{ marginLeft: 8, color: "#666" }}>
+                  Run ID: <code style={{ fontSize: 11 }}>{emailDiscoveryRun.id}</code>
+                </span>
+              ) : null}
+              {emailDiscoveryResults.length ? (
+                <span style={{ marginLeft: 8 }}>
+                  Found emails for{" "}
+                  {emailDiscoveryResults.filter((row: any) =>
+                    Array.isArray(row.discovered_emails) ? row.discovered_emails.filter(Boolean).length > 0 : false
+                  ).length}{" "}
+                  of {emailDiscoveryResults.length} tournaments
+                </span>
+              ) : null}
             </div>
             {emailDiscoveryError ? (
               <div

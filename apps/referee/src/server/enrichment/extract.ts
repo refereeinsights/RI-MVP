@@ -93,6 +93,28 @@ const ALLOWED_TLDS = new Set([
   "soccer",
   "info",
 ]);
+const BLOCKED_EMAIL_DOMAINS = [
+  "sentry.io",
+  "sentry-next.wixpress.com",
+  "sentry.wixpress.com",
+  "wixpress.com",
+  "wix.com",
+  "wixstatic.com",
+  "parastorage.com",
+  "wixsite.com",
+  "example.com",
+  "example.org",
+  "example.net",
+];
+const BLOCKED_EMAIL_LOCALS = [
+  "noreply",
+  "no-reply",
+  "donotreply",
+  "do-not-reply",
+  "support",
+  "helpdesk",
+  "mailer-daemon",
+];
 const MONTHS = [
   "january",
   "february",
@@ -141,10 +163,25 @@ function parseMonthDate(text: string): { start?: string; end?: string; dateText?
 
 function normalizeEmail(raw: string) {
   return raw
+    .replace(/\?.*$/, "")
+    .replace(/[#),.;:]+$/, "")
     .replace(/\s*\[at\]\s*|\s*\(at\)\s*/gi, "@")
     .replace(/\s*\[dot\]\s*|\s*\(dot\)\s*/gi, ".")
     .replace(/\s+/g, "")
     .toLowerCase();
+}
+
+function decodeCfEmail(encoded: string) {
+  if (!encoded || encoded.length < 2) return null;
+  const key = parseInt(encoded.slice(0, 2), 16);
+  if (Number.isNaN(key)) return null;
+  let email = "";
+  for (let i = 2; i < encoded.length; i += 2) {
+    const code = parseInt(encoded.slice(i, i + 2), 16);
+    if (Number.isNaN(code)) return null;
+    email += String.fromCharCode(code ^ key);
+  }
+  return email;
 }
 
 function extractName(window: string): string | null {
@@ -157,10 +194,14 @@ function isLikelyEmail(email: string) {
   const [local, domain] = lower.split("@");
   if (!local || !domain) return false;
   if (local.length < 2) return false;
+  if (BLOCKED_EMAIL_LOCALS.includes(local)) return false;
   if (local.startsWith("__") || local.includes("datalayer") || local.includes("gtag") || local.includes("monsterinsights") || local.includes("window") || local.includes("navigator")) {
     return false;
   }
   if (!domain.includes(".")) return false;
+  if (BLOCKED_EMAIL_DOMAINS.some((blocked) => domain === blocked || domain.endsWith(`.${blocked}`))) {
+    return false;
+  }
   const domainParts = domain.split(".");
   const domainRoot = domainParts[0] || "";
   if (domainRoot.length < 2) return false;
@@ -209,11 +250,15 @@ function extractContacts(html: string, url: string): ContactCandidate[] {
   const contacts: ContactCandidate[] = [];
   const windows: Array<{ value: string; index: number }> = [];
   const tokenEmails = new Set<string>();
+  const mailtoEmails = new Set<string>();
   const urlLower = (url || "").toLowerCase();
   const textOnly = cheerio.load(html).text();
+  const normalizedText = textOnly.replace(/\s+/g, " ");
   // Capture mailto/tel links even if not visible in text.
   const hrefEmails = Array.from(html.matchAll(/mailto:([^\s"'<>]+)/gi)).map((m) => m[1]);
   const hrefPhones = Array.from(html.matchAll(/tel:([0-9+().\s-]+)/gi)).map((m) => m[1]);
+  const cfEmails = Array.from(html.matchAll(/data-cfemail="([a-f0-9]+)"/gi)).map((m) => m[1]);
+  const cfHrefEmails = Array.from(html.matchAll(/\/cdn-cgi\/l\/email-protection#([a-f0-9]+)/gi)).map((m) => m[1]);
 
   const entityExpandedHtml = html
     .replace(/&#64;|&commat;|&#x40;/gi, "@")
@@ -292,8 +337,27 @@ function extractContacts(html: string, url: string): ContactCandidate[] {
     }
     tokenEmails.add(e);
   });
+  const textEmails = Array.from(normalizedText.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi));
+  for (const m of textEmails) {
+    if (m.index === undefined) continue;
+    const email = normalizeEmail(m[0]);
+    if (!isLikelyEmail(email)) continue;
+    windows.push({ value: email, index: m.index });
+    tokenEmails.add(email);
+  }
   hrefEmails.forEach((e) => {
     const email = normalizeEmail(e);
+    if (!isLikelyEmail(email)) return;
+    mailtoEmails.add(email);
+    if (!windows.some((w) => w.value.toLowerCase() === email)) {
+      windows.push({ value: email, index: 0 });
+    }
+    tokenEmails.add(email);
+  });
+  [...cfEmails, ...cfHrefEmails].forEach((hex) => {
+    const decoded = decodeCfEmail(hex);
+    if (!decoded) return;
+    const email = normalizeEmail(decoded);
     if (!isLikelyEmail(email)) return;
     if (!windows.some((w) => w.value.toLowerCase() === email)) {
       windows.push({ value: email, index: 0 });
@@ -326,6 +390,8 @@ function extractContacts(html: string, url: string): ContactCandidate[] {
       urlLower.includes("info") ||
       urlLower.includes("referee") ||
       urlLower.includes("official") ||
+      urlLower.includes("assignor") ||
+      urlLower.includes("director") ||
       normalizedHtml.toLowerCase().includes("contact us");
     const globalLower = normalizedHtml.toLowerCase();
 
@@ -342,13 +408,16 @@ function extractContacts(html: string, url: string): ContactCandidate[] {
       const emailSelfCue =
         emailLower.includes("info@") ||
         emailLower.includes("contact@") ||
+        emailLower.includes("tournament@") ||
         emailLower.includes("director@") ||
         emailLower.includes("assignor@") ||
         emailLower.includes("referee@") ||
         emailLower.includes("officials@");
-      const contextCue =
-        hasContactCue(snippet) || hasContactCue(normalizedHtml) || hasContactCue(textOnly) || pageHasContactCue;
-      if (!contextCue && !emailSelfCue) {
+      const localCue = hasContactCue(snippet);
+      const globalCue = hasContactCue(normalizedHtml) || hasContactCue(textOnly) || pageHasContactCue;
+      const allowLooseCue = pageHasContactCue && (urlLower.includes("contact") || urlLower.includes("referee") || urlLower.includes("official") || urlLower.includes("assignor"));
+      const isMailto = mailtoEmails.has(email);
+      if (!localCue && !emailSelfCue && !isMailto && !allowLooseCue) {
         continue;
       }
     }
@@ -833,6 +902,20 @@ export function extractFromPage(html: string, url: string): PageResult {
 
 export function rankLinks($: cheerio.CheerioAPI, baseUrl: URL): string[] {
   const scores: Record<string, number> = {};
+  const priorityKeywords = [
+    "contact",
+    "questions",
+    "referee",
+    "referees",
+    "officials",
+    "assignor",
+    "director",
+    "staff",
+    "tournament",
+    "about",
+    "help",
+    "support",
+  ];
   $("a[href]").each((_, el) => {
     const href = $(el).attr("href");
     if (!href) return;
@@ -846,6 +929,9 @@ export function rankLinks($: cheerio.CheerioAPI, baseUrl: URL): string[] {
       const keywordHits = [...ROLE_KEYWORDS.TD, ...ROLE_KEYWORDS.ASSIGNOR, ...VENUE_KEYWORDS, ...RATE_KEYWORDS, ...TRAVEL_KEYWORDS];
       keywordHits.forEach((k) => {
         if (path.includes(k) || text.includes(k)) score += 2;
+      });
+      priorityKeywords.forEach((k) => {
+        if (path.includes(k) || text.includes(k)) score += 4;
       });
       if (path.includes("referee") || path.includes("referees") || path.includes("officials") || path.includes("assignor") || text.includes("referee") || text.includes("officials")) {
         score += 6;

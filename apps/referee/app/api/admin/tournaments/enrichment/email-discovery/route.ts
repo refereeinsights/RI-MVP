@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { promises as dns } from "node:dns";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { queueEnrichmentJobs, runQueuedEnrichment } from "@/server/enrichment/pipeline";
@@ -34,6 +35,11 @@ export async function POST(req: Request) {
     .not("dismissed_at", "is", null);
   const dismissedIds = new Set((dismissedRows ?? []).map((r: any) => r.tournament_id).filter(Boolean));
 
+  const { data: deadDomainsRows } = await supabaseAdmin
+    .from("tournament_dead_domains" as any)
+    .select("domain");
+  const deadDomains = new Set((deadDomainsRows ?? []).map((r: any) => String(r.domain).toLowerCase()));
+
   const { data: tournaments } = await supabaseAdmin
     .from("tournaments" as any)
     .select("id,official_website_url,source_url,do_not_contact,tournament_director_email,referee_contact_email")
@@ -44,12 +50,75 @@ export async function POST(req: Request) {
     .order("updated_at", { ascending: false })
     .limit(limit);
 
-  const tournamentIds = (tournaments ?? [])
-    .map((t: any) => t.id)
-    .filter((id: any) => id && !dismissedIds.has(id));
+  const withUrls = (tournaments ?? [])
+    .map((t: any) => {
+      const url = t.official_website_url ?? t.source_url ?? null;
+      return { ...t, _candidate_url: url };
+    })
+    .filter((t: any) => t._candidate_url);
+
+  const domainFor = (raw: string | null) => {
+    if (!raw) return null;
+    try {
+      return new URL(raw).hostname.toLowerCase();
+    } catch {
+      return null;
+    }
+  };
+
+  const domainCheckQueue = new Map<string, string[]>();
+  for (const t of withUrls) {
+    const domain = domainFor(t._candidate_url);
+    if (!domain) continue;
+    if (deadDomains.has(domain)) continue;
+    if (!domainCheckQueue.has(domain)) domainCheckQueue.set(domain, []);
+    domainCheckQueue.get(domain)!.push(t.id);
+  }
+
+  const deadNow = new Set<string>();
+  const domains = Array.from(domainCheckQueue.keys());
+  const concurrency = 5;
+  for (let i = 0; i < domains.length; i += concurrency) {
+    const slice = domains.slice(i, i + concurrency);
+    await Promise.all(
+      slice.map(async (domain) => {
+        try {
+          await dns.lookup(domain);
+        } catch (err: any) {
+          if (err?.code === "ENOTFOUND") {
+            deadNow.add(domain);
+          }
+        }
+      })
+    );
+  }
+
+  if (deadNow.size) {
+    const now = new Date().toISOString();
+    const deadRows = Array.from(deadNow).map((domain) => ({
+      domain,
+      last_failed_at: now,
+      reason: "dns_enotfound",
+    }));
+    await supabaseAdmin
+      .from("tournament_dead_domains" as any)
+      .upsert(deadRows, { onConflict: "domain" });
+  }
+
+  const tournamentIds = withUrls
+    .filter((t: any) => {
+      const domain = domainFor(t._candidate_url);
+      if (!t.id) return false;
+      if (dismissedIds.has(t.id)) return false;
+      if (domain && (deadDomains.has(domain) || deadNow.has(domain))) return false;
+      return true;
+    })
+    .map((t: any) => t.id);
   if (!tournamentIds.length) {
     return NextResponse.json({ ok: false, message: "No tournaments missing emails with URLs." });
   }
+
+  const filteredTournaments = withUrls.filter((t: any) => tournamentIds.includes(t.id));
 
   const { data: runRow, error: runError } = await supabaseAdmin
     .from("tournament_email_discovery_runs" as any)
@@ -136,7 +205,7 @@ export async function POST(req: Request) {
     return 10;
   };
 
-  const resultRows = (tournaments ?? []).map((t: any) => {
+  const resultRows = filteredTournaments.map((t: any) => {
     const emails = Array.from(emailMap.get(String(t.id)) ?? []).sort((a, b) => {
       const rank = rankEmail(a) - rankEmail(b);
       return rank !== 0 ? rank : a.localeCompare(b);
