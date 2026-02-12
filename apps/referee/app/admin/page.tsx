@@ -3963,9 +3963,22 @@ export default async function AdminPage({
                           <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
                             {job.tournaments?.name ?? "—"}
                           </td>
-                          <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                          <td style={{ padding: 8, borderBottom: "1px solid #eee", maxWidth: 220 }}>
                             {url ? (
-                              <a href={url} target="_blank" rel="noreferrer">
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={url}
+                                style={{
+                                  display: "inline-block",
+                                  maxWidth: 220,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                  verticalAlign: "top",
+                                }}
+                              >
                                 {url}
                               </a>
                             ) : (
