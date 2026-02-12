@@ -17,11 +17,13 @@ const REQUIRED_FIELDS = [
   "venue",
   "address",
   "city",
+  "state",
   "zip",
 ] as const;
 
 const ALL_FIELDS = [
   ...REQUIRED_FIELDS,
+  "additional_venues",
   "tournament_director_phone",
   "referee_contact",
   "referee_contact_email",
@@ -62,6 +64,31 @@ function normalizeTournamentValue(value: any): string | boolean | null {
   return String(value);
 }
 
+function normalizeStateAbbreviation(value: FormDataEntryValue | null): string | null {
+  const raw = normalizeText(value);
+  if (!raw) return null;
+  const upper = raw.toUpperCase();
+  return /^[A-Z]{2}$/.test(upper) ? upper : null;
+}
+
+function formatAdditionalVenuesForSnapshot(rows: any[] | null | undefined): string | null {
+  if (!rows?.length) return null;
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  for (const row of rows) {
+    const venue = row?.venues;
+    const name = typeof venue?.name === "string" ? venue.name.trim() : "";
+    const address = typeof venue?.address === "string" ? venue.address.trim() : "";
+    if (!name) continue;
+    const line = address ? `${name} | ${address}` : name;
+    const key = line.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    lines.push(line);
+  }
+  return lines.length ? lines.join("\n") : null;
+}
+
 async function submitVerificationAction(formData: FormData) {
   "use server";
   const rawToken = String(formData.get("token") || "");
@@ -95,7 +122,9 @@ async function submitVerificationAction(formData: FormData) {
     venue: normalizeText(formData.get("venue")),
     address: normalizeText(formData.get("address")),
     city: normalizeText(formData.get("city")),
+    state: normalizeStateAbbreviation(formData.get("state")),
     zip: normalizeText(formData.get("zip")),
+    additional_venues: normalizeText(formData.get("additional_venues")),
     tournament_director_phone: normalizeText(formData.get("tournament_director_phone")),
     referee_contact: normalizeText(formData.get("referee_contact")),
     referee_contact_email: normalizeText(formData.get("referee_contact_email")),
@@ -128,11 +157,16 @@ async function submitVerificationAction(formData: FormData) {
   const { data: tournamentRowRaw } = await supabaseAdmin
     .from("tournaments" as any)
     .select(
-      "id,start_date,end_date,official_website_url,tournament_director,tournament_director_email,referee_pay,venue,address,city,zip,tournament_director_phone,referee_contact,referee_contact_email,referee_contact_phone,cash_tournament,referee_food,referee_tents,facilities,travel_lodging,mentors"
+      "id,start_date,end_date,official_website_url,tournament_director,tournament_director_email,referee_pay,venue,address,city,state,zip,tournament_director_phone,referee_contact,referee_contact_email,referee_contact_phone,cash_tournament,referee_food,referee_tents,facilities,travel_lodging,mentors"
     )
     .eq("id", tokenRow.tournament_id)
     .maybeSingle();
   const tournamentRow = tournamentRowRaw as any;
+  const { data: linkedVenuesRaw } = await supabaseAdmin
+    .from("tournament_venues" as any)
+    .select("venue_id,venues(name,address)")
+    .eq("tournament_id", tokenRow.tournament_id);
+  const linkedVenues = (linkedVenuesRaw ?? []) as any[];
 
   if (!tournamentRow) {
     redirect(`${redirectBase}?error=invalid`);
@@ -148,7 +182,9 @@ async function submitVerificationAction(formData: FormData) {
     venue: normalizeTournamentValue(tournamentRow.venue) as string | null,
     address: normalizeTournamentValue(tournamentRow.address) as string | null,
     city: normalizeTournamentValue(tournamentRow.city) as string | null,
+    state: normalizeTournamentValue(tournamentRow.state) as string | null,
     zip: normalizeTournamentValue(tournamentRow.zip) as string | null,
+    additional_venues: formatAdditionalVenuesForSnapshot(linkedVenues),
     tournament_director_phone: normalizeTournamentValue(tournamentRow.tournament_director_phone) as string | null,
     referee_contact: normalizeTournamentValue(tournamentRow.referee_contact) as string | null,
     referee_contact_email: normalizeTournamentValue(tournamentRow.referee_contact_email) as string | null,
@@ -264,11 +300,16 @@ export default async function TournamentVerifyPage({ params, searchParams }: Ver
   const { data: tournamentRaw } = await supabaseAdmin
     .from("tournaments" as any)
     .select(
-      "id,name,start_date,end_date,official_website_url,tournament_director,tournament_director_email,referee_pay,venue,address,city,zip,tournament_director_phone,referee_contact,referee_contact_email,referee_contact_phone,cash_tournament,referee_food,referee_tents,facilities,travel_lodging,mentors"
+      "id,name,start_date,end_date,official_website_url,tournament_director,tournament_director_email,referee_pay,venue,address,city,state,zip,tournament_director_phone,referee_contact,referee_contact_email,referee_contact_phone,cash_tournament,referee_food,referee_tents,facilities,travel_lodging,mentors"
     )
     .eq("id", tokenRow.tournament_id)
     .maybeSingle();
   const tournament = tournamentRaw as any;
+  const { data: linkedVenuesRaw } = await supabaseAdmin
+    .from("tournament_venues" as any)
+    .select("venue_id,venues(name,address)")
+    .eq("tournament_id", tokenRow.tournament_id);
+  const additionalVenuesValue = formatAdditionalVenuesForSnapshot(linkedVenuesRaw as any[]);
 
   if (!tournament) {
     return (
@@ -373,8 +414,30 @@ export default async function TournamentVerifyPage({ params, searchParams }: Ver
                   <input type="text" name="city" required defaultValue={tournament.city ?? ""} style={{ width: "100%", padding: 8 }} />
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  State (2-letter) *
+                  <input
+                    type="text"
+                    name="state"
+                    required
+                    maxLength={2}
+                    pattern="[A-Za-z]{2}"
+                    defaultValue={tournament.state ?? ""}
+                    style={{ width: "100%", padding: 8, textTransform: "uppercase" }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Zip *
                   <input type="text" name="zip" required defaultValue={tournament.zip ?? ""} style={{ width: "100%", padding: 8 }} />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Additional venues (optional)
+                  <textarea
+                    name="additional_venues"
+                    defaultValue={additionalVenuesValue ?? ""}
+                    placeholder={"One venue per line\nVenue Name | Address (optional)"}
+                    rows={4}
+                    style={{ width: "100%", padding: 8, resize: "vertical" }}
+                  />
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Referee contact

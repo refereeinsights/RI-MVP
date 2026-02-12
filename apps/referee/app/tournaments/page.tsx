@@ -26,6 +26,8 @@ type Tournament = {
   end_date: string | null;
   source_url: string;
   official_website_url?: string | null;
+  mentors?: string | null;
+  tournament_staff_verified?: boolean | null;
 };
 type EngagementRow = {
   tournament_id: string;
@@ -166,7 +168,7 @@ export default async function TournamentsPage({
 
   let query = supabase
     .from("tournaments_public" as any)
-    .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url")
+    .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url,mentors,tournament_staff_verified")
     .order("start_date", { ascending: true });
 
   const today = new Date().toISOString().slice(0, 10);
@@ -570,8 +572,28 @@ export default async function TournamentsPage({
                 ) : null}
               </div>
 
-              <div className="sportIcon" aria-label={t.sport ?? "tournament sport"}>
-                {sportIcon(t.sport)}
+              <div className="cardFooterBadgeRow">
+                <div className="cardFooterBadge cardFooterBadge--left">
+                  {t.tournament_staff_verified ? (
+                    <img
+                      className="listingBadgeIcon listingBadgeIcon--verified"
+                      src="/svg/ri/tournament_staff_verified.svg"
+                      alt="Tournament staff verified"
+                    />
+                  ) : null}
+                </div>
+                <div className="sportIcon" aria-label={t.sport ?? "tournament sport"}>
+                  {sportIcon(t.sport)}
+                </div>
+                <div className="cardFooterBadge cardFooterBadge--right">
+                  {String(t.mentors ?? "").toLowerCase() === "yes" ? (
+                    <img
+                      className="listingBadgeIcon listingBadgeIcon--mentor"
+                      src="/svg/ri/mentor_supported.svg"
+                      alt="Mentor supported"
+                    />
+                  ) : null}
+                </div>
               </div>
             </article>
           ))}

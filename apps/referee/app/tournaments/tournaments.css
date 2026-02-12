@@ -686,6 +686,45 @@
   text-shadow: 0 2px 10px rgba(0,0,0,0.35);
 }
 
+.cardFooterBadgeRow {
+  margin-top: 0.7rem;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: 12px;
+}
+
+.cardFooterBadge {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+}
+
+.cardFooterBadge--left {
+  justify-content: flex-end;
+}
+
+.cardFooterBadge--right {
+  justify-content: flex-start;
+}
+
+.listingBadgeIcon {
+  display: block;
+  max-height: 52px;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45));
+}
+
+.listingBadgeIcon--verified {
+  max-height: 50px;
+}
+
+.listingBadgeIcon--mentor {
+  max-height: 44px;
+}
+
 .btn {
   display: inline-block;
   padding: 0.55rem 0.85rem;
@@ -723,6 +762,7 @@
   position: relative;
   margin: 0.75rem;
   padding: 1.25rem;
+  padding-top: 5.25rem;
   border-radius: 16px;
   border: 2px solid rgba(255,255,255,0.55);
   backdrop-filter: blur(6px);
@@ -731,7 +771,58 @@
 @media (max-width: 640px) {
   .detailPanel {
     padding: 1rem;
+    padding-top: 4.4rem;
     margin: 0.5rem;
+  }
+}
+
+.detailBadgeRail {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  z-index: 3;
+}
+
+.detailBadgeIcon {
+  display: block;
+  width: 180px;
+  height: 103px;
+  object-fit: cover;
+  object-position: center;
+  image-rendering: auto;
+  image-rendering: optimizeQuality;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+}
+
+.detailBadgeIcon--verified {
+  width: 190px;
+  height: 110px;
+}
+
+.detailBadgeIcon--mentor {
+  width: 180px;
+  height: 103px;
+}
+
+@media (max-width: 640px) {
+  .detailBadgeRail {
+    top: 10px;
+    right: 10px;
+    gap: 8px;
+  }
+  .detailBadgeIcon--verified {
+    width: 144px;
+    height: 86px;
+  }
+  .detailBadgeIcon--mentor {
+    width: 134px;
+    height: 79px;
   }
 }
 

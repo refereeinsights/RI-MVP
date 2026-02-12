@@ -17,7 +17,9 @@ const FIELD_LABELS: Record<string, string> = {
   venue: "Primary venue",
   address: "Address",
   city: "City",
+  state: "State",
   zip: "Zip",
+  additional_venues: "Additional venues",
   referee_contact: "Referee contact",
   referee_contact_email: "Referee contact email",
   referee_contact_phone: "Referee contact phone",
@@ -30,11 +32,55 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 const ORDERED_FIELDS = Object.keys(FIELD_LABELS);
+const TOURNAMENT_UPDATE_FIELDS = new Set([
+  "start_date",
+  "end_date",
+  "official_website_url",
+  "tournament_director",
+  "tournament_director_email",
+  "tournament_director_phone",
+  "referee_pay",
+  "venue",
+  "address",
+  "city",
+  "state",
+  "zip",
+  "referee_contact",
+  "referee_contact_email",
+  "referee_contact_phone",
+  "cash_tournament",
+  "referee_food",
+  "referee_tents",
+  "facilities",
+  "travel_lodging",
+  "mentors",
+]);
 
 function formatValue(value: any) {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return String(value);
+}
+
+function parseAdditionalVenues(value: unknown): Array<{ name: string; address: string | null }> {
+  if (typeof value !== "string") return [];
+  const rows = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const seen = new Set<string>();
+  const parsed: Array<{ name: string; address: string | null }> = [];
+  for (const row of rows) {
+    const [nameRaw, ...rest] = row.split("|");
+    const name = (nameRaw ?? "").trim();
+    const address = rest.join("|").trim() || null;
+    if (!name) continue;
+    const key = `${name.toLowerCase()}|${(address ?? "").toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    parsed.push({ name, address });
+  }
+  return parsed;
 }
 
 export default async function StaffVerificationQueuePage({
@@ -73,10 +119,18 @@ export default async function StaffVerificationQueuePage({
 
     const proposed = submission.proposed_values ?? {};
     const diffFields: string[] = submission.diff_fields ?? [];
+    const { data: tournamentRaw } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("id,city,state,sport")
+      .eq("id", submission.tournament_id)
+      .maybeSingle();
+    const tournament = tournamentRaw as any;
 
     const updates: Record<string, any> = {};
     diffFields.forEach((key) => {
-      updates[key] = proposed[key] ?? null;
+      if (TOURNAMENT_UPDATE_FIELDS.has(key)) {
+        updates[key] = proposed[key] ?? null;
+      }
     });
 
     updates.tournament_staff_verified = true;
@@ -88,6 +142,50 @@ export default async function StaffVerificationQueuePage({
       .from("tournaments" as any)
       .update(updates)
       .eq("id", submission.tournament_id);
+
+    const additionalVenues = parseAdditionalVenues(proposed.additional_venues);
+    if (additionalVenues.length) {
+      const city = typeof updates.city === "string" ? updates.city : tournament?.city ?? null;
+      const state = typeof updates.state === "string" ? updates.state : tournament?.state ?? null;
+      const sport = tournament?.sport ?? null;
+      for (const row of additionalVenues) {
+        let venueId: string | null = null;
+        if (!row.address) {
+          const { data: existingRaw } = await supabaseAdmin
+            .from("venues" as any)
+            .select("id")
+            .eq("name", row.name)
+            .eq("city", city)
+            .eq("state", state)
+            .or("address.is.null,address.eq.")
+            .limit(1)
+            .maybeSingle();
+          venueId = (existingRaw as any)?.id ?? null;
+        }
+        if (!venueId) {
+          const { data: upsertedRaw } = await supabaseAdmin
+            .from("venues" as any)
+            .upsert(
+              {
+                name: row.name,
+                address: row.address,
+                city,
+                state,
+                sport,
+              },
+              { onConflict: "name,address,city,state" }
+            )
+            .select("id")
+            .maybeSingle();
+          venueId = (upsertedRaw as any)?.id ?? null;
+        }
+        if (venueId) {
+          await supabaseAdmin
+            .from("tournament_venues" as any)
+            .upsert({ tournament_id: submission.tournament_id, venue_id: venueId }, { onConflict: "tournament_id,venue_id" });
+        }
+      }
+    }
 
     await supabaseAdmin
       .from("tournament_staff_verification_submissions" as any)

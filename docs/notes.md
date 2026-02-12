@@ -147,6 +147,37 @@
     - `apps/referee/app/tournaments/hubs/_components/SportHubPage.tsx`
     - `apps/referee/app/tournaments/hubs/[sport]/[state]/page.tsx`
     - `apps/referee/app/sitemap.ts`
+- Enrichment scope reduction (venues + comp + noisy attributes):
+  - Stopped surfacing pending referee comp candidates in enrichment queue (`apps/referee/app/admin/tournaments/enrichment/page.tsx`, `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`).
+  - Stopped extracting/persisting referee comp candidates from page enrichment runs (`apps/referee/src/server/enrichment/extract.ts`, `apps/referee/src/server/enrichment/pipeline.ts`).
+  - Stopped generating `facilities` and `travel_lodging` attribute candidates in extractor (`apps/referee/src/server/enrichment/extract.ts`, `apps/referee/src/server/enrichment/types.ts`).
+  - Apply route no longer writes `facilities` or `travel_lodging` from attribute candidates (`apps/referee/app/api/admin/tournaments/enrichment/apply/route.ts`).
+  - One-time pending queue cleanup run completed:
+    - pending referee comp candidates: `97 -> 0`
+    - pending noisy attributes (`facilities`,`travel_lodging`): `181 -> 0`
+- Tournament director verification form update:
+  - Added required `state` field between city and zip on token verification flow and preview page.
+  - State input now enforces 2-letter abbreviation format and normalizes to uppercase on submit.
+  - Included `state` in verification snapshot/proposed diff pipeline so admin review shows/apply includes it.
+  - Added optional `additional_venues` input on verification form (one venue per line, optional `| address` format).
+  - Admin approval now parses submitted additional venues and links them into `venues` + `tournament_venues`.
+- Enrichment to outreach handoff for low-information tournaments:
+  - Added a new “Priority outreach targets (missing both emails + dates)” panel in enrichment UI:
+    - `apps/referee/app/admin/tournaments/enrichment/page.tsx`
+    - `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`
+  - Priority list is scoped to `published + canonical + do_not_contact=false + start/end date missing + both emails missing`, and excludes tournaments already in `tournament_outreach`.
+  - Added API endpoint to batch add selected targets directly into outreach draft:
+    - `apps/referee/app/api/admin/outreach/queue/route.ts`
+  - Inserted outreach rows use `status='draft'` with notes flag `priority_target_missing_both_emails_and_dates` so admins can quickly add email and proceed with manual outreach.
+- Listing badges for verified + mentors:
+  - Added `mentors` and `tournament_staff_verified` to constrained public view via migration:
+    - `supabase/migrations/20260212_tournaments_public_add_badge_fields.sql`
+  - Tournament list cards now show badges around the sport icon:
+    - left badge: `Verified` when `tournament_staff_verified=true`
+    - right badge: `Mentors` when `mentors='yes'`
+    - files: `apps/referee/app/tournaments/page.tsx`, `apps/referee/app/tournaments/tournaments.css`
+  - Demo tournament updated in DB:
+    - slug `refereeinsights-demo-tournament` set to `mentors='yes'` and `tournament_staff_verified=true`.
 
 ### Actions to run after reboot
 - Apply migration: `supabase/migrations/20260212_tournament_dead_domains.sql`.
@@ -154,3 +185,21 @@
 ### Notes
 - Email discovery runs are admin-only; use `/admin?tab=tournament-contacts` → “Discover contacts”.
 - If discovery appears stuck, check terminal logs for `[enricher]` errors; DNS failures are expected and now skipped.
+- Outreach + detail UX updates:
+  - Outreach queue now shows status pills beside tournament name with explicit date labels (e.g. `Email sent - Feb 12, 2026`) after `Mark sent` in `apps/referee/app/admin/outreach/page.tsx`.
+  - Public tournament detail page now loads additional tournament fields for logged-in users directly from `public.tournaments` (without exposing them in `tournaments_public`):
+    - `referee_pay`, `referee_contact`, `referee_contact_email`, `referee_contact_phone`, `tournament_director`, `tournament_director_email`, `tournament_director_phone`, `cash_tournament`.
+  - Logged-in detail rows now render only populated values (no placeholder rows).
+  - Referee score/category pills on detail page updated for high-contrast readability on dark cards.
+  - Venue UX improvements on detail page (no login required):
+    - supports single and multi-venue display from `tournament_venues`.
+    - each venue now includes direct mobile map links for Google Maps, Apple Maps, and Waze.
+- Demo tournament data setup:
+  - Updated `RefereeInsights Demo Tournament` with:
+    - `tournament_director_email=rod@refereeinsights.com`
+    - `referee_contact_email=rod@refereeinsights.com`
+    - `referee_pay=$50 per game`
+  - Added and linked demo venues:
+    - `Rainier Vista Soccer Complex` (Seattle, WA)
+    - `Cedar River Athletic Fields` (Renton, WA)
+  - Demo tournament currently has 3 linked venues total (including existing `RefereeInsights Field`).

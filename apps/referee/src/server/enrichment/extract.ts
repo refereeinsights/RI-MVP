@@ -852,24 +852,11 @@ function extractAttributes($: cheerio.CheerioAPI, url: string): AttributeCandida
       }
     }
 
-    if (lower.includes("restroom") || lower.includes("bathroom")) {
-      push("facilities", "restrooms", line, 0.6);
-    } else if (lower.includes("portable") || lower.includes("porta")) {
-      push("facilities", "portables", line, 0.6);
-    }
-
     if (lower.includes("referee tent") || lower.includes("ref tent") || lower.includes("officials tent")) {
       if (lower.includes("no referee tent") || lower.includes("no ref tent") || lower.includes("no officials tent")) {
         push("referee_tents", "no", line, 0.7);
       } else {
         push("referee_tents", "yes", line, 0.7);
-      }
-    }
-
-    if (hasRefereeContext && TRAVEL_KEYWORDS.some((k) => lower.includes(k))) {
-      const travelValue = extractTravelLodgingValue(line);
-      if (travelValue) {
-        push("travel_lodging", travelValue, line, 0.6);
       }
     }
 
@@ -954,16 +941,14 @@ export function extractFromPage(html: string, url: string): PageResult {
   $("script,style").remove();
   const cleanedHtml = $.html() || html;
   const contacts = extractContacts(cleanedHtml, url);
-  const venues = extractVenues($, url);
-  const compRes = extractComp($, url);
   const dates = extractDates($, url);
   const attributes = extractAttributes($, url);
 
   return {
     contacts,
-    venues,
-    comps: compRes.comps,
-    pdfHints: compRes.pdfs,
+    venues: [],
+    comps: [],
+    pdfHints: [],
     dates,
     attributes,
   };

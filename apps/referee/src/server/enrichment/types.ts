@@ -49,9 +49,7 @@ export type AttributeCandidate = {
   attribute_key:
     | "cash_at_field"
     | "referee_food"
-    | "facilities"
     | "referee_tents"
-    | "travel_lodging"
     | "ref_game_schedule"
     | "ref_parking"
     | "ref_parking_cost"

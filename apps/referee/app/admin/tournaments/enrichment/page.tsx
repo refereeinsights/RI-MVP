@@ -13,6 +13,16 @@ type MissingUrlTournament = {
   level: string | null;
   source_url?: string | null;
 };
+type PriorityOutreachTournament = {
+  id: string;
+  name: string | null;
+  slug: string | null;
+  state: string | null;
+  city: string | null;
+  sport: string | null;
+  source_url: string | null;
+  official_website_url: string | null;
+};
 type Job = {
   id: string;
   tournament_id: string;
@@ -32,26 +42,6 @@ type ContactCandidate = {
   email: string | null;
   phone: string | null;
   role_normalized: string | null;
-  source_url: string | null;
-  confidence: number | null;
-  created_at: string | null;
-};
-
-type VenueCandidate = {
-  id: string;
-  tournament_id: string;
-  venue_name: string | null;
-  address_text: string | null;
-  source_url: string | null;
-  confidence: number | null;
-  created_at: string | null;
-};
-
-type CompCandidate = {
-  id: string;
-  tournament_id: string;
-  rate_text: string | null;
-  travel_lodging: "hotel" | "stipend" | null;
   source_url: string | null;
   confidence: number | null;
   created_at: string | null;
@@ -135,11 +125,10 @@ async function loadData() {
       tournaments: [],
       jobs: [],
       contacts: [],
-      venues: [],
-      comps: [],
       dates: [],
       attributes: [],
       missing_urls: [],
+      priority_outreach_targets: [],
       tournament_url_lookup: {},
       candidate_tournaments: {},
       url_suggestions: [],
@@ -174,14 +163,10 @@ async function loadData() {
       .filter((j: any) => ["queued", "running", "done"].includes(String(j.status)))
       .map((j: any) => j.tournament_id)
   );
-  const [contactsRows, compsRows, datesRows, attributeRows] = await Promise.all([
+  const [contactsRows, datesRows, attributeRows] = await Promise.all([
     fetchAllPendingRows(
       "tournament_contact_candidates",
       "id,tournament_id,email,phone,role_normalized,source_url,confidence,created_at"
-    ),
-    fetchAllPendingRows(
-      "tournament_referee_comp_candidates",
-      "id,tournament_id,rate_text,travel_lodging,source_url,confidence,created_at"
     ),
     fetchAllPendingRows(
       "tournament_date_candidates",
@@ -194,9 +179,10 @@ async function loadData() {
   ]);
   const candidateIds = new Set<string>();
   contactsRows.forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
-  compsRows.forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
   datesRows.forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
-  attributeRows.forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
+  attributeRows
+    .filter((row: any) => !["facilities", "travel_lodging"].includes(String(row.attribute_key ?? "")))
+    .forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
   let tournamentUrlLookup: Record<string, string | null> = {};
   let candidateTournamentLookup: Record<string, { name: string | null; slug: string | null; state: string | null; city: string | null; url: string | null }> = {};
   if (candidateIds.size > 0) {
@@ -223,6 +209,41 @@ async function loadData() {
     .eq("status", "pending")
     .order("created_at", { ascending: false })
     .limit(50);
+  const priorityResp = await supabaseAdmin
+    .from("tournaments" as any)
+    .select("id,name,slug,state,city,sport,source_url,official_website_url,start_date,end_date,tournament_director_email,referee_contact_email,do_not_contact")
+    .eq("status", "published")
+    .eq("is_canonical", true)
+    .eq("do_not_contact", false)
+    .is("start_date", null)
+    .is("end_date", null)
+    .order("updated_at", { ascending: false })
+    .limit(200);
+  const hasEmail = (val: unknown) => typeof val === "string" && val.trim().length > 0;
+  const priorityPool = (priorityResp.data ?? []).filter(
+    (row: any) => !hasEmail(row.tournament_director_email) && !hasEmail(row.referee_contact_email)
+  );
+  let priorityTargets: PriorityOutreachTournament[] = [];
+  if (priorityPool.length) {
+    const ids = priorityPool.map((row: any) => row.id).filter(Boolean);
+    const { data: existingOutreach } = await supabaseAdmin
+      .from("tournament_outreach" as any)
+      .select("tournament_id")
+      .in("tournament_id", ids);
+    const existingSet = new Set((existingOutreach ?? []).map((row: any) => row.tournament_id));
+    priorityTargets = priorityPool
+      .filter((row: any) => !existingSet.has(row.id))
+      .map((row: any) => ({
+        id: row.id,
+        name: row.name ?? null,
+        slug: row.slug ?? null,
+        state: row.state ?? null,
+        city: row.city ?? null,
+        sport: row.sport ?? null,
+        source_url: row.source_url ?? null,
+        official_website_url: row.official_website_url ?? null,
+      }));
+  }
   return {
     tournaments:
       (tournamentsResp.data ?? [])
@@ -256,11 +277,12 @@ async function loadData() {
           source_url: t.source_url ?? null,
           start_date: t.start_date ?? null,
         })) as MissingUrlTournament[],
+    priority_outreach_targets: priorityTargets,
     contacts: contactsRows as ContactCandidate[],
-    venues: [] as VenueCandidate[],
-    comps: compsRows as CompCandidate[],
     dates: datesRows as DateCandidate[],
-    attributes: attributeRows as AttributeCandidate[],
+    attributes: attributeRows.filter(
+      (row: any) => !["facilities", "travel_lodging"].includes(String(row.attribute_key ?? ""))
+    ) as AttributeCandidate[],
     tournament_url_lookup: tournamentUrlLookup,
     candidate_tournaments: candidateTournamentLookup,
     url_suggestions:
@@ -286,10 +308,9 @@ export default async function Page() {
       missingUrls={data.missing_urls}
       jobs={data.jobs}
       contacts={data.contacts}
-      venues={data.venues}
-      comps={data.comps}
       dates={data.dates}
       attributes={data.attributes}
+      priorityOutreachTargets={data.priority_outreach_targets}
       urlSuggestions={data.url_suggestions}
       tournamentUrlLookup={data.tournament_url_lookup}
       candidateTournaments={data.candidate_tournaments}

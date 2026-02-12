@@ -187,27 +187,6 @@ async function upsertCandidates(
       await supabaseAdmin.from("tournament_venue_candidates" as any).insert(withTid(deduped));
     }
   }
-  if (comps.length) {
-    const { data: existing } = await supabaseAdmin
-      .from("tournament_referee_comp_candidates" as any)
-      .select("rate_text,travel_lodging")
-      .eq("tournament_id", tournamentId)
-      .is("accepted_at", null)
-      .is("rejected_at", null);
-    const existingSig = new Set(
-      (existing ?? []).map((c: any) => [norm(c.rate_text), norm(c.travel_lodging)].join("|"))
-    );
-    const batchSig = new Set<string>();
-    const deduped = comps.filter((c) => {
-      const sig = [norm(c.rate_text), norm(c.travel_lodging)].join("|");
-      if (existingSig.has(sig) || batchSig.has(sig)) return false;
-      batchSig.add(sig);
-      return true;
-    });
-    if (deduped.length) {
-      await supabaseAdmin.from("tournament_referee_comp_candidates" as any).insert(withTid(deduped));
-    }
-  }
   if (dates.length) {
     const { data: existing } = await supabaseAdmin
       .from("tournament_date_candidates" as any)
@@ -274,7 +253,7 @@ async function processTournamentById(
     tournamentId,
     scrape.contacts.slice(0, 20),
     [],
-    scrape.comps.slice(0, 5),
+    [],
     scrape.dates.slice(0, 5),
     scrape.attributes.slice(0, 10)
   );

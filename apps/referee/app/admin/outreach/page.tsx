@@ -315,6 +315,11 @@ export default async function OutreachPage({
       .from("tournaments" as any)
       .update({ tournament_director_email: email })
       .eq("id", tournamentId);
+    await supabaseAdmin
+      .from("tournament_outreach" as any)
+      .update({ contact_email: email })
+      .eq("tournament_id", tournamentId)
+      .or("contact_email.is.null,contact_email.eq.");
     redirect(`/admin/outreach?tab=${tab}&notice=${encodeURIComponent("Email updated")}`);
   }
 
@@ -538,7 +543,13 @@ export default async function OutreachPage({
               {outreachRows.map((row) => {
                 const tournament = row.tournaments ?? {};
                 const contactName = row.contact_name ?? tournament.tournament_director ?? null;
-                const contactEmail = row.contact_email ?? tournament.tournament_director_email ?? "";
+                const rowContactEmail =
+                  typeof row.contact_email === "string" ? row.contact_email.trim() : "";
+                const tournamentDirectorEmail =
+                  typeof tournament.tournament_director_email === "string"
+                    ? tournament.tournament_director_email.trim()
+                    : "";
+                const contactEmail = rowContactEmail || tournamentDirectorEmail || "";
                 const doNotContact = Boolean(tournament.do_not_contact);
                 const { subject, body } = row.email_subject_snapshot && row.email_body_snapshot
                   ? { subject: row.email_subject_snapshot, body: row.email_body_snapshot }
@@ -560,13 +571,52 @@ export default async function OutreachPage({
                       year: "numeric",
                     })
                   : "";
+                const formatStatusDate = (value: string | null | undefined) =>
+                  value
+                    ? new Date(value).toLocaleDateString("en-US", {
+                        timeZone: "America/Los_Angeles",
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "";
+                const sentLabel = row.status === "sent"
+                  ? `Email sent - ${formatStatusDate(row.sent_at || row.updated_at)}`
+                  : row.status === "followup_sent"
+                  ? `Follow-up sent - ${formatStatusDate(row.followup_sent_at || row.updated_at)}`
+                  : row.status === "replied"
+                  ? `Replied - ${formatStatusDate(row.replied_at || row.updated_at)}`
+                  : row.sent_at
+                  ? `Email sent - ${formatStatusDate(row.sent_at)}`
+                  : row.followup_sent_at
+                  ? `Follow-up sent - ${formatStatusDate(row.followup_sent_at)}`
+                  : row.replied_at
+                  ? `Replied - ${formatStatusDate(row.replied_at)}`
+                  : "";
 
                 return (
                   <details key={row.id} style={{ border: "1px solid #ddd", borderRadius: 14, padding: 12, background: "#fff" }}>
                     <summary style={{ listStyle: "none", cursor: "pointer" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                         <div>
-                          <div style={{ fontWeight: 900 }}>{tournament.name ?? "Unknown tournament"}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span style={{ fontWeight: 900 }}>{tournament.name ?? "Unknown tournament"}</span>
+                            {sentLabel ? (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  color: "#0f5132",
+                                  background: "#dcfce7",
+                                  border: "1px solid #86efac",
+                                  borderRadius: 999,
+                                  padding: "2px 8px",
+                                }}
+                              >
+                                {sentLabel}
+                              </span>
+                            ) : null}
+                          </div>
                           <div style={{ fontSize: 12, color: "#666" }}>
                             {tournament.city ?? ""}{tournament.city && tournament.state ? ", " : ""}{tournament.state ?? ""}
                           </div>

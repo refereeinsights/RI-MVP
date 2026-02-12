@@ -35,6 +35,18 @@ type TournamentDetailRow = {
   venue: string | null;
   address: string | null;
   sport: string | null;
+  mentors?: string | null;
+  tournament_staff_verified?: boolean | null;
+};
+type TournamentPrivateDetailRow = {
+  referee_pay: string | null;
+  referee_contact: string | null;
+  referee_contact_email: string | null;
+  referee_contact_phone: string | null;
+  tournament_director: string | null;
+  tournament_director_email: string | null;
+  tournament_director_phone: string | null;
+  cash_tournament: boolean | null;
 };
 type EngagementRow = {
   tournament_id: string;
@@ -82,6 +94,17 @@ function formatWhistleAverage(score: number | null) {
   return whistles % 1 === 0 ? whistles.toFixed(0) : whistles.toFixed(1);
 }
 
+function formatCategoryAverage(score: number | null) {
+  if (score === null || Number.isNaN(score)) return null;
+  return score % 1 === 0 ? score.toFixed(0) : score.toFixed(1);
+}
+
+function average(values: number[]) {
+  if (!values.length) return null;
+  const total = values.reduce((sum, value) => sum + value, 0);
+  return Math.round((total / values.length) * 10) / 10;
+}
+
 function toWhistleScore(aiScore: number | null) {
   if (!Number.isFinite(aiScore ?? NaN)) return null;
   return Math.max(1, Math.min(5, (aiScore ?? 0) / 20));
@@ -112,6 +135,22 @@ function buildLocationLabel(city: string | null, state: string | null) {
 
 function buildCanonicalUrl(slug: string) {
   return `${SITE_ORIGIN}/tournaments/${slug}`;
+}
+
+function buildVenueQuery(parts: Array<string | null | undefined>) {
+  return parts
+    .map((part) => (part ?? "").trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+function buildMapLinks(query: string) {
+  const encoded = encodeURIComponent(query);
+  return {
+    google: `https://www.google.com/maps/search/?api=1&query=${encoded}`,
+    apple: `https://maps.apple.com/?q=${encoded}`,
+    waze: `https://waze.com/ul?q=${encoded}&navigate=yes`,
+  };
 }
 
 function normalizeSportSlug(sport: string) {
@@ -175,7 +214,7 @@ export default async function TournamentDetailPage({
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
     .select(
-      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,referee_contact,tournament_director,level,venue,address,sport"
+      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,referee_contact,tournament_director,level,venue,address,sport,mentors,tournament_staff_verified"
     )
     .eq("slug", params.slug)
     .single<TournamentDetailRow>();
@@ -220,6 +259,12 @@ export default async function TournamentDetailPage({
     ...review,
     sport: data.sport ?? null,
   }));
+  const categoryAverages = {
+    logistics: average(reviews.map((r) => r.logistics_score).filter((v) => Number.isFinite(v))),
+    facilities: average(reviews.map((r) => r.facilities_score).filter((v) => Number.isFinite(v))),
+    pay: average(reviews.map((r) => r.pay_score).filter((v) => Number.isFinite(v))),
+    support: average(reviews.map((r) => r.support_score).filter((v) => Number.isFinite(v))),
+  };
   const { count: pendingContactsCount } = await supabaseAdmin
     .from("tournament_contacts" as any)
     .select("id", { count: "exact", head: true })
@@ -230,6 +275,8 @@ export default async function TournamentDetailPage({
     data.slug ?? ""
   )}&tournament_id=${encodeURIComponent(data.id)}&source_url=${encodeURIComponent(detailPath)}`;
   const canonicalUrl = buildCanonicalUrl(data.slug ?? params.slug);
+  const primaryVenueQuery = buildVenueQuery([data.venue, data.address, data.city, data.state, data.zip]);
+  const primaryVenueMapLinks = primaryVenueQuery ? buildMapLinks(primaryVenueQuery) : null;
   const eventLd: Record<string, any> = {
     "@context": "https://schema.org",
     "@type": "Event",
@@ -273,8 +320,18 @@ export default async function TournamentDetailPage({
 
   let canSubmitReview = false;
   let disabledMessage: string | null = "Sign in to submit a referee review.";
+  let privateDetails: TournamentPrivateDetailRow | null = null;
 
   if (user) {
+    const { data: privateData } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select(
+        "referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,cash_tournament"
+      )
+      .eq("id", data.id)
+      .maybeSingle<TournamentPrivateDetailRow>();
+    privateDetails = privateData ?? null;
+
     const isVerified = await userIsVerifiedReferee(supabase, user.id);
     if (isVerified) {
       canSubmitReview = true;
@@ -282,6 +339,23 @@ export default async function TournamentDetailPage({
     } else {
       disabledMessage = "Only verified referees can submit reviews.";
     }
+  }
+
+  const privateDetailRows: Array<{ label: string; value: string }> = [];
+  const pushDetailRow = (label: string, raw: string | null | undefined) => {
+    const value = (raw ?? "").trim();
+    if (!value) return;
+    privateDetailRows.push({ label, value });
+  };
+  pushDetailRow("Director", privateDetails?.tournament_director ?? data.tournament_director ?? null);
+  pushDetailRow("Director email", privateDetails?.tournament_director_email ?? null);
+  pushDetailRow("Director phone", privateDetails?.tournament_director_phone ?? null);
+  pushDetailRow("Referee contact", privateDetails?.referee_contact ?? data.referee_contact ?? null);
+  pushDetailRow("Referee contact email", privateDetails?.referee_contact_email ?? null);
+  pushDetailRow("Referee contact phone", privateDetails?.referee_contact_phone ?? null);
+  pushDetailRow("Referee pay", privateDetails?.referee_pay ?? null);
+  if (privateDetails?.cash_tournament === true) {
+    privateDetailRows.push({ label: "Cash tournament", value: "Yes" });
   }
 
   return (
@@ -298,6 +372,24 @@ export default async function TournamentDetailPage({
         </div>
 
         <div className={detailPanelVariant(data.sport)}>
+          {(data.tournament_staff_verified || String(data.mentors ?? "").toLowerCase() === "yes") ? (
+            <div className="detailBadgeRail" aria-label="Tournament badges">
+              {data.tournament_staff_verified ? (
+                <img
+                  className="detailBadgeIcon detailBadgeIcon--verified"
+                  src="/svg/ri/tournament_staff_verified.svg"
+                  alt="Tournament staff verified"
+                />
+              ) : null}
+              {String(data.mentors ?? "").toLowerCase() === "yes" ? (
+                <img
+                  className="detailBadgeIcon detailBadgeIcon--mentor"
+                  src="/svg/ri/mentor_supported.svg"
+                  alt="Mentor supported"
+                />
+              ) : null}
+            </div>
+          ) : null}
           <h1 className="detailTitle">{data.name}</h1>
 
           <p className="detailMeta">
@@ -331,32 +423,92 @@ export default async function TournamentDetailPage({
           ) : null}
 
           {(data.venue || data.address) && (
-            <p className="detailMeta">
-              {data.venue ? `${data.venue}` : ""}
-              {data.venue && data.address ? " • " : ""}
-              {data.address ? `${data.address}` : ""}
-            </p>
+            <div className="detailMeta">
+              <p style={{ margin: 0 }}>
+                {data.venue ? `${data.venue}` : ""}
+                {data.venue && data.address ? " • " : ""}
+                {data.address ? `${data.address}` : ""}
+              </p>
+              {primaryVenueMapLinks ? (
+                <div style={{ marginTop: 4, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <a href={primaryVenueMapLinks.google} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
+                    Google Maps
+                  </a>
+                  <a href={primaryVenueMapLinks.apple} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
+                    Apple Maps
+                  </a>
+                  <a href={primaryVenueMapLinks.waze} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
+                    Waze
+                  </a>
+                </div>
+              ) : null}
+            </div>
           )}
           {linkedVenues.length > 1 && (
             <div className="detailMeta" style={{ marginTop: 6 }}>
               <strong>Venues:</strong>
               <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
-                {linkedVenues.map((v) => (
-                  <li key={v.id} style={{ marginBottom: 4 }}>
-                    {[v.name, v.address, v.city, v.state, v.zip]
-                      .filter(Boolean)
-                      .join(" • ")}
-                  </li>
-                ))}
+                {linkedVenues.map((v) => {
+                  const venueQuery = buildVenueQuery([v.name, v.address, v.city, v.state, v.zip]);
+                  const mapLinks = venueQuery ? buildMapLinks(venueQuery) : null;
+                  return (
+                    <li key={v.id} style={{ marginBottom: 8 }}>
+                      <div>
+                        {[v.name, v.address, v.city, v.state, v.zip]
+                          .filter(Boolean)
+                          .join(" • ")}
+                      </div>
+                      {mapLinks ? (
+                        <div style={{ marginTop: 2, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <a href={mapLinks.google} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
+                            Google Maps
+                          </a>
+                          <a href={mapLinks.apple} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
+                            Apple Maps
+                          </a>
+                          <a href={mapLinks.waze} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
+                            Waze
+                          </a>
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
           {!data.venue && !data.address && linkedVenues.length === 1 && (
-            <p className="detailMeta">
-              {[linkedVenues[0].name, linkedVenues[0].address, linkedVenues[0].city, linkedVenues[0].state, linkedVenues[0].zip]
-                .filter(Boolean)
-                .join(" • ")}
-            </p>
+            <div className="detailMeta">
+              <p style={{ margin: 0 }}>
+                {[linkedVenues[0].name, linkedVenues[0].address, linkedVenues[0].city, linkedVenues[0].state, linkedVenues[0].zip]
+                  .filter(Boolean)
+                  .join(" • ")}
+              </p>
+              {(() => {
+                const venueQuery = buildVenueQuery([
+                  linkedVenues[0].name,
+                  linkedVenues[0].address,
+                  linkedVenues[0].city,
+                  linkedVenues[0].state,
+                  linkedVenues[0].zip,
+                ]);
+                if (!venueQuery) return null;
+                const mapLinks = buildMapLinks(venueQuery);
+                return (
+                  <div style={{ marginTop: 4, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <a href={mapLinks.google} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
+                      Google Maps
+                    </a>
+                    <a href={mapLinks.apple} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
+                      Apple Maps
+                    </a>
+                    <a href={mapLinks.waze} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
+                      Waze
+                    </a>
+                  </div>
+                );
+              })()}
+            </div>
           )}
 
           <div
@@ -373,10 +525,17 @@ export default async function TournamentDetailPage({
           >
             <div style={{ fontWeight: 800, marginBottom: 4 }}>Tournament contacts</div>
             {user ? (
-              <div style={{ display: "grid", gap: 4 }}>
-                <div>Director: {data.tournament_director ?? "—"}</div>
-                <div>Referee contact: {data.referee_contact ?? "—"}</div>
-              </div>
+              privateDetailRows.length ? (
+                <div style={{ display: "grid", gap: 4 }}>
+                  {privateDetailRows.map((row) => (
+                    <div key={row.label}>
+                      {row.label}: {row.value}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div>No verified contact info yet.</div>
+              )
             ) : data.tournament_director || data.referee_contact ? (
               <div>
                 Contact info is available for verified users.{" "}
@@ -582,10 +741,109 @@ export default async function TournamentDetailPage({
               );
             })()}
 
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 10,
+              }}
+            >
+              <span
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(255,255,255,0.55)",
+                  background: "rgba(15,23,42,0.42)",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#ffffff",
+                  textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                }}
+              >
+                Reviews: {whistleScore?.review_count ?? 0}
+              </span>
+              <span
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(255,255,255,0.55)",
+                  background: "rgba(15,23,42,0.42)",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#ffffff",
+                  textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                }}
+              >
+                Logistics: {formatCategoryAverage(categoryAverages.logistics) ?? "—"}
+              </span>
+              <span
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(255,255,255,0.55)",
+                  background: "rgba(15,23,42,0.42)",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#ffffff",
+                  textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                }}
+              >
+                Facilities: {formatCategoryAverage(categoryAverages.facilities) ?? "—"}
+              </span>
+              <span
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(255,255,255,0.55)",
+                  background: "rgba(15,23,42,0.42)",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#ffffff",
+                  textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                }}
+              >
+                Pay: {formatCategoryAverage(categoryAverages.pay) ?? "—"}
+              </span>
+              <span
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(255,255,255,0.55)",
+                  background: "rgba(15,23,42,0.42)",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#ffffff",
+                  textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                }}
+              >
+                Support: {formatCategoryAverage(categoryAverages.support) ?? "—"}
+              </span>
+            </div>
+
             <div className="refereeInsights__layout">
               <div className="refereeInsights__column">
                 <h3 style={{ color: "#ffffff", textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>Recent referee reviews</h3>
-                <RefereeReviewList reviews={reviews} showReviewerHandle={false} />
+                {user ? (
+                  <RefereeReviewList reviews={reviews} showReviewerHandle={false} />
+                ) : (
+                  <div
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid rgba(0,0,0,0.08)",
+                      background: "rgba(255,255,255,0.9)",
+                      fontSize: 13,
+                      color: "#0f172a",
+                    }}
+                  >
+                    Recent review details are available to signed-in users.{" "}
+                    <Link href="/account/login" style={{ fontWeight: 700 }}>
+                      Sign in
+                    </Link>{" "}
+                    to view.
+                  </div>
+                )}
               </div>
               <div className="refereeInsights__column">
                 <div

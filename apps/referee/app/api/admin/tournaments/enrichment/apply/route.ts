@@ -138,9 +138,7 @@ export async function POST(request: Request) {
         updates.cash_at_field = value === "yes";
         if (value === "yes") updates.cash_tournament = true;
       } else if (key === "referee_food") updates.referee_food = value;
-      else if (key === "facilities") updates.facilities = value;
       else if (key === "referee_tents") updates.referee_tents = value;
-      else if (key === "travel_lodging") updates.travel_lodging = value;
       else if (key === "ref_game_schedule") updates.ref_game_schedule = value;
       else if (key === "ref_parking") updates.ref_parking = value;
       else if (key === "ref_parking_cost") updates.ref_parking_cost = value;

@@ -61,8 +61,16 @@ export default function VerificationExamplePage() {
               <input type="text" disabled style={inputStyle} />
             </label>
             <label style={{ fontWeight: 700 }}>
+              State (2-letter) *
+              <input type="text" disabled maxLength={2} placeholder="AZ" style={inputStyle} />
+            </label>
+            <label style={{ fontWeight: 700 }}>
               ZIP *
               <input type="text" disabled style={inputStyle} />
+            </label>
+            <label style={{ fontWeight: 700 }}>
+              Additional venues
+              <textarea disabled rows={3} placeholder="One venue per line" style={inputStyle} />
             </label>
           </div>
 

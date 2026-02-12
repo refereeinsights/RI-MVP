@@ -15,6 +15,16 @@ type MissingUrlTournament = {
   source_url?: string | null;
   start_date?: string | null;
 };
+type PriorityOutreachTournament = {
+  id: string;
+  name: string | null;
+  slug: string | null;
+  state: string | null;
+  city: string | null;
+  sport: string | null;
+  source_url: string | null;
+  official_website_url: string | null;
+};
 type Job = {
   id: string;
   tournament_id: string;
@@ -33,24 +43,6 @@ type ContactCandidate = {
   email: string | null;
   phone: string | null;
   role_normalized: string | null;
-  source_url: string | null;
-  confidence: number | null;
-  created_at: string | null;
-};
-type VenueCandidate = {
-  id: string;
-  tournament_id: string;
-  venue_name: string | null;
-  address_text: string | null;
-  source_url: string | null;
-  confidence: number | null;
-  created_at: string | null;
-};
-type CompCandidate = {
-  id: string;
-  tournament_id: string;
-  rate_text: string | null;
-  travel_lodging: "hotel" | "stipend" | null;
   source_url: string | null;
   confidence: number | null;
   created_at: string | null;
@@ -112,7 +104,7 @@ type CandidateTournament = {
 
 type ReviewItem = {
   key: string;
-  kind: "contact" | "venue" | "date" | "comp-rate" | "comp-hotel" | "comp-cash" | "attribute";
+  kind: "contact" | "date" | "attribute";
   ids: string[];
   label: string;
   detail?: string | null;
@@ -130,10 +122,9 @@ export default function EnrichmentClient({
   missingUrls,
   jobs,
   contacts,
-  venues,
-  comps,
   dates,
   attributes,
+  priorityOutreachTargets,
   urlSuggestions,
   tournamentUrlLookup,
   candidateTournaments,
@@ -142,10 +133,9 @@ export default function EnrichmentClient({
   missingUrls: MissingUrlTournament[];
   jobs: Job[];
   contacts: ContactCandidate[];
-  venues: VenueCandidate[];
-  comps: CompCandidate[];
   dates: DateCandidate[];
   attributes: AttributeCandidate[];
+  priorityOutreachTargets: PriorityOutreachTournament[];
   urlSuggestions: UrlSuggestion[];
   tournamentUrlLookup: Record<string, string | null>;
   candidateTournaments: Record<string, CandidateTournament>;
@@ -156,12 +146,13 @@ export default function EnrichmentClient({
   const [results, setResults] = React.useState<Tournament[]>(tournaments);
   const [searching, setSearching] = React.useState<boolean>(false);
   const [pendingContacts, setPendingContacts] = React.useState<ContactCandidate[]>(contacts);
-  const [pendingVenues, setPendingVenues] = React.useState<VenueCandidate[]>(venues);
-  const [pendingComps, setPendingComps] = React.useState<CompCandidate[]>(comps);
   const [pendingDates, setPendingDates] = React.useState<DateCandidate[]>(dates);
   const [pendingAttributes, setPendingAttributes] = React.useState<AttributeCandidate[]>(attributes);
   const [pendingUrlSuggestions, setPendingUrlSuggestions] = React.useState<UrlSuggestion[]>(urlSuggestions);
   const [missingSelected, setMissingSelected] = React.useState<string[]>([]);
+  const [priorityTargets, setPriorityTargets] = React.useState<PriorityOutreachTournament[]>(priorityOutreachTargets);
+  const [prioritySelected, setPrioritySelected] = React.useState<string[]>([]);
+  const [priorityStatus, setPriorityStatus] = React.useState<string>("");
   const [urlSearchStatus, setUrlSearchStatus] = React.useState<string>("");
   const [urlResults, setUrlResults] = React.useState<Record<string, UrlSearchResult>>({});
   const [manualUrls, setManualUrls] = React.useState<Record<string, string>>({});
@@ -230,45 +221,10 @@ export default function EnrichmentClient({
         confidence: d.confidence,
       });
     });
-    pendingComps.forEach((c) => {
-      if (c.rate_text) {
-        upsert(c.tournament_id, {
-          kind: "comp-rate",
-          id: c.id,
-          label: "Referee comp",
-          detail: c.rate_text,
-          sourceUrl: c.source_url,
-          confidence: c.confidence,
-        });
-      }
-      if (c.travel_lodging) {
-        upsert(c.tournament_id, {
-          kind: "comp-hotel",
-          id: c.id,
-          label: "Referee lodging",
-          detail: c.travel_lodging,
-          sourceUrl: c.source_url,
-          confidence: c.confidence,
-        });
-      }
-      const cashHit = `${c.rate_text ?? ""} ${c.travel_lodging ?? ""}`.toLowerCase().includes("cash");
-      if (cashHit) {
-        upsert(c.tournament_id, {
-          kind: "comp-cash",
-          id: c.id,
-          label: "Cash tournament",
-          detail: "Cash indicated in comp text",
-          sourceUrl: c.source_url,
-          confidence: c.confidence,
-        });
-      }
-    });
     const attributeLabels: Record<string, string> = {
       cash_at_field: "Cash at field",
       referee_food: "Referee food",
-      facilities: "Facilities",
       referee_tents: "Referee tents",
-      travel_lodging: "Travel lodging",
       ref_game_schedule: "Game schedule",
       ref_parking: "Referee parking",
       ref_parking_cost: "Parking cost",
@@ -290,7 +246,7 @@ export default function EnrichmentClient({
       deduped.set(tid, Array.from(items.values()));
     });
     return deduped;
-  }, [pendingContacts, pendingDates, pendingComps, pendingAttributes]);
+  }, [pendingContacts, pendingDates, pendingAttributes]);
 
   React.useEffect(() => {
     setSelectedItems((prev) => {
@@ -315,6 +271,9 @@ export default function EnrichmentClient({
   };
   const toggleMissing = (id: string) => {
     setMissingSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+  const togglePriority = (id: string) => {
+    setPrioritySelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const queue = async (ids?: string[]) => {
@@ -490,6 +449,32 @@ export default function EnrichmentClient({
     refreshPage();
   };
 
+  const queuePriorityForOutreach = async () => {
+    if (!prioritySelected.length) {
+      setPriorityStatus("Select at least one tournament.");
+      return;
+    }
+    setPriorityStatus("Adding to outreach draft...");
+    const res = await fetch("/api/admin/outreach/queue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tournament_ids: prioritySelected }),
+    });
+    const json = await res.json();
+    if (!res.ok || json?.error) {
+      setPriorityStatus(`Queue failed: ${json?.error || res.statusText}`);
+      return;
+    }
+    const createdIds = new Set<string>(Array.isArray(json?.created_ids) ? json.created_ids : []);
+    if (createdIds.size) {
+      setPriorityTargets((prev) => prev.filter((row) => !createdIds.has(row.id)));
+    }
+    setPrioritySelected([]);
+    setPriorityStatus(
+      `Added ${json?.created ?? 0} to outreach draft${(json?.already_exists ?? 0) > 0 ? `, skipped ${json.already_exists} existing` : ""}.`
+    );
+  };
+
   const toggleReviewItem = (tournamentId: string, key: string) => {
     setSelectedItems((prev) => {
       const next = new Set(prev[tournamentId] ?? []);
@@ -541,19 +526,11 @@ export default function EnrichmentClient({
     setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Applied successfully." }));
 
     const contactIds = new Set(payload.filter((p: any) => p.kind === "contact").map((p: any) => p.id));
-    const venueIds = new Set(payload.filter((p: any) => p.kind === "venue").map((p: any) => p.id));
     const dateIds = new Set(payload.filter((p: any) => p.kind === "date").map((p: any) => p.id));
-    const compIds = new Set(
-      payload
-        .filter((p: any) => p.kind === "comp-rate" || p.kind === "comp-hotel" || p.kind === "comp-cash")
-        .map((p: any) => p.id)
-    );
     const attrIds = new Set(payload.filter((p: any) => p.kind === "attribute").map((p: any) => p.id));
 
     if (contactIds.size) setPendingContacts((prev) => prev.filter((c) => !contactIds.has(c.id)));
-    if (venueIds.size) setPendingVenues((prev) => prev.filter((v) => !venueIds.has(v.id)));
     if (dateIds.size) setPendingDates((prev) => prev.filter((d) => !dateIds.has(d.id)));
-    if (compIds.size) setPendingComps((prev) => prev.filter((c) => !compIds.has(c.id)));
     if (attrIds.size) setPendingAttributes((prev) => prev.filter((c) => !attrIds.has(c.id)));
   };
 
@@ -586,18 +563,10 @@ export default function EnrichmentClient({
     }
     setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Deleted selected items." }));
     const contactIds = new Set(payload.filter((p: any) => p.kind === "contact").map((p: any) => p.id));
-    const venueIds = new Set(payload.filter((p: any) => p.kind === "venue").map((p: any) => p.id));
     const dateIds = new Set(payload.filter((p: any) => p.kind === "date").map((p: any) => p.id));
-    const compIds = new Set(
-      payload
-        .filter((p: any) => p.kind === "comp-rate" || p.kind === "comp-hotel" || p.kind === "comp-cash")
-        .map((p: any) => p.id)
-    );
     const attrIds = new Set(payload.filter((p: any) => p.kind === "attribute").map((p: any) => p.id));
     if (contactIds.size) setPendingContacts((prev) => prev.filter((c) => !contactIds.has(c.id)));
-    if (venueIds.size) setPendingVenues((prev) => prev.filter((v) => !venueIds.has(v.id)));
     if (dateIds.size) setPendingDates((prev) => prev.filter((d) => !dateIds.has(d.id)));
-    if (compIds.size) setPendingComps((prev) => prev.filter((c) => !compIds.has(c.id)));
     if (attrIds.size) setPendingAttributes((prev) => prev.filter((c) => !attrIds.has(c.id)));
   };
 
@@ -605,7 +574,7 @@ export default function EnrichmentClient({
     <main style={{ padding: "1rem", maxWidth: 1200, margin: "0 auto" }}>
       <h1 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: 12 }}>Tournament Enrichment</h1>
       <p style={{ color: "#4b5563", marginBottom: 16 }}>
-        Queue enrichment jobs for tournaments with URLs. Jobs fetch up to 8 pages per tournament and extract contacts, venues, and referee comp signals.
+        Queue enrichment jobs for tournaments with URLs. Jobs fetch up to 8 pages per tournament and extract contacts, dates, and referee operations details.
       </p>
       <div style={{ marginBottom: 12 }}>
         <a
@@ -636,6 +605,75 @@ export default function EnrichmentClient({
         </button>
         <span style={{ color: "#555" }}>{status}</span>
       </div>
+
+      <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16 }}>
+        <h2 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Priority outreach targets (missing both emails + dates)</h2>
+        <p style={{ color: "#4b5563", marginTop: 0 }}>
+          Add these directly to outreach draft so you can manually find an email and send outreach without losing them in the larger enrichment queue.
+        </p>
+        <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            onClick={queuePriorityForOutreach}
+            style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #0f172a", background: "#0f172a", color: "#fff" }}
+          >
+            Add selected to outreach draft
+          </button>
+          <a
+            href="/admin/outreach?tab=draft"
+            style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #111", background: "#fff", color: "#111", textDecoration: "none", fontWeight: 700, fontSize: 12 }}
+          >
+            Open outreach draft
+          </a>
+          <span style={{ color: "#555" }}>{priorityStatus}</span>
+        </div>
+        <div style={{ maxHeight: 240, overflow: "auto", border: "1px solid #f1f1f1", borderRadius: 8 }}>
+          {priorityTargets.length === 0 ? (
+            <div style={{ padding: 10, color: "#6b7280" }}>No priority targets at the moment.</div>
+          ) : (
+            priorityTargets.map((t) => (
+              <label key={t.id} style={{ display: "flex", gap: 8, padding: "6px 8px", alignItems: "center", borderBottom: "1px solid #f1f1f1" }}>
+                <input type="checkbox" checked={prioritySelected.includes(t.id)} onChange={() => togglePriority(t.id)} />
+                <div>
+                  <div style={{ fontWeight: 600 }}>{t.name ?? "Untitled"}</div>
+                  <div style={{ color: "#4b5563", fontSize: 12 }}>
+                    {t.city ?? "—"}, {t.state ?? "—"} {t.sport ? `• ${t.sport}` : ""}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
+                    {t.official_website_url || t.source_url ? (
+                      <a
+                        href={t.official_website_url ?? t.source_url ?? "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "#0f172a", textDecoration: "underline", fontSize: 12, fontWeight: 700 }}
+                      >
+                        Open tournament URL
+                      </a>
+                    ) : null}
+                    {t.slug ? (
+                      <a
+                        href={`/tournaments/${t.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "#4b5563", textDecoration: "underline", fontSize: 12 }}
+                      >
+                        View public page
+                      </a>
+                    ) : null}
+                    <a
+                      href={`/admin?tab=tournament-listings&q=${encodeURIComponent(t.slug ?? t.name ?? t.id)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#0f172a", textDecoration: "underline", fontSize: 12 }}
+                    >
+                      Open admin listing
+                    </a>
+                  </div>
+                </div>
+              </label>
+            ))
+          )}
+        </div>
+      </section>
 
       <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16 }}>
         <h2 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Find official websites (missing official URL)</h2>
