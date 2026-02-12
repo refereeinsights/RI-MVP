@@ -203,3 +203,16 @@
     - `Rainier Vista Soccer Complex` (Seattle, WA)
     - `Cedar River Athletic Fields` (Renton, WA)
   - Demo tournament currently has 3 linked venues total (including existing `RefereeInsights Field`).
+- Priority outreach queue hygiene:
+  - Added bulk action for Priority Outreach targets: `Hide selected (no contact)` in `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`.
+  - New admin API route `apps/referee/app/api/admin/outreach/priority-dismiss/route.ts` marks selected tournaments as:
+    - `do_not_contact=true`
+    - `do_not_contact_reason='no_email_contact_found_on_website'`
+    - `do_not_contact_at=now()`
+  - Also suppresses existing outreach rows for those tournaments (`status='suppressed'`) when present.
+  - This replaces hard-delete for no-contact cases so history is retained and entries are removed from priority queue safely.
+- Outreach bad-email handling:
+  - Added per-row action on `/admin/outreach`: `Bad email + stop enrichment`.
+  - Action suppresses outreach for the tournament, marks the tournament as `do_not_contact=true`, sets `do_not_contact_reason='bad_email'`, and sets `enrichment_skip=true` to remove from future enrichment workflows.
+  - If the bad email matches `tournament_director_email` or `referee_contact_email`, that field is cleared.
+  - Appends a timestamped bad-email note to outreach row notes for audit trail.

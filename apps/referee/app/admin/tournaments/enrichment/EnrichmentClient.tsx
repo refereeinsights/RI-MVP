@@ -475,6 +475,32 @@ export default function EnrichmentClient({
     );
   };
 
+  const dismissPriorityNoContact = async () => {
+    if (!prioritySelected.length) {
+      setPriorityStatus("Select at least one tournament.");
+      return;
+    }
+    setPriorityStatus("Hiding selected targets...");
+    const res = await fetch("/api/admin/outreach/priority-dismiss", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tournament_ids: prioritySelected }),
+    });
+    const json = await res.json();
+    if (!res.ok || json?.error) {
+      setPriorityStatus(`Hide failed: ${json?.error || res.statusText}`);
+      return;
+    }
+    const updatedIds = new Set<string>(Array.isArray(json?.updated_ids) ? json.updated_ids : []);
+    if (updatedIds.size) {
+      setPriorityTargets((prev) => prev.filter((row) => !updatedIds.has(row.id)));
+    }
+    setPrioritySelected([]);
+    setPriorityStatus(
+      `Hidden ${json?.updated ?? 0} target(s) as no-contact${(json?.already_dnc ?? 0) > 0 ? `, skipped ${json.already_dnc} already hidden` : ""}.`
+    );
+  };
+
   const toggleReviewItem = (tournamentId: string, key: string) => {
     setSelectedItems((prev) => {
       const next = new Set(prev[tournamentId] ?? []);
@@ -609,7 +635,7 @@ export default function EnrichmentClient({
       <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16 }}>
         <h2 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Priority outreach targets (missing both emails + dates)</h2>
         <p style={{ color: "#4b5563", marginTop: 0 }}>
-          Add these directly to outreach draft so you can manually find an email and send outreach without losing them in the larger enrichment queue.
+          Add these directly to outreach draft so you can manually find an email and send outreach without losing them in the larger enrichment queue. If a site has no usable contact, hide it as no-contact (no delete required).
         </p>
         <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
           <button
@@ -617,6 +643,12 @@ export default function EnrichmentClient({
             style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #0f172a", background: "#0f172a", color: "#fff" }}
           >
             Add selected to outreach draft
+          </button>
+          <button
+            onClick={dismissPriorityNoContact}
+            style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #991b1b", background: "#fff", color: "#991b1b", fontWeight: 700 }}
+          >
+            Hide selected (no contact)
           </button>
           <a
             href="/admin/outreach?tab=draft"

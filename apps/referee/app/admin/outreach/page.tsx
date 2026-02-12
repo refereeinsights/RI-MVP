@@ -83,7 +83,7 @@ export default async function OutreachPage({
   let query = supabaseAdmin
     .from("tournament_outreach" as any)
     .select(
-      "id,tournament_id,contact_name,contact_email,status,email_subject_snapshot,email_body_snapshot,followup_subject_snapshot,followup_body_snapshot,sent_at,followup_due_at,followup_sent_at,replied_at,notes,created_at,updated_at,tournaments(id,name,slug,city,state,sport,do_not_contact,do_not_contact_reason,do_not_contact_at,tournament_director,tournament_director_email)"
+      "id,tournament_id,contact_name,contact_email,status,email_subject_snapshot,email_body_snapshot,followup_subject_snapshot,followup_body_snapshot,sent_at,followup_due_at,followup_sent_at,replied_at,notes,created_at,updated_at,tournaments(id,name,slug,city,state,sport,do_not_contact,do_not_contact_reason,do_not_contact_at,tournament_director,tournament_director_email,referee_contact_email)"
     );
 
   if (tab === "followup-due") {
@@ -301,6 +301,67 @@ export default async function OutreachPage({
       .eq("id", tournamentId);
 
     redirect(`/admin/outreach?tab=${tab}&notice=${encodeURIComponent("Cleared do-not-contact")}`);
+  }
+
+  async function markBadEmailAndSkip(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const outreachId = String(formData.get("outreach_id") || "");
+    const tournamentId = String(formData.get("tournament_id") || "");
+    const badEmailRaw = String(formData.get("bad_email") || "").trim();
+    if (!outreachId || !tournamentId) {
+      redirect(`/admin/outreach?tab=${tab}&notice=${encodeURIComponent("Missing outreach or tournament id")}`);
+    }
+
+    const badEmail = badEmailRaw.toLowerCase();
+    const nowIso = new Date().toISOString();
+    const { data: tournament } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("tournament_director_email,referee_contact_email")
+      .eq("id", tournamentId)
+      .maybeSingle();
+
+    const tournamentRow = (tournament ?? null) as any;
+    const directorEmail = String(tournamentRow?.tournament_director_email ?? "").trim().toLowerCase();
+    const refereeEmail = String(tournamentRow?.referee_contact_email ?? "").trim().toLowerCase();
+    const tournamentUpdates: Record<string, any> = {
+      do_not_contact: true,
+      do_not_contact_at: nowIso,
+      do_not_contact_reason: "bad_email",
+      enrichment_skip: true,
+    };
+    if (badEmail && directorEmail && badEmail === directorEmail) {
+      tournamentUpdates.tournament_director_email = null;
+    }
+    if (badEmail && refereeEmail && badEmail === refereeEmail) {
+      tournamentUpdates.referee_contact_email = null;
+    }
+
+    await supabaseAdmin.from("tournaments" as any).update(tournamentUpdates).eq("id", tournamentId);
+    await supabaseAdmin
+      .from("tournament_outreach" as any)
+      .update({ status: "suppressed" })
+      .eq("tournament_id", tournamentId);
+    if (badEmailRaw) {
+      await supabaseAdmin
+        .from("tournament_outreach" as any)
+        .update({ contact_email: null })
+        .eq("tournament_id", tournamentId)
+        .eq("contact_email", badEmailRaw);
+    }
+    const { data: existingRow } = await supabaseAdmin
+      .from("tournament_outreach" as any)
+      .select("notes")
+      .eq("id", outreachId)
+      .maybeSingle();
+    const existingNotes = String((existingRow as any)?.notes ?? "").trim();
+    const badEmailNote = `bad_email_marked:${badEmailRaw || "unknown"} @ ${nowIso}`;
+    await supabaseAdmin
+      .from("tournament_outreach" as any)
+      .update({ notes: existingNotes ? `${existingNotes}\n${badEmailNote}` : badEmailNote })
+      .eq("id", outreachId);
+
+    redirect(`/admin/outreach?tab=suppressed&notice=${encodeURIComponent("Marked bad email and stopped enrichment")}`);
   }
 
   async function updateTournamentEmailAction(formData: FormData) {
@@ -751,6 +812,17 @@ export default async function OutreachPage({
                           style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #111", background: "#fff", color: "#111", fontSize: 12, fontWeight: 800, opacity: doNotContact ? 0.5 : 1 }}
                         >
                           Mark verified
+                        </button>
+                      </form>
+                      <form action={markBadEmailAndSkip}>
+                        <input type="hidden" name="outreach_id" value={row.id} />
+                        <input type="hidden" name="tournament_id" value={tournament.id} />
+                        <input type="hidden" name="bad_email" value={contactEmail} />
+                        <button
+                          disabled={doNotContact || !contactEmail}
+                          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #991b1b", background: "#fff", color: "#991b1b", fontSize: 12, fontWeight: 800, opacity: doNotContact || !contactEmail ? 0.5 : 1 }}
+                        >
+                          Bad email + stop enrichment
                         </button>
                       </form>
                     </div>
