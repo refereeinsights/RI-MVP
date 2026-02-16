@@ -1,0 +1,13 @@
+## 2026-02-16
+- TI branding: TI header/layout mirrors RI structure with TI colors and shared logo `shared-assets/svg/ti/tournamentinsights_logo.svg` (used in layout/home).
+- TI pages: Added `/tournaments` (RI-style filters/cards, no ratings/reviews), `/tournaments/[slug]` (logistics-only detail), `/how-it-works`, `/list-your-tournament`, and updated home CTAs.
+- Assets/infra: Copied shared logo to `apps/ti-web/public/brand/tournamentinsights_logo.svg`; build root `apps/ti-web`. Env needed: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (optional `NEXT_PUBLIC_SITE_URL`).
+- Styling fixes: TI tournaments cards now use the same sport backgrounds/textures as RI, with `bg-sport-*` classes and copied textures under `apps/ti-web/public/textures/`.
+- UI polish: Sport icon moved to bottom-center of TI cards; official/Details buttons centered with spacing to mirror RI layout.
+- Filters/summary: TI tournaments filter bar uses RI-style Apply/Reset buttons; summary grid shows total tournaments and per-sport counts with sport icons (mirroring RI summary cards).
+- Buttons: Card footers are bottom-aligned; both buttons are white; when official site is missing, the button still renders with a small “TBD” beneath the label.
+- Header theme: TI header uses navy → electric blue gradient (`--ti-header-1/2/3`), white nav with blue hover, and yellow CTA (`--ti-cta`/`--ti-cta-text`), matching RI layout/behavior.
+- Detail hero: TI tournament detail uses sport-based hero background; centered content; venue block with map links if address present; Google/Apple/Waze rendered as separate buttons; removed referee text. Official link matches directory styling; source link removed.
+- Directory hero: Tournament directory intro panel uses a light TI gradient tint with soft blue border to keep text legible while matching the TI header theme.
+- Detail buttons: Official site and map buttons use the white pill styling from directory cards; map buttons are hidden unless a real venue/address with city and state is available.
+- Venue row: Detail venue section shows venue name + address with navigation buttons aligned to the right; nav buttons are suppressed when venue/address data is incomplete.

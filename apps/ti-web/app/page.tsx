@@ -6,10 +6,10 @@ export default function Home() {
           <div className="logoBlock">
             <img
               className="heroLogo"
-              src="/ti-logo.png"
+              src="/brand/tournamentinsights_logo.svg"
               alt="TournamentInsights"
-              width={320}
-              height={96}
+              width={360}
+              height={120}
             />
             <div className="subBrand">
               <span className="subBrandLabel">Powered by</span>
@@ -22,20 +22,19 @@ export default function Home() {
           <h1 id="ti-title">Insight Before You Commit.</h1>
 
           <p className="muted heroCopy">
-            Clear, moderated tournament information to help families and coaches make better
-            decisions about time, travel, and cost.
+            Tournament Insights curates verified logistics—dates, locations, sports, and official links—so you can plan
+            confidently without ratings or reviews.
           </p>
 
           <div className="ctaRow">
-            <a className="cta primary" href="https://tournyx.com" rel="noopener noreferrer">
-              Visit Tournyx
+            <a className="cta primary" href="/tournaments">
+              Browse tournaments
             </a>
-            <a
-              className="cta secondary"
-              href="https://www.refereeinsights.com"
-              rel="noopener noreferrer"
-            >
-              Visit RefereeInsights
+            <a className="cta secondary" href="/how-it-works">
+              How it works
+            </a>
+            <a className="cta secondary" href="/list-your-tournament">
+              List your tournament
             </a>
           </div>
         </section>
@@ -43,17 +42,17 @@ export default function Home() {
         <section className="bodyCard" aria-labelledby="ti-provides">
           <h2 id="ti-provides">What TournamentInsights provides</h2>
           <ul className="list">
-            <li>Clear tournament overviews</li>
-            <li>Organization and logistics clarity</li>
-            <li>Neutral, moderated information</li>
-            <li>Decision-focused summaries (not ratings)</li>
+            <li>Clear tournament basics: sport, dates, city/state, and official links.</li>
+            <li>Filterable directory by sport, state, and month.</li>
+            <li>Neutral, moderated information—no ratings or public reviews.</li>
+            <li>Lightweight detail pages focused on logistics and planning.</li>
           </ul>
         </section>
 
         <section className="notice" role="note" aria-label="Not a review platform">
           <p className="clarity">
-            TournamentInsights is not a review or rating platform. Information is moderated and
-            designed to support informed decisions.
+            Tournament Insights is not a review or rating platform. Information is moderated and designed to support
+            faster, clearer decisions for families, teams, and officials.
           </p>
         </section>
 

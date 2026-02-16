@@ -225,7 +225,6 @@
   - `Rainier Vista Soccer Complex` (Seattle, WA)
   - `Cedar River Athletic Fields` (Renton, WA)
   - Demo tournament currently has 3 linked venues total (including existing `RefereeInsights Field`).
-- TournamentInsights (apps/ti-web): new TI-branded layout/header, tournament directory and detail pages (no reviews/ratings), and new How it works / List your tournament pages that reuse the RI tournaments UX and filters without referee signals.
 - Fix: admin venue update no longer tries to write a non-existent `tournament_ids` column (prevents update_failed when saving tournament links).
 - Priority outreach queue hygiene:
   - Added bulk action for Priority Outreach targets: `Hide selected (no contact)` in `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`.

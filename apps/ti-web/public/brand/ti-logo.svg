@@ -1,0 +1,7 @@
+<svg width="240" height="72" viewBox="0 0 240 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="240" height="72" rx="12" fill="#0F5034"/>
+  <path d="M48 22h18c2.2 0 4 1.8 4 4s-1.8 4-4 4h-7v18c0 2.2-1.8 4-4 4s-4-1.8-4-4V30h-3c-2.2 0-4-1.8-4-4s1.8-4 4-4z" fill="#F4F9F6"/>
+  <path d="M90 22c2.2 0 4 1.8 4 4v22c0 2.2-1.8 4-4 4h-8c-8.8 0-14-5.2-14-15 0-9.8 5.2-15 14-15h8zm-8 8c-4.5 0-6 3.3-6 7s1.5 7 6 7h4V30h-4z" fill="#F4F9F6"/>
+  <text x="118" y="45" fill="#F4F9F6" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="0.08em">TOURNAMENT</text>
+  <text x="118" y="60" fill="#C1E6D4" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="600" letter-spacing="0.1em">INSIGHTS</text>
+</svg>
