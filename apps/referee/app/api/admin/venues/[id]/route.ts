@@ -115,6 +115,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return null;
   };
 
+  const tournamentIds = Array.isArray(payload?.tournament_ids)
+    ? (payload.tournament_ids as any[]).map(String).filter(Boolean)
+    : undefined;
+
   const update: VenueUpdatePayload = {
     name: cleanString(payload?.name) ?? undefined,
     address1: cleanString(payload?.address1) ?? undefined,
@@ -146,9 +150,6 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     referee_tent: cleanString(payload?.referee_tent) ?? undefined,
     restrooms: cleanString(payload?.restrooms) ?? undefined,
     restrooms_cleanliness: cleanNumber(payload?.restrooms_cleanliness) ?? undefined,
-    tournament_ids: Array.isArray(payload?.tournament_ids)
-      ? (payload.tournament_ids as any[]).map(String).filter(Boolean)
-      : undefined,
     venue_url: cleanString(payload?.venue_url) ?? undefined,
     paid_parking: cleanBool(payload?.paid_parking) ?? undefined,
   };
@@ -165,8 +166,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: "update_failed" }, { status: 500 });
   }
 
-  if (update.tournament_ids) {
-    const desired = new Set(update.tournament_ids);
+  if (tournamentIds) {
+    const desired = new Set(tournamentIds);
     const { data: existing } = await supabaseAdmin
       .from("tournament_venues" as any)
       .select("tournament_id")

@@ -219,12 +219,13 @@
   - Fixed non-iterable tournament list crash on venue edit by guarding array shapes.
   - New venue form now exposes all venue enrichment fields, including venue URL; create/edit accepts and stores venue URL and all enrichment fields.
   - Added Google Places admin search endpoint and wired the new venue form to fetch suggestions to prefill address/geo/URL.
-  - Places suggestions now prefill city/state/ZIP; removed duplicate “lighting” field (keep field_lighting), added paid_parking boolean in forms/API/migration.
-    - `referee_pay=$50 per game`
-  - Added and linked demo venues:
-    - `Rainier Vista Soccer Complex` (Seattle, WA)
-    - `Cedar River Athletic Fields` (Renton, WA)
+- Places suggestions now prefill city/state/ZIP; removed duplicate “lighting” field (keep field_lighting), added paid_parking boolean in forms/API/migration.
+  - `referee_pay=$50 per game`
+- Added and linked demo venues:
+  - `Rainier Vista Soccer Complex` (Seattle, WA)
+  - `Cedar River Athletic Fields` (Renton, WA)
   - Demo tournament currently has 3 linked venues total (including existing `RefereeInsights Field`).
+- Fix: admin venue update no longer tries to write a non-existent `tournament_ids` column (prevents update_failed when saving tournament links).
 - Priority outreach queue hygiene:
   - Added bulk action for Priority Outreach targets: `Hide selected (no contact)` in `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`.
   - New admin API route `apps/referee/app/api/admin/outreach/priority-dismiss/route.ts` marks selected tournaments as:
