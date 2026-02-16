@@ -10,6 +10,8 @@ export const runtime = "nodejs";
 export default async function AdminVenueEditPage({ params }: { params: { id: string } }) {
   await requireAdmin();
 
+  let errorMessage: string | null = null;
+  const errorDetails: string[] = [];
   let venue: any = null;
   try {
     const { data, error } = await supabaseAdmin
@@ -27,11 +29,15 @@ export default async function AdminVenueEditPage({ params }: { params: { id: str
 
     if (error) {
       console.error("[admin/venues/[id]] fetch with tournaments failed, retrying without join", error);
+      errorMessage = "Failed to load venue with tournaments.";
+      errorDetails.push(error.message || String(error));
     } else {
       venue = data;
     }
   } catch (err) {
     console.error("[admin/venues/[id]] fetch error", err);
+    errorMessage = "Failed to load venue.";
+    errorDetails.push(err instanceof Error ? err.message : String(err));
   }
 
   if (!venue) {
@@ -39,11 +45,15 @@ export default async function AdminVenueEditPage({ params }: { params: { id: str
       const { data, error } = await supabaseAdmin.from("venues" as any).select("*").eq("id", params.id).maybeSingle();
       if (error) {
         console.error("[admin/venues/[id]] fallback fetch failed", error);
+        errorMessage = "Fallback fetch failed.";
+        errorDetails.push(error.message || String(error));
       } else {
         venue = data;
       }
     } catch (err) {
       console.error("[admin/venues/[id]] fallback error", err);
+      errorMessage = "Fallback fetch error.";
+        errorDetails.push(err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -51,7 +61,18 @@ export default async function AdminVenueEditPage({ params }: { params: { id: str
     return (
       <div style={{ padding: 24 }}>
         <AdminNav />
-        <p style={{ color: "#b91c1c" }}>Venue not found.</p>
+        <p style={{ color: "#b91c1c" }}>Venue not found or failed to load.</p>
+        {errorMessage && <p style={{ color: "#6b7280" }}>{errorMessage}</p>}
+        {errorDetails.length > 0 && (
+          <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: "#fff7ed", color: "#b45309" }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>Details</div>
+            <ul style={{ paddingLeft: 18, margin: 0, fontSize: 13 }}>
+              {errorDetails.map((d, i) => (
+                <li key={i}>{d}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     );
   }
