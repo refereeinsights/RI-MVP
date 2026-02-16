@@ -54,8 +54,8 @@ export default function VenueRow({ venue, onUpdated }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const summary = useMemo(() => {
-    return [venue.city, venue.state, venue.sport].filter(Boolean).join(" · ") || "—";
-  }, [venue.city, venue.state, venue.sport]);
+    return [venue.city, venue.state, venue.zip, venue.sport].filter(Boolean).join(" · ") || "—";
+  }, [venue.city, venue.state, venue.zip, venue.sport]);
 
   const onSearch = async (q: string) => {
     setSearch(q);
@@ -143,6 +143,7 @@ export default function VenueRow({ venue, onUpdated }: Props) {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>
             <InfoItem label="Address" value={venue.address1 || venue.address || "—"} />
+            <InfoItem label="City/State/ZIP" value={[venue.city, venue.state, venue.zip].filter(Boolean).join(", ") || "—"} />
             <InfoItem
               label="Geo"
               value={

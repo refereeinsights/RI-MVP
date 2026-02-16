@@ -10,23 +10,42 @@ export const runtime = "nodejs";
 export default async function AdminVenueEditPage({ params }: { params: { id: string } }) {
   await requireAdmin();
 
-  const { data, error } = await supabaseAdmin
-    .from("venues" as any)
-    .select(
-      `
+  let venue: any = null;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("venues" as any)
+      .select(
+        `
         *,
         tournament_venues(
           tournaments(id,name,slug,sport,start_date,end_date)
         )
       `
-    )
-    .eq("id", params.id)
-    .maybeSingle();
+      )
+      .eq("id", params.id)
+      .maybeSingle();
 
-  if (error) {
-    throw error;
+    if (error) {
+      console.error("[admin/venues/[id]] fetch with tournaments failed, retrying without join", error);
+    } else {
+      venue = data;
+    }
+  } catch (err) {
+    console.error("[admin/venues/[id]] fetch error", err);
   }
-  const venue: any = data;
+
+  if (!venue) {
+    try {
+      const { data, error } = await supabaseAdmin.from("venues" as any).select("*").eq("id", params.id).maybeSingle();
+      if (error) {
+        console.error("[admin/venues/[id]] fallback fetch failed", error);
+      } else {
+        venue = data;
+      }
+    } catch (err) {
+      console.error("[admin/venues/[id]] fallback error", err);
+    }
+  }
 
   if (!venue) {
     return (
