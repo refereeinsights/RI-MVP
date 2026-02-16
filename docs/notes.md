@@ -210,9 +210,10 @@
   - Added venue enrichment columns (geo + amenities) in `20260214_venues_enhancements.sql`: latitude/longitude, normalized/geocoded address source, timezone, surface/field_type, indoor/lighting flags, parking notes, field rating (1-5), venue type enum, field count, amenity booleans (field_monitors, referee_mentors, food/coffee/tournament_vendors), restrooms type (portable/building/both) and cleanliness (1-5).
   - Added extras to venue enrichment: field_lighting boolean and referee_tent enum (`yes`,`no`,`multiple`).
 - Admin venues UI:
-  - Venues index now supports search/filters (name/address/city/state/UUID/tournament name, sport, state), shows expanded venue metadata and linked tournaments, and includes edit/delete actions.
-  - Added venue edit page with full field coverage for new enrichment columns and a tournaments-at-this-venue list.
-  - Added admin API for venue fetch/update/delete (`/api/admin/venues/[id]`).
+  - Venues index now has collapsible rows (name summary) with search/filters (name/address/city/state/UUID/tournament name, sport, state), expanded metadata, and linked tournaments.
+  - Added multi-select tournament association: search tournaments, add/remove links, and save in place.
+  - Added venue edit page with full field coverage for new enrichment columns and tournaments-at-this-venue list.
+  - Added admin API for venue fetch/update/delete (`/api/admin/venues/[id]`) with tournament link management.
     - `referee_pay=$50 per game`
   - Added and linked demo venues:
     - `Rainier Vista Soccer Complex` (Seattle, WA)

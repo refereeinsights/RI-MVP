@@ -34,6 +34,7 @@ type VenueUpdatePayload = {
   referee_tent?: string | null;
   restrooms?: string | null;
   restrooms_cleanliness?: number | null;
+  tournament_ids?: string[];
 };
 
 async function ensureAdminRequest() {
@@ -143,6 +144,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     referee_tent: cleanString(payload?.referee_tent) ?? undefined,
     restrooms: cleanString(payload?.restrooms) ?? undefined,
     restrooms_cleanliness: cleanNumber(payload?.restrooms_cleanliness) ?? undefined,
+    tournament_ids: Array.isArray(payload?.tournament_ids)
+      ? (payload.tournament_ids as any[]).map(String).filter(Boolean)
+      : undefined,
   };
 
   const { error, data } = await supabaseAdmin
@@ -155,6 +159,36 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (error) {
     console.error("Admin venue update failed", error);
     return NextResponse.json({ error: "update_failed" }, { status: 500 });
+  }
+
+  if (update.tournament_ids) {
+    const desired = new Set(update.tournament_ids);
+    const { data: existing } = await supabaseAdmin
+      .from("tournament_venues" as any)
+      .select("tournament_id")
+      .eq("venue_id", params.id);
+
+    const current = new Set((existing ?? []).map((r: any) => r.tournament_id));
+
+    const toInsert = [...desired].filter((id) => !current.has(id)).map((id) => ({ tournament_id: id, venue_id: params.id }));
+    const toDelete = [...current].filter((id) => !desired.has(id));
+
+    if (toInsert.length > 0) {
+      const { error: insertError } = await supabaseAdmin.from("tournament_venues" as any).insert(toInsert as any[]);
+      if (insertError) {
+        console.error("Admin venue link insert failed", insertError);
+      }
+    }
+    if (toDelete.length > 0) {
+      const { error: deleteError } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .delete()
+        .eq("venue_id", params.id)
+        .in("tournament_id", toDelete);
+      if (deleteError) {
+        console.error("Admin venue link delete failed", deleteError);
+      }
+    }
   }
 
   return NextResponse.json(data);

@@ -3,8 +3,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AdminNav from "@/components/admin/AdminNav";
-import PublicMapUrlRow from "@/components/admin/PublicMapUrlRow";
-import VenueActions from "@/components/admin/VenueActions";
+import VenueRow, { VenueItem } from "@/components/admin/VenueRow";
 
 type VenueRow = {
   id: string;
@@ -116,7 +115,22 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
     throw error;
   }
 
-  const venues: VenueRow[] = Array.isArray(data) ? ((data as unknown) as VenueRow[]) : [];
+  const venuesRaw: VenueRow[] = Array.isArray(data) ? ((data as unknown) as VenueRow[]) : [];
+  const venues: VenueItem[] = venuesRaw.map((v) => {
+    const tournamentsList =
+      v.tournament_venues
+        ?.flatMap((tv) => tv?.tournaments ?? [])
+        ?.filter((t): t is NonNullable<typeof t> => Boolean(t)) ?? [];
+
+    const tournaments = Array.from(
+      new Map(tournamentsList.map((t) => [t.id, t])).values()
+    ) as VenueItem["tournaments"];
+
+    return {
+      ...v,
+      tournaments,
+    };
+  });
 
   if (venues.length > 0) {
     const venueIds = venues.map((v) => v.id);
@@ -225,152 +239,9 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         {venues.length === 0 ? (
           <div style={{ padding: 12, color: "#6b7280", fontSize: 14 }}>No venues found.</div>
         ) : (
-          venues.map((v, idx) => {
-            const tournaments =
-              v.tournament_venues
-                ?.flatMap((tv) => tv.tournaments ?? [])
-                ?.filter(Boolean)
-                ?.reduce<Record<string, { id: string; name: string | null; slug: string | null; sport?: string | null }>>(
-                  (acc, t) => {
-                    if (!t || acc[t.id]) return acc;
-                    acc[t.id] = t;
-                    return acc;
-                  },
-                  {}
-                ) ?? {};
-
-            return (
-              <div
-                key={v.id}
-                style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 10,
-                  padding: 12,
-                  background: idx % 2 === 0 ? "#fcfdff" : "white",
-                  display: "grid",
-                  gap: 8,
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                  <div>
-                    <div style={{ fontWeight: 700 }}>{v.name || "Untitled"}</div>
-                    <div style={{ color: "#4b5563", fontSize: 13 }}>
-                      {(v.city || "—")}, {(v.state || "—")} · {v.sport || "—"} · {v.zip || "no zip"}
-                    </div>
-                  </div>
-                  <VenueActions venueId={v.id} />
-                </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <span style={{ fontFamily: "monospace", fontSize: 12, color: "#374151" }}>{v.id}</span>
-                  <Link
-                    href={`/admin/owls-eye?venueId=${v.id}`}
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: 8,
-                      background: "#111827",
-                      color: "white",
-                      fontWeight: 700,
-                      textDecoration: "none",
-                    }}
-                  >
-                    Run Owl&apos;s Eye
-                  </Link>
-                  <PublicMapUrlRow venueId={v.id} compact />
-                  {v.map_url ? (
-                    <Link
-                      href={v.map_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: 8,
-                        border: "1px solid #e5e7eb",
-                        background: "#e0f2fe",
-                        textDecoration: "none",
-                        fontSize: 12,
-                      }}
-                    >
-                      View Owl&apos;s Eye Map
-                    </Link>
-                  ) : (
-                    <span style={{ fontSize: 12, color: "#6b7280" }}>No Owl&apos;s Eye map yet</span>
-                  )}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>
-                  <InfoItem label="Address" value={v.address1 || v.address || "—"} />
-                  <InfoItem
-                    label="Geo"
-                    value={
-                      v.latitude && v.longitude
-                        ? `${v.latitude.toFixed(5)}, ${v.longitude.toFixed(5)}`
-                        : "—"
-                    }
-                  />
-                  <InfoItem label="Surface" value={v.surface || "—"} />
-                  <InfoItem label="Field type" value={v.field_type || "—"} />
-                  <InfoItem label="Indoor" value={boolText(v.indoor)} />
-                  <InfoItem label="Lighting" value={boolText(v.lighting ?? v.field_lighting)} />
-                  <InfoItem label="Parking" value={v.parking_notes || "—"} />
-                  <InfoItem label="Field rating" value={v.field_rating ? `${v.field_rating}/5` : "—"} />
-                  <InfoItem label="Venue type" value={v.venue_type || "—"} />
-                  <InfoItem label="Field count" value={v.field_count != null ? String(v.field_count) : "—"} />
-                  <InfoItem label="Field monitors" value={boolText(v.field_monitors)} />
-                  <InfoItem label="Referee mentors" value={boolText(v.referee_mentors)} />
-                  <InfoItem label="Food vendors" value={boolText(v.food_vendors)} />
-                  <InfoItem label="Coffee vendors" value={boolText(v.coffee_vendors)} />
-                  <InfoItem label="Tournament vendors" value={boolText(v.tournament_vendors)} />
-                  <InfoItem label="Referee tent" value={v.referee_tent || "—"} />
-                  <InfoItem label="Restrooms" value={v.restrooms || "—"} />
-                  <InfoItem
-                    label="Restroom cleanliness"
-                    value={v.restrooms_cleanliness ? `${v.restrooms_cleanliness}/5` : "—"}
-                  />
-                </div>
-                {Object.keys(tournaments).length > 0 ? (
-                  <div style={{ fontSize: 13 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>Tournaments</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {Object.values(tournaments).map((t) => (
-                        <Link
-                          key={t.id}
-                          href={`/admin?tab=tournament-listings&q=${encodeURIComponent(t.slug || t.name || t.id)}`}
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: 8,
-                            border: "1px solid #e5e7eb",
-                            textDecoration: "none",
-                            fontSize: 12,
-                            background: "#f8fafc",
-                          }}
-                        >
-                          {t.name || t.slug || t.id} {t.sport ? `· ${t.sport}` : ""}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>No tournaments linked</div>
-                )}
-              </div>
-            );
-          })
+          venues.map((v) => <VenueRow key={v.id} venue={v} />)
         )}
       </div>
-    </div>
-  );
-}
-
-function boolText(val: boolean | null | undefined) {
-  if (val === true) return "Yes";
-  if (val === false) return "No";
-  return "—";
-}
-
-function InfoItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ fontSize: 13 }}>
-      <div style={{ color: "#4b5563" }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value}</div>
     </div>
   );
 }
