@@ -11,6 +11,7 @@ type VenueRow = {
   state: string | null;
   created_at?: string | null;
   sport?: string | null;
+  venue_url?: string | null;
 };
 
 async function ensureAdminRequest() {
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
   const zip = typeof payload?.zip === "string" ? payload.zip.trim() : "";
   const notes = typeof payload?.notes === "string" ? payload.notes.trim() : null;
   const sport = typeof payload?.sport === "string" ? payload.sport.trim().toLowerCase() : "";
+  const venueUrl = typeof payload?.venue_url === "string" ? payload.venue_url.trim() : "";
 
   if (!name || !address1 || !city || !state) {
     return NextResponse.json({ error: "missing_required_fields" }, { status: 400 });
@@ -98,12 +100,13 @@ export async function POST(request: Request) {
     sport: sportValue,
     latitude,
     longitude,
+    venue_url: venueUrl || null,
   };
 
   const { data, error } = await supabaseAdmin
     .from("venues" as any)
     .insert(insertPayload)
-    .select("id,name,city,state")
+    .select("id,name,city,state,venue_url")
     .single();
 
   if (error) {

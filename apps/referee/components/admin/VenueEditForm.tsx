@@ -33,6 +33,7 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
     notes: venue.notes ?? "",
     latitude: venue.latitude ?? "",
     longitude: venue.longitude ?? "",
+    venue_url: venue.venue_url ?? "",
     normalized_address: venue.normalized_address ?? "",
     geocode_source: venue.geocode_source ?? "",
     timezone: venue.timezone ?? "",
@@ -100,6 +101,7 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
           <Input label="State" value={form.state} onChange={(v) => setField("state", v)} />
           <Input label="ZIP" value={form.zip} onChange={(v) => setField("zip", v)} />
           <Input label="Sport" value={form.sport} onChange={(v) => setField("sport", v)} />
+          <Input label="Venue URL" value={form.venue_url} onChange={(v) => setField("venue_url", v)} />
         </div>
 
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>

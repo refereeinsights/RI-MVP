@@ -78,8 +78,10 @@ export default async function AdminVenueEditPage({ params }: { params: { id: str
   }
 
   const tournaments: any[] = [];
-  for (const tv of venue.tournament_venues ?? []) {
-    for (const t of tv?.tournaments ?? []) {
+  const venueTournaments = Array.isArray(venue.tournament_venues) ? venue.tournament_venues : [];
+  for (const tv of venueTournaments) {
+    const list = Array.isArray(tv?.tournaments) ? tv.tournaments : [];
+    for (const t of list) {
       if (!t) continue;
       if (tournaments.find((x) => x.id === t.id)) continue;
       tournaments.push(t);

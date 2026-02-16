@@ -5,6 +5,15 @@ import Link from "next/link";
 
 import { tiVenueMapUrl } from "@/lib/ti/publicUrls";
 
+type PlaceSuggestion = {
+  id: string;
+  name: string;
+  formatted_address: string;
+  lat: number | null;
+  lng: number | null;
+  website_uri: string | null;
+};
+
 export function NewVenueForm() {
   const [name, setName] = useState("");
   const [address1, setAddress1] = useState("");
@@ -13,9 +22,31 @@ export function NewVenueForm() {
   const [sport, setSport] = useState("soccer");
   const [zip, setZip] = useState("");
   const [notes, setNotes] = useState("");
+  const [venueUrl, setVenueUrl] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [surface, setSurface] = useState("");
+  const [fieldType, setFieldType] = useState("");
+  const [indoor, setIndoor] = useState("");
+  const [lighting, setLighting] = useState("");
+  const [fieldLighting, setFieldLighting] = useState("");
+  const [parkingNotes, setParkingNotes] = useState("");
+  const [fieldRating, setFieldRating] = useState("");
+  const [venueType, setVenueType] = useState("");
+  const [fieldCount, setFieldCount] = useState("");
+  const [fieldMonitors, setFieldMonitors] = useState("");
+  const [refereeMentors, setRefereeMentors] = useState("");
+  const [foodVendors, setFoodVendors] = useState("");
+  const [coffeeVendors, setCoffeeVendors] = useState("");
+  const [tournamentVendors, setTournamentVendors] = useState("");
+  const [refereeTent, setRefereeTent] = useState("");
+  const [restrooms, setRestrooms] = useState("");
+  const [restroomsCleanliness, setRestroomsCleanliness] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,6 +66,26 @@ export function NewVenueForm() {
           sport,
           zip: zip || undefined,
           notes: notes || undefined,
+          venue_url: venueUrl || undefined,
+          latitude: latitude || undefined,
+          longitude: longitude || undefined,
+          surface: surface || undefined,
+          field_type: fieldType || undefined,
+          indoor: indoor === "" ? undefined : indoor === "true",
+          lighting: lighting === "" ? undefined : lighting === "true",
+          field_lighting: fieldLighting === "" ? undefined : fieldLighting === "true",
+          parking_notes: parkingNotes || undefined,
+          field_rating: fieldRating || undefined,
+          venue_type: venueType || undefined,
+          field_count: fieldCount || undefined,
+          field_monitors: fieldMonitors === "" ? undefined : fieldMonitors === "true",
+          referee_mentors: refereeMentors === "" ? undefined : refereeMentors === "true",
+          food_vendors: foodVendors === "" ? undefined : foodVendors === "true",
+          coffee_vendors: coffeeVendors === "" ? undefined : coffeeVendors === "true",
+          tournament_vendors: tournamentVendors === "" ? undefined : tournamentVendors === "true",
+          referee_tent: refereeTent || undefined,
+          restrooms: restrooms || undefined,
+          restrooms_cleanliness: restroomsCleanliness || undefined,
         }),
       });
 
@@ -54,48 +105,234 @@ export function NewVenueForm() {
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
-      <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, maxWidth: 560 }}>
-        <label>
-          <div>Name</div>
-          <input value={name} onChange={(e) => setName(e.target.value)} required style={{ width: "100%" }} />
-        </label>
-        <label>
-          <div>Address 1</div>
-          <input value={address1} onChange={(e) => setAddress1(e.target.value)} required style={{ width: "100%" }} />
-        </label>
-        <label>
-          <div>City</div>
-          <input value={city} onChange={(e) => setCity(e.target.value)} required style={{ width: "100%" }} />
-        </label>
-        <label>
-          <div>State</div>
-          <input value={state} onChange={(e) => setState(e.target.value)} required style={{ width: "100%" }} />
-        </label>
-        <label>
-          <div>Sport</div>
-          <select
-            value={sport}
-            onChange={(e) => setSport(e.target.value)}
-            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
-          >
-            <option value="soccer">Soccer</option>
-            <option value="basketball">Basketball</option>
-            <option value="football">Football</option>
-          </select>
-        </label>
-        <label>
-          <div>ZIP (optional)</div>
-          <input value={zip} onChange={(e) => setZip(e.target.value)} style={{ width: "100%" }} />
-        </label>
+      <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+          <label>
+            <div>Name</div>
+            <input value={name} onChange={(e) => setName(e.target.value)} required style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Address</div>
+            <input value={address1} onChange={(e) => setAddress1(e.target.value)} required style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>City</div>
+            <input value={city} onChange={(e) => setCity(e.target.value)} required style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>State</div>
+            <input value={state} onChange={(e) => setState(e.target.value)} required style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>ZIP (optional)</div>
+            <input value={zip} onChange={(e) => setZip(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Venue URL (optional)</div>
+            <input value={venueUrl} onChange={(e) => setVenueUrl(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Sport</div>
+            <select
+              value={sport}
+              onChange={(e) => setSport(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+            >
+              <option value="soccer">Soccer</option>
+              <option value="basketball">Basketball</option>
+              <option value="football">Football</option>
+            </select>
+          </label>
+          <label>
+            <div>Latitude (optional)</div>
+            <input value={latitude} onChange={(e) => setLatitude(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Longitude (optional)</div>
+            <input value={longitude} onChange={(e) => setLongitude(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Search Google Places</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Venue name"
+                style={{ width: "100%" }}
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  setSearching(true);
+                  setError(null);
+                  setSuggestions([]);
+                  try {
+                    const params = new URLSearchParams();
+                    params.set("q", name);
+                    if (city) params.set("city", city);
+                    if (state) params.set("state", state);
+                    const resp = await fetch(`/api/admin/venues/places?${params.toString()}`);
+                    const json = await resp.json();
+                    if (!resp.ok) throw new Error(json?.error || "Places search failed");
+                    setSuggestions(json.results || []);
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Places search failed");
+                  } finally {
+                    setSearching(false);
+                  }
+                }}
+                style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+              >
+                {searching ? "Searching…" : "Search"}
+              </button>
+            </div>
+            {suggestions.length > 0 && (
+              <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                {suggestions.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setAddress1(s.formatted_address || address1);
+                      setLatitude(s.lat != null ? String(s.lat) : latitude);
+                      setLongitude(s.lng != null ? String(s.lng) : longitude);
+                      setVenueUrl(s.website_uri || venueUrl);
+                    }}
+                    style={{
+                      textAlign: "left",
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                      background: "#f8fafc",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700 }}>{s.name}</div>
+                    <div style={{ fontSize: 12, color: "#4b5563" }}>{s.formatted_address}</div>
+                    {s.website_uri && (
+                      <div style={{ fontSize: 12, color: "#111827" }}>{s.website_uri}</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </label>
+          <label>
+            <div>Surface (optional)</div>
+            <input value={surface} onChange={(e) => setSurface(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Field type (optional)</div>
+            <input value={fieldType} onChange={(e) => setFieldType(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Indoor</div>
+            <select value={indoor} onChange={(e) => setIndoor(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+              <option value="">—</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>
+            <div>Lighting</div>
+            <select value={lighting} onChange={(e) => setLighting(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+              <option value="">—</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>
+            <div>Field lighting</div>
+            <select value={fieldLighting} onChange={(e) => setFieldLighting(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+              <option value="">—</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>
+            <div>Parking notes</div>
+            <input value={parkingNotes} onChange={(e) => setParkingNotes(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Field rating (1-5)</div>
+            <input value={fieldRating} onChange={(e) => setFieldRating(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Venue type (complex/school/stadium/park)</div>
+            <input value={venueType} onChange={(e) => setVenueType(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Field count</div>
+            <input value={fieldCount} onChange={(e) => setFieldCount(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Field monitors</div>
+            <select value={fieldMonitors} onChange={(e) => setFieldMonitors(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+              <option value="">—</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>
+            <div>Referee mentors</div>
+            <select value={refereeMentors} onChange={(e) => setRefereeMentors(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+              <option value="">—</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>
+            <div>Food vendors</div>
+            <select value={foodVendors} onChange={(e) => setFoodVendors(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+              <option value="">—</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>
+            <div>Coffee vendors</div>
+            <select value={coffeeVendors} onChange={(e) => setCoffeeVendors(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+              <option value="">—</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>
+            <div>Tournament vendors</div>
+            <select value={tournamentVendors} onChange={(e) => setTournamentVendors(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+              <option value="">—</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>
+            <div>Referee tent (yes/no/multiple)</div>
+            <input value={refereeTent} onChange={(e) => setRefereeTent(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Restrooms (portable/building/both)</div>
+            <input value={restrooms} onChange={(e) => setRestrooms(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Restrooms cleanliness (1-5)</div>
+            <input
+              value={restroomsCleanliness}
+              onChange={(e) => setRestroomsCleanliness(e.target.value)}
+              style={{ width: "100%" }}
+            />
+          </label>
+        </div>
+
         <label>
           <div>Notes (optional)</div>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} style={{ width: "100%" }} />
         </label>
 
-        <button type="submit" disabled={loading} style={{ padding: "10px 14px", borderRadius: 10 }}>
-          {loading ? "Creating…" : "Create venue"}
-        </button>
-        {error && <div style={{ color: "red" }}>{error}</div>}
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <button type="submit" disabled={loading} style={{ padding: "10px 14px", borderRadius: 10 }}>
+            {loading ? "Creating…" : "Create venue"}
+          </button>
+          {error && <span style={{ color: "red" }}>{error}</span>}
+        </div>
       </form>
 
       {createdId && (
