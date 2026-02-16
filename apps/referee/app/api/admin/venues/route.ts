@@ -72,6 +72,9 @@ export async function POST(request: Request) {
   const sport = typeof payload?.sport === "string" ? payload.sport.trim().toLowerCase() : "";
   const venueUrl = typeof payload?.venue_url === "string" ? payload.venue_url.trim() : "";
   const paidParking = payload?.paid_parking === true || payload?.paid_parking === "true";
+  const tournamentIds: string[] = Array.isArray(payload?.tournament_ids)
+    ? (payload.tournament_ids as any[]).map(String).filter(Boolean)
+    : [];
 
   if (!name || !address1 || !city || !state) {
     return NextResponse.json({ error: "missing_required_fields" }, { status: 400 });
@@ -115,6 +118,14 @@ export async function POST(request: Request) {
   if (error) {
     console.error("Admin venue insert failed", error);
     return NextResponse.json({ error: "insert_failed" }, { status: 500 });
+  }
+
+  if (tournamentIds.length > 0) {
+    const toInsert = tournamentIds.map((tid) => ({ tournament_id: tid, venue_id: (data as any)?.id }));
+    const { error: linkError } = await supabaseAdmin.from("tournament_venues" as any).insert(toInsert as any[]);
+    if (linkError) {
+      console.error("Admin venue link insert failed", linkError);
+    }
   }
 
   return NextResponse.json(data as VenueRow);

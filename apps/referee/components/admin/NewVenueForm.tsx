@@ -12,6 +12,9 @@ type PlaceSuggestion = {
   lat: number | null;
   lng: number | null;
   website_uri: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
 };
 
 export function NewVenueForm() {
@@ -267,46 +270,11 @@ export function NewVenueForm() {
             <div>Field count</div>
             <input value={fieldCount} onChange={(e) => setFieldCount(e.target.value)} style={{ width: "100%" }} />
           </label>
-          <label>
-            <div>Field monitors</div>
-            <select value={fieldMonitors} onChange={(e) => setFieldMonitors(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
-              <option value="">—</option>
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          </label>
-          <label>
-            <div>Referee mentors</div>
-            <select value={refereeMentors} onChange={(e) => setRefereeMentors(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
-              <option value="">—</option>
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          </label>
-          <label>
-            <div>Food vendors</div>
-            <select value={foodVendors} onChange={(e) => setFoodVendors(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
-              <option value="">—</option>
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          </label>
-          <label>
-            <div>Coffee vendors</div>
-            <select value={coffeeVendors} onChange={(e) => setCoffeeVendors(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
-              <option value="">—</option>
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          </label>
-          <label>
-            <div>Tournament vendors</div>
-            <select value={tournamentVendors} onChange={(e) => setTournamentVendors(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
-              <option value="">—</option>
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          </label>
+          <SelectBoolean label="Field monitors" value={fieldMonitors} onChange={(v) => setFieldMonitors(v)} />
+          <SelectBoolean label="Referee mentors" value={refereeMentors} onChange={(v) => setRefereeMentors(v)} />
+          <SelectBoolean label="Food vendors" value={foodVendors} onChange={(v) => setFoodVendors(v)} />
+          <SelectBoolean label="Coffee vendors" value={coffeeVendors} onChange={(v) => setCoffeeVendors(v)} />
+          <SelectBoolean label="Tournament vendors" value={tournamentVendors} onChange={(v) => setTournamentVendors(v)} />
           <label>
             <div>Referee tent (yes/no/multiple)</div>
             <input value={refereeTent} onChange={(e) => setRefereeTent(e.target.value)} style={{ width: "100%" }} />
@@ -330,7 +298,7 @@ export function NewVenueForm() {
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} style={{ width: "100%" }} />
         </label>
 
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "flex-start" }}>
           <button type="submit" disabled={loading} style={{ padding: "10px 14px", borderRadius: 10 }}>
             {loading ? "Creating…" : "Create venue"}
           </button>
@@ -377,6 +345,18 @@ export function NewVenueForm() {
                 }}
               >
                 Run Owl&apos;s Eye
+              </Link>
+              <Link
+                href="/admin/venues"
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  border: "1px solid #e5e7eb",
+                  textDecoration: "none",
+                  background: "#fff",
+                }}
+              >
+                Back to venues
               </Link>
             </div>
 
@@ -431,3 +411,28 @@ export function NewVenueForm() {
 }
 
 export default NewVenueForm;
+
+function SelectBoolean({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string | boolean | null | undefined;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+      <div>{label}</div>
+      <select
+        value={value === "" || value === null || typeof value === "undefined" ? "" : value ? "true" : "false"}
+        onChange={(e) => onChange(e.target.value === "" ? "" : e.target.value === "true" ? "true" : "false")}
+        style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+      >
+        <option value="">—</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+    </label>
+  );
+}
