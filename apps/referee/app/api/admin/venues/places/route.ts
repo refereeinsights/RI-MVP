@@ -10,6 +10,9 @@ type PlaceResult = {
   lat: number | null;
   lng: number | null;
   website_uri: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
 };
 
 async function ensureAdminRequest() {
@@ -55,7 +58,8 @@ export async function GET(request: Request) {
       headers: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.websiteUri",
+        "X-Goog-FieldMask":
+          "places.id,places.displayName,places.formattedAddress,places.location,places.websiteUri,places.addressComponents",
       },
       body: JSON.stringify({
         textQuery,
@@ -70,15 +74,25 @@ export async function GET(request: Request) {
     }
 
     const json = (await resp.json()) as any;
+    const getComponent = (components: any[], type: string) =>
+      components?.find((c: any) => Array.isArray(c.types) && c.types.includes(type));
     const results: PlaceResult[] =
-      json?.places?.map((p: any) => ({
-        id: p.id || "",
-        name: p.displayName?.text || "",
-        formatted_address: p.formattedAddress || "",
-        lat: p.location?.latitude ?? null,
-        lng: p.location?.longitude ?? null,
-        website_uri: p.websiteUri ?? null,
-      })) ?? [];
+      json?.places?.map((p: any) => {
+        const cityComp = getComponent(p.addressComponents, "locality");
+        const stateComp = getComponent(p.addressComponents, "administrative_area_level_1");
+        const zipComp = getComponent(p.addressComponents, "postal_code");
+        return {
+          id: p.id || "",
+          name: p.displayName?.text || "",
+          formatted_address: p.formattedAddress || "",
+          lat: p.location?.latitude ?? null,
+          lng: p.location?.longitude ?? null,
+          website_uri: p.websiteUri ?? null,
+          city: cityComp?.longText ?? null,
+          state: stateComp?.shortText ?? null,
+          zip: zipComp?.longText ?? null,
+        };
+      }) ?? [];
 
     return NextResponse.json({ results });
   } catch (err) {

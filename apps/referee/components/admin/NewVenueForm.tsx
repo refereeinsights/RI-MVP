@@ -28,7 +28,6 @@ export function NewVenueForm() {
   const [surface, setSurface] = useState("");
   const [fieldType, setFieldType] = useState("");
   const [indoor, setIndoor] = useState("");
-  const [lighting, setLighting] = useState("");
   const [fieldLighting, setFieldLighting] = useState("");
   const [parkingNotes, setParkingNotes] = useState("");
   const [fieldRating, setFieldRating] = useState("");
@@ -42,6 +41,7 @@ export function NewVenueForm() {
   const [refereeTent, setRefereeTent] = useState("");
   const [restrooms, setRestrooms] = useState("");
   const [restroomsCleanliness, setRestroomsCleanliness] = useState("");
+  const [paidParking, setPaidParking] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
@@ -72,7 +72,6 @@ export function NewVenueForm() {
           surface: surface || undefined,
           field_type: fieldType || undefined,
           indoor: indoor === "" ? undefined : indoor === "true",
-          lighting: lighting === "" ? undefined : lighting === "true",
           field_lighting: fieldLighting === "" ? undefined : fieldLighting === "true",
           parking_notes: parkingNotes || undefined,
           field_rating: fieldRating || undefined,
@@ -86,6 +85,7 @@ export function NewVenueForm() {
           referee_tent: refereeTent || undefined,
           restrooms: restrooms || undefined,
           restrooms_cleanliness: restroomsCleanliness || undefined,
+          paid_parking: paidParking === "" ? undefined : paidParking === "true",
         }),
       });
 
@@ -194,6 +194,9 @@ export function NewVenueForm() {
                     type="button"
                     onClick={() => {
                       setAddress1(s.formatted_address || address1);
+                      setCity(s.city || city);
+                      setState(s.state || state);
+                      setZip(s.zip || zip);
                       setLatitude(s.lat != null ? String(s.lat) : latitude);
                       setLongitude(s.lng != null ? String(s.lng) : longitude);
                       setVenueUrl(s.website_uri || venueUrl);
@@ -233,16 +236,16 @@ export function NewVenueForm() {
             </select>
           </label>
           <label>
-            <div>Lighting</div>
-            <select value={lighting} onChange={(e) => setLighting(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+            <div>Field lighting</div>
+            <select value={fieldLighting} onChange={(e) => setFieldLighting(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
               <option value="">—</option>
               <option value="true">Yes</option>
               <option value="false">No</option>
             </select>
           </label>
           <label>
-            <div>Field lighting</div>
-            <select value={fieldLighting} onChange={(e) => setFieldLighting(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+            <div>Paid parking</div>
+            <select value={paidParking} onChange={(e) => setPaidParking(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
               <option value="">—</option>
               <option value="true">Yes</option>
               <option value="false">No</option>

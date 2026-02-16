@@ -42,6 +42,7 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
     indoor: venue.indoor ?? "",
     lighting: venue.lighting ?? "",
     field_lighting: venue.field_lighting ?? "",
+    paid_parking: venue.paid_parking ?? "",
     parking_notes: venue.parking_notes ?? "",
     field_rating: venue.field_rating ?? "",
     venue_type: venue.venue_type ?? "",
@@ -116,7 +117,6 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
           <Input label="Surface" value={form.surface} onChange={(v) => setField("surface", v)} />
           <Input label="Field type" value={form.field_type} onChange={(v) => setField("field_type", v)} />
           <SelectBoolean label="Indoor" value={form.indoor} onChange={(v) => setField("indoor", v)} />
-          <SelectBoolean label="Lighting" value={form.lighting} onChange={(v) => setField("lighting", v)} />
           <SelectBoolean label="Field lighting" value={form.field_lighting} onChange={(v) => setField("field_lighting", v)} />
         </div>
 
@@ -133,6 +133,7 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
           <SelectBoolean label="Food vendors" value={form.food_vendors} onChange={(v) => setField("food_vendors", v)} />
           <SelectBoolean label="Coffee vendors" value={form.coffee_vendors} onChange={(v) => setField("coffee_vendors", v)} />
           <SelectBoolean label="Tournament vendors" value={form.tournament_vendors} onChange={(v) => setField("tournament_vendors", v)} />
+          <SelectBoolean label="Paid parking" value={form.paid_parking} onChange={(v) => setField("paid_parking", v)} />
           <Input label="Referee tent (yes/no/multiple)" value={form.referee_tent} onChange={(v) => setField("referee_tent", v)} />
           <Input label="Restrooms (portable/building/both)" value={form.restrooms} onChange={(v) => setField("restrooms", v)} />
           <Input label="Restrooms cleanliness (1-5)" value={form.restrooms_cleanliness} onChange={(v) => setField("restrooms_cleanliness", v)} />

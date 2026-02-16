@@ -219,6 +219,7 @@
   - Fixed non-iterable tournament list crash on venue edit by guarding array shapes.
   - New venue form now exposes all venue enrichment fields, including venue URL; create/edit accepts and stores venue URL and all enrichment fields.
   - Added Google Places admin search endpoint and wired the new venue form to fetch suggestions to prefill address/geo/URL.
+  - Places suggestions now prefill city/state/ZIP; removed duplicate “lighting” field (keep field_lighting), added paid_parking boolean in forms/API/migration.
     - `referee_pay=$50 per game`
   - Added and linked demo venues:
     - `Rainier Vista Soccer Complex` (Seattle, WA)

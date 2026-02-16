@@ -22,7 +22,8 @@ alter table public.venues
   add column if not exists referee_tent text,
   add column if not exists restrooms text,
   add column if not exists restrooms_cleanliness integer,
-  add column if not exists venue_url text;
+  add column if not exists venue_url text,
+  add column if not exists paid_parking boolean;
 
 -- Light constraints for enums/ratings/counts.
 alter table public.venues

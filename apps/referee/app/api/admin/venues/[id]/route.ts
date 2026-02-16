@@ -36,6 +36,7 @@ type VenueUpdatePayload = {
   restrooms_cleanliness?: number | null;
   tournament_ids?: string[];
   venue_url?: string | null;
+  paid_parking?: boolean | null;
 };
 
 async function ensureAdminRequest() {
@@ -149,6 +150,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       ? (payload.tournament_ids as any[]).map(String).filter(Boolean)
       : undefined,
     venue_url: cleanString(payload?.venue_url) ?? undefined,
+    paid_parking: cleanBool(payload?.paid_parking) ?? undefined,
   };
 
   const { error, data } = await supabaseAdmin
