@@ -826,6 +826,10 @@
   justify-content: center;
 }
 
+.detailLinksRow--inline {
+  justify-content: flex-end;
+}
+
 .detailLinksRow .secondaryLink {
   display: inline-flex;
   align-items: center;

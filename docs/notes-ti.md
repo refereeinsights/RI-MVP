@@ -11,3 +11,5 @@
 - Directory hero: Tournament directory intro panel uses a light TI gradient tint with soft blue border to keep text legible while matching the TI header theme.
 - Detail buttons: Official site and map buttons use the white pill styling from directory cards; map buttons are hidden unless a real venue/address with city and state is available.
 - Venue row: Detail venue section shows venue name + address with navigation buttons aligned to the right; nav buttons are suppressed when venue/address data is incomplete.
+- Linked venues: Detail page now reads `tournament_venues -> venues` and renders all linked venues with address + map buttons; falls back to inline venue/address fields if no links exist.
+- Header spacing: TI header now keeps Public Beta pill, nav links, and CTA on the same row for alignment.

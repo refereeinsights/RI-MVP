@@ -45,16 +45,17 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 14px 16px 10px;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
   align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
+  gap: 14px 18px;
 }
 
 .ti-logo {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  justify-self: center;
 }
 
 .ti-logo img {
@@ -65,14 +66,15 @@ body {
 }
 
 .ti-nav {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 16px 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1.5rem;
+  gap: 1.3rem;
+  flex: 1;
+  min-width: 360px;
   flex-wrap: wrap;
+  padding: 6px 0 10px;
+  justify-self: center;
 }
 
 .ti-nav a {
@@ -91,7 +93,6 @@ body {
 }
 
 .ti-cta {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -107,6 +108,7 @@ body {
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
   border: 2px solid rgba(255, 255, 255, 0.18);
   min-height: 44px;
+  justify-self: end;
 }
 
 .ti-cta:hover {
@@ -127,6 +129,25 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 800px) {
+  .ti-header-shell {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 10px;
+  }
+  .ti-logo {
+    grid-column: 1 / span 2;
+    justify-self: center;
+  }
+  .ti-nav {
+    grid-column: 1 / span 2;
+    justify-self: center;
+  }
+  .ti-cta {
+    grid-column: 2;
+    justify-self: end;
+  }
 }
 
 .ti-main {

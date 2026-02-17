@@ -39,16 +39,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 />
               </Link>
               <div className="ti-pill">Public Beta</div>
+              <nav className="ti-nav" aria-label="Main navigation">
+                <Link href="/tournaments">Tournament Directory</Link>
+                <Link href="/how-it-works">How it works</Link>
+                <Link href="/list-your-tournament">List your tournament</Link>
+              </nav>
               <Link href="/list-your-tournament" className="ti-cta">
                 List your tournament
               </Link>
             </div>
-
-            <nav className="ti-nav">
-              <Link href="/tournaments">Tournament Directory</Link>
-              <Link href="/how-it-works">How it works</Link>
-              <Link href="/list-your-tournament">List your tournament</Link>
-            </nav>
           </header>
 
           <main className="ti-main">

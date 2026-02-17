@@ -20,6 +20,19 @@ type TournamentDetailRow = {
   venue: string | null;
   address: string | null;
   venue_url?: string | null;
+  tournament_venues?: {
+    venues?: {
+      id: string;
+      name: string | null;
+      address: string | null;
+      city: string | null;
+      state: string | null;
+      zip: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      venue_url: string | null;
+    } | null;
+  }[] | null;
 };
 
 export const revalidate = 300;
@@ -102,7 +115,7 @@ export default async function TournamentDetailPage({ params }: { params: { slug:
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
     .select(
-      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,sport,level,venue,address"
+      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,sport,level,venue,address,tournament_venues(venues(id,name,address,city,state,zip,latitude,longitude,venue_url))"
     )
     .eq("slug", params.slug)
     .maybeSingle<TournamentDetailRow>();
@@ -133,6 +146,10 @@ export default async function TournamentDetailPage({ params }: { params: { slug:
   const venueInfo = data.venue || data.address || mapQuery;
   const venueAddress = [data.address, buildLocationLabel(data.city, data.state)].filter(Boolean).join(", ");
   const sportSurfaceClass = getSportCardClass(data.sport);
+  const linkedVenues =
+    data.tournament_venues
+      ?.map((tv) => tv.venues)
+      .filter((v): v is NonNullable<(typeof data.tournament_venues)[number]["venues"]> => Boolean(v)) ?? [];
 
   return (
     <main className="pitchWrap tournamentsWrap">
@@ -157,7 +174,44 @@ export default async function TournamentDetailPage({ params }: { params: { slug:
             </div>
           ) : null}
 
-          {venueInfo ? (
+          {linkedVenues.length > 0 ? (
+            linkedVenues.map((venue) => {
+              const venueLoc = buildLocationLabel(venue.city, venue.state);
+              const addressLine = [venue.address, venueLoc].filter(Boolean).join(", ");
+              const hasVenueMap = (venue.address || venue.name) && venue.city && venue.state;
+              const venueQuery = hasVenueMap
+                ? [venue.name, venue.address, venue.city, venue.state, venue.zip].filter(Boolean).join(", ")
+                : "";
+              const venueMapLinks = venueQuery ? buildMapLinks(venueQuery) : null;
+
+              return (
+                <div className="detailCard" key={venue.id}>
+                  <div className="detailCard__title">Venue</div>
+                  <div className="detailCard__body">
+                    <div className="detailVenueRow">
+                      <div className="detailVenueText">
+                        <div className="detailVenueName">{venue.name || "Venue TBA"}</div>
+                        {addressLine ? <div className="detailVenueAddress">{addressLine}</div> : null}
+                      </div>
+                      {venueMapLinks ? (
+                        <div className="detailLinksRow detailLinksRow--inline">
+                          <a className="secondaryLink" href={venueMapLinks.google} target="_blank" rel="noopener noreferrer">
+                            Google Maps
+                          </a>
+                          <a className="secondaryLink" href={venueMapLinks.apple} target="_blank" rel="noopener noreferrer">
+                            Apple Maps
+                          </a>
+                          <a className="secondaryLink" href={venueMapLinks.waze} target="_blank" rel="noopener noreferrer">
+                            Waze
+                          </a>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : venueInfo ? (
             <div className="detailCard">
               <div className="detailCard__title">Venue</div>
               <div className="detailCard__body">
