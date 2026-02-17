@@ -199,6 +199,10 @@
     - `tournament_director_email=rod@refereeinsights.com`
     - `referee_contact_email=rod@refereeinsights.com`
 
+## 2026-02-17
+- Schema:
+  - Added optional `age_group`, `team_fee`, and `games_guaranteed` columns to `tournaments` and `tournaments_public` (`20260217_tournaments_age_fee.sql`) to capture division info, team fees, and games guaranteed.
+
 ## 2026-02-14
 - Smoke tests:
   - Adjusted Playwright admin smoke selectors to tolerate multiple verification links and optional tournament contacts heading.
