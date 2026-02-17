@@ -144,6 +144,17 @@ export async function POST(request: Request) {
       else if (key === "ref_parking_cost") updates.ref_parking_cost = value;
       else if (key === "mentors") updates.mentors = value;
       else if (key === "assigned_appropriately") updates.assigned_appropriately = value;
+      else if (key === "team_fee") {
+        const num = Number(String(value).replace(/[^0-9.]/g, ""));
+        if (!Number.isNaN(num) && num > 0) updates.team_fee = num;
+      } else if (key === "games_guaranteed") {
+        const num = parseInt(String(value).replace(/[^0-9]/g, ""), 10);
+        if (Number.isFinite(num)) updates.games_guaranteed = num;
+      } else if (key === "address") {
+        updates.address = value;
+      } else if (key === "venue_url") {
+        updates.venue_url = value;
+      }
     }
   }
 
