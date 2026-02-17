@@ -14,3 +14,4 @@
 - Linked venues: Detail page now reads `tournament_venues -> venues` and renders all linked venues with address + map buttons; falls back to inline venue/address fields if no links exist.
 - Header spacing: TI header now keeps Public Beta pill, nav links, and CTA on the same row for alignment.
 - SEO: Added TI-specific metadata defaults (canonical, OG/Twitter), page-specific metadata, sitemap.xml and robots.txt, and JSON-LD (SportsEvent) on tournament detail pages.
+- Analytics: Plausible script injected site-wide (configurable via `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`, default `tournamentinsights.com`).
