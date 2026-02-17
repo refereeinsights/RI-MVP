@@ -297,6 +297,7 @@ async function loadData() {
         tournament_name: row.tournaments?.name ?? null,
         tournament_state: row.tournaments?.state ?? null,
       })) as (UrlSuggestion & { tournament_name?: string | null; tournament_state?: string | null })[],
+    feesVenueSummary: [],
   };
 }
 
@@ -314,6 +315,7 @@ export default async function Page() {
       urlSuggestions={data.url_suggestions}
       tournamentUrlLookup={data.tournament_url_lookup}
       candidateTournaments={data.candidate_tournaments}
+      feesVenueSummary={data.feesVenueSummary}
     />
   );
 }

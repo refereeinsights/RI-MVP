@@ -111,6 +111,7 @@ type ReviewItem = {
   sourceUrl?: string | null;
   confidence?: number | null;
 };
+type FeesVenueSummary = { tournament_id: string; name: string | null; found: string[] };
 
 function formatDate(val: string | null) {
   if (!val) return "";
@@ -128,6 +129,7 @@ export default function EnrichmentClient({
   urlSuggestions,
   tournamentUrlLookup,
   candidateTournaments,
+  feesVenueSummary,
 }: {
   tournaments: Tournament[];
   missingUrls: MissingUrlTournament[];
@@ -139,6 +141,7 @@ export default function EnrichmentClient({
   urlSuggestions: UrlSuggestion[];
   tournamentUrlLookup: Record<string, string | null>;
   candidateTournaments: Record<string, CandidateTournament>;
+  feesVenueSummary: FeesVenueSummary[];
 }) {
   const [selected, setSelected] = React.useState<string[]>([]);
   const [status, setStatus] = React.useState<string>("");
@@ -161,6 +164,8 @@ export default function EnrichmentClient({
   const [batchLimit, setBatchLimit] = React.useState<number>(50);
   const [batchMissingDatesOnly, setBatchMissingDatesOnly] = React.useState<boolean>(false);
   const [batchStatus, setBatchStatus] = React.useState<string>("");
+  const [feesStatus, setFeesStatus] = React.useState<string>("");
+  const [feesSummaryState, setFeesSummaryState] = React.useState<FeesVenueSummary[]>(feesVenueSummary);
   const tournamentUrlFor = React.useCallback(
     (tournamentId: string) => tournamentUrlLookup[tournamentId] ?? null,
     [tournamentUrlLookup]
@@ -247,6 +252,24 @@ export default function EnrichmentClient({
     });
     return deduped;
   }, [pendingContacts, pendingDates, pendingAttributes]);
+
+  const runFeesEnrichment = React.useCallback(async () => {
+    setFeesStatus("Running fees/venue scrape...");
+    try {
+      const resp = await fetch("/api/admin/tournaments/enrichment/fees-venue", { method: "POST" });
+      const json = await resp.json();
+      if (!resp.ok) {
+        setFeesStatus(`Failed: ${json?.error || resp.status}`);
+        return;
+      }
+      if (json?.summary) {
+        setFeesSummaryState(json.summary);
+      }
+      setFeesStatus(`Inserted ${json?.inserted ?? 0} candidates`);
+    } catch (err: any) {
+      setFeesStatus(`Error: ${err?.message || err}`);
+    }
+  }, []);
 
   React.useEffect(() => {
     setSelectedItems((prev) => {
@@ -602,6 +625,19 @@ export default function EnrichmentClient({
       <p style={{ color: "#4b5563", marginBottom: 16 }}>
         Queue enrichment jobs for tournaments with URLs. Jobs fetch up to 8 pages per tournament and extract contacts, dates, and referee operations details.
       </p>
+      <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button onClick={runFeesEnrichment} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff" }}>
+            Run fees/venue scrape
+          </button>
+          {feesStatus ? <span style={{ color: "#4b5563", fontSize: 12 }}>{feesStatus}</span> : null}
+        </div>
+        {feesSummaryState?.length ? (
+          <div style={{ fontSize: 12, color: "#111827" }}>
+            Latest scrape: {feesSummaryState.map((s) => `${s.name ?? s.tournament_id} [${s.found.join(", ")}]`).join("; ")}
+          </div>
+        ) : null}
+      </div>
       <div style={{ marginBottom: 12 }}>
         <a
           href="/admin"
