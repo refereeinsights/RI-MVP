@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import Image from "next/image";
 import Link from "next/link";
+import PlausibleScript from "../components/PlausibleScript";
 import "./globals.css";
 
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.tournamentinsights.com").replace(/\/+$/, "");
@@ -55,11 +55,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="ti-body">
-        <Script
-          src="https://plausible.io/js/script.js"
-          data-domain={PLAUSIBLE_DOMAIN}
-          strategy="afterInteractive"
-        />
         <div className="ti-app">
           <header className="ti-header">
             <div className="ti-header-shell">
@@ -87,6 +82,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="ti-main">
             <div className="ti-shell">{children}</div>
           </main>
+          <PlausibleScript domain={PLAUSIBLE_DOMAIN} />
         </div>
       </body>
     </html>
