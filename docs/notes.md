@@ -204,6 +204,10 @@
   - Added optional `age_group`, `team_fee`, and `games_guaranteed` columns to `tournaments` and `tournaments_public` (`20260217_tournaments_age_fee.sql`) to capture division info, team fees, and games guaranteed.
 - Parsers:
   - Exposure Baseball (WA tournaments page) check: static HTML and Playwright render show only promo “AD YOUR EVENT NOW” cards; no tournament listings or event links. Network/XHR during page load only hits the page itself, banner endpoint (`/banner/events?stateregion=washington&sportType=5`), and ads/analytics—no tournament JSON. Conclusion: WA page currently has no events; need a different state or to wait until events exist before building a parser.
+- Enrichment (planned):
+  - Add a “Fees & Venue Enrichment” flow to admin enrichment: new API to select tournaments missing `team_fee`/`games_guaranteed`/venue/address/venue_url`, scrape official/source URLs, store candidates (likely via `tournament_attribute_candidates` keys `team_fee`, `games_guaranteed`, `venue`, `address`, `venue_url`), and surface them in the existing review/approval UI with Accept/Reject before writing to `tournaments`/`tournaments_public`.
+- Enrichment (backend scaffold):
+  - Added admin API `POST /api/admin/tournaments/enrichment/fees-venue` to queue and scrape tournaments missing `team_fee`/`games_guaranteed`/venue/address/venue_url`. It fetches the official/source URL, parses fee, games-guaranteed, address, and map links, and inserts `tournament_attribute_candidates` (keys: `team_fee`, `games_guaranteed`, `address`, `venue_url`) with the source URL for later review/approval.
 
 ## 2026-02-14
 - Smoke tests:
