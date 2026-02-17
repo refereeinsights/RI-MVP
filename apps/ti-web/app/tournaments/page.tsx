@@ -22,8 +22,8 @@ type Tournament = {
 export const revalidate = 300;
 
 export const metadata = {
-  title: "Tournament Directory",
-  description: "Browse upcoming tournaments by sport, state, and month without ratings or reviews.",
+  title: "Browse Youth Tournaments",
+  description: "Search youth tournaments by sport, location, and date. View official event details and planning information.",
   alternates: {
     canonical: "/tournaments",
   },

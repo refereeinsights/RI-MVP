@@ -202,6 +202,8 @@
 ## 2026-02-17
 - Schema:
   - Added optional `age_group`, `team_fee`, and `games_guaranteed` columns to `tournaments` and `tournaments_public` (`20260217_tournaments_age_fee.sql`) to capture division info, team fees, and games guaranteed.
+- Parsers:
+  - Exposure Baseball (WA tournaments page) check: static HTML and Playwright render show only promo “AD YOUR EVENT NOW” cards; no tournament listings or event links. Network/XHR during page load only hits the page itself, banner endpoint (`/banner/events?stateregion=washington&sportType=5`), and ads/analytics—no tournament JSON. Conclusion: WA page currently has no events; need a different state or to wait until events exist before building a parser.
 
 ## 2026-02-14
 - Smoke tests:

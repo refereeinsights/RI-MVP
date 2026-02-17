@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     template: "%s | TournamentInsights",
   },
   description:
-    "Discover youth tournaments by sport, state, and month with verified dates, locations, and official links—no ratings or reviews.",
+    "Find youth soccer, basketball, and other tournaments by date and location. Clear listings and direct links to official event information.",
   alternates: {
     canonical: "/",
   },

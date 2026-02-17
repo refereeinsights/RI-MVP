@@ -94,7 +94,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 
   if (!data) {
     return {
-      title: "Tournament not found | TournamentInsights",
+      title: "Tournament Not Found",
       description: "We could not find that tournament listing.",
       robots: { index: false, follow: false },
       alternates: { canonical: buildCanonicalUrl(params.slug) },
@@ -108,19 +108,17 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     data.start_date && !Number.isNaN(new Date(`${data.start_date}T00:00:00`).getTime())
       ? new Date(`${data.start_date}T00:00:00`).toLocaleDateString(undefined, { month: "long", year: "numeric" })
       : "";
-  const title = `${titlePrefix}${data.name}${locationLabel ? ` | ${locationLabel}` : ""}${
-    monthYear ? ` | ${monthYear}` : ""
-  }`;
-  const description = `Dates and location for ${data.name}${locationLabel ? ` in ${locationLabel}` : ""}. View official site and event details.`;
+  const title = `${data.name}${locationLabel ? ` | ${locationLabel}` : ""}${monthYear ? ` | ${monthYear}` : ""} Youth ${data.sport ?? ""} Tournament`.trim();
+  const description = `Dates and location for ${data.name}${locationLabel ? ` in ${locationLabel}` : ""}. View official event details and planning information.`;
 
   return {
     title,
     description,
     alternates: { canonical: buildCanonicalUrl(data.slug ?? params.slug) },
     openGraph: {
-      title,
+      title: `${data.name}${locationLabel ? ` | ${locationLabel}` : ""}`,
       description,
-      type: "website",
+      type: "article",
       url: buildCanonicalUrl(data.slug ?? params.slug),
       siteName: "TournamentInsights",
     },
