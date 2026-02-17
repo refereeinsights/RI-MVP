@@ -15,3 +15,4 @@
 - Header spacing: TI header now keeps Public Beta pill, nav links, and CTA on the same row for alignment.
 - SEO: Added TI-specific metadata defaults (canonical, OG/Twitter), page-specific metadata, sitemap.xml and robots.txt, and JSON-LD (SportsEvent) on tournament detail pages.
 - Analytics: Plausible script injected site-wide (configurable via `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`, default `tournamentinsights.com`).
+- Homepage: Added credibility/support band under hero with TI gradient tint and copy “Inspired by real tournament families…” (no referee mentions).

@@ -46,6 +46,28 @@ export default function Home() {
           </div>
         </section>
 
+        <section
+          className="bodyCard"
+          aria-labelledby="ti-inspired"
+          style={{
+            background: "linear-gradient(135deg, rgba(6, 25, 147, 0.06), rgba(25, 115, 209, 0.06))",
+            border: "1px solid rgba(25, 115, 209, 0.25)",
+            borderRadius: 14,
+            boxShadow: "0 12px 26px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div style={{ maxWidth: "72ch", margin: "0 auto" }}>
+            <h2 id="ti-inspired" style={{ margin: "0 0 8px 0", fontWeight: 700 }}>
+              Inspired by real tournament families. Built for real tournament weekends.
+            </h2>
+            <p style={{ margin: "0 0 8px 0", lineHeight: 1.6, color: "#0f172a" }}>
+              TournamentInsights was shaped and vetted by a tournament mom and youth coach who understands the reality of
+              tournament life — schedules, hotels, carpools, and long weekends at the fields.
+            </p>
+            <p style={{ margin: 0, fontWeight: 600, color: "#0f172a" }}>Clear. Practical. No noise.</p>
+          </div>
+        </section>
+
         <section className="bodyCard" aria-labelledby="ti-provides">
           <h2 id="ti-provides">What TournamentInsights provides</h2>
           <ul className="list">
