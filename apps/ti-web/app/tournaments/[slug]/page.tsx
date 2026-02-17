@@ -82,18 +82,21 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     city: string | null;
     state: string | null;
     start_date: string | null;
+    end_date: string | null;
+    sport: string | null;
     slug: string | null;
   };
   const { data } = await supabaseAdmin
     .from("tournaments_public" as any)
-    .select("name,city,state,start_date,slug")
+    .select("name,city,state,start_date,end_date,sport,slug")
     .eq("slug", params.slug)
     .maybeSingle<TournamentMeta>();
 
   if (!data) {
     return {
-      title: "Tournament listing | Tournament Insights",
-      description: "Tournament listing overview without ratings or reviews.",
+      title: "Tournament not found | TournamentInsights",
+      description: "We could not find that tournament listing.",
+      robots: { index: false, follow: false },
       alternates: { canonical: buildCanonicalUrl(params.slug) },
     };
   }
@@ -101,13 +104,31 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const year = data.start_date ? new Date(`${data.start_date}T00:00:00`).getFullYear() : null;
   const locationLabel = buildLocationLabel(data.city ?? null, data.state ?? null);
   const titlePrefix = year ? `${year} ` : "";
-  const title = `${titlePrefix}${data.name}${locationLabel ? ` (${locationLabel})` : ""} | Tournament Insights`;
-  const description = `Tournament overview for ${data.name}${locationLabel ? ` (${locationLabel})` : ""}. Logistics-focused details without ratings or reviews.`;
+  const monthYear =
+    data.start_date && !Number.isNaN(new Date(`${data.start_date}T00:00:00`).getTime())
+      ? new Date(`${data.start_date}T00:00:00`).toLocaleDateString(undefined, { month: "long", year: "numeric" })
+      : "";
+  const title = `${titlePrefix}${data.name}${locationLabel ? ` | ${locationLabel}` : ""}${
+    monthYear ? ` | ${monthYear}` : ""
+  }`;
+  const description = `Dates and location for ${data.name}${locationLabel ? ` in ${locationLabel}` : ""}. View official site and event details.`;
 
   return {
     title,
     description,
     alternates: { canonical: buildCanonicalUrl(data.slug ?? params.slug) },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: buildCanonicalUrl(data.slug ?? params.slug),
+      siteName: "TournamentInsights",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 
@@ -151,10 +172,37 @@ export default async function TournamentDetailPage({ params }: { params: { slug:
       ?.map((tv) => tv.venues)
       .filter((v): v is NonNullable<(typeof data.tournament_venues)[number]["venues"]> => Boolean(v)) ?? [];
 
+  const canonicalUrl = buildCanonicalUrl(data.slug ?? params.slug);
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "SportsEvent",
+    name: data.name,
+    startDate: data.start_date || undefined,
+    endDate: data.end_date || undefined,
+    url: canonicalUrl,
+    location: {
+      "@type": "Place",
+      name: linkedVenues[0]?.name || data.venue || locationLabel || "Tournament venue",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: data.city || undefined,
+        addressRegion: data.state || undefined,
+        postalCode: data.zip || undefined,
+        addressCountry: "US",
+      },
+    },
+    sameAs: data.official_website_url || data.source_url || undefined,
+  };
+
   return (
     <main className="pitchWrap tournamentsWrap">
       <section className={`detailHero ${sportSurfaceClass}`}>
         <div className="detailHero__overlay">
+          <script
+            type="application/ld+json"
+            suppressHydrationWarning
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+          />
           <Link href="/tournaments" className="detailBackLink">
             ← Back to directory
           </Link>

@@ -1,6 +1,7 @@
 export const metadata = {
-  title: "List your tournament | Tournament Insights",
+  title: "List your tournament",
   description: "Share your tournament logistics so teams and officials can plan with confidence.",
+  alternates: { canonical: "/list-your-tournament" },
 };
 
 export default function ListYourTournamentPage() {

@@ -1,3 +1,10 @@
+export const metadata = {
+  title: "TournamentInsights — Youth Tournament Directory",
+  description:
+    "Browse youth tournaments by sport, state, and month with verified dates, locations, and official links—no ratings or reviews.",
+  alternates: { canonical: "/" },
+};
+
 export default function Home() {
   return (
     <main className="page">

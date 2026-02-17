@@ -22,8 +22,11 @@ type Tournament = {
 export const revalidate = 300;
 
 export const metadata = {
-  title: "Tournament Directory | Tournament Insights",
+  title: "Tournament Directory",
   description: "Browse upcoming tournaments by sport, state, and month without ratings or reviews.",
+  alternates: {
+    canonical: "/tournaments",
+  },
 };
 
 const SPORTS_LABELS: Record<string, string> = {

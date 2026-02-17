@@ -13,3 +13,4 @@
 - Venue row: Detail venue section shows venue name + address with navigation buttons aligned to the right; nav buttons are suppressed when venue/address data is incomplete.
 - Linked venues: Detail page now reads `tournament_venues -> venues` and renders all linked venues with address + map buttons; falls back to inline venue/address fields if no links exist.
 - Header spacing: TI header now keeps Public Beta pill, nav links, and CTA on the same row for alignment.
+- SEO: Added TI-specific metadata defaults (canonical, OG/Twitter), page-specific metadata, sitemap.xml and robots.txt, and JSON-LD (SportsEvent) on tournament detail pages.

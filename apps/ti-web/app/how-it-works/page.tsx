@@ -1,6 +1,7 @@
 export const metadata = {
-  title: "How it works | Tournament Insights",
+  title: "How it works",
   description: "See how Tournament Insights curates tournament details without ratings or reviews.",
+  alternates: { canonical: "/how-it-works" },
 };
 
 export default function HowItWorksPage() {

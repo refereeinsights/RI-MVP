@@ -3,10 +3,37 @@ import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
 
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.tournamentinsights.com").replace(/\/+$/, "");
+
 export const metadata: Metadata = {
-  title: "Tournament Insights — Insight Before You Commit",
+  metadataBase: new URL(SITE_ORIGIN),
+  title: {
+    default: "TournamentInsights — Youth Tournament Directory",
+    template: "%s | TournamentInsights",
+  },
   description:
-    "Tournament Insights provides structured information to help teams, families, and organizations make informed decisions about youth sports tournaments.",
+    "Discover youth tournaments by sport, state, and month with verified dates, locations, and official links—no ratings or reviews.",
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    type: "website",
+    siteName: "TournamentInsights",
+    title: "TournamentInsights — Youth Tournament Directory",
+    description:
+      "Discover youth tournaments by sport, state, and month with verified dates, locations, and official links—no ratings or reviews.",
+    url: SITE_ORIGIN,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TournamentInsights — Youth Tournament Directory",
+    description:
+      "Discover youth tournaments by sport, state, and month with verified dates, locations, and official links—no ratings or reviews.",
+  },
   icons: {
     icon: [
       { url: "/brand/ti-logo.svg", type: "image/svg+xml" },
