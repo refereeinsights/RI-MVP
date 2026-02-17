@@ -259,13 +259,13 @@ export default function EnrichmentClient({
       const resp = await fetch("/api/admin/tournaments/enrichment/fees-venue", { method: "POST" });
       const json = await resp.json();
       if (!resp.ok) {
-        setFeesStatus(`Failed: ${json?.error || resp.status}`);
+        setFeesStatus(`Failed: ${json?.error || resp.status} ${json?.detail ? `(${json.detail})` : ""}`);
         return;
       }
       if (json?.summary) {
         setFeesSummaryState(json.summary);
       }
-      setFeesStatus(`Inserted ${json?.inserted ?? 0} candidates`);
+      setFeesStatus(`Inserted ${json?.inserted ?? 0} candidates from ${json?.attempted ?? "?"} tournaments`);
     } catch (err: any) {
       setFeesStatus(`Error: ${err?.message || err}`);
     }

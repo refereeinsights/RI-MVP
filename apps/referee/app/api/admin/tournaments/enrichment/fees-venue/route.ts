@@ -78,10 +78,12 @@ export async function POST(request: Request) {
 
   const candidates: Array<{ tournament_id: string; attribute_key: string; attribute_value: string; source_url: string | null }> = [];
   const summary: Array<{ tournament_id: string; name: string | null; found: string[] }> = [];
+  let attempted = 0;
 
   for (const t of (tournaments as any[] | null) ?? []) {
     const url = (t as any).official_website_url || (t as any).source_url;
     if (!url) continue;
+    attempted += 1;
     const html = await fetchHtml(url);
     if (!html) continue;
     const $ = cheerio.load(html);
@@ -126,5 +128,5 @@ export async function POST(request: Request) {
     await supabaseAdmin.from("tournament_attribute_candidates" as any).insert(candidates);
   }
 
-  return NextResponse.json({ ok: true, inserted: candidates.length, summary });
+  return NextResponse.json({ ok: true, inserted: candidates.length, attempted, summary });
 }
