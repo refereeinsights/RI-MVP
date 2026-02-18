@@ -265,6 +265,10 @@ export default function EnrichmentClient({
         `Inserted ${json?.inserted ?? 0} candidates from ${json?.attempted ?? "?"} tournaments` +
           `${(json?.skipped_recent ?? 0) > 0 ? ` (${json.skipped_recent} skipped: scraped in last 10 days)` : ""}`
       );
+      // Refresh so newly inserted candidates show up immediately in the approval queue.
+      if ((json?.inserted ?? 0) > 0) {
+        setTimeout(() => refreshPage(), 400);
+      }
     } catch (err: any) {
       setFeesStatus(`Error: ${err?.message || err}`);
     }

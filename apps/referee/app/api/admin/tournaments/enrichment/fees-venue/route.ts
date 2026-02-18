@@ -23,30 +23,79 @@ async function ensureAdmin() {
 }
 
 function extractFee(text: string): string | null {
-  const normalized = text.replace(/[–—]/g, "-");
-  const tieredMatches = Array.from(
+  const normalizedBase = text.replace(/[–—]/g, "-").replace(/\s+/g, " ");
+  // Some sites collapse adjacent cells into tokens like `$6109 v 9` / `$66011 v 11`.
+  // Split those into `$610 9 v 9` / `$660 11 v 11` before extraction.
+  const normalizedStep1 = normalizedBase.replace(
+    /(\d{1,2}\/\d{1,2}\/\d{2})(?=(?:7|9|11)\s*v\s*(?:7|9|11))/gi,
+    "$1 "
+  );
+  const normalized = normalizedStep1.replace(
+    /\$([0-9]{3,6})\s*((?:7|9|11)\s*v\s*(?:7|9|11))/gi,
+    (_full: string, rawAmount: string, formatChunk: string) => {
+      const firstFormatNumber = /^((?:7|9|11))\s*v/i.exec(formatChunk)?.[1] ?? "";
+      let amount = rawAmount;
+      if (firstFormatNumber && amount.endsWith(firstFormatNumber) && amount.length > firstFormatNumber.length + 2) {
+        amount = amount.slice(0, -firstFormatNumber.length);
+      }
+      return `$${amount} ${formatChunk}`;
+    }
+  );
+  const entries: string[] = [];
+  const seen = new Set<string>();
+  const maxEntries = 12;
+
+  const normalizeAmount = (raw: string) => `$${raw.replace(/,/g, "")}`;
+  const normalizeFormat = (raw: string) => raw.toLowerCase().replace(/\s+/g, "");
+  const normalizeAge = (raw: string) =>
+    raw
+      .toUpperCase()
+      .replace(/\s+/g, "")
+      .replace(/U(\d{1,2})\/\d{2,4}-U?(\d{1,2})\/\d{2,4}/g, "U$1-U$2")
+      .replace(/U(\d{1,2})-U?(\d{1,2})/g, "U$1-U$2");
+  const addEntry = (value: string) => {
+    const cleaned = value.trim().replace(/\s+/g, " ");
+    if (!cleaned || seen.has(cleaned) || entries.length >= maxEntries) return;
+    seen.add(cleaned);
+    entries.push(cleaned);
+  };
+  // `7v7 | U6-U10 | $795` and similar table/card patterns.
+  const structured = Array.from(
     normalized.matchAll(
-      /(?:\b\d{1,2}\s*v\s*\d{1,2}\s*\|\s*)?(U\s*\d{1,2}\s*-\s*U?\s*\d{1,2}|U\s*\d{1,2}\s*\+?)\s*\|\s*\$\s*([0-9]{2,5}(?:\.[0-9]{2})?)/gi
+      /(?:\b(\d{1,2}\s*v\s*\d{1,2}|\d{1,2}v\d{1,2}|11v11)\b\s*\|\s*)?(U\s*\d{1,2}(?:\s*\/\s*\d{2,4})?\s*-\s*U?\s*\d{1,2}(?:\s*\/\s*\d{2,4})?|U\s*\d{1,2}\s*\+?)\s*\|\s*\$\s*([0-9]{2,5}(?:\.[0-9]{2})?)(?!\d)/gi
     )
   );
-  if (tieredMatches.length) {
-    const tiers: string[] = [];
-    const seen = new Set<string>();
-    for (const m of tieredMatches) {
-      const rawLabel = (m[1] ?? "").toUpperCase().replace(/\s+/g, "");
-      const label = rawLabel.replace(/U(\d{1,2})-U?(\d{1,2})/, "U$1-U$2");
-      const amount = `$${m[2]}`;
-      const entry = `${label} ${amount}`;
-      if (!seen.has(entry)) {
-        seen.add(entry);
-        tiers.push(entry);
-      }
-    }
-    if (tiers.length) return tiers.join(" | ");
+  for (const m of structured) {
+    const age = normalizeAge(m[2] ?? "");
+    const amount = normalizeAmount(m[3] ?? "");
+    addEntry([age, amount].filter(Boolean).join(" "));
   }
 
+  // `U7/2019 - U10/2016: $675` and bullet/list variants.
+  const ageRanges = Array.from(
+    normalized.matchAll(
+      /(U\s*\d{1,2}(?:\s*\/\s*\d{2,4})?\s*-\s*U?\s*\d{1,2}(?:\s*\/\s*\d{2,4})?|U\s*\d{1,2}\s*\+?)\s*[:|]?\s*\$\s*([0-9]{2,5}(?:\.[0-9]{2})?)/gi
+    )
+  );
+  for (const m of ageRanges) {
+    if ((m[0] ?? "").includes("|")) continue;
+    addEntry([normalizeAge(m[1] ?? ""), normalizeAmount(m[2] ?? "")].filter(Boolean).join(" "));
+  }
+
+  // `Entry Fee: 7v7 $845 9v9 $975 11v11 $1045` and table row style formats.
+  const formatFees = Array.from(
+    normalized.matchAll(
+      /\b(\d{1,2}\s*v\s*\d{1,2}|\d{1,2}v\d{1,2}|11v11)\b\s*[:|]?\s*\$\s*([0-9]{2,5}(?:\.[0-9]{2})?)(?!\d)/gi
+    )
+  );
+  for (const m of formatFees) {
+    addEntry([normalizeFormat(m[1] ?? ""), normalizeAmount(m[2] ?? "")].filter(Boolean).join(" "));
+  }
+
+  if (entries.length) return entries.join(" | ");
+
   const m = normalized.match(/\$\s*([0-9]{2,5}(?:\.[0-9]{2})?)/);
-  return m ? `$${m[1]}` : null;
+  return m ? normalizeAmount(m[1]) : null;
 }
 
 function extractGames(text: string): string | null {

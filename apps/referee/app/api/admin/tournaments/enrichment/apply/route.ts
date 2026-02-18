@@ -7,6 +7,12 @@ type Item = {
   id: string;
 };
 
+function cleanText(value: unknown): string | null {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text ? text : null;
+}
+
 async function ensureAdmin() {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
@@ -47,6 +53,8 @@ export async function POST(request: Request) {
 
   const updates: Record<string, any> = {};
   const now = new Date().toISOString();
+  let attributeAddress: string | null = null;
+  let attributeVenueUrl: string | null = null;
 
   if (venueIds.length) {
     const { data: venues } = await supabaseAdmin
@@ -141,9 +149,67 @@ export async function POST(request: Request) {
         const num = parseInt(String(value).replace(/[^0-9]/g, ""), 10);
         if (Number.isFinite(num)) updates.games_guaranteed = num;
       } else if (key === "address") {
-        updates.address = value;
+        const text = cleanText(value);
+        if (text) {
+          updates.address = text;
+          attributeAddress = text;
+        }
       } else if (key === "venue_url") {
-        updates.venue_url = value;
+        const text = cleanText(value);
+        if (text) {
+          updates.venue_url = text;
+          attributeVenueUrl = text;
+        }
+      }
+    }
+  }
+
+  // If fees/venue attribute enrichment provided address/url, create or link a canonical venue row.
+  if (attributeAddress || attributeVenueUrl) {
+    const { data: tournamentRaw } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("name,venue,address,city,state,zip,sport")
+      .eq("id", tournamentId)
+      .maybeSingle();
+    const tournament = tournamentRaw as any;
+    const tournamentName = cleanText(tournament?.name);
+    const venueName = cleanText(updates.venue ?? tournament?.venue) ?? `${tournamentName ?? "Tournament"} Venue`;
+    const venueAddress = cleanText(attributeAddress ?? updates.address ?? tournament?.address);
+    const city = cleanText(tournament?.city);
+    const state = cleanText(tournament?.state);
+    const zip = cleanText(tournament?.zip);
+    const sport = cleanText(tournament?.sport);
+
+    if (venueName || venueAddress || attributeVenueUrl) {
+      const { data: upsertedRaw, error: upsertErr } = await supabaseAdmin
+        .from("venues" as any)
+        .upsert(
+          {
+            name: venueName,
+            address: venueAddress,
+            city,
+            state,
+            zip,
+            sport,
+          },
+          { onConflict: "name,address,city,state" }
+        )
+        .select("id,venue_url")
+        .maybeSingle();
+      const upserted = upsertedRaw as any;
+      if (!upsertErr && upserted?.id) {
+        if (attributeVenueUrl && !cleanText(upserted.venue_url)) {
+          await supabaseAdmin
+            .from("venues" as any)
+            .update({ venue_url: attributeVenueUrl })
+            .eq("id", upserted.id);
+        }
+        await supabaseAdmin
+          .from("tournament_venues" as any)
+          .upsert(
+            { tournament_id: tournamentId, venue_id: upserted.id },
+            { onConflict: "tournament_id,venue_id" }
+          );
       }
     }
   }
