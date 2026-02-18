@@ -214,6 +214,7 @@ async function loadData() {
     .select("id,name,slug,state,city,sport,source_url,official_website_url,start_date,end_date,tournament_director_email,referee_contact_email,do_not_contact")
     .eq("status", "published")
     .eq("is_canonical", true)
+    .eq("sport", "soccer")
     .eq("do_not_contact", false)
     .is("start_date", null)
     .is("end_date", null)

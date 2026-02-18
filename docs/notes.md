@@ -249,3 +249,5 @@
   - Action suppresses outreach for the tournament, marks the tournament as `do_not_contact=true`, sets `do_not_contact_reason='bad_email'`, and sets `enrichment_skip=true` to remove from future enrichment workflows.
   - If the bad email matches `tournament_director_email` or `referee_contact_email`, that field is cleared.
   - Appends a timestamped bad-email note to outreach row notes for audit trail.
+- Priority outreach scope update:
+  - `Priority outreach targets (missing both emails + dates)` now filters to `sport='soccer'` in `apps/referee/app/admin/tournaments/enrichment/page.tsx`.
