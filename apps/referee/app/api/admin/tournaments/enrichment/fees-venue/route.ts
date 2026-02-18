@@ -58,6 +58,14 @@ async function fetchHtml(url: string): Promise<string | null> {
   }
 }
 
+function isMissingCooldownColumnError(message: string | undefined): boolean {
+  if (!message) return false;
+  return (
+    /column .*fees_venue_scraped_at.* does not exist/i.test(message) ||
+    /could not find the 'fees_venue_scraped_at' column/i.test(message)
+  );
+}
+
 export async function POST(request: Request) {
   const isAdmin = await ensureAdmin();
   if (!isAdmin) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -81,7 +89,7 @@ export async function POST(request: Request) {
 
     if (!primary.error) return primary;
 
-    if (/column .*fees_venue_scraped_at.* does not exist/i.test(primary.error.message)) {
+    if (isMissingCooldownColumnError(primary.error.message)) {
       const retryWithoutCooldown = await supabaseAdmin
         .from("tournaments" as any)
         .select(withoutCooldownSelect)
@@ -100,7 +108,7 @@ export async function POST(request: Request) {
       .or("official_website_url.not.is.null,source_url.not.is.null")
       .limit(cappedLimit * 5);
     if (!fallback.error) return fallback;
-    if (/column .*fees_venue_scraped_at.* does not exist/i.test(fallback.error.message)) {
+    if (isMissingCooldownColumnError(fallback.error.message)) {
       return supabaseAdmin
         .from("tournaments" as any)
         .select(withoutCooldownSelect)
@@ -212,7 +220,7 @@ export async function POST(request: Request) {
       .from("tournaments" as any)
       .update({ fees_venue_scraped_at: nowIso })
       .in("id", attemptedTournamentIds);
-    if (stampError && !/column .*fees_venue_scraped_at.* does not exist/i.test(stampError.message)) {
+    if (stampError && !isMissingCooldownColumnError(stampError.message)) {
       return NextResponse.json(
         {
           ok: false,
