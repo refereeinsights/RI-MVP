@@ -227,6 +227,9 @@ export default async function TournamentsPage({
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
+  if (!Object.prototype.hasOwnProperty.call(sportsCounts, "lacrosse")) {
+    sportsCounts.lacrosse = 0;
+  }
 
   const sportsSorted = Object.entries(sportsCounts)
     .sort((a, b) => b[1] - a[1])

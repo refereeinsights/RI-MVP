@@ -407,7 +407,7 @@
 
 .summaryGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
   gap: 0.75rem;
   margin-top: 0.75rem;
   padding: 0.5rem 0.75rem 0;
@@ -422,6 +422,8 @@
   display: grid;
   place-items: center;
   text-align: center;
+  min-height: 98px;
+  padding: 0.75rem 0.65rem 0.8rem;
 }
 
 .summaryGrid .summaryIcon {
@@ -474,7 +476,7 @@
 }
 
 .summaryCount {
-  font-size: 24px;
+  font-size: clamp(18px, 2.1vw, 22px);
   font-weight: 900;
   color: #ffffff;
   text-shadow: 0 2px 6px rgba(0,0,0,0.35);
@@ -482,11 +484,12 @@
 
 .summaryLabel {
   margin-top: 4px;
-  font-size: 13px;
+  font-size: 11px;
   letter-spacing: 0.02em;
   color: rgba(255,255,255,0.85);
   text-transform: uppercase;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .summaryIcon {
