@@ -1,7 +1,7 @@
 export const metadata = {
   title: "TournamentInsights — Youth Tournament Directory",
   description:
-    "Browse youth tournaments by sport, state, and month with verified dates, locations, and official links—no ratings or reviews.",
+    "Browse youth tournaments by sport, state, and month with verified dates, locations, and official links.",
   alternates: { canonical: "/" },
 };
 
@@ -29,8 +29,8 @@ export default function Home() {
           <h1 id="ti-title">Insight Before You Commit.</h1>
 
           <p className="muted heroCopy">
-            Tournament Insights curates verified logistics—dates, locations, sports, and official links—so you can plan
-            confidently without ratings or reviews.
+            Tournament Insights curates verified logistics: dates, locations, sports, and official links, so you can plan
+            confidently.
           </p>
 
           <div className="ctaRow">
@@ -56,7 +56,7 @@ export default function Home() {
             boxShadow: "0 12px 26px rgba(0,0,0,0.06)",
           }}
         >
-          <div style={{ maxWidth: "72ch", margin: "0 auto" }}>
+          <div style={{ maxWidth: "72ch", margin: "0 auto", textAlign: "center" }}>
             <h2 id="ti-inspired" style={{ margin: "0 0 8px 0", fontWeight: 700 }}>
               Inspired by real tournament families. Built for real tournament weekends.
             </h2>
@@ -69,19 +69,19 @@ export default function Home() {
         </section>
 
         <section className="bodyCard" aria-labelledby="ti-provides">
-          <h2 id="ti-provides">What TournamentInsights provides</h2>
+          <h2 id="ti-provides">What TournamentInsights Provides</h2>
           <ul className="list">
-            <li>Clear tournament basics: sport, dates, city/state, and official links.</li>
-            <li>Filterable directory by sport, state, and month.</li>
-            <li>Neutral, moderated information—no ratings or public reviews.</li>
-            <li>Lightweight detail pages focused on logistics and planning.</li>
+            <li>Verified tournament essentials — sport, dates, location, and official links</li>
+            <li>Clean filtering by sport, state, and month</li>
+            <li>Structured, moderated event insights</li>
+            <li>Logistics-focused detail pages built for real tournament planning</li>
           </ul>
         </section>
 
-        <section className="notice" role="note" aria-label="Not a review platform">
+        <section className="notice" role="note" aria-label="Tournament insights overview">
           <p className="clarity">
-            Tournament Insights is not a review or rating platform. Information is moderated and designed to support
-            faster, clearer decisions for families, teams, and officials.
+            TournamentInsights delivers organized, moderated tournament intelligence designed to help families, coaches,
+            and teams evaluate events faster and with greater confidence.
           </p>
         </section>
 
