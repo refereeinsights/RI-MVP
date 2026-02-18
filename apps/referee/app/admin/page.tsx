@@ -1783,6 +1783,18 @@ export default async function AdminPage({
       const value = (formData.get(key) as string | null)?.trim() ?? "";
       return value ? value : null;
     };
+    const numberOrNull = (key: string) => {
+      const raw = (formData.get(key) as string | null)?.trim() ?? "";
+      if (!raw) return null;
+      const parsed = Number(raw.replace(/[^0-9.]/g, ""));
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const intOrNull = (key: string) => {
+      const raw = (formData.get(key) as string | null)?.trim() ?? "";
+      if (!raw) return null;
+      const parsed = parseInt(raw.replace(/[^0-9]/g, ""), 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
     const enumOrNull = (key: string, allowed: string[]) => {
       const value = stringOrNull(key);
       if (!value) return null;
@@ -1798,6 +1810,7 @@ export default async function AdminPage({
     const endDate = stringOrNull("end_date");
     const summary = stringOrNull("summary");
     const sourceUrlInput = stringOrNull("source_url");
+    const officialWebsiteInput = stringOrNull("official_website_url");
 
     let normalizedUrl = sourceUrlInput;
     if (sourceUrlInput) {
@@ -1817,6 +1830,18 @@ export default async function AdminPage({
         sourceDomain = new URL(normalizedUrl).hostname.replace(/^www\./, "");
       } catch {
         sourceDomain = null;
+      }
+    }
+    let normalizedOfficialWebsite = officialWebsiteInput;
+    if (officialWebsiteInput) {
+      try {
+        normalizedOfficialWebsite = new URL(officialWebsiteInput).toString();
+      } catch {
+        try {
+          normalizedOfficialWebsite = new URL(`https://${officialWebsiteInput}`).toString();
+        } catch {
+          normalizedOfficialWebsite = officialWebsiteInput;
+        }
       }
     }
 
@@ -1854,10 +1879,15 @@ export default async function AdminPage({
         tournament_staff_verified: formData.get("tournament_staff_verified") === "on",
         city: stringOrNull("city"),
         state: stateValue ? stateValue.toUpperCase() : null,
+        zip: stringOrNull("zip"),
         venue: stringOrNull("venue"),
         address: stringOrNull("address"),
+        venue_url: stringOrNull("venue_url"),
         start_date: startDate,
         end_date: endDate,
+        age_group: stringOrNull("age_group"),
+        team_fee: numberOrNull("team_fee"),
+        games_guaranteed: intOrNull("games_guaranteed"),
         summary,
         referee_pay: stringOrNull("referee_pay"),
         referee_contact: stringOrNull("referee_contact"),
@@ -1866,6 +1896,7 @@ export default async function AdminPage({
         tournament_director: stringOrNull("tournament_director"),
         tournament_director_email: stringOrNull("tournament_director_email"),
         tournament_director_phone: stringOrNull("tournament_director_phone"),
+        official_website_url: normalizedOfficialWebsite,
         source_url: normalizedUrl,
         source_domain: sourceDomain,
       },
@@ -3134,6 +3165,24 @@ export default async function AdminPage({
                         style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
                       />
                     </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      ZIP
+                      <input
+                        type="text"
+                        name="zip"
+                        defaultValue={t.zip ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Venue URL
+                      <input
+                        type="url"
+                        name="venue_url"
+                        defaultValue={t.venue_url ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
                   </div>
                   <div style={{ display: "grid", gap: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 800 }}>Linked venues</div>
@@ -3307,6 +3356,47 @@ export default async function AdminPage({
                         type="url"
                         name="source_url"
                         defaultValue={t.source_url ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Official website URL
+                      <input
+                        type="url"
+                        name="official_website_url"
+                        defaultValue={t.official_website_url ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Age group
+                      <input
+                        type="text"
+                        name="age_group"
+                        defaultValue={t.age_group ?? ""}
+                        placeholder="e.g. U9-U19"
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Team fee
+                      <input
+                        type="number"
+                        name="team_fee"
+                        step="0.01"
+                        min="0"
+                        defaultValue={t.team_fee ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Games guaranteed
+                      <input
+                        type="number"
+                        name="games_guaranteed"
+                        min="0"
+                        step="1"
+                        defaultValue={t.games_guaranteed ?? ""}
                         style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
                       />
                     </label>

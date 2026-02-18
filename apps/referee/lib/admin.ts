@@ -883,10 +883,15 @@ export type AdminListedTournament = {
   assigned_appropriately?: string | null;
   state?: string | null;
   city?: string | null;
+  zip?: string | null;
   venue?: string | null;
   address?: string | null;
+  venue_url?: string | null;
   start_date?: string | null;
   end_date?: string | null;
+  age_group?: string | null;
+  team_fee?: number | null;
+  games_guaranteed?: number | null;
   summary?: string | null;
   referee_pay?: string | null;
   referee_contact?: string | null;
@@ -895,6 +900,7 @@ export type AdminListedTournament = {
   tournament_director?: string | null;
   tournament_director_email?: string | null;
   tournament_director_phone?: string | null;
+  official_website_url?: string | null;
   source_url?: string | null;
   source_domain?: string | null;
 };
@@ -906,7 +912,7 @@ export async function adminSearchPublishedTournaments(
   let request = supabaseAdmin
     .from("tournaments")
     .select(
-      "id,name,slug,sport,level,level_of_competition,sub_type,cash_tournament,cash_at_field,tournament_staff_verified,referee_food,facilities,referee_tents,travel_lodging,ref_game_schedule,ref_parking,ref_parking_cost,mentors,assigned_appropriately,state,city,venue,address,start_date,end_date,summary,referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,source_url,source_domain"
+      "id,name,slug,sport,level,level_of_competition,sub_type,cash_tournament,cash_at_field,tournament_staff_verified,referee_food,facilities,referee_tents,travel_lodging,ref_game_schedule,ref_parking,ref_parking_cost,mentors,assigned_appropriately,state,city,zip,venue,address,venue_url,start_date,end_date,age_group,team_fee,games_guaranteed,summary,referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,official_website_url,source_url,source_domain"
     )
     .eq("status", "published")
     .eq("is_canonical", true)
@@ -967,10 +973,15 @@ export async function adminUpdateTournamentDetails(params: {
     assigned_appropriately: string | null;
     state: string | null;
     city: string | null;
+    zip: string | null;
     venue: string | null;
     address: string | null;
+    venue_url: string | null;
     start_date: string | null;
     end_date: string | null;
+    age_group: string | null;
+    team_fee: number | null;
+    games_guaranteed: number | null;
     summary: string | null;
     referee_pay: string | null;
     referee_contact: string | null;
@@ -979,6 +990,7 @@ export async function adminUpdateTournamentDetails(params: {
     tournament_director: string | null;
     tournament_director_email: string | null;
     tournament_director_phone: string | null;
+    official_website_url: string | null;
     source_url: string | null;
     source_domain: string | null;
   }>;

@@ -227,14 +227,10 @@ export default function EnrichmentClient({
       });
     });
     const attributeLabels: Record<string, string> = {
-      cash_at_field: "Cash at field",
-      referee_food: "Referee food",
-      referee_tents: "Referee tents",
-      ref_game_schedule: "Game schedule",
-      ref_parking: "Referee parking",
-      ref_parking_cost: "Parking cost",
-      mentors: "Mentors",
-      assigned_appropriately: "Assigned appropriately",
+      team_fee: "Team fee",
+      games_guaranteed: "Games guaranteed",
+      address: "Address",
+      venue_url: "Venue URL",
     };
     pendingAttributes.forEach((a) => {
       upsert(a.tournament_id, {

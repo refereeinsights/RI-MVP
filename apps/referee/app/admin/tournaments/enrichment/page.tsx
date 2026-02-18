@@ -2,6 +2,19 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import EnrichmentClient from "./EnrichmentClient";
 
+const EXCLUDED_ATTRIBUTE_KEYS = new Set([
+  "facilities",
+  "travel_lodging",
+  "cash_at_field",
+  "referee_food",
+  "referee_tents",
+  "ref_game_schedule",
+  "ref_parking",
+  "ref_parking_cost",
+  "mentors",
+  "assigned_appropriately",
+]);
+
 type Tournament = { id: string; name: string | null; url: string | null; state: string | null };
 type MissingUrlTournament = {
   id: string;
@@ -109,7 +122,9 @@ async function fetchTournamentsByIds(ids: string[]) {
     const chunk = ids.slice(i, i + chunkSize);
     const resp = await supabaseAdmin
       .from("tournaments" as any)
-      .select("id,name,slug,state,city,source_url,official_website_url")
+      .select(
+        "id,name,slug,state,city,source_url,official_website_url,start_date,end_date,tournament_director,tournament_director_email,referee_contact,referee_contact_email,team_fee,games_guaranteed,address,venue_url"
+      )
       .in("id", chunk);
     if (resp.error) throw resp.error;
     rows.push(...(resp.data ?? []));
@@ -180,27 +195,75 @@ async function loadData() {
   const candidateIds = new Set<string>();
   contactsRows.forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
   datesRows.forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
-  attributeRows
-    .filter((row: any) => !["facilities", "travel_lodging"].includes(String(row.attribute_key ?? "")))
-    .forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
+  attributeRows.forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
   let tournamentUrlLookup: Record<string, string | null> = {};
   let candidateTournamentLookup: Record<string, { name: string | null; slug: string | null; state: string | null; city: string | null; url: string | null }> = {};
+  let filteredContactsRows = contactsRows;
+  let filteredDatesRows = datesRows;
+  let filteredAttributeRows = attributeRows;
   if (candidateIds.size > 0) {
     const lookupRows = await fetchTournamentsByIds(Array.from(candidateIds));
+    const tournamentById = new Map(lookupRows.map((row: any) => [row.id, row]));
+    const hasValue = (val: unknown) => {
+      if (val == null) return false;
+      if (typeof val === "string") return val.trim().length > 0;
+      return true;
+    };
+    filteredContactsRows = contactsRows.filter((row: any) => {
+      const tournament = tournamentById.get(row.tournament_id);
+      if (!tournament) return true;
+      const role = String(row.role_normalized ?? "").toUpperCase();
+      if (role === "TD") {
+        return !hasValue(tournament.tournament_director_email) && !hasValue(tournament.tournament_director);
+      }
+      if (role === "ASSIGNOR") {
+        return !hasValue(tournament.referee_contact_email) && !hasValue(tournament.referee_contact);
+      }
+      return true;
+    });
+    filteredDatesRows = datesRows.filter((row: any) => {
+      const tournament = tournamentById.get(row.tournament_id);
+      if (!tournament) return true;
+      return !(hasValue(tournament.start_date) && hasValue(tournament.end_date));
+    });
+    const fieldByAttribute: Record<string, string> = {
+      team_fee: "team_fee",
+      games_guaranteed: "games_guaranteed",
+      address: "address",
+      venue_url: "venue_url",
+    };
+    filteredAttributeRows = attributeRows.filter((row: any) => {
+      const key = String(row.attribute_key ?? "");
+      if (EXCLUDED_ATTRIBUTE_KEYS.has(key)) return false;
+      const tournament = tournamentById.get(row.tournament_id);
+      if (!tournament) return true;
+      const targetField = fieldByAttribute[key];
+      if (!targetField) return true;
+      return !hasValue((tournament as any)[targetField]);
+    });
+
+    const filteredCandidateIds = new Set<string>();
+    filteredContactsRows.forEach((row: any) => row.tournament_id && filteredCandidateIds.add(row.tournament_id));
+    filteredDatesRows.forEach((row: any) => row.tournament_id && filteredCandidateIds.add(row.tournament_id));
+    filteredAttributeRows.forEach((row: any) => row.tournament_id && filteredCandidateIds.add(row.tournament_id));
     tournamentUrlLookup = Object.fromEntries(
-      lookupRows.map((row: any) => [row.id, row.official_website_url ?? row.source_url ?? null])
+      lookupRows
+        .filter((row: any) => filteredCandidateIds.has(row.id))
+        .map((row: any) => [row.id, row.official_website_url ?? row.source_url ?? null])
     );
     candidateTournamentLookup = Object.fromEntries(
-      lookupRows.map((row: any) => [
-        row.id,
-        {
-          name: row.name ?? null,
-          slug: row.slug ?? null,
-          state: row.state ?? null,
-          city: row.city ?? null,
-          url: row.official_website_url ?? row.source_url ?? null,
-        },
-      ])
+      lookupRows
+        .filter((row: any) => filteredCandidateIds.has(row.id))
+        .map((row: any) => [
+          row.id,
+          {
+            name: row.name ?? null,
+            slug: row.slug ?? null,
+            state: row.state ?? null,
+            city: row.city ?? null,
+            url: row.official_website_url ?? row.source_url ?? null,
+          },
+        ])
     );
   }
   const suggestionsResp = await supabaseAdmin
@@ -279,11 +342,9 @@ async function loadData() {
           start_date: t.start_date ?? null,
         })) as MissingUrlTournament[],
     priority_outreach_targets: priorityTargets,
-    contacts: contactsRows as ContactCandidate[],
-    dates: datesRows as DateCandidate[],
-    attributes: attributeRows.filter(
-      (row: any) => !["facilities", "travel_lodging"].includes(String(row.attribute_key ?? ""))
-    ) as AttributeCandidate[],
+    contacts: filteredContactsRows as ContactCandidate[],
+    dates: filteredDatesRows as DateCandidate[],
+    attributes: filteredAttributeRows as AttributeCandidate[],
     tournament_url_lookup: tournamentUrlLookup,
     candidate_tournaments: candidateTournamentLookup,
     url_suggestions:

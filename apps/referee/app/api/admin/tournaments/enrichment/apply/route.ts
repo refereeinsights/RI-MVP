@@ -134,17 +134,7 @@ export async function POST(request: Request) {
     });
     for (const [key, candidate] of bestByKey.entries()) {
       const value = candidate.attribute_value;
-      if (key === "cash_at_field") {
-        updates.cash_at_field = value === "yes";
-        if (value === "yes") updates.cash_tournament = true;
-      } else if (key === "referee_food") updates.referee_food = value;
-      else if (key === "referee_tents") updates.referee_tents = value;
-      else if (key === "ref_game_schedule") updates.ref_game_schedule = value;
-      else if (key === "ref_parking") updates.ref_parking = value;
-      else if (key === "ref_parking_cost") updates.ref_parking_cost = value;
-      else if (key === "mentors") updates.mentors = value;
-      else if (key === "assigned_appropriately") updates.assigned_appropriately = value;
-      else if (key === "team_fee") {
+      if (key === "team_fee") {
         const num = Number(String(value).replace(/[^0-9.]/g, ""));
         if (!Number.isNaN(num) && num > 0) updates.team_fee = num;
       } else if (key === "games_guaranteed") {
