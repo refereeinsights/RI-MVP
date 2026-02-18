@@ -23,8 +23,30 @@ async function ensureAdmin() {
 }
 
 function extractFee(text: string): string | null {
-  const m = text.match(/\$\s*([0-9]{2,5}(?:\.[0-9]{2})?)/);
-  return m ? m[0].replace(/\s+/g, "") : null;
+  const normalized = text.replace(/[–—]/g, "-");
+  const tieredMatches = Array.from(
+    normalized.matchAll(
+      /(?:\b\d{1,2}\s*v\s*\d{1,2}\s*\|\s*)?(U\s*\d{1,2}\s*-\s*U?\s*\d{1,2}|U\s*\d{1,2}\s*\+?)\s*\|\s*\$\s*([0-9]{2,5}(?:\.[0-9]{2})?)/gi
+    )
+  );
+  if (tieredMatches.length) {
+    const tiers: string[] = [];
+    const seen = new Set<string>();
+    for (const m of tieredMatches) {
+      const rawLabel = (m[1] ?? "").toUpperCase().replace(/\s+/g, "");
+      const label = rawLabel.replace(/U(\d{1,2})-U?(\d{1,2})/, "U$1-U$2");
+      const amount = `$${m[2]}`;
+      const entry = `${label} ${amount}`;
+      if (!seen.has(entry)) {
+        seen.add(entry);
+        tiers.push(entry);
+      }
+    }
+    if (tiers.length) return tiers.join(" | ");
+  }
+
+  const m = normalized.match(/\$\s*([0-9]{2,5}(?:\.[0-9]{2})?)/);
+  return m ? `$${m[1]}` : null;
 }
 
 function extractGames(text: string): string | null {
@@ -268,7 +290,7 @@ export async function POST(request: Request) {
           ok: false,
           error: isValueConstraint ? "attribute_constraint_outdated" : "insert_candidates_failed",
           detail: isValueConstraint
-            ? "DB constraint tournament_attribute_candidates_value_check is missing fee/venue keys (team_fee,games_guaranteed,address,venue_url). Run the constraint update SQL."
+            ? "DB constraint tournament_attribute_candidates_value_check does not currently allow one or more scraped fee/venue values. Update the constraint to allow team_fee/games_guaranteed/address/venue_url formats."
             : insertError.message,
           attempted,
           parsed_candidates: candidates.length,

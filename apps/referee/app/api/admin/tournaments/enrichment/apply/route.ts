@@ -135,8 +135,8 @@ export async function POST(request: Request) {
     for (const [key, candidate] of bestByKey.entries()) {
       const value = candidate.attribute_value;
       if (key === "team_fee") {
-        const num = Number(String(value).replace(/[^0-9.]/g, ""));
-        if (!Number.isNaN(num) && num > 0) updates.team_fee = num;
+        const text = String(value ?? "").trim();
+        if (text) updates.team_fee = text;
       } else if (key === "games_guaranteed") {
         const num = parseInt(String(value).replace(/[^0-9]/g, ""), 10);
         if (Number.isFinite(num)) updates.games_guaranteed = num;

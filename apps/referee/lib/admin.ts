@@ -903,7 +903,7 @@ export type AdminListedTournament = {
   start_date?: string | null;
   end_date?: string | null;
   age_group?: string | null;
-  team_fee?: number | null;
+  team_fee?: string | null;
   games_guaranteed?: number | null;
   summary?: string | null;
   referee_pay?: string | null;
@@ -993,7 +993,7 @@ export async function adminUpdateTournamentDetails(params: {
     start_date: string | null;
     end_date: string | null;
     age_group: string | null;
-    team_fee: number | null;
+    team_fee: string | null;
     games_guaranteed: number | null;
     summary: string | null;
     referee_pay: string | null;

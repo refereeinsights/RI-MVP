@@ -1886,7 +1886,7 @@ export default async function AdminPage({
         start_date: startDate,
         end_date: endDate,
         age_group: stringOrNull("age_group"),
-        team_fee: numberOrNull("team_fee"),
+        team_fee: stringOrNull("team_fee"),
         games_guaranteed: intOrNull("games_guaranteed"),
         summary,
         referee_pay: stringOrNull("referee_pay"),
@@ -3381,10 +3381,9 @@ export default async function AdminPage({
                     <label style={{ fontSize: 12, fontWeight: 700 }}>
                       Team fee
                       <input
-                        type="number"
+                        type="text"
                         name="team_fee"
-                        step="0.01"
-                        min="0"
+                        placeholder="e.g. U6-U10 $795 | U11-U12 $895 | U13-U19 $1095"
                         defaultValue={t.team_fee ?? ""}
                         style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
                       />
