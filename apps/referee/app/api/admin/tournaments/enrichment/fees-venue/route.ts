@@ -66,11 +66,25 @@ export async function POST(request: Request) {
   const limit = Number(searchParams.get("limit") ?? "10");
   const cappedLimit = Number.isFinite(limit) ? Math.max(1, Math.min(limit, 50)) : 10;
 
-  const { data: tournaments, error } = await supabaseAdmin
-    .from("tournaments" as any)
-    .select("id,name,official_website_url,source_url")
-    .or("team_fee.is.null,games_guaranteed.is.null,venue.is.null,address.is.null,venue_url.is.null")
-    .limit(cappedLimit);
+  const fetchTargetTournaments = async () => {
+    const primary = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("id,name,official_website_url,source_url")
+      .or("team_fee.is.null,games_guaranteed.is.null,venue.is.null,address.is.null,venue_url.is.null")
+      .limit(cappedLimit);
+
+    if (!primary.error) return primary;
+    if (!/column .* does not exist/i.test(primary.error.message)) return primary;
+
+    // Backward-compatible fallback for environments where fee/venue columns are not migrated yet.
+    return supabaseAdmin
+      .from("tournaments" as any)
+      .select("id,name,official_website_url,source_url")
+      .or("official_website_url.not.is.null,source_url.not.is.null")
+      .limit(cappedLimit);
+  };
+
+  const { data: tournaments, error } = await fetchTargetTournaments();
 
   if (error) {
     return NextResponse.json({ error: "fetch_tournaments_failed", detail: error.message }, { status: 500 });

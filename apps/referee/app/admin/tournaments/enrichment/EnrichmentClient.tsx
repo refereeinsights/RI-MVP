@@ -1090,6 +1090,28 @@ export default function EnrichmentClient({
                     >
                       {allSelected ? "Clear all" : "Select all"}
                     </button>
+                    <Link
+                      href={
+                        info?.slug
+                          ? `/admin?tab=tournament-listings&q=${encodeURIComponent(info.slug)}`
+                          : info?.name
+                          ? `/admin?tab=tournament-listings&q=${encodeURIComponent(info.name)}`
+                          : "/admin?tab=tournament-listings"
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: 8,
+                        border: "1px solid #111",
+                        background: "#fff",
+                        color: "#111",
+                        fontSize: 12,
+                        textDecoration: "none",
+                      }}
+                    >
+                      Edit
+                    </Link>
                     <button
                       onClick={() => applyReviewItems(tournamentId)}
                       style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff", fontSize: 12 }}
