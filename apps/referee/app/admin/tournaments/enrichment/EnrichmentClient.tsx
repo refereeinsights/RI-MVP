@@ -173,6 +173,9 @@ export default function EnrichmentClient({
   const [batchStatus, setBatchStatus] = React.useState<string>("");
   const [feesStatus, setFeesStatus] = React.useState<string>("");
   const [feesSummaryState, setFeesSummaryState] = React.useState<FeesVenueSummary[]>(feesVenueSummary);
+  const [feesBatchTotal, setFeesBatchTotal] = React.useState<number>(300);
+  const [feesBatchChunk, setFeesBatchChunk] = React.useState<number>(50);
+  const [feesBatchRunning, setFeesBatchRunning] = React.useState<boolean>(false);
   const tournamentUrlFor = React.useCallback(
     (tournamentId: string) => tournamentUrlLookup[tournamentId] ?? null,
     [tournamentUrlLookup]
@@ -266,14 +269,16 @@ export default function EnrichmentClient({
     return byTournament;
   }, [pendingExistingValueAttributes]);
 
-  const runFeesEnrichment = React.useCallback(async () => {
+  const runFeesEnrichment = React.useCallback(async (opts?: { limit?: number; refreshOnInsert?: boolean }) => {
     setFeesStatus("Running fees/venue scrape...");
     try {
-      const resp = await fetch("/api/admin/tournaments/enrichment/fees-venue", { method: "POST" });
+      const limit = Number(opts?.limit ?? 0);
+      const query = Number.isFinite(limit) && limit > 0 ? `?limit=${Math.floor(limit)}` : "";
+      const resp = await fetch(`/api/admin/tournaments/enrichment/fees-venue${query}`, { method: "POST" });
       const json = await resp.json();
       if (!resp.ok) {
         setFeesStatus(`Failed: ${json?.error || resp.status} ${json?.detail ? `(${json.detail})` : ""}`);
-        return;
+        return { ok: false as const, json };
       }
       if (json?.summary) {
         setFeesSummaryState(json.summary);
@@ -284,13 +289,59 @@ export default function EnrichmentClient({
           `${(json?.skipped_pending ?? 0) > 0 ? ` (${json.skipped_pending} skipped: pending review)` : ""}`
       );
       // Refresh so newly inserted candidates show up immediately in the approval queue.
-      if ((json?.inserted ?? 0) > 0) {
+      if ((json?.inserted ?? 0) > 0 && opts?.refreshOnInsert !== false) {
         setTimeout(() => refreshPage(), 400);
       }
+      return { ok: true as const, json };
     } catch (err: any) {
       setFeesStatus(`Error: ${err?.message || err}`);
+      return { ok: false as const, json: null };
     }
   }, []);
+
+  const runFeesBatch = React.useCallback(async () => {
+    if (feesBatchRunning) return;
+    const total = Math.max(1, Math.min(2000, Math.floor(feesBatchTotal || 0)));
+    const chunk = Math.max(1, Math.min(200, Math.floor(feesBatchChunk || 0)));
+    const rounds = Math.ceil(total / chunk);
+    setFeesBatchRunning(true);
+
+    let insertedTotal = 0;
+    let attemptedTotal = 0;
+    let skippedRecentTotal = 0;
+    let skippedPendingTotal = 0;
+    let skippedDuplicatesTotal = 0;
+
+    try {
+      for (let i = 0; i < rounds; i += 1) {
+        const currentLimit = Math.min(chunk, total - i * chunk);
+        setFeesStatus(`Batch fees/venue scrape ${i + 1}/${rounds} (limit ${currentLimit})...`);
+        const result = await runFeesEnrichment({ limit: currentLimit, refreshOnInsert: false });
+        if (!result?.ok) break;
+        const json = result.json ?? {};
+        insertedTotal += Number(json?.inserted ?? 0);
+        attemptedTotal += Number(json?.attempted ?? 0);
+        skippedRecentTotal += Number(json?.skipped_recent ?? 0);
+        skippedPendingTotal += Number(json?.skipped_pending ?? 0);
+        skippedDuplicatesTotal += Number(json?.skipped_duplicates ?? 0);
+
+        // Nothing left to process in current window.
+        if (Number(json?.attempted ?? 0) === 0) break;
+      }
+
+      setFeesStatus(
+        `Batch complete: inserted ${insertedTotal} from ${attemptedTotal} attempted` +
+          `${skippedRecentTotal > 0 ? ` (${skippedRecentTotal} skipped: recent)` : ""}` +
+          `${skippedPendingTotal > 0 ? ` (${skippedPendingTotal} skipped: pending)` : ""}` +
+          `${skippedDuplicatesTotal > 0 ? ` (${skippedDuplicatesTotal} duplicates)` : ""}`
+      );
+      if (insertedTotal > 0) {
+        setTimeout(() => refreshPage(), 500);
+      }
+    } finally {
+      setFeesBatchRunning(false);
+    }
+  }, [feesBatchChunk, feesBatchRunning, feesBatchTotal, runFeesEnrichment]);
 
   React.useEffect(() => {
     setSelectedItems((prev) => {
@@ -648,8 +699,35 @@ export default function EnrichmentClient({
       </p>
       <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <button onClick={runFeesEnrichment} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff" }}>
+          <button onClick={() => runFeesEnrichment()} disabled={feesBatchRunning} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff", opacity: feesBatchRunning ? 0.6 : 1 }}>
             Run fees/venue scrape
+          </button>
+          <input
+            type="number"
+            min={1}
+            max={2000}
+            value={feesBatchTotal}
+            onChange={(e) => setFeesBatchTotal(Number(e.target.value || 0))}
+            style={{ width: 86, padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+            title="Total tournaments to process"
+          />
+          <span style={{ fontSize: 12, color: "#4b5563" }}>total</span>
+          <input
+            type="number"
+            min={1}
+            max={200}
+            value={feesBatchChunk}
+            onChange={(e) => setFeesBatchChunk(Number(e.target.value || 0))}
+            style={{ width: 76, padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+            title="Chunk size per run"
+          />
+          <span style={{ fontSize: 12, color: "#4b5563" }}>chunk</span>
+          <button
+            onClick={runFeesBatch}
+            disabled={feesBatchRunning}
+            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #111827", background: "#fff", color: "#111827", opacity: feesBatchRunning ? 0.6 : 1 }}
+          >
+            {feesBatchRunning ? "Running batch..." : "Run fees batch"}
           </button>
           {feesStatus ? <span style={{ color: "#4b5563", fontSize: 12 }}>{feesStatus}</span> : null}
         </div>
