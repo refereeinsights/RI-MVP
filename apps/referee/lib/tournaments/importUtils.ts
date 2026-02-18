@@ -16,7 +16,7 @@ export type ParsedCsv = {
   rows: CsvRow[];
 };
 
-export const ALLOWED_SPORTS = new Set(["soccer", "basketball", "football"]);
+export const ALLOWED_SPORTS = new Set(["soccer", "basketball", "football", "lacrosse"]);
 
 const OTHER_SPORT_KEYWORDS = [
   "volleyball",

@@ -276,7 +276,7 @@ export function extractHostOrg(text: string): string | null {
 
 export async function createTournamentFromUrl(params: {
   url: string;
-  sport: "soccer" | "basketball" | "football";
+  sport: "soccer" | "basketball" | "football" | "lacrosse";
   status?: TournamentStatus;
   source?: TournamentSource;
 }) {
@@ -378,6 +378,55 @@ export async function createTournamentFromUrl(params: {
       tournamentId: tournamentIds[0],
       meta: { name: `Imported ${tournamentIds.length} events`, warnings: [] },
       slug: "usclub-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: tournamentIds.length,
+    };
+  }
+
+  if (parsedUrl.hostname.includes("usclublax.com") && parsedUrl.pathname.includes("/tournaments")) {
+    const events = parseUsClubLaxTournaments(html);
+    if (!events.length) {
+      throw new SweepError("html_received_no_events", "US Club Lax tournaments list parsed but no events found", diagnostics);
+    }
+
+    const tournamentIds: string[] = [];
+    for (const event of events) {
+      const tournamentId = await upsertTournamentFromSource({
+        ...event,
+        sport: "lacrosse",
+        status,
+        source: "external_crawl",
+      });
+      tournamentIds.push(tournamentId);
+    }
+
+    await queueEnrichmentJobs(tournamentIds);
+
+    const registry = await upsertRegistry({
+      source_url: canonical,
+      source_type: "directory",
+      sport: "lacrosse",
+      notes: "US Club Lax upcoming tournaments directory.",
+      is_custom_source: true,
+    });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "US Club Lax tournaments",
+      extracted_json: { action: "usclublax_import", extracted_count: tournamentIds.length },
+      extract_confidence: 0.75,
+    });
+    await updateRunExtractedJson(runId, { action: "usclublax_import", extracted_count: tournamentIds.length });
+
+    return {
+      tournamentId: tournamentIds[0],
+      meta: { name: `Imported ${tournamentIds.length} events`, warnings: [] },
+      slug: "usclublax-import",
       registry_id: registry.registry_id,
       run_id: runId,
       diagnostics,
@@ -719,6 +768,7 @@ function detectSport(params: {
   if (host.includes("exposureevents.com")) return "basketball";
   if (host.includes("gotsoccer.com")) return "soccer";
   if (host.includes("usclubsoccer.org") || host.includes("usyouthsoccer.org")) return "soccer";
+  if (host.includes("usclublax.com")) return "lacrosse";
   if (host.includes("tournamentmachine.com")) return "basketball";
   if (host.includes("tourneymachine.com")) return "basketball";
   if (host.includes("statebasketballchampionship.com")) return "basketball";
@@ -728,6 +778,7 @@ function detectSport(params: {
     soccer: 0,
     basketball: 0,
     football: 0,
+    lacrosse: 0,
   };
   const bump = (key: keyof typeof score, n: number) => {
     score[key] += n;
@@ -740,6 +791,8 @@ function detectSport(params: {
   if (text.includes("football")) bump("football", 3);
   if (text.includes("gridiron")) bump("football", 2);
   if (text.includes("varsity") || text.includes("junior varsity")) bump("football", 1);
+  if (text.includes("lacrosse")) bump("lacrosse", 3);
+  if (text.includes("lax")) bump("lacrosse", 2);
 
   const best = Object.entries(score).sort((a, b) => b[1] - a[1])[0];
   if (best && best[1] > 0) return best[0] as TournamentRow["sport"];
@@ -876,6 +929,131 @@ function parseUSClubSanctionedTournaments(html: string): TournamentRow[] {
   }
 
   return results.filter((row) => row.name && row.state && row.start_date);
+}
+
+export function parseUsClubLaxTournaments(html: string): TournamentRow[] {
+  const $ = cheerio.load(html);
+  const rows = $("table.uscl-table tr").toArray();
+  const out: TournamentRow[] = [];
+  const seen = new Set<string>();
+
+  for (const tr of rows) {
+    const cells = $(tr).find("td");
+    if (cells.length < 5) continue;
+
+    const nameCell = $(cells[1]);
+    const link = nameCell.find("a[href]").first();
+    const name = (link.text().trim() || nameCell.clone().find("small").remove().end().text().trim()).replace(/\s+/g, " ");
+    if (!name) continue;
+
+    const href = (link.attr("href") || "").trim();
+    const location = nameCell.find("small.text-muted").first().text().replace(/\s+/g, " ").trim();
+    const gradeText = $(cells[2]).text().replace(/\s+/g, " ").trim();
+    const feeText = $(cells[3]).text().replace(/\s+/g, " ").trim();
+    const dateText = $(cells[4]).text().replace(/\s+/g, " ").trim();
+
+    const { city, state } = parseCityStateFromLocation(location);
+    const parsedDates = parseUsClubLaxDateRange(dateText);
+
+    const sourceUrl =
+      href && /^https?:\/\//i.test(href) ? href : "https://usclublax.com/tournaments/";
+    const sourceDomain = sourceUrl.startsWith("http")
+      ? new URL(sourceUrl).hostname
+      : "usclublax.com";
+    const slug = buildTournamentSlug({ name, city: city ?? undefined, state: state ?? undefined });
+    const sourceEventId = `${name}|${location}|${dateText}`.toLowerCase().replace(/\s+/g, "-");
+    if (seen.has(sourceEventId)) continue;
+    seen.add(sourceEventId);
+
+    const summaryParts = ["US Club Lax tournament listing."];
+    if (gradeText) summaryParts.push(`Grades: ${gradeText}.`);
+    if (feeText) summaryParts.push(`Team fee: ${feeText}.`);
+    out.push({
+      name,
+      slug,
+      sport: "lacrosse",
+      level: null,
+      sub_type: "internet",
+      cash_tournament: false,
+      state: state ?? "NA",
+      city: city ?? null,
+      venue: null,
+      address: null,
+      start_date: parsedDates.start ?? null,
+      end_date: parsedDates.end ?? parsedDates.start ?? null,
+      summary: summaryParts.join(" "),
+      status: "draft",
+      confidence: 0.75,
+      source: "external_crawl",
+      source_event_id: sourceEventId,
+      source_url: sourceUrl,
+      source_domain: sourceDomain,
+      raw: {
+        location,
+        grade: gradeText || null,
+        fee: feeText || null,
+        date_text: dateText || null,
+      },
+    });
+  }
+
+  return out.filter((row) => Boolean(row.name && row.start_date));
+}
+
+function parseCityStateFromLocation(locationRaw: string): { city: string | null; state: string | null } {
+  const location = locationRaw.replace(/\s+/g, " ").trim();
+  if (!location) return { city: null, state: null };
+  const match = location.match(/^(.+?),\s*([A-Z]{2})$/i);
+  if (!match) return { city: location || null, state: null };
+  return {
+    city: match[1].trim() || null,
+    state: match[2].toUpperCase(),
+  };
+}
+
+function parseUsClubLaxDateRange(dateTextRaw: string): { start?: string; end?: string } {
+  const normalized = dateTextRaw
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return {};
+
+  const yearMatch = normalized.match(/(20\d{2})/);
+  const defaultYear = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getUTCFullYear();
+
+  const crossMonth = normalized.match(
+    /^([A-Za-z]{3,9})\s+(\d{1,2})\s*-\s*([A-Za-z]{3,9})\s+(\d{1,2})(?:,?\s*(20\d{2}))?$/i
+  );
+  if (crossMonth) {
+    const startMonth = monthNameToIndex0(crossMonth[1]);
+    const endMonth = monthNameToIndex0(crossMonth[3]);
+    const startDay = parseInt(crossMonth[2], 10);
+    const endDay = parseInt(crossMonth[4], 10);
+    const year = crossMonth[5] ? parseInt(crossMonth[5], 10) : defaultYear;
+    if (startMonth !== null && endMonth !== null) {
+      return {
+        start: toISODateUTC(year, startMonth, startDay),
+        end: toISODateUTC(year, endMonth, endDay),
+      };
+    }
+  }
+
+  const sameMonth = normalized.match(/^([A-Za-z]{3,9})\s+(\d{1,2})(?:\s*-\s*(\d{1,2}))?(?:,?\s*(20\d{2}))?$/i);
+  if (sameMonth) {
+    const month = monthNameToIndex0(sameMonth[1]);
+    const startDay = parseInt(sameMonth[2], 10);
+    const endDay = sameMonth[3] ? parseInt(sameMonth[3], 10) : startDay;
+    const year = sameMonth[4] ? parseInt(sameMonth[4], 10) : defaultYear;
+    if (month !== null) {
+      return {
+        start: toISODateUTC(year, month, startDay),
+        end: toISODateUTC(year, month, endDay),
+      };
+    }
+  }
+
+  return {};
 }
 
 function parseFysaSanctionedTournaments(html: string): TournamentRow[] {

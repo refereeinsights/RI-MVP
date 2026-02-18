@@ -8,6 +8,7 @@ import {
   extractCityStateGuess,
   extractHostOrg,
   parseOregonSanctionedTournaments,
+  parseUsClubLaxTournaments,
 } from "../pasteUrl";
 
 const fixture = fs.readFileSync(path.join(__dirname, "fixtures", "sample.html"), "utf8");
@@ -63,4 +64,60 @@ test("parseOregonSanctionedTournaments parses linked list entries", () => {
   assert(emfc);
   assert.strictEqual(emfc?.start_date, "2026-06-06");
   assert.strictEqual(emfc?.end_date, "2026-06-06");
+});
+
+test("parseUsClubLaxTournaments parses table rows with date and fee", () => {
+  const html = `
+    <div class="desc-container-table">
+      <h1 class="page-details">2 Upcoming Tournaments:</h1>
+      <table class="uscl-table">
+        <thead>
+          <tr>
+            <td colspan="2"><b>Tournament</b></td>
+            <td><b>Grade(s)</b></td>
+            <td><b>Fee</b></td>
+            <td><b>Date(s)</b></td>
+          </tr>
+        </thead>
+        <tr>
+          <td><img alt="Texas Draw" /></td>
+          <td>
+            <a href="https://victoryeventseries.com/event/texas-draw/">Texas Draw</a>
+            <span><small class="text-muted">Melissa, TX</small></span>
+          </td>
+          <td><small>2025-2034</small></td>
+          <td><small>$1574-1699</small></td>
+          <td><small>May 30-31, 2026</small></td>
+        </tr>
+        <tr>
+          <td><img alt="Lax Splash" /></td>
+          <td>
+            <a href="https://alohatournaments.com/lax-splash/">Lax Splash</a>
+            <span><small class="text-muted">Lutherville-Timonium, MD</small></span>
+          </td>
+          <td><small>2027-2034</small></td>
+          <td><small>$975</small></td>
+          <td><small>May 31-Jun 1, 2026</small></td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  const rows = parseUsClubLaxTournaments(html);
+  assert.strictEqual(rows.length, 2);
+
+  const texas = rows.find((row) => row.name === "Texas Draw");
+  assert(texas);
+  assert.strictEqual(texas?.sport, "lacrosse");
+  assert.strictEqual(texas?.city, "Melissa");
+  assert.strictEqual(texas?.state, "TX");
+  assert.strictEqual(texas?.start_date, "2026-05-30");
+  assert.strictEqual(texas?.end_date, "2026-05-31");
+
+  const splash = rows.find((row) => row.name === "Lax Splash");
+  assert(splash);
+  assert.strictEqual(splash?.city, "Lutherville-Timonium");
+  assert.strictEqual(splash?.state, "MD");
+  assert.strictEqual(splash?.start_date, "2026-05-31");
+  assert.strictEqual(splash?.end_date, "2026-06-01");
 });

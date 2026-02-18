@@ -2,6 +2,7 @@ export function getSportCardClass(sport: string | null | undefined): string {
   const key = (sport ?? "").toLowerCase().trim();
   switch (key) {
     case "soccer":
+    case "lacrosse":
       return "bg-sport-soccer";
     case "basketball":
       return "bg-sport-basketball";

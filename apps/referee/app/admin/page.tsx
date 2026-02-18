@@ -99,7 +99,7 @@ type VStatus = "pending" | "approved" | "rejected";
 const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
 const CONTACT_TYPES = ["assignor", "director", "general", "referee_coordinator"] as const;
 const CONTACT_STATUSES: ContactStatus[] = ["pending", "verified", "rejected"];
-const TOURNAMENT_SPORTS = ["soccer", "basketball", "football"] as const;
+const TOURNAMENT_SPORTS = ["soccer", "basketball", "football", "lacrosse"] as const;
 const TOURNAMENT_SOURCES: TournamentSource[] = [
   "external_crawl",
   "us_club_soccer",

@@ -53,7 +53,7 @@ const SOURCE_TYPE_OPTIONS = [
   "directory",
   "association_directory",
 ] as const;
-const TOURNAMENT_SPORTS = ["soccer", "basketball", "football"] as const;
+const TOURNAMENT_SPORTS = ["soccer", "basketball", "football", "lacrosse"] as const;
 
 function formatDate(value?: string | null) {
   if (!value) return "—";

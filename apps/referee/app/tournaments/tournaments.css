@@ -497,6 +497,19 @@
   opacity: 0.85;
 }
 
+.sportSvgIcon {
+  width: 34px;
+  height: 34px;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
+}
+
+.summaryGrid .sportSvgIcon {
+  width: 24px;
+  height: 24px;
+}
+
 .cardWhistle {
   position: absolute;
   top: 0.85rem;

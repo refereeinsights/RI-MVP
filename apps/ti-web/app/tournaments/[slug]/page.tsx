@@ -72,8 +72,14 @@ function cardVariant(sport: string | null) {
 
 function getSportCardClass(sport: string | null) {
   const normalized = (sport ?? "").toLowerCase();
-  const supported = new Set(["soccer", "basketball", "football", "baseball"]);
-  return supported.has(normalized) ? `bg-sport-${normalized}` : "bg-sport-default";
+  const map: Record<string, string> = {
+    soccer: "bg-sport-soccer",
+    lacrosse: "bg-sport-soccer",
+    basketball: "bg-sport-basketball",
+    football: "bg-sport-football",
+    baseball: "bg-sport-baseball",
+  };
+  return map[normalized] ?? "bg-sport-default";
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {

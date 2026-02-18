@@ -1,5 +1,55 @@
 # Running Notes
 
+## 2026-02-18
+- Git/workflow:
+  - Pulled latest `origin/main` after stashing local edits and merged stash back in.
+  - Confirmed no DB writes during git-only operations.
+  - Committed and pushed:
+    - `f88d969` Add enrichment edit shortcut and fees scrape DB fallback.
+    - `e1b210d` Expand tournament admin editor and slim enrichment attributes.
+- Fees/venue enrichment stability:
+  - Updated `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts` to gracefully fallback when `team_fee`/`games_guaranteed` columns are missing (no hard failure on pre-migration DBs).
+  - Added migration file `supabase/migrations/20260217_tournaments_age_fee.sql` locally (repo has `supabase/` ignored), and applied equivalent migration to linked remote DB.
+  - Verified live DB now has:
+    - `tournaments.age_group`, `tournaments.team_fee`, `tournaments.games_guaranteed`
+    - `tournaments_public.age_group`, `tournaments_public.team_fee`, `tournaments_public.games_guaranteed`
+- Enrichment queue UX:
+  - Added `Edit` button beside `Apply/Delete` in `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`, linking to `/admin?tab=tournament-listings&q=...`.
+  - Updated enrichment queue filtering in `apps/referee/app/admin/tournaments/enrichment/page.tsx` so review items are hidden when authoritative tournament fields are already populated (DB-first behavior).
+- Enrichment scope reduction (requested):
+  - Removed these attribute keys from active enrichment flow:
+    - `cash_at_field`
+    - `referee_food`
+    - `referee_tents`
+    - `ref_game_schedule`
+    - `ref_parking`
+    - `ref_parking_cost`
+    - `mentors`
+    - `assigned_appropriately`
+  - Implementation:
+    - `apps/referee/src/server/enrichment/extract.ts`: attribute extraction disabled (`extractAttributes` returns empty array).
+    - `apps/referee/app/api/admin/tournaments/enrichment/apply/route.ts`: removed apply/write logic for those keys.
+    - `apps/referee/app/admin/tournaments/enrichment/page.tsx`: excluded legacy rows for those keys from queue rendering.
+    - `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`: removed label mappings for those keys.
+- Admin tournament editor expansion:
+  - Exposed and persisted additional fields on `/admin?tab=tournament-listings`:
+    - `team_fee`, `games_guaranteed`, `age_group`
+    - `official_website_url`, `venue_url`, `zip`
+  - Updated query/types/update path:
+    - `apps/referee/lib/admin.ts`
+    - `apps/referee/app/admin/page.tsx`
+- US Club Lax parser + lacrosse sweep support:
+  - Added direct parser/ingest path for `https://usclublax.com/tournaments/` in `apps/referee/src/server/admin/pasteUrl.ts`.
+  - New parser extracts tournament name, event URL, location (`city/state`), grade text, fee text, and date range from `table.uscl-table`.
+  - Date parsing supports same-month (`May 30-31, 2026`) and cross-month (`May 31-Jun 1, 2026`) ranges.
+  - Imported records are saved as `sport='lacrosse'`, `source='external_crawl'`, queued for enrichment, and logged as `usclublax_import`.
+  - Expanded tournament sport typing and admin sweep sport allowlists to include lacrosse:
+    - `apps/referee/lib/types/tournament.ts`
+    - `apps/referee/lib/tournaments/importUtils.ts`
+    - `apps/referee/app/admin/page.tsx`
+    - `apps/referee/app/admin/tournaments/sources/page.tsx`
+  - Added parser test coverage in `apps/referee/src/server/admin/__tests__/pasteUrl.test.ts`.
+
 ## 2026-02-12
 - Workflow:
   - Keep `docs/notes.md` updated as changes are made so this file remains the running history.
