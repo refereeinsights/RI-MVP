@@ -188,11 +188,16 @@ export async function POST(request: Request) {
       .insert(candidates)
       .select("id");
     if (insertError) {
+      const isValueConstraint =
+        insertError.code === "23514" &&
+        /tournament_attribute_candidates_value_check/i.test(insertError.message ?? "");
       return NextResponse.json(
         {
           ok: false,
-          error: "insert_candidates_failed",
-          detail: insertError.message,
+          error: isValueConstraint ? "attribute_constraint_outdated" : "insert_candidates_failed",
+          detail: isValueConstraint
+            ? "DB constraint tournament_attribute_candidates_value_check is missing fee/venue keys (team_fee,games_guaranteed,address,venue_url). Run the constraint update SQL."
+            : insertError.message,
           attempted,
           parsed_candidates: candidates.length,
         },
