@@ -65,23 +65,49 @@ export async function POST(request: Request) {
   const { searchParams } = new URL(request.url);
   const limit = Number(searchParams.get("limit") ?? "10");
   const cappedLimit = Number.isFinite(limit) ? Math.max(1, Math.min(limit, 50)) : 10;
+  const nowIso = new Date().toISOString();
+  const cooldownDays = 10;
+  const cooldownCutoffMs = Date.now() - cooldownDays * 24 * 60 * 60 * 1000;
 
   const fetchTargetTournaments = async () => {
+    const withCooldownSelect = "id,name,official_website_url,source_url,fees_venue_scraped_at";
+    const withoutCooldownSelect = "id,name,official_website_url,source_url";
+
     const primary = await supabaseAdmin
       .from("tournaments" as any)
-      .select("id,name,official_website_url,source_url")
+      .select(withCooldownSelect)
       .or("team_fee.is.null,games_guaranteed.is.null,venue.is.null,address.is.null,venue_url.is.null")
-      .limit(cappedLimit);
+      .limit(cappedLimit * 5);
 
     if (!primary.error) return primary;
-    if (!/column .* does not exist/i.test(primary.error.message)) return primary;
+
+    if (/column .*fees_venue_scraped_at.* does not exist/i.test(primary.error.message)) {
+      const retryWithoutCooldown = await supabaseAdmin
+        .from("tournaments" as any)
+        .select(withoutCooldownSelect)
+        .or("team_fee.is.null,games_guaranteed.is.null,venue.is.null,address.is.null,venue_url.is.null")
+        .limit(cappedLimit * 5);
+      if (!retryWithoutCooldown.error) return retryWithoutCooldown;
+      if (!/column .* does not exist/i.test(retryWithoutCooldown.error.message)) return retryWithoutCooldown;
+    } else if (!/column .* does not exist/i.test(primary.error.message)) {
+      return primary;
+    }
 
     // Backward-compatible fallback for environments where fee/venue columns are not migrated yet.
-    return supabaseAdmin
+    const fallback = await supabaseAdmin
       .from("tournaments" as any)
-      .select("id,name,official_website_url,source_url")
+      .select(withCooldownSelect)
       .or("official_website_url.not.is.null,source_url.not.is.null")
-      .limit(cappedLimit);
+      .limit(cappedLimit * 5);
+    if (!fallback.error) return fallback;
+    if (/column .*fees_venue_scraped_at.* does not exist/i.test(fallback.error.message)) {
+      return supabaseAdmin
+        .from("tournaments" as any)
+        .select(withoutCooldownSelect)
+        .or("official_website_url.not.is.null,source_url.not.is.null")
+        .limit(cappedLimit * 5);
+    }
+    return fallback;
   };
 
   const { data: tournaments, error } = await fetchTargetTournaments();
@@ -90,14 +116,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "fetch_tournaments_failed", detail: error.message }, { status: 500 });
   }
 
+  const selected: any[] = [];
+  let skipped_recent = 0;
+  for (const t of (tournaments as any[] | null) ?? []) {
+    const lastScraped = (t as any).fees_venue_scraped_at;
+    if (lastScraped) {
+      const lastMs = new Date(lastScraped).getTime();
+      if (Number.isFinite(lastMs) && lastMs > cooldownCutoffMs) {
+        skipped_recent += 1;
+        continue;
+      }
+    }
+    selected.push(t);
+    if (selected.length >= cappedLimit) break;
+  }
+
   const candidates: Array<{ tournament_id: string; attribute_key: string; attribute_value: string; source_url: string | null }> = [];
   const summary: Array<{ tournament_id: string; name: string | null; found: string[] }> = [];
+  const attemptedTournamentIds: string[] = [];
   let attempted = 0;
 
-  for (const t of (tournaments as any[] | null) ?? []) {
+  for (const t of selected) {
     const url = (t as any).official_website_url || (t as any).source_url;
     if (!url) continue;
     attempted += 1;
+    attemptedTournamentIds.push(t.id);
     const html = await fetchHtml(url);
     if (!html) continue;
     const $ = cheerio.load(html);
@@ -138,9 +181,46 @@ export async function POST(request: Request) {
     }
   }
 
+  let inserted = 0;
   if (candidates.length) {
-    await supabaseAdmin.from("tournament_attribute_candidates" as any).insert(candidates);
+    const { data: insertedRows, error: insertError } = await supabaseAdmin
+      .from("tournament_attribute_candidates" as any)
+      .insert(candidates)
+      .select("id");
+    if (insertError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "insert_candidates_failed",
+          detail: insertError.message,
+          attempted,
+          parsed_candidates: candidates.length,
+        },
+        { status: 500 }
+      );
+    }
+    inserted = insertedRows?.length ?? 0;
   }
 
-  return NextResponse.json({ ok: true, inserted: candidates.length, attempted, summary });
+  if (attemptedTournamentIds.length) {
+    const { error: stampError } = await supabaseAdmin
+      .from("tournaments" as any)
+      .update({ fees_venue_scraped_at: nowIso })
+      .in("id", attemptedTournamentIds);
+    if (stampError && !/column .*fees_venue_scraped_at.* does not exist/i.test(stampError.message)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "stamp_fees_venue_scrape_failed",
+          detail: stampError.message,
+          inserted,
+          attempted,
+          summary,
+        },
+        { status: 500 }
+      );
+    }
+  }
+
+  return NextResponse.json({ ok: true, inserted, attempted, skipped_recent, summary });
 }

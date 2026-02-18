@@ -261,7 +261,10 @@ export default function EnrichmentClient({
       if (json?.summary) {
         setFeesSummaryState(json.summary);
       }
-      setFeesStatus(`Inserted ${json?.inserted ?? 0} candidates from ${json?.attempted ?? "?"} tournaments`);
+      setFeesStatus(
+        `Inserted ${json?.inserted ?? 0} candidates from ${json?.attempted ?? "?"} tournaments` +
+          `${(json?.skipped_recent ?? 0) > 0 ? ` (${json.skipped_recent} skipped: scraped in last 10 days)` : ""}`
+      );
     } catch (err: any) {
       setFeesStatus(`Error: ${err?.message || err}`);
     }
@@ -630,7 +633,8 @@ export default function EnrichmentClient({
         </div>
         {feesSummaryState?.length ? (
           <div style={{ fontSize: 12, color: "#111827" }}>
-            Latest scrape: {feesSummaryState.map((s) => `${s.name ?? s.tournament_id} [${s.found.join(", ")}]`).join("; ")}
+            Recent fees/venue findings:{" "}
+            {feesSummaryState.map((s) => `${s.name ?? s.tournament_id} [${s.found.join(", ")}]`).join("; ")}
           </div>
         ) : null}
       </div>

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import PlausibleScript from "../components/PlausibleScript";
 import "./globals.css";
@@ -27,14 +26,14 @@ export const metadata: Metadata = {
     siteName: "TournamentInsights",
     title: "TournamentInsights — Youth Tournament Directory",
     description:
-      "Discover youth tournaments by sport, state, and month with verified dates, locations, and official links—no ratings or reviews.",
+      "Discover youth tournaments by sport, state, and month with verified dates, locations, and official links.",
     url: SITE_ORIGIN,
   },
   twitter: {
     card: "summary_large_image",
     title: "TournamentInsights — Youth Tournament Directory",
     description:
-      "Discover youth tournaments by sport, state, and month with verified dates, locations, and official links—no ratings or reviews.",
+      "Discover youth tournaments by sport, state, and month with verified dates, locations, and official links.",
   },
   icons: {
     icon: [
@@ -59,13 +58,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <header className="ti-header">
             <div className="ti-header-shell">
               <Link href="/" className="ti-logo" aria-label="Tournament Insights home">
-                <Image
-                  src="/brand/tournamentinsights_logo.svg"
-                  alt="Tournament Insights"
-                  width={200}
-                  height={70}
-                  priority
-                />
+                <span className="ti-logo-frame">
+                  <img
+                    src="/svg/ti/tournamentinsights_logo.svg"
+                    alt="Tournament Insights"
+                    className="ti-logo-img"
+                  />
+                </span>
               </Link>
               <div className="ti-pill">Public Beta</div>
               <nav className="ti-nav" aria-label="Main navigation">

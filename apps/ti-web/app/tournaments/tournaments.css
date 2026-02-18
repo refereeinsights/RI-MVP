@@ -433,8 +433,8 @@
 }
 
 .summaryGrid .summaryIcon--ri img {
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
   opacity: 0.9;
   display: block;
 }
@@ -501,16 +501,16 @@
 }
 
 .sportSvgIcon {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   display: block;
   object-fit: contain;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
 }
 
 .summaryGrid .sportSvgIcon {
-  width: 24px;
-  height: 24px;
+  width: 36px;
+  height: 36px;
 }
 
 .cardWhistle {

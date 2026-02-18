@@ -1,3 +1,20 @@
+## 2026-02-18
+- Homepage messaging update:
+  - Committed `ed9cb02` (`TI: update homepage value props copy`) in `apps/ti-web/app/page.tsx`.
+  - Replaced “What TournamentInsights provides” block copy with current value-prop language:
+    - Verified tournament essentials — sport, dates, location, and official links
+    - Clean filtering by sport, state, and month
+    - Structured, moderated event insights
+    - Logistics-focused detail pages built for real tournament planning
+  - Replaced follow-up paragraph with:
+    - “TournamentInsights delivers organized, moderated tournament intelligence designed to help families, coaches, and teams evaluate events faster and with greater confidence.”
+  - Removed homepage defensive wording around “no ratings / no public reviews / not a review platform”.
+- Homepage layout polish:
+  - Center-aligned the “What TournamentInsights Provides” heading and bullet content (scoped styling only).
+  - Files:
+    - `apps/ti-web/app/page.tsx`
+    - `apps/ti-web/app/globals.css`
+
 ## 2026-02-16
 - TI branding: TI header/layout mirrors RI structure with TI colors and shared logo `shared-assets/svg/ti/tournamentinsights_logo.svg` (used in layout/home).
 - TI pages: Added `/tournaments` (RI-style filters/cards, no ratings/reviews), `/tournaments/[slug]` (logistics-only detail), `/how-it-works`, `/list-your-tournament`, and updated home CTAs.

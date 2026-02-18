@@ -361,7 +361,9 @@ export default async function TournamentsPage({
             <article className="card card--mini bg-sport-default">
               <div className="summaryCount">{tournamentsSorted.length}</div>
               <div className="summaryLabel">TOTAL TOURNAMENTS</div>
-              <div className="summaryIcon" aria-hidden="true">🏟️</div>
+              <div className="summaryIcon summaryIcon--ri" aria-hidden="true">
+                <img src="/svg/ti/tournamentinsights_mark_transparent.svg" alt="" />
+              </div>
             </article>
             {sportsSorted.map(({ sport, count }) => (
               <Link

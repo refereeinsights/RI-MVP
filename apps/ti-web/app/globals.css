@@ -39,14 +39,16 @@ body {
   background: linear-gradient(90deg, var(--ti-header-1), var(--ti-header-2), var(--ti-header-3));
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   color: #fff;
+  padding-top: 8px;
 }
 
 .ti-header-shell {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 14px 16px 10px;
+  padding: 18px 16px 10px;
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
   align-items: center;
   gap: 14px 18px;
 }
@@ -55,20 +57,44 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  grid-column: 2;
+  grid-row: 1;
   justify-self: center;
+  margin-top: 2px;
 }
 
-.ti-logo img {
+.ti-logo-frame {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 264px;
+  height: 56px;
+  padding: 6px 8px 2px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+}
+
+.ti-logo img,
+.ti-logo-img {
   display: block;
-  height: auto;
-  max-height: 64px;
-  width: auto;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center 58%;
+  transform: translateY(4px) scale(5.2);
+  transform-origin: center;
+  filter: none;
 }
 
 .ti-nav {
   display: flex;
   align-items: center;
   justify-content: center;
+  grid-column: 1 / -1;
+  grid-row: 2;
   gap: 1.3rem;
   flex: 1;
   min-width: 360px;
@@ -96,6 +122,8 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  grid-column: 3;
+  grid-row: 1;
   background: var(--ti-cta);
   color: var(--ti-cta-text);
   border-radius: 999px;
@@ -120,6 +148,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  grid-column: 1;
+  grid-row: 1;
   padding: 4px 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.16);
@@ -133,19 +163,29 @@ body {
 
 @media (max-width: 800px) {
   .ti-header-shell {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
     row-gap: 10px;
   }
   .ti-logo {
-    grid-column: 1 / span 2;
+    grid-column: 1;
+    grid-row: 1;
     justify-self: center;
+  }
+  .ti-pill {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
   }
   .ti-nav {
-    grid-column: 1 / span 2;
+    grid-column: 1;
+    grid-row: 3;
     justify-self: center;
+    min-width: 0;
   }
   .ti-cta {
-    grid-column: 2;
+    grid-column: 1;
+    grid-row: 4;
     justify-self: end;
   }
 }
@@ -190,6 +230,8 @@ a {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  align-items: center;
+  text-align: center;
 }
 
 .logoBlock {
@@ -251,6 +293,16 @@ h1 {
   font-size: 20px;
 }
 
+.bodyCardCenteredList {
+  text-align: center;
+}
+
+.bodyCardCenteredList .list {
+  text-align: center;
+  list-style-position: inside;
+  padding-left: 0;
+}
+
 .list {
   padding-left: 18px;
   margin: 10px 0 0;
@@ -307,6 +359,7 @@ h1 {
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 10px;
+  justify-content: center;
 }
 
 @media (min-width: 640px) {
@@ -320,7 +373,7 @@ h1 {
     font-size: 17px;
   }
   .logoBlock {
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
   }
 }

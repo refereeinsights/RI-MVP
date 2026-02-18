@@ -88,6 +88,11 @@ type UrlSuggestion = {
   status: string;
   created_at: string;
 };
+type FeesVenueSummary = {
+  tournament_id: string;
+  name: string | null;
+  found: string[];
+};
 
 async function fetchAllPendingRows(table: string, select: string) {
   const pageSize = 1000;
@@ -178,7 +183,7 @@ async function loadData() {
       .filter((j: any) => ["queued", "running", "done"].includes(String(j.status)))
       .map((j: any) => j.tournament_id)
   );
-  const [contactsRows, datesRows, attributeRows] = await Promise.all([
+  const [contactsRows, datesRows, attributeRows, recentFeesVenueRows] = await Promise.all([
     fetchAllPendingRows(
       "tournament_contact_candidates",
       "id,tournament_id,email,phone,role_normalized,source_url,confidence,created_at"
@@ -191,6 +196,14 @@ async function loadData() {
       "tournament_attribute_candidates",
       "id,tournament_id,attribute_key,attribute_value,source_url,evidence_text,confidence,created_at"
     ),
+    supabaseAdmin
+      .from("tournament_attribute_candidates" as any)
+      .select("tournament_id,attribute_key,created_at,tournaments(name)")
+      .is("accepted_at", null)
+      .is("rejected_at", null)
+      .in("attribute_key", ["team_fee", "games_guaranteed", "address", "venue_url"])
+      .order("created_at", { ascending: false })
+      .limit(300),
   ]);
   const candidateIds = new Set<string>();
   contactsRows.forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
@@ -308,6 +321,26 @@ async function loadData() {
         official_website_url: row.official_website_url ?? null,
       }));
   }
+  const recentFeesVenueData = (recentFeesVenueRows.data ?? []) as any[];
+  const feesVenueSummaryMap = new Map<string, { name: string | null; found: Set<string> }>();
+  for (const row of recentFeesVenueData) {
+    const tournamentId = row.tournament_id as string;
+    if (!tournamentId) continue;
+    const existing = feesVenueSummaryMap.get(tournamentId) ?? {
+      name: (row as any).tournaments?.name ?? null,
+      found: new Set<string>(),
+    };
+    existing.found.add(String(row.attribute_key));
+    feesVenueSummaryMap.set(tournamentId, existing);
+  }
+  const feesVenueSummary: FeesVenueSummary[] = Array.from(feesVenueSummaryMap.entries())
+    .slice(0, 12)
+    .map(([tournament_id, entry]) => ({
+      tournament_id,
+      name: entry.name,
+      found: Array.from(entry.found),
+    }));
+
   return {
     tournaments:
       (tournamentsResp.data ?? [])
@@ -359,7 +392,7 @@ async function loadData() {
         tournament_name: row.tournaments?.name ?? null,
         tournament_state: row.tournaments?.state ?? null,
       })) as (UrlSuggestion & { tournament_name?: string | null; tournament_state?: string | null })[],
-    feesVenueSummary: [],
+    feesVenueSummary,
   };
 }
 

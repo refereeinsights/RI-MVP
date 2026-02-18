@@ -68,7 +68,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="bodyCard" aria-labelledby="ti-provides">
+        <section className="bodyCard bodyCardCenteredList" aria-labelledby="ti-provides">
           <h2 id="ti-provides">What TournamentInsights Provides</h2>
           <ul className="list">
             <li>Verified tournament essentials — sport, dates, location, and official links</li>

@@ -1,6 +1,21 @@
 # Running Notes
 
 ## 2026-02-18
+- TI homepage copy refresh:
+  - Committed `ed9cb02` (`TI: update homepage value props copy`) in `apps/ti-web/app/page.tsx`.
+  - Updated home “What TournamentInsights Provides” section with new value-prop bullets and replaced defensive “not a review platform / no ratings” language on the homepage.
+  - Updated homepage metadata description in `apps/ti-web/app/page.tsx` to remove “no ratings or reviews”.
+- Enrichment visibility + scrape controls:
+  - Added persistent “Recent fees/venue findings” feed on `/admin/tournaments/enrichment` so recent fee/venue candidates remain visible after refresh, even when approval items are hidden because DB fields are already populated.
+  - Files:
+    - `apps/referee/app/admin/tournaments/enrichment/page.tsx`
+    - `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`
+  - Added fees/venue scrape cooldown support: scraper now skips tournaments scraped in last 10 days, stamps `fees_venue_scraped_at` on attempted tournaments, and reports skipped count in UI.
+  - Files:
+    - `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`
+    - `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`
+    - `supabase/migrations/20260218_tournaments_fees_venue_scrape_cooldown.sql`
+  - Backward compatibility: fees/venue route gracefully falls back if `fees_venue_scraped_at` column is not yet present.
 - Git/workflow:
   - Pulled latest `origin/main` after stashing local edits and merged stash back in.
   - Confirmed no DB writes during git-only operations.
