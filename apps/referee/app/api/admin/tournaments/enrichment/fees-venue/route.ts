@@ -190,10 +190,74 @@ export async function POST(request: Request) {
   }
 
   let inserted = 0;
+  let skipped_duplicates = 0;
   if (candidates.length) {
+    const keyFor = (row: {
+      tournament_id: string;
+      attribute_key: string;
+      attribute_value: string;
+      source_url: string | null;
+    }) => `${row.tournament_id}|${row.attribute_key}|${row.attribute_value}|${row.source_url ?? ""}`;
+
+    // De-dupe within this scrape batch first.
+    const uniqueBatch: Array<{
+      tournament_id: string;
+      attribute_key: string;
+      attribute_value: string;
+      source_url: string | null;
+    }> = [];
+    const seenBatch = new Set<string>();
+    for (const row of candidates) {
+      const key = keyFor(row);
+      if (seenBatch.has(key)) {
+        skipped_duplicates += 1;
+        continue;
+      }
+      seenBatch.add(key);
+      uniqueBatch.push(row);
+    }
+
+    // Skip rows that already exist in DB (matching unique index semantics via source_url coalesce).
+    const tournamentIds = Array.from(new Set(uniqueBatch.map((c) => c.tournament_id)));
+    const attributeKeys = Array.from(new Set(uniqueBatch.map((c) => c.attribute_key)));
+    const { data: existingRows, error: existingError } = await supabaseAdmin
+      .from("tournament_attribute_candidates" as any)
+      .select("tournament_id,attribute_key,attribute_value,source_url")
+      .in("tournament_id", tournamentIds)
+      .in("attribute_key", attributeKeys);
+    if (existingError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "load_existing_candidates_failed",
+          detail: existingError.message,
+          attempted,
+          parsed_candidates: candidates.length,
+        },
+        { status: 500 }
+      );
+    }
+    const existingKeys = new Set(
+      ((existingRows ?? []) as Array<{
+        tournament_id: string;
+        attribute_key: string;
+        attribute_value: string;
+        source_url: string | null;
+      }>).map((row) => keyFor(row))
+    );
+    const toInsert = uniqueBatch.filter((row) => {
+      const exists = existingKeys.has(keyFor(row));
+      if (exists) skipped_duplicates += 1;
+      return !exists;
+    });
+
+    if (!toInsert.length) {
+      return NextResponse.json({ ok: true, inserted: 0, attempted, skipped_recent, skipped_duplicates, summary });
+    }
+
     const { data: insertedRows, error: insertError } = await supabaseAdmin
       .from("tournament_attribute_candidates" as any)
-      .insert(candidates)
+      .insert(toInsert)
       .select("id");
     if (insertError) {
       const isValueConstraint =
@@ -208,6 +272,7 @@ export async function POST(request: Request) {
             : insertError.message,
           attempted,
           parsed_candidates: candidates.length,
+          insert_candidates: toInsert.length,
         },
         { status: 500 }
       );
@@ -235,5 +300,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, inserted, attempted, skipped_recent, summary });
+  return NextResponse.json({ ok: true, inserted, attempted, skipped_recent, skipped_duplicates, summary });
 }
