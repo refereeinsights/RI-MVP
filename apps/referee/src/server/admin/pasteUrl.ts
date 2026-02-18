@@ -928,7 +928,13 @@ function parseUSClubSanctionedTournaments(html: string): TournamentRow[] {
     results.push(...parseUSClubTable($, monthYear, $table, inferredYear));
   }
 
-  return results.filter((row) => row.name && row.state && row.start_date);
+  const filtered = results.filter((row) => row.name && row.state && row.start_date);
+  const deduped = new Map<string, TournamentRow>();
+  for (const row of filtered) {
+    const key = row.source_event_id;
+    if (!deduped.has(key)) deduped.set(key, row);
+  }
+  return Array.from(deduped.values());
 }
 
 export function parseUsClubLaxTournaments(html: string): TournamentRow[] {
@@ -1824,6 +1830,10 @@ function parseUSClubTable(
     const club = cells.length >= 4 ? $(cells[3]).text().trim() : "";
     const ageGroups = cells.length >= 5 ? $(cells[4]).text().trim() : "";
     const level = inferUSClubLevel(ageGroups);
+    const normalizedName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const sourceEventId = [normalizedName, state.toLowerCase(), start ?? "", end ?? start ?? ""]
+      .filter(Boolean)
+      .join("|");
 
     out.push({
       name,
@@ -1842,7 +1852,7 @@ function parseUSClubTable(
       status: "draft",
       confidence: 75,
       source: "us_club_soccer",
-      source_event_id: `${name}|${state}|${datesText}`.toLowerCase().replace(/\\s+/g, "-"),
+      source_event_id: sourceEventId,
       raw: {
         dates: datesText,
         club,

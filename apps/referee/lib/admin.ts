@@ -834,7 +834,20 @@ export async function adminListPendingTournaments() {
     .order("updated_at", { ascending: false })
     .limit(200);
   if (error) throw error;
-  return (data ?? []) as AdminPendingTournament[];
+  const rows = ((data ?? []) as AdminPendingTournament[]).filter((row) => row?.id);
+  const deduped = new Map<string, AdminPendingTournament>();
+  for (const row of rows) {
+    const key = [
+      (row.name ?? "").toLowerCase().replace(/\s+/g, " ").trim(),
+      (row.city ?? "").toLowerCase().replace(/\s+/g, " ").trim(),
+      (row.state ?? "").toLowerCase().replace(/\s+/g, " ").trim(),
+      row.start_date ?? "",
+    ].join("|");
+    if (!deduped.has(key)) {
+      deduped.set(key, row);
+    }
+  }
+  return Array.from(deduped.values());
 }
 
 export type AdminPendingTournament = {

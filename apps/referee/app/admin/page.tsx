@@ -1593,12 +1593,12 @@ export default async function AdminPage({
     const { data, error } = await supabaseAdmin
       .from("tournaments" as any)
       .select("id,name,city,state,start_date,created_at")
-      .eq("status", "pending");
+      .eq("status", "draft");
     if (error) {
       return redirectWithNotice(redirectTo, `Cleanup failed: ${error.message}`);
     }
     if (!data || !Array.isArray(data) || !data.length) {
-      return redirectWithNotice(redirectTo, "Cleanup: no pending tournaments found.");
+      return redirectWithNotice(redirectTo, "Cleanup: no draft tournaments found.");
     }
 
     const rows = data as {
@@ -1633,7 +1633,7 @@ export default async function AdminPage({
     if (delErr) {
       return redirectWithNotice(redirectTo, `Cleanup failed: ${delErr.message}`);
     }
-    return redirectWithNotice(redirectTo, `Cleanup removed ${dupes.length} pending duplicate(s).`);
+    return redirectWithNotice(redirectTo, `Cleanup removed ${dupes.length} draft duplicate(s).`);
   }
 
   async function queuePendingEnrichmentAction(formData: FormData) {
@@ -1643,7 +1643,7 @@ export default async function AdminPage({
     const { data: pending, error: pendingErr } = await supabaseAdmin
       .from("tournaments" as any)
       .select("id")
-      .eq("status", "pending")
+      .eq("status", "draft")
       .eq("enrichment_skip", false);
     if (pendingErr) {
       return redirectWithNotice(redirectTo, `Queue failed: ${pendingErr.message}`);
@@ -1651,7 +1651,7 @@ export default async function AdminPage({
     const rows = (pending ?? []) as { id: string }[];
     const ids = rows.map((r) => r.id);
     if (!ids.length) {
-      return redirectWithNotice(redirectTo, "No pending tournaments to queue.");
+      return redirectWithNotice(redirectTo, "No draft tournaments to queue.");
     }
     const { data: existingJobs, error: jobErr } = await supabaseAdmin
       .from("tournament_enrichment_jobs" as any)
@@ -1667,7 +1667,7 @@ export default async function AdminPage({
     );
     const toQueue = ids.filter((id) => !blocked.has(id));
     if (!toQueue.length) {
-      return redirectWithNotice(redirectTo, "All pending tournaments already have enrichment jobs.");
+      return redirectWithNotice(redirectTo, "All draft tournaments already have enrichment jobs.");
     }
     const payload = toQueue.map((id) => ({ tournament_id: id }));
     const { error: insertErr } = await supabaseAdmin
@@ -1676,7 +1676,7 @@ export default async function AdminPage({
     if (insertErr) {
       return redirectWithNotice(redirectTo, `Queue failed: ${insertErr.message}`);
     }
-    return redirectWithNotice(redirectTo, `Queued enrichment for ${payload.length} pending tournament(s).`);
+    return redirectWithNotice(redirectTo, `Queued enrichment for ${payload.length} draft tournament(s).`);
   }
 
   async function refreshWhistleScoresAction(formData: FormData) {

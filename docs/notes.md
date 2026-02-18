@@ -49,6 +49,14 @@
     - `apps/referee/app/admin/page.tsx`
     - `apps/referee/app/admin/tournaments/sources/page.tsx`
   - Added parser test coverage in `apps/referee/src/server/admin/__tests__/pasteUrl.test.ts`.
+- Duplicate control updates (approval queue + US Club Soccer):
+  - Pending approval list now dedupes draft rows in `adminListPendingTournaments()` by normalized `name + city + state + start_date` before rendering.
+  - Fixed admin cleanup/queue actions that were incorrectly targeting `status='pending'`; they now target `status='draft'`:
+    - `dedupePendingTournamentsAction`
+    - `queuePendingEnrichmentAction`
+  - Stabilized US Club Soccer source identity to reduce re-import duplicates:
+    - `source_event_id` now uses normalized `name|state|start_date|end_date` (instead of raw date text).
+    - Added in-run dedupe for parsed US Club Soccer rows by `source_event_id`.
 
 ## 2026-02-12
 - Workflow:
