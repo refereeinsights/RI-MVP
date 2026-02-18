@@ -144,6 +144,7 @@ export async function POST(request: Request) {
   const { searchParams } = new URL(request.url);
   const limit = Number(searchParams.get("limit") ?? "10");
   const cappedLimit = Number.isFinite(limit) ? Math.max(1, Math.min(limit, 50)) : 10;
+  const candidatePoolSize = Math.min(cappedLimit * 20, 1000);
   const nowIso = new Date().toISOString();
   const cooldownDays = 10;
   const cooldownCutoffMs = Date.now() - cooldownDays * 24 * 60 * 60 * 1000;
@@ -155,8 +156,12 @@ export async function POST(request: Request) {
     const primary = await supabaseAdmin
       .from("tournaments" as any)
       .select(withCooldownSelect)
+      .eq("status", "published")
+      .eq("is_canonical", true)
+      .eq("enrichment_skip", false)
       .or("team_fee.is.null,games_guaranteed.is.null,venue.is.null,address.is.null,venue_url.is.null")
-      .limit(cappedLimit * 5);
+      .order("fees_venue_scraped_at", { ascending: true, nullsFirst: true })
+      .limit(candidatePoolSize);
 
     if (!primary.error) return primary;
 
@@ -164,8 +169,11 @@ export async function POST(request: Request) {
       const retryWithoutCooldown = await supabaseAdmin
         .from("tournaments" as any)
         .select(withoutCooldownSelect)
+        .eq("status", "published")
+        .eq("is_canonical", true)
+        .eq("enrichment_skip", false)
         .or("team_fee.is.null,games_guaranteed.is.null,venue.is.null,address.is.null,venue_url.is.null")
-        .limit(cappedLimit * 5);
+        .limit(candidatePoolSize);
       if (!retryWithoutCooldown.error) return retryWithoutCooldown;
       if (!/column .* does not exist/i.test(retryWithoutCooldown.error.message)) return retryWithoutCooldown;
     } else if (!/column .* does not exist/i.test(primary.error.message)) {
@@ -176,15 +184,22 @@ export async function POST(request: Request) {
     const fallback = await supabaseAdmin
       .from("tournaments" as any)
       .select(withCooldownSelect)
+      .eq("status", "published")
+      .eq("is_canonical", true)
+      .eq("enrichment_skip", false)
       .or("official_website_url.not.is.null,source_url.not.is.null")
-      .limit(cappedLimit * 5);
+      .order("fees_venue_scraped_at", { ascending: true, nullsFirst: true })
+      .limit(candidatePoolSize);
     if (!fallback.error) return fallback;
     if (isMissingCooldownColumnError(fallback.error.message)) {
       return supabaseAdmin
         .from("tournaments" as any)
         .select(withoutCooldownSelect)
+        .eq("status", "published")
+        .eq("is_canonical", true)
+        .eq("enrichment_skip", false)
         .or("official_website_url.not.is.null,source_url.not.is.null")
-        .limit(cappedLimit * 5);
+        .limit(candidatePoolSize);
     }
     return fallback;
   };
@@ -197,7 +212,22 @@ export async function POST(request: Request) {
 
   const selected: any[] = [];
   let skipped_recent = 0;
+  let skipped_pending = 0;
+  const { data: pendingRows } = await supabaseAdmin
+    .from("tournament_attribute_candidates" as any)
+    .select("tournament_id")
+    .is("accepted_at", null)
+    .is("rejected_at", null)
+    .in("attribute_key", ["team_fee", "games_guaranteed", "address", "venue_url"])
+    .limit(10000);
+  const pendingTournamentIds = new Set(
+    ((pendingRows ?? []) as Array<{ tournament_id: string | null }>).map((r) => String(r.tournament_id ?? "")).filter(Boolean)
+  );
   for (const t of (tournaments as any[] | null) ?? []) {
+    if (pendingTournamentIds.has(String((t as any).id ?? ""))) {
+      skipped_pending += 1;
+      continue;
+    }
     const lastScraped = (t as any).fees_venue_scraped_at;
     if (lastScraped) {
       const lastMs = new Date(lastScraped).getTime();
@@ -323,7 +353,7 @@ export async function POST(request: Request) {
     });
 
     if (!toInsert.length) {
-      return NextResponse.json({ ok: true, inserted: 0, attempted, skipped_recent, skipped_duplicates, summary });
+      return NextResponse.json({ ok: true, inserted: 0, attempted, skipped_recent, skipped_pending, skipped_duplicates, summary });
     }
 
     const { data: insertedRows, error: insertError } = await supabaseAdmin
@@ -371,5 +401,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, inserted, attempted, skipped_recent, skipped_duplicates, summary });
+  return NextResponse.json({ ok: true, inserted, attempted, skipped_recent, skipped_pending, skipped_duplicates, summary });
 }

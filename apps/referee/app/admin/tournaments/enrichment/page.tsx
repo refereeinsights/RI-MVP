@@ -79,6 +79,10 @@ type AttributeCandidate = {
   confidence: number | null;
   created_at: string | null;
 };
+type ExistingValueAttributeCandidate = AttributeCandidate & {
+  existing_field: string;
+  existing_value: string;
+};
 type UrlSuggestion = {
   id: string;
   tournament_id: string;
@@ -146,7 +150,8 @@ async function loadData() {
       jobs: [],
       contacts: [],
       dates: [],
-      attributes: [],
+    attributes: [],
+      existing_value_attributes: [],
       missing_urls: [],
       priority_outreach_targets: [],
       tournament_url_lookup: {},
@@ -214,6 +219,7 @@ async function loadData() {
   let filteredContactsRows = contactsRows;
   let filteredDatesRows = datesRows;
   let filteredAttributeRows = attributeRows;
+  let existingValueAttributeRows: ExistingValueAttributeCandidate[] = [];
   if (candidateIds.size > 0) {
     const lookupRows = await fetchTournamentsByIds(Array.from(candidateIds));
     const tournamentById = new Map(lookupRows.map((row: any) => [row.id, row]));
@@ -252,13 +258,23 @@ async function loadData() {
       if (!tournament) return true;
       const targetField = fieldByAttribute[key];
       if (!targetField) return true;
-      return !hasValue((tournament as any)[targetField]);
+      const existing = (tournament as any)[targetField];
+      const keepInMainQueue = !hasValue(existing);
+      if (!keepInMainQueue) {
+        existingValueAttributeRows.push({
+          ...(row as AttributeCandidate),
+          existing_field: targetField,
+          existing_value: String(existing),
+        });
+      }
+      return keepInMainQueue;
     });
 
     const filteredCandidateIds = new Set<string>();
     filteredContactsRows.forEach((row: any) => row.tournament_id && filteredCandidateIds.add(row.tournament_id));
     filteredDatesRows.forEach((row: any) => row.tournament_id && filteredCandidateIds.add(row.tournament_id));
     filteredAttributeRows.forEach((row: any) => row.tournament_id && filteredCandidateIds.add(row.tournament_id));
+    existingValueAttributeRows.forEach((row: any) => row.tournament_id && filteredCandidateIds.add(row.tournament_id));
     tournamentUrlLookup = Object.fromEntries(
       lookupRows
         .filter((row: any) => filteredCandidateIds.has(row.id))
@@ -378,6 +394,7 @@ async function loadData() {
     contacts: filteredContactsRows as ContactCandidate[],
     dates: filteredDatesRows as DateCandidate[],
     attributes: filteredAttributeRows as AttributeCandidate[],
+    existing_value_attributes: existingValueAttributeRows,
     tournament_url_lookup: tournamentUrlLookup,
     candidate_tournaments: candidateTournamentLookup,
     url_suggestions:
@@ -406,6 +423,7 @@ export default async function Page() {
       contacts={data.contacts}
       dates={data.dates}
       attributes={data.attributes}
+      existingValueAttributes={data.existing_value_attributes}
       priorityOutreachTargets={data.priority_outreach_targets}
       urlSuggestions={data.url_suggestions}
       tournamentUrlLookup={data.tournament_url_lookup}

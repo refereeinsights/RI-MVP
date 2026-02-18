@@ -67,6 +67,10 @@ type AttributeCandidate = {
   confidence: number | null;
   created_at: string | null;
 };
+type ExistingValueAttributeCandidate = AttributeCandidate & {
+  existing_field: string;
+  existing_value: string;
+};
 type UrlSuggestion = {
   id: string;
   tournament_id: string;
@@ -125,6 +129,7 @@ export default function EnrichmentClient({
   contacts,
   dates,
   attributes,
+  existingValueAttributes,
   priorityOutreachTargets,
   urlSuggestions,
   tournamentUrlLookup,
@@ -137,6 +142,7 @@ export default function EnrichmentClient({
   contacts: ContactCandidate[];
   dates: DateCandidate[];
   attributes: AttributeCandidate[];
+  existingValueAttributes: ExistingValueAttributeCandidate[];
   priorityOutreachTargets: PriorityOutreachTournament[];
   urlSuggestions: UrlSuggestion[];
   tournamentUrlLookup: Record<string, string | null>;
@@ -151,6 +157,7 @@ export default function EnrichmentClient({
   const [pendingContacts, setPendingContacts] = React.useState<ContactCandidate[]>(contacts);
   const [pendingDates, setPendingDates] = React.useState<DateCandidate[]>(dates);
   const [pendingAttributes, setPendingAttributes] = React.useState<AttributeCandidate[]>(attributes);
+  const [pendingExistingValueAttributes] = React.useState<ExistingValueAttributeCandidate[]>(existingValueAttributes);
   const [pendingUrlSuggestions, setPendingUrlSuggestions] = React.useState<UrlSuggestion[]>(urlSuggestions);
   const [missingSelected, setMissingSelected] = React.useState<string[]>([]);
   const [priorityTargets, setPriorityTargets] = React.useState<PriorityOutreachTournament[]>(priorityOutreachTargets);
@@ -249,6 +256,16 @@ export default function EnrichmentClient({
     return deduped;
   }, [pendingContacts, pendingDates, pendingAttributes]);
 
+  const existingValueGroups = React.useMemo(() => {
+    const byTournament = new Map<string, ExistingValueAttributeCandidate[]>();
+    pendingExistingValueAttributes.forEach((row) => {
+      const list = byTournament.get(row.tournament_id) ?? [];
+      list.push(row);
+      byTournament.set(row.tournament_id, list);
+    });
+    return byTournament;
+  }, [pendingExistingValueAttributes]);
+
   const runFeesEnrichment = React.useCallback(async () => {
     setFeesStatus("Running fees/venue scrape...");
     try {
@@ -263,7 +280,8 @@ export default function EnrichmentClient({
       }
       setFeesStatus(
         `Inserted ${json?.inserted ?? 0} candidates from ${json?.attempted ?? "?"} tournaments` +
-          `${(json?.skipped_recent ?? 0) > 0 ? ` (${json.skipped_recent} skipped: scraped in last 10 days)` : ""}`
+          `${(json?.skipped_recent ?? 0) > 0 ? ` (${json.skipped_recent} skipped: scraped in last 10 days)` : ""}` +
+          `${(json?.skipped_pending ?? 0) > 0 ? ` (${json.skipped_pending} skipped: pending review)` : ""}`
       );
       // Refresh so newly inserted candidates show up immediately in the approval queue.
       if ((json?.inserted ?? 0) > 0) {
@@ -1157,6 +1175,41 @@ export default function EnrichmentClient({
                         </div>
                       </div>
                     </label>
+                  ))}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </section>
+
+      <section style={{ marginTop: 20, border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
+        <h2 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Found but already has DB value</h2>
+        <p style={{ marginTop: 0, color: "#4b5563", fontSize: 12 }}>
+          These findings are hidden from the main approval queue because the target field already has data.
+        </p>
+        {existingValueGroups.size === 0 ? (
+          <div style={{ color: "#6b7280" }}>No hidden fee/venue findings.</div>
+        ) : (
+          Array.from(existingValueGroups.entries()).map(([tournamentId, rows]) => {
+            const info = candidateTournaments[tournamentId];
+            const labelFor: Record<string, string> = {
+              team_fee: "Team fee",
+              games_guaranteed: "Games guaranteed",
+              address: "Address",
+              venue_url: "Venue URL",
+            };
+            return (
+              <div key={tournamentId} style={{ borderTop: "1px solid #f1f1f1", paddingTop: 12, marginTop: 12 }}>
+                <div style={{ fontWeight: 800 }}>{info?.name ?? tournamentId}</div>
+                <div style={{ color: "#6b7280", fontSize: 12 }}>ID: {tournamentId}</div>
+                <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                  {rows.map((row) => (
+                    <div key={row.id} style={{ border: "1px solid #f1f1f1", borderRadius: 8, padding: 8 }}>
+                      <div style={{ fontWeight: 700 }}>{labelFor[row.attribute_key] ?? row.attribute_key}</div>
+                      <div style={{ fontSize: 12, color: "#4b5563" }}>Found: {row.attribute_value}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>Existing: {row.existing_value}</div>
+                    </div>
                   ))}
                 </div>
               </div>
