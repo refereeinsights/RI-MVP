@@ -1,6 +1,34 @@
 # Running Notes
 
 ## 2026-02-19
+- Counter background asset refresh (TI + RI tournament summary tiles):
+  - Added/updated shared sport counter assets:
+    - `shared-assets/svg/sports/soccer_count_badge.svg`
+    - `shared-assets/svg/sports/basketball_count_badge.svg`
+    - `shared-assets/svg/sports/lacrosse_counter_badge.svg`
+    - `shared-assets/svg/sports/total_tournaments_count.svg`
+    - updated `shared-assets/svg/sports/baseball_badge.svg`
+    - updated `shared-assets/svg/sports/softball_badge.svg`
+  - Applied sport-specific counter background classes (`summary-sport-*`) so soccer/basketball/lacrosse counters can use dedicated artwork independently of tournament card surfaces.
+  - Added `summary-total` background styling for the total tournaments tile.
+  - Tuned soccer/baseball crop/zoom in counter tiles to remove embedded frame/shadow artifacts from source art.
+  - Tournament cards no longer show the extra baseball/softball badge block; badges remain counter-only.
+  - Files:
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/referee/app/tournaments/page.tsx`
+    - `apps/ti-web/app/tournaments/tournaments.css`
+    - `apps/referee/app/tournaments/tournaments.css`
+
+- Admin venues list + address verify improvements:
+  - Added `Venue URL` display to expandable admin venue row details (clickable when present).
+  - Added non-destructive `Remove from list` action per venue row to hide verified rows in current admin view.
+  - `Venue Address Verify` parser now normalizes `address/address1` to street-only when city/state/zip are parsed from embedded address blobs (removes duplicated locality from address fields).
+  - Files:
+    - `apps/referee/components/admin/VenueRow.tsx`
+    - `apps/referee/components/admin/VenueActions.tsx`
+    - `apps/referee/app/admin/venues/page.tsx`
+    - `apps/referee/app/api/admin/venues/address-verify/route.ts`
+
 - Admin venues visibility + workflow updates:
   - Added `Venue URL` to the expandable admin venue row details (clickable when present).
   - Added per-row `Remove from list` action in admin venues list to hide verified items from the current view without deleting data.

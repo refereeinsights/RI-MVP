@@ -99,6 +99,10 @@ function getSportCardClass(sport: string | null) {
   return map[normalized] ?? "bg-sport-default";
 }
 
+function getSummarySportClass(sport: string) {
+  return `summary-sport-${sport.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+}
+
 export default async function TournamentsPage({
   searchParams,
 }: {
@@ -362,7 +366,7 @@ export default async function TournamentsPage({
 
         {sportsSorted.length ? (
           <div className="summaryGrid">
-            <article className="card card--mini bg-sport-default">
+            <article className="card card--mini bg-sport-default summary-total">
               <div className="summaryCount">{tournamentsSorted.length}</div>
               <div className="summaryLabel">TOTAL TOURNAMENTS</div>
               <div className="summaryIcon summaryIcon--ri" aria-hidden="true">
@@ -383,7 +387,7 @@ export default async function TournamentsPage({
                   params.set("sports", sport);
                   return `/tournaments?${params.toString()}`;
                 })()}
-                className={`card card--mini ${getSportCardClass(sport)}`}
+                className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)}`}
               >
                 <div className="summaryCount">{count}</div>
                 <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>

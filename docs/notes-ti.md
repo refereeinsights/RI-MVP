@@ -1,4 +1,19 @@
 ## 2026-02-19
+- TI tournament counters: new custom background assets by sport:
+  - Added dedicated counter backgrounds for:
+    - soccer (`/svg/sports/soccer_count_badge.svg`)
+    - basketball (`/svg/sports/basketball_count_badge.svg`)
+    - lacrosse (`/svg/sports/lacrosse_counter_badge.svg`)
+    - total tournaments (`/svg/sports/total_tournaments_count.svg`)
+  - Continued use of baseball/softball custom backgrounds from updated shared assets.
+  - Introduced `summary-sport-*` and `summary-total` classes on summary tiles for independent counter styling.
+  - Tuned soccer/baseball counter crop/zoom to hide source-image frame/shadow artifacts.
+  - Removed baseball/softball badge overlay from tournament cards; counter backgrounds remain in summary grid only.
+  - Files:
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/ti-web/app/tournaments/tournaments.css`
+    - `shared-assets/svg/sports/*`
+
 - TI baseball/softball badge source replacements:
   - Updated baseball source artwork:
     - `shared-assets/svg/sports/baseball_badge.svg` (from `baseball_new_bg.svg`)

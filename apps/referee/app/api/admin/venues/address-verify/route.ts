@@ -268,8 +268,12 @@ export async function POST(request: Request) {
   let websiteCount = 0;
 
   for (const venue of venues) {
-    const currentStreet = normalizeText(venue.address1) || normalizeText(venue.address);
-    const parsed = parseAddressBlob(currentStreet);
+    const currentAddress1 = normalizeText(venue.address1);
+    const currentAddress = normalizeText(venue.address);
+    const currentStreet = currentAddress1 || currentAddress;
+    const parsedFromAddress1 = currentAddress1 ? parseAddressBlob(currentAddress1) : null;
+    const parsedFromAddress = currentAddress ? parseAddressBlob(currentAddress) : null;
+    const parsed = parsedFromAddress1 ?? parsedFromAddress ?? parseAddressBlob(currentStreet);
     const updates: Record<string, any> = {};
     const changedFields: string[] = [];
 
@@ -277,9 +281,12 @@ export async function POST(request: Request) {
       const cityMissing = !normalizeText(venue.city);
       const stateMissing = !normalizeText(venue.state);
       const zipMissing = !normalizeText(venue.zip);
-      const streetLooksEmbedded = currentStreet.includes(",") && Boolean(parsed.city) && Boolean(parsed.state);
+      const embeddedLocalityInAddress =
+        (currentAddress1 && currentAddress1 !== parsed.street) ||
+        (currentAddress && currentAddress !== parsed.street);
 
-      if (!normalizeText(venue.address1) || streetLooksEmbedded) {
+      // Normalize both street fields to the street-only portion once locality is parsed.
+      if (!currentAddress1 || embeddedLocalityInAddress) {
         updates.address1 = parsed.street;
         updates.address = parsed.street;
         changedFields.push("address1");
@@ -411,4 +418,3 @@ export async function POST(request: Request) {
     rows: updated.slice(0, 30),
   });
 }
-

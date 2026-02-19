@@ -444,8 +444,48 @@
   background-repeat: no-repeat, no-repeat;
 }
 
+.summaryGrid .card.summary-sport-soccer {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
+    url("/svg/sports/soccer_count_badge.svg");
+  background-size: cover, 170% auto;
+  background-position: center, center 54%;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.summaryGrid .card.summary-sport-basketball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
+    url("/svg/sports/basketball_count_badge.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.summaryGrid .card.summary-sport-lacrosse {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
+    url("/svg/sports/lacrosse_counter_badge.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.summaryGrid .card.summary-total {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
+    url("/svg/sports/total_tournaments_count.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
 .summaryGrid .card.bg-sport-baseball::after,
-.summaryGrid .card.bg-sport-softball::after {
+.summaryGrid .card.bg-sport-softball::after,
+.summaryGrid .card.summary-sport-soccer::after,
+.summaryGrid .card.summary-sport-basketball::after,
+.summaryGrid .card.summary-sport-lacrosse::after,
+.summaryGrid .card.summary-total::after {
   content: "";
   position: absolute;
   inset: 0;
