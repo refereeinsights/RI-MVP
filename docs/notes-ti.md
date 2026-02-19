@@ -1,5 +1,9 @@
 ## 2026-02-19
 - Cross-app ops note:
+  - Fixed RI `/admin/tournaments/sources` production render issue by avoiding closure-captured `URLSearchParams` in server actions.
+  - RI-only runtime fix; no TI page behavior changes.
+
+- Cross-app ops note:
   - RI admin home now includes an organized tournament/venue maintenance dashboard with missing-data widgets that deep-link into filtered edit/delete views.
   - This change is RI-only and does not alter TI pages/components.
 

@@ -70,17 +70,20 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   const q = (searchParams.q ?? "").trim();
   const sportFilter = (searchParams.sport ?? "").trim();
   const stateFilter = (searchParams.state ?? "").trim().toUpperCase();
-  const stickyParams = new URLSearchParams();
-  if (filter) stickyParams.set("filter", filter);
-  if (sort) stickyParams.set("sort", sort);
-  if (dir) stickyParams.set("dir", dir);
-  if (q) stickyParams.set("q", q);
-  if (sportFilter) stickyParams.set("sport", sportFilter);
-  if (stateFilter) stickyParams.set("state", stateFilter);
-  if (selectedUrl) stickyParams.set("source_url", selectedUrl);
-  const sourcesBasePath = `/admin/tournaments/sources${stickyParams.toString() ? `?${stickyParams.toString()}` : ""}`;
+  const stickyQueryString = (() => {
+    const params = new URLSearchParams();
+    if (filter) params.set("filter", filter);
+    if (sort) params.set("sort", sort);
+    if (dir) params.set("dir", dir);
+    if (q) params.set("q", q);
+    if (sportFilter) params.set("sport", sportFilter);
+    if (stateFilter) params.set("state", stateFilter);
+    if (selectedUrl) params.set("source_url", selectedUrl);
+    return params.toString();
+  })();
+  const sourcesBasePath = `/admin/tournaments/sources${stickyQueryString ? `?${stickyQueryString}` : ""}`;
   const withNotice = (noticeMessage: string, extraParams?: Record<string, string | null | undefined>) => {
-    const params = new URLSearchParams(stickyParams.toString());
+    const params = new URLSearchParams(stickyQueryString);
     if (noticeMessage) params.set("notice", noticeMessage);
     if (extraParams) {
       for (const [key, value] of Object.entries(extraParams)) {

@@ -1,6 +1,13 @@
 # Running Notes
 
 ## 2026-02-19
+- Sources admin production render fix:
+  - Fixed `/admin/tournaments/sources` server-render crash caused by capturing a `URLSearchParams` object inside server action closures.
+  - Replaced closure-captured `URLSearchParams` with plain serialized query string + per-call reconstruction.
+  - This stabilizes action redirects and prevents generic “Unable to load admin” failures on production builds.
+  - File:
+    - `apps/referee/app/admin/tournaments/sources/page.tsx`
+
 - Admin dashboard organization + maintenance widgets:
   - Added a new `Tournaments Dashboard` section on `/admin` with clickable widgets for:
     - tournaments by sport (all sports present in DB)
