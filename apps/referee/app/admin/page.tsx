@@ -3191,9 +3191,11 @@ export default async function AdminPage({
                       <ul style={{ margin: 0, paddingLeft: 18, color: "#555", fontSize: 12 }}>
                         {listedVenueMap[t.id].map((v) => (
                           <li key={v.id}>
-                            {[v.name, v.address, v.city, v.state, v.zip]
-                              .filter(Boolean)
-                              .join(" • ")}
+                            <Link href={`/admin/venues/${v.id}`} style={{ color: "#2563eb" }}>
+                              {[v.name, v.address, v.city, v.state, v.zip]
+                                .filter(Boolean)
+                                .join(" • ")}
+                            </Link>
                           </li>
                         ))}
                       </ul>

@@ -1,6 +1,11 @@
 # Running Notes
 
 ## 2026-02-19
+- Admin tournament listings UX:
+  - In the tournament edit/listings admin view, linked venues are now clickable and open venue details/edit pages.
+  - Updated `apps/referee/app/admin/page.tsx` so each linked venue item routes to `/admin/venues/{venueId}`.
+  - Validation: `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
+
 - TI auth/account foundation + hardening:
   - Added TI auth/account routes/pages and helpers:
     - `/signup`, `/login`, `/logout`, `/account`
