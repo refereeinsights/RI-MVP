@@ -58,6 +58,8 @@ const CUSTOM_CRAWLER_HOSTS = new Set([
   "enysoccer.com",
   "oregonyouthsoccer.org",
   "www.oregonyouthsoccer.org",
+  "myhockeytournaments.com",
+  "www.myhockeytournaments.com",
 ]);
 
 export async function upsertRegistry(input: RegistryUpsertInput) {

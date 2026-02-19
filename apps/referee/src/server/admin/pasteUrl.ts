@@ -10,6 +10,7 @@ import {
   isUsssaStateTournamentsUrl,
   sweepUsssaBaseballTournaments,
 } from "@/server/sweeps/usssaBaseballTournaments";
+import { isMyHockeySearchUrl, sweepMyHockeyTournaments } from "@/server/sweeps/myHockeyTournaments";
 import { insertRun, normalizeSourceUrl, upsertRegistry, updateRunExtractedJson } from "./sources";
 import { SweepError, classifyHtmlPayload, httpErrorCode } from "./sweepDiagnostics";
 
@@ -281,7 +282,7 @@ export function extractHostOrg(text: string): string | null {
 
 export async function createTournamentFromUrl(params: {
   url: string;
-  sport: "soccer" | "basketball" | "football" | "lacrosse" | "baseball";
+  sport: TournamentRow["sport"];
   status?: TournamentStatus;
   source?: TournamentSource;
 }) {
@@ -746,6 +747,62 @@ export async function createTournamentFromUrl(params: {
     };
   }
 
+  if (isMyHockeySearchUrl(canonical)) {
+    const sweepResult = await sweepMyHockeyTournaments({
+      sourceUrl: canonical,
+      html,
+      status,
+      writeDb: true,
+    });
+
+    if (!sweepResult.counts.found) {
+      throw new SweepError("html_received_no_events", "MYHockey page parsed but no tournaments found", diagnostics);
+    }
+
+    const registry = await upsertRegistry({
+      source_url: "https://www.myhockeytournaments.com/search",
+      source_type: "directory",
+      sport: "hockey",
+      notes: "MYHockeyTournaments directory listing.",
+      is_custom_source: true,
+    });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "MYHockey tournaments",
+      extracted_json: {
+        action: "myhockey_import",
+        extracted_count: sweepResult.counts.imported,
+        counts: sweepResult.counts,
+        sample: sweepResult.sample,
+      },
+      extract_confidence: 0.7,
+    });
+    await updateRunExtractedJson(runId, {
+      action: "myhockey_import",
+      extracted_count: sweepResult.counts.imported,
+      counts: sweepResult.counts,
+      sample: sweepResult.sample,
+    });
+
+    return {
+      tournamentId: sweepResult.imported_ids[0] ?? "",
+      meta: { name: `Imported ${sweepResult.counts.imported} events`, warnings: [] },
+      slug: "myhockey-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: sweepResult.counts.imported,
+      details: {
+        counts: sweepResult.counts,
+        sample: sweepResult.sample,
+      },
+    };
+  }
+
   let meta: ParsedMetadata;
   try {
     meta = parseMetadata(html);
@@ -831,6 +888,7 @@ function detectSport(params: {
   if (host.includes("usclubsoccer.org") || host.includes("usyouthsoccer.org")) return "soccer";
   if (host.includes("usclublax.com")) return "lacrosse";
   if (host.includes("usssa.com") && host.includes("baseball")) return "baseball";
+  if (host.includes("myhockeytournaments.com")) return "hockey";
   if (host.includes("tournamentmachine.com")) return "basketball";
   if (host.includes("tourneymachine.com")) return "basketball";
   if (host.includes("statebasketballchampionship.com")) return "basketball";
@@ -842,6 +900,7 @@ function detectSport(params: {
     football: 0,
     lacrosse: 0,
     baseball: 0,
+    hockey: 0,
   };
   const bump = (key: keyof typeof score, n: number) => {
     score[key] += n;
@@ -858,6 +917,8 @@ function detectSport(params: {
   if (text.includes("lax")) bump("lacrosse", 2);
   if (text.includes("baseball")) bump("baseball", 3);
   if (text.includes("diamond")) bump("baseball", 1);
+  if (text.includes("hockey")) bump("hockey", 3);
+  if (text.includes("rink")) bump("hockey", 1);
 
   const best = Object.entries(score).sort((a, b) => b[1] - a[1])[0];
   if (best && best[1] > 0) return best[0] as TournamentRow["sport"];

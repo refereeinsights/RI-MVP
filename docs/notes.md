@@ -551,6 +551,22 @@
   - `Priority outreach targets (missing both emails + dates)` now filters to `sport='soccer'` in `apps/referee/app/admin/tournaments/enrichment/page.tsx`.
 
 ## 2026-02-19
+- Added MYHockey tournaments parser + sweep integration for source registry/import flow:
+  - New sweep module: `apps/referee/src/server/sweeps/myHockeyTournaments.ts`
+    - Detects `https://www.myhockeytournaments.com/search`
+    - Parses tournament rows (`name`, `date range`, `city/state`, `detail URL`, `level`)
+    - Imports as `sport='hockey'`
+    - Upserts source registry and queues enrichment for imported IDs
+  - Wired into paste/import pipeline:
+    - `apps/referee/src/server/admin/pasteUrl.ts`
+      - Added `isMyHockeySearchUrl` + `sweepMyHockeyTournaments` branch
+      - Added host-based sport detection for `myhockeytournaments.com -> hockey`
+      - Added content-based hockey score hints (`hockey`, `rink`)
+  - Extended tournament sport type union to include hockey:
+    - `apps/referee/lib/types/tournament.ts`
+  - Added myhockey hosts to custom crawler host list:
+    - `apps/referee/src/server/admin/sources.ts`
+
 - Tournament card sport-container background refresh (TI + RI):
   - Added new shared container art assets under `shared-assets/svg/sports/`:
     - `stadium_image_container.svg` (initial pass)

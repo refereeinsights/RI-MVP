@@ -1,4 +1,10 @@
 ## 2026-02-19
+- Hockey counter tile background update:
+  - Added dedicated hockey summary-counter background style using:
+    - `/svg/sports/hockey_container.svg`
+  - File:
+    - `apps/ti-web/app/tournaments/tournaments.css`
+
 - Sport container background rollout for tournament cards:
   - Added new shared container assets and switched TI sport card containers to use them:
     - `soccer_container.svg`, `lacrosse_container.svg`, `basketball_court_container.svg`,
