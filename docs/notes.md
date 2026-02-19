@@ -1,6 +1,31 @@
 # Running Notes
 
 ## 2026-02-19
+- USSSA baseball unified parser + source registry scaling controls:
+  - Added a single USSSA baseball sweep pipeline that can:
+    - discover state sources from `https://usssa.com/baseball_events`
+    - iterate state `.../state-tournaments/` pages
+    - parse/import events as baseball tournaments
+    - queue enrichment for imported tournaments
+  - New sweep module:
+    - `apps/referee/src/server/sweeps/usssaBaseballTournaments.ts`
+  - Wired into source sweep flow:
+    - `apps/referee/src/server/admin/pasteUrl.ts`
+    - USSSA directory/state URLs now route to dedicated USSSA sweep branch.
+  - Registry seeding behavior:
+    - USSSA root + state pages are upserted as `is_custom_source=true` so rows show in the green custom style.
+  - Added baseball to admin/sweep sport allowlists + canonical tournament typing:
+    - `apps/referee/app/admin/page.tsx`
+    - `apps/referee/app/admin/tournaments/sources/page.tsx`
+    - `apps/referee/lib/types/tournament.ts`
+- Source registry filter persistence fix:
+  - Fixed `/admin/tournaments/sources` so active filters (`filter`, `q`, `sport`, `state`, `sort`, `dir`, `source_url`) are preserved after:
+    - status save
+    - quick actions
+    - sweep actions
+  - File:
+    - `apps/referee/app/admin/tournaments/sources/page.tsx`
+
 - Venue restrooms + player parking updates:
   - Fixed venue save failures on restrooms by normalizing common variants in venue PATCH API (`portables` -> `portable`, etc.) and switching admin restrooms inputs to constrained dropdown options (`portable`, `building`, `both`).
   - Added venue-level `player_parking` support:

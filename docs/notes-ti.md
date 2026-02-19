@@ -1,4 +1,8 @@
 ## 2026-02-19
+- Cross-app ops note:
+  - Added RI source-registry preservation of active filters after row actions (save/sweep/quick actions) so large source sets (including USSSA state sources) are manageable without losing selected sport/state filters.
+  - RI-only change; no TI UI/behavior changes in this update.
+
 - TI tournament detail access-tier update (paid planning fields):
   - Added a new **Premium Planning Details** section to `apps/ti-web/app/tournaments/[slug]/page.tsx` with a lock state for non-paid users.
   - Locked (public + free-login) behavior now shows:

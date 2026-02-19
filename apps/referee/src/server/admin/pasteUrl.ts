@@ -5,6 +5,11 @@ import type { TournamentRow, TournamentStatus, TournamentSource } from "@/lib/ty
 import { queueEnrichmentJobs } from "@/server/enrichment/pipeline";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getAsaAzUrl, isAsaAzUrl, sweepAsaAzSanctionedClubTournaments } from "@/server/sweeps/asaAzSanctionedClubTournaments";
+import {
+  isUsssaBaseballDirectoryUrl,
+  isUsssaStateTournamentsUrl,
+  sweepUsssaBaseballTournaments,
+} from "@/server/sweeps/usssaBaseballTournaments";
 import { insertRun, normalizeSourceUrl, upsertRegistry, updateRunExtractedJson } from "./sources";
 import { SweepError, classifyHtmlPayload, httpErrorCode } from "./sweepDiagnostics";
 
@@ -276,7 +281,7 @@ export function extractHostOrg(text: string): string | null {
 
 export async function createTournamentFromUrl(params: {
   url: string;
-  sport: "soccer" | "basketball" | "football" | "lacrosse";
+  sport: "soccer" | "basketball" | "football" | "lacrosse" | "baseball";
   status?: TournamentStatus;
   source?: TournamentSource;
 }) {
@@ -685,6 +690,62 @@ export async function createTournamentFromUrl(params: {
     };
   }
 
+  if (isUsssaBaseballDirectoryUrl(canonical) || isUsssaStateTournamentsUrl(canonical)) {
+    const sweepResult = await sweepUsssaBaseballTournaments({
+      sourceUrl: canonical,
+      html,
+      status,
+      writeDb: true,
+    });
+
+    if (!sweepResult.counts.found) {
+      throw new SweepError("html_received_no_events", "USSSA page parsed but no tournaments found", diagnostics);
+    }
+
+    const registry = await upsertRegistry({
+      source_url: isUsssaBaseballDirectoryUrl(canonical) ? "https://usssa.com/baseball_events" : canonical,
+      source_type: "association_directory",
+      sport: "baseball",
+      notes: "USSSA baseball tournaments (directory + state pages).",
+      is_custom_source: true,
+    });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "USSSA baseball tournaments",
+      extracted_json: {
+        action: "usssa_baseball_import",
+        extracted_count: sweepResult.counts.imported,
+        counts: sweepResult.counts,
+        sample: sweepResult.sample,
+      },
+      extract_confidence: 0.7,
+    });
+    await updateRunExtractedJson(runId, {
+      action: "usssa_baseball_import",
+      extracted_count: sweepResult.counts.imported,
+      counts: sweepResult.counts,
+      sample: sweepResult.sample,
+    });
+
+    return {
+      tournamentId: sweepResult.imported_ids[0] ?? "",
+      meta: { name: `Imported ${sweepResult.counts.imported} events`, warnings: [] },
+      slug: "usssa-baseball-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: sweepResult.counts.imported,
+      details: {
+        counts: sweepResult.counts,
+        sample: sweepResult.sample,
+      },
+    };
+  }
+
   let meta: ParsedMetadata;
   try {
     meta = parseMetadata(html);
@@ -769,6 +830,7 @@ function detectSport(params: {
   if (host.includes("gotsoccer.com")) return "soccer";
   if (host.includes("usclubsoccer.org") || host.includes("usyouthsoccer.org")) return "soccer";
   if (host.includes("usclublax.com")) return "lacrosse";
+  if (host.includes("usssa.com") && host.includes("baseball")) return "baseball";
   if (host.includes("tournamentmachine.com")) return "basketball";
   if (host.includes("tourneymachine.com")) return "basketball";
   if (host.includes("statebasketballchampionship.com")) return "basketball";
@@ -779,6 +841,7 @@ function detectSport(params: {
     basketball: 0,
     football: 0,
     lacrosse: 0,
+    baseball: 0,
   };
   const bump = (key: keyof typeof score, n: number) => {
     score[key] += n;
@@ -793,6 +856,8 @@ function detectSport(params: {
   if (text.includes("varsity") || text.includes("junior varsity")) bump("football", 1);
   if (text.includes("lacrosse")) bump("lacrosse", 3);
   if (text.includes("lax")) bump("lacrosse", 2);
+  if (text.includes("baseball")) bump("baseball", 3);
+  if (text.includes("diamond")) bump("baseball", 1);
 
   const best = Object.entries(score).sort((a, b) => b[1] - a[1])[0];
   if (best && best[1] > 0) return best[0] as TournamentRow["sport"];

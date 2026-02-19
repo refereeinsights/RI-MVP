@@ -53,7 +53,7 @@ const SOURCE_TYPE_OPTIONS = [
   "directory",
   "association_directory",
 ] as const;
-const TOURNAMENT_SPORTS = ["soccer", "basketball", "football", "lacrosse"] as const;
+const TOURNAMENT_SPORTS = ["soccer", "basketball", "football", "lacrosse", "baseball"] as const;
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
@@ -70,6 +70,29 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   const q = (searchParams.q ?? "").trim();
   const sportFilter = (searchParams.sport ?? "").trim();
   const stateFilter = (searchParams.state ?? "").trim().toUpperCase();
+  const stickyParams = new URLSearchParams();
+  if (filter) stickyParams.set("filter", filter);
+  if (sort) stickyParams.set("sort", sort);
+  if (dir) stickyParams.set("dir", dir);
+  if (q) stickyParams.set("q", q);
+  if (sportFilter) stickyParams.set("sport", sportFilter);
+  if (stateFilter) stickyParams.set("state", stateFilter);
+  if (selectedUrl) stickyParams.set("source_url", selectedUrl);
+  const sourcesBasePath = `/admin/tournaments/sources${stickyParams.toString() ? `?${stickyParams.toString()}` : ""}`;
+  const withNotice = (noticeMessage: string, extraParams?: Record<string, string | null | undefined>) => {
+    const params = new URLSearchParams(stickyParams.toString());
+    if (noticeMessage) params.set("notice", noticeMessage);
+    if (extraParams) {
+      for (const [key, value] of Object.entries(extraParams)) {
+        if (value === null || value === undefined || value === "") {
+          params.delete(key);
+        } else {
+          params.set(key, value);
+        }
+      }
+    }
+    return `/admin/tournaments/sources${params.toString() ? `?${params.toString()}` : ""}`;
+  };
 
   const reviewPriority = [
     "needs_review",
@@ -116,12 +139,12 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     await requireAdmin();
     const source_url = String(formData.get("source_url") || "").trim();
     if (!source_url) {
-      redirect(`/admin/tournaments/sources?notice=${encodeURIComponent("Source URL is required")}`);
+      redirect(withNotice("Source URL is required"));
     }
     const source_type = String(formData.get("source_type") || "").trim() || null;
     const sport = String(formData.get("sport") || "").trim() || null;
     if (!source_type || !sport) {
-      redirect(`/admin/tournaments/sources?notice=${encodeURIComponent("Sport and source type are required")}`);
+      redirect(withNotice("Sport and source type are required"));
     }
     const state = String(formData.get("state") || "").trim() || null;
     const city = String(formData.get("city") || "").trim() || null;
@@ -145,18 +168,10 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       const noticeMsg = existing.row
         ? "Source already exists. Updated existing entry."
         : "Saved source";
-      redirect(
-        `/admin/tournaments/sources?notice=${encodeURIComponent(noticeMsg)}&source_url=${encodeURIComponent(
-          canonical
-        )}`
-      );
+      redirect(withNotice(noticeMsg, { source_url: canonical }));
     } catch (err: any) {
       if (err?.digest) throw err;
-      redirect(
-        `/admin/tournaments/sources?notice=${encodeURIComponent(
-          `Save failed: ${err?.message ?? "unknown error"}`
-        )}`
-      );
+      redirect(withNotice(`Save failed: ${err?.message ?? "unknown error"}`));
     }
   }
 
@@ -174,11 +189,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       .eq("id", id)
       .is("tournament_id", null);
     const noticeMsg = error ? `Status update failed: ${error.message}` : "Updated source status";
-    redirect(
-      `/admin/tournaments/sources?notice=${encodeURIComponent(noticeMsg)}${
-        selectedUrl ? `&source_url=${encodeURIComponent(selectedUrl)}` : ""
-      }`
-    );
+    redirect(withNotice(noticeMsg));
   }
 
   async function quickAction(formData: FormData) {
@@ -215,7 +226,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       updates.is_active = true;
     }
     if (!Object.keys(updates).length) {
-      redirect(redirectUrl || "/admin/tournaments/sources");
+      redirect(redirectUrl || sourcesBasePath);
     }
     const { error } = await supabaseAdmin
       .from("tournament_sources" as any)
@@ -223,7 +234,10 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       .eq("id", id)
       .is("tournament_id", null);
     const msg = error ? `Quick action failed: ${error.message}` : "Updated source";
-    redirect(`${redirectUrl || "/admin/tournaments/sources"}?notice=${encodeURIComponent(msg)}`);
+    const target = redirectUrl || sourcesBasePath;
+    const base = new URL(target, "http://localhost");
+    base.searchParams.set("notice", msg);
+    redirect(`${base.pathname}?${base.searchParams.toString()}`);
   }
 
   async function sweepSourceAction(formData: FormData) {
@@ -234,7 +248,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     const sportRaw = String(formData.get("sport") || "soccer").toLowerCase();
     const overrideSkip = String(formData.get("override_skip") || "") === "on";
     if (!id || !sourceUrl) {
-      redirect(`/admin/tournaments/sources?notice=${encodeURIComponent("Missing source URL")}`);
+      redirect(withNotice("Missing source URL"));
     }
 
     const sport = TOURNAMENT_SPORTS.includes(sportRaw as any) ? (sportRaw as any) : "soccer";
@@ -246,7 +260,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       .maybeSingle();
     const registryRow = row as any;
     if (rowError || !registryRow) {
-      redirect(`/admin/tournaments/sources?notice=${encodeURIComponent("Source not found")}`);
+      redirect(withNotice("Source not found"));
     }
     await supabaseAdmin
       .from("tournament_sources" as any)
@@ -260,11 +274,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     const skipReason = getSkipReason(registryRow);
     if (skipReason && !overrideSkip) {
       await updateRegistrySweep(registryRow.id, "warn", `Skipped: ${skipReason}`);
-      return redirect(
-        `/admin/tournaments/sources?notice=${encodeURIComponent(
-          `Sweep skipped: ${skipReason}. Update source status or enable override.`
-        )}&source_url=${encodeURIComponent(canonical)}`
-      );
+      return redirect(withNotice(`Sweep skipped: ${skipReason}. Update source status or enable override.`, { source_url: canonical }));
     }
 
     await supabaseAdmin
@@ -280,6 +290,9 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         status: "draft",
         source: "external_crawl",
       });
+      const detailCounts = (res.details?.counts ?? null) as
+        | { found?: number | null; with_website?: number | null; with_email?: number | null; with_phone?: number | null }
+        | null;
       const payload = {
         version: 1,
         source_url: canonical,
@@ -294,10 +307,10 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         redirect_chain: res.diagnostics?.redirect_chain ?? [],
         location_header: res.diagnostics?.location_header ?? null,
         extracted_count: res.extracted_count ?? 1,
-        count_found: res.details?.counts?.found ?? null,
-        count_with_website: res.details?.counts?.with_website ?? null,
-        count_with_email: res.details?.counts?.with_email ?? null,
-        count_with_phone: res.details?.counts?.with_phone ?? null,
+        count_found: detailCounts?.found ?? null,
+        count_with_website: detailCounts?.with_website ?? null,
+        count_with_email: detailCounts?.with_email ?? null,
+        count_with_phone: detailCounts?.with_phone ?? null,
         sample: res.details?.sample ?? null,
       };
       const logId = await insertSourceLog({
@@ -312,11 +325,12 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         JSON.stringify({ ...payload, log_id: logId })
       );
       redirect(
-        `/admin/tournaments/sources?notice=${encodeURIComponent(
+        withNotice(
           res.extracted_count && res.extracted_count > 1
             ? `Imported ${res.extracted_count} events and queued enrichment.`
-            : `Created "${res.meta.name ?? res.slug}" and queued enrichment.`
-        )}&source_url=${encodeURIComponent(canonical)}`
+            : `Created "${res.meta.name ?? res.slug}" and queued enrichment.`,
+          { source_url: canonical }
+        )
       );
     } catch (err: any) {
       const timingMs = Date.now() - startedAt;
@@ -409,11 +423,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
           );
         }
       }
-      redirect(
-        `/admin/tournaments/sources?notice=${encodeURIComponent(
-          `Sweep failed: ${err?.message ?? "unknown error"}`
-        )}&source_url=${encodeURIComponent(canonical)}`
-      );
+      redirect(withNotice(`Sweep failed: ${err?.message ?? "unknown error"}`, { source_url: canonical }));
     }
   }
 
@@ -940,7 +950,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
                         <SourceLogsClient sourceId={row.id} sourceUrl={row.source_url} />
                         <form action={quickAction}>
                           <input type="hidden" name="id" value={row.id} />
-                          <input type="hidden" name="redirect" value={`/admin/tournaments/sources?filter=${filter}`} />
+                          <input type="hidden" name="redirect" value={sourcesBasePath} />
                           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                             {[
                               ["keep", "Keep"],
