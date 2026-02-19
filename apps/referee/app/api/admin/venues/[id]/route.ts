@@ -21,6 +21,7 @@ type VenueUpdatePayload = {
   indoor?: boolean | null;
   lighting?: boolean | null;
   amenities?: string | null;
+  player_parking?: string | null;
   parking_notes?: string | null;
   field_rating?: number | null;
   venue_type?: string | null;
@@ -114,6 +115,15 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (val === "false" || val === "0") return false;
     return null;
   };
+  const cleanRestrooms = (val: any) => {
+    const text = cleanString(val);
+    if (!text) return undefined;
+    const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
+    if (normalized === "portable" || normalized === "portables") return "portable";
+    if (normalized === "building" || normalized === "bathroom" || normalized === "bathrooms") return "building";
+    if (normalized === "both" || normalized === "portable and building" || normalized === "building and portable") return "both";
+    return text;
+  };
 
   const tournamentIds = Array.isArray(payload?.tournament_ids)
     ? (payload.tournament_ids as any[]).map(String).filter(Boolean)
@@ -137,6 +147,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     indoor: cleanBool(payload?.indoor) ?? undefined,
     lighting: cleanBool(payload?.lighting) ?? undefined,
     amenities: cleanString(payload?.amenities) ?? undefined,
+    player_parking: cleanString(payload?.player_parking) ?? undefined,
     parking_notes: cleanString(payload?.parking_notes) ?? undefined,
     field_rating: cleanNumber(payload?.field_rating) ?? undefined,
     venue_type: cleanString(payload?.venue_type) ?? undefined,
@@ -148,7 +159,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     tournament_vendors: cleanBool(payload?.tournament_vendors) ?? undefined,
     field_lighting: cleanBool(payload?.field_lighting) ?? undefined,
     referee_tent: cleanString(payload?.referee_tent) ?? undefined,
-    restrooms: cleanString(payload?.restrooms) ?? undefined,
+    restrooms: cleanRestrooms(payload?.restrooms),
     restrooms_cleanliness: cleanNumber(payload?.restrooms_cleanliness) ?? undefined,
     venue_url: cleanString(payload?.venue_url) ?? undefined,
     ref_paid_parking: cleanBool(payload?.ref_paid_parking) ?? undefined,

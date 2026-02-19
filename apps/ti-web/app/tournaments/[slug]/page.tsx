@@ -54,6 +54,7 @@ type PaidVenueDetailsRow = {
 export const revalidate = 300;
 
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://tournamentinsights.com").replace(/\/+$/, "");
+const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -163,7 +164,13 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function TournamentDetailPage({ params }: { params: { slug: string } }) {
+export default async function TournamentDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams?: { demoPremium?: string };
+}) {
   const isPaid = resolvePaidEntitlement();
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
@@ -204,6 +211,9 @@ export default async function TournamentDetailPage({ params }: { params: { slug:
       ?.map((tv) => tv.venues)
       .filter((v): v is NonNullable<(typeof data.tournament_venues)[number]["venues"]> => Boolean(v)) ?? [];
   const linkedVenueIds = linkedVenues.map((v) => v.id).filter(Boolean);
+  const demoPreviewEnabled = (searchParams?.demoPremium ?? "") === "1";
+  const isDemoTournament = (data.slug ?? params.slug) === DEMO_TOURNAMENT_SLUG;
+  const canViewPremiumDetails = isPaid || (isDemoTournament && demoPreviewEnabled);
 
   let paidTournamentDetails: PaidTournamentDetails | null = null;
   let paidVenueDetailsById = new Map<
@@ -211,7 +221,7 @@ export default async function TournamentDetailPage({ params }: { params: { slug:
     { food_vendors: boolean | null; restrooms: string | null; amenities: string | null }
   >();
 
-  if (isPaid) {
+  if (canViewPremiumDetails) {
     const [{ data: tournamentPaidData }, { data: venuePaidRows }] = await Promise.all([
       supabaseAdmin
         .from("tournaments" as any)
@@ -363,7 +373,7 @@ export default async function TournamentDetailPage({ params }: { params: { slug:
               <span aria-hidden="true">🔒</span>
               <span>Premium Planning Details</span>
             </div>
-            {!isPaid ? (
+            {!canViewPremiumDetails ? (
               <div className="detailCard__body premiumDetailCard__body">
                 <p className="premiumDetailCard__copy">
                   Locked — Upgrade to view food vendors, restrooms, amenities, travel/lodging notes.
@@ -372,10 +382,22 @@ export default async function TournamentDetailPage({ params }: { params: { slug:
                   <Link className="secondaryLink" href="/pricing">
                     Upgrade
                   </Link>
+                  {isDemoTournament ? (
+                    <Link className="secondaryLink" href={`/tournaments/${params.slug}?demoPremium=1`}>
+                      Preview premium details
+                    </Link>
+                  ) : null}
                 </div>
               </div>
             ) : (
               <div className="detailCard__body premiumDetailCard__body">
+                {isDemoTournament && !isPaid ? (
+                  <div className="detailLinksRow">
+                    <Link className="secondaryLink" href={`/tournaments/${params.slug}`}>
+                      Hide preview
+                    </Link>
+                  </div>
+                ) : null}
                 <div className="premiumDetailRow">
                   <span className="premiumDetailLabel">Travel/Lodging Notes</span>
                   <span>{paidTournamentDetails?.travel_lodging?.trim() || "Not provided yet."}</span>

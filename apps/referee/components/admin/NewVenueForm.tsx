@@ -30,6 +30,7 @@ export function NewVenueForm() {
   const [longitude, setLongitude] = useState("");
   const [fieldType, setFieldType] = useState("");
   const [amenities, setAmenities] = useState("");
+  const [playerParking, setPlayerParking] = useState("");
   const [indoor, setIndoor] = useState("");
   const [fieldLighting, setFieldLighting] = useState("");
   const [parkingNotes, setParkingNotes] = useState("");
@@ -74,6 +75,7 @@ export function NewVenueForm() {
           longitude: longitude || undefined,
           field_type: fieldType || undefined,
           amenities: amenities || undefined,
+          player_parking: playerParking || undefined,
           indoor: indoor === "" ? undefined : indoor === "true",
           field_lighting: fieldLighting === "" ? undefined : fieldLighting === "true",
           parking_notes: parkingNotes || undefined,
@@ -231,6 +233,10 @@ export function NewVenueForm() {
             <input value={amenities} onChange={(e) => setAmenities(e.target.value)} style={{ width: "100%" }} />
           </label>
           <label>
+            <div>Player parking (optional)</div>
+            <input value={playerParking} onChange={(e) => setPlayerParking(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
             <div>Indoor</div>
             <select value={indoor} onChange={(e) => setIndoor(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
               <option value="">—</option>
@@ -280,8 +286,13 @@ export function NewVenueForm() {
             <input value={refereeTent} onChange={(e) => setRefereeTent(e.target.value)} style={{ width: "100%" }} />
           </label>
           <label>
-            <div>Restrooms (portable/building/both)</div>
-            <input value={restrooms} onChange={(e) => setRestrooms(e.target.value)} style={{ width: "100%" }} />
+            <div>Restrooms</div>
+            <select value={restrooms} onChange={(e) => setRestrooms(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+              <option value="">—</option>
+              <option value="portable">Portable</option>
+              <option value="building">Building</option>
+              <option value="both">Both</option>
+            </select>
           </label>
           <label>
             <div>Restrooms cleanliness (1-5)</div>

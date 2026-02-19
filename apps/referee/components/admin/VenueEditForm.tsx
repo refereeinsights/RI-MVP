@@ -42,6 +42,7 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
     lighting: venue.lighting ?? "",
     field_lighting: venue.field_lighting ?? "",
     amenities: venue.amenities ?? "",
+    player_parking: venue.player_parking ?? "",
     ref_paid_parking: venue.ref_paid_parking ?? "",
     parking_notes: venue.parking_notes ?? "",
     field_rating: venue.field_rating ?? "",
@@ -122,6 +123,7 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
 
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
           <Input label="Amenities" value={form.amenities} onChange={(v) => setField("amenities", v)} />
+          <Input label="Player parking" value={form.player_parking} onChange={(v) => setField("player_parking", v)} />
           <Input label="Parking notes" value={form.parking_notes} onChange={(v) => setField("parking_notes", v)} />
           <Input label="Field rating (1-5)" value={form.field_rating} onChange={(v) => setField("field_rating", v)} />
           <Input label="Venue type (complex/school/stadium/park)" value={form.venue_type} onChange={(v) => setField("venue_type", v)} />
@@ -136,7 +138,7 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
           <SelectBoolean label="Tournament vendors" value={form.tournament_vendors} onChange={(v) => setField("tournament_vendors", v)} />
           <SelectBoolean label="Referee paid parking" value={form.ref_paid_parking} onChange={(v) => setField("ref_paid_parking", v)} />
           <Input label="Referee tent (yes/no/multiple)" value={form.referee_tent} onChange={(v) => setField("referee_tent", v)} />
-          <Input label="Restrooms (portable/building/both)" value={form.restrooms} onChange={(v) => setField("restrooms", v)} />
+          <SelectRestrooms label="Restrooms" value={form.restrooms} onChange={(v) => setField("restrooms", v)} />
           <Input label="Restrooms cleanliness (1-5)" value={form.restrooms_cleanliness} onChange={(v) => setField("restrooms_cleanliness", v)} />
         </div>
 
@@ -232,6 +234,32 @@ function SelectBoolean({
         <option value="">—</option>
         <option value="true">Yes</option>
         <option value="false">No</option>
+      </select>
+    </label>
+  );
+}
+
+function SelectRestrooms({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string | null | undefined;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+      <div>{label}</div>
+      <select
+        value={(value ?? "").toString()}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+      >
+        <option value="">—</option>
+        <option value="portable">Portable</option>
+        <option value="building">Building</option>
+        <option value="both">Both</option>
       </select>
     </label>
   );

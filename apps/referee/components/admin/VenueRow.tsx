@@ -23,6 +23,7 @@ export type VenueItem = {
   lighting?: boolean | null;
   field_lighting?: boolean | null;
   amenities?: string | null;
+  player_parking?: string | null;
   parking_notes?: string | null;
   field_rating?: number | null;
   venue_type?: string | null;
@@ -154,6 +155,7 @@ export default function VenueRow({ venue, onUpdated }: Props) {
             <InfoItem label="Indoor" value={boolText(venue.indoor)} />
             <InfoItem label="Lighting" value={boolText(venue.lighting ?? venue.field_lighting)} />
             <InfoItem label="Amenities" value={venue.amenities || "—"} />
+            <InfoItem label="Player parking" value={venue.player_parking || "—"} />
             <InfoItem label="Parking" value={venue.parking_notes || "—"} />
             <InfoItem label="Field rating" value={venue.field_rating ? `${venue.field_rating}/5` : "—"} />
             <InfoItem label="Venue type" value={venue.venue_type || "—"} />

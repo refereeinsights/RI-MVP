@@ -1,6 +1,13 @@
 # Running Notes
 
 ## 2026-02-19
+- Venue restrooms + player parking updates:
+  - Fixed venue save failures on restrooms by normalizing common variants in venue PATCH API (`portables` -> `portable`, etc.) and switching admin restrooms inputs to constrained dropdown options (`portable`, `building`, `both`).
+  - Added venue-level `player_parking` support:
+    - New migration: `supabase/migrations/20260219_venues_player_parking.sql` (`venues.player_parking text`).
+    - Wired through admin venue create/edit APIs and forms.
+    - Added `player_parking` display in venue admin row details.
+
 - TI directory/demo polish:
   - TI tournament listing now pins `refereeinsights-demo-tournament` to the top regardless of date sort.
   - Updated locked premium teaser copy to use lowercase `food vendors`.

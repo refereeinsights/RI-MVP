@@ -26,6 +26,7 @@ type VenueRow = {
   lighting?: boolean | null;
   field_lighting?: boolean | null;
   amenities?: string | null;
+  player_parking?: string | null;
   parking_notes?: string | null;
   field_rating?: number | null;
   venue_type?: string | null;
