@@ -45,8 +45,13 @@ type PaidVenueDetailsRow = {
     | {
         id: string;
         food_vendors: boolean | null;
+        coffee_vendors: boolean | null;
+        tournament_vendors: boolean | null;
         restrooms: string | null;
         amenities: string | null;
+        player_parking: string | null;
+        parking_notes: string | null;
+        notes: string | null;
         spectator_seating: string | null;
         bring_field_chairs: boolean | null;
         seating_notes: string | null;
@@ -229,8 +234,13 @@ export default async function TournamentDetailPage({
     string,
     {
       food_vendors: boolean | null;
+      coffee_vendors: boolean | null;
+      tournament_vendors: boolean | null;
       restrooms: string | null;
       amenities: string | null;
+      player_parking: string | null;
+      parking_notes: string | null;
+      notes: string | null;
       spectator_seating: string | null;
       bring_field_chairs: boolean | null;
       seating_notes: string | null;
@@ -247,7 +257,9 @@ export default async function TournamentDetailPage({
       linkedVenueIds.length
         ? supabaseAdmin
             .from("tournament_venues" as any)
-            .select("venue_id,venues(id,food_vendors,restrooms,amenities,spectator_seating,bring_field_chairs,seating_notes)")
+            .select(
+              "venue_id,venues(id,food_vendors,coffee_vendors,tournament_vendors,restrooms,amenities,player_parking,parking_notes,notes,spectator_seating,bring_field_chairs,seating_notes)"
+            )
             .eq("tournament_id", data.id)
             .in("venue_id", linkedVenueIds)
         : Promise.resolve({ data: [] as PaidVenueDetailsRow[] }),
@@ -261,8 +273,13 @@ export default async function TournamentDetailPage({
           row.venues!.id,
           {
             food_vendors: row.venues!.food_vendors,
+            coffee_vendors: row.venues!.coffee_vendors,
+            tournament_vendors: row.venues!.tournament_vendors,
             restrooms: row.venues!.restrooms,
             amenities: row.venues!.amenities,
+            player_parking: row.venues!.player_parking,
+            parking_notes: row.venues!.parking_notes,
+            notes: row.venues!.notes,
             spectator_seating: row.venues!.spectator_seating,
             bring_field_chairs: row.venues!.bring_field_chairs,
             seating_notes: row.venues!.seating_notes,
@@ -395,7 +412,7 @@ export default async function TournamentDetailPage({
             {!canViewPremiumDetails ? (
               <div className="detailCard__body premiumDetailCard__body">
                 <p className="premiumDetailCard__copy">
-                  Locked — Upgrade to view food vendors, restrooms, amenities, spectator seating, chair guidance, travel/lodging notes.
+                  Locked — Upgrade to view vendor, parking, restroom, seating, and travel/lodging details.
                 </p>
                 <div className="detailLinksRow">
                   <Link className="secondaryLink" href="/pricing">
@@ -432,12 +449,32 @@ export default async function TournamentDetailPage({
                           <span>{boolLabel(premium?.food_vendors)}</span>
                         </div>
                         <div className="premiumDetailRow">
+                          <span className="premiumDetailLabel">Coffee vendors</span>
+                          <span>{boolLabel(premium?.coffee_vendors)}</span>
+                        </div>
+                        <div className="premiumDetailRow">
+                          <span className="premiumDetailLabel">Tournament vendors</span>
+                          <span>{boolLabel(premium?.tournament_vendors)}</span>
+                        </div>
+                        <div className="premiumDetailRow">
                           <span className="premiumDetailLabel">Restrooms</span>
                           <span>{premium?.restrooms?.trim() || "Not provided"}</span>
                         </div>
                         <div className="premiumDetailRow">
                           <span className="premiumDetailLabel">Amenities</span>
                           <span>{premium?.amenities?.trim() || "Not provided"}</span>
+                        </div>
+                        <div className="premiumDetailRow">
+                          <span className="premiumDetailLabel">Player parking</span>
+                          <span>{premium?.player_parking?.trim() || "Not provided"}</span>
+                        </div>
+                        <div className="premiumDetailRow">
+                          <span className="premiumDetailLabel">Parking notes</span>
+                          <span>{premium?.parking_notes?.trim() || "Not provided"}</span>
+                        </div>
+                        <div className="premiumDetailRow">
+                          <span className="premiumDetailLabel">Venue notes</span>
+                          <span>{premium?.notes?.trim() || "Not provided"}</span>
                         </div>
                         <div className="premiumDetailRow">
                           <span className="premiumDetailLabel">Spectator seating</span>

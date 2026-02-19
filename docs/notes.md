@@ -430,3 +430,25 @@
   - TI paid tournament detail card now includes these venue planning fields under Premium Planning Details:
     - `spectator seating`, `bring field chairs`, and `seating notes`
     - file: `apps/ti-web/app/tournaments/[slug]/page.tsx`
+- Added scoring schema fields (DB-only, no UI yet) via `supabase/migrations/20260219_tournament_venue_scoring_fields.sql`:
+  - `venues` 1-5 score columns:
+    - `field_court_condition_score`
+    - `parking_convenience_score`
+    - `spectator_seating_availability_score`
+    - `shade_weather_protection_score`
+    - `food_concessions_quality_score`
+    - `overall_cleanliness_score`
+    - `ease_of_navigation_score`
+    - `accessibility_score`
+    - `lighting_score`
+  - `tournaments` 1-5 score columns:
+    - `schedule_organization_score`
+    - `organizer_communication_score`
+    - `check_in_process_score`
+    - `competition_level_accuracy_score`
+    - `value_for_cost_score`
+    - `game_scheduling_balance_score`
+    - `overall_experience_score`
+    - `weather_contingency_handling_score`
+    - `vendor_merchandise_quality_score`
+  - Added per-column check constraints for all new score fields (`between 1 and 5`).
