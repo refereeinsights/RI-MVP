@@ -1845,8 +1845,8 @@ export default async function AdminPage({
       }
     }
 
-    const cashTournament = formData.get("cash_tournament") === "on";
-    const cashAtField = formData.get("cash_at_field") === "on";
+    const cashTournament = formData.get("ref_cash_tournament") === "on";
+    const cashAtField = formData.get("ref_cash_at_field") === "on";
     const refereeFood = enumOrNull("referee_food", ["snacks", "meal"]);
     const facilities = enumOrNull("facilities", ["restrooms", "portables"]);
     const refereeTents = enumOrNull("referee_tents", ["yes", "no"]);
@@ -1854,7 +1854,7 @@ export default async function AdminPage({
     const refGameSchedule = enumOrNull("ref_game_schedule", ["too close", "just right", "too much down time"]);
     const refParking = enumOrNull("ref_parking", ["close", "a stroll", "a hike"]);
     const refParkingCost = enumOrNull("ref_parking_cost", ["free", "paid"]);
-    const mentors = enumOrNull("mentors", ["yes", "no"]);
+    const ref_mentors = enumOrNull("ref_mentors", ["yes", "no"]);
     const assignedAppropriately = enumOrNull("assigned_appropriately", ["yes", "no"]);
 
     await adminUpdateTournamentDetails({
@@ -1865,8 +1865,8 @@ export default async function AdminPage({
         level: stringOrNull("level"),
         level_of_competition: stringOrNull("level_of_competition"),
         sub_type: subType,
-        cash_tournament: cashTournament,
-        cash_at_field: cashTournament ? cashAtField : false,
+        ref_cash_tournament: cashTournament,
+        ref_cash_at_field: cashTournament ? cashAtField : false,
         referee_food: refereeFood,
         facilities,
         referee_tents: refereeTents,
@@ -1874,7 +1874,7 @@ export default async function AdminPage({
         ref_game_schedule: refGameSchedule,
         ref_parking: refParking,
         ref_parking_cost: refParkingCost,
-        mentors,
+        ref_mentors,
         assigned_appropriately: assignedAppropriately,
         tournament_staff_verified: formData.get("tournament_staff_verified") === "on",
         city: stringOrNull("city"),
@@ -2970,8 +2970,8 @@ export default async function AdminPage({
                     <label style={{ fontSize: 12, fontWeight: 700, display: "flex", alignItems: "flex-end", gap: 6 }}>
                       <input
                         type="checkbox"
-                        name="cash_tournament"
-                        defaultChecked={Boolean(t.cash_tournament)}
+                        name="ref_cash_tournament"
+                        defaultChecked={Boolean(t.ref_cash_tournament)}
                         style={{ width: 18, height: 18 }}
                       />
                       Cash tournament
@@ -2979,8 +2979,8 @@ export default async function AdminPage({
                     <label style={{ fontSize: 12, fontWeight: 700, display: "flex", alignItems: "flex-end", gap: 6 }}>
                       <input
                         type="checkbox"
-                        name="cash_at_field"
-                        defaultChecked={Boolean(t.cash_at_field)}
+                        name="ref_cash_at_field"
+                        defaultChecked={Boolean(t.ref_cash_at_field)}
                         style={{ width: 18, height: 18 }}
                       />
                       Cash at field
@@ -3101,8 +3101,8 @@ export default async function AdminPage({
                     <label style={{ fontSize: 12, fontWeight: 700 }}>
                       Mentors
                       <select
-                        name="mentors"
-                        defaultValue={t.mentors ?? ""}
+                        name="ref_mentors"
+                        defaultValue={t.ref_mentors ?? ""}
                         style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
                       >
                         <option value="">Select</option>
@@ -3913,7 +3913,7 @@ export default async function AdminPage({
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
                           {t.referee_pay ? <div>Pay: {t.referee_pay}</div> : <div>Pay info TBD</div>}
-                          {t.cash_tournament && (
+                          {t.ref_cash_tournament && (
                             <div style={{ color: "#0f5132", fontWeight: 600 }}>Cash tournament</div>
                           )}
                         </td>

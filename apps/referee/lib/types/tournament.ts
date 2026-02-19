@@ -24,7 +24,7 @@ export interface TournamentRow {
   sport: "soccer" | "basketball" | "football" | "lacrosse";
   level?: string | null;
   sub_type?: TournamentSubmissionType | null;
-  cash_tournament?: boolean | null;
+  ref_cash_tournament?: boolean | null;
 
   state?: string | null;
   city?: string | null;

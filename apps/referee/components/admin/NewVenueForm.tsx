@@ -88,7 +88,7 @@ export function NewVenueForm() {
           referee_tent: refereeTent || undefined,
           restrooms: restrooms || undefined,
           restrooms_cleanliness: restroomsCleanliness || undefined,
-          paid_parking: paidParking === "" ? undefined : paidParking === "true",
+          ref_paid_parking: paidParking === "" ? undefined : paidParking === "true",
         }),
       });
 
@@ -247,7 +247,7 @@ export function NewVenueForm() {
             </select>
           </label>
           <label>
-            <div>Paid parking</div>
+            <div>Referee paid parking</div>
             <select value={paidParking} onChange={(e) => setPaidParking(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
               <option value="">—</option>
               <option value="true">Yes</option>

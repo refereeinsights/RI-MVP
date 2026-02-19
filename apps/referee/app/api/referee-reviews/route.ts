@@ -20,7 +20,7 @@ const ENUM_FIELDS: Record<string, string[]> = {
   ref_game_schedule: ["too close", "just right", "too much down time"],
   ref_parking: ["close", "a stroll", "a hike"],
   ref_parking_cost: ["free", "paid"],
-  mentors: ["yes", "no"],
+  ref_mentors: ["yes", "no"],
   assigned_appropriately: ["yes", "no"],
 };
 
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       typeof body.level_of_competition === "string" && body.level_of_competition.trim()
         ? body.level_of_competition.trim().slice(0, 120)
         : null,
-    cash_at_field: body.cash_at_field === true ? true : false,
+    ref_cash_at_field: body.ref_cash_at_field === true ? true : false,
     referee_food: typeof body.referee_food === "string" ? body.referee_food : null,
     facilities: typeof body.facilities === "string" ? body.facilities : null,
     referee_tents: typeof body.referee_tents === "string" ? body.referee_tents : null,
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     ref_game_schedule: typeof body.ref_game_schedule === "string" ? body.ref_game_schedule : null,
     ref_parking: typeof body.ref_parking === "string" ? body.ref_parking : null,
     ref_parking_cost: typeof body.ref_parking_cost === "string" ? body.ref_parking_cost : null,
-    mentors: typeof body.mentors === "string" ? body.mentors : null,
+    ref_mentors: typeof body.ref_mentors === "string" ? body.ref_mentors : null,
     assigned_appropriately:
       typeof body.assigned_appropriately === "string" ? body.assigned_appropriately : null,
     status: "pending",
@@ -105,9 +105,9 @@ export async function POST(request: Request) {
     }
   }
 
-  if (payload.cash_at_field && body?.cash_tournament !== true) {
+  if (payload.ref_cash_at_field && body?.ref_cash_tournament !== true) {
     return NextResponse.json(
-      { error: "cash_at_field requires cash_tournament to be true." },
+      { error: "ref_cash_at_field requires ref_cash_tournament to be true." },
       { status: 400 }
     );
   }
@@ -120,10 +120,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  if (body?.cash_tournament === true) {
+  if (body?.ref_cash_tournament === true) {
     await supabaseAdmin
       .from("tournaments")
-      .update({ cash_tournament: true })
+      .update({ ref_cash_tournament: true })
       .eq("id", payload.tournament_id);
   }
 

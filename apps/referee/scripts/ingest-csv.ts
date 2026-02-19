@@ -268,7 +268,7 @@ function normalizeTournamentRow(
   const venue = pick(data, "venue") || null;
   const address = pick(data, "address") || null;
   const summary = pick(data, "summary") || null;
-  const cashTournament = normalizeBoolean(pick(data, "cash_tournament", "cash")) ?? false;
+  const cashTournament = normalizeBoolean(pick(data, "ref_cash_tournament", "cash")) ?? false;
 
   const confidenceRaw = pick(data, "confidence");
   let confidence: number | undefined;
@@ -307,7 +307,7 @@ function normalizeTournamentRow(
     sport: "soccer",
     level,
     sub_type: "internet",
-    cash_tournament: cashTournament,
+    ref_cash_tournament: cashTournament,
     state,
     city: city ?? null,
     venue,

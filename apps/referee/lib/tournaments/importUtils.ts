@@ -204,14 +204,14 @@ export function csvRowsToTournamentRows(
       continue;
     }
 
-    const cashFlag = (row.cash_tournament ?? row.cash ?? "").toLowerCase();
+    const cashFlag = (row.ref_cash_tournament ?? row.cash ?? "").toLowerCase();
     const record: TournamentRow = {
       name: row.name,
       slug: row.slug,
       sport,
       level: normalize(row.level) || null,
       sub_type: opts.subType ?? "internet",
-      cash_tournament: cashFlag === "true" || cashFlag === "1" || cashFlag === "yes",
+      ref_cash_tournament: cashFlag === "true" || cashFlag === "1" || cashFlag === "yes",
       state: row.state || null,
       city: row.city || null,
       venue: normalize(row.venue) || null,
@@ -282,7 +282,7 @@ export function extractUSClubTournamentsFromHtml(
       slug,
       sport: opts.sport,
       sub_type: opts.subType ?? "internet",
-      cash_tournament: false,
+      ref_cash_tournament: false,
       level: opts.level ?? null,
       state,
       city,
@@ -441,7 +441,7 @@ export function extractEventsFromJsonLd(
         sport: opts.sport,
         level: loc.name ?? null,
         sub_type: "admin",
-        cash_tournament: false,
+        ref_cash_tournament: false,
         state: state ?? null,
         city: city ?? null,
         venue: loc.name ?? null,
@@ -536,7 +536,7 @@ export function extractGrassrootsCalendar(
             sport: opts.sport,
             level: null,
             sub_type: "admin",
-            cash_tournament: false,
+            ref_cash_tournament: false,
             state: state ?? "NA",
             city: city ?? "Unknown",
             venue: locText ? locText.replace(/\s*\([^)]+\)\s*$/, "").trim() || locText : null,
@@ -595,7 +595,7 @@ export function extractGrassrootsCalendar(
           sport: opts.sport,
           level: null,
           sub_type: "admin",
-          cash_tournament: false,
+          ref_cash_tournament: false,
           state: state ?? "NA",
           city: city ?? "Unknown",
           venue: venue || null,

@@ -47,13 +47,13 @@ export type DateCandidate = {
 export type AttributeCandidate = {
   tournament_id: string;
   attribute_key:
-    | "cash_at_field"
+    | "ref_cash_at_field"
     | "referee_food"
     | "referee_tents"
     | "ref_game_schedule"
     | "ref_parking"
     | "ref_parking_cost"
-    | "mentors"
+    | "ref_mentors"
     | "assigned_appropriately";
   attribute_value: string;
   source_url?: string | null;

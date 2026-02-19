@@ -34,7 +34,7 @@ export async function upsertTournamentFromSource(row: TournamentRow) {
         end_date: row.end_date ?? null,
         summary: row.summary ?? null,
         sub_type: row.sub_type ?? "internet",
-        cash_tournament: row.cash_tournament ?? false,
+        ref_cash_tournament: row.ref_cash_tournament ?? false,
         status: row.status,
         updated_at: now,
         source_url: row.source_url,

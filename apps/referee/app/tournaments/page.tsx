@@ -26,7 +26,6 @@ type Tournament = {
   end_date: string | null;
   source_url: string;
   official_website_url?: string | null;
-  mentors?: string | null;
   tournament_staff_verified?: boolean | null;
 };
 type EngagementRow = {
@@ -171,7 +170,7 @@ export default async function TournamentsPage({
 
   let query = supabase
     .from("tournaments_public" as any)
-    .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url,mentors,tournament_staff_verified")
+    .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url,tournament_staff_verified")
     .order("start_date", { ascending: true });
 
   const today = new Date().toISOString().slice(0, 10);
@@ -592,13 +591,6 @@ export default async function TournamentsPage({
                   {sportIcon(t.sport)}
                 </div>
                 <div className="cardFooterBadge cardFooterBadge--right">
-                  {String(t.mentors ?? "").toLowerCase() === "yes" ? (
-                    <img
-                      className="listingBadgeIcon listingBadgeIcon--mentor"
-                      src="/svg/ri/mentor_supported.svg"
-                      alt="Mentor supported"
-                    />
-                  ) : null}
                 </div>
               </div>
             </article>

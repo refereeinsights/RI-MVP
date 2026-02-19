@@ -28,12 +28,12 @@ const ALL_FIELDS = [
   "referee_contact",
   "referee_contact_email",
   "referee_contact_phone",
-  "cash_tournament",
+  "ref_cash_tournament",
   "referee_food",
   "referee_tents",
   "facilities",
   "travel_lodging",
-  "mentors",
+  "ref_mentors",
 ] as const;
 
 type FieldKey = (typeof ALL_FIELDS)[number];
@@ -44,7 +44,7 @@ const ENUMS: Record<string, Set<string>> = {
   referee_tents: new Set(["yes", "no"]),
   facilities: new Set(["restrooms", "portables"]),
   travel_lodging: new Set(["hotel", "stipend"]),
-  mentors: new Set(["yes", "no"]),
+  ref_mentors: new Set(["yes", "no"]),
 };
 
 function normalizeText(value: FormDataEntryValue | null): string | null {
@@ -129,12 +129,12 @@ async function submitVerificationAction(formData: FormData) {
     referee_contact: normalizeText(formData.get("referee_contact")),
     referee_contact_email: normalizeText(formData.get("referee_contact_email")),
     referee_contact_phone: normalizeText(formData.get("referee_contact_phone")),
-    cash_tournament: formData.get("cash_tournament") ? true : false,
+    ref_cash_tournament: formData.get("ref_cash_tournament") ? true : false,
     referee_food: normalizeText(formData.get("referee_food")),
     referee_tents: normalizeText(formData.get("referee_tents")),
     facilities: normalizeText(formData.get("facilities")),
     travel_lodging: normalizeText(formData.get("travel_lodging")),
-    mentors: normalizeText(formData.get("mentors")),
+    ref_mentors: normalizeText(formData.get("ref_mentors")),
   };
 
   const missingRequired = REQUIRED_FIELDS.filter((key) => {
@@ -157,7 +157,7 @@ async function submitVerificationAction(formData: FormData) {
   const { data: tournamentRowRaw } = await supabaseAdmin
     .from("tournaments" as any)
     .select(
-      "id,start_date,end_date,official_website_url,tournament_director,tournament_director_email,referee_pay,venue,address,city,state,zip,tournament_director_phone,referee_contact,referee_contact_email,referee_contact_phone,cash_tournament,referee_food,referee_tents,facilities,travel_lodging,mentors"
+      "id,start_date,end_date,official_website_url,tournament_director,tournament_director_email,referee_pay,venue,address,city,state,zip,tournament_director_phone,referee_contact,referee_contact_email,referee_contact_phone,ref_cash_tournament,referee_food,referee_tents,facilities,travel_lodging,ref_mentors"
     )
     .eq("id", tokenRow.tournament_id)
     .maybeSingle();
@@ -189,12 +189,12 @@ async function submitVerificationAction(formData: FormData) {
     referee_contact: normalizeTournamentValue(tournamentRow.referee_contact) as string | null,
     referee_contact_email: normalizeTournamentValue(tournamentRow.referee_contact_email) as string | null,
     referee_contact_phone: normalizeTournamentValue(tournamentRow.referee_contact_phone) as string | null,
-    cash_tournament: typeof tournamentRow.cash_tournament === "boolean" ? tournamentRow.cash_tournament : null,
+    ref_cash_tournament: typeof tournamentRow.ref_cash_tournament === "boolean" ? tournamentRow.ref_cash_tournament : null,
     referee_food: normalizeTournamentValue(tournamentRow.referee_food) as string | null,
     referee_tents: normalizeTournamentValue(tournamentRow.referee_tents) as string | null,
     facilities: normalizeTournamentValue(tournamentRow.facilities) as string | null,
     travel_lodging: normalizeTournamentValue(tournamentRow.travel_lodging) as string | null,
-    mentors: normalizeTournamentValue(tournamentRow.mentors) as string | null,
+    ref_mentors: normalizeTournamentValue(tournamentRow.ref_mentors) as string | null,
   };
 
   const diffFields: FieldKey[] = [];
@@ -300,7 +300,7 @@ export default async function TournamentVerifyPage({ params, searchParams }: Ver
   const { data: tournamentRaw } = await supabaseAdmin
     .from("tournaments" as any)
     .select(
-      "id,name,start_date,end_date,official_website_url,tournament_director,tournament_director_email,referee_pay,venue,address,city,state,zip,tournament_director_phone,referee_contact,referee_contact_email,referee_contact_phone,cash_tournament,referee_food,referee_tents,facilities,travel_lodging,mentors"
+      "id,name,start_date,end_date,official_website_url,tournament_director,tournament_director_email,referee_pay,venue,address,city,state,zip,tournament_director_phone,referee_contact,referee_contact_email,referee_contact_phone,ref_cash_tournament,referee_food,referee_tents,facilities,travel_lodging,ref_mentors"
     )
     .eq("id", tokenRow.tournament_id)
     .maybeSingle();
@@ -458,7 +458,7 @@ export default async function TournamentVerifyPage({ params, searchParams }: Ver
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Cash tournament
-                  <input type="checkbox" name="cash_tournament" defaultChecked={Boolean(tournament.cash_tournament)} style={{ marginLeft: 8 }} />
+                  <input type="checkbox" name="ref_cash_tournament" defaultChecked={Boolean(tournament.ref_cash_tournament)} style={{ marginLeft: 8 }} />
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Referee food
@@ -494,7 +494,7 @@ export default async function TournamentVerifyPage({ params, searchParams }: Ver
                 </label>
                 <label style={{ fontSize: 12, fontWeight: 700 }}>
                   Mentors
-                  <select name="mentors" defaultValue={tournament.mentors ?? ""} style={{ width: "100%", padding: 8 }}>
+                  <select name="ref_mentors" defaultValue={tournament.ref_mentors ?? ""} style={{ width: "100%", padding: 8 }}>
                     <option value="">Select</option>
                     <option value="yes">Yes</option>
                     <option value="no">No</option>

@@ -785,7 +785,7 @@ export async function sweepAsaAzSanctionedClubTournaments(params: {
         sport: "soccer",
         level: record.hosting_club ?? null,
         sub_type: "admin",
-        cash_tournament: false,
+        ref_cash_tournament: false,
         state: record.state ?? "AZ",
         city: record.city ?? "Unknown",
         venue: null,

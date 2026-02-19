@@ -5,13 +5,13 @@ import EnrichmentClient from "./EnrichmentClient";
 const EXCLUDED_ATTRIBUTE_KEYS = new Set([
   "facilities",
   "travel_lodging",
-  "cash_at_field",
+  "ref_cash_at_field",
   "referee_food",
   "referee_tents",
   "ref_game_schedule",
   "ref_parking",
   "ref_parking_cost",
-  "mentors",
+  "ref_mentors",
   "assigned_appropriately",
 ]);
 

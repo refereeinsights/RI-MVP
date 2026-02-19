@@ -38,8 +38,8 @@ export default function RefereeReviewForm({
           ? Number(formData.get("worked_games"))
           : null,
         shift_detail: String(formData.get("shift_detail") ?? "").trim(),
-        cash_tournament: formData.get("cash_tournament") === "on",
-        cash_at_field: formData.get("cash_at_field") === "on",
+        ref_cash_tournament: formData.get("ref_cash_tournament") === "on",
+        ref_cash_at_field: formData.get("ref_cash_at_field") === "on",
         level_of_competition: String(formData.get("level_of_competition") ?? "").trim() || null,
         referee_food: (formData.get("referee_food") as string | null) || null,
         facilities: (formData.get("facilities") as string | null) || null,
@@ -48,7 +48,7 @@ export default function RefereeReviewForm({
         ref_game_schedule: (formData.get("ref_game_schedule") as string | null) || null,
         ref_parking: (formData.get("ref_parking") as string | null) || null,
         ref_parking_cost: (formData.get("ref_parking_cost") as string | null) || null,
-        mentors: (formData.get("mentors") as string | null) || null,
+        ref_mentors: (formData.get("ref_mentors") as string | null) || null,
         assigned_appropriately: (formData.get("assigned_appropriately") as string | null) || null,
       };
 
@@ -156,13 +156,13 @@ export default function RefereeReviewForm({
           <span>Cash tournament</span>
           <input
             type="checkbox"
-            name="cash_tournament"
+            name="ref_cash_tournament"
             onChange={(event) => setCashTournament(event.currentTarget.checked)}
           />
         </label>
         <label className="reviewForm__cash">
           <span>Cash at field</span>
-          <input type="checkbox" name="cash_at_field" disabled={!cashTournament} />
+          <input type="checkbox" name="ref_cash_at_field" disabled={!cashTournament} />
         </label>
         <label>
           <span>Games worked</span>
@@ -235,7 +235,7 @@ export default function RefereeReviewForm({
         </label>
         <label>
           <span>Mentors</span>
-          <select name="mentors" defaultValue="">
+          <select name="ref_mentors" defaultValue="">
             <option value="">Select</option>
             <option value="yes">Yes</option>
             <option value="no">No</option>

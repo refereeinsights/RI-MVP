@@ -12,7 +12,7 @@ type VenueRow = {
   created_at?: string | null;
   sport?: string | null;
   venue_url?: string | null;
-  paid_parking?: boolean | null;
+  ref_paid_parking?: boolean | null;
 };
 
 async function ensureAdminRequest() {
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
   const notes = typeof payload?.notes === "string" ? payload.notes.trim() : null;
   const sport = typeof payload?.sport === "string" ? payload.sport.trim().toLowerCase() : "";
   const venueUrl = typeof payload?.venue_url === "string" ? payload.venue_url.trim() : "";
-  const paidParking = payload?.paid_parking === true || payload?.paid_parking === "true";
+  const paidParking = payload?.ref_paid_parking === true || payload?.ref_paid_parking === "true";
   const tournamentIds: string[] = Array.isArray(payload?.tournament_ids)
     ? (payload.tournament_ids as any[]).map(String).filter(Boolean)
     : [];
@@ -106,13 +106,13 @@ export async function POST(request: Request) {
     latitude,
     longitude,
     venue_url: venueUrl || null,
-    paid_parking: paidParking || null,
+    ref_paid_parking: paidParking || null,
   };
 
   const { data, error } = await supabaseAdmin
     .from("venues" as any)
     .insert(insertPayload)
-    .select("id,name,city,state,venue_url,paid_parking")
+    .select("id,name,city,state,venue_url,ref_paid_parking")
     .single();
 
   if (error) {

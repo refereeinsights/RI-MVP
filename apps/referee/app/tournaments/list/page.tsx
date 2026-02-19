@@ -91,7 +91,7 @@ async function listTournament(formData: FormData) {
   const summary = (formData.get("summary") as string | null)?.trim() || null;
   const websiteInput = (formData.get("website") as string | null)?.trim() || "";
   const referee_pay = (formData.get("referee_pay") as string | null)?.trim() || null;
-  const cashTournament = formData.get("cash_tournament") === "on";
+  const cashTournament = formData.get("ref_cash_tournament") === "on";
 
   const organizer_name = (formData.get("organizer_name") as string | null)?.trim() || null;
   const organizer_email = (formData.get("organizer_email") as string | null)?.trim() || null;
@@ -158,7 +158,7 @@ async function listTournament(formData: FormData) {
       source_domain: sourceDomain,
       referee_pay,
       referee_contact: refereeContactSummary,
-      cash_tournament: cashTournament,
+      ref_cash_tournament: cashTournament,
     });
 
     const extraInserts: Promise<any>[] = [];
@@ -485,7 +485,7 @@ export default async function TournamentSubmissionPage({
                     gap: 8,
                   }}
                 >
-                  <input type="checkbox" name="cash_tournament" style={{ width: 18, height: 18 }} />
+                  <input type="checkbox" name="ref_cash_tournament" style={{ width: 18, height: 18 }} />
                   Cash tournament
                 </label>
               </div>

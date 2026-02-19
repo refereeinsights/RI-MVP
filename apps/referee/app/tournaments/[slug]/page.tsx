@@ -35,7 +35,6 @@ type TournamentDetailRow = {
   venue: string | null;
   address: string | null;
   sport: string | null;
-  mentors?: string | null;
   tournament_staff_verified?: boolean | null;
 };
 type TournamentPrivateDetailRow = {
@@ -46,7 +45,7 @@ type TournamentPrivateDetailRow = {
   tournament_director: string | null;
   tournament_director_email: string | null;
   tournament_director_phone: string | null;
-  cash_tournament: boolean | null;
+  ref_cash_tournament: boolean | null;
 };
 type EngagementRow = {
   tournament_id: string;
@@ -217,7 +216,7 @@ export default async function TournamentDetailPage({
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
     .select(
-      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,referee_contact,tournament_director,level,venue,address,sport,mentors,tournament_staff_verified"
+      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,referee_contact,tournament_director,level,venue,address,sport,tournament_staff_verified"
     )
     .eq("slug", params.slug)
     .single<TournamentDetailRow>();
@@ -329,7 +328,7 @@ export default async function TournamentDetailPage({
     const { data: privateData } = await supabaseAdmin
       .from("tournaments" as any)
       .select(
-        "referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,cash_tournament"
+        "referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,ref_cash_tournament"
       )
       .eq("id", data.id)
       .maybeSingle<TournamentPrivateDetailRow>();
@@ -357,7 +356,7 @@ export default async function TournamentDetailPage({
   pushDetailRow("Referee contact email", privateDetails?.referee_contact_email ?? null);
   pushDetailRow("Referee contact phone", privateDetails?.referee_contact_phone ?? null);
   pushDetailRow("Referee pay", privateDetails?.referee_pay ?? null);
-  if (privateDetails?.cash_tournament === true) {
+  if (privateDetails?.ref_cash_tournament === true) {
     privateDetailRows.push({ label: "Cash tournament", value: "Yes" });
   }
 
@@ -375,20 +374,13 @@ export default async function TournamentDetailPage({
         </div>
 
         <div className={detailPanelVariant(data.sport)}>
-          {(data.tournament_staff_verified || String(data.mentors ?? "").toLowerCase() === "yes") ? (
+          {data.tournament_staff_verified ? (
             <div className="detailBadgeRail" aria-label="Tournament badges">
               {data.tournament_staff_verified ? (
                 <img
                   className="detailBadgeIcon detailBadgeIcon--verified"
                   src="/svg/ri/tournament_staff_verified.svg"
                   alt="Tournament staff verified"
-                />
-              ) : null}
-              {String(data.mentors ?? "").toLowerCase() === "yes" ? (
-                <img
-                  className="detailBadgeIcon detailBadgeIcon--mentor"
-                  src="/svg/ri/mentor_supported.svg"
-                  alt="Mentor supported"
                 />
               ) : null}
             </div>

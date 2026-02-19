@@ -828,7 +828,7 @@ export async function adminListPendingTournaments() {
   const { data, error } = await supabaseAdmin
     .from("tournaments")
     .select(
-      "id,name,slug,sport,level,state,city,venue,address,start_date,end_date,source_url,source_domain,official_website_url,summary,referee_pay,referee_contact,tournament_director,sub_type,updated_at,cash_tournament"
+      "id,name,slug,sport,level,state,city,venue,address,start_date,end_date,source_url,source_domain,official_website_url,summary,referee_pay,referee_contact,tournament_director,sub_type,updated_at,ref_cash_tournament"
     )
     .eq("status", "draft")
     .order("updated_at", { ascending: false })
@@ -857,7 +857,7 @@ export type AdminPendingTournament = {
   sport: string;
   level?: string | null;
   sub_type?: TournamentSubmissionType | null;
-  cash_tournament?: boolean | null;
+  ref_cash_tournament?: boolean | null;
   state?: string | null;
   city?: string | null;
   venue?: string | null;
@@ -882,8 +882,8 @@ export type AdminListedTournament = {
   level?: string | null;
   level_of_competition?: string | null;
   sub_type?: TournamentSubmissionType | null;
-  cash_tournament?: boolean | null;
-  cash_at_field?: boolean | null;
+  ref_cash_tournament?: boolean | null;
+  ref_cash_at_field?: boolean | null;
   tournament_staff_verified?: boolean | null;
   referee_food?: string | null;
   facilities?: string | null;
@@ -892,7 +892,7 @@ export type AdminListedTournament = {
   ref_game_schedule?: string | null;
   ref_parking?: string | null;
   ref_parking_cost?: string | null;
-  mentors?: string | null;
+  ref_mentors?: string | null;
   assigned_appropriately?: string | null;
   state?: string | null;
   city?: string | null;
@@ -926,7 +926,7 @@ export async function adminSearchPublishedTournaments(
   let request = supabaseAdmin
     .from("tournaments")
     .select(
-      "id,name,slug,sport,level,level_of_competition,sub_type,cash_tournament,cash_at_field,tournament_staff_verified,referee_food,facilities,referee_tents,travel_lodging,ref_game_schedule,ref_parking,ref_parking_cost,mentors,assigned_appropriately,state,city,zip,venue,address,venue_url,start_date,end_date,age_group,team_fee,games_guaranteed,player_parking,summary,referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,official_website_url,source_url,source_domain"
+      "id,name,slug,sport,level,level_of_competition,sub_type,ref_cash_tournament,ref_cash_at_field,tournament_staff_verified,referee_food,facilities,referee_tents,travel_lodging,ref_game_schedule,ref_parking,ref_parking_cost,ref_mentors,assigned_appropriately,state,city,zip,venue,address,venue_url,start_date,end_date,age_group,team_fee,games_guaranteed,player_parking,summary,referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,official_website_url,source_url,source_domain"
     )
     .eq("status", "published")
     .eq("is_canonical", true)
@@ -973,8 +973,8 @@ export async function adminUpdateTournamentDetails(params: {
     level: string | null;
     level_of_competition: string | null;
     sub_type: TournamentSubmissionType | null;
-    cash_tournament: boolean;
-    cash_at_field: boolean | null;
+    ref_cash_tournament: boolean;
+    ref_cash_at_field: boolean | null;
     tournament_staff_verified: boolean | null;
     referee_food: string | null;
     facilities: string | null;
@@ -983,7 +983,7 @@ export async function adminUpdateTournamentDetails(params: {
     ref_game_schedule: string | null;
     ref_parking: string | null;
     ref_parking_cost: string | null;
-    mentors: string | null;
+    ref_mentors: string | null;
     assigned_appropriately: string | null;
     state: string | null;
     city: string | null;
@@ -1014,7 +1014,7 @@ export async function adminUpdateTournamentDetails(params: {
   const updatePayload: Record<string, any> = {};
   for (const [key, value] of Object.entries(params.updates)) {
     if (typeof value === "undefined") continue;
-    if (key === "cash_tournament") {
+    if (key === "ref_cash_tournament") {
       updatePayload[key] = Boolean(value);
     } else {
       updatePayload[key] = value;

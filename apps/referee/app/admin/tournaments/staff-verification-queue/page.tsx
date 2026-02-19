@@ -23,12 +23,12 @@ const FIELD_LABELS: Record<string, string> = {
   referee_contact: "Referee contact",
   referee_contact_email: "Referee contact email",
   referee_contact_phone: "Referee contact phone",
-  cash_tournament: "Cash tournament",
+  ref_cash_tournament: "Cash tournament",
   referee_food: "Referee food",
   referee_tents: "Referee tents",
   facilities: "Facilities",
   travel_lodging: "Travel lodging",
-  mentors: "Mentors",
+  ref_mentors: "Mentors",
 };
 
 const ORDERED_FIELDS = Object.keys(FIELD_LABELS);
@@ -48,12 +48,12 @@ const TOURNAMENT_UPDATE_FIELDS = new Set([
   "referee_contact",
   "referee_contact_email",
   "referee_contact_phone",
-  "cash_tournament",
+  "ref_cash_tournament",
   "referee_food",
   "referee_tents",
   "facilities",
   "travel_lodging",
-  "mentors",
+  "ref_mentors",
 ]);
 
 function formatValue(value: any) {

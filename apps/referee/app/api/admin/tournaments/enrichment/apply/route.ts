@@ -123,7 +123,7 @@ export async function POST(request: Request) {
       updates.travel_lodging = comp.travel_lodging;
     }
     if (items.some((i) => i.kind === "comp-cash")) {
-      updates.cash_tournament = true;
+      updates.ref_cash_tournament = true;
     }
   }
 
