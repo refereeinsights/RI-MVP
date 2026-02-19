@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AdminNav from "@/components/admin/AdminNav";
 import VenueRow, { VenueItem } from "@/components/admin/VenueRow";
+import VenueAddressVerifyPanel from "@/components/admin/VenueAddressVerifyPanel";
 
 type VenueRow = {
   id: string;
@@ -236,6 +237,8 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
           Search
         </button>
       </form>
+
+      <VenueAddressVerifyPanel />
 
       <div style={{ display: "grid", gap: 12 }}>
         {venues.length === 0 ? (

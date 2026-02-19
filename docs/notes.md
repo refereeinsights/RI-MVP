@@ -452,3 +452,17 @@
     - `weather_contingency_handling_score`
     - `vendor_merchandise_quality_score`
   - Added per-column check constraints for all new score fields (`between 1 and 5`).
+- TI `/venues` directory page added (without changing `/tournaments` UI):
+  - New route: `apps/ti-web/app/venues/page.tsx`
+  - New styles: `apps/ti-web/app/venues/VenuesPage.module.css`
+  - New card component: `apps/ti-web/components/venues/VenueCard.tsx` + `apps/ti-web/components/venues/VenueCard.module.css`
+  - Reuses `/tournaments` filter/query-param conventions (`q`, `state`, `month`, `sports`, `includePast`) and state multi-select UI.
+  - Adds sport summary badges with distinct venue counts per sport and clickable sport filtering with active-toggle clear behavior.
+  - Venue sports are derived from linked tournaments (`tournament_venues -> tournaments.sport`) with fallback to `venues.sport` only when no tournament links exist.
+  - Venues with no linked tournaments still appear in the directory and all-count baseline.
+- Added admin tool **Venue Address Verify**:
+  - API: `POST /api/admin/venues/address-verify`
+  - UI panel on admin venues page: `apps/referee/components/admin/VenueAddressVerifyPanel.tsx`
+  - Purpose: scan existing venues, parse full-address blobs in `address/address1` into `address1 + city + state + zip`, geocode missing lat/lng, derive timezone, and attempt venue website discovery via Google Places.
+  - Supports batch controls: `limit`, `onlyIncomplete`, and `dryRun`.
+  - Writes `geocode_source='venue_address_verify'` when geocode updates are applied.
