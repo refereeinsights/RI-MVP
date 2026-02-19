@@ -1,4 +1,33 @@
+## 2026-02-19
+- TI tournament detail access-tier update (paid planning fields):
+  - Added a new **Premium Planning Details** section to `apps/ti-web/app/tournaments/[slug]/page.tsx` with a lock state for non-paid users.
+  - Locked (public + free-login) behavior now shows:
+    - "Locked — Upgrade to view Food vendors, restrooms, amenities, travel/lodging notes."
+    - Upgrade CTA linking to `/pricing`.
+  - Paid behavior now conditionally fetches and renders:
+    - `tournaments.travel_lodging` (display label: "Travel/Lodging Notes")
+    - `venues.food_vendors`
+    - `venues.restrooms`
+    - `venues.amenities`
+  - Public/base detail query remains on `tournaments_public` and does not expose premium planning fields.
+  - Added styling for the premium card in `apps/ti-web/app/tournaments/tournaments.css`.
+  - Temporary entitlement stub added:
+    - `TI_FORCE_PAID_TOURNAMENT_DETAILS=true` enables paid rendering path.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+    - `next lint` for `ti-web` still requires initial ESLint setup prompt in this workspace.
+
 ## 2026-02-18
+- Tournament directory summary tile updates:
+  - Total tournaments tile now shows current on-page result count (post-filter), not global DB total:
+    - `apps/ti-web/app/tournaments/page.tsx`.
+  - Total tile icon switched to transparent TI mark:
+    - `/svg/ti/tournamentinsights_mark_transparent.svg`.
+  - Added new shared asset:
+    - `shared-assets/svg/ti/tournamentinsights_mark_transparent.svg`.
+  - Cropped transparent mark viewBox so the icon appears visually larger/centered in the tile.
+  - Increased summary/tournament sport SVG icon sizes for better lacrosse visibility:
+    - `apps/ti-web/app/tournaments/tournaments.css`.
 - Homepage messaging update:
   - Committed `ed9cb02` (`TI: update homepage value props copy`) in `apps/ti-web/app/page.tsx`.
   - Replaced “What TournamentInsights provides” block copy with current value-prop language:

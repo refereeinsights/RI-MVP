@@ -1,6 +1,57 @@
 # Running Notes
 
+## 2026-02-19
+- TI paid-tier gating added for tournament detail planning fields:
+  - `apps/ti-web/app/tournaments/[slug]/page.tsx` now includes a premium-only section ("Premium Planning Details").
+  - Public/free views show a locked teaser + Upgrade CTA (`/pricing`) and do not display premium values.
+  - Paid path (currently env-gated via `TI_FORCE_PAID_TOURNAMENT_DETAILS=true`) conditionally fetches and renders:
+    - `tournaments.travel_lodging` (shown as "Travel/Lodging Notes")
+    - `venues.food_vendors`, `venues.restrooms`, `venues.amenities`.
+  - Added supporting premium section styles in `apps/ti-web/app/tournaments/tournaments.css`.
+  - Confirmed TI typecheck passes: `npx tsc -p apps/ti-web/tsconfig.json --noEmit`.
+
 ## 2026-02-18
+- Fees/venue scraper hardening + reliability fixes (post-initial rollout):
+  - Added clearer error classification for stale DB constraints in `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`:
+    - explicit handling for `tournament_attribute_candidates_value_check` failures.
+  - Added fallback tolerance for missing cooldown column errors in both PostgREST message formats:
+    - `column ... does not exist`
+    - `Could not find the 'fees_venue_scraped_at' column ... schema cache`
+  - Added duplicate-safe candidate insert behavior:
+    - de-dupes within scrape batch
+    - skips rows already present in `tournament_attribute_candidates`
+    - prevents whole-run failure on `tournament_attribute_candidates_dedupe_idx`.
+  - Added queue UX auto-refresh after successful fees/venue insert so new candidates appear immediately in “Approve enrichment by tournament”:
+    - `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`.
+  - Added tiered fee extraction support for patterns like:
+    - `U6-U10 | $795`, `U11-U12 | $895`, `U13-U19 | $1095`
+    - stored as combined `team_fee` candidate string: `U6-U10 $795 | U11-U12 $895 | U13-U19 $1095`.
+- Team fee data model consistency updates:
+  - Enrichment apply path now persists `team_fee` as text (preserves labeled/tiered fee strings), not numeric-only parsing:
+    - `apps/referee/app/api/admin/tournaments/enrichment/apply/route.ts`.
+  - Admin editor `team_fee` input switched from numeric to text:
+    - `apps/referee/app/admin/page.tsx`.
+  - Admin types updated so `team_fee` is `string | null`:
+    - `apps/referee/lib/admin.ts`.
+- Tournament card/count UI updates:
+  - Total tournaments tile now reflects currently displayed tournaments (post-filter) instead of global DB count:
+    - `apps/referee/app/tournaments/page.tsx`
+    - `apps/ti-web/app/tournaments/page.tsx`.
+  - Increased sport SVG icon sizing on tournament cards and summary cards (including lacrosse visibility improvements):
+    - `apps/referee/app/tournaments/tournaments.css`
+    - `apps/ti-web/app/tournaments/tournaments.css`.
+- TI mark/icon asset updates:
+  - Added transparent TI mark asset:
+    - `shared-assets/svg/ti/tournamentinsights_mark_transparent.svg`.
+  - Cropped transparent mark viewBox so it renders at expected visual size in summary tiles.
+  - TI total tournaments tile now uses transparent TI mark icon:
+    - `apps/ti-web/app/tournaments/page.tsx`.
+- Commits pushed during this phase:
+  - `2005d50` TI/RI: update tournament cards and enrichment workflow
+  - `6227988` Enrichment: clarify fees/venue constraint error
+  - `daf3c8c` Enrichment: tolerate missing cooldown column schema-cache errors
+  - `727a41b` Enrichment: skip duplicate fee/venue candidates
+  - `61f0fa4` Enrichment: support labeled tiered team fees
 - TI homepage copy refresh:
   - Committed `ed9cb02` (`TI: update homepage value props copy`) in `apps/ti-web/app/page.tsx`.
   - Updated home “What TournamentInsights Provides” section with new value-prop bullets and replaced defensive “not a review platform / no ratings” language on the homepage.

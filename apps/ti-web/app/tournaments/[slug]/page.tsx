@@ -35,6 +35,22 @@ type TournamentDetailRow = {
   }[] | null;
 };
 
+type PaidTournamentDetails = {
+  travel_lodging: string | null;
+};
+
+type PaidVenueDetailsRow = {
+  venue_id: string;
+  venues:
+    | {
+        id: string;
+        food_vendors: boolean | null;
+        restrooms: string | null;
+        amenities: string | null;
+      }
+    | null;
+};
+
 export const revalidate = 300;
 
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://tournamentinsights.com").replace(/\/+$/, "");
@@ -80,6 +96,17 @@ function getSportCardClass(sport: string | null) {
     baseball: "bg-sport-baseball",
   };
   return map[normalized] ?? "bg-sport-default";
+}
+
+function resolvePaidEntitlement() {
+  // Stub entitlement until TI subscriptions are wired.
+  return process.env.TI_FORCE_PAID_TOURNAMENT_DETAILS === "true";
+}
+
+function boolLabel(value: boolean | null | undefined) {
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  return "Not provided";
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
@@ -137,6 +164,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default async function TournamentDetailPage({ params }: { params: { slug: string } }) {
+  const isPaid = resolvePaidEntitlement();
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
     .select(
@@ -175,6 +203,44 @@ export default async function TournamentDetailPage({ params }: { params: { slug:
     data.tournament_venues
       ?.map((tv) => tv.venues)
       .filter((v): v is NonNullable<(typeof data.tournament_venues)[number]["venues"]> => Boolean(v)) ?? [];
+  const linkedVenueIds = linkedVenues.map((v) => v.id).filter(Boolean);
+
+  let paidTournamentDetails: PaidTournamentDetails | null = null;
+  let paidVenueDetailsById = new Map<
+    string,
+    { food_vendors: boolean | null; restrooms: string | null; amenities: string | null }
+  >();
+
+  if (isPaid) {
+    const [{ data: tournamentPaidData }, { data: venuePaidRows }] = await Promise.all([
+      supabaseAdmin
+        .from("tournaments" as any)
+        .select("travel_lodging")
+        .eq("id", data.id)
+        .maybeSingle<PaidTournamentDetails>(),
+      linkedVenueIds.length
+        ? supabaseAdmin
+            .from("tournament_venues" as any)
+            .select("venue_id,venues(id,food_vendors,restrooms,amenities)")
+            .eq("tournament_id", data.id)
+            .in("venue_id", linkedVenueIds)
+        : Promise.resolve({ data: [] as PaidVenueDetailsRow[] }),
+    ]);
+
+    paidTournamentDetails = tournamentPaidData ?? null;
+    paidVenueDetailsById = new Map(
+      ((venuePaidRows as PaidVenueDetailsRow[] | null) ?? [])
+        .filter((row) => row?.venues?.id)
+        .map((row) => [
+          row.venues!.id,
+          {
+            food_vendors: row.venues!.food_vendors,
+            restrooms: row.venues!.restrooms,
+            amenities: row.venues!.amenities,
+          },
+        ])
+    );
+  }
 
   const canonicalUrl = buildCanonicalUrl(data.slug ?? params.slug);
   const structuredData = {
@@ -291,6 +357,59 @@ export default async function TournamentDetailPage({ params }: { params: { slug:
           ) : null}
 
           {data.summary ? <p className="detailSummary">{data.summary}</p> : null}
+
+          <div className="detailCard premiumDetailCard">
+            <div className="detailCard__title premiumDetailCard__title">
+              <span aria-hidden="true">🔒</span>
+              <span>Premium Planning Details</span>
+            </div>
+            {!isPaid ? (
+              <div className="detailCard__body premiumDetailCard__body">
+                <p className="premiumDetailCard__copy">
+                  Locked — Upgrade to view Food vendors, restrooms, amenities, travel/lodging notes.
+                </p>
+                <div className="detailLinksRow">
+                  <Link className="secondaryLink" href="/pricing">
+                    Upgrade
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="detailCard__body premiumDetailCard__body">
+                <div className="premiumDetailRow">
+                  <span className="premiumDetailLabel">Travel/Lodging Notes</span>
+                  <span>{paidTournamentDetails?.travel_lodging?.trim() || "Not provided yet."}</span>
+                </div>
+                {linkedVenues.length > 0 ? (
+                  linkedVenues.map((venue) => {
+                    const premium = paidVenueDetailsById.get(venue.id);
+                    return (
+                      <div className="premiumVenueBlock" key={`premium-${venue.id}`}>
+                        <div className="premiumVenueTitle">{venue.name || "Venue"}</div>
+                        <div className="premiumDetailRow">
+                          <span className="premiumDetailLabel">Food vendors</span>
+                          <span>{boolLabel(premium?.food_vendors)}</span>
+                        </div>
+                        <div className="premiumDetailRow">
+                          <span className="premiumDetailLabel">Restrooms</span>
+                          <span>{premium?.restrooms?.trim() || "Not provided"}</span>
+                        </div>
+                        <div className="premiumDetailRow">
+                          <span className="premiumDetailLabel">Amenities</span>
+                          <span>{premium?.amenities?.trim() || "Not provided"}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="premiumDetailRow">
+                    <span className="premiumDetailLabel">Venue details</span>
+                    <span>No linked venues available yet.</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </section>
     </main>
