@@ -3,9 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 
-type Props = { venueId: string };
+type Props = {
+  venueId: string;
+  onRemoveFromList?: () => void;
+};
 
-export default function VenueActions({ venueId }: Props) {
+export default function VenueActions({ venueId, onRemoveFromList }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +61,23 @@ export default function VenueActions({ venueId }: Props) {
       >
         {deleting ? "Deleting..." : "Delete"}
       </button>
+      {onRemoveFromList ? (
+        <button
+          type="button"
+          onClick={onRemoveFromList}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            border: "1px solid #d1d5db",
+            background: "#fff",
+            color: "#374151",
+            cursor: "pointer",
+            fontSize: 13,
+          }}
+        >
+          Remove from list
+        </button>
+      ) : null}
       {error && <span style={{ color: "#b91c1c", fontSize: 12 }}>{error}</span>}
     </div>
   );

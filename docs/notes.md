@@ -1,6 +1,65 @@
 # Running Notes
 
 ## 2026-02-19
+- Admin venues visibility + workflow updates:
+  - Added `Venue URL` to the expandable admin venue row details (clickable when present).
+  - Added per-row `Remove from list` action in admin venues list to hide verified items from the current view without deleting data.
+  - Files:
+    - `apps/referee/components/admin/VenueRow.tsx`
+    - `apps/referee/components/admin/VenueActions.tsx`
+    - `apps/referee/app/admin/venues/page.tsx`
+
+- Sports badge asset replacements/tuning:
+  - Replaced baseball badge source with `baseball_new_bg.svg` content in:
+    - `shared-assets/svg/sports/baseball_badge.svg`
+  - Replaced softball badge source with `softball_new_bg.svg` content in:
+    - `shared-assets/svg/sports/softball_badge.svg`
+  - Counter widgets now use baseball/softball badge art as tile backgrounds; tournament cards no longer render the extra badge block overlay.
+  - Files:
+    - `apps/ti-web/app/tournaments/tournaments.css`
+    - `apps/referee/app/tournaments/tournaments.css`
+
+- Baseball/softball counter + card badge follow-up tuning:
+  - Clarified icon behavior:
+    - Restored baseball/softball counter/card icons to balls (`⚾`, `🥎`) while keeping badge SVGs as background treatments.
+  - Replaced baseball badge source with a new text-free asset:
+    - copied `/Users/roddavis/Downloads/artwork/baseball_new_bg.svg` over `shared-assets/svg/sports/baseball_badge.svg`.
+  - Synced shared assets to app public folders via `node scripts/copy-shared-svg.js`.
+  - Counter-widget background treatment updates (TI + RI):
+    - baseball/softball summary cards now use badge SVG as full tile background (instead of centered icon replacement).
+    - removed summary-card `backdrop-filter` blur so badge artwork renders crisp.
+    - added summary-card readability overlay + z-index layering for count/label readability.
+    - tuned baseball summary crop/zoom (`background-size`/`background-position`) to hide embedded frame/shadow artifacts from source art.
+  - Files touched:
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/ti-web/app/venues/page.tsx`
+    - `apps/ti-web/app/tournaments/tournaments.css`
+    - `apps/referee/app/tournaments/page.tsx`
+    - `apps/referee/app/tournaments/[slug]/page.tsx`
+    - `apps/referee/app/tournaments/hubs/_components/SportHubPage.tsx`
+    - `apps/referee/app/tournaments/tournaments.css`
+
+- Baseball/softball badge asset + card treatment updates (TI + RI):
+  - Added shared sport badge assets:
+    - `shared-assets/svg/sports/baseball_badge.svg`
+    - `shared-assets/svg/sports/softball_badge.svg`
+  - Replaced baseball counter/tile icon usage with `baseball_badge.svg` and added softball icon rendering in tournament/venue sport icon helpers.
+  - Added `softball` sport surface class support and background styling (`bg-sport-softball`) for tournament cards/detail surfaces, including schools/hub card variants.
+  - Updated files:
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - `apps/ti-web/app/venues/page.tsx`
+    - `apps/ti-web/app/tournaments/tournaments.css`
+    - `apps/referee/app/tournaments/page.tsx`
+    - `apps/referee/app/tournaments/[slug]/page.tsx`
+    - `apps/referee/app/tournaments/hubs/_components/SportHubPage.tsx`
+    - `apps/referee/app/tournaments/tournaments.css`
+    - `apps/referee/lib/ui/sportBackground.ts`
+  - Synced assets to app public folders via `node scripts/copy-shared-svg.js`.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
+
 - Sources admin production render fix:
   - Fixed `/admin/tournaments/sources` server-render crash caused by capturing a `URLSearchParams` object inside server action closures.
   - Replaced closure-captured `URLSearchParams` with plain serialized query string + per-call reconstruction.

@@ -103,6 +103,7 @@ function getSportCardClass(sport: string | null) {
     basketball: "bg-sport-basketball",
     football: "bg-sport-football",
     baseball: "bg-sport-baseball",
+    softball: "bg-sport-softball",
   };
   return map[normalized] ?? "bg-sport-default";
 }

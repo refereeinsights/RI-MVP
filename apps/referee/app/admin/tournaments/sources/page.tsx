@@ -60,6 +60,36 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
 }
 
+function describeActionError(err: any) {
+  if (!err) return "unknown_error";
+  const parts = [err.message, err.code, err.details, err.hint].filter(Boolean);
+  if (parts.length) return parts.join(" | ");
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
+}
+
+function buildSourcesNoticeUrl(
+  stickyQueryString: string,
+  noticeMessage: string,
+  extraParams?: Record<string, string | null | undefined>
+) {
+  const params = new URLSearchParams(stickyQueryString);
+  if (noticeMessage) params.set("notice", noticeMessage);
+  if (extraParams) {
+    for (const [key, value] of Object.entries(extraParams)) {
+      if (value === null || value === undefined || value === "") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    }
+  }
+  return `/admin/tournaments/sources${params.toString() ? `?${params.toString()}` : ""}`;
+}
+
 export default async function SourcesPage({ searchParams }: { searchParams: SearchParams }) {
   await requireAdmin();
   const notice = searchParams.notice ?? "";
@@ -82,20 +112,6 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     return params.toString();
   })();
   const sourcesBasePath = `/admin/tournaments/sources${stickyQueryString ? `?${stickyQueryString}` : ""}`;
-  const withNotice = (noticeMessage: string, extraParams?: Record<string, string | null | undefined>) => {
-    const params = new URLSearchParams(stickyQueryString);
-    if (noticeMessage) params.set("notice", noticeMessage);
-    if (extraParams) {
-      for (const [key, value] of Object.entries(extraParams)) {
-        if (value === null || value === undefined || value === "") {
-          params.delete(key);
-        } else {
-          params.set(key, value);
-        }
-      }
-    }
-    return `/admin/tournaments/sources${params.toString() ? `?${params.toString()}` : ""}`;
-  };
 
   const reviewPriority = [
     "needs_review",
@@ -142,12 +158,12 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     await requireAdmin();
     const source_url = String(formData.get("source_url") || "").trim();
     if (!source_url) {
-      redirect(withNotice("Source URL is required"));
+      redirect(buildSourcesNoticeUrl(stickyQueryString, "Source URL is required"));
     }
     const source_type = String(formData.get("source_type") || "").trim() || null;
     const sport = String(formData.get("sport") || "").trim() || null;
     if (!source_type || !sport) {
-      redirect(withNotice("Sport and source type are required"));
+      redirect(buildSourcesNoticeUrl(stickyQueryString, "Sport and source type are required"));
     }
     const state = String(formData.get("state") || "").trim() || null;
     const city = String(formData.get("city") || "").trim() || null;
@@ -171,76 +187,90 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       const noticeMsg = existing.row
         ? "Source already exists. Updated existing entry."
         : "Saved source";
-      redirect(withNotice(noticeMsg, { source_url: canonical }));
+      redirect(buildSourcesNoticeUrl(stickyQueryString, noticeMsg, { source_url: canonical }));
     } catch (err: any) {
       if (err?.digest) throw err;
-      redirect(withNotice(`Save failed: ${err?.message ?? "unknown error"}`));
+      redirect(buildSourcesNoticeUrl(stickyQueryString, `Save failed: ${err?.message ?? "unknown error"}`));
     }
   }
 
   async function updateStatus(formData: FormData) {
     "use server";
     await requireAdmin();
-    const id = String(formData.get("id") || "");
-    const review_status = String(formData.get("review_status") || "untested");
-    const review_notes = String(formData.get("review_notes") || "").trim() || null;
-    const is_active = String(formData.get("is_active") || "") === "on";
-    const ignore_until = String(formData.get("ignore_until") || "").trim() || null;
-    const { error } = await supabaseAdmin
-      .from("tournament_sources" as any)
-      .update({ review_status, review_notes, is_active, ignore_until: ignore_until || null })
-      .eq("id", id)
-      .is("tournament_id", null);
-    const noticeMsg = error ? `Status update failed: ${error.message}` : "Updated source status";
-    redirect(withNotice(noticeMsg));
+    try {
+      const id = String(formData.get("id") || "");
+      const review_status = String(formData.get("review_status") || "untested");
+      const review_notes = String(formData.get("review_notes") || "").trim() || null;
+      const is_active = String(formData.get("is_active") || "") === "on";
+      const ignore_until = String(formData.get("ignore_until") || "").trim() || null;
+      const { error } = await supabaseAdmin
+        .from("tournament_sources" as any)
+        .update({ review_status, review_notes, is_active, ignore_until: ignore_until || null })
+        .eq("id", id)
+        .is("tournament_id", null);
+      const noticeMsg = error ? `Status update failed: ${describeActionError(error)}` : "Updated source status";
+      redirect(buildSourcesNoticeUrl(stickyQueryString, noticeMsg));
+    } catch (err: any) {
+      if (err?.digest && String(err.digest).includes("NEXT_REDIRECT")) throw err;
+      redirect(
+        buildSourcesNoticeUrl(stickyQueryString, `Status update exception: ${describeActionError(err)}`)
+      );
+    }
   }
 
   async function quickAction(formData: FormData) {
     "use server";
     await requireAdmin();
-    const id = String(formData.get("id") || "");
-    const action = String(formData.get("action") || "");
-    const redirectUrl = formData.get("redirect") as string | null;
-    const updates: any = {};
-    if (action === "keep") {
-      updates.review_status = "keep";
-      updates.is_active = true;
-    } else if (action === "dead") {
-      updates.review_status = "dead";
-      updates.is_active = false;
-    } else if (action === "login") {
-      updates.review_status = "login_required";
-      updates.is_active = false;
-    } else if (action === "js_only") {
-      updates.review_status = "js_only";
-      updates.is_active = false;
-    } else if (action === "paywalled") {
-      updates.review_status = "paywalled";
-      updates.is_active = false;
-    } else if (action === "blocked") {
-      updates.review_status = "blocked_403";
-      const now = new Date();
-      now.setDate(now.getDate() + 7);
-      updates.ignore_until = now.toISOString();
-      updates.is_active = false;
-    } else if (action === "clear_block") {
-      updates.review_status = "needs_review";
-      updates.ignore_until = null;
-      updates.is_active = true;
+    try {
+      const id = String(formData.get("id") || "");
+      const action = String(formData.get("action") || "");
+      const redirectUrl = formData.get("redirect") as string | null;
+      const updates: any = {};
+      if (action === "keep") {
+        updates.review_status = "keep";
+        updates.is_active = true;
+      } else if (action === "dead") {
+        updates.review_status = "dead";
+        updates.is_active = false;
+      } else if (action === "login") {
+        updates.review_status = "login_required";
+        updates.is_active = false;
+      } else if (action === "js_only") {
+        updates.review_status = "js_only";
+        updates.is_active = false;
+      } else if (action === "paywalled") {
+        updates.review_status = "paywalled";
+        updates.is_active = false;
+      } else if (action === "blocked") {
+        updates.review_status = "blocked_403";
+        const now = new Date();
+        now.setDate(now.getDate() + 7);
+        updates.ignore_until = now.toISOString();
+        updates.is_active = false;
+      } else if (action === "clear_block") {
+        updates.review_status = "needs_review";
+        updates.ignore_until = null;
+        updates.is_active = true;
+      }
+      if (!Object.keys(updates).length) {
+        redirect(redirectUrl || sourcesBasePath);
+      }
+      const { error } = await supabaseAdmin
+        .from("tournament_sources" as any)
+        .update(updates)
+        .eq("id", id)
+        .is("tournament_id", null);
+      const msg = error ? `Quick action failed: ${describeActionError(error)}` : "Updated source";
+      const target = redirectUrl || sourcesBasePath;
+      const base = new URL(target, "http://localhost");
+      base.searchParams.set("notice", msg);
+      redirect(`${base.pathname}?${base.searchParams.toString()}`);
+    } catch (err: any) {
+      if (err?.digest && String(err.digest).includes("NEXT_REDIRECT")) throw err;
+      redirect(
+        buildSourcesNoticeUrl(stickyQueryString, `Quick action exception: ${describeActionError(err)}`)
+      );
     }
-    if (!Object.keys(updates).length) {
-      redirect(redirectUrl || sourcesBasePath);
-    }
-    const { error } = await supabaseAdmin
-      .from("tournament_sources" as any)
-      .update(updates)
-      .eq("id", id)
-      .is("tournament_id", null);
-    const msg = error ? `Quick action failed: ${error.message}` : "Updated source";
-    const target = redirectUrl || sourcesBasePath;
-    const base = new URL(target, "http://localhost");
-    base.searchParams.set("notice", msg);
-    redirect(`${base.pathname}?${base.searchParams.toString()}`);
   }
 
   async function sweepSourceAction(formData: FormData) {
@@ -251,7 +281,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     const sportRaw = String(formData.get("sport") || "soccer").toLowerCase();
     const overrideSkip = String(formData.get("override_skip") || "") === "on";
     if (!id || !sourceUrl) {
-      redirect(withNotice("Missing source URL"));
+      redirect(buildSourcesNoticeUrl(stickyQueryString, "Missing source URL"));
     }
 
     const sport = TOURNAMENT_SPORTS.includes(sportRaw as any) ? (sportRaw as any) : "soccer";
@@ -263,7 +293,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       .maybeSingle();
     const registryRow = row as any;
     if (rowError || !registryRow) {
-      redirect(withNotice("Source not found"));
+      redirect(buildSourcesNoticeUrl(stickyQueryString, "Source not found"));
     }
     await supabaseAdmin
       .from("tournament_sources" as any)
@@ -277,7 +307,13 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     const skipReason = getSkipReason(registryRow);
     if (skipReason && !overrideSkip) {
       await updateRegistrySweep(registryRow.id, "warn", `Skipped: ${skipReason}`);
-      return redirect(withNotice(`Sweep skipped: ${skipReason}. Update source status or enable override.`, { source_url: canonical }));
+      return redirect(
+        buildSourcesNoticeUrl(
+          stickyQueryString,
+          `Sweep skipped: ${skipReason}. Update source status or enable override.`,
+          { source_url: canonical }
+        )
+      );
     }
 
     await supabaseAdmin
@@ -328,7 +364,8 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         JSON.stringify({ ...payload, log_id: logId })
       );
       redirect(
-        withNotice(
+        buildSourcesNoticeUrl(
+          stickyQueryString,
           res.extracted_count && res.extracted_count > 1
             ? `Imported ${res.extracted_count} events and queued enrichment.`
             : `Created "${res.meta.name ?? res.slug}" and queued enrichment.`,
@@ -426,7 +463,11 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
           );
         }
       }
-      redirect(withNotice(`Sweep failed: ${err?.message ?? "unknown error"}`, { source_url: canonical }));
+      redirect(
+        buildSourcesNoticeUrl(stickyQueryString, `Sweep failed: ${err?.message ?? "unknown error"}`, {
+          source_url: canonical,
+        })
+      );
     }
   }
 

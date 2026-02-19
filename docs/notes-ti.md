@@ -1,4 +1,48 @@
 ## 2026-02-19
+- TI baseball/softball badge source replacements:
+  - Updated baseball source artwork:
+    - `shared-assets/svg/sports/baseball_badge.svg` (from `baseball_new_bg.svg`)
+  - Updated softball source artwork:
+    - `shared-assets/svg/sports/softball_badge.svg` (from `softball_new_bg.svg`)
+  - Synced shared assets into TI public path with `node scripts/copy-shared-svg.js`.
+
+- TI card/counter behavior refinement:
+  - Kept baseball/softball badges on counter widgets as tile backgrounds.
+  - Removed extra baseball/softball badge block overlay from tournament cards.
+  - Preserved ball icons as foreground sport icons.
+  - File:
+    - `apps/ti-web/app/tournaments/tournaments.css`
+
+- TI baseball/softball counter background refinement:
+  - Kept baseball/softball balls (`⚾`, `🥎`) as the visible sport icons in summary/cards.
+  - Applied baseball/softball SVGs as full summary-tile backgrounds for sport counters.
+  - Replaced baseball badge source with a text-free file:
+    - `/Users/roddavis/Downloads/artwork/baseball_new_bg.svg` -> `shared-assets/svg/sports/baseball_badge.svg`.
+  - Improved summary tile clarity:
+    - removed blur (`backdrop-filter`) from summary cards,
+    - added stronger readability overlay above background art,
+    - adjusted baseball background crop/zoom/position to remove frame/shadow artifacts.
+  - Related files:
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/ti-web/app/venues/page.tsx`
+    - `apps/ti-web/app/tournaments/tournaments.css`
+    - `shared-assets/svg/sports/baseball_badge.svg`
+
+- TI sport badge/card refresh for baseball + softball:
+  - Added shared badge assets:
+    - `shared-assets/svg/sports/baseball_badge.svg`
+    - `shared-assets/svg/sports/softball_badge.svg`
+  - Replaced baseball tournament counter/card icon usage with `baseball_badge.svg`.
+  - Added softball icon rendering in TI tournament + venue listing sport icons.
+  - Added TI `bg-sport-softball` mapping and sport surface/card CSS treatment so softball cards/details get sport-specific presentation.
+  - Updated files:
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - `apps/ti-web/app/venues/page.tsx`
+    - `apps/ti-web/app/tournaments/tournaments.css`
+  - Asset sync run:
+    - `node scripts/copy-shared-svg.js`
+
 - Cross-app ops note:
   - Fixed RI `/admin/tournaments/sources` production render issue by avoiding closure-captured `URLSearchParams` in server actions.
   - RI-only runtime fix; no TI page behavior changes.

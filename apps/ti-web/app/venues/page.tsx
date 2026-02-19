@@ -93,6 +93,7 @@ function venueIcon(sports: string[]) {
   if (sports.includes("basketball")) return "🏀";
   if (sports.includes("football")) return "🏈";
   if (sports.includes("baseball")) return "⚾";
+  if (sports.includes("softball")) return "🥎";
   return "📍";
 }
 

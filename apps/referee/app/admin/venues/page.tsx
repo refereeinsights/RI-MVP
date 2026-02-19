@@ -11,6 +11,7 @@ type VenueRow = {
   name: string | null;
   address1?: string | null;
   address?: string | null;
+  venue_url?: string | null;
   city: string | null;
   state: string | null;
   zip?: string | null;

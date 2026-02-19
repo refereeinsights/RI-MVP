@@ -63,9 +63,7 @@ function monthOptions(count = 9) {
 
 function sportIcon(sport: string | null) {
   const normalized = (sport ?? "").toLowerCase();
-  if (normalized === "lacrosse") {
-    return <img className="sportSvgIcon" src="/brand/lacrosse_icon.svg" alt="" />;
-  }
+  if (normalized === "lacrosse") return <img className="sportSvgIcon" src="/brand/lacrosse_icon.svg" alt="" />;
   switch (normalized) {
     case "soccer":
       return "⚽";
@@ -73,6 +71,8 @@ function sportIcon(sport: string | null) {
       return "🏈";
     case "baseball":
       return "⚾";
+    case "softball":
+      return "🥎";
     case "basketball":
       return "🏀";
     default:
@@ -94,6 +94,7 @@ function getSportCardClass(sport: string | null) {
     basketball: "bg-sport-basketball",
     football: "bg-sport-football",
     baseball: "bg-sport-baseball",
+    softball: "bg-sport-softball",
   };
   return map[normalized] ?? "bg-sport-default";
 }

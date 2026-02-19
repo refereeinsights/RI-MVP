@@ -16,6 +16,7 @@ export type VenueItem = {
   sport?: string | null;
   address1?: string | null;
   address?: string | null;
+  venue_url?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   field_type?: string | null;
@@ -47,6 +48,7 @@ type Props = {
 };
 
 export default function VenueRow({ venue, onUpdated }: Props) {
+  const [hidden, setHidden] = useState(false);
   const [open, setOpen] = useState(false);
   const [tournaments, setTournaments] = useState<Tournament[]>(venue.tournaments || []);
   const [search, setSearch] = useState("");
@@ -113,6 +115,8 @@ export default function VenueRow({ venue, onUpdated }: Props) {
     }
   };
 
+  if (hidden) return null;
+
   return (
     <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, background: "#fff", overflow: "hidden" }}>
       <button
@@ -140,11 +144,16 @@ export default function VenueRow({ venue, onUpdated }: Props) {
         <div style={{ padding: 12, display: "grid", gap: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div style={{ fontFamily: "monospace", fontSize: 12, color: "#374151" }}>{venue.id}</div>
-            <VenueActions venueId={venue.id} />
+            <VenueActions venueId={venue.id} onRemoveFromList={() => setHidden(true)} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>
             <InfoItem label="Address" value={venue.address1 || venue.address || "—"} />
+            <InfoItem
+              label="Venue URL"
+              value={venue.venue_url || "—"}
+              href={venue.venue_url || undefined}
+            />
             <InfoItem label="City/State/ZIP" value={[venue.city, venue.state, venue.zip].filter(Boolean).join(", ") || "—"} />
             <InfoItem
               label="Geo"
@@ -305,11 +314,22 @@ function boolText(val: boolean | null | undefined) {
   return "—";
 }
 
-function InfoItem({ label, value }: { label: string; value: string }) {
+function InfoItem({ label, value, href }: { label: string; value: string; href?: string }) {
   return (
     <div style={{ fontSize: 13 }}>
       <div style={{ color: "#4b5563" }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value}</div>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          style={{ fontWeight: 600, color: "#2563eb", textDecoration: "none", wordBreak: "break-all" }}
+        >
+          {value}
+        </a>
+      ) : (
+        <div style={{ fontWeight: 600 }}>{value}</div>
+      )}
     </div>
   );
 }

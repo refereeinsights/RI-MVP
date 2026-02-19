@@ -115,6 +115,8 @@ function sportIcon(sport: string | null) {
       return "🏈";
     case "baseball":
       return "⚾";
+    case "softball":
+      return "🥎";
     case "basketball":
       return "🏀";
     default:

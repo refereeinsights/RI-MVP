@@ -416,6 +416,43 @@
 .summaryGrid .card {
   text-decoration: none;
   color: inherit;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background-color: transparent;
+}
+
+.summaryGrid .card--mini > * {
+  position: relative;
+  z-index: 1;
+}
+
+.summaryGrid .card.bg-sport-baseball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
+    url("/svg/sports/baseball_badge.svg");
+  background-size: cover, 172% auto;
+  background-position: center, center 53%;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.summaryGrid .card.bg-sport-softball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
+    url("/svg/sports/softball_badge.svg");
+  background-size: cover, 180% auto;
+  background-position: center, center 62%;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.summaryGrid .card.bg-sport-baseball::after,
+.summaryGrid .card.bg-sport-softball::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.38) 42%, rgba(0,0,0,0.20) 100%);
+  z-index: 0;
+  pointer-events: none;
 }
 
 .summaryGrid .card--mini {
@@ -557,6 +594,15 @@
   background-repeat: no-repeat;
 }
 
+.card.bg-sport-softball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/textures/soccer-turf.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 .card.bg-sport-football {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
@@ -605,6 +651,17 @@
       rgba(0,0,0,0.04) 30px 60px
     ),
     #2a2f36;
+}
+
+.detailPanel.bg-sport-softball {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.10)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255,255,255,0.05) 0 90px,
+      rgba(0,0,0,0.04) 90px 180px
+    ),
+    #163025;
 }
 
 .detailPanel.bg-sport-football {
@@ -964,6 +1021,7 @@
 .detailHero.bg-sport-soccer,
 .detailHero.bg-sport-basketball,
 .detailHero.bg-sport-baseball,
+.detailHero.bg-sport-softball,
 .detailHero.bg-sport-football {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
@@ -983,9 +1041,21 @@
 .detailHero.bg-sport-baseball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/svg/sports/baseball_badge.svg"),
     url("/textures/baseball-field.svg");
-  background-size: cover;
-  background-position: center;
+  background-size: cover, 120px 120px, cover;
+  background-position: center, center calc(100% - 14px), center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+}
+
+.detailHero.bg-sport-softball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/svg/sports/softball_badge.svg"),
+    url("/textures/soccer-turf.svg");
+  background-size: cover, 120px 120px, cover;
+  background-position: center, center calc(100% - 14px), center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
 }
 
 .detailHero.bg-sport-football {
@@ -1656,6 +1726,14 @@
   background-position: center;
   background-repeat: no-repeat;
 }
+.schoolsPage .card.bg-sport-softball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/textures/soccer-turf.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
 .schoolsPage .grid {
   justify-items: center;
 }
@@ -1760,6 +1838,11 @@
   background: rgba(239, 68, 68, 0.2);
   border-color: rgba(239, 68, 68, 0.35);
   color: #fff0f0;
+}
+.schoolsPage .sportChip.sport-softball {
+  background: rgba(244, 114, 182, 0.2);
+  border-color: rgba(244, 114, 182, 0.35);
+  color: #fff0f8;
 }
 
 .schoolsPage .cardWhistle {
