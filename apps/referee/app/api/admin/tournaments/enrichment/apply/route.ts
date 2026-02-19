@@ -148,6 +148,9 @@ export async function POST(request: Request) {
       } else if (key === "games_guaranteed") {
         const num = parseInt(String(value).replace(/[^0-9]/g, ""), 10);
         if (Number.isFinite(num)) updates.games_guaranteed = num;
+      } else if (key === "player_parking") {
+        const text = cleanText(value);
+        if (text) updates.player_parking = text;
       } else if (key === "address") {
         const text = cleanText(value);
         if (text) {

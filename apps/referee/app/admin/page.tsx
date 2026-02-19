@@ -1888,6 +1888,7 @@ export default async function AdminPage({
         age_group: stringOrNull("age_group"),
         team_fee: stringOrNull("team_fee"),
         games_guaranteed: intOrNull("games_guaranteed"),
+        player_parking: stringOrNull("player_parking"),
         summary,
         referee_pay: stringOrNull("referee_pay"),
         referee_contact: stringOrNull("referee_contact"),
@@ -3396,6 +3397,16 @@ export default async function AdminPage({
                         min="0"
                         step="1"
                         defaultValue={t.games_guaranteed ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Player parking
+                      <input
+                        type="text"
+                        name="player_parking"
+                        placeholder="e.g. $20 or free"
+                        defaultValue={(t as any).player_parking ?? ""}
                         style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
                       />
                     </label>

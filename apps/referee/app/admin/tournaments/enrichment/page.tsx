@@ -132,7 +132,7 @@ async function fetchTournamentsByIds(ids: string[]) {
     const resp = await supabaseAdmin
       .from("tournaments" as any)
       .select(
-        "id,name,slug,state,city,source_url,official_website_url,start_date,end_date,tournament_director,tournament_director_email,referee_contact,referee_contact_email,team_fee,games_guaranteed,address,venue_url"
+        "id,name,slug,state,city,source_url,official_website_url,start_date,end_date,tournament_director,tournament_director_email,referee_contact,referee_contact_email,team_fee,games_guaranteed,player_parking,address,venue_url"
       )
       .in("id", chunk);
     if (resp.error) throw resp.error;
@@ -206,7 +206,7 @@ async function loadData() {
       .select("tournament_id,attribute_key,created_at,tournaments(name)")
       .is("accepted_at", null)
       .is("rejected_at", null)
-      .in("attribute_key", ["team_fee", "games_guaranteed", "address", "venue_url"])
+      .in("attribute_key", ["team_fee", "games_guaranteed", "player_parking", "address", "venue_url"])
       .order("created_at", { ascending: false })
       .limit(300),
   ]);
@@ -248,6 +248,7 @@ async function loadData() {
     const fieldByAttribute: Record<string, string> = {
       team_fee: "team_fee",
       games_guaranteed: "games_guaranteed",
+      player_parking: "player_parking",
       address: "address",
       venue_url: "venue_url",
     };

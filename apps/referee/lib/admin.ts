@@ -905,6 +905,7 @@ export type AdminListedTournament = {
   age_group?: string | null;
   team_fee?: string | null;
   games_guaranteed?: number | null;
+  player_parking?: string | null;
   summary?: string | null;
   referee_pay?: string | null;
   referee_contact?: string | null;
@@ -925,7 +926,7 @@ export async function adminSearchPublishedTournaments(
   let request = supabaseAdmin
     .from("tournaments")
     .select(
-      "id,name,slug,sport,level,level_of_competition,sub_type,cash_tournament,cash_at_field,tournament_staff_verified,referee_food,facilities,referee_tents,travel_lodging,ref_game_schedule,ref_parking,ref_parking_cost,mentors,assigned_appropriately,state,city,zip,venue,address,venue_url,start_date,end_date,age_group,team_fee,games_guaranteed,summary,referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,official_website_url,source_url,source_domain"
+      "id,name,slug,sport,level,level_of_competition,sub_type,cash_tournament,cash_at_field,tournament_staff_verified,referee_food,facilities,referee_tents,travel_lodging,ref_game_schedule,ref_parking,ref_parking_cost,mentors,assigned_appropriately,state,city,zip,venue,address,venue_url,start_date,end_date,age_group,team_fee,games_guaranteed,player_parking,summary,referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,official_website_url,source_url,source_domain"
     )
     .eq("status", "published")
     .eq("is_canonical", true)
@@ -995,6 +996,7 @@ export async function adminUpdateTournamentDetails(params: {
     age_group: string | null;
     team_fee: string | null;
     games_guaranteed: number | null;
+    player_parking: string | null;
     summary: string | null;
     referee_pay: string | null;
     referee_contact: string | null;

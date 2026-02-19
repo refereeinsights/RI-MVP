@@ -41,6 +41,10 @@ function extractFee(text: string): string | null {
       return `$${amount} ${formatChunk}`;
     }
   );
+  const noParking = normalized
+    .replace(/parking[^$]{0,64}\$\s*[0-9]{1,4}(?:\.[0-9]{2})?/gi, " ")
+    .replace(/\$\s*[0-9]{1,4}(?:\.[0-9]{2})?[^A-Za-z]{0,8}(?:per\s+car|car|vehicle)?[^A-Za-z]{0,8}parking/gi, " ");
+
   const entries: string[] = [];
   const seen = new Set<string>();
   const maxEntries = 12;
@@ -61,7 +65,7 @@ function extractFee(text: string): string | null {
   };
   // `7v7 | U6-U10 | $795` and similar table/card patterns.
   const structured = Array.from(
-    normalized.matchAll(
+    noParking.matchAll(
       /(?:\b(\d{1,2}\s*v\s*\d{1,2}|\d{1,2}v\d{1,2}|11v11)\b\s*\|\s*)?(U\s*\d{1,2}(?:\s*\/\s*\d{2,4})?\s*-\s*U?\s*\d{1,2}(?:\s*\/\s*\d{2,4})?|U\s*\d{1,2}\s*\+?)\s*\|\s*\$\s*([0-9]{2,5}(?:\.[0-9]{2})?)(?!\d)/gi
     )
   );
@@ -73,7 +77,7 @@ function extractFee(text: string): string | null {
 
   // `U7/2019 - U10/2016: $675` and bullet/list variants.
   const ageRanges = Array.from(
-    normalized.matchAll(
+    noParking.matchAll(
       /(U\s*\d{1,2}(?:\s*\/\s*\d{2,4})?\s*-\s*U?\s*\d{1,2}(?:\s*\/\s*\d{2,4})?|U\s*\d{1,2}\s*\+?)\s*[:|]?\s*\$\s*([0-9]{2,5}(?:\.[0-9]{2})?)/gi
     )
   );
@@ -84,7 +88,7 @@ function extractFee(text: string): string | null {
 
   // `Entry Fee: 7v7 $845 9v9 $975 11v11 $1045` and table row style formats.
   const formatFees = Array.from(
-    normalized.matchAll(
+    noParking.matchAll(
       /\b(\d{1,2}\s*v\s*\d{1,2}|\d{1,2}v\d{1,2}|11v11)\b\s*[:|]?\s*\$\s*([0-9]{2,5}(?:\.[0-9]{2})?)(?!\d)/gi
     )
   );
@@ -94,13 +98,23 @@ function extractFee(text: string): string | null {
 
   if (entries.length) return entries.join(" | ");
 
-  const m = normalized.match(/\$\s*([0-9]{2,5}(?:\.[0-9]{2})?)/);
+  const m = noParking.match(/\$\s*([0-9]{2,5}(?:\.[0-9]{2})?)/);
   return m ? normalizeAmount(m[1]) : null;
 }
 
 function extractGames(text: string): string | null {
   const m = text.match(/(\d+)\s*(?:game|gms)\s+guarantee/i);
   return m ? m[1] : null;
+}
+
+function extractPlayerParking(text: string): string | null {
+  const normalized = text.replace(/[–—]/g, "-").replace(/\s+/g, " ");
+  const direct = normalized.match(/parking[^$]{0,48}\$\s*([0-9]{1,4}(?:\.[0-9]{2})?)/i);
+  if (direct) return `$${direct[1]}`;
+  const reverse = normalized.match(/\$\s*([0-9]{1,4}(?:\.[0-9]{2})?)[^A-Za-z]{0,6}(?:per\s+car|car|vehicle)?[^A-Za-z]{0,6}parking/i);
+  if (reverse) return `$${reverse[1]}`;
+  if (/\bfree parking\b/i.test(normalized)) return "free";
+  return null;
 }
 
 function extractAddress(text: string): string | null {
@@ -159,7 +173,7 @@ export async function POST(request: Request) {
       .eq("status", "published")
       .eq("is_canonical", true)
       .eq("enrichment_skip", false)
-      .or("team_fee.is.null,games_guaranteed.is.null,venue.is.null,address.is.null,venue_url.is.null")
+      .or("team_fee.is.null,games_guaranteed.is.null,player_parking.is.null,venue.is.null,address.is.null,venue_url.is.null")
       .order("fees_venue_scraped_at", { ascending: true, nullsFirst: true })
       .limit(candidatePoolSize);
 
@@ -172,7 +186,7 @@ export async function POST(request: Request) {
         .eq("status", "published")
         .eq("is_canonical", true)
         .eq("enrichment_skip", false)
-        .or("team_fee.is.null,games_guaranteed.is.null,venue.is.null,address.is.null,venue_url.is.null")
+        .or("team_fee.is.null,games_guaranteed.is.null,player_parking.is.null,venue.is.null,address.is.null,venue_url.is.null")
         .limit(candidatePoolSize);
       if (!retryWithoutCooldown.error) return retryWithoutCooldown;
       if (!/column .* does not exist/i.test(retryWithoutCooldown.error.message)) return retryWithoutCooldown;
@@ -218,7 +232,7 @@ export async function POST(request: Request) {
     .select("tournament_id")
     .is("accepted_at", null)
     .is("rejected_at", null)
-    .in("attribute_key", ["team_fee", "games_guaranteed", "address", "venue_url"])
+    .in("attribute_key", ["team_fee", "games_guaranteed", "player_parking", "address", "venue_url"])
     .limit(10000);
   const pendingTournamentIds = new Set(
     ((pendingRows ?? []) as Array<{ tournament_id: string | null }>).map((r) => String(r.tournament_id ?? "")).filter(Boolean)
@@ -271,6 +285,17 @@ export async function POST(request: Request) {
         source_url: url,
       });
       found.push("games_guaranteed");
+    }
+
+    const playerParking = extractPlayerParking(text);
+    if (playerParking) {
+      candidates.push({
+        tournament_id: t.id,
+        attribute_key: "player_parking",
+        attribute_value: playerParking,
+        source_url: url,
+      });
+      found.push("player_parking");
     }
 
     const address = extractAddress(text);
@@ -369,7 +394,7 @@ export async function POST(request: Request) {
           ok: false,
           error: isValueConstraint ? "attribute_constraint_outdated" : "insert_candidates_failed",
           detail: isValueConstraint
-            ? "DB constraint tournament_attribute_candidates_value_check does not currently allow one or more scraped fee/venue values. Update the constraint to allow team_fee/games_guaranteed/address/venue_url formats."
+            ? "DB constraint tournament_attribute_candidates_value_check does not currently allow one or more scraped fee/venue values. Update the constraint to allow team_fee/games_guaranteed/player_parking/address/venue_url formats."
             : insertError.message,
           attempted,
           parsed_candidates: candidates.length,

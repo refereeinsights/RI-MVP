@@ -239,6 +239,7 @@ export default function EnrichmentClient({
     const attributeLabels: Record<string, string> = {
       team_fee: "Team fee",
       games_guaranteed: "Games guaranteed",
+      player_parking: "Player parking",
       address: "Address",
       venue_url: "Venue URL",
     };
@@ -1274,6 +1275,7 @@ export default function EnrichmentClient({
             const labelFor: Record<string, string> = {
               team_fee: "Team fee",
               games_guaranteed: "Games guaranteed",
+              player_parking: "Player parking",
               address: "Address",
               venue_url: "Venue URL",
             };
