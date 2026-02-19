@@ -64,9 +64,11 @@ function formatDate(iso: string | null) {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-function toWhistleScore(aiScore: number | null) {
-  if (!Number.isFinite(aiScore ?? NaN)) return null;
-  return Math.max(1, Math.min(5, (aiScore ?? 0) / 20));
+function toWhistleScore(aiScore: number | string | null | undefined) {
+  if (aiScore === null || aiScore === undefined || aiScore === "") return null;
+  const value = Number(aiScore);
+  if (!Number.isFinite(value)) return null;
+  return Math.max(1, Math.min(5, value / 20));
 }
 
 function monthOptions(count = 9) {
@@ -220,6 +222,29 @@ export default async function TournamentsPage({
     tournamentsData.map((t) => ({ id: t.id, slug: t.slug }))
   );
   const whistleMap = await loadWhistleScores(supabase, seriesMap);
+  const demoSlug = "refereeinsights-demo-tournament";
+  const demoTournament = tournamentsData.find((t) => t.slug === demoSlug);
+  if (demoTournament) {
+    const existing = whistleMap.get(demoTournament.id);
+    const existingReviews = Number(existing?.review_count ?? 0);
+    if (!Number.isFinite(existingReviews) || existingReviews <= 0) {
+      const { data: demoScore } = await supabase
+        .from("tournament_referee_scores")
+        .select("ai_score,review_count,summary,status,updated_at")
+        .eq("tournament_id", demoTournament.id)
+        .maybeSingle();
+      if (demoScore) {
+        whistleMap.set(demoTournament.id, {
+          tournament_id: demoTournament.id,
+          ai_score: Number(demoScore.ai_score ?? 0) || null,
+          review_count: Number(demoScore.review_count ?? 0) || 0,
+          summary: demoScore.summary ?? null,
+          status: (demoScore.status as RefereeWhistleScore["status"]) ?? "clear",
+          updated_at: demoScore.updated_at ?? null,
+        });
+      }
+    }
+  }
   const months = monthOptions(9);
   const reviewedTournaments = reviewedOnly
     ? tournamentsData.filter((t) => (whistleMap.get(t.id)?.review_count ?? 0) > 0)
@@ -272,7 +297,6 @@ export default async function TournamentsPage({
     });
   }
 
-  const demoSlug = "refereeinsights-demo-tournament";
   const tournamentsSorted = [...tournaments].sort((a, b) => {
     if (a.slug === demoSlug && b.slug !== demoSlug) return -1;
     if (b.slug === demoSlug && a.slug !== demoSlug) return 1;

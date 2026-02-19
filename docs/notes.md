@@ -551,6 +551,27 @@
   - `Priority outreach targets (missing both emails + dates)` now filters to `sport='soccer'` in `apps/referee/app/admin/tournaments/enrichment/page.tsx`.
 
 ## 2026-02-19
+- Tournament card sport-container background refresh (TI + RI):
+  - Added new shared container art assets under `shared-assets/svg/sports/`:
+    - `stadium_image_container.svg` (initial pass)
+    - `soccer_container.svg`
+    - `basketball_court_container.svg`
+    - `baseball_container.svg`
+    - `softball_container.svg`
+    - `football_container.svg`
+    - `lacrosse_container.svg`
+    - `hockey_container.svg`
+  - Updated tournament card container backgrounds in both apps:
+    - `apps/ti-web/app/tournaments/tournaments.css`
+    - `apps/referee/app/tournaments/tournaments.css`
+  - Applied zoomed container fill (`background-size: ... 230% auto`) for sport-specific cards to avoid centered/narrow image rendering and eliminate gray edge gaps.
+  - Added dedicated lacrosse and hockey container classes (`bg-sport-lacrosse`, `bg-sport-hockey`) and updated sport-to-class mapping:
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/referee/lib/ui/sportBackground.ts`
+- RI tournament card whistle display fix for demo tournament:
+  - Hardened `toWhistleScore` parsing in `apps/referee/app/tournaments/page.tsx` so `null/undefined/""` do not render a false score, while string numerics (e.g., `"70.00"`) still parse correctly.
+  - Added targeted fallback: when the demo tournament (`refereeinsights-demo-tournament`) has no aggregated whistle row, RI now directly reads `tournament_referee_scores` by that tournament ID and injects it into card rendering.
+
 - Venues admin save hardening + UX cleanup:
   - Fixed `venues_venue_type_allowed` failures by normalizing venue type inputs in create/update API routes (`sports complex` now maps to `complex`; only `complex|school|stadium|park` are persisted).
   - Added timezone auto-fill in venue create/update APIs from coordinates via Google Time Zone API; if lat/lng is missing, APIs geocode address first and then derive timezone.

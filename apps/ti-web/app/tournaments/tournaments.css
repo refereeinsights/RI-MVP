@@ -609,47 +609,65 @@
 .card.bg-sport-soccer {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
-    url("/textures/soccer-turf.svg");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+    url("/svg/sports/soccer_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.card.bg-sport-lacrosse {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/svg/sports/lacrosse_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
 }
 
 .card.bg-sport-basketball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
-    url("/textures/basketball-court.svg");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+    url("/svg/sports/basketball_court_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   border-color: rgba(255,255,255,0.35);
 }
 
 .card.bg-sport-baseball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
-    url("/textures/baseball-field.svg");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+    url("/svg/sports/baseball_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
 }
 
 .card.bg-sport-softball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
-    url("/textures/soccer-turf.svg");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+    url("/svg/sports/softball_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
 }
 
 .card.bg-sport-football {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
-    url("/textures/football-field.svg");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+    url("/svg/sports/football_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.card.bg-sport-hockey {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/svg/sports/hockey_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
 }
 
 /* Detail panel sport surfaces */

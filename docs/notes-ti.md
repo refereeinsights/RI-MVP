@@ -1,4 +1,17 @@
 ## 2026-02-19
+- Sport container background rollout for tournament cards:
+  - Added new shared container assets and switched TI sport card containers to use them:
+    - `soccer_container.svg`, `lacrosse_container.svg`, `basketball_court_container.svg`,
+      `baseball_container.svg`, `softball_container.svg`, `football_container.svg`, `hockey_container.svg`.
+  - Updated TI sport mapping to dedicated classes for lacrosse + hockey:
+    - `lacrosse -> bg-sport-lacrosse`
+    - `hockey -> bg-sport-hockey`
+  - Updated TI container CSS to use zoomed fill (`230%`) so sport art fills the card container cleanly without gray framing:
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/ti-web/app/tournaments/tournaments.css`
+  - Shared asset source-of-truth:
+    - `shared-assets/svg/sports/*_container.svg`
+
 - TI tournament counters: new custom background assets by sport:
   - Added dedicated counter backgrounds for:
     - soccer (`/svg/sports/soccer_count_badge.svg`)
