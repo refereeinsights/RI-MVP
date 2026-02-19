@@ -89,7 +89,7 @@ begin
       is_canonical
     )
     values (
-      'RefereeInsights Demo Tournament',
+      'Demo Tournament',
       'refereeinsights-demo-tournament',
       'soccer',
       'youth',

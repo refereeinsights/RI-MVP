@@ -18,11 +18,11 @@ export type VenueItem = {
   address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
-  surface?: string | null;
   field_type?: string | null;
   indoor?: boolean | null;
   lighting?: boolean | null;
   field_lighting?: boolean | null;
+  amenities?: string | null;
   parking_notes?: string | null;
   field_rating?: number | null;
   venue_type?: string | null;
@@ -150,10 +150,10 @@ export default function VenueRow({ venue, onUpdated }: Props) {
                 venue.latitude && venue.longitude ? `${venue.latitude.toFixed(5)}, ${venue.longitude.toFixed(5)}` : "—"
               }
             />
-            <InfoItem label="Surface" value={venue.surface || "—"} />
             <InfoItem label="Field type" value={venue.field_type || "—"} />
             <InfoItem label="Indoor" value={boolText(venue.indoor)} />
             <InfoItem label="Lighting" value={boolText(venue.lighting ?? venue.field_lighting)} />
+            <InfoItem label="Amenities" value={venue.amenities || "—"} />
             <InfoItem label="Parking" value={venue.parking_notes || "—"} />
             <InfoItem label="Field rating" value={venue.field_rating ? `${venue.field_rating}/5` : "—"} />
             <InfoItem label="Venue type" value={venue.venue_type || "—"} />

@@ -1,6 +1,22 @@
 # Running Notes
 
 ## 2026-02-19
+- TI directory/demo polish:
+  - TI tournament listing now pins `refereeinsights-demo-tournament` to the top regardless of date sort.
+  - Updated locked premium teaser copy to use lowercase `food vendors`.
+  - Demo tournament display rename prepared:
+    - Updated seed name to `Demo Tournament` in `supabase/migrations/20260206_demo_reviews.sql`.
+    - Added forward data migration to rename existing row by slug:
+      - `supabase/migrations/20260219_demo_tournament_rename.sql`.
+
+- Venue admin/edit hardening:
+  - Removed `surface` from admin venue create/edit/list views and from venue update/create API payload handling.
+  - Likely fix for generic "update failed" when DBs do not have a `venues.surface` column.
+  - Venue update API now returns the underlying DB error message (instead of generic `update_failed`) to make future failures diagnosable in UI.
+  - Expanded admin venue field coverage:
+    - Added `lighting` and `amenities` to venue edit/create UI and API update/create handling.
+    - Added `amenities` display in venues list row details.
+
 - Admin tournament listings UX:
   - In the tournament edit/listings admin view, linked venues are now clickable and open venue details/edit pages.
   - Updated `apps/referee/app/admin/page.tsx` so each linked venue item routes to `/admin/venues/{venueId}`.

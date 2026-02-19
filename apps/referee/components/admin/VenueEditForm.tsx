@@ -37,11 +37,11 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
     normalized_address: venue.normalized_address ?? "",
     geocode_source: venue.geocode_source ?? "",
     timezone: venue.timezone ?? "",
-    surface: venue.surface ?? "",
     field_type: venue.field_type ?? "",
     indoor: venue.indoor ?? "",
     lighting: venue.lighting ?? "",
     field_lighting: venue.field_lighting ?? "",
+    amenities: venue.amenities ?? "",
     ref_paid_parking: venue.ref_paid_parking ?? "",
     parking_notes: venue.parking_notes ?? "",
     field_rating: venue.field_rating ?? "",
@@ -114,13 +114,14 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
         </div>
 
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-          <Input label="Surface" value={form.surface} onChange={(v) => setField("surface", v)} />
           <Input label="Field type" value={form.field_type} onChange={(v) => setField("field_type", v)} />
           <SelectBoolean label="Indoor" value={form.indoor} onChange={(v) => setField("indoor", v)} />
+          <SelectBoolean label="Lighting" value={form.lighting} onChange={(v) => setField("lighting", v)} />
           <SelectBoolean label="Field lighting" value={form.field_lighting} onChange={(v) => setField("field_lighting", v)} />
         </div>
 
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+          <Input label="Amenities" value={form.amenities} onChange={(v) => setField("amenities", v)} />
           <Input label="Parking notes" value={form.parking_notes} onChange={(v) => setField("parking_notes", v)} />
           <Input label="Field rating (1-5)" value={form.field_rating} onChange={(v) => setField("field_rating", v)} />
           <Input label="Venue type (complex/school/stadium/park)" value={form.venue_type} onChange={(v) => setField("venue_type", v)} />

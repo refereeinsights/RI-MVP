@@ -71,6 +71,7 @@ export async function POST(request: Request) {
   const notes = typeof payload?.notes === "string" ? payload.notes.trim() : null;
   const sport = typeof payload?.sport === "string" ? payload.sport.trim().toLowerCase() : "";
   const venueUrl = typeof payload?.venue_url === "string" ? payload.venue_url.trim() : "";
+  const amenities = typeof payload?.amenities === "string" ? payload.amenities.trim() : "";
   const paidParking = payload?.ref_paid_parking === true || payload?.ref_paid_parking === "true";
   const tournamentIds: string[] = Array.isArray(payload?.tournament_ids)
     ? (payload.tournament_ids as any[]).map(String).filter(Boolean)
@@ -106,6 +107,7 @@ export async function POST(request: Request) {
     latitude,
     longitude,
     venue_url: venueUrl || null,
+    amenities: amenities || null,
     ref_paid_parking: paidParking || null,
   };
 

@@ -366,7 +366,7 @@ export default async function TournamentDetailPage({ params }: { params: { slug:
             {!isPaid ? (
               <div className="detailCard__body premiumDetailCard__body">
                 <p className="premiumDetailCard__copy">
-                  Locked — Upgrade to view Food vendors, restrooms, amenities, travel/lodging notes.
+                  Locked — Upgrade to view food vendors, restrooms, amenities, travel/lodging notes.
                 </p>
                 <div className="detailLinksRow">
                   <Link className="secondaryLink" href="/pricing">

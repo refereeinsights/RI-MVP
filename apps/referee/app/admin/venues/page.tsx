@@ -21,11 +21,11 @@ type VenueRow = {
   normalized_address?: string | null;
   geocode_source?: string | null;
   timezone?: string | null;
-  surface?: string | null;
   field_type?: string | null;
   indoor?: boolean | null;
   lighting?: boolean | null;
   field_lighting?: boolean | null;
+  amenities?: string | null;
   parking_notes?: string | null;
   field_rating?: number | null;
   venue_type?: string | null;

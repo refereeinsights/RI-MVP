@@ -17,10 +17,10 @@ type VenueUpdatePayload = {
   normalized_address?: string | null;
   geocode_source?: string | null;
   timezone?: string | null;
-  surface?: string | null;
   field_type?: string | null;
   indoor?: boolean | null;
   lighting?: boolean | null;
+  amenities?: string | null;
   parking_notes?: string | null;
   field_rating?: number | null;
   venue_type?: string | null;
@@ -133,10 +133,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     normalized_address: cleanString(payload?.normalized_address) ?? undefined,
     geocode_source: cleanString(payload?.geocode_source) ?? undefined,
     timezone: cleanString(payload?.timezone) ?? undefined,
-    surface: cleanString(payload?.surface) ?? undefined,
     field_type: cleanString(payload?.field_type) ?? undefined,
     indoor: cleanBool(payload?.indoor) ?? undefined,
     lighting: cleanBool(payload?.lighting) ?? undefined,
+    amenities: cleanString(payload?.amenities) ?? undefined,
     parking_notes: cleanString(payload?.parking_notes) ?? undefined,
     field_rating: cleanNumber(payload?.field_rating) ?? undefined,
     venue_type: cleanString(payload?.venue_type) ?? undefined,
@@ -163,7 +163,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   if (error) {
     console.error("Admin venue update failed", error);
-    return NextResponse.json({ error: "update_failed" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "update_failed" }, { status: 500 });
   }
 
   if (tournamentIds) {

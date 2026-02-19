@@ -28,8 +28,8 @@ export function NewVenueForm() {
   const [venueUrl, setVenueUrl] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
-  const [surface, setSurface] = useState("");
   const [fieldType, setFieldType] = useState("");
+  const [amenities, setAmenities] = useState("");
   const [indoor, setIndoor] = useState("");
   const [fieldLighting, setFieldLighting] = useState("");
   const [parkingNotes, setParkingNotes] = useState("");
@@ -72,8 +72,8 @@ export function NewVenueForm() {
           venue_url: venueUrl || undefined,
           latitude: latitude || undefined,
           longitude: longitude || undefined,
-          surface: surface || undefined,
           field_type: fieldType || undefined,
+          amenities: amenities || undefined,
           indoor: indoor === "" ? undefined : indoor === "true",
           field_lighting: fieldLighting === "" ? undefined : fieldLighting === "true",
           parking_notes: parkingNotes || undefined,
@@ -223,12 +223,12 @@ export function NewVenueForm() {
             )}
           </label>
           <label>
-            <div>Surface (optional)</div>
-            <input value={surface} onChange={(e) => setSurface(e.target.value)} style={{ width: "100%" }} />
-          </label>
-          <label>
             <div>Field type (optional)</div>
             <input value={fieldType} onChange={(e) => setFieldType(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Amenities (optional)</div>
+            <input value={amenities} onChange={(e) => setAmenities(e.target.value)} style={{ width: "100%" }} />
           </label>
           <label>
             <div>Indoor</div>

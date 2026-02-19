@@ -41,6 +41,7 @@ const SPORTS_LABELS: Record<string, string> = {
   hockey: "Hockey",
   unknown: "Unknown",
 };
+const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -212,6 +213,8 @@ export default async function TournamentsPage({
     : tournamentsBySport.filter((t) => stateSelections.includes((t.state ?? "").trim().toUpperCase()));
 
   const tournamentsSorted = [...tournaments].sort((a, b) => {
+    if (a.slug === DEMO_TOURNAMENT_SLUG && b.slug !== DEMO_TOURNAMENT_SLUG) return -1;
+    if (b.slug === DEMO_TOURNAMENT_SLUG && a.slug !== DEMO_TOURNAMENT_SLUG) return 1;
     const aDate = a.start_date || a.end_date || "";
     const bDate = b.start_date || b.end_date || "";
     return aDate.localeCompare(bDate);
