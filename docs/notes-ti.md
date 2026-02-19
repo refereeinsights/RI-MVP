@@ -1,5 +1,9 @@
 ## 2026-02-19
 - Cross-app ops note:
+  - RI admin home now includes an organized tournament/venue maintenance dashboard with missing-data widgets that deep-link into filtered edit/delete views.
+  - This change is RI-only and does not alter TI pages/components.
+
+- Cross-app ops note:
   - Added RI source-registry preservation of active filters after row actions (save/sweep/quick actions) so large source sets (including USSSA state sources) are manageable without losing selected sport/state filters.
   - RI-only change; no TI UI/behavior changes in this update.
 

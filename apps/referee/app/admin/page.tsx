@@ -96,6 +96,7 @@ type Tab =
   | "tournament-listings"
   | "owls-eye";
 type VStatus = "pending" | "approved" | "rejected";
+type MissingTournamentFilter = "venues" | "urls" | "dates" | "";
 const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
 const CONTACT_TYPES = ["assignor", "director", "general", "referee_coordinator"] as const;
 const CONTACT_STATUSES: ContactStatus[] = ["pending", "verified", "rejected"];
@@ -123,6 +124,10 @@ function safeSportsArray(value: any): string[] {
   return [];
 }
 
+function hasText(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 function redirectWithNotice(target: FormDataEntryValue | null, notice: string): never {
   const base =
     typeof target === "string" && target.length > 0 ? target : "/admin";
@@ -136,6 +141,8 @@ export default async function AdminPage({
   searchParams: {
     tab?: Tab;
     q?: string;
+    sport?: string;
+    missing?: MissingTournamentFilter;
     vstatus?: VStatus;
     rstatus?: ReviewStatus;
     cstatus?: ContactStatus;
@@ -151,6 +158,8 @@ export default async function AdminPage({
 
   const tab: Tab = (searchParams.tab as Tab) ?? "verification";
   const q = searchParams.q ?? "";
+  const tournamentSportFilter = (searchParams.sport ?? "").trim().toLowerCase();
+  const missingFilter = (searchParams.missing ?? "") as MissingTournamentFilter;
   const vstatus: VStatus = (searchParams.vstatus as VStatus) ?? "pending";
   const reviewStatus: ReviewStatus = (searchParams.rstatus as ReviewStatus) ?? "pending";
   const contactStatus: ContactStatus = (searchParams.cstatus as ContactStatus) ?? "pending";
@@ -173,6 +182,10 @@ export default async function AdminPage({
   }
   if (q) {
     params.set("q", q);
+  }
+  if (tab === "tournament-listings") {
+    if (tournamentSportFilter) params.set("sport", tournamentSportFilter);
+    if (missingFilter) params.set("missing", missingFilter);
   }
   const adminBasePath = params.toString() ? `/admin?${params.toString()}` : "/admin";
 
@@ -280,7 +293,7 @@ export default async function AdminPage({
   const pendingTournaments: AdminPendingTournament[] =
     tab === "tournament-uploads" ? await adminListPendingTournaments() : [];
   const listedTournaments: AdminListedTournament[] =
-    tab === "tournament-listings" ? await adminSearchPublishedTournaments(q) : [];
+    tab === "tournament-listings" ? await adminSearchPublishedTournaments(q, tournamentSportFilter || undefined) : [];
   const duplicateCandidates =
     tab === "tournament-listings"
       ? await supabaseAdmin
@@ -417,6 +430,21 @@ export default async function AdminPage({
       listedStaffPendingMap[row.tournament_id] = (listedStaffPendingMap[row.tournament_id] ?? 0) + 1;
     });
   }
+  const tournamentMatchesMissingFilter = (t: AdminListedTournament) => {
+    if (!missingFilter) return true;
+    if (missingFilter === "venues") {
+      const linkedCount = listedVenueMap[t.id]?.length ?? 0;
+      return linkedCount === 0 && !hasText(t.venue) && !hasText(t.address);
+    }
+    if (missingFilter === "urls") {
+      return !hasText(t.official_website_url) && !hasText(t.source_url);
+    }
+    if (missingFilter === "dates") {
+      return !hasText(t.start_date) || !hasText(t.end_date);
+    }
+    return true;
+  };
+  const displayedListedTournaments = listedTournaments.filter(tournamentMatchesMissingFilter);
   const { count: assignorNeedsReviewCount, error: assignorNeedsReviewError } =
     await supabaseAdmin
       .from("assignor_source_records" as any)
@@ -461,6 +489,59 @@ export default async function AdminPage({
   const assignorNeedsReviewLabel = assignorNeedsReviewError
     ? "—"
     : String(assignorNeedsReviewCount ?? 0);
+
+  const { data: publishedTournamentStatsRows } = await supabaseAdmin
+    .from("tournaments" as any)
+    .select("id,sport,venue,address,official_website_url,source_url,start_date,end_date")
+    .eq("status", "published")
+    .eq("is_canonical", true)
+    .limit(5000);
+
+  const tournamentStatsRows = (publishedTournamentStatsRows ?? []) as Array<{
+    id: string;
+    sport?: string | null;
+    venue?: string | null;
+    address?: string | null;
+    official_website_url?: string | null;
+    source_url?: string | null;
+    start_date?: string | null;
+    end_date?: string | null;
+  }>;
+
+  const tournamentSportCounts = new Map<string, number>();
+  let tournamentsMissingVenueCount = 0;
+  let tournamentsMissingUrlsCount = 0;
+  let tournamentsMissingDatesCount = 0;
+  tournamentStatsRows.forEach((row) => {
+    const sportKey = String(row.sport ?? "").trim().toLowerCase();
+    if (sportKey) {
+      tournamentSportCounts.set(sportKey, (tournamentSportCounts.get(sportKey) ?? 0) + 1);
+    }
+    const missingVenue = !hasText(row.venue) && !hasText(row.address);
+    const missingUrls = !hasText(row.official_website_url) && !hasText(row.source_url);
+    const missingDates = !hasText(row.start_date) || !hasText(row.end_date);
+    if (missingVenue) tournamentsMissingVenueCount += 1;
+    if (missingUrls) tournamentsMissingUrlsCount += 1;
+    if (missingDates) tournamentsMissingDatesCount += 1;
+  });
+
+  const tournamentSportCards = Array.from(tournamentSportCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([sport, count]) => ({ sport, count }));
+
+  const { data: venueStatsRows } = await supabaseAdmin
+    .from("venues" as any)
+    .select("id,address,address1,latitude,longitude,venue_url")
+    .limit(5000);
+
+  let venuesMissingAddressGeoCount = 0;
+  let venuesMissingUrlsCount = 0;
+  (venueStatsRows ?? []).forEach((row: any) => {
+    const missingAddress = !hasText(row.address1) && !hasText(row.address);
+    const missingGeo = typeof row.latitude !== "number" || typeof row.longitude !== "number";
+    if (missingAddress || missingGeo) venuesMissingAddressGeoCount += 1;
+    if (!hasText(row.venue_url)) venuesMissingUrlsCount += 1;
+  });
 
   const formatDateInput = (value?: string | null) => {
     if (!value) return "";
@@ -2243,6 +2324,123 @@ export default async function AdminPage({
         </a>
       </div>
 
+      <section
+        style={{
+          marginBottom: 20,
+          padding: 14,
+          borderRadius: 12,
+          border: "1px solid #dbe3f0",
+          background: "#f8fbff",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 900 }}>Tournaments Dashboard</h2>
+          <div style={{ fontSize: 12, color: "#475569" }}>Published canonical tournaments + venue quality queues</div>
+        </div>
+        <div
+          style={{
+            marginTop: 12,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+            gap: 10,
+          }}
+        >
+          {tournamentSportCards.map((item) => (
+            <a
+              key={item.sport}
+              href={`/admin?tab=tournament-listings&sport=${encodeURIComponent(item.sport)}`}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #cbd5e1",
+                background: "#fff",
+                textDecoration: "none",
+                color: "#0f172a",
+              }}
+            >
+              <div style={{ fontSize: 12, color: "#64748b", textTransform: "uppercase", fontWeight: 800 }}>Sport</div>
+              <div style={{ fontWeight: 900, marginTop: 2 }}>{item.sport}</div>
+              <div style={{ fontSize: 12, marginTop: 3 }}>{item.count} tournaments</div>
+            </a>
+          ))}
+          <a
+            href="/admin?tab=tournament-listings&missing=venues"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #fecaca",
+              background: "#fff",
+              textDecoration: "none",
+              color: "#7f1d1d",
+            }}
+          >
+            <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800 }}>Missing venues</div>
+            <div style={{ fontWeight: 900, marginTop: 2 }}>{tournamentsMissingVenueCount}</div>
+            <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered tournament list</div>
+          </a>
+          <a
+            href="/admin?tab=tournament-listings&missing=urls"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #fde68a",
+              background: "#fff",
+              textDecoration: "none",
+              color: "#78350f",
+            }}
+          >
+            <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800 }}>Missing URLs</div>
+            <div style={{ fontWeight: 900, marginTop: 2 }}>{tournamentsMissingUrlsCount}</div>
+            <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered tournament list</div>
+          </a>
+          <a
+            href="/admin?tab=tournament-listings&missing=dates"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #fed7aa",
+              background: "#fff",
+              textDecoration: "none",
+              color: "#7c2d12",
+            }}
+          >
+            <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800 }}>Missing dates</div>
+            <div style={{ fontWeight: 900, marginTop: 2 }}>{tournamentsMissingDatesCount}</div>
+            <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered tournament list</div>
+          </a>
+          <a
+            href="/admin/venues?missing=address_geo"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #bfdbfe",
+              background: "#fff",
+              textDecoration: "none",
+              color: "#1e3a8a",
+            }}
+          >
+            <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800 }}>Venues missing address/geo</div>
+            <div style={{ fontWeight: 900, marginTop: 2 }}>{venuesMissingAddressGeoCount}</div>
+            <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered venue list</div>
+          </a>
+          <a
+            href="/admin/venues?missing=urls"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #ddd6fe",
+              background: "#fff",
+              textDecoration: "none",
+              color: "#3730a3",
+            }}
+          >
+            <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800 }}>Venues missing URLs</div>
+            <div style={{ fontWeight: 900, marginTop: 2 }}>{venuesMissingUrlsCount}</div>
+            <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered venue list</div>
+          </a>
+        </div>
+      </section>
+
       {tab === "owls-eye" && (
         <section style={{ marginBottom: 22 }}>
           <OwlsEyePanel embedded adminToken={owlsEyeAdminToken || undefined} />
@@ -2463,6 +2661,7 @@ export default async function AdminPage({
             }}
           >
             <input type="hidden" name="tab" value="tournament-listings" />
+            {missingFilter ? <input type="hidden" name="missing" value={missingFilter} /> : null}
             <input
               type="text"
               name="q"
@@ -2475,6 +2674,18 @@ export default async function AdminPage({
                 border: "1px solid #bbb",
               }}
             />
+            <select
+              name="sport"
+              defaultValue={tournamentSportFilter}
+              style={{ minWidth: 150, padding: 10, borderRadius: 10, border: "1px solid #bbb" }}
+            >
+              <option value="">All sports</option>
+              {TOURNAMENT_SPORTS.map((sport) => (
+                <option key={sport} value={sport}>
+                  {sport}
+                </option>
+              ))}
+            </select>
             <button
               type="submit"
               style={{
@@ -2502,6 +2713,21 @@ export default async function AdminPage({
               Reset
             </a>
           </form>
+          {(missingFilter || tournamentSportFilter) && (
+            <div style={{ marginBottom: 12, fontSize: 13, color: "#334155" }}>
+              Active filters:
+              {tournamentSportFilter ? (
+                <span style={{ marginLeft: 8, padding: "2px 8px", borderRadius: 999, background: "#e2e8f0", fontWeight: 700 }}>
+                  sport: {tournamentSportFilter}
+                </span>
+              ) : null}
+              {missingFilter ? (
+                <span style={{ marginLeft: 8, padding: "2px 8px", borderRadius: 999, background: "#fee2e2", fontWeight: 700 }}>
+                  missing: {missingFilter}
+                </span>
+              ) : null}
+            </div>
+          )}
           <div
             style={{
               marginBottom: 16,
@@ -2838,15 +3064,17 @@ export default async function AdminPage({
               </a>
             </div>
           ) : null}
-          {listedTournaments.length === 0 ? (
+          {displayedListedTournaments.length === 0 ? (
             <div style={{ color: "#555", border: "1px dashed #ccc", padding: 16, borderRadius: 12 }}>
               {q
                 ? "No tournaments matched your search."
-                : "Enter a search above to load tournaments. Recent published events will appear here."}
+                : missingFilter
+                  ? "No tournaments match the selected missing-data filter."
+                  : "Enter a search above to load tournaments. Recent published events will appear here."}
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {listedTournaments.map((t) => (
+              {displayedListedTournaments.map((t) => (
                 <form
                   key={t.id}
                   action={updateTournamentDetailsAction}

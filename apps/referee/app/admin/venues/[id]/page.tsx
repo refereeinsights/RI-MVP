@@ -94,7 +94,18 @@ export default async function AdminVenueEditPage({ params }: { params: { id: str
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div>
           <h1 style={{ margin: "0 0 4px" }}>Edit Venue</h1>
-          <div style={{ color: "#4b5563", fontSize: 13 }}>{venue.name || venue.id}</div>
+          <div style={{ color: "#4b5563", fontSize: 13 }}>{venue.name || "Unnamed venue"}</div>
+          {typeof venue.venue_url === "string" && venue.venue_url.trim() ? (
+            <a
+              href={venue.venue_url}
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: "inline-block", marginTop: 4, fontSize: 13, color: "#2563eb" }}
+            >
+              {venue.venue_url}
+            </a>
+          ) : null}
+          <div style={{ color: "#6b7280", fontSize: 12, marginTop: 4 }}>Venue ID: {venue.id}</div>
         </div>
         <Link href="/admin/venues" style={{ fontSize: 13, color: "#2563eb" }}>
           ← Back to venues

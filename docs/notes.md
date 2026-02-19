@@ -1,6 +1,34 @@
 # Running Notes
 
 ## 2026-02-19
+- Admin dashboard organization + maintenance widgets:
+  - Added a new `Tournaments Dashboard` section on `/admin` with clickable widgets for:
+    - tournaments by sport (all sports present in DB)
+    - tournaments missing venues
+    - tournaments missing URLs
+    - tournaments missing dates
+    - venues missing address/lat-long
+    - venues missing URLs
+  - Widgets deep-link into existing maintenance UIs (no duplicate edit surfaces):
+    - tournament listings filters: `tab=tournament-listings&sport=...` and `missing=venues|urls|dates`
+    - venue filters: `/admin/venues?missing=address_geo|urls`
+  - Tournament listings UI updates:
+    - Added sport dropdown to tournament-listings search form.
+    - Added active-filter chips for sport/missing filters.
+    - Missing-data filters now scope the existing collapsed edit/delete list.
+  - Venue admin UI updates:
+    - Added missing-data filter support in venues list query (`address_geo`, `urls`).
+    - Added lacrosse/baseball options to venue sport filter.
+  - Files:
+    - `apps/referee/app/admin/page.tsx`
+    - `apps/referee/lib/admin.ts`
+    - `apps/referee/app/admin/venues/page.tsx`
+
+- Venue edit header usability:
+  - `/admin/venues/[id]` now shows a clickable `venue_url` (when present) above the `Venue ID` line.
+  - File:
+    - `apps/referee/app/admin/venues/[id]/page.tsx`
+
 - USSSA baseball unified parser + source registry scaling controls:
   - Added a single USSSA baseball sweep pipeline that can:
     - discover state sources from `https://usssa.com/baseball_events`

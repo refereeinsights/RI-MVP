@@ -920,7 +920,8 @@ export type AdminListedTournament = {
 };
 
 export async function adminSearchPublishedTournaments(
-  query?: string
+  query?: string,
+  sport?: string
 ): Promise<AdminListedTournament[]> {
   await requireAdmin();
   let request = supabaseAdmin
@@ -932,6 +933,11 @@ export async function adminSearchPublishedTournaments(
     .eq("is_canonical", true)
     .order("updated_at", { ascending: false })
     .limit(100);
+
+  const normalizedSport = sport?.trim().toLowerCase();
+  if (normalizedSport) {
+    request = request.eq("sport", normalizedSport);
+  }
 
   const trimmed = query?.trim();
   if (trimmed) {

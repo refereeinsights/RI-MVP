@@ -59,6 +59,7 @@ type PageProps = {
     sport?: string;
     state?: string;
     tournament?: string;
+    missing?: "address_geo" | "urls";
   };
 };
 
@@ -69,6 +70,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
   const sport = (searchParams?.sport ?? "").trim();
   const state = (searchParams?.state ?? "").trim();
   const tournament = (searchParams?.tournament ?? "").trim();
+  const missing = (searchParams?.missing ?? "").trim();
 
   const orFilters = [];
   if (q) {
@@ -107,6 +109,11 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
   }
   if (state) {
     query = query.ilike("state", state);
+  }
+  if (missing === "address_geo") {
+    query = query.or("address.is.null,address.eq.,address1.is.null,address1.eq.,latitude.is.null,longitude.is.null");
+  } else if (missing === "urls") {
+    query = query.or("venue_url.is.null,venue_url.eq.");
   }
   if (orFilters.length > 0) {
     query = query.or(orFilters.join(","));
@@ -205,6 +212,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       </div>
 
       <form style={{ display: "grid", gap: 8, marginBottom: 16, gridTemplateColumns: "2fr 1fr 1fr 1fr auto" }}>
+        {missing ? <input type="hidden" name="missing" value={missing} /> : null}
         <input
           name="q"
           placeholder="Search venue name/address/city/state/UUID"
@@ -232,11 +240,27 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
           <option value="soccer">Soccer</option>
           <option value="basketball">Basketball</option>
           <option value="football">Football</option>
+          <option value="lacrosse">Lacrosse</option>
+          <option value="baseball">Baseball</option>
         </select>
         <button type="submit" style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
           Search
         </button>
       </form>
+      {missing ? (
+        <div style={{ marginBottom: 12, fontSize: 13, color: "#334155" }}>
+          Active filter:
+          <span style={{ marginLeft: 8, padding: "2px 8px", borderRadius: 999, background: "#e2e8f0", fontWeight: 700 }}>
+            {missing}
+          </span>
+          <a
+            href="/admin/venues"
+            style={{ marginLeft: 10, fontSize: 12, color: "#1d4ed8", textDecoration: "none", fontWeight: 700 }}
+          >
+            Clear
+          </a>
+        </div>
+      ) : null}
 
       <VenueAddressVerifyPanel />
 
