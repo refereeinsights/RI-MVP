@@ -35,6 +35,13 @@ type EngagementRow = {
   clicks_90d: number | null;
   unique_users_30d: number | null;
 };
+type DemoWhistleScoreRow = {
+  ai_score: number | string | null;
+  review_count: number | null;
+  summary: string | null;
+  status: RefereeWhistleScore["status"] | null;
+  updated_at: string | null;
+};
 
 // Cache this listing for 5 minutes to reduce Supabase load while keeping results fresh.
 export const revalidate = 300;
@@ -232,15 +239,15 @@ export default async function TournamentsPage({
         .from("tournament_referee_scores")
         .select("ai_score,review_count,summary,status,updated_at")
         .eq("tournament_id", demoTournament.id)
-        .maybeSingle();
+        .maybeSingle<DemoWhistleScoreRow>();
       if (demoScore) {
         whistleMap.set(demoTournament.id, {
           tournament_id: demoTournament.id,
           ai_score: Number(demoScore.ai_score ?? 0) || null,
           review_count: Number(demoScore.review_count ?? 0) || 0,
-          summary: demoScore.summary ?? null,
+          summary: typeof demoScore.summary === "string" ? demoScore.summary : null,
           status: (demoScore.status as RefereeWhistleScore["status"]) ?? "clear",
-          updated_at: demoScore.updated_at ?? null,
+          updated_at: typeof demoScore.updated_at === "string" ? demoScore.updated_at : null,
         });
       }
     }
