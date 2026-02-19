@@ -20,10 +20,11 @@ export type VenueItem = {
   longitude?: number | null;
   field_type?: string | null;
   indoor?: boolean | null;
-  lighting?: boolean | null;
-  field_lighting?: boolean | null;
   amenities?: string | null;
   player_parking?: string | null;
+  spectator_seating?: string | null;
+  bring_field_chairs?: boolean | null;
+  seating_notes?: string | null;
   parking_notes?: string | null;
   field_rating?: number | null;
   venue_type?: string | null;
@@ -153,9 +154,11 @@ export default function VenueRow({ venue, onUpdated }: Props) {
             />
             <InfoItem label="Field type" value={venue.field_type || "—"} />
             <InfoItem label="Indoor" value={boolText(venue.indoor)} />
-            <InfoItem label="Lighting" value={boolText(venue.lighting ?? venue.field_lighting)} />
             <InfoItem label="Amenities" value={venue.amenities || "—"} />
             <InfoItem label="Player parking" value={venue.player_parking || "—"} />
+            <InfoItem label="Spectator seating" value={venue.spectator_seating || "—"} />
+            <InfoItem label="Bring field chairs" value={boolText(venue.bring_field_chairs)} />
+            <InfoItem label="Seating notes" value={venue.seating_notes || "—"} />
             <InfoItem label="Parking" value={venue.parking_notes || "—"} />
             <InfoItem label="Field rating" value={venue.field_rating ? `${venue.field_rating}/5` : "—"} />
             <InfoItem label="Venue type" value={venue.venue_type || "—"} />

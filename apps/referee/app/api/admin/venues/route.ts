@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { geocodeAddress } from "@/lib/google/geocodeAddress";
+import { timezoneFromCoordinates } from "@/lib/google/timezoneFromCoordinates";
 
 type VenueRow = {
   id: string;
@@ -73,6 +74,30 @@ export async function POST(request: Request) {
   const venueUrl = typeof payload?.venue_url === "string" ? payload.venue_url.trim() : "";
   const amenities = typeof payload?.amenities === "string" ? payload.amenities.trim() : "";
   const playerParking = typeof payload?.player_parking === "string" ? payload.player_parking.trim() : "";
+  const spectatorSeatingInput = typeof payload?.spectator_seating === "string" ? payload.spectator_seating.trim().toLowerCase() : "";
+  const spectatorSeating =
+    spectatorSeatingInput === "none" ||
+    spectatorSeatingInput === "limited" ||
+    spectatorSeatingInput === "bleachers" ||
+    spectatorSeatingInput === "covered_bleachers" ||
+    spectatorSeatingInput === "mixed"
+      ? spectatorSeatingInput
+      : null;
+  const bringFieldChairs =
+    payload?.bring_field_chairs === true || payload?.bring_field_chairs === "true"
+      ? true
+      : payload?.bring_field_chairs === false || payload?.bring_field_chairs === "false"
+        ? false
+        : null;
+  const seatingNotes = typeof payload?.seating_notes === "string" ? payload.seating_notes.trim() : "";
+  const timezoneInput = typeof payload?.timezone === "string" ? payload.timezone.trim() : "";
+  const venueTypeInput = typeof payload?.venue_type === "string" ? payload.venue_type.trim().toLowerCase() : "";
+  const venueType =
+    venueTypeInput === "complex" || venueTypeInput === "school" || venueTypeInput === "stadium" || venueTypeInput === "park"
+      ? venueTypeInput
+      : venueTypeInput === "sports complex"
+        ? "complex"
+        : null;
   const paidParking = payload?.ref_paid_parking === true || payload?.ref_paid_parking === "true";
   const tournamentIds: string[] = Array.isArray(payload?.tournament_ids)
     ? (payload.tournament_ids as any[]).map(String).filter(Boolean)
@@ -85,16 +110,30 @@ export async function POST(request: Request) {
   const allowedSports = ["soccer", "basketball", "football"];
   const sportValue = allowedSports.includes(sport) ? sport : null;
 
-  let latitude: number | null = null;
-  let longitude: number | null = null;
+  const parseNumber = (value: unknown): number | null => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim() !== "") {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  };
+
+  let latitude: number | null = parseNumber(payload?.latitude);
+  let longitude: number | null = parseNumber(payload?.longitude);
   const geocodeKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
-  if (geocodeKey) {
+  if (geocodeKey && (latitude == null || longitude == null)) {
     const fullAddress = [address1, city, state, zip].filter(Boolean).join(", ");
     const geo = await geocodeAddress(fullAddress, geocodeKey);
     if (geo) {
       latitude = geo.lat;
       longitude = geo.lng;
     }
+  }
+
+  let timezone = timezoneInput || null;
+  if (!timezone && geocodeKey && latitude != null && longitude != null) {
+    timezone = await timezoneFromCoordinates(latitude, longitude, geocodeKey);
   }
 
   const insertPayload = {
@@ -108,8 +147,13 @@ export async function POST(request: Request) {
     latitude,
     longitude,
     venue_url: venueUrl || null,
+    timezone,
+    venue_type: venueType,
     amenities: amenities || null,
     player_parking: playerParking || null,
+    spectator_seating: spectatorSeating,
+    bring_field_chairs: bringFieldChairs,
+    seating_notes: seatingNotes || null,
     ref_paid_parking: paidParking || null,
   };
 

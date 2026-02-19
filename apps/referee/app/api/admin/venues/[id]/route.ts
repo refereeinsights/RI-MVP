@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { geocodeAddress } from "@/lib/google/geocodeAddress";
+import { timezoneFromCoordinates } from "@/lib/google/timezoneFromCoordinates";
 
 type VenueUpdatePayload = {
   name?: string | null;
@@ -22,6 +24,9 @@ type VenueUpdatePayload = {
   lighting?: boolean | null;
   amenities?: string | null;
   player_parking?: string | null;
+  spectator_seating?: string | null;
+  bring_field_chairs?: boolean | null;
+  seating_notes?: string | null;
   parking_notes?: string | null;
   field_rating?: number | null;
   venue_type?: string | null;
@@ -124,6 +129,31 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (normalized === "both" || normalized === "portable and building" || normalized === "building and portable") return "both";
     return text;
   };
+  const normalizeVenueType = (val: any) => {
+    const text = cleanString(val);
+    if (!text) return undefined;
+    const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
+    if (normalized === "sports complex") return "complex";
+    if (normalized === "complex" || normalized === "school" || normalized === "stadium" || normalized === "park") {
+      return normalized;
+    }
+    return undefined;
+  };
+  const normalizeSpectatorSeating = (val: any) => {
+    const text = cleanString(val);
+    if (!text) return undefined;
+    const normalized = text.toLowerCase().replace(/\s+/g, "_").trim();
+    if (
+      normalized === "none" ||
+      normalized === "limited" ||
+      normalized === "bleachers" ||
+      normalized === "covered_bleachers" ||
+      normalized === "mixed"
+    ) {
+      return normalized;
+    }
+    return undefined;
+  };
 
   const tournamentIds = Array.isArray(payload?.tournament_ids)
     ? (payload.tournament_ids as any[]).map(String).filter(Boolean)
@@ -148,9 +178,12 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     lighting: cleanBool(payload?.lighting) ?? undefined,
     amenities: cleanString(payload?.amenities) ?? undefined,
     player_parking: cleanString(payload?.player_parking) ?? undefined,
+    spectator_seating: normalizeSpectatorSeating(payload?.spectator_seating),
+    bring_field_chairs: cleanBool(payload?.bring_field_chairs) ?? undefined,
+    seating_notes: cleanString(payload?.seating_notes) ?? undefined,
     parking_notes: cleanString(payload?.parking_notes) ?? undefined,
     field_rating: cleanNumber(payload?.field_rating) ?? undefined,
-    venue_type: cleanString(payload?.venue_type) ?? undefined,
+    venue_type: normalizeVenueType(payload?.venue_type),
     field_count: cleanNumber(payload?.field_count) ?? undefined,
     field_monitors: cleanBool(payload?.field_monitors) ?? undefined,
     referee_mentors: cleanBool(payload?.referee_mentors) ?? undefined,
@@ -164,6 +197,50 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     venue_url: cleanString(payload?.venue_url) ?? undefined,
     ref_paid_parking: cleanBool(payload?.ref_paid_parking) ?? undefined,
   };
+
+  const needsTimezone = typeof update.timezone === "undefined";
+  if (needsTimezone) {
+    const { data } = await supabaseAdmin
+      .from("venues" as any)
+      .select("address1,address,city,state,zip,latitude,longitude")
+      .eq("id", params.id)
+      .maybeSingle();
+    const currentVenue = (data ?? null) as Record<string, any> | null;
+
+    const baseLat = typeof currentVenue?.latitude === "number" ? currentVenue.latitude : null;
+    const baseLng = typeof currentVenue?.longitude === "number" ? currentVenue.longitude : null;
+    let timezoneLat = typeof update.latitude === "number" ? update.latitude : baseLat;
+    let timezoneLng = typeof update.longitude === "number" ? update.longitude : baseLng;
+    const geocodeKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
+
+    if ((timezoneLat == null || timezoneLng == null) && geocodeKey) {
+      const fullAddress = [
+        update.address1 ?? update.address ?? currentVenue?.address1 ?? currentVenue?.address ?? "",
+        update.city ?? currentVenue?.city ?? "",
+        update.state ?? currentVenue?.state ?? "",
+        update.zip ?? currentVenue?.zip ?? "",
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      if (fullAddress) {
+        const geo = await geocodeAddress(fullAddress, geocodeKey);
+        if (geo) {
+          timezoneLat = geo.lat;
+          timezoneLng = geo.lng;
+          if (typeof update.latitude === "undefined") update.latitude = geo.lat;
+          if (typeof update.longitude === "undefined") update.longitude = geo.lng;
+        }
+      }
+    }
+
+    if (geocodeKey && timezoneLat != null && timezoneLng != null) {
+      const guessedTimezone = await timezoneFromCoordinates(timezoneLat, timezoneLng, geocodeKey);
+      if (guessedTimezone) {
+        update.timezone = guessedTimezone;
+      }
+    }
+  }
 
   const { error, data } = await supabaseAdmin
     .from("venues" as any)

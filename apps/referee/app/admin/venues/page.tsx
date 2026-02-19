@@ -23,10 +23,11 @@ type VenueRow = {
   timezone?: string | null;
   field_type?: string | null;
   indoor?: boolean | null;
-  lighting?: boolean | null;
-  field_lighting?: boolean | null;
   amenities?: string | null;
   player_parking?: string | null;
+  spectator_seating?: string | null;
+  bring_field_chairs?: boolean | null;
+  seating_notes?: string | null;
   parking_notes?: string | null;
   field_rating?: number | null;
   venue_type?: string | null;

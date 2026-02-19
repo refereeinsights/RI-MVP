@@ -13,13 +13,12 @@ type Props = {
 
 const booleanFields = [
   "indoor",
-  "lighting",
-  "field_lighting",
   "field_monitors",
   "referee_mentors",
   "food_vendors",
   "coffee_vendors",
   "tournament_vendors",
+  "bring_field_chairs",
 ];
 
 export default function VenueEditForm({ venue, tournaments }: Props) {
@@ -39,10 +38,11 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
     timezone: venue.timezone ?? "",
     field_type: venue.field_type ?? "",
     indoor: venue.indoor ?? "",
-    lighting: venue.lighting ?? "",
-    field_lighting: venue.field_lighting ?? "",
     amenities: venue.amenities ?? "",
     player_parking: venue.player_parking ?? "",
+    spectator_seating: venue.spectator_seating ?? "",
+    bring_field_chairs: venue.bring_field_chairs ?? "",
+    seating_notes: venue.seating_notes ?? "",
     ref_paid_parking: venue.ref_paid_parking ?? "",
     parking_notes: venue.parking_notes ?? "",
     field_rating: venue.field_rating ?? "",
@@ -117,13 +117,22 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
           <Input label="Field type" value={form.field_type} onChange={(v) => setField("field_type", v)} />
           <SelectBoolean label="Indoor" value={form.indoor} onChange={(v) => setField("indoor", v)} />
-          <SelectBoolean label="Lighting" value={form.lighting} onChange={(v) => setField("lighting", v)} />
-          <SelectBoolean label="Field lighting" value={form.field_lighting} onChange={(v) => setField("field_lighting", v)} />
         </div>
 
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
           <Input label="Amenities" value={form.amenities} onChange={(v) => setField("amenities", v)} />
           <Input label="Player parking" value={form.player_parking} onChange={(v) => setField("player_parking", v)} />
+          <SelectSpectatorSeating
+            label="Spectator seating"
+            value={form.spectator_seating}
+            onChange={(v) => setField("spectator_seating", v)}
+          />
+          <SelectBoolean
+            label="Bring field chairs"
+            value={form.bring_field_chairs}
+            onChange={(v) => setField("bring_field_chairs", v)}
+          />
+          <Input label="Seating notes" value={form.seating_notes} onChange={(v) => setField("seating_notes", v)} />
           <Input label="Parking notes" value={form.parking_notes} onChange={(v) => setField("parking_notes", v)} />
           <Input label="Field rating (1-5)" value={form.field_rating} onChange={(v) => setField("field_rating", v)} />
           <Input label="Venue type (complex/school/stadium/park)" value={form.venue_type} onChange={(v) => setField("venue_type", v)} />
@@ -260,6 +269,34 @@ function SelectRestrooms({
         <option value="portable">Portable</option>
         <option value="building">Building</option>
         <option value="both">Both</option>
+      </select>
+    </label>
+  );
+}
+
+function SelectSpectatorSeating({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string | null | undefined;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+      <div>{label}</div>
+      <select
+        value={(value ?? "").toString()}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+      >
+        <option value="">—</option>
+        <option value="none">None</option>
+        <option value="limited">Limited</option>
+        <option value="bleachers">Bleachers</option>
+        <option value="covered_bleachers">Covered bleachers</option>
+        <option value="mixed">Mixed</option>
       </select>
     </label>
   );

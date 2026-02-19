@@ -47,6 +47,9 @@ type PaidVenueDetailsRow = {
         food_vendors: boolean | null;
         restrooms: string | null;
         amenities: string | null;
+        spectator_seating: string | null;
+        bring_field_chairs: boolean | null;
+        seating_notes: string | null;
       }
     | null;
 };
@@ -108,6 +111,12 @@ function boolLabel(value: boolean | null | undefined) {
   if (value === true) return "Yes";
   if (value === false) return "No";
   return "Not provided";
+}
+
+function sentenceLabel(value: string | null | undefined) {
+  if (!value) return "Not provided";
+  const cleaned = value.replace(/_/g, " ").trim();
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
@@ -218,7 +227,14 @@ export default async function TournamentDetailPage({
   let paidTournamentDetails: PaidTournamentDetails | null = null;
   let paidVenueDetailsById = new Map<
     string,
-    { food_vendors: boolean | null; restrooms: string | null; amenities: string | null }
+    {
+      food_vendors: boolean | null;
+      restrooms: string | null;
+      amenities: string | null;
+      spectator_seating: string | null;
+      bring_field_chairs: boolean | null;
+      seating_notes: string | null;
+    }
   >();
 
   if (canViewPremiumDetails) {
@@ -231,7 +247,7 @@ export default async function TournamentDetailPage({
       linkedVenueIds.length
         ? supabaseAdmin
             .from("tournament_venues" as any)
-            .select("venue_id,venues(id,food_vendors,restrooms,amenities)")
+            .select("venue_id,venues(id,food_vendors,restrooms,amenities,spectator_seating,bring_field_chairs,seating_notes)")
             .eq("tournament_id", data.id)
             .in("venue_id", linkedVenueIds)
         : Promise.resolve({ data: [] as PaidVenueDetailsRow[] }),
@@ -247,6 +263,9 @@ export default async function TournamentDetailPage({
             food_vendors: row.venues!.food_vendors,
             restrooms: row.venues!.restrooms,
             amenities: row.venues!.amenities,
+            spectator_seating: row.venues!.spectator_seating,
+            bring_field_chairs: row.venues!.bring_field_chairs,
+            seating_notes: row.venues!.seating_notes,
           },
         ])
     );
@@ -376,7 +395,7 @@ export default async function TournamentDetailPage({
             {!canViewPremiumDetails ? (
               <div className="detailCard__body premiumDetailCard__body">
                 <p className="premiumDetailCard__copy">
-                  Locked — Upgrade to view food vendors, restrooms, amenities, travel/lodging notes.
+                  Locked — Upgrade to view food vendors, restrooms, amenities, spectator seating, chair guidance, travel/lodging notes.
                 </p>
                 <div className="detailLinksRow">
                   <Link className="secondaryLink" href="/pricing">
@@ -419,6 +438,18 @@ export default async function TournamentDetailPage({
                         <div className="premiumDetailRow">
                           <span className="premiumDetailLabel">Amenities</span>
                           <span>{premium?.amenities?.trim() || "Not provided"}</span>
+                        </div>
+                        <div className="premiumDetailRow">
+                          <span className="premiumDetailLabel">Spectator seating</span>
+                          <span>{sentenceLabel(premium?.spectator_seating)}</span>
+                        </div>
+                        <div className="premiumDetailRow">
+                          <span className="premiumDetailLabel">Bring field chairs</span>
+                          <span>{boolLabel(premium?.bring_field_chairs)}</span>
+                        </div>
+                        <div className="premiumDetailRow">
+                          <span className="premiumDetailLabel">Seating notes</span>
+                          <span>{premium?.seating_notes?.trim() || "Not provided"}</span>
                         </div>
                       </div>
                     );

@@ -31,8 +31,10 @@ export function NewVenueForm() {
   const [fieldType, setFieldType] = useState("");
   const [amenities, setAmenities] = useState("");
   const [playerParking, setPlayerParking] = useState("");
+  const [spectatorSeating, setSpectatorSeating] = useState("");
+  const [bringFieldChairs, setBringFieldChairs] = useState("");
+  const [seatingNotes, setSeatingNotes] = useState("");
   const [indoor, setIndoor] = useState("");
-  const [fieldLighting, setFieldLighting] = useState("");
   const [parkingNotes, setParkingNotes] = useState("");
   const [fieldRating, setFieldRating] = useState("");
   const [venueType, setVenueType] = useState("");
@@ -76,8 +78,10 @@ export function NewVenueForm() {
           field_type: fieldType || undefined,
           amenities: amenities || undefined,
           player_parking: playerParking || undefined,
+          spectator_seating: spectatorSeating || undefined,
+          bring_field_chairs: bringFieldChairs === "" ? undefined : bringFieldChairs === "true",
+          seating_notes: seatingNotes || undefined,
           indoor: indoor === "" ? undefined : indoor === "true",
-          field_lighting: fieldLighting === "" ? undefined : fieldLighting === "true",
           parking_notes: parkingNotes || undefined,
           field_rating: fieldRating || undefined,
           venue_type: venueType || undefined,
@@ -237,16 +241,24 @@ export function NewVenueForm() {
             <input value={playerParking} onChange={(e) => setPlayerParking(e.target.value)} style={{ width: "100%" }} />
           </label>
           <label>
-            <div>Indoor</div>
-            <select value={indoor} onChange={(e) => setIndoor(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+            <div>Spectator seating</div>
+            <select value={spectatorSeating} onChange={(e) => setSpectatorSeating(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
               <option value="">—</option>
-              <option value="true">Yes</option>
-              <option value="false">No</option>
+              <option value="none">None</option>
+              <option value="limited">Limited</option>
+              <option value="bleachers">Bleachers</option>
+              <option value="covered_bleachers">Covered bleachers</option>
+              <option value="mixed">Mixed</option>
             </select>
           </label>
+          <SelectBoolean label="Bring field chairs" value={bringFieldChairs} onChange={(v) => setBringFieldChairs(v)} />
           <label>
-            <div>Field lighting</div>
-            <select value={fieldLighting} onChange={(e) => setFieldLighting(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+            <div>Seating notes</div>
+            <input value={seatingNotes} onChange={(e) => setSeatingNotes(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label>
+            <div>Indoor</div>
+            <select value={indoor} onChange={(e) => setIndoor(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
               <option value="">—</option>
               <option value="true">Yes</option>
               <option value="false">No</option>

@@ -402,3 +402,31 @@
   - Appends a timestamped bad-email note to outreach row notes for audit trail.
 - Priority outreach scope update:
   - `Priority outreach targets (missing both emails + dates)` now filters to `sport='soccer'` in `apps/referee/app/admin/tournaments/enrichment/page.tsx`.
+
+## 2026-02-19
+- Venues admin save hardening + UX cleanup:
+  - Fixed `venues_venue_type_allowed` failures by normalizing venue type inputs in create/update API routes (`sports complex` now maps to `complex`; only `complex|school|stadium|park` are persisted).
+  - Added timezone auto-fill in venue create/update APIs from coordinates via Google Time Zone API; if lat/lng is missing, APIs geocode address first and then derive timezone.
+  - Added helper `apps/referee/src/lib/google/timezoneFromCoordinates.ts`.
+  - Venue create API now respects manually entered latitude/longitude (instead of always replacing with geocode).
+- Admin/public field visibility cleanup:
+  - Removed `lighting`/`field_lighting` from admin venue views/forms so these fields are no longer surfaced in the admin UI:
+    - `apps/referee/components/admin/VenueEditForm.tsx`
+    - `apps/referee/components/admin/NewVenueForm.tsx`
+    - `apps/referee/components/admin/VenueRow.tsx`
+    - `apps/referee/app/admin/venues/page.tsx`
+  - API compatibility remains in place for existing DB columns; UI no longer exposes them.
+- Venue seating/chairs planning signals:
+  - Added migration `supabase/migrations/20260219_venues_spectator_seating.sql` with new columns:
+    - `venues.spectator_seating` (`none|limited|bleachers|covered_bleachers|mixed`)
+    - `venues.bring_field_chairs` (boolean)
+    - `venues.seating_notes` (text)
+  - Wired admin create/edit/save and list rendering for all three fields:
+    - `apps/referee/components/admin/NewVenueForm.tsx`
+    - `apps/referee/components/admin/VenueEditForm.tsx`
+    - `apps/referee/components/admin/VenueRow.tsx`
+    - `apps/referee/app/api/admin/venues/route.ts`
+    - `apps/referee/app/api/admin/venues/[id]/route.ts`
+  - TI paid tournament detail card now includes these venue planning fields under Premium Planning Details:
+    - `spectator seating`, `bring field chairs`, and `seating notes`
+    - file: `apps/ti-web/app/tournaments/[slug]/page.tsx`
