@@ -1,6 +1,33 @@
 # Running Notes
 
 ## 2026-02-19
+- TI auth/account foundation + hardening:
+  - Added TI auth/account routes/pages and helpers:
+    - `/signup`, `/login`, `/logout`, `/account`
+    - `apps/ti-web/lib/supabaseServer.ts`
+    - `apps/ti-web/lib/supabaseClient.ts`
+    - `apps/ti-web/lib/entitlements.ts`
+  - Added migration `supabase/migrations/20260219_ti_users_auth_foundation.sql` for:
+    - `public.ti_users` profile/subscription-ready schema
+    - `updated_at` trigger
+    - auth signup trigger (`handle_new_ti_user`)
+    - RLS policies.
+  - Hardened migration:
+    - `handle_new_ti_user` now includes `set search_path = public` (`security definer` hardening).
+    - granted `select, insert, update` on `public.ti_users` to `authenticated`.
+    - added case-insensitive unique email index (`ti_users_email_unique` on `lower(email)`).
+  - Account page write-path fix (`apps/ti-web/app/account/page.tsx`):
+    - removed double-write (`upsert` + `update`) flow.
+    - now fetches profile first and performs one write:
+      - existing row -> `update(last_seen_at,email,first_seen_at-if-null)`
+      - missing row -> safety-net `insert`.
+    - prevents `first_seen_at` from being reset every visit.
+  - Entitlement null-safety:
+    - `canAccessPremium` now returns `false` for `null/undefined` profile input.
+  - Validation:
+    - `npm run build --workspace ti-web` passed.
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+
 - TI paid-tier gating added for tournament detail planning fields:
   - `apps/ti-web/app/tournaments/[slug]/page.tsx` now includes a premium-only section ("Premium Planning Details").
   - Public/free views show a locked teaser + Upgrade CTA (`/pricing`) and do not display premium values.

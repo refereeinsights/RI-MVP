@@ -1,4 +1,32 @@
 ## 2026-02-19
+- TI auth/account foundation + hardening:
+  - Added TI auth/account foundation files:
+    - `apps/ti-web/app/signup/page.tsx`
+    - `apps/ti-web/app/login/page.tsx`
+    - `apps/ti-web/app/logout/route.ts`
+    - `apps/ti-web/app/account/page.tsx`
+    - `apps/ti-web/lib/supabaseServer.ts`
+    - `apps/ti-web/lib/supabaseClient.ts`
+    - `apps/ti-web/lib/entitlements.ts`
+  - Added migration scaffold for `public.ti_users` with signup trigger + RLS:
+    - `supabase/migrations/20260219_ti_users_auth_foundation.sql`
+  - Migration hardening updates:
+    - `public.handle_new_ti_user()` now uses `security definer set search_path = public`.
+    - Added `grant select, insert, update on public.ti_users to authenticated`.
+    - Added case-insensitive unique email index:
+      - `ti_users_email_unique` on `lower(email)` (where email is not null).
+  - Account page correctness fixes:
+    - Removed per-request `upsert(... ignoreDuplicates)` pattern.
+    - Fetches profile first (`first_seen_at` included), then performs a single write path:
+      - `update` when row exists (`last_seen_at`, `email`, and `first_seen_at` only if missing).
+      - one-time safety-net `insert` if profile row is missing.
+    - Prevents `first_seen_at` reset on repeat visits.
+  - Entitlement helper hardening:
+    - `canAccessPremium` now safely accepts `null/undefined` profiles and optional fields.
+  - Validation:
+    - `npm run build --workspace ti-web` passed.
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed (after build artifacts are present).
+
 - TI tournament detail access-tier update (paid planning fields):
   - Added a new **Premium Planning Details** section to `apps/ti-web/app/tournaments/[slug]/page.tsx` with a lock state for non-paid users.
   - Locked (public + free-login) behavior now shows:
