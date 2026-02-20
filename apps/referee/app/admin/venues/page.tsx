@@ -91,13 +91,28 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       `city.ilike.${like}`,
       `state.ilike.${like}`,
       `zip.ilike.${like}`,
-      `sport.ilike.${like}`,
-      `tournament_venues.tournaments.name.ilike.${like}`
+      `sport.ilike.${like}`
     );
   }
-  if (tournament) {
-    const like = `%${tournament}%`;
-    orFilters.push(`tournament_venues.tournaments.name.ilike.${like}`);
+  const tournamentSearch = tournament || q;
+  let venueIdsFromTournamentSearch: string[] = [];
+  if (tournamentSearch) {
+    const like = `%${tournamentSearch}%`;
+    const { data: matchingTournaments } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("id")
+      .ilike("name", like)
+      .limit(200);
+    const matchingTournamentIds = (matchingTournaments ?? []).map((row: any) => row.id).filter(Boolean);
+    if (matchingTournamentIds.length) {
+      const { data: links } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("venue_id")
+        .in("tournament_id", matchingTournamentIds);
+      venueIdsFromTournamentSearch = Array.from(
+        new Set(((links ?? []) as Array<{ venue_id: string }>).map((row) => row.venue_id).filter(Boolean))
+      );
+    }
   }
 
   let query = supabaseAdmin
@@ -127,11 +142,26 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
   if (orFilters.length > 0) {
     query = query.or(orFilters.join(","));
   }
+  if (tournamentSearch) {
+    if (!venueIdsFromTournamentSearch.length) {
+      // Ensure no results when tournament-name filter is requested but no links exist.
+      query = query.in("id", ["00000000-0000-0000-0000-000000000000"]);
+    } else {
+      query = query.in("id", venueIdsFromTournamentSearch);
+    }
+  }
 
   const { data, error } = await query;
 
   if (error) {
-    throw error;
+    return (
+      <div style={{ padding: 24 }}>
+        <AdminNav />
+        <h1 style={{ margin: 0, marginBottom: 10 }}>Venues</h1>
+        <div style={{ color: "#b91c1c", fontWeight: 700 }}>Failed to load venues</div>
+        <div style={{ marginTop: 6, color: "#6b7280", fontSize: 13 }}>{error.message}</div>
+      </div>
+    );
   }
 
   const venuesRaw: VenueRow[] = Array.isArray(data) ? ((data as unknown) as VenueRow[]) : [];

@@ -713,3 +713,13 @@
       - ensures a run exists for the venue (creates manual override run if needed)
       - updates existing map artifact or inserts a new one for the latest run
       - admin-auth protected.
+
+- `/admin/venues` search stability hardening:
+  - Fixed server-render crash ("Unable to load admin") triggered by relational `or` filters in the venues query.
+  - `apps/referee/app/admin/venues/page.tsx` changes:
+    - Removed fragile relational OR clauses from the base venues query.
+    - Added safe two-step tournament-name filtering:
+      1. lookup tournament IDs by name
+      2. map to venue IDs via `tournament_venues`
+      3. apply `venues.id in (...)` filter
+    - Added graceful admin-visible error rendering for venue query failures instead of throwing a server component exception.
