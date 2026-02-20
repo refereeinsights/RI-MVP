@@ -1,5 +1,50 @@
 # Running Notes
 
+## 2026-02-20
+- AYSO source ingest + association tagging:
+  - Added dedicated AYSO parser path for `https://ayso.org/ayso-tournaments/` in:
+    - `apps/referee/src/server/admin/pasteUrl.ts`
+  - Parser now handles AYSO page structure (`h3` tournament blocks + details) and captures substantially more events than the initial link/table-only pass.
+  - AYSO imports now enforce:
+    - `sport = soccer`
+    - `tournament_association = AYSO`
+    - tournament name prefix `AYSO` when missing.
+  - Wired `tournament_association` through ingest upsert path:
+    - `apps/referee/lib/types/tournament.ts`
+    - `apps/referee/lib/tournaments/upsertFromSource.ts`
+
+- Tournament association DB/view plumbing:
+  - Added migration:
+    - `supabase/migrations/20260220_tournaments_association_field.sql`
+  - Migration adds `public.tournaments.tournament_association` and includes it in `public.tournaments_public`.
+
+- Admin navigation reminder for stale keep sources:
+  - Added overdue sweep badge to `Sources` nav button in:
+    - `apps/referee/components/admin/AdminNav.tsx`
+  - Count criteria:
+    - `review_status = keep`
+    - `last_swept_at` is null or older than 45 days.
+
+- Admin Tournament Uploads queue actions:
+  - Added row-level actions in pending uploads table:
+    - `Edit`, `Approve row`, `Delete row` (with row-level confirm checkbox).
+  - Added pending-row edit fields:
+    - `zip`
+    - `Venue full address`
+    - `tournament_director`
+    - `tournament_director_email`
+  - Save action now persists these fields for draft rows and they show in the queue on reload.
+  - Files:
+    - `apps/referee/app/admin/page.tsx`
+    - `apps/referee/lib/admin.ts`
+
+- TI tournament AYSO filter behavior:
+  - Replaced additive “Show AYSO tournaments” toggle with exclusive “AYSO only” mode in:
+    - `apps/ti-web/app/tournaments/page.tsx`
+  - Behavior:
+    - default excludes AYSO-associated tournaments
+    - `aysoOnly=true` shows only AYSO-associated tournaments.
+
 ## 2026-02-19
 - Counter background asset refresh (TI + RI tournament summary tiles):
   - Added/updated shared sport counter assets:

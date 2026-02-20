@@ -440,6 +440,56 @@ export async function createTournamentFromUrl(params: {
     };
   }
 
+  if (parsedUrl.hostname.includes("ayso.org") && parsedUrl.pathname.includes("/ayso-tournaments")) {
+    const events = parseAysoTournaments(html);
+    if (!events.length) {
+      throw new SweepError("html_received_no_events", "AYSO tournaments list parsed but no events found", diagnostics);
+    }
+
+    const tournamentIds: string[] = [];
+    for (const event of events) {
+      const tournamentId = await upsertTournamentFromSource({
+        ...event,
+        tournament_association: "AYSO",
+        sport: "soccer",
+        status,
+        source: "external_crawl",
+      });
+      tournamentIds.push(tournamentId);
+    }
+
+    await queueEnrichmentJobs(tournamentIds);
+
+    const registry = await upsertRegistry({
+      source_url: canonical,
+      source_type: "association_directory",
+      sport: "soccer",
+      notes: "AYSO tournaments directory.",
+      is_custom_source: true,
+    });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "AYSO tournaments",
+      extracted_json: { action: "ayso_import", extracted_count: tournamentIds.length },
+      extract_confidence: 0.75,
+    });
+    await updateRunExtractedJson(runId, { action: "ayso_import", extracted_count: tournamentIds.length });
+
+    return {
+      tournamentId: tournamentIds[0],
+      meta: { name: `Imported ${tournamentIds.length} events`, warnings: [] },
+      slug: "ayso-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: tournamentIds.length,
+    };
+  }
+
   if (parsedUrl.hostname.includes("fysa.com") && parsedUrl.pathname.includes("/2026-sanctioned-tournaments")) {
     const events = parseFysaSanctionedTournaments(html);
     if (!events.length) {
@@ -886,6 +936,7 @@ function detectSport(params: {
   if (host.includes("exposureevents.com")) return "basketball";
   if (host.includes("gotsoccer.com")) return "soccer";
   if (host.includes("usclubsoccer.org") || host.includes("usyouthsoccer.org")) return "soccer";
+  if (host.includes("ayso.org")) return "soccer";
   if (host.includes("usclublax.com")) return "lacrosse";
   if (host.includes("usssa.com") && host.includes("baseball")) return "baseball";
   if (host.includes("myhockeytournaments.com")) return "hockey";
@@ -1186,6 +1237,267 @@ function parseUsClubLaxDateRange(dateTextRaw: string): { start?: string; end?: s
   }
 
   return {};
+}
+
+function parseAysoTournaments(html: string): TournamentRow[] {
+  const $ = cheerio.load(html);
+  const out: TournamentRow[] = [];
+  const seen = new Set<string>();
+
+  const pushRow = (args: {
+    name: string;
+    sourceUrl: string;
+    dateText?: string | null;
+    city?: string | null;
+    state?: string | null;
+    summary?: string | null;
+    raw?: unknown;
+  }) => {
+    const cleanName = normalizeAysoTournamentName(args.name);
+    if (!cleanName) return;
+    const parsedDates = parseAysoDateRange(args.dateText ?? "");
+    const parsedUrl = safeParseUrl(args.sourceUrl);
+    const state = args.state?.trim().toUpperCase() || null;
+    const city = args.city?.trim() || null;
+    const slug = buildTournamentSlug({ name: cleanName, city: city ?? undefined, state: state ?? undefined });
+    const sourceEventId = `${cleanName}|${city ?? ""}|${state ?? ""}|${parsedDates.start ?? ""}|${args.sourceUrl}`
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+    if (seen.has(sourceEventId)) return;
+    seen.add(sourceEventId);
+
+    out.push({
+      name: cleanName,
+      slug,
+      sport: "soccer",
+      tournament_association: "AYSO",
+      level: null,
+      sub_type: "internet",
+      ref_cash_tournament: false,
+      state: state ?? "NA",
+      city: city ?? null,
+      venue: null,
+      address: null,
+      start_date: parsedDates.start ?? null,
+      end_date: parsedDates.end ?? parsedDates.start ?? null,
+      summary: args.summary ?? "AYSO tournament listing.",
+      status: "draft",
+      confidence: 0.75,
+      source: "external_crawl",
+      source_event_id: sourceEventId,
+      source_url: args.sourceUrl,
+      source_domain: parsedUrl?.hostname ?? "ayso.org",
+      raw: args.raw ?? null,
+    });
+  };
+
+  const contentRoot = $(".entry-content").first();
+
+  const headings = (contentRoot.length ? contentRoot : $("body")).find("h3").toArray();
+  for (const h3 of headings) {
+    const $h3 = $(h3);
+    const headingText = $h3.text().replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+    if (!headingText) continue;
+
+    const block = $h3.nextUntil("h1,h2,h3");
+    const blockText = block
+      .toArray()
+      .map((el) => $(el).text().replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    if (!blockText.length) continue;
+
+    const firstLine = blockText[0] ?? "";
+    const loc = extractCityStateFromText(firstLine || blockText.join(" "));
+
+    const dateLines = blockText
+      .filter((line) => /\bdates?\b/i.test(line))
+      .map((line) => line.replace(/^.*?\bdates?\b\s*:?\s*/i, "").trim())
+      .filter(Boolean);
+    const dateText = dateLines[0] ?? extractAysoDateText(blockText.join(" "));
+
+    const moreInfoLink = block
+      .filter((_i, el) => /more info/i.test($(el).text()))
+      .find("a[href]")
+      .first();
+    const fallbackLink = block.find("a[href]").first();
+    const chosenHrefRaw = (moreInfoLink.attr("href") ?? fallbackLink.attr("href") ?? "").trim();
+    const chosenHref = absoluteHttpUrl(chosenHrefRaw, "https://ayso.org/") ?? "https://ayso.org/ayso-tournaments/";
+
+    pushRow({
+      name: headingText,
+      sourceUrl: chosenHref,
+      dateText,
+      city: loc.city,
+      state: loc.state,
+      summary: "AYSO tournament listing.",
+      raw: {
+        heading: headingText,
+        block_text: blockText,
+      },
+    });
+  }
+
+  const rows = $("table tr").toArray();
+  for (const tr of rows) {
+    const cells = $(tr).find("td");
+    if (cells.length < 2) continue;
+    const rowText = $(tr).text().replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+    if (!rowText) continue;
+    const link = $(tr).find("a[href]").first();
+    const hrefRaw = (link.attr("href") ?? "").trim();
+    const href = absoluteHttpUrl(hrefRaw, "https://ayso.org/");
+    if (!href) continue;
+
+    const nameText = link.text().replace(/\s+/g, " ").trim() || $(cells[0]).text().replace(/\s+/g, " ").trim();
+    if (!nameLooksLikeTournament(nameText) && !nameLooksLikeTournament(rowText)) continue;
+    const dateText = extractAysoDateText(rowText);
+    const loc = extractCityStateFromText(rowText);
+
+    pushRow({
+      name: nameText || rowText,
+      sourceUrl: href,
+      dateText,
+      city: loc.city,
+      state: loc.state,
+      summary: "AYSO tournament listing.",
+      raw: {
+        row_text: rowText,
+      },
+    });
+  }
+
+  const genericRoot = $(".entry-content, main, article, .site-content").first();
+  const anchors = (genericRoot.length ? genericRoot : $("body"))
+    .find("a[href]")
+    .toArray();
+  for (const anchor of anchors) {
+    const $anchor = $(anchor);
+    const href = absoluteHttpUrl(($anchor.attr("href") ?? "").trim(), "https://ayso.org/");
+    if (!href) continue;
+    const host = safeParseUrl(href)?.hostname ?? "";
+    const text = $anchor.text().replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+    const containerText = $anchor.closest("li,p,div,article,section,tr").text().replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+    const candidateName = text || containerText;
+    if (!candidateName) continue;
+    if (host.includes("ayso.org") && !/register|event|tour/i.test(href)) continue;
+    if (!nameLooksLikeTournament(candidateName) && !nameLooksLikeTournament(containerText)) continue;
+
+    const dateText = extractAysoDateText(containerText);
+    const loc = extractCityStateFromText(containerText);
+    pushRow({
+      name: candidateName,
+      sourceUrl: href,
+      dateText,
+      city: loc.city,
+      state: loc.state,
+      summary: "AYSO tournament listing.",
+      raw: {
+        link_text: text,
+        container_text: containerText,
+      },
+    });
+  }
+
+  return out.filter((row) => row.name && row.source_url);
+}
+
+function nameLooksLikeTournament(input: string) {
+  const text = input.toLowerCase();
+  return /(tournament|cup|classic|showcase|shootout|invitational|soccerfest|fest)/i.test(text);
+}
+
+function normalizeAysoTournamentName(input: string) {
+  const base = input.replace(/\s+/g, " ").trim();
+  if (!base) return base;
+  if (/^ayso\b/i.test(base)) return base;
+  return `AYSO ${base}`;
+}
+
+function parseAysoDateRange(dateTextRaw: string): { start?: string; end?: string } {
+  const normalized = dateTextRaw
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return {};
+
+  const yearMatch = normalized.match(/(20\d{2})/);
+  const fallbackYear = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getUTCFullYear();
+
+  const crossMonth = normalized.match(
+    /([A-Za-z]{3,9})\s+(\d{1,2})\s*-\s*([A-Za-z]{3,9})\s+(\d{1,2})(?:,?\s*(20\d{2}))?/i
+  );
+  if (crossMonth) {
+    const startMonth = monthNameToIndex0(crossMonth[1]);
+    const endMonth = monthNameToIndex0(crossMonth[3]);
+    const startDay = parseInt(crossMonth[2], 10);
+    const endDay = parseInt(crossMonth[4], 10);
+    const year = crossMonth[5] ? parseInt(crossMonth[5], 10) : fallbackYear;
+    if (startMonth !== null && endMonth !== null) {
+      return {
+        start: toISODateUTC(year, startMonth, startDay),
+        end: toISODateUTC(year, endMonth, endDay),
+      };
+    }
+  }
+
+  const sameMonth = normalized.match(
+    /([A-Za-z]{3,9})\s+(\d{1,2})(?:\s*-\s*(\d{1,2}))?(?:,?\s*(20\d{2}))?/i
+  );
+  if (sameMonth) {
+    const month = monthNameToIndex0(sameMonth[1]);
+    const startDay = parseInt(sameMonth[2], 10);
+    const endDay = sameMonth[3] ? parseInt(sameMonth[3], 10) : startDay;
+    const year = sameMonth[4] ? parseInt(sameMonth[4], 10) : fallbackYear;
+    if (month !== null) {
+      return {
+        start: toISODateUTC(year, month, startDay),
+        end: toISODateUTC(year, month, endDay),
+      };
+    }
+  }
+
+  return {};
+}
+
+function extractAysoDateText(textRaw: string): string | null {
+  const text = textRaw.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  const match = text.match(
+    /([A-Za-z]{3,9})\s+\d{1,2}(?:\s*-\s*(?:[A-Za-z]{3,9}\s+)?\d{1,2})?(?:,?\s*20\d{2})?/i
+  );
+  return match?.[0] ?? null;
+}
+
+function extractCityStateFromText(textRaw: string): { city: string | null; state: string | null } {
+  const text = textRaw.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  if (!text) return { city: null, state: null };
+  const cityState = text.match(/([A-Za-z .'-]{2,}),\s*([A-Z]{2})\b/);
+  if (cityState) {
+    return {
+      city: cityState[1].trim(),
+      state: cityState[2].toUpperCase(),
+    };
+  }
+  return { city: null, state: null };
+}
+
+function absoluteHttpUrl(value: string, base: string): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value, base).toString();
+    return /^https?:\/\//i.test(url) ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeParseUrl(value: string): URL | null {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
 }
 
 function parseFysaSanctionedTournaments(html: string): TournamentRow[] {

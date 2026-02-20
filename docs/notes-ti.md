@@ -147,6 +147,14 @@
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
 
 ## 2026-02-20
+- TI tournaments filter update:
+  - `apps/ti-web/app/tournaments/page.tsx`
+  - Replaced `includeAYSO` with exclusive `aysoOnly` behavior.
+  - UI now uses `AYSO only` control (non-additive mode):
+    - default directory excludes AYSO tournaments
+    - enabling `AYSO only` shows only tournaments with `tournament_association = AYSO`.
+  - Summary-card links preserve `aysoOnly` in query params.
+
 - TI venue-level premium detail UX update on tournament detail page:
   - `apps/ti-web/app/tournaments/[slug]/page.tsx`
   - Moved venue-specific premium content behind a per-venue expandable **Premium planning details** control on each venue card (instead of one long combined venue section).

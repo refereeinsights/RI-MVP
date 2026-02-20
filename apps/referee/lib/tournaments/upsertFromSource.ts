@@ -25,6 +25,7 @@ export async function upsertTournamentFromSource(row: TournamentRow) {
         slug: row.slug,
         name: row.name,
         sport: row.sport,
+        tournament_association: row.tournament_association ?? null,
         level: row.level ?? null,
         state: row.state ?? null,
         city: row.city ?? null,

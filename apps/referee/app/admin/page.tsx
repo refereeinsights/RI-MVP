@@ -1378,7 +1378,7 @@ export default async function AdminPage({
 
   async function approveTournamentAction(formData: FormData) {
     "use server";
-    const tournamentId = String(formData.get("tournament_id") || "");
+    const tournamentId = String(formData.get("row_tournament_id") || formData.get("tournament_id") || "");
     if (!tournamentId) return;
     const redirectTo = formData.get("redirect_to");
     await adminUpdateTournamentStatus({ tournament_id: tournamentId, status: "published" });
@@ -1442,6 +1442,111 @@ export default async function AdminPage({
     } else {
       return redirectWithNotice(redirectTo, "Unknown bulk action.");
     }
+  }
+
+  async function updatePendingTournamentRowAction(formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to");
+    const tournamentId = String(formData.get("row_tournament_id") || formData.get("tournament_id") || "").trim();
+    if (!tournamentId) {
+      return redirectWithNotice(redirectTo, "Tournament id missing.");
+    }
+
+    const key = (field: string) => `${field}_${tournamentId}`;
+    const stringOrNull = (field: string) => {
+      const value = String(formData.get(key(field)) || "").trim();
+      return value ? value : null;
+    };
+
+    const sportRaw = String(formData.get(key("edit_sport")) || "").trim().toLowerCase();
+    const sportValue =
+      TOURNAMENT_SPORTS.includes(sportRaw as any) ? sportRaw : null;
+    const stateRaw = stringOrNull("edit_state");
+    const sourceUrlInput = stringOrNull("edit_source_url");
+    const officialWebsiteInput = stringOrNull("edit_official_website_url");
+
+    let normalizedSourceUrl = sourceUrlInput;
+    if (sourceUrlInput) {
+      try {
+        normalizedSourceUrl = new URL(sourceUrlInput).toString();
+      } catch {
+        try {
+          normalizedSourceUrl = new URL(`https://${sourceUrlInput}`).toString();
+        } catch {
+          normalizedSourceUrl = sourceUrlInput;
+        }
+      }
+    }
+
+    let normalizedOfficialWebsite = officialWebsiteInput;
+    if (officialWebsiteInput) {
+      try {
+        normalizedOfficialWebsite = new URL(officialWebsiteInput).toString();
+      } catch {
+        try {
+          normalizedOfficialWebsite = new URL(`https://${officialWebsiteInput}`).toString();
+        } catch {
+          normalizedOfficialWebsite = officialWebsiteInput;
+        }
+      }
+    }
+
+    let sourceDomain: string | null = null;
+    if (normalizedSourceUrl) {
+      try {
+        sourceDomain = new URL(normalizedSourceUrl).hostname.replace(/^www\./, "");
+      } catch {
+        sourceDomain = null;
+      }
+    }
+
+    const updates: Record<string, unknown> = {
+      name: stringOrNull("edit_name"),
+      sport: sportValue,
+      city: stringOrNull("edit_city"),
+      state: stateRaw ? stateRaw.toUpperCase() : null,
+      zip: stringOrNull("edit_zip"),
+      venue: stringOrNull("edit_venue"),
+      address: stringOrNull("edit_address"),
+      tournament_director: stringOrNull("edit_tournament_director"),
+      tournament_director_email: stringOrNull("edit_tournament_director_email"),
+      start_date: stringOrNull("edit_start_date"),
+      end_date: stringOrNull("edit_end_date"),
+      source_url: normalizedSourceUrl,
+      source_domain: sourceDomain,
+      official_website_url: normalizedOfficialWebsite,
+      summary: stringOrNull("edit_summary"),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabaseAdmin
+      .from("tournaments" as any)
+      .update(updates)
+      .eq("id", tournamentId)
+      .eq("status", "draft");
+
+    if (error) {
+      return redirectWithNotice(redirectTo, `Update failed: ${error.message}`);
+    }
+
+    revalidatePath("/tournaments");
+    return redirectWithNotice(redirectTo, "Pending tournament updated.");
+  }
+
+  async function deletePendingTournamentRowAction(formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to");
+    const tournamentId = String(formData.get("row_tournament_id") || formData.get("tournament_id") || "").trim();
+    if (!tournamentId) {
+      return redirectWithNotice(redirectTo, "Tournament id missing.");
+    }
+    const confirmValue = String(formData.get(`confirm_delete_${tournamentId}`) || "");
+    if (confirmValue !== "on") {
+      return redirectWithNotice(redirectTo, "Check confirm delete for this row first.");
+    }
+    await adminDeleteTournament(tournamentId);
+    revalidatePath("/tournaments");
+    return redirectWithNotice(redirectTo, "Pending tournament deleted.");
   }
 
   async function importTournamentsAction(formData: FormData) {
@@ -1901,6 +2006,8 @@ export default async function AdminPage({
     const summary = stringOrNull("summary");
     const sourceUrlInput = stringOrNull("source_url");
     const officialWebsiteInput = stringOrNull("official_website_url");
+    const associationRaw = stringOrNull("tournament_association");
+    const tournamentAssociation = associationRaw ? associationRaw.toUpperCase() : null;
 
     let normalizedUrl = sourceUrlInput;
     if (sourceUrlInput) {
@@ -1952,6 +2059,7 @@ export default async function AdminPage({
       updates: {
         name: stringOrNull("name"),
         sport: sportValue || null,
+        tournament_association: tournamentAssociation,
         level: stringOrNull("level"),
         level_of_competition: stringOrNull("level_of_competition"),
         sub_type: subType,
@@ -2030,6 +2138,8 @@ export default async function AdminPage({
     const stateValue = stringOrNull("state");
     const sourceUrlInput = stringOrNull("source_url");
     const officialWebsiteInput = stringOrNull("official_website_url");
+    const associationRaw = stringOrNull("tournament_association");
+    const tournamentAssociation = associationRaw ? associationRaw.toUpperCase() : null;
 
     let normalizedUrl = sourceUrlInput;
     if (sourceUrlInput) {
@@ -2086,6 +2196,7 @@ export default async function AdminPage({
       name,
       slug,
       sport,
+      tournament_association: tournamentAssociation,
       level: stringOrNull("level"),
       level_of_competition: stringOrNull("level_of_competition"),
       sub_type: subType,
@@ -2880,6 +2991,13 @@ export default async function AdminPage({
                     </select>
                   </label>
                   <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Tournament association
+                    <select name="tournament_association" defaultValue="" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}>
+                      <option value="">None</option>
+                      <option value="AYSO">AYSO</option>
+                    </select>
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
                     Level
                     <input name="level" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
                   </label>
@@ -3558,6 +3676,17 @@ export default async function AdminPage({
                             {sport}
                           </option>
                         ))}
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Tournament association
+                      <select
+                        name="tournament_association"
+                        defaultValue={t.tournament_association ?? ""}
+                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+                      >
+                        <option value="">None</option>
+                        <option value="AYSO">AYSO</option>
                       </select>
                     </label>
                     <label style={{ fontSize: 12, fontWeight: 700 }}>
@@ -4487,6 +4616,7 @@ export default async function AdminPage({
                       <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Referee contact</th>
                       <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Source</th>
                       <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Website</th>
+                      <th style={{ padding: 8, borderBottom: "1px solid #ddd", textAlign: "left" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4515,6 +4645,7 @@ export default async function AdminPage({
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
                           {t.city ? `${t.city}, ` : ""}
                           {t.state ?? "State unknown"}
+                          {t.zip ? ` ${t.zip}` : ""}
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
                           {t.start_date || t.end_date ? (
@@ -4538,6 +4669,9 @@ export default async function AdminPage({
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
                           {t.tournament_director ? t.tournament_director : "_"}
+                          {t.tournament_director_email ? (
+                            <div style={{ fontSize: 12, color: "#777" }}>{t.tournament_director_email}</div>
+                          ) : null}
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
                           {t.referee_contact ? t.referee_contact : "_"}
@@ -4567,6 +4701,195 @@ export default async function AdminPage({
                           ) : (
                             "—"
                           )}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555", minWidth: 280 }}>
+                          <details>
+                            <summary style={{ cursor: "pointer", fontWeight: 700, color: "#0f3d2e" }}>Edit</summary>
+                            <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                Name
+                                <input
+                                  name={`edit_name_${t.id}`}
+                                  defaultValue={t.name ?? ""}
+                                  style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                />
+                              </label>
+                              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                Sport
+                                <select
+                                  name={`edit_sport_${t.id}`}
+                                  defaultValue={t.sport ?? "soccer"}
+                                  style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                >
+                                  {TOURNAMENT_SPORTS.map((sport) => (
+                                    <option key={sport} value={sport}>
+                                      {sport}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 100px", gap: 8 }}>
+                                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                  City
+                                  <input
+                                    name={`edit_city_${t.id}`}
+                                    defaultValue={t.city ?? ""}
+                                    style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                  />
+                                </label>
+                                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                  State
+                                  <input
+                                    name={`edit_state_${t.id}`}
+                                    defaultValue={t.state ?? ""}
+                                    style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                  />
+                                </label>
+                              </div>
+                              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                ZIP
+                                <input
+                                  name={`edit_zip_${t.id}`}
+                                  defaultValue={t.zip ?? ""}
+                                  style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                />
+                              </label>
+                              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                Venue
+                                <input
+                                  name={`edit_venue_${t.id}`}
+                                  defaultValue={t.venue ?? ""}
+                                  style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                />
+                              </label>
+                              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                Tournament director
+                                <input
+                                  name={`edit_tournament_director_${t.id}`}
+                                  defaultValue={t.tournament_director ?? ""}
+                                  style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                />
+                              </label>
+                              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                Tournament director email
+                                <input
+                                  type="email"
+                                  name={`edit_tournament_director_email_${t.id}`}
+                                  defaultValue={t.tournament_director_email ?? ""}
+                                  style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                />
+                              </label>
+                              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                Venue full address
+                                <input
+                                  name={`edit_address_${t.id}`}
+                                  defaultValue={t.address ?? ""}
+                                  style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                />
+                              </label>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                  Start date
+                                  <input
+                                    type="date"
+                                    name={`edit_start_date_${t.id}`}
+                                    defaultValue={t.start_date ?? ""}
+                                    style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                  />
+                                </label>
+                                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                  End date
+                                  <input
+                                    type="date"
+                                    name={`edit_end_date_${t.id}`}
+                                    defaultValue={t.end_date ?? ""}
+                                    style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                  />
+                                </label>
+                              </div>
+                              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                Source URL
+                                <input
+                                  name={`edit_source_url_${t.id}`}
+                                  defaultValue={t.source_url ?? ""}
+                                  style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                />
+                              </label>
+                              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                Official website
+                                <input
+                                  name={`edit_official_website_url_${t.id}`}
+                                  defaultValue={t.official_website_url ?? ""}
+                                  style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                />
+                              </label>
+                              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                                Summary
+                                <textarea
+                                  name={`edit_summary_${t.id}`}
+                                  defaultValue={t.summary ?? ""}
+                                  rows={3}
+                                  style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                                />
+                              </label>
+                              <button
+                                name="row_tournament_id"
+                                value={t.id}
+                                formAction={updatePendingTournamentRowAction}
+                                style={{
+                                  width: "fit-content",
+                                  padding: "8px 12px",
+                                  borderRadius: 8,
+                                  border: "none",
+                                  background: "#0f3d2e",
+                                  color: "#fff",
+                                  fontWeight: 800,
+                                }}
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </details>
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 12 }}>
+                            <input type="checkbox" name={`confirm_delete_${t.id}`} />
+                            Confirm delete
+                          </label>
+                          <button
+                            type="submit"
+                            name="row_tournament_id"
+                            value={t.id}
+                            formAction={approveTournamentAction}
+                            style={{
+                              display: "block",
+                              marginTop: 6,
+                              padding: "6px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #0a7a2f",
+                              background: "#0a7a2f",
+                              color: "#fff",
+                              fontWeight: 800,
+                            }}
+                          >
+                            Approve row
+                          </button>
+                          <button
+                            type="submit"
+                            name="row_tournament_id"
+                            value={t.id}
+                            formAction={deletePendingTournamentRowAction}
+                            style={{
+                              display: "block",
+                              marginTop: 6,
+                              padding: "6px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #b00020",
+                              background: "#fff",
+                              color: "#b00020",
+                              fontWeight: 800,
+                            }}
+                          >
+                            Delete row
+                          </button>
                         </td>
                       </tr>
                     ))}

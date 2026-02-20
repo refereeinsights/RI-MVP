@@ -22,6 +22,7 @@ export interface TournamentRow {
   name: string;
   slug: string;
   sport: "soccer" | "basketball" | "football" | "lacrosse" | "baseball" | "hockey";
+  tournament_association?: string | null;
   level?: string | null;
   sub_type?: TournamentSubmissionType | null;
   ref_cash_tournament?: boolean | null;

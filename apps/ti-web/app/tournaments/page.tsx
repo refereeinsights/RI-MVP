@@ -8,6 +8,7 @@ type Tournament = {
   name: string;
   slug: string;
   sport: string | null;
+  tournament_association?: string | null;
   state: string | null;
   city: string | null;
   zip?: string | null;
@@ -127,6 +128,7 @@ export default async function TournamentsPage({
     month?: string;
     sports?: string | string[];
     includePast?: string;
+    aysoOnly?: string;
   };
 }) {
   const q = (searchParams?.q ?? "").trim();
@@ -134,9 +136,13 @@ export default async function TournamentsPage({
   const month = (searchParams?.month ?? "").trim(); // YYYY-MM
   const sportsParam = searchParams?.sports;
   const includePastParam = searchParams?.includePast;
+  const aysoOnlyParam = searchParams?.aysoOnly;
   const includePast = Array.isArray(includePastParam)
     ? includePastParam.includes("true")
     : (includePastParam ?? "").toLowerCase() === "true";
+  const aysoOnly = Array.isArray(aysoOnlyParam)
+    ? aysoOnlyParam.includes("true")
+    : (aysoOnlyParam ?? "").toLowerCase() === "true";
   const sportsSelectedRaw = Array.isArray(sportsParam)
     ? sportsParam
     : sportsParam
@@ -157,7 +163,7 @@ export default async function TournamentsPage({
 
   let query = supabaseAdmin
     .from("tournaments_public" as any)
-    .select("id,name,slug,sport,state,city,zip,start_date,end_date,official_website_url,source_url,level")
+    .select("id,name,slug,sport,tournament_association,state,city,zip,start_date,end_date,official_website_url,source_url,level")
     .order("start_date", { ascending: true });
 
   const today = new Date().toISOString().slice(0, 10);
@@ -192,7 +198,13 @@ export default async function TournamentsPage({
     );
   }
 
-  const tournamentsClean = (tournamentsData ?? []).filter((t): t is Tournament => Boolean(t?.id && t?.name && t?.slug));
+  const tournamentsClean = (tournamentsData ?? [])
+    .filter((t): t is Tournament => Boolean(t?.id && t?.name && t?.slug))
+    .filter((t) =>
+      aysoOnly
+        ? (t.tournament_association ?? "").trim().toUpperCase() === "AYSO"
+        : (t.tournament_association ?? "").trim().toUpperCase() !== "AYSO"
+    );
   const sportsCounts = tournamentsClean.reduce((acc: Record<string, number>, t) => {
     const key = (t.sport ?? "unknown").toLowerCase();
     acc[key] = (acc[key] || 0) + 1;
@@ -411,6 +423,11 @@ export default async function TournamentsPage({
               <input type="checkbox" name="includePast" value="true" defaultChecked={includePast} />
               <span>Include past events</span>
             </label>
+            <label className="sportToggle">
+              <input type="hidden" name="aysoOnly" value="false" />
+              <input type="checkbox" name="aysoOnly" value="true" defaultChecked={aysoOnly} />
+              <span>AYSO only</span>
+            </label>
           </div>
 
           <div className="actionsRow">
@@ -443,6 +460,7 @@ export default async function TournamentsPage({
                   }
                   if (month) params.set("month", month);
                   params.set("includePast", includePast ? "true" : "false");
+                  params.set("aysoOnly", aysoOnly ? "true" : "false");
                   params.set("sports", sport);
                   return `/tournaments?${params.toString()}`;
                 })()}

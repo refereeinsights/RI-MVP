@@ -828,7 +828,7 @@ export async function adminListPendingTournaments() {
   const { data, error } = await supabaseAdmin
     .from("tournaments")
     .select(
-      "id,name,slug,sport,level,state,city,venue,address,start_date,end_date,source_url,source_domain,official_website_url,summary,referee_pay,referee_contact,tournament_director,sub_type,updated_at,ref_cash_tournament"
+      "id,name,slug,sport,level,state,city,zip,venue,address,start_date,end_date,source_url,source_domain,official_website_url,summary,referee_pay,referee_contact,tournament_director,tournament_director_email,sub_type,updated_at,ref_cash_tournament"
     )
     .eq("status", "draft")
     .order("updated_at", { ascending: false })
@@ -860,6 +860,7 @@ export type AdminPendingTournament = {
   ref_cash_tournament?: boolean | null;
   state?: string | null;
   city?: string | null;
+  zip?: string | null;
   venue?: string | null;
   address?: string | null;
   start_date?: string | null;
@@ -871,6 +872,7 @@ export type AdminPendingTournament = {
   referee_pay?: string | null;
   referee_contact?: string | null;
   tournament_director?: string | null;
+  tournament_director_email?: string | null;
   updated_at?: string | null;
 };
 
@@ -879,6 +881,7 @@ export type AdminListedTournament = {
   name: string;
   slug: string;
   sport: string;
+  tournament_association?: string | null;
   level?: string | null;
   level_of_competition?: string | null;
   sub_type?: TournamentSubmissionType | null;
@@ -927,7 +930,7 @@ export async function adminSearchPublishedTournaments(
   let request = supabaseAdmin
     .from("tournaments")
     .select(
-      "id,name,slug,sport,level,level_of_competition,sub_type,ref_cash_tournament,ref_cash_at_field,tournament_staff_verified,referee_food,facilities,referee_tents,travel_lodging,ref_game_schedule,ref_parking,ref_parking_cost,ref_mentors,assigned_appropriately,state,city,zip,venue,address,venue_url,start_date,end_date,age_group,team_fee,games_guaranteed,player_parking,summary,referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,official_website_url,source_url,source_domain"
+      "id,name,slug,sport,tournament_association,level,level_of_competition,sub_type,ref_cash_tournament,ref_cash_at_field,tournament_staff_verified,referee_food,facilities,referee_tents,travel_lodging,ref_game_schedule,ref_parking,ref_parking_cost,ref_mentors,assigned_appropriately,state,city,zip,venue,address,venue_url,start_date,end_date,age_group,team_fee,games_guaranteed,player_parking,summary,referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,official_website_url,source_url,source_domain"
     )
     .eq("status", "published")
     .eq("is_canonical", true)
@@ -977,6 +980,7 @@ export async function adminUpdateTournamentDetails(params: {
     name: string | null;
     sport: string | null;
     level: string | null;
+    tournament_association: string | null;
     level_of_competition: string | null;
     sub_type: TournamentSubmissionType | null;
     ref_cash_tournament: boolean;
