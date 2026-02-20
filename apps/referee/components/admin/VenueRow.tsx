@@ -144,7 +144,7 @@ export default function VenueRow({ venue, onUpdated }: Props) {
         <div style={{ padding: 12, display: "grid", gap: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div style={{ fontFamily: "monospace", fontSize: 12, color: "#374151" }}>{venue.id}</div>
-            <VenueActions venueId={venue.id} onRemoveFromList={() => setHidden(true)} />
+            <VenueActions venueId={venue.id} venueName={venue.name} onRemoveFromList={() => setHidden(true)} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>

@@ -650,3 +650,16 @@
   - Purpose: scan existing venues, parse full-address blobs in `address/address1` into `address1 + city + state + zip`, geocode missing lat/lng, derive timezone, and attempt venue website discovery via Google Places.
   - Supports batch controls: `limit`, `onlyIncomplete`, and `dryRun`.
   - Writes `geocode_source='venue_address_verify'` when geocode updates are applied.
+
+- Owl's Eye + venue merge admin enhancements:
+  - Owl's Eye run guard now blocks duplicate runs per `venue_id + sport` when an existing `owls_eye_runs` row is already `running` or `complete` (unless `force=true` is explicitly provided).
+  - Updated API route:
+    - `apps/referee/app/api/admin/owls-eye/run/route.ts`
+  - Added admin-approved venue merge endpoint to consolidate duplicate venues:
+    - New API: `POST /api/admin/venues/merge`
+    - File: `apps/referee/app/api/admin/venues/merge/route.ts`
+    - Behavior: moves tournament links from source venue into target venue (`tournament_venues` upsert with dedupe), attempts to re-point Owl's Eye run rows to kept venue, then deletes source venue.
+  - Added merge UI control in admin venue row actions:
+    - `apps/referee/components/admin/VenueActions.tsx`
+    - `apps/referee/components/admin/VenueRow.tsx`
+    - Flow: paste target venue UUID -> confirm -> merge.

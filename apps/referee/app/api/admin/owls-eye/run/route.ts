@@ -27,6 +27,15 @@ type VenueRow = {
   zip: string | null;
 };
 
+type ExistingRunRow = {
+  id?: string | null;
+  run_id?: string | null;
+  status?: string | null;
+  sport?: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+};
+
 async function ensureAdminRequest() {
   const headerToken = headers().get("x-owls-eye-admin-token");
   const envToken = process.env.OWLS_EYE_ADMIN_TOKEN;
@@ -145,6 +154,37 @@ export async function POST(request: Request) {
 
     const address = buildAddress(venue as VenueRow);
 
+    if (!force) {
+      const existingRun = await supabaseAdmin
+        .from("owls_eye_runs" as any)
+        .select("id,run_id,status,sport,updated_at,created_at")
+        .eq("venue_id", venueId)
+        .eq("sport", sport)
+        .in("status", ["running", "complete"])
+        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<ExistingRunRow>();
+
+      if (existingRun.data) {
+        const row = existingRun.data;
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "VENUE_ALREADY_SCANNED",
+            message: "Owl's Eye has already been run for this venue/sport. Use force=true to refresh.",
+            existing: {
+              run_id: row.run_id ?? row.id ?? null,
+              status: row.status ?? null,
+              sport: row.sport ?? null,
+              updated_at: row.updated_at ?? row.created_at ?? null,
+            },
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const result = await runVenueScan({
       venueId,
       sport,
@@ -209,6 +249,16 @@ export async function POST(request: Request) {
             })),
           coffee: data
             .filter((f: any) => f.category === "coffee")
+            .map((f: any) => ({
+              name: f.name,
+              distance_meters: f.distance_meters ?? null,
+              address: f.address ?? "",
+              is_sponsor: Boolean(f.is_sponsor),
+              sponsor_click_url: f.sponsor_click_url ?? undefined,
+              maps_url: f.maps_url ?? undefined,
+            })),
+          hotels: data
+            .filter((f: any) => f.category === "hotel")
             .map((f: any) => ({
               name: f.name,
               distance_meters: f.distance_meters ?? null,
