@@ -128,6 +128,15 @@ function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function slugifyTournamentName(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 90);
+}
+
 function redirectWithNotice(target: FormDataEntryValue | null, notice: string): never {
   const base =
     typeof target === "string" && target.length > 0 ? target : "/admin";
@@ -1988,6 +1997,187 @@ export default async function AdminPage({
     redirectWithNotice(redirectTo, "Tournament details updated");
   }
 
+  async function createTournamentManualAction(formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-listings";
+
+    const stringOrNull = (key: string) => {
+      const value = (formData.get(key) as string | null)?.trim() ?? "";
+      return value ? value : null;
+    };
+    const intOrNull = (key: string) => {
+      const raw = (formData.get(key) as string | null)?.trim() ?? "";
+      if (!raw) return null;
+      const parsed = parseInt(raw.replace(/[^0-9]/g, ""), 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const enumOrNull = (key: string, allowed: string[]) => {
+      const value = stringOrNull(key);
+      if (!value) return null;
+      return allowed.includes(value) ? value : null;
+    };
+
+    const name = stringOrNull("name");
+    if (!name) {
+      return redirectWithNotice(redirectTo, "Tournament name is required.");
+    }
+
+    const sportValue = (formData.get("sport") as string | null)?.trim() ?? "soccer";
+    const sport = TOURNAMENT_SPORTS.includes(sportValue as any) ? sportValue : "soccer";
+    const subTypeRaw = (formData.get("sub_type") as string | null)?.trim() ?? "";
+    const subType: TournamentSubmissionType | null =
+      subTypeRaw && isSubmissionType(subTypeRaw) ? subTypeRaw : null;
+    const stateValue = stringOrNull("state");
+    const sourceUrlInput = stringOrNull("source_url");
+    const officialWebsiteInput = stringOrNull("official_website_url");
+
+    let normalizedUrl = sourceUrlInput;
+    if (sourceUrlInput) {
+      try {
+        normalizedUrl = new URL(sourceUrlInput).toString();
+      } catch {
+        try {
+          normalizedUrl = new URL(`https://${sourceUrlInput}`).toString();
+        } catch {
+          normalizedUrl = sourceUrlInput;
+        }
+      }
+    }
+    let sourceDomain: string | null = null;
+    if (normalizedUrl) {
+      try {
+        sourceDomain = new URL(normalizedUrl).hostname.replace(/^www\./, "");
+      } catch {
+        sourceDomain = null;
+      }
+    }
+    let normalizedOfficialWebsite = officialWebsiteInput;
+    if (officialWebsiteInput) {
+      try {
+        normalizedOfficialWebsite = new URL(officialWebsiteInput).toString();
+      } catch {
+        try {
+          normalizedOfficialWebsite = new URL(`https://${officialWebsiteInput}`).toString();
+        } catch {
+          normalizedOfficialWebsite = officialWebsiteInput;
+        }
+      }
+    }
+
+    const requestedSlug = stringOrNull("slug");
+    const baseSlug = requestedSlug ? slugifyTournamentName(requestedSlug) : slugifyTournamentName(name);
+    const slugRoot = baseSlug || `tournament-${Date.now()}`;
+    let slug = slugRoot;
+    for (let i = 2; i < 100; i += 1) {
+      const { data: exists } = await supabaseAdmin
+        .from("tournaments" as any)
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (!exists) break;
+      slug = `${slugRoot}-${i}`;
+    }
+
+    const cashTournament = formData.get("ref_cash_tournament") === "on";
+    const cashAtField = formData.get("ref_cash_at_field") === "on";
+
+    const insertPayload: Record<string, any> = {
+      id: crypto.randomUUID(),
+      name,
+      slug,
+      sport,
+      level: stringOrNull("level"),
+      level_of_competition: stringOrNull("level_of_competition"),
+      sub_type: subType,
+      ref_cash_tournament: cashTournament,
+      ref_cash_at_field: cashTournament ? cashAtField : false,
+      referee_food: enumOrNull("referee_food", ["snacks", "meal"]),
+      facilities: enumOrNull("facilities", ["restrooms", "portables"]),
+      referee_tents: enumOrNull("referee_tents", ["yes", "no"]),
+      travel_lodging: enumOrNull("travel_lodging", ["hotel", "stipend"]),
+      ref_game_schedule: enumOrNull("ref_game_schedule", ["too close", "just right", "too much down time"]),
+      ref_parking: enumOrNull("ref_parking", ["close", "a stroll", "a hike"]),
+      ref_parking_cost: enumOrNull("ref_parking_cost", ["free", "paid"]),
+      ref_mentors: enumOrNull("ref_mentors", ["yes", "no"]),
+      assigned_appropriately: enumOrNull("assigned_appropriately", ["yes", "no"]),
+      tournament_staff_verified: formData.get("tournament_staff_verified") === "on",
+      city: stringOrNull("city"),
+      state: stateValue ? stateValue.toUpperCase() : null,
+      zip: stringOrNull("zip"),
+      venue: stringOrNull("venue"),
+      address: stringOrNull("address"),
+      venue_url: stringOrNull("venue_url"),
+      start_date: stringOrNull("start_date"),
+      end_date: stringOrNull("end_date"),
+      age_group: stringOrNull("age_group"),
+      team_fee: stringOrNull("team_fee"),
+      games_guaranteed: intOrNull("games_guaranteed"),
+      player_parking: stringOrNull("player_parking"),
+      summary: stringOrNull("summary"),
+      referee_pay: stringOrNull("referee_pay"),
+      referee_contact: stringOrNull("referee_contact"),
+      referee_contact_email: stringOrNull("referee_contact_email"),
+      referee_contact_phone: stringOrNull("referee_contact_phone"),
+      tournament_director: stringOrNull("tournament_director"),
+      tournament_director_email: stringOrNull("tournament_director_email"),
+      tournament_director_phone: stringOrNull("tournament_director_phone"),
+      official_website_url: normalizedOfficialWebsite,
+      source_url: normalizedUrl,
+      source_domain: sourceDomain,
+      source: "admin_upload",
+      status: "published",
+      is_canonical: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: createdRaw, error: insertError } = await supabaseAdmin
+      .from("tournaments" as any)
+      .insert(insertPayload)
+      .select("id,slug")
+      .maybeSingle();
+    const created = createdRaw as { id?: string; slug?: string | null } | null;
+    if (insertError || !created?.id) {
+      return redirectWithNotice(redirectTo, `Failed to create tournament: ${insertError?.message ?? "unknown error"}`);
+    }
+
+    const venueName = stringOrNull("venue_name");
+    const venueAddress = stringOrNull("venue_address");
+    const venueCity = stringOrNull("venue_city");
+    const venueState = stringOrNull("venue_state");
+    const venueZip = stringOrNull("venue_zip");
+    if (venueName || venueAddress) {
+      const { data: venueRowRaw, error: venueErr } = await supabaseAdmin
+        .from("venues" as any)
+        .upsert(
+          {
+            name: venueName,
+            address: venueAddress,
+            city: venueCity ?? insertPayload.city ?? null,
+            state: venueState ?? insertPayload.state ?? null,
+            zip: venueZip,
+            sport: insertPayload.sport ?? null,
+          },
+          { onConflict: "name,address,city,state" }
+        )
+        .select("id")
+        .maybeSingle();
+      const venueRow = venueRowRaw as any;
+      if (!venueErr && venueRow?.id) {
+        await supabaseAdmin
+          .from("tournament_venues" as any)
+          .upsert({ tournament_id: created.id, venue_id: venueRow.id }, { onConflict: "tournament_id,venue_id" });
+      }
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/tournaments");
+    redirectWithNotice(
+      redirectTo,
+      `Created tournament "${name}" (${created.slug ?? slug}).`
+    );
+  }
+
   async function addTournamentVenueAction(formData: FormData) {
     "use server";
     const tournament_id = String(formData.get("tournament_id") || "");
@@ -2648,6 +2838,205 @@ export default async function AdminPage({
             <p style={{ color: "#555", fontSize: 13, marginTop: 6 }}>
               Search published tournaments and update the information shown on the public listings page.
             </p>
+          </div>
+          <div
+            style={{
+              marginBottom: 16,
+              padding: 14,
+              borderRadius: 12,
+              border: "1px solid #ddd",
+              background: "#fff",
+            }}
+          >
+            <details>
+              <summary style={{ cursor: "pointer", fontWeight: 900 }}>
+                New tournament
+              </summary>
+              <form action={createTournamentManualAction} style={{ marginTop: 12, display: "grid", gap: 12 }}>
+                <input type="hidden" name="redirect_to" value={adminBasePath} />
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+                    gap: 10,
+                  }}
+                >
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Name
+                    <input name="name" required style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Slug (optional)
+                    <input name="slug" placeholder="auto from name" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Sport
+                    <select name="sport" defaultValue="soccer" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}>
+                      {TOURNAMENT_SPORTS.map((sport) => (
+                        <option key={sport} value={sport}>
+                          {sport}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Level
+                    <input name="level" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    City
+                    <input name="city" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    State
+                    <input name="state" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    ZIP
+                    <input name="zip" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Start date
+                    <input type="date" name="start_date" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    End date
+                    <input type="date" name="end_date" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Source URL
+                    <input type="url" name="source_url" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Official website URL
+                    <input type="url" name="official_website_url" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Team fee
+                    <input name="team_fee" placeholder="U6-U10 $795 | U11-U12 $895" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Games guaranteed
+                    <input type="number" name="games_guaranteed" min="0" step="1" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Player parking
+                    <input name="player_parking" placeholder="e.g. $20" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Venue (inline)
+                    <input name="venue" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Address (inline)
+                    <input name="address" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>
+                    Venue URL (inline)
+                    <input type="url" name="venue_url" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </label>
+                </div>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  Summary
+                  <textarea name="summary" rows={3} style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                </label>
+                <details>
+                  <summary style={{ cursor: "pointer", fontSize: 12, fontWeight: 900 }}>Advanced fields</summary>
+                  <div
+                    style={{
+                      marginTop: 10,
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+                      gap: 10,
+                    }}
+                  >
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Submission type
+                      <select name="sub_type" defaultValue="" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}>
+                        <option value="">(auto)</option>
+                        {Object.keys(SUBMISSION_LABELS).map((key) => (
+                          <option key={key} value={key}>
+                            {SUBMISSION_LABELS[key] ?? key}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      Level of competition
+                      <input name="level_of_competition" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>Age group
+                      <input name="age_group" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>Tournament director
+                      <input name="tournament_director" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>Director email
+                      <input type="email" name="tournament_director_email" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>Director phone
+                      <input name="tournament_director_phone" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>Ref contact
+                      <input name="referee_contact" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>Ref email
+                      <input type="email" name="referee_contact_email" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>Ref phone
+                      <input name="referee_contact_phone" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>Referee pay
+                      <input name="referee_pay" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700, display: "flex", alignItems: "flex-end", gap: 6 }}>
+                      <input type="checkbox" name="ref_cash_tournament" style={{ width: 18, height: 18 }} />
+                      Cash tournament
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700, display: "flex", alignItems: "flex-end", gap: 6 }}>
+                      <input type="checkbox" name="ref_cash_at_field" style={{ width: 18, height: 18 }} />
+                      Cash at field
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700, display: "flex", alignItems: "flex-end", gap: 6 }}>
+                      <input type="checkbox" name="tournament_staff_verified" style={{ width: 18, height: 18 }} />
+                      Staff verified
+                    </label>
+                  </div>
+                </details>
+
+                <details>
+                  <summary style={{ cursor: "pointer", fontSize: 12, fontWeight: 900 }}>Add and link venue now</summary>
+                  <div
+                    style={{
+                      marginTop: 10,
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+                      gap: 10,
+                    }}
+                  >
+                    <input name="venue_name" placeholder="Venue name" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                    <input name="venue_address" placeholder="Address" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                    <input name="venue_city" placeholder="City" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                    <input name="venue_state" placeholder="State" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                    <input name="venue_zip" placeholder="Zip" style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }} />
+                  </div>
+                </details>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: 10,
+                      border: "none",
+                      background: "#111",
+                      color: "#fff",
+                      fontWeight: 900,
+                    }}
+                  >
+                    Create tournament
+                  </button>
+                </div>
+              </form>
+            </details>
           </div>
           <form
             method="GET"

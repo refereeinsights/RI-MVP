@@ -16,6 +16,9 @@ type UpsertParams = {
 const DEFAULT_RADIUS = 16093; // ~10 miles in meters
 const HOTEL_RADIUS = 32187; // ~20 miles in meters
 const DEFAULT_LIMIT = 8;
+const HOTEL_INCLUDE_RE = /\b(hotel|motel|inn|resort|suite|suites|lodge)\b/i;
+const HOTEL_EXCLUDE_RE =
+  /\b(storage|self storage|mobile home|rv|campground|trailer|home park|apartment|condo|residential|retreat|getaway|holiday home)\b/i;
 
 function mapsUrl(placeId: string) {
   return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(placeId)}`;
@@ -108,6 +111,26 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     return fallback;
   };
 
+  const isHotelLike = (item: any) => {
+    const name = String(item?.name ?? "");
+    const address = String(item?.address ?? "");
+    const haystack = `${name} ${address}`.toLowerCase();
+    const types = Array.isArray(item?.types)
+      ? item.types.map((t: unknown) => String(t).toLowerCase())
+      : [];
+    const primaryType = String(item?.primaryType ?? "").toLowerCase();
+
+    if (HOTEL_EXCLUDE_RE.test(haystack)) return false;
+    if (types.includes("hotel") || types.includes("lodging") || primaryType === "hotel" || primaryType === "lodging") {
+      // Still reject obvious non-hotel lodging-ish categories.
+      if (types.some((t) => t.includes("storage") || t.includes("campground") || t.includes("rv_park"))) return false;
+      return true;
+    }
+    return HOTEL_INCLUDE_RE.test(haystack);
+  };
+
+  const filteredHotelResults = hotelResults.filter(isHotelLike);
+
   const toRows = (items: any[], category: "food" | "coffee" | "hotel") =>
     items.slice(0, limitPerCategory).map((item) => ({
       run_id: runId,
@@ -126,7 +149,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     ...(sponsorRow ? [sponsorRow] : []),
     ...toRows(foodResults, "food"),
     ...toRows(coffeeResults, "coffee"),
-    ...toRows(hotelResults, "hotel"),
+    ...toRows(filteredHotelResults, "hotel"),
   ];
   const uniqueRows: typeof rows = [];
   const seen = new Set<string>();
@@ -185,7 +208,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     message: "inserted",
     foodCount: Math.min(foodResults.length, limitPerCategory),
     coffeeCount: Math.min(coffeeResults.length, limitPerCategory),
-    hotelCount: Math.min(hotelResults.length, limitPerCategory),
+    hotelCount: Math.min(filteredHotelResults.length, limitPerCategory),
   };
 }
 

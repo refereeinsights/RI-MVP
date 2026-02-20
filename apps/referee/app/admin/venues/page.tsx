@@ -94,7 +94,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       `sport.ilike.${like}`
     );
   }
-  const tournamentSearch = tournament || q;
+  const tournamentSearch = tournament;
   let venueIdsFromTournamentSearch: string[] = [];
   if (tournamentSearch) {
     const like = `%${tournamentSearch}%`;

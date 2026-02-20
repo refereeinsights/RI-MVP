@@ -5,10 +5,24 @@ import Link from "next/link";
 
 type Venue = Record<string, any> & { id: string };
 type Tournament = { id: string; name: string | null; slug: string | null; sport?: string | null };
+type OwlNearbyRow = {
+  id: string;
+  run_id: string;
+  place_id?: string | null;
+  name?: string | null;
+  category?: string | null;
+  address?: string | null;
+  maps_url?: string | null;
+  distance_meters?: number | null;
+  is_sponsor?: boolean | null;
+  sponsor_click_url?: string | null;
+  created_at?: string | null;
+};
 
 type Props = {
   venue: Venue;
   tournaments: Tournament[];
+  owlNearby?: OwlNearbyRow[];
 };
 
 const booleanFields = [
@@ -21,7 +35,7 @@ const booleanFields = [
   "bring_field_chairs",
 ];
 
-export default function VenueEditForm({ venue, tournaments }: Props) {
+export default function VenueEditForm({ venue, tournaments, owlNearby = [] }: Props) {
   const [form, setForm] = useState<Record<string, any>>({
     name: venue.name ?? "",
     address1: venue.address1 ?? venue.address ?? "",
@@ -60,9 +74,119 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [nearbyRows, setNearbyRows] = useState<OwlNearbyRow[]>(owlNearby);
+  const [nearbyBusyId, setNearbyBusyId] = useState<string | null>(null);
+  const [nearbyError, setNearbyError] = useState<string | null>(null);
+  const [nearbySaved, setNearbySaved] = useState<string | null>(null);
+  const [newNearby, setNewNearby] = useState<{
+    name: string;
+    category: "food" | "coffee" | "hotel";
+    address: string;
+    maps_url: string;
+    distance_meters: string;
+  }>({
+    name: "",
+    category: "food",
+    address: "",
+    maps_url: "",
+    distance_meters: "",
+  });
 
   const setField = (key: string, value: any) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateNearbyField = (id: string, key: keyof OwlNearbyRow, value: string | boolean) => {
+    setNearbyRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== id) return row;
+        if (key === "distance_meters") {
+          const parsed = typeof value === "string" && value.trim() !== "" ? Number(value) : null;
+          return { ...row, distance_meters: Number.isFinite(parsed as number) ? (parsed as number) : null };
+        }
+        return { ...row, [key]: value };
+      })
+    );
+  };
+
+  const saveNearbyRow = async (row: OwlNearbyRow) => {
+    setNearbyError(null);
+    setNearbySaved(null);
+    setNearbyBusyId(row.id);
+    try {
+      const resp = await fetch(`/api/admin/venues/${venue.id}/owls-eye/nearby`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: row.id,
+          name: row.name ?? "",
+          category: row.category ?? "food",
+          address: row.address ?? "",
+          maps_url: row.maps_url ?? "",
+          distance_meters: row.distance_meters ?? "",
+          is_sponsor: row.is_sponsor ?? false,
+          sponsor_click_url: row.sponsor_click_url ?? "",
+        }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json?.error || "Nearby update failed");
+      if (json?.row?.id) {
+        setNearbyRows((prev) => prev.map((r) => (r.id === json.row.id ? (json.row as OwlNearbyRow) : r)));
+      }
+      setNearbySaved(`Saved ${row.name || "row"}`);
+    } catch (err) {
+      setNearbyError(err instanceof Error ? err.message : "Nearby update failed");
+    } finally {
+      setNearbyBusyId(null);
+    }
+  };
+
+  const deleteNearbyRow = async (rowId: string) => {
+    setNearbyError(null);
+    setNearbySaved(null);
+    setNearbyBusyId(rowId);
+    try {
+      const resp = await fetch(`/api/admin/venues/${venue.id}/owls-eye/nearby`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: rowId }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json?.error || "Nearby delete failed");
+      setNearbyRows((prev) => prev.filter((r) => r.id !== rowId));
+      setNearbySaved("Nearby row deleted");
+    } catch (err) {
+      setNearbyError(err instanceof Error ? err.message : "Nearby delete failed");
+    } finally {
+      setNearbyBusyId(null);
+    }
+  };
+
+  const addNearbyRow = async () => {
+    setNearbyError(null);
+    setNearbySaved(null);
+    setNearbyBusyId("new");
+    try {
+      if (!newNearby.name.trim()) {
+        throw new Error("Name is required");
+      }
+      const resp = await fetch(`/api/admin/venues/${venue.id}/owls-eye/nearby`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newNearby),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json?.error || "Nearby insert failed");
+      if (json?.row?.id) {
+        setNearbyRows((prev) => [...prev, json.row as OwlNearbyRow]);
+      }
+      setNewNearby({ name: "", category: "food", address: "", maps_url: "", distance_meters: "" });
+      setNearbySaved("Nearby row added");
+    } catch (err) {
+      setNearbyError(err instanceof Error ? err.message : "Nearby insert failed");
+    } finally {
+      setNearbyBusyId(null);
+    }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -194,6 +318,132 @@ export default function VenueEditForm({ venue, tournaments }: Props) {
             ))}
           </div>
         )}
+      </div>
+
+      <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12, display: "grid", gap: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div style={{ fontWeight: 700 }}>Owl&apos;s Eye nearby results (latest run)</div>
+          <Link
+            href={`/admin/owls-eye?venueId=${venue.id}`}
+            style={{ fontSize: 12, color: "#1d4ed8", textDecoration: "none", fontWeight: 700 }}
+          >
+            Open Owl&apos;s Eye tool
+          </Link>
+        </div>
+
+        {nearbyRows.length === 0 ? <div style={{ color: "#6b7280", fontSize: 13 }}>No nearby rows yet.</div> : null}
+
+        {nearbyRows.map((row) => (
+          <div
+            key={row.id}
+            style={{
+              display: "grid",
+              gap: 8,
+              border: "1px solid #e5e7eb",
+              borderRadius: 8,
+              padding: 8,
+              background: "#f8fafc",
+            }}
+          >
+            <div style={{ fontSize: 11, color: "#6b7280", fontFamily: "monospace" }}>
+              id: {row.id} • place_id: {row.place_id || "—"}
+            </div>
+            <div style={{ display: "grid", gap: 8, gridTemplateColumns: "2fr 1fr 2fr 2fr 1fr auto auto" }}>
+              <Input label="Name" value={row.name ?? ""} onChange={(v) => updateNearbyField(row.id, "name", v)} />
+              <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+                <div>Category</div>
+                <select
+                  value={row.category || "food"}
+                  onChange={(e) => updateNearbyField(row.id, "category", e.target.value)}
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+                >
+                  <option value="food">Food</option>
+                  <option value="coffee">Coffee</option>
+                  <option value="hotel">Hotel</option>
+                </select>
+              </label>
+              <Input label="Address" value={row.address ?? ""} onChange={(v) => updateNearbyField(row.id, "address", v)} />
+              <Input label="Maps URL" value={row.maps_url ?? ""} onChange={(v) => updateNearbyField(row.id, "maps_url", v)} />
+              <Input
+                label="Distance (m)"
+                value={row.distance_meters ?? ""}
+                onChange={(v) => updateNearbyField(row.id, "distance_meters", v)}
+              />
+              <button
+                type="button"
+                onClick={() => saveNearbyRow(row)}
+                disabled={nearbyBusyId === row.id}
+                style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb", alignSelf: "end" }}
+              >
+                {nearbyBusyId === row.id ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteNearbyRow(row.id)}
+                disabled={nearbyBusyId === row.id}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #ef4444",
+                  color: "#b91c1c",
+                  background: "#fff",
+                  alignSelf: "end",
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ))}
+
+        <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 10, display: "grid", gap: 8 }}>
+          <div style={{ fontWeight: 700, fontSize: 13 }}>Add nearby row</div>
+          <div style={{ display: "grid", gap: 8, gridTemplateColumns: "2fr 1fr 2fr 2fr 1fr auto" }}>
+            <Input
+              label="Name"
+              value={newNearby.name}
+              onChange={(v) => setNewNearby((prev) => ({ ...prev, name: v }))}
+            />
+            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+              <div>Category</div>
+              <select
+                value={newNearby.category}
+                onChange={(e) => setNewNearby((prev) => ({ ...prev, category: e.target.value as "food" | "coffee" | "hotel" }))}
+                style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+              >
+                <option value="food">Food</option>
+                <option value="coffee">Coffee</option>
+                <option value="hotel">Hotel</option>
+              </select>
+            </label>
+            <Input
+              label="Address"
+              value={newNearby.address}
+              onChange={(v) => setNewNearby((prev) => ({ ...prev, address: v }))}
+            />
+            <Input
+              label="Maps URL"
+              value={newNearby.maps_url}
+              onChange={(v) => setNewNearby((prev) => ({ ...prev, maps_url: v }))}
+            />
+            <Input
+              label="Distance (m)"
+              value={newNearby.distance_meters}
+              onChange={(v) => setNewNearby((prev) => ({ ...prev, distance_meters: v }))}
+            />
+            <button
+              type="button"
+              onClick={addNearbyRow}
+              disabled={nearbyBusyId === "new"}
+              style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb", alignSelf: "end" }}
+            >
+              {nearbyBusyId === "new" ? "Adding…" : "Add"}
+            </button>
+          </div>
+        </div>
+
+        {nearbySaved ? <div style={{ color: "#16a34a", fontSize: 13 }}>{nearbySaved}</div> : null}
+        {nearbyError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{nearbyError}</div> : null}
       </div>
     </div>
   );

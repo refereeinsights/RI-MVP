@@ -88,6 +88,59 @@ export default async function AdminVenueEditPage({ params }: { params: { id: str
     }
   }
 
+  let owlNearby: Array<{
+    id: string;
+    run_id: string;
+    place_id: string | null;
+    name: string | null;
+    category: string | null;
+    address: string | null;
+    maps_url: string | null;
+    distance_meters: number | null;
+    is_sponsor: boolean | null;
+    sponsor_click_url: string | null;
+    created_at: string | null;
+  }> = [];
+
+  try {
+    const primaryRun = await supabaseAdmin
+      .from("owls_eye_runs" as any)
+      .select("id,run_id,updated_at,created_at")
+      .eq("venue_id", params.id)
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const fallbackRun =
+      primaryRun.error && (primaryRun.error.code === "42703" || primaryRun.error.code === "PGRST204")
+        ? await supabaseAdmin
+            .from("owls_eye_runs" as any)
+            .select("id,run_id,created_at")
+            .eq("venue_id", params.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : null;
+
+    const runRow = (primaryRun.error ? fallbackRun?.data : primaryRun.data) as any;
+    const runId = runRow?.run_id ?? runRow?.id;
+    if (runId) {
+      const nearbyResp = await supabaseAdmin
+        .from("owls_eye_nearby_food" as any)
+        .select("id,run_id,place_id,name,category,address,maps_url,distance_meters,is_sponsor,sponsor_click_url,created_at")
+        .eq("run_id", runId)
+        .order("is_sponsor", { ascending: false })
+        .order("distance_meters", { ascending: true })
+        .order("name", { ascending: true });
+      if (!nearbyResp.error && Array.isArray(nearbyResp.data)) {
+        owlNearby = nearbyResp.data as typeof owlNearby;
+      }
+    }
+  } catch {
+    // Keep venue page usable even if owl tables are missing/inaccessible.
+  }
+
   return (
     <div style={{ padding: 24 }}>
       <AdminNav />
@@ -111,7 +164,7 @@ export default async function AdminVenueEditPage({ params }: { params: { id: str
           ← Back to venues
         </Link>
       </div>
-      <VenueEditForm venue={venue} tournaments={tournaments} />
+      <VenueEditForm venue={venue} tournaments={tournaments} owlNearby={owlNearby} />
     </div>
   );
 }

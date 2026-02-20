@@ -729,3 +729,31 @@
   - `apps/ti-web/app/tournaments/[slug]/page.tsx`
   - `apps/ti-web/app/tournaments/tournaments.css`
   - Restored sport icon placement to card footer row, strengthened Owl's Eye badge visibility logic, hid demo official-site link on detail, and tuned per-venue Owl's Eye badge sizing/position in premium venue cards.
+
+- Admin tournament listings create-flow + full field exposure:
+  - `apps/referee/app/admin/page.tsx`
+  - Added a new **New tournament** section in `tab=tournament-listings`.
+  - Supports manual creation of canonical published tournaments with slug generation and collision handling.
+  - Exposes full tournament detail fields at create time (core, contact, fee/games, director/ref fields, URLs, summary, flags).
+  - Added optional **Add and link venue now** block in the create flow to upsert a venue and immediately create `tournament_venues` link.
+
+- Admin venue detail now supports Owl's Eye nearby row editing:
+  - New API route:
+    - `apps/referee/app/api/admin/venues/[id]/owls-eye/nearby/route.ts`
+    - Supports `GET/POST/PATCH/DELETE` for latest-run nearby rows.
+  - Venue details page now loads latest-run nearby rows:
+    - `apps/referee/app/admin/venues/[id]/page.tsx`
+  - Venue edit UI now includes **Owl's Eye nearby results (latest run)** editor:
+    - `apps/referee/components/admin/VenueEditForm.tsx`
+    - Admins can add, edit, and delete `food/coffee/hotel` nearby records directly.
+
+- Venue search behavior correction (admin):
+  - `apps/referee/app/admin/venues/page.tsx`
+  - Fixed `q` search to target venue fields only.
+  - Tournament-name filtering now applies only when explicit `tournament` filter is provided (prevents false empty results for venue-name searches like "Starfire").
+
+- Owl's Eye hotel quality filtering hardening:
+  - `apps/referee/src/lib/google/nearbySearch.ts`
+  - `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts`
+  - Nearby Places fetch now includes `primaryType` and `types` metadata.
+  - Hotel rows now pass include/exclude filtering to reduce garbage entries (storage/mobile-home/RV/camp/residential-style listings).

@@ -4,6 +4,8 @@ type NearbyResult = {
   address: string;
   lat: number;
   lng: number;
+  types?: string[];
+  primaryType?: string;
 };
 
 import { readFile } from "node:fs/promises";
@@ -21,7 +23,8 @@ const REQUEST_TIMEOUT_MS = 6000;
 export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResult[]> {
   const { lat, lng, radiusMeters, type, apiKey } = opts;
   const endpoint = "https://places.googleapis.com/v1/places:searchNearby";
-  const fieldMask = "places.id,places.displayName,places.formattedAddress,places.location";
+  const fieldMask =
+    "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.types";
   const includedTypes =
     type === "cafe"
       ? ["cafe", "coffee_shop"]
@@ -38,7 +41,15 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
         const lngVal = p.location?.longitude;
         if (!placeId || !name || typeof latVal !== "number" || typeof lngVal !== "number") return null;
         const address = p.formattedAddress || "";
-        return { place_id: placeId, name, address, lat: latVal, lng: lngVal } as NearbyResult;
+        return {
+          place_id: placeId,
+          name,
+          address,
+          lat: latVal,
+          lng: lngVal,
+          types: Array.isArray(p.types) ? p.types.filter((v: unknown) => typeof v === "string") : [],
+          primaryType: typeof p.primaryType === "string" ? p.primaryType : undefined,
+        } as NearbyResult;
       })
       .filter(Boolean) as NearbyResult[];
 
@@ -98,6 +109,8 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
         displayName?: { text?: string };
         formattedAddress?: string;
         location?: { latitude?: number; longitude?: number };
+        primaryType?: string;
+        types?: string[];
       }>;
       error?: { message?: string };
     };
