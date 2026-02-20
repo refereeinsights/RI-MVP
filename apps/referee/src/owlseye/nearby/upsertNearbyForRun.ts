@@ -168,8 +168,22 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     seen.add(row.place_id);
     uniqueRows.push(row);
   }
+  if (force) {
+    // Forced refresh should replace stale nearby rows for the run.
+    const { error: clearError } = await supabaseAdmin.from("owls_eye_nearby_food" as any).delete().eq("run_id", runId);
+    if (clearError) {
+      console.warn("[owlseye] Could not clear existing nearby rows before forced refresh", clearError);
+    }
+  }
+
   if (uniqueRows.length === 0) {
-    return { ok: true, message: "no_results", foodCount: foodResults.length, coffeeCount: coffeeResults.length };
+    return {
+      ok: true,
+      message: "no_results",
+      foodCount: foodResults.length,
+      coffeeCount: coffeeResults.length,
+      hotelCount: filteredHotelResults.length,
+    };
   }
 
   // Ensure a matching run row exists to satisfy FK constraints, regardless of column naming.

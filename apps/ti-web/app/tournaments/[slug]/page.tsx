@@ -90,6 +90,9 @@ export const revalidate = 300;
 
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://tournamentinsights.com").replace(/\/+$/, "");
 const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
+const PREMIUM_PREVIEW_SLUGS = new Set(["refereeinsights-demo-tournament", "hooptown-championship"]);
+const PREMIUM_PREVIEW_NAMES = new Set(["hooptown championship"]);
+const PREMIUM_PREVIEW_VENUE_NAMES = new Set(["the hub"]);
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -285,8 +288,19 @@ export default async function TournamentDetailPage({
       ?.map((tv) => tv.venues)
       .filter((v): v is NonNullable<(typeof data.tournament_venues)[number]["venues"]> => Boolean(v)) ?? [];
   const linkedVenueIds = linkedVenues.map((v) => v.id).filter(Boolean);
-  const isDemoTournament = (data.slug ?? params.slug) === DEMO_TOURNAMENT_SLUG;
-  const canViewPremiumDetails = isPaid || isDemoTournament;
+  const resolvedSlug = (data.slug ?? params.slug ?? "").toLowerCase();
+  const resolvedName = (data.name ?? "").trim().toLowerCase();
+  const isDemoTournament = resolvedSlug === DEMO_TOURNAMENT_SLUG;
+  const hasPremiumPreviewVenue = linkedVenues.some((venue) =>
+    PREMIUM_PREVIEW_VENUE_NAMES.has((venue.name ?? "").trim().toLowerCase())
+  );
+  const hasPremiumPreview =
+    PREMIUM_PREVIEW_SLUGS.has(resolvedSlug) ||
+    PREMIUM_PREVIEW_NAMES.has(resolvedName) ||
+    resolvedSlug.includes("hooptown") ||
+    resolvedName.includes("hooptown") ||
+    hasPremiumPreviewVenue;
+  const canViewPremiumDetails = isPaid || hasPremiumPreview;
 
   let paidTournamentDetails: PaidTournamentDetails | null = null;
   let paidVenueDetailsById = new Map<
@@ -491,7 +505,9 @@ export default async function TournamentDetailPage({
 
           {linkedVenues.length > 0 ? (
             linkedVenues.map((venue) => {
-              const streetLine = venue.address?.trim() || "";
+              const streetLine =
+                venue.address?.trim() ||
+                (linkedVenues.length === 1 ? data.address?.trim() || "" : "");
               const cityStateZipLine = [venue.city, venue.state, venue.zip].filter(Boolean).join(", ");
               const hasVenueMap = (venue.address || venue.name) && venue.city && venue.state;
               const venueQuery = hasVenueMap
