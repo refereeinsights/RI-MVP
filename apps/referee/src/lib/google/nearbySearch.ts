@@ -16,12 +16,15 @@ type NearbyOptions = {
   radiusMeters: number;
   type: "restaurant" | "cafe" | "lodging";
   apiKey: string;
+  maxResultCount?: number;
+  forceTextSearch?: boolean;
 };
 
 const REQUEST_TIMEOUT_MS = 6000;
 
 export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResult[]> {
-  const { lat, lng, radiusMeters, type, apiKey } = opts;
+  const { lat, lng, radiusMeters, type, apiKey, maxResultCount = 20, forceTextSearch = false } = opts;
+  const safeMaxResultCount = Math.max(1, Math.min(20, Math.floor(maxResultCount || 20)));
   const endpoint = "https://places.googleapis.com/v1/places:searchNearby";
   const fieldMask =
     "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.types";
@@ -70,12 +73,63 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
     console.warn("[owlseye] Failed to read fixture; falling back to API", err);
   }
 
+  const runTextFallback = async () => {
+    const textResp = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": fieldMask,
+      },
+      body: JSON.stringify({
+        textQuery: type === "lodging" ? "hotels" : type,
+        locationBias: {
+          circle: {
+            center: { latitude: lat, longitude: lng },
+            radius: radiusMeters,
+          },
+        },
+        maxResultCount: safeMaxResultCount,
+        rankPreference: "DISTANCE",
+      }),
+    });
+    if (!textResp.ok) {
+      const message = await textResp.text();
+      console.error("[owlseye] Text search fallback failed HTTP", textResp.status, message);
+      return [] as NearbyResult[];
+    }
+    const textJson = (await textResp.json()) as { places?: any[]; error?: { message?: string } };
+    if (textJson.error?.message) {
+      console.warn("[owlseye] Text search fallback status", textJson.error.message);
+    }
+    const fallbackMapped = mapPlaces(textJson.places);
+    if (fallbackMapped.length > 0) {
+      const sample = fallbackMapped[0];
+      console.log("[owlseye] Places API text fallback results", {
+        count: fallbackMapped.length,
+        sample: { name: sample.name, address: sample.address },
+      });
+    } else {
+      console.log("[owlseye] Places API text fallback results empty");
+    }
+    return fallbackMapped;
+  };
+
+  if (forceTextSearch) {
+    try {
+      return await runTextFallback();
+    } catch (err) {
+      console.error("[owlseye] Forced text fallback failed", err);
+      return [];
+    }
+  }
+
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
 
   try {
     const body = {
-      maxResultCount: 20,
+      maxResultCount: safeMaxResultCount,
       rankPreference: "DISTANCE",
       locationRestriction: {
         circle: {
@@ -127,8 +181,11 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
         count: mapped.length,
         sample: { name: sample.name, address: sample.address },
       });
-    } else {
+    } else if (type !== "lodging") {
       console.log("[owlseye] Places API (new) nearby results empty");
+    } else {
+      // Fallback for lodging: nearby endpoint can return sparse/empty in some areas.
+      return await runTextFallback();
     }
 
     return mapped;

@@ -14,15 +14,18 @@ type UpsertParams = {
 };
 
 const DEFAULT_RADIUS = 16093; // ~10 miles in meters
-const HOTEL_RADIUS = 32187; // ~20 miles in meters
+const HOTEL_RADIUS = 48280; // ~30 miles in meters
 const DEFAULT_LIMIT = 8;
+const HOTEL_LIMIT = 5;
 const HOTEL_INCLUDE_RE = /\b(hotel|motel|inn|resort|suite|suites|lodge)\b/i;
 const HOTEL_EXCLUDE_RE =
-  /\b(storage|self storage|mobile home|rv|campground|trailer|home park|apartment|condo|residential|retreat|getaway|holiday home)\b/i;
+  /\b(storage|self storage|mobile home|rv|campground|trailer|home park|apartment|apartments|condo|condominiums?|residential|retreat|getaway|holiday home|vacation rental|private room|entire home|whole home|townhome|townhouse|single family)\b/i;
 const HOTEL_BRAND_RE =
-  /\b(hyatt|hilton|marriott|sheraton|westin|wyndham|fairfield|hampton|holiday inn|best western|comfort inn|motel 6|residence inn|homewood suites|home2 suites|springhill suites|la quinta|days inn|super 8)\b/i;
+  /\b(hyatt|hilton|marriott|sheraton|westin|wyndham|fairfield|hampton|holiday inn|best western|comfort inn|motel 6|residence inn|homewood suites|home2 suites|springhill suites|la quinta|days inn|super 8|courtyard|drury|radisson|quality inn|doubletree|embassy suites|staybridge|avid hotel)\b/i;
 const VACATION_RENTAL_RE =
   /\b(home|house|studio|townhome|townhouse|cabin|villa|loft|trail|airbnb|vrbo)\b/i;
+const HOTEL_TYPE_ALLOW = new Set(["lodging", "hotel", "motel", "resort_hotel", "extended_stay_hotel"]);
+const HOTEL_TYPE_BLOCK_RE = /\b(apartment|real_estate|housing|storage|campground|rv_park|route)\b/i;
 
 function mapsUrl(placeId: string) {
   return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(placeId)}`;
@@ -91,7 +94,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     [foodResults, coffeeResults, hotelResults] = await Promise.all([
       fetchNearbyPlaces({ ...baseOpts, type: "restaurant" }),
       fetchNearbyPlaces({ ...baseOpts, type: "cafe" }),
-      fetchNearbyPlaces({ ...baseOpts, type: "lodging", radiusMeters: HOTEL_RADIUS }),
+      // Hotels only: 20-mile radius and deeper fetch so filtering still returns enough real hotels.
+      fetchNearbyPlaces({ ...baseOpts, type: "lodging", radiusMeters: HOTEL_RADIUS, maxResultCount: 50 }),
     ]);
   } catch (err) {
     console.error("[owlseye] Nearby fetch failed", err);
@@ -123,13 +127,16 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       ? item.types.map((t: unknown) => String(t).toLowerCase())
       : [];
     const primaryType = String(item?.primaryType ?? "").toLowerCase();
+    const typedAsBlocked = types.some((t) => HOTEL_TYPE_BLOCK_RE.test(t)) || HOTEL_TYPE_BLOCK_RE.test(primaryType);
+    const typedAsHotel = types.some((t) => HOTEL_TYPE_ALLOW.has(t)) || HOTEL_TYPE_ALLOW.has(primaryType);
 
-    if (HOTEL_EXCLUDE_RE.test(haystack)) return false;
+    if (typedAsBlocked) return false;
+    if (HOTEL_EXCLUDE_RE.test(haystack) && !HOTEL_BRAND_RE.test(haystack)) return false;
     if (VACATION_RENTAL_RE.test(haystack) && !HOTEL_BRAND_RE.test(haystack)) return false;
     if (types.some((t) => t.includes("storage") || t.includes("campground") || t.includes("rv_park"))) return false;
 
     const hasHotelSignal = HOTEL_INCLUDE_RE.test(haystack) || HOTEL_BRAND_RE.test(haystack);
-    const hasLodgingType = types.includes("hotel") || types.includes("lodging") || primaryType === "hotel" || primaryType === "lodging";
+    const hasLodgingType = types.includes("hotel") || types.includes("lodging") || primaryType === "hotel" || primaryType === "lodging" || typedAsHotel;
 
     // For lodging-typed results, still require hotel signal to avoid generic homes/rentals.
     if (hasLodgingType) {
@@ -140,9 +147,29 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   };
 
   const filteredHotelResults = hotelResults.filter(isHotelLike);
+  let finalHotelResults = filteredHotelResults;
+  if (finalHotelResults.length < HOTEL_LIMIT) {
+    const hotelTextResults = await fetchNearbyPlaces({
+      ...baseOpts,
+      type: "lodging",
+      radiusMeters: HOTEL_RADIUS,
+      maxResultCount: 20,
+      forceTextSearch: true,
+    });
+    const filteredTextHotels = hotelTextResults.filter(isHotelLike);
+    const merged = [...finalHotelResults, ...filteredTextHotels];
+    const deduped: typeof merged = [];
+    const seenPlaceIds = new Set<string>();
+    for (const row of merged) {
+      if (!row?.place_id || seenPlaceIds.has(row.place_id)) continue;
+      seenPlaceIds.add(row.place_id);
+      deduped.push(row);
+    }
+    finalHotelResults = deduped;
+  }
 
-  const toRows = (items: any[], category: "food" | "coffee" | "hotel") =>
-    items.slice(0, limitPerCategory).map((item) => ({
+  const toRows = (items: any[], category: "food" | "coffee" | "hotel", limit = limitPerCategory) =>
+    items.slice(0, limit).map((item) => ({
       run_id: runId,
       place_id: item.place_id,
       name: item.name,
@@ -159,7 +186,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     ...(sponsorRow ? [sponsorRow] : []),
     ...toRows(foodResults, "food"),
     ...toRows(coffeeResults, "coffee"),
-    ...toRows(filteredHotelResults, "hotel"),
+    ...toRows(finalHotelResults, "hotel", HOTEL_LIMIT),
   ];
   const uniqueRows: typeof rows = [];
   const seen = new Set<string>();
@@ -182,7 +209,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       message: "no_results",
       foodCount: foodResults.length,
       coffeeCount: coffeeResults.length,
-      hotelCount: filteredHotelResults.length,
+      hotelCount: Math.min(finalHotelResults.length, HOTEL_LIMIT),
     };
   }
 
@@ -232,7 +259,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     message: "inserted",
     foodCount: Math.min(foodResults.length, limitPerCategory),
     coffeeCount: Math.min(coffeeResults.length, limitPerCategory),
-    hotelCount: Math.min(filteredHotelResults.length, limitPerCategory),
+    hotelCount: Math.min(finalHotelResults.length, HOTEL_LIMIT),
   };
 }
 

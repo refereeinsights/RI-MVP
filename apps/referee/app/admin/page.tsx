@@ -97,6 +97,15 @@ type Tab =
   | "owls-eye";
 type VStatus = "pending" | "approved" | "rejected";
 type MissingTournamentFilter = "venues" | "urls" | "dates" | "";
+type ReadyVenueItem = {
+  venue_id: string;
+  name: string | null;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  sport: string | null;
+};
 const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
 const CONTACT_TYPES = ["assignor", "director", "general", "referee_coordinator"] as const;
 const CONTACT_STATUSES: ContactStatus[] = ["pending", "verified", "rejected"];
@@ -551,6 +560,96 @@ export default async function AdminPage({
     if (missingAddress || missingGeo) venuesMissingAddressGeoCount += 1;
     if (!hasText(row.venue_url)) venuesMissingUrlsCount += 1;
   });
+
+  let owlRunVenueCount = 0;
+  try {
+    const { data: owlRunRows } = await supabaseAdmin
+      .from("owls_eye_runs" as any)
+      .select("venue_id")
+      .not("venue_id", "is", null)
+      .limit(20000);
+    owlRunVenueCount = new Set(
+      ((owlRunRows as Array<{ venue_id?: string | null }> | null) ?? [])
+        .map((row) => row.venue_id)
+        .filter((value): value is string => typeof value === "string" && value.length > 0),
+    ).size;
+  } catch {
+    owlRunVenueCount = 0;
+  }
+
+  let readyNotRunVenues: ReadyVenueItem[] = [];
+  if (tab === "owls-eye") {
+    const { data: readyVenuesRaw } = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,name,address,address1,city,state,zip,latitude,longitude")
+      .not("name", "is", null)
+      .order("state", { ascending: true })
+      .order("city", { ascending: true })
+      .order("name", { ascending: true })
+      .limit(1200);
+
+    const readyCandidates = ((readyVenuesRaw ?? []) as Array<{
+      id: string;
+      name: string | null;
+      address: string | null;
+      address1?: string | null;
+      city: string | null;
+      state: string | null;
+      zip: string | null;
+      latitude: number | null;
+      longitude: number | null;
+    }>).filter((venue) => {
+      const hasAddress =
+        Boolean((venue.address1 ?? venue.address ?? "").trim()) &&
+        Boolean((venue.city ?? "").trim()) &&
+        Boolean((venue.state ?? "").trim());
+      const hasGeo =
+        typeof venue.latitude === "number" &&
+        Number.isFinite(venue.latitude) &&
+        typeof venue.longitude === "number" &&
+        Number.isFinite(venue.longitude);
+      return hasAddress || hasGeo;
+    });
+
+    const readyVenueIds = readyCandidates.map((v) => v.id).filter(Boolean);
+    let runVenueIds = new Set<string>();
+    if (readyVenueIds.length) {
+      const { data: runs } = await supabaseAdmin
+        .from("owls_eye_runs" as any)
+        .select("venue_id")
+        .in("venue_id", readyVenueIds);
+      runVenueIds = new Set(
+        ((runs ?? []) as Array<{ venue_id: string | null }>)
+          .map((row) => row.venue_id || "")
+          .filter(Boolean),
+      );
+    }
+
+    readyNotRunVenues = readyCandidates
+      .filter((venue) => !runVenueIds.has(venue.id))
+      .sort((a, b) => {
+        const aAddress = (a.address1 ?? a.address ?? "").toLowerCase();
+        const bAddress = (b.address1 ?? b.address ?? "").toLowerCase();
+        if (aAddress !== bAddress) return aAddress.localeCompare(bAddress);
+        const aCity = (a.city ?? "").toLowerCase();
+        const bCity = (b.city ?? "").toLowerCase();
+        if (aCity !== bCity) return aCity.localeCompare(bCity);
+        const aState = (a.state ?? "").toLowerCase();
+        const bState = (b.state ?? "").toLowerCase();
+        if (aState !== bState) return aState.localeCompare(bState);
+        return (a.name ?? "").toLowerCase().localeCompare((b.name ?? "").toLowerCase());
+      })
+      .slice(0, 120)
+      .map((venue) => ({
+        venue_id: venue.id,
+        name: venue.name,
+        street: venue.address1 ?? venue.address ?? null,
+        city: venue.city,
+        state: venue.state,
+        zip: venue.zip,
+        sport: null,
+      }));
+  }
 
   const formatDateInput = (value?: string | null) => {
     if (!value) return "";
@@ -2739,12 +2838,47 @@ export default async function AdminPage({
             <div style={{ fontWeight: 900, marginTop: 2 }}>{venuesMissingUrlsCount}</div>
             <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered venue list</div>
           </a>
+          <a
+            href="/admin/venues?owl=with_data"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #fde68a",
+              background: "#fff",
+              textDecoration: "none",
+              color: "#854d0e",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 12,
+                textTransform: "uppercase",
+                fontWeight: 800,
+              }}
+            >
+              <img
+                src="/svg/ri/owls_eye_badge.svg"
+                alt="Owl's Eye badge"
+                style={{ width: 18, height: 18, objectFit: "contain", flex: "0 0 auto" }}
+              />
+              <span>Owl&apos;s Eye venues</span>
+            </div>
+            <div style={{ fontWeight: 900, marginTop: 2 }}>{owlRunVenueCount}</div>
+            <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered venue list</div>
+          </a>
         </div>
       </section>
 
       {tab === "owls-eye" && (
         <section style={{ marginBottom: 22 }}>
-          <OwlsEyePanel embedded adminToken={owlsEyeAdminToken || undefined} />
+          <OwlsEyePanel
+            embedded
+            adminToken={owlsEyeAdminToken || undefined}
+            readyNotRunVenues={readyNotRunVenues}
+          />
         </section>
       )}
 

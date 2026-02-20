@@ -147,6 +147,14 @@
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
 
 ## 2026-02-20
+- Cross-app operational note (RI-side infra that affects TI premium venue data freshness):
+  - Owl's Eye hotel discovery pipeline was hardened in RI backend:
+    - hotel radius increased to 30 miles
+    - hotel output capped to 5 closest rows
+    - Places API result-count bug fixed (maxResultCount clamped to 1..20)
+    - added lodging text-search fallback/supplement when nearby results are sparse.
+  - This improves likelihood that TI paid venue premium details show hotel rows after fresh Owl's Eye runs.
+
 - TI SEO hardening pass (App Router metadata routes + dynamic detail metadata):
   - Global metadata defaults refined in `apps/ti-web/app/layout.tsx`:
     - canonical host pinned to `https://www.tournamentinsights.com`

@@ -1,6 +1,43 @@
 # Running Notes
 
 ## 2026-02-20
+- Owl's Eye admin/dashboard + readiness fixes:
+  - Added Admin Home widget for Owl's Eye venue coverage:
+    - `apps/referee/app/admin/page.tsx`
+    - shows distinct venues with Owl's Eye runs and links to `/admin/venues?owl=with_data`.
+  - Fixed Owl's Eye tab ready-list showing `Found: 0`:
+    - wired `readyNotRunVenues` into embedded `OwlsEyePanel` on `/admin`.
+    - aligned ready-query logic to use `address1` fallback + robust server-side filtering.
+    - files:
+      - `apps/referee/app/admin/page.tsx`
+      - `apps/referee/app/admin/owls-eye/page.tsx`
+
+- Owl's Eye hotel discovery hardening:
+  - Expanded hotel search radius from 20 miles to 30 miles and limited saved hotel rows to the 5 closest.
+  - Fixed Places API limit bug:
+    - clamped `maxResultCount` to valid range `1..20` (Google rejects >20).
+  - Added lodging fallback path:
+    - if nearby lodging is empty, run `places:searchText` ("hotels") with location bias.
+    - if filtered hotel set is below target count, supplement from text-search and dedupe by `place_id`.
+  - files:
+    - `apps/referee/src/lib/google/nearbySearch.ts`
+    - `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts`
+
+- Data maintenance performed (live DB ops):
+  - Merged duplicate Grand Park venues into canonical record:
+    - kept `eb68da9a-9e40-4785-a8c5-b7df233c6732`
+    - renamed to `Grand Park Sports Complex`
+    - set `venue_url = https://www.grandpark.org/`
+    - merged/deleted:
+      - `9e5fa476-5934-4735-a86d-ba9942e294ab`
+      - `02c744bd-b2d0-4202-9a96-d5e917c72dce`
+      - `c2e52ea5-319f-4653-9032-b29799c806f0`
+    - canonical now has 4 linked tournaments.
+  - Ran one-time venue quality backfill from existing lat/lng:
+    - targeted 5 venues missing street-style address
+    - updated 5 rows (address/zip/normalized fields where available)
+    - strict quality-ready count improved to 53/56.
+
 - AYSO source ingest + association tagging:
   - Added dedicated AYSO parser path for `https://ayso.org/ayso-tournaments/` in:
     - `apps/referee/src/server/admin/pasteUrl.ts`
