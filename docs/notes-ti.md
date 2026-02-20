@@ -155,6 +155,14 @@
   - Kept `Travel/Lodging Notes` in the main premium panel and added guidance to use per-venue premium controls.
   - Styling updates in:
     - `apps/ti-web/app/tournaments/tournaments.css`
+- TI tournament card/detail follow-up polish:
+  - `apps/ti-web/app/tournaments/page.tsx`
+  - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - `apps/ti-web/app/tournaments/tournaments.css`
+  - Restored sport icon placement to the tournament card footer row.
+  - Added stronger Owl's Eye badge detection/fallback so demo and linked Owl's Eye venues surface the badge consistently.
+  - Set demo tournament official site behavior to show `TBD` on directory cards and hide public official-site link on detail.
+  - Tuned venue-card Owl's Eye badge sizing/position so it sits left of venue identity without clipping and aligns with the venue block.
 
 ## 2026-02-16
 - TI branding: TI header/layout mirrors RI structure with TI colors and shared logo `shared-assets/svg/ti/tournamentinsights_logo.svg` (used in layout/home).

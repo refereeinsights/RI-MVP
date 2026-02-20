@@ -723,3 +723,9 @@
       2. map to venue IDs via `tournament_venues`
       3. apply `venues.id in (...)` filter
     - Added graceful admin-visible error rendering for venue query failures instead of throwing a server component exception.
+
+- TI tournament card/detail Owl's Eye + demo polish:
+  - `apps/ti-web/app/tournaments/page.tsx`
+  - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - `apps/ti-web/app/tournaments/tournaments.css`
+  - Restored sport icon placement to card footer row, strengthened Owl's Eye badge visibility logic, hid demo official-site link on detail, and tuned per-venue Owl's Eye badge sizing/position in premium venue cards.

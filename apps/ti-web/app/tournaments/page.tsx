@@ -255,8 +255,7 @@ export default async function TournamentsPage({
       const { data: runRows } = await supabaseAdmin
         .from("owls_eye_runs" as any)
         .select("id,run_id,venue_id,status")
-        .in("venue_id", Array.from(venueIds))
-        .in("status", ["running", "complete"]);
+        .in("venue_id", Array.from(venueIds));
       const runs = (runRows as OwlRunRow[] | null) ?? [];
       const runIds = Array.from(new Set(runs.map((r) => r.run_id ?? r.id).filter(Boolean))) as string[];
 
@@ -480,15 +479,12 @@ export default async function TournamentsPage({
               const dateLabel =
                 start && end && start !== end ? `${start} – ${end}` : start || end || "Dates TBA";
               const locationLabel = [t.city, t.state].filter(Boolean).join(", ");
+              const isDemoTournament = t.slug === DEMO_TOURNAMENT_SLUG;
+              const showOwlsEyeBadge = isDemoTournament || Boolean(hasOwlsEyeByTournament.get(t.id));
+              const hasOfficialSite = Boolean(t.official_website_url) && !isDemoTournament;
 
               return (
                 <article key={t.id} className={`card ${getSportCardClass(t.sport)}`}>
-                  <div className="cardWhistle" style={{ top: "1.1rem" }}>
-                    <div className="summaryIcon" aria-hidden="true">
-                      {sportIcon(t.sport)}
-                    </div>
-                  </div>
-
                   <h2>{t.name}</h2>
 
                   <p className="meta">
@@ -500,9 +496,9 @@ export default async function TournamentsPage({
                   <p className="dates">{dateLabel}</p>
 
                   <div className="cardFooter">
-                    {t.official_website_url ? (
+                    {hasOfficialSite ? (
                       <a
-                        href={t.official_website_url}
+                        href={t.official_website_url!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="secondaryLink"
@@ -523,8 +519,11 @@ export default async function TournamentsPage({
                   </div>
                   <div className="cardFooterBadgeRow">
                     <div className="cardFooterBadge cardFooterBadge--left" />
+                    <div className="sportIcon" aria-label={t.sport ?? "tournament sport"}>
+                      {sportIcon(t.sport)}
+                    </div>
                     <div className="cardFooterBadge cardFooterBadge--right">
-                      {hasOwlsEyeByTournament.get(t.id) ? (
+                      {showOwlsEyeBadge ? (
                         <img
                           className="listingBadgeIcon listingBadgeIcon--owlsEye"
                           src="/svg/ri/owls_eye_badge.svg"

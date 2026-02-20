@@ -314,6 +314,7 @@ export default async function TournamentDetailPage({
       captured_at: string | null;
     }
   >();
+  let hasOwlsEyeByVenueId = new Map<string, boolean>();
 
   if (canViewPremiumDetails) {
     const [{ data: tournamentPaidData }, { data: venuePaidRows }, runRows] = await Promise.all([
@@ -406,6 +407,35 @@ export default async function TournamentDetailPage({
           ];
         })
       );
+      hasOwlsEyeByVenueId = new Map(
+        Array.from(nearbyByVenueId.entries()).map(([venueId, nearby]) => [
+          venueId,
+          nearby.food.length + nearby.coffee.length + nearby.hotels.length > 0,
+        ])
+      );
+    }
+  }
+
+  if (!hasOwlsEyeByVenueId.size && linkedVenueIds.length) {
+    const runRows = await fetchLatestOwlsEyeRuns(linkedVenueIds);
+    const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
+    for (const row of runRows) {
+      if (!row?.venue_id) continue;
+      if (latestRunByVenue.has(row.venue_id)) continue;
+      latestRunByVenue.set(row.venue_id, row);
+    }
+    const runIds = Array.from(latestRunByVenue.values())
+      .map((row) => row.run_id ?? row.id)
+      .filter((value): value is string => Boolean(value));
+    if (runIds.length) {
+      const { data: nearbyRows } = await supabaseAdmin
+        .from("owls_eye_nearby_food" as any)
+        .select("run_id")
+        .in("run_id", runIds);
+      const nearbyRunIds = new Set(((nearbyRows as Array<{ run_id: string }> | null) ?? []).map((row) => row.run_id));
+      hasOwlsEyeByVenueId = new Map(
+        Array.from(latestRunByVenue.entries()).map(([venueId, run]) => [venueId, nearbyRunIds.has((run.run_id ?? run.id) as string)])
+      );
     }
   }
 
@@ -451,7 +481,7 @@ export default async function TournamentDetailPage({
           <div className="detailMeta">{dateLabel}</div>
           <div className="detailMeta">{locationLabel}</div>
 
-          {data.official_website_url ? (
+          {data.official_website_url && !isDemoTournament ? (
             <div className="detailLinksRow">
               <a className="secondaryLink" href={data.official_website_url} target="_blank" rel="noopener noreferrer">
                 Official site
@@ -461,8 +491,8 @@ export default async function TournamentDetailPage({
 
           {linkedVenues.length > 0 ? (
             linkedVenues.map((venue) => {
-              const venueLoc = buildLocationLabel(venue.city, venue.state);
-              const addressLine = [venue.address, venueLoc].filter(Boolean).join(", ");
+              const streetLine = venue.address?.trim() || "";
+              const cityStateZipLine = [venue.city, venue.state, venue.zip].filter(Boolean).join(", ");
               const hasVenueMap = (venue.address || venue.name) && venue.city && venue.state;
               const venueQuery = hasVenueMap
                 ? [venue.name, venue.address, venue.city, venue.state, venue.zip].filter(Boolean).join(", ")
@@ -470,16 +500,26 @@ export default async function TournamentDetailPage({
               const venueMapLinks = venueQuery ? buildMapLinks(venueQuery) : null;
 
               return (
-                <div className="detailCard" key={venue.id}>
+                <div className={`detailCard ${hasOwlsEyeByVenueId.get(venue.id) ? "detailCard--withOwl" : ""}`} key={venue.id}>
                   <div className="detailCard__title">Venue</div>
                   <div className="detailCard__body">
+                    {hasOwlsEyeByVenueId.get(venue.id) ? (
+                      <img
+                        className="detailVenueOwlBadgeFloat"
+                        src="/svg/ri/owls_eye_badge.svg"
+                        alt="Owl's Eye insights available for this venue"
+                      />
+                    ) : null}
                     <div className="detailVenueRow">
-                      <div className="detailVenueText">
+                      <div className="detailVenueIdentity">
+                        <div className="detailVenueText">
                         <div className="detailVenueName">{venue.name || "Venue TBA"}</div>
-                        {addressLine ? <div className="detailVenueAddress">{addressLine}</div> : null}
+                        {streetLine ? <div className="detailVenueAddress">{streetLine}</div> : null}
+                        {cityStateZipLine ? <div className="detailVenueAddress">{cityStateZipLine}</div> : null}
+                        </div>
                       </div>
                       {venueMapLinks ? (
-                        <div className="detailLinksRow detailLinksRow--inline">
+                        <div className="detailLinksRow">
                           <a className="secondaryLink" href={venueMapLinks.google} target="_blank" rel="noopener noreferrer">
                             Google Maps
                           </a>
@@ -508,6 +548,10 @@ export default async function TournamentDetailPage({
                             const nearby = nearbyByVenueId.get(venue.id);
                             return (
                               <>
+                                <div className="premiumDetailRow">
+                                  <span className="premiumDetailLabel">Travel/Lodging Notes</span>
+                                  <span>{paidTournamentDetails?.travel_lodging?.trim() || "Not provided yet."}</span>
+                                </div>
                                 <div className="premiumDetailRow">
                                   <span className="premiumDetailLabel">Food vendors</span>
                                   <span>{boolLabel(premium?.food_vendors)}</span>
@@ -652,10 +696,6 @@ export default async function TournamentDetailPage({
               </div>
             ) : (
               <div className="detailCard__body premiumDetailCard__body">
-                <div className="premiumDetailRow">
-                  <span className="premiumDetailLabel">Travel/Lodging Notes</span>
-                  <span>{paidTournamentDetails?.travel_lodging?.trim() || "Not provided yet."}</span>
-                </div>
                 <div className="premiumDetailRow">
                   <span className="premiumDetailLabel">Venue-level premium details</span>
                   <span>Use the “Premium planning details” button on each venue card above.</span>

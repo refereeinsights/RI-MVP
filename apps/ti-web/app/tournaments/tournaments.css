@@ -832,21 +832,25 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  column-gap: 12px;
+  column-gap: 20px;
+}
+
+.cardFooterBadgeRow .sportIcon {
+  margin-top: 0;
 }
 
 .cardFooterBadge {
-  min-height: 56px;
+  min-height: 48px;
   display: flex;
   align-items: center;
 }
 
 .cardFooterBadge--left {
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .cardFooterBadge--right {
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .cardFooter {
@@ -876,7 +880,13 @@
 }
 
 .listingBadgeIcon--owlsEye {
-  max-height: 44px;
+  width: 87px;
+  height: 87px;
+  max-height: none;
+  object-fit: contain;
+  transform: scale(1);
+  transform-origin: center center;
+  margin: 0 auto;
 }
 
 .btn {
@@ -1002,6 +1012,10 @@
   border: 1px solid rgba(255,255,255,0.25);
 }
 
+.detailCard--withOwl {
+  position: relative;
+}
+
 .detailCard__title {
   font-weight: 700;
   margin-bottom: 4px;
@@ -1065,11 +1079,31 @@
 }
 
 .detailVenueRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  display: grid;
+  gap: 10px;
   align-items: center;
-  justify-content: space-between;
+  justify-items: center;
+}
+
+.detailVenueIdentity {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 120px;
+}
+
+.detailVenueOwlBadgeFloat {
+  width: 192px;
+  height: 192px;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
+  position: absolute;
+  left: -48px;
+  top: -45px;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .detailVenueText {
@@ -1077,7 +1111,8 @@
   flex-direction: column;
   gap: 4px;
   color: #f8fbff;
-  text-align: left;
+  text-align: center;
+  align-items: center;
 }
 
 .detailVenueName {
@@ -1091,7 +1126,9 @@
 
 .detailVenuePremium {
   margin-top: 4px;
-  text-align: left;
+  text-align: center;
+  display: grid;
+  justify-items: center;
 }
 
 .detailVenuePremium > summary {
@@ -1122,13 +1159,14 @@
   background: rgba(0,0,0,0.12);
   display: grid;
   gap: 8px;
+  width: min(720px, 100%);
 }
 
 .detailVenuePremiumLock {
   margin-top: 6px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
 }
