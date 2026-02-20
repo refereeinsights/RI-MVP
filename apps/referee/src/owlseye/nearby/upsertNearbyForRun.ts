@@ -19,6 +19,10 @@ const DEFAULT_LIMIT = 8;
 const HOTEL_INCLUDE_RE = /\b(hotel|motel|inn|resort|suite|suites|lodge)\b/i;
 const HOTEL_EXCLUDE_RE =
   /\b(storage|self storage|mobile home|rv|campground|trailer|home park|apartment|condo|residential|retreat|getaway|holiday home)\b/i;
+const HOTEL_BRAND_RE =
+  /\b(hyatt|hilton|marriott|sheraton|westin|wyndham|fairfield|hampton|holiday inn|best western|comfort inn|motel 6|residence inn|homewood suites|home2 suites|springhill suites|la quinta|days inn|super 8)\b/i;
+const VACATION_RENTAL_RE =
+  /\b(home|house|studio|townhome|townhouse|cabin|villa|loft|trail|airbnb|vrbo)\b/i;
 
 function mapsUrl(placeId: string) {
   return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(placeId)}`;
@@ -121,12 +125,18 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     const primaryType = String(item?.primaryType ?? "").toLowerCase();
 
     if (HOTEL_EXCLUDE_RE.test(haystack)) return false;
-    if (types.includes("hotel") || types.includes("lodging") || primaryType === "hotel" || primaryType === "lodging") {
-      // Still reject obvious non-hotel lodging-ish categories.
-      if (types.some((t) => t.includes("storage") || t.includes("campground") || t.includes("rv_park"))) return false;
-      return true;
+    if (VACATION_RENTAL_RE.test(haystack) && !HOTEL_BRAND_RE.test(haystack)) return false;
+    if (types.some((t) => t.includes("storage") || t.includes("campground") || t.includes("rv_park"))) return false;
+
+    const hasHotelSignal = HOTEL_INCLUDE_RE.test(haystack) || HOTEL_BRAND_RE.test(haystack);
+    const hasLodgingType = types.includes("hotel") || types.includes("lodging") || primaryType === "hotel" || primaryType === "lodging";
+
+    // For lodging-typed results, still require hotel signal to avoid generic homes/rentals.
+    if (hasLodgingType) {
+      return hasHotelSignal;
     }
-    return HOTEL_INCLUDE_RE.test(haystack);
+
+    return hasHotelSignal;
   };
 
   const filteredHotelResults = hotelResults.filter(isHotelLike);
