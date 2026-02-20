@@ -158,6 +158,34 @@ function metersToMilesLabel(meters: number | null | undefined) {
   return `${miles < 10 ? miles.toFixed(1) : miles.toFixed(0)} mi`;
 }
 
+async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
+  if (!venueIds.length) return [] as OwlsEyeRunRow[];
+
+  const primary = await supabaseAdmin
+    .from("owls_eye_runs" as any)
+    .select("id,run_id,venue_id,status,updated_at,created_at")
+    .in("venue_id", venueIds)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  const primaryErrCode = (primary as any)?.error?.code;
+  if (!primary.error) {
+    return (primary.data as OwlsEyeRunRow[] | null) ?? [];
+  }
+
+  // Backward compatibility for environments where updated_at is missing.
+  if (primaryErrCode === "42703" || primaryErrCode === "PGRST204") {
+    const fallback = await supabaseAdmin
+      .from("owls_eye_runs" as any)
+      .select("id,run_id,venue_id,status,created_at")
+      .in("venue_id", venueIds)
+      .order("created_at", { ascending: false });
+    return (fallback.data as OwlsEyeRunRow[] | null) ?? [];
+  }
+
+  return [];
+}
+
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   type TournamentMeta = {
     name: string | null;
@@ -288,7 +316,7 @@ export default async function TournamentDetailPage({
   >();
 
   if (canViewPremiumDetails) {
-    const [{ data: tournamentPaidData }, { data: venuePaidRows }, runRowsResp] = await Promise.all([
+    const [{ data: tournamentPaidData }, { data: venuePaidRows }, runRows] = await Promise.all([
       supabaseAdmin
         .from("tournaments" as any)
         .select("travel_lodging")
@@ -303,14 +331,7 @@ export default async function TournamentDetailPage({
             .eq("tournament_id", data.id)
             .in("venue_id", linkedVenueIds)
         : Promise.resolve({ data: [] as PaidVenueDetailsRow[] }),
-      linkedVenueIds.length
-        ? supabaseAdmin
-            .from("owls_eye_runs" as any)
-            .select("id,run_id,venue_id,status,updated_at,created_at")
-            .in("venue_id", linkedVenueIds)
-            .order("updated_at", { ascending: false })
-            .order("created_at", { ascending: false })
-        : Promise.resolve({ data: [] as OwlsEyeRunRow[] }),
+      fetchLatestOwlsEyeRuns(linkedVenueIds),
     ]);
 
     paidTournamentDetails = tournamentPaidData ?? null;
@@ -335,7 +356,6 @@ export default async function TournamentDetailPage({
         ])
     );
 
-    const runRows = (runRowsResp.data as OwlsEyeRunRow[] | null) ?? [];
     const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
     for (const row of runRows) {
       if (!row?.venue_id) continue;
