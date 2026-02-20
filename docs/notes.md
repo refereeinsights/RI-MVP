@@ -663,3 +663,14 @@
     - `apps/referee/components/admin/VenueActions.tsx`
     - `apps/referee/components/admin/VenueRow.tsx`
     - Flow: paste target venue UUID -> confirm -> merge.
+
+## 2026-02-20
+- Owl's Eye nearby expansion (RI admin + backend):
+  - Added hotel support to nearby search pipeline:
+    - `apps/referee/src/lib/google/nearbySearch.ts` now accepts `lodging` type and maps Google included types to `lodging/hotel`.
+    - `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts` now fetches hotels with a ~20-mile radius (`HOTEL_RADIUS = 32187`) and persists category `hotel`.
+    - Nearby metadata now includes `hotelCount`.
+  - Added hotels to Owl's Eye run retrieval payload:
+    - `apps/referee/app/api/admin/owls-eye/run/[runId]/route.ts` now returns `nearby.hotels` (name, distance, address, sponsor flags, maps URL).
+  - Added hotels tab to admin Owl's Eye UI:
+    - `apps/referee/app/admin/owls-eye/OwlsEyePanel.tsx` now supports tabs for `food`, `coffee`, and `hotels`, and surfaces hotel counts in nearby status summaries.

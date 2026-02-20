@@ -134,6 +134,18 @@
     - `apps/ti-web/app/page.tsx`
     - `apps/ti-web/app/globals.css`
 
+## 2026-02-19
+- TI premium detail + demo visibility update:
+  - `apps/ti-web/app/tournaments/[slug]/page.tsx` now loads Owl's Eye nearby data (food, coffee, hotels) for linked venues from the latest run and renders it in Premium Planning Details.
+  - Premium behavior remains paid-gated, with demo tournament pages now always allowed to show premium details for showcase use.
+  - Nearby rows render with place links (Google Maps URL when present) and distance labels in miles.
+  - Removed now-obsolete `demoPremium` URL toggle requirement from the TI detail page logic.
+  - Added hockey counter icon support on TI tournaments summary cards:
+    - `apps/ti-web/app/tournaments/page.tsx` now maps `sport=hockey` to `/svg/sports/hockey_puck_icon.svg`.
+    - New shared icon asset: `shared-assets/svg/sports/hockey_puck_icon.svg`.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+
 ## 2026-02-16
 - TI branding: TI header/layout mirrors RI structure with TI colors and shared logo `shared-assets/svg/ti/tournamentinsights_logo.svg` (used in layout/home).
 - TI pages: Added `/tournaments` (RI-style filters/cards, no ratings/reviews), `/tournaments/[slug]` (logistics-only detail), `/how-it-works`, `/list-your-tournament`, and updated home CTAs.
