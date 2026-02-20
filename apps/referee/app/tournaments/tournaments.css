@@ -866,6 +866,10 @@
   max-height: 44px;
 }
 
+.listingBadgeIcon--owlsEye {
+  max-height: 44px;
+}
+
 .btn {
   display: inline-block;
   padding: 0.55rem 0.85rem;

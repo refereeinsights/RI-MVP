@@ -492,6 +492,115 @@ export default async function TournamentDetailPage({
                         </div>
                       ) : null}
                     </div>
+                    {!canViewPremiumDetails ? (
+                      <div className="detailVenuePremiumLock">
+                        <span>Premium planning details</span>
+                        <Link className="secondaryLink" href="/pricing">
+                          Upgrade
+                        </Link>
+                      </div>
+                    ) : (
+                      <details className="detailVenuePremium">
+                        <summary className="detailVenuePremium__summary">Premium planning details</summary>
+                        <div className="detailVenuePremium__body">
+                          {(() => {
+                            const premium = paidVenueDetailsById.get(venue.id);
+                            const nearby = nearbyByVenueId.get(venue.id);
+                            return (
+                              <>
+                                <div className="premiumDetailRow">
+                                  <span className="premiumDetailLabel">Food vendors</span>
+                                  <span>{boolLabel(premium?.food_vendors)}</span>
+                                </div>
+                                <div className="premiumDetailRow">
+                                  <span className="premiumDetailLabel">Coffee vendors</span>
+                                  <span>{boolLabel(premium?.coffee_vendors)}</span>
+                                </div>
+                                <div className="premiumDetailRow">
+                                  <span className="premiumDetailLabel">Tournament vendors</span>
+                                  <span>{boolLabel(premium?.tournament_vendors)}</span>
+                                </div>
+                                <div className="premiumDetailRow">
+                                  <span className="premiumDetailLabel">Restrooms</span>
+                                  <span>{premium?.restrooms?.trim() || "Not provided"}</span>
+                                </div>
+                                <div className="premiumDetailRow">
+                                  <span className="premiumDetailLabel">Amenities</span>
+                                  <span>{premium?.amenities?.trim() || "Not provided"}</span>
+                                </div>
+                                <div className="premiumDetailRow">
+                                  <span className="premiumDetailLabel">Player parking</span>
+                                  <span>{premium?.player_parking?.trim() || "Not provided"}</span>
+                                </div>
+                                <div className="premiumDetailRow">
+                                  <span className="premiumDetailLabel">Parking notes</span>
+                                  <span>{premium?.parking_notes?.trim() || "Not provided"}</span>
+                                </div>
+                                <div className="premiumDetailRow">
+                                  <span className="premiumDetailLabel">Venue notes</span>
+                                  <span>{premium?.notes?.trim() || "Not provided"}</span>
+                                </div>
+                                <div className="premiumDetailRow">
+                                  <span className="premiumDetailLabel">Spectator seating</span>
+                                  <span>{sentenceLabel(premium?.spectator_seating)}</span>
+                                </div>
+                                <div className="premiumDetailRow">
+                                  <span className="premiumDetailLabel">Bring field chairs</span>
+                                  <span>{boolLabel(premium?.bring_field_chairs)}</span>
+                                </div>
+                                <div className="premiumDetailRow">
+                                  <span className="premiumDetailLabel">Seating notes</span>
+                                  <span>{premium?.seating_notes?.trim() || "Not provided"}</span>
+                                </div>
+                                <div className="premiumDetailRow">
+                                  <span className="premiumDetailLabel">Owl&apos;s Eye nearby</span>
+                                  <span>
+                                    {nearby
+                                      ? `Food: ${nearby.food.length} • Coffee: ${nearby.coffee.length} • Hotels: ${nearby.hotels.length}${
+                                          nearby.captured_at
+                                            ? ` (updated ${new Date(nearby.captured_at).toLocaleDateString()})`
+                                            : ""
+                                        }`
+                                      : "No nearby results captured yet."}
+                                  </span>
+                                </div>
+                                {nearby ? (
+                                  <>
+                                    {([
+                                      { label: "Food", items: nearby.food },
+                                      { label: "Coffee", items: nearby.coffee },
+                                      { label: "Hotels", items: nearby.hotels },
+                                    ] as Array<{ label: string; items: NearbyPlace[] }>).map((group) =>
+                                      group.items.length ? (
+                                        <div className="premiumNearbyGroup" key={`${venue.id}-${group.label}`}>
+                                          <div className="premiumNearbyGroup__title">{group.label}</div>
+                                          <div className="premiumNearbyGroup__list">
+                                            {group.items.map((item, idx) => (
+                                              <a
+                                                key={`${group.label}-${item.name}-${idx}`}
+                                                className="premiumNearbyLink"
+                                                href={item.maps_url || "#"}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                              >
+                                                <span>{item.name}</span>
+                                                <span className="premiumNearbyLink__meta">
+                                                  {metersToMilesLabel(item.distance_meters) || "Directions"}
+                                                </span>
+                                              </a>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ) : null
+                                    )}
+                                  </>
+                                ) : null}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </details>
+                    )}
                   </div>
                 </div>
               );
@@ -547,111 +656,10 @@ export default async function TournamentDetailPage({
                   <span className="premiumDetailLabel">Travel/Lodging Notes</span>
                   <span>{paidTournamentDetails?.travel_lodging?.trim() || "Not provided yet."}</span>
                 </div>
-                {linkedVenues.length > 0 ? (
-                  linkedVenues.map((venue) => {
-                    const premium = paidVenueDetailsById.get(venue.id);
-                    return (
-                      <div className="premiumVenueBlock" key={`premium-${venue.id}`}>
-                        <div className="premiumVenueTitle">{venue.name || "Venue"}</div>
-                        <div className="premiumDetailRow">
-                          <span className="premiumDetailLabel">Food vendors</span>
-                          <span>{boolLabel(premium?.food_vendors)}</span>
-                        </div>
-                        <div className="premiumDetailRow">
-                          <span className="premiumDetailLabel">Coffee vendors</span>
-                          <span>{boolLabel(premium?.coffee_vendors)}</span>
-                        </div>
-                        <div className="premiumDetailRow">
-                          <span className="premiumDetailLabel">Tournament vendors</span>
-                          <span>{boolLabel(premium?.tournament_vendors)}</span>
-                        </div>
-                        <div className="premiumDetailRow">
-                          <span className="premiumDetailLabel">Restrooms</span>
-                          <span>{premium?.restrooms?.trim() || "Not provided"}</span>
-                        </div>
-                        <div className="premiumDetailRow">
-                          <span className="premiumDetailLabel">Amenities</span>
-                          <span>{premium?.amenities?.trim() || "Not provided"}</span>
-                        </div>
-                        <div className="premiumDetailRow">
-                          <span className="premiumDetailLabel">Player parking</span>
-                          <span>{premium?.player_parking?.trim() || "Not provided"}</span>
-                        </div>
-                        <div className="premiumDetailRow">
-                          <span className="premiumDetailLabel">Parking notes</span>
-                          <span>{premium?.parking_notes?.trim() || "Not provided"}</span>
-                        </div>
-                        <div className="premiumDetailRow">
-                          <span className="premiumDetailLabel">Venue notes</span>
-                          <span>{premium?.notes?.trim() || "Not provided"}</span>
-                        </div>
-                        <div className="premiumDetailRow">
-                          <span className="premiumDetailLabel">Spectator seating</span>
-                          <span>{sentenceLabel(premium?.spectator_seating)}</span>
-                        </div>
-                        <div className="premiumDetailRow">
-                          <span className="premiumDetailLabel">Bring field chairs</span>
-                          <span>{boolLabel(premium?.bring_field_chairs)}</span>
-                        </div>
-                        <div className="premiumDetailRow">
-                          <span className="premiumDetailLabel">Seating notes</span>
-                          <span>{premium?.seating_notes?.trim() || "Not provided"}</span>
-                        </div>
-                        <div className="premiumDetailRow">
-                          <span className="premiumDetailLabel">Owl&apos;s Eye nearby</span>
-                          <span>
-                            {(() => {
-                              const nearby = nearbyByVenueId.get(venue.id);
-                              if (!nearby) return "No nearby results captured yet.";
-                              const summaries = [
-                                `Food: ${nearby.food.length}`,
-                                `Coffee: ${nearby.coffee.length}`,
-                                `Hotels: ${nearby.hotels.length}`,
-                              ];
-                              return `${summaries.join(" • ")}${nearby.captured_at ? ` (updated ${new Date(nearby.captured_at).toLocaleDateString()})` : ""}`;
-                            })()}
-                          </span>
-                        </div>
-                        {(() => {
-                          const nearby = nearbyByVenueId.get(venue.id);
-                          if (!nearby) return null;
-                          const groups: Array<{ label: string; items: NearbyPlace[] }> = [
-                            { label: "Food", items: nearby.food },
-                            { label: "Coffee", items: nearby.coffee },
-                            { label: "Hotels", items: nearby.hotels },
-                          ];
-                          return groups.map((group) =>
-                            group.items.length ? (
-                              <div className="premiumDetailRow" key={`${venue.id}-${group.label}`}>
-                                <span className="premiumDetailLabel">{group.label}</span>
-                                <span>
-                                  {group.items.slice(0, 5).map((item, idx) => (
-                                    <span key={`${group.label}-${item.name}-${idx}`}>
-                                      {idx ? " • " : ""}
-                                      {item.maps_url ? (
-                                        <a href={item.maps_url} target="_blank" rel="noopener noreferrer">
-                                          {item.name}
-                                        </a>
-                                      ) : (
-                                        item.name
-                                      )}
-                                      {metersToMilesLabel(item.distance_meters) ? ` (${metersToMilesLabel(item.distance_meters)})` : ""}
-                                    </span>
-                                  ))}
-                                </span>
-                              </div>
-                            ) : null
-                          );
-                        })()}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="premiumDetailRow">
-                    <span className="premiumDetailLabel">Venue details</span>
-                    <span>No linked venues available yet.</span>
-                  </div>
-                )}
+                <div className="premiumDetailRow">
+                  <span className="premiumDetailLabel">Venue-level premium details</span>
+                  <span>Use the “Premium planning details” button on each venue card above.</span>
+                </div>
               </div>
             )}
           </div>

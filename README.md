@@ -94,7 +94,7 @@ Public submissions can now flag tournaments that pay crews in cash. Add the bool
 
 ```sql
 alter table public.tournaments
-  add column if not exists cash_tournament boolean default false;
+  add column if not exists ref_cash_tournament boolean default false;
 ```
 
 Rows with `NULL` are treated as `false`.

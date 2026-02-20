@@ -875,6 +875,10 @@
   max-height: 44px;
 }
 
+.listingBadgeIcon--owlsEye {
+  max-height: 44px;
+}
+
 .btn {
   display: inline-block;
   padding: 0.55rem 0.85rem;
@@ -1083,6 +1087,87 @@
 .detailVenueAddress {
   font-size: 14px;
   color: rgba(248, 251, 255, 0.9);
+}
+
+.detailVenuePremium {
+  margin-top: 4px;
+  text-align: left;
+}
+
+.detailVenuePremium > summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: #fff;
+  color: #0b1f14;
+  border: 1px solid rgba(0,0,0,0.12);
+  font-weight: 700;
+  text-decoration: none;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.detailVenuePremium > summary::-webkit-details-marker {
+  display: none;
+}
+
+.detailVenuePremium__body {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(0,0,0,0.12);
+  display: grid;
+  gap: 8px;
+}
+
+.detailVenuePremiumLock {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.premiumNearbyGroup {
+  display: grid;
+  gap: 6px;
+}
+
+.premiumNearbyGroup__title {
+  font-weight: 700;
+}
+
+.premiumNearbyGroup__list {
+  display: grid;
+  gap: 6px;
+}
+
+.premiumNearbyLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-decoration: none;
+  color: #f8fbff;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 10px;
+  padding: 7px 10px;
+  background: rgba(16, 185, 129, 0.18);
+}
+
+.premiumNearbyLink:hover {
+  background: rgba(16, 185, 129, 0.28);
+}
+
+.premiumNearbyLink__meta {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cffafe;
 }
 
 .detailHero.bg-sport-default,

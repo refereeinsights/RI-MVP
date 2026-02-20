@@ -18,6 +18,12 @@ type VenueRow = {
   sport?: string | null;
   created_at?: string | null;
   map_url?: string | null;
+  owl_run_id?: string | null;
+  owl_status?: string | null;
+  owl_last_run_at?: string | null;
+  owl_food_count?: number | null;
+  owl_coffee_count?: number | null;
+  owl_hotel_count?: number | null;
   latitude?: number | null;
   longitude?: number | null;
   normalized_address?: string | null;
@@ -61,6 +67,7 @@ type PageProps = {
     state?: string;
     tournament?: string;
     missing?: "address_geo" | "urls";
+    owl?: "all" | "with_data" | "without_data";
   };
 };
 
@@ -72,6 +79,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
   const state = (searchParams?.state ?? "").trim();
   const tournament = (searchParams?.tournament ?? "").trim();
   const missing = (searchParams?.missing ?? "").trim();
+  const owlFilter = (searchParams?.owl ?? "all").trim();
 
   const orFilters = [];
   if (q) {
@@ -145,24 +153,38 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 
   if (venues.length > 0) {
     const venueIds = venues.map((v) => v.id);
-    // Fetch latest run per venue
+    // Fetch latest run per venue, map artifact, and nearby counts.
     try {
-      const { data: runs } = await supabaseAdmin
+      const runsPrimary = await supabaseAdmin
         .from("owls_eye_runs" as any)
-        .select("run_id,venue_id,updated_at,created_at")
+        .select("id,run_id,venue_id,status,updated_at,created_at")
         .in("venue_id", venueIds)
-        .order("updated_at", { ascending: false });
+        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: false });
+      const runsFallback =
+        runsPrimary.error && (runsPrimary.error.code === "42703" || runsPrimary.error.code === "PGRST204")
+          ? await supabaseAdmin
+              .from("owls_eye_runs" as any)
+              .select("id,run_id,venue_id,status,created_at")
+              .in("venue_id", venueIds)
+              .order("created_at", { ascending: false })
+          : null;
+      const runs = (runsPrimary.error ? runsFallback?.data : runsPrimary.data) ?? [];
 
-      const latestRunByVenue: Record<string, string> = {};
+      const latestRunByVenue: Record<string, { runId: string; status: string | null; at: string | null }> = {};
       for (const row of runs ?? []) {
         const vid = (row as any)?.venue_id;
-        const rid = (row as any)?.run_id;
+        const rid = (row as any)?.run_id ?? (row as any)?.id;
         if (vid && rid && !latestRunByVenue[vid]) {
-          latestRunByVenue[vid] = rid;
+          latestRunByVenue[vid] = {
+            runId: rid,
+            status: (row as any)?.status ?? null,
+            at: (row as any)?.updated_at ?? (row as any)?.created_at ?? null,
+          };
         }
       }
 
-      const runIds = Object.values(latestRunByVenue);
+      const runIds = Object.values(latestRunByVenue).map((v) => v.runId);
       if (runIds.length > 0) {
         const { data: maps } = await supabaseAdmin
           .from("owls_eye_map_artifacts" as any)
@@ -179,9 +201,33 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
           }
         }
 
+        const { data: nearbyRows } = await supabaseAdmin
+          .from("owls_eye_nearby_food" as any)
+          .select("run_id,category")
+          .in("run_id", runIds);
+        const countByRun: Record<string, { food: number; coffee: number; hotel: number }> = {};
+        for (const row of nearbyRows ?? []) {
+          const runId = (row as any)?.run_id as string | undefined;
+          if (!runId) continue;
+          const bucket = countByRun[runId] ?? { food: 0, coffee: 0, hotel: 0 };
+          const category = ((row as any)?.category ?? "food").toLowerCase();
+          if (category === "coffee") bucket.coffee += 1;
+          else if (category === "hotel") bucket.hotel += 1;
+          else bucket.food += 1;
+          countByRun[runId] = bucket;
+        }
+
         venues.forEach((v) => {
-          const rid = latestRunByVenue[v.id];
+          const runMeta = latestRunByVenue[v.id];
+          const rid = runMeta?.runId;
+          const counts = rid ? countByRun[rid] : undefined;
+          v.owl_run_id = rid ?? null;
+          v.owl_status = runMeta?.status ?? null;
+          v.owl_last_run_at = runMeta?.at ?? null;
           v.map_url = rid ? mapByRun[rid] ?? null : null;
+          v.owl_food_count = counts?.food ?? 0;
+          v.owl_coffee_count = counts?.coffee ?? 0;
+          v.owl_hotel_count = counts?.hotel ?? 0;
         });
       }
     } catch (err) {
@@ -189,13 +235,22 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
     }
   }
 
+  const filteredVenues =
+    owlFilter === "with_data"
+      ? venues.filter((v) => Boolean(v.owl_run_id))
+      : owlFilter === "without_data"
+      ? venues.filter((v) => !v.owl_run_id)
+      : venues;
+
   return (
     <div style={{ padding: 24 }}>
       <AdminNav />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
           <h1 style={{ margin: 0 }}>Venues</h1>
-          <p style={{ margin: "4px 0 0", color: "#4b5563" }}>Last 100 venues (filtered)</p>
+          <p style={{ margin: "4px 0 0", color: "#4b5563" }}>
+            Last 100 venues (filtered) • Owl&apos;s Eye with data: {venues.filter((v) => Boolean(v.owl_run_id)).length}
+          </p>
         </div>
         <Link
           href="/admin/venues/new"
@@ -212,7 +267,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         </Link>
       </div>
 
-      <form style={{ display: "grid", gap: 8, marginBottom: 16, gridTemplateColumns: "2fr 1fr 1fr 1fr auto" }}>
+      <form style={{ display: "grid", gap: 8, marginBottom: 16, gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr auto" }}>
         {missing ? <input type="hidden" name="missing" value={missing} /> : null}
         <input
           name="q"
@@ -244,6 +299,15 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
           <option value="lacrosse">Lacrosse</option>
           <option value="baseball">Baseball</option>
         </select>
+        <select
+          name="owl"
+          defaultValue={owlFilter || "all"}
+          style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+        >
+          <option value="all">All Owl&apos;s Eye states</option>
+          <option value="with_data">With Owl&apos;s Eye data</option>
+          <option value="without_data">Without Owl&apos;s Eye data</option>
+        </select>
         <button type="submit" style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
           Search
         </button>
@@ -266,10 +330,10 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       <VenueAddressVerifyPanel />
 
       <div style={{ display: "grid", gap: 12 }}>
-        {venues.length === 0 ? (
+        {filteredVenues.length === 0 ? (
           <div style={{ padding: 12, color: "#6b7280", fontSize: 14 }}>No venues found.</div>
         ) : (
-          venues.map((v) => <VenueRow key={v.id} venue={v} />)
+          filteredVenues.map((v) => <VenueRow key={v.id} venue={v} />)
         )}
       </div>
     </div>

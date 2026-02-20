@@ -17,6 +17,19 @@ type Tournament = {
   source_url?: string | null;
   level?: string | null;
 };
+type TournamentVenueLink = {
+  tournament_id: string;
+  venue_id: string;
+};
+type OwlRunRow = {
+  id: string;
+  run_id?: string | null;
+  venue_id: string;
+  status?: string | null;
+};
+type OwlNearbyRow = {
+  run_id: string;
+};
 
 // Cache for 5 minutes.
 export const revalidate = 300;
@@ -218,6 +231,51 @@ export default async function TournamentsPage({
   const tournaments = isAllStates
     ? tournamentsBySport
     : tournamentsBySport.filter((t) => stateSelections.includes((t.state ?? "").trim().toUpperCase()));
+
+  const hasOwlsEyeByTournament = new Map<string, boolean>();
+  if (tournaments.length > 0) {
+    const tournamentIds = tournaments.map((t) => t.id);
+    const { data: linkRows } = await supabaseAdmin
+      .from("tournament_venues" as any)
+      .select("tournament_id,venue_id")
+      .in("tournament_id", tournamentIds);
+
+    const links = (linkRows as TournamentVenueLink[] | null) ?? [];
+    const linksByTournament = new Map<string, string[]>();
+    const venueIds = new Set<string>();
+    for (const row of links) {
+      if (!row?.tournament_id || !row?.venue_id) continue;
+      const list = linksByTournament.get(row.tournament_id) ?? [];
+      list.push(row.venue_id);
+      linksByTournament.set(row.tournament_id, list);
+      venueIds.add(row.venue_id);
+    }
+
+    if (venueIds.size > 0) {
+      const { data: runRows } = await supabaseAdmin
+        .from("owls_eye_runs" as any)
+        .select("id,run_id,venue_id,status")
+        .in("venue_id", Array.from(venueIds))
+        .in("status", ["running", "complete"]);
+      const runs = (runRows as OwlRunRow[] | null) ?? [];
+      const runIds = Array.from(new Set(runs.map((r) => r.run_id ?? r.id).filter(Boolean))) as string[];
+
+      if (runIds.length > 0) {
+        const { data: nearbyRows } = await supabaseAdmin
+          .from("owls_eye_nearby_food" as any)
+          .select("run_id")
+          .in("run_id", runIds);
+        const nearbyRunIds = new Set(((nearbyRows as OwlNearbyRow[] | null) ?? []).map((row) => row.run_id));
+        const venuesWithNearby = new Set(
+          runs.filter((run) => nearbyRunIds.has((run.run_id ?? run.id) as string)).map((run) => run.venue_id)
+        );
+        for (const tournamentId of tournamentIds) {
+          const venueList = linksByTournament.get(tournamentId) ?? [];
+          hasOwlsEyeByTournament.set(tournamentId, venueList.some((venueId) => venuesWithNearby.has(venueId)));
+        }
+      }
+    }
+  }
 
   const tournamentsSorted = [...tournaments].sort((a, b) => {
     if (a.slug === DEMO_TOURNAMENT_SLUG && b.slug !== DEMO_TOURNAMENT_SLUG) return -1;
@@ -462,6 +520,18 @@ export default async function TournamentsPage({
                     <Link href={`/tournaments/${t.slug}`} className="primaryLink">
                       View details
                     </Link>
+                  </div>
+                  <div className="cardFooterBadgeRow">
+                    <div className="cardFooterBadge cardFooterBadge--left" />
+                    <div className="cardFooterBadge cardFooterBadge--right">
+                      {hasOwlsEyeByTournament.get(t.id) ? (
+                        <img
+                          className="listingBadgeIcon listingBadgeIcon--owlsEye"
+                          src="/svg/ri/owls_eye_badge.svg"
+                          alt="Owl's Eye insights available"
+                        />
+                      ) : null}
+                    </div>
                   </div>
                 </article>
               );

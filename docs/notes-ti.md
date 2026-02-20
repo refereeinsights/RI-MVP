@@ -146,6 +146,16 @@
   - Validation:
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
 
+## 2026-02-20
+- TI venue-level premium detail UX update on tournament detail page:
+  - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - Moved venue-specific premium content behind a per-venue expandable **Premium planning details** control on each venue card (instead of one long combined venue section).
+  - Demo tournament preview now opens premium details per venue context only.
+  - Reformatted Owl's Eye nearby listings under `Food`, `Coffee`, and `Hotels` as one-business-per-line clickable direction links with distance metadata.
+  - Kept `Travel/Lodging Notes` in the main premium panel and added guidance to use per-venue premium controls.
+  - Styling updates in:
+    - `apps/ti-web/app/tournaments/tournaments.css`
+
 ## 2026-02-16
 - TI branding: TI header/layout mirrors RI structure with TI colors and shared logo `shared-assets/svg/ti/tournamentinsights_logo.svg` (used in layout/home).
 - TI pages: Added `/tournaments` (RI-style filters/cards, no ratings/reviews), `/tournaments/[slug]` (logistics-only detail), `/how-it-works`, `/list-your-tournament`, and updated home CTAs.

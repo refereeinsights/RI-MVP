@@ -94,6 +94,35 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   const withSource = tournaments.filter((t: any) => t.official_website_url).length;
   const missingOfficial = total - withSource;
   const withVenue = tournaments.filter((t: any) => t.venue || t.address).length;
+  const venueIdsInScope = new Set(
+    tournaments
+      .map((t: any) => t.id)
+      .filter(Boolean)
+  );
+
+  // Distinct venues linked to tournaments in current scope that have Owl's Eye run history.
+  let owlVenueCount = 0;
+  if (venueIdsInScope.size > 0) {
+    try {
+      const { data: tvRows } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("tournament_id,venue_id")
+        .in("tournament_id", Array.from(venueIdsInScope));
+      const linkedVenueIds = Array.from(
+        new Set(((tvRows as Array<{ venue_id: string }> | null) ?? []).map((row) => row.venue_id).filter(Boolean))
+      );
+      if (linkedVenueIds.length > 0) {
+        const { data: owlRows } = await supabaseAdmin
+          .from("owls_eye_runs" as any)
+          .select("venue_id,status")
+          .in("venue_id", linkedVenueIds)
+          .in("status", ["running", "complete"]);
+        owlVenueCount = new Set(((owlRows as Array<{ venue_id: string }> | null) ?? []).map((row) => row.venue_id)).size;
+      }
+    } catch {
+      owlVenueCount = 0;
+    }
+  }
 
   const jobsByTid = new Map<string, any[]>();
   jobs.forEach((j: any) => {
@@ -265,6 +294,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
           { label: "% with venue/address", value: `${venuePct}%` },
           { label: "Enrichment success", value: `${enrichedPct}%` },
           { label: "% with comp accepted", value: `${compPct || "0"}%` },
+          { label: "Venues with Owl's Eye", value: owlVenueCount },
         ].map((card) => (
           <div key={card.label} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12, background: "#fff" }}>
             <div style={{ fontSize: 12, color: "#555", display: "flex", alignItems: "center", gap: 6 }}>
@@ -279,6 +309,18 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
             {card.label === "Official website" && (
               <div style={{ marginTop: 4, fontSize: 11, color: "#64748b" }}>
                 Missing in range: {missingOfficial}
+              </div>
+            )}
+            {card.label === "Venues with Owl's Eye" && (
+              <div style={{ marginTop: 6 }}>
+                <a
+                  href="/admin/venues?owl=with_data"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ fontSize: 12, color: "#1d4ed8", fontWeight: 700, textDecoration: "none" }}
+                >
+                  Open Owl&apos;s Eye venues
+                </a>
               </div>
             )}
           </div>

@@ -39,6 +39,12 @@ export type VenueItem = {
   restrooms?: string | null;
   restrooms_cleanliness?: number | null;
   map_url?: string | null;
+  owl_run_id?: string | null;
+  owl_status?: string | null;
+  owl_last_run_at?: string | null;
+  owl_food_count?: number | null;
+  owl_coffee_count?: number | null;
+  owl_hotel_count?: number | null;
   tournaments: Tournament[];
 };
 
@@ -55,6 +61,8 @@ export default function VenueRow({ venue, onUpdated }: Props) {
   const [options, setOptions] = useState<Tournament[]>([]);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingOwlMap, setSavingOwlMap] = useState(false);
+  const [owlMapUrl, setOwlMapUrl] = useState(venue.map_url ?? "");
   const [error, setError] = useState<string | null>(null);
 
   const summary = useMemo(() => {
@@ -112,6 +120,27 @@ export default function VenueRow({ venue, onUpdated }: Props) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveOwlMap = async () => {
+    setSavingOwlMap(true);
+    setError(null);
+    try {
+      const resp = await fetch(`/api/admin/venues/${venue.id}/owls-eye`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ map_url: owlMapUrl }),
+      });
+      if (!resp.ok) {
+        const json = await resp.json().catch(() => ({}));
+        throw new Error(json?.error || "Owl's Eye map save failed");
+      }
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Owl's Eye map save failed");
+    } finally {
+      setSavingOwlMap(false);
     }
   };
 
@@ -183,6 +212,16 @@ export default function VenueRow({ venue, onUpdated }: Props) {
               label="Restroom cleanliness"
               value={venue.restrooms_cleanliness ? `${venue.restrooms_cleanliness}/5` : "—"}
             />
+            <InfoItem label="Owl's Eye run" value={venue.owl_run_id || "—"} />
+            <InfoItem label="Owl's Eye status" value={venue.owl_status || "—"} />
+            <InfoItem
+              label="Owl's Eye last run"
+              value={venue.owl_last_run_at ? new Date(venue.owl_last_run_at).toLocaleString() : "—"}
+            />
+            <InfoItem
+              label="Owl nearby counts"
+              value={`food ${venue.owl_food_count ?? 0} • coffee ${venue.owl_coffee_count ?? 0} • hotels ${venue.owl_hotel_count ?? 0}`}
+            />
           </div>
 
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -218,6 +257,20 @@ export default function VenueRow({ venue, onUpdated }: Props) {
             ) : (
               <span style={{ fontSize: 12, color: "#6b7280" }}>No Owl&apos;s Eye map yet</span>
             )}
+            <input
+              value={owlMapUrl}
+              onChange={(e) => setOwlMapUrl(e.target.value)}
+              placeholder="Set Owl's Eye map URL"
+              style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", minWidth: 280 }}
+            />
+            <button
+              type="button"
+              onClick={saveOwlMap}
+              disabled={savingOwlMap}
+              style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+            >
+              {savingOwlMap ? "Saving map…" : "Save Owl's Eye map"}
+            </button>
           </div>
 
           <div style={{ display: "grid", gap: 8 }}>

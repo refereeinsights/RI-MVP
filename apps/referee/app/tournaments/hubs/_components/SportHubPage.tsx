@@ -108,6 +108,7 @@ function toWhistleScore(aiScore: number | null) {
 
 function sportIcon(sport: string | null) {
   const normalized = (sport ?? "").toLowerCase();
+  if (normalized === "hockey") return <img className="sportSvgIcon" src="/svg/sports/hockey_puck_icon.svg" alt="" />;
   switch (normalized) {
     case "soccer":
       return "⚽";

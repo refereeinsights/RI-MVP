@@ -674,3 +674,42 @@
     - `apps/referee/app/api/admin/owls-eye/run/[runId]/route.ts` now returns `nearby.hotels` (name, distance, address, sponsor flags, maps URL).
   - Added hotels tab to admin Owl's Eye UI:
     - `apps/referee/app/admin/owls-eye/OwlsEyePanel.tsx` now supports tabs for `food`, `coffee`, and `hotels`, and surfaces hotel counts in nearby status summaries.
+- Tournament card Owl's Eye badge signal (RI + TI):
+  - Added shared Owl's Eye badge asset:
+    - `shared-assets/svg/ri/owls_eye_badge.svg`
+  - Added tournament-level `has Owl's Eye` detection by checking:
+    - `tournament_venues` links for listed tournaments
+    - matching `owls_eye_runs` rows (`running|complete`) for linked venues
+    - existing `owls_eye_nearby_food` rows for those run IDs
+  - RI listing cards now render Owl's Eye badge in the right footer badge slot when data exists:
+    - `apps/referee/app/tournaments/page.tsx`
+    - `apps/referee/app/tournaments/tournaments.css`
+  - TI directory cards now render Owl's Eye badge below footer actions when data exists:
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/ti-web/app/tournaments/tournaments.css`
+
+- Admin dashboard + venues Owl's Eye management enhancements:
+  - Added dashboard KPI widget for Owl's Eye coverage:
+    - `apps/referee/app/admin/tournaments/dashboard/page.tsx`
+    - New card: **Venues with Owl's Eye** (distinct linked venues with run status `running|complete` in current dashboard scope)
+    - Includes quick link opening `/admin/venues?owl=with_data` in a new tab.
+  - Expanded `/admin/venues` with Owl's Eye filtering and per-venue visibility:
+    - `apps/referee/app/admin/venues/page.tsx`
+    - New query filter `owl=all|with_data|without_data`
+    - Computes and surfaces per-venue Owl's Eye fields:
+      - latest run id
+      - status
+      - last run timestamp
+      - nearby counts (food/coffee/hotels)
+      - latest map URL
+    - Handles environments missing `owls_eye_runs.updated_at` via fallback to `created_at`.
+  - Expanded venue row UI to show Owl's Eye fields and enable manual map updates:
+    - `apps/referee/components/admin/VenueRow.tsx`
+    - Added visible Owl's Eye run/status/count fields.
+    - Added editable **Set Owl's Eye map URL** input + save action.
+  - Added admin API for manual Owl's Eye map URL upsert:
+    - `apps/referee/app/api/admin/venues/[id]/owls-eye/route.ts`
+    - Behavior:
+      - ensures a run exists for the venue (creates manual override run if needed)
+      - updates existing map artifact or inserts a new one for the latest run
+      - admin-auth protected.

@@ -42,6 +42,19 @@ type DemoWhistleScoreRow = {
   status: RefereeWhistleScore["status"] | null;
   updated_at: string | null;
 };
+type TournamentVenueLink = {
+  tournament_id: string;
+  venue_id: string;
+};
+type OwlRunRow = {
+  id: string;
+  run_id?: string | null;
+  venue_id: string;
+  status?: string | null;
+};
+type OwlNearbyRow = {
+  run_id: string;
+};
 
 // Cache this listing for 5 minutes to reduce Supabase load while keeping results fresh.
 export const revalidate = 300;
@@ -93,6 +106,7 @@ function monthOptions(count = 9) {
 function sportIcon(sport: string | null) {
   const normalized = (sport ?? "").toLowerCase();
   if (normalized === "lacrosse") return <img className="sportSvgIcon" src="/brand/lacrosse_icon.svg" alt="" />;
+  if (normalized === "hockey") return <img className="sportSvgIcon" src="/svg/sports/hockey_puck_icon.svg" alt="" />;
   switch (normalized) {
     case "soccer":
       return "⚽";
@@ -309,6 +323,48 @@ export default async function TournamentsPage({
     if (b.slug === demoSlug && a.slug !== demoSlug) return 1;
     return 0;
   });
+
+  const hasOwlsEyeByTournament = new Map<string, boolean>();
+  if (tournamentsSorted.length > 0) {
+    const tournamentIds = tournamentsSorted.map((t) => t.id);
+    const { data: linkRows } = await supabaseAdmin
+      .from("tournament_venues" as any)
+      .select("tournament_id,venue_id")
+      .in("tournament_id", tournamentIds);
+    const links = (linkRows as TournamentVenueLink[] | null) ?? [];
+    const linksByTournament = new Map<string, string[]>();
+    const venueIds = new Set<string>();
+    for (const row of links) {
+      if (!row?.tournament_id || !row?.venue_id) continue;
+      const list = linksByTournament.get(row.tournament_id) ?? [];
+      list.push(row.venue_id);
+      linksByTournament.set(row.tournament_id, list);
+      venueIds.add(row.venue_id);
+    }
+    if (venueIds.size > 0) {
+      const { data: runRows } = await supabaseAdmin
+        .from("owls_eye_runs" as any)
+        .select("id,run_id,venue_id,status")
+        .in("venue_id", Array.from(venueIds))
+        .in("status", ["running", "complete"]);
+      const runs = (runRows as OwlRunRow[] | null) ?? [];
+      const runIds = Array.from(new Set(runs.map((r) => r.run_id ?? r.id).filter(Boolean))) as string[];
+      if (runIds.length > 0) {
+        const { data: nearbyRows } = await supabaseAdmin
+          .from("owls_eye_nearby_food" as any)
+          .select("run_id")
+          .in("run_id", runIds);
+        const nearbyRunIds = new Set(((nearbyRows as OwlNearbyRow[] | null) ?? []).map((row) => row.run_id));
+        const venuesWithNearby = new Set(
+          runs.filter((run) => nearbyRunIds.has((run.run_id ?? run.id) as string)).map((run) => run.venue_id)
+        );
+        for (const tournamentId of tournamentIds) {
+          const venueList = linksByTournament.get(tournamentId) ?? [];
+          hasOwlsEyeByTournament.set(tournamentId, venueList.some((venueId) => venuesWithNearby.has(venueId)));
+        }
+      }
+    }
+  }
 
   return (
     <main className="pitchWrap tournamentsWrap">
@@ -626,6 +682,13 @@ export default async function TournamentsPage({
                   {sportIcon(t.sport)}
                 </div>
                 <div className="cardFooterBadge cardFooterBadge--right">
+                  {hasOwlsEyeByTournament.get(t.id) ? (
+                    <img
+                      className="listingBadgeIcon listingBadgeIcon--owlsEye"
+                      src="/svg/ri/owls_eye_badge.svg"
+                      alt="Owl's Eye insights available"
+                    />
+                  ) : null}
                 </div>
               </div>
             </article>
