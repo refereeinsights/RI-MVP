@@ -1,13 +1,10 @@
 import type { MetadataRoute } from "next";
 
-const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.tournamentinsights.com").replace(/\/+$/, "");
+const SITE_ORIGIN = "https://www.tournamentinsights.com";
 
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: {
-      userAgent: "*",
-      allow: "/",
-    },
+    rules: [{ userAgent: "*", allow: "/" }],
     sitemap: `${SITE_ORIGIN}/sitemap.xml`,
   };
 }

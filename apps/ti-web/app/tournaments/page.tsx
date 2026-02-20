@@ -36,8 +36,8 @@ type OwlNearbyRow = {
 export const revalidate = 300;
 
 export const metadata = {
-  title: "Browse Youth Tournaments",
-  description: "Search youth tournaments by sport, location, and date. View official event details and planning information.",
+  title: "Tournament Directory",
+  description: "Browse youth tournaments by sport, state, and month with official links and location details.",
   alternates: {
     canonical: "/tournaments",
   },

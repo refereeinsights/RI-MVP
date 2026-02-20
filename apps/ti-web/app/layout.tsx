@@ -3,20 +3,17 @@ import Link from "next/link";
 import PlausibleScript from "../components/PlausibleScript";
 import "./globals.css";
 
-const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.tournamentinsights.com").replace(/\/+$/, "");
+const SITE_ORIGIN = "https://www.tournamentinsights.com";
 const PLAUSIBLE_DOMAIN = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN || "tournamentinsights.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
   title: {
-    default: "TournamentInsights — Youth Tournament Directory",
+    default: "TournamentInsights — Youth Sports Tournament Directory",
     template: "%s | TournamentInsights",
   },
   description:
-    "Find youth soccer, basketball, and other tournaments by date and location. Clear listings and direct links to official event information.",
-  alternates: {
-    canonical: "/",
-  },
+    "Browse youth sports tournaments by sport, state, and date. Clear listings with official links and basic venue information.",
   robots: {
     index: true,
     follow: true,
@@ -24,16 +21,16 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "TournamentInsights",
-    title: "TournamentInsights — Youth Tournament Directory",
-    description:
-      "Discover youth tournaments by sport, state, and month with verified dates, locations, and official links.",
+    title: "TournamentInsights — Youth Sports Tournament Directory",
+    description: "Browse youth sports tournaments by sport, state, and date.",
     url: SITE_ORIGIN,
+    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "TournamentInsights — Youth Tournament Directory",
-    description:
-      "Discover youth tournaments by sport, state, and month with verified dates, locations, and official links.",
+    title: "TournamentInsights — Youth Sports Tournament Directory",
+    description: "Browse youth sports tournaments by sport, state, and date.",
+    images: ["/og-default.png"],
   },
   icons: {
     icon: [

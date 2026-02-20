@@ -1,7 +1,7 @@
 export const metadata = {
-  title: "How it Works",
+  title: "How It Works",
   description:
-    "How TournamentInsights helps tournament families and coaches find clear, trustworthy tournament details and official links.",
+    "Learn how TournamentInsights provides structured tournament listings and official links to support confident planning.",
   alternates: { canonical: "/how-it-works" },
 };
 

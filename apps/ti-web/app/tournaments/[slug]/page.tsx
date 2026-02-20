@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import "../tournaments.css";
 
@@ -88,7 +89,7 @@ type NearbyPlace = {
 
 export const revalidate = 300;
 
-const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://tournamentinsights.com").replace(/\/+$/, "");
+const SITE_ORIGIN = "https://www.tournamentinsights.com";
 const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
 const PREMIUM_PREVIEW_SLUGS = new Set(["refereeinsights-demo-tournament", "hooptown-championship"]);
 const PREMIUM_PREVIEW_NAMES = new Set(["hooptown championship"]);
@@ -210,35 +211,31 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       title: "Tournament Not Found",
       description: "We could not find that tournament listing.",
       robots: { index: false, follow: false },
-      alternates: { canonical: buildCanonicalUrl(params.slug) },
     };
   }
 
-  const year = data.start_date ? new Date(`${data.start_date}T00:00:00`).getFullYear() : null;
   const locationLabel = buildLocationLabel(data.city ?? null, data.state ?? null);
-  const titlePrefix = year ? `${year} ` : "";
-  const monthYear =
-    data.start_date && !Number.isNaN(new Date(`${data.start_date}T00:00:00`).getTime())
-      ? new Date(`${data.start_date}T00:00:00`).toLocaleDateString(undefined, { month: "long", year: "numeric" })
-      : "";
-  const title = `${data.name}${locationLabel ? ` | ${locationLabel}` : ""}${monthYear ? ` | ${monthYear}` : ""} Youth ${data.sport ?? ""} Tournament`.trim();
-  const description = `Dates and location for ${data.name}${locationLabel ? ` in ${locationLabel}` : ""}. View official event details and planning information.`;
+  const title = locationLabel ? `${data.name} | ${locationLabel}` : `${data.name}`;
+  const description = `Dates and location for ${data.name}${locationLabel ? ` in ${locationLabel}` : ""}. View official site and event details.`;
+  const canonicalPath = `/tournaments/${data.slug ?? params.slug}`;
 
   return {
     title,
     description,
-    alternates: { canonical: buildCanonicalUrl(data.slug ?? params.slug) },
+    alternates: { canonical: canonicalPath },
     openGraph: {
-      title: `${data.name}${locationLabel ? ` | ${locationLabel}` : ""}`,
+      title,
       description,
-      type: "article",
+      type: "website",
       url: buildCanonicalUrl(data.slug ?? params.slug),
       siteName: "TournamentInsights",
+      images: [{ url: "/og-default.png", width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: ["/og-default.png"],
     },
   };
 }
@@ -257,21 +254,7 @@ export default async function TournamentDetailPage({
     .eq("slug", params.slug)
     .maybeSingle<TournamentDetailRow>();
 
-  if (error || !data) {
-    return (
-      <main className="pitchWrap tournamentsWrap">
-        <section className="field tournamentsField">
-          <div className="headerBlock">
-            <h1 className="title">Tournament not found</h1>
-            <p className="subtitle">We couldn’t find that tournament.</p>
-            <Link href="/tournaments" className="primaryLink">
-              Back to directory
-            </Link>
-          </div>
-        </section>
-      </main>
-    );
-  }
+  if (error || !data) notFound();
 
   const locationLabel = buildLocationLabel(data.city, data.state) || "Location TBA";
   const start = formatDate(data.start_date);

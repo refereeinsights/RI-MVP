@@ -1,7 +1,7 @@
 export const metadata = {
-  title: "TournamentInsights — Youth Tournament Directory",
+  title: "Youth Sports Tournament Directory",
   description:
-    "Browse youth tournaments by sport, state, and month with verified dates, locations, and official links.",
+    "Logistics-first youth tournament listings with clear dates, locations, and official links to help families and teams plan confidently.",
   alternates: { canonical: "/" },
 };
 

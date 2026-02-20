@@ -147,6 +147,29 @@
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
 
 ## 2026-02-20
+- TI SEO hardening pass (App Router metadata routes + dynamic detail metadata):
+  - Global metadata defaults refined in `apps/ti-web/app/layout.tsx`:
+    - canonical host pinned to `https://www.tournamentinsights.com`
+    - `metadataBase` set to canonical domain
+    - title template/default refreshed for TI directory positioning
+    - default OG/Twitter image fallback added: `/og-default.png`
+  - Added OG fallback asset:
+    - `apps/ti-web/public/og-default.png`
+  - Static route metadata copy/canonical updates:
+    - `apps/ti-web/app/page.tsx`
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/ti-web/app/how-it-works/page.tsx`
+    - `apps/ti-web/app/list-your-tournament/page.tsx`
+  - Tournament detail SEO improvements in `apps/ti-web/app/tournaments/[slug]/page.tsx`:
+    - `generateMetadata` now returns cleaner title/description and canonical path
+    - Open Graph/Twitter include fallback image
+    - missing slug metadata returns noindex
+    - render path now uses `notFound()` for missing tournaments
+    - existing SportsEvent JSON-LD retained (name/date/location/url/sameAs)
+  - Metadata routes aligned to canonical domain:
+    - `apps/ti-web/app/sitemap.ts` absolute URLs on `www.tournamentinsights.com`
+    - `apps/ti-web/app/robots.ts` with sitemap link and global allow rule
+
 - TI tournaments filter update:
   - `apps/ti-web/app/tournaments/page.tsx`
   - Replaced `includeAYSO` with exclusive `aysoOnly` behavior.

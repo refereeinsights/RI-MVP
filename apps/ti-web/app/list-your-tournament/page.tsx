@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "List your tournament",
-  description: "Share your tournament logistics so teams and officials can plan with confidence.",
+  title: "List Your Tournament",
+  description: "Submit your event so families and teams can find dates, locations, and official information in one place.",
   alternates: { canonical: "/list-your-tournament" },
 };
 
