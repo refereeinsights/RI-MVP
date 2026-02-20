@@ -1106,6 +1106,15 @@
   pointer-events: none;
 }
 
+@media (max-width: 640px) {
+  .detailVenueOwlBadgeFloat {
+    width: 144px;
+    height: 144px;
+    left: -36px;
+    top: -34px;
+  }
+}
+
 .detailVenueText {
   display: flex;
   flex-direction: column;
