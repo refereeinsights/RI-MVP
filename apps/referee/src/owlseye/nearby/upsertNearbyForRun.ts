@@ -14,6 +14,7 @@ type UpsertParams = {
 };
 
 const DEFAULT_RADIUS = 16093; // ~10 miles in meters
+const HOTEL_RADIUS = 32187; // ~20 miles in meters
 const DEFAULT_LIMIT = 8;
 
 function mapsUrl(placeId: string) {
@@ -43,6 +44,7 @@ type NearbyResult = {
   message?: string;
   foodCount?: number;
   coffeeCount?: number;
+  hotelCount?: number;
 };
 
 export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyResult> {
@@ -77,25 +79,36 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   const baseOpts = { lat: venueLat, lng: venueLng, radiusMeters, apiKey };
   let foodResults: any[] = [];
   let coffeeResults: any[] = [];
+  let hotelResults: any[] = [];
   try {
-    [foodResults, coffeeResults] = await Promise.all([
+    [foodResults, coffeeResults, hotelResults] = await Promise.all([
       fetchNearbyPlaces({ ...baseOpts, type: "restaurant" }),
       fetchNearbyPlaces({ ...baseOpts, type: "cafe" }),
+      fetchNearbyPlaces({ ...baseOpts, type: "lodging", radiusMeters: HOTEL_RADIUS }),
     ]);
   } catch (err) {
     console.error("[owlseye] Nearby fetch failed", err);
     return { ok: false, message: err instanceof Error ? err.message : "nearby_fetch_failed" };
   }
 
-  const classifyCategory = (name: string, fallback: "food" | "coffee"): "food" | "coffee" => {
+  const classifyCategory = (name: string, fallback: "food" | "coffee" | "hotel"): "food" | "coffee" | "hotel" => {
     const lower = (name || "").toLowerCase();
     if (lower.includes("coffee") || lower.includes("espresso") || lower.includes("cafe") || lower.includes("café")) {
       return "coffee";
     }
+    if (
+      lower.includes("hotel") ||
+      lower.includes("inn") ||
+      lower.includes("resort") ||
+      lower.includes("suites") ||
+      lower.includes("lodge")
+    ) {
+      return "hotel";
+    }
     return fallback;
   };
 
-  const toRows = (items: any[], category: "food" | "coffee") =>
+  const toRows = (items: any[], category: "food" | "coffee" | "hotel") =>
     items.slice(0, limitPerCategory).map((item) => ({
       run_id: runId,
       place_id: item.place_id,
@@ -113,6 +126,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     ...(sponsorRow ? [sponsorRow] : []),
     ...toRows(foodResults, "food"),
     ...toRows(coffeeResults, "coffee"),
+    ...toRows(hotelResults, "hotel"),
   ];
   const uniqueRows: typeof rows = [];
   const seen = new Set<string>();
@@ -171,6 +185,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     message: "inserted",
     foodCount: Math.min(foodResults.length, limitPerCategory),
     coffeeCount: Math.min(coffeeResults.length, limitPerCategory),
+    hotelCount: Math.min(hotelResults.length, limitPerCategory),
   };
 }
 

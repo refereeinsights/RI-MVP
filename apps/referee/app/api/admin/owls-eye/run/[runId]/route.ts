@@ -114,6 +114,16 @@ async function fetchRun(runId: string) {
             sponsor_click_url: f.sponsor_click_url ?? undefined,
             maps_url: f.maps_url ?? undefined,
           })),
+        hotels: nearbyItems
+          .filter((f) => f.category === "hotel")
+          .map((f) => ({
+            name: f.name,
+            distance_meters: f.distance_meters ?? null,
+            address: f.address ?? "",
+            is_sponsor: Boolean(f.is_sponsor),
+            sponsor_click_url: f.sponsor_click_url ?? undefined,
+            maps_url: f.maps_url ?? undefined,
+          })),
       },
       annotations: [],
     };

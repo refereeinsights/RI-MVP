@@ -59,6 +59,33 @@ type PaidVenueDetailsRow = {
     | null;
 };
 
+type OwlsEyeRunRow = {
+  id: string;
+  run_id?: string | null;
+  venue_id: string;
+  status: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+};
+
+type NearbyPlaceRow = {
+  run_id: string;
+  category: string | null;
+  name: string;
+  distance_meters: number | null;
+  address: string | null;
+  maps_url: string | null;
+  is_sponsor: boolean | null;
+};
+
+type NearbyPlace = {
+  name: string;
+  distance_meters: number | null;
+  address: string | null;
+  maps_url: string | null;
+  is_sponsor: boolean;
+};
+
 export const revalidate = 300;
 
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://tournamentinsights.com").replace(/\/+$/, "");
@@ -125,6 +152,12 @@ function sentenceLabel(value: string | null | undefined) {
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
+function metersToMilesLabel(meters: number | null | undefined) {
+  if (typeof meters !== "number" || !Number.isFinite(meters)) return null;
+  const miles = meters / 1609.344;
+  return `${miles < 10 ? miles.toFixed(1) : miles.toFixed(0)} mi`;
+}
+
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   type TournamentMeta = {
     name: string | null;
@@ -181,10 +214,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 
 export default async function TournamentDetailPage({
   params,
-  searchParams,
 }: {
   params: { slug: string };
-  searchParams?: { demoPremium?: string };
 }) {
   const isPaid = resolvePaidEntitlement();
   const { data, error } = await supabaseAdmin
@@ -226,9 +257,8 @@ export default async function TournamentDetailPage({
       ?.map((tv) => tv.venues)
       .filter((v): v is NonNullable<(typeof data.tournament_venues)[number]["venues"]> => Boolean(v)) ?? [];
   const linkedVenueIds = linkedVenues.map((v) => v.id).filter(Boolean);
-  const demoPreviewEnabled = (searchParams?.demoPremium ?? "") === "1";
   const isDemoTournament = (data.slug ?? params.slug) === DEMO_TOURNAMENT_SLUG;
-  const canViewPremiumDetails = isPaid || (isDemoTournament && demoPreviewEnabled);
+  const canViewPremiumDetails = isPaid || isDemoTournament;
 
   let paidTournamentDetails: PaidTournamentDetails | null = null;
   let paidVenueDetailsById = new Map<
@@ -247,9 +277,18 @@ export default async function TournamentDetailPage({
       seating_notes: string | null;
     }
   >();
+  let nearbyByVenueId = new Map<
+    string,
+    {
+      food: NearbyPlace[];
+      coffee: NearbyPlace[];
+      hotels: NearbyPlace[];
+      captured_at: string | null;
+    }
+  >();
 
   if (canViewPremiumDetails) {
-    const [{ data: tournamentPaidData }, { data: venuePaidRows }] = await Promise.all([
+    const [{ data: tournamentPaidData }, { data: venuePaidRows }, runRowsResp] = await Promise.all([
       supabaseAdmin
         .from("tournaments" as any)
         .select("travel_lodging")
@@ -264,6 +303,14 @@ export default async function TournamentDetailPage({
             .eq("tournament_id", data.id)
             .in("venue_id", linkedVenueIds)
         : Promise.resolve({ data: [] as PaidVenueDetailsRow[] }),
+      linkedVenueIds.length
+        ? supabaseAdmin
+            .from("owls_eye_runs" as any)
+            .select("id,run_id,venue_id,status,updated_at,created_at")
+            .in("venue_id", linkedVenueIds)
+            .order("updated_at", { ascending: false })
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: [] as OwlsEyeRunRow[] }),
     ]);
 
     paidTournamentDetails = tournamentPaidData ?? null;
@@ -287,6 +334,59 @@ export default async function TournamentDetailPage({
           },
         ])
     );
+
+    const runRows = (runRowsResp.data as OwlsEyeRunRow[] | null) ?? [];
+    const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
+    for (const row of runRows) {
+      if (!row?.venue_id) continue;
+      if (latestRunByVenue.has(row.venue_id)) continue;
+      latestRunByVenue.set(row.venue_id, row);
+    }
+    const runIds = Array.from(latestRunByVenue.values())
+      .map((row) => row.run_id ?? row.id)
+      .filter((value): value is string => Boolean(value));
+
+    if (runIds.length) {
+      const { data: nearbyRows } = await supabaseAdmin
+        .from("owls_eye_nearby_food" as any)
+        .select("run_id,category,name,distance_meters,address,maps_url,is_sponsor")
+        .in("run_id", runIds)
+        .order("is_sponsor", { ascending: false })
+        .order("distance_meters", { ascending: true })
+        .order("name", { ascending: true });
+
+      const nearbyByRunId = new Map<string, NearbyPlaceRow[]>();
+      for (const row of ((nearbyRows as NearbyPlaceRow[] | null) ?? [])) {
+        const runId = row.run_id;
+        if (!runId) continue;
+        const list = nearbyByRunId.get(runId) ?? [];
+        list.push(row);
+        nearbyByRunId.set(runId, list);
+      }
+
+      nearbyByVenueId = new Map(
+        Array.from(latestRunByVenue.entries()).map(([venueId, run]) => {
+          const runId = run.run_id ?? run.id;
+          const places = nearbyByRunId.get(runId) ?? [];
+          const toPlace = (row: NearbyPlaceRow): NearbyPlace => ({
+            name: row.name,
+            distance_meters: row.distance_meters,
+            address: row.address,
+            maps_url: row.maps_url,
+            is_sponsor: Boolean(row.is_sponsor),
+          });
+          return [
+            venueId,
+            {
+              food: places.filter((p) => (p.category ?? "food") === "food").map(toPlace),
+              coffee: places.filter((p) => p.category === "coffee").map(toPlace),
+              hotels: places.filter((p) => p.category === "hotel").map(toPlace),
+              captured_at: run.updated_at ?? run.created_at ?? null,
+            },
+          ];
+        })
+      );
+    }
   }
 
   const canonicalUrl = buildCanonicalUrl(data.slug ?? params.slug);
@@ -419,22 +519,10 @@ export default async function TournamentDetailPage({
                   <Link className="secondaryLink" href="/pricing">
                     Upgrade
                   </Link>
-                  {isDemoTournament ? (
-                    <Link className="secondaryLink" href={`/tournaments/${params.slug}?demoPremium=1`}>
-                      Preview premium details
-                    </Link>
-                  ) : null}
                 </div>
               </div>
             ) : (
               <div className="detailCard__body premiumDetailCard__body">
-                {isDemoTournament && !isPaid ? (
-                  <div className="detailLinksRow">
-                    <Link className="secondaryLink" href={`/tournaments/${params.slug}`}>
-                      Hide preview
-                    </Link>
-                  </div>
-                ) : null}
                 <div className="premiumDetailRow">
                   <span className="premiumDetailLabel">Travel/Lodging Notes</span>
                   <span>{paidTournamentDetails?.travel_lodging?.trim() || "Not provided yet."}</span>
@@ -489,6 +577,52 @@ export default async function TournamentDetailPage({
                           <span className="premiumDetailLabel">Seating notes</span>
                           <span>{premium?.seating_notes?.trim() || "Not provided"}</span>
                         </div>
+                        <div className="premiumDetailRow">
+                          <span className="premiumDetailLabel">Owl&apos;s Eye nearby</span>
+                          <span>
+                            {(() => {
+                              const nearby = nearbyByVenueId.get(venue.id);
+                              if (!nearby) return "No nearby results captured yet.";
+                              const summaries = [
+                                `Food: ${nearby.food.length}`,
+                                `Coffee: ${nearby.coffee.length}`,
+                                `Hotels: ${nearby.hotels.length}`,
+                              ];
+                              return `${summaries.join(" • ")}${nearby.captured_at ? ` (updated ${new Date(nearby.captured_at).toLocaleDateString()})` : ""}`;
+                            })()}
+                          </span>
+                        </div>
+                        {(() => {
+                          const nearby = nearbyByVenueId.get(venue.id);
+                          if (!nearby) return null;
+                          const groups: Array<{ label: string; items: NearbyPlace[] }> = [
+                            { label: "Food", items: nearby.food },
+                            { label: "Coffee", items: nearby.coffee },
+                            { label: "Hotels", items: nearby.hotels },
+                          ];
+                          return groups.map((group) =>
+                            group.items.length ? (
+                              <div className="premiumDetailRow" key={`${venue.id}-${group.label}`}>
+                                <span className="premiumDetailLabel">{group.label}</span>
+                                <span>
+                                  {group.items.slice(0, 5).map((item, idx) => (
+                                    <span key={`${group.label}-${item.name}-${idx}`}>
+                                      {idx ? " • " : ""}
+                                      {item.maps_url ? (
+                                        <a href={item.maps_url} target="_blank" rel="noopener noreferrer">
+                                          {item.name}
+                                        </a>
+                                      ) : (
+                                        item.name
+                                      )}
+                                      {metersToMilesLabel(item.distance_meters) ? ` (${metersToMilesLabel(item.distance_meters)})` : ""}
+                                    </span>
+                                  ))}
+                                </span>
+                              </div>
+                            ) : null
+                          );
+                        })()}
                       </div>
                     );
                   })

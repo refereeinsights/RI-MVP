@@ -12,7 +12,7 @@ type NearbyOptions = {
   lat: number;
   lng: number;
   radiusMeters: number;
-  type: "restaurant" | "cafe";
+  type: "restaurant" | "cafe" | "lodging";
   apiKey: string;
 };
 
@@ -22,7 +22,12 @@ export async function fetchNearbyPlaces(opts: NearbyOptions): Promise<NearbyResu
   const { lat, lng, radiusMeters, type, apiKey } = opts;
   const endpoint = "https://places.googleapis.com/v1/places:searchNearby";
   const fieldMask = "places.id,places.displayName,places.formattedAddress,places.location";
-  const includedTypes = type === "cafe" ? ["cafe", "coffee_shop"] : [type];
+  const includedTypes =
+    type === "cafe"
+      ? ["cafe", "coffee_shop"]
+      : type === "lodging"
+      ? ["lodging", "hotel"]
+      : [type];
 
   const mapPlaces = (places: any[] | undefined): NearbyResult[] =>
     (places ?? [])

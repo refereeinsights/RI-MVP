@@ -35,12 +35,14 @@ type RunReport = {
   nearby?: {
     food?: NearbyItem[];
     coffee?: NearbyItem[];
+    hotels?: NearbyItem[];
   };
   nearby_meta?: {
     ok?: boolean;
     message?: string;
     foodCount?: number;
     coffeeCount?: number;
+    hotelCount?: number;
   };
 };
 
@@ -138,7 +140,7 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
   const [runStatus, setRunStatus] = useState<RunStatus>("idle");
   const [runMessage, setRunMessage] = useState<string | null>(null);
   const [runReport, setRunReport] = useState<RunReport | null>(null);
-  const [nearbyTab, setNearbyTab] = useState<"food" | "coffee">("food");
+  const [nearbyTab, setNearbyTab] = useState<"food" | "coffee" | "hotels">("food");
   const [sunPathEnabled, setSunPathEnabled] = useState(true);
 
   useEffect(() => {
@@ -574,8 +576,10 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
                   {runReport?.nearby_meta?.message && (
                     <span style={{ fontSize: 12, color: "#4b5563" }}>
                       Status: {runReport.nearby_meta.message}
-                      {runReport.nearby_meta.foodCount != null || runReport.nearby_meta.coffeeCount != null
-                        ? ` (food ${runReport.nearby_meta.foodCount ?? 0}, coffee ${runReport.nearby_meta.coffeeCount ?? 0})`
+                      {runReport.nearby_meta.foodCount != null ||
+                      runReport.nearby_meta.coffeeCount != null ||
+                      runReport.nearby_meta.hotelCount != null
+                        ? ` (food ${runReport.nearby_meta.foodCount ?? 0}, coffee ${runReport.nearby_meta.coffeeCount ?? 0}, hotels ${runReport.nearby_meta.hotelCount ?? 0})`
                         : ""}
                     </span>
                   )}
@@ -610,6 +614,21 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
                     >
                       Coffee
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setNearbyTab("hotels")}
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 999,
+                        border: "1px solid #111",
+                        background: nearbyTab === "hotels" ? "#111" : "#fff",
+                        color: nearbyTab === "hotels" ? "#fff" : "#111",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Hotels
+                    </button>
                   </div>
                   {runReport?.runId && (
                     <button
@@ -630,7 +649,9 @@ export default function OwlsEyePanel({ embedded = false, adminToken, initialVenu
                 <div style={{ marginTop: 10 }}>
                   {nearbyTab === "food"
                     ? renderNearbyList(runReport.nearby?.food, "food")
-                    : renderNearbyList(runReport.nearby?.coffee, "coffee")}
+                    : nearbyTab === "coffee"
+                    ? renderNearbyList(runReport.nearby?.coffee, "coffee")
+                    : renderNearbyList(runReport.nearby?.hotels, "hotels")}
                 </div>
                 {runReport?.nearby_meta && (
                   <div style={{ marginTop: 10 }}>

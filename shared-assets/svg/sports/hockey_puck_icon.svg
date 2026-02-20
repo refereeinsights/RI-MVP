@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Hockey puck">
+  <defs>
+    <radialGradient id="puckTop" cx="35%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#4b5563"/>
+      <stop offset="65%" stop-color="#1f2937"/>
+      <stop offset="100%" stop-color="#0b1220"/>
+    </radialGradient>
+    <linearGradient id="puckRim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#030712"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="32" cy="44" rx="22" ry="6" fill="#000" opacity="0.28"/>
+  <rect x="11" y="22" width="42" height="20" rx="10" fill="url(#puckRim)"/>
+  <ellipse cx="32" cy="22" rx="21" ry="8" fill="url(#puckTop)"/>
+  <ellipse cx="27" cy="19" rx="10" ry="3" fill="#fff" opacity="0.14"/>
+  <ellipse cx="32" cy="42" rx="21" ry="8" fill="#0a0f1a" opacity="0.96"/>
+</svg>
