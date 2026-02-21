@@ -2409,6 +2409,76 @@ export default async function AdminPage({
       .eq("id", tournament_id)
       .maybeSingle();
     const tournamentRow = tournamentRowRaw as any;
+    const resolvedCity = city ?? tournamentRow?.city ?? null;
+    const resolvedState = state ?? tournamentRow?.state ?? null;
+
+    const normalizedName = name?.toLowerCase() ?? null;
+    const normalizedAddress = address?.toLowerCase() ?? null;
+    const normalizedCity = resolvedCity?.toLowerCase() ?? null;
+    const normalizedState = resolvedState?.toLowerCase() ?? null;
+
+    let matchedVenueId: string | null = null;
+    let matchedVenueLabel: string | null = null;
+
+    if (name || address) {
+      const candidates: Array<{
+        id: string;
+        name: string | null;
+        address: string | null;
+        city: string | null;
+        state: string | null;
+      }> = [];
+
+      if (name) {
+        const { data } = await supabaseAdmin
+          .from("venues" as any)
+          .select("id,name,address,city,state")
+          .ilike("name", name)
+          .limit(25);
+        candidates.push(...((data ?? []) as typeof candidates));
+      }
+      if (address) {
+        const { data } = await supabaseAdmin
+          .from("venues" as any)
+          .select("id,name,address,city,state")
+          .ilike("address", address)
+          .limit(25);
+        candidates.push(...((data ?? []) as typeof candidates));
+      }
+
+      const seen = new Set<string>();
+      const exactMatches = candidates.filter((row) => {
+        if (seen.has(row.id)) return false;
+        seen.add(row.id);
+        const rowName = row.name?.trim().toLowerCase() ?? null;
+        const rowAddress = row.address?.trim().toLowerCase() ?? null;
+        const rowCity = row.city?.trim().toLowerCase() ?? null;
+        const rowState = row.state?.trim().toLowerCase() ?? null;
+
+        const nameMatch = !!(normalizedName && rowName && rowName === normalizedName);
+        const addressMatch = !!(normalizedAddress && rowAddress && rowAddress === normalizedAddress);
+        if (!nameMatch && !addressMatch) return false;
+        if (normalizedCity && rowCity && normalizedCity !== rowCity) return false;
+        if (normalizedState && rowState && normalizedState !== rowState) return false;
+        return true;
+      });
+
+      const matched = exactMatches[0] ?? null;
+      if (matched?.id) {
+        matchedVenueId = matched.id;
+        matchedVenueLabel = [matched.name, matched.address, matched.city, matched.state].filter(Boolean).join(" • ");
+      }
+    }
+
+    if (matchedVenueId) {
+      const { error: linkErr } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .upsert({ tournament_id, venue_id: matchedVenueId }, { onConflict: "tournament_id,venue_id" });
+      if (linkErr) {
+        return redirectWithNotice(redirectTo, "Failed to link venue.");
+      }
+      return redirectWithNotice(redirectTo, `Linked existing venue${matchedVenueLabel ? `: ${matchedVenueLabel}` : ""}.`);
+    }
 
     const { data: venueRowRaw, error: venueErr } = await supabaseAdmin
       .from("venues" as any)
@@ -2416,8 +2486,8 @@ export default async function AdminPage({
         {
           name,
           address,
-          city: city ?? tournamentRow?.city ?? null,
-          state: state ?? tournamentRow?.state ?? null,
+          city: resolvedCity,
+          state: resolvedState,
           zip,
           sport: tournamentRow?.sport ?? null,
         },

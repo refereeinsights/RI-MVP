@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { geocodeAddress } from "@/lib/google/geocodeAddress";
+import { timezoneFromCoordinates } from "@/lib/google/timezoneFromCoordinates";
 import { runVenueScan } from "@/server/owlseye/jobs/runVenueScan";
 import { getLatestOwlReport } from "@/server/owlseye/pipeline/getLatestReport";
 import { getAdminSupabase } from "@/server/owlseye/supabase/admin";
@@ -25,6 +27,9 @@ type VenueRow = {
   city: string | null;
   state: string | null;
   zip: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  timezone?: string | null;
 };
 
 type ExistingRunRow = {
@@ -90,18 +95,18 @@ export async function POST(request: Request) {
     let venue: VenueRow | null = null;
     let venueError: any = null;
     try {
-      const resp = await supabaseAdmin
-        .from("venues" as any)
-        .select("id,name,address1,street,city,state,zip")
-        .eq("id", venueId)
-        .maybeSingle();
+        const resp = await supabaseAdmin
+          .from("venues" as any)
+          .select("id,name,address1,street,city,state,zip,latitude,longitude,timezone")
+          .eq("id", venueId)
+          .maybeSingle();
       venue = resp.data as VenueRow | null;
       venueError = resp.error;
       if (venueError && (venueError.code === "42703" || venueError.code === "42P01")) {
         // Retry with minimal fields if columns are missing
         const fallback = await supabaseAdmin
           .from("venues" as any)
-          .select("id,name,city,state,zip")
+          .select("id,name,city,state,zip,latitude,longitude,timezone")
           .eq("id", venueId)
           .maybeSingle();
         venue = fallback.data as VenueRow | null;
@@ -153,6 +158,36 @@ export async function POST(request: Request) {
     }
 
     const address = buildAddress(venue as VenueRow);
+    const geocodeKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY || "";
+    let venueLat = typeof venue.latitude === "number" && Number.isFinite(venue.latitude) ? venue.latitude : null;
+    let venueLng = typeof venue.longitude === "number" && Number.isFinite(venue.longitude) ? venue.longitude : null;
+    let venueTimezone = typeof venue.timezone === "string" ? venue.timezone.trim() : "";
+
+    if ((venueLat == null || venueLng == null) && geocodeKey && address) {
+      try {
+        const geo = await geocodeAddress(address, geocodeKey);
+        if (geo && Number.isFinite(geo.lat) && Number.isFinite(geo.lng)) {
+          venueLat = geo.lat;
+          venueLng = geo.lng;
+          const updates: Record<string, any> = {
+            latitude: geo.lat,
+            longitude: geo.lng,
+            geocode_source: "owls_eye_run",
+            updated_at: new Date().toISOString(),
+          };
+          if (!venueTimezone) {
+            const tz = await timezoneFromCoordinates(geo.lat, geo.lng, geocodeKey);
+            if (tz) {
+              venueTimezone = tz;
+              updates.timezone = tz;
+            }
+          }
+          await supabaseAdmin.from("venues" as any).update(updates).eq("id", venueId);
+        }
+      } catch (err) {
+        console.warn("[owlseye] auto-geocode failed", err);
+      }
+    }
 
     if (!force) {
       const existingRun = await supabaseAdmin
@@ -209,8 +244,8 @@ export async function POST(request: Request) {
         .select("latitude,longitude")
         .eq("id", venueId)
         .maybeSingle();
-      const lat = (venueResp.data as any)?.latitude ?? null;
-      const lng = (venueResp.data as any)?.longitude ?? null;
+      const lat = (venueResp.data as any)?.latitude ?? venueLat ?? null;
+      const lng = (venueResp.data as any)?.longitude ?? venueLng ?? null;
       if (typeof lat === "number" && typeof lng === "number" && isFinite(lat) && isFinite(lng)) {
         const nearbyResult = (await upsertNearbyForRun({
           supabaseAdmin: supabase,

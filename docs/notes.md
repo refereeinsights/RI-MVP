@@ -911,3 +911,32 @@
   - Included all hub routes in TI sitemap:
     - `apps/ti-web/app/sitemap.ts`
   - Confirmed TI build passes after hub additions.
+
+- Enrichment constraint compatibility fix (USSSA level candidates):
+  - Added migration:
+    - `supabase/migrations/20260221_tournament_attribute_candidates_allow_level.sql`
+  - Rebuilds `tournament_attribute_candidates_value_check` to include `attribute_key='level'` and legacy-safe aliases.
+  - Prevents `attribute_constraint_outdated` failures when USSSA inserts `level/team_fee/address`.
+
+- Admin tournament venue add de-dupe improvement:
+  - `apps/referee/app/admin/page.tsx`
+  - `addTournamentVenueAction` now attempts to match an existing venue by exact name/address (with city/state consistency when available) before creating/upserting.
+  - If a match exists, action links existing `venue_id` to the tournament and avoids duplicate venue creation.
+
+- Owl's Eye run now auto-geocodes missing venue coordinates:
+  - `apps/referee/app/api/admin/owls-eye/run/route.ts`
+  - When `venues.latitude/longitude` are missing, Owl's Eye run now:
+    - geocodes from venue address (`GOOGLE_PLACES_API_KEY`/`GOOGLE_MAPS_API_KEY`)
+    - persists `latitude/longitude` (and `timezone` when resolvable)
+    - continues nearby fetch in the same run.
+  - This reduces false "run complete but no nearby rows" results for address-complete venues missing geocode.
+
+- Enrichment batch progression fixes (avoid repeatedly hitting same tournaments):
+  - `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`
+    - Removed early return when no new attribute candidates are insertable.
+    - Attempted tournaments are now still stamped via `fees_venue_scraped_at`, so cooldown rotation advances.
+  - `apps/referee/app/api/admin/tournaments/enrichment/usssa/route.ts`
+    - Added cooldown-aware selection (`fees_venue_scraped_at` + 10-day window, with schema fallback if column absent).
+    - Added pending-review skip behavior for USSSA attribute candidates (`team_fee`, `level`, `address`).
+    - Stamps attempted tournament IDs to `fees_venue_scraped_at`.
+    - Response now includes `skipped_recent` and `skipped_pending` counters for visibility.
