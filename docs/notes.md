@@ -974,3 +974,31 @@
     - SQL:
       - `update public.ti_users set plan = 'insider', subscription_status = 'none' where email = 'insider-test@refereeinsights.com';`
       - `update public.ti_users set plan = 'weekend_pro', subscription_status = 'active', current_period_end = now() + interval '365 days' where email = 'weekendpro-test@refereeinsights.com';`
+
+- Enrichment: venue-priority scrape mode + stable results visibility:
+  - `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`
+    - Added `mode=missing_venues` targeting URL-backed tournaments missing venue/address.
+    - In missing-venues mode:
+      - skips tournaments already linked in `tournament_venues`
+      - pending-review skip checks only venue-related keys (`address`, `venue_url`)
+      - returns extra counters: `skipped_linked`, `skipped_no_url`
+  - `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`
+    - Added `Run missing venues scrape` button.
+    - Added batch toggle `missing venues only` (default enabled).
+    - Removed auto-refresh after scrape/batch so status and findings remain visible until manual refresh.
+
+- TI manual test-user invite seed + premium-interest RLS lockdown artifacts:
+  - `apps/ti-web/scripts/seed_test_users.ts`
+    - Manual-only script to invite:
+      - `refereeinsights@gmail.com` (insider)
+      - `refereeinsights+weekendpro@gmail.com` (weekend_pro)
+    - Uses `supabase.auth.admin.inviteUserByEmail(...)` and then upserts `ti_users`.
+    - Guarded by:
+      - `TI_ALLOW_SEED=true`
+      - blocks production unless `TI_ALLOW_SEED_PROD=true`
+  - `apps/ti-web/package.json`
+    - Added script: `seed:test-users`
+  - `apps/ti-web/sql/20260221_ti_premium_interest_lockdown.sql`
+    - Insert-only RLS policy for `public.ti_premium_interest`
+    - Explicit grant insert to `anon,authenticated`
+    - revokes select/update/delete and includes SQL verification checklist

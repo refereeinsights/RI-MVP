@@ -354,6 +354,8 @@ export async function POST(request: Request) {
   if (!isAdmin) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
+  const mode = (searchParams.get("mode") ?? "").trim().toLowerCase();
+  const focusMissingVenues = mode === "missing_venues";
   const limit = Number(searchParams.get("limit") ?? "10");
   const cappedLimit = Number.isFinite(limit) ? Math.max(1, Math.min(limit, 50)) : 10;
   const candidatePoolSize = Math.min(cappedLimit * 20, 1000);
@@ -365,27 +367,44 @@ export async function POST(request: Request) {
     const withCooldownSelect = "id,name,official_website_url,source_url,fees_venue_scraped_at";
     const withoutCooldownSelect = "id,name,official_website_url,source_url";
 
-    const primary = await supabaseAdmin
+    let primaryQuery = supabaseAdmin
       .from("tournaments" as any)
       .select(withCooldownSelect)
       .eq("status", "published")
       .eq("is_canonical", true)
       .eq("enrichment_skip", false)
-      .or("team_fee.is.null,games_guaranteed.is.null,player_parking.is.null,venue.is.null,address.is.null,venue_url.is.null")
+      .or("official_website_url.not.is.null,source_url.not.is.null");
+
+    if (focusMissingVenues) {
+      primaryQuery = primaryQuery.or("venue.is.null,venue.eq.,address.is.null,address.eq.");
+    } else {
+      primaryQuery = primaryQuery.or(
+        "team_fee.is.null,games_guaranteed.is.null,player_parking.is.null,venue.is.null,address.is.null,venue_url.is.null"
+      );
+    }
+
+    const primary = await primaryQuery
       .order("fees_venue_scraped_at", { ascending: true, nullsFirst: true })
       .limit(candidatePoolSize);
 
     if (!primary.error) return primary;
 
     if (isMissingCooldownColumnError(primary.error.message)) {
-      const retryWithoutCooldown = await supabaseAdmin
+      let retryQuery = supabaseAdmin
         .from("tournaments" as any)
         .select(withoutCooldownSelect)
         .eq("status", "published")
         .eq("is_canonical", true)
         .eq("enrichment_skip", false)
-        .or("team_fee.is.null,games_guaranteed.is.null,player_parking.is.null,venue.is.null,address.is.null,venue_url.is.null")
-        .limit(candidatePoolSize);
+        .or("official_website_url.not.is.null,source_url.not.is.null");
+      if (focusMissingVenues) {
+        retryQuery = retryQuery.or("venue.is.null,venue.eq.,address.is.null,address.eq.");
+      } else {
+        retryQuery = retryQuery.or(
+          "team_fee.is.null,games_guaranteed.is.null,player_parking.is.null,venue.is.null,address.is.null,venue_url.is.null"
+        );
+      }
+      const retryWithoutCooldown = await retryQuery.limit(candidatePoolSize);
       if (!retryWithoutCooldown.error) return retryWithoutCooldown;
       if (!/column .* does not exist/i.test(retryWithoutCooldown.error.message)) return retryWithoutCooldown;
     } else if (!/column .* does not exist/i.test(primary.error.message)) {
@@ -393,25 +412,30 @@ export async function POST(request: Request) {
     }
 
     // Backward-compatible fallback for environments where fee/venue columns are not migrated yet.
-    const fallback = await supabaseAdmin
+    let fallbackQuery = supabaseAdmin
       .from("tournaments" as any)
       .select(withCooldownSelect)
       .eq("status", "published")
       .eq("is_canonical", true)
       .eq("enrichment_skip", false)
-      .or("official_website_url.not.is.null,source_url.not.is.null")
-      .order("fees_venue_scraped_at", { ascending: true, nullsFirst: true })
-      .limit(candidatePoolSize);
+      .or("official_website_url.not.is.null,source_url.not.is.null");
+    if (focusMissingVenues) {
+      fallbackQuery = fallbackQuery.or("venue.is.null,venue.eq.,address.is.null,address.eq.");
+    }
+    const fallback = await fallbackQuery.order("fees_venue_scraped_at", { ascending: true, nullsFirst: true }).limit(candidatePoolSize);
     if (!fallback.error) return fallback;
     if (isMissingCooldownColumnError(fallback.error.message)) {
-      return supabaseAdmin
+      let fallbackNoCooldownQuery = supabaseAdmin
         .from("tournaments" as any)
         .select(withoutCooldownSelect)
         .eq("status", "published")
         .eq("is_canonical", true)
         .eq("enrichment_skip", false)
-        .or("official_website_url.not.is.null,source_url.not.is.null")
-        .limit(candidatePoolSize);
+        .or("official_website_url.not.is.null,source_url.not.is.null");
+      if (focusMissingVenues) {
+        fallbackNoCooldownQuery = fallbackNoCooldownQuery.or("venue.is.null,venue.eq.,address.is.null,address.eq.");
+      }
+      return fallbackNoCooldownQuery.limit(candidatePoolSize);
     }
     return fallback;
   };
@@ -425,17 +449,40 @@ export async function POST(request: Request) {
   const selected: any[] = [];
   let skipped_recent = 0;
   let skipped_pending = 0;
+  let skipped_linked = 0;
+  let skipped_no_url = 0;
+  let linkedTournamentIds = new Set<string>();
+  if (focusMissingVenues && (tournaments as any[] | null)?.length) {
+    const candidateTournamentIds = ((tournaments as any[] | null) ?? []).map((t: any) => String(t.id ?? "")).filter(Boolean);
+    if (candidateTournamentIds.length) {
+      const { data: links } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("tournament_id")
+        .in("tournament_id", candidateTournamentIds)
+        .limit(20000);
+      linkedTournamentIds = new Set(
+        ((links ?? []) as Array<{ tournament_id: string | null }>).map((r) => String(r.tournament_id ?? "")).filter(Boolean)
+      );
+    }
+  }
   const { data: pendingRows } = await supabaseAdmin
     .from("tournament_attribute_candidates" as any)
     .select("tournament_id")
     .is("accepted_at", null)
     .is("rejected_at", null)
-    .in("attribute_key", ["team_fee", "games_guaranteed", "player_parking", "address", "venue_url"])
+    .in(
+      "attribute_key",
+      focusMissingVenues ? ["address", "venue_url"] : ["team_fee", "games_guaranteed", "player_parking", "address", "venue_url"]
+    )
     .limit(10000);
   const pendingTournamentIds = new Set(
     ((pendingRows ?? []) as Array<{ tournament_id: string | null }>).map((r) => String(r.tournament_id ?? "")).filter(Boolean)
   );
   for (const t of (tournaments as any[] | null) ?? []) {
+    if (focusMissingVenues && linkedTournamentIds.has(String((t as any).id ?? ""))) {
+      skipped_linked += 1;
+      continue;
+    }
     if (pendingTournamentIds.has(String((t as any).id ?? ""))) {
       skipped_pending += 1;
       continue;
@@ -467,7 +514,10 @@ export async function POST(request: Request) {
 
   for (const t of selected) {
     const url = (t as any).official_website_url || (t as any).source_url;
-    if (!url) continue;
+    if (!url) {
+      skipped_no_url += 1;
+      continue;
+    }
     attempted += 1;
     attemptedTournamentIds.push(t.id);
     const pages = await fetchTournamentPages(url, 6);
@@ -775,12 +825,15 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
+    mode: focusMissingVenues ? "missing_venues" : "default",
     inserted,
     venue_inserted: venueInserted,
     attempted,
     pages_fetched: pagesFetched,
     skipped_recent,
     skipped_pending,
+    skipped_linked,
+    skipped_no_url,
     skipped_duplicates,
     summary,
   });

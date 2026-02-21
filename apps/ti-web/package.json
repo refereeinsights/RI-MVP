@@ -8,7 +8,8 @@
     "prebuild": "node ../../scripts/copy-shared-svg.js",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed:test-users": "tsx scripts/seed_test_users.ts"
   },
   "dependencies": {
     "@plausible-analytics/tracker": "^0.4.4",

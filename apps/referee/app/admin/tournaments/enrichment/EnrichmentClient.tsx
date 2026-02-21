@@ -57,6 +57,15 @@ type DateCandidate = {
   confidence: number | null;
   created_at: string | null;
 };
+type VenueCandidate = {
+  id: string;
+  tournament_id: string;
+  venue_name: string | null;
+  address_text: string | null;
+  source_url: string | null;
+  confidence: number | null;
+  created_at: string | null;
+};
 type AttributeCandidate = {
   id: string;
   tournament_id: string;
@@ -108,7 +117,7 @@ type CandidateTournament = {
 
 type ReviewItem = {
   key: string;
-  kind: "contact" | "date" | "attribute";
+  kind: "contact" | "venue" | "date" | "attribute";
   ids: string[];
   label: string;
   detail?: string | null;
@@ -128,6 +137,7 @@ export default function EnrichmentClient({
   jobs,
   contacts,
   dates,
+  venues,
   attributes,
   existingValueAttributes,
   priorityOutreachTargets,
@@ -141,6 +151,7 @@ export default function EnrichmentClient({
   jobs: Job[];
   contacts: ContactCandidate[];
   dates: DateCandidate[];
+  venues: VenueCandidate[];
   attributes: AttributeCandidate[];
   existingValueAttributes: ExistingValueAttributeCandidate[];
   priorityOutreachTargets: PriorityOutreachTournament[];
@@ -156,6 +167,7 @@ export default function EnrichmentClient({
   const [searching, setSearching] = React.useState<boolean>(false);
   const [pendingContacts, setPendingContacts] = React.useState<ContactCandidate[]>(contacts);
   const [pendingDates, setPendingDates] = React.useState<DateCandidate[]>(dates);
+  const [pendingVenues, setPendingVenues] = React.useState<VenueCandidate[]>(venues);
   const [pendingAttributes, setPendingAttributes] = React.useState<AttributeCandidate[]>(attributes);
   const [pendingExistingValueAttributes] = React.useState<ExistingValueAttributeCandidate[]>(existingValueAttributes);
   const [pendingUrlSuggestions, setPendingUrlSuggestions] = React.useState<UrlSuggestion[]>(urlSuggestions);
@@ -173,9 +185,12 @@ export default function EnrichmentClient({
   const [batchStatus, setBatchStatus] = React.useState<string>("");
   const [feesStatus, setFeesStatus] = React.useState<string>("");
   const [feesSummaryState, setFeesSummaryState] = React.useState<FeesVenueSummary[]>(feesVenueSummary);
+  const [usssaStatus, setUsssaStatus] = React.useState<string>("");
+  const [usssaSummaryState, setUsssaSummaryState] = React.useState<FeesVenueSummary[]>([]);
   const [feesBatchTotal, setFeesBatchTotal] = React.useState<number>(300);
   const [feesBatchChunk, setFeesBatchChunk] = React.useState<number>(50);
   const [feesBatchRunning, setFeesBatchRunning] = React.useState<boolean>(false);
+  const [feesBatchMissingVenuesOnly, setFeesBatchMissingVenuesOnly] = React.useState<boolean>(true);
   const tournamentUrlFor = React.useCallback(
     (tournamentId: string) => tournamentUrlLookup[tournamentId] ?? null,
     [tournamentUrlLookup]
@@ -236,9 +251,21 @@ export default function EnrichmentClient({
         confidence: d.confidence,
       });
     });
+    pendingVenues.forEach((v) => {
+      const detail = [v.venue_name, v.address_text].filter(Boolean).join(" • ");
+      upsert(v.tournament_id, {
+        kind: "venue",
+        id: v.id,
+        label: "Venue",
+        detail: detail || "—",
+        sourceUrl: v.source_url,
+        confidence: v.confidence,
+      });
+    });
     const attributeLabels: Record<string, string> = {
       team_fee: "Team fee",
       games_guaranteed: "Games guaranteed",
+      level: "Level",
       player_parking: "Player parking",
       address: "Address",
       venue_url: "Venue URL",
@@ -258,7 +285,7 @@ export default function EnrichmentClient({
       deduped.set(tid, Array.from(items.values()));
     });
     return deduped;
-  }, [pendingContacts, pendingDates, pendingAttributes]);
+  }, [pendingContacts, pendingDates, pendingVenues, pendingAttributes]);
 
   const existingValueGroups = React.useMemo(() => {
     const byTournament = new Map<string, ExistingValueAttributeCandidate[]>();
@@ -270,11 +297,15 @@ export default function EnrichmentClient({
     return byTournament;
   }, [pendingExistingValueAttributes]);
 
-  const runFeesEnrichment = React.useCallback(async (opts?: { limit?: number; refreshOnInsert?: boolean }) => {
-    setFeesStatus("Running fees/venue scrape...");
+  const runFeesEnrichment = React.useCallback(async (opts?: { limit?: number; refreshOnInsert?: boolean; mode?: "default" | "missing_venues" }) => {
+    const mode = opts?.mode ?? "default";
+    setFeesStatus(mode === "missing_venues" ? "Running missing-venues fees/venue scrape..." : "Running fees/venue scrape...");
     try {
       const limit = Number(opts?.limit ?? 0);
-      const query = Number.isFinite(limit) && limit > 0 ? `?limit=${Math.floor(limit)}` : "";
+      const params = new URLSearchParams();
+      if (Number.isFinite(limit) && limit > 0) params.set("limit", String(Math.floor(limit)));
+      if (mode === "missing_venues") params.set("mode", "missing_venues");
+      const query = params.toString() ? `?${params.toString()}` : "";
       const resp = await fetch(`/api/admin/tournaments/enrichment/fees-venue${query}`, { method: "POST" });
       const json = await resp.json();
       if (!resp.ok) {
@@ -285,14 +316,14 @@ export default function EnrichmentClient({
         setFeesSummaryState(json.summary);
       }
       setFeesStatus(
-        `Inserted ${json?.inserted ?? 0} candidates from ${json?.attempted ?? "?"} tournaments` +
+        `${mode === "missing_venues" ? "Missing-venues mode: " : ""}Inserted ${json?.inserted ?? 0} candidates from ${json?.attempted ?? "?"} tournaments` +
           `${(json?.skipped_recent ?? 0) > 0 ? ` (${json.skipped_recent} skipped: scraped in last 10 days)` : ""}` +
-          `${(json?.skipped_pending ?? 0) > 0 ? ` (${json.skipped_pending} skipped: pending review)` : ""}`
+          `${(json?.skipped_pending ?? 0) > 0 ? ` (${json.skipped_pending} skipped: pending review)` : ""}` +
+          `${(json?.skipped_linked ?? 0) > 0 ? ` (${json.skipped_linked} skipped: already linked)` : ""}` +
+          `${(json?.skipped_no_url ?? 0) > 0 ? ` (${json.skipped_no_url} skipped: no URL)` : ""}`
       );
-      // Refresh so newly inserted candidates show up immediately in the approval queue.
-      if ((json?.inserted ?? 0) > 0 && opts?.refreshOnInsert !== false) {
-        setTimeout(() => refreshPage(), 400);
-      }
+      // Keep results visible on screen; operator can refresh manually.
+      // This avoids clearing scrape status/summary immediately after each run.
       return { ok: true as const, json };
     } catch (err: any) {
       setFeesStatus(`Error: ${err?.message || err}`);
@@ -317,7 +348,11 @@ export default function EnrichmentClient({
       for (let i = 0; i < rounds; i += 1) {
         const currentLimit = Math.min(chunk, total - i * chunk);
         setFeesStatus(`Batch fees/venue scrape ${i + 1}/${rounds} (limit ${currentLimit})...`);
-        const result = await runFeesEnrichment({ limit: currentLimit, refreshOnInsert: false });
+        const result = await runFeesEnrichment({
+          limit: currentLimit,
+          refreshOnInsert: false,
+          mode: feesBatchMissingVenuesOnly ? "missing_venues" : "default",
+        });
         if (!result?.ok) break;
         const json = result.json ?? {};
         insertedTotal += Number(json?.inserted ?? 0);
@@ -331,18 +366,42 @@ export default function EnrichmentClient({
       }
 
       setFeesStatus(
-        `Batch complete: inserted ${insertedTotal} from ${attemptedTotal} attempted` +
+        `${feesBatchMissingVenuesOnly ? "Missing-venues batch complete" : "Batch complete"}: inserted ${insertedTotal} from ${attemptedTotal} attempted` +
           `${skippedRecentTotal > 0 ? ` (${skippedRecentTotal} skipped: recent)` : ""}` +
           `${skippedPendingTotal > 0 ? ` (${skippedPendingTotal} skipped: pending)` : ""}` +
           `${skippedDuplicatesTotal > 0 ? ` (${skippedDuplicatesTotal} duplicates)` : ""}`
       );
-      if (insertedTotal > 0) {
-        setTimeout(() => refreshPage(), 500);
-      }
+      // Keep batch summary visible; manual refresh remains available.
     } finally {
       setFeesBatchRunning(false);
     }
-  }, [feesBatchChunk, feesBatchRunning, feesBatchTotal, runFeesEnrichment]);
+  }, [feesBatchChunk, feesBatchMissingVenuesOnly, feesBatchRunning, feesBatchTotal, runFeesEnrichment]);
+
+  const runUsssaEnrichment = React.useCallback(async (opts?: { limit?: number }) => {
+    setUsssaStatus("Running USSSA scrape...");
+    try {
+      const limit = Number(opts?.limit ?? 0);
+      const query = Number.isFinite(limit) && limit > 0 ? `?limit=${Math.floor(limit)}` : "";
+      const resp = await fetch(`/api/admin/tournaments/enrichment/usssa${query}`, { method: "POST" });
+      const json = await resp.json();
+      if (!resp.ok) {
+        setUsssaStatus(`Failed: ${json?.error || resp.status} ${json?.detail ? `(${json.detail})` : ""}`);
+        return;
+      }
+      const insertedTotal =
+        Number(json?.inserted_attributes ?? 0) +
+        Number(json?.inserted_dates ?? 0) +
+        Number(json?.inserted_venues ?? 0);
+      if (json?.summary) setUsssaSummaryState(json.summary);
+      setUsssaStatus(
+        `Inserted ${insertedTotal} candidates from ${json?.attempted ?? "?"} tournaments` +
+          ` (dates: ${json?.inserted_dates ?? 0}, age/fees: ${json?.inserted_attributes ?? 0}, venues: ${json?.inserted_venues ?? 0})`
+      );
+      if (insertedTotal > 0) setTimeout(() => refreshPage(), 400);
+    } catch (err: any) {
+      setUsssaStatus(`Error: ${err?.message || err}`);
+    }
+  }, []);
 
   React.useEffect(() => {
     setSelectedItems((prev) => {
@@ -648,10 +707,12 @@ export default function EnrichmentClient({
     setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Applied successfully." }));
 
     const contactIds = new Set(payload.filter((p: any) => p.kind === "contact").map((p: any) => p.id));
+    const venueIds = new Set(payload.filter((p: any) => p.kind === "venue").map((p: any) => p.id));
     const dateIds = new Set(payload.filter((p: any) => p.kind === "date").map((p: any) => p.id));
     const attrIds = new Set(payload.filter((p: any) => p.kind === "attribute").map((p: any) => p.id));
 
     if (contactIds.size) setPendingContacts((prev) => prev.filter((c) => !contactIds.has(c.id)));
+    if (venueIds.size) setPendingVenues((prev) => prev.filter((v) => !venueIds.has(v.id)));
     if (dateIds.size) setPendingDates((prev) => prev.filter((d) => !dateIds.has(d.id)));
     if (attrIds.size) setPendingAttributes((prev) => prev.filter((c) => !attrIds.has(c.id)));
   };
@@ -685,9 +746,11 @@ export default function EnrichmentClient({
     }
     setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Deleted selected items." }));
     const contactIds = new Set(payload.filter((p: any) => p.kind === "contact").map((p: any) => p.id));
+    const venueIds = new Set(payload.filter((p: any) => p.kind === "venue").map((p: any) => p.id));
     const dateIds = new Set(payload.filter((p: any) => p.kind === "date").map((p: any) => p.id));
     const attrIds = new Set(payload.filter((p: any) => p.kind === "attribute").map((p: any) => p.id));
     if (contactIds.size) setPendingContacts((prev) => prev.filter((c) => !contactIds.has(c.id)));
+    if (venueIds.size) setPendingVenues((prev) => prev.filter((v) => !venueIds.has(v.id)));
     if (dateIds.size) setPendingDates((prev) => prev.filter((d) => !dateIds.has(d.id)));
     if (attrIds.size) setPendingAttributes((prev) => prev.filter((c) => !attrIds.has(c.id)));
   };
@@ -702,6 +765,28 @@ export default function EnrichmentClient({
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <button onClick={() => runFeesEnrichment()} disabled={feesBatchRunning} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff", opacity: feesBatchRunning ? 0.6 : 1 }}>
             Run fees/venue scrape
+          </button>
+          <button
+            onClick={() => runFeesEnrichment({ mode: "missing_venues" })}
+            disabled={feesBatchRunning}
+            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#fff", color: "#0f3d2e", opacity: feesBatchRunning ? 0.6 : 1 }}
+            title="Prioritizes tournaments missing venue/address with URLs"
+          >
+            Run missing venues scrape
+          </button>
+          <button
+            onClick={() => runUsssaEnrichment()}
+            disabled={feesBatchRunning}
+            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#fff", color: "#0f3d2e", opacity: feesBatchRunning ? 0.6 : 1 }}
+          >
+            Run USSSA scrape
+          </button>
+          <button
+            onClick={() => runUsssaEnrichment({ limit: 2000 })}
+            disabled={feesBatchRunning}
+            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #111827", background: "#fff", color: "#111827", opacity: feesBatchRunning ? 0.6 : 1 }}
+          >
+            Run all USSSA
           </button>
           <input
             type="number"
@@ -723,6 +808,14 @@ export default function EnrichmentClient({
             title="Chunk size per run"
           />
           <span style={{ fontSize: 12, color: "#4b5563" }}>chunk</span>
+          <label style={{ fontSize: 12, color: "#4b5563", display: "flex", alignItems: "center", gap: 4 }}>
+            <input
+              type="checkbox"
+              checked={feesBatchMissingVenuesOnly}
+              onChange={(e) => setFeesBatchMissingVenuesOnly(e.target.checked)}
+            />
+            missing venues only
+          </label>
           <button
             onClick={runFeesBatch}
             disabled={feesBatchRunning}
@@ -731,11 +824,18 @@ export default function EnrichmentClient({
             {feesBatchRunning ? "Running batch..." : "Run fees batch"}
           </button>
           {feesStatus ? <span style={{ color: "#4b5563", fontSize: 12 }}>{feesStatus}</span> : null}
+          {usssaStatus ? <span style={{ color: "#4b5563", fontSize: 12 }}>{usssaStatus}</span> : null}
         </div>
         {feesSummaryState?.length ? (
           <div style={{ fontSize: 12, color: "#111827" }}>
             Recent fees/venue findings:{" "}
             {feesSummaryState.map((s) => `${s.name ?? s.tournament_id} [${s.found.join(", ")}]`).join("; ")}
+          </div>
+        ) : null}
+        {usssaSummaryState?.length ? (
+          <div style={{ fontSize: 12, color: "#111827" }}>
+            Recent USSSA findings:{" "}
+            {usssaSummaryState.map((s) => `${s.name ?? s.tournament_id} [${s.found.join(", ")}]`).join("; ")}
           </div>
         ) : null}
       </div>
