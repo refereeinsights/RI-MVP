@@ -20,7 +20,7 @@ export default function ListYourTournamentPage() {
           <li>Contact email for confirmations or updates</li>
         </ul>
         <div style={{ marginTop: 18, display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <a className="cta primary" href="mailto:hello@tournyx.com?subject=List%20my%20tournament">
+          <a className="cta primary" href="mailto:rod@refereeinsights.com?subject=List%20my%20tournament">
             Email details
           </a>
           <a className="cta secondary" href="/tournaments">

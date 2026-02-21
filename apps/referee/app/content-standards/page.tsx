@@ -47,7 +47,7 @@ export default function ContentStandardsPage() {
           We may edit or remove content that violates these standards.
         </p>
         <p style={{ marginTop: 0, marginBottom: "1rem", color: "#1f3b2b", lineHeight: 1.6 }}>
-          Report an issue: <a href="mailto:info@refereeinsights.com">info@refereeinsights.com</a>
+          Report an issue: <a href="mailto:rod@refereeinsights.com">rod@refereeinsights.com</a>
         </p>
       </section>
     </main>

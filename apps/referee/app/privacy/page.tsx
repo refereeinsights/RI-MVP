@@ -60,7 +60,10 @@ export default function PrivacyPage() {
           <h2 style={styles.h2}>5. Contact</h2>
           <p>
             If you have questions about this policy or your data, please email:{" "}
-            <span style={{ fontWeight: 600 }}>support@refereeinsights.com</span>.
+            <a href="mailto:rod@refereeinsights.com" style={{ fontWeight: 600 }}>
+              rod@refereeinsights.com
+            </a>
+            .
           </p>
         </section>
       </div>

@@ -226,6 +226,10 @@
     - `sport`: `soccer | baseball | lacrosse | basketball | hockey | volleyball | futsal | NULL`
   - Migration file: `supabase/migrations/20260221_venues_restrooms_and_sport_allowed_values.sql`.
 
+- TI contact email routing update:
+  - `apps/ti-web/app/list-your-tournament/page.tsx`
+  - Updated the list-your-tournament CTA mailto target to `rod@refereeinsights.com`.
+
 ## 2026-02-16
 - TI branding: TI header/layout mirrors RI structure with TI colors and shared logo `shared-assets/svg/ti/tournamentinsights_logo.svg` (used in layout/home).
 - TI pages: Added `/tournaments` (RI-style filters/cards, no ratings/reviews), `/tournaments/[slug]` (logistics-only detail), `/how-it-works`, `/list-your-tournament`, and updated home CTAs.

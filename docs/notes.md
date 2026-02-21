@@ -871,3 +871,11 @@
 - Admin venues convenience:
   - `apps/referee/components/admin/VenueActions.tsx`
   - Added `Copy` action for fast venue duplication from the admin venue row action group.
+
+- Support/feedback email routing update (RI + TI):
+  - Updated static user-facing contact email links to route to `rod@refereeinsights.com`.
+  - Files updated:
+    - `apps/ti-web/app/list-your-tournament/page.tsx`
+    - `apps/referee/app/content-standards/page.tsx`
+    - `apps/referee/app/privacy/page.tsx`
+  - Note: dynamic/person-specific `mailto:` links (assignor reveal/outreach/referrals) were intentionally left unchanged.
