@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@plausible-analytics/tracker": "^0.4.4",
+    "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.95.3",
     "next": "^14.2.15",
     "react": "18.3.1",

@@ -940,3 +940,37 @@
     - Added pending-review skip behavior for USSSA attribute candidates (`team_fee`, `level`, `address`).
     - Stamps attempted tournament IDs to `fees_venue_scraped_at`.
     - Response now includes `skipped_recent` and `skipped_pending` counters for visibility.
+
+- TI auth + entitlement foundation (Explorer / Insider / Weekend Pro, no payments):
+  - Added TI Supabase SSR auth plumbing:
+    - `apps/ti-web/lib/supabaseServer.ts`
+    - `apps/ti-web/lib/supabaseClient.ts`
+    - `apps/ti-web/lib/types/supabase.ts`
+    - `apps/ti-web/middleware.ts`
+  - Added TI auth routes/pages:
+    - `apps/ti-web/app/signup/page.tsx`
+    - `apps/ti-web/app/login/page.tsx`
+    - `apps/ti-web/app/logout/route.ts`
+    - `apps/ti-web/app/verify-email/page.tsx`
+    - `apps/ti-web/app/verify-email/ResendVerificationForm.tsx`
+    - `apps/ti-web/app/account/page.tsx`
+  - Added entitlement source-of-truth helper:
+    - `apps/ti-web/lib/entitlements.ts`
+    - Tiers: `explorer | insider | weekend_pro`
+    - Preserves env overrides:
+      - `TI_PREMIUM_DEMO=1`
+      - `TI_FORCE_PAID_TOURNAMENT_DETAILS=true`
+  - Tournament detail premium gating now uses per-user entitlement checks (no listing page change):
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - Existing locked/premium UI blocks preserved, gating condition swapped to entitlement helper.
+  - Added Weekend Pro interest capture:
+    - migration: `supabase/migrations/20260221_ti_premium_interest.sql`
+    - API route: `apps/ti-web/app/api/premium-interest/route.ts`
+    - UI form component: `apps/ti-web/components/PremiumInterestForm.tsx`
+    - locked premium areas now include “Weekend Pro coming soon — get notified” submit flow.
+  - Manual test-user SQL (not auto-run):
+    - `insider-test@refereeinsights.com` -> `plan='insider', subscription_status='none'`
+    - `weekendpro-test@refereeinsights.com` -> `plan='weekend_pro', subscription_status='active'`
+    - SQL:
+      - `update public.ti_users set plan = 'insider', subscription_status = 'none' where email = 'insider-test@refereeinsights.com';`
+      - `update public.ti_users set plan = 'weekend_pro', subscription_status = 'active', current_period_end = now() + interval '365 days' where email = 'weekendpro-test@refereeinsights.com';`

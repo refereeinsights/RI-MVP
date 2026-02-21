@@ -2,7 +2,10 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { BRAND_OWL } from "@/lib/brand";
+import { canAccessWeekendPro, getTier } from "@/lib/entitlements";
+import PremiumInterestForm from "@/components/PremiumInterestForm";
 import "../tournaments.css";
 
 type TournamentDetailRow = {
@@ -74,6 +77,7 @@ type NearbyPlaceRow = {
   address: string | null;
   maps_url: string | null;
   is_sponsor: boolean | null;
+  sponsor_click_url?: string | null;
 };
 
 type NearbyPlace = {
@@ -82,6 +86,7 @@ type NearbyPlace = {
   address: string | null;
   maps_url: string | null;
   is_sponsor: boolean;
+  sponsor_click_url: string | null;
 };
 
 export const revalidate = 300;
@@ -136,11 +141,6 @@ function getSportCardClass(sport: string | null) {
   return map[normalized] ?? "bg-sport-default";
 }
 
-function resolvePaidEntitlement() {
-  // Stub entitlement until TI subscriptions are wired.
-  return process.env.TI_FORCE_PAID_TOURNAMENT_DETAILS === "true";
-}
-
 function boolLabel(value: boolean | null | undefined) {
   if (value === true) return "Yes";
   if (value === false) return "No";
@@ -156,7 +156,7 @@ function sentenceLabel(value: string | null | undefined) {
 function metersToMilesLabel(meters: number | null | undefined) {
   if (typeof meters !== "number" || !Number.isFinite(meters)) return null;
   const miles = meters / 1609.344;
-  return `${miles < 10 ? miles.toFixed(1) : miles.toFixed(0)} mi`;
+  return `${miles.toFixed(1)} mi`;
 }
 
 async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
@@ -242,7 +242,21 @@ export default async function TournamentDetailPage({
 }: {
   params: { slug: string };
 }) {
-  const isPaid = resolvePaidEntitlement();
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: entitlementProfile } = user
+    ? await supabase
+        .from("ti_users" as any)
+        .select("plan,subscription_status")
+        .eq("id", user.id)
+        .maybeSingle<{ plan: string | null; subscription_status: string | null }>()
+    : { data: null as { plan: string | null; subscription_status: string | null } | null };
+  const tier = getTier(user, entitlementProfile ?? null);
+  const isPaid = canAccessWeekendPro(user, entitlementProfile ?? null);
+  const viewerEmail = user?.email ?? "";
+  const needsEmailVerification = Boolean(user && !user.email_confirmed_at);
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
     .select(
@@ -307,21 +321,28 @@ export default async function TournamentDetailPage({
       captured_at: string | null;
     }
   >();
+  let nearbyCountsByVenueId = new Map<
+    string,
+    {
+      food: number;
+      coffee: number;
+      hotels: number;
+      captured_at: string | null;
+    }
+  >();
   let hasOwlsEyeByVenueId = new Map<string, boolean>();
 
+  const runRows = await fetchLatestOwlsEyeRuns(linkedVenueIds);
   if (canViewPremiumDetails) {
-    const [{ data: venuePaidRows }, runRows] = await Promise.all([
-      linkedVenueIds.length
-        ? supabaseAdmin
-            .from("tournament_venues" as any)
-            .select(
-              "venue_id,venues(id,food_vendors,coffee_vendors,tournament_vendors,restrooms,amenities,player_parking,parking_notes,notes,spectator_seating,bring_field_chairs,seating_notes)"
-            )
-            .eq("tournament_id", data.id)
-            .in("venue_id", linkedVenueIds)
-        : Promise.resolve({ data: [] as PaidVenueDetailsRow[] }),
-      fetchLatestOwlsEyeRuns(linkedVenueIds),
-    ]);
+    const { data: venuePaidRows } = await (linkedVenueIds.length
+      ? supabaseAdmin
+          .from("tournament_venues" as any)
+          .select(
+            "venue_id,venues(id,food_vendors,coffee_vendors,tournament_vendors,restrooms,amenities,player_parking,parking_notes,notes,spectator_seating,bring_field_chairs,seating_notes)"
+          )
+          .eq("tournament_id", data.id)
+          .in("venue_id", linkedVenueIds)
+      : Promise.resolve({ data: [] as PaidVenueDetailsRow[] }));
     paidVenueDetailsById = new Map(
       ((venuePaidRows as PaidVenueDetailsRow[] | null) ?? [])
         .filter((row) => row?.venues?.id)
@@ -343,20 +364,23 @@ export default async function TournamentDetailPage({
         ])
     );
 
-    const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
-    for (const row of runRows) {
-      if (!row?.venue_id) continue;
-      if (latestRunByVenue.has(row.venue_id)) continue;
-      latestRunByVenue.set(row.venue_id, row);
-    }
-    const runIds = Array.from(latestRunByVenue.values())
-      .map((row) => row.run_id ?? row.id)
-      .filter((value): value is string => Boolean(value));
+  }
 
-    if (runIds.length) {
+  const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
+  for (const row of runRows) {
+    if (!row?.venue_id) continue;
+    if (latestRunByVenue.has(row.venue_id)) continue;
+    latestRunByVenue.set(row.venue_id, row);
+  }
+  const runIds = Array.from(latestRunByVenue.values())
+    .map((row) => row.run_id ?? row.id)
+    .filter((value): value is string => Boolean(value));
+
+  if (runIds.length) {
+    if (canViewPremiumDetails) {
       const { data: nearbyRows } = await supabaseAdmin
         .from("owls_eye_nearby_food" as any)
-        .select("run_id,category,name,distance_meters,address,maps_url,is_sponsor")
+        .select("run_id,category,name,distance_meters,address,maps_url,is_sponsor,sponsor_click_url")
         .in("run_id", runIds)
         .order("is_sponsor", { ascending: false })
         .order("distance_meters", { ascending: true })
@@ -381,17 +405,32 @@ export default async function TournamentDetailPage({
             address: row.address,
             maps_url: row.maps_url,
             is_sponsor: Boolean(row.is_sponsor),
+            sponsor_click_url: row.sponsor_click_url ?? null,
           });
+          const food = places.filter((p) => (p.category ?? "food") === "food").map(toPlace);
+          const coffee = places.filter((p) => p.category === "coffee").map(toPlace);
+          const hotels = places.filter((p) => (p.category ?? "").toLowerCase() === "hotel" || (p.category ?? "").toLowerCase() === "hotels").map(toPlace);
           return [
             venueId,
             {
-              food: places.filter((p) => (p.category ?? "food") === "food").map(toPlace),
-              coffee: places.filter((p) => p.category === "coffee").map(toPlace),
-              hotels: places.filter((p) => p.category === "hotel").map(toPlace),
+              food,
+              coffee,
+              hotels,
               captured_at: run.updated_at ?? run.created_at ?? null,
             },
           ];
         })
+      );
+      nearbyCountsByVenueId = new Map(
+        Array.from(nearbyByVenueId.entries()).map(([venueId, nearby]) => [
+          venueId,
+          {
+            food: nearby.food.length,
+            coffee: nearby.coffee.length,
+            hotels: nearby.hotels.length,
+            captured_at: nearby.captured_at,
+          },
+        ])
       );
       hasOwlsEyeByVenueId = new Map(
         Array.from(nearbyByVenueId.entries()).map(([venueId, nearby]) => [
@@ -399,28 +438,42 @@ export default async function TournamentDetailPage({
           nearby.food.length + nearby.coffee.length + nearby.hotels.length > 0,
         ])
       );
-    }
-  }
-
-  if (!hasOwlsEyeByVenueId.size && linkedVenueIds.length) {
-    const runRows = await fetchLatestOwlsEyeRuns(linkedVenueIds);
-    const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
-    for (const row of runRows) {
-      if (!row?.venue_id) continue;
-      if (latestRunByVenue.has(row.venue_id)) continue;
-      latestRunByVenue.set(row.venue_id, row);
-    }
-    const runIds = Array.from(latestRunByVenue.values())
-      .map((row) => row.run_id ?? row.id)
-      .filter((value): value is string => Boolean(value));
-    if (runIds.length) {
+    } else {
       const { data: nearbyRows } = await supabaseAdmin
         .from("owls_eye_nearby_food" as any)
-        .select("run_id")
+        .select("run_id,category")
         .in("run_id", runIds);
-      const nearbyRunIds = new Set(((nearbyRows as Array<{ run_id: string }> | null) ?? []).map((row) => row.run_id));
+
+      const countsByRunId = new Map<string, { food: number; coffee: number; hotels: number }>();
+      for (const row of ((nearbyRows as Array<{ run_id: string; category: string | null }> | null) ?? [])) {
+        const runId = row.run_id;
+        if (!runId) continue;
+        const normalizedCategory = (row.category ?? "food").toLowerCase();
+        const current = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0 };
+        if (normalizedCategory === "coffee") current.coffee += 1;
+        else if (normalizedCategory === "hotel" || normalizedCategory === "hotels") current.hotels += 1;
+        else current.food += 1;
+        countsByRunId.set(runId, current);
+      }
+
+      nearbyCountsByVenueId = new Map(
+        Array.from(latestRunByVenue.entries()).map(([venueId, run]) => {
+          const runId = (run.run_id ?? run.id) as string;
+          const counts = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0 };
+          return [
+            venueId,
+            {
+              ...counts,
+              captured_at: run.updated_at ?? run.created_at ?? null,
+            },
+          ];
+        })
+      );
       hasOwlsEyeByVenueId = new Map(
-        Array.from(latestRunByVenue.entries()).map(([venueId, run]) => [venueId, nearbyRunIds.has((run.run_id ?? run.id) as string)])
+        Array.from(nearbyCountsByVenueId.entries()).map(([venueId, counts]) => [
+          venueId,
+          counts.food + counts.coffee + counts.hotels > 0,
+        ])
       );
     }
   }
@@ -532,12 +585,85 @@ export default async function TournamentDetailPage({
                         </div>
                       ) : null}
                     </div>
+                    {(() => {
+                      const nearbyCounts = nearbyCountsByVenueId.get(venue.id);
+                      if (!nearbyCounts || nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels === 0) return null;
+
+                      if (!canViewPremiumDetails) {
+                        return (
+                          <div className="detailVenueNearbyPreview">
+                            <div className="detailVenueNearbyPreview__title">Nearby Options ({BRAND_OWL})</div>
+                            <div className="detailVenueNearbyPreview__counts">
+                              <div>☕ {nearbyCounts.coffee} coffee nearby</div>
+                              <div>🍔 {nearbyCounts.food} food options nearby</div>
+                              <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
+                            </div>
+                            <div className="detailVenueNearbyPreview__teaser">Unlock full list and one-tap directions.</div>
+                            <div className="detailLinksRow">
+                              <Link className="secondaryLink" href="/pricing">
+                                Unlock Weekend Pro
+                              </Link>
+                            </div>
+                            <PremiumInterestForm initialEmail={viewerEmail} compact />
+                          </div>
+                        );
+                      }
+
+                      const nearby = nearbyByVenueId.get(venue.id);
+                      if (!nearby) return null;
+                      const grouped = [
+                        { label: "Coffee", items: nearby.coffee.slice(0, 10) },
+                        { label: "Food", items: nearby.food.slice(0, 10) },
+                        { label: "Hotels", items: nearby.hotels.slice(0, 10) },
+                      ] as Array<{ label: string; items: NearbyPlace[] }>;
+
+                      return (
+                        <div className="detailVenueNearbyGuide">
+                          <div className="detailVenueNearbyGuide__title">{BRAND_OWL} Weekend Guide</div>
+                          {grouped.map((group) =>
+                            group.items.length ? (
+                              <div className="premiumNearbyGroup" key={`${venue.id}-${group.label}-guide`}>
+                                <div className="premiumNearbyGroup__title">{group.label}</div>
+                                <div className="premiumNearbyGroup__list">
+                                  {group.items.map((item, idx) => {
+                                    const primaryLink =
+                                      item.is_sponsor && item.sponsor_click_url ? item.sponsor_click_url : item.maps_url;
+                                    return (
+                                      <div className="premiumNearbyLink premiumNearbyLink--row" key={`${group.label}-${item.name}-${idx}`}>
+                                        <div className="premiumNearbyLink__content">
+                                          <span>{item.name}</span>
+                                          <span className="premiumNearbyLink__meta">
+                                            {metersToMilesLabel(item.distance_meters) || "Distance unavailable"}
+                                            {item.is_sponsor && item.sponsor_click_url ? " • Sponsored" : ""}
+                                          </span>
+                                        </div>
+                                        {primaryLink ? (
+                                          <a
+                                            className="secondaryLink premiumNearbyLink__cta"
+                                            href={primaryLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          >
+                                            Directions
+                                          </a>
+                                        ) : null}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : null
+                          )}
+                        </div>
+                      );
+                    })()}
                     {!canViewPremiumDetails ? (
                       <div className="detailVenuePremiumLock">
                         <span>Premium planning details</span>
                         <Link className="secondaryLink" href="/pricing">
                           Upgrade
                         </Link>
+                        <PremiumInterestForm initialEmail={viewerEmail} compact />
                       </div>
                     ) : (
                       <details className="detailVenuePremium">
@@ -604,37 +730,6 @@ export default async function TournamentDetailPage({
                                       : "No nearby results captured yet."}
                                   </span>
                                 </div>
-                                {nearby ? (
-                                  <>
-                                    {([
-                                      { label: "Food", items: nearby.food },
-                                      { label: "Coffee", items: nearby.coffee },
-                                      { label: "Hotels", items: nearby.hotels },
-                                    ] as Array<{ label: string; items: NearbyPlace[] }>).map((group) =>
-                                      group.items.length ? (
-                                        <div className="premiumNearbyGroup" key={`${venue.id}-${group.label}`}>
-                                          <div className="premiumNearbyGroup__title">{group.label}</div>
-                                          <div className="premiumNearbyGroup__list">
-                                            {group.items.map((item, idx) => (
-                                              <a
-                                                key={`${group.label}-${item.name}-${idx}`}
-                                                className="premiumNearbyLink"
-                                                href={item.maps_url || "#"}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                              >
-                                                <span>{item.name}</span>
-                                                <span className="premiumNearbyLink__meta">
-                                                  {metersToMilesLabel(item.distance_meters) || "Directions"}
-                                                </span>
-                                              </a>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      ) : null
-                                    )}
-                                  </>
-                                ) : null}
                               </>
                             );
                           })()}
@@ -688,11 +783,21 @@ export default async function TournamentDetailPage({
                 <p className="premiumDetailCard__copy">
                   Locked — Upgrade to view vendor, parking, restroom, seating, and travel/lodging details.
                 </p>
+                {needsEmailVerification ? (
+                  <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
+                    Verify your email to unlock Insider access first. <Link href="/verify-email">Verify email</Link>
+                  </p>
+                ) : tier === "explorer" ? (
+                  <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
+                    Log in for Insider access. <Link href="/login">Log in</Link> or <Link href="/signup">sign up</Link>.
+                  </p>
+                ) : null}
                 <div className="detailLinksRow">
                   <Link className="secondaryLink" href="/pricing">
                     Upgrade
                   </Link>
                 </div>
+                <PremiumInterestForm initialEmail={viewerEmail} />
               </div>
             ) : (
               <div className="detailCard__body premiumDetailCard__body">
