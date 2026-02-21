@@ -1,3 +1,5 @@
+import { BRAND_TI } from "@/lib/brand";
+
 export const metadata = {
   title: "Youth Sports Tournament Directory",
   description:
@@ -26,10 +28,10 @@ export default function Home() {
             </div>
           </div>
 
-          <h1 id="ti-title">Insight Before You Commit.</h1>
+          <h1 id="ti-title">{BRAND_TI}</h1>
 
           <p className="muted heroCopy">
-            Tournament Insights curates verified logistics: dates, locations, sports, and official links, so you can plan
+            Insight Before You Commit. {BRAND_TI} curates verified logistics: dates, locations, sports, and official links, so you can plan
             confidently.
           </p>
 
@@ -69,7 +71,7 @@ export default function Home() {
         </section>
 
         <section className="bodyCard bodyCardCenteredList" aria-labelledby="ti-provides">
-          <h2 id="ti-provides">What TournamentInsights Provides</h2>
+          <h2 id="ti-provides">What {BRAND_TI} Provides</h2>
           <ul className="list">
             <li>Verified tournament essentials — sport, dates, location, and official links</li>
             <li>Clean filtering by sport, state, and month</li>
@@ -85,17 +87,6 @@ export default function Home() {
           </p>
         </section>
 
-        <footer className="footer">
-          <span>© TournamentInsights</span>
-          <div className="footerLinks">
-            <a href="https://tournyx.com/privacy" rel="noopener noreferrer">
-              Privacy
-            </a>
-            <a href="https://tournyx.com/terms" rel="noopener noreferrer">
-              Terms
-            </a>
-          </div>
-        </footer>
       </div>
     </main>
   );

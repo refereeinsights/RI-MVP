@@ -230,6 +230,26 @@
   - `apps/ti-web/app/list-your-tournament/page.tsx`
   - Updated the list-your-tournament CTA mailto target to `rod@refereeinsights.com`.
 
+- TI legal pages (RI baseline adapted for TI) + legal UX visibility:
+  - Added TI legal routes:
+    - `apps/ti-web/app/terms/page.tsx`
+    - `apps/ti-web/app/privacy/page.tsx`
+    - `apps/ti-web/app/disclaimer/page.tsx`
+  - Added shared legal module:
+    - `apps/ti-web/app/(legal)/LegalPage.tsx`
+    - `apps/ti-web/app/(legal)/LegalPage.module.css`
+    - `apps/ti-web/app/(legal)/legalContent.ts`
+  - Added TI-specific addenda:
+    - Terms: Third-Party Links and Directory Accuracy
+    - Disclaimer: Owl’s Eye Venue Insights informational-only guidance
+    - Privacy: data collected/cookies-analytics clarification and venue coordinates note.
+  - Added global legal links in TI layout footer:
+    - `apps/ti-web/app/layout.tsx`
+    - `apps/ti-web/app/globals.css`
+  - Added subtle legal reminders on:
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - `apps/ti-web/app/venues/page.tsx`
+
 ## 2026-02-16
 - TI branding: TI header/layout mirrors RI structure with TI colors and shared logo `shared-assets/svg/ti/tournamentinsights_logo.svg` (used in layout/home).
 - TI pages: Added `/tournaments` (RI-style filters/cards, no ratings/reviews), `/tournaments/[slug]` (logistics-only detail), `/how-it-works`, `/list-your-tournament`, and updated home CTAs.
@@ -248,3 +268,21 @@
 - SEO: Added TI-specific metadata defaults (canonical, OG/Twitter), page-specific metadata, sitemap.xml and robots.txt, and JSON-LD (SportsEvent) on tournament detail pages.
 - Analytics: Plausible script injected site-wide (configurable via `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`, default `tournamentinsights.com`).
 - Homepage: Added credibility/support band under hero with TI gradient tint and copy “Inspired by real tournament families…” (no referee mentions).
+
+- TI sport hub pages (SEO hub implementation, TI-only):
+  - Added dedicated sport hub routes with tournament-directory matching UI and behavior:
+    - `/tournaments/soccer`
+    - `/tournaments/baseball`
+    - `/tournaments/lacrosse`
+    - `/tournaments/basketball`
+    - `/tournaments/hockey`
+    - `/tournaments/ayso`
+  - Implemented shared hub renderer/config:
+    - `apps/ti-web/app/tournaments/hubs/HubTournamentsPage.tsx`
+    - `apps/ti-web/app/tournaments/hubs/config.ts`
+  - Hub pages intentionally hide the sport filter control (sport is fixed by route) while keeping the same listing/filter/card visual system as TI tournaments.
+  - Added per-hub SEO metadata + canonical and ItemList JSON-LD on hub pages.
+  - Updated TI sitemap to include hub URLs:
+    - `apps/ti-web/app/sitemap.ts`
+  - Build verification completed successfully:
+    - `npm run build --workspace ti-web`

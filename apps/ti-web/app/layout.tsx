@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import PlausibleScript from "../components/PlausibleScript";
+import { BRAND_TI } from "@/lib/brand";
 import "./globals.css";
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
@@ -79,6 +80,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="ti-main">
             <div className="ti-shell">{children}</div>
           </main>
+          <footer className="ti-legal-footer">
+            <div className="ti-legal-footer__inner">
+              <span>© {BRAND_TI}</span>
+              <nav className="ti-legal-footer__links" aria-label="Legal links">
+                <Link href="/terms">Terms</Link>
+                <Link href="/privacy">Privacy</Link>
+                <Link href="/disclaimer">Disclaimer</Link>
+              </nav>
+            </div>
+          </footer>
           <PlausibleScript domain={PLAUSIBLE_DOMAIN} />
         </div>
       </body>

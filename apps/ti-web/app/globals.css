@@ -332,6 +332,41 @@ h1 {
   color: #2563eb;
 }
 
+.ti-legal-footer {
+  border-top: 1px solid #dbe4ec;
+  background: #f8fafc;
+  padding: 14px 16px 18px;
+}
+
+.ti-legal-footer__inner {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  color: #475569;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ti-legal-footer__links {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ti-legal-footer__links a {
+  color: #1d4ed8;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.ti-legal-footer__links a:hover {
+  text-decoration: underline;
+}
+
 .cta {
   display: inline-flex;
   align-items: center;

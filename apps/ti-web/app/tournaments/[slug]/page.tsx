@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { BRAND_OWL } from "@/lib/brand";
 import "../tournaments.css";
 
 type TournamentDetailRow = {
@@ -592,7 +593,7 @@ export default async function TournamentDetailPage({
                                   <span>{premium?.seating_notes?.trim() || "Not provided"}</span>
                                 </div>
                                 <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Owl&apos;s Eye nearby</span>
+                                  <span className="premiumDetailLabel">{BRAND_OWL} nearby</span>
                                   <span>
                                     {nearby
                                       ? `Food: ${nearby.food.length} • Coffee: ${nearby.coffee.length} • Hotels: ${nearby.hotels.length}${
@@ -672,6 +673,10 @@ export default async function TournamentDetailPage({
           ) : null}
 
           {data.summary ? <p className="detailSummary">{data.summary}</p> : null}
+          <p className="detailLegalNote">
+            Information may change. Verify critical details directly with organizers and venues.{" "}
+            <Link href="/terms">Terms</Link> • <Link href="/disclaimer">Disclaimer</Link>
+          </p>
 
           <div className="detailCard premiumDetailCard">
             <div className="detailCard__title premiumDetailCard__title">

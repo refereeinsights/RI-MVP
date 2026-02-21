@@ -1034,6 +1034,18 @@
   max-width: 820px;
 }
 
+.detailLegalNote {
+  margin: 8px 0 0;
+  color: #e2e8f0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.detailLegalNote a {
+  color: #dbeafe;
+  text-decoration: underline;
+}
+
 .premiumDetailCard {
   width: min(820px, 100%);
 }

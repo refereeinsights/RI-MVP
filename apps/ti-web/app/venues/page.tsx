@@ -284,6 +284,10 @@ export default async function VenuesPage({
             Browse tournament venues by sport, location, and month. Listings focus on practical planning details and
             official links.
           </p>
+          <p className="subtitle" style={{ marginTop: 6, maxWidth: 720, fontSize: 13, lineHeight: 1.5 }}>
+            Venue links and map data are third-party sources. Confirm important details before travel.{" "}
+            <Link href="/terms">Terms</Link> • <Link href="/disclaimer">Disclaimer</Link>
+          </p>
         </div>
 
         <form className="filters" method="GET" action="/venues">

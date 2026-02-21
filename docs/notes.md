@@ -879,3 +879,35 @@
     - `apps/referee/app/content-standards/page.tsx`
     - `apps/referee/app/privacy/page.tsx`
   - Note: dynamic/person-specific `mailto:` links (assignor reveal/outreach/referrals) were intentionally left unchanged.
+
+- TI legal pages implemented from RI policy baseline + TI addenda:
+  - Added TI routes:
+    - `apps/ti-web/app/terms/page.tsx`
+    - `apps/ti-web/app/privacy/page.tsx`
+    - `apps/ti-web/app/disclaimer/page.tsx`
+  - Added shared legal renderer/content/style:
+    - `apps/ti-web/app/(legal)/LegalPage.tsx`
+    - `apps/ti-web/app/(legal)/LegalPage.module.css`
+    - `apps/ti-web/app/(legal)/legalContent.ts`
+  - Added TI-specific legal language:
+    - Terms: Third-Party Links + Directory Accuracy
+    - Disclaimer: Owl’s Eye Venue Insights informational-use section
+    - Privacy: clarified auth/account data, analytics/cookies, and venue coordinates vs user precise location.
+  - Added global TI legal footer links in app layout:
+    - `apps/ti-web/app/layout.tsx`
+    - `apps/ti-web/app/globals.css`
+  - Added subtle legal notices/links on TI tournament and venue pages:
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - `apps/ti-web/app/tournaments/tournaments.css`
+    - `apps/ti-web/app/venues/page.tsx`
+
+- TI sport hub pages (SEO hub implementation):
+  - Added TI sport hub routes under `apps/ti-web/app/tournaments/*`:
+    - `soccer`, `baseball`, `lacrosse`, `basketball`, `hockey`, `ayso`
+  - Added shared TI hub renderer/config to keep directory behavior/style aligned while locking hub sport filter:
+    - `apps/ti-web/app/tournaments/hubs/HubTournamentsPage.tsx`
+    - `apps/ti-web/app/tournaments/hubs/config.ts`
+  - Added hub SEO metadata/canonicals + hub ItemList JSON-LD.
+  - Included all hub routes in TI sitemap:
+    - `apps/ti-web/app/sitemap.ts`
+  - Confirmed TI build passes after hub additions.
