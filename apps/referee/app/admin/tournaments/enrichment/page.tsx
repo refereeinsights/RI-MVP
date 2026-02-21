@@ -69,6 +69,15 @@ type DateCandidate = {
   confidence: number | null;
   created_at: string | null;
 };
+type VenueCandidate = {
+  id: string;
+  tournament_id: string;
+  venue_name: string | null;
+  address_text: string | null;
+  source_url: string | null;
+  confidence: number | null;
+  created_at: string | null;
+};
 type AttributeCandidate = {
   id: string;
   tournament_id: string;
@@ -96,6 +105,25 @@ type FeesVenueSummary = {
   tournament_id: string;
   name: string | null;
   found: string[];
+};
+
+type EnrichmentPageData = {
+  tournaments: Tournament[];
+  missingUrls: MissingUrlTournament[];
+  jobs: Job[];
+  contacts: ContactCandidate[];
+  dates: DateCandidate[];
+  venues: VenueCandidate[];
+  attributes: AttributeCandidate[];
+  existingValueAttributes: ExistingValueAttributeCandidate[];
+  priorityOutreachTargets: PriorityOutreachTournament[];
+  tournamentUrlLookup: Record<string, string | null>;
+  candidateTournaments: Record<
+    string,
+    { name: string | null; slug: string | null; state: string | null; city: string | null; url: string | null }
+  >;
+  urlSuggestions: (UrlSuggestion & { tournament_name?: string | null; tournament_state?: string | null })[];
+  feesVenueSummary: FeesVenueSummary[];
 };
 
 async function fetchAllPendingRows(table: string, select: string) {
@@ -132,7 +160,7 @@ async function fetchTournamentsByIds(ids: string[]) {
     const resp = await supabaseAdmin
       .from("tournaments" as any)
       .select(
-        "id,name,slug,state,city,source_url,official_website_url,start_date,end_date,tournament_director,tournament_director_email,referee_contact,referee_contact_email,team_fee,games_guaranteed,player_parking,address,venue_url"
+        "id,name,slug,state,city,source_url,official_website_url,start_date,end_date,tournament_director,tournament_director_email,referee_contact,referee_contact_email,team_fee,games_guaranteed,player_parking,address,venue_url,level"
       )
       .in("id", chunk);
     if (resp.error) throw resp.error;
@@ -141,7 +169,7 @@ async function fetchTournamentsByIds(ids: string[]) {
   return rows;
 }
 
-async function loadData() {
+async function loadData(): Promise<EnrichmentPageData> {
   const supabase = createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData?.user) {
@@ -150,13 +178,15 @@ async function loadData() {
       jobs: [],
       contacts: [],
       dates: [],
-    attributes: [],
-      existing_value_attributes: [],
-      missing_urls: [],
-      priority_outreach_targets: [],
-      tournament_url_lookup: {},
-      candidate_tournaments: {},
-      url_suggestions: [],
+      venues: [],
+      attributes: [],
+      existingValueAttributes: [],
+      missingUrls: [],
+      priorityOutreachTargets: [],
+      tournamentUrlLookup: {},
+      candidateTournaments: {},
+      urlSuggestions: [],
+      feesVenueSummary: [],
     };
   }
   const tournamentsResp = await supabaseAdmin
@@ -188,7 +218,7 @@ async function loadData() {
       .filter((j: any) => ["queued", "running", "done"].includes(String(j.status)))
       .map((j: any) => j.tournament_id)
   );
-  const [contactsRows, datesRows, attributeRows, recentFeesVenueRows] = await Promise.all([
+  const [contactsRows, datesRows, venueRows, attributeRows, recentFeesVenueRows] = await Promise.all([
     fetchAllPendingRows(
       "tournament_contact_candidates",
       "id,tournament_id,email,phone,role_normalized,source_url,confidence,created_at"
@@ -196,6 +226,10 @@ async function loadData() {
     fetchAllPendingRows(
       "tournament_date_candidates",
       "id,tournament_id,date_text,start_date,end_date,source_url,confidence,created_at"
+    ),
+    fetchAllPendingRows(
+      "tournament_venue_candidates",
+      "id,tournament_id,venue_name,address_text,source_url,confidence,created_at"
     ),
     fetchAllPendingRows(
       "tournament_attribute_candidates",
@@ -213,11 +247,13 @@ async function loadData() {
   const candidateIds = new Set<string>();
   contactsRows.forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
   datesRows.forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
+  venueRows.forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
   attributeRows.forEach((row: any) => row.tournament_id && candidateIds.add(row.tournament_id));
   let tournamentUrlLookup: Record<string, string | null> = {};
   let candidateTournamentLookup: Record<string, { name: string | null; slug: string | null; state: string | null; city: string | null; url: string | null }> = {};
   let filteredContactsRows = contactsRows;
   let filteredDatesRows = datesRows;
+  let filteredVenueRows = venueRows;
   let filteredAttributeRows = attributeRows;
   let existingValueAttributeRows: ExistingValueAttributeCandidate[] = [];
   if (candidateIds.size > 0) {
@@ -245,10 +281,18 @@ async function loadData() {
       if (!tournament) return true;
       return !(hasValue(tournament.start_date) && hasValue(tournament.end_date));
     });
+    filteredVenueRows = venueRows.filter((row: any) => {
+      const tournament = tournamentById.get(row.tournament_id);
+      if (!tournament) return true;
+      const hasVenue = hasValue(tournament.venue);
+      const hasAddress = hasValue(tournament.address);
+      return !(hasVenue && hasAddress);
+    });
     const fieldByAttribute: Record<string, string> = {
       team_fee: "team_fee",
       games_guaranteed: "games_guaranteed",
       player_parking: "player_parking",
+      level: "level",
       address: "address",
       venue_url: "venue_url",
     };
@@ -274,6 +318,7 @@ async function loadData() {
     const filteredCandidateIds = new Set<string>();
     filteredContactsRows.forEach((row: any) => row.tournament_id && filteredCandidateIds.add(row.tournament_id));
     filteredDatesRows.forEach((row: any) => row.tournament_id && filteredCandidateIds.add(row.tournament_id));
+    filteredVenueRows.forEach((row: any) => row.tournament_id && filteredCandidateIds.add(row.tournament_id));
     filteredAttributeRows.forEach((row: any) => row.tournament_id && filteredCandidateIds.add(row.tournament_id));
     existingValueAttributeRows.forEach((row: any) => row.tournament_id && filteredCandidateIds.add(row.tournament_id));
     tournamentUrlLookup = Object.fromEntries(
@@ -377,7 +422,7 @@ async function loadData() {
           tournament_url: j.tournaments?.source_url ?? fallback.url,
         };
       }) as Job[],
-    missing_urls:
+    missingUrls:
       (missingResp.data ?? [])
         .filter((t: any) => !t.official_website_url && !t.enrichment_skip)
         .map((t: any) => ({
@@ -391,14 +436,15 @@ async function loadData() {
           source_url: t.source_url ?? null,
           start_date: t.start_date ?? null,
         })) as MissingUrlTournament[],
-    priority_outreach_targets: priorityTargets,
+    priorityOutreachTargets: priorityTargets,
     contacts: filteredContactsRows as ContactCandidate[],
     dates: filteredDatesRows as DateCandidate[],
+    venues: filteredVenueRows as VenueCandidate[],
     attributes: filteredAttributeRows as AttributeCandidate[],
-    existing_value_attributes: existingValueAttributeRows,
-    tournament_url_lookup: tournamentUrlLookup,
-    candidate_tournaments: candidateTournamentLookup,
-    url_suggestions:
+    existingValueAttributes: existingValueAttributeRows,
+    tournamentUrlLookup,
+    candidateTournaments: candidateTournamentLookup,
+    urlSuggestions:
       (suggestionsResp.data ?? []).map((row: any) => ({
         id: row.id,
         tournament_id: row.tournament_id,
@@ -419,16 +465,17 @@ export default async function Page() {
   return (
     <EnrichmentClient
       tournaments={data.tournaments}
-      missingUrls={data.missing_urls}
+      missingUrls={data.missingUrls}
       jobs={data.jobs}
       contacts={data.contacts}
       dates={data.dates}
+      venues={data.venues}
       attributes={data.attributes}
-      existingValueAttributes={data.existing_value_attributes}
-      priorityOutreachTargets={data.priority_outreach_targets}
-      urlSuggestions={data.url_suggestions}
-      tournamentUrlLookup={data.tournament_url_lookup}
-      candidateTournaments={data.candidate_tournaments}
+      existingValueAttributes={data.existingValueAttributes}
+      priorityOutreachTargets={data.priorityOutreachTargets}
+      urlSuggestions={data.urlSuggestions}
+      tournamentUrlLookup={data.tournamentUrlLookup}
+      candidateTournaments={data.candidateTournaments}
       feesVenueSummary={data.feesVenueSummary}
     />
   );
