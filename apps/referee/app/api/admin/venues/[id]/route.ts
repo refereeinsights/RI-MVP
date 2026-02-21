@@ -5,6 +5,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { geocodeAddress } from "@/lib/google/geocodeAddress";
 import { timezoneFromCoordinates } from "@/lib/google/timezoneFromCoordinates";
 
+const ALLOWED_VENUE_SPORTS = ["soccer", "baseball", "lacrosse", "basketball", "hockey", "volleyball", "futsal"] as const;
+
 type VenueUpdatePayload = {
   name?: string | null;
   address1?: string | null;
@@ -124,10 +126,16 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const text = cleanString(val);
     if (!text) return undefined;
     const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
-    if (normalized === "portable" || normalized === "portables") return "portable";
-    if (normalized === "building" || normalized === "bathroom" || normalized === "bathrooms") return "building";
-    if (normalized === "both" || normalized === "portable and building" || normalized === "building and portable") return "both";
-    return text;
+    if (normalized === "portable" || normalized === "portables") return "Portable";
+    if (normalized === "building" || normalized === "bathroom" || normalized === "bathrooms") return "Building";
+    if (normalized === "both" || normalized === "portable and building" || normalized === "building and portable") return "Both";
+    return undefined;
+  };
+  const normalizeVenueSport = (val: any) => {
+    const text = cleanString(val);
+    if (!text) return undefined;
+    const normalized = text.toLowerCase();
+    return ALLOWED_VENUE_SPORTS.includes(normalized as (typeof ALLOWED_VENUE_SPORTS)[number]) ? normalized : undefined;
   };
   const normalizeVenueType = (val: any) => {
     const text = cleanString(val);
@@ -166,7 +174,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     city: cleanString(payload?.city) ?? undefined,
     state: cleanString(payload?.state) ?? undefined,
     zip: cleanString(payload?.zip) ?? undefined,
-    sport: cleanString(payload?.sport) ?? undefined,
+    sport: normalizeVenueSport(payload?.sport),
     notes: cleanString(payload?.notes) ?? undefined,
     latitude: cleanNumber(payload?.latitude) ?? undefined,
     longitude: cleanNumber(payload?.longitude) ?? undefined,

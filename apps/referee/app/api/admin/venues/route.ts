@@ -16,6 +16,22 @@ type VenueRow = {
   ref_paid_parking?: boolean | null;
 };
 
+const ALLOWED_VENUE_SPORTS = ["soccer", "baseball", "lacrosse", "basketball", "hockey", "volleyball", "futsal"] as const;
+
+function normalizeVenueSport(value: unknown) {
+  const text = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return ALLOWED_VENUE_SPORTS.includes(text as (typeof ALLOWED_VENUE_SPORTS)[number]) ? text : null;
+}
+
+function normalizeRestrooms(value: unknown) {
+  const text = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (!text) return null;
+  if (text === "portable" || text === "portables") return "Portable";
+  if (text === "building" || text === "bathroom" || text === "bathrooms") return "Building";
+  if (text === "both" || text === "portable and building" || text === "building and portable") return "Both";
+  return null;
+}
+
 async function ensureAdminRequest() {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
@@ -70,7 +86,7 @@ export async function POST(request: Request) {
   const state = typeof payload?.state === "string" ? payload.state.trim() : "";
   const zip = typeof payload?.zip === "string" ? payload.zip.trim() : "";
   const notes = typeof payload?.notes === "string" ? payload.notes.trim() : null;
-  const sport = typeof payload?.sport === "string" ? payload.sport.trim().toLowerCase() : "";
+  const sport = normalizeVenueSport(payload?.sport);
   const venueUrl = typeof payload?.venue_url === "string" ? payload.venue_url.trim() : "";
   const amenities = typeof payload?.amenities === "string" ? payload.amenities.trim() : "";
   const playerParking = typeof payload?.player_parking === "string" ? payload.player_parking.trim() : "";
@@ -107,9 +123,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "missing_required_fields" }, { status: 400 });
   }
 
-  const allowedSports = ["soccer", "basketball", "football"];
-  const sportValue = allowedSports.includes(sport) ? sport : null;
-
   const parseNumber = (value: unknown): number | null => {
     if (typeof value === "number" && Number.isFinite(value)) return value;
     if (typeof value === "string" && value.trim() !== "") {
@@ -143,7 +156,8 @@ export async function POST(request: Request) {
     state,
     zip: zip || null,
     notes,
-    sport: sportValue,
+    sport,
+    restrooms: normalizeRestrooms(payload?.restrooms),
     latitude,
     longitude,
     venue_url: venueUrl || null,

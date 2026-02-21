@@ -35,6 +35,13 @@ const booleanFields = [
   "bring_field_chairs",
 ];
 
+const VENUE_SPORT_OPTIONS = ["soccer", "baseball", "lacrosse", "basketball", "hockey", "volleyball", "futsal"] as const;
+
+function normalizeVenueSportValue(value: unknown) {
+  const text = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return VENUE_SPORT_OPTIONS.includes(text as (typeof VENUE_SPORT_OPTIONS)[number]) ? text : "";
+}
+
 export default function VenueEditForm({ venue, tournaments, owlNearby = [] }: Props) {
   const [form, setForm] = useState<Record<string, any>>({
     name: venue.name ?? "",
@@ -42,7 +49,7 @@ export default function VenueEditForm({ venue, tournaments, owlNearby = [] }: Pr
     city: venue.city ?? "",
     state: venue.state ?? "",
     zip: venue.zip ?? "",
-    sport: venue.sport ?? "",
+    sport: normalizeVenueSportValue(venue.sport),
     notes: venue.notes ?? "",
     latitude: venue.latitude ?? "",
     longitude: venue.longitude ?? "",
@@ -226,7 +233,7 @@ export default function VenueEditForm({ venue, tournaments, owlNearby = [] }: Pr
           <Input label="City" value={form.city} onChange={(v) => setField("city", v)} />
           <Input label="State" value={form.state} onChange={(v) => setField("state", v)} />
           <Input label="ZIP" value={form.zip} onChange={(v) => setField("zip", v)} />
-          <Input label="Sport" value={form.sport} onChange={(v) => setField("sport", v)} />
+          <SelectVenueSport label="Sport" value={form.sport} onChange={(v) => setField("sport", v)} />
           <Input label="Venue URL" value={form.venue_url} onChange={(v) => setField("venue_url", v)} />
         </div>
 
@@ -511,14 +518,53 @@ function SelectRestrooms({
     <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
       <div>{label}</div>
       <select
-        value={(value ?? "").toString()}
+        value={(() => {
+          const raw = (value ?? "").toString().trim();
+          const normalized = raw.toLowerCase();
+          if (normalized === "portable" || normalized === "portables") return "Portable";
+          if (normalized === "building" || normalized === "bathroom" || normalized === "bathrooms") return "Building";
+          if (normalized === "both" || normalized === "portable and building" || normalized === "building and portable")
+            return "Both";
+          if (raw === "Portable" || raw === "Building" || raw === "Both") return raw;
+          return "";
+        })()}
         onChange={(e) => onChange(e.target.value)}
         style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
       >
         <option value="">—</option>
-        <option value="portable">Portable</option>
-        <option value="building">Building</option>
-        <option value="both">Both</option>
+        <option value="Portable">Portable</option>
+        <option value="Building">Building</option>
+        <option value="Both">Both</option>
+      </select>
+    </label>
+  );
+}
+
+function SelectVenueSport({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string | null | undefined;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+      <div>{label}</div>
+      <select
+        value={normalizeVenueSportValue(value)}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+      >
+        <option value="">—</option>
+        <option value="soccer">Soccer</option>
+        <option value="baseball">Baseball</option>
+        <option value="lacrosse">Lacrosse</option>
+        <option value="basketball">Basketball</option>
+        <option value="hockey">Hockey</option>
+        <option value="volleyball">Volleyball</option>
+        <option value="futsal">Futsal</option>
       </select>
     </label>
   );

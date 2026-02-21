@@ -839,3 +839,35 @@
   - `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts`
   - Nearby Places fetch now includes `primaryType` and `types` metadata.
   - Hotel rows now pass include/exclude filtering to reduce garbage entries (storage/mobile-home/RV/camp/residential-style listings).
+
+## 2026-02-21
+- Venue schema/value normalization + admin enforcement updates:
+  - Added migration for venue restroom/sport normalization and constraints:
+    - `supabase/migrations/20260221_venues_restrooms_and_sport_allowed_values.sql`
+    - `venues.restrooms` normalized/enforced to `Portable | Building | Both | NULL`
+    - `venues.sport` constrained to: `soccer | baseball | lacrosse | basketball | hockey | volleyball | futsal | NULL`
+  - Admin venue APIs now normalize/enforce these same values:
+    - `apps/referee/app/api/admin/venues/route.ts`
+    - `apps/referee/app/api/admin/venues/[id]/route.ts`
+  - Admin venue forms switched to picklists matching DB constraints:
+    - `apps/referee/components/admin/NewVenueForm.tsx`
+    - `apps/referee/components/admin/VenueEditForm.tsx`
+    - `apps/referee/app/admin/venues/page.tsx` sport filter options updated.
+  - Admin venue summary now displays sport labels in title case:
+    - `apps/referee/components/admin/VenueRow.tsx`
+
+- TI tournament detail public venue URL update:
+  - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - `apps/ti-web/app/tournaments/tournaments.css`
+  - Replaced raw venue URL text with centered `Venue URL/Map` button on each linked venue card.
+  - Button is public (not pay-gated), opens in new tab, and matches map button styling.
+  - Removed travel/lodging row from per-venue premium block and dropped now-unused paid fetch wiring.
+
+- State filter UX parity update (RI + TI):
+  - `apps/referee/app/tournaments/StateMultiSelect.tsx`
+  - `apps/ti-web/app/tournaments/StateMultiSelect.tsx`
+  - Selecting a specific state now auto-unchecks `All states`; selecting `All states` clears specific state checks.
+
+- Admin venues convenience:
+  - `apps/referee/components/admin/VenueActions.tsx`
+  - Added `Copy` action for fast venue duplication from the admin venue row action group.

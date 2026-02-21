@@ -53,6 +53,7 @@ const SPORTS_LABELS: Record<string, string> = {
   baseball: "Baseball",
   softball: "Softball",
   volleyball: "Volleyball",
+  futsal: "Futsal",
   lacrosse: "Lacrosse",
   wrestling: "Wrestling",
   hockey: "Hockey",

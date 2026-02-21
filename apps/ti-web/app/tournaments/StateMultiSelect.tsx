@@ -23,6 +23,8 @@ export default function StateMultiSelect({
 }: Props) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const allStatesRef = useRef<HTMLInputElement | null>(null);
+  const stateRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     const handleClick = (event: MouseEvent | TouchEvent) => {
@@ -44,6 +46,20 @@ export default function StateMultiSelect({
     };
   }, []);
 
+  const handleAllStatesChange = (checked: boolean) => {
+    if (!checked) return;
+    for (const st of availableStates) {
+      const input = stateRefs.current[st];
+      if (input) input.checked = false;
+    }
+  };
+
+  const handleSingleStateChange = () => {
+    if (allStatesRef.current) {
+      allStatesRef.current.checked = false;
+    }
+  };
+
   return (
     <div className="stateDropdown" ref={wrapperRef}>
       <button
@@ -61,6 +77,10 @@ export default function StateMultiSelect({
             name="state"
             value={allStatesValue}
             defaultChecked={isAllStates}
+            ref={(node) => {
+              allStatesRef.current = node;
+            }}
+            onChange={(event) => handleAllStatesChange(event.currentTarget.checked)}
           />
           <span>{`All states${typeof totalCount === "number" ? ` (${totalCount})` : ""}`}</span>
         </label>
@@ -71,6 +91,10 @@ export default function StateMultiSelect({
               name="state"
               value={st}
               defaultChecked={stateSelections.includes(st)}
+              ref={(node) => {
+                stateRefs.current[st] = node;
+              }}
+              onChange={handleSingleStateChange}
             />
             <span>{`${st}${typeof stateCounts[st] === "number" ? ` (${stateCounts[st]})` : ""}`}</span>
           </label>

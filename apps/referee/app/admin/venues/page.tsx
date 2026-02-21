@@ -324,10 +324,12 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         >
           <option value="">All sports</option>
           <option value="soccer">Soccer</option>
-          <option value="basketball">Basketball</option>
-          <option value="football">Football</option>
-          <option value="lacrosse">Lacrosse</option>
           <option value="baseball">Baseball</option>
+          <option value="lacrosse">Lacrosse</option>
+          <option value="basketball">Basketball</option>
+          <option value="hockey">Hockey</option>
+          <option value="volleyball">Volleyball</option>
+          <option value="futsal">Futsal</option>
         </select>
         <select
           name="owl"

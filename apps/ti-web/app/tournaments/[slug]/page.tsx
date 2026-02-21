@@ -36,10 +36,6 @@ type TournamentDetailRow = {
   }[] | null;
 };
 
-type PaidTournamentDetails = {
-  travel_lodging: string | null;
-};
-
 type PaidVenueDetailsRow = {
   venue_id: string;
   venues:
@@ -285,7 +281,6 @@ export default async function TournamentDetailPage({
     hasPremiumPreviewVenue;
   const canViewPremiumDetails = isPaid || hasPremiumPreview;
 
-  let paidTournamentDetails: PaidTournamentDetails | null = null;
   let paidVenueDetailsById = new Map<
     string,
     {
@@ -314,12 +309,7 @@ export default async function TournamentDetailPage({
   let hasOwlsEyeByVenueId = new Map<string, boolean>();
 
   if (canViewPremiumDetails) {
-    const [{ data: tournamentPaidData }, { data: venuePaidRows }, runRows] = await Promise.all([
-      supabaseAdmin
-        .from("tournaments" as any)
-        .select("travel_lodging")
-        .eq("id", data.id)
-        .maybeSingle<PaidTournamentDetails>(),
+    const [{ data: venuePaidRows }, runRows] = await Promise.all([
       linkedVenueIds.length
         ? supabaseAdmin
             .from("tournament_venues" as any)
@@ -331,8 +321,6 @@ export default async function TournamentDetailPage({
         : Promise.resolve({ data: [] as PaidVenueDetailsRow[] }),
       fetchLatestOwlsEyeRuns(linkedVenueIds),
     ]);
-
-    paidTournamentDetails = tournamentPaidData ?? null;
     paidVenueDetailsById = new Map(
       ((venuePaidRows as PaidVenueDetailsRow[] | null) ?? [])
         .filter((row) => row?.venues?.id)
@@ -515,6 +503,18 @@ export default async function TournamentDetailPage({
                         <div className="detailVenueName">{venue.name || "Venue TBA"}</div>
                         {streetLine ? <div className="detailVenueAddress">{streetLine}</div> : null}
                         {cityStateZipLine ? <div className="detailVenueAddress">{cityStateZipLine}</div> : null}
+                        <div className="detailLinksRow detailVenueUrlRow">
+                          {venue.venue_url ? (
+                            <a
+                              className="secondaryLink"
+                              href={venue.venue_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Venue URL/Map
+                            </a>
+                          ) : null}
+                        </div>
                         </div>
                       </div>
                       {venueMapLinks ? (
@@ -547,10 +547,6 @@ export default async function TournamentDetailPage({
                             const nearby = nearbyByVenueId.get(venue.id);
                             return (
                               <>
-                                <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Travel/Lodging Notes</span>
-                                  <span>{paidTournamentDetails?.travel_lodging?.trim() || "Not provided yet."}</span>
-                                </div>
                                 <div className="premiumDetailRow">
                                   <span className="premiumDetailLabel">Food vendors</span>
                                   <span>{boolLabel(premium?.food_vendors)}</span>

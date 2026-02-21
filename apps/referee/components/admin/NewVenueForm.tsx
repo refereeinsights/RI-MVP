@@ -148,8 +148,12 @@ export function NewVenueForm() {
               style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
             >
               <option value="soccer">Soccer</option>
+              <option value="baseball">Baseball</option>
+              <option value="lacrosse">Lacrosse</option>
               <option value="basketball">Basketball</option>
-              <option value="football">Football</option>
+              <option value="hockey">Hockey</option>
+              <option value="volleyball">Volleyball</option>
+              <option value="futsal">Futsal</option>
             </select>
           </label>
           <label>
@@ -301,9 +305,9 @@ export function NewVenueForm() {
             <div>Restrooms</div>
             <select value={restrooms} onChange={(e) => setRestrooms(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
               <option value="">—</option>
-              <option value="portable">Portable</option>
-              <option value="building">Building</option>
-              <option value="both">Both</option>
+              <option value="Portable">Portable</option>
+              <option value="Building">Building</option>
+              <option value="Both">Both</option>
             </select>
           </label>
           <label>

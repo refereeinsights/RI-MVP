@@ -12,6 +12,7 @@ type Props = {
 export default function VenueActions({ venueId, venueName, onRemoveFromList }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [merging, setMerging] = useState(false);
+  const [copying, setCopying] = useState(false);
   const [mergeTargetId, setMergeTargetId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +67,31 @@ export default function VenueActions({ venueId, venueName, onRemoveFromList }: P
     }
   };
 
+  const onCopy = async () => {
+    if (!window.confirm(`Copy venue "${venueName || venueId}" into a new venue ID?`)) return;
+    setCopying(true);
+    setError(null);
+    try {
+      const resp = await fetch("/api/admin/venues/copy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_venue_id: venueId }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(json?.error || "Copy failed");
+      }
+      const copiedId = json?.copied_venue_id ? String(json.copied_venue_id) : "";
+      const copiedName = json?.copied_venue_name ? String(json.copied_venue_name) : "Copied venue";
+      window.alert(`${copiedName} created with new ID: ${copiedId}`);
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Copy failed");
+    } finally {
+      setCopying(false);
+    }
+  };
+
   return (
     <div style={{ display: "grid", gap: 8 }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -82,6 +108,23 @@ export default function VenueActions({ venueId, venueName, onRemoveFromList }: P
       >
         Edit
       </Link>
+      <button
+        type="button"
+        onClick={onCopy}
+        disabled={copying}
+        style={{
+          padding: "6px 10px",
+          borderRadius: 8,
+          border: "1px solid #0f766e",
+          background: copying ? "#ccfbf1" : "#fff",
+          color: "#0f766e",
+          cursor: copying ? "not-allowed" : "pointer",
+          fontSize: 13,
+          fontWeight: 700,
+        }}
+      >
+        {copying ? "Copying..." : "Copy"}
+      </button>
       <button
         type="button"
         onClick={onDelete}

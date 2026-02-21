@@ -203,6 +203,29 @@
   - Set demo tournament official site behavior to show `TBD` on directory cards and hide public official-site link on detail.
   - Tuned venue-card Owl's Eye badge sizing/position so it sits left of venue identity without clipping and aligns with the venue block.
 
+## 2026-02-21
+- TI tournament detail venue link UX:
+  - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - `apps/ti-web/app/tournaments/tournaments.css`
+  - Replaced raw venue URL display with centered `Venue URL/Map` button under venue address on linked venue cards.
+  - Button uses same visual treatment as Google/Apple/Waze buttons and opens in a new tab.
+  - Kept this venue URL button public (no login/pay gate).
+  - Removed stale per-venue `Travel/Lodging Notes` row and removed unused paid tournament fetch wiring.
+
+- TI venue sport labeling:
+  - `apps/ti-web/app/venues/page.tsx`
+  - Added `Futsal` display label mapping so venue sport tags render in title case consistently.
+
+- TI state filter behavior:
+  - `apps/ti-web/app/tournaments/StateMultiSelect.tsx`
+  - Selecting any specific state now auto-clears `All states`; selecting `All states` clears specific state checks.
+
+- Cross-app dependency note for TI venue data hygiene:
+  - RI venue/admin APIs and DB constraints were updated to normalize/enforce venue values used by TI surfaces:
+    - `restrooms`: `Portable | Building | Both | NULL`
+    - `sport`: `soccer | baseball | lacrosse | basketball | hockey | volleyball | futsal | NULL`
+  - Migration file: `supabase/migrations/20260221_venues_restrooms_and_sport_allowed_values.sql`.
+
 ## 2026-02-16
 - TI branding: TI header/layout mirrors RI structure with TI colors and shared logo `shared-assets/svg/ti/tournamentinsights_logo.svg` (used in layout/home).
 - TI pages: Added `/tournaments` (RI-style filters/cards, no ratings/reviews), `/tournaments/[slug]` (logistics-only detail), `/how-it-works`, `/list-your-tournament`, and updated home CTAs.

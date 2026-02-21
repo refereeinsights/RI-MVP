@@ -65,9 +65,22 @@ export default function VenueRow({ venue, onUpdated }: Props) {
   const [owlMapUrl, setOwlMapUrl] = useState(venue.map_url ?? "");
   const [error, setError] = useState<string | null>(null);
 
+  const sportLabel = useMemo(() => {
+    const raw = (venue.sport ?? "").trim();
+    if (!raw) return "";
+    return raw
+      .split(",")
+      .map((part) => {
+        const t = part.trim().toLowerCase();
+        return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
+      })
+      .filter(Boolean)
+      .join(", ");
+  }, [venue.sport]);
+
   const summary = useMemo(() => {
-    return [venue.city, venue.state, venue.zip, venue.sport].filter(Boolean).join(" · ") || "—";
-  }, [venue.city, venue.state, venue.zip, venue.sport]);
+    return [venue.city, venue.state, venue.zip, sportLabel].filter(Boolean).join(" · ") || "—";
+  }, [venue.city, venue.state, venue.zip, sportLabel]);
 
   const onSearch = async (q: string) => {
     setSearch(q);

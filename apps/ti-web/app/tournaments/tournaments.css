@@ -1066,6 +1066,12 @@
   font-weight: 700;
 }
 
+.detailVenueUrlRow {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
 .premiumVenueBlock {
   border-top: 1px solid rgba(255,255,255,0.25);
   padding-top: 12px;
