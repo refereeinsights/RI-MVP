@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1000" viewBox="0 0 1200 1000">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#050f0b"/>
+      <stop offset="45%" stop-color="#071811"/>
+      <stop offset="75%" stop-color="#082216"/>
+      <stop offset="100%" stop-color="#071c13"/>
+    </linearGradient>
+
+    <radialGradient id="fieldGlow" cx="50%" cy="82%" r="60%">
+      <stop offset="0%" stop-color="#13402b" stop-opacity="0.35"/>
+      <stop offset="55%" stop-color="#0b271b" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#06120d" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="vig" cx="50%" cy="55%" r="82%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="70%" stop-color="#000" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.55"/>
+    </radialGradient>
+
+    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="35%" stop-color="#fff" stop-opacity="0.035"/>
+      <stop offset="85%" stop-color="#fff" stop-opacity="0.00"/>
+      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="stripeA" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0e3826" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#0b2b1d" stop-opacity="0.18"/>
+    </linearGradient>
+
+    <linearGradient id="stripeB" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0b2f20" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#082416" stop-opacity="0.14"/>
+    </linearGradient>
+
+    <linearGradient id="line" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="1000" fill="url(#sky)"/>
+
+  <g>
+    <rect x="120" y="0" width="90" height="720" fill="url(#beam)" opacity="0.55"/>
+    <rect x="300" y="0" width="120" height="720" fill="url(#beam)" opacity="0.38"/>
+    <rect x="520" y="0" width="140" height="720" fill="url(#beam)" opacity="0.32"/>
+    <rect x="740" y="0" width="120" height="720" fill="url(#beam)" opacity="0.36"/>
+    <rect x="960" y="0" width="90" height="720" fill="url(#beam)" opacity="0.50"/>
+  </g>
+
+  <rect width="1200" height="1000" fill="url(#fieldGlow)"/>
+
+  <g>
+    <rect x="0" y="560" width="1200" height="440" fill="#0a261a" opacity="0.55"/>
+    <rect x="0" y="560" width="150" height="440" fill="url(#stripeA)"/>
+    <rect x="150" y="560" width="150" height="440" fill="url(#stripeB)"/>
+    <rect x="300" y="560" width="150" height="440" fill="url(#stripeA)"/>
+    <rect x="450" y="560" width="150" height="440" fill="url(#stripeB)"/>
+    <rect x="600" y="560" width="150" height="440" fill="url(#stripeA)"/>
+    <rect x="750" y="560" width="150" height="440" fill="url(#stripeB)"/>
+    <rect x="900" y="560" width="150" height="440" fill="url(#stripeA)"/>
+    <rect x="1050" y="560" width="150" height="440" fill="url(#stripeB)"/>
+
+    <g fill="none" stroke="url(#line)" stroke-width="3" opacity="0.85">
+      <rect x="130" y="610" width="940" height="360"/>
+      <path d="M600 610 L600 970"/>
+      <circle cx="600" cy="790" r="105"/>
+      <rect x="350" y="835" width="500" height="135"/>
+      <rect x="450" y="885" width="300" height="85"/>
+    </g>
+  </g>
+
+  <rect width="1200" height="1000" fill="url(#vig)"/>
+</svg>

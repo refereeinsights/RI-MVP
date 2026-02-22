@@ -1,6 +1,8 @@
 .wrap {
   position: relative;
   display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .button {
@@ -18,6 +20,29 @@
     0 0 0 2px rgba(8, 19, 84, 0.35),
     0 8px 16px rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(2px);
+}
+
+.signupBug {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 2px solid #6ee7b7;
+  background: #ffffff;
+  color: #0f172a !important;
+  text-decoration: none;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow:
+    0 0 0 2px rgba(8, 19, 84, 0.35),
+    0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.signupBug:hover {
+  background: #f8fafc;
 }
 
 .button:hover {

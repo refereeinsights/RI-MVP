@@ -1101,3 +1101,15 @@
     - Switched icon button to white background with dark glyph for stronger contrast.
     - Fixed dropdown item readability by overriding header link styles inside the menu.
     - Updated Insider ring color to mint green to match Insider visual treatment.
+    - Added signed-out circular signup bug (`+`) beside the account icon.
+    - Updated sign-out return behavior to avoid redirecting into protected TI pages (uses current public page; falls back to `/` from protected routes).
+
+- TI detail hero background refresh (baseball + soccer):
+  - Added TI-specific hero textures:
+    - `apps/ti-web/public/textures/ti_baseball_hero_bg_1200x1000.svg`
+    - `apps/ti-web/public/textures/ti_soccer_hero_bg_1200x1000.svg`
+  - Updated `apps/ti-web/app/tournaments/tournaments.css`:
+    - `.detailHero.bg-sport-baseball` now uses `ti_baseball_hero_bg_1200x1000.svg`
+    - added explicit `.detailHero.bg-sport-soccer` to use `ti_soccer_hero_bg_1200x1000.svg`
+  - Build check:
+    - `npm run build --workspace ti-web` passed.

@@ -1321,7 +1321,6 @@
 }
 
 .detailHero.bg-sport-default,
-.detailHero.bg-sport-soccer,
 .detailHero.bg-sport-basketball,
 .detailHero.bg-sport-baseball,
 .detailHero.bg-sport-softball,
@@ -1331,6 +1330,15 @@
     url("/textures/soccer-turf.svg");
   background-size: cover;
   background-position: center;
+}
+
+.detailHero.bg-sport-soccer {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/textures/ti_soccer_hero_bg_1200x1000.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
 }
 
 .detailHero.bg-sport-basketball {
@@ -1344,7 +1352,7 @@
 .detailHero.bg-sport-baseball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
-    url("/textures/baseball-field.svg");
+    url("/textures/ti_baseball_hero_bg_1200x1000.svg");
   background-size: cover, cover;
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;

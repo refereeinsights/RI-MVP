@@ -30,6 +30,8 @@ export default function AccountIconMenu({ tier, isAuthed, needsEmailVerify }: Ac
     return query ? `${pathname}?${query}` : pathname;
   }, [pathname, searchParams]);
   const encodedReturnTo = encodeURIComponent(returnTo);
+  const signOutReturnTo = pathname.startsWith("/account") || pathname.startsWith("/verify-email") ? "/" : returnTo;
+  const encodedSignOutReturnTo = encodeURIComponent(signOutReturnTo);
 
   useEffect(() => {
     if (!open) return;
@@ -51,6 +53,15 @@ export default function AccountIconMenu({ tier, isAuthed, needsEmailVerify }: Ac
 
   return (
     <div className={styles.wrap} ref={wrapRef}>
+      {!isAuthed ? (
+        <Link
+          href={`/signup?returnTo=${encodedReturnTo}`}
+          className={styles.signupBug}
+          aria-label="Create free account"
+        >
+          +
+        </Link>
+      ) : null}
       <button
         type="button"
         className={styles.button}
@@ -79,7 +90,7 @@ export default function AccountIconMenu({ tier, isAuthed, needsEmailVerify }: Ac
                 Verify email
               </Link>
               <div className={styles.divider} />
-              <Link className={styles.item} role="menuitem" href={`/logout?returnTo=${encodedReturnTo}`} onClick={() => setOpen(false)}>
+              <Link className={styles.item} role="menuitem" href={`/logout?returnTo=${encodedSignOutReturnTo}`} onClick={() => setOpen(false)}>
                 Sign out
               </Link>
             </>
@@ -89,7 +100,7 @@ export default function AccountIconMenu({ tier, isAuthed, needsEmailVerify }: Ac
                 Account
               </Link>
               <div className={styles.divider} />
-              <Link className={styles.item} role="menuitem" href={`/logout?returnTo=${encodedReturnTo}`} onClick={() => setOpen(false)}>
+              <Link className={styles.item} role="menuitem" href={`/logout?returnTo=${encodedSignOutReturnTo}`} onClick={() => setOpen(false)}>
                 Sign out
               </Link>
             </>
