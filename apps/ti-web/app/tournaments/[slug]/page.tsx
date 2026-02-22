@@ -89,6 +89,18 @@ type NearbyPlace = {
   sponsor_click_url: string | null;
 };
 
+type LinkedVenue = {
+  id: string;
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  venue_url: string | null;
+};
+
 export const revalidate = 300;
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
@@ -277,10 +289,15 @@ export default async function TournamentDetailPage({
   const venueInfo = data.venue || data.address || mapQuery;
   const venueAddress = [data.address, buildLocationLabel(data.city, data.state)].filter(Boolean).join(", ");
   const sportSurfaceClass = getSportCardClass(data.sport);
-  const linkedVenues =
-    data.tournament_venues
-      ?.map((tv) => tv.venues)
-      .filter((v): v is NonNullable<(typeof data.tournament_venues)[number]["venues"]> => Boolean(v)) ?? [];
+  const rawTournamentVenues = Array.isArray(data.tournament_venues)
+    ? data.tournament_venues
+    : [];
+  const linkedVenues: LinkedVenue[] = rawTournamentVenues
+    .map((tv: any) => tv?.venues ?? null)
+    .filter(
+      (venue: any): venue is LinkedVenue =>
+        Boolean(venue && typeof venue === "object" && typeof venue.id === "string")
+    );
   const linkedVenueIds = linkedVenues.map((v) => v.id).filter(Boolean);
   const resolvedSlug = (data.slug ?? params.slug ?? "").toLowerCase();
   const resolvedName = (data.name ?? "").trim().toLowerCase();
