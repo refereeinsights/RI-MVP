@@ -122,8 +122,6 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  grid-column: 3;
-  grid-row: 1;
   background: var(--ti-cta);
   color: var(--ti-cta-text);
   border-radius: 999px;
@@ -136,7 +134,6 @@ body {
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
   border: 2px solid rgba(255, 255, 255, 0.18);
   min-height: 44px;
-  justify-self: end;
 }
 
 .ti-cta:hover {
@@ -159,6 +156,37 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.ti-header-actions {
+  grid-column: 3;
+  grid-row: 1;
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.ti-auth-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.ti-auth-links a {
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding-bottom: 0.14rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.28);
+}
+
+.ti-auth-links a:hover {
+  border-color: #00a6d7;
 }
 
 @media (max-width: 800px) {
@@ -184,9 +212,12 @@ body {
     min-width: 0;
   }
   .ti-cta {
+    justify-self: end;
+  }
+  .ti-header-actions {
     grid-column: 1;
     grid-row: 4;
-    justify-self: end;
+    justify-items: end;
   }
 }
 

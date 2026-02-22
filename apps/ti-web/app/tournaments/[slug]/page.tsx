@@ -605,72 +605,26 @@ export default async function TournamentDetailPage({
                     {(() => {
                       const nearbyCounts = nearbyCountsByVenueId.get(venue.id);
                       if (!nearbyCounts || nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels === 0) return null;
-
-                      if (!canViewPremiumDetails) {
-                        return (
-                          <div className="detailVenueNearbyPreview">
-                            <div className="detailVenueNearbyPreview__title">Nearby Options ({BRAND_OWL})</div>
-                            <div className="detailVenueNearbyPreview__counts">
-                              <div>☕ {nearbyCounts.coffee} coffee nearby</div>
-                              <div>🍔 {nearbyCounts.food} food options nearby</div>
-                              <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
-                            </div>
-                            <div className="detailVenueNearbyPreview__teaser">Unlock full list and one-tap directions.</div>
+                      return (
+                        <div className="detailVenueNearbyPreview">
+                          <div className="detailVenueNearbyPreview__title">Nearby Options ({BRAND_OWL})</div>
+                          <div className="detailVenueNearbyPreview__counts">
+                            <div>☕ {nearbyCounts.coffee} coffee nearby</div>
+                            <div>🍔 {nearbyCounts.food} food options nearby</div>
+                            <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
+                          </div>
+                          <div className="detailVenueNearbyPreview__teaser">
+                            {canViewPremiumDetails
+                              ? "Open Premium planning details to view full list and one-tap directions."
+                              : "Unlock full list and one-tap directions."}
+                          </div>
+                          {!canViewPremiumDetails ? (
                             <div className="detailLinksRow">
                               <Link className="secondaryLink" href="/pricing">
                                 Unlock Weekend Pro
                               </Link>
                             </div>
-                            <PremiumInterestForm initialEmail={viewerEmail} compact />
-                          </div>
-                        );
-                      }
-
-                      const nearby = nearbyByVenueId.get(venue.id);
-                      if (!nearby) return null;
-                      const grouped = [
-                        { label: "Coffee", items: nearby.coffee.slice(0, 10) },
-                        { label: "Food", items: nearby.food.slice(0, 10) },
-                        { label: "Hotels", items: nearby.hotels.slice(0, 10) },
-                      ] as Array<{ label: string; items: NearbyPlace[] }>;
-
-                      return (
-                        <div className="detailVenueNearbyGuide">
-                          <div className="detailVenueNearbyGuide__title">{BRAND_OWL} Weekend Guide</div>
-                          {grouped.map((group) =>
-                            group.items.length ? (
-                              <div className="premiumNearbyGroup" key={`${venue.id}-${group.label}-guide`}>
-                                <div className="premiumNearbyGroup__title">{group.label}</div>
-                                <div className="premiumNearbyGroup__list">
-                                  {group.items.map((item, idx) => {
-                                    const primaryLink =
-                                      item.is_sponsor && item.sponsor_click_url ? item.sponsor_click_url : item.maps_url;
-                                    return (
-                                      <div className="premiumNearbyLink premiumNearbyLink--row" key={`${group.label}-${item.name}-${idx}`}>
-                                        <div className="premiumNearbyLink__content">
-                                          <span>{item.name}</span>
-                                          <span className="premiumNearbyLink__meta">
-                                            {metersToMilesLabel(item.distance_meters) || "Distance unavailable"}
-                                            {item.is_sponsor && item.sponsor_click_url ? " • Sponsored" : ""}
-                                          </span>
-                                        </div>
-                                        {primaryLink ? (
-                                          <a
-                                            className="secondaryLink premiumNearbyLink__cta"
-                                            href={primaryLink}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                          >
-                                            Directions
-                                          </a>
-                                        ) : null}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ) : null
-                          )}
+                          ) : null}
                         </div>
                       );
                     })()}
@@ -747,6 +701,54 @@ export default async function TournamentDetailPage({
                                       : "No nearby results captured yet."}
                                   </span>
                                 </div>
+                                {nearby ? (
+                                  <div className="detailVenueNearbyGuide">
+                                    <div className="detailVenueNearbyGuide__title">{BRAND_OWL} Weekend Guide</div>
+                                    {[
+                                      { label: "Coffee", items: nearby.coffee.slice(0, 10) },
+                                      { label: "Food", items: nearby.food.slice(0, 10) },
+                                      { label: "Hotels", items: nearby.hotels.slice(0, 10) },
+                                    ].map((group) =>
+                                      group.items.length ? (
+                                        <div className="premiumNearbyGroup" key={`${venue.id}-${group.label}-guide`}>
+                                          <div className="premiumNearbyGroup__title">{group.label}</div>
+                                          <div className="premiumNearbyGroup__list">
+                                            {group.items.map((item, idx) => {
+                                              const primaryLink =
+                                                item.is_sponsor && item.sponsor_click_url
+                                                  ? item.sponsor_click_url
+                                                  : item.maps_url;
+                                              return (
+                                                <div
+                                                  className="premiumNearbyLink premiumNearbyLink--row"
+                                                  key={`${group.label}-${item.name}-${idx}`}
+                                                >
+                                                  <div className="premiumNearbyLink__content">
+                                                    <span>{item.name}</span>
+                                                    <span className="premiumNearbyLink__meta">
+                                                      {metersToMilesLabel(item.distance_meters) || "Distance unavailable"}
+                                                      {item.is_sponsor && item.sponsor_click_url ? " • Sponsored" : ""}
+                                                    </span>
+                                                  </div>
+                                                  {primaryLink ? (
+                                                    <a
+                                                      className="secondaryLink premiumNearbyLink__cta"
+                                                      href={primaryLink}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                    >
+                                                      Directions
+                                                    </a>
+                                                  ) : null}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      ) : null
+                                    )}
+                                  </div>
+                                ) : null}
                               </>
                             );
                           })()}

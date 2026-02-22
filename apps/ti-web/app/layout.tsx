@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import PlausibleScript from "../components/PlausibleScript";
 import { BRAND_TI } from "@/lib/brand";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import "./globals.css";
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
@@ -48,7 +49,13 @@ export const viewport = {
   themeColor: "#0f3d2e",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isLoggedIn = Boolean(user);
+
   return (
     <html lang="en">
       <body className="ti-body">
@@ -71,9 +78,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/how-it-works">How it works</Link>
                 <Link href="/list-your-tournament">List your tournament</Link>
               </nav>
-              <Link href="/list-your-tournament" className="ti-cta">
-                List your tournament
-              </Link>
+              <div className="ti-header-actions">
+                <Link href="/list-your-tournament" className="ti-cta">
+                  List your tournament
+                </Link>
+                <div className="ti-auth-links" aria-label="Account actions">
+                  {isLoggedIn ? (
+                    <>
+                      <Link href="/account">My account</Link>
+                      <Link href="/logout">Log out</Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link href="/login">Log in</Link>
+                      <Link href="/signup">Sign up</Link>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </header>
 

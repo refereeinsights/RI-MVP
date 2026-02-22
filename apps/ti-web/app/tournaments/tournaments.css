@@ -1191,11 +1191,46 @@
 
 .detailVenuePremiumLock {
   margin-top: 6px;
-  display: flex;
-  align-items: center;
+  display: grid;
+  justify-items: center;
   justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  text-align: center;
+}
+
+.detailVenueNearbyPreview {
+  margin-top: 4px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.12);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.detailVenueNearbyPreview__title,
+.detailVenueNearbyGuide__title {
+  font-weight: 700;
+}
+
+.detailVenueNearbyPreview__counts {
+  display: grid;
+  gap: 4px;
+}
+
+.detailVenueNearbyPreview__teaser {
+  color: rgba(248, 251, 255, 0.9);
+  font-size: 14px;
+}
+
+.detailVenueNearbyGuide {
+  margin-top: 4px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.12);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
 }
 
 .premiumNearbyGroup {
@@ -1233,6 +1268,22 @@
   font-size: 12px;
   font-weight: 700;
   color: #cffafe;
+}
+
+.premiumNearbyLink--row {
+  align-items: center;
+}
+
+.premiumNearbyLink__content {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.premiumNearbyLink__cta {
+  min-height: 36px !important;
+  padding: 8px 12px !important;
+  box-shadow: none !important;
 }
 
 .detailHero.bg-sport-default,
