@@ -974,6 +974,30 @@
   font-size: 1rem;
 }
 
+.detailSaveWrap {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.detailSaveButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detailSaveButton--saved {
+  background: #e7f8ef !important;
+  color: #0d6b4a !important;
+  border-color: rgba(13, 107, 74, 0.35) !important;
+}
+
+.detailSaveToast {
+  font-size: 12px;
+  color: rgba(248, 251, 255, 0.95);
+}
+
 .detailLinksRow {
   display: flex;
   gap: 10px;
@@ -1059,6 +1083,16 @@
 
 .premiumDetailCard__body {
   gap: 12px;
+}
+
+.premiumDetailCard__body form {
+  margin: 0 auto;
+  justify-items: center;
+  text-align: center;
+}
+
+.premiumDetailCard__body form > div:nth-child(2) {
+  justify-content: center;
 }
 
 .premiumDetailCard__copy {
@@ -1310,11 +1344,10 @@
 .detailHero.bg-sport-baseball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
-    url("/svg/sports/baseball_badge.svg"),
     url("/textures/baseball-field.svg");
-  background-size: cover, 120px 120px, cover;
-  background-position: center, center calc(100% - 14px), center;
-  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
 }
 
 .detailHero.bg-sport-softball {

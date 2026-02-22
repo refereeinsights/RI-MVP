@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/lib/types/supabase";
+import { sanitizeReturnTo } from "@/lib/returnTo";
 
 export async function GET(req: NextRequest) {
-  const res = NextResponse.redirect(new URL("/", req.url));
+  const returnTo = sanitizeReturnTo(req.nextUrl.searchParams.get("returnTo"), "/");
+  const res = NextResponse.redirect(new URL(returnTo, req.url));
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

@@ -286,3 +286,94 @@
     - `apps/ti-web/app/sitemap.ts`
   - Build verification completed successfully:
     - `npm run build --workspace ti-web`
+
+## 2026-02-22
+- TI deploy fix for sport hub routes:
+  - Updated hub route files:
+    - `apps/ti-web/app/tournaments/soccer/page.tsx`
+    - `apps/ti-web/app/tournaments/baseball/page.tsx`
+    - `apps/ti-web/app/tournaments/lacrosse/page.tsx`
+    - `apps/ti-web/app/tournaments/basketball/page.tsx`
+    - `apps/ti-web/app/tournaments/hockey/page.tsx`
+    - `apps/ti-web/app/tournaments/ayso/page.tsx`
+  - Changed async hub rendering call pattern to avoid JSX on async function component:
+    - `return await HubTournamentsPage({ hub: "...", searchParams });`
+  - Fixes Vercel build error:
+    - `HubTournamentsPage cannot be used as a JSX component`.
+
+- TI signup production configuration guidance (operational):
+  - Required TI env in Vercel:
+    - `NEXT_PUBLIC_SITE_URL=https://www.tournamentinsights.com`
+  - Supabase Auth URL configuration should include TI verify redirect:
+    - `https://www.tournamentinsights.com/verify-email`
+    - recommended additionally: `https://tournamentinsights.com/verify-email`
+  - Browser auth continues to use `NEXT_PUBLIC_SUPABASE_ANON_KEY` (service role remains server-only).
+
+- TI production env correction + redeploy result:
+  - Fixed env typo in TI Vercel project:
+    - from `EXT_PUBLIC_SUPABASE_ANON_KEY`
+    - to `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - This resolved production error:
+    - `Your project's URL and Key are required to create a Supabase client!`
+  - Post-redeploy verification confirmed TI tournament detail and signup pages were working.
+
+- TI manual test-user invite/entitlement seed and premium-interest lock artifact reference:
+  - `apps/ti-web/scripts/seed_test_users.ts`
+  - `apps/ti-web/sql/20260221_ti_premium_interest_lockdown.sql`
+
+- TI Save Tournament MVP implemented (detail page only; no `/tournaments` listing changes):
+  - DB migration added:
+    - `supabase/migrations/20260222_ti_saved_tournaments.sql`
+    - table `public.ti_saved_tournaments` + `unique(user_id,tournament_id)` + RLS own-row select/insert/delete.
+  - Save API route added:
+    - `apps/ti-web/app/api/saved-tournaments/[tournamentId]/route.ts`
+    - `GET` saved state, `POST` save, `DELETE` unsave.
+    - Auth required; unverified users blocked for write with `EMAIL_UNVERIFIED`.
+  - Shared server helper:
+    - `apps/ti-web/lib/savedTournaments.ts`
+  - UI component + integration:
+    - `apps/ti-web/components/SaveTournamentButton.tsx`
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - Account page shows saved count:
+    - `apps/ti-web/app/account/page.tsx`
+  - Return path continuity through auth/verify:
+    - `apps/ti-web/app/login/page.tsx`
+    - `apps/ti-web/app/signup/page.tsx`
+    - `apps/ti-web/app/verify-email/page.tsx`
+    - `apps/ti-web/app/verify-email/ResendVerificationForm.tsx`
+  - Build verification completed:
+    - `npm run build --workspace ti-web`
+
+- TI tournament detail premium CTA cleanup (duplicate block removal):
+  - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - Removed the extra per-venue upgrade CTA under venue map buttons so premium upgrade/notify lives only in the bottom Premium Planning Details card.
+  - Updated nearby teaser copy to direct users to the bottom premium section.
+  - Build verification completed:
+    - `npm run build --workspace ti-web`
+
+- TI header auth control converted to single account icon menu:
+  - Added:
+    - `apps/ti-web/components/AccountIconMenu.tsx`
+    - `apps/ti-web/components/AccountIconMenu.module.css`
+    - `apps/ti-web/lib/returnTo.ts`
+  - Updated:
+    - `apps/ti-web/app/layout.tsx`
+    - `apps/ti-web/app/logout/route.ts`
+    - `apps/ti-web/app/login/page.tsx`
+    - `apps/ti-web/app/signup/page.tsx`
+    - `apps/ti-web/app/verify-email/page.tsx`
+    - `apps/ti-web/app/verify-email/ResendVerificationForm.tsx`
+  - Behavior:
+    - Removed header text links (`My account`, `Log out`, `Sign in`, `Create free account`).
+    - Added single user icon with ring-color state:
+      - red signed out, amber unverified, blue insider, purple weekend_pro.
+    - Menu options vary by state and include `returnTo` for login/signup/logout/verify.
+  - Security hardening:
+    - Centralized `returnTo` sanitization for auth/logout redirect paths to allow only safe relative routes.
+  - Build verification completed:
+    - `npm run build --workspace ti-web`
+  - Follow-up polish:
+    - Centered the account icon under the mobile `List your tournament` CTA.
+    - Increased icon contrast with white fill + dark glyph for readability on blue header gradients.
+    - Fixed dropdown menu text readability by overriding inherited header link styles in the popup.
+    - Updated Insider ring color to mint green (`#6ee7b7`) to match Insider badge styling.

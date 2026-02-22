@@ -1002,3 +1002,102 @@
     - Insert-only RLS policy for `public.ti_premium_interest`
     - Explicit grant insert to `anon,authenticated`
     - revokes select/update/delete and includes SQL verification checklist
+
+## 2026-02-22
+- Enrichment page typing hardening (build fix):
+  - `apps/referee/app/admin/tournaments/enrichment/page.tsx`
+  - Added explicit `loadData(): Promise<EnrichmentPageData>` return type and unified camelCase keys for all return paths.
+  - Fixed Vercel build error where `venues` prop was inferred missing on `EnrichmentClient`.
+
+- Missing-venues scraper throughput improvements:
+  - `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`
+    - Missing-venues mode now supports larger limits (up to 200) and larger selection pool (up to 5000).
+    - Deeper crawl in missing-venues mode (`maxPages` up to 12; larger internal queue).
+    - Added `skip_pending` control:
+      - missing-venues runs can bypass pending-review skip when needed to avoid backlog stalls.
+    - Response now echoes `skip_pending` and existing skip counters for operator visibility.
+  - `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`
+    - `Run missing venues scrape` now calls missing-venues mode with higher limit and `skip_pending=false`.
+    - Missing-venues batch uses `skip_pending=false` as well.
+    - Status text now indicates when pending skip is off.
+    - Auto-refresh remains disabled so findings stay visible until manual refresh.
+
+- TI hubs deploy/type compatibility fix:
+  - `apps/ti-web/app/tournaments/{soccer,baseball,lacrosse,basketball,hockey,ayso}/page.tsx`
+  - Replaced async component JSX usage with direct awaited function call:
+    - from `<HubTournamentsPage ... />`
+    - to `await HubTournamentsPage({ ... })`
+  - Resolved Vercel/TS error: async function not valid JSX element type.
+
+- TI auth production configuration note (operational):
+  - For TI signup verification to work in production:
+    - Vercel TI env must set `NEXT_PUBLIC_SITE_URL=https://www.tournamentinsights.com`.
+    - Supabase Auth URL config must include redirect:
+      - `https://www.tournamentinsights.com/verify-email`
+      - (recommended also root-domain variant without `www`).
+
+- TI production runtime fix (env naming):
+  - Resolved tournament detail runtime crash caused by missing browser anon key env in TI project.
+  - Correct env var name is:
+    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - A misspelled var (`EXT_PUBLIC_SUPABASE_ANON_KEY`) was present and not used by code.
+  - After fixing env name and redeploying TI project, tournament detail and signup routes loaded successfully.
+
+- TI Save Tournament MVP (Insider+):
+  - Added migration:
+    - `supabase/migrations/20260222_ti_saved_tournaments.sql`
+    - Creates `public.ti_saved_tournaments` (`user_id`, `tournament_id`, `created_at`) with `unique(user_id,tournament_id)`.
+    - Enables RLS with own-row `SELECT`, `INSERT`, `DELETE` policies.
+  - Added TI API route:
+    - `apps/ti-web/app/api/saved-tournaments/[tournamentId]/route.ts`
+    - `GET` saved state, `POST` save toggle on, `DELETE` unsave.
+    - Enforces auth (`401`) and verified email for writes (`403 EMAIL_UNVERIFIED`).
+  - Added server helper:
+    - `apps/ti-web/lib/savedTournaments.ts`
+    - `getSavedTournamentIdsForUser(userId)`, `isTournamentSaved(userId, tournamentId)`.
+  - Added save UI component + tournament detail integration:
+    - `apps/ti-web/components/SaveTournamentButton.tsx`
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - Detail page now renders Save/Saved toggle with server-computed initial state.
+    - Logged-out save redirects to signup with `returnTo`; unverified redirects to verify-email with `returnTo`.
+  - Account plumbing:
+    - `apps/ti-web/app/account/page.tsx`
+    - Shows saved tournament count.
+  - Return-path handling improvements:
+    - `apps/ti-web/app/login/page.tsx`
+    - `apps/ti-web/app/signup/page.tsx`
+    - `apps/ti-web/app/verify-email/page.tsx`
+    - `apps/ti-web/app/verify-email/ResendVerificationForm.tsx`
+  - Style updates:
+    - `apps/ti-web/app/tournaments/tournaments.css`
+    - Added detail save-button and toast styles.
+
+- TI tournament detail premium duplicate UI cleanup:
+  - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - Removed the extra per-venue premium upgrade/notify block beneath venue map buttons.
+  - Kept the bottom page-level Premium Planning Details box as the single upgrade/notify entry point.
+  - Build check:
+    - `npm run build --workspace ti-web` passed.
+
+- TI header auth UX update to single account icon menu:
+  - Added:
+    - `apps/ti-web/components/AccountIconMenu.tsx`
+    - `apps/ti-web/components/AccountIconMenu.module.css`
+    - `apps/ti-web/lib/returnTo.ts`
+  - Updated:
+    - `apps/ti-web/app/layout.tsx`
+    - `apps/ti-web/app/logout/route.ts`
+    - `apps/ti-web/app/login/page.tsx`
+    - `apps/ti-web/app/signup/page.tsx`
+    - `apps/ti-web/app/verify-email/page.tsx`
+    - `apps/ti-web/app/verify-email/ResendVerificationForm.tsx`
+  - Result:
+    - Removed header text auth links.
+    - Added icon ring colors by auth/tier state (signed out red, unverified amber, insider blue, weekend pro purple).
+    - Dropdown handles Sign in / Create account / Verify email / Account / Sign out based on state.
+    - Added shared sanitized `returnTo` handling for login/signup/verify/logout links and redirects.
+  - Follow-up UI polish:
+    - Centered the account icon under the mobile header CTA.
+    - Switched icon button to white background with dark glyph for stronger contrast.
+    - Fixed dropdown item readability by overriding header link styles inside the menu.
+    - Updated Insider ring color to mint green to match Insider visual treatment.

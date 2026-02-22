@@ -1,0 +1,81 @@
+import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
+
+type RouteParams = {
+  params: {
+    tournamentId: string;
+  };
+};
+
+async function getAuthedUser() {
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return { supabase, user };
+}
+
+function normalizeTournamentId(raw: string | undefined) {
+  return String(raw ?? "").trim();
+}
+
+export async function GET(_request: Request, { params }: RouteParams) {
+  const tournamentId = normalizeTournamentId(params?.tournamentId);
+  if (!tournamentId) return NextResponse.json({ ok: false, error: "invalid_tournament_id" }, { status: 400 });
+
+  const { supabase, user } = await getAuthedUser();
+  if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+
+  const { data, error } = await supabase
+    .from("ti_saved_tournaments" as any)
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("tournament_id", tournamentId)
+    .maybeSingle();
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+  const row = data as { id?: string } | null;
+  return NextResponse.json({ ok: true, saved: Boolean(row?.id) });
+}
+
+export async function POST(_request: Request, { params }: RouteParams) {
+  const tournamentId = normalizeTournamentId(params?.tournamentId);
+  if (!tournamentId) return NextResponse.json({ ok: false, error: "invalid_tournament_id" }, { status: 400 });
+
+  const { supabase, user } = await getAuthedUser();
+  if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  if (!user.email_confirmed_at) {
+    return NextResponse.json({ ok: false, code: "EMAIL_UNVERIFIED", error: "email_unverified" }, { status: 403 });
+  }
+
+  const { error } = await (supabase.from("ti_saved_tournaments" as any) as any)
+    .upsert(
+      {
+        user_id: user.id,
+        tournament_id: tournamentId,
+      },
+      { onConflict: "user_id,tournament_id", ignoreDuplicates: true }
+    );
+
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true, saved: true });
+}
+
+export async function DELETE(_request: Request, { params }: RouteParams) {
+  const tournamentId = normalizeTournamentId(params?.tournamentId);
+  if (!tournamentId) return NextResponse.json({ ok: false, error: "invalid_tournament_id" }, { status: 400 });
+
+  const { supabase, user } = await getAuthedUser();
+  if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  if (!user.email_confirmed_at) {
+    return NextResponse.json({ ok: false, code: "EMAIL_UNVERIFIED", error: "email_unverified" }, { status: 403 });
+  }
+
+  const { error } = await (supabase.from("ti_saved_tournaments" as any) as any)
+    .delete()
+    .eq("user_id", user.id)
+    .eq("tournament_id", tournamentId);
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true, saved: false });
+}

@@ -5,7 +5,9 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { BRAND_OWL } from "@/lib/brand";
 import { canAccessWeekendPro, getTier } from "@/lib/entitlements";
+import { isTournamentSaved } from "@/lib/savedTournaments";
 import PremiumInterestForm from "@/components/PremiumInterestForm";
+import SaveTournamentButton from "@/components/SaveTournamentButton";
 import "../tournaments.css";
 
 type TournamentDetailRow = {
@@ -278,6 +280,7 @@ export default async function TournamentDetailPage({
     .maybeSingle<TournamentDetailRow>();
 
   if (error || !data) notFound();
+  const initialSaved = user?.id ? await isTournamentSaved(user.id, data.id) : false;
 
   const locationLabel = buildLocationLabel(data.city, data.state) || "Location TBA";
   const start = formatDate(data.start_date);
@@ -530,6 +533,13 @@ export default async function TournamentDetailPage({
             ← Back to directory
           </Link>
           <h1 className="detailTitle">{data.name}</h1>
+          <SaveTournamentButton
+            tournamentId={data.id}
+            initialSaved={initialSaved}
+            isLoggedIn={Boolean(user)}
+            isVerified={Boolean(user?.email_confirmed_at)}
+            returnTo={`/tournaments/${data.slug ?? params.slug}`}
+          />
           <div className="detailMeta">
             <strong>{(data.sport || "Tournament").toString()}</strong>
             {data.level ? ` • ${data.level}` : ""}
@@ -616,27 +626,12 @@ export default async function TournamentDetailPage({
                           <div className="detailVenueNearbyPreview__teaser">
                             {canViewPremiumDetails
                               ? "Open Premium planning details to view full list and one-tap directions."
-                              : "Unlock full list and one-tap directions."}
+                              : "See Premium Planning Details below to unlock full list and one-tap directions."}
                           </div>
-                          {!canViewPremiumDetails ? (
-                            <div className="detailLinksRow">
-                              <Link className="secondaryLink" href="/pricing">
-                                Unlock Weekend Pro
-                              </Link>
-                            </div>
-                          ) : null}
                         </div>
                       );
                     })()}
-                    {!canViewPremiumDetails ? (
-                      <div className="detailVenuePremiumLock">
-                        <span>Premium planning details</span>
-                        <Link className="secondaryLink" href="/pricing">
-                          Upgrade
-                        </Link>
-                        <PremiumInterestForm initialEmail={viewerEmail} compact />
-                      </div>
-                    ) : (
+                    {canViewPremiumDetails ? (
                       <details className="detailVenuePremium">
                         <summary className="detailVenuePremium__summary">Premium planning details</summary>
                         <div className="detailVenuePremium__body">
@@ -754,7 +749,7 @@ export default async function TournamentDetailPage({
                           })()}
                         </div>
                       </details>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               );

@@ -3,6 +3,8 @@ import Link from "next/link";
 import PlausibleScript from "../components/PlausibleScript";
 import { BRAND_TI } from "@/lib/brand";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import AccountIconMenu from "@/components/AccountIconMenu";
+import { getTiTierServer } from "@/lib/entitlementsServer";
 import "./globals.css";
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
@@ -55,6 +57,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     data: { user },
   } = await supabase.auth.getUser();
   const isLoggedIn = Boolean(user);
+  const { tier, unverified } = await getTiTierServer(user);
 
   return (
     <html lang="en">
@@ -83,17 +86,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   List your tournament
                 </Link>
                 <div className="ti-auth-links" aria-label="Account actions">
-                  {isLoggedIn ? (
-                    <>
-                      <Link href="/account">My account</Link>
-                      <Link href="/logout">Log out</Link>
-                    </>
-                  ) : (
-                    <>
-                      <Link href="/login">Log in</Link>
-                      <Link href="/signup">Sign up</Link>
-                    </>
-                  )}
+                  <AccountIconMenu tier={tier} isAuthed={isLoggedIn} needsEmailVerify={unverified} />
                 </div>
               </div>
             </div>

@@ -72,6 +72,24 @@ export interface Database {
           created_at?: string;
         };
       };
+      ti_saved_tournaments: {
+        Row: {
+          id: string;
+          user_id: string;
+          tournament_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          tournament_id: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          tournament_id?: string;
+          created_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

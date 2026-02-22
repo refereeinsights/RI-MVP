@@ -162,16 +162,16 @@ body {
   grid-column: 3;
   grid-row: 1;
   display: grid;
-  justify-items: end;
+  justify-items: center;
   gap: 6px;
 }
 
 .ti-auth-links {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .ti-auth-links a {
@@ -187,6 +187,20 @@ body {
 
 .ti-auth-links a:hover {
   border-color: #00a6d7;
+}
+
+.ti-account-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
 }
 
 @media (max-width: 800px) {
@@ -212,12 +226,23 @@ body {
     min-width: 0;
   }
   .ti-cta {
-    justify-self: end;
+    justify-self: center;
   }
   .ti-header-actions {
     grid-column: 1;
     grid-row: 4;
-    justify-items: end;
+    justify-self: center;
+    width: max-content;
+    margin: 0 auto;
+    display: grid;
+    justify-items: center;
+    row-gap: 8px;
+  }
+  .ti-auth-links {
+    width: max-content;
+    display: inline-flex;
+    justify-content: center;
+    margin: 0 auto;
   }
 }
 

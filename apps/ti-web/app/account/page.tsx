@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTier } from "@/lib/entitlements";
 import PremiumInterestForm from "@/components/PremiumInterestForm";
+import SavedTournamentsSection, { type SavedTournamentItem } from "./SavedTournamentsSection";
+import styles from "./AccountPage.module.css";
 
 type TiUserRow = {
   id: string;
@@ -11,6 +13,30 @@ type TiUserRow = {
   subscription_status: string | null;
   current_period_end: string | null;
   first_seen_at: string | null;
+};
+
+type SavedTournamentJoinRow = {
+  tournament_id: string;
+  tournaments:
+    | {
+        id: string;
+        slug: string | null;
+        name: string | null;
+        start_date: string | null;
+        end_date: string | null;
+        city: string | null;
+        state: string | null;
+      }
+    | {
+        id: string;
+        slug: string | null;
+        name: string | null;
+        start_date: string | null;
+        end_date: string | null;
+        city: string | null;
+        state: string | null;
+      }[]
+    | null;
 };
 
 function normalizePlan(plan: string | null | undefined) {
@@ -73,28 +99,62 @@ export default async function AccountPage() {
 
   const tier = getTier(user, profile ?? null);
   const effectivePlan = profile ? prettyPlan(profile.plan) : "Insider";
+  const { data: savedRowsRaw } = await supabase
+    .from("ti_saved_tournaments" as any)
+    .select("tournament_id,tournaments(id,slug,name,start_date,end_date,city,state)")
+    .eq("user_id", user.id);
+
+  const savedRows = (savedRowsRaw ?? []) as SavedTournamentJoinRow[];
+  const savedTournaments: SavedTournamentItem[] = savedRows
+    .map((row) => {
+      const raw = row.tournaments;
+      const tournament = Array.isArray(raw) ? raw[0] : raw;
+      if (!tournament?.id) return null;
+      return {
+        tournament_id: row.tournament_id,
+        slug: tournament.slug ?? null,
+        name: tournament.name ?? null,
+        start_date: tournament.start_date ?? null,
+        end_date: tournament.end_date ?? null,
+        city: tournament.city ?? null,
+        state: tournament.state ?? null,
+      };
+    })
+    .filter((row): row is SavedTournamentItem => Boolean(row))
+    .sort((a, b) => {
+      const aDate = a.start_date ?? "9999-12-31";
+      const bDate = b.start_date ?? "9999-12-31";
+      if (aDate !== bDate) return aDate.localeCompare(bDate);
+      return (a.name ?? "").localeCompare(b.name ?? "");
+    });
 
   return (
-    <main style={{ maxWidth: 760, margin: "2rem auto", padding: "0 1rem", display: "grid", gap: 16 }}>
-      <h1 style={{ margin: 0 }}>Account</h1>
-      <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 16, display: "grid", gap: 10 }}>
-        <div><strong>Email:</strong> {user.email ?? "—"}</div>
-        <div><strong>Tier:</strong> {tier === "weekend_pro" ? "Weekend Pro" : "Insider"}</div>
-        <div><strong>Plan:</strong> {effectivePlan}</div>
-        <div><strong>Subscription status:</strong> {prettySubscription(profile?.subscription_status)}</div>
-        <div><strong>Signup date:</strong> {prettyDate(profile?.created_at ?? user.created_at)}</div>
-        <div><strong>Renewal date:</strong> {prettyDate(profile?.current_period_end)}</div>
-      </div>
+    <main className={styles.accountPage}>
+      <header className={styles.headerCard}>
+        <div className={styles.headerTop}>
+          <h1 className={styles.pageTitle}>Welcome back</h1>
+          <span className={styles.planBadge}>{tier === "weekend_pro" ? "Weekend Pro" : "Insider"}</span>
+        </div>
+        <div className={styles.headerMeta}>
+          <div><strong>Email:</strong> {user.email ?? "—"}</div>
+          <div><strong>Plan:</strong> {effectivePlan}</div>
+          <div><strong>Subscription status:</strong> {prettySubscription(profile?.subscription_status)}</div>
+          <div><strong>Member since:</strong> {prettyDate(profile?.first_seen_at ?? profile?.created_at ?? user.created_at)}</div>
+          <div><strong>Renewal date:</strong> {prettyDate(profile?.current_period_end)}</div>
+        </div>
+      </header>
 
-      <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 16, display: "grid", gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>Weekend Pro coming soon</h2>
-        <p style={{ margin: 0, color: "#475569" }}>
-          Join the notification list and we will email you when Weekend Pro is available.
+      <SavedTournamentsSection initialItems={savedTournaments} />
+
+      <section className={styles.sectionCard}>
+        <h2 className={styles.sectionTitle}>Weekend Pro (Coming Soon)</h2>
+        <p className={styles.mutedText}>
+          Unlock venue logistics + full Owl&apos;s Eye lists (Weekend Pro coming soon).
         </p>
         <PremiumInterestForm initialEmail={user.email ?? ""} />
-      </div>
+      </section>
 
-      <div style={{ fontSize: 13 }}>
+      <div className={styles.footerAction}>
         <Link href="/logout">Log out</Link>
       </div>
     </main>

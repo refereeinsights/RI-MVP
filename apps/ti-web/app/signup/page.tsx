@@ -2,20 +2,25 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { sanitizeReturnTo } from "@/lib/returnTo";
 
 export default function SignupPage() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "ok" | "error">("idle");
   const [message, setMessage] = useState("");
+  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/account");
 
   const emailRedirectTo = useMemo(() => {
+    const suffix = `?returnTo=${encodeURIComponent(returnTo)}`;
     const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-    if (configured) return `${configured.replace(/\/$/, "")}/verify-email`;
-    if (typeof window !== "undefined") return `${window.location.origin}/verify-email`;
+    if (configured) return `${configured.replace(/\/$/, "")}/verify-email${suffix}`;
+    if (typeof window !== "undefined") return `${window.location.origin}/verify-email${suffix}`;
     return undefined;
-  }, []);
+  }, [returnTo]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -77,7 +82,7 @@ export default function SignupPage() {
         <div style={{ fontSize: 13, color: status === "ok" ? "#065f46" : "#b91c1c" }}>{message}</div>
       ) : null}
       <div style={{ fontSize: 13 }}>
-        Already have an account? <Link href="/login">Log in</Link>
+        Already have an account? <Link href={`/login?returnTo=${encodeURIComponent(returnTo)}`}>Log in</Link>
       </div>
     </main>
   );

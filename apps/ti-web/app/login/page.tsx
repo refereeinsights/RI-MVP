@@ -2,15 +2,18 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { sanitizeReturnTo } from "@/lib/returnTo";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = useState("");
+  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/account");
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,12 +33,12 @@ export default function LoginPage() {
 
     const user = data.user;
     if (!user?.email_confirmed_at) {
-      router.replace("/verify-email");
+      router.replace(`/verify-email?returnTo=${encodeURIComponent(returnTo)}`);
       router.refresh();
       return;
     }
 
-    router.replace("/account");
+    router.replace(returnTo);
     router.refresh();
   }
 
@@ -69,7 +72,7 @@ export default function LoginPage() {
       </form>
       {message ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{message}</div> : null}
       <div style={{ fontSize: 13 }}>
-        Need an account? <Link href="/signup">Sign up</Link>
+        Need an account? <Link href={`/signup?returnTo=${encodeURIComponent(returnTo)}`}>Sign up</Link>
       </div>
     </main>
   );

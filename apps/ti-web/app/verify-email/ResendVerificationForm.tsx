@@ -2,22 +2,25 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { sanitizeReturnTo } from "@/lib/returnTo";
 
 type ResendVerificationFormProps = {
   initialEmail?: string;
+  returnTo?: string;
 };
 
-export default function ResendVerificationForm({ initialEmail = "" }: ResendVerificationFormProps) {
+export default function ResendVerificationForm({ initialEmail = "", returnTo = "/account" }: ResendVerificationFormProps) {
   const [email, setEmail] = useState(initialEmail);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
 
   const emailRedirectTo = useMemo(() => {
     const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-    if (configured) return `${configured.replace(/\/$/, "")}/verify-email`;
-    if (typeof window !== "undefined") return `${window.location.origin}/verify-email`;
+    const suffix = `?returnTo=${encodeURIComponent(sanitizeReturnTo(returnTo, "/account"))}`;
+    if (configured) return `${configured.replace(/\/$/, "")}/verify-email${suffix}`;
+    if (typeof window !== "undefined") return `${window.location.origin}/verify-email${suffix}`;
     return undefined;
-  }, []);
+  }, [returnTo]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
