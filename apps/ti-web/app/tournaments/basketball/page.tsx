@@ -8,5 +8,5 @@ export default async function BasketballHubPage({
 }: {
   searchParams?: { q?: string; state?: string | string[]; month?: string; includePast?: string };
 }) {
-  return <HubTournamentsPage hub="basketball" searchParams={searchParams} />;
+  return await HubTournamentsPage({ hub: "basketball", searchParams });
 }

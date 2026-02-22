@@ -8,5 +8,5 @@ export default async function AysoHubPage({
 }: {
   searchParams?: { q?: string; state?: string | string[]; month?: string; includePast?: string };
 }) {
-  return <HubTournamentsPage hub="ayso" searchParams={searchParams} />;
+  return await HubTournamentsPage({ hub: "ayso", searchParams });
 }
