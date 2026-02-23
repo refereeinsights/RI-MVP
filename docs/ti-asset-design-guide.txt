@@ -1,0 +1,73 @@
+TournamentInsights Design Guide
+Date: 2026-02-23
+
+Purpose
+This guide defines art requirements for two TI surfaces:
+1) Tournament Listing Card Background
+2) Tournament Detail Hero Background
+
+1) Tournament Listing Card Background
+Use this for the tournament cards on /tournaments.
+
+How it renders in app
+- Card grid is responsive.
+- CSS grid column min width: 290px (can grow wider on larger screens).
+- Typical rendered card width: ~290-360px.
+- Card corners are rounded in CSS: 14px radius.
+- Card height is content-driven (not fixed).
+
+Create asset to this spec
+- File type: SVG (preferred)
+- Source canvas: 600x700
+- Keep important visual subject centered and lower-middle.
+- Keep center text zone readable:
+  - title/meta/buttons sit in the center and upper-middle.
+- Avoid bright hotspot directly behind center text.
+- No embedded text, logos, borders, badges, frames, or drop-shadow boxes.
+- Do NOT bake rounded corners into SVG.
+
+Placement notes
+- Asset is used as CSS background image.
+- CSS may use cover/crop and zoom values.
+- Keep edges safe for crop.
+
+2) Tournament Detail Hero Background
+Use this for /tournaments/[slug] hero area.
+
+How it renders in app
+- Detail hero max width: 1200px.
+- Detail hero min height: 320px.
+- Corners are rounded in CSS: 22px radius.
+- Content area expands as venue/premium sections grow below.
+
+Create asset to this spec
+- File type: SVG (preferred)
+- Source canvas: 1200x1000
+- Primary crop target: centered 1200x700 region.
+- Keep upper 55-60% darker/clean for white text readability.
+- Keep key sports scene in lower third.
+- No embedded text, logos, badges, borders, or rounded corners.
+
+Visual style guidelines (both)
+- Clean, cinematic, moderate texture (not noisy grain).
+- Preserve strong contrast for white overlays.
+- Avoid gray framed artifacts or card-within-card effects.
+- Build full-bleed rectangle only.
+
+Current naming conventions
+- Detail hero textures:
+  apps/ti-web/public/textures/ti_<sport>_hero_bg_1200x1000.svg
+  Example:
+  - ti_soccer_hero_bg_1200x1000.svg
+  - ti_baseball_hero_bg_1200x1000.svg
+
+- Tournament card/container backgrounds:
+  shared-assets/svg/sports/<sport>_container.svg
+
+Implementation checklist
+- Add new SVG to correct folder.
+- Wire CSS rule for sport class.
+- Confirm desktop and mobile readability.
+- Hard refresh and verify no framing/gray bars.
+- Run build:
+  npm run build --workspace ti-web

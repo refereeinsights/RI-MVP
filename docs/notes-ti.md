@@ -1,3 +1,48 @@
+## 2026-02-23
+- TI design sizing clarification (card vs hero):
+  - Confirmed from CSS that tournament listing cards are responsive, not fixed 1200-wide assets:
+    - `apps/ti-web/app/tournaments/tournaments.css`
+    - `.grid` uses `minmax(290px, 1fr)` and `.card` uses `border-radius: 14px`.
+  - Detail hero remains large-format:
+    - `.detailHero` max-width `1200px`, min-height `320px`, border-radius `22px`.
+  - Guidance updated:
+    - card/container backgrounds should be designed for small responsive cards (around 290-360px rendered width).
+    - detail hero backgrounds should remain larger source artwork (e.g., 1200x1000) for cover crop flexibility.
+- TI art integration updates:
+  - Added `apps/ti-web/public/textures/ti_baseball_hero_bg_1200x1000.svg` and wired baseball detail hero to use it.
+  - Added `apps/ti-web/public/textures/ti_soccer_hero_bg_1200x1000.svg` and wired soccer detail hero to use it.
+- TI tournament detail hero refreshes (new sport-specific assets):
+  - Soccer hero switched to:
+    - `apps/ti-web/public/textures/ti_soccer_hero_2_bg_1200x1000.png`
+  - Basketball hero switched to:
+    - `apps/ti-web/public/textures/ti_basketball_hero_bg_1200x1000.png`
+  - Lacrosse hero enabled with dedicated mapping + texture:
+    - `apps/ti-web/public/textures/ti_lacrosse_hero_bg_1200x1000.png`
+    - `lacrosse -> bg-sport-lacrosse` in `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - Hockey hero enabled with dedicated mapping + texture:
+    - `apps/ti-web/public/textures/ti_hockey_hero_bg_1200x1000.png`
+    - `hockey -> bg-sport-hockey` in `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - Volleyball hero pre-wired (for future volleyball tournaments):
+    - `apps/ti-web/public/textures/ti_volleyball_hero_bg_1200x1000.png`
+    - `volleyball -> bg-sport-volleyball` in `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - Hero CSS updates in:
+    - `apps/ti-web/app/tournaments/tournaments.css`
+- TI tournament listing card support for volleyball:
+  - Added shared container artwork:
+    - `shared-assets/svg/sports/volleyball_container.svg`
+  - Synced to app public SVGs via:
+    - `node scripts/copy-shared-svg.js`
+  - Added listing class mapping:
+    - `volleyball -> bg-sport-volleyball` in `apps/ti-web/app/tournaments/page.tsx`
+  - Added listing card style:
+    - `.card.bg-sport-volleyball` in `apps/ti-web/app/tournaments/tournaments.css`
+  - Build verification completed after each change:
+    - `npm run build --workspace ti-web`
+- TI header auth icon follow-up:
+  - Added signed-out circular signup bug (`+`) beside account icon.
+  - Updated sign-out return path behavior to avoid landing on protected routes after sign out.
+  - Kept icon ring state by auth tier; insider ring changed to mint green for consistency.
+
 ## 2026-02-19
 - Hockey counter tile background update:
   - Added dedicated hockey summary-counter background style using:

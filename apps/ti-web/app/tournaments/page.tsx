@@ -106,6 +106,7 @@ function getSportCardClass(sport: string | null) {
   const map: Record<string, string> = {
     soccer: "bg-sport-soccer",
     lacrosse: "bg-sport-lacrosse",
+    volleyball: "bg-sport-volleyball",
     basketball: "bg-sport-basketball",
     football: "bg-sport-football",
     baseball: "bg-sport-baseball",

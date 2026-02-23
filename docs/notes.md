@@ -1,5 +1,47 @@
 # Running Notes
 
+## 2026-02-23
+- TI sizing clarification and design artifact guidance:
+  - Verified actual CSS-rendered dimensions:
+    - tournament listing cards are responsive (`minmax(290px, 1fr)`) with `14px` rounded corners.
+    - tournament detail hero is large format (`max-width: 1200px`, `min-height: 320px`, `22px` radius).
+  - Clarified that 1200x1000 artwork guidance applies to detail hero sources, not listing cards.
+- TI sport detail hero background updates:
+  - Added/used:
+    - `apps/ti-web/public/textures/ti_baseball_hero_bg_1200x1000.svg`
+    - `apps/ti-web/public/textures/ti_soccer_hero_bg_1200x1000.svg`
+  - Wired in:
+    - `apps/ti-web/app/tournaments/tournaments.css`
+- TI hero background expansion by sport:
+  - Soccer detail hero now uses:
+    - `apps/ti-web/public/textures/ti_soccer_hero_2_bg_1200x1000.png`
+  - Basketball detail hero now uses:
+    - `apps/ti-web/public/textures/ti_basketball_hero_bg_1200x1000.png`
+  - Lacrosse detail hero now uses:
+    - `apps/ti-web/public/textures/ti_lacrosse_hero_bg_1200x1000.png`
+    - with dedicated detail class mapping in `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - Hockey detail hero now uses:
+    - `apps/ti-web/public/textures/ti_hockey_hero_bg_1200x1000.png`
+    - with dedicated detail class mapping in `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - Volleyball detail hero pre-wired for future tournaments:
+    - `apps/ti-web/public/textures/ti_volleyball_hero_bg_1200x1000.png`
+    - `volleyball -> bg-sport-volleyball` mapping added in `apps/ti-web/app/tournaments/[slug]/page.tsx`
+- TI listing card support for volleyball:
+  - Added shared asset:
+    - `shared-assets/svg/sports/volleyball_container.svg`
+  - Synced shared SVGs to app public folders via `node scripts/copy-shared-svg.js`.
+  - Added listing card mapping:
+    - `apps/ti-web/app/tournaments/page.tsx` (`volleyball -> bg-sport-volleyball`)
+  - Added card background rule:
+    - `apps/ti-web/app/tournaments/tournaments.css` (`.card.bg-sport-volleyball`)
+- TI header auth icon UX follow-up:
+  - Added signed-out circular signup bug next to account icon.
+  - Improved sign-out return behavior to keep users on public pages.
+  - Maintained tier-based icon ring colors (insider ring adjusted to mint green).
+- Documentation artifact generated:
+  - `docs/ti-asset-design-guide.pdf`
+  - One-page guide for creating TI listing card backgrounds and detail hero backgrounds.
+
 ## 2026-02-20
 - Owl's Eye admin/dashboard + readiness fixes:
   - Added Admin Home widget for Owl's Eye venue coverage:

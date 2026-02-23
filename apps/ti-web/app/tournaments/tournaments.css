@@ -680,6 +680,15 @@
   background-repeat: no-repeat, no-repeat;
 }
 
+.card.bg-sport-volleyball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/svg/sports/volleyball_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
 /* Detail panel sport surfaces */
 .detailPanel.bg-sport-default {
   background:
@@ -1335,7 +1344,16 @@
 .detailHero.bg-sport-soccer {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
-    url("/textures/ti_soccer_hero_bg_1200x1000.svg");
+    url("/textures/ti_soccer_hero_2_bg_1200x1000.png");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.detailHero.bg-sport-lacrosse {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/textures/ti_lacrosse_hero_bg_1200x1000.png");
   background-size: cover, cover;
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;
@@ -1344,7 +1362,7 @@
 .detailHero.bg-sport-basketball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
-    url("/textures/basketball-court.svg");
+    url("/textures/ti_basketball_hero_bg_1200x1000.png");
   background-size: cover;
   background-position: center;
 }
@@ -1374,6 +1392,24 @@
     url("/textures/football-field.svg");
   background-size: cover;
   background-position: center;
+}
+
+.detailHero.bg-sport-hockey {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/textures/ti_hockey_hero_bg_1200x1000.png");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.detailHero.bg-sport-volleyball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/textures/ti_volleyball_hero_bg_1200x1000.png");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
 }
 .detailPanel {
   position: relative;

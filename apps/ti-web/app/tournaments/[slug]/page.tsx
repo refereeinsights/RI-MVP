@@ -146,8 +146,10 @@ function getSportCardClass(sport: string | null) {
   const normalized = (sport ?? "").toLowerCase();
   const map: Record<string, string> = {
     soccer: "bg-sport-soccer",
-    lacrosse: "bg-sport-soccer",
+    lacrosse: "bg-sport-lacrosse",
+    volleyball: "bg-sport-volleyball",
     basketball: "bg-sport-basketball",
+    hockey: "bg-sport-hockey",
     football: "bg-sport-football",
     baseball: "bg-sport-baseball",
     softball: "bg-sport-softball",
