@@ -40,6 +40,16 @@ export default async function JoinPage({
       redirect(`/join?code=${encodeURIComponent(submittedCode)}&error=${encodeURIComponent(error.message)}`);
     }
 
+    const { error: sourceErr } = await (supabase.from("ti_users" as any) as any)
+      .update({
+        signup_source: "event_code",
+        signup_source_code: submittedCode,
+      })
+      .eq("id", user.id);
+    if (sourceErr) {
+      redirect(`/join?code=${encodeURIComponent(submittedCode)}&error=${encodeURIComponent(sourceErr.message)}`);
+    }
+
     redirect("/account?activated=1");
   }
 

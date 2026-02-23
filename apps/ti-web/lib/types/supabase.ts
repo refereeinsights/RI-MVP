@@ -9,6 +9,8 @@ export interface Database {
           first_seen_at: string | null;
           last_seen_at: string | null;
           status: string;
+          signup_source: string;
+          signup_source_code: string | null;
           plan: string;
           subscription_status: string;
           current_period_start: string | null;
@@ -27,6 +29,8 @@ export interface Database {
           first_seen_at?: string | null;
           last_seen_at?: string | null;
           status?: string;
+          signup_source?: string;
+          signup_source_code?: string | null;
           plan?: string;
           subscription_status?: string;
           current_period_start?: string | null;
@@ -44,6 +48,8 @@ export interface Database {
           first_seen_at?: string | null;
           last_seen_at?: string | null;
           status?: string;
+          signup_source?: string;
+          signup_source_code?: string | null;
           plan?: string;
           subscription_status?: string;
           current_period_start?: string | null;

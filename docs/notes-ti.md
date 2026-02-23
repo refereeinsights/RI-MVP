@@ -479,3 +479,20 @@
     - Falls back to `ti_event_codes` or `event_codes` table inserts/updates.
   - Build verification:
     - `npm run build --workspace referee-app` passed.
+
+- TI signup source attribution tracking added:
+  - Added `ti_users.signup_source` and `ti_users.signup_source_code` via migration:
+    - `supabase/migrations/20260223_ti_users_signup_source.sql`
+  - `/join` now stamps attribution after event-code redemption:
+    - `signup_source='event_code'`
+    - `signup_source_code=<submitted code>`
+    - File: `apps/ti-web/app/join/page.tsx`
+  - RI `/admin/ti` TI user table now displays source attribution:
+    - `Source`
+    - `Source code`
+    - File: `apps/referee/app/admin/ti/page.tsx`
+  - TI supabase type definitions updated for the new fields:
+    - `apps/ti-web/lib/types/supabase.ts`
+  - Build checks passed:
+    - `npm run build --workspace ti-web`
+    - `npm run build --workspace referee-app`

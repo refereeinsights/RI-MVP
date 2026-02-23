@@ -9,6 +9,8 @@ export const runtime = "nodejs";
 type TiUserRow = {
   id: string;
   email: string | null;
+  signup_source: string | null;
+  signup_source_code: string | null;
   plan: string | null;
   subscription_status: string | null;
   trial_ends_at: string | null;
@@ -184,7 +186,9 @@ export default async function TiAdminPage({
   const notice = (searchParams?.notice ?? "").trim();
 
   let query = (supabaseAdmin.from("ti_users" as any) as any)
-    .select("id,email,plan,subscription_status,trial_ends_at,current_period_end,created_at,first_seen_at,last_seen_at")
+    .select(
+      "id,email,signup_source,signup_source_code,plan,subscription_status,trial_ends_at,current_period_end,created_at,first_seen_at,last_seen_at"
+    )
     .order("created_at", { ascending: false })
     .limit(200);
   if (q) {
@@ -248,10 +252,22 @@ export default async function TiAdminPage({
           <p style={{ color: "#b91c1c" }}>TI users load failed: {tiUsersErr.message}</p>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1080 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1240 }}>
               <thead>
                 <tr>
-                  {["Email", "ID", "Plan", "Subscription", "Trial Ends", "Renewal", "Created", "Seen", "Save"].map((head) => (
+                  {[
+                    "Email",
+                    "ID",
+                    "Source",
+                    "Source code",
+                    "Plan",
+                    "Subscription",
+                    "Trial Ends",
+                    "Renewal",
+                    "Created",
+                    "Seen",
+                    "Save",
+                  ].map((head) => (
                     <th key={head} style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: "8px 6px", fontSize: 12 }}>
                       {head}
                     </th>
@@ -263,6 +279,12 @@ export default async function TiAdminPage({
                   <tr key={row.id}>
                     <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>{row.email ?? "—"}</td>
                     <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontFamily: "monospace", fontSize: 12 }}>{row.id}</td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>
+                      {row.signup_source ?? "website"}
+                    </td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>
+                      {row.signup_source_code ?? "—"}
+                    </td>
                     <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
                       <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6 }}>
                         <input type="hidden" name="id" value={row.id} />

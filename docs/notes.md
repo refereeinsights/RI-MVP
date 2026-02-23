@@ -1192,3 +1192,25 @@
     - Supports either `ti_event_codes` or `event_codes` table sources.
   - Validation:
     - `npm run build --workspace referee-app` passed.
+
+## 2026-02-23
+
+- TI signup attribution fields added and wired end-to-end:
+  - Added DB migration:
+    - `supabase/migrations/20260223_ti_users_signup_source.sql`
+    - New `ti_users` columns:
+      - `signup_source` (`website` | `event_code`, default `website`)
+      - `signup_source_code` (nullable text)
+    - Backfill + constraint included.
+  - Join flow wiring:
+    - `apps/ti-web/app/join/page.tsx`
+    - After successful `redeem_event_code`, updates `ti_users.signup_source='event_code'` and `signup_source_code=<submitted code>`.
+  - RI TI Admin display update:
+    - `apps/referee/app/admin/ti/page.tsx`
+    - TI users table now shows `Source` and `Source code` columns.
+  - TI type update:
+    - `apps/ti-web/lib/types/supabase.ts`
+    - Added new attribution fields to `ti_users` Row/Insert/Update types.
+  - Validation:
+    - `npm run build --workspace ti-web` passed.
+    - `npm run build --workspace referee-app` passed.
