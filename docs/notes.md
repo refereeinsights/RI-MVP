@@ -34,6 +34,17 @@
     - `apps/ti-web/app/tournaments/page.tsx` (`volleyball -> bg-sport-volleyball`)
   - Added card background rule:
     - `apps/ti-web/app/tournaments/tournaments.css` (`.card.bg-sport-volleyball`)
+- Volleyball counter asset documentation:
+  - Added:
+    - `shared-assets/svg/sports/volleyball_count_badge.raw.svg`
+    - `shared-assets/svg/sports/volleyball_count_badge.svg`
+  - Performed local safe optimization and validation (`xmllint --noout`).
+  - Size reduction:
+    - `1,168,899` -> `1,099,021` bytes (~6% smaller).
+  - Size comparison result:
+    - volleyball counter is smaller than soccer/basketball/lacrosse/total counter assets,
+    - close to softball,
+    - larger than baseball.
 - TI header auth icon UX follow-up:
   - Added signed-out circular signup bug next to account icon.
   - Improved sign-out return behavior to keep users on public pages.
@@ -1155,3 +1166,10 @@
     - added explicit `.detailHero.bg-sport-soccer` to use `ti_soccer_hero_bg_1200x1000.svg`
   - Build check:
     - `npm run build --workspace ti-web` passed.
+
+## 2026-02-23
+
+- TI join/event-code flow added and smoke-verified:
+  - Added `apps/ti-web/app/join/page.tsx` with event code prefill and `redeem_event_code` activation path.
+  - Updated TI auth pages to preserve `code` through login/signup and return users to `/join?code=...`.
+  - Smoke/build check passed via `npm run build --workspace ti-web`.

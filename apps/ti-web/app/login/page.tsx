@@ -13,7 +13,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = useState("");
+  const code = (searchParams.get("code") || "").trim();
   const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/account");
+  const nextPath = code ? `/join?code=${encodeURIComponent(code)}` : returnTo;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,12 +35,12 @@ export default function LoginPage() {
 
     const user = data.user;
     if (!user?.email_confirmed_at) {
-      router.replace(`/verify-email?returnTo=${encodeURIComponent(returnTo)}`);
+      router.replace(`/verify-email?returnTo=${encodeURIComponent(nextPath)}`);
       router.refresh();
       return;
     }
 
-    router.replace(returnTo);
+    router.replace(nextPath);
     router.refresh();
   }
 
@@ -72,7 +74,12 @@ export default function LoginPage() {
       </form>
       {message ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{message}</div> : null}
       <div style={{ fontSize: 13 }}>
-        Need an account? <Link href={`/signup?returnTo=${encodeURIComponent(returnTo)}`}>Sign up</Link>
+        Need an account?{" "}
+        <Link
+          href={code ? `/signup?code=${encodeURIComponent(code)}` : `/signup?returnTo=${encodeURIComponent(returnTo)}`}
+        >
+          Sign up
+        </Link>
       </div>
     </main>
   );

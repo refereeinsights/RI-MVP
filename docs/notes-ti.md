@@ -38,6 +38,18 @@
     - `.card.bg-sport-volleyball` in `apps/ti-web/app/tournaments/tournaments.css`
   - Build verification completed after each change:
     - `npm run build --workspace ti-web`
+- Volleyball counter badge prep + sizing benchmark:
+  - Added raw + optimized volleyball counter assets:
+    - `shared-assets/svg/sports/volleyball_count_badge.raw.svg`
+    - `shared-assets/svg/sports/volleyball_count_badge.svg`
+  - Optimization pass performed (safe whitespace/comment/header cleanup) and XML validated with `xmllint`.
+  - Size reduced from `1,168,899` to `1,099,021` bytes (~6%).
+  - Relative size check vs current counter assets:
+    - smaller than soccer/basketball/lacrosse/total counters
+    - slightly smaller than softball badge
+    - larger than baseball badge
+  - Decision note:
+    - asset is acceptable to keep as volleyball counter source for now; can be re-optimized later with SVGO when package install/network is available.
 - TI header auth icon follow-up:
   - Added signed-out circular signup bug (`+`) beside account icon.
   - Updated sign-out return path behavior to avoid landing on protected routes after sign out.
@@ -434,3 +446,22 @@
   - Soccer detail pages now use `ti_soccer_hero_bg_1200x1000.svg`.
   - Build verification completed:
     - `npm run build --workspace ti-web`
+
+## 2026-02-23
+
+- TI join/event-code funnel wiring:
+  - Added:
+    - `apps/ti-web/app/join/page.tsx`
+  - Updated:
+    - `apps/ti-web/app/login/page.tsx`
+    - `apps/ti-web/app/signup/page.tsx`
+  - Behavior:
+    - `/join` accepts `?code=` and prefills Event Code.
+    - Logged-out users get `Create account` / `Log in` links preserving `code`.
+    - Logged-in users can `Activate Trial`; server action calls `redeem_event_code` RPC and redirects to `/account?activated=1` on success.
+    - Login/signup auth handoff preserves event code and routes users back into `/join?code=...`.
+
+- Smoke verification (join/event):
+  - Build + typecheck passed:
+    - `npm run build --workspace ti-web`
+  - Route output includes `/join`, `/login`, `/signup`, `/verify-email`, `/account`.
