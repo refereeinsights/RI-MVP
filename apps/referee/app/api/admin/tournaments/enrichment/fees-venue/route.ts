@@ -272,6 +272,15 @@ function isLikelyVenueContentPage($: cheerio.CheerioAPI): boolean {
   return headingSignal || bodySignal;
 }
 
+function isLikelyVenueLandingPath(url: string): boolean {
+  try {
+    const pathname = new URL(url).pathname.toLowerCase();
+    return /(^|\/)(venue|venues|location|locations|field|fields|facility|facilities|map|maps|directions?)(\/|$)/.test(pathname);
+  } catch {
+    return false;
+  }
+}
+
 async function fetchHtml(url: string): Promise<string | null> {
   try {
     const resp = await fetch(url, {
@@ -547,6 +556,13 @@ export async function POST(request: Request) {
     }
     attempted += 1;
     attemptedTournamentIds.push(t.id);
+    const seedHost = (() => {
+      try {
+        return new URL(url).hostname.toLowerCase();
+      } catch {
+        return "";
+      }
+    })();
     const pages = await fetchTournamentPages(url, focusMissingVenues ? 12 : 6);
     pagesFetched += pages.length;
     if (!pages.length) continue;
@@ -623,6 +639,38 @@ export async function POST(request: Request) {
       }
 
       if (foundByKey.size >= 5) break;
+    }
+
+    // Force-parse any discovered internal venue page URLs (e.g. /venues) so we can
+    // extract multiple venue name/address rows even when generic crawl ranking misses them.
+    const crawledUrls = new Set(pages.map((p) => p.url));
+    const forcedVenuePages = Array.from(venueUrlCandidates)
+      .filter((candidateUrl) => {
+        if (!isLikelyVenueLandingPath(candidateUrl)) return false;
+        try {
+          const parsed = new URL(candidateUrl);
+          if (!/^https?:$/i.test(parsed.protocol)) return false;
+          if (!seedHost || parsed.hostname.toLowerCase() !== seedHost) return false;
+        } catch {
+          return false;
+        }
+        return !crawledUrls.has(candidateUrl);
+      })
+      .slice(0, 4);
+
+    for (const forcedUrl of forcedVenuePages) {
+      const forcedHtml = await fetchHtml(forcedUrl);
+      if (!forcedHtml) continue;
+      pagesFetched += 1;
+      crawledUrls.add(forcedUrl);
+      const $ = cheerio.load(forcedHtml);
+      const text = $.text().replace(/\s+/g, " ");
+      extractAddresses(text).forEach((addr) => inferredAddressPool.push(addr));
+      const locality = inferLocality(inferredAddressPool);
+      extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(addr));
+      extractVenueEntriesFromPage($, locality).forEach((entry) =>
+        venueEntriesPool.push({ ...entry, source_url: forcedUrl })
+      );
     }
 
     const allAddresses = Array.from(new Set([...inferredAddressPool, ...venuePageAddressPool])).slice(0, 12);

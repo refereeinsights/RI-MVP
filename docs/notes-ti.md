@@ -501,3 +501,12 @@
   - `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts` now uses content-keyword fallback for venue page detection.
   - Venue extraction can trigger from page text/heading signals (`field/fields/map/venues/location/facility/directions`) even when URL path does not include venue terms.
   - Intended impact: improve venue-candidate yield for tournaments with non-obvious URL structures.
+
+- Event Code Admin form clarity update (served from RI `/admin/ti`):
+  - Added visible labels and required/optional indicators in the create-event-code form.
+  - File: `apps/referee/app/admin/ti/page.tsx`
+
+- Venue scrape effectiveness update:
+  - Fees/venue enrichment now force-fetches and parses discovered internal venue landing pages for multi-venue extraction.
+  - File: `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`
+  - Intended impact: improve conversion from `venue_url` discovery into actual venue/address candidates.

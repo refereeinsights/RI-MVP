@@ -1225,3 +1225,22 @@
   - This reduces missed venue pages where useful text exists but URL slugs are non-descriptive.
   - Validation:
     - `npm run build --workspace referee-app` passed.
+
+## 2026-02-23
+
+- Enrichment venue extraction hardening for multi-venue landing pages:
+  - Updated `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`.
+  - Added forced follow-up fetch/parse for discovered internal venue-like URLs (`/venues`, `/fields`, `/locations`, `/facilities`, `/maps`, `/directions`) even when not in the initial crawl pages.
+  - Restricts forced fetches to same host as the tournament URL and caps additional fetches per tournament.
+  - Goal: avoid only saving `venue_url` and instead extract multiple venue/address rows from dedicated venue pages.
+
+- RI `/admin/ti` Event Code Admin form UX improvement:
+  - Updated `apps/referee/app/admin/ti/page.tsx`.
+  - Added explicit field labels and required markers for:
+    - Code
+    - Trial days
+    - Max redemptions
+  - Kept optional labeling visible for starts/expires/notes fields.
+
+- Validation:
+  - `npm run build --workspace referee-app` passed.

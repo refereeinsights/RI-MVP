@@ -354,13 +354,33 @@ export default async function TiAdminPage({
       <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
         <h2 style={{ marginTop: 0 }}>Event Code Admin</h2>
         <form action={createEventCodeAction} style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginBottom: 12 }}>
-          <input name="code" placeholder="Code (required)" required style={{ padding: 8 }} />
-          <input name="trial_days" type="number" min={1} defaultValue={7} style={{ padding: 8 }} />
-          <input name="max_redemptions" type="number" min={1} defaultValue={1} style={{ padding: 8 }} />
-          <input name="starts_at" placeholder="Starts at (ISO optional)" style={{ padding: 8 }} />
-          <input name="expires_at" placeholder="Expires at (ISO optional)" style={{ padding: 8 }} />
-          <input name="notes" placeholder="Notes (optional)" style={{ padding: 8 }} />
-          <button type="submit" style={{ padding: "8px 10px" }}>Create event code</button>
+          <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+            Code <span style={{ color: "#b91c1c" }}>(required)</span>
+            <input name="code" placeholder="e.g. SPRING2026" required style={{ padding: 8 }} />
+          </label>
+          <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+            Trial days <span style={{ color: "#b91c1c" }}>(required)</span>
+            <input name="trial_days" type="number" min={1} defaultValue={7} required style={{ padding: 8 }} />
+          </label>
+          <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+            Max redemptions <span style={{ color: "#b91c1c" }}>(required)</span>
+            <input name="max_redemptions" type="number" min={1} defaultValue={1} required style={{ padding: 8 }} />
+          </label>
+          <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+            Starts at <span style={{ color: "#64748b", fontWeight: 500 }}>(optional ISO)</span>
+            <input name="starts_at" placeholder="2026-03-01T00:00:00Z" style={{ padding: 8 }} />
+          </label>
+          <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+            Expires at <span style={{ color: "#64748b", fontWeight: 500 }}>(optional ISO)</span>
+            <input name="expires_at" placeholder="2026-06-01T00:00:00Z" style={{ padding: 8 }} />
+          </label>
+          <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+            Notes <span style={{ color: "#64748b", fontWeight: 500 }}>(optional)</span>
+            <input name="notes" placeholder="Campaign notes" style={{ padding: 8 }} />
+          </label>
+          <div style={{ display: "flex", alignItems: "end" }}>
+            <button type="submit" style={{ padding: "8px 10px" }}>Create event code</button>
+          </div>
         </form>
         {eventCodes.error ? (
           <p style={{ color: "#b91c1c", marginTop: 0 }}>
