@@ -21,6 +21,12 @@ export async function AdminNav() {
     textDecoration: "none",
     border: "1px solid #e5e7eb",
   };
+  const tiAdminLinkStyle: React.CSSProperties = {
+    ...linkStyle,
+    background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
+    color: "#ffffff",
+    border: "1px solid #1d4ed8",
+  };
 
   const wrapperStyle: React.CSSProperties = {
     display: "flex",
@@ -83,6 +89,9 @@ export async function AdminNav() {
         </Link>
         <Link href="/admin/owls-eye" style={linkStyle}>
           Owl&apos;s Eye
+        </Link>
+        <Link href="/admin/ti" style={tiAdminLinkStyle}>
+          TI Admin
         </Link>
       </nav>
       {buildShort ? (

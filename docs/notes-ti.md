@@ -465,3 +465,17 @@
   - Build + typecheck passed:
     - `npm run build --workspace ti-web`
   - Route output includes `/join`, `/login`, `/signup`, `/verify-email`, `/account`.
+
+- TI admin functions now accessible from RI admin portal (single admin login path):
+  - Added TI-blue `TI Admin` button to RI admin nav:
+    - `apps/referee/components/admin/AdminNav.tsx`
+  - Added RI route `/admin/ti` for TI operational administration:
+    - `apps/referee/app/admin/ti/page.tsx`
+  - Includes:
+    - TI user management (`ti_users` fields: plan, subscription_status, trial_ends_at, current_period_end)
+    - Event code management (create/list/status update)
+  - Event code source compatibility:
+    - Uses `create_event_code` RPC when available.
+    - Falls back to `ti_event_codes` or `event_codes` table inserts/updates.
+  - Build verification:
+    - `npm run build --workspace referee-app` passed.

@@ -1173,3 +1173,22 @@
   - Added `apps/ti-web/app/join/page.tsx` with event code prefill and `redeem_event_code` activation path.
   - Updated TI auth pages to preserve `code` through login/signup and return users to `/join?code=...`.
   - Smoke/build check passed via `npm run build --workspace ti-web`.
+
+## 2026-02-23
+
+- RI admin now includes TI admin entry point and TI management page:
+  - Added TI-blue `TI Admin` nav button in shared admin nav:
+    - `apps/referee/components/admin/AdminNav.tsx`
+  - Added new RI-hosted TI admin route:
+    - `apps/referee/app/admin/ti/page.tsx`
+  - Access model:
+    - Uses RI `requireAdmin()` so RI admin login remains the single admin auth path.
+  - TI User Admin capabilities:
+    - Search TI users by email or user id.
+    - Update `plan`, `subscription_status`, `trial_ends_at`, `current_period_end`.
+  - Event Code Admin capabilities:
+    - Create event code entries (RPC-first, table fallback).
+    - List event codes and toggle status (`active` / `disabled`).
+    - Supports either `ti_event_codes` or `event_codes` table sources.
+  - Validation:
+    - `npm run build --workspace referee-app` passed.

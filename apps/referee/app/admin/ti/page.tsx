@@ -1,0 +1,406 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import AdminNav from "@/components/admin/AdminNav";
+import { requireAdmin } from "@/lib/admin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+
+export const runtime = "nodejs";
+
+type TiUserRow = {
+  id: string;
+  email: string | null;
+  plan: string | null;
+  subscription_status: string | null;
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+  created_at: string | null;
+  first_seen_at: string | null;
+  last_seen_at: string | null;
+};
+
+type EventCodeSource = "ti_event_codes" | "event_codes";
+
+type EventCodeRow = {
+  id: string | null;
+  code: string | null;
+  status: string | null;
+  trial_days: number | null;
+  max_redemptions: number | null;
+  redeemed_count: number | null;
+  starts_at: string | null;
+  expires_at: string | null;
+  created_at: string | null;
+  notes: string | null;
+  raw: Record<string, unknown>;
+};
+
+type EventCodeLoadResult = {
+  source: EventCodeSource | null;
+  rows: EventCodeRow[];
+  error: string | null;
+};
+
+function fmtDate(value: string | null | undefined) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString();
+}
+
+function asText(value: unknown) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text.length ? text : null;
+}
+
+function asInt(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseEventCodeRow(row: Record<string, unknown>): EventCodeRow {
+  return {
+    id: asText(row.id),
+    code: asText(row.code),
+    status: asText(row.status),
+    trial_days: asInt(row.trial_days),
+    max_redemptions: asInt(row.max_redemptions),
+    redeemed_count: asInt(row.redeemed_count),
+    starts_at: asText(row.starts_at),
+    expires_at: asText(row.expires_at),
+    created_at: asText(row.created_at),
+    notes: asText(row.notes),
+    raw: row,
+  };
+}
+
+async function loadEventCodes(): Promise<EventCodeLoadResult> {
+  const tableCandidates: EventCodeSource[] = ["ti_event_codes", "event_codes"];
+  let lastErr: string | null = null;
+  for (const table of tableCandidates) {
+    const res = await (supabaseAdmin as any)
+      .from(table as any)
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (!res.error) {
+      const rows = ((res.data ?? []) as Record<string, unknown>[]).map(parseEventCodeRow);
+      return { source: table, rows, error: null };
+    }
+    lastErr = res.error.message ?? "Unknown error";
+  }
+  return { source: null, rows: [], error: lastErr ?? "Event code table not found." };
+}
+
+function buildPathWithNotice(notice: string, q = "") {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  params.set("notice", notice);
+  return `/admin/ti?${params.toString()}`;
+}
+
+async function updateTiUserFieldAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "").trim();
+  const q = String(formData.get("q") ?? "").trim();
+  const field = String(formData.get("field") ?? "").trim();
+  const valueRaw = String(formData.get("value") ?? "").trim();
+  if (!id) redirect(buildPathWithNotice("Missing TI user id.", q));
+
+  const allowed = new Set(["plan", "subscription_status", "trial_ends_at", "current_period_end"]);
+  if (!allowed.has(field)) redirect(buildPathWithNotice("Invalid TI user field.", q));
+
+  let value: string | null = valueRaw || null;
+  if (field === "plan") value = (valueRaw || "insider").toLowerCase();
+  if (field === "subscription_status") value = (valueRaw || "none").toLowerCase();
+
+  const updates: Record<string, unknown> = { [field]: value };
+  const { error } = await (supabaseAdmin.from("ti_users" as any) as any).update(updates).eq("id", id);
+  if (error) redirect(buildPathWithNotice(`TI user update failed: ${error.message}`, q));
+  redirect(buildPathWithNotice(`TI user ${field} updated.`, q));
+}
+
+async function createEventCodeAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+  const code = String(formData.get("code") ?? "").trim();
+  const trialDays = Number(String(formData.get("trial_days") ?? "").trim() || "7");
+  const maxRedemptions = Number(String(formData.get("max_redemptions") ?? "").trim() || "1");
+  const startsAt = String(formData.get("starts_at") ?? "").trim();
+  const expiresAt = String(formData.get("expires_at") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
+  if (!code) redirect(buildPathWithNotice("Event code is required."));
+
+  // First try RPC if present.
+  const rpc = await (supabaseAdmin as any).rpc("create_event_code", {
+    p_code: code,
+    p_trial_days: Number.isFinite(trialDays) ? trialDays : 7,
+    p_max_redemptions: Number.isFinite(maxRedemptions) ? maxRedemptions : 1,
+    p_starts_at: startsAt || null,
+    p_expires_at: expiresAt || null,
+    p_notes: notes || null,
+  });
+  if (!rpc.error) {
+    redirect(buildPathWithNotice("Event code created."));
+  }
+
+  // Fallback table inserts for current known table names.
+  const payload = {
+    code,
+    status: "active",
+    trial_days: Number.isFinite(trialDays) ? trialDays : 7,
+    max_redemptions: Number.isFinite(maxRedemptions) ? maxRedemptions : 1,
+    starts_at: startsAt || null,
+    expires_at: expiresAt || null,
+    notes: notes || null,
+  };
+  for (const table of ["ti_event_codes", "event_codes"]) {
+    const ins = await (supabaseAdmin.from(table as any) as any).insert(payload);
+    if (!ins.error) redirect(buildPathWithNotice("Event code created."));
+  }
+  redirect(buildPathWithNotice(`Event code create failed: ${rpc.error?.message ?? "unknown error"}`));
+}
+
+async function setEventCodeStatusAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+  const table = String(formData.get("table") ?? "").trim();
+  const id = String(formData.get("id") ?? "").trim();
+  const status = String(formData.get("status") ?? "").trim().toLowerCase();
+  if (!table || !id || !status) redirect(buildPathWithNotice("Missing event code status inputs."));
+  const { error } = await (supabaseAdmin.from(table as any) as any).update({ status }).eq("id", id);
+  if (error) redirect(buildPathWithNotice(`Event code update failed: ${error.message}`));
+  redirect(buildPathWithNotice("Event code updated."));
+}
+
+export default async function TiAdminPage({
+  searchParams,
+}: {
+  searchParams?: { q?: string; notice?: string };
+}) {
+  await requireAdmin();
+  const q = (searchParams?.q ?? "").trim();
+  const notice = (searchParams?.notice ?? "").trim();
+
+  let query = (supabaseAdmin.from("ti_users" as any) as any)
+    .select("id,email,plan,subscription_status,trial_ends_at,current_period_end,created_at,first_seen_at,last_seen_at")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (q) {
+    query = query.or(`email.ilike.%${q}%,id.eq.${q}`);
+  }
+  const { data: tiUsers, error: tiUsersErr } = await query;
+  const eventCodes = await loadEventCodes();
+
+  return (
+    <main style={{ maxWidth: 1400, margin: "0 auto", padding: "1rem" }}>
+      <AdminNav />
+      <section
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          marginBottom: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <h1 style={{ margin: 0 }}>TI Admin</h1>
+          <p style={{ margin: "6px 0 0", color: "#475569" }}>
+            Manage TournamentInsights users and event codes from RI admin.
+          </p>
+        </div>
+        <Link
+          href="/admin/ti"
+          style={{
+            textDecoration: "none",
+            padding: "10px 14px",
+            borderRadius: 10,
+            background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
+            color: "#fff",
+            fontWeight: 800,
+            fontSize: 14,
+            border: "1px solid #1d4ed8",
+          }}
+        >
+          TI Admin
+        </Link>
+      </section>
+
+      {notice ? (
+        <p style={{ margin: "0 0 12px", padding: "8px 10px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8 }}>
+          {notice}
+        </p>
+      ) : null}
+
+      <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16 }}>
+        <h2 style={{ marginTop: 0 }}>TI User Admin</h2>
+        <form action="/admin/ti" method="get" style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+          <input name="q" defaultValue={q} placeholder="Search email or user id" style={{ padding: 8, minWidth: 280 }} />
+          <button type="submit">Search</button>
+          <Link href="/admin/ti" style={{ alignSelf: "center" }}>
+            Clear
+          </Link>
+        </form>
+        {tiUsersErr ? (
+          <p style={{ color: "#b91c1c" }}>TI users load failed: {tiUsersErr.message}</p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1080 }}>
+              <thead>
+                <tr>
+                  {["Email", "ID", "Plan", "Subscription", "Trial Ends", "Renewal", "Created", "Seen", "Save"].map((head) => (
+                    <th key={head} style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: "8px 6px", fontSize: 12 }}>
+                      {head}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {((tiUsers ?? []) as TiUserRow[]).map((row) => (
+                  <tr key={row.id}>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>{row.email ?? "—"}</td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontFamily: "monospace", fontSize: 12 }}>{row.id}</td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
+                      <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6 }}>
+                        <input type="hidden" name="id" value={row.id} />
+                        <input type="hidden" name="q" value={q} />
+                        <input type="hidden" name="field" value="plan" />
+                        <select name="value" defaultValue={(row.plan ?? "insider").toLowerCase()} style={{ padding: 6 }}>
+                          <option value="insider">insider</option>
+                          <option value="weekend_pro">weekend_pro</option>
+                        </select>
+                        <button type="submit">Set</button>
+                      </form>
+                    </td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
+                      <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6 }}>
+                        <input type="hidden" name="id" value={row.id} />
+                        <input type="hidden" name="q" value={q} />
+                        <input type="hidden" name="field" value="subscription_status" />
+                        <select name="value" defaultValue={(row.subscription_status ?? "none").toLowerCase()} style={{ padding: 6 }}>
+                          <option value="none">none</option>
+                          <option value="active">active</option>
+                          <option value="trialing">trialing</option>
+                          <option value="canceled">canceled</option>
+                          <option value="past_due">past_due</option>
+                        </select>
+                        <button type="submit">Set</button>
+                      </form>
+                    </td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
+                      <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6 }}>
+                        <input type="hidden" name="id" value={row.id} />
+                        <input type="hidden" name="q" value={q} />
+                        <input type="hidden" name="field" value="trial_ends_at" />
+                        <input
+                          name="value"
+                          defaultValue={row.trial_ends_at ? row.trial_ends_at.slice(0, 16) : ""}
+                          placeholder="YYYY-MM-DDTHH:mm"
+                          style={{ padding: 6, width: 170 }}
+                        />
+                        <button type="submit">Set</button>
+                      </form>
+                    </td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
+                      <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6 }}>
+                        <input type="hidden" name="id" value={row.id} />
+                        <input type="hidden" name="q" value={q} />
+                        <input type="hidden" name="field" value="current_period_end" />
+                        <input
+                          name="value"
+                          defaultValue={row.current_period_end ? row.current_period_end.slice(0, 16) : ""}
+                          placeholder="YYYY-MM-DDTHH:mm"
+                          style={{ padding: 6, width: 170 }}
+                        />
+                        <button type="submit">Set</button>
+                      </form>
+                    </td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.created_at)}</td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.last_seen_at ?? row.first_seen_at)}</td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", color: "#64748b", fontSize: 12 }}>Per-field save</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
+        <h2 style={{ marginTop: 0 }}>Event Code Admin</h2>
+        <form action={createEventCodeAction} style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginBottom: 12 }}>
+          <input name="code" placeholder="Code (required)" required style={{ padding: 8 }} />
+          <input name="trial_days" type="number" min={1} defaultValue={7} style={{ padding: 8 }} />
+          <input name="max_redemptions" type="number" min={1} defaultValue={1} style={{ padding: 8 }} />
+          <input name="starts_at" placeholder="Starts at (ISO optional)" style={{ padding: 8 }} />
+          <input name="expires_at" placeholder="Expires at (ISO optional)" style={{ padding: 8 }} />
+          <input name="notes" placeholder="Notes (optional)" style={{ padding: 8 }} />
+          <button type="submit" style={{ padding: "8px 10px" }}>Create event code</button>
+        </form>
+        {eventCodes.error ? (
+          <p style={{ color: "#b91c1c", marginTop: 0 }}>
+            Event code list unavailable: {eventCodes.error}
+          </p>
+        ) : (
+          <>
+            <p style={{ marginTop: 0, color: "#475569", fontSize: 13 }}>
+              Source table: <strong>{eventCodes.source}</strong>
+            </p>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
+                <thead>
+                  <tr>
+                    {["Code", "Status", "Trial", "Usage", "Starts", "Expires", "Created", "Notes", "Actions"].map((head) => (
+                      <th key={head} style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: "8px 6px", fontSize: 12 }}>
+                        {head}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {eventCodes.rows.map((row, idx) => (
+                    <tr key={`${row.id ?? row.code ?? "row"}-${idx}`}>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontWeight: 700 }}>{row.code ?? "—"}</td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>{row.status ?? "—"}</td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>{row.trial_days ?? "—"} days</td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
+                        {(row.redeemed_count ?? 0)}/{row.max_redemptions ?? "—"}
+                      </td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.starts_at)}</td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.expires_at)}</td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.created_at)}</td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{row.notes ?? "—"}</td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
+                        {eventCodes.source && row.id ? (
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <form action={setEventCodeStatusAction}>
+                              <input type="hidden" name="table" value={eventCodes.source} />
+                              <input type="hidden" name="id" value={row.id} />
+                              <input type="hidden" name="status" value="active" />
+                              <button type="submit">Activate</button>
+                            </form>
+                            <form action={setEventCodeStatusAction}>
+                              <input type="hidden" name="table" value={eventCodes.source} />
+                              <input type="hidden" name="id" value={row.id} />
+                              <input type="hidden" name="status" value="disabled" />
+                              <button type="submit">Disable</button>
+                            </form>
+                          </div>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
+    </main>
+  );
+}
