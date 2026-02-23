@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { CSSProperties } from "react";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 function normalizeCode(value: string | null | undefined) {
@@ -11,6 +12,23 @@ export default async function JoinPage({
 }: {
   searchParams?: { code?: string; error?: string };
 }) {
+  const authLinkButtonStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 150,
+    padding: "10px 18px",
+    borderRadius: 999,
+    border: "1.5px solid rgba(15, 23, 42, 0.32)",
+    background: "linear-gradient(135deg, #2447d5 0%, #1f3fbf 55%, #1b338f 100%)",
+    boxShadow: "0 3px 10px rgba(20, 45, 140, 0.24)",
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: 700,
+    letterSpacing: "0.02em",
+    textDecoration: "none",
+  };
+
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
@@ -89,8 +107,12 @@ export default async function JoinPage({
 
       {!user ? (
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 14 }}>
-          <Link href={code ? `/signup?code=${encodeURIComponent(code)}` : "/signup"}>Create account</Link>
-          <Link href={code ? `/login?code=${encodeURIComponent(code)}` : "/login"}>Log in</Link>
+          <Link href={code ? `/signup?code=${encodeURIComponent(code)}` : "/signup"} style={authLinkButtonStyle}>
+            Create account
+          </Link>
+          <Link href={code ? `/login?code=${encodeURIComponent(code)}` : "/login"} style={authLinkButtonStyle}>
+            Log in
+          </Link>
         </div>
       ) : null}
     </main>

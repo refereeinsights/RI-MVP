@@ -1261,3 +1261,13 @@
     - notes
   - Validation:
     - `npm run build --workspace referee-app` passed.
+
+## 2026-02-23
+
+- TI `/join` auth CTA styling update:
+  - Updated `apps/ti-web/app/join/page.tsx`.
+  - Restyled logged-out `Create account` and `Log in` links as standard TI-style pill buttons (shape/size reference from tournament card buttons), using a blue gradient fill to contrast white backgrounds.
+  - Kept routing and behavior unchanged (`/signup` and `/login`, including `?code=` propagation).
+  - Explicitly no tournament card component/style changes.
+  - Validation:
+    - `npm run build --workspace ti-web` passed.
