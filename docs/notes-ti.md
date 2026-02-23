@@ -496,3 +496,8 @@
   - Build checks passed:
     - `npm run build --workspace ti-web`
     - `npm run build --workspace referee-app`
+
+- Shared enrichment pipeline update (RI admin fees/venue scraper):
+  - `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts` now uses content-keyword fallback for venue page detection.
+  - Venue extraction can trigger from page text/heading signals (`field/fields/map/venues/location/facility/directions`) even when URL path does not include venue terms.
+  - Intended impact: improve venue-candidate yield for tournaments with non-obvious URL structures.

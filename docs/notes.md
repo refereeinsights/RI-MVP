@@ -1214,3 +1214,14 @@
   - Validation:
     - `npm run build --workspace ti-web` passed.
     - `npm run build --workspace referee-app` passed.
+
+## 2026-02-23
+
+- Fees/venue scraper effectiveness improvement (content-keyword fallback):
+  - Updated `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`.
+  - Expanded venue-page URL/path detection beyond `venue/location` to also include:
+    - `field/fields`, `facility/facilities`, `map/maps`, `directions`.
+  - Added page-content fallback detection (`isLikelyVenueContentPage`) so venue extraction runs when page headings/body indicate venue/field/location content even if URL path is generic.
+  - This reduces missed venue pages where useful text exists but URL slugs are non-descriptive.
+  - Validation:
+    - `npm run build --workspace referee-app` passed.

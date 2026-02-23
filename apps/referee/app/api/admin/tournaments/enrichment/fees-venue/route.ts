@@ -235,13 +235,16 @@ function extractVenueUrl($: cheerio.CheerioAPI): string | null {
 
 function detectVenuePageUrl(currentUrl: string, $: cheerio.CheerioAPI): string | null {
   const selfPath = new URL(currentUrl).pathname.toLowerCase();
-  if (/(^|\/)(venue|venues|location|locations)(\/|$)/.test(selfPath)) return currentUrl;
+  if (/(^|\/)(venue|venues|location|locations|field|fields|facility|facilities|map|maps|directions?)(\/|$)/.test(selfPath))
+    return currentUrl;
 
   const anchors = $("a[href]");
   for (const el of anchors) {
     const href = ($(el).attr("href") || "").trim();
+    const anchorText = normalizeSpace($(el).text() || "");
+    const combined = `${href} ${anchorText}`;
     if (!href) continue;
-    if (/(^|\/)(venue|venues|location|locations)(\/|$)/i.test(href)) {
+    if (/(^|\/)(venue|venues|location|locations|field|fields|facility|facilities|map|maps|directions?)(\/|$)/i.test(combined)) {
       try {
         return new URL(href, currentUrl).toString();
       } catch {
@@ -250,6 +253,23 @@ function detectVenuePageUrl(currentUrl: string, $: cheerio.CheerioAPI): string |
     }
   }
   return null;
+}
+
+function isLikelyVenueContentPage($: cheerio.CheerioAPI): boolean {
+  const headingText = $("h1,h2,h3,h4,strong,b")
+    .toArray()
+    .map((el) => normalizeSpace($(el).text() || ""))
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const bodyText = normalizeSpace($.text() || "").toLowerCase();
+
+  const headingSignal = /(venues?|locations?|fields?|facilit(y|ies)|field\s+directions?|directions?|maps?)/i.test(headingText);
+  const bodySignal =
+    /(venues?|locations?|fields?|facilit(y|ies)|field\s+directions?|directions?|maps?)/i.test(bodyText) &&
+    /\d{1,5}\s+[a-z0-9.\-#\s]{3,100},\s*[a-z.\s]{2,60},\s*[a-z]{2}\s*\d{5}(?:-\d{4})?/i.test(bodyText);
+
+  return headingSignal || bodySignal;
 }
 
 async function fetchHtml(url: string): Promise<string | null> {
@@ -333,7 +353,7 @@ async function fetchTournamentPages(seedUrl: string, maxPages = 6): Promise<Arra
     const $ = cheerio.load(html);
     const ranked = rankInternalLinks($, nextUrl);
     for (const href of ranked) {
-      if (queue.length + pages.length >= maxPages * 3) break;
+      if (queue.length + pages.length >= maxPages * 8) break;
       if (!seen.has(href) && !queue.includes(href)) queue.push(href);
     }
   }
@@ -356,9 +376,13 @@ export async function POST(request: Request) {
   const { searchParams } = new URL(request.url);
   const mode = (searchParams.get("mode") ?? "").trim().toLowerCase();
   const focusMissingVenues = mode === "missing_venues";
+  const skipPendingParam = (searchParams.get("skip_pending") ?? "").trim().toLowerCase();
+  const enforcePendingSkip =
+    skipPendingParam === "1" || skipPendingParam === "true" || (!focusMissingVenues && skipPendingParam !== "0");
   const limit = Number(searchParams.get("limit") ?? "10");
-  const cappedLimit = Number.isFinite(limit) ? Math.max(1, Math.min(limit, 50)) : 10;
-  const candidatePoolSize = Math.min(cappedLimit * 20, 1000);
+  const maxLimit = focusMissingVenues ? 200 : 50;
+  const cappedLimit = Number.isFinite(limit) ? Math.max(1, Math.min(limit, maxLimit)) : 10;
+  const candidatePoolSize = Math.min(cappedLimit * (focusMissingVenues ? 30 : 20), focusMissingVenues ? 5000 : 1000);
   const nowIso = new Date().toISOString();
   const cooldownDays = 10;
   const cooldownCutoffMs = Date.now() - cooldownDays * 24 * 60 * 60 * 1000;
@@ -465,25 +489,28 @@ export async function POST(request: Request) {
       );
     }
   }
-  const { data: pendingRows } = await supabaseAdmin
-    .from("tournament_attribute_candidates" as any)
-    .select("tournament_id")
-    .is("accepted_at", null)
-    .is("rejected_at", null)
-    .in(
-      "attribute_key",
-      focusMissingVenues ? ["address", "venue_url"] : ["team_fee", "games_guaranteed", "player_parking", "address", "venue_url"]
-    )
-    .limit(10000);
-  const pendingTournamentIds = new Set(
-    ((pendingRows ?? []) as Array<{ tournament_id: string | null }>).map((r) => String(r.tournament_id ?? "")).filter(Boolean)
-  );
+  let pendingTournamentIds = new Set<string>();
+  if (enforcePendingSkip) {
+    const { data: pendingRows } = await supabaseAdmin
+      .from("tournament_attribute_candidates" as any)
+      .select("tournament_id")
+      .is("accepted_at", null)
+      .is("rejected_at", null)
+      .in(
+        "attribute_key",
+        focusMissingVenues ? ["address", "venue_url"] : ["team_fee", "games_guaranteed", "player_parking", "address", "venue_url"]
+      )
+      .limit(10000);
+    pendingTournamentIds = new Set(
+      ((pendingRows ?? []) as Array<{ tournament_id: string | null }>).map((r) => String(r.tournament_id ?? "")).filter(Boolean)
+    );
+  }
   for (const t of (tournaments as any[] | null) ?? []) {
     if (focusMissingVenues && linkedTournamentIds.has(String((t as any).id ?? ""))) {
       skipped_linked += 1;
       continue;
     }
-    if (pendingTournamentIds.has(String((t as any).id ?? ""))) {
+    if (enforcePendingSkip && pendingTournamentIds.has(String((t as any).id ?? ""))) {
       skipped_pending += 1;
       continue;
     }
@@ -520,7 +547,7 @@ export async function POST(request: Request) {
     }
     attempted += 1;
     attemptedTournamentIds.push(t.id);
-    const pages = await fetchTournamentPages(url, 6);
+    const pages = await fetchTournamentPages(url, focusMissingVenues ? 12 : 6);
     pagesFetched += pages.length;
     if (!pages.length) continue;
     const found: string[] = [];
@@ -572,7 +599,10 @@ export async function POST(request: Request) {
       if (venueUrl) venueUrlCandidates.add(venueUrl);
 
       const locality = inferLocality(inferredAddressPool);
-      if (/(^|\/)(venue|venues|location|locations)(\/|$)/i.test(new URL(page.url).pathname)) {
+      const venuePathMatch = /(^|\/)(venue|venues|location|locations|field|fields|facility|facilities|map|maps|directions?)(\/|$)/i.test(
+        new URL(page.url).pathname
+      );
+      if (venuePathMatch || isLikelyVenueContentPage($)) {
         extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(addr));
         extractVenueEntriesFromPage($, locality).forEach((entry) =>
           venueEntriesPool.push({ ...entry, source_url: page.url })
@@ -826,6 +856,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     mode: focusMissingVenues ? "missing_venues" : "default",
+    skip_pending: enforcePendingSkip,
     inserted,
     venue_inserted: venueInserted,
     attempted,
