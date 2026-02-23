@@ -510,3 +510,9 @@
   - Fees/venue enrichment now force-fetches and parses discovered internal venue landing pages for multi-venue extraction.
   - File: `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`
   - Intended impact: improve conversion from `venue_url` discovery into actual venue/address candidates.
+
+- Event Code Admin enhancement in RI-hosted TI admin (`/admin/ti`):
+  - Existing event codes are now editable in-place with row-level save.
+  - Editable fields include duration, redemption counts/limits, status, dates, notes, and code value.
+  - File: `apps/referee/app/admin/ti/page.tsx`
+  - Build check passed (`npm run build --workspace referee-app`).

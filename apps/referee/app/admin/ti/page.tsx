@@ -176,6 +176,44 @@ async function setEventCodeStatusAction(formData: FormData) {
   redirect(buildPathWithNotice("Event code updated."));
 }
 
+async function updateEventCodeAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+  const table = String(formData.get("table") ?? "").trim();
+  const id = String(formData.get("id") ?? "").trim();
+  if (!table || !id) redirect(buildPathWithNotice("Missing event code edit inputs."));
+
+  const code = String(formData.get("code") ?? "").trim();
+  const status = String(formData.get("status") ?? "").trim().toLowerCase();
+  const trialDaysRaw = String(formData.get("trial_days") ?? "").trim();
+  const maxRedemptionsRaw = String(formData.get("max_redemptions") ?? "").trim();
+  const redeemedCountRaw = String(formData.get("redeemed_count") ?? "").trim();
+  const startsAt = String(formData.get("starts_at") ?? "").trim();
+  const expiresAt = String(formData.get("expires_at") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
+
+  const parseIntOrNull = (value: string) => {
+    if (!value) return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.floor(n) : null;
+  };
+
+  const updates: Record<string, unknown> = {
+    code: code || null,
+    status: status || null,
+    trial_days: parseIntOrNull(trialDaysRaw),
+    max_redemptions: parseIntOrNull(maxRedemptionsRaw),
+    redeemed_count: parseIntOrNull(redeemedCountRaw),
+    starts_at: startsAt || null,
+    expires_at: expiresAt || null,
+    notes: notes || null,
+  };
+
+  const { error } = await (supabaseAdmin.from(table as any) as any).update(updates).eq("id", id);
+  if (error) redirect(buildPathWithNotice(`Event code save failed: ${error.message}`));
+  redirect(buildPathWithNotice("Event code saved."));
+}
+
 export default async function TiAdminPage({
   searchParams,
 }: {
@@ -405,19 +443,89 @@ export default async function TiAdminPage({
                 <tbody>
                   {eventCodes.rows.map((row, idx) => (
                     <tr key={`${row.id ?? row.code ?? "row"}-${idx}`}>
-                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontWeight: 700 }}>{row.code ?? "—"}</td>
-                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>{row.status ?? "—"}</td>
-                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>{row.trial_days ?? "—"} days</td>
-                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
-                        {(row.redeemed_count ?? 0)}/{row.max_redemptions ?? "—"}
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontWeight: 700 }}>
+                        <input
+                          form={`event-code-edit-${row.id ?? idx}`}
+                          name="code"
+                          defaultValue={row.code ?? ""}
+                          style={{ width: 130, padding: 6, fontWeight: 700 }}
+                        />
                       </td>
-                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.starts_at)}</td>
-                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.expires_at)}</td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
+                        <select form={`event-code-edit-${row.id ?? idx}`} name="status" defaultValue={row.status ?? "active"} style={{ padding: 6 }}>
+                          <option value="active">active</option>
+                          <option value="disabled">disabled</option>
+                          <option value="expired">expired</option>
+                        </select>
+                      </td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
+                        <input
+                          form={`event-code-edit-${row.id ?? idx}`}
+                          name="trial_days"
+                          type="number"
+                          min={1}
+                          defaultValue={row.trial_days ?? 7}
+                          style={{ width: 78, padding: 6 }}
+                        />
+                      </td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <input
+                            form={`event-code-edit-${row.id ?? idx}`}
+                            name="redeemed_count"
+                            type="number"
+                            min={0}
+                            defaultValue={row.redeemed_count ?? 0}
+                            style={{ width: 72, padding: 6 }}
+                            title="Redeemed count"
+                          />
+                          <span>/</span>
+                          <input
+                            form={`event-code-edit-${row.id ?? idx}`}
+                            name="max_redemptions"
+                            type="number"
+                            min={1}
+                            defaultValue={row.max_redemptions ?? 1}
+                            style={{ width: 72, padding: 6 }}
+                            title="Max redemptions"
+                          />
+                        </div>
+                      </td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>
+                        <input
+                          form={`event-code-edit-${row.id ?? idx}`}
+                          name="starts_at"
+                          defaultValue={row.starts_at ?? ""}
+                          placeholder="ISO"
+                          style={{ width: 180, padding: 6 }}
+                        />
+                      </td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>
+                        <input
+                          form={`event-code-edit-${row.id ?? idx}`}
+                          name="expires_at"
+                          defaultValue={row.expires_at ?? ""}
+                          placeholder="ISO"
+                          style={{ width: 180, padding: 6 }}
+                        />
+                      </td>
                       <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.created_at)}</td>
-                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{row.notes ?? "—"}</td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>
+                        <input
+                          form={`event-code-edit-${row.id ?? idx}`}
+                          name="notes"
+                          defaultValue={row.notes ?? ""}
+                          style={{ width: 220, padding: 6 }}
+                        />
+                      </td>
                       <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
                         {eventCodes.source && row.id ? (
-                          <div style={{ display: "flex", gap: 6 }}>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            <form id={`event-code-edit-${row.id ?? idx}`} action={updateEventCodeAction}>
+                              <input type="hidden" name="table" value={eventCodes.source} />
+                              <input type="hidden" name="id" value={row.id} />
+                              <button type="submit">Save</button>
+                            </form>
                             <form action={setEventCodeStatusAction}>
                               <input type="hidden" name="table" value={eventCodes.source} />
                               <input type="hidden" name="id" value={row.id} />

@@ -1244,3 +1244,20 @@
 
 - Validation:
   - `npm run build --workspace referee-app` passed.
+
+## 2026-02-23
+
+- RI `/admin/ti` Event Code Admin now supports full row editing for existing codes:
+  - Updated `apps/referee/app/admin/ti/page.tsx`.
+  - Added `updateEventCodeAction` server action.
+  - Existing event code rows are now editable with per-row `Save` for:
+    - code
+    - status
+    - trial_days
+    - max_redemptions
+    - redeemed_count
+    - starts_at
+    - expires_at
+    - notes
+  - Validation:
+    - `npm run build --workspace referee-app` passed.
