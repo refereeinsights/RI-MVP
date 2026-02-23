@@ -51,7 +51,7 @@ export default async function JoinPage({
       </p>
       {error ? <p style={{ margin: 0, color: "#b91c1c", fontSize: 13 }}>{error}</p> : null}
 
-      <form action={activateTrial} style={{ display: "grid", gap: 10 }}>
+      <form action={activateTrial as any} style={{ display: "grid", gap: 10 }}>
         <input
           type="text"
           name="code"
@@ -86,4 +86,3 @@ export default async function JoinPage({
     </main>
   );
 }
-
