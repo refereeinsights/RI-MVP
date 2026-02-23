@@ -105,6 +105,8 @@ type ReadyVenueItem = {
   state: string | null;
   zip: string | null;
   sport: string | null;
+  tournament_count?: number;
+  tournament_names?: string[];
 };
 const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
 const CONTACT_TYPES = ["assignor", "director", "general", "referee_coordinator"] as const;
@@ -613,6 +615,7 @@ export default async function AdminPage({
 
     const readyVenueIds = readyCandidates.map((v) => v.id).filter(Boolean);
     let runVenueIds = new Set<string>();
+    const tournamentNamesByVenue = new Map<string, string[]>();
     if (readyVenueIds.length) {
       const { data: runs } = await supabaseAdmin
         .from("owls_eye_runs" as any)
@@ -623,6 +626,34 @@ export default async function AdminPage({
           .map((row) => row.venue_id || "")
           .filter(Boolean),
       );
+
+      const { data: venueLinks } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("venue_id,tournament_id")
+        .in("venue_id", readyVenueIds);
+      const linkRows = (venueLinks ?? []) as Array<{ venue_id: string | null; tournament_id: string | null }>;
+      const tournamentIds = Array.from(
+        new Set(linkRows.map((row) => row.tournament_id).filter((value): value is string => Boolean(value)))
+      );
+      const tournamentNameById = new Map<string, string>();
+      if (tournamentIds.length) {
+        const { data: tournaments } = await supabaseAdmin
+          .from("tournaments" as any)
+          .select("id,name")
+          .in("id", tournamentIds);
+        ((tournaments ?? []) as Array<{ id: string | null; name: string | null }>).forEach((row) => {
+          if (!row.id || !row.name) return;
+          tournamentNameById.set(row.id, row.name);
+        });
+      }
+      linkRows.forEach((row) => {
+        if (!row.venue_id || !row.tournament_id) return;
+        const tournamentName = tournamentNameById.get(row.tournament_id);
+        if (!tournamentName) return;
+        const existing = tournamentNamesByVenue.get(row.venue_id) ?? [];
+        if (!existing.includes(tournamentName)) existing.push(tournamentName);
+        tournamentNamesByVenue.set(row.venue_id, existing);
+      });
     }
 
     readyNotRunVenues = readyCandidates
@@ -640,7 +671,9 @@ export default async function AdminPage({
         return (a.name ?? "").toLowerCase().localeCompare((b.name ?? "").toLowerCase());
       })
       .slice(0, 120)
-      .map((venue) => ({
+      .map((venue) => {
+        const linkedTournamentNames = tournamentNamesByVenue.get(venue.id) ?? [];
+        return {
         venue_id: venue.id,
         name: venue.name,
         street: venue.address1 ?? venue.address ?? null,
@@ -648,7 +681,10 @@ export default async function AdminPage({
         state: venue.state,
         zip: venue.zip,
         sport: null,
-      }));
+        tournament_count: linkedTournamentNames.length,
+        tournament_names: linkedTournamentNames.slice(0, 8),
+        };
+      });
   }
 
   const formatDateInput = (value?: string | null) => {

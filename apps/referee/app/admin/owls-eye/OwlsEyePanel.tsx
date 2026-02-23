@@ -16,6 +16,8 @@ type VenueSearchResult = {
   state: string | null;
   zip: string | null;
   sport: string | null;
+  tournament_count?: number;
+  tournament_names?: string[];
 };
 
 type NearbyItem = {
@@ -52,6 +54,29 @@ type OwlsEyePanelProps = {
   initialVenueId?: string;
   readyNotRunVenues?: VenueSearchResult[];
 };
+
+function getNearbyTotals(report: RunReport | null | undefined) {
+  if (!report) return null;
+  const meta = report.nearby_meta;
+  const fromMeta =
+    meta?.foodCount != null || meta?.coffeeCount != null || meta?.hotelCount != null
+      ? {
+          food: meta?.foodCount ?? 0,
+          coffee: meta?.coffeeCount ?? 0,
+          hotels: meta?.hotelCount ?? 0,
+        }
+      : null;
+
+  if (fromMeta) return fromMeta;
+
+  const nearby = report.nearby;
+  if (!nearby) return null;
+  return {
+    food: Array.isArray(nearby.food) ? nearby.food.length : 0,
+    coffee: Array.isArray(nearby.coffee) ? nearby.coffee.length : 0,
+    hotels: Array.isArray(nearby.hotels) ? nearby.hotels.length : 0,
+  };
+}
 
 function truncateId(value: string) {
   if (value.length <= 12) return value;
@@ -297,9 +322,15 @@ export default function OwlsEyePanel({
         return;
       }
 
+      const nextReport = (json?.report ?? json) as RunReport;
+      const totals = getNearbyTotals(nextReport);
       setRunStatus("success");
-      setRunMessage("Owl's Eye run completed.");
-      setRunReport(json?.report ?? json);
+      setRunMessage(
+        totals
+          ? `Owl's Eye run completed. food=${totals.food}, coffee=${totals.coffee}, hotels=${totals.hotels}`
+          : "Owl's Eye run completed."
+      );
+      setRunReport(nextReport);
     } catch (err) {
       setRunStatus("error");
       setRunMessage(err instanceof Error ? err.message : "Unknown error");
@@ -473,6 +504,16 @@ export default function OwlsEyePanel({
                       {venue.street || "Address missing"}
                       {locationParts ? ` • ${locationParts}` : ""}
                     </div>
+                    {typeof venue.tournament_count === "number" && venue.tournament_count > 0 ? (
+                      <div style={{ fontSize: 12, color: "#1f2937" }}>
+                        Linked tournaments: <strong>{venue.tournament_count}</strong>
+                        {Array.isArray(venue.tournament_names) && venue.tournament_names.length > 0 ? (
+                          <> — {venue.tournament_names.join("; ")}</>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>Linked tournaments: 0</div>
+                    )}
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontFamily: "monospace", fontSize: 12 }}>{truncateId(venue.venue_id)}</span>
                       <button onClick={() => handleCopy(venue.venue_id)} style={{ padding: "4px 8px" }}>

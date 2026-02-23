@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import PrintLabelButton from "./PrintLabelButton";
 
 export const runtime = "nodejs";
 
@@ -33,6 +34,7 @@ type EventCodeRow = {
   expires_at: string | null;
   created_at: string | null;
   notes: string | null;
+  founding_access: boolean;
   raw: Record<string, unknown>;
 };
 
@@ -60,6 +62,16 @@ function asInt(value: unknown) {
   return Number.isFinite(n) ? n : null;
 }
 
+function asBool(value: unknown) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on";
+  }
+  return false;
+}
+
 function parseEventCodeRow(row: Record<string, unknown>): EventCodeRow {
   return {
     id: asText(row.id),
@@ -72,12 +84,13 @@ function parseEventCodeRow(row: Record<string, unknown>): EventCodeRow {
     expires_at: asText(row.expires_at),
     created_at: asText(row.created_at),
     notes: asText(row.notes),
+    founding_access: asBool((row as any).founding_access),
     raw: row,
   };
 }
 
 async function loadEventCodes(): Promise<EventCodeLoadResult> {
-  const tableCandidates: EventCodeSource[] = ["ti_event_codes", "event_codes"];
+  const tableCandidates: EventCodeSource[] = ["event_codes", "ti_event_codes"];
   let lastErr: string | null = null;
   for (const table of tableCandidates) {
     const res = await (supabaseAdmin as any)
@@ -132,6 +145,7 @@ async function createEventCodeAction(formData: FormData) {
   const startsAt = String(formData.get("starts_at") ?? "").trim();
   const expiresAt = String(formData.get("expires_at") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  const foundingAccess = String(formData.get("founding_access") ?? "").trim() === "on";
   if (!code) redirect(buildPathWithNotice("Event code is required."));
 
   // First try RPC if present.
@@ -142,6 +156,7 @@ async function createEventCodeAction(formData: FormData) {
     p_starts_at: startsAt || null,
     p_expires_at: expiresAt || null,
     p_notes: notes || null,
+    p_founding_access: foundingAccess,
   });
   if (!rpc.error) {
     redirect(buildPathWithNotice("Event code created."));
@@ -156,6 +171,7 @@ async function createEventCodeAction(formData: FormData) {
     starts_at: startsAt || null,
     expires_at: expiresAt || null,
     notes: notes || null,
+    founding_access: foundingAccess,
   };
   for (const table of ["ti_event_codes", "event_codes"]) {
     const ins = await (supabaseAdmin.from(table as any) as any).insert(payload);
@@ -191,6 +207,7 @@ async function updateEventCodeAction(formData: FormData) {
   const startsAt = String(formData.get("starts_at") ?? "").trim();
   const expiresAt = String(formData.get("expires_at") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  const foundingAccess = String(formData.get("founding_access") ?? "").trim() === "on";
 
   const parseIntOrNull = (value: string) => {
     if (!value) return null;
@@ -207,6 +224,7 @@ async function updateEventCodeAction(formData: FormData) {
     starts_at: startsAt || null,
     expires_at: expiresAt || null,
     notes: notes || null,
+    founding_access: foundingAccess,
   };
 
   const { error } = await (supabaseAdmin.from(table as any) as any).update(updates).eq("id", id);
@@ -416,6 +434,10 @@ export default async function TiAdminPage({
             Notes <span style={{ color: "#64748b", fontWeight: 500 }}>(optional)</span>
             <input name="notes" placeholder="Campaign notes" style={{ padding: 8 }} />
           </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 700 }}>
+            <input name="founding_access" type="checkbox" />
+            Founding Access
+          </label>
           <div style={{ display: "flex", alignItems: "end" }}>
             <button type="submit" style={{ padding: "8px 10px" }}>Create event code</button>
           </div>
@@ -433,7 +455,7 @@ export default async function TiAdminPage({
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
                 <thead>
                   <tr>
-                    {["Code", "Status", "Trial", "Usage", "Starts", "Expires", "Created", "Notes", "Actions"].map((head) => (
+                    {["Code", "Status", "Trial", "Usage", "Founding Access", "Starts", "Expires", "Created", "Notes", "Actions"].map((head) => (
                       <th key={head} style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: "8px 6px", fontSize: 12 }}>
                         {head}
                       </th>
@@ -492,6 +514,17 @@ export default async function TiAdminPage({
                         </div>
                       </td>
                       <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <input
+                            form={`event-code-edit-${row.id ?? idx}`}
+                            name="founding_access"
+                            type="checkbox"
+                            defaultChecked={Boolean(row.founding_access)}
+                          />
+                          Founding Access
+                        </label>
+                      </td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>
                         <input
                           form={`event-code-edit-${row.id ?? idx}`}
                           name="starts_at"
@@ -526,6 +559,7 @@ export default async function TiAdminPage({
                               <input type="hidden" name="id" value={row.id} />
                               <button type="submit">Save</button>
                             </form>
+                            <PrintLabelButton code={row.code ?? ""} foundingAccess={Boolean(row.founding_access)} />
                             <form action={setEventCodeStatusAction}>
                               <input type="hidden" name="table" value={eventCodes.source} />
                               <input type="hidden" name="id" value={row.id} />

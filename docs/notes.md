@@ -1271,3 +1271,51 @@
   - Explicitly no tournament card component/style changes.
   - Validation:
     - `npm run build --workspace ti-web` passed.
+
+## 2026-02-23
+
+- Owl&apos;s Eye admin quality-of-life updates:
+  - Updated `apps/referee/app/admin/owls-eye/OwlsEyePanel.tsx`.
+  - Success toast/message now appends nearby totals when available:
+    - `food=<n>, coffee=<n>, hotels=<n>`.
+  - Counts come from `nearby_meta` with fallback to nearby list lengths.
+
+- Owl&apos;s Eye Ready list now shows linked tournament context:
+  - Updated `apps/referee/app/admin/page.tsx`.
+  - Updated `apps/referee/app/admin/owls-eye/page.tsx`.
+  - Updated `apps/referee/app/admin/owls-eye/OwlsEyePanel.tsx`.
+  - Each ready venue row now includes:
+    - linked tournament count
+    - linked tournament names (up to 8 shown)
+
+- Validation:
+  - `npm run build --workspace referee-app` passed.
+
+## 2026-02-23
+
+- Event Code Admin: Founding Access + Print Label support:
+  - Added migration:
+    - `supabase/migrations/20260223_event_codes_founding_access.sql`
+    - Adds `event_codes.founding_access boolean not null default false`.
+  - Updated Event Code Admin UI:
+    - `apps/referee/app/admin/ti/page.tsx`
+    - Added Founding Access checkbox in create form and per-row edit form.
+    - Included `founding_access` in save/update payloads.
+    - Added per-row `Print label` action.
+    - Event code loading now prefers `event_codes` over `ti_event_codes`.
+  - Added print label client action:
+    - `apps/referee/app/admin/ti/PrintLabelButton.tsx`
+    - Calls print API, opens returned PDF in a new tab.
+  - Added admin print API:
+    - `apps/referee/app/api/admin/ti/event-codes/print-label/route.ts`
+    - Admin-authenticated POST returning `application/pdf`.
+  - Added PDF label generator utility:
+    - `apps/referee/lib/pdf/eventCodeLabel.ts`
+    - 1.5&quot; x 0.75&quot; label, black-only text:
+      - `EVENT CODE`
+      - code
+      - optional `FOUNDING ACCESS` line.
+    - Supports `quantity` with one label per page.
+
+- Validation:
+  - `npm run build --workspace referee-app` passed.

@@ -37,12 +37,41 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
   });
   const venueIds = readyCandidates.map((v) => v.id).filter(Boolean);
   let runVenueIds = new Set<string>();
+  const tournamentNamesByVenue = new Map<string, string[]>();
   if (venueIds.length) {
     const { data: runs } = await supabaseAdmin
       .from("owls_eye_runs" as any)
       .select("venue_id")
       .in("venue_id", venueIds);
     runVenueIds = new Set(((runs ?? []) as Array<{ venue_id: string | null }>).map((r) => r.venue_id || "").filter(Boolean));
+
+    const { data: venueLinks } = await supabaseAdmin
+      .from("tournament_venues" as any)
+      .select("venue_id,tournament_id")
+      .in("venue_id", venueIds);
+    const linkRows = (venueLinks ?? []) as Array<{ venue_id: string | null; tournament_id: string | null }>;
+    const tournamentIds = Array.from(
+      new Set(linkRows.map((row) => row.tournament_id).filter((value): value is string => Boolean(value)))
+    );
+    const tournamentNameById = new Map<string, string>();
+    if (tournamentIds.length) {
+      const { data: tournaments } = await supabaseAdmin
+        .from("tournaments" as any)
+        .select("id,name")
+        .in("id", tournamentIds);
+      ((tournaments ?? []) as Array<{ id: string | null; name: string | null }>).forEach((row) => {
+        if (!row.id || !row.name) return;
+        tournamentNameById.set(row.id, row.name);
+      });
+    }
+    linkRows.forEach((row) => {
+      if (!row.venue_id || !row.tournament_id) return;
+      const tournamentName = tournamentNameById.get(row.tournament_id);
+      if (!tournamentName) return;
+      const existing = tournamentNamesByVenue.get(row.venue_id) ?? [];
+      if (!existing.includes(tournamentName)) existing.push(tournamentName);
+      tournamentNamesByVenue.set(row.venue_id, existing);
+    });
   }
   const readyNotRunVenues = readyCandidates
     .filter((venue) => !runVenueIds.has(venue.id))
@@ -67,15 +96,20 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
         embedded
         adminToken={adminToken || undefined}
         initialVenueId={venueId || undefined}
-        readyNotRunVenues={readyNotRunVenues.map((venue) => ({
-          venue_id: venue.id,
-          name: venue.name,
-          street: venue.address1 ?? venue.address ?? null,
-          city: venue.city,
-          state: venue.state,
-          zip: venue.zip,
-          sport: null,
-        }))}
+        readyNotRunVenues={readyNotRunVenues.map((venue) => {
+          const linkedTournamentNames = tournamentNamesByVenue.get(venue.id) ?? [];
+          return {
+            venue_id: venue.id,
+            name: venue.name,
+            street: venue.address1 ?? venue.address ?? null,
+            city: venue.city,
+            state: venue.state,
+            zip: venue.zip,
+            sport: null,
+            tournament_count: linkedTournamentNames.length,
+            tournament_names: linkedTournamentNames.slice(0, 8),
+          };
+        })}
       />
     </div>
   );
