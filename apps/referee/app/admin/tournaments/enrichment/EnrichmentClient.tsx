@@ -191,6 +191,7 @@ export default function EnrichmentClient({
   const [feesBatchChunk, setFeesBatchChunk] = React.useState<number>(50);
   const [feesBatchRunning, setFeesBatchRunning] = React.useState<boolean>(false);
   const [feesBatchMissingVenuesOnly, setFeesBatchMissingVenuesOnly] = React.useState<boolean>(true);
+  const [feesSkipPending, setFeesSkipPending] = React.useState<boolean>(true);
   const tournamentUrlFor = React.useCallback(
     (tournamentId: string) => tournamentUrlLookup[tournamentId] ?? null,
     [tournamentUrlLookup]
@@ -297,7 +298,8 @@ export default function EnrichmentClient({
     return byTournament;
   }, [pendingExistingValueAttributes]);
 
-  const runFeesEnrichment = React.useCallback(async (opts?: { limit?: number; refreshOnInsert?: boolean; mode?: "default" | "missing_venues" }) => {
+  const runFeesEnrichment = React.useCallback(
+    async (opts?: { limit?: number; refreshOnInsert?: boolean; mode?: "default" | "missing_venues"; skipPending?: boolean }) => {
     const mode = opts?.mode ?? "default";
     setFeesStatus(mode === "missing_venues" ? "Running missing-venues fees/venue scrape..." : "Running fees/venue scrape...");
     try {
@@ -305,6 +307,7 @@ export default function EnrichmentClient({
       const params = new URLSearchParams();
       if (Number.isFinite(limit) && limit > 0) params.set("limit", String(Math.floor(limit)));
       if (mode === "missing_venues") params.set("mode", "missing_venues");
+      if (typeof opts?.skipPending === "boolean") params.set("skip_pending", opts.skipPending ? "1" : "0");
       const query = params.toString() ? `?${params.toString()}` : "";
       const resp = await fetch(`/api/admin/tournaments/enrichment/fees-venue${query}`, { method: "POST" });
       const json = await resp.json();
@@ -315,8 +318,13 @@ export default function EnrichmentClient({
       if (json?.summary) {
         setFeesSummaryState(json.summary);
       }
+      const pendingMode = json?.skip_pending === false ? " (pending-skip off)" : "";
       setFeesStatus(
         `${mode === "missing_venues" ? "Missing-venues mode: " : ""}Inserted ${json?.inserted ?? 0} candidates from ${json?.attempted ?? "?"} tournaments` +
+          ` (venue candidates parsed: ${json?.venue_candidates_parsed ?? 0}, inserted: ${json?.venue_candidates_inserted ?? json?.venue_inserted ?? 0})` +
+          `${Number(json?.auto_linked_existing ?? 0) > 0 ? ` (auto-linked existing venues: ${json.auto_linked_existing})` : ""}` +
+          `${Number(json?.auto_linked_venue_url_updated ?? 0) > 0 ? ` (venue URL backfills: ${json.auto_linked_venue_url_updated})` : ""}` +
+          pendingMode +
           `${(json?.skipped_recent ?? 0) > 0 ? ` (${json.skipped_recent} skipped: scraped in last 10 days)` : ""}` +
           `${(json?.skipped_pending ?? 0) > 0 ? ` (${json.skipped_pending} skipped: pending review)` : ""}` +
           `${(json?.skipped_linked ?? 0) > 0 ? ` (${json.skipped_linked} skipped: already linked)` : ""}` +
@@ -329,7 +337,9 @@ export default function EnrichmentClient({
       setFeesStatus(`Error: ${err?.message || err}`);
       return { ok: false as const, json: null };
     }
-  }, []);
+    },
+    []
+  );
 
   const runFeesBatch = React.useCallback(async () => {
     if (feesBatchRunning) return;
@@ -343,6 +353,10 @@ export default function EnrichmentClient({
     let skippedRecentTotal = 0;
     let skippedPendingTotal = 0;
     let skippedDuplicatesTotal = 0;
+    let venueParsedTotal = 0;
+    let venueInsertedTotal = 0;
+    let autoLinkedExistingTotal = 0;
+    let autoLinkedUrlBackfillTotal = 0;
 
     try {
       for (let i = 0; i < rounds; i += 1) {
@@ -352,6 +366,7 @@ export default function EnrichmentClient({
           limit: currentLimit,
           refreshOnInsert: false,
           mode: feesBatchMissingVenuesOnly ? "missing_venues" : "default",
+          skipPending: feesSkipPending,
         });
         if (!result?.ok) break;
         const json = result.json ?? {};
@@ -360,6 +375,10 @@ export default function EnrichmentClient({
         skippedRecentTotal += Number(json?.skipped_recent ?? 0);
         skippedPendingTotal += Number(json?.skipped_pending ?? 0);
         skippedDuplicatesTotal += Number(json?.skipped_duplicates ?? 0);
+        venueParsedTotal += Number(json?.venue_candidates_parsed ?? 0);
+        venueInsertedTotal += Number(json?.venue_candidates_inserted ?? json?.venue_inserted ?? 0);
+        autoLinkedExistingTotal += Number(json?.auto_linked_existing ?? 0);
+        autoLinkedUrlBackfillTotal += Number(json?.auto_linked_venue_url_updated ?? 0);
 
         // Nothing left to process in current window.
         if (Number(json?.attempted ?? 0) === 0) break;
@@ -367,6 +386,9 @@ export default function EnrichmentClient({
 
       setFeesStatus(
         `${feesBatchMissingVenuesOnly ? "Missing-venues batch complete" : "Batch complete"}: inserted ${insertedTotal} from ${attemptedTotal} attempted` +
+          ` (venue candidates parsed: ${venueParsedTotal}, inserted: ${venueInsertedTotal})` +
+          `${autoLinkedExistingTotal > 0 ? ` (auto-linked existing venues: ${autoLinkedExistingTotal})` : ""}` +
+          `${autoLinkedUrlBackfillTotal > 0 ? ` (venue URL backfills: ${autoLinkedUrlBackfillTotal})` : ""}` +
           `${skippedRecentTotal > 0 ? ` (${skippedRecentTotal} skipped: recent)` : ""}` +
           `${skippedPendingTotal > 0 ? ` (${skippedPendingTotal} skipped: pending)` : ""}` +
           `${skippedDuplicatesTotal > 0 ? ` (${skippedDuplicatesTotal} duplicates)` : ""}`
@@ -375,7 +397,7 @@ export default function EnrichmentClient({
     } finally {
       setFeesBatchRunning(false);
     }
-  }, [feesBatchChunk, feesBatchMissingVenuesOnly, feesBatchRunning, feesBatchTotal, runFeesEnrichment]);
+  }, [feesBatchChunk, feesBatchMissingVenuesOnly, feesBatchRunning, feesBatchTotal, feesSkipPending, runFeesEnrichment]);
 
   const runUsssaEnrichment = React.useCallback(async (opts?: { limit?: number }) => {
     setUsssaStatus("Running USSSA scrape...");
@@ -767,7 +789,7 @@ export default function EnrichmentClient({
             Run fees/venue scrape
           </button>
           <button
-            onClick={() => runFeesEnrichment({ mode: "missing_venues" })}
+            onClick={() => runFeesEnrichment({ mode: "missing_venues", limit: 50, skipPending: feesSkipPending })}
             disabled={feesBatchRunning}
             style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#fff", color: "#0f3d2e", opacity: feesBatchRunning ? 0.6 : 1 }}
             title="Prioritizes tournaments missing venue/address with URLs"
@@ -815,6 +837,14 @@ export default function EnrichmentClient({
               onChange={(e) => setFeesBatchMissingVenuesOnly(e.target.checked)}
             />
             missing venues only
+          </label>
+          <label style={{ fontSize: 12, color: "#4b5563", display: "flex", alignItems: "center", gap: 4 }}>
+            <input
+              type="checkbox"
+              checked={feesSkipPending}
+              onChange={(e) => setFeesSkipPending(e.target.checked)}
+            />
+            skip pending review
           </label>
           <button
             onClick={runFeesBatch}

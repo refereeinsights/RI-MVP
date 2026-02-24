@@ -59,41 +59,55 @@ export async function POST(request: Request) {
   if (venueIds.length) {
     const { data: venues } = await supabaseAdmin
       .from("tournament_venue_candidates" as any)
-      .select("id,tournament_id,venue_name,address_text")
+      .select("id,tournament_id,venue_name,address_text,venue_url")
       .in("id", venueIds)
       .eq("tournament_id", tournamentId);
-    const venue = ((venues ?? []) as any[])[0] as any;
-    if (venue?.venue_name) updates.venue = venue.venue_name;
-    if (venue?.address_text) updates.address = venue.address_text;
-    if (venue?.venue_name || venue?.address_text) {
+    const selectedVenueRows = (venues ?? []) as any[];
+    const firstVenue = selectedVenueRows[0] as any;
+    if (firstVenue?.venue_name) updates.venue = firstVenue.venue_name;
+    if (firstVenue?.address_text) updates.address = firstVenue.address_text;
+    if (firstVenue?.venue_url) updates.venue_url = firstVenue.venue_url;
+
+    if (selectedVenueRows.length) {
       const { data: tournamentRowRaw } = await supabaseAdmin
         .from("tournaments" as any)
         .select("city,state,sport")
         .eq("id", tournamentId)
         .maybeSingle();
       const tournamentRow = tournamentRowRaw as any;
-      const { data: upsertedRaw, error: upsertErr } = await supabaseAdmin
-        .from("venues" as any)
-        .upsert(
-          {
-            name: venue?.venue_name ?? null,
-            address: venue?.address_text ?? null,
-            city: tournamentRow?.city ?? null,
-            state: tournamentRow?.state ?? null,
-            sport: tournamentRow?.sport ?? null,
-          },
-          { onConflict: "name,address,city,state" }
-        )
-        .select("id")
-        .maybeSingle();
-      const upserted = upsertedRaw as any;
-      if (!upsertErr && upserted?.id) {
-        await supabaseAdmin
-          .from("tournament_venues" as any)
+
+      for (const venue of selectedVenueRows) {
+        if (!venue?.venue_name && !venue?.address_text && !venue?.venue_url) continue;
+        const { data: upsertedRaw, error: upsertErr } = await supabaseAdmin
+          .from("venues" as any)
           .upsert(
-            { tournament_id: tournamentId, venue_id: upserted.id },
-            { onConflict: "tournament_id,venue_id" }
-          );
+            {
+              name: venue?.venue_name ?? null,
+              address: venue?.address_text ?? null,
+              city: tournamentRow?.city ?? null,
+              state: tournamentRow?.state ?? null,
+              sport: tournamentRow?.sport ?? null,
+              venue_url: cleanText(venue?.venue_url),
+            },
+            { onConflict: "name,address,city,state" }
+          )
+          .select("id,venue_url")
+          .maybeSingle();
+        const upserted = upsertedRaw as any;
+        if (!upsertErr && upserted?.id) {
+          if (cleanText(venue?.venue_url) && !cleanText(upserted.venue_url)) {
+            await supabaseAdmin
+              .from("venues" as any)
+              .update({ venue_url: cleanText(venue.venue_url) })
+              .eq("id", upserted.id);
+          }
+          await supabaseAdmin
+            .from("tournament_venues" as any)
+            .upsert(
+              { tournament_id: tournamentId, venue_id: upserted.id },
+              { onConflict: "tournament_id,venue_id" }
+            );
+        }
       }
     }
   }
@@ -145,6 +159,9 @@ export async function POST(request: Request) {
       if (key === "team_fee") {
         const text = String(value ?? "").trim();
         if (text) updates.team_fee = text;
+      } else if (key === "level" || key === "age_group") {
+        const text = cleanText(value);
+        if (text) updates.level = text;
       } else if (key === "games_guaranteed") {
         const num = parseInt(String(value).replace(/[^0-9]/g, ""), 10);
         if (Number.isFinite(num)) updates.games_guaranteed = num;

@@ -1,30 +1,90 @@
 const POINTS_PER_INCH = 72;
-const LABEL_WIDTH = 1.5 * POINTS_PER_INCH;
-const LABEL_HEIGHT = 0.75 * POINTS_PER_INCH;
 
 function escapePdfText(input: string) {
   return input.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 }
 
-function estimateTextWidth(text: string, fontSize: number) {
-  // Good-enough width estimate for Helvetica/Helvetica-Bold centering.
-  return text.length * fontSize * 0.56;
+const HELVETICA_BOLD_WIDTHS: Record<string, number> = {
+  A: 722,
+  B: 722,
+  C: 722,
+  D: 722,
+  E: 667,
+  F: 611,
+  G: 778,
+  H: 722,
+  I: 278,
+  J: 556,
+  K: 722,
+  L: 611,
+  M: 833,
+  N: 722,
+  O: 778,
+  P: 667,
+  Q: 778,
+  R: 722,
+  S: 667,
+  T: 611,
+  U: 722,
+  V: 667,
+  W: 944,
+  X: 667,
+  Y: 667,
+  Z: 611,
+  "0": 556,
+  "1": 556,
+  "2": 556,
+  "3": 556,
+  "4": 556,
+  "5": 556,
+  "6": 556,
+  "7": 556,
+  "8": 556,
+  "9": 556,
+  "-": 333,
+  "_": 556,
+  " ": 278,
+};
+
+function measureHelveticaBold(text: string, fontSize: number) {
+  let units = 0;
+  for (const ch of text) {
+    const upper = ch.toUpperCase();
+    units += HELVETICA_BOLD_WIDTHS[upper] ?? 600;
+  }
+  return (units / 1000) * fontSize;
 }
 
-function buildLabelContent(code: string, foundingAccess: boolean) {
+function buildLabelContent(code: string, foundingAccess: boolean, labelWidth: number, labelHeight: number) {
   const parts: string[] = [];
-  const safeCode = escapePdfText(code);
+  const sidePadding = Math.max(4, labelWidth * 0.055);
+  const availableWidth = labelWidth - sidePadding * 2;
 
-  const drawCentered = (fontRef: "F1" | "F2", fontSize: number, y: number, text: string) => {
+  const calcFittedCodeSize = () => {
+    const maxSize = Math.min(30, labelHeight * 0.56);
+    const minSize = Math.max(10, labelHeight * 0.24);
+    const estimatedAtMax = measureHelveticaBold(code, maxSize);
+    if (estimatedAtMax <= availableWidth) return maxSize;
+    const fitted = (availableWidth / Math.max(estimatedAtMax, 1)) * maxSize;
+    return Math.max(minSize, Math.min(maxSize, fitted));
+  };
+  const codeFontSize = calcFittedCodeSize();
+
+  const drawCentered = (fontRef: "F1" | "F2", fontSize: number, y: number, text: string, isBold = false) => {
     const safeText = escapePdfText(text);
-    const x = Math.max(2, (LABEL_WIDTH - estimateTextWidth(text, fontSize)) / 2);
+    const measured = isBold ? measureHelveticaBold(text, fontSize) : text.length * fontSize * 0.52;
+    const x = Math.max(sidePadding, (labelWidth - measured) / 2);
     parts.push(`BT /${fontRef} ${fontSize} Tf 1 0 0 1 ${x.toFixed(2)} ${y.toFixed(2)} Tm (${safeText}) Tj ET`);
   };
 
-  drawCentered("F2", 9.5, 43.0, "EVENT CODE");
-  drawCentered("F2", 26, foundingAccess ? 16 : 13, safeCode);
+  const titleY = labelHeight * 0.80;
+  const mainY = foundingAccess ? labelHeight * 0.30 : labelHeight * 0.24;
+  const foundingY = labelHeight * 0.08;
+
+  drawCentered("F2", Math.min(9.5, labelHeight * 0.18), titleY, "EVENT CODE", true);
+  drawCentered("F2", codeFontSize, mainY, code, true);
   if (foundingAccess) {
-    drawCentered("F2", 8.5, 4.5, "FOUNDING ACCESS");
+    drawCentered("F2", Math.min(8.5, labelHeight * 0.16), foundingY, "FOUNDING ACCESS", true);
   }
 
   return parts.join("\n") + "\n";
@@ -34,10 +94,18 @@ export function buildEventCodeLabelPdf(input: {
   code: string;
   foundingAccess: boolean;
   quantity?: number;
+  widthInches?: number;
+  heightInches?: number;
 }) {
   const code = input.code.trim();
   const foundingAccess = Boolean(input.foundingAccess);
   const quantity = Math.max(1, Math.min(500, Math.floor(input.quantity ?? 1)));
+  const widthInchesRaw = Number(input.widthInches ?? 1.5);
+  const heightInchesRaw = Number(input.heightInches ?? 0.75);
+  const widthInches = Number.isFinite(widthInchesRaw) ? Math.min(4, Math.max(0.5, widthInchesRaw)) : 1.5;
+  const heightInches = Number.isFinite(heightInchesRaw) ? Math.min(2, Math.max(0.5, heightInchesRaw)) : 0.75;
+  const labelWidth = widthInches * POINTS_PER_INCH;
+  const labelHeight = heightInches * POINTS_PER_INCH;
   if (!code) {
     throw new Error("Code is required.");
   }
@@ -55,11 +123,11 @@ export function buildEventCodeLabelPdf(input: {
   for (let i = 0; i < quantity; i += 1) {
     const pageObjId = firstPageId + i * 2;
     const contentObjId = pageObjId + 1;
-    const content = buildLabelContent(code, foundingAccess);
+    const content = buildLabelContent(code, foundingAccess, labelWidth, labelHeight);
     const contentLen = Buffer.byteLength(content, "utf8");
     addObject(
       pageObjId,
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${LABEL_WIDTH} ${LABEL_HEIGHT}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentObjId} 0 R >>`
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${labelWidth} ${labelHeight}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentObjId} 0 R >>`
     );
     addObject(contentObjId, `<< /Length ${contentLen} >>\nstream\n${content}endstream`);
     pageIds.push(pageObjId);

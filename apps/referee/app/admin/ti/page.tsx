@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import LabelPrintSettings from "./LabelPrintSettings";
 import PrintLabelButton from "./PrintLabelButton";
 
 export const runtime = "nodejs";
@@ -448,6 +449,7 @@ export default async function TiAdminPage({
           </p>
         ) : (
           <>
+            <LabelPrintSettings />
             <p style={{ marginTop: 0, color: "#475569", fontSize: 13 }}>
               Source table: <strong>{eventCodes.source}</strong>
             </p>
@@ -559,7 +561,11 @@ export default async function TiAdminPage({
                               <input type="hidden" name="id" value={row.id} />
                               <button type="submit">Save</button>
                             </form>
-                            <PrintLabelButton code={row.code ?? ""} foundingAccess={Boolean(row.founding_access)} />
+                            <PrintLabelButton
+                              code={row.code ?? ""}
+                              foundingAccess={Boolean(row.founding_access)}
+                              formId={`event-code-edit-${row.id ?? idx}`}
+                            />
                             <form action={setEventCodeStatusAction}>
                               <input type="hidden" name="table" value={eventCodes.source} />
                               <input type="hidden" name="id" value={row.id} />

@@ -36,6 +36,10 @@ export async function POST(request: Request) {
   const foundingAccess = Boolean(payload?.foundingAccess);
   const quantityRaw = Number(payload?.quantity ?? 1);
   const quantity = Number.isFinite(quantityRaw) ? Math.max(1, Math.min(500, Math.floor(quantityRaw))) : 1;
+  const widthInchesRaw = Number(payload?.widthInches ?? 1.5);
+  const heightInchesRaw = Number(payload?.heightInches ?? 0.75);
+  const widthInches = Number.isFinite(widthInchesRaw) ? widthInchesRaw : 1.5;
+  const heightInches = Number.isFinite(heightInchesRaw) ? heightInchesRaw : 0.75;
 
   if (!code) {
     return NextResponse.json({ error: "code_required" }, { status: 400 });
@@ -43,7 +47,7 @@ export async function POST(request: Request) {
 
   let pdf: string;
   try {
-    pdf = buildEventCodeLabelPdf({ code, foundingAccess, quantity });
+    pdf = buildEventCodeLabelPdf({ code, foundingAccess, quantity, widthInches, heightInches });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message ?? "pdf_generation_failed" }, { status: 400 });
   }

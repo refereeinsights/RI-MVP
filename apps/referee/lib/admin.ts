@@ -924,9 +924,11 @@ export type AdminListedTournament = {
 
 export async function adminSearchPublishedTournaments(
   query?: string,
-  sport?: string
+  sport?: string,
+  limit = 100
 ): Promise<AdminListedTournament[]> {
   await requireAdmin();
+  const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(5000, Math.floor(limit))) : 100;
   let request = supabaseAdmin
     .from("tournaments")
     .select(
@@ -935,7 +937,7 @@ export async function adminSearchPublishedTournaments(
     .eq("status", "published")
     .eq("is_canonical", true)
     .order("updated_at", { ascending: false })
-    .limit(100);
+    .limit(safeLimit);
 
   const normalizedSport = sport?.trim().toLowerCase();
   if (normalizedSport) {
