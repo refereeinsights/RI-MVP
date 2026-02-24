@@ -1,5 +1,62 @@
 # Running Notes
 
+## 2026-02-24
+- Missing-venues one-time cleanup + counting alignment:
+  - Added one-time script to backfill `tournament_venues` from embedded tournament venue/address fields while matching existing venues first:
+    - `scripts/ingest/link_embedded_tournament_venues.cjs`
+    - `scripts/ingest/link_embedded_tournament_venues.ts`
+  - Script behavior:
+    - scans published canonical tournaments,
+    - skips already linked tournaments,
+    - links to existing venues by normalized name/address/city/state matches,
+    - creates venue + link only when no match exists.
+  - Fixed script reliability for large datasets by chunking `tournament_venues` lookup (`.in(...)`) requests to avoid Supabase `Bad Request` on oversized ID lists.
+  - Admin missing-venues accuracy updates:
+    - missing-venues widget/count and filtered listing now key off linked venues (`tournament_venues`) consistently.
+    - expanded filtered listing fetch limit for missing-venues review so count and list are aligned.
+    - files:
+      - `apps/referee/app/admin/page.tsx`
+      - `apps/referee/lib/admin.ts`
+
+- Enrichment UI controls + visibility:
+  - Added explicit `skip pending review` checkbox to fees/venue controls (single run + batch) so pending rows can be included/excluded intentionally.
+  - file:
+    - `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`
+
+- Fees/venue parser effectiveness improvements (missing-venues mode):
+  - Added fallback web-search venue discovery when primary crawl finds no venue entries:
+    - search queries use tournament name + geo + optional source host.
+    - filters to likely venue/location/fields/map URLs.
+  - Added forced parsing for discovered venue landing pages.
+  - Added map-link extraction on venue pages:
+    - parses Google/Apple/Waze links,
+    - decodes map query/place hints into candidate venue/address rows.
+  - Added pre-hunt URL seeding before crawl:
+    - seeds from existing `venue_url` candidates and keyword venue links on homepage.
+  - files:
+    - `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`
+
+- Auto-link strong existing venue matches during scrape (missing-venues mode):
+  - Added strict auto-link pass using normalized exact key:
+    - `street + city + state` from parsed venue entries vs existing `venues`.
+  - On exact match:
+    - auto-upsert into `tournament_venues`,
+    - optionally backfill `venues.venue_url` when missing.
+  - Non-exact matches continue to flow to approval queues as candidates.
+  - file:
+    - `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`
+
+- Enrichment run status telemetry:
+  - API response now includes:
+    - `venue_candidates_parsed`
+    - `venue_candidates_inserted`
+    - `auto_linked_existing`
+    - `auto_linked_venue_url_updated`
+  - UI status line now shows these totals for single and batch runs.
+  - files:
+    - `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`
+    - `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`
+
 ## 2026-02-23
 - TI sizing clarification and design artifact guidance:
   - Verified actual CSS-rendered dimensions:
@@ -1328,3 +1385,54 @@
   - Updated files:
     - `package.json`
     - `package-lock.json`
+
+## 2026-02-23
+
+- Admin “Missing venues” metric and filter alignment:
+  - Updated `apps/referee/app/admin/page.tsx`.
+  - Changed Admin Home widget `Missing venues` count to use linked venue data:
+    - tournament is missing venue when it has no `tournament_venues` link.
+  - Changed tournament listings filter `missing=venues` to use the same rule (linked venues only), removing fallback dependence on legacy text fields.
+  - Outcome: widget count and filtered list now represent true “missing linked venues.”
+
+- Validation:
+  - `npm run build --workspace referee-app` passed.
+
+## 2026-02-24
+
+- Tournament listing edit: linked venue unlink support:
+  - Updated `apps/referee/app/admin/page.tsx`.
+  - Added `unlinkTournamentVenueAction` server action to remove a `tournament_venues` link without deleting the venue record.
+  - Added `Unlink` button next to each linked venue row in tournament edit details.
+
+- Tournament listing edit: existing venue match picker for faster linking:
+  - Added new client component:
+    - `apps/referee/components/admin/TournamentVenueMatcher.tsx`
+  - Updated tournament edit UI in:
+    - `apps/referee/app/admin/page.tsx`
+  - Behavior:
+    - While typing venue name/address, searches `/api/admin/venues/search`.
+    - Shows “Potential existing venue matches” list.
+    - Clicking `Use` stores `existing_venue_id`.
+    - `Add venue` then links the selected existing venue directly.
+  - Server action update:
+    - `addTournamentVenueAction` now honors `existing_venue_id` and links immediately, even if manual name/address fields are blank.
+
+- USSSA one-time venue backfill + linking script:
+  - Added script:
+    - `scripts/ingest/link_usssa_missing_venues.ts`
+  - Purpose:
+    - Scan published canonical USSSA event pages for tournaments with no linked venue.
+    - Parse venues from table rows, map-location JSON blobs, JSON-LD location, and maps links.
+    - Match against existing venues by normalized address/city/state (and name fallback).
+    - Create missing venues and upsert `tournament_venues` links.
+  - Execution summary (`--apply`):
+    - `usssa_tournaments_scanned`: 163
+    - `usssa_without_linked_venue`: 109
+    - `pages_with_venue_data`: 108
+    - `created_venues`: 187
+    - `tournament_venue_links_upserted`: 625
+    - `failures`: 0
+
+- Validation:
+  - `npm run build --workspace referee-app` passed.

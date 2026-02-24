@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import OwlsEyePanel from "./owls-eye/OwlsEyePanel";
 import AdminNav from "@/components/admin/AdminNav";
 import PendingTournamentSelection from "@/components/admin/PendingTournamentSelection";
+import TournamentVenueMatcher from "@/components/admin/TournamentVenueMatcher";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { lookupSchoolZip } from "@/lib/googlePlaces";
 
@@ -312,8 +313,11 @@ export default async function AdminPage({
   }
   const pendingTournaments: AdminPendingTournament[] =
     tab === "tournament-uploads" ? await adminListPendingTournaments() : [];
+  const tournamentListingFetchLimit = missingFilter ? 5000 : 100;
   const listedTournaments: AdminListedTournament[] =
-    tab === "tournament-listings" ? await adminSearchPublishedTournaments(q, tournamentSportFilter || undefined) : [];
+    tab === "tournament-listings"
+      ? await adminSearchPublishedTournaments(q, tournamentSportFilter || undefined, tournamentListingFetchLimit)
+      : [];
   const duplicateCandidates =
     tab === "tournament-listings"
       ? await supabaseAdmin
@@ -454,7 +458,7 @@ export default async function AdminPage({
     if (!missingFilter) return true;
     if (missingFilter === "venues") {
       const linkedCount = listedVenueMap[t.id]?.length ?? 0;
-      return linkedCount === 0 && !hasText(t.venue) && !hasText(t.address);
+      return linkedCount === 0;
     }
     if (missingFilter === "urls") {
       return !hasText(t.official_website_url) && !hasText(t.source_url);
@@ -532,12 +536,25 @@ export default async function AdminPage({
   let tournamentsMissingVenueCount = 0;
   let tournamentsMissingUrlsCount = 0;
   let tournamentsMissingDatesCount = 0;
+  const publishedTournamentIds = tournamentStatsRows.map((row) => row.id).filter(Boolean);
+  let linkedPublishedTournamentIds = new Set<string>();
+  if (publishedTournamentIds.length) {
+    const { data: publishedVenueLinks } = await supabaseAdmin
+      .from("tournament_venues" as any)
+      .select("tournament_id")
+      .in("tournament_id", publishedTournamentIds);
+    linkedPublishedTournamentIds = new Set(
+      ((publishedVenueLinks as Array<{ tournament_id?: string | null }> | null) ?? [])
+        .map((row) => row.tournament_id)
+        .filter((value): value is string => typeof value === "string" && value.length > 0)
+    );
+  }
   tournamentStatsRows.forEach((row) => {
     const sportKey = String(row.sport ?? "").trim().toLowerCase();
     if (sportKey) {
       tournamentSportCounts.set(sportKey, (tournamentSportCounts.get(sportKey) ?? 0) + 1);
     }
-    const missingVenue = !hasText(row.venue) && !hasText(row.address);
+    const missingVenue = !linkedPublishedTournamentIds.has(row.id);
     const missingUrls = !hasText(row.official_website_url) && !hasText(row.source_url);
     const missingDates = !hasText(row.start_date) || !hasText(row.end_date);
     if (missingVenue) tournamentsMissingVenueCount += 1;
@@ -2429,11 +2446,36 @@ export default async function AdminPage({
     const tournament_id = String(formData.get("tournament_id") || "");
     if (!tournament_id) return;
     const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-listings";
+    const existingVenueId = String(formData.get("existing_venue_id") || "").trim();
     const name = (formData.get("venue_name") as string | null)?.trim() || null;
     const address = (formData.get("venue_address") as string | null)?.trim() || null;
     const city = (formData.get("venue_city") as string | null)?.trim() || null;
     const state = (formData.get("venue_state") as string | null)?.trim() || null;
     const zip = (formData.get("venue_zip") as string | null)?.trim() || null;
+
+    if (existingVenueId) {
+      const { data: existingVenueRaw } = await supabaseAdmin
+        .from("venues" as any)
+        .select("id,name,address,city,state,zip")
+        .eq("id", existingVenueId)
+        .maybeSingle();
+      const existingVenue = existingVenueRaw as
+        | { id?: string; name?: string | null; address?: string | null; city?: string | null; state?: string | null; zip?: string | null }
+        | null;
+      if (!existingVenue?.id) {
+        return redirectWithNotice(redirectTo, "Selected venue was not found.");
+      }
+      const { error: linkErr } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .upsert({ tournament_id, venue_id: existingVenue.id }, { onConflict: "tournament_id,venue_id" });
+      if (linkErr) {
+        return redirectWithNotice(redirectTo, "Failed to link selected existing venue.");
+      }
+      const label = [existingVenue.name, existingVenue.address, existingVenue.city, existingVenue.state, existingVenue.zip]
+        .filter(Boolean)
+        .join(" • ");
+      return redirectWithNotice(redirectTo, `Linked existing venue${label ? `: ${label}` : ""}.`);
+    }
 
     if (!name && !address) {
       return redirectWithNotice(redirectTo, "Venue name or address is required.");
@@ -2544,6 +2586,27 @@ export default async function AdminPage({
     }
 
     redirectWithNotice(redirectTo, "Venue added.");
+  }
+
+  async function unlinkTournamentVenueAction(formData: FormData) {
+    "use server";
+    const tournament_id = String(formData.get("tournament_id") || "");
+    const venue_id = String(formData.get("venue_id") || "");
+    if (!tournament_id || !venue_id) return;
+    const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-listings";
+
+    const { error } = await supabaseAdmin
+      .from("tournament_venues" as any)
+      .delete()
+      .eq("tournament_id", tournament_id)
+      .eq("venue_id", venue_id);
+    if (error) {
+      return redirectWithNotice(redirectTo, `Failed to unlink venue: ${error.message}`);
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/tournaments");
+    redirectWithNotice(redirectTo, "Venue unlinked.");
   }
 
   const tabLink = (t: Tab) => {
@@ -4176,12 +4239,29 @@ export default async function AdminPage({
                     {listedVenueMap[t.id]?.length ? (
                       <ul style={{ margin: 0, paddingLeft: 18, color: "#555", fontSize: 12 }}>
                         {listedVenueMap[t.id].map((v) => (
-                          <li key={v.id}>
+                          <li key={v.id} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                             <Link href={`/admin/venues/${v.id}`} style={{ color: "#2563eb" }}>
                               {[v.name, v.address, v.city, v.state, v.zip]
                                 .filter(Boolean)
                                 .join(" • ")}
                             </Link>
+                            <button
+                              type="submit"
+                              name="venue_id"
+                              value={v.id}
+                              formAction={unlinkTournamentVenueAction}
+                              style={{
+                                padding: "2px 8px",
+                                borderRadius: 999,
+                                border: "1px solid #b91c1c",
+                                background: "#fff",
+                                color: "#b91c1c",
+                                fontWeight: 700,
+                                fontSize: 11,
+                              }}
+                            >
+                              Unlink
+                            </button>
                           </li>
                         ))}
                       </ul>
@@ -4189,44 +4269,7 @@ export default async function AdminPage({
                       <div style={{ fontSize: 12, color: "#777" }}>No linked venues yet.</div>
                     )}
                     <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4 }}>Add another venue</div>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
-                        gap: 10,
-                      }}
-                    >
-                      <input
-                        type="text"
-                        name="venue_name"
-                        placeholder="Venue name"
-                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
-                      />
-                      <input
-                        type="text"
-                        name="venue_address"
-                        placeholder="Address"
-                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
-                      />
-                      <input
-                        type="text"
-                        name="venue_city"
-                        placeholder="City"
-                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
-                      />
-                      <input
-                        type="text"
-                        name="venue_state"
-                        placeholder="State"
-                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
-                      />
-                      <input
-                        type="text"
-                        name="venue_zip"
-                        placeholder="Zip"
-                        style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
-                      />
-                    </div>
+                    <TournamentVenueMatcher cityHint={t.city ?? ""} stateHint={t.state ?? ""} />
                     <div>
                       <button
                         formAction={addTournamentVenueAction}

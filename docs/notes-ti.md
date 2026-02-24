@@ -1,3 +1,19 @@
+## 2026-02-24
+- Cross-app operational note (RI-side enrichment improvements that directly affect TI venue coverage):
+  - Missing-venues scrape pipeline in RI now has stronger venue discovery and linking support:
+    - pre-hunt URL seeding for venue pages (`fields/venues/locations/maps/directions`),
+    - fallback web-search for venue pages when crawl is sparse,
+    - map-link parsing (Google/Apple/Waze) into venue candidates,
+    - strict auto-linking to existing canonical venues on exact `street+city+state` match.
+  - Result for TI:
+    - faster growth of linked venue coverage feeding TI tournament detail pages,
+    - fewer manual merges for exact-match venue duplicates,
+    - clearer admin scrape telemetry for venue candidate throughput.
+  - Visibility telemetry now surfaced in enrichment status:
+    - parsed/inserted venue candidates,
+    - auto-linked existing venues,
+    - venue URL backfills.
+
 ## 2026-02-23
 - TI design sizing clarification (card vs hero):
   - Confirmed from CSS that tournament listing cards are responsive, not fixed 1200-wide assets:
@@ -516,3 +532,25 @@
   - Editable fields include duration, redemption counts/limits, status, dates, notes, and code value.
   - File: `apps/referee/app/admin/ti/page.tsx`
   - Build check passed (`npm run build --workspace referee-app`).
+
+## 2026-02-24
+
+- Venue linking workflow improvements from RI admin (used for TI venue quality):
+  - Tournament edit “Add venue” now supports inline existing-venue suggestions and direct linking.
+  - Added:
+    - `apps/referee/components/admin/TournamentVenueMatcher.tsx`
+  - Updated:
+    - `apps/referee/app/admin/page.tsx`
+  - Added linked-venue `Unlink` action in tournament edit panel.
+
+- USSSA venue backfill run completed (one-time cleanup to improve venue coverage):
+  - Added ingest utility:
+    - `scripts/ingest/link_usssa_missing_venues.ts`
+  - Apply run result:
+    - 163 USSSA tournaments scanned, 109 missing linked venues targeted
+    - 187 venues created
+    - 625 tournament↔venue links upserted
+    - 0 failures
+
+- Validation:
+  - `npm run build --workspace referee-app` passed.
