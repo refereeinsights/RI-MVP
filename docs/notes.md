@@ -1319,3 +1319,12 @@
 
 - Validation:
   - `npm run build --workspace referee-app` passed.
+
+## 2026-02-23
+
+- Dependency cleanup:
+  - Removed unused `pdf-lib` dependency from root workspace.
+  - Reason: Event code label PDF generation uses internal utility (`apps/referee/lib/pdf/eventCodeLabel.ts`) and does not import `pdf-lib`.
+  - Updated files:
+    - `package.json`
+    - `package-lock.json`
