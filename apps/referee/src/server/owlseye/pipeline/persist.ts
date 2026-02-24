@@ -1,6 +1,15 @@
 import { getAdminSupabase } from "../supabase/admin";
 
-type Sport = "soccer" | "basketball";
+type Sport =
+  | "soccer"
+  | "basketball"
+  | "baseball"
+  | "softball"
+  | "football"
+  | "lacrosse"
+  | "hockey"
+  | "volleyball"
+  | "futsal";
 
 export type OwlseyeReport = {
   venue_id: string;

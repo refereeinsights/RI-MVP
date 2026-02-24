@@ -47,6 +47,7 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
   const venueIds = readyCandidates.map((v) => v.id).filter(Boolean);
   let runVenueIds = new Set<string>();
   const tournamentNamesByVenue = new Map<string, string[]>();
+  const tournamentSportsByVenue = new Map<string, string[]>();
   const linkedTournamentCountByVenue = new Map<string, number>();
   let tournamentNameLookupError: string | null = null;
   if (venueIds.length) {
@@ -76,19 +77,22 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
       new Set(linkRows.map((row) => row.tournament_id).filter((value): value is string => Boolean(value)))
     );
     const tournamentNameById = new Map<string, string>();
+    const tournamentSportById = new Map<string, string>();
     if (tournamentIds.length) {
       for (const idChunk of chunkValues(tournamentIds)) {
         const { data: tournaments, error } = await supabaseAdmin
           .from("tournaments" as any)
-          .select("id,name")
+          .select("id,name,sport")
           .in("id", idChunk);
         if (error) {
           tournamentNameLookupError = error.message;
           continue;
         }
-        ((tournaments ?? []) as Array<{ id: string | null; name: string | null }>).forEach((row) => {
+        ((tournaments ?? []) as Array<{ id: string | null; name: string | null; sport?: string | null }>).forEach((row) => {
           if (!row.id || !row.name) return;
           tournamentNameById.set(row.id, row.name);
+          const sport = typeof row.sport === "string" ? row.sport.trim() : "";
+          if (sport) tournamentSportById.set(row.id, sport);
         });
       }
     }
@@ -99,6 +103,12 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
       const existing = tournamentNamesByVenue.get(row.venue_id) ?? [];
       if (!existing.includes(tournamentName)) existing.push(tournamentName);
       tournamentNamesByVenue.set(row.venue_id, existing);
+      const sport = tournamentSportById.get(row.tournament_id);
+      if (sport) {
+        const existingSports = tournamentSportsByVenue.get(row.venue_id) ?? [];
+        if (!existingSports.includes(sport)) existingSports.push(sport);
+        tournamentSportsByVenue.set(row.venue_id, existingSports);
+      }
     });
   }
   const nameJunkRegex = /\b(born\s*\d{4}|\d{1,2}u\b|girls?\d{1,2}u|boys?\d{1,2}u|program|coach:|size\s*\d+)\b/i;
@@ -133,6 +143,9 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
       const aState = (a.state ?? "").toLowerCase();
       const bState = (b.state ?? "").toLowerCase();
       if (aState !== bState) return aState.localeCompare(bState);
+      const aPrimarySport = (tournamentSportsByVenue.get(a.id) ?? []).slice().sort((x, y) => x.localeCompare(y))[0] ?? "";
+      const bPrimarySport = (tournamentSportsByVenue.get(b.id) ?? []).slice().sort((x, y) => x.localeCompare(y))[0] ?? "";
+      if (aPrimarySport !== bPrimarySport) return aPrimarySport.localeCompare(bPrimarySport);
       return (a.name ?? "").toLowerCase().localeCompare((b.name ?? "").toLowerCase());
     });
   const readyNotRunVenues = readyNotRunAll.slice(0, 120);
@@ -173,6 +186,7 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
         readyNotRunTotal={readyNotRunAll.length}
         readyNotRunVenues={readyNotRunVenues.map((venue) => {
           const linkedTournamentNames = tournamentNamesByVenue.get(venue.id) ?? [];
+          const linkedTournamentSports = tournamentSportsByVenue.get(venue.id) ?? [];
           const linkedTournamentCount = linkedTournamentCountByVenue.get(venue.id) ?? linkedTournamentNames.length;
           return {
             venue_id: venue.id,
@@ -184,6 +198,7 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
             sport: null,
             tournament_count: linkedTournamentCount,
             tournament_names: linkedTournamentNames.slice(0, 8),
+            tournament_sports: linkedTournamentSports.sort((a, b) => a.localeCompare(b)),
           };
         })}
       />

@@ -5,8 +5,29 @@ import { useEffect, useState } from "react";
 import OwlsEyeBrandingOverlay from "@/components/admin/OwlsEyeBrandingOverlay";
 import { tiVenueMapUrl } from "@/lib/ti/publicUrls";
 
-type Sport = "soccer" | "basketball";
+type Sport =
+  | "soccer"
+  | "basketball"
+  | "baseball"
+  | "softball"
+  | "football"
+  | "lacrosse"
+  | "hockey"
+  | "volleyball"
+  | "futsal";
 type RunStatus = "idle" | "running" | "error" | "success";
+const SPORT_OPTIONS: Array<{ value: Sport; label: string }> = [
+  { value: "soccer", label: "Soccer" },
+  { value: "basketball", label: "Basketball" },
+  { value: "baseball", label: "Baseball" },
+  { value: "softball", label: "Softball" },
+  { value: "football", label: "Football" },
+  { value: "lacrosse", label: "Lacrosse" },
+  { value: "hockey", label: "Hockey" },
+  { value: "volleyball", label: "Volleyball" },
+  { value: "futsal", label: "Futsal" },
+];
+const SPORT_SET = new Set<string>(SPORT_OPTIONS.map((option) => option.value));
 
 type VenueSearchResult = {
   venue_id: string;
@@ -18,6 +39,7 @@ type VenueSearchResult = {
   sport: string | null;
   tournament_count?: number;
   tournament_names?: string[];
+  tournament_sports?: string[];
 };
 
 type NearbyItem = {
@@ -257,10 +279,20 @@ export default function OwlsEyePanel({
 
   const handleUseVenue = (venue: VenueSearchResult) => {
     setVenueId(venue.venue_id);
-    const normalizedSport = (venue.sport || "").toLowerCase();
-    if (normalizedSport === "soccer" || normalizedSport === "basketball") {
-      setSport(normalizedSport);
+    const linkedSport =
+      (venue.tournament_sports ?? [])
+        .map((value) => String(value || "").trim().toLowerCase())
+        .find((value) => SPORT_SET.has(value)) ?? "";
+    if (linkedSport) {
+      setSport(linkedSport as Sport);
+      return;
     }
+    const normalizedSports = String(venue.sport || "")
+      .split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean);
+    const venueSport = normalizedSports.find((value) => SPORT_SET.has(value));
+    if (venueSport) setSport(venueSport as Sport);
   };
 
   const mergeVenue = async (sourceVenue: VenueSearchResult) => {
@@ -686,6 +718,11 @@ export default function OwlsEyePanel({
                     ) : (
                       <div style={{ fontSize: 12, color: "#6b7280" }}>Linked tournaments: 0</div>
                     )}
+                    {Array.isArray(venue.tournament_sports) && venue.tournament_sports.length > 0 ? (
+                      <div style={{ fontSize: 12, color: "#1f2937" }}>
+                        Linked sports: <strong>{venue.tournament_sports.join(", ")}</strong>
+                      </div>
+                    ) : null}
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontFamily: "monospace", fontSize: 12 }}>{truncateId(venue.venue_id)}</span>
                       <button onClick={() => handleCopy(venue.venue_id)} style={{ padding: "4px 8px" }}>
@@ -864,8 +901,11 @@ export default function OwlsEyePanel({
             <label>
               <div>Sport</div>
               <select value={sport} onChange={(e) => setSport(e.target.value as Sport)} style={{ width: "100%" }}>
-                <option value="soccer">Soccer</option>
-                <option value="basketball">Basketball</option>
+                {SPORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </label>
 

@@ -10,7 +10,27 @@ import { getLatestOwlReport } from "@/server/owlseye/pipeline/getLatestReport";
 import { getAdminSupabase } from "@/server/owlseye/supabase/admin";
 import { upsertNearbyForRun } from "@/owlseye/nearby/upsertNearbyForRun";
 
-type Sport = "soccer" | "basketball";
+type Sport =
+  | "soccer"
+  | "basketball"
+  | "baseball"
+  | "softball"
+  | "football"
+  | "lacrosse"
+  | "hockey"
+  | "volleyball"
+  | "futsal";
+const SUPPORTED_SPORTS = new Set<Sport>([
+  "soccer",
+  "basketball",
+  "baseball",
+  "softball",
+  "football",
+  "lacrosse",
+  "hockey",
+  "volleyball",
+  "futsal",
+]);
 type RunResponse =
   | { ok: true; report: Awaited<ReturnType<typeof runVenueScan>> & { nearby?: any } }
   | { ok: false; error: string; report?: Awaited<ReturnType<typeof runVenueScan>> };
@@ -264,7 +284,7 @@ export async function POST(request: Request) {
   if (!venueId || !isUuid(venueId)) {
     return NextResponse.json({ error: "invalid_venue_id" }, { status: 400 });
   }
-  if (sport !== "soccer" && sport !== "basketball") {
+  if (!sport || !SUPPORTED_SPORTS.has(sport)) {
     return NextResponse.json({ error: "invalid_sport" }, { status: 400 });
   }
 

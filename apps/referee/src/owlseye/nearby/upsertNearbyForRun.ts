@@ -5,7 +5,16 @@ type UpsertParams = {
   supabaseAdmin: any;
   runId: string;
   venueId?: string;
-  sport?: "soccer" | "basketball";
+  sport?:
+    | "soccer"
+    | "basketball"
+    | "baseball"
+    | "softball"
+    | "football"
+    | "lacrosse"
+    | "hockey"
+    | "volleyball"
+    | "futsal";
   venueLat: number;
   venueLng: number;
   radiusMeters?: number;

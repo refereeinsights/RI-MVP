@@ -1,4 +1,13 @@
-type Sport = "soccer" | "basketball";
+type Sport =
+  | "soccer"
+  | "basketball"
+  | "baseball"
+  | "softball"
+  | "football"
+  | "lacrosse"
+  | "hockey"
+  | "volleyball"
+  | "futsal";
 type AssetKind = "map" | "evidence" | "pdf";
 type AssetExt = "png" | "jpg" | "pdf";
 

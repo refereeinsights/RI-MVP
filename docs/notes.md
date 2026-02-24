@@ -1548,6 +1548,36 @@
 - Validation:
   - `npm run build --workspace referee-app` passed after Owl’s Eye admin changes.
 
+- Owl’s Eye Ready list improvements (admin usability):
+  - Updated:
+    - `apps/referee/app/admin/owls-eye/page.tsx`
+    - `apps/referee/app/admin/owls-eye/OwlsEyePanel.tsx`
+  - Added linked tournament sport visibility per ready venue row:
+    - `Linked sports: ...`
+  - Added displayed-vs-total counter in ready list header:
+    - `Found: <displayed> of <total>`.
+  - Updated sort order to improve duplicate review workflow:
+    - street address (`address1` fallback `address`) → city → state → primary linked sport → name.
+  - Kept row display cap at 120 for performance while exposing true total eligible count.
+
+- Owl’s Eye run sport alignment improvements:
+  - Updated:
+    - `apps/referee/app/admin/owls-eye/OwlsEyePanel.tsx`
+    - `apps/referee/app/api/admin/owls-eye/run/route.ts`
+    - `apps/referee/app/api/admin/owls-eye/run/[runId]/route.ts`
+    - `apps/referee/src/server/owlsEye/jobs/runVenueScan.ts`
+    - `apps/referee/src/server/owlsEye/assets.ts`
+    - `apps/referee/src/server/owlsEye/pipeline/persist.ts`
+    - `apps/referee/src/server/owlsEye/pipeline/getLatestReport.ts`
+    - `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts`
+  - `Use` action in Owl’s Eye Ready now auto-selects sport from linked tournament sports first (fallback to venue sport).
+  - Expanded Owl’s Eye sport options and validation beyond soccer/basketball to:
+    - soccer, basketball, baseball, softball, football, lacrosse, hockey, volleyball, futsal.
+  - Keeps existing soccer-specific map artifact behavior; nearby pipeline remains venue-based.
+
+- Validation:
+  - `npm run build --workspace referee-app` passed after sport alignment updates.
+
 - Admin Home `Missing venues` count accuracy fix:
   - Updated `apps/referee/app/admin/page.tsx`.
   - Root cause: large `.in("tournament_id", ids)` read against `tournament_venues` could fail and fall back to empty link set, inflating `Missing venues` to total published tournaments.

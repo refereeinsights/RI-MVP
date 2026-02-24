@@ -3,7 +3,27 @@ import { randomUUID } from "node:crypto";
 import { getAdminSupabase } from "../supabase/admin";
 import { upsertNearbyForRun } from "@/owlseye/nearby/upsertNearbyForRun";
 
-type Sport = "soccer" | "basketball";
+type Sport =
+  | "soccer"
+  | "basketball"
+  | "baseball"
+  | "softball"
+  | "football"
+  | "lacrosse"
+  | "hockey"
+  | "volleyball"
+  | "futsal";
+const SUPPORTED_SPORTS = new Set<Sport>([
+  "soccer",
+  "basketball",
+  "baseball",
+  "softball",
+  "football",
+  "lacrosse",
+  "hockey",
+  "volleyball",
+  "futsal",
+]);
 
 type RunInput = {
   runId?: string;
@@ -120,7 +140,7 @@ export async function runVenueScan(input: RunInput): Promise<RunResult> {
   if (!input?.venueId || !isUuid(input.venueId)) {
     return { runId: "", status: "failed", message: "Invalid venueId" };
   }
-  if (input.sport !== "soccer" && input.sport !== "basketball") {
+  if (!SUPPORTED_SPORTS.has(input.sport)) {
     return { runId: "", status: "failed", message: "Invalid sport" };
   }
 
