@@ -140,6 +140,35 @@ function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+async function loadTournamentVenueLinkRows(
+  tournamentIds: string[],
+  includeVenueJoin = false
+): Promise<Array<{ tournament_id?: string | null; venues?: any }>> {
+  if (!tournamentIds.length) return [];
+  const chunkSize = 200;
+  const rows: Array<{ tournament_id?: string | null; venues?: any }> = [];
+  for (let i = 0; i < tournamentIds.length; i += chunkSize) {
+    const chunk = tournamentIds.slice(i, i + chunkSize);
+    const select = includeVenueJoin
+      ? "tournament_id,venues(id,name,address,city,state,zip)"
+      : "tournament_id";
+    const { data, error } = await supabaseAdmin
+      .from("tournament_venues" as any)
+      .select(select)
+      .in("tournament_id", chunk);
+    if (error) {
+      console.error("Failed to load tournament_venues chunk", {
+        includeVenueJoin,
+        chunkSize: chunk.length,
+        message: error.message,
+      });
+      continue;
+    }
+    rows.push(...((data ?? []) as Array<{ tournament_id?: string | null; venues?: any }>));
+  }
+  return rows;
+}
+
 function slugifyTournamentName(value: string) {
   return value
     .toLowerCase()
@@ -433,10 +462,7 @@ export default async function AdminPage({
   const listedStaffPendingMap: Record<string, number> = {};
   if (listedTournaments.length) {
     const ids = listedTournaments.map((t) => t.id);
-    const { data: venueLinks } = await supabaseAdmin
-      .from("tournament_venues" as any)
-      .select("tournament_id,venues(id,name,address,city,state,zip)")
-      .in("tournament_id", ids);
+    const venueLinks = await loadTournamentVenueLinkRows(ids, true);
     (venueLinks ?? []).forEach((row: any) => {
       if (!row.tournament_id || !row.venues) return;
       const list = listedVenueMap[row.tournament_id] ?? [];
@@ -539,10 +565,7 @@ export default async function AdminPage({
   const publishedTournamentIds = tournamentStatsRows.map((row) => row.id).filter(Boolean);
   let linkedPublishedTournamentIds = new Set<string>();
   if (publishedTournamentIds.length) {
-    const { data: publishedVenueLinks } = await supabaseAdmin
-      .from("tournament_venues" as any)
-      .select("tournament_id")
-      .in("tournament_id", publishedTournamentIds);
+    const publishedVenueLinks = await loadTournamentVenueLinkRows(publishedTournamentIds, false);
     linkedPublishedTournamentIds = new Set(
       ((publishedVenueLinks as Array<{ tournament_id?: string | null }> | null) ?? [])
         .map((row) => row.tournament_id)

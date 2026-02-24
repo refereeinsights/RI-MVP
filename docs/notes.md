@@ -1436,3 +1436,11 @@
 
 - Validation:
   - `npm run build --workspace referee-app` passed.
+
+- Admin Home `Missing venues` count accuracy fix:
+  - Updated `apps/referee/app/admin/page.tsx`.
+  - Root cause: large `.in("tournament_id", ids)` read against `tournament_venues` could fail and fall back to empty link set, inflating `Missing venues` to total published tournaments.
+  - Fix: chunked venue-link loading helper used for both:
+    - tournament listing missing-venue filtering
+    - admin home/tournament stats missing-venue widget
+  - Adds error logging per chunk instead of silent fallback.
