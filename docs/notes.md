@@ -1,6 +1,31 @@
 # Running Notes
 
 ## 2026-02-24
+- Owl's Eye duplicate handling + venue merge review improvements:
+  - Verified duplicate-check behavior against a real case:
+    - `1200 Alimagnet Pkwy, Burnsville, MN 55337`
+  - Confirmed duplicate pair and merged:
+    - source `58aaf77e-a0ce-4b22-9f53-10faabf7e08d`
+    - target `858bcf70-9d21-4639-8ac2-e5ff93c334a6`
+  - Post-merge verification:
+    - source removed
+    - tournament links moved to target
+    - Owl's Eye runs retained on target
+
+- New admin duplicate review panel for venues:
+  - Added server-side duplicate grouping and suggested target selection on `/admin/venues`.
+  - Added UI section:
+    - `Duplicate venue candidates`
+    - group types:
+      - exact address/city/state
+      - same name + street/state
+    - one-click `Merge into suggested target` action per source venue.
+  - Files:
+    - `apps/referee/app/admin/venues/page.tsx`
+    - `apps/referee/components/admin/VenuesListClient.tsx`
+  - Validation:
+    - `npm run build --workspace referee-app` passed.
+
 - Data inventory export for TI/RI planning and review UX work:
   - Added:
     - `docs/ti_ri_tournament_venue_fields.csv`
@@ -1505,6 +1530,23 @@
 
 - Validation:
   - `npm run build --workspace referee-app` passed.
+
+- Owl’s Eye admin readiness diagnostics + filtering fix:
+  - Updated:
+    - `apps/referee/app/admin/owls-eye/page.tsx`
+    - `apps/referee/app/admin/owls-eye/OwlsEyePanel.tsx`
+  - Added server-side debug summary block on `/admin/owls-eye` showing:
+    - fetched venues, address/geo candidates, already-run count, not-run count,
+    - linked/no-linked breakdown, junk-name exclusions, final-ready count,
+    - sample excluded rows for fast triage.
+  - Fixed ready filtering to use authoritative `tournament_venues` link counts rather than tournament-name hydration as the gate.
+  - Tournament name hydration is now chunked and used for display only.
+  - Ready list now sorts by full street address (`address1` fallback to `address`) first to cluster potential duplicates.
+  - Ready counter now shows displayed + total:
+    - `Found: <displayed> of <total>`.
+
+- Validation:
+  - `npm run build --workspace referee-app` passed after Owl’s Eye admin changes.
 
 - Admin Home `Missing venues` count accuracy fix:
   - Updated `apps/referee/app/admin/page.tsx`.

@@ -65,6 +65,8 @@ type OwlsEyePanelProps = {
   adminToken?: string;
   initialVenueId?: string;
   readyNotRunVenues?: VenueSearchResult[];
+  readyDebug?: Record<string, unknown> | null;
+  readyNotRunTotal?: number;
 };
 
 function getNearbyTotals(report: RunReport | null | undefined) {
@@ -169,6 +171,8 @@ export default function OwlsEyePanel({
   adminToken,
   initialVenueId,
   readyNotRunVenues = [],
+  readyDebug = null,
+  readyNotRunTotal,
 }: OwlsEyePanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -203,6 +207,8 @@ export default function OwlsEyePanel({
   useEffect(() => {
     setReadyRows(readyNotRunVenues);
   }, [readyNotRunVenues]);
+  const readyDisplayedCount = readyRows.length;
+  const readyTotalCount = typeof readyNotRunTotal === "number" ? readyNotRunTotal : readyDisplayedCount;
 
   const sharedHeaders = adminToken ? { "x-owls-eye-admin-token": adminToken } : {};
 
@@ -603,6 +609,25 @@ export default function OwlsEyePanel({
           <p style={{ color: "#555", marginTop: 0 }}>
             Venues with enough location data that have no Owl&apos;s Eye run yet.
           </p>
+          {readyDebug ? (
+            <div
+              style={{
+                marginBottom: 10,
+                padding: 10,
+                borderRadius: 8,
+                border: "1px solid #d1d5db",
+                background: "#f8fafc",
+                fontSize: 12,
+                color: "#111827",
+                overflowX: "auto",
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Debug summary</div>
+              <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {JSON.stringify(readyDebug, null, 2)}
+              </pre>
+            </div>
+          ) : null}
           <div style={{ display: "grid", gap: 6, maxWidth: 540, marginBottom: 10 }}>
             <label>
               <div style={{ fontSize: 13, fontWeight: 700 }}>Merge target venue ID (optional)</div>
@@ -624,7 +649,10 @@ export default function OwlsEyePanel({
             {deleteMessage ? <div style={{ color: "#065f46" }}>{deleteMessage}</div> : null}
           </div>
           <div style={{ fontSize: 13, color: "#374151", marginBottom: 8 }}>
-            Found: <strong>{readyRows.length}</strong>
+            Found: <strong>{readyDisplayedCount}</strong>
+            {readyTotalCount !== readyDisplayedCount ? (
+              <span style={{ color: "#6b7280" }}> of {readyTotalCount} total</span>
+            ) : null}
           </div>
           {readyRows.length === 0 ? (
             <div style={{ color: "#6b7280" }}>No ready venues pending first run.</div>
