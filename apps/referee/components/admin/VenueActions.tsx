@@ -6,10 +6,11 @@ import Link from "next/link";
 type Props = {
   venueId: string;
   venueName?: string | null;
+  hasOwlData?: boolean;
   onRemoveFromList?: () => void;
 };
 
-export default function VenueActions({ venueId, venueName, onRemoveFromList }: Props) {
+export default function VenueActions({ venueId, venueName, hasOwlData = false, onRemoveFromList }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [merging, setMerging] = useState(false);
   const [copying, setCopying] = useState(false);
@@ -17,11 +18,21 @@ export default function VenueActions({ venueId, venueName, onRemoveFromList }: P
   const [error, setError] = useState<string | null>(null);
 
   const onDelete = async () => {
-    if (!window.confirm("Delete this venue? This will remove its links to tournaments.")) return;
+    if (!window.confirm("Clean delete this venue? This will remove Owl's Eye rows, unlink tournaments, and delete the venue.")) return;
+    if (hasOwlData) {
+      const confirmed = window.confirm(
+        "Warning: this venue has Owl's Eye data. Deleting will permanently remove Owl's Eye runs, nearby results, and map artifacts for this venue. Continue?"
+      );
+      if (!confirmed) return;
+    }
     setDeleting(true);
     setError(null);
     try {
-      const resp = await fetch(`/api/admin/venues/${venueId}`, { method: "DELETE" });
+      const resp = await fetch(`/api/admin/venues/${venueId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm_owl_delete: hasOwlData }),
+      });
       if (!resp.ok) {
         const json = await resp.json().catch(() => ({}));
         throw new Error(json?.error || "Delete failed");
@@ -139,7 +150,7 @@ export default function VenueActions({ venueId, venueName, onRemoveFromList }: P
           fontSize: 13,
         }}
       >
-        {deleting ? "Deleting..." : "Delete"}
+        {deleting ? "Deleting..." : "Clean delete"}
       </button>
       <input
         value={mergeTargetId}

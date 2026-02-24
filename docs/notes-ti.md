@@ -1,4 +1,25 @@
 ## 2026-02-24
+- TI/RI field inventory export added for product/review planning:
+  - Added:
+    - `docs/ti_ri_tournament_venue_fields.csv`
+  - Captures tournament + venue fields with:
+    - TI/RI scope flag,
+    - access-tier classification,
+    - data type metadata.
+
+- Cross-app ops note (RI admin/ingest changes that improve TI venue quality downstream):
+  - Added safer venue cleanup and dedupe tooling in RI:
+    - safe removal of junk venue links when a clean linked venue already exists,
+    - orphan junk venue cleanup for unlinked/no-Owl's-Eye rows.
+  - Strengthened crawler matching before venue creation across deep/AYSO/USSSA venue ingest:
+    - multi-key reuse of existing venues (`address/city/state`, `name/city/state`, ZIP/street fallbacks),
+    - preference for venues with Owl's Eye run history and populated venue URL.
+  - Added deep-crawler mode for tournaments that currently only have junk-linked venues:
+    - `--include-junk-linked`, with timeout guards for crawl stability.
+  - Net effect for TI:
+    - better reuse of canonical venues already enriched with Owl's Eye data,
+    - fewer duplicate/invalid venue rows flowing into TI-facing tournament detail coverage.
+
 - Cross-app operational note (RI-side enrichment improvements that directly affect TI venue coverage):
   - Missing-venues scrape pipeline in RI now has stronger venue discovery and linking support:
     - pre-hunt URL seeding for venue pages (`fields/venues/locations/maps/directions`),

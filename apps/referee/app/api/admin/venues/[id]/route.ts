@@ -301,11 +301,57 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { error } = await supabaseAdmin.from("venues" as any).delete().eq("id", params.id);
-  if (error) {
-    console.error("Admin venue delete failed", error);
-    return NextResponse.json({ error: "delete_failed" }, { status: 500 });
-  }
+  try {
+    let payload: any = {};
+    try {
+      payload = await _request.json();
+    } catch {
+      payload = {};
+    }
+    const confirmOwlDelete = Boolean(payload?.confirm_owl_delete);
 
-  return NextResponse.json({ ok: true });
+    const { data: runRows, error: runsErr } = await supabaseAdmin
+      .from("owls_eye_runs" as any)
+      .select("id,run_id")
+      .eq("venue_id", params.id);
+    if (runsErr && runsErr.code !== "PGRST204") throw runsErr;
+
+    if ((runRows?.length ?? 0) > 0 && !confirmOwlDelete) {
+      return NextResponse.json(
+        { error: "owl_data_confirm_required", message: "Venue has Owl's Eye data; explicit confirmation required." },
+        { status: 409 }
+      );
+    }
+
+    const runIds = Array.from(
+      new Set(
+        ((runRows ?? []) as Array<{ id?: string | null; run_id?: string | null }>)
+          .flatMap((row) => [row.run_id, row.id])
+          .filter((value): value is string => typeof value === "string" && value.length > 0)
+      )
+    );
+
+    if (runIds.length > 0) {
+      await supabaseAdmin.from("owls_eye_nearby_food" as any).delete().in("run_id", runIds);
+      await supabaseAdmin.from("owls_eye_map_artifacts" as any).delete().in("run_id", runIds);
+      await supabaseAdmin.from("owls_eye_runs" as any).delete().eq("venue_id", params.id);
+    }
+
+    const { error: unlinkErr } = await supabaseAdmin
+      .from("tournament_venues" as any)
+      .delete()
+      .eq("venue_id", params.id);
+    if (unlinkErr) throw unlinkErr;
+
+    const { error: venueErr } = await supabaseAdmin
+      .from("venues" as any)
+      .delete()
+      .eq("id", params.id);
+    if (venueErr) throw venueErr;
+
+    return NextResponse.json({ ok: true, deleted_venue_id: params.id, deleted_links: true });
+  } catch (error: any) {
+    console.error("Admin venue delete failed", error);
+    return NextResponse.json({ error: error?.message || "delete_failed" }, { status: 500 });
+  }
 }

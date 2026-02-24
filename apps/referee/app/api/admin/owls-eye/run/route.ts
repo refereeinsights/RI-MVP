@@ -41,6 +41,18 @@ type ExistingRunRow = {
   created_at?: string | null;
 };
 
+type DuplicateCandidate = {
+  venue_id: string;
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  score: number;
+  has_owl_runs: boolean;
+  owl_run_count: number;
+};
+
 async function ensureAdminRequest() {
   const headerToken = headers().get("x-owls-eye-admin-token");
   const envToken = process.env.OWLS_EYE_ADMIN_TOKEN;
@@ -66,6 +78,170 @@ function buildAddress(venue: VenueRow) {
   return parts.join(", ");
 }
 
+function normalizeText(input: string | null | undefined) {
+  return String(input ?? "")
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeStreet(input: string | null | undefined) {
+  return normalizeText(input)
+    .replace(/\b(street|st)\b/g, "st")
+    .replace(/\b(avenue|ave)\b/g, "ave")
+    .replace(/\b(road|rd)\b/g, "rd")
+    .replace(/\b(boulevard|blvd)\b/g, "blvd")
+    .replace(/\b(drive|dr)\b/g, "dr")
+    .replace(/\b(lane|ln)\b/g, "ln")
+    .replace(/\b(court|ct)\b/g, "ct")
+    .replace(/\b(place|pl)\b/g, "pl")
+    .trim();
+}
+
+function extractStreetNumber(input: string | null | undefined) {
+  const match = normalizeText(input).match(/\b\d{2,6}\b/);
+  return match ? match[0] : "";
+}
+
+function haversineMeters(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+) {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const x =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+async function findDuplicateVenueCandidates(args: {
+  venueId: string;
+  venue: VenueRow;
+  venueLat: number | null;
+  venueLng: number | null;
+}) {
+  const venueName = normalizeText(args.venue.name);
+  const venueStreet = normalizeStreet(args.venue.address1 ?? args.venue.street ?? null);
+  const venueCity = normalizeText(args.venue.city);
+  const venueState = normalizeText(args.venue.state);
+  const venueStreetNumber = extractStreetNumber(args.venue.address1 ?? args.venue.street ?? null);
+
+  const candidateMap = new Map<
+    string,
+    {
+      id: string;
+      name: string | null;
+      address1?: string | null;
+      street?: string | null;
+      city: string | null;
+      state: string | null;
+      zip: string | null;
+      latitude?: number | null;
+      longitude?: number | null;
+    }
+  >();
+
+  const seedName = venueName.split(" ").filter(Boolean).slice(0, 2).join(" ");
+  const seedStreet = venueStreet.split(" ").filter(Boolean).slice(0, 3).join(" ");
+
+  if (venueState) {
+    if (seedName.length >= 3) {
+      const { data } = await supabaseAdmin
+        .from("venues" as any)
+        .select("id,name,address1,street,city,state,zip,latitude,longitude")
+        .eq("state", args.venue.state)
+        .ilike("name", `%${seedName}%`)
+        .limit(80);
+      for (const row of (data ?? []) as any[]) candidateMap.set(row.id, row);
+    }
+    if (seedStreet.length >= 3) {
+      const { data } = await supabaseAdmin
+        .from("venues" as any)
+        .select("id,name,address1,street,city,state,zip,latitude,longitude")
+        .eq("state", args.venue.state)
+        .or(`address1.ilike.%${seedStreet}%,street.ilike.%${seedStreet}%`)
+        .limit(80);
+      for (const row of (data ?? []) as any[]) candidateMap.set(row.id, row);
+    }
+  }
+
+  candidateMap.delete(args.venueId);
+
+  const scored = Array.from(candidateMap.values())
+    .map((row) => {
+      const rowName = normalizeText(row.name);
+      const rowStreet = normalizeStreet(row.address1 ?? row.street ?? null);
+      const rowCity = normalizeText(row.city);
+      const rowState = normalizeText(row.state);
+      const rowStreetNumber = extractStreetNumber(row.address1 ?? row.street ?? null);
+
+      let score = 0;
+      if (venueName && rowName && venueName === rowName) score += 50;
+      else if (venueName && rowName && (venueName.includes(rowName) || rowName.includes(venueName))) score += 30;
+
+      if (venueStreet && rowStreet && venueStreet === rowStreet) score += 45;
+      else if (venueStreet && rowStreet && (venueStreet.includes(rowStreet) || rowStreet.includes(venueStreet))) score += 25;
+
+      if (venueStreetNumber && rowStreetNumber && venueStreetNumber === rowStreetNumber) score += 15;
+      if (venueCity && rowCity && venueCity === rowCity) score += 10;
+      if (venueState && rowState && venueState === rowState) score += 10;
+
+      const rowLat = typeof row.latitude === "number" && Number.isFinite(row.latitude) ? row.latitude : null;
+      const rowLng = typeof row.longitude === "number" && Number.isFinite(row.longitude) ? row.longitude : null;
+      if (args.venueLat != null && args.venueLng != null && rowLat != null && rowLng != null) {
+        const meters = haversineMeters({ lat: args.venueLat, lng: args.venueLng }, { lat: rowLat, lng: rowLng });
+        if (meters <= 120) score += 40;
+        else if (meters <= 300) score += 25;
+      }
+
+      return { row, score };
+    })
+    .filter((item) => item.score >= 60)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
+
+  if (!scored.length) return [];
+
+  const candidateIds = scored.map((item) => item.row.id);
+  const { data: runRows } = await supabaseAdmin
+    .from("owls_eye_runs" as any)
+    .select("venue_id")
+    .in("venue_id", candidateIds);
+
+  const runCounts = new Map<string, number>();
+  for (const row of (runRows ?? []) as Array<{ venue_id?: string | null }>) {
+    const id = row.venue_id;
+    if (!id) continue;
+    runCounts.set(id, (runCounts.get(id) ?? 0) + 1);
+  }
+
+  const candidates: DuplicateCandidate[] = scored.map(({ row, score }) => {
+    const count = runCounts.get(row.id) ?? 0;
+    return {
+      venue_id: row.id,
+      name: row.name ?? null,
+      address: (row.address1 ?? row.street ?? null) || null,
+      city: row.city ?? null,
+      state: row.state ?? null,
+      zip: row.zip ?? null,
+      score,
+      has_owl_runs: count > 0,
+      owl_run_count: count,
+    };
+  });
+
+  return candidates.sort((a, b) => {
+    if (a.has_owl_runs !== b.has_owl_runs) return a.has_owl_runs ? -1 : 1;
+    return b.score - a.score;
+  });
+}
+
 export async function POST(request: Request) {
   const adminUser = await ensureAdminRequest();
   if (!adminUser) {
@@ -83,6 +259,7 @@ export async function POST(request: Request) {
   const sport = body?.sport as Sport | undefined;
   const publishedMapUrl = typeof body?.published_map_url === "string" ? body.published_map_url.trim() : "";
   const force = body?.force === true || body?.force === "true";
+  const allowDuplicate = body?.allow_duplicate === true || body?.allow_duplicate === "true";
 
   if (!venueId || !isUuid(venueId)) {
     return NextResponse.json({ error: "invalid_venue_id" }, { status: 400 });
@@ -186,6 +363,28 @@ export async function POST(request: Request) {
         }
       } catch (err) {
         console.warn("[owlseye] auto-geocode failed", err);
+      }
+    }
+
+    if (!force && !allowDuplicate) {
+      const duplicateCandidates = await findDuplicateVenueCandidates({
+        venueId,
+        venue: venue as VenueRow,
+        venueLat,
+        venueLng,
+      });
+
+      if (duplicateCandidates.length > 0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "DUPLICATE_VENUE_SUSPECT",
+            message:
+              "Possible duplicate venue(s) found. Use an existing venue ID or run anyway for this venue.",
+            candidates: duplicateCandidates,
+          },
+          { status: 409 }
+        );
       }
     }
 

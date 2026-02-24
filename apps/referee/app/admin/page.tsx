@@ -621,6 +621,14 @@ export default async function AdminPage({
 
   let readyNotRunVenues: ReadyVenueItem[] = [];
   if (tab === "owls-eye") {
+    const chunkValues = <T,>(values: T[], size = 120) => {
+      const chunks: T[][] = [];
+      for (let i = 0; i < values.length; i += size) {
+        chunks.push(values.slice(i, i + size));
+      }
+      return chunks;
+    };
+
     const { data: readyVenuesRaw } = await supabaseAdmin
       .from("venues" as any)
       .select("id,name,address,address1,city,state,zip,latitude,longitude")
@@ -657,21 +665,24 @@ export default async function AdminPage({
     let runVenueIds = new Set<string>();
     const tournamentNamesByVenue = new Map<string, string[]>();
     if (readyVenueIds.length) {
-      const { data: runs } = await supabaseAdmin
-        .from("owls_eye_runs" as any)
-        .select("venue_id")
-        .in("venue_id", readyVenueIds);
-      runVenueIds = new Set(
-        ((runs ?? []) as Array<{ venue_id: string | null }>)
-          .map((row) => row.venue_id || "")
-          .filter(Boolean),
-      );
+      const runRows: Array<{ venue_id: string | null }> = [];
+      for (const idChunk of chunkValues(readyVenueIds)) {
+        const { data: runs } = await supabaseAdmin
+          .from("owls_eye_runs" as any)
+          .select("venue_id")
+          .in("venue_id", idChunk);
+        runRows.push(...((runs ?? []) as Array<{ venue_id: string | null }>));
+      }
+      runVenueIds = new Set(runRows.map((row) => row.venue_id || "").filter(Boolean));
 
-      const { data: venueLinks } = await supabaseAdmin
-        .from("tournament_venues" as any)
-        .select("venue_id,tournament_id")
-        .in("venue_id", readyVenueIds);
-      const linkRows = (venueLinks ?? []) as Array<{ venue_id: string | null; tournament_id: string | null }>;
+      const linkRows: Array<{ venue_id: string | null; tournament_id: string | null }> = [];
+      for (const idChunk of chunkValues(readyVenueIds)) {
+        const { data: venueLinks } = await supabaseAdmin
+          .from("tournament_venues" as any)
+          .select("venue_id,tournament_id")
+          .in("venue_id", idChunk);
+        linkRows.push(...((venueLinks ?? []) as Array<{ venue_id: string | null; tournament_id: string | null }>));
+      }
       const tournamentIds = Array.from(
         new Set(linkRows.map((row) => row.tournament_id).filter((value): value is string => Boolean(value)))
       );
@@ -698,6 +709,20 @@ export default async function AdminPage({
 
     readyNotRunVenues = readyCandidates
       .filter((venue) => !runVenueIds.has(venue.id))
+      .filter((venue) => {
+        const linkedTournamentNames = tournamentNamesByVenue.get(venue.id) ?? [];
+        if (linkedTournamentNames.length === 0) return false;
+        const normalizedName = String(venue.name ?? "").trim().toLowerCase();
+        if (!normalizedName) return false;
+        if (
+          /\b(born\s*\d{4}|\d{1,2}u\b|girls?\d{1,2}u|boys?\d{1,2}u|program|coach:|size\s*\d+)\b/i.test(
+            normalizedName,
+          )
+        ) {
+          return false;
+        }
+        return true;
+      })
       .sort((a, b) => {
         const aAddress = (a.address1 ?? a.address ?? "").toLowerCase();
         const bAddress = (b.address1 ?? b.address ?? "").toLowerCase();
@@ -1551,9 +1576,11 @@ export default async function AdminPage({
     redirectWithNotice(redirectTo, "Contact unlinked");
   }
 
-  async function approveTournamentAction(formData: FormData) {
+  async function approveTournamentAction(boundTournamentId: string | null, formData: FormData) {
     "use server";
-    const tournamentId = String(formData.get("row_tournament_id") || formData.get("tournament_id") || "");
+    const tournamentId =
+      (boundTournamentId && String(boundTournamentId).trim()) ||
+      String(formData.get("row_tournament_id") || formData.get("tournament_id") || "");
     if (!tournamentId) return;
     const redirectTo = formData.get("redirect_to");
     await adminUpdateTournamentStatus({ tournament_id: tournamentId, status: "published" });
@@ -1619,10 +1646,12 @@ export default async function AdminPage({
     }
   }
 
-  async function updatePendingTournamentRowAction(formData: FormData) {
+  async function updatePendingTournamentRowAction(boundTournamentId: string | null, formData: FormData) {
     "use server";
     const redirectTo = formData.get("redirect_to");
-    const tournamentId = String(formData.get("row_tournament_id") || formData.get("tournament_id") || "").trim();
+    const tournamentId =
+      (boundTournamentId && String(boundTournamentId).trim()) ||
+      String(formData.get("row_tournament_id") || formData.get("tournament_id") || "").trim();
     if (!tournamentId) {
       return redirectWithNotice(redirectTo, "Tournament id missing.");
     }
@@ -1708,10 +1737,12 @@ export default async function AdminPage({
     return redirectWithNotice(redirectTo, "Pending tournament updated.");
   }
 
-  async function deletePendingTournamentRowAction(formData: FormData) {
+  async function deletePendingTournamentRowAction(boundTournamentId: string | null, formData: FormData) {
     "use server";
     const redirectTo = formData.get("redirect_to");
-    const tournamentId = String(formData.get("row_tournament_id") || formData.get("tournament_id") || "").trim();
+    const tournamentId =
+      (boundTournamentId && String(boundTournamentId).trim()) ||
+      String(formData.get("row_tournament_id") || formData.get("tournament_id") || "").trim();
     if (!tournamentId) {
       return redirectWithNotice(redirectTo, "Tournament id missing.");
     }
@@ -2611,10 +2642,15 @@ export default async function AdminPage({
     redirectWithNotice(redirectTo, "Venue added.");
   }
 
-  async function unlinkTournamentVenueAction(formData: FormData) {
+  async function unlinkTournamentVenueAction(
+    boundTournamentId: string | null,
+    boundVenueId: string | null,
+    formData: FormData
+  ) {
     "use server";
-    const tournament_id = String(formData.get("tournament_id") || "");
-    const venue_id = String(formData.get("venue_id") || "");
+    const tournament_id =
+      (boundTournamentId && String(boundTournamentId).trim()) || String(formData.get("tournament_id") || "");
+    const venue_id = (boundVenueId && String(boundVenueId).trim()) || String(formData.get("venue_id") || "");
     if (!tournament_id || !venue_id) return;
     const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-listings";
 
@@ -4270,9 +4306,7 @@ export default async function AdminPage({
                             </Link>
                             <button
                               type="submit"
-                              name="venue_id"
-                              value={v.id}
-                              formAction={unlinkTournamentVenueAction}
+                              formAction={unlinkTournamentVenueAction.bind(null, t.id, v.id)}
                               style={{
                                 padding: "2px 8px",
                                 borderRadius: 999,
@@ -5139,9 +5173,7 @@ export default async function AdminPage({
                                 />
                               </label>
                               <button
-                                name="row_tournament_id"
-                                value={t.id}
-                                formAction={updatePendingTournamentRowAction}
+                                formAction={updatePendingTournamentRowAction.bind(null, t.id)}
                                 style={{
                                   width: "fit-content",
                                   padding: "8px 12px",
@@ -5162,9 +5194,7 @@ export default async function AdminPage({
                           </label>
                           <button
                             type="submit"
-                            name="row_tournament_id"
-                            value={t.id}
-                            formAction={approveTournamentAction}
+                            formAction={approveTournamentAction.bind(null, t.id)}
                             style={{
                               display: "block",
                               marginTop: 6,
@@ -5180,9 +5210,7 @@ export default async function AdminPage({
                           </button>
                           <button
                             type="submit"
-                            name="row_tournament_id"
-                            value={t.id}
-                            formAction={deletePendingTournamentRowAction}
+                            formAction={deletePendingTournamentRowAction.bind(null, t.id)}
                             style={{
                               display: "block",
                               marginTop: 6,

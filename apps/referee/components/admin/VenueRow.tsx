@@ -51,9 +51,12 @@ export type VenueItem = {
 type Props = {
   venue: VenueItem;
   onUpdated?: (next: VenueItem) => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelected?: (venueId: string, selected: boolean) => void;
 };
 
-export default function VenueRow({ venue, onUpdated }: Props) {
+export default function VenueRow({ venue, onUpdated, selectable = false, selected = false, onToggleSelected }: Props) {
   const [hidden, setHidden] = useState(false);
   const [open, setOpen] = useState(false);
   const [tournaments, setTournaments] = useState<Tournament[]>(venue.tournaments || []);
@@ -79,8 +82,17 @@ export default function VenueRow({ venue, onUpdated }: Props) {
   }, [venue.sport]);
 
   const summary = useMemo(() => {
-    return [venue.city, venue.state, venue.zip, sportLabel].filter(Boolean).join(" · ") || "—";
-  }, [venue.city, venue.state, venue.zip, sportLabel]);
+    const core = [venue.city, venue.state, venue.zip, sportLabel].filter(Boolean).join(" · ") || "—";
+    return `${core} • Linked tournaments: ${tournaments.length}`;
+  }, [venue.city, venue.state, venue.zip, sportLabel, tournaments.length]);
+
+  const linkedTournamentNames = useMemo(() => {
+    const names = tournaments
+      .map((t) => (t.name || t.slug || "").trim())
+      .filter(Boolean)
+      .slice(0, 4);
+    return names.join(" • ");
+  }, [tournaments]);
 
   const onSearch = async (q: string) => {
     setSearch(q);
@@ -175,9 +187,27 @@ export default function VenueRow({ venue, onUpdated }: Props) {
           cursor: "pointer",
         }}
       >
-        <div>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, textAlign: "left" }}>
+          {selectable ? (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={(e) => onToggleSelected?.(venue.id, e.target.checked)}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`Select venue ${venue.name || venue.id}`}
+              style={{ marginTop: 2 }}
+            />
+          ) : null}
+          <div>
           <div style={{ fontWeight: 700 }}>{venue.name || "Untitled"}</div>
           <div style={{ fontSize: 13, color: "#4b5563" }}>{summary}</div>
+          {linkedTournamentNames ? (
+            <div style={{ fontSize: 12, color: "#374151", marginTop: 3 }}>
+              {linkedTournamentNames}
+              {tournaments.length > 4 ? ` • +${tournaments.length - 4} more` : ""}
+            </div>
+          ) : null}
+          </div>
         </div>
         <div style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>›</div>
       </button>
@@ -186,7 +216,12 @@ export default function VenueRow({ venue, onUpdated }: Props) {
         <div style={{ padding: 12, display: "grid", gap: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div style={{ fontFamily: "monospace", fontSize: 12, color: "#374151" }}>{venue.id}</div>
-            <VenueActions venueId={venue.id} venueName={venue.name} onRemoveFromList={() => setHidden(true)} />
+            <VenueActions
+              venueId={venue.id}
+              venueName={venue.name}
+              hasOwlData={Boolean(venue.owl_run_id)}
+              onRemoveFromList={() => setHidden(true)}
+            />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>

@@ -49,6 +49,21 @@ function clean(value: string | null | undefined) {
   return v.length ? v : null;
 }
 
+function normalizeZip(value: string | null | undefined) {
+  const v = clean(value);
+  if (!v) return "";
+  const m = v.match(/\d{5}/);
+  return m ? m[0] : "";
+}
+
+function normalizeStreet(value: string | null | undefined) {
+  return normalize(value)
+    .replace(/\b(street|st|avenue|ave|road|rd|drive|dr|lane|ln|boulevard|blvd|court|ct|circle|cir|parkway|pkwy|place|pl|terrace|ter|trail|trl|highway|hwy|way)\b/g, " ")
+    .replace(/\b(suite|ste|unit|apt|building|bldg)\b.*$/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function decodeHtmlEntities(value: string) {
   return value
     .replace(/&quot;/g, '"')
@@ -327,19 +342,61 @@ async function run() {
     .limit(50000);
   if (venuesErr) throw venuesErr;
   const venues = (venuesRaw ?? []) as VenueRow[];
+  const { data: owlRunVenueRows } = await supabase
+    .from("owls_eye_runs" as any)
+    .select("venue_id")
+    .not("venue_id", "is", null)
+    .limit(50000);
+  const owlRunVenueIds = new Set(
+    ((owlRunVenueRows ?? []) as Array<{ venue_id?: string | null }>)
+      .map((r) => String(r.venue_id ?? ""))
+      .filter(Boolean)
+  );
 
-  const byAddressCityState = new Map<string, VenueRow>();
-  const byNameCityState = new Map<string, VenueRow>();
+  const byAddressCityState = new Map<string, VenueRow[]>();
+  const byNameCityState = new Map<string, VenueRow[]>();
+  const byAddressStateZip = new Map<string, VenueRow[]>();
+  const byStreetStateZip = new Map<string, VenueRow[]>();
+  const byStreetCityState = new Map<string, VenueRow[]>();
+  const addToMap = (map: Map<string, VenueRow[]>, key: string, row: VenueRow) => {
+    if (!key) return;
+    map.set(key, [...(map.get(key) ?? []), row]);
+  };
   const indexVenue = (v: VenueRow) => {
     const addr = clean(v.address1) ?? clean(v.address);
+    const zip = normalizeZip(v.zip);
+    const street = normalizeStreet(addr);
     if (addr && v.city && v.state) {
-      byAddressCityState.set([normalize(addr), normalize(v.city), normalize(v.state)].join("|"), v);
+      addToMap(byAddressCityState, [normalize(addr), normalize(v.city), normalize(v.state)].join("|"), v);
     }
     if (v.name && v.city && v.state) {
-      byNameCityState.set([normalize(v.name), normalize(v.city), normalize(v.state)].join("|"), v);
+      addToMap(byNameCityState, [normalize(v.name), normalize(v.city), normalize(v.state)].join("|"), v);
+    }
+    if (addr && v.state && zip) {
+      addToMap(byAddressStateZip, [normalize(addr), normalize(v.state), zip].join("|"), v);
+    }
+    if (street && v.state && zip) {
+      addToMap(byStreetStateZip, [street, normalize(v.state), zip].join("|"), v);
+    }
+    if (street && v.city && v.state) {
+      addToMap(byStreetCityState, [street, normalize(v.city), normalize(v.state)].join("|"), v);
     }
   };
   venues.forEach(indexVenue);
+
+  const pickBestVenue = (list: VenueRow[]) => {
+    if (!list.length) return null;
+    const ranked = [...list].sort((a, b) => {
+      const aOwl = owlRunVenueIds.has(a.id) ? 1 : 0;
+      const bOwl = owlRunVenueIds.has(b.id) ? 1 : 0;
+      if (aOwl !== bOwl) return bOwl - aOwl;
+      const aHasUrl = clean(a.venue_url) ? 1 : 0;
+      const bHasUrl = clean(b.venue_url) ? 1 : 0;
+      if (aHasUrl !== bHasUrl) return bHasUrl - aHasUrl;
+      return 0;
+    });
+    return ranked[0] ?? null;
+  };
 
   let scanned = 0;
   let withVenueData = 0;
@@ -372,12 +429,25 @@ async function run() {
         const city = clean(pv.city) ?? clean(t.city);
         const state = clean(pv.state)?.toUpperCase() ?? clean(t.state)?.toUpperCase() ?? null;
         const address = clean(pv.address);
+        const zip = normalizeZip(pv.zip);
+        const street = normalizeStreet(address);
         if (!address || !city || !state) continue;
 
         const addrKey = [normalize(address), normalize(city), normalize(state)].join("|");
         const nameKey = [normalize(pv.name), normalize(city), normalize(state)].join("|");
+        const addrZipKey = zip ? [normalize(address), normalize(state), zip].join("|") : "";
+        const streetZipKey = zip ? [street, normalize(state), zip].join("|") : "";
+        const streetCityKey = [street, normalize(city), normalize(state)].join("|");
 
-        let venue = byAddressCityState.get(addrKey) ?? (pv.name ? byNameCityState.get(nameKey) : undefined) ?? null;
+        const matchCandidates: VenueRow[] = [
+          ...(byAddressCityState.get(addrKey) ?? []),
+          ...(pv.name ? byNameCityState.get(nameKey) ?? [] : []),
+          ...(addrZipKey ? byAddressStateZip.get(addrZipKey) ?? [] : []),
+          ...(streetZipKey ? byStreetStateZip.get(streetZipKey) ?? [] : []),
+          ...(street ? byStreetCityState.get(streetCityKey) ?? [] : []),
+        ];
+        const uniqueCandidates = Array.from(new Map(matchCandidates.map((v) => [v.id, v])).values());
+        let venue = pickBestVenue(uniqueCandidates);
 
         if (!venue && APPLY) {
           const payload: Record<string, unknown> = {
@@ -428,9 +498,9 @@ async function run() {
         }
 
         if (!APPLY) {
-          if (byAddressCityState.has(addrKey) || (pv.name && byNameCityState.has(nameKey))) linkedExisting += 1;
+          if (uniqueCandidates.length > 0) linkedExisting += 1;
           else created += 1;
-        } else if (byAddressCityState.has(addrKey) || (pv.name && byNameCityState.has(nameKey))) {
+        } else if (uniqueCandidates.length > 0) {
           linkedExisting += 1;
         }
       }
@@ -464,4 +534,3 @@ run().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-

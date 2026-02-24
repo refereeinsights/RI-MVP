@@ -1,6 +1,75 @@
 # Running Notes
 
 ## 2026-02-24
+- Data inventory export for TI/RI planning and review UX work:
+  - Added:
+    - `docs/ti_ri_tournament_venue_fields.csv`
+  - Includes unified tournament/venue field inventory with:
+    - scope tag (`TI`, `RI`, `Both`),
+    - access/tier label (`free`, `paid`, `ri_admin`, `internal`, etc.),
+    - database data type,
+    - field notes for UI/review tooling handoff.
+
+- Venue data quality hardening + cleanup (Owl's Eye / venues):
+  - Added strict junk suppression in Owl's Eye Ready list:
+    - now excludes venues with zero linked tournaments,
+    - filters obvious division/age placeholder venue names.
+    - file:
+      - `apps/referee/app/admin/page.tsx`
+  - Added safe cleanup utilities:
+    - `scripts/ingest/cleanup_junk_venue_links.ts`
+      - removes junk `tournament_venues` links only when a non-junk venue link already exists for that tournament,
+      - deletes newly orphaned junk venues (when not linked + no Owl's Eye runs).
+    - `scripts/ingest/cleanup_junk_venues.ts`
+      - supports unlinked junk venue dry-run/apply review.
+  - Executed cleanup passes:
+    - first pass removed 92 junk links and 63 orphan junk venues,
+    - follow-up passes removed additional safe junk links/orphans after repair chunks.
+
+- Missing-venue crawler matching improvements (reduce duplicate venue creation):
+  - Updated crawlers to prefer existing venues before insert, using multi-key matching:
+    - exact `address+city+state`,
+    - `name+city+state`,
+    - `address+state+zip`,
+    - relaxed `street+state+zip`,
+    - relaxed `street+city+state`.
+  - Added match tie-break preference:
+    - venues with Owl's Eye run history first,
+    - then venues with populated `venue_url`.
+  - files:
+    - `scripts/ingest/link_missing_venues_deep.ts`
+    - `scripts/ingest/link_ayso_missing_venues.ts`
+    - `scripts/ingest/link_usssa_missing_venues.ts`
+  - Added `--include-junk-linked` mode and request timeout controls to deep crawler so tournaments with only junk-linked venues can be reprocessed safely in chunks.
+
+- Admin venues workflow upgrades:
+  - Added linked tournament count in venue row summary.
+  - Added linked tournament names preview under the address/summary block in collapsed rows.
+  - Added bulk selection + **Clean delete selected** action on `/admin/venues`.
+  - New API route for bulk clean deletion:
+    - `apps/referee/app/api/admin/venues/bulk-delete/route.ts`
+  - Clean delete behavior (single + bulk):
+    - remove Owl's Eye nearby/map/run rows for target venues,
+    - remove `tournament_venues` join links,
+    - remove `venues` rows.
+  - files:
+    - `apps/referee/components/admin/VenuesListClient.tsx`
+    - `apps/referee/components/admin/VenueRow.tsx`
+    - `apps/referee/components/admin/VenueActions.tsx`
+    - `apps/referee/app/admin/venues/page.tsx`
+    - `apps/referee/app/api/admin/venues/[id]/route.ts`
+    - `apps/referee/app/api/admin/venues/bulk-delete/route.ts`
+
+- Delete safeguards for Owl's Eye data:
+  - Added explicit warning/confirmation in UI before deleting any venue with Owl's Eye data (single + bulk).
+  - Enforced server-side confirmation requirement:
+    - delete returns `409 owl_data_confirm_required` when Owl's Eye runs exist and explicit confirm flag is missing.
+  - files:
+    - `apps/referee/components/admin/VenueActions.tsx`
+    - `apps/referee/components/admin/VenuesListClient.tsx`
+    - `apps/referee/app/api/admin/venues/[id]/route.ts`
+    - `apps/referee/app/api/admin/venues/bulk-delete/route.ts`
+
 - Missing-venues one-time cleanup + counting alignment:
   - Added one-time script to backfill `tournament_venues` from embedded tournament venue/address fields while matching existing venues first:
     - `scripts/ingest/link_embedded_tournament_venues.cjs`

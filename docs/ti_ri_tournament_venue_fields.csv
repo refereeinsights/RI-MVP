@@ -1,0 +1,110 @@
+entity,field_name,data_type,scope,tier,notes
+tournament,id,uuid,Both,free,Primary key
+tournament,slug,text,Both,free,Public route key
+tournament,name,text,Both,free,Display name
+tournament,sport,text,Both,free,Canonical sport key
+tournament,level,text,Both,free,Age/level grouping
+tournament,level_of_competition,text,RI,ri_admin,Internal/admin competition detail
+tournament,tournament_association,text,Both,free,Ex: AYSO filter
+tournament,state,text,Both,free,2-letter state
+tournament,city,text,Both,free,City
+tournament,zip,text,Both,free,ZIP/postal
+tournament,start_date,date,Both,free,Start date
+tournament,end_date,date,Both,free,End date
+tournament,official_website_url,text,Both,free,External official link
+tournament,source_url,text,Both,free,Discovered source link
+tournament,source_domain,text,RI,ri_admin,Crawler/source metadata
+tournament,source,text,RI,ri_admin,Ingestion source type
+tournament,sub_type,text,RI,ri_admin,Parser sub-type
+tournament,summary,text,Both,free,Summary/description
+tournament,venue,text,Both,free,Legacy venue text
+tournament,address,text,Both,free,Legacy address text
+tournament,venue_url,text,RI,ri_admin,Tournament-level venue/map URL candidate
+tournament,age_group,text,Both,free_data_not_rendered,In public view but not currently rendered on TI cards/details
+tournament,team_fee,text,Both,free_data_not_rendered,In public view but not currently rendered on TI details
+tournament,games_guaranteed,text,Both,free_data_not_rendered,In public view but not currently rendered on TI details
+tournament,player_parking,text,Both,free_data_not_rendered,Tournament-level parking text in public view
+tournament,tournament_director,text,Both,free_data_not_rendered,In public view but not currently rendered on TI
+tournament,referee_contact,text,RI,ri_admin,Namespaced as referee-oriented field
+tournament,tournament_director_email,text,RI,ri_admin,Admin/ref data
+tournament,tournament_director_phone,text,RI,ri_admin,Admin/ref data
+tournament,referee_contact_email,text,RI,ri_admin,Admin/ref data
+tournament,referee_contact_phone,text,RI,ri_admin,Admin/ref data
+tournament,referee_pay,text,RI,ri_admin,Ref logistics/comp
+tournament,ref_cash_tournament,boolean,RI,ri_admin,Ref-only cash indicator
+tournament,ref_cash_at_field,boolean,RI,ri_admin,Ref-only cash-at-field indicator
+tournament,referee_food,text,RI,ri_admin,Enum: snacks|meal
+tournament,facilities,text,RI,ri_admin,Enum: restrooms|portables
+tournament,referee_tents,text,RI,ri_admin,Enum yes|no
+tournament,travel_lodging,text,RI,ri_admin,Enum: hotel|stipend
+tournament,ref_game_schedule,text,RI,ri_admin,Enum for schedule quality
+tournament,ref_parking,text,RI,ri_admin,Enum: close|a stroll|a hike
+tournament,ref_parking_cost,text,RI,ri_admin,Enum: free|paid
+tournament,ref_mentors,text,RI,ri_admin,Enum yes|no
+tournament,assigned_appropriately,text,RI,ri_admin,Enum yes|no
+tournament,tournament_staff_verified,boolean,Both,free_data_not_rendered,Public-safe badge field not currently rendered in TI
+tournament,status,text,RI,ri_admin,Workflow status (draft/published/etc)
+tournament,is_canonical,boolean,RI,ri_admin,Canonical dedupe flag
+tournament,enrichment_skip,boolean,RI,ri_admin,Crawler skip flag
+tournament,fees_venue_scraped_at,timestamptz,RI,ri_admin,Cooldown timestamp for fees/venue scrape
+tournament,discovery_source_id,uuid,RI,ri_admin,Source tracking FK
+tournament,discovery_sweep_id,uuid,RI,ri_admin,Sweep tracking FK
+tournament,schedule_organization_score,integer,RI,ri_admin,1-5 scoring field
+tournament,organizer_communication_score,integer,RI,ri_admin,1-5 scoring field
+tournament,check_in_process_score,integer,RI,ri_admin,1-5 scoring field
+tournament,competition_level_accuracy_score,integer,RI,ri_admin,1-5 scoring field
+tournament,value_for_cost_score,integer,RI,ri_admin,1-5 scoring field
+tournament,game_scheduling_balance_score,integer,RI,ri_admin,1-5 scoring field
+tournament,overall_experience_score,integer,RI,ri_admin,1-5 scoring field
+tournament,weather_contingency_handling_score,integer,RI,ri_admin,1-5 scoring field
+tournament,vendor_merchandise_quality_score,integer,RI,ri_admin,1-5 scoring field
+tournament,created_at,timestamptz,Both,internal,Audit timestamp
+tournament,updated_at,timestamptz,Both,internal,Audit timestamp
+venue,id,uuid,Both,free,Primary key
+venue,name,text,Both,free,Venue display name
+venue,address,text,Both,free,Street/address text (legacy/base)
+venue,address1,text,Both,free,Primary normalized street line
+venue,city,text,Both,free,City
+venue,state,text,Both,free,State
+venue,zip,text,Both,free,ZIP/postal
+venue,latitude,double precision,Both,free,Used for maps/geospatial
+venue,longitude,double precision,Both,free,Used for maps/geospatial
+venue,venue_url,text,Both,free,Shown as Venue URL/Map button on TI detail
+venue,sport,text,Both,free,Venue sport/fallback classification
+venue,notes,text,Both,free,Shown in TI /venues cards
+venue,timezone,text,RI,ri_admin,Derived from geo/address
+venue,normalized_address,text,RI,ri_admin,Address verify/canonicalization
+venue,geocode_source,text,RI,ri_admin,How geocode was obtained
+venue,field_type,text,RI,ri_admin,Venue/field metadata
+venue,indoor,boolean,RI,ri_admin,Venue/field metadata
+venue,lighting,boolean,RI,ri_admin,Venue/field metadata
+venue,field_lighting,boolean,RI,ri_admin,Venue/field metadata
+venue,field_count,integer,RI,ri_admin,Venue/field metadata
+venue,field_monitors,boolean,RI,ri_admin,Venue/field metadata
+venue,venue_type,text,RI,ri_admin,Enum: complex|school|stadium|park
+venue,field_rating,integer,RI,ri_admin,1-5 general rating
+venue,restrooms,text,Both,paid,"Paid TI detail field; allowed values Portable|Building|Both"
+venue,restrooms_cleanliness,integer,RI,ri_admin,1-5 venue quality metric
+venue,amenities,text,Both,paid,Paid TI detail field
+venue,player_parking,text,Both,paid,Paid TI detail field
+venue,parking_notes,text,Both,paid,Paid TI detail field
+venue,spectator_seating,text,Both,paid,Paid TI detail field
+venue,bring_field_chairs,boolean,Both,paid,Paid TI detail field
+venue,seating_notes,text,Both,paid,Paid TI detail field
+venue,food_vendors,boolean,Both,paid,Paid TI detail field
+venue,coffee_vendors,boolean,Both,paid,Paid TI detail field
+venue,tournament_vendors,boolean,Both,paid,Paid TI detail field
+venue,ref_paid_parking,boolean,RI,ri_admin,Ref-only parking-paid field
+venue,referee_mentors,boolean,RI,ri_admin,Ref-only venue support marker
+venue,referee_tent,text,RI,ri_admin,Ref-only venue support marker
+venue,field_court_condition_score,integer,RI,ri_admin,1-5 venue scoring
+venue,parking_convenience_score,integer,RI,ri_admin,1-5 venue scoring
+venue,spectator_seating_availability_score,integer,RI,ri_admin,1-5 venue scoring
+venue,shade_weather_protection_score,integer,RI,ri_admin,1-5 venue scoring
+venue,food_concessions_quality_score,integer,RI,ri_admin,1-5 venue scoring
+venue,overall_cleanliness_score,integer,RI,ri_admin,1-5 venue scoring
+venue,ease_of_navigation_score,integer,RI,ri_admin,1-5 venue scoring
+venue,accessibility_score,integer,RI,ri_admin,1-5 venue scoring
+venue,lighting_score,integer,RI,ri_admin,1-5 venue scoring
+venue,created_at,timestamptz,Both,internal,Audit timestamp
+venue,updated_at,timestamptz,Both,internal,Audit timestamp

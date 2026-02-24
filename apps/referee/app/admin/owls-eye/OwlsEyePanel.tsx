@@ -48,6 +48,18 @@ type RunReport = {
   };
 };
 
+type DuplicateCandidate = {
+  venue_id: string;
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  score: number;
+  has_owl_runs: boolean;
+  owl_run_count: number;
+};
+
 type OwlsEyePanelProps = {
   embedded?: boolean;
   adminToken?: string;
@@ -168,6 +180,8 @@ export default function OwlsEyePanel({
   const [mergeTargetId, setMergeTargetId] = useState("");
   const [mergeBusySourceId, setMergeBusySourceId] = useState<string | null>(null);
   const [mergeMessage, setMergeMessage] = useState<string | null>(null);
+  const [deletingVenueId, setDeletingVenueId] = useState<string | null>(null);
+  const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
 
   const [venueId, setVenueId] = useState(initialVenueId ?? "");
   const [sport, setSport] = useState<Sport>("soccer");
@@ -175,6 +189,9 @@ export default function OwlsEyePanel({
   const [runStatus, setRunStatus] = useState<RunStatus>("idle");
   const [runMessage, setRunMessage] = useState<string | null>(null);
   const [runReport, setRunReport] = useState<RunReport | null>(null);
+  const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateCandidate[]>([]);
+  const [duplicateSourceVenueId, setDuplicateSourceVenueId] = useState<string | null>(null);
+  const [mergeAndRunBusy, setMergeAndRunBusy] = useState(false);
   const [nearbyTab, setNearbyTab] = useState<"food" | "coffee" | "hotels">("food");
   const [sunPathEnabled, setSunPathEnabled] = useState(true);
 
@@ -286,8 +303,62 @@ export default function OwlsEyePanel({
     }
   };
 
-  const startRun = async () => {
-    const trimmedVenueId = venueId.trim();
+  const deleteVenue = async (venue: VenueSearchResult) => {
+    if (
+      !window.confirm(
+        `Clean delete venue "${venue.name || venue.venue_id}"? This unlinks tournaments and removes the venue.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingVenueId(venue.venue_id);
+    setDeleteMessage(null);
+    setSearchError(null);
+
+    const runDelete = async (confirmOwlDelete: boolean) => {
+      const resp = await fetch(`/api/admin/venues/${encodeURIComponent(venue.venue_id)}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...sharedHeaders,
+        },
+        body: JSON.stringify({ confirm_owl_delete: confirmOwlDelete }),
+      });
+      const json = await resp.json().catch(() => ({} as Record<string, unknown>));
+      return { resp, json };
+    };
+
+    try {
+      let { resp, json } = await runDelete(false);
+
+      if (!resp.ok && resp.status === 409 && (json as any)?.error === "owl_data_confirm_required") {
+        const confirmed = window.confirm(
+          "This venue has Owl's Eye data. Delete Owl's Eye runs/artifacts/nearby and continue?"
+        );
+        if (!confirmed) return;
+        ({ resp, json } = await runDelete(true));
+      }
+
+      if (!resp.ok) {
+        throw new Error((json as any)?.error || (json as any)?.message || "Delete failed");
+      }
+
+      setReadyRows((prev) => prev.filter((row) => row.venue_id !== venue.venue_id));
+      setSearchResults((prev) => prev.filter((row) => row.venue_id !== venue.venue_id));
+      if (venueId === venue.venue_id) {
+        setVenueId("");
+      }
+      setDeleteMessage("Venue deleted.");
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : "Delete failed.");
+    } finally {
+      setDeletingVenueId(null);
+    }
+  };
+
+  const startRun = async (allowDuplicate = false, venueOverride?: string) => {
+    const trimmedVenueId = (venueOverride ?? venueId).trim();
     if (!trimmedVenueId) {
       setRunStatus("error");
       setRunMessage("Venue ID is required.");
@@ -297,6 +368,7 @@ export default function OwlsEyePanel({
     setRunStatus("running");
     setRunMessage(null);
     setRunReport(null);
+    if (!allowDuplicate) setDuplicateCandidates([]);
 
     try {
       const resp = await fetch("/api/admin/owls-eye/run", {
@@ -309,6 +381,7 @@ export default function OwlsEyePanel({
           venue_id: trimmedVenueId,
           sport,
           published_map_url: mapUrl.trim() || undefined,
+          allow_duplicate: allowDuplicate,
         }),
       });
 
@@ -316,6 +389,17 @@ export default function OwlsEyePanel({
       const errorMessage = json?.error || json?.message;
 
       if (!resp.ok || json?.ok === false) {
+        if (resp.status === 409 && json?.code === "DUPLICATE_VENUE_SUSPECT" && Array.isArray(json?.candidates)) {
+          const candidates = json.candidates as DuplicateCandidate[];
+          setDuplicateCandidates(candidates);
+          setDuplicateSourceVenueId(trimmedVenueId);
+          if (candidates[0]?.venue_id) {
+            setMergeTargetId(candidates[0].venue_id);
+          }
+          setRunStatus("error");
+          setRunMessage(errorMessage || "Possible duplicate venue found.");
+          return;
+        }
         setRunStatus("error");
         setRunMessage(errorMessage || "Run failed.");
         setRunReport(json?.report ?? json);
@@ -330,10 +414,69 @@ export default function OwlsEyePanel({
           ? `Owl's Eye run completed. food=${totals.food}, coffee=${totals.coffee}, hotels=${totals.hotels}`
           : "Owl's Eye run completed."
       );
+      setDuplicateCandidates([]);
+      setDuplicateSourceVenueId(null);
       setRunReport(nextReport);
     } catch (err) {
       setRunStatus("error");
       setRunMessage(err instanceof Error ? err.message : "Unknown error");
+    }
+  };
+
+  const mergeSuggestedAndRun = async () => {
+    const sourceId = (duplicateSourceVenueId ?? venueId).trim();
+    const targetId = (mergeTargetId.trim() || duplicateCandidates[0]?.venue_id || "").trim();
+    if (!sourceId || !targetId) {
+      setRunStatus("error");
+      setRunMessage("Missing source or suggested target venue ID.");
+      return;
+    }
+    if (sourceId === targetId) {
+      setRunStatus("error");
+      setRunMessage("Suggested target is the same as source venue.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Merge current venue ${sourceId} into suggested target ${targetId}, then run Owl's Eye on target?`
+      )
+    ) {
+      return;
+    }
+
+    setMergeAndRunBusy(true);
+    setRunStatus("running");
+    setRunMessage("Merging venue into suggested target...");
+    try {
+      const resp = await fetch("/api/admin/venues/merge", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...sharedHeaders,
+        },
+        body: JSON.stringify({
+          source_venue_id: sourceId,
+          target_venue_id: targetId,
+          remove_source: true,
+        }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(json?.error || "Merge failed");
+      }
+
+      setReadyRows((prev) => prev.filter((row) => row.venue_id !== sourceId));
+      setSearchResults((prev) => prev.filter((row) => row.venue_id !== sourceId));
+      setVenueId(targetId);
+      setDuplicateCandidates([]);
+      setDuplicateSourceVenueId(null);
+      setRunMessage("Merge complete. Running Owl's Eye on target...");
+      await startRun(false, targetId);
+    } catch (err) {
+      setRunStatus("error");
+      setRunMessage(err instanceof Error ? err.message : "Merge failed.");
+    } finally {
+      setMergeAndRunBusy(false);
     }
   };
 
@@ -450,12 +593,12 @@ export default function OwlsEyePanel({
   };
 
   return (
-    <div style={{ padding: embedded ? 0 : "24px", maxWidth: 900 }}>
+    <div style={{ padding: embedded ? 0 : "24px", maxWidth: 860 }}>
       <h1>Owl&apos;s Eye Admin</h1>
       <p>Search venues and trigger a manual Owl&apos;s Eye run.</p>
 
       <div style={{ display: "grid", gap: 24, marginTop: 12 }}>
-        <div style={{ border: "1px solid #ddd", padding: 16, borderRadius: 8 }}>
+        <div style={{ border: "1px solid #ddd", padding: 16, borderRadius: 8, maxWidth: 780 }}>
           <h2 style={{ marginTop: 0 }}>Owl&apos;s Eye Ready (Not Run)</h2>
           <p style={{ color: "#555", marginTop: 0 }}>
             Venues with enough location data that have no Owl&apos;s Eye run yet.
@@ -478,6 +621,7 @@ export default function OwlsEyePanel({
                 {mergeMessage}
               </div>
             ) : null}
+            {deleteMessage ? <div style={{ color: "#065f46" }}>{deleteMessage}</div> : null}
           </div>
           <div style={{ fontSize: 13, color: "#374151", marginBottom: 8 }}>
             Found: <strong>{readyRows.length}</strong>
@@ -500,12 +644,12 @@ export default function OwlsEyePanel({
                     }}
                   >
                     <div style={{ fontWeight: 600 }}>{venue.name || "Unnamed venue"}</div>
-                    <div style={{ color: "#444" }}>
+                    <div style={{ color: "#444", overflowWrap: "anywhere" }}>
                       {venue.street || "Address missing"}
                       {locationParts ? ` • ${locationParts}` : ""}
                     </div>
                     {typeof venue.tournament_count === "number" && venue.tournament_count > 0 ? (
-                      <div style={{ fontSize: 12, color: "#1f2937" }}>
+                      <div style={{ fontSize: 12, color: "#1f2937", overflowWrap: "anywhere" }}>
                         Linked tournaments: <strong>{venue.tournament_count}</strong>
                         {Array.isArray(venue.tournament_names) && venue.tournament_names.length > 0 ? (
                           <> — {venue.tournament_names.join("; ")}</>
@@ -535,6 +679,20 @@ export default function OwlsEyePanel({
                       >
                         Open
                       </a>
+                      <button
+                        onClick={() => deleteVenue(venue)}
+                        disabled={deletingVenueId === venue.venue_id}
+                        style={{
+                          padding: "4px 8px",
+                          borderRadius: 6,
+                          border: "1px solid #ef4444",
+                          color: "#b91c1c",
+                          background: "#fff",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {deletingVenueId === venue.venue_id ? "Deleting..." : "Delete"}
+                      </button>
                     </div>
                   </div>
                 );
@@ -543,7 +701,7 @@ export default function OwlsEyePanel({
           )}
         </div>
 
-        <div style={{ border: "1px solid #ddd", padding: 16, borderRadius: 8 }}>
+        <div style={{ border: "1px solid #ddd", padding: 16, borderRadius: 8, maxWidth: 780 }}>
           <h2 style={{ marginTop: 0 }}>Venue Search</h2>
           <div style={{ display: "grid", gap: 8, maxWidth: 520 }}>
             <label>
@@ -583,7 +741,7 @@ export default function OwlsEyePanel({
                     }}
                   >
                     <div style={{ fontWeight: 600 }}>{venueLabel}</div>
-                    <div style={{ color: "#444" }}>
+                    <div style={{ color: "#444", overflowWrap: "anywhere" }}>
                       {locationParts || "City/state unknown"}
                       {venue.street ? ` — ${venue.street}` : ""}
                     </div>
@@ -594,6 +752,20 @@ export default function OwlsEyePanel({
                       </button>
                       <button onClick={() => handleUseVenue(venue)} style={{ padding: "4px 8px" }}>
                         Use
+                      </button>
+                      <button
+                        onClick={() => deleteVenue(venue)}
+                        disabled={deletingVenueId === venue.venue_id}
+                        style={{
+                          padding: "4px 8px",
+                          borderRadius: 6,
+                          border: "1px solid #ef4444",
+                          color: "#b91c1c",
+                          background: "#fff",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {deletingVenueId === venue.venue_id ? "Deleting..." : "Delete"}
                       </button>
                     </div>
                   </div>
@@ -679,7 +851,7 @@ export default function OwlsEyePanel({
               />
             </label>
 
-            <button onClick={startRun} disabled={runStatus === "running"}>
+            <button onClick={() => startRun(false)} disabled={runStatus === "running"}>
               {runStatus === "running" ? "Running…" : "Run Owl's Eye"}
             </button>
             {runMessage && (
@@ -687,6 +859,90 @@ export default function OwlsEyePanel({
                 {runMessage}
               </div>
             )}
+            {duplicateCandidates.length > 0 ? (
+              <div
+                style={{
+                  border: "1px solid #f59e0b",
+                  background: "#fffbeb",
+                  borderRadius: 8,
+                  padding: 10,
+                  display: "grid",
+                  gap: 8,
+                }}
+              >
+                <div style={{ fontWeight: 700, color: "#92400e" }}>
+                  Possible duplicate venue(s) found
+                </div>
+                <div style={{ fontSize: 12, color: "#7c2d12" }}>
+                  Suggested merge target:{" "}
+                  <code style={{ fontSize: 12 }}>
+                    {mergeTargetId || duplicateCandidates[0]?.venue_id || "none"}
+                  </code>
+                </div>
+                {duplicateCandidates.map((candidate) => (
+                  <div
+                    key={`dup-${candidate.venue_id}`}
+                    style={{
+                      border: "1px solid #fde68a",
+                      borderRadius: 8,
+                      padding: 8,
+                      display: "grid",
+                      gap: 6,
+                      background: "#fff",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700 }}>{candidate.name || candidate.venue_id}</div>
+                    <div style={{ fontSize: 12, color: "#444", overflowWrap: "anywhere" }}>
+                      {[candidate.address, candidate.city, candidate.state, candidate.zip].filter(Boolean).join(" • ")}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#374151" }}>
+                      Match score {candidate.score}
+                      {candidate.has_owl_runs ? ` • Owl's Eye runs: ${candidate.owl_run_count}` : ""}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleUseVenue({
+                            venue_id: candidate.venue_id,
+                            name: candidate.name,
+                            street: candidate.address,
+                            city: candidate.city,
+                            state: candidate.state,
+                            zip: candidate.zip,
+                            sport: sport,
+                          })
+                        }
+                        style={{ padding: "6px 10px" }}
+                      >
+                        Use this venue
+                      </button>
+                      <a
+                        href={`/admin/venues/${candidate.venue_id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: 6, textDecoration: "none" }}
+                      >
+                        Open venue
+                      </a>
+                    </div>
+                  </div>
+                ))}
+                <div>
+                  <button
+                    type="button"
+                    onClick={mergeSuggestedAndRun}
+                    disabled={mergeAndRunBusy || runStatus === "running"}
+                    style={{ padding: "6px 10px", fontWeight: 700, marginRight: 8 }}
+                  >
+                    {mergeAndRunBusy ? "Merging + running..." : "Merge into suggested target + run"}
+                  </button>
+                  <button type="button" onClick={() => startRun(true)} style={{ padding: "6px 10px", fontWeight: 700 }}>
+                    Run anyway for current venue
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {runReport && (

@@ -3,8 +3,9 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AdminNav from "@/components/admin/AdminNav";
-import VenueRow, { VenueItem } from "@/components/admin/VenueRow";
+import { VenueItem } from "@/components/admin/VenueRow";
 import VenueAddressVerifyPanel from "@/components/admin/VenueAddressVerifyPanel";
+import VenuesListClient from "@/components/admin/VenuesListClient";
 
 type VenueRow = {
   id: string;
@@ -361,13 +362,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 
       <VenueAddressVerifyPanel />
 
-      <div style={{ display: "grid", gap: 12 }}>
-        {filteredVenues.length === 0 ? (
-          <div style={{ padding: 12, color: "#6b7280", fontSize: 14 }}>No venues found.</div>
-        ) : (
-          filteredVenues.map((v) => <VenueRow key={v.id} venue={v} />)
-        )}
-      </div>
+      <VenuesListClient venues={filteredVenues} />
     </div>
   );
 }
