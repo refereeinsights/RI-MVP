@@ -11,6 +11,9 @@
   - UI cleanup for TI user table:
     - moved delete controls under user identity block,
     - added subtle row striping + stronger separators for scanability.
+  - Follow-up TI user-table polish:
+    - delete controls now render in a single horizontal action row under the user identity block,
+    - increased zebra-striping contrast for faster visual row separation.
   - Validation:
     - `npm run build --workspace referee-app` passed.
 

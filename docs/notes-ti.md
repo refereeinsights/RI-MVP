@@ -8,6 +8,9 @@
   - Refined TI-user table UX:
     - delete controls moved under user identity,
     - subtle zebra striping and row separators for readability in larger TI-user lists.
+  - UI follow-up refinement:
+    - delete options consolidated into one horizontal action row under user identity,
+    - zebra striping contrast increased for clearer row-to-row separation.
 
 - TI signup confirmation redirect hardening (shared Supabase project safety):
   - `apps/ti-web/app/signup/page.tsx`

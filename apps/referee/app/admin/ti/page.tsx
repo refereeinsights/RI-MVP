@@ -386,7 +386,7 @@ export default async function TiAdminPage({
               </thead>
               <tbody>
                 {((tiUsers ?? []) as TiUserRow[]).map((row, idx) => (
-                  <tr key={row.id} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fbfdff" }}>
+                  <tr key={row.id} style={{ background: idx % 2 === 0 ? "#ffffff" : "#f1f5f9" }}>
                     <td style={{ borderBottom: "1px solid #e2e8f0", padding: "10px 8px", verticalAlign: "top" }}>
                       <div style={{ fontWeight: 700 }}>{row.email ?? "—"}</div>
                       <div style={{ fontFamily: "monospace", fontSize: 11, color: "#64748b", marginTop: 3 }}>{row.id}</div>
@@ -404,29 +404,31 @@ export default async function TiAdminPage({
                         <form action={deleteTiUserAction} style={{ display: "grid", gap: 6 }}>
                           <input type="hidden" name="id" value={row.id} />
                           <input type="hidden" name="q" value={q} />
-                          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                            <input type="checkbox" name="confirm_delete" />
-                            Confirm delete TI record
-                          </label>
-                          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#b91c1c" }}>
-                            <input type="checkbox" name="delete_auth_user" />
-                            Also delete global auth user (RI + TI)
-                          </label>
-                          <button
-                            type="submit"
-                            style={{
-                              width: "fit-content",
-                              background: "#fee2e2",
-                              border: "1px solid #ef4444",
-                              color: "#991b1b",
-                              borderRadius: 7,
-                              padding: "6px 10px",
-                              fontWeight: 700,
-                              cursor: "pointer",
-                            }}
-                          >
-                            Delete user
-                          </button>
+                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+                            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                              <input type="checkbox" name="confirm_delete" />
+                              Confirm TI delete
+                            </label>
+                            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#b91c1c" }}>
+                              <input type="checkbox" name="delete_auth_user" />
+                              Include RI+TI auth delete
+                            </label>
+                            <button
+                              type="submit"
+                              style={{
+                                width: "fit-content",
+                                background: "#fee2e2",
+                                border: "1px solid #ef4444",
+                                color: "#991b1b",
+                                borderRadius: 7,
+                                padding: "6px 10px",
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Delete user
+                            </button>
+                          </div>
                         </form>
                       </div>
                     </td>
