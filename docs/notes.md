@@ -1,6 +1,16 @@
 # Running Notes
 
 ## 2026-02-25
+- TI verify-email completion fix (confirmation link now finalizes session):
+  - Added:
+    - `apps/ti-web/app/verify-email/VerifyCodeExchange.tsx`
+  - Updated:
+    - `apps/ti-web/app/verify-email/page.tsx`
+  - Behavior:
+    - when `/verify-email` receives `?code=...`, TI now calls `supabase.auth.exchangeCodeForSession(code)`,
+    - on success, redirects to sanitized `returnTo` (default `/account`),
+    - on failure/expired token, shows a clear inline error and keeps resend path available.
+
 - TI venue reviews parking backend normalization:
   - Added migration:
     - `supabase/migrations/20260225_venue_reviews_parking_distance_backend.sql`

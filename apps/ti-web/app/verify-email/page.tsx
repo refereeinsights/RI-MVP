@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { sanitizeReturnTo } from "@/lib/returnTo";
 import ResendVerificationForm from "./ResendVerificationForm";
+import VerifyCodeExchange from "./VerifyCodeExchange";
 
 export default async function VerifyEmailPage({
   searchParams,
@@ -25,6 +26,7 @@ export default async function VerifyEmailPage({
       <p style={{ margin: 0, color: "#475569" }}>
         Email verification is required to unlock Insider access. Once your email is verified, you can use your account and manage your tier from Account.
       </p>
+      <VerifyCodeExchange returnTo={returnTo} />
       <ResendVerificationForm initialEmail={user?.email ?? ""} returnTo={returnTo} />
       <div style={{ fontSize: 13 }}>
         Already verified? <Link href={`/login?returnTo=${encodeURIComponent(returnTo)}`}>Log in</Link>
