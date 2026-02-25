@@ -39,7 +39,12 @@ test.describe("RI public beta smoke: auth sanity", () => {
     await page.locator('input[type="password"]').fill(insider.password);
     await page.getByRole("button", { name: /sign in/i }).click();
 
-    await expect(page).toHaveURL(/\/account/);
+    await expect
+      .poll(() => new URL(page.url()).pathname, {
+        timeout: 20_000,
+        message: "Expected successful login to land on /account. If this fails, verify RI_SMOKE_EMAIL/RI_SMOKE_PASSWORD.",
+      })
+      .toBe("/account");
     await expect(page.getByRole("heading", { level: 1, name: "My account" })).toBeVisible();
   });
 });

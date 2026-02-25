@@ -1,4 +1,20 @@
 ## 2026-02-25
+- TI venue reviews parking model update (backend-only, UI labels unchanged):
+  - Added migration:
+    - `supabase/migrations/20260225_venue_reviews_parking_distance_backend.sql`
+  - Data model changes:
+    - added `public.venue_reviews.parking_distance` (`Close|Medium|Far`)
+    - converted `public.venue_reviews.parking_convenience_score` to integer scoring (`5/3/1`)
+  - Aggregate extension:
+    - added `public.venues.parking_convenience_score_avg`
+    - recompute function updated to populate this field from active reviews
+  - Submit RPC contract update:
+    - `public.submit_venue_review` now requires `p_parking_distance` and numeric `p_parking_convenience_score`
+    - enforces mapping consistency (Close=5, Medium=3, Far=1)
+  - TI API route updated:
+    - `apps/ti-web/app/api/venue-reviews/route.ts`
+    - maps existing parking radio selection to numeric score for RPC submit.
+
 - TI public beta smoke test pack added (auth/join/tier gating):
   - Added Playwright smoke test infra:
     - `playwright.smoke.config.ts`

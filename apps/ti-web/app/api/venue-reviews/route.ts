@@ -207,7 +207,7 @@ export async function POST(request: Request) {
   const restrooms = typeof body.restrooms === "string" ? body.restrooms.trim() : "";
   const restroomCleanliness = Number(body.restroom_cleanliness);
   const playerParkingFee = parseUsdToNumber(body.player_parking_fee);
-  const parkingConvenience =
+  const parkingDistance =
     typeof body.parking_convenience_score === "string" ? body.parking_convenience_score.trim() : "";
   const bringFieldChairs = typeof body.bring_field_chairs === "boolean" ? body.bring_field_chairs : null;
   const shadeScore = Number(body.shade_score);
@@ -218,6 +218,11 @@ export async function POST(request: Request) {
 
   const restroomsAllowed = new Set(["Portable", "Building", "Both"]);
   const parkingAllowed = new Set(["Close", "Medium", "Far"]);
+  const parkingScoreMap: Record<string, number> = {
+    Close: 5,
+    Medium: 3,
+    Far: 1,
+  };
 
   if (!venueId) return NextResponse.json({ ok: false, error: "Venue is required." }, { status: 400 });
   if (!restroomsAllowed.has(restrooms)) {
@@ -229,9 +234,10 @@ export async function POST(request: Request) {
   if (playerParkingFee === null) {
     return NextResponse.json({ ok: false, error: "Player parking fee must be a valid USD amount." }, { status: 400 });
   }
-  if (!parkingAllowed.has(parkingConvenience)) {
+  if (!parkingAllowed.has(parkingDistance)) {
     return NextResponse.json({ ok: false, error: "Invalid parking convenience value." }, { status: 400 });
   }
+  const parkingConvenienceScore = parkingScoreMap[parkingDistance];
   if (bringFieldChairs === null) {
     return NextResponse.json({ ok: false, error: "Bring field chairs must be Yes or No." }, { status: 400 });
   }
@@ -254,7 +260,8 @@ export async function POST(request: Request) {
     p_restrooms: restrooms,
     p_restroom_cleanliness: restroomCleanliness,
     p_player_parking_fee: playerParkingFee,
-    p_parking_convenience_score: parkingConvenience,
+    p_parking_distance: parkingDistance,
+    p_parking_convenience_score: parkingConvenienceScore,
     p_bring_field_chairs: bringFieldChairs,
     p_shade_score: shadeScore,
     p_food_vendors: foodVendors,

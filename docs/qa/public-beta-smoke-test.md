@@ -61,6 +61,7 @@ npm run test:smoke:ui
 - `TI_SMOKE_INSIDER_PASSWORD`
 - `TI_SMOKE_WEEKENDPRO_PASSWORD`
 - `TI_SMOKE_JOIN_CODE` (optional, defaults to `VALID`)
+- `RI_SMOKE_EMAIL` and `RI_SMOKE_PASSWORD` when RI auth is on a different Supabase project than TI
 
 For user seeding:
 
