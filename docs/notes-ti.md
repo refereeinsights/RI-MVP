@@ -1,4 +1,15 @@
 ## 2026-02-24
+- Cross-app venue quality update (RI admin changes benefiting TI venue integrity):
+  - Added duplicate-venue review panel in RI `/admin/venues` with suggested keep-target and one-click merge.
+  - Duplicate groups are now surfaced by normalized:
+    - exact address/city/state
+    - same name + street/state
+  - Verified and merged real duplicate venue case:
+    - `1200 Alimagnet Pkwy, Burnsville, MN`
+  - Effect for TI:
+    - less fragmented venue coverage,
+    - better Owl's Eye continuity on canonical venue IDs.
+
 - TI/RI field inventory export added for product/review planning:
   - Added:
     - `docs/ti_ri_tournament_venue_fields.csv`
@@ -575,3 +586,37 @@
 
 - Validation:
   - `npm run build --workspace referee-app` passed.
+
+## 2026-02-25
+
+- TI SEO sport+state hub pages added (TI-only, no RI changes):
+  - New dynamic route:
+    - `apps/ti-web/app/[sport]/[state]/page.tsx`
+  - URL behavior:
+    - Supports sport+state slug URLs (examples: `/soccer/oregon`, `/basketball/idaho`, `/volleyball/washington`)
+    - Normalizes sport slug via `normalizeSportSlug(...)`
+    - Normalizes state slug or 2-letter code via `mapStateSlugToCode(...)`
+    - Invalid sport/state returns `notFound()`
+  - Data behavior:
+    - Server-side Supabase query against `tournaments_public`
+    - Upcoming only (`end_date >= today`)
+    - Sort: `start_date ASC`, then `name ASC`
+    - Pagination enabled with `?page=` and page size `60` using `.range(...)`
+    - “Load more” CTA renders when additional pages exist
+  - UI/layout behavior:
+    - Reuses TI homepage global class patterns (`page`, `shell`, `hero`, `muted heroCopy`, `ctaRow`, `cta primary/secondary`, `bodyCard`, `bodyCardCenteredList`, `list`, `notice`, `clarity`)
+    - Reuses existing tournament card class structure from TI tournaments styles (`tournaments.css`)
+    - Includes empty-state fallback with curated nearby-state links and back link to `/tournaments`
+    - Includes FAQ section and matching FAQ JSON-LD on the page
+  - Metadata/SEO behavior:
+    - Implements `generateMetadata()` with canonical set to `/{sport}/{stateSlug}`
+    - Title format includes state, sport, and “Updated {Month YYYY}”
+    - Adds OG title/description/url
+
+- TI sitemap extended with sport+state SEO hubs:
+  - Updated:
+    - `apps/ti-web/app/sitemap.ts`
+  - Added all `/{sport}/{state}` combinations from `curatedSports x curatedStates` to sitemap output.
+
+- Build verification (TI):
+  - `npm run build --workspace ti-web` passed.

@@ -1,10 +1,19 @@
 import type { MetadataRoute } from "next";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { curatedSports, curatedStates } from "@/lib/seoHub";
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
 const SPORT_HUBS = ["soccer", "baseball", "lacrosse", "basketball", "hockey", "ayso"] as const;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const sportStateHubs: MetadataRoute.Sitemap = curatedSports.flatMap((sport) =>
+    curatedStates.map((state) => ({
+      url: `${SITE_ORIGIN}/${sport.slug}/${state.slug}`,
+      changeFrequency: "daily" as const,
+      priority: 0.75,
+    }))
+  );
+
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${SITE_ORIGIN}/`, changeFrequency: "weekly", priority: 1 },
     { url: `${SITE_ORIGIN}/tournaments`, changeFrequency: "daily", priority: 0.9 },
@@ -15,6 +24,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
     { url: `${SITE_ORIGIN}/how-it-works`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_ORIGIN}/list-your-tournament`, changeFrequency: "monthly", priority: 0.5 },
+    ...sportStateHubs,
   ];
 
   try {
