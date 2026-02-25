@@ -1,5 +1,17 @@
 # Running Notes
 
+## 2026-02-25
+- Admin venues build fix (Vercel type-check failure):
+  - Updated:
+    - `apps/referee/components/admin/VenuesListClient.tsx`
+  - Fix:
+    - removed client-side type import of `DuplicateVenueGroup` from server route module `app/admin/venues/page.tsx`,
+    - defined duplicate-group prop types locally inside `VenuesListClient` to avoid server/client module boundary type-resolution issues in Next build.
+  - Symptom resolved:
+    - `/admin/venues` build error: `Property 'duplicateGroups' does not exist on type 'Props'`.
+  - Validation:
+    - `npm run build --workspace referee-app` passed.
+
 ## 2026-02-24
 - Owl's Eye duplicate handling + venue merge review improvements:
   - Verified duplicate-check behavior against a real case:

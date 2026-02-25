@@ -1,16 +1,39 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 
 import VenueRow, { VenueItem } from "@/components/admin/VenueRow";
 
-type Props = {
-  venues: VenueItem[];
+type DuplicateVenueCandidate = {
+  id: string;
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  linked_tournaments: number;
+  owl_run_count: number;
+  venue_url: string | null;
 };
 
-export default function VenuesListClient({ venues }: Props) {
+type DuplicateVenueGroup = {
+  key: string;
+  kind: "exact_address_city_state" | "same_name_and_street_state";
+  suggested_target_id: string;
+  candidates: DuplicateVenueCandidate[];
+};
+
+type Props = {
+  venues: VenueItem[];
+  duplicateGroups?: DuplicateVenueGroup[];
+};
+
+export default function VenuesListClient({ venues, duplicateGroups = [] }: Props) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [mergingSource, setMergingSource] = useState<string | null>(null);
+  const [keepingSource, setKeepingSource] = useState<string | null>(null);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
@@ -64,8 +87,186 @@ export default function VenuesListClient({ venues }: Props) {
     }
   };
 
+  const mergeVenue = async (sourceVenueId: string, targetVenueId: string) => {
+    if (!sourceVenueId || !targetVenueId || sourceVenueId === targetVenueId) return;
+    if (!window.confirm(`Merge ${sourceVenueId} into ${targetVenueId}? This will delete the source venue.`)) {
+      return;
+    }
+    setMergingSource(sourceVenueId);
+    try {
+      const resp = await fetch("/api/admin/venues/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_venue_id: sourceVenueId, target_venue_id: targetVenueId, remove_source: true }),
+      });
+      if (!resp.ok) {
+        const json = await resp.json().catch(() => ({}));
+        throw new Error(json?.error || "Merge failed");
+      }
+      window.location.reload();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Merge failed";
+      window.alert(message);
+    } finally {
+      setMergingSource(null);
+    }
+  };
+
+  const keepBoth = async (sourceVenueId: string, targetVenueId: string) => {
+    if (!sourceVenueId || !targetVenueId || sourceVenueId === targetVenueId) return;
+    if (!window.confirm(`Keep both venues (${sourceVenueId} and ${targetVenueId}) and stop flagging this pair as duplicate?`)) {
+      return;
+    }
+    setKeepingSource(sourceVenueId);
+    try {
+      const resp = await fetch("/api/admin/venues/duplicate-overrides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_venue_id: sourceVenueId,
+          target_venue_id: targetVenueId,
+          note: "Admin keep both",
+        }),
+      });
+      if (!resp.ok) {
+        const json = await resp.json().catch(() => ({}));
+        throw new Error(json?.error || "Keep both failed");
+      }
+      window.location.reload();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Keep both failed";
+      window.alert(message);
+    } finally {
+      setKeepingSource(null);
+    }
+  };
+
   return (
     <div style={{ display: "grid", gap: 12 }}>
+      {duplicateGroups.length > 0 ? (
+        <section
+          style={{
+            border: "1px solid #f59e0b",
+            background: "#fffaf0",
+            borderRadius: 10,
+            padding: 12,
+            display: "grid",
+            gap: 10,
+          }}
+        >
+          <div style={{ fontSize: 16, fontWeight: 800 }}>Duplicate venue candidates</div>
+          <div style={{ fontSize: 13, color: "#78350f" }}>
+            Review suggested targets and merge sources directly here. Suggested target prioritizes Owl&apos;s Eye history, linked tournaments, and venue URL.
+          </div>
+          {duplicateGroups.slice(0, 25).map((group) => (
+            <details key={`${group.kind}:${group.key}`} style={{ border: "1px solid #fde68a", borderRadius: 8, background: "#fff" }}>
+              <summary style={{ cursor: "pointer", padding: "8px 10px", fontWeight: 700 }}>
+                {group.kind === "exact_address_city_state" ? "Exact address match" : "Name + street match"} • {group.candidates.length} venues
+              </summary>
+              <div style={{ padding: "8px 10px", display: "grid", gap: 8 }}>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>
+                  Suggested target: <span style={{ fontFamily: "monospace", fontWeight: 700 }}>{group.suggested_target_id}</span>
+                </div>
+                {group.candidates.map((item) => {
+                  const isTarget = item.id === group.suggested_target_id;
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 8,
+                        padding: "8px 10px",
+                        display: "grid",
+                        gap: 5,
+                        background: isTarget ? "#ecfdf5" : "#fff",
+                      }}
+                    >
+                      <div style={{ fontWeight: 700 }}>{item.name || "Untitled venue"}</div>
+                      <div style={{ fontSize: 13, color: "#374151" }}>
+                        {[item.address, item.city, item.state, item.zip].filter(Boolean).join(" • ") || "—"}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>
+                        ID: <span style={{ fontFamily: "monospace" }}>{item.id}</span> • Linked tournaments: {item.linked_tournaments} • Owl&apos;s Eye runs: {item.owl_run_count}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <Link
+                          href={`/admin/venues/${item.id}`}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #d1d5db",
+                            textDecoration: "none",
+                            color: "#111827",
+                            fontSize: 13,
+                            background: "#fff",
+                          }}
+                        >
+                          Edit
+                        </Link>
+                        <Link
+                          href={`/admin/venues/${item.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #d1d5db",
+                            textDecoration: "none",
+                            color: "#374151",
+                            fontSize: 13,
+                            background: "#fff",
+                          }}
+                        >
+                          Open
+                        </Link>
+                      </div>
+                      {!isTarget ? (
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            onClick={() => mergeVenue(item.id, group.suggested_target_id)}
+                            disabled={mergingSource === item.id}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #1d4ed8",
+                              background: mergingSource === item.id ? "#dbeafe" : "#fff",
+                              color: "#1d4ed8",
+                              fontWeight: 700,
+                              cursor: mergingSource === item.id ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            {mergingSource === item.id ? "Merging..." : "Merge into suggested target"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => keepBoth(item.id, group.suggested_target_id)}
+                            disabled={keepingSource === item.id}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #b45309",
+                              background: keepingSource === item.id ? "#fde68a" : "#fff",
+                              color: "#92400e",
+                              fontWeight: 700,
+                              cursor: keepingSource === item.id ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            {keepingSource === item.id ? "Saving..." : "Keep both"}
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: "#065f46", fontWeight: 700 }}>Kept venue (suggested target)</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          ))}
+        </section>
+      ) : null}
+
       <div
         style={{
           display: "flex",
