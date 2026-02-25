@@ -13,6 +13,9 @@ type TiUserRow = {
   subscription_status: string | null;
   current_period_end: string | null;
   first_seen_at: string | null;
+  display_name: string | null;
+  reviewer_handle: string | null;
+  zip_code: string | null;
 };
 
 type SavedTournamentJoinRow = {
@@ -70,9 +73,17 @@ export default async function AccountPage() {
   if (!user) redirect("/login");
   if (!user.email_confirmed_at) redirect("/verify-email");
 
+  const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const displayNameRaw = typeof metadata.display_name === "string" ? metadata.display_name.trim() : "";
+  const reviewerHandleRaw = typeof metadata.handle === "string" ? metadata.handle.trim().toLowerCase() : "";
+  const zipRaw = typeof metadata.zip_code === "string" ? metadata.zip_code.trim() : "";
+  const displayName = displayNameRaw || null;
+  const reviewerHandle = /^[a-z0-9_]{3,20}$/.test(reviewerHandleRaw) ? reviewerHandleRaw : null;
+  const zipCode = /^\d{5}(-\d{4})?$/.test(zipRaw) ? zipRaw : null;
+
   const { data: profile } = await supabase
     .from("ti_users" as any)
-    .select("id,created_at,plan,subscription_status,current_period_end,first_seen_at")
+    .select("id,created_at,plan,subscription_status,current_period_end,first_seen_at,display_name,reviewer_handle,zip_code")
     .eq("id", user.id)
     .maybeSingle<TiUserRow>();
 
@@ -83,6 +94,9 @@ export default async function AccountPage() {
       .update({
         last_seen_at: nowIso,
         email: user.email ?? null,
+        ...(displayName ? { display_name: displayName } : {}),
+        ...(reviewerHandle ? { reviewer_handle: reviewerHandle } : {}),
+        ...(zipCode ? { zip_code: zipCode } : {}),
         ...(profile.first_seen_at ? {} : { first_seen_at: nowIso }),
       })
       .eq("id", user.id);
@@ -94,6 +108,9 @@ export default async function AccountPage() {
       last_seen_at: nowIso,
       plan: "insider",
       subscription_status: "none",
+      display_name: displayName,
+      reviewer_handle: reviewerHandle,
+      zip_code: zipCode,
     });
   }
 

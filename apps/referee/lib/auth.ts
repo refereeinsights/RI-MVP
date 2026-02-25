@@ -67,11 +67,33 @@ export async function signUpUser(input: {
     }
   }
 
+  const emailRedirectTo = (() => {
+    const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+    if (configured) {
+      try {
+        const url = new URL(configured);
+        const host = url.hostname.toLowerCase();
+        if (host.endsWith("refereeinsights.com") || host === "localhost") {
+          return `${url.origin.replace(/\/$/, "")}/account/login`;
+        }
+      } catch {
+        // Ignore malformed env and fall back below.
+      }
+    }
+
+    if (typeof window !== "undefined" && window.location?.origin) {
+      return `${window.location.origin.replace(/\/$/, "")}/account/login`;
+    }
+
+    return "https://www.refereeinsights.com/account/login";
+  })();
+
   // send metadata to auth.users so your trigger can populate profiles
   const { data, error } = await supabase.auth.signUp({
     email,
     password: input.password,
     options: {
+      emailRedirectTo,
       data: {
         handle,
         real_name: input.realName,
@@ -86,6 +108,18 @@ export async function signUpUser(input: {
     },
   });
 
-  if (error) throw error;
+  if (error) {
+    const raw = `${(error as any)?.code ?? ""} ${(error as any)?.message ?? ""}`.toLowerCase();
+    if (
+      raw.includes("already registered") ||
+      raw.includes("already exists") ||
+      raw.includes("user_already_exists")
+    ) {
+      throw new Error(
+        "This email already has an account. Log in or use \"Forgot my password\" on the login page."
+      );
+    }
+    throw error;
+  }
   return data;
 }

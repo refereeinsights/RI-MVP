@@ -19,6 +19,9 @@ export interface Database {
           trial_ends_at: string | null;
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;
+          display_name: string | null;
+          reviewer_handle: string | null;
+          zip_code: string | null;
           terms_accepted_at: string | null;
           marketing_opt_in: boolean;
           updated_at: string;
@@ -39,6 +42,9 @@ export interface Database {
           trial_ends_at?: string | null;
           stripe_customer_id?: string | null;
           stripe_subscription_id?: string | null;
+          display_name?: string | null;
+          reviewer_handle?: string | null;
+          zip_code?: string | null;
           terms_accepted_at?: string | null;
           marketing_opt_in?: boolean;
           updated_at?: string;
@@ -58,6 +64,9 @@ export interface Database {
           trial_ends_at?: string | null;
           stripe_customer_id?: string | null;
           stripe_subscription_id?: string | null;
+          display_name?: string | null;
+          reviewer_handle?: string | null;
+          zip_code?: string | null;
           terms_accepted_at?: string | null;
           marketing_opt_in?: boolean;
           updated_at?: string;

@@ -1,6 +1,30 @@
 # Running Notes
 
 ## 2026-02-25
+- Security hardening pass (RI + TI shared stack):
+  - RI referral write-path hardening:
+    - `apps/referee/app/api/referrals/record/route.ts`
+    - referral attribution now binds `referred_user_id` to authenticated session user (client payload no longer trusted).
+  - RI low-cost anti-abuse throttling added (reusing existing `public.rate_limit_events`):
+    - `apps/referee/app/api/invites/route.ts`
+    - `apps/referee/app/api/auth/send-reset/route.ts`
+    - hashed IP/email keys + bounded per-window limits; no new infra/services added.
+  - TI venue review DB hardening:
+    - `supabase/migrations/20260225_venue_reviews_phase1.sql`
+    - replaced broad authenticated read policy with own-row select policy for `public.venue_reviews`,
+    - enforced Insider-equivalent gate inside `public.submit_venue_review` by requiring authenticated + confirmed email.
+  - Validation:
+    - `npm run build --workspace referee-app` passed after route changes.
+
+- Signup UX / auth-link routing improvements:
+  - RI signup now sends explicit Supabase `emailRedirectTo` to RI login route:
+    - `apps/referee/lib/auth.ts`
+    - removes dependency on shared-project Supabase Site URL fallback behavior.
+  - RI signup duplicate-email feedback improved:
+    - existing-account errors now show user-friendly login/reset guidance.
+  - Validation:
+    - `npm run build --workspace referee-app` passed.
+
 - Admin venues build fix (Vercel type-check failure):
   - Updated:
     - `apps/referee/components/admin/VenuesListClient.tsx`

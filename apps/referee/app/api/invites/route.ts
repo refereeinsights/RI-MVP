@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { sendEmail } from "@/lib/email";
@@ -13,6 +15,16 @@ type InvitePayload = {
 };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RATE_LIMIT_KEY = "review_invite_send";
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const USER_LIMIT_PER_WINDOW = 12;
+const IP_LIMIT_PER_WINDOW = 40;
+const ANON_USER_ID = "00000000-0000-0000-0000-000000000000";
+
+function hashValue(value: string) {
+  const secret = process.env.CONTACT_ACCESS_HASH_SECRET ?? "local-dev";
+  return createHash("sha256").update(`${secret}:${value}`).digest("hex");
+}
 
 function validate(payload: InvitePayload) {
   if (!payload || typeof payload !== "object") return "Invalid payload.";
@@ -70,6 +82,38 @@ export async function POST(request: Request) {
   try {
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const requestHeaders = headers();
+    const ipHeader = requestHeaders.get("x-forwarded-for") || requestHeaders.get("x-real-ip") || "unknown";
+    const ip = ipHeader.split(",")[0]?.trim() || "unknown";
+    const ipHash = hashValue(ip);
+    const rateLimitUserId = sourceUserId ?? ANON_USER_ID;
+    const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+
+    const [{ count: userCount }, { count: ipCount }] = await Promise.all([
+      supabase
+        .from("rate_limit_events" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", rateLimitUserId)
+        .eq("key", RATE_LIMIT_KEY)
+        .gte("created_at", since),
+      supabase
+        .from("rate_limit_events" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("ip_hash", ipHash)
+        .eq("key", RATE_LIMIT_KEY)
+        .gte("created_at", since),
+    ]);
+
+    if ((userCount ?? 0) >= USER_LIMIT_PER_WINDOW || (ipCount ?? 0) >= IP_LIMIT_PER_WINDOW) {
+      return NextResponse.json({ ok: false, error: "Rate limit exceeded. Please try again later." }, { status: 429 });
+    }
+
+    await supabase.from("rate_limit_events" as any).insert({
+      user_id: rateLimitUserId,
+      ip_hash: ipHash,
+      key: RATE_LIMIT_KEY,
     });
 
     const { data: inserted, error: insertError } = await supabase

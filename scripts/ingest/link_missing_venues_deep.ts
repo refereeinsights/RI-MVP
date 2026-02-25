@@ -63,6 +63,8 @@ function looksLikeJunkVenueName(name: string | null | undefined) {
   return (
     /\b(born\s*\d{4}|\d{1,2}u\b|girls?\d{1,2}u|boys?\d{1,2}u|program|coach:|size\s*\d+)\b/i.test(n) ||
     /\b(minutes?|mins?)\b/i.test(n) ||
+    /\b(apply by|check[-\s]?in|register|registration|deadline|format|scope|price|cost|entry fee|team fee)\b/i.test(n) ||
+    /^(unknown|tbd|n\/a|null|none|-+)$/i.test(n) ||
     /^(\d{1,2}u|\d{4}\/\d{4}|born\s+\d{4}(?:\/\d{4})*|\d+\s*min\.?.*)$/i.test(n)
   );
 }
@@ -85,9 +87,11 @@ function normalizeStreet(value: string | null | undefined) {
 function looksLikeStreetAddress(address: string | null | undefined) {
   const a = clean(address);
   if (!a) return false;
+  if (/^(unknown|tbd|n\/a|null|none|-+)$/i.test(a)) return false;
   if (!/^\d{1,6}\s+/.test(a)) return false;
   if (/\b(min|mins|minutes)\b/i.test(a)) return false;
   if (/\b(size\s*\d+|coach:|girls?\d{1,2}u|boys?\d{1,2}u|\d{1,2}u)\b/i.test(a)) return false;
+  if (/\b(apply by|check[-\s]?in|register|registration|deadline|scope|format|entry fee|team fee)\b/i.test(a)) return false;
   if (!/\b(street|st|avenue|ave|road|rd|drive|dr|lane|ln|boulevard|blvd|way|court|ct|circle|cir|parkway|pkwy|place|pl|terrace|ter|trail|trl|highway|hwy)\b/i.test(a)) {
     return false;
   }
@@ -507,6 +511,10 @@ async function run() {
   let linksUpserted = 0;
   let failures = 0;
   let discoveryHits = 0;
+  let skippedJunkName = 0;
+  let skippedBadAddress = 0;
+  let skippedMissingLocality = 0;
+  let skippedDuplicateInTournament = 0;
 
   for (const t of targets) {
     try {
@@ -575,12 +583,23 @@ async function run() {
         const addr = clean(pv.address);
         const zip = normalizeZip(pv.zip);
         const street = normalizeStreet(addr);
-        const safeName = looksLikeJunkVenueName(pv.name) ? null : clean(pv.name);
-        if (!addr || !city || !state) continue;
-        if (!looksLikeStreetAddress(addr)) continue;
+        const rawName = clean(pv.name);
+        const safeName = looksLikeJunkVenueName(rawName) ? null : rawName;
+        if (rawName && !safeName) skippedJunkName += 1;
+        if (!addr || !city || !state) {
+          skippedMissingLocality += 1;
+          continue;
+        }
+        if (!looksLikeStreetAddress(addr)) {
+          skippedBadAddress += 1;
+          continue;
+        }
 
         const dedupeKey = [normalize(addr), normalize(city), normalize(state)].join("|");
-        if (seenPerTournament.has(dedupeKey)) continue;
+        if (seenPerTournament.has(dedupeKey)) {
+          skippedDuplicateInTournament += 1;
+          continue;
+        }
         seenPerTournament.add(dedupeKey);
 
         const addrKey = [normalize(addr), normalize(city), normalize(state)].join("|");
@@ -674,6 +693,10 @@ async function run() {
         tournament_venue_links_upserted: linksUpserted,
         source_discovery_hits: discoveryHits,
         failures,
+        skipped_junk_name: skippedJunkName,
+        skipped_bad_address: skippedBadAddress,
+        skipped_missing_locality: skippedMissingLocality,
+        skipped_duplicate_in_tournament: skippedDuplicateInTournament,
       },
       null,
       2

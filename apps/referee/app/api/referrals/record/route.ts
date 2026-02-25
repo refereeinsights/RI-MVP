@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 export async function POST(req: Request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -9,11 +10,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Server misconfigured." }, { status: 500 });
   }
 
+  const sessionClient = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await sessionClient.auth.getUser();
+  if (!user?.id) {
+    return NextResponse.json({ ok: false, error: "Authentication required." }, { status: 401 });
+  }
+
   const body = await req.json().catch(() => null);
   const referralCode = String(body?.referral_code ?? "").trim();
-  const referredUserId = String(body?.referred_user_id ?? "").trim();
+  const referredUserId = user.id;
 
-  if (!referralCode || !referredUserId) {
+  if (!referralCode) {
     return NextResponse.json({ ok: false, error: "Missing payload." }, { status: 400 });
   }
 

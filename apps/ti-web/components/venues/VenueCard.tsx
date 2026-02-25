@@ -59,13 +59,9 @@ export default function VenueCard({
       {tournamentCount > 0 ? <p className={`dates ${styles.dates}`}>Hosted {tournamentCount} tournaments</p> : null}
 
       {sports.length > 0 ? (
-        <div className={styles.tags}>
-          {sports.map((sport) => (
-            <span key={sport} className={styles.tag}>
-              {sportsLabel(sport)}
-            </span>
-          ))}
-        </div>
+        <p className={styles.sportsLine}>
+          <strong>{sports.length > 1 ? "Sports" : "Sport"}:</strong> {sports.map((sport) => sportsLabel(sport)).join(", ")}
+        </p>
       ) : null}
 
       {notes ? <p className={styles.notes}>{notes}</p> : null}

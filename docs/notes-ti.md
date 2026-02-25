@@ -1,3 +1,45 @@
+## 2026-02-25
+- TI signup confirmation redirect hardening (shared Supabase project safety):
+  - `apps/ti-web/app/signup/page.tsx`
+  - signup now computes a TI-safe `emailRedirectTo` target for `/verify-email` and avoids accidental RI-domain redirect fallback when env values drift.
+  - Added friendly existing-email signup message (log in / forgot password guidance).
+
+- TI signup profile capture for future review attribution:
+  - `apps/ti-web/app/signup/page.tsx`
+  - added optional signup inputs + validation for:
+    - full name
+    - handle (`^[a-z0-9_]{3,20}$`)
+    - ZIP (`12345` or `12345-6789`)
+  - values are written to Supabase auth metadata:
+    - `display_name`
+    - `handle`
+    - `zip_code`
+
+- TI user-profile persistence wiring:
+  - `apps/ti-web/app/account/page.tsx`
+  - `apps/ti-web/lib/types/supabase.ts`
+  - account bootstrap/update path now hydrates `ti_users` from auth metadata:
+    - `display_name`
+    - `reviewer_handle`
+    - `zip_code`
+
+- TI DB migration for attribution-ready profile fields:
+  - `apps/ti-web/sql/20260225_ti_users_profile_fields.sql`
+  - adds:
+    - `public.ti_users.display_name`
+    - `public.ti_users.reviewer_handle`
+    - `public.ti_users.zip_code`
+  - adds reviewer handle constraints/indexing:
+    - format check (`^[a-z0-9_]{3,20}$`)
+    - unique partial index on non-null handles.
+
+- TI venue-review security hardening note:
+  - `supabase/migrations/20260225_venue_reviews_phase1.sql`
+  - policy scope tightened to own-row select and submit RPC now enforces authenticated + confirmed-email requirement.
+
+- Validation:
+  - `npm run build --workspace ti-web` passed.
+
 ## 2026-02-24
 - Cross-app venue quality update (RI admin changes benefiting TI venue integrity):
   - Added duplicate-venue review panel in RI `/admin/venues` with suggested keep-target and one-click merge.
