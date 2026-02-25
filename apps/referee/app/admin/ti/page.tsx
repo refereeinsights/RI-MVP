@@ -351,7 +351,7 @@ export default async function TiAdminPage({
           <p style={{ color: "#b91c1c" }}>TI users load failed: {tiUsersErr.message}</p>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1240 }}>
+            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 1180 }}>
               <thead>
                 <tr>
                   {[
@@ -365,19 +365,72 @@ export default async function TiAdminPage({
                     "Renewal",
                     "Created",
                     "Seen",
-                    "Actions",
                   ].map((head) => (
-                    <th key={head} style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: "8px 6px", fontSize: 12 }}>
+                    <th
+                      key={head}
+                      style={{
+                        textAlign: "left",
+                        borderBottom: "1px solid #cbd5e1",
+                        padding: "9px 8px",
+                        fontSize: 12,
+                        background: "#f8fafc",
+                        color: "#334155",
+                        position: "sticky",
+                        top: 0,
+                      }}
+                    >
                       {head}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {((tiUsers ?? []) as TiUserRow[]).map((row) => (
-                  <tr key={row.id}>
-                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>{row.email ?? "—"}</td>
-                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontFamily: "monospace", fontSize: 12 }}>{row.id}</td>
+                {((tiUsers ?? []) as TiUserRow[]).map((row, idx) => (
+                  <tr key={row.id} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fbfdff" }}>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "10px 8px", verticalAlign: "top" }}>
+                      <div style={{ fontWeight: 700 }}>{row.email ?? "—"}</div>
+                      <div style={{ fontFamily: "monospace", fontSize: 11, color: "#64748b", marginTop: 3 }}>{row.id}</div>
+                      <div
+                        style={{
+                          marginTop: 8,
+                          padding: "8px 9px",
+                          border: "1px solid #fecaca",
+                          background: "#fff5f5",
+                          borderRadius: 8,
+                          display: "grid",
+                          gap: 6,
+                        }}
+                      >
+                        <form action={deleteTiUserAction} style={{ display: "grid", gap: 6 }}>
+                          <input type="hidden" name="id" value={row.id} />
+                          <input type="hidden" name="q" value={q} />
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                            <input type="checkbox" name="confirm_delete" />
+                            Confirm delete TI record
+                          </label>
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#b91c1c" }}>
+                            <input type="checkbox" name="delete_auth_user" />
+                            Also delete global auth user (RI + TI)
+                          </label>
+                          <button
+                            type="submit"
+                            style={{
+                              width: "fit-content",
+                              background: "#fee2e2",
+                              border: "1px solid #ef4444",
+                              color: "#991b1b",
+                              borderRadius: 7,
+                              padding: "6px 10px",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Delete user
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "10px 8px", fontFamily: "monospace", fontSize: 12 }}>{row.id}</td>
                     <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>
                       {row.signup_source ?? "website"}
                     </td>
@@ -439,36 +492,8 @@ export default async function TiAdminPage({
                         <button type="submit">Set</button>
                       </form>
                     </td>
-                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.created_at)}</td>
-                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.last_seen_at ?? row.first_seen_at)}</td>
-                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>
-                      <form action={deleteTiUserAction} style={{ display: "grid", gap: 6 }}>
-                        <input type="hidden" name="id" value={row.id} />
-                        <input type="hidden" name="q" value={q} />
-                        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          <input type="checkbox" name="confirm_delete" />
-                          Confirm delete TI record
-                        </label>
-                        <label style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#b91c1c" }}>
-                          <input type="checkbox" name="delete_auth_user" />
-                          Also delete global auth user (RI + TI)
-                        </label>
-                        <button
-                          type="submit"
-                          style={{
-                            width: "fit-content",
-                            background: "#fee2e2",
-                            border: "1px solid #ef4444",
-                            color: "#991b1b",
-                            borderRadius: 6,
-                            padding: "6px 8px",
-                            fontWeight: 700,
-                          }}
-                        >
-                          Delete user
-                        </button>
-                      </form>
-                    </td>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "10px 8px", fontSize: 12 }}>{fmtDate(row.created_at)}</td>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "10px 8px", fontSize: 12 }}>{fmtDate(row.last_seen_at ?? row.first_seen_at)}</td>
                   </tr>
                 ))}
               </tbody>

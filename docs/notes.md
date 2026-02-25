@@ -1,6 +1,19 @@
 # Running Notes
 
 ## 2026-02-25
+- RI `/admin/ti` management enhancements:
+  - Added TI user deletion controls on:
+    - `apps/referee/app/admin/ti/page.tsx`
+  - Delete flow behavior:
+    - requires explicit confirm checkbox,
+    - deletes TI-owned rows (`ti_users`, `ti_saved_tournaments`),
+    - optional checkbox to also delete global auth user (`auth.users`) for RI+TI full removal.
+  - UI cleanup for TI user table:
+    - moved delete controls under user identity block,
+    - added subtle row striping + stronger separators for scanability.
+  - Validation:
+    - `npm run build --workspace referee-app` passed.
+
 - Security hardening pass (RI + TI shared stack):
   - RI referral write-path hardening:
     - `apps/referee/app/api/referrals/record/route.ts`

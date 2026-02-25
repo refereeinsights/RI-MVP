@@ -1,4 +1,14 @@
 ## 2026-02-25
+- TI admin operations surfaced in RI admin:
+  - `apps/referee/app/admin/ti/page.tsx`
+  - Added TI-user delete workflow with two scopes:
+    - TI-only delete (removes `ti_users` + `ti_saved_tournaments`)
+    - optional full cross-app auth delete (`auth.users`) for RI+TI account removal.
+  - Added required confirmation checkbox to reduce accidental destructive actions.
+  - Refined TI-user table UX:
+    - delete controls moved under user identity,
+    - subtle zebra striping and row separators for readability in larger TI-user lists.
+
 - TI signup confirmation redirect hardening (shared Supabase project safety):
   - `apps/ti-web/app/signup/page.tsx`
   - signup now computes a TI-safe `emailRedirectTo` target for `/verify-email` and avoids accidental RI-domain redirect fallback when env values drift.
