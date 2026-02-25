@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <main className="bridgePage">
+    <main className="bridgePage" data-version="bridge-2026-02-25">
       <section className="bridgeCard">
         <h1 className="bridgeTitle">Tournyx</h1>
         <p className="bridgeBody">
