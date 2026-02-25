@@ -22,7 +22,7 @@ export type VenueItem = {
   field_type?: string | null;
   indoor?: boolean | null;
   amenities?: string | null;
-  player_parking?: string | null;
+  player_parking_fee?: string | null;
   spectator_seating?: string | null;
   bring_field_chairs?: boolean | null;
   seating_notes?: string | null;
@@ -241,7 +241,7 @@ export default function VenueRow({ venue, onUpdated, selectable = false, selecte
             <InfoItem label="Field type" value={venue.field_type || "—"} />
             <InfoItem label="Indoor" value={boolText(venue.indoor)} />
             <InfoItem label="Amenities" value={venue.amenities || "—"} />
-            <InfoItem label="Player parking" value={venue.player_parking || "—"} />
+            <InfoItem label="Player parking fee" value={venue.player_parking_fee || "—"} />
             <InfoItem label="Spectator seating" value={venue.spectator_seating || "—"} />
             <InfoItem label="Bring field chairs" value={boolText(venue.bring_field_chairs)} />
             <InfoItem label="Seating notes" value={venue.seating_notes || "—"} />

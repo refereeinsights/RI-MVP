@@ -33,7 +33,7 @@ type VenueRow = {
   field_type?: string | null;
   indoor?: boolean | null;
   amenities?: string | null;
-  player_parking?: string | null;
+  player_parking_fee?: string | null;
   spectator_seating?: string | null;
   bring_field_chairs?: boolean | null;
   seating_notes?: string | null;

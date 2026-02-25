@@ -12,6 +12,41 @@
   - Validation:
     - `npm run build --workspace referee-app` passed.
 
+- Venue schema rename (public.venues):
+  - Added migration:
+    - `supabase/migrations/20260225_venues_field_renames.sql`
+  - Renamed columns:
+    - `player_parking` -> `player_parking_fee`
+    - `food_concessions_quality_score` -> `vendor_score`
+    - `shade_weather_protection_score` -> `shade_score`
+  - Updated RI venue admin create/edit/list API/UI references to the new `player_parking_fee` column.
+  - Updated TI premium venue detail query/render path to read `venues.player_parking_fee`.
+
+- Tournyx bridge-domain conversion (isolated to `apps/corp`):
+  - Replaced Tournyx homepage with a minimal bridge page:
+    - heading `Tournyx`
+    - neutral bridge copy
+    - primary CTA to `https://www.tournamentinsights.com`
+    - secondary CTA to `https://www.refereeinsights.com`
+  - Added indexing posture:
+    - global metadata `robots: noindex, follow`
+    - `robots.txt` route allowing crawl
+  - Added redirects in Tournyx app only:
+    - `/tournaments` -> `https://www.tournamentinsights.com/tournaments`
+    - `/tournament/:path*` -> `https://www.tournamentinsights.com/tournaments`
+    - `/referees` -> `https://www.refereeinsights.com`
+    - `/about` -> `/`
+    - unknown paths -> `/` (via middleware)
+  - Files:
+    - `apps/corp/app/page.tsx`
+    - `apps/corp/app/globals.css`
+    - `apps/corp/app/layout.tsx`
+    - `apps/corp/app/robots.ts`
+    - `apps/corp/next.config.js`
+    - `apps/corp/middleware.ts`
+  - Validation:
+    - `npm run build --workspace corp-app` passed.
+
 ## 2026-02-24
 - Owl's Eye duplicate handling + venue merge review improvements:
   - Verified duplicate-check behavior against a real case:

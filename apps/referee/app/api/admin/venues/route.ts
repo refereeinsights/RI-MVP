@@ -89,7 +89,8 @@ export async function POST(request: Request) {
   const sport = normalizeVenueSport(payload?.sport);
   const venueUrl = typeof payload?.venue_url === "string" ? payload.venue_url.trim() : "";
   const amenities = typeof payload?.amenities === "string" ? payload.amenities.trim() : "";
-  const playerParking = typeof payload?.player_parking === "string" ? payload.player_parking.trim() : "";
+  const playerParkingFeeRaw = payload?.player_parking_fee ?? payload?.player_parking;
+  const playerParkingFee = typeof playerParkingFeeRaw === "string" ? playerParkingFeeRaw.trim() : "";
   const spectatorSeatingInput = typeof payload?.spectator_seating === "string" ? payload.spectator_seating.trim().toLowerCase() : "";
   const spectatorSeating =
     spectatorSeatingInput === "none" ||
@@ -164,7 +165,7 @@ export async function POST(request: Request) {
     timezone,
     venue_type: venueType,
     amenities: amenities || null,
-    player_parking: playerParking || null,
+    player_parking_fee: playerParkingFee || null,
     spectator_seating: spectatorSeating,
     bring_field_chairs: bringFieldChairs,
     seating_notes: seatingNotes || null,

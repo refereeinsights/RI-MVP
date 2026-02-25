@@ -52,7 +52,7 @@ type PaidVenueDetailsRow = {
         tournament_vendors: boolean | null;
         restrooms: string | null;
         amenities: string | null;
-        player_parking: string | null;
+        player_parking_fee: string | null;
         parking_notes: string | null;
         notes: string | null;
         spectator_seating: string | null;
@@ -326,7 +326,7 @@ export default async function TournamentDetailPage({
       tournament_vendors: boolean | null;
       restrooms: string | null;
       amenities: string | null;
-      player_parking: string | null;
+      player_parking_fee: string | null;
       parking_notes: string | null;
       notes: string | null;
       spectator_seating: string | null;
@@ -360,7 +360,7 @@ export default async function TournamentDetailPage({
       ? supabaseAdmin
           .from("tournament_venues" as any)
           .select(
-            "venue_id,venues(id,food_vendors,coffee_vendors,tournament_vendors,restrooms,amenities,player_parking,parking_notes,notes,spectator_seating,bring_field_chairs,seating_notes)"
+            "venue_id,venues(id,food_vendors,coffee_vendors,tournament_vendors,restrooms,amenities,player_parking_fee,parking_notes,notes,spectator_seating,bring_field_chairs,seating_notes)"
           )
           .eq("tournament_id", data.id)
           .in("venue_id", linkedVenueIds)
@@ -376,7 +376,7 @@ export default async function TournamentDetailPage({
             tournament_vendors: row.venues!.tournament_vendors,
             restrooms: row.venues!.restrooms,
             amenities: row.venues!.amenities,
-            player_parking: row.venues!.player_parking,
+            player_parking_fee: row.venues!.player_parking_fee,
             parking_notes: row.venues!.parking_notes,
             notes: row.venues!.notes,
             spectator_seating: row.venues!.spectator_seating,
@@ -663,8 +663,8 @@ export default async function TournamentDetailPage({
                                   <span>{premium?.amenities?.trim() || "Not provided"}</span>
                                 </div>
                                 <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Player parking</span>
-                                  <span>{premium?.player_parking?.trim() || "Not provided"}</span>
+                                  <span className="premiumDetailLabel">Player parking fee</span>
+                                  <span>{premium?.player_parking_fee?.trim() || "Not provided"}</span>
                                 </div>
                                 <div className="premiumDetailRow">
                                   <span className="premiumDetailLabel">Parking notes</span>

@@ -86,7 +86,7 @@ venue,field_rating,integer,RI,ri_admin,1-5 general rating
 venue,restrooms,text,Both,paid,"Paid TI detail field; allowed values Portable|Building|Both"
 venue,restrooms_cleanliness,integer,RI,ri_admin,1-5 venue quality metric
 venue,amenities,text,Both,paid,Paid TI detail field
-venue,player_parking,text,Both,paid,Paid TI detail field
+venue,player_parking_fee,text,Both,paid,Paid TI detail field
 venue,parking_notes,text,Both,paid,Paid TI detail field
 venue,spectator_seating,text,Both,paid,Paid TI detail field
 venue,bring_field_chairs,boolean,Both,paid,Paid TI detail field
@@ -100,8 +100,8 @@ venue,referee_tent,text,RI,ri_admin,Ref-only venue support marker
 venue,field_court_condition_score,integer,RI,ri_admin,1-5 venue scoring
 venue,parking_convenience_score,integer,RI,ri_admin,1-5 venue scoring
 venue,spectator_seating_availability_score,integer,RI,ri_admin,1-5 venue scoring
-venue,shade_weather_protection_score,integer,RI,ri_admin,1-5 venue scoring
-venue,food_concessions_quality_score,integer,RI,ri_admin,1-5 venue scoring
+venue,shade_score,integer,RI,ri_admin,1-5 venue scoring
+venue,vendor_score,integer,RI,ri_admin,1-5 venue scoring
 venue,overall_cleanliness_score,integer,RI,ri_admin,1-5 venue scoring
 venue,ease_of_navigation_score,integer,RI,ri_admin,1-5 venue scoring
 venue,accessibility_score,integer,RI,ri_admin,1-5 venue scoring

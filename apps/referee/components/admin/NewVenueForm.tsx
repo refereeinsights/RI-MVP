@@ -77,7 +77,7 @@ export function NewVenueForm() {
           longitude: longitude || undefined,
           field_type: fieldType || undefined,
           amenities: amenities || undefined,
-          player_parking: playerParking || undefined,
+          player_parking_fee: playerParking || undefined,
           spectator_seating: spectatorSeating || undefined,
           bring_field_chairs: bringFieldChairs === "" ? undefined : bringFieldChairs === "true",
           seating_notes: seatingNotes || undefined,

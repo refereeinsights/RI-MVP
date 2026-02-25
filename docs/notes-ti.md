@@ -620,3 +620,21 @@
 
 - Build verification (TI):
   - `npm run build --workspace ti-web` passed.
+
+- Cross-app venue schema rename (RI DB change consumed by TI premium venue details):
+  - `public.venues` columns renamed:
+    - `player_parking` -> `player_parking_fee`
+    - `food_concessions_quality_score` -> `vendor_score`
+    - `shade_weather_protection_score` -> `shade_score`
+  - TI detail page updated to select/render `venues.player_parking_fee` in Premium planning details.
+  - Files:
+    - `supabase/migrations/20260225_venues_field_renames.sql`
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+
+- Tournyx bridge-domain update (separate app, no TI/RI runtime changes):
+  - Tournyx (`apps/corp`) homepage converted to a minimal bridge with outbound links to TI and RI.
+  - Added `noindex,follow` metadata and robots route in Tournyx app to avoid search competition with TI/RI.
+  - Added Tournyx redirects:
+    - `/tournaments` + `/tournament/:path*` -> TI tournaments
+    - `/referees` -> RI
+    - `/about` + unknown paths -> Tournyx `/`

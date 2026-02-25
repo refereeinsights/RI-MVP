@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tournyx — Youth Sports Intelligence Platform",
-  description:
-    "Tournyx builds insight-driven platforms for youth sports organizations, officials, and families.",
+  title: "Tournyx",
+  description: "Tournyx now serves as a bridge to our public platforms.",
+  robots: {
+    index: false,
+    follow: true,
+  },
   icons: {
     icon: [
       { url: "/tournyx-logo.svg", type: "image/svg+xml" },
@@ -14,7 +17,6 @@ export const metadata: Metadata = {
     apple: "/tournyx-logo.png",
     shortcut: "/tournyx-logo.png",
   },
-  themeColor: "#0f3d2e",
 };
 
 export default function RootLayout({

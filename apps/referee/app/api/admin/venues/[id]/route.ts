@@ -25,7 +25,7 @@ type VenueUpdatePayload = {
   indoor?: boolean | null;
   lighting?: boolean | null;
   amenities?: string | null;
-  player_parking?: string | null;
+  player_parking_fee?: string | null;
   spectator_seating?: string | null;
   bring_field_chairs?: boolean | null;
   seating_notes?: string | null;
@@ -185,7 +185,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     indoor: cleanBool(payload?.indoor) ?? undefined,
     lighting: cleanBool(payload?.lighting) ?? undefined,
     amenities: cleanString(payload?.amenities) ?? undefined,
-    player_parking: cleanString(payload?.player_parking) ?? undefined,
+    player_parking_fee: cleanString(payload?.player_parking_fee ?? payload?.player_parking) ?? undefined,
     spectator_seating: normalizeSpectatorSeating(payload?.spectator_seating),
     bring_field_chairs: cleanBool(payload?.bring_field_chairs) ?? undefined,
     seating_notes: cleanString(payload?.seating_notes) ?? undefined,

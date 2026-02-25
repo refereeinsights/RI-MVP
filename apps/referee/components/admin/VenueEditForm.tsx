@@ -60,7 +60,7 @@ export default function VenueEditForm({ venue, tournaments, owlNearby = [] }: Pr
     field_type: venue.field_type ?? "",
     indoor: venue.indoor ?? "",
     amenities: venue.amenities ?? "",
-    player_parking: venue.player_parking ?? "",
+    player_parking_fee: venue.player_parking_fee ?? venue.player_parking ?? "",
     spectator_seating: venue.spectator_seating ?? "",
     bring_field_chairs: venue.bring_field_chairs ?? "",
     seating_notes: venue.seating_notes ?? "",
@@ -252,7 +252,7 @@ export default function VenueEditForm({ venue, tournaments, owlNearby = [] }: Pr
 
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
           <Input label="Amenities" value={form.amenities} onChange={(v) => setField("amenities", v)} />
-          <Input label="Player parking" value={form.player_parking} onChange={(v) => setField("player_parking", v)} />
+          <Input label="Player parking fee" value={form.player_parking_fee} onChange={(v) => setField("player_parking_fee", v)} />
           <SelectSpectatorSeating
             label="Spectator seating"
             value={form.spectator_seating}
