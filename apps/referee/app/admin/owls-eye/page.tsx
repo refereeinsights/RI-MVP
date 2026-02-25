@@ -134,6 +134,10 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
       return !nameJunkRegex.test(normalizedName);
     })
     .sort((a, b) => {
+      const aCount = linkedTournamentCountByVenue.get(a.id) ?? 0;
+      const bCount = linkedTournamentCountByVenue.get(b.id) ?? 0;
+      if (aCount !== bCount) return bCount - aCount;
+
       const aAddress = (a.address1 ?? a.address ?? "").toLowerCase().trim();
       const bAddress = (b.address1 ?? b.address ?? "").toLowerCase().trim();
       if (aAddress !== bAddress) return aAddress.localeCompare(bAddress);

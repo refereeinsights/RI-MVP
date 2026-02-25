@@ -1683,3 +1683,11 @@
     - tournament listing missing-venue filtering
     - admin home/tournament stats missing-venue widget
   - Adds error logging per chunk instead of silent fallback.
+
+- Owl’s Eye / Admin venue prioritization update:
+  - Updated:
+    - `apps/referee/app/admin/page.tsx`
+    - `apps/referee/app/admin/owls-eye/page.tsx`
+  - Ready venue sorting now prioritizes venues with the highest number of linked tournaments first.
+  - Secondary sorting remains address-first (then city/state/name) to keep duplicate-review workflows grouped.
+  - Admin venue payload now reports `tournament_count` from unique linked tournament IDs, improving consistency with prioritization logic.

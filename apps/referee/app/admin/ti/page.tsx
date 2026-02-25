@@ -52,6 +52,18 @@ function fmtDate(value: string | null | undefined) {
   return d.toLocaleString();
 }
 
+function displayNameFromEmail(email: string | null) {
+  if (!email) return "Unknown user";
+  const local = email.split("@")[0] ?? "";
+  const clean = local.replace(/[._-]+/g, " ").trim();
+  if (!clean) return email;
+  return clean
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function asText(value: unknown) {
   if (value == null) return null;
   const text = String(value).trim();
@@ -350,156 +362,146 @@ export default async function TiAdminPage({
         {tiUsersErr ? (
           <p style={{ color: "#b91c1c" }}>TI users load failed: {tiUsersErr.message}</p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 1180 }}>
-              <thead>
-                <tr>
-                  {[
-                    "Email",
-                    "ID",
-                    "Source",
-                    "Source code",
-                    "Plan",
-                    "Subscription",
-                    "Trial Ends",
-                    "Renewal",
-                    "Created",
-                    "Seen",
-                  ].map((head) => (
-                    <th
-                      key={head}
-                      style={{
-                        textAlign: "left",
-                        borderBottom: "1px solid #cbd5e1",
-                        padding: "9px 8px",
-                        fontSize: 12,
-                        background: "#f8fafc",
-                        color: "#334155",
-                        position: "sticky",
-                        top: 0,
-                      }}
-                    >
-                      {head}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {((tiUsers ?? []) as TiUserRow[]).map((row, idx) => (
-                  <tr key={row.id} style={{ background: idx % 2 === 0 ? "#ffffff" : "#f1f5f9" }}>
-                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "10px 8px", verticalAlign: "top" }}>
-                      <div style={{ fontWeight: 700 }}>{row.email ?? "—"}</div>
-                      <div style={{ fontFamily: "monospace", fontSize: 11, color: "#64748b", marginTop: 3 }}>{row.id}</div>
-                      <div
+          <div style={{ display: "grid", gap: 10 }}>
+            {((tiUsers ?? []) as TiUserRow[]).map((row, idx) => (
+              <details
+                key={row.id}
+                style={{
+                  border: "1px solid #dbe4ef",
+                  borderRadius: 10,
+                  background: idx % 2 === 0 ? "#ffffff" : "#f3f7fb",
+                }}
+              >
+                <summary
+                  style={{
+                    cursor: "pointer",
+                    listStyle: "auto",
+                    padding: "10px 12px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 10,
+                  }}
+                >
+                  <span style={{ fontWeight: 700 }}>
+                    {displayNameFromEmail(row.email)} <span style={{ fontWeight: 500, color: "#334155" }}>({row.email ?? "—"})</span>
+                  </span>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>
+                    {row.plan ?? "insider"} · {row.subscription_status ?? "none"}
+                  </span>
+                </summary>
+                <div style={{ padding: "0 12px 12px", borderTop: "1px solid #dbe4ef", display: "grid", gap: 10 }}>
+                  <div style={{ fontFamily: "monospace", fontSize: 12, color: "#475569", marginTop: 8 }}>{row.id}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 10 }}>
+                    <div style={{ fontSize: 12 }}>
+                      <div style={{ color: "#64748b" }}>Signup source</div>
+                      <div>{row.signup_source ?? "website"}</div>
+                    </div>
+                    <div style={{ fontSize: 12 }}>
+                      <div style={{ color: "#64748b" }}>Source code</div>
+                      <div>{row.signup_source_code ?? "—"}</div>
+                    </div>
+                    <div style={{ fontSize: 12 }}>
+                      <div style={{ color: "#64748b" }}>Created</div>
+                      <div>{fmtDate(row.created_at)}</div>
+                    </div>
+                    <div style={{ fontSize: 12 }}>
+                      <div style={{ color: "#64748b" }}>Seen</div>
+                      <div>{fmtDate(row.last_seen_at ?? row.first_seen_at)}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 8 }}>
+                    <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      <input type="hidden" name="id" value={row.id} />
+                      <input type="hidden" name="q" value={q} />
+                      <input type="hidden" name="field" value="plan" />
+                      <label style={{ fontSize: 12, color: "#64748b" }}>Plan</label>
+                      <select name="value" defaultValue={(row.plan ?? "insider").toLowerCase()} style={{ padding: 6 }}>
+                        <option value="insider">insider</option>
+                        <option value="weekend_pro">weekend_pro</option>
+                      </select>
+                      <button type="submit">Set</button>
+                    </form>
+                    <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      <input type="hidden" name="id" value={row.id} />
+                      <input type="hidden" name="q" value={q} />
+                      <input type="hidden" name="field" value="subscription_status" />
+                      <label style={{ fontSize: 12, color: "#64748b" }}>Subscription</label>
+                      <select name="value" defaultValue={(row.subscription_status ?? "none").toLowerCase()} style={{ padding: 6 }}>
+                        <option value="none">none</option>
+                        <option value="active">active</option>
+                        <option value="trialing">trialing</option>
+                        <option value="canceled">canceled</option>
+                        <option value="past_due">past_due</option>
+                      </select>
+                      <button type="submit">Set</button>
+                    </form>
+                    <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      <input type="hidden" name="id" value={row.id} />
+                      <input type="hidden" name="q" value={q} />
+                      <input type="hidden" name="field" value="trial_ends_at" />
+                      <label style={{ fontSize: 12, color: "#64748b" }}>Trial ends</label>
+                      <input
+                        name="value"
+                        defaultValue={row.trial_ends_at ? row.trial_ends_at.slice(0, 16) : ""}
+                        placeholder="YYYY-MM-DDTHH:mm"
+                        style={{ padding: 6, width: 170 }}
+                      />
+                      <button type="submit">Set</button>
+                    </form>
+                    <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      <input type="hidden" name="id" value={row.id} />
+                      <input type="hidden" name="q" value={q} />
+                      <input type="hidden" name="field" value="current_period_end" />
+                      <label style={{ fontSize: 12, color: "#64748b" }}>Renewal</label>
+                      <input
+                        name="value"
+                        defaultValue={row.current_period_end ? row.current_period_end.slice(0, 16) : ""}
+                        placeholder="YYYY-MM-DDTHH:mm"
+                        style={{ padding: 6, width: 170 }}
+                      />
+                      <button type="submit">Set</button>
+                    </form>
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 2,
+                      padding: "8px 10px",
+                      border: "1px solid #fecaca",
+                      background: "#fff5f5",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <form action={deleteTiUserAction} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+                      <input type="hidden" name="id" value={row.id} />
+                      <input type="hidden" name="q" value={q} />
+                      <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                        <input type="checkbox" name="confirm_delete" />
+                        Confirm TI delete
+                      </label>
+                      <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#b91c1c" }}>
+                        <input type="checkbox" name="delete_auth_user" />
+                        Include RI+TI auth delete
+                      </label>
+                      <button
+                        type="submit"
                         style={{
-                          marginTop: 8,
-                          padding: "8px 9px",
-                          border: "1px solid #fecaca",
-                          background: "#fff5f5",
-                          borderRadius: 8,
-                          display: "grid",
-                          gap: 6,
+                          background: "#fee2e2",
+                          border: "1px solid #ef4444",
+                          color: "#991b1b",
+                          borderRadius: 7,
+                          padding: "6px 10px",
+                          fontWeight: 700,
+                          cursor: "pointer",
                         }}
                       >
-                        <form action={deleteTiUserAction} style={{ display: "grid", gap: 6 }}>
-                          <input type="hidden" name="id" value={row.id} />
-                          <input type="hidden" name="q" value={q} />
-                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
-                            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                              <input type="checkbox" name="confirm_delete" />
-                              Confirm TI delete
-                            </label>
-                            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#b91c1c" }}>
-                              <input type="checkbox" name="delete_auth_user" />
-                              Include RI+TI auth delete
-                            </label>
-                            <button
-                              type="submit"
-                              style={{
-                                width: "fit-content",
-                                background: "#fee2e2",
-                                border: "1px solid #ef4444",
-                                color: "#991b1b",
-                                borderRadius: 7,
-                                padding: "6px 10px",
-                                fontWeight: 700,
-                                cursor: "pointer",
-                              }}
-                            >
-                              Delete user
-                            </button>
-                          </div>
-                        </form>
-                      </div>
-                    </td>
-                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "10px 8px", fontFamily: "monospace", fontSize: 12 }}>{row.id}</td>
-                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>
-                      {row.signup_source ?? "website"}
-                    </td>
-                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>
-                      {row.signup_source_code ?? "—"}
-                    </td>
-                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
-                      <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6 }}>
-                        <input type="hidden" name="id" value={row.id} />
-                        <input type="hidden" name="q" value={q} />
-                        <input type="hidden" name="field" value="plan" />
-                        <select name="value" defaultValue={(row.plan ?? "insider").toLowerCase()} style={{ padding: 6 }}>
-                          <option value="insider">insider</option>
-                          <option value="weekend_pro">weekend_pro</option>
-                        </select>
-                        <button type="submit">Set</button>
-                      </form>
-                    </td>
-                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
-                      <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6 }}>
-                        <input type="hidden" name="id" value={row.id} />
-                        <input type="hidden" name="q" value={q} />
-                        <input type="hidden" name="field" value="subscription_status" />
-                        <select name="value" defaultValue={(row.subscription_status ?? "none").toLowerCase()} style={{ padding: 6 }}>
-                          <option value="none">none</option>
-                          <option value="active">active</option>
-                          <option value="trialing">trialing</option>
-                          <option value="canceled">canceled</option>
-                          <option value="past_due">past_due</option>
-                        </select>
-                        <button type="submit">Set</button>
-                      </form>
-                    </td>
-                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
-                      <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6 }}>
-                        <input type="hidden" name="id" value={row.id} />
-                        <input type="hidden" name="q" value={q} />
-                        <input type="hidden" name="field" value="trial_ends_at" />
-                        <input
-                          name="value"
-                          defaultValue={row.trial_ends_at ? row.trial_ends_at.slice(0, 16) : ""}
-                          placeholder="YYYY-MM-DDTHH:mm"
-                          style={{ padding: 6, width: 170 }}
-                        />
-                        <button type="submit">Set</button>
-                      </form>
-                    </td>
-                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
-                      <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6 }}>
-                        <input type="hidden" name="id" value={row.id} />
-                        <input type="hidden" name="q" value={q} />
-                        <input type="hidden" name="field" value="current_period_end" />
-                        <input
-                          name="value"
-                          defaultValue={row.current_period_end ? row.current_period_end.slice(0, 16) : ""}
-                          placeholder="YYYY-MM-DDTHH:mm"
-                          style={{ padding: 6, width: 170 }}
-                        />
-                        <button type="submit">Set</button>
-                      </form>
-                    </td>
-                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "10px 8px", fontSize: 12 }}>{fmtDate(row.created_at)}</td>
-                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "10px 8px", fontSize: 12 }}>{fmtDate(row.last_seen_at ?? row.first_seen_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        Delete user
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </details>
+            ))}
           </div>
         )}
       </section>

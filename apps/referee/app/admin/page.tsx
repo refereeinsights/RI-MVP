@@ -664,6 +664,7 @@ export default async function AdminPage({
     const readyVenueIds = readyCandidates.map((v) => v.id).filter(Boolean);
     let runVenueIds = new Set<string>();
     const tournamentNamesByVenue = new Map<string, string[]>();
+    const linkedTournamentCountByVenue = new Map<string, number>();
     if (readyVenueIds.length) {
       const runRows: Array<{ venue_id: string | null }> = [];
       for (const idChunk of chunkValues(readyVenueIds)) {
@@ -683,6 +684,16 @@ export default async function AdminPage({
           .in("venue_id", idChunk);
         linkRows.push(...((venueLinks ?? []) as Array<{ venue_id: string | null; tournament_id: string | null }>));
       }
+      const linkedTournamentIdsByVenue = new Map<string, Set<string>>();
+      linkRows.forEach((row) => {
+        if (!row.venue_id || !row.tournament_id) return;
+        const existing = linkedTournamentIdsByVenue.get(row.venue_id) ?? new Set<string>();
+        existing.add(row.tournament_id);
+        linkedTournamentIdsByVenue.set(row.venue_id, existing);
+      });
+      linkedTournamentIdsByVenue.forEach((ids, venueId) => {
+        linkedTournamentCountByVenue.set(venueId, ids.size);
+      });
       const tournamentIds = Array.from(
         new Set(linkRows.map((row) => row.tournament_id).filter((value): value is string => Boolean(value)))
       );
@@ -724,6 +735,10 @@ export default async function AdminPage({
         return true;
       })
       .sort((a, b) => {
+        const aCount = linkedTournamentCountByVenue.get(a.id) ?? 0;
+        const bCount = linkedTournamentCountByVenue.get(b.id) ?? 0;
+        if (aCount !== bCount) return bCount - aCount;
+
         const aAddress = (a.address1 ?? a.address ?? "").toLowerCase();
         const bAddress = (b.address1 ?? b.address ?? "").toLowerCase();
         if (aAddress !== bAddress) return aAddress.localeCompare(bAddress);
@@ -746,7 +761,7 @@ export default async function AdminPage({
         state: venue.state,
         zip: venue.zip,
         sport: null,
-        tournament_count: linkedTournamentNames.length,
+        tournament_count: linkedTournamentCountByVenue.get(venue.id) ?? linkedTournamentNames.length,
         tournament_names: linkedTournamentNames.slice(0, 8),
         };
       });

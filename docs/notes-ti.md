@@ -743,3 +743,13 @@
   - Added TI-local gauge assets/support used by the page:
     - `apps/ti-web/public/whistle-score.png`
     - `apps/ti-web/public/shared-assets/svg/ri/*`
+
+- TI admin user management UI compaction + readability:
+  - Updated:
+    - `apps/referee/app/admin/ti/page.tsx`
+  - Reworked TI user rows into collapsible `details/summary` cards showing:
+    - top-line name/email and plan/subscription badge text
+    - expanded metadata and edit controls on demand
+  - Added derived display name helper from email local-part for faster scanning.
+  - Styled alternate-row card backgrounds/borders for more apparent zebra-style separation.
+  - Kept existing update/delete actions intact while moving destructive controls into a condensed section inside each expanded card.
