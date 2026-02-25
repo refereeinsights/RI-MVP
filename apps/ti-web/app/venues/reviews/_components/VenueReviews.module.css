@@ -1,0 +1,261 @@
+.page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px;
+  display: grid;
+  gap: 18px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.9rem;
+  color: #0f172a;
+}
+
+.subtitle {
+  margin: 0;
+  color: #475569;
+}
+
+.stepBlock {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #0f172a;
+}
+
+.inlineRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.searchLabel {
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px;
+  font: inherit;
+}
+
+.textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.primaryBtn,
+.secondaryBtn {
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primaryBtn {
+  border: 1px solid #0f172a;
+  background: #0f172a;
+  color: #fff;
+}
+
+.primaryBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.secondaryBtn {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+}
+
+.meta {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.errorText {
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.successText {
+  border: 1px solid #86efac;
+  background: #f0fdf4;
+  color: #14532d;
+  border-radius: 8px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.resultList {
+  display: grid;
+  gap: 8px;
+}
+
+.resultItem {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.selectedTournament {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.venueGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.venueCard {
+  text-align: left;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.venueCardSelected {
+  border-color: #0f172a;
+  background: #f8fafc;
+}
+
+.form {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.label {
+  font-size: 0.92rem;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.radioRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.radioLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.gaugeControl {
+  display: inline-block;
+  position: relative;
+  width: 136px;
+}
+
+.gaugeOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.gaugeSegment {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.gaugeHint {
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.gaugeControl :global(.whistleScale) {
+  display: inline-flex;
+  gap: 0.15rem;
+}
+
+.gaugeControl :global(.whistleScale__icon) {
+  width: 20px;
+  height: 12px;
+  display: inline-block;
+  background-image: none !important;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: none;
+  opacity: 1;
+  transition: filter 160ms ease, opacity 160ms ease, background-color 160ms ease, border-color 160ms ease;
+  border-radius: 2px;
+  border: 2px solid #1f2937;
+  background-color: rgba(0, 0, 0, 0.12);
+}
+
+.gaugeControl :global(.whistleScale__icon--filled) {
+  filter: none;
+  opacity: 1;
+}
+
+.gaugeControl :global(.whistleScale__icon:not(.whistleScale__icon--filled)) {
+  border-color: #1f2937 !important;
+  background-color: #e5e7eb !important;
+}
+
+.gaugeControl :global(.whistleScale--large .whistleScale__icon) {
+  width: 24px;
+  height: 14px;
+}
+
+@media (max-width: 640px) {
+  .inlineRow {
+    grid-template-columns: 1fr;
+  }
+
+  .selectedTournament {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

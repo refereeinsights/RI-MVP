@@ -638,3 +638,53 @@
     - `/tournaments` + `/tournament/:path*` -> TI tournaments
     - `/referees` -> RI
     - `/about` + unknown paths -> Tournyx `/`
+
+- TI Insider-gated venue review tool (Phase 1) added at `/venues/reviews`:
+  - New route/page:
+    - `apps/ti-web/app/venues/reviews/page.tsx`
+    - `apps/ti-web/app/venues/reviews/_components/VenueReviewsClient.tsx`
+    - `apps/ti-web/app/venues/reviews/_components/VenueReviews.module.css`
+  - Access control:
+    - server-side auth + TI tier gate (Insider+ required)
+    - unauthenticated -> `/login?returnTo=/venues/reviews`
+    - non-Insider -> `/account` with friendly notice
+  - UX flow:
+    - Step 1 tournament identify by code or debounced name search
+    - Step 2 venue selection from `tournament_venues`
+    - Step 3 review form with required validation and post-submit redirect to `/tournaments/[slug]`
+  - Gauge reuse:
+    - reused RI segmented gauge (`WhistleScale`) by import (no component recreation)
+  - Secure server path:
+    - `apps/ti-web/app/api/venue-reviews/route.ts`
+    - server-enforced Insider auth on lookup + submit endpoints
+    - submit calls Supabase RPC `submit_venue_review` (no service role exposed in browser)
+  - Supporting TI files for shared RI imports/assets:
+    - `apps/ti-web/lib/badges.ts`
+    - `apps/ti-web/lib/types/refereeReview.ts`
+    - `apps/ti-web/public/shared-assets/svg/ri/{red_card_transparent,yellow_card_transparent,green_card_transparent}.svg`
+
+- Venue reviews DB migration (append-only + aggregates + RLS + RPC):
+  - Added:
+    - `supabase/migrations/20260225_venue_reviews_phase1.sql`
+  - Includes:
+    - new `public.venue_reviews` table
+    - unique `(user_id, venue_id)` upsert key (MVP “one active review per user per venue”)
+    - aggregate columns on `public.venues`
+    - `recompute_venue_review_aggregates(...)` + trigger refresh
+    - RLS policies (authenticated select, own insert/update)
+    - security-definer RPC `public.submit_venue_review(...)`
+
+- SQL migration fix (function defaults):
+  - Resolved PostgreSQL error:
+    - `input parameters after one with a default value must also have defaults`
+  - Fix:
+    - removed default from `p_tournament_id` in `submit_venue_review(...)` so only trailing param keeps default (`p_venue_notes`).
+
+- TI `/venues/reviews` gauge visual refinement (Insider venue form):
+  - Updated review gauge styling to match intended TI venue-review UX:
+    - selected segments use solid color fills
+    - unselected segments now have a visible dark border + light gray fill for click affordance
+    - removed inner icon/white center rendering from TI venue review bars
+  - Added TI-local gauge assets/support used by the page:
+    - `apps/ti-web/public/whistle-score.png`
+    - `apps/ti-web/public/shared-assets/svg/ri/*`
