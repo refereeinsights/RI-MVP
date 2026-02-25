@@ -16,6 +16,7 @@ function overrideWeekendPro() {
 
 function normalizedPlan(plan?: string | null) {
   const value = (plan ?? "").trim().toLowerCase();
+  if (value === "explorer") return "explorer";
   if (!value || value === "free") return "insider";
   return value;
 }
@@ -24,6 +25,7 @@ export function getTier(user: User | null | undefined, profile: TiProfile): TiTi
   if (overrideWeekendPro()) return "weekend_pro";
   if (!user) return "explorer";
   if (!user.email_confirmed_at) return "explorer";
+  if (normalizedPlan(profile?.plan) === "explorer") return "explorer";
   if (
     normalizedPlan(profile?.plan) === "weekend_pro" &&
     (profile?.subscription_status ?? "").trim().toLowerCase() === "active"

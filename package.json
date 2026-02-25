@@ -10,7 +10,10 @@
     "dev": "npm run dev --workspace referee-app",
     "build": "npm run build --workspace referee-app",
     "start": "npm run start --workspace referee-app",
-    "sweep:asa-az": "WRITE_DB=false tsx --tsconfig apps/referee/tsconfig.json apps/referee/scripts/smoke_sweep_asa_az.ts"
+    "sweep:asa-az": "WRITE_DB=false tsx --tsconfig apps/referee/tsconfig.json apps/referee/scripts/smoke_sweep_asa_az.ts",
+    "seed:smoke:users": "tsx apps/ti-web/scripts/seed_smoke_test_users.ts",
+    "test:smoke": "playwright test -c playwright.smoke.config.ts",
+    "test:smoke:ui": "playwright test -c playwright.smoke.config.ts --headed"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.31.0",

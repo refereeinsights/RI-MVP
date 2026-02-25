@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed:test-users": "tsx scripts/seed_test_users.ts"
+    "seed:test-users": "tsx scripts/seed_test_users.ts",
+    "seed:smoke-users": "tsx scripts/seed_smoke_test_users.ts"
   },
   "dependencies": {
     "@plausible-analytics/tracker": "^0.4.4",

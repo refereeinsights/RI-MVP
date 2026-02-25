@@ -22,7 +22,9 @@ export default function SignupPage() {
   const emailRedirectTo = useMemo(() => {
     const tiProdOrigin = "https://www.tournamentinsights.com";
     const suffix = `?returnTo=${encodeURIComponent(nextPath)}`;
-    const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+    const configured =
+      process.env.NEXT_PUBLIC_TI_SITE_URL?.trim() ||
+      process.env.NEXT_PUBLIC_SITE_URL?.trim();
 
     const pickSafeOrigin = () => {
       if (typeof window !== "undefined") {
@@ -35,7 +37,11 @@ export default function SignupPage() {
         try {
           const url = new URL(configured);
           const host = url.hostname.toLowerCase();
-          if (host.endsWith("tournamentinsights.com") || host === "localhost") {
+          if (
+            host.endsWith("tournamentinsights.com") ||
+            host === "localhost" ||
+            host.endsWith(".vercel.app")
+          ) {
             return url.origin.replace(/\/$/, "");
           }
         } catch {

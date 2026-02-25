@@ -77,6 +77,11 @@ export default async function JoinPage({
       <p style={{ margin: 0, color: "#475569" }}>
         Enter your event code to activate your 7-day premium trial.
       </p>
+      {!code ? (
+        <p data-testid="ti-join-missing-code" style={{ margin: 0, color: "#334155", fontSize: 13 }}>
+          Missing event code. Ask your organizer for a valid code, then return here.
+        </p>
+      ) : null}
       {error ? <p style={{ margin: 0, color: "#b91c1c", fontSize: 13 }}>{error}</p> : null}
 
       <form action={activateTrial as any} style={{ display: "grid", gap: 10 }}>

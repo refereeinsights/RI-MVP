@@ -1,6 +1,37 @@
 # Running Notes
 
 ## 2026-02-25
+- TI/RI public beta smoke test framework added (Playwright):
+  - Added root smoke config + test suites:
+    - `playwright.smoke.config.ts`
+    - `tests/smoke/ti-auth-join-gating.spec.ts`
+    - `tests/smoke/ri-auth-join-gating.spec.ts`
+  - Coverage includes:
+    - TI `/venues/reviews` logged-out redirect with `returnTo`,
+    - TI Explorer tier gating redirect to `/account?notice=...`,
+    - TI Insider access to `/venues/reviews`,
+    - TI join code preservation through login,
+    - TI `/join` missing-code friendly state,
+    - RI account login sanity.
+  - Added deterministic smoke-user seeding (Supabase Admin API, no email dependency):
+    - `apps/ti-web/scripts/seed_smoke_test_users.ts`
+    - users: explorer / insider / weekend_pro test accounts.
+  - Added run/docs wiring:
+    - root scripts: `seed:smoke:users`, `test:smoke`, `test:smoke:ui`
+    - docs: `docs/qa/public-beta-smoke-test.md`
+    - env template: `.env.local.example`
+
+- TI email-confirmation redirect hardening (avoid RI domain fallback):
+  - Updated:
+    - `apps/ti-web/app/signup/page.tsx`
+    - `apps/ti-web/app/verify-email/ResendVerificationForm.tsx`
+  - Behavior:
+    - signup + resend verification now force TI-safe redirect origin for `/verify-email`,
+    - supports explicit TI env var `NEXT_PUBLIC_TI_SITE_URL`,
+    - rejects accidental RI-host fallback in shared Supabase configurations.
+  - Supporting script update:
+    - `apps/ti-web/scripts/seed_test_users.ts` now prefers `NEXT_PUBLIC_TI_SITE_URL`.
+
 - RI `/admin/ti` management enhancements:
   - Added TI user deletion controls on:
     - `apps/referee/app/admin/ti/page.tsx`

@@ -52,6 +52,13 @@ To get started with this project, follow these steps:
 - `dev`: Starts the development server.
 - `build`: Builds the application for production.
 - `start`: Starts the production server.
+- `seed:smoke:users`: Creates/updates deterministic TI smoke-test users via Supabase Admin API.
+- `test:smoke`: Runs TI + RI public-beta smoke tests headless.
+- `test:smoke:ui`: Runs the same smoke tests headed.
+
+## Public beta smoke tests
+
+Setup and run instructions are in `docs/qa/public-beta-smoke-test.md`.
 
 ## Admin tournament tools (MVP)
 

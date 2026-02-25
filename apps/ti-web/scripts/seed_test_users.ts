@@ -7,7 +7,7 @@
  * - TI_ALLOW_SEED=true
  *
  * Optional env:
- * - NEXT_PUBLIC_SITE_URL (default: https://www.tournamentinsights.com)
+ * - NEXT_PUBLIC_TI_SITE_URL or NEXT_PUBLIC_SITE_URL (default: https://www.tournamentinsights.com)
  * - TI_ALLOW_SEED_PROD=true (required if NODE_ENV/VERCEL_ENV is production)
  *
  * Run from repo root:
@@ -70,7 +70,11 @@ async function inviteAndUpsert(seed: SeedUser, redirectTo: string) {
 async function main() {
   assertGuards();
 
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.tournamentinsights.com").replace(/\/+$/, "");
+  const siteUrl = (
+    process.env.NEXT_PUBLIC_TI_SITE_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://www.tournamentinsights.com"
+  ).replace(/\/+$/, "");
   const redirectTo = `${siteUrl}/verify-email`;
   const oneYearMs = 365 * 24 * 60 * 60 * 1000;
   const weekendProEndsAt = new Date(Date.now() + oneYearMs).toISOString();
@@ -107,4 +111,3 @@ main().catch((err) => {
   console.error(err instanceof Error ? err.message : err);
   process.exit(1);
 });
-

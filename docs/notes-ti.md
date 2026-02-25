@@ -1,4 +1,33 @@
 ## 2026-02-25
+- TI public beta smoke test pack added (auth/join/tier gating):
+  - Added Playwright smoke test infra:
+    - `playwright.smoke.config.ts`
+    - `tests/smoke/ti-auth-join-gating.spec.ts`
+    - `tests/smoke/ri-auth-join-gating.spec.ts` (cross-app auth sanity)
+  - TI smoke assertions now cover:
+    - logged-out `/venues/reviews` -> `/login?returnTo=/venues/reviews`
+    - Explorer gate -> `/account?notice=Insider required...`
+    - Insider access to `/venues/reviews`
+    - `/join?code=...` code preservation through login round-trip
+    - `/join` missing-code friendly state (non-crash UX)
+  - Added deterministic TI smoke-user provisioning:
+    - `apps/ti-web/scripts/seed_smoke_test_users.ts`
+    - creates/updates `explorer_test`, `insider_test`, `weekendpro_test` as confirmed users.
+  - Added run/documentation wiring:
+    - root scripts: `seed:smoke:users`, `test:smoke`, `test:smoke:ui`
+    - `docs/qa/public-beta-smoke-test.md`
+    - `.env.local.example`
+
+- TI confirmation redirect reliability fix:
+  - Updated:
+    - `apps/ti-web/app/signup/page.tsx`
+    - `apps/ti-web/app/verify-email/ResendVerificationForm.tsx`
+  - Both signup and resend now compute a TI-safe `/verify-email` redirect origin and prefer:
+    - `NEXT_PUBLIC_TI_SITE_URL` (new explicit TI env)
+    - then safe TI/local/vercel fallbacks
+    - finally `https://www.tournamentinsights.com`.
+  - Prevents confirmation links from drifting to `refereeinsights.com` when shared env values are misconfigured.
+
 - TI admin operations surfaced in RI admin:
   - `apps/referee/app/admin/ti/page.tsx`
   - Added TI-user delete workflow with two scopes:

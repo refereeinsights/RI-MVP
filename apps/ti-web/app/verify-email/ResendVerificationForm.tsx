@@ -15,11 +15,38 @@ export default function ResendVerificationForm({ initialEmail = "", returnTo = "
   const [message, setMessage] = useState("");
 
   const emailRedirectTo = useMemo(() => {
-    const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+    const tiProdOrigin = "https://www.tournamentinsights.com";
+    const configured =
+      process.env.NEXT_PUBLIC_TI_SITE_URL?.trim() ||
+      process.env.NEXT_PUBLIC_SITE_URL?.trim();
     const suffix = `?returnTo=${encodeURIComponent(sanitizeReturnTo(returnTo, "/account"))}`;
-    if (configured) return `${configured.replace(/\/$/, "")}/verify-email${suffix}`;
-    if (typeof window !== "undefined") return `${window.location.origin}/verify-email${suffix}`;
-    return undefined;
+
+    const pickSafeOrigin = () => {
+      if (typeof window !== "undefined") {
+        const host = window.location.hostname.toLowerCase();
+        if (host === "localhost" || host.endsWith(".vercel.app") || host.includes("tournamentinsights.com")) {
+          return window.location.origin.replace(/\/$/, "");
+        }
+      }
+      if (configured) {
+        try {
+          const url = new URL(configured);
+          const host = url.hostname.toLowerCase();
+          if (
+            host.endsWith("tournamentinsights.com") ||
+            host === "localhost" ||
+            host.endsWith(".vercel.app")
+          ) {
+            return url.origin.replace(/\/$/, "");
+          }
+        } catch {
+          // Fall through to TI production default.
+        }
+      }
+      return tiProdOrigin;
+    };
+
+    return `${pickSafeOrigin()}/verify-email${suffix}`;
   }, [returnTo]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
