@@ -137,6 +137,48 @@ async function updateTiUserFieldAction(formData: FormData) {
   redirect(buildPathWithNotice(`TI user ${field} updated.`, q));
 }
 
+async function deleteTiUserAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+
+  const id = String(formData.get("id") ?? "").trim();
+  const q = String(formData.get("q") ?? "").trim();
+  const confirmed = String(formData.get("confirm_delete") ?? "").trim() === "on";
+  const deleteAuthUser = String(formData.get("delete_auth_user") ?? "").trim() === "on";
+
+  if (!id) redirect(buildPathWithNotice("Missing TI user id.", q));
+  if (!confirmed) redirect(buildPathWithNotice("Confirm delete checkbox is required.", q));
+
+  const { error: savedDeleteError } = await (supabaseAdmin.from("ti_saved_tournaments" as any) as any)
+    .delete()
+    .eq("user_id", id);
+  if (savedDeleteError) {
+    redirect(buildPathWithNotice(`TI saved tournaments delete failed: ${savedDeleteError.message}`, q));
+  }
+
+  const { error: tiDeleteError } = await (supabaseAdmin.from("ti_users" as any) as any)
+    .delete()
+    .eq("id", id);
+  if (tiDeleteError) {
+    redirect(buildPathWithNotice(`TI user delete failed: ${tiDeleteError.message}`, q));
+  }
+
+  if (deleteAuthUser) {
+    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(id);
+    if (authDeleteError) {
+      redirect(
+        buildPathWithNotice(
+          `TI record deleted, but global auth delete failed: ${authDeleteError.message}`,
+          q
+        )
+      );
+    }
+    redirect(buildPathWithNotice("TI user + global auth user deleted.", q));
+  }
+
+  redirect(buildPathWithNotice("TI user deleted.", q));
+}
+
 async function createEventCodeAction(formData: FormData) {
   "use server";
   await requireAdmin();
@@ -323,7 +365,7 @@ export default async function TiAdminPage({
                     "Renewal",
                     "Created",
                     "Seen",
-                    "Save",
+                    "Actions",
                   ].map((head) => (
                     <th key={head} style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: "8px 6px", fontSize: 12 }}>
                       {head}
@@ -399,7 +441,34 @@ export default async function TiAdminPage({
                     </td>
                     <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.created_at)}</td>
                     <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.last_seen_at ?? row.first_seen_at)}</td>
-                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", color: "#64748b", fontSize: 12 }}>Per-field save</td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>
+                      <form action={deleteTiUserAction} style={{ display: "grid", gap: 6 }}>
+                        <input type="hidden" name="id" value={row.id} />
+                        <input type="hidden" name="q" value={q} />
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <input type="checkbox" name="confirm_delete" />
+                          Confirm delete TI record
+                        </label>
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#b91c1c" }}>
+                          <input type="checkbox" name="delete_auth_user" />
+                          Also delete global auth user (RI + TI)
+                        </label>
+                        <button
+                          type="submit"
+                          style={{
+                            width: "fit-content",
+                            background: "#fee2e2",
+                            border: "1px solid #ef4444",
+                            color: "#991b1b",
+                            borderRadius: 6,
+                            padding: "6px 8px",
+                            fontWeight: 700,
+                          }}
+                        >
+                          Delete user
+                        </button>
+                      </form>
+                    </td>
                   </tr>
                 ))}
               </tbody>
