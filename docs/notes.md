@@ -1578,6 +1578,17 @@
 - Validation:
   - `npm run build --workspace referee-app` passed after sport alignment updates.
 
+- Admin venues duplicate workflow improvement:
+  - Updated:
+    - `apps/referee/app/admin/venues/page.tsx`
+  - Added explicit on-demand duplicate scan control in `/admin/venues`:
+    - `Check duplicates` button triggers duplicate grouping via query flag (`duplicates=1`).
+    - `Hide duplicates` returns to normal list view.
+  - Duplicate groups now run only when requested, reducing default page load overhead.
+  - Existing merge / keep-both actions remain unchanged and reusable in the same UI.
+  - Added summary line:
+    - `Duplicate check complete: X candidate groups.`
+
 - Admin Home `Missing venues` count accuracy fix:
   - Updated `apps/referee/app/admin/page.tsx`.
   - Root cause: large `.in("tournament_id", ids)` read against `tournament_venues` could fail and fall back to empty link set, inflating `Missing venues` to total published tournaments.

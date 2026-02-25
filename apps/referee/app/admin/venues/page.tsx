@@ -61,6 +61,29 @@ type VenueRow = {
 
 export const runtime = "nodejs";
 
+export type DuplicateVenueCandidate = {
+  id: string;
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  linked_tournaments: number;
+  owl_run_count: number;
+  venue_url: string | null;
+};
+
+export type DuplicateVenueGroup = {
+  key: string;
+  kind: "exact_address_city_state" | "same_name_and_street_state";
+  suggested_target_id: string;
+  candidates: DuplicateVenueCandidate[];
+};
+
+function pairKey(a: string, b: string) {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
+
 type PageProps = {
   searchParams?: {
     q?: string;
@@ -69,8 +92,31 @@ type PageProps = {
     tournament?: string;
     missing?: "address_geo" | "urls";
     owl?: "all" | "with_data" | "without_data";
+    duplicates?: "1";
   };
 };
+
+function normalizeText(value: string | null | undefined) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeStreet(value: string | null | undefined) {
+  return normalizeText(value)
+    .replace(/\b(street|st)\b/g, "st")
+    .replace(/\b(avenue|ave)\b/g, "ave")
+    .replace(/\b(road|rd)\b/g, "rd")
+    .replace(/\b(boulevard|blvd)\b/g, "blvd")
+    .replace(/\b(drive|dr)\b/g, "dr")
+    .replace(/\b(lane|ln)\b/g, "ln")
+    .replace(/\b(court|ct)\b/g, "ct")
+    .replace(/\b(place|pl)\b/g, "pl")
+    .replace(/\b(parkway|pkwy)\b/g, "pkwy")
+    .trim();
+}
 
 export default async function AdminVenuesPage({ searchParams }: PageProps) {
   await requireAdmin();
@@ -81,6 +127,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
   const tournament = (searchParams?.tournament ?? "").trim();
   const missing = (searchParams?.missing ?? "").trim();
   const owlFilter = (searchParams?.owl ?? "all").trim();
+  const showDuplicates = searchParams?.duplicates === "1";
 
   const orFilters = [];
   if (q) {
@@ -273,6 +320,125 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       ? venues.filter((v) => !v.owl_run_id)
       : venues;
 
+  const duplicateGroups: DuplicateVenueGroup[] = [];
+  if (showDuplicates) {
+    const { data: allVenuesLite } = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,name,address,address1,city,state,zip,venue_url")
+      .limit(3000);
+    const { data: allLinks } = await supabaseAdmin.from("tournament_venues" as any).select("venue_id");
+    const { data: allRuns } = await supabaseAdmin.from("owls_eye_runs" as any).select("venue_id");
+    let duplicateOverrides: Array<{ venue_a_id: string; venue_b_id: string }> = [];
+    try {
+      const resp = await supabaseAdmin
+        .from("venue_duplicate_overrides" as any)
+        .select("venue_a_id,venue_b_id,status")
+        .eq("status", "keep_both");
+      if (!resp.error && Array.isArray(resp.data)) {
+        duplicateOverrides = resp.data as Array<{ venue_a_id: string; venue_b_id: string }>;
+      }
+    } catch {
+      duplicateOverrides = [];
+    }
+
+    const linkedByVenue = new Map<string, number>();
+    for (const row of (allLinks ?? []) as Array<{ venue_id: string | null }>) {
+      const venueId = row?.venue_id;
+      if (!venueId) continue;
+      linkedByVenue.set(venueId, (linkedByVenue.get(venueId) ?? 0) + 1);
+    }
+    const runsByVenue = new Map<string, number>();
+    for (const row of (allRuns ?? []) as Array<{ venue_id: string | null }>) {
+      const venueId = row?.venue_id;
+      if (!venueId) continue;
+      runsByVenue.set(venueId, (runsByVenue.get(venueId) ?? 0) + 1);
+    }
+
+    const exactAddressGroups = new Map<string, DuplicateVenueCandidate[]>();
+    const nameStreetGroups = new Map<string, DuplicateVenueCandidate[]>();
+
+    for (const row of (allVenuesLite ?? []) as Array<Record<string, any>>) {
+      const candidate: DuplicateVenueCandidate = {
+        id: String(row.id),
+        name: row.name ?? null,
+        address: row.address1 ?? row.address ?? null,
+        city: row.city ?? null,
+        state: row.state ?? null,
+        zip: row.zip ?? null,
+        linked_tournaments: linkedByVenue.get(String(row.id)) ?? 0,
+        owl_run_count: runsByVenue.get(String(row.id)) ?? 0,
+        venue_url: row.venue_url ?? null,
+      };
+
+      const state = normalizeText(candidate.state);
+      const city = normalizeText(candidate.city);
+      const street = normalizeStreet(candidate.address);
+      const name = normalizeText(candidate.name);
+
+      if (street && state) {
+        const key = `${street}|${city}|${state}`;
+        const list = exactAddressGroups.get(key) ?? [];
+        list.push(candidate);
+        exactAddressGroups.set(key, list);
+      }
+      if (name && street && state) {
+        const key = `${name}|${street}|${state}`;
+        const list = nameStreetGroups.get(key) ?? [];
+        list.push(candidate);
+        nameStreetGroups.set(key, list);
+      }
+    }
+
+    const seenIds = new Set<string>();
+    const keepBothPairs = new Set<string>(
+      duplicateOverrides
+        .filter((row) => row?.venue_a_id && row?.venue_b_id)
+        .map((row) => pairKey(row.venue_a_id, row.venue_b_id))
+    );
+    const pickTarget = (candidates: DuplicateVenueCandidate[]) =>
+      [...candidates].sort((a, b) => {
+        if (a.owl_run_count !== b.owl_run_count) return b.owl_run_count - a.owl_run_count;
+        if (a.linked_tournaments !== b.linked_tournaments) return b.linked_tournaments - a.linked_tournaments;
+        const aHasUrl = a.venue_url ? 1 : 0;
+        const bHasUrl = b.venue_url ? 1 : 0;
+        if (aHasUrl !== bHasUrl) return bHasUrl - aHasUrl;
+        return a.id.localeCompare(b.id);
+      })[0];
+
+    for (const [key, list] of exactAddressGroups.entries()) {
+      if (list.length < 2) continue;
+      const target = pickTarget(list);
+      const filtered = list.filter((item) => item.id === target.id || !keepBothPairs.has(pairKey(item.id, target.id)));
+      if (filtered.length < 2) continue;
+      duplicateGroups.push({
+        key,
+        kind: "exact_address_city_state",
+        suggested_target_id: target.id,
+        candidates: filtered,
+      });
+      filtered.forEach((item) => seenIds.add(item.id));
+    }
+    for (const [key, list] of nameStreetGroups.entries()) {
+      if (list.length < 2) continue;
+      if (list.some((item) => seenIds.has(item.id))) continue;
+      const target = pickTarget(list);
+      const filtered = list.filter((item) => item.id === target.id || !keepBothPairs.has(pairKey(item.id, target.id)));
+      if (filtered.length < 2) continue;
+      duplicateGroups.push({
+        key,
+        kind: "same_name_and_street_state",
+        suggested_target_id: target.id,
+        candidates: filtered,
+      });
+    }
+
+    duplicateGroups.sort((a, b) => {
+      const aWeight = a.candidates.reduce((sum, item) => sum + item.linked_tournaments + item.owl_run_count * 2, 0);
+      const bWeight = b.candidates.reduce((sum, item) => sum + item.linked_tournaments + item.owl_run_count * 2, 0);
+      return bWeight - aWeight;
+    });
+  }
+
   return (
     <div style={{ padding: 24 }}>
       <AdminNav />
@@ -298,8 +464,9 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         </Link>
       </div>
 
-      <form style={{ display: "grid", gap: 8, marginBottom: 16, gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr auto" }}>
+      <form style={{ display: "grid", gap: 8, marginBottom: 16, gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr auto auto" }}>
         {missing ? <input type="hidden" name="missing" value={missing} /> : null}
+        {showDuplicates ? <input type="hidden" name="duplicates" value="1" /> : null}
         <input
           name="q"
           placeholder="Search venue name/address/city/state/UUID"
@@ -344,7 +511,29 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         <button type="submit" style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
           Search
         </button>
+        {!showDuplicates ? (
+          <button
+            type="submit"
+            name="duplicates"
+            value="1"
+            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #1d4ed8", color: "#1d4ed8", fontWeight: 700, background: "#fff" }}
+          >
+            Check duplicates
+          </button>
+        ) : (
+          <a
+            href={`/admin/venues${missing ? `?missing=${encodeURIComponent(missing)}` : ""}`}
+            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #1d4ed8", color: "#1d4ed8", fontWeight: 700, background: "#fff", textDecoration: "none", textAlign: "center" }}
+          >
+            Hide duplicates
+          </a>
+        )}
       </form>
+      {showDuplicates ? (
+        <div style={{ marginBottom: 12, fontSize: 13, color: "#1e3a8a" }}>
+          Duplicate check complete: <strong>{duplicateGroups.length}</strong> candidate group{duplicateGroups.length === 1 ? "" : "s"}.
+        </div>
+      ) : null}
       {missing ? (
         <div style={{ marginBottom: 12, fontSize: 13, color: "#334155" }}>
           Active filter:
@@ -362,7 +551,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 
       <VenueAddressVerifyPanel />
 
-      <VenuesListClient venues={filteredVenues} />
+      <VenuesListClient venues={filteredVenues} duplicateGroups={duplicateGroups} />
     </div>
   );
 }
