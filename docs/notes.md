@@ -1882,3 +1882,19 @@
   - Ready venue sorting now prioritizes venues with the highest number of linked tournaments first.
   - Secondary sorting remains address-first (then city/state/name) to keep duplicate-review workflows grouped.
   - Admin venue payload now reports `tournament_count` from unique linked tournament IDs, improving consistency with prioritization logic.
+
+- TI Supabase TokenHash auth-link handler:
+  - Added App Router verify handler:
+    - `apps/ti-web/app/auth/confirm/route.ts`
+  - Added friendly failure page:
+    - `apps/ti-web/app/auth/error/page.tsx`
+  - Middleware updated to explicitly allow public access for:
+    - `/auth/confirm`
+    - `/auth/error`
+  - Behavior:
+    - verifies `token_hash` + `type` (`email`, `magiclink`, `recovery`, `email_change`) via `supabase.auth.verifyOtp`
+    - supports safe relative `next` redirects
+    - defaults recovery flow to `/account/reset-password`
+    - redirects failed links to `/auth/error?notice=auth_link_invalid|auth_link_expired`
+  - Added documentation:
+    - `docs/auth-email-tokenhash.md`

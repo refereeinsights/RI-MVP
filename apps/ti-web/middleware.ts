@@ -2,6 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
+  const pathname = req.nextUrl.pathname;
+  if (pathname === "/auth/confirm" || pathname === "/auth/error") {
+    return NextResponse.next();
+  }
+
   let res = NextResponse.next();
 
   const supabase = createServerClient(
@@ -27,5 +32,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/account/:path*", "/logout", "/verify-email"],
+  matcher: ["/account/:path*", "/logout", "/verify-email", "/auth/:path*"],
 };

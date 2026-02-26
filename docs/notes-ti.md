@@ -957,3 +957,18 @@
   - Added derived display name helper from email local-part for faster scanning.
   - Styled alternate-row card backgrounds/borders for more apparent zebra-style separation.
   - Kept existing update/delete actions intact while moving destructive controls into a condensed section inside each expanded card.
+
+- TI Auth email TokenHash support:
+  - Added:
+    - `apps/ti-web/app/auth/confirm/route.ts`
+    - `apps/ti-web/app/auth/error/page.tsx`
+    - `docs/auth-email-tokenhash.md`
+  - Updated:
+    - `apps/ti-web/middleware.ts`
+  - Summary:
+    - Supabase email templates can now use TokenHash links pointing to `/auth/confirm`.
+    - Route validates `token_hash`, `type`, and safe relative `next`, then calls server-side `supabase.auth.verifyOtp`.
+    - Success redirects:
+      - default `/account`
+      - `recovery` default `/account/reset-password` (unless explicit safe `next`)
+    - Failure redirects to `/auth/error` with a short `notice` code.
