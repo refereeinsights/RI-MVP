@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import styles from "./VenueCard.module.css";
 
@@ -8,39 +9,53 @@ type MapLinks = {
 } | null;
 
 type Props = {
+  venueId: string;
   name: string;
   city: string | null;
   state: string | null;
   address: string | null;
   zip: string | null;
   notes?: string | null;
-  sports: string[];
-  tournamentCount: number;
+  sportCardClass: string;
+  upcomingTournaments: {
+    id: string;
+    name: string;
+    slug: string;
+    start_date: string | null;
+  }[];
   venueUrl?: string | null;
   mapLinks: MapLinks;
-  sportsLabel: (sport: string) => string;
   icon?: ReactNode;
+  hasOwlsEye?: boolean;
 };
 
 export default function VenueCard({
+  venueId,
   name,
   city,
   state,
   address,
   zip,
   notes,
-  sports,
-  tournamentCount,
+  sportCardClass,
+  upcomingTournaments,
   venueUrl,
   mapLinks,
-  sportsLabel,
   icon,
+  hasOwlsEye = false,
 }: Props) {
   const locationLabel = [city, state].filter(Boolean).join(", ");
   const addressLabel = [address, city, state, zip].filter(Boolean).join(", ");
 
   return (
-    <article className={`card bg-sport-default ${styles.card}`}>
+    <article className={`card ${sportCardClass} ${styles.card}`}>
+      {hasOwlsEye ? (
+        <img
+          className={styles.owlBadge}
+          src="/svg/ri/owls_eye_badge.svg"
+          alt="Owl's Eye insights available for this venue"
+        />
+      ) : null}
       <div className="cardWhistle" style={{ top: "1.1rem" }}>
         <div className="summaryIcon" aria-hidden="true">
           {icon ?? "📍"}
@@ -56,27 +71,36 @@ export default function VenueCard({
 
       <p className={`dates ${styles.dates}`}>{addressLabel || "Address TBA"}</p>
 
-      {tournamentCount > 0 ? <p className={`dates ${styles.dates}`}>Hosted {tournamentCount} tournaments</p> : null}
-
-      {sports.length > 0 ? (
-        <p className={styles.sportsLine}>
-          <strong>{sports.length > 1 ? "Sports" : "Sport"}:</strong> {sports.map((sport) => sportsLabel(sport)).join(", ")}
-        </p>
+      {upcomingTournaments.length > 0 ? (
+        <div className={styles.upcomingBlock}>
+          <p className={styles.upcomingTitle}>Coming up at this venue</p>
+          <ul className={styles.upcomingList}>
+            {upcomingTournaments.map((tournament) => (
+              <li key={tournament.id}>
+                <Link href={`/tournaments/${tournament.slug}`}>{tournament.name}</Link>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       {notes ? <p className={styles.notes}>{notes}</p> : null}
 
       <div className="cardFooter">
+        <Link href={`/venues/${venueId}`} className={`primaryLink ${styles.detailsLink}`}>
+          Venue details
+        </Link>
+
         {venueUrl ? (
-          <a href={venueUrl} target="_blank" rel="noopener noreferrer" className="secondaryLink">
+          <a href={venueUrl} target="_blank" rel="noopener noreferrer" className={`secondaryLink ${styles.siteLink}`}>
             <span>Venue site</span>
           </a>
         ) : mapLinks ? (
-          <a href={mapLinks.google} target="_blank" rel="noopener noreferrer" className="secondaryLink">
+          <a href={mapLinks.google} target="_blank" rel="noopener noreferrer" className={`secondaryLink ${styles.siteLink}`}>
             <span>Google Maps</span>
           </a>
         ) : (
-          <div className="secondaryLink" aria-disabled="true" style={{ cursor: "default" }}>
+          <div className={`secondaryLink ${styles.siteLink}`} aria-disabled="true" style={{ cursor: "default" }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 }}>
               <span>Venue site</span>
               <span className="tbdText">TBD</span>
@@ -85,11 +109,11 @@ export default function VenueCard({
         )}
 
         {mapLinks ? (
-          <a href={mapLinks.apple} target="_blank" rel="noopener noreferrer" className="primaryLink">
+          <a href={mapLinks.apple} target="_blank" rel="noopener noreferrer" className={`primaryLink ${styles.mapLink}`}>
             View map
           </a>
         ) : (
-          <span className="primaryLink" aria-disabled="true" style={{ opacity: 0.55, pointerEvents: "none" }}>
+          <span className={`primaryLink ${styles.mapLink}`} aria-disabled="true" style={{ opacity: 0.55, pointerEvents: "none" }}>
             View map
           </span>
         )}

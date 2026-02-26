@@ -3,10 +3,13 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import StateMultiSelect from "../tournaments/StateMultiSelect";
 import VenueCard from "@/components/venues/VenueCard";
 import styles from "./VenuesPage.module.css";
+import { getSportCardClass, getSummarySportClass, getVenueCardClassFromSports } from "./sportSurface";
 import "../tournaments/tournaments.css";
 
 type LinkedTournament = {
   id: string;
+  name: string | null;
+  slug: string | null;
   sport: string | null;
   start_date: string | null;
   end_date: string | null;
@@ -34,6 +37,21 @@ type VenueModel = VenueRow & {
   tournamentCount: number;
   linkedTournamentCount: number;
   hasLinkedTournaments: boolean;
+  hasOwlsEye: boolean;
+  upcomingTournaments: {
+    id: string;
+    name: string;
+    slug: string;
+    start_date: string | null;
+  }[];
+};
+
+type OwlsEyeRunRow = {
+  id: string;
+  run_id?: string | null;
+  venue_id: string;
+  updated_at?: string | null;
+  created_at?: string | null;
 };
 
 export const revalidate = 300;
@@ -90,6 +108,9 @@ function venueIcon(sports: string[]) {
   if (sports.includes("lacrosse")) {
     return <img className="sportSvgIcon" src="/brand/lacrosse_icon.svg" alt="" />;
   }
+  if (sports.includes("hockey")) {
+    return <img className="sportSvgIcon" src="/svg/sports/hockey_puck_icon.svg" alt="" />;
+  }
   if (sports.includes("soccer")) return "⚽";
   if (sports.includes("basketball")) return "🏀";
   if (sports.includes("football")) return "🏈";
@@ -100,6 +121,33 @@ function venueIcon(sports: string[]) {
 
 function stateKey(value: string | null | undefined) {
   return (value ?? "").trim().toUpperCase();
+}
+
+async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
+  if (!venueIds.length) return [] as OwlsEyeRunRow[];
+
+  const primary = await supabaseAdmin
+    .from("owls_eye_runs" as any)
+    .select("id,run_id,venue_id,updated_at,created_at")
+    .in("venue_id", venueIds)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  const primaryErrCode = (primary as any)?.error?.code;
+  if (!primary.error) {
+    return (primary.data as OwlsEyeRunRow[] | null) ?? [];
+  }
+
+  if (primaryErrCode === "42703" || primaryErrCode === "PGRST204") {
+    const fallback = await supabaseAdmin
+      .from("owls_eye_runs" as any)
+      .select("id,run_id,venue_id,created_at")
+      .in("venue_id", venueIds)
+      .order("created_at", { ascending: false });
+    return (fallback.data as OwlsEyeRunRow[] | null) ?? [];
+  }
+
+  return [];
 }
 
 function matchesText(v: VenueRow, q: string) {
@@ -150,7 +198,7 @@ export default async function VenuesPage({
   const { data: venuesData, error } = await supabaseAdmin
     .from("venues" as any)
     .select(
-      "id,name,address,city,state,zip,latitude,longitude,venue_url,notes,sport,tournament_venues(tournaments(id,sport,start_date,end_date))"
+      "id,name,address,city,state,zip,latitude,longitude,venue_url,notes,sport,tournament_venues(tournaments(id,name,slug,sport,start_date,end_date))"
     )
     .order("name", { ascending: true });
 
@@ -168,6 +216,32 @@ export default async function VenuesPage({
   }
 
   const rawVenues = (venuesData ?? []) as VenueRow[];
+  const venueIds = rawVenues.map((v) => v.id).filter(Boolean);
+  const runRows = await fetchLatestOwlsEyeRuns(venueIds);
+  const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
+  for (const row of runRows) {
+    if (!row?.venue_id) continue;
+    if (latestRunByVenue.has(row.venue_id)) continue;
+    latestRunByVenue.set(row.venue_id, row);
+  }
+  const runIds = Array.from(latestRunByVenue.values())
+    .map((row) => row.run_id ?? row.id)
+    .filter((value): value is string => Boolean(value));
+  const hasNearbyByRunId = new Set<string>();
+  if (runIds.length) {
+    const { data: nearbyRows } = await supabaseAdmin
+      .from("owls_eye_nearby_food" as any)
+      .select("run_id")
+      .in("run_id", runIds);
+    for (const row of ((nearbyRows as Array<{ run_id: string }> | null) ?? [])) {
+      if (row?.run_id) hasNearbyByRunId.add(row.run_id);
+    }
+  }
+  const hasOwlsEyeByVenueId = new Map<string, boolean>();
+  for (const [venueId, run] of latestRunByVenue.entries()) {
+    const runId = run.run_id ?? run.id;
+    hasOwlsEyeByVenueId.set(venueId, hasNearbyByRunId.has(runId));
+  }
 
   const venuesClean: VenueModel[] = rawVenues
     .filter((v) => Boolean(v?.id && v?.name))
@@ -189,6 +263,22 @@ export default async function VenuesPage({
         return true;
       });
 
+      const upcomingTournaments = linkedTournaments
+        .filter((t) => {
+          const startOk = Boolean(t.start_date && t.start_date >= today);
+          const endOk = Boolean(t.end_date && t.end_date >= today);
+          return startOk || endOk;
+        })
+        .filter((t): t is LinkedTournament & { slug: string; name: string } => Boolean(t.slug && t.name))
+        .sort((a, b) => (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31"))
+        .slice(0, 3)
+        .map((t) => ({
+          id: t.id,
+          name: t.name,
+          slug: t.slug,
+          start_date: t.start_date,
+        }));
+
       const sportsFromLinked = new Set(
         eligibleLinkedTournaments
           .map((t) => canonicalSport(t.sport))
@@ -208,6 +298,8 @@ export default async function VenuesPage({
         tournamentCount: eligibleLinkedTournaments.length,
         linkedTournamentCount: linkedTournaments.length,
         hasLinkedTournaments: linkedTournaments.length > 0,
+        hasOwlsEye: Boolean(hasOwlsEyeByVenueId.get(venue.id)),
+        upcomingTournaments,
       };
     });
 
@@ -354,7 +446,7 @@ export default async function VenuesPage({
         <div className="summaryGrid">
           <Link
             href={`/venues?${buildParams(null)}`}
-            className={`card card--mini bg-sport-default ${styles.summaryAllLink} ${sportsSelected.length === 0 ? styles.summaryActive : ""}`}
+            className={`card card--mini summary-total ${styles.summaryAllLink} ${sportsSelected.length === 0 ? styles.summaryActive : ""}`}
           >
             <div className="summaryCount">{venuesAllSportCleared.length}</div>
             <div className="summaryLabel">ALL VENUES</div>
@@ -370,7 +462,7 @@ export default async function VenuesPage({
               <Link
                 key={sport}
                 href={href}
-                className={`card card--mini bg-sport-default ${sportsSelected.includes(sport) ? styles.summaryActive : ""}`}
+                className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)} ${sportsSelected.includes(sport) ? styles.summaryActive : ""}`}
               >
                 <div className="summaryCount">{count}</div>
                 <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
@@ -403,18 +495,19 @@ export default async function VenuesPage({
               return (
                 <VenueCard
                   key={venue.id}
+                  venueId={venue.id}
                   name={venue.name || "Venue"}
                   city={venue.city}
                   state={venue.state}
                   address={venue.address}
                   zip={venue.zip}
                   notes={venue.notes}
-                  sports={venue.sports}
-                  tournamentCount={venue.linkedTournamentCount}
+                  sportCardClass={getVenueCardClassFromSports(venue.sports)}
+                  upcomingTournaments={venue.upcomingTournaments}
                   venueUrl={venue.venue_url}
                   mapLinks={mapLinks}
-                  sportsLabel={(sport) => SPORTS_LABELS[sport] || sport}
                   icon={venueIcon(venue.sports)}
+                  hasOwlsEye={venue.hasOwlsEye}
                 />
               );
             })}

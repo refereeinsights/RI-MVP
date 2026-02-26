@@ -1,32 +1,122 @@
 .card {
-  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(246,248,243,0.98));
-  color: #102213;
-  border: 1px solid rgba(16, 34, 19, 0.18);
+  position: relative;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+}
+
+.owlBadge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
+  z-index: 2;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
 }
 
 .card h2 {
-  color: #102213;
+  color: #fff;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 
 .meta {
-  color: #2f4635;
+  color: rgba(255, 255, 255, 0.94);
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 
 .dates {
-  color: #2f4635;
-  opacity: 0.9;
+  color: rgba(255, 255, 255, 0.92);
+  opacity: 1;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 
 .notes {
   margin: 0.4rem 0 0;
   font-size: 0.9rem;
   line-height: 1.45;
-  color: #2d3a2f;
+  color: rgba(255, 255, 255, 0.92);
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 
-.sportsLine {
-  margin: 0.5rem 0 0;
-  font-size: 0.82rem;
-  line-height: 1.4;
-  color: #2f4635;
+.upcomingBlock {
+  margin-top: 0.55rem;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.upcomingTitle {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+.upcomingList {
+  margin: 0.3rem 0 0;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.2rem;
+  justify-items: center;
+}
+
+.upcomingList li {
+  color: rgba(255, 255, 255, 0.94);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.upcomingList a {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.upcomingList a:hover {
+  color: #e7f2ff;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.64) 0%, rgba(0, 0, 0, 0.48) 45%, rgba(0, 0, 0, 0.34) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.card :global(.cardWhistle),
+.card :global(.cardFooter) {
+  position: relative;
+  z-index: 1;
+}
+
+.card :global(.cardFooter) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detailsLink,
+.siteLink,
+.mapLink {
+  width: 100%;
+  text-align: center;
 }
