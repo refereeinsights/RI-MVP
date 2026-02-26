@@ -1,0 +1,80 @@
+.badge {
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.tooltip {
+  font-size: 11px;
+  opacity: 0.88;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+}
+
+.valueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.indexValue {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.95;
+}
+
+.meter {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.bar {
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.barFilled {
+  background: #5eead4;
+}
+
+.meta {
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0.92;
+}
+
+.muted {
+  font-size: 11px;
+  opacity: 0.8;
+}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import VenueIndexBadge from "@/components/VenueIndexBadge";
 import styles from "./VenueCard.module.css";
 
 type MapLinks = {
@@ -27,6 +28,12 @@ type Props = {
   mapLinks: MapLinks;
   icon?: ReactNode;
   hasOwlsEye?: boolean;
+  restroom_cleanliness_avg?: number | null;
+  shade_score_avg?: number | null;
+  vendor_score_avg?: number | null;
+  parking_convenience_score_avg?: number | null;
+  review_count?: number | null;
+  reviews_last_updated_at?: string | null;
 };
 
 export default function VenueCard({
@@ -43,6 +50,12 @@ export default function VenueCard({
   mapLinks,
   icon,
   hasOwlsEye = false,
+  restroom_cleanliness_avg,
+  shade_score_avg,
+  vendor_score_avg,
+  parking_convenience_score_avg,
+  review_count,
+  reviews_last_updated_at,
 }: Props) {
   const locationLabel = [city, state].filter(Boolean).join(", ");
   const addressLabel = [address, city, state, zip].filter(Boolean).join(", ");
@@ -70,6 +83,15 @@ export default function VenueCard({
       </p>
 
       <p className={`dates ${styles.dates}`}>{addressLabel || "Address TBA"}</p>
+
+      <VenueIndexBadge
+        restroom_cleanliness_avg={restroom_cleanliness_avg}
+        shade_score_avg={shade_score_avg}
+        vendor_score_avg={vendor_score_avg}
+        parking_convenience_score_avg={parking_convenience_score_avg}
+        review_count={review_count}
+        reviews_last_updated_at={reviews_last_updated_at}
+      />
 
       {upcomingTournaments.length > 0 ? (
         <div className={styles.upcomingBlock}>

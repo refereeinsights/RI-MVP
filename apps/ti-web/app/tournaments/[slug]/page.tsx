@@ -8,6 +8,7 @@ import { canAccessWeekendPro, getTier } from "@/lib/entitlements";
 import { isTournamentSaved } from "@/lib/savedTournaments";
 import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SaveTournamentButton from "@/components/SaveTournamentButton";
+import VenueIndexBadge from "@/components/VenueIndexBadge";
 import "../tournaments.css";
 
 type TournamentDetailRow = {
@@ -38,6 +39,12 @@ type TournamentDetailRow = {
       latitude: number | null;
       longitude: number | null;
       venue_url: string | null;
+      restroom_cleanliness_avg: number | null;
+      shade_score_avg: number | null;
+      vendor_score_avg: number | null;
+      parking_convenience_score_avg: number | null;
+      review_count: number | null;
+      reviews_last_updated_at: string | null;
     } | null;
   }[] | null;
 };
@@ -101,6 +108,12 @@ type LinkedVenue = {
   latitude: number | null;
   longitude: number | null;
   venue_url: string | null;
+  restroom_cleanliness_avg: number | null;
+  shade_score_avg: number | null;
+  vendor_score_avg: number | null;
+  parking_convenience_score_avg: number | null;
+  review_count: number | null;
+  reviews_last_updated_at: string | null;
 };
 
 export const revalidate = 300;
@@ -276,7 +289,7 @@ export default async function TournamentDetailPage({
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
     .select(
-      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,sport,level,venue,address,tournament_venues(venues(id,name,address,city,state,zip,latitude,longitude,venue_url))"
+      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,sport,level,venue,address,tournament_venues(venues(id,name,address,city,state,zip,latitude,longitude,venue_url,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at))"
     )
     .eq("slug", params.slug)
     .maybeSingle<TournamentDetailRow>();
@@ -573,6 +586,14 @@ export default async function TournamentDetailPage({
                 <div className={`detailCard ${hasOwlsEyeByVenueId.get(venue.id) ? "detailCard--withOwl" : ""}`} key={venue.id}>
                   <div className="detailCard__title">Venue</div>
                   <div className="detailCard__body">
+                    <VenueIndexBadge
+                      restroom_cleanliness_avg={venue.restroom_cleanliness_avg}
+                      shade_score_avg={venue.shade_score_avg}
+                      vendor_score_avg={venue.vendor_score_avg}
+                      parking_convenience_score_avg={venue.parking_convenience_score_avg}
+                      review_count={venue.review_count}
+                      reviews_last_updated_at={venue.reviews_last_updated_at}
+                    />
                     {hasOwlsEyeByVenueId.get(venue.id) ? (
                       <img
                         className="detailVenueOwlBadgeFloat"

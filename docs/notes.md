@@ -31,13 +31,89 @@
   - Public path:
     - `/brand/ti-email-logo.png`
 
-- Auth email infrastructure ops note (Supabase + Resend):
-  - Direction: use Supabase Auth custom SMTP with Resend for auth/signup/reset emails.
-  - Scope note:
-    - when TI and RI share the same Supabase project, SMTP/templates/rate-limit settings are shared.
-  - Sender/security guidance:
-    - use a send-only Resend API key,
-    - sender must be on verified domain/subdomain (current target: `mail.tournamentinsights.com`).
+- Supabase Auth Email Setup (RI + TI – Single Project):
+  - Architecture:
+    - single shared Supabase project for RI + TI
+    - custom SMTP via Resend
+    - auth sender identity:
+      - `noreply@mail.tournamentinsights.com`
+    - shared auth email templates across both apps
+  - Supabase Auth SMTP configuration:
+    - enable custom SMTP
+    - host: `smtp.resend.com`
+    - port: `465`
+    - username: `resend`
+    - password: `RESEND_API_KEY`
+    - sender email: `noreply@mail.tournamentinsights.com`
+    - sender name: `TournamentInsights`
+    - Resend domain auth requirement:
+      - SPF + DKIM verified for `mail.tournamentinsights.com`
+  - Supabase Auth URL configuration:
+    - Site URL:
+      - `https://www.tournamentinsights.com`
+    - Redirect allowlist (for both apps):
+      - `https://www.tournamentinsights.com/*`
+      - `https://www.refereeinsights.com/*`
+    - intended flow coverage:
+      - confirm signup
+      - magic link
+      - reset password
+      - email change
+  - Email logo hosting:
+    - repo file:
+      - `apps/ti-web/public/brand/ti-email-logo.png`
+    - public URL:
+      - `https://www.tournamentinsights.com/brand/ti-email-logo.png`
+    - rationale:
+      - same root domain alignment with sender
+      - avoids third-party asset dependency
+      - simple static deployment through Vercel
+  - Auth templates customized:
+    - Confirm Signup
+    - Magic Link
+    - Reset Password
+    - Change Email
+    - standards:
+      - uses hosted TI logo
+      - uses `{{ .ConfirmationURL }}`
+      - includes fallback raw link
+      - includes “ignore if not requested” language
+      - minimal HTML for deliverability
+      - no tracking pixels
+      - no external fonts
+    - button style:
+      - background `#0B5FFF`
+      - border radius `10px`
+      - font weight `600`
+  - Design principles:
+    - security-first
+    - minimal and clear
+    - brand-consistent, not promotional
+    - optimized for inbox placement
+    - auth emails are not marketing emails
+  - Future consideration:
+    - when RI and TI split into separate Supabase projects:
+      - separate branded templates
+      - separate sender identities
+      - isolated auth configurations
+
+- TI Venue Index rollout:
+  - Added composite venue index utility:
+    - `apps/ti-web/lib/venueIndex.ts`
+  - Added venue index badge UI:
+    - `apps/ti-web/components/VenueIndexBadge.tsx`
+    - `apps/ti-web/components/VenueIndexBadge.module.css`
+  - Surfaced index on public TI venue touchpoints:
+    - `/venues` cards,
+    - `/venues/[venueId]` venue detail,
+    - `/tournaments/[slug]` venue cards in tournament detail.
+  - Updated venue selects/queries to include aggregate fields used by index:
+    - restroom/shade/vendor/parking aggregate averages,
+    - `review_count`,
+    - `reviews_last_updated_at`.
+  - Added coverage + docs:
+    - tests: `apps/ti-web/lib/venueIndex.test.ts`
+    - docs: `apps/ti-web/docs/venue-index.md`
 
 ## 2026-02-25
 - TI verify-email completion fix (confirmation link now finalizes session):

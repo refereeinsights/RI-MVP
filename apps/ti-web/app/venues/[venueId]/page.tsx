@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { BRAND_OWL } from "@/lib/brand";
 import { canAccessWeekendPro, getTier } from "@/lib/entitlements";
+import VenueIndexBadge from "@/components/VenueIndexBadge";
 import { getVenueCardClassFromSports } from "../sportSurface";
 import "../../tournaments/tournaments.css";
 
@@ -26,6 +27,12 @@ type VenueRow = {
   notes: string | null;
   venue_url: string | null;
   sport: string | null;
+  restroom_cleanliness_avg: number | null;
+  shade_score_avg: number | null;
+  vendor_score_avg: number | null;
+  parking_convenience_score_avg: number | null;
+  review_count: number | null;
+  reviews_last_updated_at: string | null;
   tournament_venues?: {
     tournaments?: LinkedTournament | null;
   }[] | null;
@@ -131,7 +138,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const { data, error } = await supabaseAdmin
     .from("venues" as any)
     .select(
-      "id,name,address,city,state,zip,notes,venue_url,sport,tournament_venues(tournaments(id,slug,name,sport,start_date,end_date))"
+      "id,name,address,city,state,zip,notes,venue_url,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(tournaments(id,slug,name,sport,start_date,end_date))"
     )
     .eq("id", params.venueId)
     .maybeSingle<VenueRow>();
@@ -243,6 +250,15 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
               <p className="dates" style={{ margin: 0 }}>
                 {addressLabel || "Address TBA"}
               </p>
+
+              <VenueIndexBadge
+                restroom_cleanliness_avg={data.restroom_cleanliness_avg}
+                shade_score_avg={data.shade_score_avg}
+                vendor_score_avg={data.vendor_score_avg}
+                parking_convenience_score_avg={data.parking_convenience_score_avg}
+                review_count={data.review_count}
+                reviews_last_updated_at={data.reviews_last_updated_at}
+              />
 
               <div className="cardFooter" style={{ justifyContent: "center" }}>
                 <Link href="/venues" className="secondaryLink">
