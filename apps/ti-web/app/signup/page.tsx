@@ -17,11 +17,9 @@ export default function SignupPage() {
   const [message, setMessage] = useState("");
   const code = (searchParams.get("code") || "").trim();
   const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/account");
-  const nextPath = code ? `/join?code=${encodeURIComponent(code)}` : returnTo;
 
   const emailRedirectTo = useMemo(() => {
     const tiProdOrigin = "https://www.tournamentinsights.com";
-    const suffix = `?returnTo=${encodeURIComponent(nextPath)}`;
     const configured =
       process.env.NEXT_PUBLIC_TI_SITE_URL?.trim() ||
       process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -51,8 +49,8 @@ export default function SignupPage() {
       return tiProdOrigin;
     };
 
-    return `${pickSafeOrigin()}/verify-email${suffix}`;
-  }, [nextPath]);
+    return `${pickSafeOrigin()}/auth/confirm`;
+  }, []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

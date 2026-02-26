@@ -2,14 +2,11 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
-import { sanitizeReturnTo } from "@/lib/returnTo";
-
 type ResendVerificationFormProps = {
   initialEmail?: string;
-  returnTo?: string;
 };
 
-export default function ResendVerificationForm({ initialEmail = "", returnTo = "/account" }: ResendVerificationFormProps) {
+export default function ResendVerificationForm({ initialEmail = "" }: ResendVerificationFormProps) {
   const [email, setEmail] = useState(initialEmail);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -19,7 +16,6 @@ export default function ResendVerificationForm({ initialEmail = "", returnTo = "
     const configured =
       process.env.NEXT_PUBLIC_TI_SITE_URL?.trim() ||
       process.env.NEXT_PUBLIC_SITE_URL?.trim();
-    const suffix = `?returnTo=${encodeURIComponent(sanitizeReturnTo(returnTo, "/account"))}`;
 
     const pickSafeOrigin = () => {
       if (typeof window !== "undefined") {
@@ -46,8 +42,8 @@ export default function ResendVerificationForm({ initialEmail = "", returnTo = "
       return tiProdOrigin;
     };
 
-    return `${pickSafeOrigin()}/verify-email${suffix}`;
-  }, [returnTo]);
+    return `${pickSafeOrigin()}/auth/confirm`;
+  }, []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

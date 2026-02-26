@@ -24,6 +24,10 @@ import { createClient, type User } from "@supabase/supabase-js";
 type EnvMap = Record<string, string>;
 type Mode = "all" | "magic" | "reset" | "change";
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function loadEnvFile(filePath: string): EnvMap {
   const env: EnvMap = {};
   if (!fs.existsSync(filePath)) return env;
@@ -123,9 +127,21 @@ function hasFlag(argv: string[], flag: string): boolean {
   return argv.includes(flag);
 }
 
+function parseDelayMs(argv: string[]): number {
+  const delayArg = argv.find((arg) => arg.startsWith("--delay-ms="));
+  const raw = delayArg?.split("=")[1]?.trim() ?? process.env.SMOKE_DELAY_MS ?? "45000";
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`Invalid delay value: ${raw}. Use a non-negative integer in milliseconds.`);
+  }
+  return parsed;
+}
+
 function printUsage(): void {
   console.log("Usage:");
-  console.log("  npx tsx apps/ti-web/smoke-auth-emails.ts [--mode=all|magic|reset|change] [--fresh]");
+  console.log(
+    "  npx tsx apps/ti-web/smoke-auth-emails.ts [--mode=all|magic|reset|change] [--fresh] [--delay-ms=45000]",
+  );
   console.log("");
   console.log("Options:");
   console.log("  --mode=all      Trigger magic + reset + change (default)");
@@ -133,6 +149,7 @@ function printUsage(): void {
   console.log("  --mode=reset    Trigger only reset password email");
   console.log("  --mode=change   Trigger only change-email confirmation");
   console.log("  --fresh         Delete and recreate the smoke user before sending");
+  console.log("  --delay-ms      Delay between email triggers in mode=all (default: 45000)");
 }
 
 async function main(): Promise<void> {
@@ -144,6 +161,7 @@ async function main(): Promise<void> {
   }
   const mode = parseMode(argv);
   const fresh = hasFlag(argv, "--fresh");
+  const delayMs = parseDelayMs(argv);
 
   const supabaseUrl =
     process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -154,7 +172,7 @@ async function main(): Promise<void> {
     process.env.SMOKE_CHANGE_EMAIL ??
     "tournamentinsights+smoke-change@gmail.com";
   const redirectTo =
-    process.env.SMOKE_REDIRECT_TO ?? "https://www.tournamentinsights.com";
+    process.env.SMOKE_REDIRECT_TO ?? "https://www.tournamentinsights.com/auth/confirm";
 
   if (!supabaseUrl) throw new Error("Missing required env var: SUPABASE_URL");
   if (!serviceRoleKey) {
@@ -165,6 +183,7 @@ async function main(): Promise<void> {
   console.log(`Supabase URL: ${supabaseUrl}`);
   console.log(`Mode: ${mode}`);
   console.log(`Fresh user setup: ${fresh ? "yes" : "no"}`);
+  console.log(`Inter-step delay: ${delayMs}ms`);
   console.log(`SMOKE_EMAIL: ${smokeEmail}`);
   console.log(`SMOKE_CHANGE_EMAIL: ${smokeChangeEmail}`);
 
@@ -236,6 +255,11 @@ async function main(): Promise<void> {
     console.log("Magic link email trigger succeeded.");
   }
 
+  if (mode === "all" && delayMs > 0) {
+    console.log(`Waiting ${delayMs}ms before next email trigger...`);
+    await sleep(delayMs);
+  }
+
   if (mode === "all" || mode === "reset") {
     console.log("Step 3: Triggering reset password email...");
     const { error: resetError } = await authClient.auth.resetPasswordForEmail(smokeEmail, {
@@ -245,6 +269,11 @@ async function main(): Promise<void> {
       throw new Error(`Failed to trigger reset password email: ${resetError.message}`);
     }
     console.log("Reset password email trigger succeeded.");
+  }
+
+  if (mode === "all" && delayMs > 0) {
+    console.log(`Waiting ${delayMs}ms before next email trigger...`);
+    await sleep(delayMs);
   }
 
   if (mode === "all" || mode === "change") {

@@ -27,7 +27,7 @@ export default async function VerifyEmailPage({
         Email verification is required to unlock Insider access. Once your email is verified, you can use your account and manage your tier from Account.
       </p>
       <VerifyCodeExchange returnTo={returnTo} />
-      <ResendVerificationForm initialEmail={user?.email ?? ""} returnTo={returnTo} />
+      <ResendVerificationForm initialEmail={user?.email ?? ""} />
       <div style={{ fontSize: 13 }}>
         Already verified? <Link href={`/login?returnTo=${encodeURIComponent(returnTo)}`}>Log in</Link>
       </div>

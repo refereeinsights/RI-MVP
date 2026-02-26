@@ -73,8 +73,12 @@ export async function signUpUser(input: {
       try {
         const url = new URL(configured);
         const host = url.hostname.toLowerCase();
-        if (host.endsWith("refereeinsights.com") || host === "localhost") {
-          return `${url.origin.replace(/\/$/, "")}/account/login`;
+        if (
+          host.endsWith("refereeinsights.com") ||
+          host === "localhost" ||
+          host.endsWith(".vercel.app")
+        ) {
+          return `${url.origin.replace(/\/$/, "")}/auth/confirm`;
         }
       } catch {
         // Ignore malformed env and fall back below.
@@ -82,10 +86,10 @@ export async function signUpUser(input: {
     }
 
     if (typeof window !== "undefined" && window.location?.origin) {
-      return `${window.location.origin.replace(/\/$/, "")}/account/login`;
+      return `${window.location.origin.replace(/\/$/, "")}/auth/confirm`;
     }
 
-    return "https://www.refereeinsights.com/account/login";
+    return "https://www.refereeinsights.com/auth/confirm";
   })();
 
   // send metadata to auth.users so your trigger can populate profiles

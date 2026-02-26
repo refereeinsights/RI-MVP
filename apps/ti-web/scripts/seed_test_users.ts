@@ -75,7 +75,7 @@ async function main() {
     process.env.NEXT_PUBLIC_SITE_URL ||
     "https://www.tournamentinsights.com"
   ).replace(/\/+$/, "");
-  const redirectTo = `${siteUrl}/verify-email`;
+  const redirectTo = `${siteUrl}/auth/confirm`;
   const oneYearMs = 365 * 24 * 60 * 60 * 1000;
   const weekendProEndsAt = new Date(Date.now() + oneYearMs).toISOString();
 

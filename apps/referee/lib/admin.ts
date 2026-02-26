@@ -110,9 +110,23 @@ export async function adminSetUserDisabled(user_id: string, disabled: boolean) {
 export async function adminResendConfirmationEmail(params: { email: string }) {
   await requireAdmin();
 
+  const siteOrigin = (() => {
+    const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+    if (configured) {
+      try {
+        const url = new URL(configured);
+        return url.origin.replace(/\/$/, "");
+      } catch {
+        // Ignore malformed env and fall back.
+      }
+    }
+    return "https://www.refereeinsights.com";
+  })();
+
   const { error } = await supabaseAdmin.auth.resend({
     type: "signup",
     email: params.email,
+    options: { emailRedirectTo: `${siteOrigin}/auth/confirm` },
   });
 
   if (error) throw error;

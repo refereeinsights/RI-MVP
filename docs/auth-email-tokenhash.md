@@ -1,6 +1,6 @@
-# Auth Email TokenHash Flow (TI)
+# Auth Email TokenHash Flow (TI + RI)
 
-TournamentInsights auth email templates use Supabase TokenHash links instead of direct confirmation URLs.
+TournamentInsights and RefereeInsights auth email templates use Supabase TokenHash links instead of direct confirmation URLs.
 
 ## Why TokenHash
 
@@ -8,10 +8,14 @@ TournamentInsights auth email templates use Supabase TokenHash links instead of 
 - Routes all auth-link verification through app-controlled handling.
 - Allows safe redirect handling (`next`) and consistent failure UX.
 
-## App Route
+## App Routes
 
-- Handler: `apps/ti-web/app/auth/confirm/route.ts`
-- Error page: `apps/ti-web/app/auth/error/page.tsx`
+- TI:
+  - Handler: `apps/ti-web/app/auth/confirm/route.ts`
+  - Error page: `apps/ti-web/app/auth/error/page.tsx`
+- RI:
+  - Handler: `apps/referee/app/auth/confirm/route.ts`
+  - Error page: `apps/referee/app/auth/error/page.tsx`
 
 `/auth/confirm` reads:
 
@@ -44,20 +48,22 @@ Failure redirects:
 
 `next` is accepted only when it is a safe relative path (`/...`, not `//...`).
 
-## Recommended Supabase Template Links
+## Single Supabase Project, Two Domains
 
-Use this pattern in Supabase Auth templates:
+If one Supabase project serves both apps, prefer `{{ .RedirectTo }}` in templates so each app can set its own target domain via `emailRedirectTo`/`redirectTo`:
 
 ```text
-{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/account
-{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=magiclink&next=/account
-{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/account/reset-password
-{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email_change&next=/account
+{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email&next=/account
+{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=magiclink&next=/account
+{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery&next=/account/reset-password
+{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email_change&next=/account
 ```
 
 Notes:
 
 - `next` is optional.
 - Keep `next` app-relative.
-- For production TI links, `{{ .SiteURL }}` should resolve to `https://www.tournamentinsights.com`.
-
+- App code should set redirect targets to:
+  - TI: `https://www.tournamentinsights.com/auth/confirm`
+  - RI: `https://www.refereeinsights.com/auth/confirm`
+- Add both callback URLs to Supabase redirect allowlist.
