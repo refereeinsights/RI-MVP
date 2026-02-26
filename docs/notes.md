@@ -1956,3 +1956,16 @@
     - `.env.local.example` now includes `EMAIL_REPLY_TO=hello@tournamentinsights.com`
   - TI auth email note:
     - Supabase-triggered TI auth emails (`signUp`/`resend`/`reset`/`email_change`) do not set `reply_to` from app code; configure reply-to in Supabase SMTP/provider settings.
+
+- TI homepage/header CTA alignment for Public Beta:
+  - Updated:
+    - `apps/ti-web/app/page.tsx`
+    - `apps/ti-web/app/layout.tsx`
+    - `apps/ti-web/app/globals.css`
+  - Homepage hero CTA copy/flow:
+    - replaced `Unlock Premium Access` with `Request Premium Access`
+    - wired to existing premium waitlist flow via homepage section (`#premium-request`) using existing `PremiumInterestForm` (`/api/premium-interest`)
+  - Added hero `Sign up` CTA (white button, green text) to the left of `Explore Tournaments`:
+    - links to `/signup?returnTo=%2Faccount`
+  - Added header `Sign up` link (shown logged-out):
+    - links to `/signup?returnTo=%2Faccount`

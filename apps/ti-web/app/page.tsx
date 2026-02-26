@@ -1,4 +1,5 @@
 import { BRAND_TI } from "@/lib/brand";
+import PremiumInterestForm from "@/components/PremiumInterestForm";
 
 export const metadata = {
   title: "Public Beta — Help Build Smarter Tournament Planning",
@@ -41,12 +42,27 @@ export default function Home() {
           </p>
 
           <div className="ctaRow">
+            <a className="cta light" href="/signup?returnTo=%2Faccount">
+              Sign up
+            </a>
             <a className="cta primary" href="/tournaments">
               Explore Tournaments
             </a>
-            <a className="cta secondary" href="/account">
-              Unlock Premium Access
+            <a className="cta secondary" href="#premium-request">
+              Request Premium Access
             </a>
+          </div>
+        </section>
+
+        <section className="bodyCard bodyCardCenteredList" id="premium-request" aria-labelledby="ti-premium-request">
+          <div style={{ display: "grid", gap: 10, justifyItems: "center", textAlign: "center" }}>
+            <h2 id="ti-premium-request" style={{ margin: 0 }}>
+              Request Premium Access
+            </h2>
+            <p style={{ margin: 0, maxWidth: "62ch" }}>
+              Premium is currently request-based during Public Beta. Share your email and we&apos;ll notify you.
+            </p>
+            <PremiumInterestForm compact />
           </div>
         </section>
 

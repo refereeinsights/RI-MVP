@@ -1049,3 +1049,14 @@
     - `EMAIL_REPLY_TO`
   - TI auth emails are Supabase-driven (`signUp`/`resend`/`reset`/`email_change`) and do not set `reply_to` in TI app code.
   - For TI auth emails, configure reply-to in Supabase SMTP/provider settings.
+
+- TI homepage/header CTA update (Public Beta flow):
+  - Updated:
+    - `apps/ti-web/app/page.tsx`
+    - `apps/ti-web/app/layout.tsx`
+    - `apps/ti-web/app/globals.css`
+  - Hero CTA now reads `Request Premium Access` and routes into existing waitlist capture flow on homepage (`#premium-request`) using `PremiumInterestForm`.
+  - Added hero `Sign up` button (white background, green text) positioned left of `Explore Tournaments`.
+  - Added logged-out header `Sign up` link to make Insider onboarding explicit.
+  - Signup targets use existing redirect convention:
+    - `/signup?returnTo=%2Faccount`

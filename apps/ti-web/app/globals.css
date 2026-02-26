@@ -445,6 +445,12 @@ h1 {
   background: transparent;
 }
 
+.cta.light {
+  background: #ffffff;
+  color: var(--ti-primary);
+  border-color: var(--ti-primary);
+}
+
 .ctaRow {
   display: flex;
   gap: 10px;

@@ -86,6 +86,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   List your tournament
                 </Link>
                 <div className="ti-auth-links" aria-label="Account actions">
+                  {!isLoggedIn ? <Link href="/signup?returnTo=%2Faccount">Sign up</Link> : null}
                   <AccountIconMenu tier={tier} isAuthed={isLoggedIn} needsEmailVerify={unverified} />
                 </div>
               </div>
