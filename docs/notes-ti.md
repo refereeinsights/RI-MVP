@@ -1041,3 +1041,11 @@
     - `/terms`
     - `/privacy`
     - `/content-standards`
+
+- Reply-to handling clarification (RI + TI):
+  - RI custom app-sent emails now include `reply_to` with default:
+    - `hello@tournamentinsights.com`
+  - Env override:
+    - `EMAIL_REPLY_TO`
+  - TI auth emails are Supabase-driven (`signUp`/`resend`/`reset`/`email_change`) and do not set `reply_to` in TI app code.
+  - For TI auth emails, configure reply-to in Supabase SMTP/provider settings.

@@ -1942,3 +1942,17 @@
 
 - Validation:
   - `npm run build --workspace ti-web` passed after homepage + mobile polish updates.
+
+- Resend reply-to standardization (RI custom sends):
+  - Updated:
+    - `apps/referee/lib/email.ts`
+    - `apps/referee/lib/alerts/sendWeeklyDigest.ts`
+  - RI custom outbound emails now include `reply_to`.
+  - Default reply-to:
+    - `hello@tournamentinsights.com`
+  - Env override supported:
+    - `EMAIL_REPLY_TO`
+  - Env template updated:
+    - `.env.local.example` now includes `EMAIL_REPLY_TO=hello@tournamentinsights.com`
+  - TI auth email note:
+    - Supabase-triggered TI auth emails (`signUp`/`resend`/`reset`/`email_change`) do not set `reply_to` from app code; configure reply-to in Supabase SMTP/provider settings.

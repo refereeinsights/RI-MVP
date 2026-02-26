@@ -8,6 +8,7 @@ type EmailPayload = {
   html: string;
   text?: string;
   from?: string;
+  replyTo?: string;
 };
 
 function normalizeRecipients(to: EmailRecipient): string[] {
@@ -35,6 +36,10 @@ export async function sendEmail(payload: EmailPayload) {
     payload.from ??
     process.env.REVIEW_ALERT_FROM ??
     "Referee Insights <refereeinsights@gmail.com>";
+  const replyTo =
+    payload.replyTo ??
+    process.env.EMAIL_REPLY_TO ??
+    "hello@tournamentinsights.com";
 
   const res = await fetch(RESEND_ENDPOINT, {
     method: "POST",
@@ -48,6 +53,7 @@ export async function sendEmail(payload: EmailPayload) {
       subject: payload.subject,
       html: payload.html,
       text: payload.text ?? "",
+      reply_to: replyTo,
     }),
   });
 

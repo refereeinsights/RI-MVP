@@ -62,6 +62,7 @@ async function sendEmailViaResend(params: {
       to: params.to,
       subject: `Nearby tournaments within ${params.radius} miles`,
       text,
+      reply_to: process.env.EMAIL_REPLY_TO ?? "hello@tournamentinsights.com",
     }),
   });
 }
