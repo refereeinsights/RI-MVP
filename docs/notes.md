@@ -1,5 +1,44 @@
 # Running Notes
 
+## 2026-02-26
+- TI venues UX expansion (cards + details):
+  - Added TI-only shared sport-surface mapping module:
+    - `apps/ti-web/app/venues/sportSurface.ts`
+  - Added venue details route:
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+  - `/venues` updates:
+    - removed inline `Sport: ...` text on venue cards,
+    - added “Venue details” button and aligned 3-button footer actions,
+    - added “Coming up at this venue” linked tournament list,
+    - removed hosted tournament count line,
+    - hockey icon uses puck asset in hockey venue contexts,
+    - Owl's Eye badge now shown on venue cards in the upper-left corner when nearby data exists.
+  - `/venues/[venueId]` updates:
+    - centered top action row,
+    - added Owl's Eye venue preview parity with tournament detail pattern:
+      - floating Owl's Eye badge,
+      - nearby counts (coffee/food/hotels),
+      - map link actions,
+      - Premium planning details section with paid/unpaid behavior.
+  - Updated files:
+    - `apps/ti-web/app/venues/page.tsx`
+    - `apps/ti-web/components/venues/VenueCard.tsx`
+    - `apps/ti-web/components/venues/VenueCard.module.css`
+
+- TI brand asset added for email template use:
+  - Added:
+    - `apps/ti-web/public/brand/ti-email-logo.png`
+  - Public path:
+    - `/brand/ti-email-logo.png`
+
+- Auth email infrastructure ops note (Supabase + Resend):
+  - Direction: use Supabase Auth custom SMTP with Resend for auth/signup/reset emails.
+  - Scope note:
+    - when TI and RI share the same Supabase project, SMTP/templates/rate-limit settings are shared.
+  - Sender/security guidance:
+    - use a send-only Resend API key,
+    - sender must be on verified domain/subdomain (current target: `mail.tournamentinsights.com`).
+
 ## 2026-02-25
 - TI verify-email completion fix (confirmation link now finalizes session):
   - Added:
