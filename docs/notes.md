@@ -1898,3 +1898,24 @@
     - redirects failed links to `/auth/error?notice=auth_link_invalid|auth_link_expired`
   - Added documentation:
     - `docs/auth-email-tokenhash.md`
+
+- Auth email domain routing hardening (single Supabase project for RI + TI):
+  - Updated TI auth email redirect targets to `/auth/confirm`:
+    - `apps/ti-web/app/signup/page.tsx`
+    - `apps/ti-web/app/verify-email/ResendVerificationForm.tsx`
+    - `apps/ti-web/scripts/seed_test_users.ts`
+    - `apps/ti-web/smoke-auth-emails.ts`
+  - Updated RI auth email redirect targets to `/auth/confirm`:
+    - `apps/referee/lib/auth.ts`
+    - `apps/referee/lib/admin.ts`
+  - Added RI TokenHash handler + auth error page:
+    - `apps/referee/app/auth/confirm/route.ts`
+    - `apps/referee/app/auth/error/page.tsx`
+  - Added TI reset-password route to resolve recovery-link 404:
+    - `apps/ti-web/app/account/reset-password/page.tsx`
+  - Documentation updated for finalized TokenHash + `RedirectTo` strategy:
+    - `docs/auth-email-tokenhash.md`
+
+- Validation:
+  - `npm run build --workspace ti-web` passed after TI reset-password route addition.
+  - `npm run build --workspace referee-app` passed after RI `/auth/confirm` + redirect updates.

@@ -972,3 +972,19 @@
       - default `/account`
       - `recovery` default `/account/reset-password` (unless explicit safe `next`)
     - Failure redirects to `/auth/error` with a short `notice` code.
+
+- TI auth email redirect standardization (`RedirectTo` + `/auth/confirm`):
+  - Updated TI email-triggering flows to consistently set auth callback to:
+    - `https://www.tournamentinsights.com/auth/confirm` (env-aware in code)
+  - Updated files:
+    - `apps/ti-web/app/signup/page.tsx`
+    - `apps/ti-web/app/verify-email/ResendVerificationForm.tsx`
+    - `apps/ti-web/scripts/seed_test_users.ts`
+    - `apps/ti-web/smoke-auth-emails.ts`
+  - Added missing TI recovery destination page so reset links no longer 404:
+    - `apps/ti-web/app/account/reset-password/page.tsx`
+  - Auth email docs updated with finalized enterprise template standard:
+    - `docs/auth-email-tokenhash.md`
+
+- Build verification (TI):
+  - `npm run build --workspace ti-web` passed with `/account/reset-password` route present.
