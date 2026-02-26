@@ -1,6 +1,26 @@
 # Running Notes
 
 ## 2026-02-26
+- Nightly smoke workflow consolidation (single cron path, RI first + TI included):
+  - Updated:
+    - `.github/workflows/smoke.yml`
+  - Changes:
+    - removed legacy matrix + backend clone path from nightly smoke workflow,
+    - runs root Playwright smoke config directly:
+      - RI: `--project=ri-smoke` first
+      - TI: `--project=ti-smoke` second
+    - uploads combined JUnit artifacts from `test-results/*.xml`.
+  - Required Actions secrets for this workflow:
+    - `RI_TARGET_URL`
+    - `RI_SMOKE_EMAIL`
+    - `RI_SMOKE_PASSWORD`
+    - `TI_TARGET_URL`
+    - `TI_SMOKE_EXPLORER_EMAIL`
+    - `TI_SMOKE_EXPLORER_PASSWORD`
+    - `TI_SMOKE_INSIDER_EMAIL`
+    - `TI_SMOKE_INSIDER_PASSWORD`
+    - `TI_SMOKE_JOIN_CODE`
+
 - TI venues UX expansion (cards + details):
   - Added TI-only shared sport-surface mapping module:
     - `apps/ti-web/app/venues/sportSurface.ts`

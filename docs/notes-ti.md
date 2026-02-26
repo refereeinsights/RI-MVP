@@ -1,4 +1,19 @@
 ## 2026-02-26
+- Nightly smoke consolidation update (cross-app cadence):
+  - Updated root workflow:
+    - `.github/workflows/smoke.yml`
+  - New nightly order:
+    - RI smoke first (`ri-smoke` project)
+    - TI smoke second (`ti-smoke` project)
+  - Workflow now runs root `playwright.smoke.config.ts` directly and uploads combined XML reports.
+  - TI-related secrets used by nightly smoke:
+    - `TI_TARGET_URL`
+    - `TI_SMOKE_EXPLORER_EMAIL`
+    - `TI_SMOKE_EXPLORER_PASSWORD`
+    - `TI_SMOKE_INSIDER_EMAIL`
+    - `TI_SMOKE_INSIDER_PASSWORD`
+    - `TI_SMOKE_JOIN_CODE`
+
 - TI venues UX expansion (cards + details):
   - Added TI-only shared sport-surface mapping module:
     - `apps/ti-web/app/venues/sportSurface.ts`
