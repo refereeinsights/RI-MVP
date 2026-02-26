@@ -9,5 +9,5 @@ export const metadata = {
 };
 
 export default function PrivacyPage() {
-  return <LegalPage title={`${BRAND_TI} Privacy Policy`} lastUpdated="February 2026" markdown={privacyContent} />;
+  return <LegalPage title={`${BRAND_TI} Privacy Policy`} lastUpdated="2026-02-26" markdown={privacyContent} />;
 }

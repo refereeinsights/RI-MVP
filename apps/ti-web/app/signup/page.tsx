@@ -13,6 +13,7 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [zip, setZip] = useState("");
   const [handle, setHandle] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "ok" | "error">("idle");
   const [message, setMessage] = useState("");
   const code = (searchParams.get("code") || "").trim();
@@ -54,8 +55,16 @@ export default function SignupPage() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setStatus("saving");
+    setStatus("idle");
     setMessage("");
+
+    if (!agreed) {
+      setStatus("error");
+      setMessage("Please agree to the Terms of Service and Privacy Policy.");
+      return;
+    }
+
+    setStatus("saving");
     const supabase = getSupabaseBrowserClient();
     const cleanHandle = handle.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
     const cleanZip = zip.trim();
@@ -154,11 +163,29 @@ export default function SignupPage() {
         />
         <button
           type="submit"
-          disabled={status === "saving"}
+          disabled={status === "saving" || !agreed}
           style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #0f172a", background: "#0f172a", color: "#fff", fontWeight: 700 }}
         >
           {status === "saving" ? "Creating..." : "Sign up"}
         </button>
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              id="signup-consent"
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+            />
+            <label htmlFor="signup-consent" style={{ fontSize: 13 }}>
+              I agree to the <Link href="/terms">Terms of Service</Link> and{" "}
+              <Link href="/privacy">Privacy Policy</Link>.
+            </label>
+          </div>
+          <div style={{ fontSize: 12, color: "#555" }}>
+            By creating an account, you agree to follow the TournamentInsights{" "}
+            <Link href="/content-standards">community guidelines</Link>.
+          </div>
+        </div>
       </form>
       {message ? (
         <div style={{ fontSize: 13, color: status === "ok" ? "#065f46" : "#b91c1c" }}>{message}</div>

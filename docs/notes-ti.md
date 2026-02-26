@@ -1014,3 +1014,30 @@
 
 - Build verification (TI):
   - `npm run build --workspace ti-web` passed after homepage + mobile polish changes.
+
+- TI Public Beta legal consent gating + policy pages:
+  - Updated signup legal consent behavior:
+    - `apps/ti-web/app/signup/page.tsx`
+  - Added required checkbox + validation copy:
+    - `I agree to the Terms of Service and Privacy Policy.`
+    - `Please agree to the Terms of Service and Privacy Policy.`
+  - Submit is now disabled until consent is checked.
+  - Added TI community-guidelines notice on signup linking to:
+    - `/content-standards`
+  - Added new TI legal route:
+    - `apps/ti-web/app/content-standards/page.tsx`
+  - Updated TI legal copy/content:
+    - `apps/ti-web/app/(legal)/legalContent.ts`
+    - `apps/ti-web/app/terms/page.tsx`
+    - `apps/ti-web/app/privacy/page.tsx`
+  - Terms/Privacy/Content Standards now include:
+    - TI branding, `Last updated: 2026-02-26`, and support contact `support@tournamentinsights.com`
+    - informational listing disclaimer, UGC responsibilities, moderation rights, arbitration/class waiver, privacy processor list, retention + deletion rights
+  - Added implementation + QA checklist:
+    - `apps/ti-web/docs/legal-beta-checklist.md`
+
+- Build verification (TI):
+  - `npm run build --workspace ti-web` passed with routes:
+    - `/terms`
+    - `/privacy`
+    - `/content-standards`
