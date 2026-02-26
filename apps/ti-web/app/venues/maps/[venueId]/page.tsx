@@ -63,7 +63,16 @@ export default async function VenueMapPage({ params }: { params: { venueId: stri
   return (
     <main style={{ minHeight: "100vh", display: "flex", justifyContent: "center", padding: "32px 16px" }}>
       <div style={{ width: "100%", maxWidth: 960 }}>
-        <header style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <header
+          style={{
+            marginBottom: 16,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
           <div>
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>Venue Map</h1>
             <p style={{ margin: "4px 0 0", color: "#4b5563", fontSize: 14 }}>Venue ID: {venueId}</p>

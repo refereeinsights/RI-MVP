@@ -988,3 +988,29 @@
 
 - Build verification (TI):
   - `npm run build --workspace ti-web` passed with `/account/reset-password` route present.
+
+- TI mobile-first polish updates:
+  - Updated:
+    - `apps/ti-web/components/PremiumInterestForm.tsx`
+    - `apps/ti-web/app/join/page.tsx`
+    - `apps/ti-web/app/venues/maps/[venueId]/page.tsx`
+  - Removed rigid min-width constraints on key CTA/form controls.
+  - Improved header wrapping on venue map page for narrow/mobile screens.
+
+- TI homepage messaging update (Public Beta):
+  - Updated:
+    - `apps/ti-web/app/page.tsx`
+  - Hero copy replaced with Public Beta positioning and Owl’s Eye™ value framing.
+  - CTA set simplified:
+    - `Explore Tournaments` -> `/tournaments`
+    - `Unlock Premium Access` -> `/account`
+  - Added dedicated `What is Owl’s Eye™?` section with:
+    - existing badge icon (`/svg/ri/owls_eye_badge.svg`)
+    - explainer lead line
+    - required feature bullets
+    - Premium access note
+    - micro CTA to `/tournaments`
+  - Homepage metadata updated to match Public Beta messaging.
+
+- Build verification (TI):
+  - `npm run build --workspace ti-web` passed after homepage + mobile polish changes.

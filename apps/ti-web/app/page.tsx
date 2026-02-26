@@ -1,9 +1,9 @@
 import { BRAND_TI } from "@/lib/brand";
 
 export const metadata = {
-  title: "Youth Sports Tournament Directory",
+  title: "Public Beta — Help Build Smarter Tournament Planning",
   description:
-    "Logistics-first youth tournament listings with clear dates, locations, and official links to help families and teams plan confidently.",
+    "Public Beta access to smarter youth tournament planning with Owl’s Eye™ venue intelligence and logistics-first insights.",
   alternates: { canonical: "/" },
 };
 
@@ -31,19 +31,51 @@ export default function Home() {
           <h1 id="ti-title">{BRAND_TI}</h1>
 
           <p className="muted heroCopy">
-            Insight Before You Commit. {BRAND_TI} curates verified logistics: dates, locations, sports, and official links, so you can plan
-            confidently.
+            Public Beta — Help Build Smarter Tournament Planning
+          </p>
+
+          <p className="muted heroCopy">
+            TournamentInsights is launching a new standard in youth tournament intelligence. Through our proprietary Owl&apos;s Eye™
+            system, Premium members unlock validated venue intelligence — including verified addresses, nearby coffee, food, hotels,
+            mobile directions, and structured Insider venue insights. Less guesswork. More clarity. Better planning.
           </p>
 
           <div className="ctaRow">
             <a className="cta primary" href="/tournaments">
-              Browse tournaments
+              Explore Tournaments
             </a>
-            <a className="cta secondary" href="/how-it-works">
-              How it works
+            <a className="cta secondary" href="/account">
+              Unlock Premium Access
             </a>
-            <a className="cta secondary" href="/list-your-tournament">
-              List your tournament
+          </div>
+        </section>
+
+        <section className="bodyCard bodyCardCenteredList" aria-labelledby="ti-owls-eye">
+          <div style={{ display: "grid", gap: 10, justifyItems: "center", textAlign: "center" }}>
+            <img
+              src="/svg/ri/owls_eye_badge.svg"
+              alt="Owl's Eye badge"
+              width={86}
+              height={86}
+              style={{ width: 86, height: 86 }}
+            />
+            <h2 id="ti-owls-eye" style={{ margin: 0 }}>
+              What is Owl&apos;s Eye™?
+            </h2>
+            <p style={{ margin: 0, maxWidth: "62ch" }}>
+              Owl&apos;s Eye™ identifies tournaments with enhanced venue intelligence.
+            </p>
+            <ul className="list" style={{ textAlign: "left" }}>
+              <li>Venue addresses validated</li>
+              <li>Nearby coffee, food, and hotels mapped</li>
+              <li>One-tap mobile directions</li>
+              <li>Structured Insider venue insights</li>
+            </ul>
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+              Owl&apos;s Eye™ details are available to Premium members. Select demo access may be available during Public Beta.
+            </p>
+            <a className="cta secondary" href="/tournaments">
+              See Owl&apos;s Eye tournaments
             </a>
           </div>
         </section>

@@ -59,7 +59,6 @@ export default function PremiumInterestForm({
           required
           style={{
             flex: "1 1 220px",
-            minWidth: 200,
             padding: "8px 10px",
             borderRadius: 8,
             border: "1px solid rgba(255,255,255,0.35)",
@@ -71,7 +70,7 @@ export default function PremiumInterestForm({
           type="submit"
           disabled={status === "saving"}
           className="secondaryLink"
-          style={{ minWidth: 108 }}
+          style={{ flex: "0 1 auto" }}
         >
           {status === "saving" ? "Saving..." : "Notify me"}
         </button>
