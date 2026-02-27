@@ -19,7 +19,7 @@ type DuplicateVenueCandidate = {
 
 type DuplicateVenueGroup = {
   key: string;
-  kind: "exact_address_city_state" | "same_street_state" | "same_name_and_street_state";
+  kind: "exact_address_city_state" | "same_name_city_state";
   suggested_target_id: string;
   candidates: DuplicateVenueCandidate[];
 };
@@ -321,6 +321,5 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
 }
   const duplicateKindLabel = (kind: DuplicateVenueGroup["kind"]) => {
     if (kind === "exact_address_city_state") return "Exact address match";
-    if (kind === "same_street_state") return "Street + state match";
-    return "Name + street match";
+    return "Name + city + state match";
   };

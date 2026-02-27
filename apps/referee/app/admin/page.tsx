@@ -8,6 +8,11 @@ import OwlsEyePanel from "./owls-eye/OwlsEyePanel";
 import AdminNav from "@/components/admin/AdminNav";
 import PendingTournamentSelection from "@/components/admin/PendingTournamentSelection";
 import TournamentVenueMatcher from "@/components/admin/TournamentVenueMatcher";
+import {
+  buildTournamentNameStateSeasonFingerprint,
+  buildTournamentNameUrlFingerprint,
+  buildTournamentUrlFingerprint,
+} from "@/lib/identity/fingerprints";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { lookupSchoolZip } from "@/lib/googlePlaces";
 
@@ -351,7 +356,7 @@ export default async function AdminPage({
     tab === "tournament-listings"
       ? await supabaseAdmin
           .from("tournaments" as any)
-          .select("id,name,slug,city,state,start_date,end_date,official_website_url,source_url")
+          .select("id,name,slug,city,state,start_date,end_date,official_website_url,source_url,url_fingerprint,name_url_fingerprint,name_state_season_fingerprint")
           .or("official_website_url.not.is.null,source_url.not.is.null")
           .order("updated_at", { ascending: false })
           .limit(1500)
@@ -374,20 +379,18 @@ export default async function AdminPage({
     }
   >();
   const duplicateByUrl = new Map<string, { url: string; items: any[] }>();
-  const duplicateByName = new Map<string, { name: string; items: any[] }>();
-  const normalizeUrl = (input: string) =>
-    input
-      .toLowerCase()
-      .replace(/^https?:\/\//, "")
-      .replace(/^www\./, "")
-      .split("?")[0]
-      .replace(/\/+$/, "");
-  const normalizeName = (input: string) =>
-    input
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+  const duplicateByName = new Map<string, { key: string; name: string; state: string; season: string; items: any[] }>();
+  const seasonYear = (startDate: string | null | undefined, endDate: string | null | undefined) => {
+    const primary = String(startDate ?? endDate ?? "").trim();
+    return primary ? primary.slice(0, 4) : "unknown";
+  };
+  const daysBetween = (left: string | null | undefined, right: string | null | undefined) => {
+    if (!left || !right) return null;
+    const leftDate = Date.parse(left);
+    const rightDate = Date.parse(right);
+    if (Number.isNaN(leftDate) || Number.isNaN(rightDate)) return null;
+    return Math.abs(leftDate - rightDate) / (1000 * 60 * 60 * 24);
+  };
   const duplicateDismissals =
     tab === "tournament-listings"
       ? await supabaseAdmin
@@ -408,7 +411,14 @@ export default async function AdminPage({
       const name = (row.name ?? "").trim();
       const url = (row.official_website_url ?? row.source_url ?? "").trim();
       if (!name || !url) return;
-      const key = `${normalizeName(name)}|${normalizeUrl(url)}`;
+      const key =
+        (typeof row.name_url_fingerprint === "string" && row.name_url_fingerprint.trim()) ||
+        buildTournamentNameUrlFingerprint({
+          name: row.name ?? null,
+          officialWebsiteUrl: row.official_website_url ?? null,
+          sourceUrl: row.source_url ?? null,
+        });
+      if (!key) return;
       const group = duplicateGroups.get(key) ?? { name, url, items: [] };
       group.items.push({
         id: row.id,
@@ -421,7 +431,10 @@ export default async function AdminPage({
       });
       duplicateGroups.set(key, group);
 
-      const normUrl = normalizeUrl(url);
+      const normUrl =
+        (typeof row.url_fingerprint === "string" && row.url_fingerprint.trim()) ||
+        buildTournamentUrlFingerprint(row.official_website_url ?? row.source_url ?? null);
+      if (!normUrl) return;
       const urlGroup = duplicateByUrl.get(normUrl) ?? { url, items: [] };
       urlGroup.items.push({
         id: row.id,
@@ -434,8 +447,17 @@ export default async function AdminPage({
       });
       duplicateByUrl.set(normUrl, urlGroup);
 
-      const normName = normalizeName(name);
-      const nameGroup = duplicateByName.get(normName) ?? { name, items: [] };
+      const season = seasonYear(row.start_date ?? null, row.end_date ?? null);
+      const nameKey =
+        (typeof row.name_state_season_fingerprint === "string" && row.name_state_season_fingerprint.trim()) ||
+        buildTournamentNameStateSeasonFingerprint({
+          name: row.name ?? null,
+          state: row.state ?? null,
+          startDate: row.start_date ?? null,
+          endDate: row.end_date ?? null,
+        });
+      if (!nameKey) return;
+      const nameGroup = duplicateByName.get(nameKey) ?? { key: nameKey, name, state: row.state ?? "", season, items: [] };
       nameGroup.items.push({
         id: row.id,
         name: row.name ?? null,
@@ -446,7 +468,7 @@ export default async function AdminPage({
         end_date: row.end_date ?? null,
         url,
       });
-      duplicateByName.set(normName, nameGroup);
+      duplicateByName.set(nameKey, nameGroup);
     });
   }
   const suspectDuplicates = Array.from(duplicateGroups.entries())
@@ -456,8 +478,18 @@ export default async function AdminPage({
     .filter(([key, group]) => group.items.length > 1 && !dismissedUrl.has(key))
     .map(([, group]) => group);
   const suspectByName = Array.from(duplicateByName.entries())
-    .filter(([key, group]) => group.items.length > 1 && !dismissedName.has(key))
-    .map(([, group]) => group);
+    .filter(([key, group]) => {
+      if (group.items.length < 2 || dismissedName.has(key)) return false;
+      const hasCloseDates = group.items.some((item, index) =>
+        group.items.some((other, otherIndex) => {
+          if (index >= otherIndex) return false;
+          const delta = daysBetween(item.start_date ?? null, other.start_date ?? null);
+          return delta === null ? item.city && other.city && item.city === other.city : delta <= 14;
+        })
+      );
+      return hasCloseDates;
+    })
+    .map(([key, group]) => ({ ...group, key }));
   const listedVenueMap: Record<string, Array<{ id: string; name: string | null; address: string | null; city: string | null; state: string | null; zip: string | null }>> = {};
   const listedStaffPendingMap: Record<string, number> = {};
   if (listedTournaments.length) {
@@ -3651,7 +3683,11 @@ export default async function AdminPage({
                           <input
                             type="hidden"
                             name="key_value"
-                            value={`${normalizeName(group.name)}|${normalizeUrl(group.url)}`}
+                            value={buildTournamentNameUrlFingerprint({
+                              name: group.name,
+                              officialWebsiteUrl: group.url,
+                              sourceUrl: group.url,
+                            })}
                           />
                           <button
                             style={{
@@ -3749,7 +3785,7 @@ export default async function AdminPage({
                         <form action={dismissDuplicateGroupAction}>
                           <input type="hidden" name="redirect_to" value={adminBasePath} />
                           <input type="hidden" name="key_type" value="url" />
-                          <input type="hidden" name="key_value" value={normalizeUrl(group.url)} />
+                          <input type="hidden" name="key_value" value={buildTournamentUrlFingerprint(group.url)} />
                           <button
                             style={{
                               padding: "4px 8px",
@@ -3834,23 +3870,29 @@ export default async function AdminPage({
             </details>
             <details style={{ marginTop: 10 }}>
               <summary style={{ cursor: "pointer", fontWeight: 900 }}>
-                Suspect duplicates (name-only, normalized) ({suspectByName.length})
+                Suspect duplicates (name + state + season) ({suspectByName.length})
               </summary>
               <div style={{ marginTop: 12, display: "grid", gap: 16 }}>
                 {suspectByName.length === 0 ? (
-                  <div style={{ color: "#555" }}>No name-only duplicates found.</div>
+                  <div style={{ color: "#555" }}>No same-name seasonal duplicates found.</div>
                 ) : (
                   suspectByName.map((group) => (
                     <div
-                      key={group.name}
+                      key={group.key}
                       style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12 }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                        <div style={{ fontWeight: 800 }}>{group.name}</div>
+                        <div style={{ fontWeight: 800 }}>
+                          {group.name}
+                          <span style={{ color: "#6b7280", fontWeight: 600 }}>
+                            {group.state ? ` • ${group.state}` : ""}
+                            {group.season && group.season !== "unknown" ? ` • ${group.season}` : ""}
+                          </span>
+                        </div>
                         <form action={dismissDuplicateGroupAction}>
                           <input type="hidden" name="redirect_to" value={adminBasePath} />
                           <input type="hidden" name="key_type" value="name" />
-                          <input type="hidden" name="key_value" value={normalizeName(group.name)} />
+                          <input type="hidden" name="key_value" value={group.key} />
                           <button
                             style={{
                               padding: "4px 8px",

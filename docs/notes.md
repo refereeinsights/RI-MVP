@@ -2060,3 +2060,35 @@
 
 - Validation:
   - `npm run build --workspace referee-app` passed after duplicate-detection changes.
+
+- RI duplicate detection identity layer upgrade:
+  - Added shared fingerprint helpers:
+    - `apps/referee/lib/identity/fingerprints.ts`
+  - Added unit coverage for normalization/fingerprint behavior:
+    - `apps/referee/src/server/admin/__tests__/fingerprints.test.ts`
+  - Tightened `/admin/venues?duplicates=1` duplicate review:
+    - `apps/referee/app/admin/venues/page.tsx`
+    - `apps/referee/components/admin/VenuesListClient.tsx`
+  - Venue duplicate candidates now prefer:
+    - exact `address + city + state` fingerprints
+    - stricter `name + city + state` fingerprints only when supported by matching street, zip, venue host, or missing-address fallback
+  - Removed the weaker cross-city `street + state` / `name + street` merge suggestions that were over-flagging common park names.
+  - Tightened `/admin?tab=tournament-listings` duplicate review:
+    - `apps/referee/app/admin/page.tsx`
+  - Tournament duplicate candidates now use:
+    - `name + URL` fingerprints
+    - `name + state + season` fingerprints
+    - plus date-proximity / same-city fallback for the seasonal duplicate review bucket
+  - Added a Supabase identity-fingerprint migration:
+    - `supabase/migrations/20260227_identity_fingerprints.sql`
+  - Migration adds/backfills/indexes:
+    - `venues.address_fingerprint`
+    - `venues.name_city_state_fingerprint`
+    - `venues.venue_url_host`
+    - `tournaments.url_fingerprint`
+    - `tournaments.name_url_fingerprint`
+    - `tournaments.name_state_season_fingerprint`
+  - Added DB trigger functions so future inserts/updates keep the fingerprint columns in sync automatically.
+  - Validation:
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit`
+    - `TMPDIR=../../tmp npx tsx --test src/server/admin/__tests__/fingerprints.test.ts`

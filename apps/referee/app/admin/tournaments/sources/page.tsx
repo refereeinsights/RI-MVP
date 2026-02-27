@@ -15,6 +15,7 @@ import {
 import { createTournamentFromUrl } from "@/server/admin/pasteUrl";
 import { SweepError, buildSweepSummary } from "@/server/admin/sweepDiagnostics";
 import SourceLogsClient from "./SourceLogsClient";
+import { runTopTierCrawler } from "@/lib/admin/topTierCrawler";
 
 type Filter = "all" | "untested" | "keep" | "ignored" | "needs_review";
 
@@ -471,6 +472,24 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     }
   }
 
+  async function runTopTierSweepAction() {
+    "use server";
+    await requireAdmin();
+    try {
+      const result = await runTopTierCrawler({
+        writeDb: true,
+        maxPages: 250,
+        sports: ["baseball", "softball", "basketball"],
+      });
+      const s = result.summary;
+      const message = `Top Tier crawl complete: urls=${s.candidateUrls}, events=${s.acceptedEvents}, tournaments=${s.tournamentsUpserted}, venues+${s.venuesCreated}, links+${s.venueLinksCreated}`;
+      redirect(buildSourcesNoticeUrl(stickyQueryString, message));
+    } catch (err: any) {
+      if (err?.digest && String(err.digest).includes("NEXT_REDIRECT")) throw err;
+      redirect(buildSourcesNoticeUrl(stickyQueryString, `Top Tier crawl failed: ${describeActionError(err)}`));
+    }
+  }
+
   const filtered = registryRows.filter((row: any) => {
     if (!row.is_active) return false;
     if (filter === "untested") return (row.review_status || "untested") === "untested";
@@ -592,6 +611,22 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         >
           Tournament uploads
         </Link>
+        <form action={runTopTierSweepAction} style={{ marginLeft: 8 }}>
+          <button
+            type="submit"
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              border: "1px solid #166534",
+              background: "#166534",
+              color: "#fff",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Run Top Tier Crawl
+          </button>
+        </form>
         <a
           href="/api/admin/tournaments/sources/export"
           style={{

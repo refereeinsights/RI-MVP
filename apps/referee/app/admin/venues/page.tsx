@@ -1,6 +1,13 @@
 import Link from "next/link";
 
 import { requireAdmin } from "@/lib/admin";
+import {
+  buildVenueAddressFingerprint,
+  buildVenueNameCityStateFingerprint,
+  normalizeIdentityStreet,
+  normalizeIdentityText,
+  normalizeIdentityUrlHost,
+} from "@/lib/identity/fingerprints";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AdminNav from "@/components/admin/AdminNav";
 import { VenueItem } from "@/components/admin/VenueRow";
@@ -71,11 +78,14 @@ export type DuplicateVenueCandidate = {
   linked_tournaments: number;
   owl_run_count: number;
   venue_url: string | null;
+  address_fingerprint?: string | null;
+  name_city_state_fingerprint?: string | null;
+  venue_url_host?: string | null;
 };
 
 export type DuplicateVenueGroup = {
   key: string;
-  kind: "exact_address_city_state" | "same_street_state" | "same_name_and_street_state";
+  kind: "exact_address_city_state" | "same_name_city_state";
   suggested_target_id: string;
   candidates: DuplicateVenueCandidate[];
 };
@@ -95,31 +105,6 @@ type PageProps = {
     duplicates?: "1";
   };
 };
-
-function normalizeText(value: string | null | undefined) {
-  return String(value ?? "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function normalizeStreet(value: string | null | undefined) {
-  return normalizeText(value)
-    .replace(/\b(apt|apartment|suite|ste|unit|fl|floor)\s*[a-z0-9-]+\b/g, "")
-    .replace(/\s+#\s*[a-z0-9-]+\b/g, "")
-    .replace(/\b(street|st)\b/g, "st")
-    .replace(/\b(avenue|ave)\b/g, "ave")
-    .replace(/\b(road|rd)\b/g, "rd")
-    .replace(/\b(boulevard|blvd)\b/g, "blvd")
-    .replace(/\b(drive|dr)\b/g, "dr")
-    .replace(/\b(lane|ln)\b/g, "ln")
-    .replace(/\b(court|ct)\b/g, "ct")
-    .replace(/\b(place|pl)\b/g, "pl")
-    .replace(/\b(parkway|pkwy)\b/g, "pkwy")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 export default async function AdminVenuesPage({ searchParams }: PageProps) {
   await requireAdmin();
@@ -327,7 +312,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
   if (showDuplicates) {
     const { data: allVenuesLite } = await supabaseAdmin
       .from("venues" as any)
-      .select("id,name,address,address1,normalized_address,city,state,zip,venue_url")
+      .select("id,name,address,address1,normalized_address,city,state,zip,venue_url,address_fingerprint,name_city_state_fingerprint,venue_url_host")
       .limit(3000);
     const { data: allLinks } = await supabaseAdmin.from("tournament_venues" as any).select("venue_id");
     const { data: allRuns } = await supabaseAdmin.from("owls_eye_runs" as any).select("venue_id");
@@ -358,8 +343,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
     }
 
     const exactAddressGroups = new Map<string, DuplicateVenueCandidate[]>();
-    const streetStateGroups = new Map<string, DuplicateVenueCandidate[]>();
-    const nameStreetGroups = new Map<string, DuplicateVenueCandidate[]>();
+    const nameCityGroups = new Map<string, DuplicateVenueCandidate[]>();
 
     for (const row of (allVenuesLite ?? []) as Array<Record<string, any>>) {
       const candidate: DuplicateVenueCandidate = {
@@ -374,27 +358,40 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         venue_url: row.venue_url ?? null,
       };
 
-      const state = normalizeText(candidate.state);
-      const city = normalizeText(candidate.city);
-      const street = normalizeStreet(candidate.address);
-      const name = normalizeText(candidate.name);
+      const state = normalizeIdentityText(candidate.state);
+      const city = normalizeIdentityText(candidate.city);
+      const street = normalizeIdentityStreet(candidate.address);
+      const name = normalizeIdentityText(candidate.name);
 
       if (street && state) {
-        const key = `${street}|${city}|${state}`;
-        const list = exactAddressGroups.get(key) ?? [];
-        list.push(candidate);
-        exactAddressGroups.set(key, list);
-
-        const streetStateKey = `${street}|${state}`;
-        const byStateList = streetStateGroups.get(streetStateKey) ?? [];
-        byStateList.push(candidate);
-        streetStateGroups.set(streetStateKey, byStateList);
+        const key =
+          (typeof row.address_fingerprint === "string" && row.address_fingerprint.trim()) ||
+          buildVenueAddressFingerprint({
+            address: row.address ?? null,
+            address1: row.address1 ?? null,
+            normalizedAddress: row.normalized_address ?? null,
+            city: row.city ?? null,
+            state: row.state ?? null,
+          });
+        if (key) {
+          const list = exactAddressGroups.get(key) ?? [];
+          list.push(candidate);
+          exactAddressGroups.set(key, list);
+        }
       }
-      if (name && street && state) {
-        const key = `${name}|${street}|${state}`;
-        const list = nameStreetGroups.get(key) ?? [];
-        list.push(candidate);
-        nameStreetGroups.set(key, list);
+      if (name && city && state) {
+        const key =
+          (typeof row.name_city_state_fingerprint === "string" && row.name_city_state_fingerprint.trim()) ||
+          buildVenueNameCityStateFingerprint({
+            name: row.name ?? null,
+            city: row.city ?? null,
+            state: row.state ?? null,
+          });
+        if (key) {
+          const list = nameCityGroups.get(key) ?? [];
+          list.push(candidate);
+          nameCityGroups.set(key, list);
+        }
       }
     }
 
@@ -427,29 +424,32 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       });
       filtered.forEach((item) => seenIds.add(item.id));
     }
-    for (const [key, list] of streetStateGroups.entries()) {
+    for (const [key, list] of nameCityGroups.entries()) {
       if (list.length < 2) continue;
       if (list.some((item) => seenIds.has(item.id))) continue;
-      const target = pickTarget(list);
-      const filtered = list.filter((item) => item.id === target.id || !keepBothPairs.has(pairKey(item.id, target.id)));
-      if (filtered.length < 2) continue;
-      duplicateGroups.push({
-        key,
-        kind: "same_street_state",
-        suggested_target_id: target.id,
-        candidates: filtered,
+      const compatible = list.filter((candidate, _, all) => {
+        const candidateStreet = normalizeIdentityStreet(candidate.address);
+        const candidateZip = normalizeIdentityText(candidate.zip);
+        const candidateHost = candidate.venue_url_host || normalizeIdentityUrlHost(candidate.venue_url);
+        return all.some((other) => {
+          if (other.id === candidate.id) return false;
+          const otherStreet = normalizeIdentityStreet(other.address);
+          const otherZip = normalizeIdentityText(other.zip);
+          const otherHost = other.venue_url_host || normalizeIdentityUrlHost(other.venue_url);
+          if (candidateStreet && otherStreet && candidateStreet === otherStreet) return true;
+          if (candidateZip && otherZip && candidateZip === otherZip) return true;
+          if (candidateHost && otherHost && candidateHost === otherHost) return true;
+          if (!candidateStreet || !otherStreet) return true;
+          return false;
+        });
       });
-      filtered.forEach((item) => seenIds.add(item.id));
-    }
-    for (const [key, list] of nameStreetGroups.entries()) {
-      if (list.length < 2) continue;
-      if (list.some((item) => seenIds.has(item.id))) continue;
-      const target = pickTarget(list);
-      const filtered = list.filter((item) => item.id === target.id || !keepBothPairs.has(pairKey(item.id, target.id)));
+      if (compatible.length < 2) continue;
+      const target = pickTarget(compatible);
+      const filtered = compatible.filter((item) => item.id === target.id || !keepBothPairs.has(pairKey(item.id, target.id)));
       if (filtered.length < 2) continue;
       duplicateGroups.push({
         key,
-        kind: "same_name_and_street_state",
+        kind: "same_name_city_state",
         suggested_target_id: target.id,
         candidates: filtered,
       });
@@ -472,19 +472,35 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
             Last 100 venues (filtered) • Owl&apos;s Eye with data: {venues.filter((v) => Boolean(v.owl_run_id)).length}
           </p>
         </div>
-        <Link
-          href="/admin/venues/new"
-          style={{
-            padding: "10px 14px",
-            borderRadius: 10,
-            background: "#111827",
-            color: "white",
-            fontWeight: 800,
-            textDecoration: "none",
-          }}
-        >
-          New Venue
-        </Link>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Link
+            href="/admin/venues/link-quality"
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "#fff",
+              color: "#111827",
+              fontWeight: 800,
+              textDecoration: "none",
+              border: "1px solid #d1d5db",
+            }}
+          >
+            Link quality
+          </Link>
+          <Link
+            href="/admin/venues/new"
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "#111827",
+              color: "white",
+              fontWeight: 800,
+              textDecoration: "none",
+            }}
+          >
+            New Venue
+          </Link>
+        </div>
       </div>
 
       <form style={{ display: "grid", gap: 8, marginBottom: 16, gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr auto auto" }}>
