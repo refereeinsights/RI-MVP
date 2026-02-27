@@ -2,9 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
-import { BRAND_OWL } from "@/lib/brand";
 import { canAccessWeekendPro, getTier } from "@/lib/entitlements";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
+import OwlsEyeVenueCard, { type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
+import {
+  DEMO_STARFIRE_VENUE_ID,
+  buildOwlsEyeDemoScores,
+  type OwlsEyeDemoScores,
+  type VenueReviewChoiceRow,
+} from "@/lib/owlsEyeScores";
 import { getVenueCardClassFromSports } from "../sportSurface";
 import "../../tournaments/tournaments.css";
 
@@ -57,14 +63,6 @@ type NearbyPlaceRow = {
   sponsor_click_url?: string | null;
 };
 
-type NearbyPlace = {
-  name: string;
-  distance_meters: number | null;
-  maps_url: string | null;
-  is_sponsor: boolean;
-  sponsor_click_url: string | null;
-};
-
 function canonicalSport(sport: string | null | undefined) {
   const key = (sport ?? "").trim().toLowerCase();
   return key || "unknown";
@@ -83,12 +81,6 @@ function buildMapLinks(query: string) {
     apple: `https://maps.apple.com/?q=${encoded}`,
     waze: `https://waze.com/ul?q=${encoded}&navigate=yes`,
   };
-}
-
-function metersToMilesLabel(meters: number | null | undefined) {
-  if (typeof meters !== "number" || !Number.isFinite(meters)) return null;
-  const miles = meters / 1609.344;
-  return `${miles.toFixed(1)} mi`;
 }
 
 async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
@@ -120,6 +112,8 @@ async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
 
 export const revalidate = 300;
 
+const PREMIUM_PREVIEW_VENUE_NAME_HINTS = ["grand canyon university", "gcu"];
+
 export default async function VenueDetailsPage({ params }: { params: { venueId: string } }) {
   const supabase = createSupabaseServerClient();
   const {
@@ -133,7 +127,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
         .maybeSingle<{ plan: string | null; subscription_status: string | null }>()
     : { data: null as { plan: string | null; subscription_status: string | null } | null };
   const tier = getTier(user, entitlementProfile ?? null);
-  const canViewPremiumDetails = canAccessWeekendPro(user, entitlementProfile ?? null);
+  const isPaid = canAccessWeekendPro(user, entitlementProfile ?? null);
 
   const { data, error } = await supabaseAdmin
     .from("venues" as any)
@@ -146,6 +140,11 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   if (error || !data?.id) {
     notFound();
   }
+  const venueNameNormalized = (data.name ?? "").trim().toLowerCase();
+  const hasPremiumPreviewVenue = PREMIUM_PREVIEW_VENUE_NAME_HINTS.some(
+    (hint) => venueNameNormalized === hint || venueNameNormalized.includes(hint)
+  );
+  const canViewPremiumDetails = isPaid || hasPremiumPreviewVenue;
 
   const linkedTournaments = (data.tournament_venues ?? [])
     .map((tv) => tv?.tournaments)
@@ -183,6 +182,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
 
   let nearbyCounts = { food: 0, coffee: 0, hotels: 0 };
   let premiumNearby: { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; captured_at: string | null } | null = null;
+  let demoScores: OwlsEyeDemoScores | null = null;
 
   if (latestRunId) {
     if (canViewPremiumDetails) {
@@ -236,6 +236,25 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
 
   const hasOwlsEye = nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels > 0;
 
+  if (data.id === DEMO_STARFIRE_VENUE_ID) {
+    const { data: reviewChoiceRows } = await supabaseAdmin
+      .from("venue_reviews" as any)
+      .select("restrooms,parking_distance,parking_convenience_score")
+      .eq("venue_id", data.id)
+      .eq("status", "active");
+
+    demoScores = buildOwlsEyeDemoScores({
+      nearbyCounts,
+      vendor_score_avg: data.vendor_score_avg,
+      restroom_cleanliness_avg: data.restroom_cleanliness_avg,
+      shade_score_avg: data.shade_score_avg,
+      parking_convenience_score_avg: data.parking_convenience_score_avg,
+      review_count: data.review_count,
+      reviews_last_updated_at: data.reviews_last_updated_at,
+      reviewChoices: (reviewChoiceRows as VenueReviewChoiceRow[] | null) ?? [],
+    });
+  }
+
   return (
     <main className="pitchWrap tournamentsWrap">
       <section className={`detailHero ${sportSurfaceClass}`}>
@@ -276,139 +295,24 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                 ) : null}
               </div>
 
-              <div className={`detailCard ${hasOwlsEye ? "detailCard--withOwl" : ""}`}>
-                <div className="detailCard__title">Venue</div>
-                <div className="detailCard__body">
-                  {hasOwlsEye ? (
-                    <img
-                      className="detailVenueOwlBadgeFloat"
-                      src="/svg/ri/owls_eye_badge.svg"
-                      alt="Owl's Eye insights available for this venue"
-                    />
-                  ) : null}
-                  <div className="detailVenueRow">
-                    <div className="detailVenueIdentity">
-                      <div className="detailVenueText">
-                        <div className="detailVenueName">{data.name || "Venue TBA"}</div>
-                        {data.address ? <div className="detailVenueAddress">{data.address}</div> : null}
-                        {[data.city, data.state, data.zip].filter(Boolean).join(", ") ? (
-                          <div className="detailVenueAddress">{[data.city, data.state, data.zip].filter(Boolean).join(", ")}</div>
-                        ) : null}
-                        <div className="detailLinksRow detailVenueUrlRow">
-                          {data.venue_url ? (
-                            <a href={data.venue_url} target="_blank" rel="noopener noreferrer" className="secondaryLink">
-                              Venue URL/Map
-                            </a>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                    {mapLinks ? (
-                      <div className="detailLinksRow">
-                        <a className="secondaryLink" href={mapLinks.google} target="_blank" rel="noopener noreferrer">
-                          Google Maps
-                        </a>
-                        <a className="secondaryLink" href={mapLinks.apple} target="_blank" rel="noopener noreferrer">
-                          Apple Maps
-                        </a>
-                        <a className="secondaryLink" href={mapLinks.waze} target="_blank" rel="noopener noreferrer">
-                          Waze
-                        </a>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {hasOwlsEye ? (
-                    <div className="detailVenueNearbyPreview">
-                      <div className="detailVenueNearbyPreview__title">Nearby Options ({BRAND_OWL})</div>
-                      <div className="detailVenueNearbyPreview__counts">
-                        <div>☕ {nearbyCounts.coffee} coffee nearby</div>
-                        <div>🍔 {nearbyCounts.food} food options nearby</div>
-                        <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
-                      </div>
-                      <div className="detailVenueNearbyPreview__teaser">
-                        {canViewPremiumDetails
-                          ? "Open Premium planning details to view full list and one-tap directions."
-                          : "See Premium Planning Details below to unlock full list and one-tap directions."}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <details className="detailVenuePremium">
-                    <summary className="detailVenuePremium__summary">Premium planning details</summary>
-                    <div className="detailVenuePremium__body">
-                      {canViewPremiumDetails ? (
-                        premiumNearby ? (
-                          <div className="detailVenueNearbyGuide">
-                            <div className="detailVenueNearbyGuide__title">{BRAND_OWL} Weekend Guide</div>
-                            {[
-                              { label: "Coffee", items: premiumNearby.coffee.slice(0, 10) },
-                              { label: "Food", items: premiumNearby.food.slice(0, 10) },
-                              { label: "Hotels", items: premiumNearby.hotels.slice(0, 10) },
-                            ].map((group) =>
-                              group.items.length ? (
-                                <div className="premiumNearbyGroup" key={`${data.id}-${group.label}-guide`}>
-                                  <div className="premiumNearbyGroup__title">{group.label}</div>
-                                  <div className="premiumNearbyGroup__list">
-                                    {group.items.map((item, idx) => {
-                                      const primaryLink =
-                                        item.is_sponsor && item.sponsor_click_url ? item.sponsor_click_url : item.maps_url;
-                                      return (
-                                        <div className="premiumNearbyLink premiumNearbyLink--row" key={`${group.label}-${item.name}-${idx}`}>
-                                          <div className="premiumNearbyLink__content">
-                                            <span>{item.name}</span>
-                                            <span className="premiumNearbyLink__meta">
-                                              {metersToMilesLabel(item.distance_meters) || "Distance unavailable"}
-                                              {item.is_sponsor && item.sponsor_click_url ? " • Sponsored" : ""}
-                                            </span>
-                                          </div>
-                                          {primaryLink ? (
-                                            <a
-                                              className="secondaryLink premiumNearbyLink__cta"
-                                              href={primaryLink}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                            >
-                                              Directions
-                                            </a>
-                                          ) : null}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              ) : null
-                            )}
-                            {premiumNearby.captured_at ? (
-                              <div className="detailVenueNearbyPreview__teaser">
-                                Updated {new Date(premiumNearby.captured_at).toLocaleDateString()}
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <div className="detailVenuePremiumLock">
-                            <p style={{ margin: 0 }}>No nearby results captured yet for this venue.</p>
-                          </div>
-                        )
-                      ) : (
-                        <div className="detailVenuePremiumLock">
-                          <p style={{ margin: 0 }}>
-                            Upgrade to unlock full {BRAND_OWL} planning details and one-tap directions.
-                          </p>
-                          {tier === "explorer" ? (
-                            <p style={{ margin: 0 }}>
-                              <Link href="/login">Log in</Link> or <Link href="/signup">sign up</Link>.
-                            </p>
-                          ) : null}
-                          <Link className="secondaryLink" href="/pricing">
-                            Upgrade
-                          </Link>
-                        </div>
-                      )}
-                    </div>
-                  </details>
-                </div>
-              </div>
+              <OwlsEyeVenueCard
+                venue={{
+                  id: data.id,
+                  name: data.name,
+                  address: data.address,
+                  city: data.city,
+                  state: data.state,
+                  zip: data.zip,
+                  venue_url: data.venue_url,
+                }}
+                hasOwlsEye={hasOwlsEye}
+                canViewPremiumDetails={canViewPremiumDetails}
+                nearbyCounts={nearbyCounts}
+                premiumNearby={premiumNearby}
+                tier={tier}
+                mapLinks={mapLinks}
+                demoScores={demoScores}
+              />
 
               {upcomingTournaments.length > 0 ? (
                 <div style={{ display: "grid", gap: 8, marginTop: 4 }}>

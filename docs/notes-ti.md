@@ -1060,3 +1060,29 @@
   - Added logged-out header `Sign up` link to make Insider onboarding explicit.
   - Signup targets use existing redirect convention:
     - `/signup?returnTo=%2Faccount`
+
+- TI Premium page + Owl's Eye demo/public-beta updates:
+  - Added Premium value route and wired homepage CTA:
+    - `apps/ti-web/app/premium/page.tsx`
+    - `apps/ti-web/app/page.tsx`
+  - `/premium` now renders a Starfire demo preview using the same venue Owl's Eye UI shell used on venue pages.
+  - Introduced shared Owl's Eye venue card component and reused it across pages:
+    - `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+    - `apps/ti-web/app/premium/page.tsx`
+  - Added independent Weekend Guide accordions (Coffee/Food/Hotels):
+    - `apps/ti-web/components/OwlsEyeWeekendGuideAccordion.tsx`
+    - Defaults: Coffee open, Food closed, Hotels closed.
+  - Added demo-only Owl's Eye scores panel + derivation helper:
+    - `apps/ti-web/components/OwlsEyeDemoScoresPanel.tsx`
+    - `apps/ti-web/lib/owlsEyeScores.ts`
+    - Uses available aggregates and safe fallbacks when mode fields are unavailable.
+  - Opened premium-planning preview for Grand Canyon University venue to all users on TI:
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+  - Venue index visual polish:
+    - `apps/ti-web/components/VenueIndexBadge.module.css`
+    - reduced excess top spacing and centered index label/value treatment.
+
+- Validation:
+  - `npm run build --workspace ti-web` passed after these changes.

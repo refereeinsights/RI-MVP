@@ -1969,3 +1969,12 @@
     - links to `/signup?returnTo=%2Faccount`
   - Added header `Sign up` link (shown logged-out):
     - links to `/signup?returnTo=%2Faccount`
+
+- TI Premium + Owl's Eye Public Beta update (apps/ti-web):
+  - Added `/premium` value page and wired homepage `Request Premium Access` CTA to it.
+  - Reused/shared Owl's Eye venue card UI for Starfire demo preview and venue pages.
+  - Added independent Weekend Guide accordions (Coffee/Food/Hotels).
+  - Added demo-only Owl's Eye scores panel with helper-based derivations and safe fallbacks.
+  - Opened Grand Canyon University premium-planning preview to all users.
+  - Applied Venue Index spacing/centering polish.
+  - TI build verification passed (`npm run build --workspace ti-web`).

@@ -8,9 +8,10 @@
 }
 
 .topRow {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 8px;
 }
 
@@ -22,6 +23,8 @@
 }
 
 .tooltip {
+  position: absolute;
+  right: 0;
   font-size: 11px;
   opacity: 0.88;
   border: 1px solid rgba(255, 255, 255, 0.28);
@@ -37,7 +40,9 @@
 .valueRow {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: 8px;
+  text-align: center;
 }
 
 .indexValue {
