@@ -1978,3 +1978,22 @@
   - Opened Grand Canyon University premium-planning preview to all users.
   - Applied Venue Index spacing/centering polish.
   - TI build verification passed (`npm run build --workspace ti-web`).
+
+- RI admin venue duplicate detection hardening:
+  - Updated duplicate grouping logic on `/admin/venues?duplicates=1`:
+    - `apps/referee/app/admin/venues/page.tsx`
+    - `apps/referee/components/admin/VenuesListClient.tsx`
+  - Added a new fallback duplicate group kind:
+    - `same_street_state` (`street + state`)
+    - This catches same-address duplicates when city is missing/mismatched.
+  - Improved street normalization for duplicate checks:
+    - strips unit/suite/apt/floor markers and `#` suffixes before matching.
+    - continues to normalize street-type abbreviations (`street`/`st`, `avenue`/`ave`, etc.).
+  - Duplicate candidate address now also considers `normalized_address` when `address/address1` is missing.
+  - Updated duplicate UI labels:
+    - `Exact address match`
+    - `Street + state match`
+    - `Name + street match`
+
+- Validation:
+  - `npm run build --workspace referee-app` passed after duplicate-detection changes.

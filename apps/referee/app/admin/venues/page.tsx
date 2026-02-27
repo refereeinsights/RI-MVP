@@ -75,7 +75,7 @@ export type DuplicateVenueCandidate = {
 
 export type DuplicateVenueGroup = {
   key: string;
-  kind: "exact_address_city_state" | "same_name_and_street_state";
+  kind: "exact_address_city_state" | "same_street_state" | "same_name_and_street_state";
   suggested_target_id: string;
   candidates: DuplicateVenueCandidate[];
 };
@@ -106,6 +106,8 @@ function normalizeText(value: string | null | undefined) {
 
 function normalizeStreet(value: string | null | undefined) {
   return normalizeText(value)
+    .replace(/\b(apt|apartment|suite|ste|unit|fl|floor)\s*[a-z0-9-]+\b/g, "")
+    .replace(/\s+#\s*[a-z0-9-]+\b/g, "")
     .replace(/\b(street|st)\b/g, "st")
     .replace(/\b(avenue|ave)\b/g, "ave")
     .replace(/\b(road|rd)\b/g, "rd")
@@ -115,6 +117,7 @@ function normalizeStreet(value: string | null | undefined) {
     .replace(/\b(court|ct)\b/g, "ct")
     .replace(/\b(place|pl)\b/g, "pl")
     .replace(/\b(parkway|pkwy)\b/g, "pkwy")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -324,7 +327,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
   if (showDuplicates) {
     const { data: allVenuesLite } = await supabaseAdmin
       .from("venues" as any)
-      .select("id,name,address,address1,city,state,zip,venue_url")
+      .select("id,name,address,address1,normalized_address,city,state,zip,venue_url")
       .limit(3000);
     const { data: allLinks } = await supabaseAdmin.from("tournament_venues" as any).select("venue_id");
     const { data: allRuns } = await supabaseAdmin.from("owls_eye_runs" as any).select("venue_id");
@@ -355,13 +358,14 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
     }
 
     const exactAddressGroups = new Map<string, DuplicateVenueCandidate[]>();
+    const streetStateGroups = new Map<string, DuplicateVenueCandidate[]>();
     const nameStreetGroups = new Map<string, DuplicateVenueCandidate[]>();
 
     for (const row of (allVenuesLite ?? []) as Array<Record<string, any>>) {
       const candidate: DuplicateVenueCandidate = {
         id: String(row.id),
         name: row.name ?? null,
-        address: row.address1 ?? row.address ?? null,
+        address: row.address1 ?? row.address ?? row.normalized_address ?? null,
         city: row.city ?? null,
         state: row.state ?? null,
         zip: row.zip ?? null,
@@ -380,6 +384,11 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         const list = exactAddressGroups.get(key) ?? [];
         list.push(candidate);
         exactAddressGroups.set(key, list);
+
+        const streetStateKey = `${street}|${state}`;
+        const byStateList = streetStateGroups.get(streetStateKey) ?? [];
+        byStateList.push(candidate);
+        streetStateGroups.set(streetStateKey, byStateList);
       }
       if (name && street && state) {
         const key = `${name}|${street}|${state}`;
@@ -413,6 +422,20 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       duplicateGroups.push({
         key,
         kind: "exact_address_city_state",
+        suggested_target_id: target.id,
+        candidates: filtered,
+      });
+      filtered.forEach((item) => seenIds.add(item.id));
+    }
+    for (const [key, list] of streetStateGroups.entries()) {
+      if (list.length < 2) continue;
+      if (list.some((item) => seenIds.has(item.id))) continue;
+      const target = pickTarget(list);
+      const filtered = list.filter((item) => item.id === target.id || !keepBothPairs.has(pairKey(item.id, target.id)));
+      if (filtered.length < 2) continue;
+      duplicateGroups.push({
+        key,
+        kind: "same_street_state",
         suggested_target_id: target.id,
         candidates: filtered,
       });

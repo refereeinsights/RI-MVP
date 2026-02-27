@@ -19,7 +19,7 @@ type DuplicateVenueCandidate = {
 
 type DuplicateVenueGroup = {
   key: string;
-  kind: "exact_address_city_state" | "same_name_and_street_state";
+  kind: "exact_address_city_state" | "same_street_state" | "same_name_and_street_state";
   suggested_target_id: string;
   candidates: DuplicateVenueCandidate[];
 };
@@ -161,7 +161,7 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
           {duplicateGroups.slice(0, 25).map((group) => (
             <details key={`${group.kind}:${group.key}`} style={{ border: "1px solid #fde68a", borderRadius: 8, background: "#fff" }}>
               <summary style={{ cursor: "pointer", padding: "8px 10px", fontWeight: 700 }}>
-                {group.kind === "exact_address_city_state" ? "Exact address match" : "Name + street match"} • {group.candidates.length} venues
+                {duplicateKindLabel(group.kind)} • {group.candidates.length} venues
               </summary>
               <div style={{ padding: "8px 10px", display: "grid", gap: 8 }}>
                 <div style={{ fontSize: 12, color: "#6b7280" }}>
@@ -319,3 +319,8 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
     </div>
   );
 }
+  const duplicateKindLabel = (kind: DuplicateVenueGroup["kind"]) => {
+    if (kind === "exact_address_city_state") return "Exact address match";
+    if (kind === "same_street_state") return "Street + state match";
+    return "Name + street match";
+  };
