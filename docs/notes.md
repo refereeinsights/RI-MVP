@@ -1,5 +1,24 @@
 # Running Notes
 
+## 2026-02-27
+- RI `/admin/ti` auth troubleshooting panel added:
+  - Updated:
+    - `apps/referee/app/admin/ti/page.tsx`
+  - Added search-driven troubleshooting section that cross-checks:
+    - `auth.users`
+    - `ti_users`
+    - `profiles`
+  - New admin visibility for TI signup issues:
+    - auth user created timestamp,
+    - email confirmed timestamp,
+    - last sign-in timestamp,
+    - TI row present/missing,
+    - profile role.
+  - Added one-click server action to backfill missing TI user rows from `auth.users`:
+    - inserts/upserts `ti_users` by auth id + email.
+  - Validation:
+    - `npm run build --workspace referee-app` passed.
+
 ## 2026-02-26
 - Nightly smoke workflow consolidation (single cron path, RI first + TI included):
   - Updated:

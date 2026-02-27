@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { User as AuthUser } from "@supabase/supabase-js";
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -20,6 +21,18 @@ type TiUserRow = {
   created_at: string | null;
   first_seen_at: string | null;
   last_seen_at: string | null;
+};
+
+type AuthTroubleshootRow = {
+  id: string;
+  email: string | null;
+  created_at: string | null;
+  email_confirmed_at: string | null;
+  last_sign_in_at: string | null;
+  has_ti_user: boolean;
+  ti_plan: string | null;
+  ti_status: string | null;
+  profile_role: string | null;
 };
 
 type EventCodeSource = "ti_event_codes" | "event_codes";
@@ -147,6 +160,23 @@ async function updateTiUserFieldAction(formData: FormData) {
   const { error } = await (supabaseAdmin.from("ti_users" as any) as any).update(updates).eq("id", id);
   if (error) redirect(buildPathWithNotice(`TI user update failed: ${error.message}`, q));
   redirect(buildPathWithNotice(`TI user ${field} updated.`, q));
+}
+
+async function backfillTiUserFromAuthAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+  const userId = String(formData.get("user_id") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const q = String(formData.get("q") ?? "").trim();
+  if (!userId) redirect(buildPathWithNotice("Missing auth user id.", q));
+
+  const payload: Record<string, unknown> = {
+    id: userId,
+    email: email || null,
+  };
+  const { error } = await (supabaseAdmin.from("ti_users" as any) as any).upsert(payload, { onConflict: "id" });
+  if (error) redirect(buildPathWithNotice(`Backfill TI user failed: ${error.message}`, q));
+  redirect(buildPathWithNotice("TI user backfilled from auth.users.", q));
 }
 
 async function deleteTiUserAction(formData: FormData) {
@@ -287,6 +317,80 @@ async function updateEventCodeAction(formData: FormData) {
   redirect(buildPathWithNotice("Event code saved."));
 }
 
+async function loadAuthTroubleshooting(q: string): Promise<{ rows: AuthTroubleshootRow[]; error: string | null }> {
+  if (!q) return { rows: [], error: null };
+  const normalizedQuery = q.trim().toLowerCase();
+  if (!normalizedQuery) return { rows: [], error: null };
+
+  const users: AuthUser[] = [];
+  try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedQuery);
+    const maxPages = 10;
+    const perPage = 200;
+    for (let page = 1; page <= maxPages; page += 1) {
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+      if (error) return { rows: [], error: error.message };
+      const pageUsers = data?.users ?? [];
+      if (!pageUsers.length) break;
+      for (const user of pageUsers) {
+        const email = (user.email ?? "").toLowerCase();
+        const id = String(user.id ?? "");
+        const matches = isUuid ? id === normalizedQuery : email.includes(normalizedQuery) || id === normalizedQuery;
+        if (matches) users.push(user as AuthUser);
+      }
+      if (pageUsers.length < perPage) break;
+    }
+
+    if (!users.length) return { rows: [], error: null };
+    const userIds = users.map((u) => u.id);
+
+    const [{ data: tiRows, error: tiErr }, { data: profileRows, error: profErr }] = await Promise.all([
+      (supabaseAdmin.from("ti_users" as any) as any)
+        .select("id,plan,status")
+        .in("id", userIds),
+      (supabaseAdmin.from("profiles" as any) as any)
+        .select("user_id,role")
+        .in("user_id", userIds),
+    ]);
+    if (tiErr) return { rows: [], error: tiErr.message };
+    if (profErr) return { rows: [], error: profErr.message };
+
+    const tiById = new Map<string, { plan: string | null; status: string | null }>(
+      ((tiRows ?? []) as Array<{ id: string; plan: string | null; status: string | null }>).map((row) => [
+        row.id,
+        { plan: row.plan ?? null, status: row.status ?? null },
+      ]),
+    );
+    const roleById = new Map<string, string | null>(
+      ((profileRows ?? []) as Array<{ user_id: string; role: string | null }>).map((row) => [row.user_id, row.role ?? null]),
+    );
+
+    const rows: AuthTroubleshootRow[] = users.map((user) => {
+      const ti = tiById.get(user.id);
+      return {
+        id: user.id,
+        email: user.email ?? null,
+        created_at: user.created_at ?? null,
+        email_confirmed_at: user.email_confirmed_at ?? null,
+        last_sign_in_at: user.last_sign_in_at ?? null,
+        has_ti_user: Boolean(ti),
+        ti_plan: ti?.plan ?? null,
+        ti_status: ti?.status ?? null,
+        profile_role: roleById.get(user.id) ?? null,
+      };
+    });
+
+    rows.sort((a, b) => {
+      const aCreated = a.created_at ? Date.parse(a.created_at) : 0;
+      const bCreated = b.created_at ? Date.parse(b.created_at) : 0;
+      return bCreated - aCreated;
+    });
+    return { rows, error: null };
+  } catch (error) {
+    return { rows: [], error: error instanceof Error ? error.message : "Failed to load auth troubleshooting." };
+  }
+}
+
 export default async function TiAdminPage({
   searchParams,
 }: {
@@ -306,6 +410,7 @@ export default async function TiAdminPage({
     query = query.or(`email.ilike.%${q}%,id.eq.${q}`);
   }
   const { data: tiUsers, error: tiUsersErr } = await query;
+  const authTroubleshoot = await loadAuthTroubleshooting(q);
   const eventCodes = await loadEventCodes();
 
   return (
@@ -499,6 +604,64 @@ export default async function TiAdminPage({
                       </button>
                     </form>
                   </div>
+                </div>
+              </details>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16 }}>
+        <h2 style={{ marginTop: 0 }}>Auth Troubleshooting</h2>
+        <p style={{ marginTop: 0, color: "#475569", fontSize: 13 }}>
+          Uses <code>auth.users</code> + <code>ti_users</code> + <code>profiles</code> for signup/login troubleshooting.
+          Search by email or auth user id above.
+        </p>
+        {!q ? (
+          <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Enter an email/id in search to run auth troubleshooting.</p>
+        ) : authTroubleshoot.error ? (
+          <p style={{ margin: 0, color: "#b91c1c" }}>Auth troubleshooting failed: {authTroubleshoot.error}</p>
+        ) : authTroubleshoot.rows.length === 0 ? (
+          <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>No matching auth.users rows found.</p>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {authTroubleshoot.rows.map((row) => (
+              <details key={row.id} style={{ border: "1px solid #dbe4ef", borderRadius: 10, background: "#fff" }}>
+                <summary
+                  style={{
+                    cursor: "pointer",
+                    listStyle: "auto",
+                    padding: "10px 12px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 10,
+                  }}
+                >
+                  <span style={{ fontWeight: 700 }}>
+                    {displayNameFromEmail(row.email)} <span style={{ fontWeight: 500, color: "#334155" }}>({row.email ?? "—"})</span>
+                  </span>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>
+                    auth:{row.email_confirmed_at ? "confirmed" : "pending"} · ti:{row.has_ti_user ? "present" : "missing"}
+                  </span>
+                </summary>
+                <div style={{ padding: "0 12px 12px", borderTop: "1px solid #dbe4ef", display: "grid", gap: 10 }}>
+                  <div style={{ fontFamily: "monospace", fontSize: 12, color: "#475569", marginTop: 8 }}>{row.id}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 8, fontSize: 12 }}>
+                    <div><div style={{ color: "#64748b" }}>Auth created</div><div>{fmtDate(row.created_at)}</div></div>
+                    <div><div style={{ color: "#64748b" }}>Email confirmed</div><div>{fmtDate(row.email_confirmed_at)}</div></div>
+                    <div><div style={{ color: "#64748b" }}>Last sign-in</div><div>{fmtDate(row.last_sign_in_at)}</div></div>
+                    <div><div style={{ color: "#64748b" }}>TI row</div><div>{row.has_ti_user ? `yes (${row.ti_plan ?? "free"} · ${row.ti_status ?? "active"})` : "missing"}</div></div>
+                    <div><div style={{ color: "#64748b" }}>Profile role</div><div>{row.profile_role ?? "—"}</div></div>
+                  </div>
+                  {!row.has_ti_user ? (
+                    <form action={backfillTiUserFromAuthAction} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <input type="hidden" name="user_id" value={row.id} />
+                      <input type="hidden" name="email" value={row.email ?? ""} />
+                      <input type="hidden" name="q" value={q} />
+                      <button type="submit">Backfill TI user from auth</button>
+                    </form>
+                  ) : null}
                 </div>
               </details>
             ))}
