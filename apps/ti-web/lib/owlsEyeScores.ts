@@ -4,6 +4,8 @@ export type VenueReviewChoiceRow = {
   restrooms: string | null;
   parking_distance: string | null;
   parking_convenience_score: number | null;
+  food_vendors?: boolean | null;
+  coffee_vendors?: boolean | null;
   bring_field_chairs?: boolean | null;
   player_parking_fee?: number | null;
   parking_notes?: string | null;
@@ -13,8 +15,8 @@ export type VenueReviewChoiceRow = {
 };
 
 export type OwlsEyeDemoScores = {
-  foodVendors: boolean;
-  coffeeVendors: boolean;
+  foodVendors: "Yes" | "No" | "—";
+  coffeeVendors: "Yes" | "No" | "—";
   playerParkingFee: string;
   vendorScore: string;
   restrooms: string;
@@ -220,10 +222,12 @@ export function buildOwlsEyeDemoScores(input: {
           ? "Yes"
           : "No"
         : "—";
+  const onSiteFoodVendors = modeBoolean(choices.map((row) => row.food_vendors));
+  const onSiteCoffeeVendors = modeBoolean(choices.map((row) => row.coffee_vendors));
 
   return {
-    foodVendors: input.nearbyCounts.food > 0,
-    coffeeVendors: input.nearbyCounts.coffee > 0,
+    foodVendors: onSiteFoodVendors,
+    coffeeVendors: onSiteCoffeeVendors,
     playerParkingFee: tournamentParkingFee ?? venueParkingFee ?? reviewParkingFee ?? "—",
     vendorScore: formatVendorScore(input.vendor_score_avg),
     restrooms: restroomMode ?? "—",

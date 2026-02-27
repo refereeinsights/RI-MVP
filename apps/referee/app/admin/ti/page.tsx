@@ -140,6 +140,10 @@ function buildPathWithNotice(notice: string, q = "") {
   return `/admin/ti?${params.toString()}`;
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 async function updateTiUserFieldAction(formData: FormData) {
   "use server";
   await requireAdmin();
@@ -324,7 +328,7 @@ async function loadAuthTroubleshooting(q: string): Promise<{ rows: AuthTroublesh
 
   const users: AuthUser[] = [];
   try {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedQuery);
+    const uuidQuery = isUuid(normalizedQuery);
     const maxPages = 10;
     const perPage = 200;
     for (let page = 1; page <= maxPages; page += 1) {
@@ -335,7 +339,7 @@ async function loadAuthTroubleshooting(q: string): Promise<{ rows: AuthTroublesh
       for (const user of pageUsers) {
         const email = (user.email ?? "").toLowerCase();
         const id = String(user.id ?? "");
-        const matches = isUuid ? id === normalizedQuery : email.includes(normalizedQuery) || id === normalizedQuery;
+        const matches = uuidQuery ? id === normalizedQuery : email.includes(normalizedQuery) || id === normalizedQuery;
         if (matches) users.push(user as AuthUser);
       }
       if (pageUsers.length < perPage) break;
@@ -407,7 +411,9 @@ export default async function TiAdminPage({
     .order("created_at", { ascending: false })
     .limit(200);
   if (q) {
-    query = query.or(`email.ilike.%${q}%,id.eq.${q}`);
+    query = isUuid(q)
+      ? query.or(`email.ilike.%${q}%,id.eq.${q}`)
+      : query.ilike("email", `%${q}%`);
   }
   const { data: tiUsers, error: tiUsersErr } = await query;
   const authTroubleshoot = await loadAuthTroubleshooting(q);

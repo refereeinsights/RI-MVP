@@ -259,7 +259,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
 
   const reviewChoicesPrimary = await supabaseAdmin
     .from("venue_reviews" as any)
-    .select("restrooms,parking_distance,parking_convenience_score,bring_field_chairs,player_parking_fee,parking_notes,seating_notes,created_at,updated_at")
+    .select("restrooms,parking_distance,parking_convenience_score,food_vendors,coffee_vendors,bring_field_chairs,player_parking_fee,parking_notes,seating_notes,created_at,updated_at")
     .eq("venue_id", data.id)
     .eq("status", "active");
   const reviewChoicesCode = (reviewChoicesPrimary as any)?.error?.code;
@@ -267,7 +267,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
     reviewChoicesPrimary.error && (reviewChoicesCode === "42703" || reviewChoicesCode === "PGRST204")
       ? await supabaseAdmin
           .from("venue_reviews" as any)
-          .select("restrooms,parking_distance,parking_convenience_score,bring_field_chairs,player_parking_fee,created_at,updated_at")
+          .select("restrooms,parking_distance,parking_convenience_score,food_vendors,coffee_vendors,bring_field_chairs,player_parking_fee,created_at,updated_at")
           .eq("venue_id", data.id)
           .eq("status", "active")
       : null;

@@ -1,6 +1,38 @@
 # Running Notes
 
 ## 2026-02-27
+- RI `/admin/ti` search validation fix:
+  - Updated:
+    - `apps/referee/app/admin/ti/page.tsx`
+  - Fixed TI user search so email queries no longer attempt UUID-only `id.eq` comparisons.
+  - Behavior:
+    - email search: `email.ilike(...)`
+    - UUID search: `email.ilike(...)` + `id.eq(...)`
+
+- TI header + signup UX polish:
+  - Updated:
+    - `apps/ti-web/app/layout.tsx`
+    - `apps/ti-web/app/globals.css`
+    - `apps/ti-web/app/signup/page.tsx`
+  - Changes:
+    - removed duplicate nav link for “List your tournament” (kept primary CTA button),
+    - centered `Public Beta` pill on mobile header,
+    - signup success now shows larger email-confirmation message and auto-redirects to home after 12 seconds.
+
+- TI Owl’s Eye vendor field alignment:
+  - Updated:
+    - `apps/ti-web/lib/owlsEyeScores.ts`
+    - `apps/ti-web/components/OwlsEyeDemoScoresPanel.tsx`
+    - `apps/ti-web/app/premium/page.tsx`
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - Changes:
+    - switched vendor boolean display to review-driven on-site signals,
+    - labels now read:
+      - `On-site food vendors`
+      - `On-site coffee vendors`
+    - no longer inferred from Owl’s Eye nearby places for this field.
+
 - RI `/admin/ti` auth troubleshooting panel added:
   - Updated:
     - `apps/referee/app/admin/ti/page.tsx`

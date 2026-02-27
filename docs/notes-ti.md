@@ -1,3 +1,35 @@
+## 2026-02-27
+- TI header/nav cleanup + mobile alignment:
+  - Updated:
+    - `apps/ti-web/app/layout.tsx`
+    - `apps/ti-web/app/globals.css`
+  - Changes:
+    - removed duplicate `List your tournament` nav link (primary CTA retained),
+    - centered `Public Beta` pill in mobile layout.
+
+- TI signup success confirmation flow:
+  - Updated:
+    - `apps/ti-web/app/signup/page.tsx`
+  - Changes:
+    - larger confirmation message after signup,
+    - success screen persists for 12 seconds,
+    - then auto-redirects to `/`,
+    - includes manual “Go to home now” link.
+
+- TI Owl’s Eye on-site vendor mapping:
+  - Updated:
+    - `apps/ti-web/lib/owlsEyeScores.ts`
+    - `apps/ti-web/components/OwlsEyeDemoScoresPanel.tsx`
+    - `apps/ti-web/app/premium/page.tsx`
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - Changes:
+    - score panel now derives vendor booleans from `venue_reviews.food_vendors` and `venue_reviews.coffee_vendors`,
+    - labels changed to:
+      - `On-site food vendors`
+      - `On-site coffee vendors`,
+    - falls back to `—` if no review-derived signal is available.
+
 ## 2026-02-26
 - Nightly smoke consolidation update (cross-app cadence):
   - Updated root workflow:

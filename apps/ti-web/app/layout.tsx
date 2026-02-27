@@ -79,7 +79,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/tournaments">Tournament Directory</Link>
                 <Link href="/venues">Venue Insights</Link>
                 <Link href="/how-it-works">How it works</Link>
-                <Link href="/list-your-tournament">List your tournament</Link>
               </nav>
               <div className="ti-header-actions">
                 <Link href="/list-your-tournament" className="ti-cta">

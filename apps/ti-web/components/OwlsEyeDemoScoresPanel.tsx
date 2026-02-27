@@ -1,7 +1,8 @@
 import type { OwlsEyeDemoScores } from "@/lib/owlsEyeScores";
 
-function pill(value: "Yes" | "No") {
+function pill(value: "Yes" | "No" | "—") {
   const positive = value === "Yes";
+  const neutral = value === "—";
   return (
     <span
       style={{
@@ -13,8 +14,14 @@ function pill(value: "Yes" | "No") {
         borderRadius: 999,
         fontSize: 12,
         fontWeight: 700,
-        border: `1px solid ${positive ? "rgba(45, 212, 191, 0.5)" : "rgba(248, 113, 113, 0.5)"}`,
-        background: positive ? "rgba(45, 212, 191, 0.15)" : "rgba(248, 113, 113, 0.15)",
+        border: neutral
+          ? "1px solid rgba(148, 163, 184, 0.45)"
+          : `1px solid ${positive ? "rgba(45, 212, 191, 0.5)" : "rgba(248, 113, 113, 0.5)"}`,
+        background: neutral
+          ? "rgba(148, 163, 184, 0.15)"
+          : positive
+            ? "rgba(45, 212, 191, 0.15)"
+            : "rgba(248, 113, 113, 0.15)",
       }}
     >
       {value}
@@ -68,8 +75,8 @@ export default function OwlsEyeDemoScoresPanel({
           fontSize: 13,
         }}
       >
-        <div><strong>Food vendors:</strong> {pill(scores.foodVendors ? "Yes" : "No")}</div>
-        <div><strong>Coffee vendors:</strong> {pill(scores.coffeeVendors ? "Yes" : "No")}</div>
+        <div><strong>On-site food vendors:</strong> {pill(scores.foodVendors)}</div>
+        <div><strong>On-site coffee vendors:</strong> {pill(scores.coffeeVendors)}</div>
         <div><strong>Vendor score:</strong> {scores.vendorScore}</div>
         <div><strong>Restrooms:</strong> {scores.restrooms}</div>
         <div><strong>Restroom cleanliness:</strong> {scores.restroomCleanliness}</div>

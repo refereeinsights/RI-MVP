@@ -1,12 +1,13 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { sanitizeReturnTo } from "@/lib/returnTo";
 
 export default function SignupPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,6 +19,14 @@ export default function SignupPage() {
   const [message, setMessage] = useState("");
   const code = (searchParams.get("code") || "").trim();
   const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/account");
+
+  useEffect(() => {
+    if (status !== "ok") return;
+    const timer = window.setTimeout(() => {
+      router.push("/");
+    }, 12_000);
+    return () => window.clearTimeout(timer);
+  }, [status, router]);
 
   const emailRedirectTo = useMemo(() => {
     const tiProdOrigin = "https://www.tournamentinsights.com";
@@ -112,6 +121,23 @@ export default function SignupPage() {
     setMessage("Check your email to confirm your account.");
   }
 
+  if (status === "ok") {
+    return (
+      <main style={{ maxWidth: 560, margin: "2.5rem auto", padding: "0 1rem", display: "grid", gap: 14, textAlign: "center" }}>
+        <h1 style={{ margin: 0, fontSize: 42, lineHeight: 1.08 }}>Check your email to confirm</h1>
+        <p style={{ margin: 0, color: "#334155", fontSize: 18 }}>
+          We sent a confirmation link to <strong>{email.trim()}</strong>.
+        </p>
+        <p style={{ margin: 0, color: "#475569", fontSize: 14 }}>
+          This page will redirect to home in 12 seconds.
+        </p>
+        <div style={{ fontSize: 14 }}>
+          <Link href="/">Go to home now</Link>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem", display: "grid", gap: 14 }}>
       <h1 style={{ margin: 0 }}>Create your account</h1>
@@ -188,7 +214,7 @@ export default function SignupPage() {
         </div>
       </form>
       {message ? (
-        <div style={{ fontSize: 13, color: status === "ok" ? "#065f46" : "#b91c1c" }}>{message}</div>
+        <div style={{ fontSize: 13, color: status === "error" ? "#b91c1c" : "#065f46" }}>{message}</div>
       ) : null}
       <div style={{ fontSize: 13 }}>
         Already have an account?{" "}
