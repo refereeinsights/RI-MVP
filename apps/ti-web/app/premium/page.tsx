@@ -35,6 +35,10 @@ type DemoVenueRow = {
   shade_score_avg: number | null;
   vendor_score_avg: number | null;
   parking_convenience_score_avg: number | null;
+  player_parking_fee?: string | null;
+  parking_notes?: string | null;
+  bring_field_chairs?: boolean | null;
+  seating_notes?: string | null;
   review_count: number | null;
   reviews_last_updated_at: string | null;
 };
@@ -55,6 +59,10 @@ type DemoTournamentRow = {
       shade_score_avg: number | null;
       vendor_score_avg: number | null;
       parking_convenience_score_avg: number | null;
+      player_parking_fee?: string | null;
+      parking_notes?: string | null;
+      bring_field_chairs?: boolean | null;
+      seating_notes?: string | null;
       review_count: number | null;
       reviews_last_updated_at: string | null;
     } | null;
@@ -201,24 +209,57 @@ export default async function PremiumPage() {
       previewUnavailable = false;
     }
 
-    if (demoVenue.id === DEMO_STARFIRE_VENUE_ID) {
-      const { data: reviewChoiceRows } = await supabaseAdmin
-        .from("venue_reviews" as any)
-        .select("restrooms,parking_distance,parking_convenience_score")
-        .eq("venue_id", demoVenue.id)
-        .eq("status", "active");
+    const venueInsightsExtra = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,player_parking_fee,parking_notes,bring_field_chairs,seating_notes")
+      .eq("id", demoVenue.id)
+      .maybeSingle<{
+        id: string;
+        player_parking_fee: string | null;
+        parking_notes: string | null;
+        bring_field_chairs: boolean | null;
+        seating_notes: string | null;
+      }>();
+    const extraCode = (venueInsightsExtra as any)?.error?.code;
+    const resolvedVenueInsights =
+      // TODO(ti-db): if these optional venue intelligence columns are unavailable, keep rendering "—" fallbacks.
+      !venueInsightsExtra.error || extraCode === "42703" || extraCode === "PGRST204"
+        ? venueInsightsExtra.data
+        : null;
 
-      demoScores = buildOwlsEyeDemoScores({
-        nearbyCounts,
-        vendor_score_avg: demoVenue.vendor_score_avg,
-        restroom_cleanliness_avg: demoVenue.restroom_cleanliness_avg,
-        shade_score_avg: demoVenue.shade_score_avg,
-        parking_convenience_score_avg: demoVenue.parking_convenience_score_avg,
-        review_count: demoVenue.review_count,
-        reviews_last_updated_at: demoVenue.reviews_last_updated_at,
-        reviewChoices: (reviewChoiceRows as VenueReviewChoiceRow[] | null) ?? [],
-      });
-    }
+    const reviewChoicesPrimary = await supabaseAdmin
+      .from("venue_reviews" as any)
+      .select("restrooms,parking_distance,parking_convenience_score,bring_field_chairs,player_parking_fee,parking_notes,seating_notes,created_at,updated_at")
+      .eq("venue_id", demoVenue.id)
+      .eq("status", "active");
+    const reviewChoicesCode = (reviewChoicesPrimary as any)?.error?.code;
+    const reviewChoicesFallback =
+      reviewChoicesPrimary.error && (reviewChoicesCode === "42703" || reviewChoicesCode === "PGRST204")
+        ? await supabaseAdmin
+            .from("venue_reviews" as any)
+            .select("restrooms,parking_distance,parking_convenience_score,bring_field_chairs,player_parking_fee,created_at,updated_at")
+            .eq("venue_id", demoVenue.id)
+            .eq("status", "active")
+        : null;
+    const reviewChoiceRows =
+      (reviewChoicesPrimary.data as VenueReviewChoiceRow[] | null) ??
+      (reviewChoicesFallback?.data as VenueReviewChoiceRow[] | null) ??
+      [];
+
+    demoScores = buildOwlsEyeDemoScores({
+      nearbyCounts,
+      vendor_score_avg: demoVenue.vendor_score_avg,
+      restroom_cleanliness_avg: demoVenue.restroom_cleanliness_avg,
+      shade_score_avg: demoVenue.shade_score_avg,
+      parking_convenience_score_avg: demoVenue.parking_convenience_score_avg,
+      venue_player_parking_fee: resolvedVenueInsights?.player_parking_fee ?? null,
+      parking_notes: resolvedVenueInsights?.parking_notes ?? null,
+      venue_bring_field_chairs: resolvedVenueInsights?.bring_field_chairs ?? null,
+      seating_notes: resolvedVenueInsights?.seating_notes ?? null,
+      review_count: demoVenue.review_count,
+      reviews_last_updated_at: demoVenue.reviews_last_updated_at,
+      reviewChoices: reviewChoiceRows,
+    });
   }
 
   const mapQuery = demoVenue
@@ -261,7 +302,7 @@ export default async function PremiumPage() {
 
         <section className="bodyCard" aria-labelledby="starfire-preview">
           <div style={{ display: "grid", gap: 12 }}>
-            <div style={{ display: "grid", gap: 4 }}>
+            <div style={{ display: "grid", gap: 4, textAlign: "center", justifyItems: "center" }}>
               <h2 id="starfire-preview" style={{ margin: 0 }}>
                 Preview: Starfire Field (Demo)
               </h2>
@@ -308,6 +349,8 @@ export default async function PremiumPage() {
                         tier="explorer"
                         mapLinks={mapLinks}
                         demoScores={demoScores}
+                        demoScoresIsDemo
+                        defaultNearbyAllCollapsed
                       />
                     </div>
                   )}

@@ -29,7 +29,9 @@ type ReviewFormState = {
   restroom_cleanliness: number | null;
   player_parking_fee: string;
   parking_convenience_score: "Close" | "Medium" | "Far" | "";
+  parking_notes: string;
   bring_field_chairs: "Yes" | "No" | "";
+  seating_notes: string;
   shade_score: number | null;
   food_vendors: "Yes" | "No" | "";
   coffee_vendors: "Yes" | "No" | "";
@@ -42,7 +44,9 @@ const INITIAL_FORM: ReviewFormState = {
   restroom_cleanliness: null,
   player_parking_fee: "",
   parking_convenience_score: "",
+  parking_notes: "",
   bring_field_chairs: "",
+  seating_notes: "",
   shade_score: null,
   food_vendors: "",
   coffee_vendors: "",
@@ -123,15 +127,26 @@ export default function VenueReviewsClient() {
   const [searchResults, setSearchResults] = useState<TournamentOption[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [venueSearchInput, setVenueSearchInput] = useState("");
+  const [venueSearchResults, setVenueSearchResults] = useState<VenueOption[]>([]);
+  const [venueSearching, setVenueSearching] = useState(false);
+  const [venueSearchError, setVenueSearchError] = useState("");
 
   const [form, setForm] = useState<ReviewFormState>(INITIAL_FORM);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  const allVenueOptions = useMemo(() => {
+    const map = new Map<string, VenueOption>();
+    for (const venue of venues) map.set(venue.id, venue);
+    for (const venue of venueSearchResults) map.set(venue.id, venue);
+    return Array.from(map.values());
+  }, [venues, venueSearchResults]);
+
   const selectedVenue = useMemo(
-    () => venues.find((venue) => venue.id === selectedVenueId) ?? null,
-    [venues, selectedVenueId]
+    () => allVenueOptions.find((venue) => venue.id === selectedVenueId) ?? null,
+    [allVenueOptions, selectedVenueId]
   );
 
   async function loadVenues(tournamentId: string) {
@@ -242,10 +257,42 @@ export default function VenueReviewsClient() {
     return () => window.clearTimeout(timeout);
   }, [searchInput, selectedTournament]);
 
+  useEffect(() => {
+    const q = venueSearchInput.trim();
+    if (q.length < 2) {
+      setVenueSearchResults([]);
+      setVenueSearchError("");
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      setVenueSearching(true);
+      setVenueSearchError("");
+      try {
+        const response = await fetch(`/api/venue-reviews?mode=venue-search&q=${encodeURIComponent(q)}`, {
+          method: "GET",
+          cache: "no-store",
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload?.error || "Venue search failed.");
+        }
+        setVenueSearchResults((payload?.venues ?? []) as VenueOption[]);
+      } catch (err: any) {
+        setVenueSearchResults([]);
+        setVenueSearchError(err?.message || "Venue search failed.");
+      } finally {
+        setVenueSearching(false);
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [venueSearchInput]);
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedTournament || !selectedVenue) {
-      setFormError("Select a tournament and venue first.");
+    if (!selectedVenue) {
+      setFormError("Select a venue first.");
       return;
     }
 
@@ -275,12 +322,14 @@ export default function VenueReviewsClient() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           venue_id: selectedVenue.id,
-          tournament_id: selectedTournament.id,
+          tournament_id: selectedTournament?.id ?? null,
           restrooms: form.restrooms,
           restroom_cleanliness: form.restroom_cleanliness,
           player_parking_fee: parkingFee,
           parking_convenience_score: form.parking_convenience_score,
+          parking_notes: form.parking_notes.trim() || null,
           bring_field_chairs: yesNoToBoolean(form.bring_field_chairs),
+          seating_notes: form.seating_notes.trim() || null,
           shade_score: form.shade_score,
           food_vendors: yesNoToBoolean(form.food_vendors),
           coffee_vendors: yesNoToBoolean(form.coffee_vendors),
@@ -294,7 +343,11 @@ export default function VenueReviewsClient() {
       }
       setSubmitted(true);
       window.setTimeout(() => {
-        router.push(`/tournaments/${selectedTournament.slug}`);
+        if (selectedTournament?.slug) {
+          router.push(`/tournaments/${selectedTournament.slug}`);
+          return;
+        }
+        router.push(`/venues/${selectedVenue.id}`);
       }, 1000);
     } catch (err: any) {
       setFormError(err?.message || "Failed to submit review.");
@@ -369,7 +422,7 @@ export default function VenueReviewsClient() {
 
         <div className={styles.stepBlock}>
           <h2 className={styles.stepTitle}>Step 2: Select venue</h2>
-          {!selectedTournament ? <div className={styles.meta}>Select a tournament first.</div> : null}
+          {!selectedTournament ? <div className={styles.meta}>Tournament is optional. Search by venue if you’re not sure.</div> : null}
           {selectedTournament && venuesLoading ? <div className={styles.meta}>Loading venues...</div> : null}
           {venuesError ? <div className={styles.errorText}>{venuesError}</div> : null}
           {selectedTournament && !venuesLoading && venues.length === 0 ? (
@@ -389,6 +442,9 @@ export default function VenueReviewsClient() {
                     className={`${styles.venueCard} ${isSelected ? styles.venueCardSelected : ""}`}
                     onClick={() => {
                       setSelectedVenueId(venue.id);
+                      setVenueSearchInput("");
+                      setVenueSearchResults([]);
+                      setVenueSearchError("");
                       setForm(INITIAL_FORM);
                       setSubmitted(false);
                       setFormError("");
@@ -401,12 +457,48 @@ export default function VenueReviewsClient() {
               })}
             </div>
           ) : null}
+
+          <div className={styles.searchLabel}>Or search venue directly</div>
+          <input
+            className={styles.input}
+            type="text"
+            value={venueSearchInput}
+            onChange={(e) => setVenueSearchInput(e.target.value)}
+            placeholder="Search venue name or city"
+          />
+          {venueSearching ? <div className={styles.meta}>Searching venues...</div> : null}
+          {venueSearchError ? <div className={styles.errorText}>{venueSearchError}</div> : null}
+          {venueSearchResults.length > 0 ? (
+            <div className={styles.resultList}>
+              {venueSearchResults.map((venue) => {
+                const location = [venue.address, [venue.city, venue.state].filter(Boolean).join(", ")]
+                  .filter(Boolean)
+                  .join(" • ");
+                return (
+                  <button
+                    key={venue.id}
+                    type="button"
+                    className={styles.resultItem}
+                    onClick={() => {
+                      setSelectedVenueId(venue.id);
+                      setForm(INITIAL_FORM);
+                      setSubmitted(false);
+                      setFormError("");
+                    }}
+                  >
+                    <span>{venue.name || "Unnamed venue"}</span>
+                    <span className={styles.meta}>{location || "Location not provided"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
 
-        {selectedTournament && selectedVenue ? (
+        {selectedVenue ? (
           <form className={styles.form} onSubmit={onSubmit}>
             <h2 className={styles.stepTitle}>
-              Review: {selectedTournament.name} - {selectedVenue.name || "Venue"}
+              Review: {selectedTournament ? `${selectedTournament.name} - ` : ""}{selectedVenue.name || "Venue"}
             </h2>
 
             <div className={styles.field}>
@@ -472,6 +564,27 @@ export default function VenueReviewsClient() {
             </div>
 
             <div className={styles.field}>
+              <label className={styles.label} htmlFor="parking_notes">
+                Parking notes (optional)
+              </label>
+              <input
+                id="parking_notes"
+                className={styles.input}
+                type="text"
+                maxLength={60}
+                placeholder="e.g. Overflow lot fills first"
+                value={form.parking_notes}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    parking_notes: e.target.value.slice(0, 60),
+                  }))
+                }
+              />
+              <div className={styles.meta}>{form.parking_notes.length}/60</div>
+            </div>
+
+            <div className={styles.field}>
               <label className={styles.label}>Bring field chairs</label>
               <div className={styles.radioRow}>
                 {(["Yes", "No"] as const).map((value) => (
@@ -487,6 +600,27 @@ export default function VenueReviewsClient() {
                   </label>
                 ))}
               </div>
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="seating_notes">
+                Seating notes (optional)
+              </label>
+              <input
+                id="seating_notes"
+                className={styles.input}
+                type="text"
+                maxLength={60}
+                placeholder="e.g. Bleachers on field 1 only"
+                value={form.seating_notes}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    seating_notes: e.target.value.slice(0, 60),
+                  }))
+                }
+              />
+              <div className={styles.meta}>{form.seating_notes.length}/60</div>
             </div>
 
             <GaugeInput
@@ -567,9 +701,13 @@ export default function VenueReviewsClient() {
                   <button
                     type="button"
                     className={styles.primaryBtn}
-                    onClick={() => router.push(`/tournaments/${selectedTournament.slug}`)}
+                    onClick={() =>
+                      selectedTournament?.slug
+                        ? router.push(`/tournaments/${selectedTournament.slug}`)
+                        : router.push(`/venues/${selectedVenue.id}`)
+                    }
                   >
-                    Continue to tournament
+                    {selectedTournament?.slug ? "Continue to tournament" : "Continue to venue"}
                   </button>
                 </div>
               </div>

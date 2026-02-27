@@ -29,6 +29,8 @@ type OwlsEyeVenueCardProps = {
   tier: "explorer" | "insider" | "weekend_pro";
   mapLinks: { google: string; apple: string; waze: string } | null;
   demoScores?: OwlsEyeDemoScores | null;
+  demoScoresIsDemo?: boolean;
+  defaultNearbyAllCollapsed?: boolean;
 };
 
 export default function OwlsEyeVenueCard({
@@ -40,26 +42,29 @@ export default function OwlsEyeVenueCard({
   tier,
   mapLinks,
   demoScores,
+  demoScoresIsDemo = false,
+  defaultNearbyAllCollapsed = false,
 }: OwlsEyeVenueCardProps) {
+  const locationLine = [venue.city, venue.state, venue.zip].filter(Boolean).join(", ");
+
   return (
     <div className={`detailCard ${hasOwlsEye ? "detailCard--withOwl" : ""}`}>
       <div className="detailCard__title">Venue</div>
       <div className="detailCard__body">
-        {hasOwlsEye ? (
-          <img
-            className="detailVenueOwlBadgeFloat"
-            src="/svg/ri/owls_eye_badge.svg"
-            alt="Owl's Eye insights available for this venue"
-          />
-        ) : null}
         <div className="detailVenueRow">
           <div className="detailVenueIdentity">
             <div className="detailVenueText">
-              <div className="detailVenueName">{venue.name || "Venue TBA"}</div>
-              {venue.address ? <div className="detailVenueAddress">{venue.address}</div> : null}
-              {[venue.city, venue.state, venue.zip].filter(Boolean).join(", ") ? (
-                <div className="detailVenueAddress">{[venue.city, venue.state, venue.zip].filter(Boolean).join(", ")}</div>
+              {hasOwlsEye ? (
+                <img
+                  className="detailVenueOwlBadgeInline"
+                  src="/svg/ri/owls_eye_badge.svg"
+                  alt="Owl's Eye insights available for this venue"
+                />
               ) : null}
+              <div className="detailVenueAddressStack">
+                {venue.address ? <div className="detailVenueAddress">{venue.address}</div> : null}
+                {locationLine ? <div className="detailVenueAddress">{locationLine}</div> : null}
+              </div>
               <div className="detailLinksRow detailVenueUrlRow">
                 {venue.venue_url ? (
                   <a href={venue.venue_url} target="_blank" rel="noopener noreferrer" className="secondaryLink">
@@ -107,8 +112,9 @@ export default function OwlsEyeVenueCard({
               premiumNearby ? (
                 <div className="detailVenueNearbyGuide">
                   <div className="detailVenueNearbyGuide__title">{BRAND_OWL} Weekend Guide</div>
-                  {demoScores ? <OwlsEyeDemoScoresPanel scores={demoScores} /> : null}
+                  {demoScores ? <OwlsEyeDemoScoresPanel scores={demoScores} isDemo={demoScoresIsDemo} /> : null}
                   <OwlsEyeWeekendGuideAccordion
+                    defaultAllCollapsed={defaultNearbyAllCollapsed}
                     groups={[
                       { label: "Coffee", items: premiumNearby.coffee.slice(0, 10) },
                       { label: "Food", items: premiumNearby.food.slice(0, 10) },

@@ -9,6 +9,13 @@ import { isTournamentSaved } from "@/lib/savedTournaments";
 import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SaveTournamentButton from "@/components/SaveTournamentButton";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
+import OwlsEyeDemoScoresPanel from "@/components/OwlsEyeDemoScoresPanel";
+import OwlsEyeWeekendGuideAccordion from "@/components/OwlsEyeWeekendGuideAccordion";
+import {
+  DEMO_STARFIRE_VENUE_ID,
+  buildOwlsEyeDemoScores,
+  type VenueReviewChoiceRow,
+} from "@/lib/owlsEyeScores";
 import "../tournaments.css";
 
 type TournamentDetailRow = {
@@ -49,26 +56,6 @@ type TournamentDetailRow = {
   }[] | null;
 };
 
-type PaidVenueDetailsRow = {
-  venue_id: string;
-  venues:
-    | {
-        id: string;
-        food_vendors: boolean | null;
-        coffee_vendors: boolean | null;
-        tournament_vendors: boolean | null;
-        restrooms: string | null;
-        amenities: string | null;
-        player_parking_fee: string | null;
-        parking_notes: string | null;
-        notes: string | null;
-        spectator_seating: string | null;
-        bring_field_chairs: boolean | null;
-        seating_notes: string | null;
-      }
-    | null;
-};
-
 type OwlsEyeRunRow = {
   id: string;
   run_id?: string | null;
@@ -83,7 +70,6 @@ type NearbyPlaceRow = {
   category: string | null;
   name: string;
   distance_meters: number | null;
-  address: string | null;
   maps_url: string | null;
   is_sponsor: boolean | null;
   sponsor_click_url?: string | null;
@@ -92,7 +78,6 @@ type NearbyPlaceRow = {
 type NearbyPlace = {
   name: string;
   distance_meters: number | null;
-  address: string | null;
   maps_url: string | null;
   is_sponsor: boolean;
   sponsor_click_url: string | null;
@@ -168,24 +153,6 @@ function getSportCardClass(sport: string | null) {
     softball: "bg-sport-softball",
   };
   return map[normalized] ?? "bg-sport-default";
-}
-
-function boolLabel(value: boolean | null | undefined) {
-  if (value === true) return "Yes";
-  if (value === false) return "No";
-  return "Not provided";
-}
-
-function sentenceLabel(value: string | null | undefined) {
-  if (!value) return "Not provided";
-  const cleaned = value.replace(/_/g, " ").trim();
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-}
-
-function metersToMilesLabel(meters: number | null | undefined) {
-  if (typeof meters !== "number" || !Number.isFinite(meters)) return null;
-  const miles = meters / 1609.344;
-  return `${miles.toFixed(1)} mi`;
 }
 
 async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
@@ -336,22 +303,16 @@ export default async function TournamentDetailPage({
     hasPremiumPreviewVenue;
   const canViewPremiumDetails = isPaid || hasPremiumPreview;
 
-  let paidVenueDetailsById = new Map<
+  let venueInsightsById = new Map<
     string,
     {
-      food_vendors: boolean | null;
-      coffee_vendors: boolean | null;
-      tournament_vendors: boolean | null;
-      restrooms: string | null;
-      amenities: string | null;
       player_parking_fee: string | null;
       parking_notes: string | null;
-      notes: string | null;
-      spectator_seating: string | null;
       bring_field_chairs: boolean | null;
       seating_notes: string | null;
     }
   >();
+  let reviewChoicesByVenueId = new Map<string, VenueReviewChoiceRow[]>();
   let nearbyByVenueId = new Map<
     string,
     {
@@ -373,37 +334,58 @@ export default async function TournamentDetailPage({
   let hasOwlsEyeByVenueId = new Map<string, boolean>();
 
   const runRows = await fetchLatestOwlsEyeRuns(linkedVenueIds);
-  if (canViewPremiumDetails) {
-    const { data: venuePaidRows } = await (linkedVenueIds.length
-      ? supabaseAdmin
-          .from("tournament_venues" as any)
-          .select(
-            "venue_id,venues(id,food_vendors,coffee_vendors,tournament_vendors,restrooms,amenities,player_parking_fee,parking_notes,notes,spectator_seating,bring_field_chairs,seating_notes)"
-          )
-          .eq("tournament_id", data.id)
-          .in("venue_id", linkedVenueIds)
-      : Promise.resolve({ data: [] as PaidVenueDetailsRow[] }));
-    paidVenueDetailsById = new Map(
-      ((venuePaidRows as PaidVenueDetailsRow[] | null) ?? [])
-        .filter((row) => row?.venues?.id)
-        .map((row) => [
-          row.venues!.id,
-          {
-            food_vendors: row.venues!.food_vendors,
-            coffee_vendors: row.venues!.coffee_vendors,
-            tournament_vendors: row.venues!.tournament_vendors,
-            restrooms: row.venues!.restrooms,
-            amenities: row.venues!.amenities,
-            player_parking_fee: row.venues!.player_parking_fee,
-            parking_notes: row.venues!.parking_notes,
-            notes: row.venues!.notes,
-            spectator_seating: row.venues!.spectator_seating,
-            bring_field_chairs: row.venues!.bring_field_chairs,
-            seating_notes: row.venues!.seating_notes,
-          },
-        ])
+  if (linkedVenueIds.length) {
+    const venueInsightsPrimary = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,player_parking_fee,parking_notes,bring_field_chairs,seating_notes")
+      .in("id", linkedVenueIds);
+    const venueInsightsCode = (venueInsightsPrimary as any)?.error?.code;
+    const venueInsightsRows =
+      !venueInsightsPrimary.error || venueInsightsCode === "42703" || venueInsightsCode === "PGRST204"
+        ? ((venueInsightsPrimary.data as Array<{
+            id: string;
+            player_parking_fee: string | null;
+            parking_notes: string | null;
+            bring_field_chairs: boolean | null;
+            seating_notes: string | null;
+          }> | null) ?? [])
+        : [];
+    venueInsightsById = new Map(
+      venueInsightsRows.map((row) => [
+        row.id,
+        {
+          player_parking_fee: row.player_parking_fee ?? null,
+          parking_notes: row.parking_notes ?? null,
+          bring_field_chairs: row.bring_field_chairs ?? null,
+          seating_notes: row.seating_notes ?? null,
+        },
+      ])
     );
 
+    const reviewChoicesPrimary = await supabaseAdmin
+      .from("venue_reviews" as any)
+      .select("venue_id,restrooms,parking_distance,parking_convenience_score,bring_field_chairs,player_parking_fee,parking_notes,seating_notes,created_at,updated_at")
+      .in("venue_id", linkedVenueIds)
+      .eq("status", "active");
+    const reviewChoicesCode = (reviewChoicesPrimary as any)?.error?.code;
+    const reviewChoicesFallback =
+      reviewChoicesPrimary.error && (reviewChoicesCode === "42703" || reviewChoicesCode === "PGRST204")
+        ? await supabaseAdmin
+            .from("venue_reviews" as any)
+            .select("venue_id,restrooms,parking_distance,parking_convenience_score,bring_field_chairs,player_parking_fee,created_at,updated_at")
+            .in("venue_id", linkedVenueIds)
+            .eq("status", "active")
+        : null;
+    const reviewChoiceRows =
+      (reviewChoicesPrimary.data as Array<VenueReviewChoiceRow & { venue_id: string }> | null) ??
+      (reviewChoicesFallback?.data as Array<VenueReviewChoiceRow & { venue_id: string }> | null) ??
+      [];
+    for (const row of reviewChoiceRows) {
+      if (!row.venue_id) continue;
+      const list = reviewChoicesByVenueId.get(row.venue_id) ?? [];
+      list.push(row);
+      reviewChoicesByVenueId.set(row.venue_id, list);
+    }
   }
 
   const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
@@ -420,7 +402,7 @@ export default async function TournamentDetailPage({
     if (canViewPremiumDetails) {
       const { data: nearbyRows } = await supabaseAdmin
         .from("owls_eye_nearby_food" as any)
-        .select("run_id,category,name,distance_meters,address,maps_url,is_sponsor,sponsor_click_url")
+        .select("run_id,category,name,distance_meters,maps_url,is_sponsor,sponsor_click_url")
         .in("run_id", runIds)
         .order("is_sponsor", { ascending: false })
         .order("distance_meters", { ascending: true })
@@ -442,7 +424,6 @@ export default async function TournamentDetailPage({
           const toPlace = (row: NearbyPlaceRow): NearbyPlace => ({
             name: row.name,
             distance_meters: row.distance_meters,
-            address: row.address,
             maps_url: row.maps_url,
             is_sponsor: Boolean(row.is_sponsor),
             sponsor_click_url: row.sponsor_click_url ?? null,
@@ -589,7 +570,10 @@ export default async function TournamentDetailPage({
 
               return (
                 <div className={`detailCard ${hasOwlsEyeByVenueId.get(venue.id) ? "detailCard--withOwl" : ""}`} key={venue.id}>
-                  <div className="detailCard__title">Venue</div>
+                  <div className="detailCard__titleRow">
+                    <span className="detailCard__venueNameTitle">{venue.name || "Venue TBA"}</span>
+                    <span className="detailCard__title">Venue</span>
+                  </div>
                   <div className="detailCard__body">
                     <VenueIndexBadge
                       restroom_cleanliness_avg={venue.restroom_cleanliness_avg}
@@ -599,185 +583,148 @@ export default async function TournamentDetailPage({
                       review_count={venue.review_count}
                       reviews_last_updated_at={venue.reviews_last_updated_at}
                     />
-                    {hasOwlsEyeByVenueId.get(venue.id) ? (
-                      <img
-                        className="detailVenueOwlBadgeFloat"
-                        src="/svg/ri/owls_eye_badge.svg"
-                        alt="Owl's Eye insights available for this venue"
-                      />
-                    ) : null}
-                    <div className="detailVenueRow">
-                      <div className="detailVenueIdentity">
-                        <div className="detailVenueText">
-                        <div className="detailVenueName">{venue.name || "Venue TBA"}</div>
-                        {streetLine ? <div className="detailVenueAddress">{streetLine}</div> : null}
-                        {cityStateZipLine ? <div className="detailVenueAddress">{cityStateZipLine}</div> : null}
-                        <div className="detailLinksRow detailVenueUrlRow">
-                          {venue.venue_url ? (
-                            <a
-                              className="secondaryLink"
-                              href={venue.venue_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              Venue URL/Map
-                            </a>
+                    <details className="detailVenueCollapse">
+                      <summary className="detailVenueCollapse__summary">Venue details</summary>
+                      <div className="detailVenueCollapse__body">
+                        {hasOwlsEyeByVenueId.get(venue.id) ? (
+                          <img
+                            className="detailVenueOwlBadgeFloat"
+                            src="/svg/ri/owls_eye_badge.svg"
+                            alt="Owl's Eye insights available for this venue"
+                          />
+                        ) : null}
+                        <div className="detailVenueRow">
+                          <div className="detailVenueIdentity">
+                            <div className="detailVenueText">
+                            <div className="detailVenueName">{venue.name || "Venue TBA"}</div>
+                            {streetLine ? <div className="detailVenueAddress">{streetLine}</div> : null}
+                            {cityStateZipLine ? <div className="detailVenueAddress">{cityStateZipLine}</div> : null}
+                            <div className="detailLinksRow detailVenueUrlRow">
+                              {venue.venue_url ? (
+                                <a
+                                  className="secondaryLink"
+                                  href={venue.venue_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Venue URL/Map
+                                </a>
+                              ) : null}
+                            </div>
+                            </div>
+                          </div>
+                          {venueMapLinks ? (
+                            <div className="detailLinksRow">
+                              <a className="secondaryLink" href={venueMapLinks.google} target="_blank" rel="noopener noreferrer">
+                                Google Maps
+                              </a>
+                              <a className="secondaryLink" href={venueMapLinks.apple} target="_blank" rel="noopener noreferrer">
+                                Apple Maps
+                              </a>
+                              <a className="secondaryLink" href={venueMapLinks.waze} target="_blank" rel="noopener noreferrer">
+                                Waze
+                              </a>
+                            </div>
                           ) : null}
                         </div>
-                        </div>
-                      </div>
-                      {venueMapLinks ? (
-                        <div className="detailLinksRow">
-                          <a className="secondaryLink" href={venueMapLinks.google} target="_blank" rel="noopener noreferrer">
-                            Google Maps
-                          </a>
-                          <a className="secondaryLink" href={venueMapLinks.apple} target="_blank" rel="noopener noreferrer">
-                            Apple Maps
-                          </a>
-                          <a className="secondaryLink" href={venueMapLinks.waze} target="_blank" rel="noopener noreferrer">
-                            Waze
-                          </a>
-                        </div>
-                      ) : null}
-                    </div>
-                    {(() => {
-                      const nearbyCounts = nearbyCountsByVenueId.get(venue.id);
-                      if (!nearbyCounts || nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels === 0) return null;
-                      return (
-                        <div className="detailVenueNearbyPreview">
-                          <div className="detailVenueNearbyPreview__title">Nearby Options ({BRAND_OWL})</div>
-                          <div className="detailVenueNearbyPreview__counts">
-                            <div>☕ {nearbyCounts.coffee} coffee nearby</div>
-                            <div>🍔 {nearbyCounts.food} food options nearby</div>
-                            <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
-                          </div>
-                          <div className="detailVenueNearbyPreview__teaser">
-                            {canViewPremiumDetails
-                              ? "Open Premium planning details to view full list and one-tap directions."
-                              : "See Premium Planning Details below to unlock full list and one-tap directions."}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    {canViewPremiumDetails ? (
-                      <details className="detailVenuePremium">
-                        <summary className="detailVenuePremium__summary">Premium planning details</summary>
-                        <div className="detailVenuePremium__body">
-                          {(() => {
-                            const premium = paidVenueDetailsById.get(venue.id);
-                            const nearby = nearbyByVenueId.get(venue.id);
-                            return (
-                              <>
-                                <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Food vendors</span>
-                                  <span>{boolLabel(premium?.food_vendors)}</span>
-                                </div>
-                                <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Coffee vendors</span>
-                                  <span>{boolLabel(premium?.coffee_vendors)}</span>
-                                </div>
-                                <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Tournament vendors</span>
-                                  <span>{boolLabel(premium?.tournament_vendors)}</span>
-                                </div>
-                                <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Restrooms</span>
-                                  <span>{premium?.restrooms?.trim() || "Not provided"}</span>
-                                </div>
-                                <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Amenities</span>
-                                  <span>{premium?.amenities?.trim() || "Not provided"}</span>
-                                </div>
-                                <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Player parking fee</span>
-                                  <span>{premium?.player_parking_fee?.trim() || "Not provided"}</span>
-                                </div>
-                                <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Parking notes</span>
-                                  <span>{premium?.parking_notes?.trim() || "Not provided"}</span>
-                                </div>
-                                <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Venue notes</span>
-                                  <span>{premium?.notes?.trim() || "Not provided"}</span>
-                                </div>
-                                <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Spectator seating</span>
-                                  <span>{sentenceLabel(premium?.spectator_seating)}</span>
-                                </div>
-                                <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Bring field chairs</span>
-                                  <span>{boolLabel(premium?.bring_field_chairs)}</span>
-                                </div>
-                                <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">Seating notes</span>
-                                  <span>{premium?.seating_notes?.trim() || "Not provided"}</span>
-                                </div>
-                                <div className="premiumDetailRow">
-                                  <span className="premiumDetailLabel">{BRAND_OWL} nearby</span>
-                                  <span>
-                                    {nearby
-                                      ? `Food: ${nearby.food.length} • Coffee: ${nearby.coffee.length} • Hotels: ${nearby.hotels.length}${
-                                          nearby.captured_at
-                                            ? ` (updated ${new Date(nearby.captured_at).toLocaleDateString()})`
-                                            : ""
-                                        }`
-                                      : "No nearby results captured yet."}
-                                  </span>
-                                </div>
-                                {nearby ? (
+                        {(() => {
+                          const nearbyCounts = nearbyCountsByVenueId.get(venue.id);
+                          if (!nearbyCounts || nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels === 0) return null;
+                          return (
+                            <div className="detailVenueNearbyPreview">
+                              <div className="detailVenueNearbyPreview__title">Nearby Options ({BRAND_OWL})</div>
+                              <div className="detailVenueNearbyPreview__counts">
+                                <div>☕ {nearbyCounts.coffee} coffee nearby</div>
+                                <div>🍔 {nearbyCounts.food} food options nearby</div>
+                                <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
+                              </div>
+                              <div className="detailVenueNearbyPreview__teaser">
+                                {canViewPremiumDetails
+                                  ? "Open Premium planning details to view full list and one-tap directions."
+                                  : "See Premium Planning Details below to unlock full list and one-tap directions."}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        <details className="detailVenuePremium">
+                          <summary className="detailVenuePremium__summary">Premium planning details</summary>
+                          <div className="detailVenuePremium__body">
+                            {canViewPremiumDetails ? (
+                              (() => {
+                                const nearby = nearbyByVenueId.get(venue.id);
+                                const nearbyCounts = nearbyCountsByVenueId.get(venue.id) ?? {
+                                  food: 0,
+                                  coffee: 0,
+                                  hotels: 0,
+                                  captured_at: null,
+                                };
+                                const insights = venueInsightsById.get(venue.id);
+                                const reviewChoices = reviewChoicesByVenueId.get(venue.id) ?? [];
+                                const demoScores = buildOwlsEyeDemoScores({
+                                  nearbyCounts,
+                                  vendor_score_avg: venue.vendor_score_avg,
+                                  restroom_cleanliness_avg: venue.restroom_cleanliness_avg,
+                                  shade_score_avg: venue.shade_score_avg,
+                                  parking_convenience_score_avg: venue.parking_convenience_score_avg,
+                                  venue_player_parking_fee: insights?.player_parking_fee ?? null,
+                                  parking_notes: insights?.parking_notes ?? null,
+                                  venue_bring_field_chairs: insights?.bring_field_chairs ?? null,
+                                  seating_notes: insights?.seating_notes ?? null,
+                                  review_count: venue.review_count,
+                                  reviews_last_updated_at: venue.reviews_last_updated_at,
+                                  reviewChoices,
+                                });
+
+                                if (!nearby) {
+                                  return (
+                                    <div className="detailVenuePremiumLock">
+                                      <p style={{ margin: 0 }}>No nearby results captured yet for this venue.</p>
+                                    </div>
+                                  );
+                                }
+
+                                return (
                                   <div className="detailVenueNearbyGuide">
                                     <div className="detailVenueNearbyGuide__title">{BRAND_OWL} Weekend Guide</div>
-                                    {[
-                                      { label: "Coffee", items: nearby.coffee.slice(0, 10) },
-                                      { label: "Food", items: nearby.food.slice(0, 10) },
-                                      { label: "Hotels", items: nearby.hotels.slice(0, 10) },
-                                    ].map((group) =>
-                                      group.items.length ? (
-                                        <div className="premiumNearbyGroup" key={`${venue.id}-${group.label}-guide`}>
-                                          <div className="premiumNearbyGroup__title">{group.label}</div>
-                                          <div className="premiumNearbyGroup__list">
-                                            {group.items.map((item, idx) => {
-                                              const primaryLink =
-                                                item.is_sponsor && item.sponsor_click_url
-                                                  ? item.sponsor_click_url
-                                                  : item.maps_url;
-                                              return (
-                                                <div
-                                                  className="premiumNearbyLink premiumNearbyLink--row"
-                                                  key={`${group.label}-${item.name}-${idx}`}
-                                                >
-                                                  <div className="premiumNearbyLink__content">
-                                                    <span>{item.name}</span>
-                                                    <span className="premiumNearbyLink__meta">
-                                                      {metersToMilesLabel(item.distance_meters) || "Distance unavailable"}
-                                                      {item.is_sponsor && item.sponsor_click_url ? " • Sponsored" : ""}
-                                                    </span>
-                                                  </div>
-                                                  {primaryLink ? (
-                                                    <a
-                                                      className="secondaryLink premiumNearbyLink__cta"
-                                                      href={primaryLink}
-                                                      target="_blank"
-                                                      rel="noopener noreferrer"
-                                                    >
-                                                      Directions
-                                                    </a>
-                                                  ) : null}
-                                                </div>
-                                              );
-                                            })}
-                                          </div>
-                                        </div>
-                                      ) : null
-                                    )}
+                                    <OwlsEyeDemoScoresPanel
+                                      scores={demoScores}
+                                      isDemo={venue.id === DEMO_STARFIRE_VENUE_ID}
+                                    />
+                                    <OwlsEyeWeekendGuideAccordion
+                                      defaultAllCollapsed
+                                      groups={[
+                                        { label: "Coffee", items: nearby.coffee.slice(0, 10) },
+                                        { label: "Food", items: nearby.food.slice(0, 10) },
+                                        { label: "Hotels", items: nearby.hotels.slice(0, 10) },
+                                      ]}
+                                    />
+                                    {nearby.captured_at ? (
+                                      <div className="detailVenueNearbyPreview__teaser">
+                                        Updated {new Date(nearby.captured_at).toLocaleDateString()}
+                                      </div>
+                                    ) : null}
                                   </div>
+                                );
+                              })()
+                            ) : (
+                              <div className="detailVenuePremiumLock">
+                                <p style={{ margin: 0 }}>
+                                  Upgrade to unlock full {BRAND_OWL} planning details and one-tap directions.
+                                </p>
+                                {tier === "explorer" ? (
+                                  <p style={{ margin: 0 }}>
+                                    <Link href="/login">Log in</Link> or <Link href="/signup">sign up</Link>.
+                                  </p>
                                 ) : null}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </details>
-                    ) : null}
+                                <Link className="secondaryLink" href="/pricing">
+                                  Upgrade
+                                </Link>
+                              </div>
+                            )}
+                          </div>
+                        </details>
+                      </div>
+                    </details>
                   </div>
                 </div>
               );

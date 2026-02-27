@@ -8,6 +8,11 @@ type Group = {
   items: NearbyPlace[];
 };
 
+type Props = {
+  groups: Group[];
+  defaultAllCollapsed?: boolean;
+};
+
 function HeaderButton({
   label,
   count,
@@ -42,16 +47,18 @@ function HeaderButton({
         fontWeight: 700,
       }}
     >
-      <span>{label} ({count})</span>
+      <span>
+        {label} ({count})
+      </span>
       <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
     </button>
   );
 }
 
-export default function OwlsEyeWeekendGuideAccordion({ groups }: { groups: Group[] }) {
+export default function OwlsEyeWeekendGuideAccordion({ groups, defaultAllCollapsed = false }: Props) {
   const baseId = useId();
-  const [open, setOpen] = useState<Record<string, boolean>>({
-    Coffee: true,
+  const [open, setOpen] = useState<Record<Group["label"], boolean>>({
+    Coffee: !defaultAllCollapsed,
     Food: false,
     Hotels: false,
   });

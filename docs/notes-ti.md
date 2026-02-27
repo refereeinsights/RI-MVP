@@ -1086,3 +1086,41 @@
 
 - Validation:
   - `npm run build --workspace ti-web` passed after these changes.
+
+- TI venue-reviews + Owl's Eye parity follow-ups (2026-02-27):
+  - Added per-review notes support end-to-end for venue reviews:
+    - Migration: `supabase/migrations/20260227_venue_reviews_notes_fields.sql`
+    - New `venue_reviews` columns:
+      - `parking_notes` (<=60 chars)
+      - `seating_notes` (<=60 chars)
+    - Updated `submit_venue_review(...)` RPC signature + insert/upsert mapping for both fields.
+  - Updated TI review submission flow to capture and send new fields:
+    - `apps/ti-web/app/venues/reviews/_components/VenueReviewsClient.tsx`
+    - `apps/ti-web/app/api/venue-reviews/route.ts`
+    - Added 60-char inputs:
+      - `Parking notes (optional)` above `Bring field chairs`
+      - `Seating notes (optional)` above `Shade score`
+  - Added venue-first lookup option on TI review page:
+    - users can search/select a venue even when tournament is unknown.
+  - Aligned Owl's Eye score derivation + presentation across TI:
+    - `apps/ti-web/lib/owlsEyeScores.ts`
+    - `apps/ti-web/components/OwlsEyeDemoScoresPanel.tsx`
+    - `apps/ti-web/components/OwlsEyeWeekendGuideAccordion.tsx`
+    - logic now includes:
+      - bring-field-chairs most-selected
+      - player parking fee range (high→low)
+      - latest two parking/seating note lines from review history
+      - safe fallbacks when optional fields are unavailable
+  - Mirrored `/premium` premium-planning behavior/data into tournament venue detail cards:
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - Uses same score panel + weekend guide accordion path as `/premium`.
+    - Keeps venue details collapsed by default and premium groups all-collapsed by default.
+  - Visual polish updates:
+    - `apps/ti-web/app/premium/page.tsx`
+      - centered "Preview: Starfire Field (Demo)" heading block above the demo card.
+    - `apps/ti-web/app/tournaments/tournaments.css`
+      - reduced Owl's Eye badge vertical whitespace on tournament venue cards.
+      - improved `Venue details` summary click behavior so second click/tap closes reliably.
+
+- Validation:
+  - `npm run build --workspace ti-web` passed after these updates.

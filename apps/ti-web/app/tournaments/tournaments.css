@@ -1043,6 +1043,7 @@
   border-radius: 14px;
   padding: 12px 14px;
   border: 1px solid rgba(255,255,255,0.25);
+  width: min(720px, 100%);
 }
 
 .detailCard--withOwl {
@@ -1054,11 +1055,58 @@
   margin-bottom: 4px;
 }
 
+.detailCard__titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.detailCard__venueNameTitle {
+  font-weight: 700;
+  font-size: 15px;
+  opacity: 0.95;
+}
+
 .detailCard__body {
   display: flex;
   flex-direction: column;
   gap: 10px;
   align-items: stretch;
+}
+
+.detailVenueCollapse {
+  margin-top: 2px;
+}
+
+.detailVenueCollapse > summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: #fff;
+  color: #0b1f14;
+  border: 1px solid rgba(0,0,0,0.12);
+  font-weight: 700;
+  min-height: 40px;
+  cursor: pointer;
+  position: relative;
+  z-index: 3;
+}
+
+.detailVenueCollapse > summary::-webkit-details-marker {
+  display: none;
+}
+
+.detailVenueCollapse__body {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
 }
 
 .detailSummary {
@@ -1141,7 +1189,7 @@
 
 .detailVenueRow {
   display: grid;
-  gap: 10px;
+  gap: 6px;
   align-items: center;
   justify-items: center;
 }
@@ -1151,29 +1199,25 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 120px;
+  min-height: 86px;
 }
 
-.detailVenueOwlBadgeFloat {
-  width: 192px;
-  height: 192px;
+.detailVenueOwlBadgeInline {
+  width: 62px;
+  height: 62px;
   display: block;
   object-fit: contain;
   filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
-  position: absolute;
-  left: -48px;
-  top: -45px;
-  z-index: 2;
-  pointer-events: none;
+  margin: 0 auto 2px;
 }
 
-@media (max-width: 640px) {
-  .detailVenueOwlBadgeFloat {
-    width: 144px;
-    height: 144px;
-    left: -36px;
-    top: -34px;
-  }
+.detailVenueOwlBadgeFloat {
+  width: 224px;
+  height: 224px;
+  display: block;
+  object-fit: contain;
+  margin: -44px auto -56px;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
 }
 
 .detailVenueText {
@@ -1185,13 +1229,17 @@
   align-items: center;
 }
 
-.detailVenueName {
-  font-weight: 700;
-}
-
 .detailVenueAddress {
   font-size: 14px;
   color: rgba(248, 251, 255, 0.9);
+}
+
+.detailVenueAddressStack {
+  min-height: 34px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
 }
 
 .detailVenuePremium {

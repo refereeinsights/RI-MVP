@@ -22,7 +22,29 @@ function pill(value: "Yes" | "No") {
   );
 }
 
-export default function OwlsEyeDemoScoresPanel({ scores }: { scores: OwlsEyeDemoScores }) {
+export default function OwlsEyeDemoScoresPanel({
+  scores,
+  isDemo = false,
+}: {
+  scores: OwlsEyeDemoScores;
+  isDemo?: boolean;
+}) {
+  const renderNotes = (value: string, id: string) => {
+    if (value === "—") return <span>—</span>;
+    const lines = value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (!lines.length) return <span>—</span>;
+    return (
+      <div id={id} style={{ display: "grid", gap: 2 }}>
+        {lines.map((line, idx) => (
+          <div key={`${id}-${idx}`}>{line}</div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <section
       style={{
@@ -35,7 +57,9 @@ export default function OwlsEyeDemoScoresPanel({ scores }: { scores: OwlsEyeDemo
       }}
       aria-label="Owl's Eye demo scores"
     >
-      <div style={{ fontSize: 13, fontWeight: 700 }}>Owl&apos;s Eye™ Scores (Demo)</div>
+      <div style={{ fontSize: 13, fontWeight: 700 }}>
+        Owl&apos;s Eye™ Scores{isDemo ? " (Demo)" : ""}
+      </div>
       <div
         style={{
           display: "grid",
@@ -50,7 +74,11 @@ export default function OwlsEyeDemoScoresPanel({ scores }: { scores: OwlsEyeDemo
         <div><strong>Restrooms:</strong> {scores.restrooms}</div>
         <div><strong>Restroom cleanliness:</strong> {scores.restroomCleanliness}</div>
         <div><strong>Shade:</strong> {scores.shade}</div>
+        <div><strong>Bring field chairs:</strong> {scores.bringFieldChairs}</div>
+        <div><strong>Seating notes:</strong> {renderNotes(scores.seatingNotes, "seating-notes")}</div>
+        <div><strong>Player parking fee:</strong> {scores.playerParkingFee}</div>
         <div><strong>Parking:</strong> {scores.parkingLabel}</div>
+        <div><strong>Parking notes:</strong> {renderNotes(scores.parkingNotes, "parking-notes")}</div>
       </div>
       <div style={{ fontSize: 12, opacity: 0.9 }}>
         Based on {scores.reviewCount} reviews • Updated {scores.updatedLabel}

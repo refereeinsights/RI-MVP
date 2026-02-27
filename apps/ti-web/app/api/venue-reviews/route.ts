@@ -26,6 +26,15 @@ type VenueJoinRow = {
     | null;
 };
 
+type VenueSearchRow = {
+  id: string;
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+};
+
 function tournamentOut(row: TournamentRow) {
   return {
     id: row.id,
@@ -192,6 +201,30 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, venues });
   }
 
+  if (mode === "venue-search") {
+    const q = (searchParams.get("q") ?? "").trim();
+    if (q.length < 2) return NextResponse.json({ ok: true, venues: [] });
+
+    const { data, error } = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,name,address,city,state,zip")
+      .or(
+        [
+          `name.ilike.%${q}%`,
+          `city.ilike.%${q}%`,
+          `state.ilike.%${q}%`,
+          `address.ilike.%${q}%`,
+        ].join(",")
+      )
+      .order("name", { ascending: true })
+      .limit(12);
+
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+    const venues = ((data ?? []) as VenueSearchRow[]).filter((venue) => venue.id);
+    return NextResponse.json({ ok: true, venues });
+  }
+
   return NextResponse.json({ ok: false, error: "Unsupported mode." }, { status: 400 });
 }
 
@@ -209,7 +242,11 @@ export async function POST(request: Request) {
   const playerParkingFee = parseUsdToNumber(body.player_parking_fee);
   const parkingDistance =
     typeof body.parking_convenience_score === "string" ? body.parking_convenience_score.trim() : "";
+  const parkingNotes =
+    typeof body.parking_notes === "string" ? body.parking_notes.trim().slice(0, 60) : null;
   const bringFieldChairs = typeof body.bring_field_chairs === "boolean" ? body.bring_field_chairs : null;
+  const seatingNotes =
+    typeof body.seating_notes === "string" ? body.seating_notes.trim().slice(0, 60) : null;
   const shadeScore = Number(body.shade_score);
   const foodVendors = typeof body.food_vendors === "boolean" ? body.food_vendors : null;
   const coffeeVendors = typeof body.coffee_vendors === "boolean" ? body.coffee_vendors : null;
@@ -262,7 +299,9 @@ export async function POST(request: Request) {
     p_player_parking_fee: playerParkingFee,
     p_parking_distance: parkingDistance,
     p_parking_convenience_score: parkingConvenienceScore,
+    p_parking_notes: parkingNotes,
     p_bring_field_chairs: bringFieldChairs,
+    p_seating_notes: seatingNotes,
     p_shade_score: shadeScore,
     p_food_vendors: foodVendors,
     p_coffee_vendors: coffeeVendors,

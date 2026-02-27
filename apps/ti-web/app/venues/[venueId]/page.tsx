@@ -37,6 +37,10 @@ type VenueRow = {
   shade_score_avg: number | null;
   vendor_score_avg: number | null;
   parking_convenience_score_avg: number | null;
+  player_parking_fee?: string | null;
+  parking_notes?: string | null;
+  bring_field_chairs?: boolean | null;
+  seating_notes?: string | null;
   review_count: number | null;
   reviews_last_updated_at: string | null;
   tournament_venues?: {
@@ -140,6 +144,23 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   if (error || !data?.id) {
     notFound();
   }
+  const venueInsightsExtra = await supabaseAdmin
+    .from("venues" as any)
+    .select("id,player_parking_fee,parking_notes,bring_field_chairs,seating_notes")
+    .eq("id", params.venueId)
+    .maybeSingle<{
+      id: string;
+      player_parking_fee: string | null;
+      parking_notes: string | null;
+      bring_field_chairs: boolean | null;
+      seating_notes: string | null;
+    }>();
+  const extraCode = (venueInsightsExtra as any)?.error?.code;
+  const resolvedVenueInsights =
+    // TODO(ti-db): if these optional venue intelligence columns are unavailable, keep rendering "—" fallbacks.
+    !venueInsightsExtra.error || extraCode === "42703" || extraCode === "PGRST204"
+      ? venueInsightsExtra.data
+      : null;
   const venueNameNormalized = (data.name ?? "").trim().toLowerCase();
   const hasPremiumPreviewVenue = PREMIUM_PREVIEW_VENUE_NAME_HINTS.some(
     (hint) => venueNameNormalized === hint || venueNameNormalized.includes(hint)
@@ -236,24 +257,39 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
 
   const hasOwlsEye = nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels > 0;
 
-  if (data.id === DEMO_STARFIRE_VENUE_ID) {
-    const { data: reviewChoiceRows } = await supabaseAdmin
-      .from("venue_reviews" as any)
-      .select("restrooms,parking_distance,parking_convenience_score")
-      .eq("venue_id", data.id)
-      .eq("status", "active");
+  const reviewChoicesPrimary = await supabaseAdmin
+    .from("venue_reviews" as any)
+    .select("restrooms,parking_distance,parking_convenience_score,bring_field_chairs,player_parking_fee,parking_notes,seating_notes,created_at,updated_at")
+    .eq("venue_id", data.id)
+    .eq("status", "active");
+  const reviewChoicesCode = (reviewChoicesPrimary as any)?.error?.code;
+  const reviewChoicesFallback =
+    reviewChoicesPrimary.error && (reviewChoicesCode === "42703" || reviewChoicesCode === "PGRST204")
+      ? await supabaseAdmin
+          .from("venue_reviews" as any)
+          .select("restrooms,parking_distance,parking_convenience_score,bring_field_chairs,player_parking_fee,created_at,updated_at")
+          .eq("venue_id", data.id)
+          .eq("status", "active")
+      : null;
+  const reviewChoiceRows =
+    (reviewChoicesPrimary.data as VenueReviewChoiceRow[] | null) ??
+    (reviewChoicesFallback?.data as VenueReviewChoiceRow[] | null) ??
+    [];
 
-    demoScores = buildOwlsEyeDemoScores({
-      nearbyCounts,
-      vendor_score_avg: data.vendor_score_avg,
-      restroom_cleanliness_avg: data.restroom_cleanliness_avg,
-      shade_score_avg: data.shade_score_avg,
-      parking_convenience_score_avg: data.parking_convenience_score_avg,
-      review_count: data.review_count,
-      reviews_last_updated_at: data.reviews_last_updated_at,
-      reviewChoices: (reviewChoiceRows as VenueReviewChoiceRow[] | null) ?? [],
-    });
-  }
+  demoScores = buildOwlsEyeDemoScores({
+    nearbyCounts,
+    vendor_score_avg: data.vendor_score_avg,
+    restroom_cleanliness_avg: data.restroom_cleanliness_avg,
+    shade_score_avg: data.shade_score_avg,
+    parking_convenience_score_avg: data.parking_convenience_score_avg,
+    venue_player_parking_fee: resolvedVenueInsights?.player_parking_fee ?? null,
+    parking_notes: resolvedVenueInsights?.parking_notes ?? null,
+    venue_bring_field_chairs: resolvedVenueInsights?.bring_field_chairs ?? null,
+    seating_notes: resolvedVenueInsights?.seating_notes ?? null,
+    review_count: data.review_count,
+    reviews_last_updated_at: data.reviews_last_updated_at,
+    reviewChoices: reviewChoiceRows,
+  });
 
   return (
     <main className="pitchWrap tournamentsWrap">
@@ -312,6 +348,8 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                 tier={tier}
                 mapLinks={mapLinks}
                 demoScores={demoScores}
+                demoScoresIsDemo={data.id === DEMO_STARFIRE_VENUE_ID}
+                defaultNearbyAllCollapsed
               />
 
               {upcomingTournaments.length > 0 ? (
