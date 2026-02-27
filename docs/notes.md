@@ -1,6 +1,18 @@
 # Running Notes
 
 ## 2026-02-27
+- RI_Backend Playwright target URL hardening:
+  - Updated:
+    - `RI_Backend/playwright.config.ts`
+    - `RI_Backend/tests/prod.spec.ts`
+  - Fixed CI startup crash (`TypeError: Invalid URL`) when `RI_TARGET_URL` is malformed/quoted.
+  - Added shared target URL normalization:
+    - trims whitespace/quotes,
+    - prepends `https://` when scheme is missing,
+    - falls back to `http://localhost:3000` if still invalid.
+  - Validation:
+    - `npm --prefix RI_Backend test -- --list` passed.
+
 - RI `/admin/ti` search validation fix:
   - Updated:
     - `apps/referee/app/admin/ti/page.tsx`
