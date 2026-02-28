@@ -2278,3 +2278,53 @@
     - `docs/seo-brand-ti.md`
   - Validation:
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`
+
+- Owl's Eye batching, address handling, airport lookup, and hotel cleanup:
+  - Added batch processing in the Owl's Eye admin panel with client-side remaining counts and detailed per-venue batch error reporting:
+    - `apps/referee/app/admin/owls-eye/OwlsEyePanel.tsx`
+  - Tightened Owl's Eye run gating so venues must have a complete street/city/state address before a run starts.
+  - Fixed Owl's Eye venue lookup/address handling to rely on `address1 ?? address` instead of a nonexistent `street` DB column in live environments:
+    - `apps/referee/app/api/admin/owls-eye/run/route.ts`
+  - Added a conservative venue street backfill migration/source-of-truth alignment path so legacy `address` values populate `address1` when safe:
+    - `supabase/migrations/20260228_backfill_venue_address1_from_address.sql`
+  - Tightened Owl's Eye hotel filtering to exclude more apartment, vacation-rental, storage, and residential false positives:
+    - `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts`
+  - Added a cleanup script for already-saved bad Owl's Eye hotel rows and applied it to remove obvious false positives from existing nearby data:
+    - `scripts/ingest/cleanup_bad_owl_hotels.ts`
+
+- Airports reference data + Owl's Eye airport summaries:
+  - Added the `public.airports` reference schema for global airport lookup:
+    - `supabase/migrations/20260228_airports_reference_table.sql`
+  - Added a full-global OurAirports importer with deterministic RI flags:
+    - `scripts/ingest/import_airports_reference.ts`
+  - Import rule:
+    - full global dataset
+    - `is_commercial = scheduled_service && airport_type in (large, medium, small)`
+    - `is_major = scheduled_service && airport_type in (large, medium)`
+  - Imported the global airport dataset into Supabase:
+    - `84,645` airports upserted
+    - `4,222` commercial airports
+    - `3,290` major airports
+  - Added nearest-airport lookup for Owl's Eye runs:
+    - `apps/referee/src/server/owlseye/airports/findNearestAirports.ts`
+  - Owl's Eye run responses now include:
+    - `nearest_airport`
+    - `nearest_major_airport`
+  - Airport summaries are persisted into `owls_eye_runs.outputs.airports` when supported by the live schema.
+  - Added a historical backfill script for existing Owl's Eye runs:
+    - `scripts/ingest/backfill_owls_eye_airports.ts`
+  - Backfill result:
+    - `822` complete runs scanned
+    - `817` runs updated with airport summaries
+    - `5` skipped due to missing venue coordinates
+
+- TI Owl's Eye airport summary + demo venue premium unlock:
+  - Added a free-level airport summary block to the TI venue Owl's Eye card under nearby hotels:
+    - `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`
+  - Added Airport, Apple Maps, and Waze buttons there using the same mobile deep-link behavior as existing venue map buttons.
+  - Tightened the airport preview copy and layout for mobile so the summary sits closer to the hotel row and the airport map buttons fit on a single row.
+  - Updated the TI venue page to read airport summaries from `owls_eye_runs.outputs` even on the live fallback query path where `updated_at` is absent:
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+  - Added a premium-preview unlock on TI venue pages when a venue is linked to the demo tournament slug:
+    - `refereeinsights-demo-tournament`
+  - This allows all demo tournament venues to expose Premium Planning Details, not just the original Starfire-specific path.

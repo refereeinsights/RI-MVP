@@ -56,6 +56,10 @@ type RunReport = {
   status?: string;
   message?: string;
   map?: { imageUrl?: string | null; url?: string | null; north?: number | null };
+  airports?: {
+    nearest_airport?: AirportSummary | null;
+    nearest_major_airport?: AirportSummary | null;
+  };
   nearby?: {
     food?: NearbyItem[];
     coffee?: NearbyItem[];
@@ -68,6 +72,21 @@ type RunReport = {
     coffeeCount?: number;
     hotelCount?: number;
   };
+};
+
+type AirportSummary = {
+  id: string;
+  ident: string;
+  iata_code?: string | null;
+  name: string;
+  municipality?: string | null;
+  iso_country: string;
+  iso_region?: string | null;
+  airport_type: string;
+  scheduled_service: boolean;
+  is_commercial: boolean;
+  is_major: boolean;
+  distance_miles: number;
 };
 
 type DuplicateCandidate = {
@@ -117,6 +136,33 @@ function getNearbyTotals(report: RunReport | null | undefined) {
 function truncateId(value: string) {
   if (value.length <= 12) return value;
   return `${value.slice(0, 8)}…${value.slice(-4)}`;
+}
+
+function renderAirportSummary(label: string, airport: AirportSummary | null | undefined) {
+  if (!airport) return null;
+  const code = airport.iata_code || airport.ident;
+  const locality = [airport.municipality, airport.iso_region].filter(Boolean).join(", ");
+  return (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: 10,
+        padding: 12,
+        background: "#fff",
+        minWidth: 260,
+      }}
+    >
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>{label}</div>
+      <div style={{ fontWeight: 700, marginTop: 4 }}>{airport.name}</div>
+      <div style={{ fontSize: 13, color: "#374151", marginTop: 4 }}>
+        {code}
+        {locality ? ` · ${locality}` : ""}
+      </div>
+      <div style={{ fontSize: 13, color: "#374151", marginTop: 4 }}>
+        {airport.distance_miles} mi · {airport.airport_type.replace(/_/g, " ")}
+      </div>
+    </div>
+  );
 }
 
 function SunPathOverlay({
@@ -203,6 +249,9 @@ export default function OwlsEyePanel({
   const [hasSearched, setHasSearched] = useState(false);
   const [copiedVenueId, setCopiedVenueId] = useState<string | null>(null);
   const [readyRows, setReadyRows] = useState<VenueSearchResult[]>(readyNotRunVenues);
+  const [remainingReadyCount, setRemainingReadyCount] = useState<number>(
+    typeof readyNotRunTotal === "number" ? readyNotRunTotal : readyNotRunVenues.length
+  );
   const [mergeTargetId, setMergeTargetId] = useState("");
   const [mergeBusySourceId, setMergeBusySourceId] = useState<string | null>(null);
   const [mergeMessage, setMergeMessage] = useState<string | null>(null);
@@ -218,6 +267,9 @@ export default function OwlsEyePanel({
   const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateCandidate[]>([]);
   const [duplicateSourceVenueId, setDuplicateSourceVenueId] = useState<string | null>(null);
   const [mergeAndRunBusy, setMergeAndRunBusy] = useState(false);
+  const [batchLimit, setBatchLimit] = useState(10);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchMessage, setBatchMessage] = useState<string | null>(null);
   const [nearbyTab, setNearbyTab] = useState<"food" | "coffee" | "hotels">("food");
   const [sunPathEnabled, setSunPathEnabled] = useState(true);
 
@@ -229,10 +281,51 @@ export default function OwlsEyePanel({
   useEffect(() => {
     setReadyRows(readyNotRunVenues);
   }, [readyNotRunVenues]);
+  useEffect(() => {
+    setRemainingReadyCount(typeof readyNotRunTotal === "number" ? readyNotRunTotal : readyNotRunVenues.length);
+  }, [readyNotRunTotal, readyNotRunVenues]);
   const readyDisplayedCount = readyRows.length;
-  const readyTotalCount = typeof readyNotRunTotal === "number" ? readyNotRunTotal : readyDisplayedCount;
+  const readyTotalCount = remainingReadyCount;
 
   const sharedHeaders = adminToken ? { "x-owls-eye-admin-token": adminToken } : {};
+
+  const inferSportFromVenue = (venue: VenueSearchResult): Sport => {
+    const linkedSport =
+      (venue.tournament_sports ?? [])
+        .map((value) => String(value || "").trim().toLowerCase())
+        .find((value) => SPORT_SET.has(value)) ?? "";
+    if (linkedSport) return linkedSport as Sport;
+
+    const normalizedSports = String(venue.sport || "")
+      .split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean);
+    const venueSport = normalizedSports.find((value) => SPORT_SET.has(value));
+    return (venueSport as Sport) || "soccer";
+  };
+
+  const runVenueRequest = async (args: {
+    venueId: string;
+    sportValue: Sport;
+    publishedMapUrl?: string;
+    allowDuplicate?: boolean;
+  }) => {
+    const resp = await fetch("/api/admin/owls-eye/run", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...sharedHeaders,
+      },
+      body: JSON.stringify({
+        venue_id: args.venueId,
+        sport: args.sportValue,
+        published_map_url: args.publishedMapUrl?.trim() || undefined,
+        allow_duplicate: args.allowDuplicate ?? false,
+      }),
+    });
+    const json = await resp.json();
+    return { resp, json };
+  };
 
   const searchVenues = async () => {
     const query = searchQuery.trim();
@@ -279,20 +372,7 @@ export default function OwlsEyePanel({
 
   const handleUseVenue = (venue: VenueSearchResult) => {
     setVenueId(venue.venue_id);
-    const linkedSport =
-      (venue.tournament_sports ?? [])
-        .map((value) => String(value || "").trim().toLowerCase())
-        .find((value) => SPORT_SET.has(value)) ?? "";
-    if (linkedSport) {
-      setSport(linkedSport as Sport);
-      return;
-    }
-    const normalizedSports = String(venue.sport || "")
-      .split(",")
-      .map((value) => value.trim().toLowerCase())
-      .filter(Boolean);
-    const venueSport = normalizedSports.find((value) => SPORT_SET.has(value));
-    if (venueSport) setSport(venueSport as Sport);
+    setSport(inferSportFromVenue(venue));
   };
 
   const mergeVenue = async (sourceVenue: VenueSearchResult) => {
@@ -333,6 +413,7 @@ export default function OwlsEyePanel({
         throw new Error(json?.error || "Merge failed");
       }
       setReadyRows((prev) => prev.filter((row) => row.venue_id !== sourceId));
+      setRemainingReadyCount((prev) => Math.max(0, prev - 1));
       setMergeMessage("Venue merged successfully.");
     } catch (err) {
       setMergeMessage(err instanceof Error ? err.message : "Merge failed");
@@ -383,6 +464,7 @@ export default function OwlsEyePanel({
       }
 
       setReadyRows((prev) => prev.filter((row) => row.venue_id !== venue.venue_id));
+      setRemainingReadyCount((prev) => Math.max(0, prev - 1));
       setSearchResults((prev) => prev.filter((row) => row.venue_id !== venue.venue_id));
       if (venueId === venue.venue_id) {
         setVenueId("");
@@ -409,21 +491,12 @@ export default function OwlsEyePanel({
     if (!allowDuplicate) setDuplicateCandidates([]);
 
     try {
-      const resp = await fetch("/api/admin/owls-eye/run", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...sharedHeaders,
-        },
-        body: JSON.stringify({
-          venue_id: trimmedVenueId,
-          sport,
-          published_map_url: mapUrl.trim() || undefined,
-          allow_duplicate: allowDuplicate,
-        }),
+      const { resp, json } = await runVenueRequest({
+        venueId: trimmedVenueId,
+        sportValue: sport,
+        publishedMapUrl: mapUrl,
+        allowDuplicate,
       });
-
-      const json = await resp.json();
       const errorMessage = json?.error || json?.message;
 
       if (!resp.ok || json?.ok === false) {
@@ -459,6 +532,78 @@ export default function OwlsEyePanel({
       setRunStatus("error");
       setRunMessage(err instanceof Error ? err.message : "Unknown error");
     }
+  };
+
+  const runBatch = async () => {
+    const limit = Math.max(1, Math.min(100, Number.isFinite(batchLimit) ? Math.floor(batchLimit) : 10));
+    const targets = readyRows.slice(0, limit);
+    if (targets.length === 0) {
+      setBatchMessage("No ready venues pending first run.");
+      return;
+    }
+    if (!window.confirm(`Run Owl's Eye for the next ${targets.length} ready venue${targets.length === 1 ? "" : "s"}?`)) {
+      return;
+    }
+
+    setBatchRunning(true);
+    setBatchMessage(`Starting batch for ${targets.length} venue${targets.length === 1 ? "" : "s"}...`);
+    setRunStatus("idle");
+    setRunMessage(null);
+
+    let successCount = 0;
+    let duplicateCount = 0;
+    let failureCount = 0;
+    const failedNames: string[] = [];
+    const duplicateNames: string[] = [];
+    const failureDetails: string[] = [];
+
+    for (let index = 0; index < targets.length; index += 1) {
+      const venue = targets[index];
+      const sportValue = inferSportFromVenue(venue);
+      setBatchMessage(`Running ${index + 1}/${targets.length}: ${venue.name || venue.venue_id}`);
+      try {
+        const { resp, json } = await runVenueRequest({
+          venueId: venue.venue_id,
+          sportValue,
+          allowDuplicate: false,
+        });
+
+        if (!resp.ok || json?.ok === false) {
+          if (resp.status === 409 && json?.code === "DUPLICATE_VENUE_SUSPECT") {
+            duplicateCount += 1;
+            duplicateNames.push(venue.name || venue.venue_id);
+            continue;
+          }
+          failureCount += 1;
+          failedNames.push(venue.name || venue.venue_id);
+          failureDetails.push(`${venue.name || venue.venue_id}: ${json?.message || json?.error || `HTTP ${resp.status}`}`);
+          continue;
+        }
+
+        successCount += 1;
+        const nextReport = (json?.report ?? json) as RunReport;
+        setRunReport(nextReport);
+        setReadyRows((prev) => prev.filter((row) => row.venue_id !== venue.venue_id));
+        setRemainingReadyCount((prev) => Math.max(0, prev - 1));
+      } catch {
+        failureCount += 1;
+        failedNames.push(venue.name || venue.venue_id);
+        failureDetails.push(`${venue.name || venue.venue_id}: request failed`);
+      }
+    }
+
+    const messageParts = [
+      `Batch complete: ${successCount} succeeded`,
+      duplicateCount ? `${duplicateCount} duplicate-suspect` : null,
+      failureCount ? `${failureCount} failed` : null,
+    ].filter(Boolean);
+    const detailParts = [
+      duplicateNames.length ? `Duplicate-suspect: ${duplicateNames.slice(0, 5).join("; ")}${duplicateNames.length > 5 ? "..." : ""}` : null,
+      failedNames.length ? `Failed: ${failedNames.slice(0, 5).join("; ")}${failedNames.length > 5 ? "..." : ""}` : null,
+      failureDetails.length ? `Errors: ${failureDetails.slice(0, 3).join(" | ")}${failureDetails.length > 3 ? "..." : ""}` : null,
+    ].filter(Boolean);
+    setBatchMessage([messageParts.join(" • "), detailParts.join(" • ")].filter(Boolean).join(" — "));
+    setBatchRunning(false);
   };
 
   const mergeSuggestedAndRun = async () => {
@@ -685,6 +830,23 @@ export default function OwlsEyePanel({
             {readyTotalCount !== readyDisplayedCount ? (
               <span style={{ color: "#6b7280" }}> of {readyTotalCount} total</span>
             ) : null}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+              <span>Batch size</span>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={batchLimit}
+                onChange={(e) => setBatchLimit(Number(e.target.value || 10))}
+                style={{ width: 80 }}
+              />
+            </label>
+            <button onClick={runBatch} disabled={batchRunning || readyRows.length === 0}>
+              {batchRunning ? "Running batch..." : `Run next ${Math.max(1, Math.min(100, batchLimit || 10))}`}
+            </button>
+            {batchMessage ? <div style={{ fontSize: 12, color: "#374151" }}>{batchMessage}</div> : null}
           </div>
           {readyRows.length === 0 ? (
             <div style={{ color: "#6b7280" }}>No ready venues pending first run.</div>
@@ -1073,6 +1235,15 @@ export default function OwlsEyePanel({
               )}
 
               <div style={{ marginTop: 16 }}>
+                {(runReport?.airports?.nearest_airport || runReport?.airports?.nearest_major_airport) && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 10 }}>Airports</div>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      {renderAirportSummary("Nearest airport", runReport?.airports?.nearest_airport)}
+                      {renderAirportSummary("Nearest major airport", runReport?.airports?.nearest_major_airport)}
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <div style={{ fontWeight: 600 }}>Nearby</div>
                   {runReport?.nearby_meta?.message && (

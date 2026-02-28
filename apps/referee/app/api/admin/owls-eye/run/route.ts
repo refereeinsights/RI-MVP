@@ -9,6 +9,7 @@ import { runVenueScan } from "@/server/owlseye/jobs/runVenueScan";
 import { getLatestOwlReport } from "@/server/owlseye/pipeline/getLatestReport";
 import { getAdminSupabase } from "@/server/owlseye/supabase/admin";
 import { upsertNearbyForRun } from "@/owlseye/nearby/upsertNearbyForRun";
+import { findNearestAirports } from "@/server/owlseye/airports/findNearestAirports";
 
 type Sport =
   | "soccer"
@@ -32,7 +33,7 @@ const SUPPORTED_SPORTS = new Set<Sport>([
   "futsal",
 ]);
 type RunResponse =
-  | { ok: true; report: Awaited<ReturnType<typeof runVenueScan>> & { nearby?: any } }
+  | { ok: true; report: Awaited<ReturnType<typeof runVenueScan>> & { nearby?: any; airports?: any } }
   | { ok: false; error: string; report?: Awaited<ReturnType<typeof runVenueScan>> };
 
 function isUuid(value: string) {
@@ -42,6 +43,7 @@ function isUuid(value: string) {
 type VenueRow = {
   id: string;
   name: string | null;
+  address?: string | null;
   address1?: string | null;
   street?: string | null;
   city: string | null;
@@ -93,9 +95,16 @@ async function ensureAdminRequest() {
 }
 
 function buildAddress(venue: VenueRow) {
-  const street = venue.address1 ?? venue.street ?? null;
+  const street = venue.address1 ?? venue.address ?? venue.street ?? null;
   const parts = [street, venue.city, venue.state, venue.zip].filter(Boolean);
   return parts.join(", ");
+}
+
+function hasCompleteAddress(venue: VenueRow) {
+  const street = String(venue.address1 ?? venue.address ?? venue.street ?? "").trim();
+  const city = String(venue.city ?? "").trim();
+  const state = String(venue.state ?? "").trim();
+  return Boolean(street) && Boolean(city) && Boolean(state);
 }
 
 function normalizeText(input: string | null | undefined) {
@@ -147,16 +156,17 @@ async function findDuplicateVenueCandidates(args: {
   venueLng: number | null;
 }) {
   const venueName = normalizeText(args.venue.name);
-  const venueStreet = normalizeStreet(args.venue.address1 ?? args.venue.street ?? null);
+  const venueStreet = normalizeStreet(args.venue.address1 ?? args.venue.address ?? args.venue.street ?? null);
   const venueCity = normalizeText(args.venue.city);
   const venueState = normalizeText(args.venue.state);
-  const venueStreetNumber = extractStreetNumber(args.venue.address1 ?? args.venue.street ?? null);
+  const venueStreetNumber = extractStreetNumber(args.venue.address1 ?? args.venue.address ?? args.venue.street ?? null);
 
   const candidateMap = new Map<
     string,
     {
       id: string;
       name: string | null;
+      address?: string | null;
       address1?: string | null;
       street?: string | null;
       city: string | null;
@@ -174,7 +184,7 @@ async function findDuplicateVenueCandidates(args: {
     if (seedName.length >= 3) {
       const { data } = await supabaseAdmin
         .from("venues" as any)
-        .select("id,name,address1,street,city,state,zip,latitude,longitude")
+        .select("id,name,address,address1,city,state,zip,latitude,longitude")
         .eq("state", args.venue.state)
         .ilike("name", `%${seedName}%`)
         .limit(80);
@@ -183,9 +193,9 @@ async function findDuplicateVenueCandidates(args: {
     if (seedStreet.length >= 3) {
       const { data } = await supabaseAdmin
         .from("venues" as any)
-        .select("id,name,address1,street,city,state,zip,latitude,longitude")
+        .select("id,name,address,address1,city,state,zip,latitude,longitude")
         .eq("state", args.venue.state)
-        .or(`address1.ilike.%${seedStreet}%,street.ilike.%${seedStreet}%`)
+        .or(`address.ilike.%${seedStreet}%,address1.ilike.%${seedStreet}%`)
         .limit(80);
       for (const row of (data ?? []) as any[]) candidateMap.set(row.id, row);
     }
@@ -196,10 +206,10 @@ async function findDuplicateVenueCandidates(args: {
   const scored = Array.from(candidateMap.values())
     .map((row) => {
       const rowName = normalizeText(row.name);
-      const rowStreet = normalizeStreet(row.address1 ?? row.street ?? null);
+      const rowStreet = normalizeStreet(row.address1 ?? row.address ?? row.street ?? null);
       const rowCity = normalizeText(row.city);
       const rowState = normalizeText(row.state);
-      const rowStreetNumber = extractStreetNumber(row.address1 ?? row.street ?? null);
+      const rowStreetNumber = extractStreetNumber(row.address1 ?? row.address ?? row.street ?? null);
 
       let score = 0;
       if (venueName && rowName && venueName === rowName) score += 50;
@@ -246,7 +256,7 @@ async function findDuplicateVenueCandidates(args: {
     return {
       venue_id: row.id,
       name: row.name ?? null,
-      address: (row.address1 ?? row.street ?? null) || null,
+      address: (row.address1 ?? row.address ?? row.street ?? null) || null,
       city: row.city ?? null,
       state: row.state ?? null,
       zip: row.zip ?? null,
@@ -294,7 +304,7 @@ export async function POST(request: Request) {
     try {
         const resp = await supabaseAdmin
           .from("venues" as any)
-          .select("id,name,address1,street,city,state,zip,latitude,longitude,timezone")
+          .select("id,name,address,address1,city,state,zip,latitude,longitude,timezone")
           .eq("id", venueId)
           .maybeSingle();
       venue = resp.data as VenueRow | null;
@@ -323,6 +333,17 @@ export async function POST(request: Request) {
 
     if (!venue) {
       return NextResponse.json({ error: "venue_not_found" }, { status: 404 });
+    }
+
+    if (!hasCompleteAddress(venue as VenueRow)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "venue_address_incomplete",
+          message: "Venue must have street, city, and state before Owl's Eye can run.",
+        },
+        { status: 400 }
+      );
     }
 
     let latestReport: Awaited<ReturnType<typeof getLatestOwlReport>> = null;
@@ -455,6 +476,7 @@ export async function POST(request: Request) {
 
     let nearby: any = null;
     let nearbyMeta: any = null;
+    let airports: any = null;
     try {
       // ensure nearby exists (force refresh for immediate response)
       const supabase = getAdminSupabase();
@@ -466,6 +488,12 @@ export async function POST(request: Request) {
       const lat = (venueResp.data as any)?.latitude ?? venueLat ?? null;
       const lng = (venueResp.data as any)?.longitude ?? venueLng ?? null;
       if (typeof lat === "number" && typeof lng === "number" && isFinite(lat) && isFinite(lng)) {
+        try {
+          airports = await findNearestAirports({ lat, lng });
+        } catch (airportErr) {
+          console.error("[owlseye] Airport lookup failed", airportErr);
+        }
+
         const nearbyResult = (await upsertNearbyForRun({
           supabaseAdmin: supabase,
           runId: result.runId,
@@ -523,11 +551,25 @@ export async function POST(request: Request) {
             })),
         };
       }
+
+      if (airports) {
+        const outputs = { airports, nearby_meta: nearbyMeta ?? undefined };
+        let updateResp = await supabase
+          .from("owls_eye_runs" as any)
+          .update({ outputs, updated_at: new Date().toISOString() })
+          .eq("id", result.runId);
+        if (updateResp.error && (updateResp.error.code === "42703" || updateResp.error.code === "PGRST204")) {
+          updateResp = await supabase.from("owls_eye_runs" as any).update({ outputs }).eq("id", result.runId);
+        }
+        if (updateResp.error && updateResp.error.code !== "42703" && updateResp.error.code !== "PGRST204") {
+          console.warn("[owlseye] Could not persist airport outputs", updateResp.error);
+        }
+      }
     } catch (err) {
       console.error("[owlseye] Nearby fetch in run route failed", err);
     }
 
-    return NextResponse.json({ ok: true, report: { ...result, nearby, nearby_meta: nearbyMeta } });
+    return NextResponse.json({ ok: true, report: { ...result, nearby, nearby_meta: nearbyMeta, airports } });
   } catch (err) {
     const message =
       err instanceof Error

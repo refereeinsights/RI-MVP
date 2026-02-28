@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { canAccessWeekendPro, getTier } from "@/lib/entitlements";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
-import OwlsEyeVenueCard, { type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
+import OwlsEyeVenueCard, { type AirportSummary, type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
 import MobileMapLink from "@/components/venues/MobileMapLink";
 import {
   DEMO_STARFIRE_VENUE_ID,
@@ -56,6 +56,12 @@ type OwlsEyeRunRow = {
   status: string | null;
   updated_at?: string | null;
   created_at?: string | null;
+  outputs?: {
+    airports?: {
+      nearest_airport?: AirportSummary | null;
+      nearest_major_airport?: AirportSummary | null;
+    };
+  } | null;
 };
 
 type NearbyPlaceRow = {
@@ -93,7 +99,7 @@ async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
 
   const primary = await supabaseAdmin
     .from("owls_eye_runs" as any)
-    .select("id,run_id,venue_id,status,updated_at,created_at")
+    .select("id,run_id,venue_id,status,updated_at,created_at,outputs")
     .in("venue_id", venueIds)
     .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false });
@@ -106,7 +112,7 @@ async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
   if (primaryErrCode === "42703" || primaryErrCode === "PGRST204") {
     const fallback = await supabaseAdmin
       .from("owls_eye_runs" as any)
-      .select("id,run_id,venue_id,status,created_at")
+      .select("id,run_id,venue_id,status,created_at,outputs")
       .in("venue_id", venueIds)
       .order("created_at", { ascending: false });
     return (fallback.data as OwlsEyeRunRow[] | null) ?? [];
@@ -118,6 +124,7 @@ async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
 export const revalidate = 300;
 
 const PREMIUM_PREVIEW_VENUE_NAME_HINTS = ["grand canyon university", "gcu"];
+const PREMIUM_PREVIEW_TOURNAMENT_SLUGS = new Set(["refereeinsights-demo-tournament"]);
 
 export default async function VenueDetailsPage({ params }: { params: { venueId: string } }) {
   const supabase = createSupabaseServerClient();
@@ -166,11 +173,14 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const hasPremiumPreviewVenue = PREMIUM_PREVIEW_VENUE_NAME_HINTS.some(
     (hint) => venueNameNormalized === hint || venueNameNormalized.includes(hint)
   );
-  const canViewPremiumDetails = isPaid || hasPremiumPreviewVenue;
 
   const linkedTournaments = (data.tournament_venues ?? [])
     .map((tv) => tv?.tournaments)
     .filter((t): t is LinkedTournament => Boolean(t?.id));
+  const hasPremiumPreviewTournament = linkedTournaments.some((t) =>
+    PREMIUM_PREVIEW_TOURNAMENT_SLUGS.has((t.slug ?? "").trim().toLowerCase())
+  );
+  const canViewPremiumDetails = isPaid || hasPremiumPreviewVenue || hasPremiumPreviewTournament;
 
   const today = new Date().toISOString().slice(0, 10);
   const upcomingTournaments = linkedTournaments
@@ -205,6 +215,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   let nearbyCounts = { food: 0, coffee: 0, hotels: 0 };
   let premiumNearby: { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; captured_at: string | null } | null = null;
   let demoScores: OwlsEyeDemoScores | null = null;
+  const airportSummary = latestRun?.outputs?.airports ?? null;
 
   if (latestRunId) {
     if (canViewPremiumDetails) {
@@ -345,6 +356,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                 hasOwlsEye={hasOwlsEye}
                 canViewPremiumDetails={canViewPremiumDetails}
                 nearbyCounts={nearbyCounts}
+                airportSummary={airportSummary}
                 premiumNearby={premiumNearby}
                 tier={tier}
                 mapLinks={mapLinks}

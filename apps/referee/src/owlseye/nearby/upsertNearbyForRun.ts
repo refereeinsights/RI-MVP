@@ -28,13 +28,15 @@ const DEFAULT_LIMIT = 8;
 const HOTEL_LIMIT = 5;
 const HOTEL_INCLUDE_RE = /\b(hotel|motel|inn|resort|suite|suites|lodge)\b/i;
 const HOTEL_EXCLUDE_RE =
-  /\b(storage|self storage|mobile home|rv|campground|trailer|home park|apartment|apartments|condo|condominiums?|residential|retreat|getaway|holiday home|vacation rental|private room|entire home|whole home|townhome|townhouse|single family)\b/i;
+  /\b(storage|self storage|mobile home|rv|campground|trailer|home park|apartment|apartments|condo|condominiums?|residential|residence|residences|retreat|getaway|holiday home|vacation rental|vacation rentals|private room|entire home|whole home|townhome|townhouse|single family|multi family|student housing|senior living|corporate housing|furnished rental|property management|leasing office|lease office|realty|real estate|homes for rent|villa rental)\b/i;
 const HOTEL_BRAND_RE =
-  /\b(hyatt|hilton|marriott|sheraton|westin|wyndham|fairfield|hampton|holiday inn|best western|comfort inn|motel 6|residence inn|homewood suites|home2 suites|springhill suites|la quinta|days inn|super 8|courtyard|drury|radisson|quality inn|doubletree|embassy suites|staybridge|avid hotel)\b/i;
+  /\b(hyatt|hilton|marriott|sheraton|westin|wyndham|fairfield|hampton|holiday inn|best western|comfort inn|motel 6|studio 6|extended stay america|residence inn|homewood suites|home2 suites|springhill suites|towneplace suites|aloft|tru by hilton|la quinta|days inn|super 8|courtyard|drury|radisson|quality inn|doubletree|embassy suites|staybridge|avid hotel)\b/i;
 const VACATION_RENTAL_RE =
-  /\b(home|house|studio|townhome|townhouse|cabin|villa|loft|trail|airbnb|vrbo)\b/i;
+  /\b(home|house|studio|townhome|townhouse|cabin|villa|loft|bungalow|chalet|retreat|guesthouse|guest house|airbnb|vrbo)\b/i;
 const HOTEL_TYPE_ALLOW = new Set(["lodging", "hotel", "motel", "resort_hotel", "extended_stay_hotel"]);
-const HOTEL_TYPE_BLOCK_RE = /\b(apartment|real_estate|housing|storage|campground|rv_park|route)\b/i;
+const HOTEL_TYPE_BLOCK_RE = /\b(apartment|real_estate|housing|storage|campground|rv_park|route|lodging_business|hostel|guest_house)\b/i;
+const HOTEL_AMBIGUOUS_SIGNAL_RE =
+  /\b(suites?|resort|lodge|inn|stay|retreat|villa|club)\b/i;
 
 function mapsUrl(placeId: string) {
   return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(placeId)}`;
@@ -138,21 +140,26 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     const primaryType = String(item?.primaryType ?? "").toLowerCase();
     const typedAsBlocked = types.some((t) => HOTEL_TYPE_BLOCK_RE.test(t)) || HOTEL_TYPE_BLOCK_RE.test(primaryType);
     const typedAsHotel = types.some((t) => HOTEL_TYPE_ALLOW.has(t)) || HOTEL_TYPE_ALLOW.has(primaryType);
+    const hasBrandSignal = HOTEL_BRAND_RE.test(haystack);
+    const hasHotelSignal = HOTEL_INCLUDE_RE.test(haystack) || hasBrandSignal;
+    const hasAmbiguousSignal = HOTEL_AMBIGUOUS_SIGNAL_RE.test(haystack);
+    const hasRentalSignal = VACATION_RENTAL_RE.test(haystack);
+    const hasExcludedSignal = HOTEL_EXCLUDE_RE.test(haystack);
 
     if (typedAsBlocked) return false;
-    if (HOTEL_EXCLUDE_RE.test(haystack) && !HOTEL_BRAND_RE.test(haystack)) return false;
-    if (VACATION_RENTAL_RE.test(haystack) && !HOTEL_BRAND_RE.test(haystack)) return false;
+    if (hasExcludedSignal && !hasBrandSignal) return false;
+    if (hasRentalSignal && !hasBrandSignal) return false;
     if (types.some((t) => t.includes("storage") || t.includes("campground") || t.includes("rv_park"))) return false;
-
-    const hasHotelSignal = HOTEL_INCLUDE_RE.test(haystack) || HOTEL_BRAND_RE.test(haystack);
     const hasLodgingType = types.includes("hotel") || types.includes("lodging") || primaryType === "hotel" || primaryType === "lodging" || typedAsHotel;
 
-    // For lodging-typed results, still require hotel signal to avoid generic homes/rentals.
+    // For lodging-typed results, require a real hotel signal and reject ambiguous residential-style names.
     if (hasLodgingType) {
+      if (!hasHotelSignal) return false;
+      if (hasAmbiguousSignal && !hasBrandSignal && (hasExcludedSignal || hasRentalSignal)) return false;
       return hasHotelSignal;
     }
 
-    return hasHotelSignal;
+    return hasHotelSignal && !hasExcludedSignal && !hasRentalSignal;
   };
 
   const filteredHotelResults = hotelResults.filter(isHotelLike);

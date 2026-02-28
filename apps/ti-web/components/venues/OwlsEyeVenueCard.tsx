@@ -13,6 +13,21 @@ export type NearbyPlace = {
   sponsor_click_url: string | null;
 };
 
+export type AirportSummary = {
+  id: string;
+  ident: string;
+  iata_code?: string | null;
+  name: string;
+  municipality?: string | null;
+  iso_country: string;
+  iso_region?: string | null;
+  airport_type: string;
+  scheduled_service: boolean;
+  is_commercial: boolean;
+  is_major: boolean;
+  distance_miles: number;
+};
+
 type OwlsEyeVenueCardProps = {
   venue: {
     id: string;
@@ -26,6 +41,10 @@ type OwlsEyeVenueCardProps = {
   hasOwlsEye: boolean;
   canViewPremiumDetails: boolean;
   nearbyCounts: { food: number; coffee: number; hotels: number };
+  airportSummary?: {
+    nearest_airport?: AirportSummary | null;
+    nearest_major_airport?: AirportSummary | null;
+  } | null;
   premiumNearby: { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; captured_at: string | null } | null;
   tier: "explorer" | "insider" | "weekend_pro";
   mapLinks: { google: string; apple: string; waze: string } | null;
@@ -40,6 +59,7 @@ export default function OwlsEyeVenueCard({
   hasOwlsEye,
   canViewPremiumDetails,
   nearbyCounts,
+  airportSummary,
   premiumNearby,
   tier,
   mapLinks,
@@ -49,6 +69,21 @@ export default function OwlsEyeVenueCard({
   defaultNearbyAllCollapsed = false,
 }: OwlsEyeVenueCardProps) {
   const locationLine = [venue.city, venue.state, venue.zip].filter(Boolean).join(", ");
+  const nearestMajorAirport = airportSummary?.nearest_major_airport ?? null;
+  const nearestAirport = airportSummary?.nearest_airport ?? null;
+  const primaryAirport = nearestMajorAirport ?? nearestAirport;
+  const primaryAirportQuery = primaryAirport
+    ? [primaryAirport.name, primaryAirport.municipality, primaryAirport.iso_region, primaryAirport.iso_country]
+        .filter(Boolean)
+        .join(", ")
+    : null;
+  const airportMapLinks = primaryAirportQuery
+    ? {
+        google: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(primaryAirportQuery)}`,
+        apple: `https://maps.apple.com/?q=${encodeURIComponent(primaryAirportQuery)}`,
+        waze: `https://waze.com/ul?q=${encodeURIComponent(primaryAirportQuery)}&navigate=yes`,
+      }
+    : null;
 
   return (
     <div className={`detailCard ${hasOwlsEye ? "detailCard--withOwl" : ""}`}>
@@ -100,6 +135,70 @@ export default function OwlsEyeVenueCard({
               <div>🍔 {nearbyCounts.food} food options nearby</div>
               <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
             </div>
+            {primaryAirport ? (
+              <div style={{ marginTop: -3, display: "grid", gap: 1, justifyItems: "center" }}>
+                <div style={{ fontWeight: 700, lineHeight: 1.1 }}>✈️ Nearest Major Airport</div>
+                {nearestMajorAirport ? (
+                  <div style={{ textAlign: "center" }}>
+                    <div>
+                      {nearestMajorAirport.name}{" "}
+                      {nearestMajorAirport.iata_code || nearestMajorAirport.ident
+                        ? `(${nearestMajorAirport.iata_code || nearestMajorAirport.ident}) `
+                        : ""}
+                      {nearestMajorAirport.distance_miles} mi
+                    </div>
+                  </div>
+                ) : nearestAirport ? (
+                  <div style={{ textAlign: "center" }}>
+                    <div>
+                      {nearestAirport.name}{" "}
+                      {nearestAirport.iata_code || nearestAirport.ident
+                        ? `(${nearestAirport.iata_code || nearestAirport.ident}) `
+                        : ""}
+                      {nearestAirport.distance_miles} mi
+                    </div>
+                  </div>
+                ) : null}
+                {airportMapLinks && primaryAirportQuery ? (
+                  <div
+                    className="detailLinksRow"
+                    style={{
+                      justifyContent: "center",
+                      gap: 4,
+                      flexWrap: "nowrap",
+                      transform: "scale(0.72)",
+                      transformOrigin: "center top",
+                      width: "100%",
+                    }}
+                  >
+                    <MobileMapLink
+                      provider="google"
+                      query={primaryAirportQuery}
+                      fallbackHref={airportMapLinks.google}
+                      className="secondaryLink"
+                    >
+                      Google Maps
+                    </MobileMapLink>
+                    <MobileMapLink
+                      provider="apple"
+                      query={primaryAirportQuery}
+                      fallbackHref={airportMapLinks.apple}
+                      className="secondaryLink"
+                    >
+                      Apple Maps
+                    </MobileMapLink>
+                    <MobileMapLink
+                      provider="waze"
+                      query={primaryAirportQuery}
+                      fallbackHref={airportMapLinks.waze}
+                      className="secondaryLink"
+                    >
+                      Waze
+                    </MobileMapLink>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <div className="detailVenueNearbyPreview__teaser">
               {canViewPremiumDetails
                 ? "Open Premium planning details to view full list and one-tap directions."
