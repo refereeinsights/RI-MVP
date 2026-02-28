@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import StateMultiSelect from "../StateMultiSelect";
+import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import "../tournaments.css";
 import { HUBS, type HubKey, SPORTS_LABELS } from "./config";
@@ -333,6 +334,7 @@ export async function HubTournamentsPage({
                 summaryLabel={stateSummaryLabel}
                 stateCounts={stateCounts}
                 totalCount={tournamentsClean.length}
+                autoSubmit
               />
             </div>
 
@@ -340,14 +342,14 @@ export async function HubTournamentsPage({
               <label className="label" htmlFor="month">
                 Month
               </label>
-              <select id="month" name="month" className="select" defaultValue={month}>
+              <AutoSubmitSelect id="month" name="month" className="select" defaultValue={month}>
                 <option value="">Any</option>
                 {months.map((m) => (
                   <option key={m.value} value={m.value}>
                     {m.label}
                   </option>
                 ))}
-              </select>
+              </AutoSubmitSelect>
             </div>
 
             <div className="sportsRow">

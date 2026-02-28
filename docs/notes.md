@@ -2328,3 +2328,36 @@
   - Added a premium-preview unlock on TI venue pages when a venue is linked to the demo tournament slug:
     - `refereeinsights-demo-tournament`
   - This allows all demo tournament venues to expose Premium Planning Details, not just the original Starfire-specific path.
+
+- RI tournament/venue parity improvements:
+  - Reworked the RI public tournament detail intro to align more closely with the TI detail presentation while leaving TI unchanged:
+    - centered the detail content above referee reviews
+    - removed legacy gray venue/address artifact text
+    - removed the legacy `Insights still being collected` and `Report an Issue / Claim this listing` blocks
+    - switched the RI detail card background treatment to use the same TI hero SVG strategy for supported sports
+  - Updated RI tournament venue tiles to match TI behavior more closely:
+    - compact venue tiles
+    - each tile opens the venue detail page in a new tab
+  - Added a new RI public venue detail route and supporting components so venue pages mirror TI’s current venue-detail behavior more closely while deferring RI-specific permission tiers for later:
+    - `apps/referee/app/venues/[venueId]/page.tsx`
+    - `apps/referee/components/venues/OwlsEyeVenueCard.tsx`
+    - `apps/referee/components/venues/MobileMapLink.tsx`
+    - `apps/referee/components/VenueIndexBadge.tsx`
+    - `apps/referee/components/VenueIndexBadge.module.css`
+    - `apps/referee/components/OwlsEyeDemoScoresPanel.tsx`
+    - `apps/referee/components/OwlsEyeWeekendGuideAccordion.tsx`
+    - `apps/referee/lib/venueIndex.ts`
+    - `apps/referee/lib/owlsEyeScores.ts`
+
+- TI + RI directory filter auto-submit:
+  - State and sport filters now auto-submit immediately on selection change across the main TI and RI directory/search pages while preserving the existing `Apply` button for the remaining filters.
+  - Month filters now also auto-submit anywhere those search tools expose a month selector.
+  - State remains multi-select; only the submit behavior changed.
+  - Added small shared client controls for auto-submitting checkboxes/selects:
+    - `apps/ti-web/components/filters/AutoSubmitCheckbox.tsx`
+    - `apps/ti-web/components/filters/AutoSubmitSelect.tsx`
+    - `apps/referee/components/filters/AutoSubmitCheckbox.tsx`
+    - `apps/referee/components/filters/AutoSubmitSelect.tsx`
+  - Updated the TI and RI state multi-select controls to optionally auto-submit without changing the multi-select semantics:
+    - `apps/ti-web/app/tournaments/StateMultiSelect.tsx`
+    - `apps/referee/app/tournaments/StateMultiSelect.tsx`

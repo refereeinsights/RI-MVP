@@ -8,6 +8,7 @@ import type { RefereeWhistleScore } from "@/lib/types/refereeReview";
 import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
 import { getSportCardClass } from "@/lib/ui/sportBackground";
 import StateMultiSelect from "@/app/tournaments/StateMultiSelect";
+import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import "../../tournaments.css";
 
 type Tournament = {
@@ -397,17 +398,18 @@ export default async function SportHubPage(props: Props) {
                     summaryLabel={stateSummaryLabel}
                     stateCounts={stateCounts}
                     totalCount={reviewedTournaments.length}
+                    autoSubmit
                   />
                 </div>
 
                 <div>
                   <label className="label" htmlFor="month">Month</label>
-                  <select id="month" name="month" className="select" defaultValue={month}>
+                  <AutoSubmitSelect id="month" name="month" className="select" defaultValue={month}>
                     <option value="">Any</option>
                     {months.map((m) => (
                       <option key={m.value} value={m.value}>{m.label}</option>
                     ))}
-                  </select>
+                  </AutoSubmitSelect>
                 </div>
 
                 <div className="sportsRow">

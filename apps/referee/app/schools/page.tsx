@@ -5,6 +5,7 @@ import InsightDisclaimer from "@/components/InsightDisclaimer";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import type { RefereeReviewPublic, RefereeWhistleScoreStatus } from "@/lib/types/refereeReview";
 import StateMultiSelect from "../tournaments/StateMultiSelect";
+import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import "../tournaments/tournaments.css";
 
 type School = {
@@ -278,6 +279,7 @@ export default async function SchoolsPage({
               isAllStates={isAllStates}
               allStatesValue={ALL_STATES_VALUE}
               summaryLabel={stateSummaryLabel}
+              autoSubmit
             />
           </div>
 
@@ -314,7 +316,7 @@ export default async function SchoolsPage({
             </label>
             {SPORT_FILTERS.map((sport) => (
               <label key={sport} className="sportToggle">
-                <input
+                <AutoSubmitCheckbox
                   type="checkbox"
                   name="sports"
                   value={sport}

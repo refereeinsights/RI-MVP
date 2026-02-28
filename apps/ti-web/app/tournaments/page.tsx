@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import StateMultiSelect from "./StateMultiSelect";
+import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
+import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import "./tournaments.css";
 
 type Tournament = {
@@ -399,6 +401,7 @@ export default async function TournamentsPage({
               summaryLabel={stateSummaryLabel}
               stateCounts={stateCounts}
               totalCount={tournamentsBySport.length}
+              autoSubmit
             />
           </div>
 
@@ -406,20 +409,20 @@ export default async function TournamentsPage({
             <label className="label" htmlFor="month">
               Month
             </label>
-            <select id="month" name="month" className="select" defaultValue={month}>
+            <AutoSubmitSelect id="month" name="month" className="select" defaultValue={month}>
               <option value="">Any</option>
               {months.map((m) => (
                 <option key={m.value} value={m.value}>
                   {m.label}
                 </option>
               ))}
-            </select>
+            </AutoSubmitSelect>
           </div>
 
           <div className="sportsRow">
             {sportsSorted.map(({ sport, count }) => (
               <label key={sport} className="sportToggle">
-                <input type="checkbox" name="sports" value={sport} defaultChecked={sportsSelected.includes(sport)} />
+                <AutoSubmitCheckbox type="checkbox" name="sports" value={sport} defaultChecked={sportsSelected.includes(sport)} />
                 <span>
                   {SPORTS_LABELS[sport] || sport} ({count})
                 </span>

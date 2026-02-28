@@ -10,6 +10,7 @@ type Props = {
   summaryLabel: string;
   stateCounts?: Record<string, number>;
   totalCount?: number;
+  autoSubmit?: boolean;
 };
 
 export default function StateMultiSelect({
@@ -20,6 +21,7 @@ export default function StateMultiSelect({
   summaryLabel,
   stateCounts = {},
   totalCount,
+  autoSubmit = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -52,11 +54,17 @@ export default function StateMultiSelect({
       const input = stateRefs.current[st];
       if (input) input.checked = false;
     }
+    if (autoSubmit) {
+      allStatesRef.current?.form?.requestSubmit();
+    }
   };
 
-  const handleSingleStateChange = () => {
+  const handleSingleStateChange = (input: HTMLInputElement | null) => {
     if (allStatesRef.current) {
       allStatesRef.current.checked = false;
+    }
+    if (autoSubmit) {
+      input?.form?.requestSubmit();
     }
   };
 
@@ -94,7 +102,7 @@ export default function StateMultiSelect({
               ref={(node) => {
                 stateRefs.current[st] = node;
               }}
-              onChange={handleSingleStateChange}
+              onChange={(event) => handleSingleStateChange(event.currentTarget)}
             />
             <span>{`${st}${typeof stateCounts[st] === "number" ? ` (${stateCounts[st]})` : ""}`}</span>
           </label>

@@ -12,6 +12,8 @@ import InsightDisclaimer from "@/components/InsightDisclaimer";
 import StateMultiSelect from "./StateMultiSelect";
 import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
 import "./tournaments.css";
+import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
+import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 
 type Tournament = {
   id: string;
@@ -476,17 +478,18 @@ export default async function TournamentsPage({
               summaryLabel={stateSummaryLabel}
               stateCounts={stateCounts}
               totalCount={tournamentsBySport.length}
+              autoSubmit
             />
           </div>
 
           <div>
             <label className="label" htmlFor="month">Month</label>
-            <select id="month" name="month" className="select" defaultValue={month}>
+            <AutoSubmitSelect id="month" name="month" className="select" defaultValue={month}>
               <option value="">Any</option>
               {months.map((m) => (
                 <option key={m.value} value={m.value}>{m.label}</option>
               ))}
-            </select>
+            </AutoSubmitSelect>
           </div>
 
           <div className="sportsRow">
@@ -502,7 +505,7 @@ export default async function TournamentsPage({
             </label>
             {sportsSorted.map(({ sport, count }) => (
               <label key={sport} className="sportToggle">
-                <input
+                <AutoSubmitCheckbox
                   type="checkbox"
                   name="sports"
                   value={sport}

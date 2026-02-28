@@ -429,19 +429,21 @@
 .summaryGrid .card.bg-sport-baseball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
-    url("/svg/sports/baseball_badge.svg");
-  background-size: cover, 172% auto;
-  background-position: center, center 53%;
-  background-repeat: no-repeat, no-repeat;
+    url("/svg/sports/baseball_badge.svg"),
+    linear-gradient(180deg, #1b2c14, #0f1f0f);
+  background-size: cover, 172% auto, cover;
+  background-position: center, center 53%, center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
 }
 
 .summaryGrid .card.bg-sport-softball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
-    url("/svg/sports/softball_badge.svg");
-  background-size: cover, 180% auto;
-  background-position: center, center 62%;
-  background-repeat: no-repeat, no-repeat;
+    url("/svg/sports/softball_badge.svg"),
+    linear-gradient(180deg, #203310, #101f0d);
+  background-size: cover, 180% auto, cover;
+  background-position: center, center 62%, center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
 }
 
 .summaryGrid .card.summary-sport-soccer {
@@ -683,64 +685,57 @@
 /* Detail panel sport surfaces */
 .detailPanel.bg-sport-default {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.12)),
-    #0f2a22;
+    linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.28)),
+    url("/textures/ti_soccer_hero_bg_1200x1000.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
 }
 
 .detailPanel.bg-sport-soccer {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.10)),
-    repeating-linear-gradient(
-      90deg,
-      rgba(255,255,255,0.06) 0 90px,
-      rgba(0,0,0,0.04) 90px 180px
-    ),
-    #0f2a22;
+    linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.28)),
+    url("/textures/ti_soccer_hero_bg_1200x1000.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
 }
 
 .detailPanel.bg-sport-basketball {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.10)),
-    repeating-linear-gradient(
-      90deg,
-      rgba(255,255,255,0.05) 0 70px,
-      rgba(0,0,0,0.04) 70px 140px
-    ),
-    #2b1c12;
+    linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.28)),
+    url("/textures/basketball-court.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   border-color: rgba(255,255,255,0.35);
 }
 
 .detailPanel.bg-sport-baseball {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.10)),
-    repeating-linear-gradient(
-      135deg,
-      rgba(255,255,255,0.05) 0 30px,
-      rgba(0,0,0,0.04) 30px 60px
-    ),
-    #2a2f36;
+    linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.28)),
+    url("/textures/ti_baseball_hero_bg_1200x1000.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
 }
 
 .detailPanel.bg-sport-softball {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.10)),
-    repeating-linear-gradient(
-      90deg,
-      rgba(255,255,255,0.05) 0 90px,
-      rgba(0,0,0,0.04) 90px 180px
-    ),
-    #163025;
+    linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.28)),
+    url("/textures/softball-field.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
 }
 
 .detailPanel.bg-sport-football {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.12)),
-    repeating-linear-gradient(
-      0deg,
-      rgba(255,255,255,0.06) 0 8px,
-      transparent 8px 42px
-    ),
-    #123223;
+    linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.28)),
+    url("/textures/football-field.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
 }
 /* Stadium-light glow on hover */
 .card:hover {
@@ -910,8 +905,9 @@
   padding-top: 5.25rem;
   border-radius: 16px;
   border: 2px solid rgba(255,255,255,0.55);
-  backdrop-filter: blur(6px);
-  box-shadow: 0 12px 30px rgba(0,0,0,0.22);
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 @media (max-width: 640px) {
   .detailPanel {
@@ -1032,6 +1028,437 @@
     font-size: 0.95rem;
     line-height: 1.55;
   }
+}
+
+.detailIntro {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  text-align: center;
+  max-width: 880px;
+  margin: 0 auto 18px;
+}
+
+.detailIntro .detailMeta,
+.detailIntro .detailBody {
+  max-width: 720px;
+}
+
+.detailVenueGrid {
+  margin-top: 12px;
+  width: min(720px, 100%);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detailVenueTile {
+  display: flex;
+  min-height: 96px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: inherit;
+  text-decoration: none;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.detailVenueTile:hover,
+.detailVenueTile:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.42);
+  background: rgba(255,255,255,0.22);
+  outline: none;
+}
+
+.detailVenueTile--withOwl {
+  border-color: rgba(191, 219, 254, 0.48);
+}
+
+.detailVenueTile__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.detailVenueTile__name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.detailVenueTile__flag {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.82;
+}
+
+@media (min-width: 840px) {
+  .detailVenueGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.detailHero {
+  position: relative;
+  margin: 0 auto;
+  max-width: 1200px;
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+  min-height: 320px;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.detailHero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.15);
+}
+
+.detailHero__overlay {
+  position: relative;
+  z-index: 1;
+  padding: 2.5rem 2rem;
+  color: #f8fafc;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.35);
+  display: grid;
+  gap: 10px;
+  max-width: 880px;
+  margin: 0 auto;
+  text-align: center;
+  justify-items: center;
+}
+
+.detailBackLink {
+  color: #e5f0ff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.detailBackLink:hover {
+  text-decoration: underline;
+}
+
+.detailLinksRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.detailLinksRow .secondaryLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: #fff;
+  color: #0b1f14;
+  border: 1px solid rgba(0,0,0,0.12);
+  font-weight: 700;
+  text-decoration: none;
+  min-height: 44px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+}
+
+.detailLinksRow .secondaryLink:hover {
+  background: #f5f7f8;
+}
+
+.detailCard {
+  margin-top: 12px;
+  background: rgba(255,255,255,0.16);
+  border-radius: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,0.25);
+  width: min(720px, 100%);
+}
+
+.detailCard--withOwl {
+  position: relative;
+}
+
+.detailCard__title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.detailCard__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.detailVenueRow {
+  display: grid;
+  gap: 6px;
+  align-items: center;
+  justify-items: center;
+}
+
+.detailVenueIdentity {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 86px;
+}
+
+.detailVenueOwlBadgeInline {
+  width: 62px;
+  height: 62px;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
+  margin: 0 auto 2px;
+}
+
+.detailVenueText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #f8fbff;
+  text-align: center;
+  align-items: center;
+}
+
+.detailVenueAddress {
+  font-size: 14px;
+  color: rgba(248, 251, 255, 0.9);
+}
+
+.detailVenueAddressStack {
+  min-height: 34px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
+}
+
+.detailVenuePremium {
+  margin-top: 4px;
+  text-align: center;
+  display: grid;
+  justify-items: center;
+}
+
+.detailVenuePremium > summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: #fff;
+  color: #0b1f14;
+  border: 1px solid rgba(0,0,0,0.12);
+  font-weight: 700;
+  text-decoration: none;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.detailVenuePremium > summary::-webkit-details-marker {
+  display: none;
+}
+
+.detailVenuePremium__body {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(0,0,0,0.12);
+  display: grid;
+  gap: 8px;
+  width: min(720px, 100%);
+}
+
+.detailVenuePremiumLock {
+  margin-top: 6px;
+  display: grid;
+  justify-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.detailVenueNearbyPreview {
+  margin-top: 4px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.12);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.detailVenueNearbyPreview__title,
+.detailVenueNearbyGuide__title {
+  font-weight: 700;
+}
+
+.detailVenueNearbyPreview__counts {
+  display: grid;
+  gap: 4px;
+}
+
+.detailVenueNearbyPreview__teaser {
+  color: rgba(248, 251, 255, 0.9);
+  font-size: 14px;
+}
+
+.detailVenueNearbyGuide {
+  margin-top: 4px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.12);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.premiumNearbyGroup {
+  display: grid;
+  gap: 6px;
+}
+
+.premiumNearbyGroup__list {
+  display: grid;
+  gap: 6px;
+}
+
+.premiumNearbyLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #f8fbff;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 10px;
+  padding: 7px 10px;
+  background: rgba(16, 185, 129, 0.18);
+}
+
+.premiumNearbyLink__meta {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cffafe;
+}
+
+.premiumNearbyLink--row {
+  align-items: center;
+}
+
+.premiumNearbyLink__content {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.premiumNearbyLink__cta {
+  min-height: 36px !important;
+  padding: 8px 12px !important;
+  box-shadow: none !important;
+}
+
+.detailHero.bg-sport-default,
+.detailHero.bg-sport-basketball,
+.detailHero.bg-sport-baseball,
+.detailHero.bg-sport-softball,
+.detailHero.bg-sport-football {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/textures/ti_soccer_hero_bg_1200x1000.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.detailHero.bg-sport-soccer {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/textures/ti_soccer_hero_bg_1200x1000.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.detailHero.bg-sport-lacrosse {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/svg/sports/lacrosse_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.detailHero.bg-sport-basketball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/svg/sports/basketball_court_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.detailHero.bg-sport-baseball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/textures/ti_baseball_hero_bg_1200x1000.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.detailHero.bg-sport-softball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/svg/sports/softball_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.detailHero.bg-sport-football {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/svg/sports/football_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.detailHero.bg-sport-hockey {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/svg/sports/hockey_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.detailHero.bg-sport-volleyball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
+    url("/textures/soccer-turf.svg");
+  background-size: cover;
+  background-position: center;
 }
 
 .breadcrumbs {

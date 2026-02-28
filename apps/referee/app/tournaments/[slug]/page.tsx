@@ -55,11 +55,19 @@ type EngagementRow = {
   unique_users_30d: number | null;
 };
 
+type OwlsEyeRunRow = {
+  id: string;
+  run_id?: string | null;
+  venue_id: string;
+  status: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+};
+
 // Revalidate tournament detail pages every 5 minutes.
 export const revalidate = 300;
 
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
-const ISSUE_EMAIL = "tournamentinsights@gmail.com";
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -141,20 +149,31 @@ function buildCanonicalUrl(slug: string) {
   return `${SITE_ORIGIN}/tournaments/${slug}`;
 }
 
-function buildVenueQuery(parts: Array<string | null | undefined>) {
-  return parts
-    .map((part) => (part ?? "").trim())
-    .filter(Boolean)
-    .join(", ");
-}
+async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
+  if (!venueIds.length) return [] as OwlsEyeRunRow[];
 
-function buildMapLinks(query: string) {
-  const encoded = encodeURIComponent(query);
-  return {
-    google: `https://www.google.com/maps/search/?api=1&query=${encoded}`,
-    apple: `https://maps.apple.com/?q=${encoded}`,
-    waze: `https://waze.com/ul?q=${encoded}&navigate=yes`,
-  };
+  const primary = await supabaseAdmin
+    .from("owls_eye_runs" as any)
+    .select("id,run_id,venue_id,status,updated_at,created_at")
+    .in("venue_id", venueIds)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  const primaryErrCode = (primary as any)?.error?.code;
+  if (!primary.error) {
+    return (primary.data as OwlsEyeRunRow[] | null) ?? [];
+  }
+
+  if (primaryErrCode === "42703" || primaryErrCode === "PGRST204") {
+    const fallback = await supabaseAdmin
+      .from("owls_eye_runs" as any)
+      .select("id,run_id,venue_id,status,created_at")
+      .in("venue_id", venueIds)
+      .order("created_at", { ascending: false });
+    return (fallback.data as OwlsEyeRunRow[] | null) ?? [];
+  }
+
+  return [];
 }
 
 function normalizeSportSlug(sport: string) {
@@ -256,6 +275,44 @@ export default async function TournamentDetailPage({
     state: string | null;
     zip: string | null;
   }>;
+  const linkedVenueIds = linkedVenues.map((venue) => venue.id).filter(Boolean);
+  const runRows = await fetchLatestOwlsEyeRuns(linkedVenueIds);
+  const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
+  for (const row of runRows) {
+    if (!row?.venue_id) continue;
+    if (latestRunByVenue.has(row.venue_id)) continue;
+    latestRunByVenue.set(row.venue_id, row);
+  }
+  const runIds = Array.from(latestRunByVenue.values())
+    .map((row) => row.run_id ?? row.id)
+    .filter((value): value is string => Boolean(value));
+  let hasOwlsEyeByVenueId = new Map<string, boolean>();
+  if (runIds.length) {
+    const { data: nearbyRows } = await supabaseAdmin
+      .from("owls_eye_nearby_food" as any)
+      .select("run_id,category")
+      .in("run_id", runIds);
+
+    const countsByRunId = new Map<string, { food: number; coffee: number; hotels: number }>();
+    for (const row of ((nearbyRows as Array<{ run_id: string; category: string | null }> | null) ?? [])) {
+      const runId = row.run_id;
+      if (!runId) continue;
+      const normalizedCategory = (row.category ?? "food").toLowerCase();
+      const current = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0 };
+      if (normalizedCategory === "coffee") current.coffee += 1;
+      else if (normalizedCategory === "hotel" || normalizedCategory === "hotels") current.hotels += 1;
+      else current.food += 1;
+      countsByRunId.set(runId, current);
+    }
+
+    hasOwlsEyeByVenueId = new Map(
+      Array.from(latestRunByVenue.entries()).map(([venueId, run]) => {
+        const runId = (run.run_id ?? run.id) as string;
+        const counts = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0 };
+        return [venueId, counts.food + counts.coffee + counts.hotels > 0];
+      })
+    );
+  }
 
   const whistleScore = await loadWhistleScore(supabaseAdmin, relatedTournamentIds);
   const reviewsRaw = await loadPublicReviews(supabaseAdmin, relatedTournamentIds);
@@ -279,13 +336,6 @@ export default async function TournamentDetailPage({
     data.slug ?? ""
   )}&tournament_id=${encodeURIComponent(data.id)}&source_url=${encodeURIComponent(detailPath)}`;
   const canonicalUrl = buildCanonicalUrl(data.slug ?? params.slug);
-  const issueMailto = `mailto:${ISSUE_EMAIL}?subject=${encodeURIComponent(
-    `Tournament issue report: ${data.name}`
-  )}&body=${encodeURIComponent(
-    `Tournament: ${data.name}\nPage: ${canonicalUrl}\n\nDescribe the issue:`
-  )}`;
-  const primaryVenueQuery = buildVenueQuery([data.venue, data.address, data.city, data.state, data.zip]);
-  const primaryVenueMapLinks = primaryVenueQuery ? buildMapLinks(primaryVenueQuery) : null;
   const eventLd: Record<string, any> = {
     "@context": "https://schema.org",
     "@type": "Event",
@@ -392,296 +442,155 @@ export default async function TournamentDetailPage({
               ) : null}
             </div>
           ) : null}
-          <h1 className="detailTitle">{data.name}</h1>
+          <div className="detailIntro">
+            <h1 className="detailTitle">{data.name}</h1>
 
-          <p className="detailMeta">
-            <strong>{data.state}</strong>
-            {data.city ? ` • ${data.city}` : ""}
-            {data.zip ? ` • ${data.zip}` : ""}
-            {data.level ? ` • ${data.level}` : ""}
-          </p>
-
-          <p className="detailMeta">
-            {formatDate(data.start_date)}
-            {data.end_date && data.end_date !== data.start_date ? ` – ${formatDate(data.end_date)}` : ""}
-          </p>
-
-          {data.sport && sportSlug ? (
             <p className="detailMeta">
-              Browse:{" "}
-              <Link href={`/tournaments/hubs/${sportSlug}`}>
-                {data.sport} tournaments
-              </Link>
-              {data.state ? (
-                <>
-                  {" "}
-                  •{" "}
-                  <Link href={`/tournaments/hubs/${sportSlug}/${data.state.toLowerCase()}`}>
-                    {data.sport} in {data.state}
-                  </Link>
-                </>
-              ) : null}
+              <strong>{data.state}</strong>
+              {data.city ? ` • ${data.city}` : ""}
+              {data.zip ? ` • ${data.zip}` : ""}
+              {data.level ? ` • ${data.level}` : ""}
             </p>
-          ) : null}
 
-          {(data.venue || data.address) && (
-            <div className="detailMeta">
-              <p style={{ margin: 0 }}>
-                {data.venue ? `${data.venue}` : ""}
-                {data.venue && data.address ? " • " : ""}
-                {data.address ? `${data.address}` : ""}
-              </p>
-              {primaryVenueMapLinks ? (
-                <div style={{ marginTop: 4, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <a href={primaryVenueMapLinks.google} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
-                    Google Maps
-                  </a>
-                  <a href={primaryVenueMapLinks.apple} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
-                    Apple Maps
-                  </a>
-                  <a href={primaryVenueMapLinks.waze} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
-                    Waze
-                  </a>
-                </div>
-              ) : null}
-            </div>
-          )}
-          {linkedVenues.length > 1 && (
-            <div className="detailMeta" style={{ marginTop: 6 }}>
-              <strong>Venues:</strong>
-              <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
-                {linkedVenues.map((v) => {
-                  const venueQuery = buildVenueQuery([v.name, v.address, v.city, v.state, v.zip]);
-                  const mapLinks = venueQuery ? buildMapLinks(venueQuery) : null;
-                  return (
-                    <li key={v.id} style={{ marginBottom: 8 }}>
-                      <div>
-                        {[v.name, v.address, v.city, v.state, v.zip]
-                          .filter(Boolean)
-                          .join(" • ")}
-                      </div>
-                      {mapLinks ? (
-                        <div style={{ marginTop: 2, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <a href={mapLinks.google} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
-                            Google Maps
-                          </a>
-                          <a href={mapLinks.apple} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
-                            Apple Maps
-                          </a>
-                          <a href={mapLinks.waze} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
-                            Waze
-                          </a>
-                        </div>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-          {!data.venue && !data.address && linkedVenues.length === 1 && (
-            <div className="detailMeta">
-              <p style={{ margin: 0 }}>
-                {[linkedVenues[0].name, linkedVenues[0].address, linkedVenues[0].city, linkedVenues[0].state, linkedVenues[0].zip]
-                  .filter(Boolean)
-                  .join(" • ")}
-              </p>
-              {(() => {
-                const venueQuery = buildVenueQuery([
-                  linkedVenues[0].name,
-                  linkedVenues[0].address,
-                  linkedVenues[0].city,
-                  linkedVenues[0].state,
-                  linkedVenues[0].zip,
-                ]);
-                if (!venueQuery) return null;
-                const mapLinks = buildMapLinks(venueQuery);
-                return (
-                  <div style={{ marginTop: 4, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <a href={mapLinks.google} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
-                      Google Maps
-                    </a>
-                    <a href={mapLinks.apple} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
-                      Apple Maps
-                    </a>
-                    <a href={mapLinks.waze} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
-                      Waze
-                    </a>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
+            <p className="detailMeta">
+              {formatDate(data.start_date)}
+              {data.end_date && data.end_date !== data.start_date ? ` – ${formatDate(data.end_date)}` : ""}
+            </p>
 
-          <div
-            style={{
-              marginTop: 8,
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid rgba(0,0,0,0.08)",
-              background: "rgba(255,255,255,0.85)",
-              fontSize: 13,
-              color: "#0b172a",
-              maxWidth: 520,
-            }}
-          >
-            <div style={{ fontWeight: 800, marginBottom: 4 }}>Tournament contacts</div>
-            {user ? (
-              privateDetailRows.length ? (
-                <div style={{ display: "grid", gap: 4 }}>
-                  {privateDetailRows.map((row) => (
-                    <div key={row.label}>
-                      {row.label}: {row.value}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div>No verified contact info yet.</div>
-              )
-            ) : data.tournament_director || data.referee_contact ? (
-              <div>
-                Contact info is available for verified users.{" "}
-                <Link href="/account/login" style={{ fontWeight: 700 }}>
-                  Sign in
-                </Link>{" "}
-                to view.
-              </div>
-            ) : (
-              <div>
-                No verified contact info yet.{" "}
-                <Link href="/tournaments/list?intent=contact" style={{ fontWeight: 700 }}>
-                  Sign in to add.
+            {data.sport && sportSlug ? (
+              <p className="detailMeta">
+                Browse:{" "}
+                <Link href={`/tournaments/hubs/${sportSlug}`}>
+                  {data.sport} tournaments
                 </Link>
-              </div>
-            )}
-            {pendingContactsCount ? (
-              <div style={{ marginTop: 6, fontSize: 12, color: "#0f172a" }}>
-                Pending review: {pendingContactsCount}
+                {data.state ? (
+                  <>
+                    {" "}
+                    •{" "}
+                    <Link href={`/tournaments/hubs/${sportSlug}/${data.state.toLowerCase()}`}>
+                      {data.sport} in {data.state}
+                    </Link>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+
+            {linkedVenues.length > 0 ? (
+              <div className="detailVenueGrid">
+                {linkedVenues.map((venue) => (
+                  <Link
+                    key={venue.id}
+                    href={`/venues/${venue.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`detailVenueTile ${hasOwlsEyeByVenueId.get(venue.id) ? "detailVenueTile--withOwl" : ""}`}
+                  >
+                    <span className="detailVenueTile__eyebrow">Venue</span>
+                    <span className="detailVenueTile__name">{venue.name || "Venue TBA"}</span>
+                    {hasOwlsEyeByVenueId.get(venue.id) ? (
+                      <span className="detailVenueTile__flag">Owl&apos;s Eye™</span>
+                    ) : (
+                      <span className="detailVenueTile__flag">Open details</span>
+                    )}
+                  </Link>
+                ))}
               </div>
             ) : null}
-          </div>
 
-          <p className="detailBody">
-            {data.summary ||
-              "Tournament details sourced from public listings. More referee insights coming soon."}
-          </p>
-
-          <p className="detailBody" style={{ marginTop: 10 }}>
-            This listing is part of RefereeInsights public beta. We’re building a
-            referee-first directory so officials can quickly understand tournament
-            logistics and working conditions before accepting assignments. Insights and
-            decision signals will appear here as they’re collected and verified over time.
-          </p>
-
-          <div
-            style={{
-              marginTop: 10,
-              marginBottom: 14,
-              background: "rgba(255,255,255,0.9)",
-              border: "1px solid #d9e3f0",
-              borderRadius: 14,
-              padding: "10px 12px",
-              boxShadow: "0 3px 10px rgba(0,0,0,0.18)",
-              maxWidth: 900,
-            }}
-          >
-            <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4, color: "#0b172a" }}>
-              ⏳ Insights still being collected
+            <div
+              style={{
+                marginTop: 8,
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.24)",
+                background: "rgba(255,255,255,0.16)",
+                fontSize: 13,
+                color: "#f8fafc",
+                maxWidth: 520,
+                width: "100%",
+              }}
+            >
+              <div style={{ fontWeight: 800, marginBottom: 4 }}>Tournament contacts</div>
+              {user ? (
+                privateDetailRows.length ? (
+                  <div style={{ display: "grid", gap: 4 }}>
+                    {privateDetailRows.map((row) => (
+                      <div key={row.label}>
+                        {row.label}: {row.value}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div>No verified contact info yet.</div>
+                )
+              ) : data.tournament_director || data.referee_contact ? (
+                <div>
+                  Contact info is available for verified users.{" "}
+                  <Link href="/account/login" style={{ fontWeight: 700, color: "#ffffff" }}>
+                    Sign in
+                  </Link>{" "}
+                  to view.
+                </div>
+              ) : (
+                <div>
+                  No verified contact info yet.{" "}
+                  <Link href="/tournaments/list?intent=contact" style={{ fontWeight: 700, color: "#ffffff" }}>
+                    Sign in to add.
+                  </Link>
+                </div>
+              )}
+              {pendingContactsCount ? (
+                <div style={{ marginTop: 6, fontSize: 12, color: "rgba(248,250,252,0.88)" }}>
+                  Pending review: {pendingContactsCount}
+                </div>
+              ) : null}
             </div>
-            <div style={{ fontSize: 13, lineHeight: 1.45, color: "#22324a" }}>
-              If you’re working this event, you can help by reporting issues or requesting
-              verified updates. More signals will appear as the directory fills in.
+
+            <p className="detailBody">
+              {data.summary ||
+                "Tournament details sourced from public listings. More referee insights coming soon."}
+            </p>
+
+            <p className="detailBody" style={{ marginTop: 10 }}>
+              This listing is part of RefereeInsights public beta. We’re building a
+              referee-first directory so officials can quickly understand tournament
+              logistics and working conditions before accepting assignments. Insights and
+              decision signals will appear here as they’re collected and verified over time.
+            </p>
+
+            <DecisionSignals />
+
+            <div
+              style={{
+                marginTop: 8,
+                marginBottom: 16,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                flexWrap: "wrap",
+              }}
+            >
+              <a
+                href={addInsightHref}
+                style={{
+                  textDecoration: "none",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  padding: "10px 16px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(255,255,255,0.24)",
+                  background: "#ffffff",
+                  color: "#0b172a",
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
+                }}
+              >
+                Add referee insight
+              </a>
+              <span style={{ fontSize: 12, color: "#ffffff", fontWeight: 700, textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
+                Help other officials decide before accepting.
+              </span>
             </div>
-          </div>
-
-          <div
-            style={{
-              display: "inline-flex",
-              gap: 10,
-              flexWrap: "wrap",
-              alignItems: "center",
-              marginBottom: 14,
-              background: "rgba(255,255,255,0.9)",
-              border: "1px solid #d9e3f0",
-              borderRadius: 14,
-              padding: "10px 12px",
-              boxShadow: "0 3px 10px rgba(0,0,0,0.18)",
-            }}
-          >
-            <a
-              href={issueMailto}
-              style={{
-                textDecoration: "none",
-                fontWeight: 700,
-                fontSize: 13,
-                padding: "10px 16px",
-                borderRadius: 999,
-                border: "1px solid #d9e3f0",
-                background: "#ffffff",
-                color: "#0b172a",
-                minHeight: 42,
-                boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
-              }}
-            >
-              Report an Issue
-            </a>
-            <a
-              href={`/tournaments/list?intent=claim&entity_type=tournament&tournament_slug=${encodeURIComponent(
-                data.slug ?? ""
-              )}&tournament_id=${encodeURIComponent(data.id)}&source_url=${encodeURIComponent(
-                `/tournaments/${data.slug ?? params.slug}`
-              )}`}
-              style={{
-                textDecoration: "none",
-                fontWeight: 700,
-                fontSize: 13,
-                padding: "10px 16px",
-                borderRadius: 999,
-                border: "1px solid #d9e3f0",
-                background: "#ffffff",
-                color: "#0b172a",
-                minHeight: 42,
-                boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
-              }}
-            >
-              Claim this listing
-            </a>
-            <span style={{ fontSize: 12, color: "#0b172a", fontWeight: 700 }}>
-              Request verified contact info and updates.
-            </span>
-          </div>
-
-          <DecisionSignals />
-
-          <div
-            style={{
-              marginTop: 8,
-              marginBottom: 16,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 10,
-              flexWrap: "wrap",
-            }}
-          >
-            <a
-              href={addInsightHref}
-              style={{
-                textDecoration: "none",
-                fontWeight: 700,
-                fontSize: 13,
-                padding: "10px 16px",
-                borderRadius: 999,
-                border: "1px solid #d9e3f0",
-                background: "#ffffff",
-                color: "#0b172a",
-                boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
-              }}
-            >
-              Add referee insight
-            </a>
-            <span style={{ fontSize: 12, color: "#ffffff", fontWeight: 700, textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
-              Help other officials decide before accepting.
-            </span>
           </div>
 
           <div className="refereeInsights">

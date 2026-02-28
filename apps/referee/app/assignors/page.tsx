@@ -5,6 +5,7 @@ import AssignorDirectoryTable from "./AssignorDirectoryTable";
 import AcceptTermsModal from "./AcceptTermsModal";
 import AssignorLocationFilters from "@/components/AssignorLocationFilters";
 import StateMultiSelect from "../tournaments/StateMultiSelect";
+import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import { normalizeStateDisplay, stateAliases } from "@/lib/usStates";
 import "../tournaments/tournaments.css";
 
@@ -336,7 +337,7 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
             </label>
             <label style={{ display: "flex", flexDirection: "column", fontWeight: 700, color: "#0b1f14" }}>
               <span style={{ marginBottom: 6 }}>Sport</span>
-              <select
+              <AutoSubmitSelect
                 name="sport"
                 defaultValue={sport}
                 style={{
@@ -352,7 +353,7 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
                     {opt.charAt(0).toUpperCase() + opt.slice(1)}
                   </option>
                 ))}
-              </select>
+              </AutoSubmitSelect>
             </label>
             <div>
               <span className="label">State</span>
@@ -362,6 +363,7 @@ export default async function AssignorsPage({ searchParams }: { searchParams?: S
                 isAllStates={isAllStates}
                 allStatesValue={ALL_STATES_VALUE}
                 summaryLabel={stateSummaryLabel}
+                autoSubmit
               />
             </div>
             <AssignorLocationFilters
