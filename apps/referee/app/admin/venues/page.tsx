@@ -85,7 +85,7 @@ export type DuplicateVenueCandidate = {
 
 export type DuplicateVenueGroup = {
   key: string;
-  kind: "exact_address_city_state" | "same_name_city_state";
+  kind: "exact_address_city_state" | "same_name_city_state" | "same_street_state" | "same_name_state";
   suggested_target_id: string;
   candidates: DuplicateVenueCandidate[];
 };
@@ -344,6 +344,8 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 
     const exactAddressGroups = new Map<string, DuplicateVenueCandidate[]>();
     const nameCityGroups = new Map<string, DuplicateVenueCandidate[]>();
+    const streetStateGroups = new Map<string, DuplicateVenueCandidate[]>();
+    const nameStateGroups = new Map<string, DuplicateVenueCandidate[]>();
 
     for (const row of (allVenuesLite ?? []) as Array<Record<string, any>>) {
       const candidate: DuplicateVenueCandidate = {
@@ -378,6 +380,10 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
           list.push(candidate);
           exactAddressGroups.set(key, list);
         }
+        const streetStateKey = `${street}|${state}`;
+        const streetStateList = streetStateGroups.get(streetStateKey) ?? [];
+        streetStateList.push(candidate);
+        streetStateGroups.set(streetStateKey, streetStateList);
       }
       if (name && city && state) {
         const key =
@@ -392,6 +398,12 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
           list.push(candidate);
           nameCityGroups.set(key, list);
         }
+      }
+      if (name && state) {
+        const key = `${name}|${state}`;
+        const list = nameStateGroups.get(key) ?? [];
+        list.push(candidate);
+        nameStateGroups.set(key, list);
       }
     }
 
@@ -453,9 +465,71 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         suggested_target_id: target.id,
         candidates: filtered,
       });
+      filtered.forEach((item) => seenIds.add(item.id));
+    }
+    for (const [key, list] of streetStateGroups.entries()) {
+      if (list.length < 2) continue;
+      if (list.some((item) => seenIds.has(item.id))) continue;
+      const compatible = list.filter((candidate, _, all) => {
+        const candidateZip = normalizeIdentityText(candidate.zip);
+        const candidateHost = candidate.venue_url_host || normalizeIdentityUrlHost(candidate.venue_url);
+        return all.some((other) => {
+          if (other.id === candidate.id) return false;
+          const otherZip = normalizeIdentityText(other.zip);
+          const otherHost = other.venue_url_host || normalizeIdentityUrlHost(other.venue_url);
+          return (candidateZip && otherZip && candidateZip === otherZip) || (candidateHost && otherHost && candidateHost === otherHost) || (!candidateZip && !otherZip);
+        });
+      });
+      if (compatible.length < 2) continue;
+      const target = pickTarget(compatible);
+      const filtered = compatible.filter((item) => item.id === target.id || !keepBothPairs.has(pairKey(item.id, target.id)));
+      if (filtered.length < 2) continue;
+      duplicateGroups.push({
+        key,
+        kind: "same_street_state",
+        suggested_target_id: target.id,
+        candidates: filtered,
+      });
+      filtered.forEach((item) => seenIds.add(item.id));
+    }
+    for (const [key, list] of nameStateGroups.entries()) {
+      if (list.length < 2) continue;
+      if (list.some((item) => seenIds.has(item.id))) continue;
+      const compatible = list.filter((candidate, _, all) => {
+        const candidateCity = normalizeIdentityText(candidate.city);
+        const candidateStreet = normalizeIdentityStreet(candidate.address);
+        const candidateHost = candidate.venue_url_host || normalizeIdentityUrlHost(candidate.venue_url);
+        return all.some((other) => {
+          if (other.id === candidate.id) return false;
+          const otherCity = normalizeIdentityText(other.city);
+          const otherStreet = normalizeIdentityStreet(other.address);
+          const otherHost = other.venue_url_host || normalizeIdentityUrlHost(other.venue_url);
+          if (candidateCity && otherCity && candidateCity === otherCity) return true;
+          if (candidateStreet && otherStreet && candidateStreet === otherStreet) return true;
+          if (candidateHost && otherHost && candidateHost === otherHost) return true;
+          return false;
+        });
+      });
+      if (compatible.length < 2) continue;
+      const target = pickTarget(compatible);
+      const filtered = compatible.filter((item) => item.id === target.id || !keepBothPairs.has(pairKey(item.id, target.id)));
+      if (filtered.length < 2) continue;
+      duplicateGroups.push({
+        key,
+        kind: "same_name_state",
+        suggested_target_id: target.id,
+        candidates: filtered,
+      });
     }
 
     duplicateGroups.sort((a, b) => {
+      const kindRank = (kind: DuplicateVenueGroup["kind"]) => {
+        if (kind === "exact_address_city_state") return 4;
+        if (kind === "same_name_city_state") return 3;
+        if (kind === "same_street_state") return 2;
+        return 1;
+      };
+      if (kindRank(a.kind) !== kindRank(b.kind)) return kindRank(b.kind) - kindRank(a.kind);
       const aWeight = a.candidates.reduce((sum, item) => sum + item.linked_tournaments + item.owl_run_count * 2, 0);
       const bWeight = b.candidates.reduce((sum, item) => sum + item.linked_tournaments + item.owl_run_count * 2, 0);
       return bWeight - aWeight;

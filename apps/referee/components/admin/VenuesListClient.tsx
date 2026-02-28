@@ -19,7 +19,7 @@ type DuplicateVenueCandidate = {
 
 type DuplicateVenueGroup = {
   key: string;
-  kind: "exact_address_city_state" | "same_name_city_state";
+  kind: "exact_address_city_state" | "same_name_city_state" | "same_street_state" | "same_name_state";
   suggested_target_id: string;
   candidates: DuplicateVenueCandidate[];
 };
@@ -34,8 +34,13 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [mergingSource, setMergingSource] = useState<string | null>(null);
   const [keepingSource, setKeepingSource] = useState<string | null>(null);
+  const [deletingVenueId, setDeletingVenueId] = useState<string | null>(null);
+  const [targetByGroup, setTargetByGroup] = useState<Record<string, string>>({});
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const duplicateGroupId = (group: DuplicateVenueGroup) => `${group.kind}:${group.key}`;
+  const selectedTargetIdForGroup = (group: DuplicateVenueGroup) =>
+    targetByGroup[duplicateGroupId(group)] || group.suggested_target_id;
 
   const toggleSelected = (venueId: string, selected: boolean) => {
     setSelectedIds((prev) => {
@@ -141,6 +146,39 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
     }
   };
 
+  const deleteVenue = async (venueId: string, venueName: string | null) => {
+    if (!venueId) return;
+    const selectedVenue = venues.find((venue) => venue.id === venueId);
+    const hasOwl = Boolean(selectedVenue?.owl_run_id);
+    if (!window.confirm(`Delete ${venueName || venueId}? This removes Owl's Eye rows, unlinks tournaments, and deletes the venue.`)) {
+      return;
+    }
+    if (hasOwl) {
+      const confirmed = window.confirm(
+        "Warning: this venue has Owl's Eye data. Deleting will permanently remove Owl's Eye runs, nearby results, and map artifacts. Continue?"
+      );
+      if (!confirmed) return;
+    }
+    setDeletingVenueId(venueId);
+    try {
+      const resp = await fetch("/api/admin/venues/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ venue_ids: [venueId], confirm_owl_delete: hasOwl }),
+      });
+      if (!resp.ok) {
+        const json = await resp.json().catch(() => ({}));
+        throw new Error(json?.error || "Delete failed");
+      }
+      window.location.reload();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Delete failed";
+      window.alert(message);
+    } finally {
+      setDeletingVenueId(null);
+    }
+  };
+
   return (
     <div style={{ display: "grid", gap: 12 }}>
       {duplicateGroups.length > 0 ? (
@@ -156,19 +194,27 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
         >
           <div style={{ fontSize: 16, fontWeight: 800 }}>Duplicate venue candidates</div>
           <div style={{ fontSize: 13, color: "#78350f" }}>
-            Review suggested targets and merge sources directly here. Suggested target prioritizes Owl&apos;s Eye history, linked tournaments, and venue URL.
+            Review suggested targets and merge sources directly here. You can keep the suggestion or choose a different venue as the merge target before merging.
           </div>
           {duplicateGroups.slice(0, 25).map((group) => (
-            <details key={`${group.kind}:${group.key}`} style={{ border: "1px solid #fde68a", borderRadius: 8, background: "#fff" }}>
+            <details key={duplicateGroupId(group)} style={{ border: "1px solid #fde68a", borderRadius: 8, background: "#fff" }}>
               <summary style={{ cursor: "pointer", padding: "8px 10px", fontWeight: 700 }}>
                 {duplicateKindLabel(group.kind)} • {group.candidates.length} venues
               </summary>
               <div style={{ padding: "8px 10px", display: "grid", gap: 8 }}>
+                {(() => {
+                  const groupId = duplicateGroupId(group);
+                  const selectedTargetId = selectedTargetIdForGroup(group);
+                  const selectedTarget = group.candidates.find((item) => item.id === selectedTargetId) ?? group.candidates[0];
+                  return (
+                    <>
                 <div style={{ fontSize: 12, color: "#6b7280" }}>
-                  Suggested target: <span style={{ fontFamily: "monospace", fontWeight: 700 }}>{group.suggested_target_id}</span>
+                  Merge target: <span style={{ fontFamily: "monospace", fontWeight: 700 }}>{selectedTargetId}</span>
+                  {selectedTargetId === group.suggested_target_id ? " (suggested)" : " (override)"}
                 </div>
                 {group.candidates.map((item) => {
-                  const isTarget = item.id === group.suggested_target_id;
+                  const isTarget = item.id === selectedTargetId;
+                  const isSuggested = item.id === group.suggested_target_id;
                   return (
                     <div
                       key={item.id}
@@ -184,6 +230,9 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
                       <div style={{ fontWeight: 700 }}>{item.name || "Untitled venue"}</div>
                       <div style={{ fontSize: 13, color: "#374151" }}>
                         {[item.address, item.city, item.state, item.zip].filter(Boolean).join(" • ") || "—"}
+                      </div>
+                      <div style={{ fontSize: 12, color: isTarget ? "#065f46" : "#6b7280", fontWeight: isTarget ? 700 : 500 }}>
+                        {isTarget ? "Current merge target" : isSuggested ? "Suggested target" : "Merge source candidate"}
                       </div>
                       <div style={{ fontSize: 12, color: "#6b7280" }}>
                         ID: <span style={{ fontFamily: "monospace" }}>{item.id}</span> • Linked tournaments: {item.linked_tournaments} • Owl&apos;s Eye runs: {item.owl_run_count}
@@ -219,12 +268,46 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
                         >
                           Open
                         </Link>
+                        <button
+                          type="button"
+                          onClick={() => setTargetByGroup((prev) => ({ ...prev, [groupId]: item.id }))}
+                          disabled={isTarget}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: `1px solid ${isTarget ? "#065f46" : "#9ca3af"}`,
+                            background: isTarget ? "#ecfdf5" : "#fff",
+                            color: isTarget ? "#065f46" : "#374151",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            cursor: isTarget ? "default" : "pointer",
+                          }}
+                        >
+                          {isTarget ? "Selected target" : "Use as target"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteVenue(item.id, item.name)}
+                          disabled={deletingVenueId === item.id}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #dc2626",
+                            background: deletingVenueId === item.id ? "#fee2e2" : "#fff",
+                            color: "#b91c1c",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            cursor: deletingVenueId === item.id ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          {deletingVenueId === item.id ? "Deleting..." : "Delete"}
+                        </button>
                       </div>
                       {!isTarget ? (
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <button
                             type="button"
-                            onClick={() => mergeVenue(item.id, group.suggested_target_id)}
+                            onClick={() => mergeVenue(item.id, selectedTargetId)}
                             disabled={mergingSource === item.id}
                             style={{
                               padding: "6px 10px",
@@ -240,7 +323,7 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
                           </button>
                           <button
                             type="button"
-                            onClick={() => keepBoth(item.id, group.suggested_target_id)}
+                            onClick={() => keepBoth(item.id, selectedTargetId)}
                             disabled={keepingSource === item.id}
                             style={{
                               padding: "6px 10px",
@@ -256,11 +339,16 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
                           </button>
                         </div>
                       ) : (
-                        <div style={{ fontSize: 12, color: "#065f46", fontWeight: 700 }}>Kept venue (suggested target)</div>
+                        <div style={{ fontSize: 12, color: "#065f46", fontWeight: 700 }}>
+                          Kept venue {selectedTargetId === group.suggested_target_id ? "(suggested target)" : "(override target)"}
+                        </div>
                       )}
                     </div>
                   );
                 })}
+                    </>
+                  );
+                })()}
               </div>
             </details>
           ))}
@@ -321,5 +409,7 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
 }
   const duplicateKindLabel = (kind: DuplicateVenueGroup["kind"]) => {
     if (kind === "exact_address_city_state") return "Exact address match";
-    return "Name + city + state match";
+    if (kind === "same_name_city_state") return "Name + city + state match";
+    if (kind === "same_street_state") return "Street + state match";
+    return "Name + state match";
   };

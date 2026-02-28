@@ -47,6 +47,42 @@
   - Validation:
     - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
 
+- RI venue duplicate admin widening + manual cleanup controls:
+  - Updated:
+    - `apps/referee/app/admin/venues/page.tsx`
+    - `apps/referee/components/admin/VenuesListClient.tsx`
+    - `apps/referee/app/admin/venues/link-quality/page.tsx`
+  - Changes:
+    - widened duplicate review buckets to include:
+      - `street + state`
+      - `name + state`
+    - duplicate review UI now supports:
+      - override merge target selection,
+      - direct delete per venue candidate,
+      - clearer target/source labeling.
+    - added `/admin/venues/link-quality` to review suspicious tournament↔venue links using:
+      - state mismatch,
+      - high multi-state venue fanout.
+  - Validation:
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
+
+- TI tournament detail venue-grid mobile compaction:
+  - Updated:
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - `apps/ti-web/app/tournaments/tournaments.css`
+  - Changes:
+    - replaced expandable venue cards with compact linked venue tiles,
+    - removed the per-card `Venue details` button,
+    - made the entire tile clickable and open the venue page in a new tab,
+    - reduced tile content to dense mobile-friendly text (`Venue`, venue name, short footer flag),
+    - fixed venue tile layout to:
+      - 2 columns on mobile,
+      - 3 columns on larger screens,
+      - without expanding to a wide desktop card list,
+    - removed now-unused per-venue premium/detail fetch work from the tournament detail page.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+
 ## 2026-02-27
 - RI_Backend Playwright target URL hardening:
   - Updated:
