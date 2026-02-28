@@ -9,5 +9,5 @@ export const metadata = {
 };
 
 export default function TermsPage() {
-  return <LegalPage title={`${BRAND_TI} Terms of Service`} lastUpdated="2026-02-26" markdown={termsContent} />;
+  return <LegalPage title={`${BRAND_TI} Terms of Service`} lastUpdated="February 26, 2026" markdown={termsContent} />;
 }

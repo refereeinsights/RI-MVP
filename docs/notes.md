@@ -83,6 +83,35 @@
   - Validation:
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
 
+- RI venue edit linked-tournament normalization fix:
+  - Updated:
+    - `apps/referee/app/admin/venues/[id]/page.tsx`
+  - Fixed edit-page linked tournaments disappearing when Supabase returned joined `tournaments` as a single object instead of an array.
+  - The admin venue edit page now normalizes both join shapes and shows linked tournaments consistently with the venue list view.
+  - Validation:
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
+
+- TI venue mobile map-app launch + legal/reporting consistency:
+  - Updated:
+    - `apps/ti-web/components/venues/MobileMapLink.tsx`
+    - `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+    - `apps/ti-web/app/premium/page.tsx`
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/ti-web/app/privacy/page.tsx`
+    - `apps/ti-web/app/terms/page.tsx`
+  - Changes:
+    - venue-detail map links now try to open native apps on mobile:
+      - Apple Maps via `maps://`
+      - Google Maps via `comgooglemaps://` on iOS and `geo:` on Android
+      - Waze via `waze://`
+    - links fall back to the normal web URL if the mobile app does not open,
+    - TI tournament directory `Report an issue` now opens a mail draft to:
+      - `tournamentinsights@gmail.com`
+    - TI legal pages now use a consistent `Month DD, YYYY` last-updated format.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+
 ## 2026-02-27
 - RI_Backend Playwright target URL hardening:
   - Updated:

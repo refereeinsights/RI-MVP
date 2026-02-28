@@ -43,6 +43,9 @@ export const metadata = {
   },
 };
 
+const ISSUE_EMAIL = "tournamentinsights@gmail.com";
+const SITE_ORIGIN = "https://www.tournamentinsights.com";
+
 const SPORTS_LABELS: Record<string, string> = {
   soccer: "Soccer",
   basketball: "Basketball",
@@ -133,6 +136,9 @@ export default async function TournamentsPage({
   };
 }) {
   const q = (searchParams?.q ?? "").trim();
+  const tournamentsIssueMailto = `mailto:${ISSUE_EMAIL}?subject=${encodeURIComponent(
+    "Tournament issue report"
+  )}&body=${encodeURIComponent(`Page: ${SITE_ORIGIN}/tournaments\n\nDescribe the issue:`)}`;
   const stateParam = searchParams?.state;
   const month = (searchParams?.month ?? "").trim(); // YYYY-MM
   const sportsParam = searchParams?.sports;
@@ -351,7 +357,7 @@ export default async function TournamentsPage({
             }}
           >
             <a
-              href="/feedback?type=tournament&name=Tournament%20Insights&url=/tournaments"
+              href={tournamentsIssueMailto}
               style={{
                 display: "inline-flex",
                 alignItems: "center",

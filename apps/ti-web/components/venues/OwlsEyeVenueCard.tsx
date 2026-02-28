@@ -3,6 +3,7 @@ import { BRAND_OWL } from "@/lib/brand";
 import type { OwlsEyeDemoScores } from "@/lib/owlsEyeScores";
 import OwlsEyeDemoScoresPanel from "@/components/OwlsEyeDemoScoresPanel";
 import OwlsEyeWeekendGuideAccordion from "@/components/OwlsEyeWeekendGuideAccordion";
+import MobileMapLink from "@/components/venues/MobileMapLink";
 
 export type NearbyPlace = {
   name: string;
@@ -28,6 +29,7 @@ type OwlsEyeVenueCardProps = {
   premiumNearby: { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; captured_at: string | null } | null;
   tier: "explorer" | "insider" | "weekend_pro";
   mapLinks: { google: string; apple: string; waze: string } | null;
+  mapQuery: string | null;
   demoScores?: OwlsEyeDemoScores | null;
   demoScoresIsDemo?: boolean;
   defaultNearbyAllCollapsed?: boolean;
@@ -41,6 +43,7 @@ export default function OwlsEyeVenueCard({
   premiumNearby,
   tier,
   mapLinks,
+  mapQuery,
   demoScores,
   demoScoresIsDemo = false,
   defaultNearbyAllCollapsed = false,
@@ -74,17 +77,17 @@ export default function OwlsEyeVenueCard({
               </div>
             </div>
           </div>
-          {mapLinks ? (
+          {mapLinks && mapQuery ? (
             <div className="detailLinksRow">
-              <a className="secondaryLink" href={mapLinks.google} target="_blank" rel="noopener noreferrer">
+              <MobileMapLink provider="google" query={mapQuery} fallbackHref={mapLinks.google} className="secondaryLink">
                 Google Maps
-              </a>
-              <a className="secondaryLink" href={mapLinks.apple} target="_blank" rel="noopener noreferrer">
+              </MobileMapLink>
+              <MobileMapLink provider="apple" query={mapQuery} fallbackHref={mapLinks.apple} className="secondaryLink">
                 Apple Maps
-              </a>
-              <a className="secondaryLink" href={mapLinks.waze} target="_blank" rel="noopener noreferrer">
+              </MobileMapLink>
+              <MobileMapLink provider="waze" query={mapQuery} fallbackHref={mapLinks.waze} className="secondaryLink">
                 Waze
-              </a>
+              </MobileMapLink>
             </div>
           ) : null}
         </div>

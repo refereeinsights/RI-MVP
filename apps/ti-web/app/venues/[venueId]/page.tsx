@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { canAccessWeekendPro, getTier } from "@/lib/entitlements";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
 import OwlsEyeVenueCard, { type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
+import MobileMapLink from "@/components/venues/MobileMapLink";
 import {
   DEMO_STARFIRE_VENUE_ID,
   buildOwlsEyeDemoScores,
@@ -325,9 +326,9 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                   </a>
                 ) : null}
                 {mapLinks ? (
-                  <a href={mapLinks.apple} target="_blank" rel="noopener noreferrer" className="primaryLink">
+                  <MobileMapLink provider="apple" query={addressLabel} fallbackHref={mapLinks.apple} className="primaryLink">
                     View map
-                  </a>
+                  </MobileMapLink>
                 ) : null}
               </div>
 
@@ -347,6 +348,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                 premiumNearby={premiumNearby}
                 tier={tier}
                 mapLinks={mapLinks}
+                mapQuery={addressLabel || null}
                 demoScores={demoScores}
                 demoScoresIsDemo={data.id === DEMO_STARFIRE_VENUE_ID}
                 defaultNearbyAllCollapsed

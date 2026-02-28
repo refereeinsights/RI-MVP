@@ -348,6 +348,7 @@ export default async function PremiumPage() {
                         premiumNearby={premiumNearby}
                         tier="explorer"
                         mapLinks={mapLinks}
+                        mapQuery={mapQuery || null}
                         demoScores={demoScores}
                         demoScoresIsDemo
                         defaultNearbyAllCollapsed
