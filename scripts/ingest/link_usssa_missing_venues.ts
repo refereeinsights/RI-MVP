@@ -44,6 +44,10 @@ function normalize(value: string | null | undefined) {
     .trim();
 }
 
+function isUsssaEventUrl(value: string | null | undefined) {
+  return /(?:^https?:\/\/)?(?:[a-z0-9-]+\.)?usssa\.com\/event\//i.test(String(value ?? ""));
+}
+
 function clean(value: string | null | undefined) {
   const v = String(value ?? "").replace(/\s+/g, " ").trim();
   return v.length ? v : null;
@@ -313,7 +317,9 @@ async function run() {
     .select("id,name,sport,city,state,source_url,official_website_url,status,is_canonical")
     .eq("status", "published")
     .eq("is_canonical", true)
-    .or("source_url.ilike.%usssa.com/event/%,official_website_url.ilike.%usssa.com/event/%")
+    .or(
+      "source_url.ilike.%usssa.com/event/%,official_website_url.ilike.%usssa.com/event/%,source_url.ilike.%fastpitch.usssa.com/event/%,official_website_url.ilike.%fastpitch.usssa.com/event/%"
+    )
     .order("updated_at", { ascending: false })
     .limit(LIMIT);
   if (tournamentErr) throw tournamentErr;
@@ -408,8 +414,8 @@ async function run() {
   for (const t of targets) {
     scanned += 1;
     const url =
-      (t.official_website_url && /usssa\.com\/event\//i.test(t.official_website_url) ? t.official_website_url : null) ??
-      (t.source_url && /usssa\.com\/event\//i.test(t.source_url) ? t.source_url : null);
+      (isUsssaEventUrl(t.official_website_url) ? t.official_website_url : null) ??
+      (isUsssaEventUrl(t.source_url) ? t.source_url : null);
     if (!url) continue;
 
     try {

@@ -230,6 +230,9 @@ function isMissingCooldownColumnError(message: string | undefined): boolean {
   );
 }
 
+const USSSA_EVENT_OR_FILTER =
+  "official_website_url.ilike.%usssa.com/event/%,source_url.ilike.%usssa.com/event/%,official_website_url.ilike.%fastpitch.usssa.com/event/%,source_url.ilike.%fastpitch.usssa.com/event/%";
+
 export async function POST(request: Request) {
   const isAdmin = await ensureAdmin();
   if (!isAdmin) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -254,7 +257,7 @@ export async function POST(request: Request) {
       .eq("status", "published")
       .eq("is_canonical", true)
       .eq("enrichment_skip", false)
-      .or("official_website_url.ilike.%usssa.com/event/%,source_url.ilike.%usssa.com/event/%")
+      .or(USSSA_EVENT_OR_FILTER)
       .order("fees_venue_scraped_at", { ascending: true, nullsFirst: true })
       .limit(candidatePoolSize);
 
@@ -266,7 +269,7 @@ export async function POST(request: Request) {
         .eq("status", "published")
         .eq("is_canonical", true)
         .eq("enrichment_skip", false)
-        .or("official_website_url.ilike.%usssa.com/event/%,source_url.ilike.%usssa.com/event/%")
+        .or(USSSA_EVENT_OR_FILTER)
         .order("updated_at", { ascending: false })
         .limit(candidatePoolSize);
     }

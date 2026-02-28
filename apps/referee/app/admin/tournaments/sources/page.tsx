@@ -2,22 +2,23 @@ import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { Fragment } from "react";
 import {
   normalizeSourceUrl,
-  upsertRegistry,
-  getRegistryRowByUrl,
   getSkipReason,
-  ensureRegistryRow,
-  updateRegistrySweep,
-  insertSourceLog,
 } from "@/server/admin/sources";
-import { createTournamentFromUrl } from "@/server/admin/pasteUrl";
-import { SweepError, buildSweepSummary } from "@/server/admin/sweepDiagnostics";
 import SourceLogsClient from "./SourceLogsClient";
-import { runTopTierCrawler } from "@/lib/admin/topTierCrawler";
+import {
+  upsertSourceAction,
+  updateStatusAction,
+  updateMetadataAction,
+  quickActionAction,
+  sweepSourceAction,
+  runTopTierSweepAction,
+} from "./actions";
 
 type Filter = "all" | "untested" | "keep" | "ignored" | "needs_review";
+type GroupBy = "none" | "sport" | "state" | "review_status" | "source_type";
 
 export const runtime = "nodejs";
 
@@ -30,6 +31,7 @@ type SearchParams = {
   q?: string;
   sport?: string;
   state?: string;
+  group?: GroupBy;
 };
 
 const SPORT_OPTIONS = [
@@ -54,41 +56,11 @@ const SOURCE_TYPE_OPTIONS = [
   "directory",
   "association_directory",
 ] as const;
-const TOURNAMENT_SPORTS = ["soccer", "basketball", "football", "lacrosse", "baseball"] as const;
+const TOURNAMENT_SPORTS = SPORT_OPTIONS;
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
-}
-
-function describeActionError(err: any) {
-  if (!err) return "unknown_error";
-  const parts = [err.message, err.code, err.details, err.hint].filter(Boolean);
-  if (parts.length) return parts.join(" | ");
-  try {
-    return JSON.stringify(err);
-  } catch {
-    return String(err);
-  }
-}
-
-function buildSourcesNoticeUrl(
-  stickyQueryString: string,
-  noticeMessage: string,
-  extraParams?: Record<string, string | null | undefined>
-) {
-  const params = new URLSearchParams(stickyQueryString);
-  if (noticeMessage) params.set("notice", noticeMessage);
-  if (extraParams) {
-    for (const [key, value] of Object.entries(extraParams)) {
-      if (value === null || value === undefined || value === "") {
-        params.delete(key);
-      } else {
-        params.set(key, value);
-      }
-    }
-  }
-  return `/admin/tournaments/sources${params.toString() ? `?${params.toString()}` : ""}`;
 }
 
 export default async function SourcesPage({ searchParams }: { searchParams: SearchParams }) {
@@ -101,6 +73,11 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   const q = (searchParams.q ?? "").trim();
   const sportFilter = (searchParams.sport ?? "").trim();
   const stateFilter = (searchParams.state ?? "").trim().toUpperCase();
+  const groupBy: GroupBy = (["none", "sport", "state", "review_status", "source_type"].includes(
+    searchParams.group ?? ""
+  )
+    ? searchParams.group
+    : "sport") as GroupBy;
   const stickyQueryString = (() => {
     const params = new URLSearchParams();
     if (filter) params.set("filter", filter);
@@ -109,10 +86,22 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     if (q) params.set("q", q);
     if (sportFilter) params.set("sport", sportFilter);
     if (stateFilter) params.set("state", stateFilter);
+    if (groupBy && groupBy !== "none") params.set("group", groupBy);
     if (selectedUrl) params.set("source_url", selectedUrl);
     return params.toString();
   })();
   const sourcesBasePath = `/admin/tournaments/sources${stickyQueryString ? `?${stickyQueryString}` : ""}`;
+
+  const buildSourcesHref = (extraParams?: Record<string, string | null | undefined>) => {
+    const params = new URLSearchParams(stickyQueryString);
+    if (extraParams) {
+      for (const [key, value] of Object.entries(extraParams)) {
+        if (value === null || value === undefined || value === "") params.delete(key);
+        else params.set(key, value);
+      }
+    }
+    return `/admin/tournaments/sources${params.toString() ? `?${params.toString()}` : ""}`;
+  };
 
   const reviewPriority = [
     "needs_review",
@@ -139,6 +128,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     .select(
       "id,source_url,source_type,sport,state,city,notes,is_active,is_custom_source,review_status,review_notes,ignore_until,last_tested_at,last_swept_at,last_sweep_status,last_sweep_summary,fetched_at,created_at"
     )
+    .is("tournament_id", null)
     .order("last_swept_at", { ascending: false })
     .order("fetched_at", { ascending: true });
   const registryRows = registryRes.data ?? [];
@@ -148,347 +138,12 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         .from("tournament_sources" as any)
         .select("id,fetched_at,http_status,extracted_json,source_url,url")
         .eq("source_url", selectedUrl)
+        .is("tournament_id", null)
         .not("fetched_at", "is", null)
         .order("fetched_at", { ascending: false })
         .limit(10)
     : { data: [] as any[], error: null };
   const runRows = runsRes.data ?? [];
-
-  async function upsertSource(formData: FormData) {
-    "use server";
-    await requireAdmin();
-    const source_url = String(formData.get("source_url") || "").trim();
-    if (!source_url) {
-      redirect(buildSourcesNoticeUrl(stickyQueryString, "Source URL is required"));
-    }
-    const source_type = String(formData.get("source_type") || "").trim() || null;
-    const sport = String(formData.get("sport") || "").trim() || null;
-    if (!source_type || !sport) {
-      redirect(buildSourcesNoticeUrl(stickyQueryString, "Sport and source type are required"));
-    }
-    const state = String(formData.get("state") || "").trim() || null;
-    const city = String(formData.get("city") || "").trim() || null;
-    const notes = String(formData.get("notes") || "").trim() || null;
-    const is_active = String(formData.get("is_active") || "") === "on";
-    const review_status = "untested";
-
-    try {
-      const { canonical } = normalizeSourceUrl(source_url);
-      const existing = await getRegistryRowByUrl(canonical);
-      await upsertRegistry({
-        source_url: canonical,
-        source_type,
-        sport,
-        state,
-        city,
-        notes,
-        is_active,
-        review_status,
-      });
-      const noticeMsg = existing.row
-        ? "Source already exists. Updated existing entry."
-        : "Saved source";
-      redirect(buildSourcesNoticeUrl(stickyQueryString, noticeMsg, { source_url: canonical }));
-    } catch (err: any) {
-      if (err?.digest) throw err;
-      redirect(buildSourcesNoticeUrl(stickyQueryString, `Save failed: ${err?.message ?? "unknown error"}`));
-    }
-  }
-
-  async function updateStatus(formData: FormData) {
-    "use server";
-    await requireAdmin();
-    try {
-      const id = String(formData.get("id") || "");
-      const review_status = String(formData.get("review_status") || "untested");
-      const review_notes = String(formData.get("review_notes") || "").trim() || null;
-      const is_active = String(formData.get("is_active") || "") === "on";
-      const ignore_until = String(formData.get("ignore_until") || "").trim() || null;
-      const { error } = await supabaseAdmin
-        .from("tournament_sources" as any)
-        .update({ review_status, review_notes, is_active, ignore_until: ignore_until || null })
-        .eq("id", id)
-        .is("tournament_id", null);
-      const noticeMsg = error ? `Status update failed: ${describeActionError(error)}` : "Updated source status";
-      redirect(buildSourcesNoticeUrl(stickyQueryString, noticeMsg));
-    } catch (err: any) {
-      if (err?.digest && String(err.digest).includes("NEXT_REDIRECT")) throw err;
-      redirect(
-        buildSourcesNoticeUrl(stickyQueryString, `Status update exception: ${describeActionError(err)}`)
-      );
-    }
-  }
-
-  async function quickAction(formData: FormData) {
-    "use server";
-    await requireAdmin();
-    try {
-      const id = String(formData.get("id") || "");
-      const action = String(formData.get("action") || "");
-      const redirectUrl = formData.get("redirect") as string | null;
-      const updates: any = {};
-      if (action === "keep") {
-        updates.review_status = "keep";
-        updates.is_active = true;
-      } else if (action === "dead") {
-        updates.review_status = "dead";
-        updates.is_active = false;
-      } else if (action === "login") {
-        updates.review_status = "login_required";
-        updates.is_active = false;
-      } else if (action === "js_only") {
-        updates.review_status = "js_only";
-        updates.is_active = false;
-      } else if (action === "paywalled") {
-        updates.review_status = "paywalled";
-        updates.is_active = false;
-      } else if (action === "blocked") {
-        updates.review_status = "blocked_403";
-        const now = new Date();
-        now.setDate(now.getDate() + 7);
-        updates.ignore_until = now.toISOString();
-        updates.is_active = false;
-      } else if (action === "clear_block") {
-        updates.review_status = "needs_review";
-        updates.ignore_until = null;
-        updates.is_active = true;
-      }
-      if (!Object.keys(updates).length) {
-        redirect(redirectUrl || sourcesBasePath);
-      }
-      const { error } = await supabaseAdmin
-        .from("tournament_sources" as any)
-        .update(updates)
-        .eq("id", id)
-        .is("tournament_id", null);
-      const msg = error ? `Quick action failed: ${describeActionError(error)}` : "Updated source";
-      const target = redirectUrl || sourcesBasePath;
-      const base = new URL(target, "http://localhost");
-      base.searchParams.set("notice", msg);
-      redirect(`${base.pathname}?${base.searchParams.toString()}`);
-    } catch (err: any) {
-      if (err?.digest && String(err.digest).includes("NEXT_REDIRECT")) throw err;
-      redirect(
-        buildSourcesNoticeUrl(stickyQueryString, `Quick action exception: ${describeActionError(err)}`)
-      );
-    }
-  }
-
-  async function sweepSourceAction(formData: FormData) {
-    "use server";
-    await requireAdmin();
-    const id = String(formData.get("id") || "");
-    const sourceUrl = String(formData.get("source_url") || "").trim();
-    const sportRaw = String(formData.get("sport") || "soccer").toLowerCase();
-    const overrideSkip = String(formData.get("override_skip") || "") === "on";
-    if (!id || !sourceUrl) {
-      redirect(buildSourcesNoticeUrl(stickyQueryString, "Missing source URL"));
-    }
-
-    const sport = TOURNAMENT_SPORTS.includes(sportRaw as any) ? (sportRaw as any) : "soccer";
-    const { canonical, normalized, host } = normalizeSourceUrl(sourceUrl);
-    const { data: row, error: rowError } = await supabaseAdmin
-      .from("tournament_sources" as any)
-      .select("id,source_url,url,is_active,review_status,review_notes,ignore_until")
-      .eq("id", id)
-      .maybeSingle();
-    const registryRow = row as any;
-    if (rowError || !registryRow) {
-      redirect(buildSourcesNoticeUrl(stickyQueryString, "Source not found"));
-    }
-    await supabaseAdmin
-      .from("tournament_sources" as any)
-      .update({
-        source_url: canonical,
-        url: canonical,
-        normalized_url: normalized,
-        normalized_host: host,
-      })
-      .eq("id", registryRow.id);
-    const skipReason = getSkipReason(registryRow);
-    if (skipReason && !overrideSkip) {
-      await updateRegistrySweep(registryRow.id, "warn", `Skipped: ${skipReason}`);
-      return redirect(
-        buildSourcesNoticeUrl(
-          stickyQueryString,
-          `Sweep skipped: ${skipReason}. Update source status or enable override.`,
-          { source_url: canonical }
-        )
-      );
-    }
-
-    await supabaseAdmin
-      .from("tournament_sources" as any)
-      .update({ last_tested_at: new Date().toISOString() })
-      .eq("id", registryRow.id);
-
-    const startedAt = Date.now();
-    try {
-      const res = await createTournamentFromUrl({
-        url: canonical,
-        sport,
-        status: "draft",
-        source: "external_crawl",
-      });
-      const detailCounts = (res.details?.counts ?? null) as
-        | { found?: number | null; with_website?: number | null; with_email?: number | null; with_phone?: number | null }
-        | null;
-      const payload = {
-        version: 1,
-        source_url: canonical,
-        final_url: res.diagnostics?.final_url ?? null,
-        http_status: res.diagnostics?.status ?? null,
-        error_code: null,
-        message: "Sweep succeeded",
-        content_type: res.diagnostics?.content_type ?? null,
-        bytes: res.diagnostics?.bytes ?? null,
-        timing_ms: Date.now() - startedAt,
-        redirect_count: res.diagnostics?.redirect_count ?? null,
-        redirect_chain: res.diagnostics?.redirect_chain ?? [],
-        location_header: res.diagnostics?.location_header ?? null,
-        extracted_count: res.extracted_count ?? 1,
-        count_found: detailCounts?.found ?? null,
-        count_with_website: detailCounts?.with_website ?? null,
-        count_with_email: detailCounts?.with_email ?? null,
-        count_with_phone: detailCounts?.with_phone ?? null,
-        sample: res.details?.sample ?? null,
-      };
-      const logId = await insertSourceLog({
-        source_id: registryRow.id,
-        action: "sweep",
-        level: "info",
-        payload,
-      });
-      await updateRegistrySweep(
-        registryRow.id,
-        "ok",
-        JSON.stringify({ ...payload, log_id: logId })
-      );
-      redirect(
-        buildSourcesNoticeUrl(
-          stickyQueryString,
-          res.extracted_count && res.extracted_count > 1
-            ? `Imported ${res.extracted_count} events and queued enrichment.`
-            : `Created "${res.meta.name ?? res.slug}" and queued enrichment.`,
-          { source_url: canonical }
-        )
-      );
-    } catch (err: any) {
-      const timingMs = Date.now() - startedAt;
-      if (err?.digest && String(err.digest).includes("NEXT_REDIRECT")) {
-        throw err;
-      }
-      if (err instanceof SweepError) {
-          const payload = {
-            version: 1,
-            source_url: canonical,
-            final_url: err.diagnostics?.final_url ?? null,
-            http_status: err.diagnostics?.status ?? null,
-            error_code: err.code,
-            message: err.message,
-            content_type: err.diagnostics?.content_type ?? null,
-            bytes: err.diagnostics?.bytes ?? null,
-            timing_ms: timingMs,
-            redirect_count: err.diagnostics?.redirect_count ?? null,
-            redirect_chain: err.diagnostics?.redirect_chain ?? [],
-            location_header: err.diagnostics?.location_header ?? null,
-            extracted_count: null,
-            usclub: (err.diagnostics as any)?.usclub ?? null,
-          };
-        const logId = await insertSourceLog({
-          source_id: registryRow.id,
-          action: "sweep",
-          level: "error",
-          payload,
-        });
-        await updateRegistrySweep(
-          registryRow.id,
-          err.code,
-          buildSweepSummary(err.code, err.message, err.diagnostics, { log_id: logId })
-        );
-      } else {
-        const legacyMessage = String(err?.message ?? "");
-        if (legacyMessage === "failed_to_fetch_html") {
-          const payload = {
-            version: 1,
-            source_url: canonical,
-            final_url: null,
-            http_status: null,
-            error_code: "fetch_failed",
-            message: "Request failed",
-            content_type: null,
-            bytes: null,
-            timing_ms: timingMs,
-            redirect_count: null,
-            redirect_chain: [],
-            location_header: null,
-            extracted_count: null,
-          };
-          const logId = await insertSourceLog({
-            source_id: registryRow.id,
-            action: "sweep",
-            level: "error",
-            payload,
-          });
-          await updateRegistrySweep(
-            registryRow.id,
-            "fetch_failed",
-            buildSweepSummary("fetch_failed", payload.message, {}, { log_id: logId })
-          );
-        } else {
-          const payload = {
-            version: 1,
-            source_url: canonical,
-            final_url: null,
-            http_status: null,
-            error_code: "extractor_error",
-            message: legacyMessage || "unknown error",
-            content_type: null,
-            bytes: null,
-            timing_ms: timingMs,
-            redirect_count: null,
-            redirect_chain: [],
-            location_header: null,
-            extracted_count: null,
-          };
-          const logId = await insertSourceLog({
-            source_id: registryRow.id,
-            action: "sweep",
-            level: "error",
-            payload,
-          });
-          await updateRegistrySweep(
-            registryRow.id,
-            "extractor_error",
-            buildSweepSummary("extractor_error", payload.message, {}, { log_id: logId })
-          );
-        }
-      }
-      redirect(
-        buildSourcesNoticeUrl(stickyQueryString, `Sweep failed: ${err?.message ?? "unknown error"}`, {
-          source_url: canonical,
-        })
-      );
-    }
-  }
-
-  async function runTopTierSweepAction() {
-    "use server";
-    await requireAdmin();
-    try {
-      const result = await runTopTierCrawler({
-        writeDb: true,
-        maxPages: 250,
-        sports: ["baseball", "softball", "basketball"],
-      });
-      const s = result.summary;
-      const message = `Top Tier crawl complete: urls=${s.candidateUrls}, events=${s.acceptedEvents}, tournaments=${s.tournamentsUpserted}, venues+${s.venuesCreated}, links+${s.venueLinksCreated}`;
-      redirect(buildSourcesNoticeUrl(stickyQueryString, message));
-    } catch (err: any) {
-      if (err?.digest && String(err.digest).includes("NEXT_REDIRECT")) throw err;
-      redirect(buildSourcesNoticeUrl(stickyQueryString, `Top Tier crawl failed: ${describeActionError(err)}`));
-    }
-  }
 
   const filtered = registryRows.filter((row: any) => {
     if (!row.is_active) return false;
@@ -544,15 +199,350 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
 
   const buildSortHref = (key: string) => {
     const nextDir = sort === key && dir === "asc" ? "desc" : "asc";
-    const params = new URLSearchParams();
-    if (filter) params.set("filter", filter);
-    if (selectedUrl) params.set("source_url", selectedUrl);
-    if (q) params.set("q", q);
-    if (sportFilter) params.set("sport", sportFilter);
-    if (stateFilter) params.set("state", stateFilter);
-    params.set("sort", key);
-    params.set("dir", nextDir);
-    return `/admin/tournaments/sources?${params.toString()}`;
+    return buildSourcesHref({ sort: key, dir: nextDir });
+  };
+
+  const registryColumns: Array<{ key: string; label: string; sortable?: boolean }> = [
+    { key: "source_url", label: "Source URL", sortable: true },
+    { key: "custom", label: "Custom", sortable: true },
+    { key: "source_type", label: "Type" },
+    { key: "sport", label: "Sport" },
+    { key: "state", label: "State" },
+    { key: "city", label: "City" },
+    { key: "review_status", label: "Status", sortable: true },
+    { key: "is_active", label: "Active" },
+    { key: "ignore_until", label: "Ignore until" },
+    { key: "last_tested_at", label: "Last tested" },
+    { key: "last_swept_at", label: "Last sweep", sortable: true },
+    { key: "summary", label: "Summary" },
+    { key: "actions", label: "Actions" },
+  ];
+
+  const getGroupLabel = (row: any) => {
+    if (groupBy === "sport") return row.sport || "Unknown sport";
+    if (groupBy === "state") return row.state || "No state";
+    if (groupBy === "review_status") return row.review_status || "untested";
+    if (groupBy === "source_type") return row.source_type || "Unknown type";
+    return "All sources";
+  };
+
+  const groupedRows =
+    groupBy === "none"
+      ? [{ key: "all", label: "All sources", rows: sorted }]
+      : Array.from(
+          sorted.reduce((map, row: any) => {
+            const label = getGroupLabel(row);
+            const current = map.get(label) ?? [];
+            current.push(row);
+            map.set(label, current);
+            return map;
+          }, new Map<string, any[]>())
+        ).map(([label, rows]) => ({ key: label, label, rows }));
+
+  const upsertSource = upsertSourceAction.bind(null, stickyQueryString);
+  const updateStatus = updateStatusAction.bind(null, stickyQueryString);
+  const updateMetadata = updateMetadataAction.bind(null, stickyQueryString);
+  const quickAction = quickActionAction.bind(null, sourcesBasePath, stickyQueryString);
+  const sweepSource = sweepSourceAction.bind(null, stickyQueryString);
+  const runTopTierSweep = runTopTierSweepAction.bind(null, stickyQueryString);
+
+  const renderRegistryHeaders = () => (
+    <tr>
+      {registryColumns.map((col) => (
+        <th key={col.label} style={{ textAlign: "left", padding: "6px 4px", borderBottom: "1px solid #eee" }}>
+          {col.sortable ? (
+            <Link href={buildSortHref(col.key)} style={{ color: "#0f172a", textDecoration: "none", fontWeight: 800 }}>
+              {col.label}
+            </Link>
+          ) : (
+            col.label
+          )}
+        </th>
+      ))}
+    </tr>
+  );
+
+  const renderRegistryRow = (row: any) => {
+    const reason = getSkipReason(row);
+    const ignore = !!reason;
+    return (
+      <tr
+        key={row.id}
+        style={{
+          ...(ignore ? { opacity: 0.65 } : undefined),
+          ...(row.is_custom_source ? { background: "#ecfdf3" } : undefined),
+        }}
+      >
+        <td style={{ padding: "6px 4px" }}>
+          <Link href={buildSourcesHref({ source_url: row.source_url })} style={{ color: "#0f172a", fontWeight: 700 }}>
+            {row.source_url}
+          </Link>
+        </td>
+        <td style={{ padding: "6px 4px" }}>
+          {row.is_custom_source ? (
+            <span style={{ fontSize: 11, fontWeight: 800, color: "#065f46" }}>custom</span>
+          ) : (
+            "—"
+          )}
+        </td>
+        <td style={{ padding: "6px 4px" }}>{row.source_type || "—"}</td>
+        <td style={{ padding: "6px 4px" }}>{row.sport || "—"}</td>
+        <td style={{ padding: "6px 4px" }}>{row.state || "—"}</td>
+        <td style={{ padding: "6px 4px" }}>{row.city || "—"}</td>
+        <td style={{ padding: "6px 4px" }}>
+          <form action={updateMetadata} style={{ display: "grid", gap: 6, marginBottom: 8 }}>
+            <input type="hidden" name="id" value={row.id} />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(110px,1fr))", gap: 6 }}>
+              <select
+                name="source_type"
+                defaultValue={row.source_type || ""}
+                style={{ padding: 6, borderRadius: 6, border: "1px solid #d1d5db", fontSize: 12 }}
+              >
+                <option value="">No type</option>
+                {SOURCE_TYPE_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+              <select
+                name="sport"
+                defaultValue={row.sport || ""}
+                style={{ padding: 6, borderRadius: 6, border: "1px solid #d1d5db", fontSize: 12 }}
+              >
+                <option value="">No sport</option>
+                {SPORT_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "80px 1fr auto", gap: 6 }}>
+              <input
+                name="state"
+                defaultValue={row.state || ""}
+                placeholder="ST"
+                maxLength={2}
+                style={{ padding: 6, borderRadius: 6, border: "1px solid #d1d5db", fontSize: 12 }}
+              />
+              <input
+                name="city"
+                defaultValue={row.city || ""}
+                placeholder="City"
+                style={{ padding: 6, borderRadius: 6, border: "1px solid #d1d5db", fontSize: 12 }}
+              />
+              <button
+                type="submit"
+                style={{
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  background: "#fff",
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                Meta
+              </button>
+            </div>
+          </form>
+          <form action={updateStatus} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input type="hidden" name="id" value={row.id} />
+            <select
+              name="review_status"
+              defaultValue={row.review_status || "untested"}
+              style={{ padding: 6, borderRadius: 6, border: "1px solid #d1d5db" }}
+            >
+              {[
+                "untested",
+                "keep",
+                "needs_review",
+                "low_yield",
+                "manual_html",
+                "js_only",
+                "login_required",
+                "dead",
+                "pdf_only",
+                "paywalled",
+                "blocked_403",
+                "duplicate_source",
+                "seasonal",
+                "deprecated",
+              ].map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+            <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11 }}>
+              <input type="checkbox" name="is_active" defaultChecked={!!row.is_active} />
+              active
+            </label>
+            <input type="hidden" name="review_notes" value={row.review_notes ?? ""} />
+            <input type="hidden" name="ignore_until" value={row.ignore_until ?? ""} />
+            <button
+              type="submit"
+              style={{
+                padding: "6px 8px",
+                borderRadius: 6,
+                border: "1px solid #e5e7eb",
+                background: "#f3f4f6",
+                fontSize: 12,
+              }}
+            >
+              Save
+            </button>
+          </form>
+        </td>
+        <td style={{ padding: "6px 4px" }}>{row.is_active ? "Yes" : "No"}</td>
+        <td style={{ padding: "6px 4px" }}>{row.ignore_until ? new Date(row.ignore_until).toLocaleDateString() : "—"}</td>
+        <td style={{ padding: "6px 4px" }}>{formatDate(row.last_tested_at)}</td>
+        <td style={{ padding: "6px 4px" }}>
+          {formatDate(row.last_swept_at)}
+          {row.last_sweep_status ? (
+            <>
+              {" "}
+              <SourceLogsClient sourceId={row.id} sourceUrl={row.source_url} status={row.last_sweep_status} compact />
+            </>
+          ) : null}
+        </td>
+        <td style={{ padding: "6px 4px", maxWidth: 260 }}>
+          {row.last_sweep_summary
+            ? (() => {
+                let parsed: any = null;
+                try {
+                  parsed = JSON.parse(row.last_sweep_summary);
+                } catch {
+                  parsed = null;
+                }
+                if (!parsed || (!parsed.error_code && !parsed.message)) return row.last_sweep_summary;
+                const codeLabel = parsed.error_code ?? "ok";
+                const foundCount = parsed.count_found ?? parsed.extracted_count ?? null;
+                const urlsCount =
+                  parsed.count_with_website ?? parsed.discovered_count ?? parsed.extracted_count ?? null;
+                return (
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          padding: "2px 6px",
+                          borderRadius: 999,
+                          border: "1px solid #0f172a",
+                          background: "#f8fafc",
+                          fontFamily:
+                            'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                        }}
+                      >
+                        {codeLabel}
+                      </span>
+                      <span style={{ fontSize: 12 }}>{parsed.message}</span>
+                      {foundCount != null ? (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 800,
+                            padding: "2px 6px",
+                            borderRadius: 999,
+                            border: "1px solid #059669",
+                            background: "#ecfdf3",
+                            color: "#047857",
+                          }}
+                        >
+                          Tournaments: {foundCount}
+                        </span>
+                      ) : null}
+                      {urlsCount != null ? (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 800,
+                            padding: "2px 6px",
+                            borderRadius: 999,
+                            border: "1px solid #1d4ed8",
+                            background: "#eff6ff",
+                            color: "#1d4ed8",
+                          }}
+                        >
+                          URLs: {urlsCount}
+                        </span>
+                      ) : null}
+                    </div>
+                    <details>
+                      <summary style={{ cursor: "pointer", fontSize: 11 }}>Details</summary>
+                      <pre style={{ margin: "6px 0 0", fontSize: 11, whiteSpace: "pre-wrap" }}>
+                        {JSON.stringify(parsed, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
+                );
+              })()
+            : "—"}
+        </td>
+        <td style={{ padding: "6px 4px" }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            {ignore ? (
+              <span style={{ color: "#991b1b", fontWeight: 700 }}>{reason}</span>
+            ) : (
+              <form action={sweepSource}>
+                <input type="hidden" name="id" value={row.id} />
+                <input type="hidden" name="source_url" value={row.source_url} />
+                <input type="hidden" name="source_type" value={row.source_type ?? ""} />
+                <input type="hidden" name="sport" value={row.sport ?? "soccer"} />
+                <button
+                  type="submit"
+                  style={{
+                    padding: "4px 6px",
+                    borderRadius: 6,
+                    border: "1px solid #2563eb",
+                    background: "#eff6ff",
+                    color: "#1d4ed8",
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  Sweep now
+                </button>
+              </form>
+            )}
+            <SourceLogsClient sourceId={row.id} sourceUrl={row.source_url} />
+            <form action={quickAction}>
+              <input type="hidden" name="id" value={row.id} />
+              <input type="hidden" name="redirect" value={sourcesBasePath} />
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {[
+                  ["keep", "Keep"],
+                  ["dead", "Dead"],
+                  ["login", "Login"],
+                  ["js_only", "JS"],
+                  ["paywalled", "Paywall"],
+                  ["blocked", "Block7d"],
+                  ["clear_block", "Clear"],
+                ].map(([action, label]) => (
+                  <button
+                    key={action}
+                    name="action"
+                    value={action}
+                    type="submit"
+                    style={{
+                      padding: "4px 6px",
+                      borderRadius: 6,
+                      border: "1px solid #d1d5db",
+                      background: "#f9fafb",
+                      fontSize: 11,
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </form>
+          </div>
+        </td>
+      </tr>
+    );
   };
 
   return (
@@ -569,7 +559,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         {(["all", "untested", "keep", "ignored", "needs_review"] as Filter[]).map((f) => (
           <Link
             key={f}
-            href={`/admin/tournaments/sources?filter=${f}`}
+            href={buildSourcesHref({ filter: f })}
             style={{
               padding: "6px 10px",
               borderRadius: 8,
@@ -611,7 +601,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         >
           Tournament uploads
         </Link>
-        <form action={runTopTierSweepAction} style={{ marginLeft: 8 }}>
+        <form action={runTopTierSweep} style={{ marginLeft: 8 }}>
           <button
             type="submit"
             style={{
@@ -800,278 +790,80 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
 
         <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>Registry</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginTop: 8 }}>
-            <thead>
-              <tr>
-                {[
-                  { key: "source_url", label: "Source URL", sortable: true },
-                  { key: "custom", label: "Custom", sortable: true },
-                  { key: "source_type", label: "Type" },
-                  { key: "sport", label: "Sport" },
-                  { key: "state", label: "State" },
-                  { key: "city", label: "City" },
-                  { key: "review_status", label: "Status", sortable: true },
-                  { key: "is_active", label: "Active" },
-                  { key: "ignore_until", label: "Ignore until" },
-                  { key: "last_tested_at", label: "Last tested" },
-                  { key: "last_swept_at", label: "Last sweep", sortable: true },
-                  { key: "summary", label: "Summary" },
-                  { key: "actions", label: "Actions" },
-                ].map((col) => (
-                  <th key={col.label} style={{ textAlign: "left", padding: "6px 4px", borderBottom: "1px solid #eee" }}>
-                    {col.sortable ? (
-                      <Link
-                        href={buildSortHref(col.key)}
-                        style={{ color: "#0f172a", textDecoration: "none", fontWeight: 800 }}
-                      >
-                        {col.label}
-                      </Link>
-                    ) : (
-                      col.label
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((row: any) => {
-                const reason = getSkipReason(row);
-                const ignore = !!reason;
-                return (
-                  <tr
-                    key={row.id}
-                    style={{
-                      ...(ignore ? { opacity: 0.65 } : undefined),
-                      ...(row.is_custom_source ? { background: "#ecfdf3" } : undefined),
-                    }}
-                  >
-                    <td style={{ padding: "6px 4px" }}>
-                      <Link href={`/admin/tournaments/sources?source_url=${encodeURIComponent(row.source_url)}`} style={{ color: "#0f172a", fontWeight: 700 }}>
-                        {row.source_url}
-                      </Link>
-                    </td>
-                  <td style={{ padding: "6px 4px" }}>
-                    {row.is_custom_source ? (
-                      <span style={{ fontSize: 11, fontWeight: 800, color: "#065f46" }}>custom</span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td style={{ padding: "6px 4px" }}>{row.source_type || "—"}</td>
-                  <td style={{ padding: "6px 4px" }}>{row.sport || "—"}</td>
-                  <td style={{ padding: "6px 4px" }}>{row.state || "—"}</td>
-                  <td style={{ padding: "6px 4px" }}>{row.city || "—"}</td>
-                  <td style={{ padding: "6px 4px" }}>
-                    <form action={updateStatus} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      <input type="hidden" name="id" value={row.id} />
-                      <select
-                        name="review_status"
-                        defaultValue={row.review_status || "untested"}
-                        style={{ padding: 6, borderRadius: 6, border: "1px solid #d1d5db" }}
-                      >
-                        {[
-                          "untested",
-                          "keep",
-                          "needs_review",
-                          "low_yield",
-                          "manual_html",
-                          "js_only",
-                          "login_required",
-                          "dead",
-                          "pdf_only",
-                          "paywalled",
-                          "blocked_403",
-                          "duplicate_source",
-                          "seasonal",
-                          "deprecated",
-                        ].map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                      <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11 }}>
-                        <input type="checkbox" name="is_active" defaultChecked={!!row.is_active} />
-                        active
-                      </label>
-                      <input type="hidden" name="review_notes" value={row.review_notes ?? ""} />
-                      <input type="hidden" name="ignore_until" value={row.ignore_until ?? ""} />
-                      <button
-                        type="submit"
-                        style={{
-                          padding: "6px 8px",
-                          borderRadius: 6,
-                          border: "1px solid #e5e7eb",
-                          background: "#f3f4f6",
-                          fontSize: 12,
-                        }}
-                      >
-                        Save
-                      </button>
-                    </form>
-                  </td>
-                  <td style={{ padding: "6px 4px" }}>{row.is_active ? "Yes" : "No"}</td>
-                  <td style={{ padding: "6px 4px" }}>{row.ignore_until ? new Date(row.ignore_until).toLocaleDateString() : "—"}</td>
-                  <td style={{ padding: "6px 4px" }}>{formatDate(row.last_tested_at)}</td>
-                  <td style={{ padding: "6px 4px" }}>
-                    {formatDate(row.last_swept_at)}
-                    {row.last_sweep_status ? (
-                      <>
-                        {" "}
-                        <SourceLogsClient
-                          sourceId={row.id}
-                          sourceUrl={row.source_url}
-                          status={row.last_sweep_status}
-                          compact
-                        />
-                      </>
-                    ) : null}
-                  </td>
-                  <td style={{ padding: "6px 4px", maxWidth: 260 }}>
-                  {row.last_sweep_summary ? (() => {
-                      let parsed: any = null;
-                      try {
-                        parsed = JSON.parse(row.last_sweep_summary);
-                      } catch {
-                        parsed = null;
-                      }
-                      if (!parsed || (!parsed.error_code && !parsed.message)) return row.last_sweep_summary;
-                      const codeLabel = parsed.error_code ?? "ok";
-                      const foundCount = parsed.count_found ?? parsed.extracted_count ?? null;
-                      const urlsCount =
-                        parsed.count_with_website ??
-                        parsed.discovered_count ??
-                        parsed.extracted_count ??
-                        null;
-                      return (
-                        <div style={{ display: "grid", gap: 6 }}>
-                          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                            <span
-                              style={{
-                                fontSize: 11,
-                                fontWeight: 800,
-                                padding: "2px 6px",
-                                borderRadius: 999,
-                                border: "1px solid #0f172a",
-                                background: "#f8fafc",
-                                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
-                              }}
-                            >
-                              {codeLabel}
-                            </span>
-                            <span style={{ fontSize: 12 }}>{parsed.message}</span>
-                            {foundCount != null ? (
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                  fontWeight: 800,
-                                  padding: "2px 6px",
-                                  borderRadius: 999,
-                                  border: "1px solid #059669",
-                                  background: "#ecfdf3",
-                                  color: "#047857",
-                                }}
-                              >
-                                Tournaments: {foundCount}
-                              </span>
-                            ) : null}
-                            {urlsCount != null ? (
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                  fontWeight: 800,
-                                  padding: "2px 6px",
-                                  borderRadius: 999,
-                                  border: "1px solid #1d4ed8",
-                                  background: "#eff6ff",
-                                  color: "#1d4ed8",
-                                }}
-                              >
-                                URLs: {urlsCount}
-                              </span>
-                            ) : null}
-                          </div>
-                          <details>
-                            <summary style={{ cursor: "pointer", fontSize: 11 }}>Details</summary>
-                            <pre style={{ margin: "6px 0 0", fontSize: 11, whiteSpace: "pre-wrap" }}>
-                              {JSON.stringify(parsed, null, 2)}
-                            </pre>
-                          </details>
-                        </div>
-                      );
-                    })() : "—"}
-                  </td>
-                    <td style={{ padding: "6px 4px" }}>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                        {ignore ? (
-                          <span style={{ color: "#991b1b", fontWeight: 700 }}>{reason}</span>
-                        ) : (
-                          <form action={sweepSourceAction}>
-                            <input type="hidden" name="id" value={row.id} />
-                            <input type="hidden" name="source_url" value={row.source_url} />
-                            <input type="hidden" name="sport" value={row.sport ?? "soccer"} />
-                            <button
-                              type="submit"
-                              style={{
-                                padding: "4px 6px",
-                                borderRadius: 6,
-                                border: "1px solid #2563eb",
-                                background: "#eff6ff",
-                                color: "#1d4ed8",
-                                fontSize: 12,
-                                fontWeight: 700,
-                              }}
-                            >
-                              Sweep now
-                            </button>
-                          </form>
-                        )}
-                        <SourceLogsClient sourceId={row.id} sourceUrl={row.source_url} />
-                        <form action={quickAction}>
-                          <input type="hidden" name="id" value={row.id} />
-                          <input type="hidden" name="redirect" value={sourcesBasePath} />
-                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                            {[
-                              ["keep", "Keep"],
-                              ["dead", "Dead"],
-                              ["login", "Login"],
-                              ["js_only", "JS"],
-                              ["paywalled", "Paywall"],
-                              ["blocked", "Block7d"],
-                              ["clear_block", "Clear"],
-                            ].map(([action, label]) => (
-                              <button
-                                key={action}
-                                name="action"
-                                value={action}
-                                type="submit"
-                                style={{
-                                  padding: "4px 6px",
-                                  borderRadius: 6,
-                                  border: "1px solid #d1d5db",
-                                  background: "#f9fafb",
-                                  fontSize: 11,
-                                }}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                          </div>
-                        </form>
-                      </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 10, marginBottom: 10 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: "#334155" }}>Group by</span>
+            {(["sport", "state", "review_status", "source_type", "none"] as GroupBy[]).map((value) => (
+              <Link
+                key={value}
+                href={buildSourcesHref({ group: value === "none" ? null : value })}
+                style={{
+                  padding: "5px 9px",
+                  borderRadius: 999,
+                  border: "1px solid #d1d5db",
+                  background: groupBy === value ? "#dbeafe" : "#fff",
+                  color: "#0f172a",
+                  textDecoration: "none",
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                {value === "review_status" ? "status" : value}
+              </Link>
+            ))}
+            <span style={{ fontSize: 12, color: "#64748b" }}>
+              {filtered.length} source{filtered.length === 1 ? "" : "s"} visible
+            </span>
+          </div>
+
+          {groupBy === "none" ? (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginTop: 8 }}>
+              <thead>{renderRegistryHeaders()}</thead>
+              <tbody>
+                {sorted.map(renderRegistryRow)}
+                {!filtered.length && (
+                  <tr>
+                    <td colSpan={registryColumns.length} style={{ padding: 8, color: "#666" }}>
+                      No sources yet.
                     </td>
                   </tr>
-                );
-              })}
-              {!filtered.length && (
-                <tr>
-                  <td colSpan={11} style={{ padding: 8, color: "#666" }}>
-                    No sources yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
+              {groupedRows.map((group) => (
+                <details
+                  key={group.key}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 10,
+                    background: "#fff",
+                    overflow: "hidden",
+                  }}
+                >
+                  <summary
+                    style={{
+                      cursor: "pointer",
+                      listStyle: "none",
+                      padding: "10px 12px",
+                      background: "#f8fafc",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      color: "#334155",
+                    }}
+                  >
+                    {group.label} ({group.rows.length})
+                  </summary>
+                  <div style={{ padding: "0 12px 12px" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginTop: 8 }}>
+                      <thead>{renderRegistryHeaders()}</thead>
+                      <tbody>{group.rows.map(renderRegistryRow)}</tbody>
+                    </table>
+                  </div>
+                </details>
+              ))}
+            </div>
+          )}
         </div>
 
         {selectedUrl && (

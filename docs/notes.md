@@ -2204,3 +2204,63 @@
   - Validation:
     - `npx tsc -p apps/referee/tsconfig.json --noEmit`
     - `TMPDIR=../../tmp npx tsx --test src/server/admin/__tests__/fingerprints.test.ts`
+
+- RI sources registry + USSSA fastpitch expansion:
+  - Added a dedicated USSSA fastpitch tournaments sweep:
+    - `apps/referee/src/server/sweeps/usssaFastpitchTournaments.ts`
+  - Extended paste/import routing to recognize `*fastpitch.usssa.com` listing pages and import them as `softball`:
+    - `apps/referee/src/server/admin/pasteUrl.ts`
+  - Extended tournament sport typing to support the full source-registry sport set:
+    - `apps/referee/lib/types/tournament.ts`
+  - Extended USSSA venue enrichment/linking to include fastpitch event URLs:
+    - `apps/referee/app/api/admin/tournaments/enrichment/usssa/route.ts`
+    - `scripts/ingest/link_usssa_missing_venues.ts`
+  - Added fastpitch-specific date/venue/detail parsing from USSSA event pages, with tournament samples and import counts returned in sweep results.
+  - Sources registry sweep now preserves admin-selected registry metadata on sweep:
+    - `sport`
+    - `source_type`
+  - Moved `/admin/tournaments/sources` mutations out of the page component into module-level actions:
+    - `apps/referee/app/admin/tournaments/sources/actions.ts`
+  - This stabilizes the page against inline server-action crypto/redirect failures seen during successful sweeps in local dev.
+  - Sources registry UI improvements:
+    - `apps/referee/app/admin/tournaments/sources/page.tsx`
+  - Added grouped registry views by:
+    - `sport`
+    - `state`
+    - `status`
+    - `source_type`
+  - Grouped views now render as collapsible sections and start collapsed by default.
+  - Added inline per-row metadata editing for:
+    - `source_type`
+    - `sport`
+    - `state`
+    - `city`
+  - Added sweep payload `action` logging so runs make it clear which importer path executed.
+  - Validation:
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit`
+
+- RI sources registry cleanup:
+  - The sources registry page now filters to standalone registry rows only:
+    - `tournament_id IS NULL`
+  - This removes per-tournament source rows from the registry view while preserving tournament-level traceability in `tournament_sources`.
+  - Added one canonical Top Tier registry source row for the root domain:
+    - `https://toptiersports.net/`
+  - Updated:
+    - `apps/referee/app/admin/tournaments/sources/page.tsx`
+
+- TournamentInsights brand SEO:
+  - Updated the TI homepage metadata to target the brand query more directly:
+    - title: `TournamentInsights | Youth Sports Tournament Directory`
+    - brand-inclusive description
+    - canonical `/`
+  - Ensured the homepage H1 renders literal text:
+    - `TournamentInsights`
+  - Added Organization JSON-LD to the homepage.
+  - Added a new TI brand/entity page:
+    - `apps/ti-web/app/about/page.tsx`
+  - Extended the TI sitemap to include `/about`:
+    - `apps/ti-web/app/sitemap.ts`
+  - Added a short SEO verification checklist:
+    - `docs/seo-brand-ti.md`
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit`

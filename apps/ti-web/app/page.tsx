@@ -1,15 +1,27 @@
 import { BRAND_TI } from "@/lib/brand";
+import type { Metadata } from "next";
 
-export const metadata = {
-  title: "Public Beta — Help Build Smarter Tournament Planning",
+const SITE_ORIGIN = "https://www.tournamentinsights.com";
+
+export const metadata: Metadata = {
+  title: "TournamentInsights | Youth Sports Tournament Directory",
   description:
-    "Public Beta access to smarter youth tournament planning with Owl’s Eye™ venue intelligence and logistics-first insights.",
+    "TournamentInsights is a youth sports tournament directory with clear listings, official links, and logistics-first planning insights for families, coaches, and teams.",
   alternates: { canonical: "/" },
 };
 
 export default function Home() {
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "TournamentInsights",
+    url: SITE_ORIGIN,
+    logo: `${SITE_ORIGIN}/brand/ti-email-logo.png`,
+  };
+
   return (
     <main className="page">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
       <div className="shell">
         <section className="hero" aria-labelledby="ti-title">
           <div className="logoBlock">
@@ -28,7 +40,7 @@ export default function Home() {
             </div>
           </div>
 
-          <h1 id="ti-title">{BRAND_TI}</h1>
+          <h1 id="ti-title">TournamentInsights</h1>
 
           <p className="muted heroCopy">
             Public Beta — Help Build Smarter Tournament Planning

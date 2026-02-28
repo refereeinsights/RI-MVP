@@ -21,7 +21,18 @@ export type TournamentSubmissionType =
 export interface TournamentRow {
   name: string;
   slug: string;
-  sport: "soccer" | "basketball" | "football" | "lacrosse" | "baseball" | "hockey";
+  sport:
+    | "soccer"
+    | "futsal"
+    | "basketball"
+    | "baseball"
+    | "softball"
+    | "lacrosse"
+    | "volleyball"
+    | "football"
+    | "wrestling"
+    | "hockey"
+    | "other";
   tournament_association?: string | null;
   level?: string | null;
   sub_type?: TournamentSubmissionType | null;
