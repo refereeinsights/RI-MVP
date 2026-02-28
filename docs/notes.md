@@ -2361,3 +2361,18 @@
   - Updated the TI and RI state multi-select controls to optionally auto-submit without changing the multi-select semantics:
     - `apps/ti-web/app/tournaments/StateMultiSelect.tsx`
     - `apps/referee/app/tournaments/StateMultiSelect.tsx`
+
+- TI tournament card polish:
+  - Kept the TI tournament total counter centered above the sport badges while preserving the original tournament-background counter treatment.
+  - Updated the TI tournament card footer to use equal-width `Official site` / `View details` buttons.
+  - Replaced the baseball and softball tournament count backgrounds with new PNG badge artwork:
+    - `apps/ti-web/public/svg/sports/baseball_badge.png`
+    - `apps/ti-web/public/svg/sports/softball_badge.png`
+
+- RI tournament card + venue parity follow-up:
+  - Aligned RI tournament list cards more closely with TI without changing TI:
+    - sport-first meta line (`sport • city, state • level`)
+    - TI-style footer button order/layout
+    - TI-style tournament card typography tuning
+  - Added/expanded RI public venues surfaces so the RI venue directory and RI venue detail pages follow the same current treatment pattern as TI while keeping future RI permission tiers for later.
+  - Aligned RI soccer tournament and venue detail hero treatment to TI’s current hero asset/CSS strategy for supported sports.

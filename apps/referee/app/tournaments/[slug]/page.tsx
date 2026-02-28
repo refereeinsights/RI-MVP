@@ -457,23 +457,19 @@ export default async function TournamentDetailPage({
               {data.end_date && data.end_date !== data.start_date ? ` – ${formatDate(data.end_date)}` : ""}
             </p>
 
-            {data.sport && sportSlug ? (
-              <p className="detailMeta">
-                Browse:{" "}
-                <Link href={`/tournaments/hubs/${sportSlug}`}>
-                  {data.sport} tournaments
-                </Link>
-                {data.state ? (
-                  <>
-                    {" "}
-                    •{" "}
-                    <Link href={`/tournaments/hubs/${sportSlug}/${data.state.toLowerCase()}`}>
-                      {data.sport} in {data.state}
-                    </Link>
-                  </>
-                ) : null}
-              </p>
-            ) : null}
+            <div className="detailLinksRow">
+              {(data.official_website_url || data.source_url) ? (
+                <a className="secondaryLink" href={`/go/tournament/${data.id}`} target="_blank" rel="noopener noreferrer">
+                  Visit official site
+                </a>
+              ) : null}
+              <Link className="secondaryLink" href="/tournaments">
+                Back to tournaments
+              </Link>
+              <Link className="secondaryLink" href={addInsightHref}>
+                Add referee insight
+              </Link>
+            </div>
 
             {linkedVenues.length > 0 ? (
               <div className="detailVenueGrid">
@@ -546,7 +542,7 @@ export default async function TournamentDetailPage({
               ) : null}
             </div>
 
-            <p className="detailBody">
+            <p className="detailSummary">
               {data.summary ||
                 "Tournament details sourced from public listings. More referee insights coming soon."}
             </p>
@@ -559,38 +555,6 @@ export default async function TournamentDetailPage({
             </p>
 
             <DecisionSignals />
-
-            <div
-              style={{
-                marginTop: 8,
-                marginBottom: 16,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                flexWrap: "wrap",
-              }}
-            >
-              <a
-                href={addInsightHref}
-                style={{
-                  textDecoration: "none",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  padding: "10px 16px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(255,255,255,0.24)",
-                  background: "#ffffff",
-                  color: "#0b172a",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
-                }}
-              >
-                Add referee insight
-              </a>
-              <span style={{ fontSize: 12, color: "#ffffff", fontWeight: 700, textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
-                Help other officials decide before accepting.
-              </span>
-            </div>
           </div>
 
           <div className="refereeInsights">
@@ -824,17 +788,6 @@ export default async function TournamentDetailPage({
               </div>
             ) : null;
           })() : null}
-
-          <div className="actions">
-            {(data.official_website_url || data.source_url) ? (
-              <a className="btn" href={`/go/tournament/${data.id}`} target="_blank" rel="noopener noreferrer">
-                Visit official site
-              </a>
-            ) : null}
-            <Link className="btn" href="/tournaments">
-              Back to tournaments
-            </Link>
-          </div>
 
           {!data.official_website_url ? (
             <div style={{ marginTop: 16, padding: 12, borderRadius: 10, border: "1px solid #d7d7d7", background: "#fff" }}>

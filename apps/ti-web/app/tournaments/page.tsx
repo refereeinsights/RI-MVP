@@ -451,7 +451,8 @@ export default async function TournamentsPage({
         </form>
 
         {sportsSorted.length ? (
-          <div className="summaryGrid">
+          <>
+          <div className="summaryTotalRow">
             <article className="card card--mini bg-sport-default summary-total">
               <div className="summaryCount">{tournamentsSorted.length}</div>
               <div className="summaryLabel">TOTAL TOURNAMENTS</div>
@@ -459,6 +460,8 @@ export default async function TournamentsPage({
                 <img src="/svg/ti/tournamentinsights_mark_transparent.svg" alt="" />
               </div>
             </article>
+          </div>
+          <div className="summaryGrid">
             {sportsSorted.map(({ sport, count }) => (
               <Link
                 key={sport}
@@ -484,6 +487,7 @@ export default async function TournamentsPage({
               </Link>
             ))}
           </div>
+          </>
         ) : null}
 
         {tournamentsSorted.length === 0 ? (

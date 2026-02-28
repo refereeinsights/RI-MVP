@@ -413,7 +413,19 @@
   padding: 0.5rem 0.75rem 0;
 }
 
-.summaryGrid .card {
+.summaryTotalRow {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem 0;
+}
+
+.summaryTotalRow .summary-total {
+  width: min(220px, 100%);
+}
+
+.summaryGrid .card,
+.summaryTotalRow .card {
   text-decoration: none;
   color: inherit;
   backdrop-filter: none;
@@ -421,7 +433,8 @@
   background-color: transparent;
 }
 
-.summaryGrid .card--mini > * {
+.summaryGrid .card--mini > *,
+.summaryTotalRow .card--mini > * {
   position: relative;
   z-index: 1;
 }
@@ -429,19 +442,21 @@
 .summaryGrid .card.bg-sport-baseball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
-    url("/svg/sports/baseball_badge.svg");
-  background-size: cover, 172% auto;
-  background-position: center, center 53%;
-  background-repeat: no-repeat, no-repeat;
+    url("/svg/sports/baseball_count_2.png"),
+    linear-gradient(180deg, #1b2c14, #0f1f0f);
+  background-size: cover, 172% auto, cover;
+  background-position: center, center 53%, center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
 }
 
 .summaryGrid .card.bg-sport-softball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
-    url("/svg/sports/softball_badge.svg");
-  background-size: cover, 180% auto;
-  background-position: center, center 62%;
-  background-repeat: no-repeat, no-repeat;
+    url("/svg/sports/softball_count.png"),
+    linear-gradient(180deg, #203310, #101f0d);
+  background-size: cover, 180% auto, cover;
+  background-position: center, center 62%, center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
 }
 
 .summaryGrid .card.summary-sport-soccer {
@@ -480,7 +495,8 @@
   background-repeat: no-repeat, no-repeat;
 }
 
-.summaryGrid .card.summary-total {
+.summaryGrid .card.summary-total,
+.summaryTotalRow .card.summary-total {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
     url("/svg/sports/total_tournaments_count.svg");
@@ -495,7 +511,8 @@
 .summaryGrid .card.summary-sport-basketball::after,
 .summaryGrid .card.summary-sport-lacrosse::after,
 .summaryGrid .card.summary-sport-hockey::after,
-.summaryGrid .card.summary-total::after {
+.summaryGrid .card.summary-total::after,
+.summaryTotalRow .card.summary-total::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -505,7 +522,8 @@
   pointer-events: none;
 }
 
-.summaryGrid .card--mini {
+.summaryGrid .card--mini,
+.summaryTotalRow .card--mini {
   display: grid;
   place-items: center;
   text-align: center;
@@ -513,13 +531,15 @@
   padding: 0.75rem 0.65rem 0.8rem;
 }
 
-.summaryGrid .summaryIcon {
+.summaryGrid .summaryIcon,
+.summaryTotalRow .summaryIcon {
   position: static;
   margin-top: 6px;
   font-size: 20px;
 }
 
-.summaryGrid .summaryIcon--ri img {
+.summaryGrid .summaryIcon--ri img,
+.summaryTotalRow .summaryIcon--ri img {
   width: 34px;
   height: 34px;
   opacity: 0.9;
@@ -865,10 +885,15 @@
 .cardFooter {
   margin-top: auto;
   padding-top: 1rem;
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   align-items: center;
+}
+
+.cardFooter .primaryLink,
+.cardFooter .secondaryLink {
+  width: 100%;
 }
 
 .listingBadgeIcon {

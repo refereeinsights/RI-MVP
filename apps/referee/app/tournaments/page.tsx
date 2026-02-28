@@ -543,7 +543,8 @@ export default async function TournamentsPage({
         </div>
 
         {sportsSorted.length ? (
-          <div className="summaryGrid">
+          <>
+          <div className="summaryTotalRow">
             <article className="card card--mini bg-sport-default summary-total">
               <div className="summaryCount">{tournamentsSorted.length}</div>
               <div className="summaryLabel">Total tournaments</div>
@@ -551,6 +552,8 @@ export default async function TournamentsPage({
                 <img src="/refereeinsights_mark.svg" alt="" />
               </div>
             </article>
+          </div>
+          <div className="summaryGrid">
             {sportsSorted.map(({ sport, count }) => (
               <Link
                 key={sport}
@@ -574,11 +577,18 @@ export default async function TournamentsPage({
               </Link>
             ))}
           </div>
+          </>
         ) : null}
 
-        <div className="grid">
-          {tournamentsSorted.map((t) => (
+          <div className="grid">
+            {tournamentsSorted.map((t) => (
             <article key={t.id} className={`card ${getSportCardClass(t.sport)}`}>
+              {(() => {
+                const locationLabel = [t.city, t.state].filter(Boolean).join(", ");
+                const hasOfficialSite = Boolean(t.official_website_url || t.source_url);
+                const isDemoTournament = t.slug === "refereeinsights-demo-tournament";
+                return (
+                  <>
               <div className="cardWhistle">
                 {toWhistleScore(whistleMap.get(t.id)?.ai_score ?? null) ? (
                   <>
@@ -601,9 +611,8 @@ export default async function TournamentsPage({
               <h2>{t.name}</h2>
 
               <p className="meta">
-                <strong>{t.state}</strong>
-                {t.city ? ` • ${t.city}` : ""}
-                {t.zip ? ` • ${t.zip}` : ""}
+                <strong>{SPORTS_LABELS[(t.sport ?? "unknown").toLowerCase()] ?? "Tournament"}</strong>
+                {locationLabel ? ` • ${locationLabel}` : ""}
                 {t.level ? ` • ${t.level}` : ""}
               </p>
 
@@ -659,13 +668,12 @@ export default async function TournamentsPage({
                 ) : null;
               })() : null}
 
-              <div className="actions">
-                <Link className="btn" href={`/tournaments/${t.slug}`}>View details</Link>
-                {(t.official_website_url || t.source_url) ? (
+              <div className="cardFooter">
+                {hasOfficialSite ? (
                   <a
-                    className="btn"
+                    className="secondaryLink"
                     href={
-                      t.slug === "refereeinsights-demo-tournament"
+                      isDemoTournament
                         ? `/tournaments/${t.slug}`
                         : `/go/tournament/${t.id}`
                     }
@@ -674,7 +682,15 @@ export default async function TournamentsPage({
                   >
                     Official site
                   </a>
-                ) : null}
+                ) : (
+                  <div className="secondaryLink" aria-disabled="true" style={{ cursor: "default" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 }}>
+                      <span>Official site</span>
+                      <span className="tbdText">TBD</span>
+                    </div>
+                  </div>
+                )}
+                <Link className="primaryLink" href={`/tournaments/${t.slug}`}>View details</Link>
               </div>
 
               <div className="cardFooterBadgeRow">
@@ -700,6 +716,9 @@ export default async function TournamentsPage({
                   ) : null}
                 </div>
               </div>
+                  </>
+                );
+              })()}
             </article>
           ))}
         </div>

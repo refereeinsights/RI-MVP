@@ -246,15 +246,14 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
     <main className="pitchWrap tournamentsWrap">
       <section className={`detailHero ${sportSurfaceClass}`}>
         <div className="detailHero__overlay">
-          <article className="detailPanel" style={{ paddingTop: "1.25rem", margin: 0, width: "100%" }}>
-            <div style={{ display: "grid", gap: 10 }}>
-              <Link href="/tournaments" className="detailBackLink">← Back to tournaments</Link>
-              <h1 style={{ margin: 0 }}>{data.name || "Venue"}</h1>
-              <p className="detailMeta" style={{ margin: 0 }}>
+          <article className="detailPanel">
+            <div style={{ display: "grid", gap: 10, color: "#fff" }}>
+              <h1 className="detailTitle">{data.name || "Venue"}</h1>
+              <p className="meta" style={{ margin: 0 }}>
                 <strong>Venue</strong>
                 {locationLabel ? ` • ${locationLabel}` : ""}
               </p>
-              <p className="detailMeta" style={{ margin: 0 }}>{addressLabel || "Address TBA"}</p>
+              <p className="dates" style={{ margin: 0 }}>{addressLabel || "Address TBA"}</p>
 
               <VenueIndexBadge
                 restroom_cleanliness_avg={data.restroom_cleanliness_avg}
@@ -265,12 +264,15 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                 reviews_last_updated_at={data.reviews_last_updated_at}
               />
 
-              <div className="detailLinksRow" style={{ justifyContent: "center" }}>
+              <div className="cardFooter" style={{ justifyContent: "center" }}>
+                <Link href="/venues" className="secondaryLink">
+                  Back to venues
+                </Link>
                 {data.venue_url ? (
                   <a href={data.venue_url} target="_blank" rel="noopener noreferrer" className="secondaryLink">Venue site</a>
                 ) : null}
                 {mapLinks ? (
-                  <MobileMapLink provider="apple" query={addressLabel} fallbackHref={mapLinks.apple} className="secondaryLink">
+                  <MobileMapLink provider="apple" query={addressLabel} fallbackHref={mapLinks.apple} className="primaryLink">
                     View map
                   </MobileMapLink>
                 ) : null}
