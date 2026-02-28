@@ -46,10 +46,11 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabaseAdmin
     .from("venues" as any)
-    .select("id,name,address1,city,state,zip,sport")
+    .select("id,name,address,address1,city,state,zip,sport")
     .or(
       [
         `name.ilike.%${query}%`,
+        `address.ilike.%${query}%`,
         `address1.ilike.%${query}%`,
         `city.ilike.%${query}%`,
         `state.ilike.%${query}%`,
@@ -62,15 +63,17 @@ export async function GET(request: Request) {
     return NextResponse.json<VenueSearchResponse>({ error: "search_failed" }, { status: 500 });
   }
 
-  const results: VenueSearchResult[] = (data ?? []).map((row: any) => ({
-    venue_id: row.id,
-    name: row.name ?? null,
-    street: row.address1 ?? null,
-    city: row.city ?? null,
-    state: row.state ?? null,
-    zip: row.zip ?? null,
-    sport: row.sport ?? null,
-  }));
+  const results: VenueSearchResult[] = (data ?? [])
+    .map((row: any) => ({
+      venue_id: row.id,
+      name: row.name ?? null,
+      street: row.address1 ?? row.address ?? null,
+      city: row.city ?? null,
+      state: row.state ?? null,
+      zip: row.zip ?? null,
+      sport: row.sport ?? null,
+    }))
+    .filter((row) => Boolean((row.street ?? "").trim()) && Boolean((row.city ?? "").trim()) && Boolean((row.state ?? "").trim()));
 
   return NextResponse.json<VenueSearchResponse>({ results });
 }

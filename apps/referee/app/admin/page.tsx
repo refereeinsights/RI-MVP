@@ -356,7 +356,7 @@ export default async function AdminPage({
     tab === "tournament-listings"
       ? await supabaseAdmin
           .from("tournaments" as any)
-          .select("id,name,slug,city,state,start_date,end_date,official_website_url,source_url,url_fingerprint,name_url_fingerprint,name_state_season_fingerprint")
+          .select("id,name,slug,city,state,start_date,end_date,official_website_url,source_url,confidence,url_fingerprint,name_url_fingerprint,name_state_season_fingerprint")
           .or("official_website_url.not.is.null,source_url.not.is.null")
           .order("updated_at", { ascending: false })
           .limit(1500)
@@ -375,6 +375,7 @@ export default async function AdminPage({
         state: string | null;
         start_date: string | null;
         end_date: string | null;
+        confidence: number | null;
       }>;
     }
   >();
@@ -390,6 +391,23 @@ export default async function AdminPage({
     const rightDate = Date.parse(right);
     if (Number.isNaN(leftDate) || Number.isNaN(rightDate)) return null;
     return Math.abs(leftDate - rightDate) / (1000 * 60 * 60 * 24);
+  };
+  const currentSeasonYear = new Date().getUTCFullYear();
+  const isHistoricalLowConfidenceItem = (item: {
+    start_date?: string | null;
+    end_date?: string | null;
+    confidence?: number | null;
+  }) => {
+    const season = Number.parseInt(seasonYear(item.start_date ?? null, item.end_date ?? null), 10);
+    return Number.isFinite(season) && season < currentSeasonYear && Number(item.confidence ?? 0) <= 30;
+  };
+  const shouldSuppressHistoricalGroup = (
+    items: Array<{ start_date?: string | null; end_date?: string | null; confidence?: number | null }>
+  ) => {
+    if (items.length < 2) return false;
+    if (!items.every((item) => isHistoricalLowConfidenceItem(item))) return false;
+    const seasons = new Set(items.map((item) => seasonYear(item.start_date ?? null, item.end_date ?? null)));
+    return seasons.size > 1;
   };
   const duplicateDismissals =
     tab === "tournament-listings"
@@ -428,6 +446,7 @@ export default async function AdminPage({
         state: row.state ?? null,
         start_date: row.start_date ?? null,
         end_date: row.end_date ?? null,
+        confidence: typeof row.confidence === "number" ? row.confidence : null,
       });
       duplicateGroups.set(key, group);
 
@@ -444,6 +463,7 @@ export default async function AdminPage({
         state: row.state ?? null,
         start_date: row.start_date ?? null,
         end_date: row.end_date ?? null,
+        confidence: typeof row.confidence === "number" ? row.confidence : null,
       });
       duplicateByUrl.set(normUrl, urlGroup);
 
@@ -467,15 +487,26 @@ export default async function AdminPage({
         start_date: row.start_date ?? null,
         end_date: row.end_date ?? null,
         url,
+        confidence: typeof row.confidence === "number" ? row.confidence : null,
       });
       duplicateByName.set(nameKey, nameGroup);
     });
   }
   const suspectDuplicates = Array.from(duplicateGroups.entries())
-    .filter(([key, group]) => group.items.length > 1 && !dismissedExact.has(key))
+    .filter(
+      ([key, group]) =>
+        group.items.length > 1 &&
+        !dismissedExact.has(key) &&
+        !shouldSuppressHistoricalGroup(group.items)
+    )
     .map(([, group]) => group);
   const suspectByUrl = Array.from(duplicateByUrl.entries())
-    .filter(([key, group]) => group.items.length > 1 && !dismissedUrl.has(key))
+    .filter(
+      ([key, group]) =>
+        group.items.length > 1 &&
+        !dismissedUrl.has(key) &&
+        !shouldSuppressHistoricalGroup(group.items)
+    )
     .map(([, group]) => group);
   const suspectByName = Array.from(duplicateByName.entries())
     .filter(([key, group]) => {
@@ -685,12 +716,7 @@ export default async function AdminPage({
         Boolean((venue.address1 ?? venue.address ?? "").trim()) &&
         Boolean((venue.city ?? "").trim()) &&
         Boolean((venue.state ?? "").trim());
-      const hasGeo =
-        typeof venue.latitude === "number" &&
-        Number.isFinite(venue.latitude) &&
-        typeof venue.longitude === "number" &&
-        Number.isFinite(venue.longitude);
-      return hasAddress || hasGeo;
+      return hasAddress;
     });
 
     const readyVenueIds = readyCandidates.map((v) => v.id).filter(Boolean);
@@ -3653,6 +3679,22 @@ export default async function AdminPage({
               background: "#fff",
             }}
           >
+            <div
+              style={{
+                marginBottom: 12,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                color: "#475569",
+                fontSize: 12,
+                lineHeight: 1.5,
+              }}
+            >
+              Historical low-confidence rows are suppressed from the exact URL/name duplicate warnings when they come
+              from older seasons on the same stale source page. Same-season and higher-confidence duplicate candidates
+              still appear below.
+            </div>
             <details>
               <summary style={{ cursor: "pointer", fontWeight: 900 }}>
                 Suspect duplicates (exact name + URL) ({suspectDuplicates.length})

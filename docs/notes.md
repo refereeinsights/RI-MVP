@@ -1,5 +1,52 @@
 # Running Notes
 
+## 2026-02-28
+- RI venue/tournament source cleanup and admin quality improvements:
+  - Updated tournament + venue data in Supabase from live source pages for:
+    - Bazooka Soccer tournaments and venue links,
+    - Tri-City United Summer Classic,
+    - Tri-City United Super-Ball.
+  - Corrected multiple bad venue joins, including:
+    - Bazooka tournaments wrongly linked to Jacksonville Beach venue rows,
+    - Tri-City Super-Ball malformed aggregate venue row replaced by real field locations.
+  - Added lower-confidence historical tournament handling for stale mixed-year source pages:
+    - `South Florida Soccer Classic` historical 2023 and 2024 records stored as low-confidence/provisional.
+
+- RI tournament duplicate review refinement:
+  - Updated:
+    - `apps/referee/app/admin/page.tsx`
+  - Changes:
+    - suppresses duplicate warnings for older-season low-confidence historical rows from the same stale source page,
+    - same-season and higher-confidence duplicate candidates still appear,
+    - added admin UI note explaining this suppression behavior.
+  - Validation:
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
+
+- RI Owl's Eye venue eligibility tightening:
+  - Updated:
+    - `apps/referee/app/admin/owls-eye/page.tsx`
+    - `apps/referee/app/admin/page.tsx`
+    - `apps/referee/app/api/admin/venues/search/route.ts`
+  - Changes:
+    - Owl's Eye ready venues now require usable street/city/state address data,
+    - venues with only lat/lng and no address are no longer surfaced in Owl's Eye admin lists,
+    - Owl's Eye venue search also filters out addressless venues.
+  - Validation:
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
+
+- RI public issue-report CTA routing:
+  - Updated:
+    - `apps/referee/app/tournaments/page.tsx`
+    - `apps/referee/app/tournaments/[slug]/page.tsx`
+    - `apps/referee/app/schools/page.tsx`
+  - Changes:
+    - `Report an Issue` now opens the user's email client to:
+      - `tournamentinsights@gmail.com`
+    - email drafts include page context in the body,
+    - tournament detail drafts include the exact tournament page URL and tournament name in the subject.
+  - Validation:
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
+
 ## 2026-02-27
 - RI_Backend Playwright target URL hardening:
   - Updated:

@@ -64,6 +64,9 @@ export const metadata = {
     "Referee insight on schools, venues, and organizers — focused on clarity, safety, and professionalism.",
 };
 
+const ISSUE_EMAIL = "tournamentinsights@gmail.com";
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
+
 export default async function SchoolsPage({
   searchParams,
 }: {
@@ -78,6 +81,9 @@ export default async function SchoolsPage({
   };
 }) {
   const supabase = createSupabaseServerClient();
+  const schoolsIssueMailto = `mailto:${ISSUE_EMAIL}?subject=${encodeURIComponent(
+    "School or venue issue report"
+  )}&body=${encodeURIComponent(`Page: ${SITE_ORIGIN}/schools\n\nDescribe the issue:`)}`;
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -229,7 +235,7 @@ export default async function SchoolsPage({
               }}
             >
               <a
-                href="/feedback?type=school&name=School%20Insights&url=/schools"
+                href={schoolsIssueMailto}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",

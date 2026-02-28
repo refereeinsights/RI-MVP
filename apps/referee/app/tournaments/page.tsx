@@ -65,6 +65,9 @@ export const metadata = {
     "Referee-submitted insight on pay, organization, and on-site experience — so you can decide with confidence.",
 };
 
+const ISSUE_EMAIL = "tournamentinsights@gmail.com";
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
+
 const SPORTS_LABELS: Record<string, string> = {
   soccer: "Soccer",
   basketball: "Basketball",
@@ -163,6 +166,9 @@ export default async function TournamentsPage({
   };
 }) {
   const supabase = supabaseAdmin;
+  const tournamentsIssueMailto = `mailto:${ISSUE_EMAIL}?subject=${encodeURIComponent(
+    "Tournament issue report"
+  )}&body=${encodeURIComponent(`Page: ${SITE_ORIGIN}/tournaments\n\nDescribe the issue:`)}`;
   const q = (searchParams?.q ?? "").trim();
   const stateParam = searchParams?.state;
   const month = (searchParams?.month ?? "").trim(); // YYYY-MM
@@ -423,7 +429,7 @@ export default async function TournamentsPage({
             }}
           >
             <a
-              href="/feedback?type=tournament&name=Tournament%20Insights&url=/tournaments"
+              href={tournamentsIssueMailto}
               style={{
                 display: "inline-flex",
                 alignItems: "center",

@@ -59,6 +59,7 @@ type EngagementRow = {
 export const revalidate = 300;
 
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
+const ISSUE_EMAIL = "tournamentinsights@gmail.com";
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -278,6 +279,11 @@ export default async function TournamentDetailPage({
     data.slug ?? ""
   )}&tournament_id=${encodeURIComponent(data.id)}&source_url=${encodeURIComponent(detailPath)}`;
   const canonicalUrl = buildCanonicalUrl(data.slug ?? params.slug);
+  const issueMailto = `mailto:${ISSUE_EMAIL}?subject=${encodeURIComponent(
+    `Tournament issue report: ${data.name}`
+  )}&body=${encodeURIComponent(
+    `Tournament: ${data.name}\nPage: ${canonicalUrl}\n\nDescribe the issue:`
+  )}`;
   const primaryVenueQuery = buildVenueQuery([data.venue, data.address, data.city, data.state, data.zip]);
   const primaryVenueMapLinks = primaryVenueQuery ? buildMapLinks(primaryVenueQuery) : null;
   const eventLd: Record<string, any> = {
@@ -603,9 +609,7 @@ export default async function TournamentDetailPage({
             }}
           >
             <a
-              href={`/feedback?type=tournament&name=${encodeURIComponent(
-                data.name
-              )}&url=${encodeURIComponent(`/tournaments/${data.slug ?? params.slug}`)}`}
+              href={issueMailto}
               style={{
                 textDecoration: "none",
                 fontWeight: 700,

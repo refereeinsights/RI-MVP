@@ -33,8 +33,7 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
   const allVenues = (readyVenuesRaw ?? []) as ReadyVenueRow[];
   const readyCandidates = allVenues.filter((venue) => {
     const hasAddress = Boolean((venue.address1 ?? venue.address ?? "").trim()) && Boolean((venue.city ?? "").trim()) && Boolean((venue.state ?? "").trim());
-    const hasGeo = typeof venue.latitude === "number" && Number.isFinite(venue.latitude) && typeof venue.longitude === "number" && Number.isFinite(venue.longitude);
-    return hasAddress || hasGeo;
+    return hasAddress;
   });
   const chunkValues = <T,>(values: T[], size = 120) => {
     const chunks: T[][] = [];
