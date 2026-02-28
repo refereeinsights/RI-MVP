@@ -2248,6 +2248,20 @@
   - Updated:
     - `apps/referee/app/admin/tournaments/sources/page.tsx`
 
+- USSSA fastpitch softball venue backfill:
+  - Ran the USSSA venue linker specifically against published canonical fastpitch softball tournaments with missing venue links.
+  - Added a `--sport=` filter to the linker so venue recovery can be scoped safely by sport:
+    - `scripts/ingest/link_usssa_missing_venues.ts`
+  - Verified:
+    - `54` fastpitch softball tournaments were missing venue links before the pass
+    - all `54` event pages returned venue data
+  - Applied venue recovery result:
+    - `53` new venues created
+    - `143` tournament_venue links upserted
+    - `0` remaining missing venue links for the `54` fastpitch softball tournaments
+  - Added DB migration to allow `softball` in `public.venues.sport`:
+    - `supabase/migrations/20260228_venues_allow_softball.sql`
+
 - TournamentInsights brand SEO:
   - Updated the TI homepage metadata to target the brand query more directly:
     - title: `TournamentInsights | Youth Sports Tournament Directory`

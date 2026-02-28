@@ -34,7 +34,18 @@ type ParsedVenue = {
 const APPLY = process.argv.includes("--apply");
 const LIMIT_ARG = process.argv.find((arg) => arg.startsWith("--limit="));
 const LIMIT = LIMIT_ARG ? Number(LIMIT_ARG.split("=")[1]) : 5000;
+const SPORT_ARG = process.argv.find((arg) => arg.startsWith("--sport="));
+const SPORT_FILTER = SPORT_ARG ? clean(SPORT_ARG.split("=")[1]) : null;
 const CHUNK = 250;
+const ALLOWED_VENUE_SPORTS = new Set([
+  "soccer",
+  "baseball",
+  "lacrosse",
+  "basketball",
+  "hockey",
+  "volleyball",
+  "futsal",
+]);
 
 function normalize(value: string | null | undefined) {
   return String(value ?? "")
@@ -323,7 +334,9 @@ async function run() {
     .order("updated_at", { ascending: false })
     .limit(LIMIT);
   if (tournamentErr) throw tournamentErr;
-  const tournaments = (tournamentsRaw ?? []) as TournamentRow[];
+  const tournaments = ((tournamentsRaw ?? []) as TournamentRow[]).filter((t) =>
+    SPORT_FILTER ? clean(t.sport) === SPORT_FILTER : true
+  );
 
   const ids = tournaments.map((t) => t.id);
   const linked = new Set<string>();
@@ -463,7 +476,8 @@ async function run() {
             city,
             state,
             zip: clean(pv.zip),
-            sport: clean(t.sport),
+            // The current DB constraint does not yet allow `softball` on venues.
+            sport: ALLOWED_VENUE_SPORTS.has(clean(t.sport) ?? "") ? clean(t.sport) : null,
             venue_url: clean(pv.venue_url),
           };
           const { data: insertRaw, error: insertErr } = await supabase
@@ -512,7 +526,12 @@ async function run() {
       }
     } catch (error) {
       failures += 1;
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error !== null
+            ? JSON.stringify(error)
+            : String(error);
       console.error(`[link_usssa_missing_venues] ${t.id} failed: ${msg}`);
     }
   }
@@ -521,6 +540,7 @@ async function run() {
     JSON.stringify(
       {
         mode: APPLY ? "apply" : "dry-run",
+        sport_filter: SPORT_FILTER,
         usssa_tournaments_scanned: tournaments.length,
         usssa_without_linked_venue: targets.length,
         pages_scanned: scanned,
