@@ -17,6 +17,14 @@
     - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
 
 ## 2026-02-28
+- TI venue details mobile right-side overflow fix (airport map links):
+  - Updated:
+    - `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`
+  - Changes:
+    - Removed `flexWrap: "nowrap"`, `transform: scale(0.72)`, and `transformOrigin` from the airport map links row. The transform didn't affect layout space so the 3 buttons still occupied full width in the document flow and overflowed their container; `.detailHero`'s `overflow: hidden` clipped the right side. Buttons now wrap naturally via `.detailLinksRow`'s `flex-wrap: wrap`.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+
 - TI tournament directory sport badge filtering UX:
   - Updated:
     - `apps/ti-web/app/tournaments/page.tsx`
