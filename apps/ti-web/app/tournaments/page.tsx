@@ -253,6 +253,12 @@ export default async function TournamentsPage({
     ? tournamentsBySport
     : tournamentsBySport.filter((t) => stateSelections.includes((t.state ?? "").trim().toUpperCase()));
 
+  const filteredSportCounts = tournaments.reduce<Record<string, number>>((acc, t) => {
+    const key = (t.sport ?? "unknown").toLowerCase();
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+
   const hasOwlsEyeByTournament = new Map<string, boolean>();
   if (tournaments.length > 0) {
     const tournamentIds = tournaments.map((t) => t.id);
@@ -462,30 +468,55 @@ export default async function TournamentsPage({
             </article>
           </div>
           <div className="summaryGrid">
-            {sportsSorted.map(({ sport, count }) => (
-              <Link
-                key={sport}
-                href={(() => {
-                  const params = new URLSearchParams();
-                  if (q) params.set("q", q);
-                  if (!isAllStates) {
-                    stateSelections.forEach((st) => params.append("state", st));
-                  }
-                  if (month) params.set("month", month);
-                  params.set("includePast", includePast ? "true" : "false");
-                  params.set("aysoOnly", aysoOnly ? "true" : "false");
-                  params.set("sports", sport);
-                  return `/tournaments?${params.toString()}`;
-                })()}
-                className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)}`}
-              >
-                <div className="summaryCount">{count}</div>
-                <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
-                <div className="summaryIcon" aria-hidden="true">
-                  {sportIcon(sport)}
-                </div>
-              </Link>
-            ))}
+            {sportsSelected.length > 0
+              ? sportsSelected.map((sport) => (
+                  <Link
+                    key={sport}
+                    href={(() => {
+                      const params = new URLSearchParams();
+                      if (q) params.set("q", q);
+                      if (!isAllStates) {
+                        stateSelections.forEach((st) => params.append("state", st));
+                      }
+                      if (month) params.set("month", month);
+                      params.set("includePast", includePast ? "true" : "false");
+                      params.set("aysoOnly", aysoOnly ? "true" : "false");
+                      params.set("sports", sport);
+                      return `/tournaments?${params.toString()}`;
+                    })()}
+                    className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)}`}
+                  >
+                    <div className="summaryCount">{filteredSportCounts[sport] ?? 0}</div>
+                    <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
+                    <div className="summaryIcon" aria-hidden="true">
+                      {sportIcon(sport)}
+                    </div>
+                  </Link>
+                ))
+              : sportsSorted.map(({ sport, count }) => (
+                  <Link
+                    key={sport}
+                    href={(() => {
+                      const params = new URLSearchParams();
+                      if (q) params.set("q", q);
+                      if (!isAllStates) {
+                        stateSelections.forEach((st) => params.append("state", st));
+                      }
+                      if (month) params.set("month", month);
+                      params.set("includePast", includePast ? "true" : "false");
+                      params.set("aysoOnly", aysoOnly ? "true" : "false");
+                      params.set("sports", sport);
+                      return `/tournaments?${params.toString()}`;
+                    })()}
+                    className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)}`}
+                  >
+                    <div className="summaryCount">{count}</div>
+                    <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
+                    <div className="summaryIcon" aria-hidden="true">
+                      {sportIcon(sport)}
+                    </div>
+                  </Link>
+                ))}
           </div>
           </>
         ) : null}

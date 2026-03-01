@@ -1,4 +1,15 @@
 ## 2026-02-28
+- Tournament directory sport badge filtering UX:
+  - Updated:
+    - `apps/ti-web/app/tournaments/page.tsx`
+  - Changes:
+    - Active sport filter collapses the badge grid to only the selected sport(s); unselected badges hidden.
+    - Selected sport badge count is drawn from `filteredSportCounts` (computed from `tournaments` after all filters) so it matches the result set exactly.
+    - No-sport-selected behavior unchanged — all badges visible.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+
+
 - Fix venue details mobile overflow (airport map links cut off):
   - Updated:
     - `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`

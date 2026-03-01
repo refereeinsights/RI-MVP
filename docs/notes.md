@@ -1,6 +1,17 @@
 # Running Notes
 
 ## 2026-02-28
+- TI tournament directory sport badge filtering UX:
+  - Updated:
+    - `apps/ti-web/app/tournaments/page.tsx`
+  - Changes:
+    - When a sport filter is active, the summary badge grid collapses to show only the selected sport badge(s); all other sport badges are hidden.
+    - The count on the selected sport badge reflects the final filtered result (after sport + state + month + search filters), matching the tournament cards shown below.
+    - When no sport is selected, all sport badges render as before.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+
+
 - RI venue/tournament source cleanup and admin quality improvements:
   - Updated tournament + venue data in Supabase from live source pages for:
     - Bazooka Soccer tournaments and venue links,
