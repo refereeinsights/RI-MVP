@@ -1,5 +1,21 @@
 # Running Notes
 
+## 2026-03-01
+- RI: Add Washington Youth Soccer (WYSA) custom parser:
+  - Updated:
+    - `apps/referee/src/server/admin/pasteUrl.ts`
+    - `apps/referee/src/server/admin/sources.ts`
+  - Added:
+    - `supabase/migrations/20260301_seed_wysa_washington_custom_parser_source.sql`
+  - Changes:
+    - New dispatch block for `washingtonyouthsoccer.org/sanctioned-tournaments/` — same pattern as Oregon.
+    - `parseWashingtonSanctionedTournaments(html)`: finds `<a href*="/sanctioned-tournament/">` cards, extracts `<h3>` name and first `<p>` with a month name as date. Reuses internal `monthNameToIndex0` / `toISODateUTC` helpers.
+    - `parseWashingtonDateText`: handles "Month D, Year" and "Month D-D, Year" formats. Sets `state: "WA"`, `city: null`, `confidence: 0.65`, `status: "draft"`.
+    - `washingtonyouthsoccer.org` + `www.washingtonyouthsoccer.org` added to `CUSTOM_CRAWLER_HOSTS`.
+    - Migration seeds registry row with `review_status: 'approved'`, `is_custom_source: true`, `state: 'WA'`.
+  - Validation:
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
+
 ## 2026-02-28
 - TI tournament directory sport badge filtering UX:
   - Updated:

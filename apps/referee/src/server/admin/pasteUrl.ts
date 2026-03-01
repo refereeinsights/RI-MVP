@@ -697,6 +697,56 @@ export async function createTournamentFromUrl(params: {
     };
   }
 
+  if (parsedUrl.hostname.includes("washingtonyouthsoccer.org") && parsedUrl.pathname.includes("/sanctioned-tournaments")) {
+    const events = parseWashingtonSanctionedTournaments(html);
+    if (!events.length) {
+      throw new SweepError("html_received_no_events", "Washington Youth Soccer sanctioned list parsed but no events found", diagnostics);
+    }
+
+    const tournamentIds: string[] = [];
+    for (const event of events) {
+      const tournamentId = await upsertTournamentFromSource({
+        ...event,
+        sport: "soccer",
+        status,
+        source: "external_crawl",
+      });
+      tournamentIds.push(tournamentId);
+    }
+
+    await queueEnrichmentJobs(tournamentIds);
+
+    const registry = await upsertRegistry({
+      source_url: canonical,
+      source_type: "association_directory",
+      sport: "soccer",
+      state: "WA",
+      notes: "Washington Youth Soccer sanctioned tournaments listing.",
+      is_custom_source: true,
+    });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "Washington Youth Soccer sanctioned tournaments",
+      extracted_json: { action: "wysa_washington_import", extracted_count: tournamentIds.length },
+      extract_confidence: 0.7,
+    });
+    await updateRunExtractedJson(runId, { action: "wysa_washington_import", extracted_count: tournamentIds.length });
+
+    return {
+      tournamentId: tournamentIds[0],
+      meta: { name: `Imported ${tournamentIds.length} events`, warnings: [] },
+      slug: "wysa-washington-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: tournamentIds.length,
+    };
+  }
+
   if (isAsaAzUrl(canonical)) {
     const sweepResult = await sweepAsaAzSanctionedClubTournaments({
       html,
@@ -2163,6 +2213,97 @@ function buildOregonRow(args: {
       date_text: args.dateText,
       host_org: args.host,
     },
+  };
+}
+
+export function parseWashingtonSanctionedTournaments(html: string): TournamentRow[] {
+  const $ = cheerio.load(html);
+  const results: TournamentRow[] = [];
+
+  // Cards are <a href=".../sanctioned-tournament/..."> containing <h3> name and a <p> date
+  $("a[href*='/sanctioned-tournament/']").each((_i, el) => {
+    const $a = $(el);
+    const href = ($a.attr("href") || "").trim();
+    if (!href) return;
+
+    const nameRaw =
+      $a.find("h3, h2").first().text().replace(/\s+/g, " ").trim() ||
+      ($a.attr("title") || "").trim();
+    if (!nameRaw) return;
+
+    // First <p> that contains a month name is the date
+    let dateText = "";
+    $a.find("p").each((_j, pEl) => {
+      const t = $(pEl).text().replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+      if (/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/i.test(t)) {
+        dateText = t;
+        return false; // break
+      }
+    });
+    if (!dateText) return;
+
+    const parsed = parseWashingtonDateText(dateText);
+    if (!parsed.start) return;
+
+    const sourceUrl = href.startsWith("http") ? href : `https://washingtonyouthsoccer.org${href}`;
+    const source_event_id = `${nameRaw}|${dateText}`.toLowerCase().replace(/\s+/g, "-");
+
+    results.push({
+      name: nameRaw,
+      slug: buildTournamentSlug({ name: nameRaw, city: null, state: "WA" }),
+      sport: "soccer",
+      level: null,
+      sub_type: "internet",
+      ref_cash_tournament: false,
+      state: "WA",
+      city: null,
+      venue: null,
+      address: null,
+      start_date: parsed.start,
+      end_date: parsed.end ?? parsed.start,
+      summary: "Washington Youth Soccer sanctioned tournament.",
+      status: "draft",
+      confidence: 0.65,
+      source: "external_crawl",
+      source_event_id,
+      source_url: sourceUrl,
+      source_domain: "washingtonyouthsoccer.org",
+      raw: { date_text: dateText },
+    });
+  });
+
+  const deduped = new Map<string, TournamentRow>();
+  for (const row of results) {
+    if (!row.name || !row.start_date) continue;
+    const key = `${row.name}|${row.start_date}|${row.source_url ?? ""}`;
+    if (!deduped.has(key)) deduped.set(key, row);
+  }
+  return Array.from(deduped.values());
+}
+
+function parseWashingtonDateText(textRaw: string): { start?: string; end?: string } {
+  const text = textRaw
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+  const yearMatch = text.match(/(20\d{2})/);
+  const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getUTCFullYear();
+
+  const range = text.match(
+    /([A-Za-z]{3,9})\s+(\d{1,2})(?:\s*[-–]\s*(\d{1,2}))?(?:,\s*(20\d{2}))?/i
+  );
+  if (!range) return {};
+  const monthIdx = monthNameToIndex0(range[1]);
+  if (monthIdx === null) return {};
+
+  const startDay = parseInt(range[2], 10);
+  const endDay = range[3] ? parseInt(range[3], 10) : startDay;
+  const rowYear = range[4] ? parseInt(range[4], 10) : year;
+
+  return {
+    start: toISODateUTC(rowYear, monthIdx, startDay),
+    end: toISODateUTC(rowYear, monthIdx, endDay),
   };
 }
 
