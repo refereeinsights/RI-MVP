@@ -2220,26 +2220,22 @@ export function parseWashingtonSanctionedTournaments(html: string): TournamentRo
   const $ = cheerio.load(html);
   const results: TournamentRow[] = [];
 
-  // Cards are <a href=".../sanctioned-tournament/..."> containing <h3> name and a <p> date
-  $("a[href*='/sanctioned-tournament/']").each((_i, el) => {
-    const $a = $(el);
-    const href = ($a.attr("href") || "").trim();
+  // Cards are <div class="event-item"> containing:
+  //   <a class="overlay" href=".../sanctioned-tournament/..." title="...">
+  //   <h2 class="title">Name</h2>
+  //   <span class="date">March 14, 2026</span>
+  $("div.event-item").each((_i, el) => {
+    const $item = $(el);
+    const $link = $item.find("a.overlay[href*='/sanctioned-tournament/']");
+    const href = ($link.attr("href") || "").trim();
     if (!href) return;
 
     const nameRaw =
-      $a.find("h3, h2").first().text().replace(/\s+/g, " ").trim() ||
-      ($a.attr("title") || "").trim();
+      $item.find("h2.title").text().replace(/\s+/g, " ").trim() ||
+      ($link.attr("title") || "").trim();
     if (!nameRaw) return;
 
-    // First <p> that contains a month name is the date
-    let dateText = "";
-    $a.find("p").each((_j, pEl) => {
-      const t = $(pEl).text().replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
-      if (/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/i.test(t)) {
-        dateText = t;
-        return false; // break
-      }
-    });
+    const dateText = $item.find("span.date").text().replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
     if (!dateText) return;
 
     const parsed = parseWashingtonDateText(dateText);

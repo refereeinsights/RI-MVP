@@ -1,6 +1,18 @@
 # Running Notes
 
 ## 2026-03-01
+- RI: Fix Washington Youth Soccer parser — no tournaments returned:
+  - Updated:
+    - `apps/referee/src/server/admin/pasteUrl.ts`
+  - Root cause:
+    - Parser assumed name (`<h3>/<h2>`) and date (`<p>`) were children of the `<a href*="/sanctioned-tournament/">` anchor. In reality each card is a `<div class="event-item">` with the anchor (`class="overlay"`), `<h2 class="title">`, and `<span class="date">` as siblings inside the div — not nested inside the `<a>`. `.find()` on the anchor returned nothing for every card, so all events were skipped.
+  - Fix:
+    - Changed iteration from `$("a[href*='/sanctioned-tournament/']")` to `$("div.event-item")`.
+    - Name: `$item.find("h2.title")`, fallback to `$link.attr("title")`.
+    - Date: `$item.find("span.date")` (format is `"Month D, YYYY"` — existing `parseWashingtonDateText` handles it correctly).
+  - Validation:
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed. Sweep confirmed 12+ tournaments returned.
+
 - RI: Add Washington Youth Soccer (WYSA) custom parser:
   - Updated:
     - `apps/referee/src/server/admin/pasteUrl.ts`
