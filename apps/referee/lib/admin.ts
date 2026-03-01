@@ -842,7 +842,7 @@ export async function adminListPendingTournaments() {
   const { data, error } = await supabaseAdmin
     .from("tournaments")
     .select(
-      "id,name,slug,sport,level,state,city,zip,venue,address,start_date,end_date,source_url,source_domain,official_website_url,summary,referee_pay,referee_contact,tournament_director,tournament_director_email,sub_type,updated_at,ref_cash_tournament"
+      "id,name,slug,sport,level,state,city,zip,venue,address,start_date,end_date,source_url,source_domain,official_website_url,summary,referee_pay,referee_contact,tournament_director,tournament_director_email,sub_type,updated_at,ref_cash_tournament,tournament_venues(venues(id,name,city,state))"
     )
     .eq("status", "draft")
     .order("updated_at", { ascending: false })
@@ -888,6 +888,7 @@ export type AdminPendingTournament = {
   tournament_director?: string | null;
   tournament_director_email?: string | null;
   updated_at?: string | null;
+  tournament_venues?: Array<{ venues: { id: string; name: string; city: string | null; state: string | null } | null }> | null;
 };
 
 export type AdminListedTournament = {

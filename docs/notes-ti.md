@@ -1,3 +1,15 @@
+## 2026-02-28
+- TI venue details page mobile centering fix:
+  - Updated:
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+    - `apps/ti-web/app/tournaments/tournaments.css`
+  - Changes:
+    - `.detailPanel` now has `justify-self: stretch; box-sizing: border-box` in CSS so it fills the full overlay grid area on mobile instead of shrinking to content width (caused by `justify-items: center` on `.detailHero__overlay`),
+    - `article.detailPanel` on the venue page now overrides `padding-top` to `1.25rem` (was inheriting `5.25rem` reserved for the absent badge icon),
+    - button row changed from `.cardFooter` grid to a plain flex row with `flex-wrap` and `justifyContent: center` so 1–3 buttons (Back / Venue site / View map) always center correctly on narrow screens.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+
 ## 2026-02-27
 - TI header/nav cleanup + mobile alignment:
   - Updated:

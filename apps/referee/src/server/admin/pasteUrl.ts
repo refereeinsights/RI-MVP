@@ -12,6 +12,10 @@ import {
 } from "@/server/sweeps/usssaBaseballTournaments";
 import { isUsssaFastpitchEventsUrl, sweepUsssaFastpitchTournaments } from "@/server/sweeps/usssaFastpitchTournaments";
 import { isMyHockeySearchUrl, sweepMyHockeyTournaments } from "@/server/sweeps/myHockeyTournaments";
+import {
+  isSoftballConnectedTournamentsUrl,
+  sweepSoftballConnectedTournaments,
+} from "@/server/sweeps/softballConnectedTournaments";
 import { insertRun, normalizeSourceUrl, upsertRegistry, updateRunExtractedJson } from "./sources";
 import { SweepError, classifyHtmlPayload, httpErrorCode } from "./sweepDiagnostics";
 
@@ -904,6 +908,66 @@ export async function createTournamentFromUrl(params: {
       tournamentId: sweepResult.imported_ids[0] ?? "",
       meta: { name: `Imported ${sweepResult.counts.imported} events`, warnings: [] },
       slug: "myhockey-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: sweepResult.counts.imported,
+      details: {
+        counts: sweepResult.counts,
+        sample: sweepResult.sample,
+      },
+    };
+  }
+
+  if (isSoftballConnectedTournamentsUrl(canonical)) {
+    const sweepResult = await sweepSoftballConnectedTournaments({
+      sourceUrl: canonical,
+      html,
+      status,
+      writeDb: true,
+      maxPages: 20,
+    });
+
+    if (!sweepResult.counts.found) {
+      throw new SweepError("html_received_no_events", "Softball Connected page parsed but no tournaments found", diagnostics);
+    }
+
+    await queueEnrichmentJobs(sweepResult.imported_ids);
+
+    const registry = await upsertRegistry({
+      source_url: "https://www.softballconnected.com/tournaments",
+      source_type: "directory",
+      sport: "softball",
+      notes: "Softball Connected nationwide tournament directory.",
+      is_custom_source: true,
+      is_active: true,
+    });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "Softball Connected tournaments",
+      extracted_json: {
+        action: "softball_connected_import",
+        extracted_count: sweepResult.counts.imported,
+        counts: sweepResult.counts,
+        sample: sweepResult.sample,
+      },
+      extract_confidence: 0.8,
+    });
+    await updateRunExtractedJson(runId, {
+      action: "softball_connected_import",
+      extracted_count: sweepResult.counts.imported,
+      counts: sweepResult.counts,
+      sample: sweepResult.sample,
+    });
+
+    return {
+      tournamentId: sweepResult.imported_ids[0] ?? "",
+      meta: { name: `Imported ${sweepResult.counts.imported} softball events`, warnings: [] },
+      slug: "softball-connected-import",
       registry_id: registry.registry_id,
       run_id: runId,
       diagnostics,

@@ -112,6 +112,28 @@
   - Validation:
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
 
+- RI Softball Connected sweep — fetch safety, venue linking, admin integration:
+  - Updated:
+    - `apps/referee/src/server/sweeps/softballConnectedTournaments.ts`
+    - `apps/referee/src/server/admin/pasteUrl.ts`
+    - `apps/referee/lib/admin.ts`
+    - `apps/referee/app/admin/page.tsx`
+  - Changes:
+    - fetch safety: `AbortController` 12-second timeout per request; returns `null` on failure so one bad URL does not abort the whole sweep,
+    - inter-request delay: 300–800ms random jitter between page fetches and between event detail fetches,
+    - `writeDb` default changed from `true` to `false` to match the apply-required pattern of all other ingest scripts,
+    - listing-page schema.org venue extraction: `div[itemprop="event"]` blocks parsed for venue name, street address, and zip; correlated to table rows by **position** (not name) so minor title mismatches do not break pairing,
+    - venue resolution chain on upsert: detail-page "Stadium / Field Name" → listing-page org/venue name → street address fallback,
+    - both `address` (full string, used in conflict key) and `address1` (street only) populated on `venues` upsert; `zip` also stored,
+    - venue upsert on conflict `name,address,city,state`; link upsert on conflict `tournament_id,venue_id`,
+    - `venues_linked` counter added to sweep result counts,
+    - sweep registered in `pasteUrl.ts` so it fires when a Softball Connected URL is submitted from the admin sources UI,
+    - `adminListPendingTournaments` select extended to include `tournament_venues(venues(id,name,city,state))`,
+    - pending tournament rows in admin panel show a green "N venues linked" badge,
+    - dry-run validated: ~700 events across 14 pages, all 50/50 events on page 1 have venue name + street address from schema.org.
+  - Validation:
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
+
 ## 2026-02-27
 - RI_Backend Playwright target URL hardening:
   - Updated:

@@ -307,7 +307,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
     <main className="pitchWrap tournamentsWrap">
       <section className={`detailHero ${sportSurfaceClass}`}>
         <div className="detailHero__overlay">
-          <article className="detailPanel">
+          <article className="detailPanel" style={{ paddingTop: "1.25rem" }}>
             <div style={{ display: "grid", gap: 10 }}>
               <h1 style={{ margin: 0 }}>{data.name || "Venue"}</h1>
               <p className="meta" style={{ margin: 0 }}>
@@ -327,7 +327,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                 reviews_last_updated_at={data.reviews_last_updated_at}
               />
 
-              <div className="cardFooter" style={{ justifyContent: "center" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
                 <Link href="/venues" className="secondaryLink">
                   Back to venues
                 </Link>

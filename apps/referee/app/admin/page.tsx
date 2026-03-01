@@ -5099,6 +5099,11 @@ export default async function AdminPage({
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
                           {t.venue ? <div>{t.venue}</div> : <div>Venue TBD</div>}
                           {t.address && <div style={{ color: "#777" }}>{t.address}</div>}
+                          {(t.tournament_venues?.length ?? 0) > 0 && (
+                            <div style={{ marginTop: 4, fontSize: 11, color: "#1a7a3c", fontWeight: 600 }}>
+                              {t.tournament_venues!.length} venue{t.tournament_venues!.length > 1 ? "s" : ""} linked
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
                           {t.referee_pay ? <div>Pay: {t.referee_pay}</div> : <div>Pay info TBD</div>}

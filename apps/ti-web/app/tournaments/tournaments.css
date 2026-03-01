@@ -1558,6 +1558,9 @@
   border: 2px solid rgba(255,255,255,0.55);
   backdrop-filter: blur(6px);
   box-shadow: 0 12px 30px rgba(0,0,0,0.22);
+  /* stretch to fill the overlay grid area on both sides */
+  justify-self: stretch;
+  box-sizing: border-box;
 }
 @media (max-width: 640px) {
   .detailPanel {
