@@ -1,6 +1,24 @@
 # Running Notes
 
 ## 2026-03-01
+- RI: WYSA tournament detail page enrichment script:
+  - Added:
+    - `scripts/ingest/enrich_wysa_tournament_details.ts`
+  - Changes:
+    - Fetches each `washingtonyouthsoccer.org/sanctioned-tournament/` detail page for all 16 imported tournaments.
+    - Parses and writes to DB:
+      - `tournament_director`, `tournament_director_email`, `tournament_director_phone` — from `div.departments-contact div.box-layout` h4="Tournament Director"
+      - `referee_contact`, `referee_contact_email`, `referee_contact_phone` — from h4="Referee Assignor" box
+      - `team_fee` — from `<h2>Fees</h2> → <ul><li>` age + `<strong>$price</strong>` (formatted "age: $price | ...")
+      - `venue`, `address`, `city`, `zip` — from `dd.tribe-venue`, `span.tribe-street-address` (venue name prefix stripped), `span.tribe-locality`, `span.tribe-postal-code`
+      - `official_website_url` — from "View Venue Website" link on detail page
+    - Upserts venue into `venues` table (dedup by name + city + state='WA'); sets `address`, `address1`, `zip`, `sport`.
+    - Adds `tournament_venues` link (additive only via upsert — never removes existing links).
+    - `--apply` / dry-run pattern; `--force` to re-scrape already-enriched; `--limit=N` cap.
+    - Default filter: `venue IS NULL` (skip already-enriched).
+  - Run: `npx tsx scripts/ingest/enrich_wysa_tournament_details.ts --apply`
+  - Result: 17/17 written (16 tournaments + 1 stale list-page record), 14 venues created + linked.
+
 - RI: Fix Washington Youth Soccer parser — no tournaments returned:
   - Updated:
     - `apps/referee/src/server/admin/pasteUrl.ts`
