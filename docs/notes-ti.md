@@ -1,4 +1,10 @@
 ## 2026-02-28
+- Fix venue details mobile overflow (airport map links cut off):
+  - Updated:
+    - `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`
+  - Changes:
+    - Removed `flexWrap: "nowrap"`, `transform: scale(0.72)`, and `transformOrigin` from the airport map links row. The transform didn't affect layout space, so the 3 buttons still occupied full width in the document flow and overflowed their container; `.detailHero`'s `overflow: hidden` clipped the right side. Now buttons wrap naturally via the `.detailLinksRow` CSS class's `flex-wrap: wrap`.
+
 - TI venue details page mobile centering fix:
   - Updated:
     - `apps/ti-web/app/venues/[venueId]/page.tsx`

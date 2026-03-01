@@ -162,14 +162,7 @@ export default function OwlsEyeVenueCard({
                 {airportMapLinks && primaryAirportQuery ? (
                   <div
                     className="detailLinksRow"
-                    style={{
-                      justifyContent: "center",
-                      gap: 4,
-                      flexWrap: "nowrap",
-                      transform: "scale(0.72)",
-                      transformOrigin: "center top",
-                      width: "100%",
-                    }}
+                    style={{ gap: 4, width: "100%" }}
                   >
                     <MobileMapLink
                       provider="google"
