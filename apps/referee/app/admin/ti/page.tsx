@@ -21,6 +21,11 @@ type TiUserRow = {
   created_at: string | null;
   first_seen_at: string | null;
   last_seen_at: string | null;
+  display_name: string | null;
+  username: string | null;
+  reviewer_handle: string | null;
+  zip_code: string | null;
+  sports_interests: string[] | null;
 };
 
 type AuthTroubleshootRow = {
@@ -58,11 +63,68 @@ type EventCodeLoadResult = {
   error: string | null;
 };
 
+const TI_SPORTS = [
+  "soccer",
+  "basketball",
+  "football",
+  "baseball",
+  "softball",
+  "volleyball",
+  "lacrosse",
+  "wrestling",
+  "hockey",
+  "futsal",
+] as const;
+
+const TI_SPORT_LABELS: Record<(typeof TI_SPORTS)[number], string> = {
+  soccer: "Soccer",
+  basketball: "Basketball",
+  football: "Football",
+  baseball: "Baseball",
+  softball: "Softball",
+  volleyball: "Volleyball",
+  lacrosse: "Lacrosse",
+  wrestling: "Wrestling",
+  hockey: "Hockey",
+  futsal: "Futsal",
+};
+
+const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
+const ZIP_PATTERN = /^\d{5}(?:-\d{4})?$/;
+
 function fmtDate(value: string | null | undefined) {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString();
+}
+
+function normalizeDisplayName(value: string | null | undefined) {
+  const normalized = (value ?? "").trim();
+  return normalized || null;
+}
+
+function normalizeUsername(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+}
+
+function normalizeZipCode(value: string | null | undefined) {
+  return (value ?? "").trim();
+}
+
+function normalizeSportsInterests(values: string[]) {
+  const allowed = new Set<string>(TI_SPORTS);
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const value of values) {
+    const sport = String(value ?? "").trim().toLowerCase();
+    if (!allowed.has(sport) || seen.has(sport)) continue;
+    seen.add(sport);
+    normalized.push(sport);
+  }
+
+  return normalized;
 }
 
 function displayNameFromEmail(email: string | null) {
@@ -164,6 +226,91 @@ async function updateTiUserFieldAction(formData: FormData) {
   const { error } = await (supabaseAdmin.from("ti_users" as any) as any).update(updates).eq("id", id);
   if (error) redirect(buildPathWithNotice(`TI user update failed: ${error.message}`, q));
   redirect(buildPathWithNotice(`TI user ${field} updated.`, q));
+}
+
+async function updateTiUserProfileAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+
+  const id = String(formData.get("id") ?? "").trim();
+  const q = String(formData.get("q") ?? "").trim();
+  if (!id) redirect(buildPathWithNotice("Missing TI user id.", q));
+
+  const displayName = normalizeDisplayName(String(formData.get("display_name") ?? ""));
+  const username = normalizeUsername(String(formData.get("username") ?? ""));
+  const zipCode = normalizeZipCode(String(formData.get("zip_code") ?? ""));
+  const sportsInterests = normalizeSportsInterests(
+    formData.getAll("sports_interests").map((value) => String(value))
+  );
+
+  if (!USERNAME_PATTERN.test(username)) {
+    redirect(
+      buildPathWithNotice(
+        "Username must be 3-20 characters using letters, numbers, or underscores.",
+        q
+      )
+    );
+  }
+  if (!zipCode) redirect(buildPathWithNotice("ZIP code is required.", q));
+  if (!ZIP_PATTERN.test(zipCode)) {
+    redirect(buildPathWithNotice("Enter a valid ZIP code (e.g., 99216).", q));
+  }
+  if (sportsInterests.length === 0) {
+    redirect(buildPathWithNotice("Pick at least one sport interest.", q));
+  }
+
+  const usernameCheck = await (supabaseAdmin.from("ti_users" as any) as any)
+    .select("id", { head: true, count: "exact" })
+    .or(`username.eq.${username},reviewer_handle.eq.${username}`)
+    .neq("id", id);
+  if (usernameCheck.error) {
+    redirect(buildPathWithNotice(`Username check failed: ${usernameCheck.error.message}`, q));
+  }
+  if ((usernameCheck.count ?? 0) > 0) {
+    redirect(buildPathWithNotice("That username is taken.", q));
+  }
+
+  const authLookup = await (supabaseAdmin.auth.admin as any).getUserById(id);
+  const existingMetadata = authLookup?.data?.user?.user_metadata ?? {};
+  const authMissing = Boolean(authLookup?.error);
+
+  if (!authMissing) {
+    const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+      user_metadata: {
+        ...existingMetadata,
+        display_name: displayName,
+        username,
+        handle: username,
+        zip_code: zipCode,
+        sports_interests: sportsInterests,
+      },
+    });
+    if (authUpdateError) {
+      redirect(buildPathWithNotice(`Auth profile update failed: ${authUpdateError.message}`, q));
+    }
+  }
+
+  const { error: profileError } = await (supabaseAdmin.from("ti_users" as any) as any)
+    .update({
+      display_name: displayName,
+      username,
+      reviewer_handle: username,
+      zip_code: zipCode,
+      sports_interests: sportsInterests,
+    })
+    .eq("id", id);
+  if (profileError) {
+    redirect(buildPathWithNotice(`TI profile update failed: ${profileError.message}`, q));
+  }
+
+  redirect(
+    buildPathWithNotice(
+      authMissing
+        ? "TI profile updated, but auth metadata was missing for this user."
+        : "TI profile updated.",
+      q
+    )
+  );
 }
 
 async function backfillTiUserFromAuthAction(formData: FormData) {
@@ -406,7 +553,7 @@ export default async function TiAdminPage({
 
   let query = (supabaseAdmin.from("ti_users" as any) as any)
     .select(
-      "id,email,signup_source,signup_source_code,plan,subscription_status,trial_ends_at,current_period_end,created_at,first_seen_at,last_seen_at"
+      "id,email,signup_source,signup_source_code,plan,subscription_status,trial_ends_at,current_period_end,created_at,first_seen_at,last_seen_at,display_name,username,reviewer_handle,zip_code,sports_interests"
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -498,7 +645,7 @@ export default async function TiAdminPage({
                     {displayNameFromEmail(row.email)} <span style={{ fontWeight: 500, color: "#334155" }}>({row.email ?? "—"})</span>
                   </span>
                   <span style={{ fontSize: 12, color: "#64748b" }}>
-                    {row.plan ?? "insider"} · {row.subscription_status ?? "none"}
+                    {row.username ?? row.reviewer_handle ?? "—"} · {row.plan ?? "insider"} · {row.subscription_status ?? "none"}
                   </span>
                 </summary>
                 <div style={{ padding: "0 12px 12px", borderTop: "1px solid #dbe4ef", display: "grid", gap: 10 }}>
@@ -520,7 +667,108 @@ export default async function TiAdminPage({
                       <div style={{ color: "#64748b" }}>Seen</div>
                       <div>{fmtDate(row.last_seen_at ?? row.first_seen_at)}</div>
                     </div>
+                    <div style={{ fontSize: 12 }}>
+                      <div style={{ color: "#64748b" }}>Display name</div>
+                      <div>{row.display_name ?? "—"}</div>
+                    </div>
+                    <div style={{ fontSize: 12 }}>
+                      <div style={{ color: "#64748b" }}>Username</div>
+                      <div>{row.username ?? row.reviewer_handle ?? "—"}</div>
+                    </div>
+                    <div style={{ fontSize: 12 }}>
+                      <div style={{ color: "#64748b" }}>ZIP</div>
+                      <div>{row.zip_code ?? "—"}</div>
+                    </div>
+                    <div style={{ fontSize: 12 }}>
+                      <div style={{ color: "#64748b" }}>Sports interests</div>
+                      <div>
+                        {(row.sports_interests ?? []).length
+                          ? (row.sports_interests ?? [])
+                              .map((sport) => TI_SPORT_LABELS[sport as keyof typeof TI_SPORT_LABELS] ?? sport)
+                              .join(", ")
+                          : "—"}
+                      </div>
+                    </div>
                   </div>
+                  <form
+                    action={updateTiUserProfileAction}
+                    style={{
+                      border: "1px solid #dbe4ef",
+                      borderRadius: 10,
+                      padding: 12,
+                      display: "grid",
+                      gap: 12,
+                      background: "#fff",
+                    }}
+                  >
+                    <input type="hidden" name="id" value={row.id} />
+                    <input type="hidden" name="q" value={q} />
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>Profile settings</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                      <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
+                        Full name
+                        <input
+                          name="display_name"
+                          defaultValue={row.display_name ?? ""}
+                          placeholder="Optional"
+                          style={{ padding: 8 }}
+                        />
+                      </label>
+                      <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
+                        Username
+                        <input
+                          name="username"
+                          defaultValue={row.username ?? row.reviewer_handle ?? ""}
+                          placeholder="Choose a username"
+                          required
+                          style={{ padding: 8 }}
+                        />
+                      </label>
+                      <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
+                        ZIP code
+                        <input
+                          name="zip_code"
+                          defaultValue={row.zip_code ?? ""}
+                          placeholder="99216"
+                          required
+                          style={{ padding: 8 }}
+                        />
+                      </label>
+                    </div>
+                    <fieldset
+                      style={{
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 10,
+                        padding: 10,
+                        display: "grid",
+                        gap: 8,
+                      }}
+                    >
+                      <legend style={{ fontSize: 12, fontWeight: 700, padding: "0 6px" }}>Sports interests</legend>
+                      <div style={{ fontSize: 12, color: "#64748b" }}>
+                        Choose one or more. These are the same values used in TI personalization.
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+                        {TI_SPORTS.map((sport) => (
+                          <label
+                            key={`${row.id}-${sport}`}
+                            style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, color: "#334155" }}
+                          >
+                            <input
+                              type="checkbox"
+                              name="sports_interests"
+                              value={sport}
+                              defaultChecked={(row.sports_interests ?? []).includes(sport)}
+                            />
+                            <span>{TI_SPORT_LABELS[sport]}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                    <div>
+                      <button type="submit">Save profile settings</button>
+                    </div>
+                  </form>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 8 }}>
                     <form action={updateTiUserFieldAction} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                       <input type="hidden" name="id" value={row.id} />

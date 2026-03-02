@@ -14,6 +14,24 @@ Maintenance rules:
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
 ## 2026-03-02
+- TI account settings + TI admin profile editor exposure:
+  - Updated:
+    - `apps/ti-web/app/account/page.tsx`
+    - `apps/ti-web/app/account/AccountPage.module.css`
+    - `apps/ti-web/lib/tiUserProfileServer.ts`
+    - `apps/referee/app/admin/ti/page.tsx`
+  - Changes:
+    - `/account` now exposes editable profile settings for optional full name, username, ZIP code, and sports interests.
+    - account updates reuse TI signup validation and persist to both auth user metadata and `public.ti_users` to avoid sync drift.
+    - `/admin/ti` expanded user rows now display `display_name`, `username`, `zip_code`, and `sports_interests`.
+    - admins can now edit those profile fields directly from the expanded TI user panel, with username uniqueness and ZIP validation enforced before save.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
+    - local runtime smoke:
+      - `GET http://localhost:3001/account` returned `307` redirect to `/login` when unauthenticated (expected),
+      - `GET http://localhost:3000/admin/ti` returned `200 OK`.
+
 - TI signup profile expansion + account-menu cleanup:
   - Updated:
     - `apps/ti-web/app/signup/page.tsx`

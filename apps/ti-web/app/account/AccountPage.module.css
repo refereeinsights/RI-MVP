@@ -56,6 +56,85 @@
   font-size: 1.2rem;
 }
 
+.noticeBanner,
+.errorBanner {
+  margin: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+}
+
+.noticeBanner {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.errorBanner {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.profileForm {
+  display: grid;
+  gap: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.fieldHelp {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.textInput {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  color: #0f172a;
+  background: #fff;
+}
+
+.checkboxFieldset {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.checkboxGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 12px;
+}
+
+.checkboxOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .savedList {
   display: grid;
   gap: 10px;
@@ -160,4 +239,3 @@
 .footerAction {
   font-size: 13px;
 }
-

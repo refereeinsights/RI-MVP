@@ -1,8 +1,15 @@
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getTier } from "@/lib/entitlements";
-import { syncTiUserProfileFromAuthUser } from "@/lib/tiUserProfileServer";
+import { extractProfileFromMetadata, validateSignupProfile } from "@/lib/tiProfile";
+import { TI_SPORTS, TI_SPORT_LABELS } from "@/lib/tiSports";
+import {
+  persistNormalizedTiUserProfile,
+  syncTiUserProfileFromAuthUser,
+} from "@/lib/tiUserProfileServer";
 import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SavedTournamentsSection, { type SavedTournamentItem } from "./SavedTournamentsSection";
 import styles from "./AccountPage.module.css";
@@ -68,7 +75,70 @@ function prettyDate(value: string | null | undefined) {
   return d.toLocaleDateString();
 }
 
-export default async function AccountPage() {
+function buildAccountPath(kind: "notice" | "error", message: string) {
+  const params = new URLSearchParams();
+  params.set(kind, message);
+  return `/account?${params.toString()}`;
+}
+
+async function updateAccountProfileAction(formData: FormData) {
+  "use server";
+
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+  if (!user.email_confirmed_at) redirect("/verify-email");
+
+  const validation = validateSignupProfile({
+    name: String(formData.get("name") ?? ""),
+    username: String(formData.get("username") ?? ""),
+    zip: String(formData.get("zip") ?? ""),
+    sportsInterests: formData
+      .getAll("sports_interests")
+      .map((value) => String(value)),
+  });
+
+  if (!validation.ok) {
+    redirect(buildAccountPath("error", validation.message));
+  }
+
+  const nextMetadata = {
+    ...((user.user_metadata ?? {}) as Record<string, unknown>),
+    display_name: validation.value.displayName,
+    username: validation.value.username,
+    handle: validation.value.username,
+    zip_code: validation.value.zipCode,
+    sports_interests: validation.value.sportsInterests,
+  };
+
+  const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+    user_metadata: nextMetadata,
+  });
+  if (authError) {
+    redirect(buildAccountPath("error", `Profile update failed: ${authError.message}`));
+  }
+
+  const persistResult = await persistNormalizedTiUserProfile({
+    userId: user.id,
+    email: user.email ?? null,
+    profile: validation.value,
+  });
+  if (!persistResult.ok) {
+    redirect(buildAccountPath("error", persistResult.error ?? "Profile update failed."));
+  }
+
+  revalidatePath("/account");
+  redirect(buildAccountPath("notice", "Profile updated."));
+}
+
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams?: { notice?: string; error?: string };
+}) {
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
@@ -83,6 +153,22 @@ export default async function AccountPage() {
     .select("id,created_at,plan,subscription_status,current_period_end,first_seen_at,display_name,username,reviewer_handle,zip_code,sports_interests")
     .eq("id", user.id)
     .maybeSingle<TiUserRow>();
+  const metadataProfile = extractProfileFromMetadata(
+    ((user.user_metadata ?? {}) as Record<string, unknown>)
+  );
+  const profileSettings = {
+    displayName: profile?.display_name ?? metadataProfile.displayName ?? "",
+    username:
+      profile?.username ??
+      profile?.reviewer_handle ??
+      metadataProfile.username ??
+      "",
+    zipCode: profile?.zip_code ?? metadataProfile.zipCode ?? "",
+    sportsInterests:
+      profile?.sports_interests?.length
+        ? profile.sports_interests
+        : metadataProfile.sportsInterests,
+  };
 
   const tier = getTier(user, profile ?? null);
   const effectivePlan = profile ? prettyPlan(profile.plan) : "Insider";
@@ -135,6 +221,78 @@ export default async function AccountPage() {
           <div><strong>Renewal date:</strong> {prettyDate(profile?.current_period_end)}</div>
         </div>
       </header>
+
+      {searchParams?.notice ? (
+        <p className={styles.noticeBanner}>{searchParams.notice}</p>
+      ) : null}
+      {searchParams?.error ? (
+        <p className={styles.errorBanner}>{searchParams.error}</p>
+      ) : null}
+
+      <section className={styles.sectionCard}>
+        <div>
+          <h2 className={styles.sectionTitle}>Profile settings</h2>
+          <p className={styles.mutedText}>Update the details used for your TI profile and recommendations.</p>
+        </div>
+        <form action={updateAccountProfileAction} className={styles.profileForm}>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Full name</span>
+            <span className={styles.fieldHelp}>Optional.</span>
+            <input
+              className={styles.textInput}
+              type="text"
+              name="name"
+              defaultValue={profileSettings.displayName}
+              placeholder="Your name"
+            />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Username</span>
+            <span className={styles.fieldHelp}>This appears on your profile and submissions.</span>
+            <input
+              className={styles.textInput}
+              type="text"
+              name="username"
+              defaultValue={profileSettings.username}
+              placeholder="Choose a username"
+              required
+            />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>ZIP code</span>
+            <span className={styles.fieldHelp}>Used for nearby tournaments and travel planning.</span>
+            <input
+              className={styles.textInput}
+              type="text"
+              name="zip"
+              defaultValue={profileSettings.zipCode}
+              placeholder="99216"
+              inputMode="numeric"
+              required
+            />
+          </label>
+          <fieldset className={styles.checkboxFieldset}>
+            <legend className={styles.fieldLabel}>Sports interests</legend>
+            <p className={styles.fieldHelp}>Pick one or more — we&apos;ll personalize tournaments and alerts.</p>
+            <div className={styles.checkboxGrid}>
+              {TI_SPORTS.map((sport) => (
+                <label key={sport} className={styles.checkboxOption}>
+                  <input
+                    type="checkbox"
+                    name="sports_interests"
+                    value={sport}
+                    defaultChecked={profileSettings.sportsInterests.includes(sport)}
+                  />
+                  <span>{TI_SPORT_LABELS[sport]}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <div className={styles.formActions}>
+            <button type="submit" className={styles.primaryAction}>Save settings</button>
+          </div>
+        </form>
+      </section>
 
       <SavedTournamentsSection initialItems={savedTournaments} />
 
