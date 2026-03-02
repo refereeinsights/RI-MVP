@@ -31,6 +31,11 @@ export default function VerifyCodeExchange({ returnTo }: VerifyCodeExchangeProps
         setMessage(error.message || "Verification link is invalid or expired. Please request a new one.");
         return;
       }
+      try {
+        await fetch("/api/account/profile", { method: "POST" });
+      } catch {
+        // Account page still performs profile sync on load.
+      }
       router.replace(returnTo);
       router.refresh();
     };

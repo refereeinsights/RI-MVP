@@ -53,15 +53,6 @@ export default function AccountIconMenu({ tier, isAuthed, needsEmailVerify }: Ac
 
   return (
     <div className={styles.wrap} ref={wrapRef}>
-      {!isAuthed ? (
-        <Link
-          href={`/signup?returnTo=${encodedReturnTo}`}
-          className={styles.signupBug}
-          aria-label="Create free account"
-        >
-          +
-        </Link>
-      ) : null}
       <button
         type="button"
         className={styles.button}

@@ -1,4 +1,47 @@
+## TI Running Notes
+
+This is the TI-only review log extracted from the mixed master log in `docs/notes.md`.
+
+Review/use:
+- Use this file first when reviewing TI changes.
+- Cross-check `docs/notes.md` only if you need mixed RI/TI context or original neighboring entries.
+
+Maintenance rules:
+- Keep this file TI-only.
+- Keep entries in reverse chronological order.
+- Keep one `## YYYY-MM-DD` section per date.
+- Do not add RI-only items here.
+- When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
+
 ## 2026-03-02
+- TI signup profile expansion + account-menu cleanup:
+  - Updated:
+    - `apps/ti-web/app/signup/page.tsx`
+    - `apps/ti-web/app/account/page.tsx`
+    - `apps/ti-web/app/verify-email/VerifyCodeExchange.tsx`
+    - `apps/ti-web/app/api/account/profile/route.ts`
+    - `apps/ti-web/app/api/signup/check-username/route.ts`
+    - `apps/ti-web/components/AccountIconMenu.tsx`
+    - `apps/ti-web/components/AccountIconMenu.module.css`
+    - `apps/ti-web/lib/tiProfile.ts`
+    - `apps/ti-web/lib/tiUserProfileServer.ts`
+    - `apps/ti-web/lib/types/supabase.ts`
+    - `apps/ti-web/sql/20260302_ti_signup_username_and_sports.sql`
+  - Changes:
+    - signup now uses `username` instead of `handle`,
+    - `name` is optional,
+    - `ZIP` is required and validated as US ZIP / ZIP+4,
+    - required multi-select `Sports interests` added with personalization helper copy,
+    - signup metadata + TI profile sync now persist `username`, `zip_code`, and `sports_interests`,
+    - legacy `reviewer_handle` remains mirrored for backward compatibility and uniqueness enforcement,
+    - added server-side username availability check and authenticated profile sync endpoint,
+    - verify-email flow now triggers profile sync after code exchange,
+    - removed the extra plus-icon signup link in the header; unauthenticated users now use the avatar menu and its `Create free account` action.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+    - local validation smoke passed for optional name, required ZIP, required username, and required sports interests.
+    - live TI Supabase smoke confirmed `username`, `zip_code`, and `sports_interests` round-trip and duplicate usernames are blocked.
+
 - Homepage SEO + metadata update (no UI changes):
   - Updated:
     - `apps/ti-web/app/page.tsx`

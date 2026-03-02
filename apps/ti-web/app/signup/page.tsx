@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { sanitizeReturnTo } from "@/lib/returnTo";
+import { SPORT_INTEREST_OPTIONS, validateSignupProfile } from "@/lib/tiProfile";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -13,7 +14,8 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [zip, setZip] = useState("");
-  const [handle, setHandle] = useState("");
+  const [username, setUsername] = useState("");
+  const [sportsInterests, setSportsInterests] = useState<string[]>([]);
   const [agreed, setAgreed] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "ok" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -62,6 +64,12 @@ export default function SignupPage() {
     return `${pickSafeOrigin()}/auth/confirm`;
   }, []);
 
+  function toggleSportInterest(value: string) {
+    setSportsInterests((current) =>
+      current.includes(value) ? current.filter((item) => item !== value) : [...current, value]
+    );
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("idle");
@@ -75,29 +83,56 @@ export default function SignupPage() {
 
     setStatus("saving");
     const supabase = getSupabaseBrowserClient();
-    const cleanHandle = handle.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
-    const cleanZip = zip.trim();
+    const validation = validateSignupProfile({
+      name,
+      username,
+      zip,
+      sportsInterests,
+    });
 
-    if (cleanHandle && !/^[a-z0-9_]{3,20}$/.test(cleanHandle)) {
+    if (!validation.ok) {
       setStatus("error");
-      setMessage("Handle must be 3-20 characters using letters, numbers, or underscores.");
+      setMessage(validation.message);
       return;
     }
-    if (cleanZip && !/^\d{5}(-\d{4})?$/.test(cleanZip)) {
+
+    const profile = validation.value;
+
+    const usernameCheck = await fetch(
+      `/api/signup/check-username?username=${encodeURIComponent(profile.username)}`,
+      { method: "GET" }
+    );
+    if (!usernameCheck.ok) {
+      const payload = (await usernameCheck.json().catch(() => null)) as
+        | { available?: boolean; error?: string }
+        | null;
       setStatus("error");
-      setMessage("ZIP code must be 5 digits (or ZIP+4).");
+      setMessage(
+        payload?.available === false
+          ? "That username is taken."
+          : payload?.error || "Unable to validate that username right now."
+      );
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
+    const usernameAvailability = (await usernameCheck.json()) as { available: boolean };
+    if (!usernameAvailability.available) {
+      setStatus("error");
+      setMessage("That username is taken.");
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
         emailRedirectTo,
         data: {
-          display_name: name.trim() || null,
-          zip_code: cleanZip || null,
-          handle: cleanHandle || null,
+          display_name: profile.displayName,
+          zip_code: profile.zipCode,
+          username: profile.username,
+          handle: profile.username,
+          sports_interests: profile.sportsInterests,
         },
       },
     });
@@ -115,6 +150,20 @@ export default function SignupPage() {
         setMessage(error.message);
       }
       return;
+    }
+
+    if (data.session) {
+      const syncResponse = await fetch("/api/account/profile", { method: "POST" });
+      if (!syncResponse.ok) {
+        const payload = (await syncResponse.json().catch(() => null)) as
+          | { error?: string; usernameConflict?: boolean }
+          | null;
+        setStatus("error");
+        setMessage(
+          payload?.usernameConflict ? "That username is taken." : payload?.error || "Unable to save your profile."
+        );
+        return;
+      }
     }
 
     setStatus("ok");
@@ -155,21 +204,65 @@ export default function SignupPage() {
         />
         <input
           type="text"
-          placeholder="Handle (optional, e.g. soccermom23)"
-          value={handle}
-          onChange={(e) => setHandle(e.target.value)}
+          placeholder="Choose a username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           maxLength={20}
+          required
           style={{ padding: 10, border: "1px solid #cbd5e1", borderRadius: 8 }}
         />
+        <div style={{ fontSize: 12, color: "#555" }}>
+          <strong>Username</strong>: This will appear on your profile and submissions.
+        </div>
         <input
           type="text"
-          placeholder="ZIP code (optional)"
+          placeholder="ZIP code"
           value={zip}
           onChange={(e) => setZip(e.target.value)}
           maxLength={10}
           inputMode="numeric"
+          required
           style={{ padding: 10, border: "1px solid #cbd5e1", borderRadius: 8 }}
         />
+        <div style={{ fontSize: 12, color: "#555" }}>
+          <strong>ZIP</strong>: Used to show nearby tournaments and travel planning.
+        </div>
+        <fieldset
+          style={{
+            margin: 0,
+            padding: 10,
+            border: "1px solid #cbd5e1",
+            borderRadius: 8,
+            display: "grid",
+            gap: 8,
+          }}
+        >
+          <legend style={{ padding: "0 4px", fontWeight: 600 }}>Sports interests</legend>
+          <div style={{ fontSize: 12, color: "#555" }}>
+            We&apos;ll use this to personalize tournaments and alerts. Pick one or more.
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+              gap: 8,
+            }}
+          >
+            {SPORT_INTEREST_OPTIONS.map((sport) => {
+              const checked = sportsInterests.includes(sport);
+              return (
+                <label key={sport} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleSportInterest(sport)}
+                  />
+                  <span>{sport}</span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
         <input
           type="email"
           placeholder="Email"

@@ -20,8 +20,10 @@ export interface Database {
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;
           display_name: string | null;
+          username: string | null;
           reviewer_handle: string | null;
           zip_code: string | null;
+          sports_interests: string[];
           terms_accepted_at: string | null;
           marketing_opt_in: boolean;
           updated_at: string;
@@ -43,8 +45,10 @@ export interface Database {
           stripe_customer_id?: string | null;
           stripe_subscription_id?: string | null;
           display_name?: string | null;
+          username?: string | null;
           reviewer_handle?: string | null;
           zip_code?: string | null;
+          sports_interests?: string[];
           terms_accepted_at?: string | null;
           marketing_opt_in?: boolean;
           updated_at?: string;
@@ -65,8 +69,10 @@ export interface Database {
           stripe_customer_id?: string | null;
           stripe_subscription_id?: string | null;
           display_name?: string | null;
+          username?: string | null;
           reviewer_handle?: string | null;
           zip_code?: string | null;
+          sports_interests?: string[];
           terms_accepted_at?: string | null;
           marketing_opt_in?: boolean;
           updated_at?: string;
