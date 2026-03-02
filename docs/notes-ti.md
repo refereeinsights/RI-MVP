@@ -1,3 +1,18 @@
+## 2026-03-02
+- Homepage SEO + metadata update (no UI changes):
+  - Updated:
+    - `apps/ti-web/app/page.tsx`
+    - `apps/ti-web/app/robots.ts`
+    - `apps/ti-web/public/og/ti-og-premium.jpg` (new OG image asset)
+  - Changes:
+    - Homepage `metadata` export updated: new title/description, full Open Graph + Twitter card metadata, OG image set to `/og/ti-og-premium.jpg` (1200×630).
+    - Title uses `{ absolute: "..." }` to bypass layout's `"%s | TournamentInsights"` template — prevents duplicate suffix.
+    - `Organization` JSON-LD replaced with `WebSite` schema including `SearchAction` (sitelinks search box eligibility).
+    - `robots.ts` — added `disallow` rules for `/account`, `/api/`, `/admin`; sitemap reference unchanged.
+    - `sitemap.ts` — already existed with dynamic slug fetching; left untouched.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+
 ## 2026-02-28
 - Tournament directory sport badge filtering UX:
   - Updated:

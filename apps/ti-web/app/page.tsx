@@ -1,27 +1,64 @@
 import { BRAND_TI } from "@/lib/brand";
 import type { Metadata } from "next";
 
-const SITE_ORIGIN = "https://www.tournamentinsights.com";
 
 export const metadata: Metadata = {
-  title: "TournamentInsights | Youth Sports Tournament Directory",
+  metadataBase: new URL("https://www.tournamentinsights.com"),
+  title: {
+    absolute: "TournamentInsights | Verified Youth Sports Tournaments",
+  },
   description:
-    "TournamentInsights is a youth sports tournament directory with clear listings, official links, and logistics-first planning insights for families, coaches, and teams.",
-  alternates: { canonical: "/" },
+    "Verified youth sports tournament directory for families, coaches, and teams. Find upcoming multisport tournaments with structured logistics and Owl's Eye™ validated venue intelligence.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "TournamentInsights | Verified Youth Sports Tournaments",
+    description:
+      "Find upcoming youth sports tournaments with verified logistics, venue details, and Owl's Eye™ venue intelligence. Built for families, coaches, and teams.",
+    url: "https://www.tournamentinsights.com",
+    siteName: "TournamentInsights",
+    type: "website",
+    images: [
+      {
+        url: "/og/ti-og-premium.jpg",
+        width: 1200,
+        height: 630,
+        alt: "TournamentInsights — Verified Youth Sports Tournaments",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TournamentInsights | Verified Youth Sports Tournaments",
+    description:
+      "Find upcoming youth sports tournaments with verified logistics and Owl's Eye™ venue intelligence.",
+    images: ["/og/ti-og-premium.jpg"],
+  },
 };
 
 export default function Home() {
-  const organizationJsonLd = {
+  const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "Organization",
+    "@type": "WebSite",
     name: "TournamentInsights",
-    url: SITE_ORIGIN,
-    logo: `${SITE_ORIGIN}/brand/ti-email-logo.png`,
+    url: "https://www.tournamentinsights.com",
+    description:
+      "Verified youth sports tournament directory for families, coaches, and teams.",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate:
+          "https://www.tournamentinsights.com/tournaments?q={search_term_string}",
+      },
+      "query-input": "required name=search_term_string",
+    },
   };
 
   return (
     <main className="page">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="shell">
         <section className="hero" aria-labelledby="ti-title">
           <div className="logoBlock">
