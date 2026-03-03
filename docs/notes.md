@@ -30,6 +30,7 @@ Maintenance rules:
     - TI tournament pages now pass tournament slug context into venue links so venue pages can load the relevant tournament-specific partner rows,
     - TI venue pages now prepend active tournament-specific partner rows ahead of the standard Owl's Eye nearby list without affecting unrelated tournaments that share the venue,
     - TI venue pages now suppress the matching normal Owl's Eye nearby row when a tournament-specific sponsored partner row is already shown, so sponsored placements do not render as duplicate results,
+    - TI Owl's Eye sponsored partner rows now use a dedicated tournament sponsor badge plus stronger sponsor-name styling instead of inline `Sponsored` text, while preserving the existing sponsor click/directions behavior,
     - added a demo seed script and seeded the demo tournament with tournament-specific food / coffee / hotel rows across its venues,
     - adjusted the demo tournament hotel overrides so:
       - `Renton Memorial Stadium` uses `Hampton Inn & Suites Seattle/Renton`,

@@ -87,15 +87,50 @@ export default function OwlsEyeWeekendGuideAccordion({ groups, defaultAllCollaps
                       typeof item.distance_meters === "number" && Number.isFinite(item.distance_meters)
                         ? `${(item.distance_meters / 1609.344).toFixed(1)} mi`
                         : "Distance unavailable";
+                    const isTournamentSponsor = item.is_sponsor && Boolean(item.sponsor_click_url);
                     return (
                       <div className="premiumNearbyLink premiumNearbyLink--row" key={`${group.label}-${item.name}-${idx}`}>
-                        <div className="premiumNearbyLink__content">
-                          <span>{item.name}</span>
+                        <div
+                          className="premiumNearbyLink__content"
+                          style={{
+                            display: "grid",
+                            gap: 4,
+                            alignItems: "center",
+                            justifyItems: isTournamentSponsor ? "start" : undefined,
+                          }}
+                        >
+                          <span
+                            style={
+                              isTournamentSponsor
+                                ? {
+                                    fontWeight: 800,
+                                    color: "#f7d774",
+                                    letterSpacing: "0.01em",
+                                    textShadow: "0 1px 10px rgba(0,0,0,0.24)",
+                                  }
+                                : undefined
+                            }
+                          >
+                            {item.name}
+                          </span>
                           <span className="premiumNearbyLink__meta">
                             {miles}
-                            {item.is_sponsor && item.sponsor_click_url ? " • Sponsored" : ""}
                           </span>
                         </div>
+                        {isTournamentSponsor ? (
+                          <img
+                            src="/svg/ti/tournament_sponsor_badge.svg"
+                            alt="Tournament sponsor"
+                            style={{
+                              width: 54,
+                              height: 54,
+                              objectFit: "contain",
+                              flex: "0 0 auto",
+                              justifySelf: "center",
+                              filter: "drop-shadow(0 2px 10px rgba(0,0,0,0.28))",
+                            }}
+                          />
+                        ) : null}
                         {primaryLink ? (
                           <a
                             className="secondaryLink premiumNearbyLink__cta"
