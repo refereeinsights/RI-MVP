@@ -133,6 +133,8 @@ body {
   justify-content: center;
   grid-column: 1;
   grid-row: 1;
+  align-self: start;
+  margin-top: 12px;
   padding: 4px 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.16);
@@ -149,7 +151,9 @@ body {
   grid-row: 1;
   display: grid;
   justify-items: center;
-  gap: 6px;
+  align-self: start;
+  gap: 12px;
+  margin-top: 10px;
 }
 
 .ti-auth-links {
@@ -193,8 +197,8 @@ body {
   .ti-header-shell {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto auto;
-    row-gap: 8px;
-    padding: 8px 14px 10px;
+    row-gap: 6px;
+    padding: 6px 14px 8px;
   }
   .ti-logo {
     grid-column: 1;
@@ -203,19 +207,26 @@ body {
   }
   .ti-logo img,
   .ti-logo-img {
-    width: min(360px, 88vw);
-    max-height: 110px;
+    width: min(300px, 84vw);
+    max-height: 80px;
   }
   .ti-pill {
     grid-column: 1;
     grid-row: 2;
     justify-self: center;
+    margin-top: 0;
   }
   .ti-nav {
     grid-column: 1;
     grid-row: 3;
     justify-self: center;
     min-width: 0;
+    gap: 0.9rem;
+    padding: 0 0 6px;
+  }
+  .ti-nav a {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
   }
   .ti-cta {
     justify-self: center;
@@ -228,7 +239,7 @@ body {
     margin: 0 auto;
     display: grid;
     justify-items: center;
-    row-gap: 8px;
+    row-gap: 6px;
   }
   .ti-auth-links {
     width: max-content;
@@ -449,6 +460,36 @@ h1 {
   flex-wrap: wrap;
   margin-top: 10px;
   justify-content: center;
+}
+
+.ti-home-cta {
+  border-radius: 10px;
+  font-weight: 600;
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.ti-home-cta-primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.ti-home-cta-primary:hover {
+  background: #1e4ed8;
+  border-color: #1e4ed8;
+  color: #ffffff;
+}
+
+.ti-home-cta-secondary {
+  background: transparent;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.ti-home-cta-secondary:hover {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: #1e4ed8;
+  color: #1e4ed8;
 }
 
 @media (min-width: 640px) {

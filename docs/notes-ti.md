@@ -14,6 +14,21 @@ Maintenance rules:
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
 ## 2026-03-03
+- TI homepage/header brand refresh + mobile header tuning:
+  - Updated:
+    - `apps/ti-web/app/layout.tsx`
+    - `apps/ti-web/app/globals.css`
+    - `apps/ti-web/app/page.tsx`
+    - `apps/ti-web/public/brand/ti-stacked-logo-white-transparent.svg`
+  - Changes:
+    - replaced the TI header mark with a stacked white transparent logo that reads cleanly on the blue TI header,
+    - widened and centered the desktop header logo slot, then tuned the mobile header stack with a smaller logo, tighter nav spacing, and a shorter CTA/account block for smaller phones,
+    - aligned the yellow `List your tournament` header CTA with the `Public Beta` pill and centered the account icon directly underneath it,
+    - removed the duplicate homepage logo block and `Powered by Tournyx` line so the header carries the primary branding,
+    - updated homepage hero CTAs to use TI blue branded button treatments for `Sign up`, `Explore Tournaments`, and `Request Premium Access` without changing the yellow header CTA.
+  - Validation:
+    - `cd apps/ti-web && npm run build` passed.
+
 - TI homepage/header brand cleanup:
   - Updated:
     - `apps/ti-web/app/layout.tsx`

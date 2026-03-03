@@ -74,13 +74,13 @@ export default function Home() {
           </p>
 
           <div className="ctaRow">
-            <a className="cta light" href="/signup?returnTo=%2Faccount">
+            <a className="cta ti-home-cta ti-home-cta-primary" href="/signup?returnTo=%2Faccount">
               Sign up
             </a>
-            <a className="cta primary" href="/tournaments">
+            <a className="cta ti-home-cta ti-home-cta-primary" href="/tournaments">
               Explore Tournaments
             </a>
-            <a className="cta secondary" href="/premium">
+            <a className="cta ti-home-cta ti-home-cta-secondary" href="/premium">
               Request Premium Access
             </a>
           </div>
