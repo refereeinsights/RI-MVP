@@ -1,15 +1,10 @@
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getTier } from "@/lib/entitlements";
-import { extractProfileFromMetadata, validateSignupProfile } from "@/lib/tiProfile";
+import { extractProfileFromMetadata } from "@/lib/tiProfile";
 import { TI_SPORTS, TI_SPORT_LABELS } from "@/lib/tiSports";
-import {
-  persistNormalizedTiUserProfile,
-  syncTiUserProfileFromAuthUser,
-} from "@/lib/tiUserProfileServer";
+import { syncTiUserProfileFromAuthUser } from "@/lib/tiUserProfileServer";
 import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SavedTournamentsSection, { type SavedTournamentItem } from "./SavedTournamentsSection";
 import styles from "./AccountPage.module.css";
@@ -79,59 +74,6 @@ function buildAccountPath(kind: "notice" | "error", message: string) {
   const params = new URLSearchParams();
   params.set(kind, message);
   return `/account?${params.toString()}`;
-}
-
-async function updateAccountProfileAction(formData: FormData) {
-  "use server";
-
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-  if (!user.email_confirmed_at) redirect("/verify-email");
-
-  const validation = validateSignupProfile({
-    name: String(formData.get("name") ?? ""),
-    username: String(formData.get("username") ?? ""),
-    zip: String(formData.get("zip") ?? ""),
-    sportsInterests: formData
-      .getAll("sports_interests")
-      .map((value) => String(value)),
-  });
-
-  if (!validation.ok) {
-    redirect(buildAccountPath("error", validation.message));
-  }
-
-  const nextMetadata = {
-    ...((user.user_metadata ?? {}) as Record<string, unknown>),
-    display_name: validation.value.displayName,
-    username: validation.value.username,
-    handle: validation.value.username,
-    zip_code: validation.value.zipCode,
-    sports_interests: validation.value.sportsInterests,
-  };
-
-  const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
-    user_metadata: nextMetadata,
-  });
-  if (authError) {
-    redirect(buildAccountPath("error", `Profile update failed: ${authError.message}`));
-  }
-
-  const persistResult = await persistNormalizedTiUserProfile({
-    userId: user.id,
-    email: user.email ?? null,
-    profile: validation.value,
-  });
-  if (!persistResult.ok) {
-    redirect(buildAccountPath("error", persistResult.error ?? "Profile update failed."));
-  }
-
-  revalidatePath("/account");
-  redirect(buildAccountPath("notice", "Profile updated."));
 }
 
 export default async function AccountPage({
@@ -234,7 +176,7 @@ export default async function AccountPage({
           <h2 className={styles.sectionTitle}>Profile settings</h2>
           <p className={styles.mutedText}>Update the details used for your TI profile and recommendations.</p>
         </div>
-        <form action={updateAccountProfileAction} className={styles.profileForm}>
+        <form action="/api/account/profile" method="post" className={styles.profileForm}>
           <label className={styles.field}>
             <span className={styles.fieldLabel}>Full name</span>
             <span className={styles.fieldHelp}>Optional.</span>
