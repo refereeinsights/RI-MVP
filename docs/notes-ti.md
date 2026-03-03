@@ -14,6 +14,28 @@ Maintenance rules:
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
 ## 2026-03-02
+- TI public tournament submission flow + duplicate-aware prefill:
+  - Updated:
+    - `apps/ti-web/app/list-your-tournament/page.tsx`
+    - `apps/ti-web/app/list-your-tournament/ListYourTournamentForm.tsx`
+    - `apps/ti-web/app/list-your-tournament/ListYourTournamentForm.module.css`
+    - `apps/ti-web/app/api/list-your-tournament/route.ts`
+    - `apps/ti-web/lib/listTournamentForm.ts`
+  - Changes:
+    - replaced the static `/list-your-tournament` contact page with a director-facing submission form split into `Tournament Details` and `Venues`,
+    - added inline validation, segmented Yes/No and enum toggles, disabled-submit saving state, and dynamic venue add/remove with Venue #1 required,
+    - submit path now creates one `public.tournaments` row, creates N `public.venues` rows, then links them through existing `public.tournament_venues`,
+    - duplicate lookup now searches existing tournaments by normalized name plus Venue #1 city/state and surfaces a likely-match panel while the user types,
+    - known tournament and Venue #1 details from a likely match auto-fill only still-empty fields so directors can keep editing without losing typed values,
+    - new submissions currently save as `draft` with `source: "public_submission"` and are discoverable by the duplicate lookup even before any public-publish flow runs.
+  - Validation:
+    - `cd apps/ti-web && npm run build` passed.
+    - local runtime smoke:
+      - `GET http://localhost:3001/list-your-tournament` returned `200 OK`,
+      - duplicate lookup found existing `Demo Tournament` in `Tukwila, WA`,
+      - new smoke submission returned `ok: true` with one venue created,
+      - duplicate lookup then found the newly created smoke submission.
+
 - TI account settings + TI admin profile editor exposure:
   - Updated:
     - `apps/ti-web/app/account/page.tsx`

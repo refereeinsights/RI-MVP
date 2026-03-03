@@ -1,0 +1,299 @@
+.page {
+  max-width: 980px;
+  margin: 2rem auto 3.5rem;
+  padding: 0 1rem;
+  display: grid;
+  gap: 18px;
+}
+
+.hero,
+.sectionCard,
+.venueCard {
+  background: #fff;
+  border: 1px solid #dbe4ec;
+  border-radius: 18px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+}
+
+.hero {
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #0f6b4a;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 1.05;
+  color: #0f172a;
+}
+
+.subtitle {
+  margin: 0;
+  color: #475569;
+  line-height: 1.6;
+  max-width: 720px;
+}
+
+.statusSuccess,
+.statusError {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+}
+
+.matchPanel {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  display: grid;
+  gap: 8px;
+}
+
+.matchMeta {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #334155;
+}
+
+.matchActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.matchButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1px solid #93c5fd;
+  background: #fff;
+  color: #1d4ed8;
+  padding: 9px 14px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.statusSuccess {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.statusError {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.sectionCard {
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #0f172a;
+}
+
+.sectionHelp {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 0.94rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.field,
+.fieldWide {
+  display: grid;
+  gap: 6px;
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
+.label {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.helpText {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 11px 12px;
+  font: inherit;
+  color: #0f172a;
+  background: #fff;
+}
+
+.textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.inputError {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.12);
+}
+
+.error {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #b91c1c;
+}
+
+.toggleGroup {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toggleButton,
+.toggleButtonActive,
+.addButton,
+.removeButton,
+.submitButton,
+.secondaryLink {
+  font: inherit;
+  border-radius: 999px;
+  min-height: 42px;
+}
+
+.toggleButton,
+.toggleButtonActive {
+  border: 1px solid #cbd5e1;
+  padding: 9px 14px;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toggleButtonActive {
+  border-color: #0f6b4a;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.venueCard {
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.venueHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.venueTitle {
+  margin: 0;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.addButton,
+.removeButton,
+.submitButton,
+.secondaryLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.addButton {
+  border: 1px solid #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.removeButton {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.secondaryLink {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+}
+
+.submitButton {
+  border: 1px solid #0f6b4a;
+  background: #0f6b4a;
+  color: #fff;
+}
+
+.submitButton:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .hero,
+  .sectionCard,
+  .venueCard {
+    padding: 18px;
+  }
+
+  .footer {
+    align-items: stretch;
+  }
+}
