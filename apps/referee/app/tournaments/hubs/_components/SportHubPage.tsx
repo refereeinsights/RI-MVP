@@ -40,11 +40,13 @@ type GenericSearchParams = {
   month?: string;
   reviewed?: string | string[];
   includePast?: string | string[];
+  page?: string;
 };
 
 type StateSeoSearchParams = {
   reviewed?: string | string[];
   past?: string | string[];
+  page?: string;
 };
 
 type GenericProps = {
@@ -101,6 +103,9 @@ function monthOptions(count = 9) {
   }
   return out;
 }
+
+const PAGE_SIZE = 60;
+const STATE_FACET_LIMIT = 2000;
 
 function toWhistleScore(aiScore: number | null) {
   if (!Number.isFinite(aiScore ?? NaN)) return null;
@@ -186,22 +191,13 @@ async function loadWhistleScores(
   return map;
 }
 
-export async function getSoccerStateUpcomingCount(stateCode: string) {
-  const supabase = supabaseAdmin;
-  const today = new Date().toISOString().slice(0, 10);
-  const { count } = await supabase
-    .from("tournaments_public" as any)
-    .select("id", { count: "exact", head: true })
-    .ilike("sport", "%soccer%")
-    .eq("state", stateCode.toUpperCase())
-    .or(`start_date.gte.${today},end_date.gte.${today}`);
-  return count ?? 0;
-}
-
 export default async function SportHubPage(props: Props) {
   const sportQuery = normalizeSportParam(props.sportParam);
   const sportLabel = sportLabelFromParam(props.sportParam);
   const today = new Date().toISOString().slice(0, 10);
+  const pageParam = String(props.searchParams?.page ?? "1");
+  const page = Math.max(1, Number.parseInt(pageParam, 10) || 1);
+  const offset = (page - 1) * PAGE_SIZE;
 
   const q = props.mode === "generic" ? (props.searchParams?.q ?? "").trim() : "";
   const month = props.mode === "generic" ? (props.searchParams?.month ?? "").trim() : "";
@@ -228,67 +224,145 @@ export default async function SportHubPage(props: Props) {
     : `${stateSelections.length} states`;
 
   const supabase = supabaseAdmin;
-  let query = supabase
-    .from("tournaments_public" as any)
-    .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url")
-    .ilike("sport", `%${sportQuery}%`)
-    .order("start_date", { ascending: true });
-
-  if (props.mode === "state-seo") {
-    query = query.eq("state", props.stateCode.toUpperCase());
-  }
-
-  if (q) {
-    query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
-  }
-  if (month && /^\d{4}-\d{2}$/.test(month)) {
-    const [y, m] = month.split("-").map(Number);
-    const start = new Date(Date.UTC(y, m - 1, 1));
-    const end = new Date(Date.UTC(y, m, 1));
-    const startISO = start.toISOString().slice(0, 10);
-    const endISO = end.toISOString().slice(0, 10);
-    query = query.gte("start_date", startISO).lt("start_date", endISO);
-  }
-  if (!includePast) {
-    query = query.or(`start_date.gte.${today},end_date.gte.${today}`);
-  }
-
-  const { data, error } = await query;
   const demoSlug = "refereeinsights-demo-tournament";
-  const tournaments = ((data ?? []) as Tournament[]).sort((a, b) => {
-    if (a.slug === demoSlug && b.slug !== demoSlug) return -1;
-    if (b.slug === demoSlug && a.slug !== demoSlug) return 1;
-    return 0;
-  });
+  const sortDemoFirst = (rows: Tournament[]) =>
+    [...rows].sort((a, b) => {
+      if (a.slug === demoSlug && b.slug !== demoSlug) return -1;
+      if (b.slug === demoSlug && a.slug !== demoSlug) return 1;
+      return 0;
+    });
 
-  const seriesMap = await loadSeriesTournamentIds(
-    supabase,
-    tournaments.map((t) => ({ id: t.id, slug: t.slug }))
-  );
-  const whistleMap = await loadWhistleScores(supabase, seriesMap);
-  const reviewedTournaments = reviewedOnly
-    ? tournaments.filter((t) => (whistleMap.get(t.id)?.review_count ?? 0) > 0)
-    : tournaments;
+  const applyBaseFilters = (query: any, includeSelectedStates: boolean) => {
+    let next = query.ilike("sport", `%${sportQuery}%`);
 
-  const availableStates = Array.from(
-    new Set(
-      reviewedTournaments
-        .map((t) => (t.state ?? "").trim().toUpperCase())
-        .filter(Boolean)
-    )
-  ).sort();
-  const stateCounts = reviewedTournaments.reduce<Record<string, number>>((acc, t) => {
-    const key = (t.state ?? "").trim().toUpperCase();
-    if (!key) return acc;
-    acc[key] = (acc[key] ?? 0) + 1;
-    return acc;
-  }, {});
+    if (props.mode === "state-seo") {
+      next = next.eq("state", props.stateCode.toUpperCase());
+    } else if (includeSelectedStates && !isAllStates) {
+      next = next.in("state", stateSelections);
+    }
 
-  const tournamentsSorted =
-    props.mode === "state-seo" || isAllStates
-      ? reviewedTournaments
-      : reviewedTournaments.filter((t) => stateSelections.includes((t.state ?? "").trim().toUpperCase()));
-  const totalCount = tournamentsSorted.length;
+    if (q) {
+      next = next.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
+    }
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      const [y, m] = month.split("-").map(Number);
+      const start = new Date(Date.UTC(y, m - 1, 1));
+      const end = new Date(Date.UTC(y, m, 1));
+      const startISO = start.toISOString().slice(0, 10);
+      const endISO = end.toISOString().slice(0, 10);
+      next = next.gte("start_date", startISO).lt("start_date", endISO);
+    }
+    if (!includePast) {
+      next = next.or(`start_date.gte.${today},end_date.gte.${today}`);
+    }
+
+    return next;
+  };
+
+  let error: { message: string } | null = null;
+  let availableStates: string[] = [];
+  let stateCounts: Record<string, number> = {};
+  let totalCount = 0;
+  let preStateTotalCount = 0;
+  let tournamentsSorted: Tournament[] = [];
+  let whistleMap = new Map<string, RefereeWhistleScore>();
+
+  if (reviewedOnly) {
+    const { data, error: queryError } = await applyBaseFilters(
+      supabase
+        .from("tournaments_public" as any)
+        .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url")
+        .order("start_date", { ascending: true }),
+      false
+    );
+
+    error = queryError ? { message: queryError.message } : null;
+    const tournaments = sortDemoFirst((data ?? []) as Tournament[]);
+    const seriesMap = await loadSeriesTournamentIds(
+      supabase,
+      tournaments.map((t) => ({ id: t.id, slug: t.slug }))
+    );
+    const fullWhistleMap = await loadWhistleScores(supabase, seriesMap);
+    const reviewedTournaments = tournaments.filter((t) => (fullWhistleMap.get(t.id)?.review_count ?? 0) > 0);
+
+    availableStates = Array.from(
+      new Set(
+        reviewedTournaments
+          .map((t) => (t.state ?? "").trim().toUpperCase())
+          .filter(Boolean)
+      )
+    ).sort();
+    stateCounts = reviewedTournaments.reduce<Record<string, number>>((acc, t) => {
+      const key = (t.state ?? "").trim().toUpperCase();
+      if (!key) return acc;
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    const filteredTournaments =
+      props.mode === "state-seo" || isAllStates
+        ? reviewedTournaments
+        : reviewedTournaments.filter((t) => stateSelections.includes((t.state ?? "").trim().toUpperCase()));
+
+    preStateTotalCount = reviewedTournaments.length;
+    totalCount = filteredTournaments.length;
+    tournamentsSorted = filteredTournaments.slice(offset, offset + PAGE_SIZE);
+    whistleMap = new Map(
+      tournamentsSorted
+        .map((t) => [t.id, fullWhistleMap.get(t.id) ?? null] as const)
+        .filter((entry): entry is readonly [string, RefereeWhistleScore] => Boolean(entry[1]))
+    );
+  } else {
+    if (props.mode === "generic") {
+      const { count } = await applyBaseFilters(
+        supabase.from("tournaments_public" as any).select("id", { count: "exact", head: true }),
+        false
+      );
+      preStateTotalCount = count ?? 0;
+
+      const { data: stateRows } = await applyBaseFilters(
+        supabase.from("tournaments_public" as any).select("state"),
+        false
+      ).limit(STATE_FACET_LIMIT);
+
+      const facetRows = (stateRows ?? []) as Array<{ state: string | null }>;
+      availableStates = Array.from(
+        new Set(facetRows.map((row) => (row.state ?? "").trim().toUpperCase()).filter(Boolean))
+      ).sort();
+      stateCounts = facetRows.reduce<Record<string, number>>((acc, row) => {
+        const key = (row.state ?? "").trim().toUpperCase();
+        if (!key) return acc;
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {});
+    }
+
+    const { count } = await applyBaseFilters(
+      supabase.from("tournaments_public" as any).select("id", { count: "exact", head: true }),
+      true
+    );
+    totalCount = count ?? 0;
+    if (props.mode === "state-seo") {
+      preStateTotalCount = totalCount;
+    }
+
+    const { data, error: queryError } = await applyBaseFilters(
+      supabase
+        .from("tournaments_public" as any)
+        .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url")
+        .order("start_date", { ascending: true }),
+      true
+    ).range(offset, offset + PAGE_SIZE - 1);
+
+    error = queryError ? { message: queryError.message } : null;
+    tournamentsSorted = sortDemoFirst((data ?? []) as Tournament[]);
+
+    const seriesMap = await loadSeriesTournamentIds(
+      supabase,
+      tournamentsSorted.map((t) => ({ id: t.id, slug: t.slug }))
+    );
+    whistleMap = await loadWhistleScores(supabase, seriesMap);
+  }
 
   const engagementMap = new Map<string, EngagementRow>();
   if (FEATURE_TOURNAMENT_ENGAGEMENT_BADGES && tournamentsSorted.length) {
@@ -307,6 +381,28 @@ export default async function SportHubPage(props: Props) {
       : `${sportLabel} Tournament Directory`;
 
   const months = monthOptions(9);
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const hasPreviousPage = page > 1;
+  const hasNextPage = page < totalPages;
+
+  const buildPageHref = (targetPage: number) => {
+    const search = new URLSearchParams();
+    if (q) search.set("q", q);
+    if (month) search.set("month", month);
+    if (props.mode === "generic") {
+      stateSelectionsRaw.forEach((state) => search.append("state", state));
+      if (reviewedOnly) search.set("reviewed", "true");
+      if (includePast) search.set("includePast", "true");
+    } else {
+      if (reviewedOnly) search.set("reviewed", "1");
+      if (includePast) search.set("past", "1");
+    }
+    if (targetPage > 1) {
+      search.set("page", String(targetPage));
+    }
+    const queryString = search.toString();
+    return queryString ? `${props.basePath}?${queryString}` : props.basePath;
+  };
 
   return (
     <main className="pitchWrap tournamentsWrap">
@@ -397,7 +493,7 @@ export default async function SportHubPage(props: Props) {
                     allStatesValue={ALL_STATES_VALUE}
                     summaryLabel={stateSummaryLabel}
                     stateCounts={stateCounts}
-                    totalCount={reviewedTournaments.length}
+                    totalCount={preStateTotalCount}
                     autoSubmit
                   />
                 </div>
@@ -535,6 +631,24 @@ export default async function SportHubPage(props: Props) {
                   : `No ${sportLabel.toLowerCase()} tournaments are listed yet.`}
               </p>
             )}
+
+            {totalPages > 1 ? (
+              <div className="actionsRow" style={{ justifyContent: "center", marginTop: "1rem" }}>
+                {hasPreviousPage ? (
+                  <Link className="smallBtn" href={buildPageHref(page - 1)}>Previous</Link>
+                ) : (
+                  <span className="smallBtn" style={{ opacity: 0.55, pointerEvents: "none" }}>Previous</span>
+                )}
+                <span className="smallBtn" style={{ pointerEvents: "none" }}>
+                  Page {page} of {totalPages}
+                </span>
+                {hasNextPage ? (
+                  <Link className="smallBtn" href={buildPageHref(page + 1)}>Next</Link>
+                ) : (
+                  <span className="smallBtn" style={{ opacity: 0.55, pointerEvents: "none" }}>Next</span>
+                )}
+              </div>
+            ) : null}
           </>
         )}
       </section>

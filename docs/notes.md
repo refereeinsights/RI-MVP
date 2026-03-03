@@ -1,5 +1,59 @@
 # Running Notes
 
+This is the mixed master log for repo work across RI and TI.
+
+Review/use:
+- Use this file when you need the full cross-app history.
+- For TI-only review, start with `docs/notes-ti.md`.
+
+Maintenance rules:
+- Keep entries in reverse chronological order.
+- Keep one `## YYYY-MM-DD` section per date.
+- Add both RI and TI items here when relevant.
+- Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
+
+## 2026-03-02
+- RI sitemap segmentation + build overhead reduction:
+  - Updated:
+    - `apps/referee/app/sitemap.xml/route.ts`
+    - `apps/referee/app/sitemaps/static.xml/route.ts`
+    - `apps/referee/app/sitemaps/hubs.xml/route.ts`
+    - `apps/referee/app/sitemaps/[name]/route.ts`
+    - `apps/referee/lib/sitemaps.ts`
+  - Removed:
+    - `apps/referee/app/sitemap.ts`
+  - Changes:
+    - replaced the old monolithic `app/sitemap.ts` full-table fetch with a sitemap index at `/sitemap.xml`,
+    - added bounded sitemap segments:
+      - `/sitemaps/static.xml`
+      - `/sitemaps/hubs.xml`
+      - `/sitemaps/tournaments-N.xml`
+    - static and hub sitemaps now use curated/local route lists instead of scanning `tournaments_public`,
+    - tournament sitemap pages now fetch only `slug, updated_at` from `tournaments_public` using paginated `range()` queries with page size `500`,
+    - sitemap index now uses a count-only query to determine tournament segment count instead of materializing all rows.
+  - Validation:
+    - `cd apps/referee && npm run build` passed.
+    - local runtime smoke after clean dev-server restart:
+      - `GET /sitemap.xml` returned `200`,
+      - `GET /sitemaps/static.xml` returned `200`,
+      - `GET /sitemaps/hubs.xml` returned `200`,
+      - `GET /sitemaps/tournaments-1.xml` returned `200`.
+
+- RI tournament hub query reduction + soccer metadata cleanup:
+  - Updated:
+    - `apps/referee/app/tournaments/hubs/_components/SportHubPage.tsx`
+    - `apps/referee/app/tournaments/hubs/soccer/arizona/page.tsx`
+    - `apps/referee/app/tournaments/hubs/soccer/california/page.tsx`
+    - `apps/referee/app/tournaments/hubs/soccer/florida/page.tsx`
+    - `apps/referee/app/tournaments/hubs/soccer/north-carolina/page.tsx`
+  - Changes:
+    - RI sport hub pages now paginate the default/unreviewed tournament list with page size `60` instead of loading the full matching set,
+    - default hub traffic now uses exact-count queries plus ranged tournament fetches, with whistle-score and engagement queries limited to the current page of results,
+    - generic hub state facets now use a bounded state-only query capped at `2000` rows instead of full tournament rows,
+    - concrete soccer state `generateMetadata()` functions no longer hit Supabase for per-state tournament counts during static generation.
+  - Validation:
+    - `cd apps/referee && npm run build` passed.
+
 ## 2026-03-01
 - RI: WYSA tournament detail page enrichment script:
   - Added:

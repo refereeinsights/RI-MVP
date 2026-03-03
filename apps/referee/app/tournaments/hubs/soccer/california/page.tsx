@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import SportHubPage, { getSoccerStateUpcomingCount } from "../../_components/SportHubPage";
+import SportHubPage from "../../_components/SportHubPage";
 
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
 const PATH = "/tournaments/hubs/soccer/california";
@@ -9,10 +9,9 @@ const STATE_CODE = "CA";
 export const revalidate = 300;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const count = await getSoccerStateUpcomingCount(STATE_CODE);
   return {
     title: `Soccer Tournaments in ${STATE_NAME} (Calendar) | RefereeInsights`,
-    description: `Browse ${count}+ soccer tournaments in ${STATE_NAME}. Filter reviewed events and include past tournaments. Referee-informed tournament details.`,
+    description: `Browse soccer tournaments in ${STATE_NAME}. Filter reviewed events and include past tournaments. Referee-informed tournament details.`,
     alternates: {
       canonical: `${SITE_ORIGIN}${PATH}`,
     },
