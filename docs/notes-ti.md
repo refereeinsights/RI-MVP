@@ -14,6 +14,21 @@ Maintenance rules:
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
 ## 2026-03-02
+- TI tournament-specific Owl's Eye partner placements:
+  - Updated:
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+  - Changes:
+    - tournament venue links now carry tournament slug context into TI venue pages,
+    - TI venue pages now prepend active tournament-specific hotel / coffee / food partner rows ahead of the normal Owl's Eye nearby list when opened from a tournament context,
+    - this allows shared venues to show different sponsored partner recommendations depending on the tournament,
+    - demo tournament partner rows were seeded and validated locally, including:
+      - `Renton Memorial Stadium` with `Hampton Inn & Suites Seattle/Renton`
+      - `Valley Ridge Park` with `Cedarbrook Lodge`
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+    - local TI venue-page smoke confirmed the tournament-specific partner rows render first for the demo tournament context.
+
 - TI public tournament submission flow + duplicate-aware prefill:
   - Updated:
     - `apps/ti-web/app/list-your-tournament/page.tsx`

@@ -74,6 +74,19 @@ type NearbyPlaceRow = {
   sponsor_click_url?: string | null;
 };
 
+type TournamentPartnerNearbyRow = {
+  id: string;
+  venue_id?: string | null;
+  category: string | null;
+  name: string;
+  distance_meters: number | null;
+  maps_url: string | null;
+  sponsor_click_url?: string | null;
+  sort_order?: number | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+};
+
 function canonicalSport(sport: string | null | undefined) {
   const key = (sport ?? "").trim().toLowerCase();
   return key || "unknown";
@@ -126,7 +139,13 @@ export const revalidate = 300;
 const PREMIUM_PREVIEW_VENUE_NAME_HINTS = ["grand canyon university", "gcu"];
 const PREMIUM_PREVIEW_TOURNAMENT_SLUGS = new Set(["refereeinsights-demo-tournament"]);
 
-export default async function VenueDetailsPage({ params }: { params: { venueId: string } }) {
+export default async function VenueDetailsPage({
+  params,
+  searchParams,
+}: {
+  params: { venueId: string };
+  searchParams?: { tournament?: string };
+}) {
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
@@ -177,6 +196,11 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const linkedTournaments = (data.tournament_venues ?? [])
     .map((tv) => tv?.tournaments)
     .filter((t): t is LinkedTournament => Boolean(t?.id));
+  const requestedTournamentSlug = typeof searchParams?.tournament === "string" ? searchParams.tournament.trim().toLowerCase() : "";
+  const selectedTournament =
+    requestedTournamentSlug.length > 0
+      ? linkedTournaments.find((t) => (t.slug ?? "").trim().toLowerCase() === requestedTournamentSlug) ?? null
+      : null;
   const hasPremiumPreviewTournament = linkedTournaments.some((t) =>
     PREMIUM_PREVIEW_TOURNAMENT_SLUGS.has((t.slug ?? "").trim().toLowerCase())
   );
@@ -211,11 +235,49 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const runRows = await fetchLatestOwlsEyeRuns([data.id]);
   const latestRun = runRows.find((row) => row.venue_id === data.id) ?? null;
   const latestRunId = latestRun ? (latestRun.run_id ?? latestRun.id) : null;
+  const partnerRows = selectedTournament?.id
+    ? (
+        (await supabaseAdmin
+          .from("tournament_partner_nearby" as any)
+          .select("id,venue_id,category,name,distance_meters,maps_url,sponsor_click_url,sort_order,updated_at,created_at")
+          .eq("tournament_id", selectedTournament.id)
+          .eq("is_active", true)
+          .or(`venue_id.is.null,venue_id.eq.${data.id}`)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: false })).data as TournamentPartnerNearbyRow[] | null
+      ) ?? []
+    : [];
 
   let nearbyCounts = { food: 0, coffee: 0, hotels: 0 };
   let premiumNearby: { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; captured_at: string | null } | null = null;
   let demoScores: OwlsEyeDemoScores | null = null;
   const airportSummary = latestRun?.outputs?.airports ?? null;
+
+  const partnerPlaces = {
+    food: [] as NearbyPlace[],
+    coffee: [] as NearbyPlace[],
+    hotels: [] as NearbyPlace[],
+  };
+  const sortedPartnerRows = [...partnerRows].sort((left, right) => {
+    const leftSpecific = left.venue_id === data.id ? 1 : 0;
+    const rightSpecific = right.venue_id === data.id ? 1 : 0;
+    if (leftSpecific !== rightSpecific) return rightSpecific - leftSpecific;
+    return (left.sort_order ?? 0) - (right.sort_order ?? 0);
+  });
+
+  for (const row of sortedPartnerRows) {
+    const place: NearbyPlace = {
+      name: row.name,
+      distance_meters: row.distance_meters,
+      maps_url: row.maps_url,
+      is_sponsor: true,
+      sponsor_click_url: row.sponsor_click_url ?? null,
+    };
+    const normalizedCategory = (row.category ?? "food").toLowerCase();
+    if (normalizedCategory === "coffee") partnerPlaces.coffee.push(place);
+    else if (normalizedCategory === "hotel" || normalizedCategory === "hotels") partnerPlaces.hotels.push(place);
+    else partnerPlaces.food.push(place);
+  }
 
   if (latestRunId) {
     if (canViewPremiumDetails) {
@@ -245,11 +307,15 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
         })
         .map(toPlace);
 
-      nearbyCounts = { food: food.length, coffee: coffee.length, hotels: hotels.length };
+      nearbyCounts = {
+        food: partnerPlaces.food.length + food.length,
+        coffee: partnerPlaces.coffee.length + coffee.length,
+        hotels: partnerPlaces.hotels.length + hotels.length,
+      };
       premiumNearby = {
-        food,
-        coffee,
-        hotels,
+        food: [...partnerPlaces.food, ...food],
+        coffee: [...partnerPlaces.coffee, ...coffee],
+        hotels: [...partnerPlaces.hotels, ...hotels],
         captured_at: latestRun?.updated_at ?? latestRun?.created_at ?? null,
       };
     } else {
@@ -264,6 +330,25 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
         else if (normalizedCategory === "hotel" || normalizedCategory === "hotels") nearbyCounts.hotels += 1;
         else nearbyCounts.food += 1;
       }
+      nearbyCounts = {
+        food: nearbyCounts.food + partnerPlaces.food.length,
+        coffee: nearbyCounts.coffee + partnerPlaces.coffee.length,
+        hotels: nearbyCounts.hotels + partnerPlaces.hotels.length,
+      };
+    }
+  } else if (partnerRows.length) {
+    nearbyCounts = {
+      food: partnerPlaces.food.length,
+      coffee: partnerPlaces.coffee.length,
+      hotels: partnerPlaces.hotels.length,
+    };
+    if (canViewPremiumDetails) {
+      premiumNearby = {
+        food: partnerPlaces.food,
+        coffee: partnerPlaces.coffee,
+        hotels: partnerPlaces.hotels,
+        captured_at: partnerRows[0]?.updated_at ?? partnerRows[0]?.created_at ?? null,
+      };
     }
   }
 

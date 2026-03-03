@@ -8,6 +8,7 @@ import OwlsEyePanel from "./owls-eye/OwlsEyePanel";
 import AdminNav from "@/components/admin/AdminNav";
 import PendingTournamentSelection from "@/components/admin/PendingTournamentSelection";
 import TournamentVenueMatcher from "@/components/admin/TournamentVenueMatcher";
+import TournamentPartnerNearbyEditor from "@/components/admin/TournamentPartnerNearbyEditor";
 import {
   buildTournamentNameStateSeasonFingerprint,
   buildTournamentNameUrlFingerprint,
@@ -4643,10 +4644,11 @@ export default async function AdminPage({
                         color: "#b00020",
                         fontWeight: 900,
                       }}
-                    >
-                      Delete tournament
-                    </button>
+                      >
+                        Delete tournament
+                      </button>
                   </div>
+                  <TournamentPartnerNearbyEditor tournamentId={t.id} venues={listedVenueMap[t.id] ?? []} />
                   </details>
                 </form>
               ))}

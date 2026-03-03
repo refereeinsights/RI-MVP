@@ -13,6 +13,34 @@ Maintenance rules:
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
 ## 2026-03-03
+- RI + TI tournament-specific Owl's Eye partner placements:
+  - Added:
+    - `apps/referee/app/api/admin/tournaments/[id]/partner-nearby/route.ts`
+    - `apps/referee/components/admin/TournamentPartnerNearbyEditor.tsx`
+    - `scripts/ingest/seed_demo_tournament_partner_nearby.cjs`
+    - `supabase/migrations/20260303_tournament_partner_nearby.sql`
+    - `supabase/migrations/20260303_tournament_partner_nearby_add_venue_id.sql`
+  - Updated:
+    - `apps/referee/app/admin/page.tsx`
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+  - Changes:
+    - added a new `public.tournament_partner_nearby` table for tournament-specific partner placements keyed by `tournament_id` and optional `venue_id`,
+    - added RI admin CRUD for tournament-level hotel / coffee / food partner rows,
+    - TI tournament pages now pass tournament slug context into venue links so venue pages can load the relevant tournament-specific partner rows,
+    - TI venue pages now prepend active tournament-specific partner rows ahead of the standard Owl's Eye nearby list without affecting unrelated tournaments that share the venue,
+    - added a demo seed script and seeded the demo tournament with tournament-specific food / coffee / hotel rows across its venues,
+    - adjusted the demo tournament hotel overrides so:
+      - `Renton Memorial Stadium` uses `Hampton Inn & Suites Seattle/Renton`,
+      - `Valley Ridge Park` uses `Cedarbrook Lodge` with website click-through retained and map navigation preserved via `maps_url`.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
+    - local runtime smoke on TI confirmed tournament-context venue pages prepend the expected sponsored rows for:
+      - `Renton Memorial Stadium`
+      - `Valley Ridge Park`
+    - live Supabase seed/update runs completed successfully after adding `venue_id` to existing `tournament_partner_nearby` installs.
+
 - RI: Idaho + Montana scraped tournament import with duplicate-aware venue linking:
   - Added:
     - `scripts/ingest/import_id_mt_scraped_tournaments.cjs`

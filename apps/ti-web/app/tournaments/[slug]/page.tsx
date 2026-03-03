@@ -400,7 +400,7 @@ export default async function TournamentDetailPage({
               {linkedVenues.map((venue) => (
                 <Link
                   key={venue.id}
-                  href={`/venues/${venue.id}`}
+                  href={`/venues/${venue.id}?tournament=${encodeURIComponent(data.slug ?? params.slug)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`detailVenueTile ${hasOwlsEyeByVenueId.get(venue.id) ? "detailVenueTile--withOwl" : ""}`}
