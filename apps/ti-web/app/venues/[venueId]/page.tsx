@@ -68,6 +68,7 @@ type NearbyPlaceRow = {
   run_id: string;
   category: string | null;
   name: string;
+  address?: string | null;
   distance_meters: number | null;
   maps_url: string | null;
   is_sponsor: boolean | null;
@@ -79,6 +80,7 @@ type TournamentPartnerNearbyRow = {
   venue_id?: string | null;
   category: string | null;
   name: string;
+  address?: string | null;
   distance_meters: number | null;
   maps_url: string | null;
   sponsor_click_url?: string | null;
@@ -105,6 +107,20 @@ function buildMapLinks(query: string) {
     apple: `https://maps.apple.com/?q=${encoded}`,
     waze: `https://waze.com/ul?q=${encoded}&navigate=yes`,
   };
+}
+
+function normalizeNearbyText(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function buildNearbyDedupKey(row: {
+  name: string;
+  address?: string | null;
+  maps_url?: string | null;
+}) {
+  const mapKey = normalizeNearbyText(row.maps_url);
+  if (mapKey) return `map:${mapKey}`;
+  return `text:${normalizeNearbyText(row.name)}|${normalizeNearbyText(row.address)}`;
 }
 
 async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
@@ -236,10 +252,10 @@ export default async function VenueDetailsPage({
   const latestRun = runRows.find((row) => row.venue_id === data.id) ?? null;
   const latestRunId = latestRun ? (latestRun.run_id ?? latestRun.id) : null;
   const partnerRows = selectedTournament?.id
-    ? (
+      ? (
         (await supabaseAdmin
           .from("tournament_partner_nearby" as any)
-          .select("id,venue_id,category,name,distance_meters,maps_url,sponsor_click_url,sort_order,updated_at,created_at")
+          .select("id,venue_id,category,name,address,distance_meters,maps_url,sponsor_click_url,sort_order,updated_at,created_at")
           .eq("tournament_id", selectedTournament.id)
           .eq("is_active", true)
           .or(`venue_id.is.null,venue_id.eq.${data.id}`)
@@ -279,61 +295,80 @@ export default async function VenueDetailsPage({
     else partnerPlaces.food.push(place);
   }
 
-  if (latestRunId) {
-    if (canViewPremiumDetails) {
-      const { data: nearbyRows } = await supabaseAdmin
-        .from("owls_eye_nearby_food" as any)
-        .select("run_id,category,name,distance_meters,maps_url,is_sponsor,sponsor_click_url")
-        .eq("run_id", latestRunId)
-        .order("is_sponsor", { ascending: false })
-        .order("distance_meters", { ascending: true })
-        .order("name", { ascending: true });
-
-      const toPlace = (row: NearbyPlaceRow): NearbyPlace => ({
-        name: row.name,
-        distance_meters: row.distance_meters,
-        maps_url: row.maps_url,
-        is_sponsor: Boolean(row.is_sponsor),
-        sponsor_click_url: row.sponsor_click_url ?? null,
-      });
-
-      const rows = (nearbyRows as NearbyPlaceRow[] | null) ?? [];
-      const food = rows.filter((row) => (row.category ?? "food") === "food").map(toPlace);
-      const coffee = rows.filter((row) => row.category === "coffee").map(toPlace);
-      const hotels = rows
+  const partnerDedupKeys = {
+    food: new Set(
+      sortedPartnerRows
+        .filter((row) => {
+          const category = (row.category ?? "food").toLowerCase();
+          return category !== "coffee" && category !== "hotel" && category !== "hotels";
+        })
+        .map(buildNearbyDedupKey)
+    ),
+    coffee: new Set(
+      sortedPartnerRows.filter((row) => (row.category ?? "food").toLowerCase() === "coffee").map(buildNearbyDedupKey)
+    ),
+    hotels: new Set(
+      sortedPartnerRows
         .filter((row) => {
           const category = (row.category ?? "").toLowerCase();
           return category === "hotel" || category === "hotels";
         })
-        .map(toPlace);
+        .map(buildNearbyDedupKey)
+    ),
+  };
 
-      nearbyCounts = {
-        food: partnerPlaces.food.length + food.length,
-        coffee: partnerPlaces.coffee.length + coffee.length,
-        hotels: partnerPlaces.hotels.length + hotels.length,
-      };
+  if (latestRunId) {
+    const { data: nearbyRows } = await supabaseAdmin
+      .from("owls_eye_nearby_food" as any)
+      .select("run_id,category,name,address,distance_meters,maps_url,is_sponsor,sponsor_click_url")
+      .eq("run_id", latestRunId)
+      .order("is_sponsor", { ascending: false })
+      .order("distance_meters", { ascending: true })
+      .order("name", { ascending: true });
+
+    const rows = (nearbyRows as NearbyPlaceRow[] | null) ?? [];
+    const dedupeRows = (categoryRows: NearbyPlaceRow[], dedupeKeys: Set<string>) =>
+      categoryRows.filter((row) => !dedupeKeys.has(buildNearbyDedupKey(row)));
+
+    const toPlace = (row: NearbyPlaceRow): NearbyPlace => ({
+      name: row.name,
+      distance_meters: row.distance_meters,
+      maps_url: row.maps_url,
+      is_sponsor: Boolean(row.is_sponsor),
+      sponsor_click_url: row.sponsor_click_url ?? null,
+    });
+
+    const foodRows = dedupeRows(
+      rows.filter((row) => {
+        const category = (row.category ?? "food").toLowerCase();
+        return category !== "coffee" && category !== "hotel" && category !== "hotels";
+      }),
+      partnerDedupKeys.food
+    );
+    const coffeeRows = dedupeRows(
+      rows.filter((row) => (row.category ?? "").toLowerCase() === "coffee"),
+      partnerDedupKeys.coffee
+    );
+    const hotelRows = dedupeRows(
+      rows.filter((row) => {
+        const category = (row.category ?? "").toLowerCase();
+        return category === "hotel" || category === "hotels";
+      }),
+      partnerDedupKeys.hotels
+    );
+
+    nearbyCounts = {
+      food: partnerPlaces.food.length + foodRows.length,
+      coffee: partnerPlaces.coffee.length + coffeeRows.length,
+      hotels: partnerPlaces.hotels.length + hotelRows.length,
+    };
+
+    if (canViewPremiumDetails) {
       premiumNearby = {
-        food: [...partnerPlaces.food, ...food],
-        coffee: [...partnerPlaces.coffee, ...coffee],
-        hotels: [...partnerPlaces.hotels, ...hotels],
+        food: [...partnerPlaces.food, ...foodRows.map(toPlace)],
+        coffee: [...partnerPlaces.coffee, ...coffeeRows.map(toPlace)],
+        hotels: [...partnerPlaces.hotels, ...hotelRows.map(toPlace)],
         captured_at: latestRun?.updated_at ?? latestRun?.created_at ?? null,
-      };
-    } else {
-      const { data: nearbyRows } = await supabaseAdmin
-        .from("owls_eye_nearby_food" as any)
-        .select("category")
-        .eq("run_id", latestRunId);
-
-      for (const row of ((nearbyRows as Array<{ category: string | null }> | null) ?? [])) {
-        const normalizedCategory = (row.category ?? "food").toLowerCase();
-        if (normalizedCategory === "coffee") nearbyCounts.coffee += 1;
-        else if (normalizedCategory === "hotel" || normalizedCategory === "hotels") nearbyCounts.hotels += 1;
-        else nearbyCounts.food += 1;
-      }
-      nearbyCounts = {
-        food: nearbyCounts.food + partnerPlaces.food.length,
-        coffee: nearbyCounts.coffee + partnerPlaces.coffee.length,
-        hotels: nearbyCounts.hotels + partnerPlaces.hotels.length,
       };
     }
   } else if (partnerRows.length) {
