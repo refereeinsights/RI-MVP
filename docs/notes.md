@@ -12,6 +12,34 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-03-03
+- RI: Idaho + Montana scraped tournament import with duplicate-aware venue linking:
+  - Added:
+    - `scripts/ingest/import_id_mt_scraped_tournaments.cjs`
+  - Changes:
+    - Imported 17 Idaho/Montana soccer tournaments from the manually scraped source set into `tournaments`,
+    - grouped repeated tournament rows by official URL/name+dates and linked repeated venue rows through `tournament_venues`,
+    - matched existing tournaments by exact official URL first, then by tight name + location + date scoring to avoid creating duplicate tournament records,
+    - matched existing venues by exact name/address/city/state and updated missing `venue_url` / location fields when the scraped row had stronger data,
+    - backfilled missing venue details for:
+      - `2026 State Cup`
+      - `Spooky Sixes 6v6`
+      - `Beat the Freeze 3v3`
+      - `Montana State Cup`
+      - `Montana Cup`
+      - `Montana Showcase`
+    - final import pass completed with no failures.
+  - Result:
+    - first write pass created 14 tournaments, 22 venues, and 23 tournament↔venue links,
+    - second pass backfilled the remaining missing venue/location details and finished with:
+      - 17 tournaments updated
+      - 2 venues created
+      - 27 venues matched as duplicates
+      - 29 tournament↔venue links upserted
+  - Validation:
+    - importer syntax check: `node -c scripts/ingest/import_id_mt_scraped_tournaments.cjs`
+    - live Supabase import executed successfully after the network-restricted sandbox run failed with DNS resolution errors.
+
 ## 2026-03-02
 - RI sitemap segmentation + build overhead reduction:
   - Updated:
