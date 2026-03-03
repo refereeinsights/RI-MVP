@@ -14,6 +14,29 @@ Maintenance rules:
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
 ## 2026-03-03
+- TI outreach preview mode + admin review/send controls:
+  - Added:
+    - `supabase/migrations/20260303_email_outreach_previews.sql`
+    - `apps/ti-web/lib/outreach.ts`
+    - `apps/ti-web/lib/outreachAdmin.ts`
+    - `apps/ti-web/lib/email.ts`
+    - `apps/ti-web/app/api/outreach/generate-previews/route.ts`
+    - `apps/ti-web/app/api/outreach/previews/route.ts`
+    - `apps/ti-web/app/api/outreach/send-test/route.ts`
+    - `apps/ti-web/app/admin/outreach-previews/page.tsx`
+    - `apps/ti-web/app/admin/outreach-previews/CopyFieldButton.tsx`
+    - `apps/ti-web/app/admin/outreach-previews/GeneratePreviewsForm.tsx`
+    - `apps/ti-web/app/admin/outreach-previews/PreviewAdminActions.tsx`
+  - Changes:
+    - added a TI-only preview-mode outreach table and generator flow for soccer director verification emails,
+    - added a reusable `buildSoccerVerifyEmail(...)` template and TI verify links with outreach UTM parameters,
+    - added `/admin/outreach-previews` as an internal TI review surface for filtering, inspecting HTML/text email previews, and copying subject / verify URL / HTML,
+    - added browser actions to generate preview batches, send a selected preview as a real test email, delete a single preview, or delete an entire campaign batch,
+    - added TI-local email sending via Resend for test sends, defaulting the sender to `hello@mail.tournamentinsights.com` while keeping `EMAIL_REPLY_TO` separate for replies,
+    - tightened the preview-review page layout by reducing wide table columns and moving verify-link / subject context into a denser detail panel with status pills.
+  - Validation:
+    - `cd apps/ti-web && npm run build` passed.
+
 - TI homepage/header brand refresh + mobile header tuning:
   - Updated:
     - `apps/ti-web/app/layout.tsx`

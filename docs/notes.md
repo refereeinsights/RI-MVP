@@ -13,6 +13,29 @@ Maintenance rules:
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
 ## 2026-03-03
+- TI outreach preview mode + admin review/send controls:
+  - Added:
+    - `supabase/migrations/20260303_email_outreach_previews.sql`
+    - `apps/ti-web/lib/outreach.ts`
+    - `apps/ti-web/lib/outreachAdmin.ts`
+    - `apps/ti-web/lib/email.ts`
+    - `apps/ti-web/app/api/outreach/generate-previews/route.ts`
+    - `apps/ti-web/app/api/outreach/previews/route.ts`
+    - `apps/ti-web/app/api/outreach/send-test/route.ts`
+    - `apps/ti-web/app/admin/outreach-previews/page.tsx`
+    - `apps/ti-web/app/admin/outreach-previews/CopyFieldButton.tsx`
+    - `apps/ti-web/app/admin/outreach-previews/GeneratePreviewsForm.tsx`
+    - `apps/ti-web/app/admin/outreach-previews/PreviewAdminActions.tsx`
+  - Changes:
+    - added a TI-only `email_outreach_previews` table plus preview generator route for soccer director verification campaigns,
+    - added reusable outreach helpers for sport normalization, capped preview generation, signed/campaign verify URL building, and a friendly soccer verification email template,
+    - added an internal TI admin review page for filtering previews, inspecting rendered HTML and plain text, and copying subject / verify link / HTML,
+    - added browser controls for generating preview batches, sending a selected preview as a real test email via Resend, deleting a single preview, or deleting all previews for a campaign,
+    - added a TI-local email sender that defaults the `From` address to `hello@mail.tournamentinsights.com` while still honoring `EMAIL_REPLY_TO` for main-domain replies,
+    - tightened the outreach preview page UI so the list behaves more like a compact picker and the selected email detail has denser status / metadata cards.
+  - Validation:
+    - `cd apps/ti-web && npm run build` passed.
+
 - TI verify-your-tournament update-in-place verification flow:
   - Added:
     - `apps/ti-web/app/verify-your-tournament/page.tsx`
