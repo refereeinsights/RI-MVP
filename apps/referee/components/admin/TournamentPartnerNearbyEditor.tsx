@@ -2,13 +2,21 @@
 
 import { useState } from "react";
 
-type Category = "food" | "coffee" | "hotel";
+const SUGGESTED_CATEGORIES = ["hotel", "food", "coffee", "apparel", "gear", "photography", "training", "medical"] as const;
+
+function categoryLabel(value: string) {
+  return value
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
 
 type PartnerRow = {
   id: string;
   tournament_id: string;
   venue_id?: string | null;
-  category: Category;
+  category: string;
   name: string;
   address?: string | null;
   maps_url?: string | null;
@@ -35,7 +43,7 @@ export default function TournamentPartnerNearbyEditor({ tournamentId, venues }: 
   const [newRow, setNewRow] = useState({
     venue_id: venues[0]?.id ?? "",
     name: "",
-    category: "hotel" as Category,
+    category: "hotel",
     address: "",
     maps_url: "",
     sponsor_click_url: "",
@@ -168,7 +176,7 @@ export default function TournamentPartnerNearbyEditor({ tournamentId, venues }: 
         <div>
           <div style={{ fontSize: 12, fontWeight: 800 }}>Tournament-specific Owl&apos;s Eye partner rows</div>
           <div style={{ fontSize: 12, color: "#666" }}>
-            These rows appear above the normal Owl&apos;s Eye list when the venue is opened from this tournament.
+            Food, coffee, and hotel rows appear above Owl&apos;s Eye on venue pages. Other categories appear on the tournament page in a partner section.
           </div>
         </div>
         {!loaded ? (
@@ -209,11 +217,12 @@ export default function TournamentPartnerNearbyEditor({ tournamentId, venues }: 
                     </label>
                     <label style={{ fontSize: 12, fontWeight: 700 }}>
                       Category
-                      <select value={row.category ?? "food"} onChange={(e) => updateField(row.id, "category", e.target.value)} style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}>
-                        <option value="food">Food</option>
-                        <option value="coffee">Coffee</option>
-                        <option value="hotel">Hotel</option>
-                      </select>
+                      <input
+                        list="tournament-partner-category-options"
+                        value={row.category ?? "food"}
+                        onChange={(e) => updateField(row.id, "category", e.target.value)}
+                        style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                      />
                     </label>
                     <label style={{ fontSize: 12, fontWeight: 700 }}>
                       Sort order
@@ -277,11 +286,12 @@ export default function TournamentPartnerNearbyEditor({ tournamentId, venues }: 
               </label>
               <label style={{ fontSize: 12, fontWeight: 700 }}>
                 Category
-                <select value={newRow.category} onChange={(e) => setNewRow((prev) => ({ ...prev, category: e.target.value as Category }))} style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}>
-                  <option value="food">Food</option>
-                  <option value="coffee">Coffee</option>
-                  <option value="hotel">Hotel</option>
-                </select>
+                <input
+                  list="tournament-partner-category-options"
+                  value={newRow.category}
+                  onChange={(e) => setNewRow((prev) => ({ ...prev, category: e.target.value }))}
+                  style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+                />
               </label>
               <label style={{ fontSize: 12, fontWeight: 700 }}>
                 Sort order
@@ -318,6 +328,13 @@ export default function TournamentPartnerNearbyEditor({ tournamentId, venues }: 
           </div>
         </>
       ) : null}
+      <datalist id="tournament-partner-category-options">
+        {SUGGESTED_CATEGORIES.map((category) => (
+          <option key={category} value={category}>
+            {categoryLabel(category)}
+          </option>
+        ))}
+      </datalist>
     </div>
   );
 }

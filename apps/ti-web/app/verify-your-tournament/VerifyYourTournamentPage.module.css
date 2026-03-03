@@ -1,0 +1,117 @@
+.page {
+  max-width: 980px;
+  margin: 2rem auto 3.5rem;
+  padding: 0 1rem;
+  display: grid;
+  gap: 18px;
+}
+
+.hero {
+  background:
+    radial-gradient(circle at top left, rgba(29, 78, 216, 0.14), transparent 34%),
+    linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #eff6ff 100%);
+  border: 1px solid #dbe4ec;
+  border-radius: 24px;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+  padding: 28px;
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  text-align: center;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #0f6b4a;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.02;
+  max-width: 720px;
+}
+
+.subtitle {
+  margin: 0;
+  color: #334155;
+  line-height: 1.7;
+  max-width: 760px;
+  font-size: 1.04rem;
+}
+
+.benefitsCard {
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 18px;
+  padding: 18px 18px 16px;
+  display: grid;
+  gap: 12px;
+  width: min(100%, 760px);
+  justify-items: center;
+}
+
+.benefitsTitle {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.05rem;
+}
+
+.benefitList {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 8px;
+  color: #1e293b;
+  text-align: left;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+.ctaButton,
+.secondaryText {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ctaButton {
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: #0f6b4a;
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 14px 28px rgba(15, 107, 74, 0.18);
+}
+
+.secondaryText {
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 22px;
+  }
+
+  .actions {
+    align-items: stretch;
+  }
+
+  .ctaButton {
+    width: 100%;
+    justify-content: center;
+  }
+}

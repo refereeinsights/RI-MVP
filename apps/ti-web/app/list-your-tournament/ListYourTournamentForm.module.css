@@ -52,6 +52,14 @@
   font-size: 0.95rem;
 }
 
+.benefitList {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 8px;
+  color: #1e293b;
+}
+
 .matchPanel {
   margin: 0;
   padding: 14px 16px;
@@ -106,6 +114,11 @@
   padding: 20px;
   display: grid;
   gap: 16px;
+}
+
+.verifySuccess {
+  display: grid;
+  gap: 14px;
 }
 
 .sectionHeader {
@@ -222,6 +235,24 @@
   gap: 14px;
 }
 
+.venueSummary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.venueSummary::-webkit-details-marker {
+  display: none;
+}
+
+.venueSummaryText {
+  display: grid;
+  gap: 4px;
+}
+
 .venueHeader {
   display: flex;
   align-items: center;
@@ -234,6 +265,18 @@
   margin: 0;
   font-size: 1rem;
   color: #0f172a;
+}
+
+.venueMeta {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.venueSummaryChevron {
+  color: #0f6b4a;
+  font-size: 1.1rem;
+  font-weight: 800;
 }
 
 .addButton,

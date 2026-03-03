@@ -75,6 +75,17 @@ type LinkedVenue = {
   reviews_last_updated_at: string | null;
 };
 
+type TournamentPartnerRow = {
+  id: string;
+  venue_id: string | null;
+  category: string | null;
+  name: string | null;
+  address: string | null;
+  maps_url: string | null;
+  sponsor_click_url: string | null;
+  sort_order: number | null;
+};
+
 export const revalidate = 300;
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
@@ -106,6 +117,16 @@ function buildMapLinks(query: string) {
 
 function buildCanonicalUrl(slug: string) {
   return `${SITE_ORIGIN}/tournaments/${slug}`;
+}
+
+function formatPartnerCategory(value: string | null) {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized) return "Partner";
+  return normalized
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function cardVariant(sport: string | null) {
@@ -258,6 +279,7 @@ export default async function TournamentDetailPage({
         Boolean(venue && typeof venue === "object" && typeof venue.id === "string")
     );
   const linkedVenueIds = linkedVenues.map((v) => v.id).filter(Boolean);
+  const linkedVenueNameById = new Map(linkedVenues.map((venue) => [venue.id, venue.name ?? "Tournament venue"]));
   const resolvedSlug = (data.slug ?? params.slug ?? "").toLowerCase();
   const resolvedName = (data.name ?? "").trim().toLowerCase();
   const isDemoTournament = resolvedSlug === DEMO_TOURNAMENT_SLUG;
@@ -286,6 +308,18 @@ export default async function TournamentDetailPage({
     }
   >();
   let hasOwlsEyeByVenueId = new Map<string, boolean>();
+  const standardPartnerCategories = new Set(["food", "coffee", "hotel", "hotels"]);
+  const { data: tournamentPartnerRowsRaw } = await supabaseAdmin
+    .from("tournament_partner_nearby" as any)
+    .select("id,venue_id,category,name,address,maps_url,sponsor_click_url,sort_order")
+    .eq("tournament_id", data.id)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false });
+  const tournamentPartnerRows = ((tournamentPartnerRowsRaw as TournamentPartnerRow[] | null) ?? []).filter((row) => {
+    const normalized = (row.category ?? "").toLowerCase();
+    return row.name && normalized && !standardPartnerCategories.has(normalized);
+  });
 
   const runRows = await fetchLatestOwlsEyeRuns(linkedVenueIds);
 
@@ -443,6 +477,61 @@ export default async function TournamentDetailPage({
           ) : null}
 
           {data.summary ? <p className="detailSummary">{data.summary}</p> : null}
+
+          {tournamentPartnerRows.length ? (
+            <div className="detailCard">
+              <div className="detailCard__title">Tournament Partners</div>
+              <div className="detailCard__body" style={{ display: "grid", gap: 12 }}>
+                {tournamentPartnerRows.map((partner) => {
+                  const venueName = partner.venue_id ? linkedVenueNameById.get(partner.venue_id) ?? null : null;
+                  const destination = partner.sponsor_click_url || partner.maps_url || null;
+                  return (
+                    <div
+                      key={partner.id}
+                      style={{
+                        display: "grid",
+                        gap: 4,
+                        padding: "12px 14px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        background: "rgba(255,255,255,0.04)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 10,
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <div style={{ display: "grid", gap: 3 }}>
+                          <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.74 }}>
+                            {formatPartnerCategory(partner.category)}
+                          </span>
+                          <strong style={{ fontSize: "1.02rem" }}>{partner.name}</strong>
+                        </div>
+                        {destination ? (
+                          <a className="secondaryLink" href={destination} target="_blank" rel="noopener noreferrer">
+                            Visit Partner
+                          </a>
+                        ) : null}
+                      </div>
+                      {venueName ? (
+                        <div style={{ fontSize: 13, opacity: 0.84 }}>
+                          Applies to <strong>{venueName}</strong>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 13, opacity: 0.84 }}>Applies across all tournament venues</div>
+                      )}
+                      {partner.address ? <div style={{ fontSize: 14, opacity: 0.88 }}>{partner.address}</div> : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           <p className="detailLegalNote">
             Information may change. Verify critical details directly with organizers and venues.{" "}
             <Link href="/terms">Terms</Link> • <Link href="/disclaimer">Disclaimer</Link>

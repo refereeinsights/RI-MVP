@@ -4,10 +4,13 @@ export const TI_TOURNAMENT_SPORTS = TI_SPORTS;
 export const LODGING_OPTIONS = ["hotel", "stipend"] as const;
 export const RESTROOM_OPTIONS = ["Portable", "Building", "Both"] as const;
 export const YES_NO_OPTIONS = ["yes", "no"] as const;
+export const TOURNAMENT_SPONSOR_CATEGORY_OPTIONS = ["food", "coffee", "hotel", "apparel", "other"] as const;
+export const MAX_TOURNAMENT_SPONSORS = 4;
 
 export type YesNoValue = (typeof YES_NO_OPTIONS)[number] | "";
 export type LodgingValue = (typeof LODGING_OPTIONS)[number] | "";
 export type RestroomValue = (typeof RESTROOM_OPTIONS)[number] | "";
+export type TournamentSponsorCategoryValue = (typeof TOURNAMENT_SPONSOR_CATEGORY_OPTIONS)[number] | "";
 
 export type TournamentDetailsInput = {
   name: string;
@@ -28,6 +31,7 @@ export type TournamentDetailsInput = {
 };
 
 export type VenueInput = {
+  id?: string;
   name: string;
   address1: string;
   city: string;
@@ -39,7 +43,9 @@ export type VenueInput = {
 };
 
 export type TournamentSubmissionInput = {
+  verifyTargetTournamentId?: string | null;
   tournament: TournamentDetailsInput;
+  sponsors?: SponsorInput[];
   venues: VenueInput[];
 };
 
@@ -49,6 +55,7 @@ export type VenueFieldErrors = Partial<Record<keyof VenueInput, string>>;
 export type SubmissionErrors = {
   form?: string;
   tournament: TournamentFieldErrors;
+  sponsors: SponsorFieldErrors[];
   venues: VenueFieldErrors[];
 };
 
@@ -83,16 +90,39 @@ export type SanitizedVenue = {
 
 export type SanitizedTournamentSubmission = {
   tournament: SanitizedTournamentDetails;
+  sponsors: SanitizedSponsor[];
   venues: SanitizedVenue[];
 };
 
+export type SponsorInput = {
+  id?: string;
+  name: string;
+  address: string;
+  websiteUrl: string;
+  category: TournamentSponsorCategoryValue;
+  otherCategory: string;
+};
+
+export type SponsorFieldErrors = Partial<Record<keyof SponsorInput, string>>;
+
+export type SanitizedSponsor = {
+  id?: string;
+  name: string;
+  address: string;
+  websiteUrl: string;
+  category: string;
+};
+
 export type TournamentDuplicateVenue = {
+  id: string | null;
   name: string;
   address1: string;
   city: string;
   state: string;
   zip: string;
   venueUrl: string | null;
+  restrooms: RestroomValue;
+  bringFieldChairs: YesNoValue;
 };
 
 export type TournamentDuplicateMatch = {
@@ -115,11 +145,32 @@ export type TournamentDuplicateMatch = {
   refCashTournament: boolean | null;
   refMentors: "yes" | "no" | null;
   travelLodging: "hotel" | "stipend" | null;
+  sponsors: Array<{
+    id: string | null;
+    name: string;
+    address: string;
+    websiteUrl: string | null;
+    category: string | null;
+    categoryOption: TournamentSponsorCategoryValue;
+    otherCategory: string;
+  }>;
   venues: TournamentDuplicateVenue[];
 };
 
+export function createEmptySponsor(): SponsorInput {
+  return {
+    id: undefined,
+    name: "",
+    address: "",
+    websiteUrl: "",
+    category: "",
+    otherCategory: "",
+  };
+}
+
 export function createEmptyVenue(): VenueInput {
   return {
+    id: undefined,
     name: "",
     address1: "",
     city: "",
@@ -153,7 +204,9 @@ export function createInitialTournamentDetails(): TournamentDetailsInput {
 
 export function createInitialSubmission(): TournamentSubmissionInput {
   return {
+    verifyTargetTournamentId: null,
     tournament: createInitialTournamentDetails(),
+    sponsors: [],
     venues: [createEmptyVenue()],
   };
 }
@@ -161,6 +214,7 @@ export function createInitialSubmission(): TournamentSubmissionInput {
 export function createEmptyErrors(venueCount: number): SubmissionErrors {
   return {
     tournament: {},
+    sponsors: [],
     venues: Array.from({ length: venueCount }, () => ({})),
   };
 }
@@ -209,6 +263,33 @@ function normalizeSport(value: string): TiSport | null {
   return TI_TOURNAMENT_SPORTS.includes(normalized as TiSport) ? (normalized as TiSport) : null;
 }
 
+function normalizeSponsorCategorySlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+}
+
+export function getSponsorCategoryFormState(value: string | null | undefined): {
+  categoryOption: TournamentSponsorCategoryValue;
+  otherCategory: string;
+} {
+  const normalized = normalizeSponsorCategorySlug(value ?? "");
+  if (!normalized) return { categoryOption: "", otherCategory: "" };
+  if (
+    normalized === "food" ||
+    normalized === "coffee" ||
+    normalized === "hotel" ||
+    normalized === "apparel"
+  ) {
+    return { categoryOption: normalized, otherCategory: "" };
+  }
+  return { categoryOption: "other", otherCategory: normalized };
+}
+
 function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -228,6 +309,7 @@ export function validateTournamentSubmission(
   | { ok: false; errors: SubmissionErrors } {
   const errors = createEmptyErrors(Math.max(input.venues.length, 1));
   const tournament = input.tournament;
+  const sponsorInputs = (input.sponsors ?? []).slice(0, MAX_TOURNAMENT_SPONSORS);
   const sanitizedSport = normalizeSport(tournament.sport);
   const officialWebsiteUrl = normalizeUrl(tournament.officialWebsiteUrl);
   const directorEmail = tournament.tournamentDirectorEmail.trim().toLowerCase();
@@ -268,6 +350,61 @@ export function validateTournamentSubmission(
   if (input.venues.length === 0) {
     errors.form = "Add at least one venue.";
   }
+
+  const sanitizedSponsors: SanitizedSponsor[] = sponsorInputs.flatMap((sponsor, index) => {
+    const fieldErrors: SponsorFieldErrors = {};
+    const normalizedWebsiteUrl = normalizeUrl(sponsor.websiteUrl);
+    const hasAnyValue = Boolean(
+      sponsor.name.trim() ||
+        sponsor.address.trim() ||
+        sponsor.websiteUrl.trim() ||
+        sponsor.category.trim() ||
+        sponsor.otherCategory.trim()
+    );
+    if (!hasAnyValue) {
+      errors.sponsors[index] = fieldErrors;
+      return [];
+    }
+
+    if (!sponsor.name.trim()) fieldErrors.name = "Sponsor name is required.";
+    if (!sponsor.address.trim()) fieldErrors.address = "Address is required.";
+    if (!sponsor.websiteUrl.trim()) {
+      fieldErrors.websiteUrl = "Website URL is required.";
+    } else if (!normalizedWebsiteUrl) {
+      fieldErrors.websiteUrl = "Enter a valid URL.";
+    }
+    if (!sponsor.category) {
+      fieldErrors.category = "Choose a category.";
+    }
+
+    let normalizedCategory = "";
+    if (sponsor.category === "other") {
+      normalizedCategory = normalizeSponsorCategorySlug(sponsor.otherCategory);
+      if (!sponsor.otherCategory.trim()) {
+        fieldErrors.otherCategory = "Enter the sponsor type.";
+      } else if (!normalizedCategory) {
+        fieldErrors.otherCategory = "Enter a valid sponsor type.";
+      }
+    } else {
+      normalizedCategory = sponsor.category;
+    }
+
+    errors.sponsors[index] = fieldErrors;
+
+    if (Object.keys(fieldErrors).length > 0 || !normalizedWebsiteUrl || !normalizedCategory) {
+      return [];
+    }
+
+    return [
+      {
+        id: sponsor.id,
+        name: sponsor.name.trim(),
+        address: sponsor.address.trim(),
+        websiteUrl: normalizedWebsiteUrl,
+        category: normalizedCategory,
+      },
+    ];
+  });
 
   const sanitizedVenues: SanitizedVenue[] = input.venues.map((venue, index) => {
     const fieldErrors = errors.venues[index] ?? {};
@@ -313,6 +450,7 @@ export function validateTournamentSubmission(
   const hasErrors =
     Boolean(errors.form) ||
     Object.keys(errors.tournament).length > 0 ||
+    errors.sponsors.some((entry) => Object.keys(entry).length > 0) ||
     errors.venues.some((entry) => Object.keys(entry).length > 0);
 
   if (hasErrors || !sanitizedSport || !officialWebsiteUrl || !directorEmail || !refCashTournament) {
@@ -339,6 +477,7 @@ export function validateTournamentSubmission(
         refMentors: refMentors || null,
         travelLodging: (travelLodging as "hotel" | "stipend" | "") || null,
       },
+      sponsors: sanitizedSponsors,
       venues: sanitizedVenues,
     },
   };
@@ -353,9 +492,12 @@ export function applyDuplicateMatchToForm(
   current: TournamentSubmissionInput,
   match: TournamentDuplicateMatch
 ): TournamentSubmissionInput {
-  const firstVenue = match.venues[0] ?? null;
+  const matchedVenues = match.venues.length > 0 ? match.venues : [];
+  const matchedSponsors = match.sponsors.length > 0 ? match.sponsors : [];
+  const venueCount = Math.max(current.venues.length, matchedVenues.length || 1);
 
   return {
+    verifyTargetTournamentId: current.verifyTargetTournamentId || match.id,
     tournament: {
       ...current.tournament,
       sport: current.tournament.sport || match.sport || "",
@@ -378,16 +520,36 @@ export function applyDuplicateMatchToForm(
       refMentors: current.tournament.refMentors || match.refMentors || "",
       travelLodging: current.tournament.travelLodging || match.travelLodging || "",
     },
-    venues: current.venues.map((venue, index) => {
-      if (index !== 0 || !firstVenue) return venue;
+    sponsors:
+      matchedSponsors.length > 0
+        ? matchedSponsors.slice(0, MAX_TOURNAMENT_SPONSORS).map((sponsor, index) => {
+            const currentSponsor = current.sponsors?.[index] ?? createEmptySponsor();
+            return {
+              ...currentSponsor,
+              id: currentSponsor.id || sponsor.id || undefined,
+              name: currentSponsor.name || sponsor.name || "",
+              address: currentSponsor.address || sponsor.address || "",
+              websiteUrl: currentSponsor.websiteUrl || sponsor.websiteUrl || "",
+              category: currentSponsor.category || sponsor.categoryOption || "",
+              otherCategory: currentSponsor.otherCategory || sponsor.otherCategory || "",
+            };
+          })
+        : (current.sponsors ?? []).slice(0, MAX_TOURNAMENT_SPONSORS),
+    venues: Array.from({ length: venueCount }, (_, index) => {
+      const venue = current.venues[index] ?? createEmptyVenue();
+      const matchedVenue = matchedVenues[index] ?? null;
+      if (!matchedVenue) return venue;
       return {
         ...venue,
-        name: venue.name || firstVenue.name || "",
-        address1: venue.address1 || firstVenue.address1 || "",
-        city: venue.city || firstVenue.city || "",
-        state: venue.state || firstVenue.state || "",
-        zip: venue.zip || firstVenue.zip || "",
-        venueUrl: venue.venueUrl || firstVenue.venueUrl || "",
+        id: venue.id || matchedVenue.id || undefined,
+        name: venue.name || matchedVenue.name || "",
+        address1: venue.address1 || matchedVenue.address1 || "",
+        city: venue.city || matchedVenue.city || "",
+        state: venue.state || matchedVenue.state || "",
+        zip: venue.zip || matchedVenue.zip || "",
+        venueUrl: venue.venueUrl || matchedVenue.venueUrl || "",
+        restrooms: venue.restrooms || matchedVenue.restrooms || "",
+        bringFieldChairs: venue.bringFieldChairs || matchedVenue.bringFieldChairs || "",
       };
     }),
   };

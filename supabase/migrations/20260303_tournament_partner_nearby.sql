@@ -2,7 +2,7 @@ create table if not exists public.tournament_partner_nearby (
   id uuid primary key default gen_random_uuid(),
   tournament_id uuid not null references public.tournaments(id) on delete cascade,
   venue_id uuid references public.venues(id) on delete cascade,
-  category text not null check (category in ('food', 'coffee', 'hotel')),
+  category text not null check (category ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
   name text not null,
   address text,
   maps_url text,

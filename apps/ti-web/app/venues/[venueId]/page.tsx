@@ -274,6 +274,10 @@ export default async function VenueDetailsPage({
     coffee: [] as NearbyPlace[],
     hotels: [] as NearbyPlace[],
   };
+  const isNearbySponsorCategory = (value: string | null | undefined) => {
+    const normalized = (value ?? "").toLowerCase();
+    return normalized === "food" || normalized === "coffee" || normalized === "hotel" || normalized === "hotels";
+  };
   const sortedPartnerRows = [...partnerRows].sort((left, right) => {
     const leftSpecific = left.venue_id === data.id ? 1 : 0;
     const rightSpecific = right.venue_id === data.id ? 1 : 0;
@@ -282,6 +286,7 @@ export default async function VenueDetailsPage({
   });
 
   for (const row of sortedPartnerRows) {
+    if (!isNearbySponsorCategory(row.category)) continue;
     const place: NearbyPlace = {
       name: row.name,
       distance_meters: row.distance_meters,
@@ -300,7 +305,7 @@ export default async function VenueDetailsPage({
       sortedPartnerRows
         .filter((row) => {
           const category = (row.category ?? "food").toLowerCase();
-          return category !== "coffee" && category !== "hotel" && category !== "hotels";
+          return category === "food";
         })
         .map(buildNearbyDedupKey)
     ),

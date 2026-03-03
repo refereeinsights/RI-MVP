@@ -4,8 +4,6 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-type Category = "food" | "coffee" | "hotel";
-
 async function ensureAdminRequest() {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
@@ -21,11 +19,17 @@ async function ensureAdminRequest() {
   return data.user;
 }
 
-function sanitizeCategory(value: unknown): Category {
+function sanitizeCategory(value: unknown): string {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
-  if (normalized === "coffee") return "coffee";
-  if (normalized === "hotel" || normalized === "hotels" || normalized === "lodging") return "hotel";
-  return "food";
+  const canonical =
+    normalized === "hotels" || normalized === "lodging"
+      ? "hotel"
+      : normalized
+          .replace(/&/g, " and ")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .replace(/-{2,}/g, "-");
+  return canonical || "food";
 }
 
 function asTrimmed(value: unknown): string | null {

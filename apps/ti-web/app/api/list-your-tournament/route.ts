@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
+  getSponsorCategoryFormState,
   buildTournamentSlug,
   type TournamentDuplicateMatch,
   type SanitizedTournamentSubmission,
@@ -36,15 +37,27 @@ type DuplicateLookupRow = {
   tournament_venues?: Array<{
     venues:
       | {
+          id: string;
           name: string | null;
           address1: string | null;
           city: string | null;
           state: string | null;
           zip: string | null;
           venue_url: string | null;
+          restrooms: string | null;
+          bring_field_chairs: boolean | null;
         }
       | null;
   }> | null;
+};
+
+type TournamentPartnerRow = {
+  id: string;
+  name: string | null;
+  address: string | null;
+  sponsor_click_url: string | null;
+  category: string | null;
+  sort_order: number | null;
 };
 
 function normalizeLookupText(value: string) {
@@ -67,7 +80,7 @@ function scoreDuplicateMatch(row: DuplicateLookupRow, name: string, city: string
   return score;
 }
 
-function mapDuplicateMatch(row: DuplicateLookupRow): TournamentDuplicateMatch {
+function mapDuplicateMatch(row: DuplicateLookupRow, sponsorRows: TournamentPartnerRow[] = []): TournamentDuplicateMatch {
   return {
     id: row.id,
     slug: row.slug ?? null,
@@ -88,6 +101,18 @@ function mapDuplicateMatch(row: DuplicateLookupRow): TournamentDuplicateMatch {
     refCashTournament: row.ref_cash_tournament ?? null,
     refMentors: row.ref_mentors ?? null,
     travelLodging: row.travel_lodging ?? null,
+    sponsors: sponsorRows.map((sponsor) => {
+      const categoryState = getSponsorCategoryFormState(sponsor.category);
+      return {
+        id: sponsor.id,
+        name: sponsor.name ?? "",
+        address: sponsor.address ?? "",
+        websiteUrl: sponsor.sponsor_click_url ?? null,
+        category: sponsor.category ?? null,
+        categoryOption: categoryState.categoryOption,
+        otherCategory: categoryState.otherCategory,
+      };
+    }),
     venues: (row.tournament_venues ?? [])
       .map((entry) => entry?.venues ?? null)
       .filter(
@@ -95,12 +120,19 @@ function mapDuplicateMatch(row: DuplicateLookupRow): TournamentDuplicateMatch {
           Boolean(venue?.name)
       )
       .map((venue) => ({
+        id: venue.id ?? null,
         name: venue.name ?? "",
         address1: venue.address1 ?? "",
         city: venue.city ?? "",
         state: venue.state ?? "",
         zip: venue.zip ?? "",
         venueUrl: venue.venue_url ?? null,
+        restrooms:
+          venue.restrooms === "Portable" || venue.restrooms === "Building" || venue.restrooms === "Both"
+            ? venue.restrooms
+            : "",
+        bringFieldChairs:
+          venue.bring_field_chairs === true ? "yes" : venue.bring_field_chairs === false ? "no" : "",
       })),
   };
 }
@@ -132,6 +164,79 @@ async function insertTournament(payload: Record<string, unknown>): Promise<Tourn
   }
 
   throw lastError ?? new Error("Tournament insert failed.");
+}
+
+async function updateTournament(tournamentId: string, payload: Record<string, unknown>): Promise<TournamentInsertResult> {
+  const { data, error } = await (supabaseAdmin.from("tournaments" as any) as any)
+    .update({ ...payload, updated_at: new Date().toISOString() })
+    .eq("id", tournamentId)
+    .select("id,slug")
+    .single();
+
+  if (error || !data?.id) {
+    throw error ?? new Error("Tournament update failed.");
+  }
+
+  return data as TournamentInsertResult;
+}
+
+async function syncTournamentSponsors(tournamentId: string, sponsors: SanitizedTournamentSubmission["sponsors"]) {
+  const { data: existingRows, error: existingError } = await (supabaseAdmin
+    .from("tournament_partner_nearby" as any) as any)
+    .select("id")
+    .eq("tournament_id", tournamentId)
+    .is("venue_id", null);
+
+  if (existingError) throw existingError;
+
+  const existingIds = ((existingRows ?? []) as Array<{ id: string | null }>)
+    .map((row) => row.id)
+    .filter((id): id is string => Boolean(id));
+  const retainedIds = new Set<string>();
+
+  for (const [index, sponsor] of sponsors.entries()) {
+    const sponsorId = sponsor.id?.trim() || null;
+    const payload = {
+      tournament_id: tournamentId,
+      venue_id: null,
+      category: sponsor.category,
+      name: sponsor.name,
+      address: sponsor.address,
+      sponsor_click_url: sponsor.websiteUrl,
+      sort_order: index,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (sponsorId && existingIds.includes(sponsorId)) {
+      const { error } = await (supabaseAdmin.from("tournament_partner_nearby" as any) as any)
+        .update(payload)
+        .eq("id", sponsorId)
+        .eq("tournament_id", tournamentId)
+        .is("venue_id", null);
+      if (error) throw error;
+      retainedIds.add(sponsorId);
+    } else {
+      const { data, error } = await (supabaseAdmin.from("tournament_partner_nearby" as any) as any)
+        .insert(payload)
+        .select("id")
+        .single();
+      if (error || !data?.id) {
+        throw error ?? new Error("Tournament sponsor save failed.");
+      }
+      retainedIds.add(String(data.id));
+    }
+  }
+
+  const staleIds = existingIds.filter((id) => !retainedIds.has(id));
+  if (staleIds.length > 0) {
+    const { error } = await (supabaseAdmin.from("tournament_partner_nearby" as any) as any)
+      .delete()
+      .eq("tournament_id", tournamentId)
+      .is("venue_id", null)
+      .in("id", staleIds);
+    if (error) throw error;
+  }
 }
 
 async function cleanupSubmission(tournamentId: string | null, venueIds: string[]) {
@@ -210,32 +315,44 @@ export async function POST(request: Request) {
   }
 
   let tournamentId: string | null = null;
-  const venueIds: string[] = [];
+  const createdVenueIds: string[] = [];
 
   try {
-    const tournament = await insertTournament(buildTournamentRecord(validation.value));
+    const verifyTargetTournamentId = payload.verifyTargetTournamentId?.trim() || null;
+    const tournamentPayload = buildTournamentRecord(validation.value);
+    const shouldUpdateExisting = Boolean(verifyTargetTournamentId);
+    const tournament = shouldUpdateExisting
+      ? await updateTournament(verifyTargetTournamentId as string, tournamentPayload)
+      : await insertTournament(tournamentPayload);
     tournamentId = tournament.id;
+
+    const desiredVenueIds: string[] = [];
 
     for (let index = 0; index < validation.value.venues.length; index += 1) {
       const venue = validation.value.venues[index];
-      const { data, error } = await (supabaseAdmin.from("venues" as any) as any)
-        .insert({
-          name: venue.name,
-          address: venue.address1,
-          address1: venue.address1,
-          city: venue.city,
-          state: venue.state,
-          zip: venue.zip,
-          venue_url: venue.venueUrl,
-          sport: validation.value.tournament.sport,
-          restrooms: venue.restrooms,
-          bring_field_chairs: venue.bringFieldChairs,
-        })
-        .select("id")
-        .single();
+      const venuePayload = {
+        name: venue.name,
+        address: venue.address1,
+        address1: venue.address1,
+        city: venue.city,
+        state: venue.state,
+        zip: venue.zip,
+        venue_url: venue.venueUrl,
+        sport: validation.value.tournament.sport,
+        restrooms: venue.restrooms,
+        bring_field_chairs: venue.bringFieldChairs,
+        updated_at: new Date().toISOString(),
+      };
+      const existingVenueId = shouldUpdateExisting ? payload.venues[index]?.id?.trim() || null : null;
+      const venueQuery = existingVenueId
+        ? (supabaseAdmin.from("venues" as any) as any).update(venuePayload).eq("id", existingVenueId)
+        : (supabaseAdmin.from("venues" as any) as any).insert(venuePayload);
+      const { data, error } = await venueQuery.select("id").single();
 
       if (error || !data?.id) {
-        await cleanupSubmission(tournamentId, venueIds);
+        if (!shouldUpdateExisting) {
+          await cleanupSubmission(tournamentId, createdVenueIds);
+        }
         return NextResponse.json(
           {
             ok: false,
@@ -245,17 +362,25 @@ export async function POST(request: Request) {
         );
       }
 
-      venueIds.push(String(data.id));
+      const resolvedVenueId = String(data.id);
+      desiredVenueIds.push(resolvedVenueId);
+      if (!existingVenueId) {
+        createdVenueIds.push(resolvedVenueId);
+      }
     }
 
-    const links = venueIds.map((venueId) => ({
+    const links = desiredVenueIds.map((venueId) => ({
       tournament_id: tournamentId,
       venue_id: venueId,
     }));
 
-    const { error: linkError } = await (supabaseAdmin.from("tournament_venues" as any) as any).insert(links);
+    const { error: linkError } = await (supabaseAdmin.from("tournament_venues" as any) as any).upsert(links, {
+      onConflict: "tournament_id,venue_id",
+    });
     if (linkError) {
-      await cleanupSubmission(tournamentId, venueIds);
+      if (!shouldUpdateExisting) {
+        await cleanupSubmission(tournamentId, createdVenueIds);
+      }
       return NextResponse.json(
         {
           ok: false,
@@ -265,10 +390,54 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ ok: true, tournamentId, venueCount: venueIds.length });
+    const { data: existingLinksData, error: existingLinksError } = await (supabaseAdmin
+      .from("tournament_venues" as any) as any)
+      .select("venue_id")
+      .eq("tournament_id", tournamentId);
+
+    if (existingLinksError) {
+      if (!shouldUpdateExisting) {
+        await cleanupSubmission(tournamentId, createdVenueIds);
+      }
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "The tournament was saved, but linked venues could not be refreshed. Please retry.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const staleVenueIds = ((existingLinksData ?? []) as Array<{ venue_id: string | null }>)
+      .map((row) => row.venue_id)
+      .filter((venueId): venueId is string => Boolean(venueId) && !desiredVenueIds.includes(String(venueId)));
+
+    if (staleVenueIds.length > 0) {
+      const { error: unlinkError } = await (supabaseAdmin.from("tournament_venues" as any) as any)
+        .delete()
+        .eq("tournament_id", tournamentId)
+        .in("venue_id", staleVenueIds);
+
+      if (unlinkError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "The tournament was saved, but stale venue links could not be removed. Please retry.",
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    await syncTournamentSponsors(tournamentId, validation.value.sponsors);
+
+    return NextResponse.json({ ok: true, tournamentId, venueCount: desiredVenueIds.length, slug: tournament.slug });
   } catch (error) {
-    if (tournamentId || venueIds.length > 0) {
-      await cleanupSubmission(tournamentId, venueIds);
+    if (tournamentId || createdVenueIds.length > 0) {
+      const verifyTargetTournamentId = payload.verifyTargetTournamentId?.trim() || null;
+      if (!verifyTargetTournamentId) {
+        await cleanupSubmission(tournamentId, createdVenueIds);
+      }
     }
     return NextResponse.json(
       {
@@ -292,7 +461,7 @@ export async function GET(request: Request) {
 
   let query = (supabaseAdmin.from("tournaments" as any) as any)
     .select(
-      "id,slug,name,sport,city,state,start_date,end_date,official_website_url,team_fee,age_group,tournament_director,tournament_director_email,referee_contact,referee_contact_email,referee_pay,ref_cash_tournament,ref_mentors,travel_lodging,tournament_venues(venues(name,address1,city,state,zip,venue_url))"
+      "id,slug,name,sport,city,state,start_date,end_date,official_website_url,team_fee,age_group,tournament_director,tournament_director_email,referee_contact,referee_contact_email,referee_pay,ref_cash_tournament,ref_mentors,travel_lodging,tournament_venues(venues(id,name,address1,city,state,zip,venue_url,restrooms,bring_field_chairs))"
     )
     .ilike("name", `%${name}%`)
     .limit(8);
@@ -310,8 +479,20 @@ export async function GET(request: Request) {
     .sort((a, b) => scoreDuplicateMatch(b, name, city, state) - scoreDuplicateMatch(a, name, city, state));
 
   const best = rows[0];
+  let sponsorRows: TournamentPartnerRow[] = [];
+  if (best?.id) {
+    const { data: sponsorData } = await (supabaseAdmin.from("tournament_partner_nearby" as any) as any)
+      .select("id,name,address,sponsor_click_url,category,sort_order")
+      .eq("tournament_id", best.id)
+      .is("venue_id", null)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false })
+      .limit(4);
+    sponsorRows = ((sponsorData ?? []) as TournamentPartnerRow[]).filter((row) => Boolean(row.name));
+  }
   return NextResponse.json({
     ok: true,
-    match: best ? mapDuplicateMatch(best) : null,
+    match: best ? mapDuplicateMatch(best, sponsorRows) : null,
   });
 }

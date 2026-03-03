@@ -13,6 +13,53 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-03-03
+- TI verify-your-tournament conversion flow + in-place verification updates:
+  - Added:
+    - `apps/ti-web/app/verify-your-tournament/page.tsx`
+    - `apps/ti-web/app/verify-your-tournament/VerifyYourTournamentPage.module.css`
+    - `apps/ti-web/app/api/analytics/route.ts`
+    - `apps/ti-web/lib/analytics.ts`
+  - Updated:
+    - `apps/ti-web/app/api/list-your-tournament/route.ts`
+    - `apps/ti-web/app/list-your-tournament/ListYourTournamentForm.tsx`
+    - `apps/ti-web/app/list-your-tournament/ListYourTournamentForm.module.css`
+    - `apps/ti-web/lib/listTournamentForm.ts`
+  - Changes:
+    - added `/verify-your-tournament` as a sport-aware TI landing page that reuses the existing tournament submission form in `verify` mode,
+    - verify copy now adapts by sport and includes a conversion-focused hero, success state, and lightweight TI-only analytics events,
+    - duplicate-match lookup now returns existing venue ids plus any existing tournament-level sponsor rows so the verify form can prefill known details,
+    - verify submissions now update the matched `tournaments` row in place instead of always creating a new row,
+    - matched linked venues now update in place by `venue.id`, newly added venues are inserted normally, and removed venues are unlinked from `tournament_venues` without deleting shared venue records,
+    - multi-venue matches now prefill all linked venues into a compact expandable venue list instead of only Venue #1,
+    - duplicate-match prefill now includes venue `restrooms` and `bring_field_chairs` values so stored venue settings like `Starfire Sports Complex` render correctly in verify mode.
+  - Validation:
+    - `cd apps/ti-web && npm run build` passed.
+
+- TI verify-your-tournament sponsor intake + broader tournament partner categories:
+  - Updated:
+    - `apps/ti-web/app/api/list-your-tournament/route.ts`
+    - `apps/ti-web/app/list-your-tournament/ListYourTournamentForm.tsx`
+    - `apps/ti-web/lib/listTournamentForm.ts`
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+    - `apps/referee/app/api/admin/tournaments/[id]/partner-nearby/route.ts`
+    - `apps/referee/components/admin/TournamentPartnerNearbyEditor.tsx`
+    - `supabase/migrations/20260303_tournament_partner_nearby.sql`
+    - `supabase/migrations/20260303_tournament_partner_nearby_add_venue_id.sql`
+  - Changes:
+    - verify mode now exposes a collapsed `Tournament Sponsors` section above `Venues`, capped at 4 entries and prefilled from existing tournament-wide sponsor rows when present,
+    - each sponsor row collects `name`, `address`, `website URL`, and a category pick list of `Food`, `Coffee`, `Hotel`, `Apparel`, or `Other`,
+    - selecting `Other` reveals a required free-text sponsor-type field that is normalized to a slug for storage,
+    - verify submits now upsert only tournament-level sponsor rows (`venue_id = null`) so directors can manage general sponsors without overwriting venue-specific partner placements,
+    - widened `tournament_partner_nearby.category` from the original fixed 3-value check to a slug-style category constraint,
+    - RI admin tournament sponsor editor now accepts broader categories through a typed input/datalist instead of a fixed 3-option select,
+    - TI venue pages still render only `food` / `coffee` / `hotel` sponsor rows inside Owl's Eye,
+    - TI tournament detail pages now render non-trip-planning categories like `apparel` in a separate `Tournament Partners` section instead of forcing them into Owl's Eye.
+  - Validation:
+    - `cd apps/ti-web && npm run build` passed.
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
+
 ## 2026-03-02
 - TI tournament-specific Owl's Eye partner placements:
   - Updated:
