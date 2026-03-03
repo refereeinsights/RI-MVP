@@ -2,9 +2,8 @@
   color-scheme: light;
   --ti-primary: #0f6b4a;
   --ti-primary-hover: #0d5c40;
-  --ti-header-1: #061993;
-  --ti-header-2: #0c3baa;
-  --ti-header-3: #1973d1;
+  --ti-header-1: #17256e;
+  --ti-header-2: #1a2b7c;
   --ti-border: #dbe4ec;
   --ti-text: #0f172a;
   --ti-muted: #4b5563;
@@ -36,57 +35,44 @@ body {
 }
 
 .ti-header {
-  background: linear-gradient(90deg, var(--ti-header-1), var(--ti-header-2), var(--ti-header-3));
+  background: linear-gradient(180deg, var(--ti-header-1) 0%, var(--ti-header-2) 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   color: #fff;
-  padding-top: 8px;
+  padding-top: 0;
 }
 
 .ti-header-shell {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 18px 16px 10px;
+  padding: 10px 16px 8px;
   display: grid;
   grid-template-columns: auto 1fr auto;
   grid-template-rows: auto auto;
   align-items: center;
-  gap: 14px 18px;
+  gap: 8px 18px;
 }
 
 .ti-logo {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
   grid-column: 2;
   grid-row: 1;
   justify-self: center;
-  margin-top: 2px;
-}
-
-.ti-logo-frame {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 264px;
-  height: 56px;
-  padding: 6px 8px 2px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.98);
-  border: 1px solid rgba(15, 23, 42, 0.18);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
-  overflow: hidden;
+  line-height: 0;
 }
 
 .ti-logo img,
 .ti-logo-img {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: min(520px, 78vw);
+  height: auto;
+  max-width: none;
+  max-height: 160px;
   object-fit: contain;
-  object-position: center 58%;
-  transform: translateY(4px) scale(5.2);
+  object-position: center;
   transform-origin: center;
   filter: none;
+  opacity: 1;
 }
 
 .ti-nav {
@@ -99,7 +85,7 @@ body {
   flex: 1;
   min-width: 360px;
   flex-wrap: wrap;
-  padding: 6px 0 10px;
+  padding: 2px 0 8px;
   justify-self: center;
 }
 
@@ -207,12 +193,18 @@ body {
   .ti-header-shell {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto auto;
-    row-gap: 10px;
+    row-gap: 8px;
+    padding: 8px 14px 10px;
   }
   .ti-logo {
     grid-column: 1;
     grid-row: 1;
     justify-self: center;
+  }
+  .ti-logo img,
+  .ti-logo-img {
+    width: min(360px, 88vw);
+    max-height: 110px;
   }
   .ti-pill {
     grid-column: 1;

@@ -61,22 +61,6 @@ export default function Home() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="shell">
         <section className="hero" aria-labelledby="ti-title">
-          <div className="logoBlock">
-            <img
-              className="heroLogo"
-              src="/brand/tournamentinsights_logo.svg"
-              alt="TournamentInsights"
-              width={360}
-              height={120}
-            />
-            <div className="subBrand">
-              <span className="subBrandLabel">Powered by</span>
-              <a className="subBrandLink" href="https://tournyx.com" rel="noopener noreferrer">
-                Tournyx
-              </a>
-            </div>
-          </div>
-
           <h1 id="ti-title">TournamentInsights</h1>
 
           <p className="muted heroCopy">

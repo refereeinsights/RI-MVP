@@ -14,6 +14,20 @@ Maintenance rules:
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
 ## 2026-03-03
+- TI homepage/header brand cleanup:
+  - Updated:
+    - `apps/ti-web/app/layout.tsx`
+    - `apps/ti-web/app/globals.css`
+    - `apps/ti-web/app/page.tsx`
+    - `apps/ti-web/public/brand/ti-stacked-logo-white-transparent.svg`
+  - Changes:
+    - replaced the TI header logo with a larger stacked white transparent logo optimized for the blue header gradient,
+    - removed the older boxed/logo-frame treatment and widened header logo sizing so the stacked mark remains visible on desktop and mobile,
+    - updated the TI header gradient to the refined blue vertical treatment and tightened header spacing while keeping nav centered below the logo,
+    - removed the duplicate homepage logo block and `Powered by Tournyx` line so the header is the sole brand anchor on the homepage.
+  - Validation:
+    - `cd apps/ti-web && npm run build` passed.
+
 - TI verify-your-tournament conversion flow + in-place verification updates:
   - Added:
     - `apps/ti-web/app/verify-your-tournament/page.tsx`

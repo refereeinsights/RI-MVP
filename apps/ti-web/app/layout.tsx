@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import PlausibleScript from "../components/PlausibleScript";
 import { BRAND_TI } from "@/lib/brand";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
@@ -66,13 +67,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <header className="ti-header">
             <div className="ti-header-shell">
               <Link href="/" className="ti-logo" aria-label="Tournament Insights home">
-                <span className="ti-logo-frame">
-                  <img
-                    src="/svg/ti/tournamentinsights_logo.svg"
-                    alt="Tournament Insights"
-                    className="ti-logo-img"
-                  />
-                </span>
+                <Image
+                  src="/brand/ti-stacked-logo-white-transparent.svg"
+                  alt="TournamentInsights"
+                  width={1536}
+                  height={1024}
+                  className="ti-logo-img"
+                  priority
+                  sizes="(max-width: 800px) 300px, 420px"
+                />
               </Link>
               <div className="ti-pill">Public Beta</div>
               <nav className="ti-nav" aria-label="Main navigation">
