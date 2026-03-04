@@ -106,6 +106,7 @@ export default function ListYourTournamentForm({
   const formStartedRef = useRef(false);
   const startedAtRef = useRef<number | null>(null);
   const pageViewTrackedRef = useRef(false);
+  const preloadedTournamentIdRef = useRef<string | null>(null);
 
   const isVerifyMode = mode === "verify";
   const sportDisplay = sportLabel(sportPreset || form.tournament.sport || "soccer");
@@ -123,6 +124,58 @@ export default function ListYourTournamentForm({
       };
     });
   }, [sportPreset]);
+
+  useEffect(() => {
+    const tournamentId = outreachContext?.tournamentId?.trim() || "";
+    if (!isVerifyMode || !tournamentId || preloadedTournamentIdRef.current === tournamentId) return;
+
+    const controller = new AbortController();
+    preloadedTournamentIdRef.current = tournamentId;
+    setMatchStatus("loading");
+
+    void (async () => {
+      try {
+        const params = new URLSearchParams({ tournamentId });
+        const response = await fetch(`/api/list-your-tournament?${params.toString()}`, {
+          signal: controller.signal,
+        });
+        const payload = (await response.json().catch(() => null)) as
+          | { ok: true; match: TournamentDuplicateMatch | null }
+          | { ok: false; error?: string }
+          | null;
+
+        if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
+          setMatchStatus("idle");
+          return;
+        }
+
+        if (!payload.match) {
+          setDuplicateMatch(null);
+          setMatchStatus("idle");
+          return;
+        }
+
+        const nextForm = applyDuplicateMatchToForm(createInitialSubmission(), payload.match);
+        if (sportPreset && !nextForm.tournament.sport) {
+          nextForm.tournament.sport = sportPreset;
+        }
+        setForm(nextForm);
+        setErrors(createEmptyErrors(nextForm.venues.length));
+        setDuplicateMatch(payload.match);
+        setMatchStatus("ready");
+        lastAppliedMatchIdRef.current = payload.match.id;
+        setExpandedVenues([0]);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          setMatchStatus("idle");
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
+  }, [isVerifyMode, outreachContext?.tournamentId, sportPreset]);
 
   useEffect(() => {
     if (!isVerifyMode || pageViewTrackedRef.current) return;

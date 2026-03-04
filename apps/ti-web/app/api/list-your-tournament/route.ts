@@ -451,18 +451,50 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
+  const tournamentId = (searchParams.get("tournamentId") ?? "").trim();
   const name = (searchParams.get("name") ?? "").trim();
   const city = (searchParams.get("city") ?? "").trim();
   const state = (searchParams.get("state") ?? "").trim().toUpperCase();
+
+  const baseSelect =
+    "id,slug,name,sport,city,state,start_date,end_date,official_website_url,team_fee,age_group,tournament_director,tournament_director_email,referee_contact,referee_contact_email,referee_pay,ref_cash_tournament,ref_mentors,travel_lodging,tournament_venues(venues(id,name,address1,city,state,zip,venue_url,restrooms,bring_field_chairs))";
+
+  if (tournamentId) {
+    const { data, error } = await ((supabaseAdmin.from("tournaments" as any) as any)
+      .select(baseSelect)
+      .eq("id", tournamentId)
+      .maybeSingle());
+
+    if (error) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+
+    const row = data as DuplicateLookupRow | null;
+    let sponsorRows: TournamentPartnerRow[] = [];
+    if (row?.id) {
+      const { data: sponsorData } = await (supabaseAdmin.from("tournament_partner_nearby" as any) as any)
+        .select("id,name,address,sponsor_click_url,category,sort_order")
+        .eq("tournament_id", row.id)
+        .is("venue_id", null)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false })
+        .limit(4);
+      sponsorRows = ((sponsorData ?? []) as TournamentPartnerRow[]).filter((sponsor) => Boolean(sponsor.name));
+    }
+
+    return NextResponse.json({
+      ok: true,
+      match: row ? mapDuplicateMatch(row, sponsorRows) : null,
+    });
+  }
 
   if (name.length < 3) {
     return NextResponse.json({ ok: true, match: null });
   }
 
   let query = (supabaseAdmin.from("tournaments" as any) as any)
-    .select(
-      "id,slug,name,sport,city,state,start_date,end_date,official_website_url,team_fee,age_group,tournament_director,tournament_director_email,referee_contact,referee_contact_email,referee_pay,ref_cash_tournament,ref_mentors,travel_lodging,tournament_venues(venues(id,name,address1,city,state,zip,venue_url,restrooms,bring_field_chairs))"
-    )
+    .select(baseSelect)
     .ilike("name", `%${name}%`)
     .limit(8);
 

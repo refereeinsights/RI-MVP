@@ -14,6 +14,17 @@ Maintenance rules:
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
 ## 2026-03-03
+- TI verify links now preload the target tournament by id:
+  - Updated:
+    - `apps/ti-web/app/api/list-your-tournament/route.ts`
+    - `apps/ti-web/app/list-your-tournament/ListYourTournamentForm.tsx`
+  - Changes:
+    - `GET /api/list-your-tournament` now supports `?tournamentId=<uuid>` lookup in addition to name/city/state duplicate search,
+    - `/verify-your-tournament` email links now preload the exact tournament, linked venues, and tournament-wide sponsors from `tournamentId` instead of landing on a blank verify form,
+    - verify-mode preload runs once from outreach context and reuses the existing duplicate-match mapping logic rather than introducing a separate write path.
+  - Validation:
+    - `cd apps/ti-web && npm run build` passed.
+
 - TI outreach email refresh + deterministic A/B + send-mode tracking:
   - Added:
     - `supabase/migrations/20260303_email_outreach_preview_variant_and_provider.sql`

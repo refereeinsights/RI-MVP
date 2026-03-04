@@ -13,6 +13,17 @@ Maintenance rules:
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
 ## 2026-03-03
+- TI verify links now preload the target tournament by id:
+  - Updated:
+    - `apps/ti-web/app/api/list-your-tournament/route.ts`
+    - `apps/ti-web/app/list-your-tournament/ListYourTournamentForm.tsx`
+  - Changes:
+    - added direct `tournamentId` lookup support to the TI list/verify API,
+    - outreach verify links now land on a prefilled tournament record with linked venues and sponsors instead of a blank verify page,
+    - reused the existing duplicate-match mapping path so verify-by-email and typed duplicate detection stay aligned.
+  - Validation:
+    - `cd apps/ti-web && npm run build` passed.
+
 - TI outreach email refresh + deterministic A/B + send-mode tracking:
   - Added:
     - `supabase/migrations/20260303_email_outreach_preview_variant_and_provider.sql`
