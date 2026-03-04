@@ -32,6 +32,8 @@ type SuppressionRow = {
   tournament_id: string;
 };
 
+const PLACEHOLDER_EMAIL_VALUES = new Set(["null", "none", "n/a", "na", "unknown", "tbd", "-"]);
+
 function isProduction() {
   return process.env.NODE_ENV === "production";
 }
@@ -43,6 +45,12 @@ function getLocalSendOverride() {
 function inferFirstName(value: string | null) {
   const first = (value || "").trim().split(/\s+/).filter(Boolean)[0] || "";
   return first || null;
+}
+
+function normalizeDirectorEmail(value: string | null | undefined) {
+  const normalized = (value || "").trim().toLowerCase();
+  if (!normalized || PLACEHOLDER_EMAIL_VALUES.has(normalized)) return "";
+  return normalized;
 }
 
 export async function POST(request: NextRequest) {
@@ -77,39 +85,67 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "OUTREACH_TEST_RECIPIENT must be a valid email." }, { status: 500 });
   }
 
-  const { data, error } = await (supabaseAdmin.from("tournaments" as any) as any)
-    .select("id,name,sport,tournament_director,tournament_director_email")
-    .eq("sport", sport)
-    .not("tournament_director_email", "is", null)
-    .neq("tournament_director_email", "")
-    .order("start_date", { ascending: true, nullsFirst: false })
-    .limit(limit);
+  const eligibleRows: TournamentRow[] = [];
+  const seenTournamentIds = new Set<string>();
+  const batchSize = Math.min(Math.max(limit * 4, 100), 500);
+  let offset = 0;
+  let scanCount = 0;
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  while (eligibleRows.length < limit && scanCount < 20) {
+    scanCount += 1;
+    const from = offset;
+    const to = offset + batchSize - 1;
+
+    const { data, error } = await (supabaseAdmin.from("tournaments" as any) as any)
+      .select("id,name,sport,tournament_director,tournament_director_email")
+      .eq("sport", sport)
+      .not("tournament_director_email", "is", null)
+      .neq("tournament_director_email", "")
+      .order("start_date", { ascending: true, nullsFirst: false })
+      .range(from, to);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const batchRows = (data ?? []) as TournamentRow[];
+    if (batchRows.length === 0) break;
+    offset += batchRows.length;
+
+    const candidateRows = batchRows
+      .map((row) => {
+        const normalizedEmail = normalizeDirectorEmail(row.tournament_director_email);
+        if (!row.id || !row.name || !normalizedEmail || !isValidEmail(normalizedEmail)) return null;
+        if (seenTournamentIds.has(row.id)) return null;
+        seenTournamentIds.add(row.id);
+        return {
+          ...row,
+          tournament_director_email: normalizedEmail,
+        } satisfies TournamentRow;
+      })
+      .filter(Boolean) as TournamentRow[];
+
+    if (candidateRows.length === 0) continue;
+
+    const tournamentIds = candidateRows.map((row) => row.id);
+    const { data: suppressionData, error: suppressionError } = await (supabaseAdmin.from(
+      "email_outreach_suppressions" as any
+    ) as any)
+      .select("tournament_id")
+      .in("tournament_id", tournamentIds);
+
+    if (suppressionError) {
+      return NextResponse.json({ error: suppressionError.message }, { status: 500 });
+    }
+
+    const suppressedIds = new Set(((suppressionData ?? []) as SuppressionRow[]).map((row) => row.tournament_id));
+    const unsuppressedRows = candidateRows.filter((row) => !suppressedIds.has(row.id));
+    eligibleRows.push(...unsuppressedRows);
   }
 
-  const rows = ((data ?? []) as TournamentRow[]).filter(
-    (row) => row.id && row.name && row.tournament_director_email && isValidEmail(row.tournament_director_email)
-  );
-
-  if (rows.length === 0) {
-    return NextResponse.json({ created: 0 }, { status: 200 });
+  if (eligibleRows.length > limit) {
+    eligibleRows.splice(limit);
   }
-
-  const tournamentIds = rows.map((row) => row.id);
-  const { data: suppressionData, error: suppressionError } = await (supabaseAdmin.from(
-    "email_outreach_suppressions" as any
-  ) as any)
-    .select("tournament_id")
-    .in("tournament_id", tournamentIds);
-
-  if (suppressionError) {
-    return NextResponse.json({ error: suppressionError.message }, { status: 500 });
-  }
-
-  const suppressedIds = new Set(((suppressionData ?? []) as SuppressionRow[]).map((row) => row.tournament_id));
-  const eligibleRows = rows.filter((row) => !suppressedIds.has(row.id));
 
   if (eligibleRows.length === 0) {
     return NextResponse.json({ created: 0 }, { status: 200 });

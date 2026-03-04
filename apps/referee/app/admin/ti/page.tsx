@@ -597,23 +597,30 @@ export default async function TiAdminPage({
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <Link
-            href={`${tiAdminBaseUrl}/admin/outreach-previews?sport=soccer`}
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              textDecoration: "none",
-              padding: "10px 14px",
-              borderRadius: 10,
-              background: "#ffffff",
-              color: "#1d4ed8",
-              fontWeight: 800,
-              fontSize: 14,
-              border: "1px solid #93c5fd",
-            }}
-          >
-            Soccer TD Outreach
-          </Link>
+          {[
+            { sport: "soccer", label: "Soccer TD Outreach" },
+            { sport: "baseball", label: "Baseball TD Outreach" },
+            { sport: "softball", label: "Softball TD Outreach" },
+          ].map((entry) => (
+            <Link
+              key={entry.sport}
+              href={`${tiAdminBaseUrl}/admin/outreach-previews?sport=${entry.sport}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                textDecoration: "none",
+                padding: "10px 14px",
+                borderRadius: 10,
+                background: "#ffffff",
+                color: "#1d4ed8",
+                fontWeight: 800,
+                fontSize: 14,
+                border: "1px solid #93c5fd",
+              }}
+            >
+              {entry.label}
+            </Link>
+          ))}
           <Link
             href="/admin/ti"
             style={{

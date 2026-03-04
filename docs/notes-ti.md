@@ -1489,3 +1489,33 @@ Maintenance rules:
 
 - Validation:
   - `npm run build --workspace ti-web` passed after these updates.
+
+- TI outreach multi-sport refinements + RI launch links (2026-03-04):
+  - Sport-aware outreach + verify updates (TI only):
+    - `apps/ti-web/lib/outreach.ts`
+      - expanded `OutreachSport` to `soccer | baseball | softball`
+      - normalized sport parsing for all three
+      - shared sport-aware email builder path added
+    - `apps/ti-web/lib/outreach/templates/soccerDirectorVerify.ts`
+      - retained existing soccer header block format
+      - added sport-aware body copy (`referee` for soccer, `umpire` for baseball/softball)
+    - `apps/ti-web/app/verify-your-tournament/page.tsx`
+      - sport-aware hero/benefit text for official role wording
+    - `apps/ti-web/app/list-your-tournament/ListYourTournamentForm.tsx`
+      - verify-mode-only role label switching (`Referee`/`Umpire`)
+      - submit mode copy unchanged for `/list-your-tournament`
+    - `apps/ti-web/app/outreach/preview/page.tsx`
+      - lightweight internal preview wrapper for sport + tournament email rendering
+  - Baseball/softball outreach accessibility from RI admin:
+    - `apps/referee/app/admin/ti/page.tsx`
+      - added `Baseball TD Outreach` and `Softball TD Outreach` buttons beside existing soccer button
+      - links target TI `/admin/outreach-previews?sport=<sport>`
+  - Generator robustness for placeholder emails:
+    - `apps/ti-web/app/api/outreach/generate-previews/route.ts`
+      - ignores placeholder email strings (`null`, `none`, `n/a`, etc.)
+      - scans tournaments in paged batches (range queries) until up to requested valid recipients are found
+      - applies suppression filtering per batch
+      - fixes under-generation when early ordered rows contain placeholder values
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed
+    - local baseball generate-previews smoke with `limit=50` returned `created: 50` in preview mode
