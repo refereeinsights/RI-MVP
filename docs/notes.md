@@ -70,7 +70,9 @@ Maintenance rules:
   - Changes:
     - added a direct `Soccer TD Outreach` button in RI admin outreach linking to the TI outreach preview tool,
     - corrected the `Director email coverage by sport` cards to count only active/upcoming tournaments that are not marked do-not-contact,
-    - hardened email discovery so `webcal:`, `mailto:`, and other unsupported URL schemes are skipped instead of crashing the crawler.
+    - hardened email discovery so `webcal:`, `mailto:`, and other unsupported URL schemes are skipped instead of crashing the crawler,
+    - widened same-site link following so discovery can traverse `www` and sibling subdomains on the same tournament site,
+    - added attribute-based email extraction so obfuscated contacts in `data-email`, `data-user`, `data-domain`, `href`, and `onclick` are captured instead of missed.
   - Validation:
     - `cd apps/referee && npm run build` passed.
 

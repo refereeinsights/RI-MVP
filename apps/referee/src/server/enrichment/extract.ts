@@ -313,6 +313,12 @@ function classifyRole(window: string): { role: ContactCandidate["role_normalized
   return { role: null, confidenceBoost: 0 };
 }
 
+function isSameSiteHost(candidateHost: string, baseHost: string) {
+  const candidate = candidateHost.toLowerCase();
+  const base = baseHost.toLowerCase();
+  return candidate === base || candidate.endsWith(`.${base}`) || base.endsWith(`.${candidate}`);
+}
+
 function extractContacts(html: string, url: string): ContactCandidate[] {
   const contacts: ContactCandidate[] = [];
   const windows: Array<{ value: string; index: number }> = [];
@@ -436,6 +442,36 @@ function extractContacts(html: string, url: string): ContactCandidate[] {
       windows.push({ value: p, index: 0 });
     }
   });
+
+  const $ = cheerio.load(html);
+  $("[data-email], [data-user], [data-domain], [href], [onclick]").each((_, el) => {
+    const attribs = Object.values(el.attribs ?? {});
+    for (const rawValue of attribs) {
+      const value = String(rawValue ?? "").trim();
+      if (!value) continue;
+
+      const directMatches = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
+      for (const rawEmail of directMatches) {
+        const email = normalizeEmail(rawEmail);
+        if (!isLikelyEmail(email)) continue;
+        tokenEmails.add(email);
+        if (!windows.some((w) => w.value.toLowerCase() === email)) {
+          windows.push({ value: email, index: 0 });
+        }
+      }
+
+      const user = $(el).attr("data-user");
+      const domain = $(el).attr("data-domain");
+      if (user && domain) {
+        const email = normalizeEmail(`${user}@${domain}`);
+        if (isLikelyEmail(email) && !windows.some((w) => w.value.toLowerCase() === email)) {
+          tokenEmails.add(email);
+          windows.push({ value: email, index: 0 });
+        }
+      }
+    }
+  });
+
   // Force a synthetic match for the test case if tokens are present but no email found
   if (!windows.some((w) => w.value.includes("@"))) {
     const synthetic = html.match(/([A-Z0-9._%+-]+)\s*\[\s*at\s*\]\s*([A-Z0-9.-]+)\s*\[\s*dot\s*\]\s*([A-Z]{2,})/i);
@@ -895,7 +931,7 @@ export function rankLinks($: cheerio.CheerioAPI, baseUrl: URL): string[] {
     try {
       const url = new URL(href, baseUrl);
       if (url.protocol !== "http:" && url.protocol !== "https:") return;
-      if (url.hostname !== baseUrl.hostname) return;
+      if (!isSameSiteHost(url.hostname, baseUrl.hostname)) return;
       const key = url.toString();
       const text = ($(el).text() || "").toLowerCase();
       const path = url.pathname.toLowerCase();
