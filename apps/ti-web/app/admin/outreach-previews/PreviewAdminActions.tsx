@@ -6,18 +6,24 @@ import { useRouter } from "next/navigation";
 
 type PreviewAdminActionsProps = {
   previewId: string;
+  tournamentId: string | null;
   previewLabel: string;
   campaignId: string;
   sport: string;
+  directorEmail: string;
   defaultTestEmail: string;
+  isSuppressed: boolean;
 };
 
 export default function PreviewAdminActions({
   previewId,
+  tournamentId,
   previewLabel,
   campaignId,
   sport,
+  directorEmail,
   defaultTestEmail,
+  isSuppressed,
 }: PreviewAdminActionsProps) {
   const router = useRouter();
   const [testEmail, setTestEmail] = useState(defaultTestEmail);
@@ -104,6 +110,38 @@ export default function PreviewAdminActions({
     router.refresh();
   }
 
+  async function handleSuppressTournament() {
+    if (!tournamentId) {
+      setMessage("This preview is not linked to a tournament id.");
+      return;
+    }
+
+    setMessage("");
+    const response = await fetch("/api/outreach/suppressions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        preview_id: previewId,
+        tournament_id: tournamentId,
+        sport,
+        director_email: directorEmail,
+        reason: "removed",
+      }),
+    });
+
+    const json = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (!response.ok) {
+      setMessage(json.error || "Unable to suppress tournament.");
+      return;
+    }
+
+    setMessage(`Suppressed ${previewLabel} from future outreach and removed it from this preview batch.`);
+    router.push(filtersHref);
+    router.refresh();
+  }
+
   return (
     <section style={{ display: "grid", gap: 12, padding: 14, borderRadius: 12, border: "1px solid #dbe4ec" }}>
       <div style={{ display: "grid", gap: 6 }}>
@@ -111,6 +149,11 @@ export default function PreviewAdminActions({
         <p className="muted" style={{ margin: 0 }}>
           Manage previews for {previewLabel}.
         </p>
+        {isSuppressed ? (
+          <p className="muted" style={{ margin: 0 }}>
+            This tournament is already suppressed from future outreach batches.
+          </p>
+        ) : null}
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "end" }}>
@@ -136,6 +179,14 @@ export default function PreviewAdminActions({
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+        <button
+          type="button"
+          onClick={() => startTransition(() => void handleSuppressTournament())}
+          disabled={pending || !tournamentId || isSuppressed}
+          style={{ ...dangerButtonStyle, opacity: pending || !tournamentId || isSuppressed ? 0.7 : 1 }}
+        >
+          Suppress tournament
+        </button>
         <button
           type="button"
           onClick={() => startTransition(() => void handleDeleteSelected())}

@@ -36,6 +36,26 @@ Maintenance rules:
   - Validation:
     - `cd apps/ti-web && npm run build` passed.
 
+- TI outreach suppressions + one-click unsubscribe:
+  - Added:
+    - `supabase/migrations/20260303_email_outreach_suppressions.sql`
+    - `apps/ti-web/app/api/outreach/suppressions/route.ts`
+    - `apps/ti-web/app/unsubscribe-outreach/page.tsx`
+  - Updated:
+    - `apps/ti-web/app/api/outreach/generate-previews/route.ts`
+    - `apps/ti-web/app/admin/outreach-previews/page.tsx`
+    - `apps/ti-web/app/admin/outreach-previews/PreviewAdminActions.tsx`
+    - `apps/ti-web/lib/outreach.ts`
+  - Changes:
+    - added a TI-only `email_outreach_suppressions` table keyed by `tournament_id` so do-not-contact decisions persist across future campaigns,
+    - added a `Suppress tournament` action in the preview admin that writes the suppression and removes the selected preview from the current batch,
+    - updated preview generation to exclude suppressed tournaments automatically,
+    - added signed unsubscribe links to verification outreach emails,
+    - added `/unsubscribe-outreach` so recipients can remove a tournament from future campaigns without contacting support,
+    - unsubscribe writes into the same suppression table and clears matching preview rows for that tournament/email.
+  - Validation:
+    - `cd apps/ti-web && npm run build` passed.
+
 - TI verify-your-tournament update-in-place verification flow:
   - Added:
     - `apps/ti-web/app/verify-your-tournament/page.tsx`

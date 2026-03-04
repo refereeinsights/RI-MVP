@@ -28,6 +28,12 @@ type PreviewRow = {
   error: string | null;
 };
 
+type SuppressionRow = {
+  tournament_id: string;
+  reason: string | null;
+  status: string;
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function OutreachPreviewsPage({
@@ -58,6 +64,24 @@ export default async function OutreachPreviewsPage({
   const selectedPreview = previews.find((preview) => preview.id === selectedId) ?? previews[0] ?? null;
   const campaignOptions = Array.from(new Set(previews.map((preview) => preview.campaign_id)));
   const sportOptions = Array.from(new Set(previews.map((preview) => preview.sport)));
+  const tournamentIds = Array.from(new Set(previews.map((preview) => preview.tournament_id).filter(Boolean))) as string[];
+
+  let suppressionMap = new Map<string, SuppressionRow>();
+  if (tournamentIds.length > 0) {
+    const { data: suppressionData, error: suppressionError } = await (supabaseAdmin.from(
+      "email_outreach_suppressions" as any
+    ) as any)
+      .select("tournament_id,reason,status")
+      .in("tournament_id", tournamentIds);
+
+    if (suppressionError) {
+      throw new Error(suppressionError.message);
+    }
+
+    suppressionMap = new Map(
+      ((suppressionData ?? []) as SuppressionRow[]).map((row) => [row.tournament_id, row])
+    );
+  }
 
   return (
     <main className="page">
@@ -137,6 +161,7 @@ export default async function OutreachPreviewsPage({
                 {previews.map((preview) => {
                   const href = buildPreviewHref(preview.id, campaignId, sport);
                   const isSelected = selectedPreview?.id === preview.id;
+                  const suppression = preview.tournament_id ? suppressionMap.get(preview.tournament_id) : null;
                   return (
                     <tr key={preview.id} style={{ background: isSelected ? "#eff6ff" : "transparent" }}>
                       <td style={tdStyle}>{formatDate(preview.created_at)}</td>
@@ -150,7 +175,12 @@ export default async function OutreachPreviewsPage({
                       </td>
                       <td style={tdStyle}>{preview.director_email}</td>
                       <td style={tdStyle}>
-                        <span style={statusPillStyle(preview.status)}>{preview.status}</span>
+                        <div style={{ display: "grid", gap: 6 }}>
+                          <span style={statusPillStyle(preview.status)}>{preview.status}</span>
+                          {suppression ? (
+                            <span style={statusPillStyle(suppression.status)}>{suppression.status}</span>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -214,10 +244,13 @@ export default async function OutreachPreviewsPage({
 
               <PreviewAdminActions
                 previewId={selectedPreview.id}
+                tournamentId={selectedPreview.tournament_id}
                 previewLabel={selectedPreview.tournament_name}
                 campaignId={campaignId || selectedPreview.campaign_id}
                 sport={sport || selectedPreview.sport}
+                directorEmail={selectedPreview.director_email}
                 defaultTestEmail={user.email || ""}
+                isSuppressed={!!(selectedPreview.tournament_id && suppressionMap.get(selectedPreview.tournament_id))}
               />
 
               <section style={{ display: "grid", gap: 8 }}>

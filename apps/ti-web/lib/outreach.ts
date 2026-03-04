@@ -1,3 +1,5 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 const SITE_ORIGIN = process.env.NEXT_PUBLIC_TI_SITE_URL || "https://www.tournamentinsights.com";
 
 export type OutreachSport = "soccer";
@@ -5,6 +7,7 @@ export type OutreachSport = "soccer";
 export type SoccerVerifyEmailInput = {
   firstName?: string | null;
   verifyUrl: string;
+  unsubscribeUrl: string;
   tournamentName?: string | null;
 };
 
@@ -41,6 +44,14 @@ export function normalizeOutreachSport(input: string | null | undefined): Outrea
   return sport === "soccer" ? "soccer" : "soccer";
 }
 
+function getVerifyLinkSecret() {
+  return process.env.VERIFY_LINK_SECRET || process.env.OUTREACH_GENERATOR_KEY || "local-dev-verify-link-secret";
+}
+
+function signPayload(payload: string) {
+  return createHmac("sha256", getVerifyLinkSecret()).update(payload).digest("hex");
+}
+
 export function buildVerifyUrl({
   sport,
   tournamentId,
@@ -60,9 +71,59 @@ export function buildVerifyUrl({
   return url.toString();
 }
 
+export function buildOutreachUnsubscribeUrl({
+  sport,
+  tournamentId,
+  directorEmail,
+}: {
+  sport: OutreachSport;
+  tournamentId: string;
+  directorEmail: string;
+}) {
+  const payload = JSON.stringify({
+    sport,
+    tournamentId,
+    directorEmail: directorEmail.trim().toLowerCase(),
+  });
+  const token = signPayload(payload);
+
+  const url = new URL("/unsubscribe-outreach", SITE_ORIGIN);
+  url.searchParams.set("sport", sport);
+  url.searchParams.set("tournamentId", tournamentId);
+  url.searchParams.set("email", directorEmail.trim().toLowerCase());
+  url.searchParams.set("token", token);
+  return url.toString();
+}
+
+export function verifyOutreachUnsubscribeToken({
+  sport,
+  tournamentId,
+  directorEmail,
+  token,
+}: {
+  sport: string;
+  tournamentId: string;
+  directorEmail: string;
+  token: string;
+}) {
+  const payload = JSON.stringify({
+    sport: normalizeOutreachSport(sport),
+    tournamentId,
+    directorEmail: directorEmail.trim().toLowerCase(),
+  });
+  const expected = signPayload(payload);
+
+  try {
+    return timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
+
 export function buildSoccerVerifyEmail({
   firstName,
   verifyUrl,
+  unsubscribeUrl,
   tournamentName,
 }: SoccerVerifyEmailInput): SoccerVerifyEmailOutput {
   const greeting = firstName?.trim() ? `Hi ${firstName.trim()},` : "Hi there,";
@@ -93,6 +154,10 @@ export function buildSoccerVerifyEmail({
       </p>
       <p>If the button does not open, use this link:</p>
       <p><a href="${verifyUrl}">${verifyUrl}</a></p>
+      <p style="margin-top: 24px; font-size: 13px; color: #475569;">
+        Prefer not to receive future verification outreach for this event?
+        <a href="${unsubscribeUrl}"> Remove this tournament from future campaigns</a>.
+      </p>
       <p>Thanks,<br />TournamentInsights</p>
     </div>
   `.trim();
@@ -110,6 +175,8 @@ export function buildSoccerVerifyEmail({
     "- Highlighted official hotel and sponsor links",
     "",
     `Verify your tournament: ${verifyUrl}`,
+    "",
+    `Remove this tournament from future campaigns: ${unsubscribeUrl}`,
     "",
     "Thanks,",
     "TournamentInsights",

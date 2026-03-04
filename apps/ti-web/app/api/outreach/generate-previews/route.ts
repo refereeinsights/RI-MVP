@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   buildSoccerVerifyEmail,
+  buildOutreachUnsubscribeUrl,
   buildVerifyUrl,
   capPreviewLimit,
   getOutreachGuardSecret,
@@ -22,6 +23,10 @@ type TournamentRow = {
   sport: string | null;
   tournament_director: string | null;
   tournament_director_email: string | null;
+};
+
+type SuppressionRow = {
+  tournament_id: string;
 };
 
 function isProduction() {
@@ -81,16 +86,40 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ created: 0 }, { status: 200 });
   }
 
-  const previews = rows.map((row) => {
+  const tournamentIds = rows.map((row) => row.id);
+  const { data: suppressionData, error: suppressionError } = await (supabaseAdmin.from(
+    "email_outreach_suppressions" as any
+  ) as any)
+    .select("tournament_id")
+    .in("tournament_id", tournamentIds);
+
+  if (suppressionError) {
+    return NextResponse.json({ error: suppressionError.message }, { status: 500 });
+  }
+
+  const suppressedIds = new Set(((suppressionData ?? []) as SuppressionRow[]).map((row) => row.tournament_id));
+  const eligibleRows = rows.filter((row) => !suppressedIds.has(row.id));
+
+  if (eligibleRows.length === 0) {
+    return NextResponse.json({ created: 0 }, { status: 200 });
+  }
+
+  const previews = eligibleRows.map((row) => {
     const directorEmail = emailOverride || row.tournament_director_email!.trim();
     const verifyUrl = buildVerifyUrl({
       sport,
       tournamentId: row.id,
       campaignId,
     });
+    const unsubscribeUrl = buildOutreachUnsubscribeUrl({
+      sport,
+      tournamentId: row.id,
+      directorEmail,
+    });
     const email = buildSoccerVerifyEmail({
       firstName: inferFirstName(row.tournament_director),
       verifyUrl,
+      unsubscribeUrl,
       tournamentName: row.name,
     });
 
