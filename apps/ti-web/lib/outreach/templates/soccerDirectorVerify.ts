@@ -1,11 +1,17 @@
 import type { OutreachVariant } from "@/lib/outreach/ab";
 
+type OutreachEmailSport = "soccer" | "baseball" | "softball";
+
 type BuildSoccerDirectorVerifyEmailInput = {
   tournamentName: string;
   firstName?: string;
   verifyUrl: string;
   unsubscribeUrl?: string;
   variant: OutreachVariant;
+};
+
+type BuildSportDirectorVerifyEmailInput = BuildSoccerDirectorVerifyEmailInput & {
+  sport: OutreachEmailSport;
 };
 
 type BuildSoccerDirectorVerifyEmailOutput = {
@@ -16,15 +22,19 @@ type BuildSoccerDirectorVerifyEmailOutput = {
 
 const EMAIL_LOGO_URL = "https://www.tournamentinsights.com/brand/ti-email-logo-520.png";
 
-export function buildSoccerDirectorVerifyEmail({
+export function buildSportDirectorVerifyEmail({
   tournamentName,
   firstName,
   verifyUrl,
   unsubscribeUrl,
   variant,
-}: BuildSoccerDirectorVerifyEmailInput): BuildSoccerDirectorVerifyEmailOutput {
+  sport,
+}: BuildSportDirectorVerifyEmailInput): BuildSoccerDirectorVerifyEmailOutput {
   const safeName = tournamentName.trim() || "your tournament";
   const greeting = firstName?.trim() ? `Hi ${escapeHtml(firstName.trim())},` : "Hi,";
+  const isUmpireSport = sport === "baseball" || sport === "softball";
+  const officialRole = isUmpireSport ? "umpire" : "referee";
+  const sportLabel = sport.charAt(0).toUpperCase() + sport.slice(1);
   const subject =
     variant === "A"
       ? "Quick favor – can you confirm your tournament details?"
@@ -68,8 +78,8 @@ export function buildSoccerDirectorVerifyEmail({
                 <p style="margin:0 0 10px 0;">It helps us keep the listing useful for teams, families, and officials:</p>
                 <ul style="margin:0 0 18px 20px;padding:0;color:#0f172a;">
                   <li style="margin:0 0 8px 0;">Staff Verified badge</li>
-                  <li style="margin:0 0 8px 0;">Improves how it appears in soccer searches</li>
-                  <li style="margin:0 0 8px 0;">Clear referee info (pay, lodging, mentors)</li>
+                  <li style="margin:0 0 8px 0;">Improves how it appears in ${escapeHtml(sport)} searches</li>
+                  <li style="margin:0 0 8px 0;">Clear ${escapeHtml(officialRole)} info (pay, lodging, mentors)</li>
                   <li style="margin:0 0 8px 0;">Highlight official hotel/sponsor links</li>
                 </ul>
               </td>
@@ -123,8 +133,8 @@ export function buildSoccerDirectorVerifyEmail({
     "",
     "It helps us keep the listing useful for teams, families, and officials:",
     "- Staff Verified badge",
-    "- Improves how it appears in soccer searches",
-    "- Clear referee info (pay, lodging, mentors)",
+    `- Improves how it appears in ${sportLabel.toLowerCase()} searches`,
+    `- Clear ${officialRole} info (pay, lodging, mentors)`,
     "- Highlight official hotel/sponsor links",
     "",
     "Verify your tournament:",
@@ -147,6 +157,10 @@ export function buildSoccerDirectorVerifyEmail({
     html,
     text: textLines.join("\n"),
   };
+}
+
+export function buildSoccerDirectorVerifyEmail(input: BuildSoccerDirectorVerifyEmailInput): BuildSoccerDirectorVerifyEmailOutput {
+  return buildSportDirectorVerifyEmail({ ...input, sport: "soccer" });
 }
 
 function escapeHtml(value: string) {

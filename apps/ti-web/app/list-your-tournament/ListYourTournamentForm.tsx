@@ -48,6 +48,7 @@ type Props = {
     tournamentId?: string;
     variant?: string;
   };
+  initialDuplicateMatch?: TournamentDuplicateMatch | null;
 };
 
 function fieldClass(hasError: boolean) {
@@ -85,19 +86,31 @@ export default function ListYourTournamentForm({
   showHero = true,
   formId,
   outreachContext,
+  initialDuplicateMatch = null,
 }: Props) {
   const [form, setForm] = useState<TournamentSubmissionInput>(() => {
     const initial = createInitialSubmission();
+    if (initialDuplicateMatch) {
+      const seeded = applyDuplicateMatchToForm(initial, initialDuplicateMatch);
+      if (sportPreset && !seeded.tournament.sport) {
+        seeded.tournament.sport = sportPreset;
+      }
+      return seeded;
+    }
     if (sportPreset) {
       initial.tournament.sport = sportPreset;
     }
     return initial;
   });
-  const [errors, setErrors] = useState<SubmissionErrors>(() => createEmptyErrors(1));
+  const [errors, setErrors] = useState<SubmissionErrors>(() =>
+    createEmptyErrors(initialDuplicateMatch?.venues.length || 1)
+  );
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
-  const [duplicateMatch, setDuplicateMatch] = useState<TournamentDuplicateMatch | null>(null);
-  const [matchStatus, setMatchStatus] = useState<"idle" | "loading" | "ready">("idle");
+  const [duplicateMatch, setDuplicateMatch] = useState<TournamentDuplicateMatch | null>(initialDuplicateMatch);
+  const [matchStatus, setMatchStatus] = useState<"idle" | "loading" | "ready">(
+    initialDuplicateMatch ? "ready" : "idle"
+  );
   const [successState, setSuccessState] = useState<SuccessState | null>(null);
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">("idle");
   const [expandedSponsors, setExpandedSponsors] = useState(false);
@@ -106,10 +119,13 @@ export default function ListYourTournamentForm({
   const formStartedRef = useRef(false);
   const startedAtRef = useRef<number | null>(null);
   const pageViewTrackedRef = useRef(false);
-  const preloadedTournamentIdRef = useRef<string | null>(null);
+  const preloadedTournamentIdRef = useRef<string | null>(initialDuplicateMatch?.id ?? null);
 
   const isVerifyMode = mode === "verify";
-  const sportDisplay = sportLabel(sportPreset || form.tournament.sport || "soccer");
+  const effectiveSport = (sportPreset || form.tournament.sport || "soccer").toLowerCase();
+  const sportDisplay = sportLabel(effectiveSport);
+  const usesUmpireLabel = isVerifyMode && (effectiveSport === "baseball" || effectiveSport === "softball");
+  const officialRoleLabel = usesUmpireLabel ? "Umpire" : "Referee";
 
   useEffect(() => {
     if (!sportPreset) return;
@@ -152,6 +168,7 @@ export default function ListYourTournamentForm({
         if (!payload.match) {
           setDuplicateMatch(null);
           setMatchStatus("idle");
+          preloadedTournamentIdRef.current = null;
           return;
         }
 
@@ -562,7 +579,7 @@ export default function ListYourTournamentForm({
             <ul className={styles.benefitList}>
               <li>Verified badge displayed on your event page</li>
               <li>Improved visibility in {sportDisplay.toLowerCase()} searches</li>
-              <li>Referee panel enabled for pay, lodging, and mentors</li>
+              <li>{officialRoleLabel} panel enabled for pay, lodging, and mentors</li>
               <li>Sponsor links highlighted for planning and conversion</li>
             </ul>
             <div className={styles.footer}>
@@ -709,7 +726,7 @@ export default function ListYourTournamentForm({
             </label>
 
             <label className={styles.field}>
-              <span className={styles.label}>Referee Contact</span>
+              <span className={styles.label}>{officialRoleLabel} Contact</span>
               <input
                 className={styles.input}
                 value={form.tournament.refereeContact}
@@ -718,7 +735,7 @@ export default function ListYourTournamentForm({
             </label>
 
             <label className={styles.field}>
-              <span className={styles.label}>Referee Contact Email</span>
+              <span className={styles.label}>{officialRoleLabel} Contact Email</span>
               <input
                 type="email"
                 className={fieldClass(Boolean(errors.tournament.refereeEmail))}
@@ -729,7 +746,7 @@ export default function ListYourTournamentForm({
             </label>
 
             <label className={styles.field}>
-              <span className={styles.label}>Referee Pay</span>
+              <span className={styles.label}>{officialRoleLabel} Pay</span>
               <input
                 className={styles.input}
                 placeholder="$55 center / $35 AR"
@@ -752,22 +769,22 @@ export default function ListYourTournamentForm({
             </div>
 
             <div className={styles.field}>
-              <span className={styles.label}>Referee Mentors</span>
+              <span className={styles.label}>{officialRoleLabel} Mentors</span>
               <ToggleGroup
                 options={YES_NO_OPTIONS}
                 value={form.tournament.refMentors}
                 onChange={(value) => setTournamentField("refMentors", value as TournamentDetailsInput["refMentors"])}
-                ariaLabel="Referee mentors"
+                ariaLabel={`${officialRoleLabel} mentors`}
               />
             </div>
 
             <div className={styles.field}>
-              <span className={styles.label}>Referee Lodging</span>
+              <span className={styles.label}>{officialRoleLabel} Lodging</span>
               <ToggleGroup
                 options={LODGING_OPTIONS}
                 value={form.tournament.travelLodging}
                 onChange={(value) => setTournamentField("travelLodging", value as TournamentDetailsInput["travelLodging"])}
-                ariaLabel="Referee lodging"
+                ariaLabel={`${officialRoleLabel} lodging`}
               />
               {errors.tournament.travelLodging ? <p className={styles.error}>{errors.tournament.travelLodging}</p> : null}
             </div>
@@ -1059,7 +1076,7 @@ export default function ListYourTournamentForm({
                 ? "Saving verification..."
                 : "Submitting..."
               : isVerifyMode
-                ? "Mark as Staff Verified"
+                ? "Save and Mark as Staff Verified"
                 : "Submit tournament"}
           </button>
         </div>

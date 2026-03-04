@@ -1,10 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { OutreachVariant } from "@/lib/outreach/ab";
-import { buildSoccerDirectorVerifyEmail } from "@/lib/outreach/templates/soccerDirectorVerify";
+import { buildSportDirectorVerifyEmail } from "@/lib/outreach/templates/soccerDirectorVerify";
 
 const SITE_ORIGIN = process.env.NEXT_PUBLIC_TI_SITE_URL || "https://www.tournamentinsights.com";
 
-export type OutreachSport = "soccer";
+export type OutreachSport = "soccer" | "baseball" | "softball";
 
 export type SoccerVerifyEmailInput = {
   firstName?: string | null;
@@ -18,6 +18,10 @@ export type SoccerVerifyEmailOutput = {
   subject: string;
   html: string;
   text: string;
+};
+
+export type SportVerifyEmailInput = SoccerVerifyEmailInput & {
+  sport: OutreachSport;
 };
 
 export function getOutreachMode() {
@@ -44,7 +48,7 @@ export function isValidEmail(value: string) {
 
 export function normalizeOutreachSport(input: string | null | undefined): OutreachSport {
   const sport = (input || getOutreachSportDefault()).trim().toLowerCase();
-  return sport === "soccer" ? "soccer" : "soccer";
+  return sport === "baseball" || sport === "softball" || sport === "soccer" ? sport : "soccer";
 }
 
 function getVerifyLinkSecret() {
@@ -121,7 +125,9 @@ export function verifyOutreachUnsubscribeToken({
   const expected = signPayload(payload);
 
   try {
-    return timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+    const providedBytes = Uint8Array.from(Buffer.from(token));
+    const expectedBytes = Uint8Array.from(Buffer.from(expected));
+    return timingSafeEqual(providedBytes, expectedBytes);
   } catch {
     return false;
   }
@@ -134,7 +140,26 @@ export function buildSoccerVerifyEmail({
   tournamentName,
   variant,
 }: SoccerVerifyEmailInput): SoccerVerifyEmailOutput {
-  return buildSoccerDirectorVerifyEmail({
+  return buildSportVerifyEmail({
+    sport: "soccer",
+    firstName,
+    verifyUrl,
+    unsubscribeUrl,
+    tournamentName,
+    variant,
+  });
+}
+
+export function buildSportVerifyEmail({
+  sport,
+  firstName,
+  verifyUrl,
+  unsubscribeUrl,
+  tournamentName,
+  variant,
+}: SportVerifyEmailInput): SoccerVerifyEmailOutput {
+  return buildSportDirectorVerifyEmail({
+    sport,
     firstName: firstName ?? undefined,
     verifyUrl,
     unsubscribeUrl,

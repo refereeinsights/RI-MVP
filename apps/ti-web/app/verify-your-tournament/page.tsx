@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ListYourTournamentForm from "@/app/list-your-tournament/ListYourTournamentForm";
+import { getTournamentDuplicateMatchById } from "@/lib/tournamentDuplicateMatch";
 import { TI_SPORTS, TI_SPORT_LABELS, type TiSport } from "@/lib/tiSports";
 import styles from "./VerifyYourTournamentPage.module.css";
 
@@ -18,7 +19,7 @@ function normalizeVerifySport(raw: string | string[] | undefined): TiSport {
   return TI_SPORTS.includes(normalized as TiSport) ? (normalized as TiSport) : "soccer";
 }
 
-export default function VerifyYourTournamentPage({
+export default async function VerifyYourTournamentPage({
   searchParams,
 }: {
   searchParams?: {
@@ -31,6 +32,8 @@ export default function VerifyYourTournamentPage({
 }) {
   const sport = normalizeVerifySport(searchParams?.sport);
   const sportDisplay = TI_SPORT_LABELS[sport];
+  const officialRole = sport === "baseball" || sport === "softball" ? "umpires" : "referees";
+  const officialRoleTitle = sport === "baseball" || sport === "softball" ? "Umpire" : "Referee";
   const tournamentId = Array.isArray(searchParams?.tournamentId)
     ? searchParams?.tournamentId[0]
     : searchParams?.tournamentId || "";
@@ -40,6 +43,7 @@ export default function VerifyYourTournamentPage({
   const variantFromUtm = Array.isArray(searchParams?.utm_term) ? searchParams?.utm_term[0] : searchParams?.utm_term || "";
   const variantFromAb = Array.isArray(searchParams?.ab) ? searchParams?.ab[0] : searchParams?.ab || "";
   const variant = (variantFromAb || variantFromUtm || "").trim().toUpperCase();
+  const initialDuplicateMatch = tournamentId ? await getTournamentDuplicateMatchById(tournamentId).catch(() => null) : null;
 
   return (
     <div className={styles.page}>
@@ -48,7 +52,7 @@ export default function VerifyYourTournamentPage({
         <h1 className={styles.title}>Verify Your {sportDisplay} Tournament</h1>
         <p className={styles.subtitle}>
           Your tournament is already listed. Confirm details to unlock Staff Verified status and improve visibility for
-          families and referees.
+          families and {officialRole}.
         </p>
 
         <div className={styles.benefitsCard}>
@@ -56,7 +60,7 @@ export default function VerifyYourTournamentPage({
           <ul className={styles.benefitList}>
             <li>Staff Verified badge on your event page</li>
             <li>Priority placement in {sportDisplay.toLowerCase()} searches</li>
-            <li>Referee information panel (pay, lodging, mentors)</li>
+            <li>{officialRoleTitle} information panel (pay, lodging, mentors)</li>
             <li>Highlighted official hotel &amp; sponsor links</li>
             <li>A sharable event page for your website &amp; social</li>
           </ul>
@@ -80,6 +84,7 @@ export default function VerifyYourTournamentPage({
           tournamentId,
           variant: variant === "A" || variant === "B" ? variant : "",
         }}
+        initialDuplicateMatch={initialDuplicateMatch}
       />
     </div>
   );

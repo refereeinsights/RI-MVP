@@ -3,7 +3,7 @@ import { pickVariant } from "@/lib/outreach/ab";
 import { sendEmail } from "@/lib/email";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
-  buildSoccerVerifyEmail,
+  buildSportVerifyEmail,
   buildOutreachUnsubscribeUrl,
   buildVerifyUrl,
   capPreviewLimit,
@@ -132,7 +132,8 @@ export async function POST(request: NextRequest) {
       tournamentId: row.id,
       directorEmail,
     });
-    const email = buildSoccerVerifyEmail({
+    const email = buildSportVerifyEmail({
+      sport,
       firstName: inferFirstName(row.tournament_director),
       verifyUrl,
       unsubscribeUrl,
