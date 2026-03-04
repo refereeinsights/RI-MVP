@@ -423,7 +423,12 @@ async function setEventCodeStatusAction(formData: FormData) {
   const id = String(formData.get("id") ?? "").trim();
   const status = String(formData.get("status") ?? "").trim().toLowerCase();
   if (!table || !id || !status) redirect(buildPathWithNotice("Missing event code status inputs."));
-  const { error } = await (supabaseAdmin.from(table as any) as any).update({ status }).eq("id", id);
+  const { error } = await (supabaseAdmin.from(table as any) as any)
+    .update({
+      status,
+      is_active: status === "active",
+    })
+    .eq("id", id);
   if (error) redirect(buildPathWithNotice(`Event code update failed: ${error.message}`));
   redirect(buildPathWithNotice("Event code updated."));
 }
@@ -454,6 +459,7 @@ async function updateEventCodeAction(formData: FormData) {
   const updates: Record<string, unknown> = {
     code: code || null,
     status: status || null,
+    is_active: status ? status === "active" : null,
     trial_days: parseIntOrNull(trialDaysRaw),
     max_redemptions: parseIntOrNull(maxRedemptionsRaw),
     redeemed_count: parseIntOrNull(redeemedCountRaw),
@@ -548,8 +554,13 @@ export default async function TiAdminPage({
   searchParams?: { q?: string; notice?: string };
 }) {
   await requireAdmin();
+  const tiAdminBaseUrl =
+    process.env.NODE_ENV === "development"
+      ? "http://localhost:3001"
+      : "https://www.tournamentinsights.com";
   const q = (searchParams?.q ?? "").trim();
   const notice = (searchParams?.notice ?? "").trim();
+  const eventCodeNotice = notice.toLowerCase().includes("event code") ? notice : "";
 
   let query = (supabaseAdmin.from("ti_users" as any) as any)
     .select(
@@ -585,21 +596,40 @@ export default async function TiAdminPage({
             Manage TournamentInsights users and event codes from RI admin.
           </p>
         </div>
-        <Link
-          href="/admin/ti"
-          style={{
-            textDecoration: "none",
-            padding: "10px 14px",
-            borderRadius: 10,
-            background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
-            color: "#fff",
-            fontWeight: 800,
-            fontSize: 14,
-            border: "1px solid #1d4ed8",
-          }}
-        >
-          TI Admin
-        </Link>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <Link
+            href={`${tiAdminBaseUrl}/admin/outreach-previews?sport=soccer`}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              textDecoration: "none",
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "#ffffff",
+              color: "#1d4ed8",
+              fontWeight: 800,
+              fontSize: 14,
+              border: "1px solid #93c5fd",
+            }}
+          >
+            Soccer TD Outreach
+          </Link>
+          <Link
+            href="/admin/ti"
+            style={{
+              textDecoration: "none",
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
+              color: "#fff",
+              fontWeight: 800,
+              fontSize: 14,
+              border: "1px solid #1d4ed8",
+            }}
+          >
+            TI Admin
+          </Link>
+        </div>
       </section>
 
       {notice ? (
@@ -608,28 +638,46 @@ export default async function TiAdminPage({
         </p>
       ) : null}
 
-      <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16 }}>
-        <h2 style={{ marginTop: 0 }}>TI User Admin</h2>
-        <form action="/admin/ti" method="get" style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-          <input name="q" defaultValue={q} placeholder="Search email or user id" style={{ padding: 8, minWidth: 280 }} />
-          <button type="submit">Search</button>
-          <Link href="/admin/ti" style={{ alignSelf: "center" }}>
-            Clear
-          </Link>
-        </form>
-        {tiUsersErr ? (
-          <p style={{ color: "#b91c1c" }}>TI users load failed: {tiUsersErr.message}</p>
-        ) : (
-          <div style={{ display: "grid", gap: 10 }}>
-            {((tiUsers ?? []) as TiUserRow[]).map((row, idx) => (
-              <details
-                key={row.id}
-                style={{
-                  border: "1px solid #dbe4ef",
-                  borderRadius: 10,
-                  background: idx % 2 === 0 ? "#ffffff" : "#f3f7fb",
-                }}
-              >
+      <details
+        style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16, background: "#fff" }}
+      >
+        <summary
+          style={{
+            cursor: "pointer",
+            listStyle: "auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            fontWeight: 800,
+          }}
+        >
+          <span>TI User Admin</span>
+          <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+            {tiUsersErr ? "Load error" : `${(tiUsers ?? []).length} users loaded`}
+          </span>
+        </summary>
+        <div style={{ marginTop: 12 }}>
+          <form action="/admin/ti" method="get" style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+            <input name="q" defaultValue={q} placeholder="Search email or user id" style={{ padding: 8, minWidth: 280 }} />
+            <button type="submit">Search</button>
+            <Link href="/admin/ti" style={{ alignSelf: "center" }}>
+              Clear
+            </Link>
+          </form>
+          {tiUsersErr ? (
+            <p style={{ color: "#b91c1c" }}>TI users load failed: {tiUsersErr.message}</p>
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              {((tiUsers ?? []) as TiUserRow[]).map((row, idx) => (
+                <details
+                  key={row.id}
+                  style={{
+                    border: "1px solid #dbe4ef",
+                    borderRadius: 10,
+                    background: idx % 2 === 0 ? "#ffffff" : "#f3f7fb",
+                  }}
+                >
                 <summary
                   style={{
                     cursor: "pointer",
@@ -859,11 +907,12 @@ export default async function TiAdminPage({
                     </form>
                   </div>
                 </div>
-              </details>
-            ))}
-          </div>
-        )}
-      </section>
+                </details>
+              ))}
+            </div>
+          )}
+        </div>
+      </details>
 
       <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}>Auth Troubleshooting</h2>
@@ -925,6 +974,21 @@ export default async function TiAdminPage({
 
       <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
         <h2 style={{ marginTop: 0 }}>Event Code Admin</h2>
+        {eventCodeNotice ? (
+          <p
+            style={{
+              margin: "0 0 12px",
+              padding: "10px 12px",
+              background: "#ecfeff",
+              border: "1px solid #a5f3fc",
+              borderRadius: 8,
+              color: "#155e75",
+              fontWeight: 600,
+            }}
+          >
+            {eventCodeNotice}
+          </p>
+        ) : null}
         <form action={createEventCodeAction} style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginBottom: 12 }}>
           <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
             Code <span style={{ color: "#b91c1c" }}>(required)</span>
@@ -969,11 +1033,33 @@ export default async function TiAdminPage({
               Source table: <strong>{eventCodes.source}</strong>
             </p>
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1180, tableLayout: "fixed" }}>
                 <thead>
                   <tr>
-                    {["Code", "Status", "Trial", "Usage", "Founding Access", "Starts", "Expires", "Created", "Notes", "Actions"].map((head) => (
-                      <th key={head} style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: "8px 6px", fontSize: 12 }}>
+                    {[
+                      ["Code", "130px"],
+                      ["Status", "110px"],
+                      ["Trial Days", "90px"],
+                      ["Redeemed", "90px"],
+                      ["Max Redemptions", "120px"],
+                      ["Founding Access", "120px"],
+                      ["Starts", "180px"],
+                      ["Expires", "180px"],
+                      ["Created", "120px"],
+                      ["Notes", "220px"],
+                      ["Actions", "180px"],
+                    ].map(([head, width]) => (
+                      <th
+                        key={head}
+                        style={{
+                          textAlign: "left",
+                          borderBottom: "1px solid #e5e7eb",
+                          padding: "8px 6px",
+                          fontSize: 12,
+                          width,
+                          verticalAlign: "bottom",
+                        }}
+                      >
                         {head}
                       </th>
                     ))}
@@ -993,7 +1079,8 @@ export default async function TiAdminPage({
                       <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
                         <select form={`event-code-edit-${row.id ?? idx}`} name="status" defaultValue={row.status ?? "active"} style={{ padding: 6 }}>
                           <option value="active">active</option>
-                          <option value="disabled">disabled</option>
+                          <option value="inactive">inactive</option>
+                          <option value="exhausted">exhausted</option>
                           <option value="expired">expired</option>
                         </select>
                       </td>
@@ -1008,27 +1095,26 @@ export default async function TiAdminPage({
                         />
                       </td>
                       <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <input
-                            form={`event-code-edit-${row.id ?? idx}`}
-                            name="redeemed_count"
-                            type="number"
-                            min={0}
-                            defaultValue={row.redeemed_count ?? 0}
-                            style={{ width: 72, padding: 6 }}
-                            title="Redeemed count"
-                          />
-                          <span>/</span>
-                          <input
-                            form={`event-code-edit-${row.id ?? idx}`}
-                            name="max_redemptions"
-                            type="number"
-                            min={1}
-                            defaultValue={row.max_redemptions ?? 1}
-                            style={{ width: 72, padding: 6 }}
-                            title="Max redemptions"
-                          />
-                        </div>
+                        <input
+                          form={`event-code-edit-${row.id ?? idx}`}
+                          name="redeemed_count"
+                          type="number"
+                          min={0}
+                          defaultValue={row.redeemed_count ?? 0}
+                          style={{ width: 78, padding: 6 }}
+                          title="Redeemed count"
+                        />
+                      </td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px" }}>
+                        <input
+                          form={`event-code-edit-${row.id ?? idx}`}
+                          name="max_redemptions"
+                          type="number"
+                          min={1}
+                          defaultValue={row.max_redemptions ?? 1}
+                          style={{ width: 104, padding: 6 }}
+                          title="Max redemptions"
+                        />
                       </td>
                       <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>
                         <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -1090,8 +1176,8 @@ export default async function TiAdminPage({
                             <form action={setEventCodeStatusAction}>
                               <input type="hidden" name="table" value={eventCodes.source} />
                               <input type="hidden" name="id" value={row.id} />
-                              <input type="hidden" name="status" value="disabled" />
-                              <button type="submit">Disable</button>
+                              <input type="hidden" name="status" value="inactive" />
+                              <button type="submit">Deactivate</button>
                             </form>
                           </div>
                         ) : (

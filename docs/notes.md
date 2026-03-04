@@ -13,6 +13,17 @@ Maintenance rules:
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
 ## 2026-03-04
+- RI TI admin polish:
+  - Updated:
+    - `apps/referee/app/admin/ti/page.tsx`
+  - Changes:
+    - added a `Soccer TD Outreach` button beside the RI `TI Admin` button,
+    - made that TI outreach link environment-aware so local RI points to local TI on `localhost:3001` while production still points to `tournamentinsights.com`,
+    - collapsed `TI User Admin` by default so `/admin/ti` opens in a lighter state,
+    - cleaned up the event-code table with explicit `Redeemed` and `Max Redemptions` columns, clearer status values, and an in-section save confirmation banner.
+  - Validation:
+    - `cd apps/referee && npm run build` passed.
+
 - TI event-code redemption support + trial-aware entitlement gating:
   - Added:
     - `supabase/migrations/20260304_event_codes_redemption_support.sql`
