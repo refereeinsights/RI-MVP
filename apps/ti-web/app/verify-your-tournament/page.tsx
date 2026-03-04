@@ -21,10 +21,25 @@ function normalizeVerifySport(raw: string | string[] | undefined): TiSport {
 export default function VerifyYourTournamentPage({
   searchParams,
 }: {
-  searchParams?: { sport?: string | string[] };
+  searchParams?: {
+    sport?: string | string[];
+    tournamentId?: string | string[];
+    utm_campaign?: string | string[];
+    utm_term?: string | string[];
+    ab?: string | string[];
+  };
 }) {
   const sport = normalizeVerifySport(searchParams?.sport);
   const sportDisplay = TI_SPORT_LABELS[sport];
+  const tournamentId = Array.isArray(searchParams?.tournamentId)
+    ? searchParams?.tournamentId[0]
+    : searchParams?.tournamentId || "";
+  const campaignId = Array.isArray(searchParams?.utm_campaign)
+    ? searchParams?.utm_campaign[0]
+    : searchParams?.utm_campaign || "";
+  const variantFromUtm = Array.isArray(searchParams?.utm_term) ? searchParams?.utm_term[0] : searchParams?.utm_term || "";
+  const variantFromAb = Array.isArray(searchParams?.ab) ? searchParams?.ab[0] : searchParams?.ab || "";
+  const variant = (variantFromAb || variantFromUtm || "").trim().toUpperCase();
 
   return (
     <div className={styles.page}>
@@ -55,7 +70,17 @@ export default function VerifyYourTournamentPage({
         </div>
       </section>
 
-      <ListYourTournamentForm mode="verify" sportPreset={sport} showHero={false} formId="verify-tournament-form" />
+      <ListYourTournamentForm
+        mode="verify"
+        sportPreset={sport}
+        showHero={false}
+        formId="verify-tournament-form"
+        outreachContext={{
+          campaignId,
+          tournamentId,
+          variant: variant === "A" || variant === "B" ? variant : "",
+        }}
+      />
     </div>
   );
 }

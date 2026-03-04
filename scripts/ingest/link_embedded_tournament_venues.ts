@@ -32,6 +32,12 @@ type VenueLinkRow = {
 const APPLY = process.argv.includes("--apply");
 const LIMIT = 5000;
 const IN_CHUNK = 250;
+const BLOCKED_VENUE_IDS = new Set(
+  String(process.env.VENUE_LINK_BLOCKLIST_IDS ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+);
 
 function normalize(value: string | null | undefined) {
   return (value ?? "")
@@ -54,6 +60,18 @@ function pickFirstNonEmpty(...values: Array<string | null | undefined>) {
     if (hasText(v)) return String(v).trim();
   }
   return null;
+}
+
+function normalizedState(value: string | null | undefined) {
+  const v = String(value ?? "").trim().toUpperCase();
+  return v || null;
+}
+
+function statesConflict(tournamentState: string | null | undefined, venueState: string | null | undefined) {
+  const t = normalizedState(tournamentState);
+  const v = normalizedState(venueState);
+  if (!t || !v) return false;
+  return t !== v;
 }
 
 async function run() {
@@ -128,6 +146,8 @@ async function run() {
   let linkedExisting = 0;
   let createdAndLinked = 0;
   let skippedNoData = 0;
+  let skippedStateMismatch = 0;
+  let skippedBlockedVenue = 0;
   let errors = 0;
 
   for (const tournament of candidates) {
@@ -159,6 +179,14 @@ async function run() {
       }
 
       if (matched) {
+        if (BLOCKED_VENUE_IDS.has(matched.id)) {
+          skippedBlockedVenue += 1;
+          continue;
+        }
+        if (statesConflict(state, matched.state)) {
+          skippedStateMismatch += 1;
+          continue;
+        }
         if (APPLY) {
           const { error: linkErr } = await supabase
             .from("tournament_venues" as any)
@@ -218,6 +246,8 @@ async function run() {
         linked_existing: linkedExisting,
         created_and_linked: createdAndLinked,
         skipped_no_data: skippedNoData,
+        skipped_state_mismatch: skippedStateMismatch,
+        skipped_blocked_venue: skippedBlockedVenue,
         errors,
       },
       null,

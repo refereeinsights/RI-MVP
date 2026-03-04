@@ -43,6 +43,11 @@ type Props = {
   sportPreset?: string;
   showHero?: boolean;
   formId?: string;
+  outreachContext?: {
+    campaignId?: string;
+    tournamentId?: string;
+    variant?: string;
+  };
 };
 
 function fieldClass(hasError: boolean) {
@@ -79,6 +84,7 @@ export default function ListYourTournamentForm({
   sportPreset = "",
   showHero = true,
   formId,
+  outreachContext,
 }: Props) {
   const [form, setForm] = useState<TournamentSubmissionInput>(() => {
     const initial = createInitialSubmission();
@@ -124,9 +130,12 @@ export default function ListYourTournamentForm({
     void sendTiAnalytics("verify_page_view", {
       sport: sportPreset || form.tournament.sport || "soccer",
       page: "/verify-your-tournament",
+      campaign_id: outreachContext?.campaignId || "",
+      variant: outreachContext?.variant || "",
+      tournament_id: outreachContext?.tournamentId || form.verifyTargetTournamentId || "",
       ts: Date.now(),
     });
-  }, [form.tournament.sport, isVerifyMode, sportPreset]);
+  }, [form.tournament.sport, form.verifyTargetTournamentId, isVerifyMode, outreachContext?.campaignId, outreachContext?.tournamentId, outreachContext?.variant, sportPreset]);
 
   function markVerifyFormStarted() {
     if (!isVerifyMode || formStartedRef.current) return;
@@ -134,6 +143,9 @@ export default function ListYourTournamentForm({
     startedAtRef.current = Date.now();
     void sendTiAnalytics("verify_form_started", {
       sport: sportPreset || form.tournament.sport || "soccer",
+      campaign_id: outreachContext?.campaignId || "",
+      variant: outreachContext?.variant || "",
+      tournament_id: outreachContext?.tournamentId || form.verifyTargetTournamentId || duplicateMatch?.id || "",
       ts: Date.now(),
     });
   }
@@ -409,8 +421,10 @@ export default function ListYourTournamentForm({
       const isMatchFlow = Boolean(duplicateMatch);
       void sendTiAnalytics("verify_submission_success", {
         sport,
+        campaign_id: outreachContext?.campaignId || "",
+        variant: outreachContext?.variant || "",
         ts: timestamp,
-        tournament_id: payload.tournamentId,
+        tournament_id: payload.tournamentId || outreachContext?.tournamentId || duplicateMatch?.id || "",
         is_match_flow: isMatchFlow,
       });
 
@@ -418,6 +432,9 @@ export default function ListYourTournamentForm({
         const durationMs = timestamp - startedAtRef.current;
         void sendTiAnalytics("verify_time_to_completion", {
           sport,
+          campaign_id: outreachContext?.campaignId || "",
+          variant: outreachContext?.variant || "",
+          tournament_id: payload.tournamentId || outreachContext?.tournamentId || duplicateMatch?.id || "",
           duration_ms: durationMs,
           duration_seconds_rounded: Math.round(durationMs / 1000),
           ts: timestamp,

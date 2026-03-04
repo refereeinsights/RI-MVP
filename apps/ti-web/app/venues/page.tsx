@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { TI_SPORT_LABELS } from "@/lib/tiSports";
 import StateMultiSelect from "../tournaments/StateMultiSelect";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
@@ -72,19 +73,7 @@ export const metadata = {
   },
 };
 
-const SPORTS_LABELS: Record<string, string> = {
-  soccer: "Soccer",
-  basketball: "Basketball",
-  football: "Football",
-  baseball: "Baseball",
-  softball: "Softball",
-  volleyball: "Volleyball",
-  futsal: "Futsal",
-  lacrosse: "Lacrosse",
-  wrestling: "Wrestling",
-  hockey: "Hockey",
-  unknown: "Unknown",
-};
+const SPORTS_LABELS: Record<string, string> = { ...TI_SPORT_LABELS, unknown: "Unknown" };
 
 function canonicalSport(sport: string | null | undefined) {
   const key = (sport ?? "").trim().toLowerCase();

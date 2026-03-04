@@ -894,6 +894,7 @@ export function rankLinks($: cheerio.CheerioAPI, baseUrl: URL): string[] {
     if (!href) return;
     try {
       const url = new URL(href, baseUrl);
+      if (url.protocol !== "http:" && url.protocol !== "https:") return;
       if (url.hostname !== baseUrl.hostname) return;
       const key = url.toString();
       const text = ($(el).text() || "").toLowerCase();

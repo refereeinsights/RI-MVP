@@ -14,6 +14,47 @@ Maintenance rules:
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
 ## 2026-03-03
+- TI outreach email refresh + deterministic A/B + send-mode tracking:
+  - Added:
+    - `supabase/migrations/20260303_email_outreach_preview_variant_and_provider.sql`
+    - `apps/ti-web/lib/outreach/ab.ts`
+    - `apps/ti-web/lib/outreach/templates/soccerDirectorVerify.ts`
+    - `apps/ti-web/public/brand/ti-email-logo-520.png`
+  - Updated:
+    - `apps/ti-web/lib/outreach.ts`
+    - `apps/ti-web/app/api/outreach/generate-previews/route.ts`
+    - `apps/ti-web/app/admin/outreach-previews/page.tsx`
+    - `apps/ti-web/app/verify-your-tournament/page.tsx`
+    - `apps/ti-web/app/list-your-tournament/ListYourTournamentForm.tsx`
+  - Changes:
+    - replaced the original soccer director outreach copy with a shorter, more human template aimed at tournament directors,
+    - added deterministic A/B subject assignment by `tournament_id`,
+    - preview/send records now capture `variant` and `provider_message_id`,
+    - `OUTREACH_MODE=send` now sends through TI Resend wiring while still respecting `OUTREACH_TEST_RECIPIENT` in local/dev,
+    - verify links now include `ab`, `utm_campaign`, and `utm_term` so verify-page analytics can attribute completions back to the outreach variant,
+    - verify-page analytics events now include `campaign_id`, `variant`, and `tournament_id`,
+    - outreach emails now use the hosted TI email logo at `/brand/ti-email-logo-520.png`.
+  - Validation:
+    - `cd apps/ti-web && npm run build` passed.
+
+- TI sports taxonomy reuse + signup copy polish:
+  - Updated:
+    - `apps/ti-web/lib/tiProfile.ts`
+    - `apps/ti-web/app/signup/page.tsx`
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/ti-web/app/venues/page.tsx`
+    - `apps/ti-web/app/tournaments/hubs/config.ts`
+  - Changes:
+    - signup sports interests now reuse the canonical TI sports constant instead of a one-off label list,
+    - signup helper copy now matches the requested CMO wording,
+    - tournament and venue surfaces now share the same TI sport label map instead of repeating local copies.
+
+- TI auth-email smoke retry hardening:
+  - Updated:
+    - `apps/ti-web/smoke-auth-emails.ts`
+  - Changes:
+    - added retry/backoff handling for Supabase auth email cooldown responses so magic-link and password-reset smoke runs fail less often on temporary rate limits.
+
 - TI outreach preview mode + admin review/send controls:
   - Added:
     - `supabase/migrations/20260303_email_outreach_previews.sql`

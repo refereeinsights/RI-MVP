@@ -1,3 +1,5 @@
+import { TI_SPORT_LABELS } from "@/lib/tiSports";
+
 export const HUBS = {
   soccer: { sport: "soccer", title: "Youth Soccer Tournaments" },
   baseball: { sport: "baseball", title: "Youth Baseball Tournaments" },
@@ -11,15 +13,4 @@ export type HubKey = keyof typeof HUBS;
 
 export const HUB_ORDER: HubKey[] = ["soccer", "baseball", "lacrosse", "basketball", "hockey", "ayso"];
 
-export const SPORTS_LABELS: Record<string, string> = {
-  soccer: "Soccer",
-  basketball: "Basketball",
-  football: "Football",
-  baseball: "Baseball",
-  softball: "Softball",
-  volleyball: "Volleyball",
-  lacrosse: "Lacrosse",
-  wrestling: "Wrestling",
-  hockey: "Hockey",
-  unknown: "Unknown",
-};
+export const SPORTS_LABELS: Record<string, string> = { ...TI_SPORT_LABELS, unknown: "Unknown" };

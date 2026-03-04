@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { sanitizeReturnTo } from "@/lib/returnTo";
 import { SPORT_INTEREST_OPTIONS, validateSignupProfile } from "@/lib/tiProfile";
+import { TI_SPORT_LABELS } from "@/lib/tiSports";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -212,7 +213,7 @@ export default function SignupPage() {
           style={{ padding: 10, border: "1px solid #cbd5e1", borderRadius: 8 }}
         />
         <div style={{ fontSize: 12, color: "#555" }}>
-          <strong>Username</strong>: This will appear on your profile and submissions.
+          <strong>Username</strong>: This appears on your profile and submissions.
         </div>
         <input
           type="text"
@@ -225,7 +226,7 @@ export default function SignupPage() {
           style={{ padding: 10, border: "1px solid #cbd5e1", borderRadius: 8 }}
         />
         <div style={{ fontSize: 12, color: "#555" }}>
-          <strong>ZIP</strong>: Used to show nearby tournaments and travel planning.
+          <strong>ZIP</strong>: Used for nearby tournaments and travel planning.
         </div>
         <fieldset
           style={{
@@ -239,7 +240,7 @@ export default function SignupPage() {
         >
           <legend style={{ padding: "0 4px", fontWeight: 600 }}>Sports interests</legend>
           <div style={{ fontSize: 12, color: "#555" }}>
-            We&apos;ll use this to personalize tournaments and alerts. Pick one or more.
+            Pick one or more — we&apos;ll personalize tournaments and alerts.
           </div>
           <div
             style={{
@@ -257,7 +258,7 @@ export default function SignupPage() {
                     checked={checked}
                     onChange={() => toggleSportInterest(sport)}
                   />
-                  <span>{sport}</span>
+                  <span>{TI_SPORT_LABELS[sport]}</span>
                 </label>
               );
             })}

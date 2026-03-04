@@ -52,6 +52,7 @@ export default async function OutreachPage({
   const staffToken = (searchParams?.staff_token ?? "").trim();
 
   const nowIso = new Date().toISOString();
+  const coverageWindowStartIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const { data: templateRows } = await supabaseAdmin
     .from("outreach_email_templates" as any)
@@ -68,7 +69,9 @@ export default async function OutreachPage({
 
   const { data: sportEmailRows } = await supabaseAdmin
     .from("tournaments" as any)
-    .select("sport,tournament_director_email");
+    .select("sport,tournament_director_email,do_not_contact,end_date")
+    .eq("do_not_contact", false)
+    .or(`end_date.is.null,end_date.gte.${coverageWindowStartIso}`);
   const sportTotals = new Map<string, { total: number; withEmail: number }>();
   (sportEmailRows ?? []).forEach((row: any) => {
     const sportKey = row.sport ? String(row.sport).toLowerCase() : "unknown";
@@ -395,6 +398,9 @@ export default async function OutreachPage({
           </p>
           <div style={{ marginTop: 12, padding: 14, borderRadius: 12, border: "1px solid #d1d5db", background: "#fff" }}>
             <div style={{ fontWeight: 800, marginBottom: 8 }}>Director email coverage by sport</div>
+            <div style={{ fontSize: 12, color: "#666", marginBottom: 12 }}>
+              Counts only active or upcoming tournaments that are not marked do-not-contact.
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
               {sportSummary.length ? (
                 sportSummary.map(([sportKey, stats]) => (
@@ -557,6 +563,23 @@ export default async function OutreachPage({
               }}
             >
               Create outreach rows
+            </Link>
+            <Link
+              href="https://www.tournamentinsights.com/admin/outreach-previews?sport=soccer"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                padding: "6px 10px",
+                borderRadius: 999,
+                border: "1px solid #2563eb",
+                background: "#eff6ff",
+                color: "#1d4ed8",
+                textDecoration: "none",
+                fontSize: 12,
+                fontWeight: 800,
+              }}
+            >
+              Soccer TD Outreach
             </Link>
             <Link
               href="/tournaments/verify-example"

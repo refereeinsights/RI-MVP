@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import type { OutreachVariant } from "@/lib/outreach/ab";
+import { buildSoccerDirectorVerifyEmail } from "@/lib/outreach/templates/soccerDirectorVerify";
 
 const SITE_ORIGIN = process.env.NEXT_PUBLIC_TI_SITE_URL || "https://www.tournamentinsights.com";
 
@@ -9,6 +11,7 @@ export type SoccerVerifyEmailInput = {
   verifyUrl: string;
   unsubscribeUrl: string;
   tournamentName?: string | null;
+  variant: OutreachVariant;
 };
 
 export type SoccerVerifyEmailOutput = {
@@ -56,18 +59,22 @@ export function buildVerifyUrl({
   sport,
   tournamentId,
   campaignId,
+  variant,
 }: {
   sport: OutreachSport;
   tournamentId: string;
   campaignId: string;
+  variant: OutreachVariant;
 }) {
   const url = new URL("/verify-your-tournament", SITE_ORIGIN);
   url.searchParams.set("sport", sport);
   url.searchParams.set("tournamentId", tournamentId);
+  url.searchParams.set("ab", variant);
   url.searchParams.set("utm_source", "outreach");
   url.searchParams.set("utm_medium", "email");
   url.searchParams.set("utm_campaign", campaignId);
   url.searchParams.set("utm_content", "verify_link");
+  url.searchParams.set("utm_term", variant);
   return url.toString();
 }
 
@@ -125,71 +132,13 @@ export function buildSoccerVerifyEmail({
   verifyUrl,
   unsubscribeUrl,
   tournamentName,
+  variant,
 }: SoccerVerifyEmailInput): SoccerVerifyEmailOutput {
-  const greeting = firstName?.trim() ? `Hi ${firstName.trim()},` : "Hi there,";
-  const safeTournamentName = tournamentName?.trim() || "your tournament";
-  const subject = `Please verify your TournamentInsights listing for ${safeTournamentName}`;
-
-  const html = `
-    <div style="font-family: Inter, Arial, sans-serif; color: #0f172a; line-height: 1.6;">
-      <p>${greeting}</p>
-      <p>
-        We already have <strong>${escapeHtml(safeTournamentName)}</strong> listed on TournamentInsights.
-        A quick review helps us mark the event as <strong>Staff Verified</strong> and improve how it appears in soccer searches.
-      </p>
-      <p>When you verify, your listing can unlock:</p>
-      <ul>
-        <li>Staff Verified placement on the event page</li>
-        <li>Better visibility in soccer searches</li>
-        <li>A clearer referee information panel for pay, lodging, and mentors</li>
-        <li>Highlighted official hotel and sponsor links</li>
-      </ul>
-      <p>
-        <a
-          href="${verifyUrl}"
-          style="display: inline-block; padding: 12px 18px; border-radius: 10px; background: #2563EB; color: #ffffff; text-decoration: none; font-weight: 600;"
-        >
-          Verify your tournament
-        </a>
-      </p>
-      <p>If the button does not open, use this link:</p>
-      <p><a href="${verifyUrl}">${verifyUrl}</a></p>
-      <p style="margin-top: 24px; font-size: 13px; color: #475569;">
-        Prefer not to receive future verification outreach for this event?
-        <a href="${unsubscribeUrl}"> Remove this tournament from future campaigns</a>.
-      </p>
-      <p>Thanks,<br />TournamentInsights</p>
-    </div>
-  `.trim();
-
-  const text = [
-    greeting,
-    "",
-    `We already have ${safeTournamentName} listed on TournamentInsights.`,
-    "A quick review helps us mark the event as Staff Verified and improve how it appears in soccer searches.",
-    "",
-    "When you verify, your listing can unlock:",
-    "- Staff Verified placement on the event page",
-    "- Better visibility in soccer searches",
-    "- A clearer referee information panel for pay, lodging, and mentors",
-    "- Highlighted official hotel and sponsor links",
-    "",
-    `Verify your tournament: ${verifyUrl}`,
-    "",
-    `Remove this tournament from future campaigns: ${unsubscribeUrl}`,
-    "",
-    "Thanks,",
-    "TournamentInsights",
-  ].join("\n");
-
-  return { subject, html, text };
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  return buildSoccerDirectorVerifyEmail({
+    firstName: firstName ?? undefined,
+    verifyUrl,
+    unsubscribeUrl,
+    tournamentName: tournamentName ?? "",
+    variant,
+  });
 }

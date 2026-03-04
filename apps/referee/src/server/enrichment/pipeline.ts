@@ -20,8 +20,21 @@ const PER_DOMAIN_DELAY_MS = 500;
 
 const domainLastFetch = new Map<string, number>();
 
+function isHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 async function politeFetch(url: string): Promise<string | null> {
   try {
+    if (!isHttpUrl(url)) {
+      console.warn("[enricher] skipped unsupported url scheme", url);
+      return null;
+    }
     const parsed = new URL(url);
     const last = domainLastFetch.get(parsed.hostname) ?? 0;
     const waitMs = Math.max(0, PER_DOMAIN_DELAY_MS - (Date.now() - last));
@@ -88,6 +101,7 @@ async function scrapeTournament(
     const nextUrl = queue.shift()!;
     if (seen.has(nextUrl)) continue;
     seen.add(nextUrl);
+    if (!isHttpUrl(nextUrl)) continue;
 
     const html = await politeFetch(nextUrl);
     if (!html) continue;

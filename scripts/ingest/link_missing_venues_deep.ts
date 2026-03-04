@@ -43,10 +43,28 @@ const CHUNK_SIZE = 200;
 const MAX_DISCOVERY_PAGES = 8;
 const MAX_PDF_BYTES = 4_000_000;
 const FETCH_TIMEOUT_MS = 12_000;
+const BLOCKED_VENUE_IDS = new Set(
+  String(process.env.VENUE_LINK_BLOCKLIST_IDS ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+);
 
 function clean(value: string | null | undefined) {
   const v = String(value ?? "").replace(/\s+/g, " ").trim();
   return v.length ? v : null;
+}
+
+function normalizedState(value: string | null | undefined) {
+  const s = String(value ?? "").trim().toUpperCase();
+  return s || null;
+}
+
+function statesConflict(tournamentState: string | null | undefined, venueState: string | null | undefined) {
+  const t = normalizedState(tournamentState);
+  const v = normalizedState(venueState);
+  if (!t || !v) return false;
+  return t !== v;
 }
 
 function normalize(value: string | null | undefined) {
@@ -515,6 +533,8 @@ async function run() {
   let skippedBadAddress = 0;
   let skippedMissingLocality = 0;
   let skippedDuplicateInTournament = 0;
+  let skippedStateMismatch = 0;
+  let skippedBlockedVenue = 0;
 
   for (const t of targets) {
     try {
@@ -656,6 +676,14 @@ async function run() {
           if (!APPLY) created += 1;
           continue;
         }
+        if (BLOCKED_VENUE_IDS.has(venue.id)) {
+          skippedBlockedVenue += 1;
+          continue;
+        }
+        if (statesConflict(t.state, venue.state)) {
+          skippedStateMismatch += 1;
+          continue;
+        }
         if (wasExisting) linkedExisting += 1;
 
         if (APPLY) {
@@ -697,6 +725,8 @@ async function run() {
         skipped_bad_address: skippedBadAddress,
         skipped_missing_locality: skippedMissingLocality,
         skipped_duplicate_in_tournament: skippedDuplicateInTournament,
+        skipped_state_mismatch: skippedStateMismatch,
+        skipped_blocked_venue: skippedBlockedVenue,
       },
       null,
       2

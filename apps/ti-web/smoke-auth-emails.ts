@@ -28,6 +28,36 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function parseCooldownSeconds(errorMessage: string): number | null {
+  const match = errorMessage.match(/after\s+(\d+)\s+seconds?/i);
+  if (!match) return null;
+  const seconds = Number.parseInt(match[1], 10);
+  if (!Number.isFinite(seconds) || seconds < 0) return null;
+  return seconds;
+}
+
+async function withCooldownRetry(
+  stepLabel: string,
+  fn: () => Promise<{ error: { message: string } | null }>,
+): Promise<void> {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const { error } = await fn();
+    if (!error) return;
+
+    const waitSeconds = parseCooldownSeconds(error.message);
+    if (!waitSeconds || attempt >= maxAttempts) {
+      throw new Error(`Failed to trigger ${stepLabel}: ${error.message}`);
+    }
+
+    const waitMs = (waitSeconds + 1) * 1000;
+    console.log(
+      `${stepLabel} is rate-limited by Supabase. Waiting ${waitMs}ms and retrying (${attempt}/${maxAttempts})...`,
+    );
+    await sleep(waitMs);
+  }
+}
+
 function loadEnvFile(filePath: string): EnvMap {
   const env: EnvMap = {};
   if (!fs.existsSync(filePath)) return env;
@@ -244,14 +274,15 @@ async function main(): Promise<void> {
 
   if (mode === "all" || mode === "magic") {
     console.log("Step 2: Triggering magic link email...");
-    const { error: magicError } = await authClient.auth.signInWithOtp({
-      email: smokeEmail,
-      options: {
-        shouldCreateUser: false,
-        emailRedirectTo: redirectTo,
-      },
-    });
-    if (magicError) throw new Error(`Failed to trigger magic link email: ${magicError.message}`);
+    await withCooldownRetry("magic link email", () =>
+      authClient.auth.signInWithOtp({
+        email: smokeEmail,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: redirectTo,
+        },
+      }),
+    );
     console.log("Magic link email trigger succeeded.");
   }
 
@@ -262,12 +293,11 @@ async function main(): Promise<void> {
 
   if (mode === "all" || mode === "reset") {
     console.log("Step 3: Triggering reset password email...");
-    const { error: resetError } = await authClient.auth.resetPasswordForEmail(smokeEmail, {
-      redirectTo,
-    });
-    if (resetError) {
-      throw new Error(`Failed to trigger reset password email: ${resetError.message}`);
-    }
+    await withCooldownRetry("reset password email", () =>
+      authClient.auth.resetPasswordForEmail(smokeEmail, {
+        redirectTo,
+      }),
+    );
     console.log("Reset password email trigger succeeded.");
   }
 

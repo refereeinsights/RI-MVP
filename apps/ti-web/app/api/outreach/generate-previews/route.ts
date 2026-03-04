@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { pickVariant } from "@/lib/outreach/ab";
+import { sendEmail } from "@/lib/email";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   buildSoccerVerifyEmail,
@@ -6,6 +8,7 @@ import {
   buildVerifyUrl,
   capPreviewLimit,
   getOutreachGuardSecret,
+  getOutreachMode,
   isValidEmail,
   normalizeOutreachSport,
 } from "@/lib/outreach";
@@ -31,6 +34,10 @@ type SuppressionRow = {
 
 function isProduction() {
   return process.env.NODE_ENV === "production";
+}
+
+function getLocalSendOverride() {
+  return process.env.NODE_ENV === "production" ? "" : (process.env.OUTREACH_TEST_RECIPIENT || "").trim().toLowerCase();
 }
 
 function inferFirstName(value: string | null) {
@@ -64,6 +71,10 @@ export async function POST(request: NextRequest) {
   const emailOverride = (body.test_email_override || "").trim();
   if (emailOverride && !isValidEmail(emailOverride)) {
     return NextResponse.json({ error: "test_email_override must be a valid email." }, { status: 400 });
+  }
+  const localSendOverride = getLocalSendOverride();
+  if (localSendOverride && !isValidEmail(localSendOverride)) {
+    return NextResponse.json({ error: "OUTREACH_TEST_RECIPIENT must be a valid email." }, { status: 500 });
   }
 
   const { data, error } = await (supabaseAdmin.from("tournaments" as any) as any)
@@ -104,12 +115,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ created: 0 }, { status: 200 });
   }
 
-  const previews = eligibleRows.map((row) => {
+  const mode = getOutreachMode();
+  const records = [];
+
+  for (const row of eligibleRows) {
     const directorEmail = emailOverride || row.tournament_director_email!.trim();
+    const variant = pickVariant(row.id);
     const verifyUrl = buildVerifyUrl({
       sport,
       tournamentId: row.id,
       campaignId,
+      variant,
     });
     const unsubscribeUrl = buildOutreachUnsubscribeUrl({
       sport,
@@ -121,11 +137,44 @@ export async function POST(request: NextRequest) {
       verifyUrl,
       unsubscribeUrl,
       tournamentName: row.name,
+      variant,
     });
+    const sendRecipient = localSendOverride || directorEmail;
+    let status: "preview" | "sent" | "error" = "preview";
+    let providerMessageId: string | null = null;
+    let sendError: string | null = null;
 
-    return {
+    if (mode === "send") {
+      try {
+        const result = (await sendEmail({
+          to: sendRecipient,
+          subject: email.subject,
+          html: email.html,
+          text: email.text,
+        })) as { id?: string } | undefined;
+        status = "sent";
+        providerMessageId = result?.id ?? null;
+        if (localSendOverride) {
+          console.info(
+            "[ti-outreach-send-override]",
+            JSON.stringify({
+              intended_recipient: directorEmail,
+              sent_to: localSendOverride,
+              tournament_id: row.id,
+              campaign_id: campaignId,
+            })
+          );
+        }
+      } catch (error) {
+        status = "error";
+        sendError = error instanceof Error ? error.message : "Unable to send outreach email.";
+      }
+    }
+
+    records.push({
       sport,
       campaign_id: campaignId,
+      variant,
       tournament_id: row.id,
       tournament_name: row.name!,
       director_email: directorEmail,
@@ -133,15 +182,24 @@ export async function POST(request: NextRequest) {
       subject: email.subject,
       html_body: email.html,
       text_body: email.text,
-      status: "preview",
-      error: null,
-    };
-  });
+      provider_message_id: providerMessageId,
+      status,
+      error: sendError,
+    });
+  }
 
-  const { error: insertError } = await (supabaseAdmin.from("email_outreach_previews" as any) as any).insert(previews);
+  const { error: insertError } = await (supabaseAdmin.from("email_outreach_previews" as any) as any).insert(records);
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ created: previews.length }, { status: 200 });
+  return NextResponse.json(
+    {
+      created: records.length,
+      mode,
+      sent: records.filter((record) => record.status === "sent").length,
+      errored: records.filter((record) => record.status === "error").length,
+    },
+    { status: 200 }
+  );
 }

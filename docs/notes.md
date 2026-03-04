@@ -13,6 +13,65 @@ Maintenance rules:
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
 ## 2026-03-03
+- TI outreach email refresh + deterministic A/B + send-mode tracking:
+  - Added:
+    - `supabase/migrations/20260303_email_outreach_preview_variant_and_provider.sql`
+    - `apps/ti-web/lib/outreach/ab.ts`
+    - `apps/ti-web/lib/outreach/templates/soccerDirectorVerify.ts`
+    - `apps/ti-web/public/brand/ti-email-logo-520.png`
+  - Updated:
+    - `apps/ti-web/lib/outreach.ts`
+    - `apps/ti-web/app/api/outreach/generate-previews/route.ts`
+    - `apps/ti-web/app/admin/outreach-previews/page.tsx`
+    - `apps/ti-web/app/verify-your-tournament/page.tsx`
+    - `apps/ti-web/app/list-your-tournament/ListYourTournamentForm.tsx`
+  - Changes:
+    - replaced the soccer director outreach copy with a friendlier table-based email template and hosted TI email logo,
+    - added deterministic `A/B` subject assignment by tournament id and stored each record’s `variant`,
+    - send mode now records `provider_message_id` and persists `sent` / `error` state while preview mode remains no-send,
+    - verify links and verify-page analytics now carry `campaign_id`, `variant`, and `tournament_id` for end-to-end participation tracking.
+  - Validation:
+    - `cd apps/ti-web && npm run build` passed.
+
+- TI sports taxonomy + signup copy cleanup:
+  - Updated:
+    - `apps/ti-web/lib/tiProfile.ts`
+    - `apps/ti-web/app/signup/page.tsx`
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/ti-web/app/venues/page.tsx`
+    - `apps/ti-web/app/tournaments/hubs/config.ts`
+  - Changes:
+    - signup sports interests now reuse canonical TI sport values/labels,
+    - signup ZIP and helper copy now match the final CMO wording,
+    - TI tournament and venue surfaces now reuse the same shared sport label map.
+
+- TI auth-email smoke retries:
+  - Updated:
+    - `apps/ti-web/smoke-auth-emails.ts`
+  - Changes:
+    - added cooldown parsing and retry/backoff so Supabase auth email smoke checks handle temporary provider rate limits more cleanly.
+
+- RI outreach page cleanup + email-discovery scheme guard:
+  - Updated:
+    - `apps/referee/app/admin/outreach/page.tsx`
+    - `apps/referee/src/server/enrichment/extract.ts`
+    - `apps/referee/src/server/enrichment/pipeline.ts`
+  - Changes:
+    - added a direct `Soccer TD Outreach` button in RI admin outreach linking to the TI outreach preview tool,
+    - corrected the `Director email coverage by sport` cards to count only active/upcoming tournaments that are not marked do-not-contact,
+    - hardened email discovery so `webcal:`, `mailto:`, and other unsupported URL schemes are skipped instead of crashing the crawler.
+  - Validation:
+    - `cd apps/referee && npm run build` passed.
+
+- Venue-linking ingest safeguards:
+  - Updated:
+    - `scripts/ingest/link_embedded_tournament_venues.ts`
+    - `scripts/ingest/link_missing_venues_deep.ts`
+  - Changes:
+    - added `VENUE_LINK_BLOCKLIST_IDS` support,
+    - added same-state checks before linking discovered venues,
+    - surfaced `skipped_state_mismatch` and `skipped_blocked_venue` counters in the run summaries.
+
 - TI outreach preview mode + admin review/send controls:
   - Added:
     - `supabase/migrations/20260303_email_outreach_previews.sql`

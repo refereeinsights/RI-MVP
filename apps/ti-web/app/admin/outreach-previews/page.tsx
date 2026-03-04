@@ -24,6 +24,8 @@ type PreviewRow = {
   subject: string;
   html_body: string;
   text_body: string;
+  variant: string | null;
+  provider_message_id: string | null;
   status: string;
   error: string | null;
 };
@@ -209,6 +211,7 @@ export default async function OutreachPreviewsPage({
                 >
                   <InfoCard label="Email" value={selectedPreview.director_email} />
                   <InfoCard label="Campaign" value={selectedPreview.campaign_id} />
+                  <InfoCard label="Variant" value={selectedPreview.variant || "NA"} />
                   <InfoCard label="Status" value={selectedPreview.status} />
                   <InfoCard
                     label="Verify URL"
@@ -218,6 +221,9 @@ export default async function OutreachPreviewsPage({
                       </a>
                     }
                   />
+                  {selectedPreview.provider_message_id ? (
+                    <InfoCard label="Provider message id" value={selectedPreview.provider_message_id} />
+                  ) : null}
                 </div>
                 {selectedPreview.error ? (
                   <p

@@ -1,22 +1,8 @@
-export const SPORT_INTEREST_OPTIONS = [
-  "Baseball",
-  "Softball",
-  "Soccer",
-  "Basketball",
-  "Volleyball",
-  "Football",
-  "Hockey",
-  "Lacrosse",
-  "Wrestling",
-  "Cheer",
-  "Track & Field",
-  "Swim",
-  "Tennis",
-  "Golf",
-  "Other",
-] as const;
+import { TI_SPORTS, type TiSport } from "@/lib/tiSports";
 
-export type SportInterest = (typeof SPORT_INTEREST_OPTIONS)[number];
+export const SPORT_INTEREST_OPTIONS = TI_SPORTS;
+
+export type SportInterest = TiSport;
 
 export const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 export const ZIP_PATTERN = /^\d{5}(?:-\d{4})?$/;
@@ -78,11 +64,19 @@ export function validateSignupProfile(input: {
     };
   }
 
+  if (!zipCode) {
+    return {
+      ok: false as const,
+      field: "zip" as const,
+      message: "ZIP code is required.",
+    };
+  }
+
   if (!ZIP_PATTERN.test(zipCode)) {
     return {
       ok: false as const,
       field: "zip" as const,
-      message: "ZIP code must be 5 digits (or ZIP+4).",
+      message: "Enter a valid ZIP code (e.g., 99216).",
     };
   }
 

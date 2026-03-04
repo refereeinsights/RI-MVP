@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { TI_SPORT_LABELS } from "@/lib/tiSports";
 import StateMultiSelect from "./StateMultiSelect";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
@@ -48,18 +49,7 @@ export const metadata = {
 const ISSUE_EMAIL = "tournamentinsights@gmail.com";
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
 
-const SPORTS_LABELS: Record<string, string> = {
-  soccer: "Soccer",
-  basketball: "Basketball",
-  football: "Football",
-  baseball: "Baseball",
-  softball: "Softball",
-  volleyball: "Volleyball",
-  lacrosse: "Lacrosse",
-  wrestling: "Wrestling",
-  hockey: "Hockey",
-  unknown: "Unknown",
-};
+const SPORTS_LABELS: Record<string, string> = { ...TI_SPORT_LABELS, unknown: "Unknown" };
 const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
 
 function formatDate(iso: string | null) {
