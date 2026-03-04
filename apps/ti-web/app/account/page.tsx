@@ -15,6 +15,7 @@ type TiUserRow = {
   plan: string | null;
   subscription_status: string | null;
   current_period_end: string | null;
+  trial_ends_at: string | null;
   first_seen_at: string | null;
   display_name: string | null;
   username: string | null;
@@ -92,7 +93,7 @@ export default async function AccountPage({
 
   const { data: profile } = await supabase
     .from("ti_users" as any)
-    .select("id,created_at,plan,subscription_status,current_period_end,first_seen_at,display_name,username,reviewer_handle,zip_code,sports_interests")
+    .select("id,created_at,plan,subscription_status,current_period_end,trial_ends_at,first_seen_at,display_name,username,reviewer_handle,zip_code,sports_interests")
     .eq("id", user.id)
     .maybeSingle<TiUserRow>();
   const metadataProfile = extractProfileFromMetadata(
@@ -160,7 +161,10 @@ export default async function AccountPage({
           <div><strong>Plan:</strong> {effectivePlan}</div>
           <div><strong>Subscription status:</strong> {prettySubscription(profile?.subscription_status)}</div>
           <div><strong>Member since:</strong> {prettyDate(profile?.first_seen_at ?? profile?.created_at ?? user.created_at)}</div>
-          <div><strong>Renewal date:</strong> {prettyDate(profile?.current_period_end)}</div>
+          <div>
+            <strong>{profile?.trial_ends_at ? "Trial ends:" : "Renewal date:"}</strong>{" "}
+            {prettyDate(profile?.trial_ends_at ?? profile?.current_period_end)}
+          </div>
         </div>
       </header>
 

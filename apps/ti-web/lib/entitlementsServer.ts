@@ -2,7 +2,12 @@ import type { User } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTier, type TiTier } from "@/lib/entitlements";
 
-type TiProfile = { plan: string | null; subscription_status: string | null } | null;
+type TiProfile = {
+  plan: string | null;
+  subscription_status: string | null;
+  current_period_end: string | null;
+  trial_ends_at: string | null;
+} | null;
 
 export async function getTiTierServer(user: User | null | undefined): Promise<{
   tier: TiTier;
@@ -14,9 +19,14 @@ export async function getTiTierServer(user: User | null | undefined): Promise<{
   const supabase = createSupabaseServerClient();
   const { data: profile } = await supabase
     .from("ti_users" as any)
-    .select("plan,subscription_status")
+    .select("plan,subscription_status,current_period_end,trial_ends_at")
     .eq("id", user.id)
-    .maybeSingle<{ plan: string | null; subscription_status: string | null }>();
+    .maybeSingle<{
+      plan: string | null;
+      subscription_status: string | null;
+      current_period_end: string | null;
+      trial_ends_at: string | null;
+    }>();
 
   const unverified = !user.email_confirmed_at;
   const tier = getTier(user, profile ?? null);

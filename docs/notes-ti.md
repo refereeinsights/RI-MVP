@@ -13,6 +13,24 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-03-04
+- TI event-code redemption support + trial-aware entitlement gating:
+  - Added:
+    - `supabase/migrations/20260304_event_codes_redemption_support.sql`
+  - Updated:
+    - `apps/ti-web/lib/entitlements.ts`
+    - `apps/ti-web/lib/entitlementsServer.ts`
+    - `apps/ti-web/app/account/page.tsx`
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+  - Changes:
+    - aligned the TI event-code database shape with the RI admin tool by adding redemption metadata defaults and replacing the create/redeem RPCs,
+    - redeeming a code now writes trial/permanent access state onto `ti_users` in a consistent way,
+    - TI entitlement checks now grant Weekend Pro for active `trial_ends_at` windows instead of only honoring paid active subscriptions,
+    - account/tournament/venue access checks now all use the same TI access fields and surface `Trial ends` when appropriate.
+  - Validation:
+    - `cd apps/ti-web && npm run build` passed.
+
 ## 2026-03-03
 - TI verify links now preload the target tournament by id:
   - Updated:

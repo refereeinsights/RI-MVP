@@ -169,10 +169,22 @@ export default async function VenueDetailsPage({
   const { data: entitlementProfile } = user
     ? await supabase
         .from("ti_users" as any)
-        .select("plan,subscription_status")
+        .select("plan,subscription_status,current_period_end,trial_ends_at")
         .eq("id", user.id)
-        .maybeSingle<{ plan: string | null; subscription_status: string | null }>()
-    : { data: null as { plan: string | null; subscription_status: string | null } | null };
+        .maybeSingle<{
+          plan: string | null;
+          subscription_status: string | null;
+          current_period_end: string | null;
+          trial_ends_at: string | null;
+        }>()
+    : {
+        data: null as {
+          plan: string | null;
+          subscription_status: string | null;
+          current_period_end: string | null;
+          trial_ends_at: string | null;
+        } | null,
+      };
   const tier = getTier(user, entitlementProfile ?? null);
   const isPaid = canAccessWeekendPro(user, entitlementProfile ?? null);
 
