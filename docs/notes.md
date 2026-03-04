@@ -13,6 +13,37 @@ Maintenance rules:
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
 ## 2026-03-04
+- TI outreach multi-sport refinements + RI launch links:
+  - TI sport-aware outreach + verify updates:
+    - Updated:
+      - `apps/ti-web/lib/outreach.ts`
+      - `apps/ti-web/lib/outreach/templates/soccerDirectorVerify.ts`
+      - `apps/ti-web/app/verify-your-tournament/page.tsx`
+      - `apps/ti-web/app/list-your-tournament/ListYourTournamentForm.tsx`
+      - `apps/ti-web/app/outreach/preview/page.tsx`
+    - Changes:
+      - expanded outreach sport support to `soccer | baseball | softball`,
+      - added a shared sport-aware email build path while retaining the existing soccer header block format,
+      - verify-mode wording is now sport-aware (`referee` for soccer, `umpire` for baseball/softball),
+      - `/list-your-tournament` submit-mode copy remains unchanged; role replacement applies only in verify mode,
+      - added a lightweight internal TI outreach preview wrapper page for sport+tournament email rendering.
+  - RI admin TI links for all outreach sports:
+    - Updated:
+      - `apps/referee/app/admin/ti/page.tsx`
+    - Changes:
+      - added `Baseball TD Outreach` and `Softball TD Outreach` buttons alongside soccer,
+      - links target TI `/admin/outreach-previews?sport=<sport>` routes.
+  - Outreach preview generator robustness for placeholder emails:
+    - Updated:
+      - `apps/ti-web/app/api/outreach/generate-previews/route.ts`
+    - Changes:
+      - ignores placeholder email strings (`null`, `none`, `n/a`, and similar),
+      - scans tournaments in paged batches until it finds up to the requested number of valid recipients,
+      - applies suppression filtering per batch so early bad rows no longer cause under-generation.
+  - Validation:
+    - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed.
+    - local baseball preview-generation smoke with `limit=50` returned `created: 50` in preview mode.
+
 - RI TI admin polish:
   - Updated:
     - `apps/referee/app/admin/ti/page.tsx`
