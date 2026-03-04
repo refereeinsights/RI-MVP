@@ -29,17 +29,19 @@ export async function POST(req: Request) {
   const limitInput = Number(body?.limit ?? "25");
   const limit = Number.isFinite(limitInput) ? Math.max(1, Math.min(limitInput, 50)) : 25;
 
-  const { data: dismissedRows } = await supabaseAdmin
+  // Exclude any tournament already attempted (not just dismissed) to avoid re-scraping the same set.
+  const { data: attemptedRows } = await supabaseAdmin
     .from("tournament_email_discovery_results" as any)
     .select("tournament_id")
-    .not("dismissed_at", "is", null);
-  const dismissedIds = new Set((dismissedRows ?? []).map((r: any) => r.tournament_id).filter(Boolean));
+    .limit(5000);
+  const attemptedIds = new Set((attemptedRows ?? []).map((r: any) => r.tournament_id).filter(Boolean));
 
   const { data: deadDomainsRows } = await supabaseAdmin
     .from("tournament_dead_domains" as any)
     .select("domain");
   const deadDomains = new Set((deadDomainsRows ?? []).map((r: any) => String(r.domain).toLowerCase()));
 
+  // Fetch a larger pool so we have fresh candidates after filtering out already-attempted IDs.
   const { data: tournaments } = await supabaseAdmin
     .from("tournaments" as any)
     .select("id,official_website_url,source_url,do_not_contact,tournament_director_email,referee_contact_email")
@@ -48,7 +50,7 @@ export async function POST(req: Request) {
     .is("referee_contact_email", null)
     .or("official_website_url.not.is.null,source_url.not.is.null")
     .order("updated_at", { ascending: false })
-    .limit(limit);
+    .limit(limit * 10);
 
   const withUrls = (tournaments ?? [])
     .map((t: any) => {
@@ -109,10 +111,11 @@ export async function POST(req: Request) {
     .filter((t: any) => {
       const domain = domainFor(t._candidate_url);
       if (!t.id) return false;
-      if (dismissedIds.has(t.id)) return false;
+      if (attemptedIds.has(t.id)) return false;
       if (domain && (deadDomains.has(domain) || deadNow.has(domain))) return false;
       return true;
     })
+    .slice(0, limit)
     .map((t: any) => t.id);
   if (!tournamentIds.length) {
     return NextResponse.json({ ok: false, message: "No tournaments missing emails with URLs." });
@@ -226,6 +229,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     message: `Queued ${tournamentIds.length} tournaments. Inserted ${toInsert.length} pending contact(s).`,
+    queued: tournamentIds.length,
     inserted: toInsert.length,
     candidates: candidates?.length ?? 0,
     run_id: runId,

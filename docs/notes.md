@@ -12,6 +12,19 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-03-04
+- RI email discovery — de-duplicate run pool + result count UI:
+  - Updated:
+    - `apps/referee/app/api/admin/tournaments/enrichment/email-discovery/route.ts`
+    - `apps/referee/components/admin/EmailDiscoveryPanel.tsx`
+  - Changes:
+    - Route now fetches all previously attempted tournament IDs from `tournament_email_discovery_results` (not just dismissed) and excludes them from the candidate pool, so each run works a fresh set of tournaments instead of re-scraping the same top-25 every time.
+    - Candidate pool query increased to `limit * 10` to ensure enough fresh records remain after filtering out already-attempted IDs; result is then sliced back to `limit` before processing.
+    - API response now includes `queued` count alongside existing `candidates` and `inserted`.
+    - `EmailDiscoveryPanel` displays a result line after completion: `"{N} Tournaments Searched — {N} Found (N new)"`.
+  - Validation:
+    - `npx tsc -p apps/referee/tsconfig.json --noEmit` passed.
+
 ## 2026-03-03
 - TI verify links now preload the target tournament by id:
   - Updated:
@@ -73,6 +86,16 @@ Maintenance rules:
     - hardened email discovery so `webcal:`, `mailto:`, and other unsupported URL schemes are skipped instead of crashing the crawler,
     - widened same-site link following so discovery can traverse `www` and sibling subdomains on the same tournament site,
     - added attribute-based email extraction so obfuscated contacts in `data-email`, `data-user`, `data-domain`, `href`, and `onclick` are captured instead of missed.
+  - Validation:
+    - `cd apps/referee && npm run build` passed.
+
+- RI tournament dashboard metrics + TI summary block:
+  - Updated:
+    - `apps/referee/app/admin/tournaments/dashboard/page.tsx`
+  - Changes:
+    - expanded sport tiles to show per-sport `Upcoming tournaments`, `Total tournaments`, `Missing director email`, `Missing dates`, and `Missing venues`,
+    - based missing-venue counts on joined `tournament_venues` first, but still treat legacy tournament-level `venue` / `address` fields as valid venue data so the dashboard does not overstate gaps,
+    - added a TI summary section below the tournament sport tiles with total `Insider`, total `Weekend Pro`, and a recent TI outreach campaign table sourced from `email_outreach_previews`.
   - Validation:
     - `cd apps/referee && npm run build` passed.
 

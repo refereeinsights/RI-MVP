@@ -2,13 +2,17 @@
 
 import { useState, useTransition } from "react";
 
+type DiscoveryResult = { queued: number; candidates: number; inserted: number };
+
 export default function EmailDiscoveryPanel() {
   const [limit, setLimit] = useState(25);
   const [status, setStatus] = useState<string | null>(null);
+  const [result, setResult] = useState<DiscoveryResult | null>(null);
   const [pending, startTransition] = useTransition();
 
   const runDiscovery = () => {
     setStatus("Running email discovery...");
+    setResult(null);
     startTransition(async () => {
       try {
         const res = await fetch("/api/admin/tournaments/enrichment/email-discovery", {
@@ -21,7 +25,12 @@ export default function EmailDiscoveryPanel() {
           setStatus(json?.error || json?.message || "Email discovery failed.");
           return;
         }
-        setStatus(json?.message || "Email discovery complete.");
+        setResult({
+          queued: json.queued ?? 0,
+          candidates: json.candidates ?? 0,
+          inserted: json.inserted ?? 0,
+        });
+        setStatus(null);
       } catch (err: any) {
         setStatus(err?.message || "Email discovery failed.");
       }
@@ -73,6 +82,12 @@ export default function EmailDiscoveryPanel() {
       {status ? (
         <div style={{ marginTop: 10, fontSize: 12, color: status.includes("failed") ? "#b91c1c" : "#065f46" }}>
           {status}
+        </div>
+      ) : null}
+      {result ? (
+        <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: "#065f46" }}>
+          {result.queued} Tournaments Searched — {result.candidates} Found
+          {result.inserted > 0 ? ` (${result.inserted} new)` : ""}
         </div>
       ) : null}
     </div>
