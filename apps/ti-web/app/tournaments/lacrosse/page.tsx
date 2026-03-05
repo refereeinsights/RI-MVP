@@ -1,12 +1,13 @@
-import { HubTournamentsPage, getHubMetadata } from "../hubs/HubTournamentsPage";
+import { SportHubPage, getSportHubMetadata } from "../_components/SportHubPage";
 
-export const revalidate = 300;
-export const metadata = getHubMetadata("lacrosse");
+export const revalidate = 21600;
+export const metadata = getSportHubMetadata("lacrosse");
 
 export default async function LacrosseHubPage({
   searchParams,
 }: {
-  searchParams?: { q?: string; state?: string | string[]; month?: string; includePast?: string };
+  searchParams?: { page?: string };
 }) {
-  return await HubTournamentsPage({ hub: "lacrosse", searchParams });
+  const page = Math.max(1, Number.parseInt(searchParams?.page ?? "1", 10) || 1);
+  return <SportHubPage sport="lacrosse" page={page} />;
 }

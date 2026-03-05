@@ -1,13 +1,13 @@
 import { SportHubPage, getSportHubMetadata } from "../_components/SportHubPage";
 
 export const revalidate = 21600;
-export const metadata = getSportHubMetadata("basketball");
+export const metadata = getSportHubMetadata("softball");
 
-export default async function BasketballHubPage({
+export default async function SoftballHubPage({
   searchParams,
 }: {
   searchParams?: { page?: string };
 }) {
   const page = Math.max(1, Number.parseInt(searchParams?.page ?? "1", 10) || 1);
-  return <SportHubPage sport="basketball" page={page} />;
+  return <SportHubPage sport="softball" page={page} />;
 }

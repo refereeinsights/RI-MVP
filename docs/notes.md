@@ -12,6 +12,25 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-03-05
+- TI national sport hub pages (SEO step 1):
+  - Created:
+    - `apps/ti-web/app/tournaments/_lib/getSportHubTournaments.ts` — data fetcher (upcoming-only, limit 50/page, max 20 pages, sorted start_date+name)
+    - `apps/ti-web/app/tournaments/_components/SportHubPage.tsx` — shared hub component with tournament grid, pagination, per-sport intro paragraph, browse-by-state links, JSON-LD ItemList
+    - `apps/ti-web/app/tournaments/softball/page.tsx` — new softball hub page
+  - Updated:
+    - `apps/ti-web/app/tournaments/soccer/page.tsx`
+    - `apps/ti-web/app/tournaments/baseball/page.tsx`
+    - `apps/ti-web/app/tournaments/basketball/page.tsx`
+    - `apps/ti-web/app/tournaments/lacrosse/page.tsx`
+  - Changes:
+    - all 5 sport pages now use `SportHubPage` (replaces `HubTournamentsPage` for these routes),
+    - `revalidate` changed from 300 → 21600 (6h ISR),
+    - metadata updated: title `Youth {Sport} Tournaments | TournamentInsights`, description `Find upcoming youth {sport} tournaments across the U.S. Dates, locations, venues, and official links.`, canonical `/tournaments/{sport}`,
+    - query limits results to 50 per page with offset pagination (`?page=N`), max page 20,
+    - "Browse by State" section derives up to 12 states from query results and links to existing `/{sport}/{state}` hub pages,
+    - hockey and ayso pages unchanged (still use `HubTournamentsPage`).
+
 ## 2026-03-04
 - TI outreach multi-sport refinements + RI launch links:
   - TI sport-aware outreach + verify updates:
