@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import styles from "./VenueReviews.module.css";
 
 const { WhistleScale } = require("../../../../../referee/components/RefereeReviewList") as {
@@ -113,6 +113,7 @@ function GaugeInput({
 
 export default function VenueReviewsClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedTournament, setSelectedTournament] = useState<TournamentOption | null>(null);
   const [selectedVenueId, setSelectedVenueId] = useState<string>("");
   const [venues, setVenues] = useState<VenueOption[]>([]);
@@ -148,6 +149,36 @@ export default function VenueReviewsClient() {
     () => allVenueOptions.find((venue) => venue.id === selectedVenueId) ?? null,
     [allVenueOptions, selectedVenueId]
   );
+
+  useEffect(() => {
+    const venueIdParam = (searchParams.get("venueId") ?? "").trim();
+    if (!venueIdParam || selectedVenueId) return;
+
+    const run = async () => {
+      try {
+        const response = await fetch(
+          `/api/venue-reviews?mode=venue&venueId=${encodeURIComponent(venueIdParam)}`,
+          { method: "GET", cache: "no-store" }
+        );
+        const payload = await response.json();
+        if (!response.ok) return;
+        if (!payload?.venue?.id) return;
+
+        const venue = payload.venue as VenueOption;
+        setVenueSearchResults((prev) => {
+          const next = new Map<string, VenueOption>();
+          for (const item of prev) next.set(item.id, item);
+          next.set(venue.id, venue);
+          return Array.from(next.values());
+        });
+        setSelectedVenueId(venue.id);
+      } catch {
+        // Ignore invalid or unavailable venue ids.
+      }
+    };
+
+    void run();
+  }, [searchParams, selectedVenueId]);
 
   async function loadVenues(tournamentId: string) {
     setVenuesLoading(true);

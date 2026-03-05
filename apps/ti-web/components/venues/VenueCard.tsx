@@ -64,6 +64,8 @@ export default function VenueCard({
   const locationLabel = [city, state].filter(Boolean).join(", ");
   const addressLabel = [address, city, state, zip].filter(Boolean).join(", ");
   const effectiveTier = isDemo ? "weekend_pro" : tier;
+  const canReviewVenue = tier !== "explorer";
+  const reviewHref = `/venues/reviews?venueId=${encodeURIComponent(venueId)}`;
 
   return (
     <article className={`card ${sportCardClass} ${styles.card}`}>
@@ -131,6 +133,12 @@ export default function VenueCard({
         <Link href={`/venues/${venueId}`} className={`primaryLink ${styles.detailsLink}`}>
           Venue details
         </Link>
+
+        {canReviewVenue ? (
+          <Link href={reviewHref} className="secondaryLink">
+            Review
+          </Link>
+        ) : null}
 
         {venueUrl ? (
           <a href={venueUrl} target="_blank" rel="noopener noreferrer" className={`secondaryLink ${styles.siteLink}`}>

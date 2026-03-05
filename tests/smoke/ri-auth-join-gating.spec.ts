@@ -35,8 +35,13 @@ test.describe("RI public beta smoke: auth sanity", () => {
     await logout(page);
     await page.goto("/account/login", { waitUntil: "domcontentloaded" });
 
-    await page.locator('input[type="email"]').fill(insider.email);
-    await page.locator('input[type="password"]').fill(insider.password);
+    const emailInput = page.locator('input[type="email"]');
+    const passwordInput = page.locator('input[type="password"]');
+    await expect(emailInput).toBeVisible();
+    await expect(passwordInput).toBeVisible();
+    await emailInput.fill(insider.email);
+    await passwordInput.fill(insider.password);
+    await expect(emailInput).toHaveValue(insider.email);
     await page.getByRole("button", { name: /sign in/i }).click();
 
     await expect

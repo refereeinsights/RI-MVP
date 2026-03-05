@@ -225,6 +225,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, venues });
   }
 
+  if (mode === "venue") {
+    const venueId = (searchParams.get("venueId") ?? "").trim();
+    if (!venueId) return NextResponse.json({ ok: true, venue: null });
+
+    const { data, error } = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,name,address,city,state,zip")
+      .eq("id", venueId)
+      .maybeSingle<VenueSearchRow>();
+
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (!data?.id) return NextResponse.json({ ok: true, venue: null });
+
+    return NextResponse.json({ ok: true, venue: data });
+  }
+
   return NextResponse.json({ ok: false, error: "Unsupported mode." }, { status: 400 });
 }
 

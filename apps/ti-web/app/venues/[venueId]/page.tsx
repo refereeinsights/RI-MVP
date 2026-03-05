@@ -186,6 +186,7 @@ export default async function VenueDetailsPage({
       };
   const tier = getTier(user, entitlementProfile ?? null);
   const isPaid = canAccessWeekendPro(user, entitlementProfile ?? null);
+  const canReviewVenue = tier !== "explorer";
 
   const { data, error } = await supabaseAdmin
     .from("venues" as any)
@@ -255,6 +256,8 @@ export default async function VenueDetailsPage({
   const locationLabel = [data.city, data.state].filter(Boolean).join(", ");
   const addressLabel = [data.address, data.city, data.state, data.zip].filter(Boolean).join(", ");
   const mapLinks = addressLabel ? buildMapLinks(addressLabel) : null;
+  const reviewHref = `/venues/reviews?venueId=${encodeURIComponent(data.id)}`;
+  const reviewLoginHref = `/login?returnTo=${encodeURIComponent(`/venues/${data.id}`)}`;
 
   const runRows = await fetchLatestOwlsEyeRuns([data.id]);
   const latestRun = runRows.find((row) => row.venue_id === data.id) ?? null;
@@ -471,6 +474,20 @@ export default async function VenueDetailsPage({
                   }}
                 >
                   Venue scores are locked. Create a free Insider account to view.
+                </div>
+              )}
+
+              {canReviewVenue ? (
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  <Link href={reviewHref} className="primaryLink">
+                    Review this venue
+                  </Link>
+                </div>
+              ) : (
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  <Link href={reviewLoginHref} className="secondaryLink">
+                    Sign in to review
+                  </Link>
                 </div>
               )}
 

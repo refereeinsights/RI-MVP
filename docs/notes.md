@@ -276,6 +276,21 @@ Maintenance rules:
     - venue list tiles hide notes and lock venue index for Explorer.
   - Validation:
     - `npm run test:smoke` passed (local dev servers on `localhost:3000` and `localhost:3001`).
+
+- TI venue review CTA + preselect support:
+  - Updated:
+    - `apps/ti-web/app/api/venue-reviews/route.ts`
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+    - `apps/ti-web/app/venues/reviews/_components/VenueReviewsClient.tsx`
+    - `apps/ti-web/components/venues/VenueCard.tsx`
+    - `tests/smoke/ri-auth-join-gating.spec.ts`
+  - Changes:
+    - added `Review this venue` CTA under the AI summary bars on venue detail for Insider+,
+    - added `Review` CTA on venue cards for Insider+,
+    - venue reviews now accept `?venueId=...` and preselect that venue when available,
+    - RI smoke test login now targets the email/password inputs directly for reliability.
+  - Validation:
+    - `npm run test:smoke` passed.
     - `apps/referee/components/admin/TournamentPartnerNearbyEditor.tsx`
     - `scripts/ingest/seed_demo_tournament_partner_nearby.cjs`
     - `supabase/migrations/20260303_tournament_partner_nearby.sql`
