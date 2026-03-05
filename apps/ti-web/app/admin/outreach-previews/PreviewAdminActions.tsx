@@ -29,6 +29,7 @@ export default function PreviewAdminActions({
   const [testEmail, setTestEmail] = useState(defaultTestEmail);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
+  const hasDirectorEmail = isValidEmail(directorEmail);
 
   const filtersHref = useMemo(() => {
     const params = new URLSearchParams();
@@ -57,6 +58,34 @@ export default function PreviewAdminActions({
     }
 
     setMessage(`Test email sent to ${testEmail}.`);
+    router.refresh();
+  }
+
+  async function handleSendDirector() {
+    if (!hasDirectorEmail) {
+      setMessage("Director email is missing or invalid.");
+      return;
+    }
+
+    setMessage("");
+    const response = await fetch("/api/outreach/send-test", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        preview_id: previewId,
+        email: directorEmail,
+      }),
+    });
+
+    const json = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (!response.ok) {
+      setMessage(json.error || "Unable to send director email.");
+      return;
+    }
+
+    setMessage(`Email sent to ${directorEmail}.`);
     router.refresh();
   }
 
@@ -176,6 +205,15 @@ export default function PreviewAdminActions({
         >
           Send test email
         </button>
+        <button
+          type="button"
+          className="cta ti-home-cta ti-home-cta-primary"
+          disabled={pending || !hasDirectorEmail || isSuppressed}
+          onClick={() => startTransition(() => void handleSendDirector())}
+          style={{ opacity: pending || !hasDirectorEmail || isSuppressed ? 0.7 : 1 }}
+        >
+          Send to director
+        </button>
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -221,6 +259,13 @@ const inputStyle = {
   padding: "10px 12px",
   font: "inherit",
 } satisfies CSSProperties;
+
+function isValidEmail(value: string | null | undefined) {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+}
 
 const dangerButtonStyle = {
   borderRadius: 10,

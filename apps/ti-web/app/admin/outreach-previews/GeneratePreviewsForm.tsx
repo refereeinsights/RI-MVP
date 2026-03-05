@@ -15,6 +15,7 @@ export default function GeneratePreviewsForm({
   const [campaignId, setCampaignId] = useState(initialCampaignId);
   const [sport, setSport] = useState(initialSport || "soccer");
   const [limit, setLimit] = useState("50");
+  const [mode, setMode] = useState<"preview" | "send">("preview");
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -30,6 +31,10 @@ export default function GeneratePreviewsForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+    if (disabled) {
+      setMessage("Campaign and sport are required.");
+      return;
+    }
 
     startTransition(() => {
       void (async () => {
@@ -42,6 +47,7 @@ export default function GeneratePreviewsForm({
           campaign_id: campaignId.trim(),
           sport: sport.trim().toLowerCase(),
           limit: Number(limit),
+          mode,
         }),
       });
 
@@ -72,7 +78,13 @@ export default function GeneratePreviewsForm({
       </label>
       <label style={{ display: "grid", gap: 6 }}>
         <span style={{ fontWeight: 600 }}>Sport</span>
-        <input type="text" value={sport} onChange={(event) => setSport(event.target.value)} style={inputStyle} />
+        <select value={sport} onChange={(event) => setSport(event.target.value)} style={inputStyle}>
+          {OUTREACH_SPORTS.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
       </label>
       <label style={{ display: "grid", gap: 6 }}>
         <span style={{ fontWeight: 600 }}>Limit</span>
@@ -85,11 +97,18 @@ export default function GeneratePreviewsForm({
           style={{ ...inputStyle, minWidth: 110 }}
         />
       </label>
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={{ fontWeight: 600 }}>Mode</span>
+        <select value={mode} onChange={(event) => setMode(event.target.value as "preview" | "send")} style={inputStyle}>
+          <option value="preview">Preview only</option>
+          <option value="send">Send emails</option>
+        </select>
+      </label>
       <button
         type="submit"
         className="cta ti-home-cta ti-home-cta-primary"
-        disabled={pending || disabled}
-        style={{ opacity: pending || disabled ? 0.7 : 1 }}
+        disabled={pending}
+        style={{ opacity: pending ? 0.7 : 1 }}
       >
         {pending ? "Generating..." : "Generate previews"}
       </button>
@@ -109,3 +128,5 @@ const inputStyle = {
   padding: "10px 12px",
   font: "inherit",
 } satisfies CSSProperties;
+
+const OUTREACH_SPORTS = ["soccer", "baseball", "softball"] as const;

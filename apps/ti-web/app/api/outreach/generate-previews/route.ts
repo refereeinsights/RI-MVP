@@ -12,12 +12,14 @@ import {
   isValidEmail,
   normalizeOutreachSport,
 } from "@/lib/outreach";
+import { getTiOutreachAdminUser } from "@/lib/outreachAdmin";
 
 type PreviewRequestBody = {
   sport?: string;
   campaign_id?: string;
   limit?: number;
   test_email_override?: string;
+  mode?: "preview" | "send";
 };
 
 type TournamentRow = {
@@ -54,12 +56,15 @@ function normalizeDirectorEmail(value: string | null | undefined) {
 }
 
 export async function POST(request: NextRequest) {
-  if (isProduction()) {
-    const headerKey = request.headers.get("X-OUTREACH-KEY") || "";
-    const expected = getOutreachGuardSecret();
-    if (!expected || headerKey !== expected) {
-      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-    }
+  const headerKey = request.headers.get("X-OUTREACH-KEY") || "";
+  const expected = getOutreachGuardSecret();
+  const adminUser = await getTiOutreachAdminUser();
+  const isAuthorizedByHeader = !!expected && headerKey === expected;
+  if (isProduction() && !isAuthorizedByHeader && !adminUser) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+  if (!adminUser && !isAuthorizedByHeader) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   let body: PreviewRequestBody;
@@ -151,7 +156,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ created: 0 }, { status: 200 });
   }
 
-  const mode = getOutreachMode();
+  const mode = body.mode === "send" ? "send" : body.mode === "preview" ? "preview" : getOutreachMode();
   const records = [];
 
   for (const row of eligibleRows) {

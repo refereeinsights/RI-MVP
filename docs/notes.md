@@ -2857,3 +2857,19 @@ Maintenance rules:
     - TI-style tournament card typography tuning
   - Added/expanded RI public venues surfaces so the RI venue directory and RI venue detail pages follow the same current treatment pattern as TI while keeping future RI permission tiers for later.
   - Aligned RI soccer tournament and venue detail hero treatment to TI’s current hero asset/CSS strategy for supported sports.
+
+- TI outreach preview tooling upgrades:
+  - Outreach previews now use a single-select sport picklist in filters and generator.
+  - Added an eligible director-email count (valid email, not suppressed, not previously sent) for the selected sport.
+  - Added a per-run mode selector (preview vs send) in the generator UI, and the generator API now respects the requested mode.
+  - Added per-preview "Send to director" action for one-off sends.
+  - Added multi-select + bulk "Send selected to directors" on the preview table, with invalid/suppressed rows skipped.
+  - Added a bulk send API endpoint for selected preview ids.
+  - Updated outreach generator auth to allow TI outreach admins to run in production without the header key.
+  - Files:
+    - `apps/ti-web/app/admin/outreach-previews/page.tsx`
+    - `apps/ti-web/app/admin/outreach-previews/GeneratePreviewsForm.tsx`
+    - `apps/ti-web/app/admin/outreach-previews/PreviewAdminActions.tsx`
+    - `apps/ti-web/app/admin/outreach-previews/OutreachPreviewsTable.tsx`
+    - `apps/ti-web/app/api/outreach/generate-previews/route.ts`
+    - `apps/ti-web/app/api/outreach/send-director/route.ts`

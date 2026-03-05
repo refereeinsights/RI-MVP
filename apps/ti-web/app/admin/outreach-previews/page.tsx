@@ -2,8 +2,10 @@ import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireTiOutreachAdmin } from "@/lib/outreachAdmin";
+import { getOutreachMode } from "@/lib/outreach";
 import CopyFieldButton from "./CopyFieldButton";
 import GeneratePreviewsForm from "./GeneratePreviewsForm";
+import OutreachPreviewsTable from "./OutreachPreviewsTable";
 import PreviewAdminActions from "./PreviewAdminActions";
 
 type SearchParams = {
@@ -36,6 +38,16 @@ type SuppressionRow = {
   status: string;
 };
 
+type OutreachCountRow = {
+  id: string;
+  tournament_director_email: string | null;
+};
+
+type PreviewStatusRow = {
+  tournament_id: string;
+  status: string;
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function OutreachPreviewsPage({
@@ -46,8 +58,9 @@ export default async function OutreachPreviewsPage({
   const user = await requireTiOutreachAdmin();
 
   const campaignId = searchParams?.campaign_id?.trim() || "";
-  const sport = searchParams?.sport?.trim().toLowerCase() || "";
+  const sport = normalizeOutreachSport(searchParams?.sport);
   const selectedId = searchParams?.preview_id?.trim() || "";
+  const defaultMode = getOutreachMode();
 
   let query = (supabaseAdmin.from("email_outreach_previews" as any) as any)
     .select("*")
@@ -65,8 +78,8 @@ export default async function OutreachPreviewsPage({
   const previews = (data ?? []) as PreviewRow[];
   const selectedPreview = previews.find((preview) => preview.id === selectedId) ?? previews[0] ?? null;
   const campaignOptions = Array.from(new Set(previews.map((preview) => preview.campaign_id)));
-  const sportOptions = Array.from(new Set(previews.map((preview) => preview.sport)));
   const tournamentIds = Array.from(new Set(previews.map((preview) => preview.tournament_id).filter(Boolean))) as string[];
+  const eligibleCount = sport ? await countEligibleOutreachBySport(sport) : null;
 
   let suppressionMap = new Map<string, SuppressionRow>();
   if (tournamentIds.length > 0) {
@@ -84,6 +97,10 @@ export default async function OutreachPreviewsPage({
       ((suppressionData ?? []) as SuppressionRow[]).map((row) => [row.tournament_id, row])
     );
   }
+
+  const suppressionByTournamentId = Object.fromEntries(
+    Array.from(suppressionMap.entries()).map(([id, row]) => [id, { status: row.status }])
+  );
 
   return (
     <main className="page">
@@ -110,14 +127,14 @@ export default async function OutreachPreviewsPage({
             </label>
             <label style={{ display: "grid", gap: 6 }}>
               <span style={{ fontWeight: 600 }}>Sport</span>
-              <input
-                type="text"
-                name="sport"
-                defaultValue={sport}
-                list="sport-options"
-                placeholder="soccer"
-                style={inputStyle}
-              />
+              <select name="sport" defaultValue={sport} style={inputStyle}>
+                <option value="">All sports</option>
+                {OUTREACH_SPORTS.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
             </label>
             <button type="submit" className="cta ti-home-cta ti-home-cta-primary">
               Apply filters
@@ -130,14 +147,17 @@ export default async function OutreachPreviewsPage({
                 <option key={value} value={value} />
               ))}
             </datalist>
-            <datalist id="sport-options">
-              {sportOptions.map((value) => (
-                <option key={value} value={value} />
-              ))}
-            </datalist>
           </form>
 
           <GeneratePreviewsForm initialCampaignId={campaignId} initialSport={sport || "soccer"} />
+          <p className="muted" style={{ margin: 0 }}>
+            Default mode: <strong>{defaultMode}</strong>
+          </p>
+          {eligibleCount !== null ? (
+            <p className="muted" style={{ margin: 0 }}>
+              {eligibleCount} director email{eligibleCount === 1 ? "" : "s"} available for outreach
+            </p>
+          ) : null}
         </section>
 
         <section
@@ -148,55 +168,13 @@ export default async function OutreachPreviewsPage({
             alignItems: "start",
           }}
         >
-          <div className="bodyCard" style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
-              <thead>
-                <tr>
-                  {["Created", "Tournament", "Email", "Status"].map((heading) => (
-                    <th key={heading} style={thStyle}>
-                      {heading}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {previews.map((preview) => {
-                  const href = buildPreviewHref(preview.id, campaignId, sport);
-                  const isSelected = selectedPreview?.id === preview.id;
-                  const suppression = preview.tournament_id ? suppressionMap.get(preview.tournament_id) : null;
-                  return (
-                    <tr key={preview.id} style={{ background: isSelected ? "#eff6ff" : "transparent" }}>
-                      <td style={tdStyle}>{formatDate(preview.created_at)}</td>
-                      <td style={tdStyle}>
-                        <Link href={href} style={rowLinkStyle}>
-                          {preview.tournament_name}
-                        </Link>
-                        <div className="muted" style={{ marginTop: 4, fontSize: 12, lineHeight: 1.45 }}>
-                          {preview.subject}
-                        </div>
-                      </td>
-                      <td style={tdStyle}>{preview.director_email}</td>
-                      <td style={tdStyle}>
-                        <div style={{ display: "grid", gap: 6 }}>
-                          <span style={statusPillStyle(preview.status)}>{preview.status}</span>
-                          {suppression ? (
-                            <span style={statusPillStyle(suppression.status)}>{suppression.status}</span>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {previews.length === 0 ? (
-                  <tr>
-                    <td style={tdStyle} colSpan={4}>
-                      No previews found for the current filters.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
+          <OutreachPreviewsTable
+            previews={previews}
+            selectedPreviewId={selectedPreview?.id ?? ""}
+            campaignId={campaignId}
+            sport={sport}
+            suppressionByTournamentId={suppressionByTournamentId}
+          />
 
           {selectedPreview ? (
             <div className="bodyCard" style={{ display: "grid", gap: 14 }}>
@@ -301,20 +279,100 @@ export default async function OutreachPreviewsPage({
   );
 }
 
-function buildPreviewHref(previewId: string, campaignId: string, sport: string) {
-  const url = new URLSearchParams();
-  if (campaignId) url.set("campaign_id", campaignId);
-  if (sport) url.set("sport", sport);
-  url.set("preview_id", previewId);
-  return `/admin/outreach-previews?${url.toString()}`;
+const OUTREACH_SPORTS = ["soccer", "baseball", "softball"] as const;
+type OutreachSport = (typeof OUTREACH_SPORTS)[number];
+
+function normalizeOutreachSport(value?: string) {
+  const normalized = (value || "").trim().toLowerCase();
+  if (OUTREACH_SPORTS.includes(normalized as OutreachSport)) return normalized;
+  return "";
 }
 
-function formatDate(value: string) {
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return value;
+function isValidDirectorEmail(value: string | null | undefined) {
+  if (!value) return false;
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return false;
+  const invalid = new Set(["null", "none", "n/a", "na", "unknown", "tbd", "-"]);
+  if (invalid.has(trimmed)) return false;
+  return /.+@.+\..+/.test(trimmed);
+}
+
+async function countEligibleOutreachBySport(sport: string) {
+  const batchSize = 800;
+  let offset = 0;
+  let scanCount = 0;
+  const tournamentIds: string[] = [];
+
+  while (scanCount < 50) {
+    scanCount += 1;
+    const from = offset;
+    const to = offset + batchSize - 1;
+
+    const { data, error } = await (supabaseAdmin.from("tournaments" as any) as any)
+      .select("id,tournament_director_email")
+      .eq("sport", sport)
+      .not("tournament_director_email", "is", null)
+      .neq("tournament_director_email", "")
+      .order("start_date", { ascending: true, nullsFirst: false })
+      .range(from, to);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const rows = (data ?? []) as OutreachCountRow[];
+    if (rows.length === 0) break;
+    offset += rows.length;
+
+    for (const row of rows) {
+      if (!row.id || !isValidDirectorEmail(row.tournament_director_email)) continue;
+      tournamentIds.push(row.id);
+    }
   }
+
+  if (tournamentIds.length === 0) return 0;
+
+  const suppressionIds = new Set<string>();
+  const sentIds = new Set<string>();
+
+  for (let i = 0; i < tournamentIds.length; i += 800) {
+    const slice = tournamentIds.slice(i, i + 800);
+    const { data: suppressionData, error: suppressionError } = await (supabaseAdmin.from(
+      "email_outreach_suppressions" as any
+    ) as any)
+      .select("tournament_id")
+      .in("tournament_id", slice);
+
+    if (suppressionError) {
+      throw new Error(suppressionError.message);
+    }
+
+    for (const row of (suppressionData ?? []) as SuppressionRow[]) {
+      if (row.tournament_id) suppressionIds.add(row.tournament_id);
+    }
+
+    const { data: sentData, error: sentError } = await (supabaseAdmin.from("email_outreach_previews" as any) as any)
+      .select("tournament_id,status")
+      .in("tournament_id", slice)
+      .eq("status", "sent");
+
+    if (sentError) {
+      throw new Error(sentError.message);
+    }
+
+    for (const row of (sentData ?? []) as PreviewStatusRow[]) {
+      if (row.tournament_id) sentIds.add(row.tournament_id);
+    }
+  }
+
+  let eligible = 0;
+  for (const id of tournamentIds) {
+    if (suppressionIds.has(id)) continue;
+    if (sentIds.has(id)) continue;
+    eligible += 1;
+  }
+
+  return eligible;
 }
 
 const inputStyle: CSSProperties = {
@@ -325,76 +383,12 @@ const inputStyle: CSSProperties = {
   font: "inherit",
 };
 
-const thStyle: CSSProperties = {
-  textAlign: "left",
-  padding: "10px 12px",
-  borderBottom: "1px solid #dbe4ec",
-  fontSize: 13,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  color: "#475569",
-};
-
-const tdStyle: CSSProperties = {
-  padding: "12px",
-  borderBottom: "1px solid #e2e8f0",
-  verticalAlign: "top",
-  fontSize: 14,
-};
-
-const rowLinkStyle: CSSProperties = {
-  color: "#1d4ed8",
-  textDecoration: "none",
-  fontWeight: 600,
-};
-
 const smallLinkStyle: CSSProperties = {
   color: "#1d4ed8",
   textDecoration: "none",
   fontWeight: 600,
   fontSize: 13,
 };
-
-function statusPillStyle(status: string): CSSProperties {
-  const normalized = status.trim().toLowerCase();
-  if (normalized === "sent") {
-    return {
-      display: "inline-flex",
-      padding: "4px 8px",
-      borderRadius: 999,
-      background: "#dcfce7",
-      color: "#166534",
-      fontSize: 12,
-      fontWeight: 700,
-      textTransform: "uppercase",
-      letterSpacing: "0.04em",
-    };
-  }
-  if (normalized === "error") {
-    return {
-      display: "inline-flex",
-      padding: "4px 8px",
-      borderRadius: 999,
-      background: "#fee2e2",
-      color: "#b91c1c",
-      fontSize: 12,
-      fontWeight: 700,
-      textTransform: "uppercase",
-      letterSpacing: "0.04em",
-    };
-  }
-  return {
-    display: "inline-flex",
-    padding: "4px 8px",
-    borderRadius: 999,
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    fontSize: 12,
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-  };
-}
 
 function InfoCard({ label, value }: { label: string; value: ReactNode }) {
   return (
