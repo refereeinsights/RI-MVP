@@ -478,30 +478,35 @@ export default async function VenueDetailsPage({
               )}
 
               {canReviewVenue ? (
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                  <Link href={reviewHref} className="primaryLink">
+                <div className="detailLinksRow">
+                  <Link href={reviewHref} className="secondaryLink detailLinkSmall">
                     Review this venue
                   </Link>
                 </div>
               ) : (
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                  <Link href={reviewLoginHref} className="secondaryLink">
+                <div className="detailLinksRow">
+                  <Link href={reviewLoginHref} className="secondaryLink detailLinkSmall">
                     Sign in to review
                   </Link>
                 </div>
               )}
 
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-                <Link href="/venues" className="secondaryLink">
+              <div className="detailLinksRow">
+                <Link href="/venues" className="secondaryLink detailLinkSmall">
                   Back to venues
                 </Link>
                 {data.venue_url ? (
-                  <a href={data.venue_url} target="_blank" rel="noopener noreferrer" className="secondaryLink">
+                  <a href={data.venue_url} target="_blank" rel="noopener noreferrer" className="secondaryLink detailLinkSmall">
                     Venue site
                   </a>
                 ) : null}
                 {mapLinks ? (
-                  <MobileMapLink provider="apple" query={addressLabel} fallbackHref={mapLinks.apple} className="primaryLink">
+                  <MobileMapLink
+                    provider="apple"
+                    query={addressLabel}
+                    fallbackHref={mapLinks.apple}
+                    className="secondaryLink detailLinkSmall"
+                  >
                     View map
                   </MobileMapLink>
                 ) : null}

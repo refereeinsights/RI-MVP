@@ -291,6 +291,13 @@ Maintenance rules:
     - RI smoke test login now targets the email/password inputs directly for reliability.
   - Validation:
     - `npm run test:smoke` passed.
+
+- TI venue detail link buttons:
+  - Updated:
+    - `apps/ti-web/app/tournaments/tournaments.css`
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+  - Changes:
+    - resized venue detail action buttons to a smaller pill format and applied consistent styling for `Review this venue`, `Back to venues`, `Venue site`, and `View map`.
     - `apps/referee/components/admin/TournamentPartnerNearbyEditor.tsx`
     - `scripts/ingest/seed_demo_tournament_partner_nearby.cjs`
     - `supabase/migrations/20260303_tournament_partner_nearby.sql`
