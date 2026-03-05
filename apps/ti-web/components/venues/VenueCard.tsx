@@ -17,6 +17,8 @@ type Props = {
   address: string | null;
   zip: string | null;
   notes?: string | null;
+  tier: "explorer" | "insider" | "weekend_pro";
+  isDemo?: boolean;
   sportCardClass: string;
   upcomingTournaments: {
     id: string;
@@ -44,6 +46,8 @@ export default function VenueCard({
   address,
   zip,
   notes,
+  tier,
+  isDemo = false,
   sportCardClass,
   upcomingTournaments,
   venueUrl,
@@ -59,6 +63,7 @@ export default function VenueCard({
 }: Props) {
   const locationLabel = [city, state].filter(Boolean).join(", ");
   const addressLabel = [address, city, state, zip].filter(Boolean).join(", ");
+  const effectiveTier = isDemo ? "weekend_pro" : tier;
 
   return (
     <article className={`card ${sportCardClass} ${styles.card}`}>
@@ -84,14 +89,28 @@ export default function VenueCard({
 
       <p className={`dates ${styles.dates}`}>{addressLabel || "Address TBA"}</p>
 
-      <VenueIndexBadge
-        restroom_cleanliness_avg={restroom_cleanliness_avg}
-        shade_score_avg={shade_score_avg}
-        vendor_score_avg={vendor_score_avg}
-        parking_convenience_score_avg={parking_convenience_score_avg}
-        review_count={review_count}
-        reviews_last_updated_at={reviews_last_updated_at}
-      />
+      {effectiveTier === "explorer" ? (
+        <div
+          style={{
+            border: "1px dashed rgba(255,255,255,0.3)",
+            borderRadius: 12,
+            padding: "10px 12px",
+            fontSize: 13,
+            opacity: 0.9,
+          }}
+        >
+          Venue scores locked. Create a free Insider account to view.
+        </div>
+      ) : (
+        <VenueIndexBadge
+          restroom_cleanliness_avg={restroom_cleanliness_avg}
+          shade_score_avg={shade_score_avg}
+          vendor_score_avg={vendor_score_avg}
+          parking_convenience_score_avg={parking_convenience_score_avg}
+          review_count={review_count}
+          reviews_last_updated_at={reviews_last_updated_at}
+        />
+      )}
 
       {upcomingTournaments.length > 0 ? (
         <div className={styles.upcomingBlock}>
@@ -106,7 +125,7 @@ export default function VenueCard({
         </div>
       ) : null}
 
-      {notes ? <p className={styles.notes}>{notes}</p> : null}
+      {notes && effectiveTier === "weekend_pro" ? <p className={styles.notes}>{notes}</p> : null}
 
       <div className="cardFooter">
         <Link href={`/venues/${venueId}`} className={`primaryLink ${styles.detailsLink}`}>

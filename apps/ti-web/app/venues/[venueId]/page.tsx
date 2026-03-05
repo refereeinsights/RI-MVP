@@ -152,7 +152,6 @@ async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
 
 export const revalidate = 300;
 
-const PREMIUM_PREVIEW_VENUE_NAME_HINTS = ["grand canyon university", "gcu"];
 const PREMIUM_PREVIEW_TOURNAMENT_SLUGS = new Set(["refereeinsights-demo-tournament"]);
 
 export default async function VenueDetailsPage({
@@ -216,10 +215,7 @@ export default async function VenueDetailsPage({
     !venueInsightsExtra.error || extraCode === "42703" || extraCode === "PGRST204"
       ? venueInsightsExtra.data
       : null;
-  const venueNameNormalized = (data.name ?? "").trim().toLowerCase();
-  const hasPremiumPreviewVenue = PREMIUM_PREVIEW_VENUE_NAME_HINTS.some(
-    (hint) => venueNameNormalized === hint || venueNameNormalized.includes(hint)
-  );
+  const isDemoVenue = data.id === DEMO_STARFIRE_VENUE_ID;
 
   const linkedTournaments = (data.tournament_venues ?? [])
     .map((tv) => tv?.tournaments)
@@ -232,7 +228,7 @@ export default async function VenueDetailsPage({
   const hasPremiumPreviewTournament = linkedTournaments.some((t) =>
     PREMIUM_PREVIEW_TOURNAMENT_SLUGS.has((t.slug ?? "").trim().toLowerCase())
   );
-  const canViewPremiumDetails = isPaid || hasPremiumPreviewVenue || hasPremiumPreviewTournament;
+  const canViewPremiumDetails = isPaid || isDemoVenue || hasPremiumPreviewTournament;
 
   const today = new Date().toISOString().slice(0, 10);
   const upcomingTournaments = linkedTournaments
@@ -455,14 +451,28 @@ export default async function VenueDetailsPage({
                 {addressLabel || "Address TBA"}
               </p>
 
-              <VenueIndexBadge
-                restroom_cleanliness_avg={data.restroom_cleanliness_avg}
-                shade_score_avg={data.shade_score_avg}
-                vendor_score_avg={data.vendor_score_avg}
-                parking_convenience_score_avg={data.parking_convenience_score_avg}
-                review_count={data.review_count}
-                reviews_last_updated_at={data.reviews_last_updated_at}
-              />
+              {canViewPremiumDetails || tier !== "explorer" ? (
+                <VenueIndexBadge
+                  restroom_cleanliness_avg={data.restroom_cleanliness_avg}
+                  shade_score_avg={data.shade_score_avg}
+                  vendor_score_avg={data.vendor_score_avg}
+                  parking_convenience_score_avg={data.parking_convenience_score_avg}
+                  review_count={data.review_count}
+                  reviews_last_updated_at={data.reviews_last_updated_at}
+                />
+              ) : (
+                <div
+                  style={{
+                    border: "1px dashed rgba(255,255,255,0.3)",
+                    borderRadius: 12,
+                    padding: "10px 12px",
+                    fontSize: 13,
+                    opacity: 0.9,
+                  }}
+                >
+                  Venue scores are locked. Create a free Insider account to view.
+                </div>
+              )}
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
                 <Link href="/venues" className="secondaryLink">
@@ -496,10 +506,11 @@ export default async function VenueDetailsPage({
                 airportSummary={airportSummary}
                 premiumNearby={premiumNearby}
                 tier={tier}
+                showAllDetails={canViewPremiumDetails}
                 mapLinks={mapLinks}
                 mapQuery={addressLabel || null}
                 demoScores={demoScores}
-                demoScoresIsDemo={data.id === DEMO_STARFIRE_VENUE_ID}
+                demoScoresIsDemo={isDemoVenue}
                 defaultNearbyAllCollapsed
               />
 
@@ -531,7 +542,7 @@ export default async function VenueDetailsPage({
                 <p style={{ margin: 0, opacity: 0.9 }}>No upcoming tournaments currently linked to this venue.</p>
               )}
 
-              {data.notes ? (
+              {data.notes && canViewPremiumDetails ? (
                 <div style={{ marginTop: 6 }}>
                   <p style={{ margin: 0, fontWeight: 700 }}>Notes</p>
                   <p style={{ margin: "4px 0 0", opacity: 0.95 }}>{data.notes}</p>

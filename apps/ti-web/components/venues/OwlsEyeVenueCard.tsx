@@ -47,6 +47,7 @@ type OwlsEyeVenueCardProps = {
   } | null;
   premiumNearby: { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; captured_at: string | null } | null;
   tier: "explorer" | "insider" | "weekend_pro";
+  showAllDetails?: boolean;
   mapLinks: { google: string; apple: string; waze: string } | null;
   mapQuery: string | null;
   demoScores?: OwlsEyeDemoScores | null;
@@ -62,6 +63,7 @@ export default function OwlsEyeVenueCard({
   airportSummary,
   premiumNearby,
   tier,
+  showAllDetails = false,
   mapLinks,
   mapQuery,
   demoScores,
@@ -130,84 +132,98 @@ export default function OwlsEyeVenueCard({
         {hasOwlsEye ? (
           <div className="detailVenueNearbyPreview">
             <div className="detailVenueNearbyPreview__title">Nearby Options ({BRAND_OWL})</div>
-            <div className="detailVenueNearbyPreview__counts">
-              <div>☕ {nearbyCounts.coffee} coffee nearby</div>
-              <div>🍔 {nearbyCounts.food} food options nearby</div>
-              <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
-            </div>
-            {primaryAirport ? (
-              <div style={{ marginTop: -3, display: "grid", gap: 1, justifyItems: "center" }}>
-                <div style={{ fontWeight: 700, lineHeight: 1.1 }}>✈️ Nearest Major Airport</div>
-                {nearestMajorAirport ? (
-                  <div style={{ textAlign: "center" }}>
-                    <div>
-                      {nearestMajorAirport.name}{" "}
-                      {nearestMajorAirport.iata_code || nearestMajorAirport.ident
-                        ? `(${nearestMajorAirport.iata_code || nearestMajorAirport.ident}) `
-                        : ""}
-                      {nearestMajorAirport.distance_miles} mi
-                    </div>
-                  </div>
-                ) : nearestAirport ? (
-                  <div style={{ textAlign: "center" }}>
-                    <div>
-                      {nearestAirport.name}{" "}
-                      {nearestAirport.iata_code || nearestAirport.ident
-                        ? `(${nearestAirport.iata_code || nearestAirport.ident}) `
-                        : ""}
-                      {nearestAirport.distance_miles} mi
-                    </div>
+            {showAllDetails ? (
+              <>
+                <div className="detailVenueNearbyPreview__counts">
+                  <div>☕ {nearbyCounts.coffee} coffee nearby</div>
+                  <div>🍔 {nearbyCounts.food} food options nearby</div>
+                  <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
+                </div>
+                {primaryAirport ? (
+                  <div style={{ marginTop: -3, display: "grid", gap: 1, justifyItems: "center" }}>
+                    <div style={{ fontWeight: 700, lineHeight: 1.1 }}>✈️ Nearest Major Airport</div>
+                    {nearestMajorAirport ? (
+                      <div style={{ textAlign: "center" }}>
+                        <div>
+                          {nearestMajorAirport.name}{" "}
+                          {nearestMajorAirport.iata_code || nearestMajorAirport.ident
+                            ? `(${nearestMajorAirport.iata_code || nearestMajorAirport.ident}) `
+                            : ""}
+                          {nearestMajorAirport.distance_miles} mi
+                        </div>
+                      </div>
+                    ) : nearestAirport ? (
+                      <div style={{ textAlign: "center" }}>
+                        <div>
+                          {nearestAirport.name}{" "}
+                          {nearestAirport.iata_code || nearestAirport.ident
+                            ? `(${nearestAirport.iata_code || nearestAirport.ident}) `
+                            : ""}
+                          {nearestAirport.distance_miles} mi
+                        </div>
+                      </div>
+                    ) : null}
+                    {airportMapLinks && primaryAirportQuery ? (
+                      <div className="detailLinksRow" style={{ gap: 4, width: "100%" }}>
+                        <MobileMapLink
+                          provider="google"
+                          query={primaryAirportQuery}
+                          fallbackHref={airportMapLinks.google}
+                          className="secondaryLink"
+                        >
+                          Google Maps
+                        </MobileMapLink>
+                        <MobileMapLink
+                          provider="apple"
+                          query={primaryAirportQuery}
+                          fallbackHref={airportMapLinks.apple}
+                          className="secondaryLink"
+                        >
+                          Apple Maps
+                        </MobileMapLink>
+                        <MobileMapLink
+                          provider="waze"
+                          query={primaryAirportQuery}
+                          fallbackHref={airportMapLinks.waze}
+                          className="secondaryLink"
+                        >
+                          Waze
+                        </MobileMapLink>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
-                {airportMapLinks && primaryAirportQuery ? (
-                  <div
-                    className="detailLinksRow"
-                    style={{ gap: 4, width: "100%" }}
-                  >
-                    <MobileMapLink
-                      provider="google"
-                      query={primaryAirportQuery}
-                      fallbackHref={airportMapLinks.google}
-                      className="secondaryLink"
-                    >
-                      Google Maps
-                    </MobileMapLink>
-                    <MobileMapLink
-                      provider="apple"
-                      query={primaryAirportQuery}
-                      fallbackHref={airportMapLinks.apple}
-                      className="secondaryLink"
-                    >
-                      Apple Maps
-                    </MobileMapLink>
-                    <MobileMapLink
-                      provider="waze"
-                      query={primaryAirportQuery}
-                      fallbackHref={airportMapLinks.waze}
-                      className="secondaryLink"
-                    >
-                      Waze
-                    </MobileMapLink>
-                  </div>
-                ) : null}
+                <div className="detailVenueNearbyPreview__teaser">
+                  Open Premium planning details to view full list and one-tap directions.
+                </div>
+              </>
+            ) : (
+              <div className="detailVenueNearbyPreview__teaser">
+                {tier === "explorer"
+                  ? "Owl's Eye planning data is available. Create a free Insider account to view scores."
+                  : "Owl's Eye planning data is available. Upgrade to Weekend Pro to view nearby lists."}
               </div>
-            ) : null}
-            <div className="detailVenueNearbyPreview__teaser">
-              {canViewPremiumDetails
-                ? "Open Premium planning details to view full list and one-tap directions."
-                : "See Premium Planning Details below to unlock full list and one-tap directions."}
-            </div>
+            )}
           </div>
         ) : null}
 
         <details className="detailVenuePremium">
           <summary className="detailVenuePremium__summary">Premium planning details</summary>
           <div className="detailVenuePremium__body">
+            {demoScores ? (
+              <div style={{ marginBottom: 12 }}>
+                <OwlsEyeDemoScoresPanel
+                  scores={demoScores}
+                  isDemo={demoScoresIsDemo}
+                  tier={tier}
+                  showAll={showAllDetails}
+                />
+              </div>
+            ) : null}
             {canViewPremiumDetails ? (
               premiumNearby ? (
                 <div className="detailVenueNearbyGuide">
                   <div className="detailVenueNearbyGuide__title">{BRAND_OWL} Weekend Guide</div>
-                  {demoScores ? <OwlsEyeDemoScoresPanel scores={demoScores} isDemo={demoScoresIsDemo} /> : null}
                   <OwlsEyeWeekendGuideAccordion
                     defaultAllCollapsed={defaultNearbyAllCollapsed}
                     groups={[

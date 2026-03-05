@@ -258,6 +258,24 @@ Maintenance rules:
 - RI + TI tournament-specific Owl's Eye partner placements:
   - Added:
     - `apps/referee/app/api/admin/tournaments/[id]/partner-nearby/route.ts`
+
+## 2026-03-05
+- TI entitlement alignment (Explorer/Insider/Weekend Pro) + demo-only preview:
+  - Updated:
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - `apps/ti-web/app/venues/[venueId]/page.tsx`
+    - `apps/ti-web/app/venues/page.tsx`
+    - `apps/ti-web/components/OwlsEyeDemoScoresPanel.tsx`
+    - `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`
+    - `apps/ti-web/components/venues/VenueCard.tsx`
+  - Changes:
+    - removed non-demo premium preview exceptions so only the demo tournament/venue bypass entitlements,
+    - Explorer now sees Owl's Eye availability + vendor Yes/No with scores/notes locked,
+    - Insider now sees core scores (shade/vendor/parking convenience/bring chairs) + review counts but not restrooms, fees, notes, or Owl's Eye lists,
+    - Weekend Pro sees full details plus Owl's Eye nearby lists,
+    - venue list tiles hide notes and lock venue index for Explorer.
+  - Validation:
+    - `npm run test:smoke` passed (local dev servers on `localhost:3000` and `localhost:3001`).
     - `apps/referee/components/admin/TournamentPartnerNearbyEditor.tsx`
     - `scripts/ingest/seed_demo_tournament_partner_nearby.cjs`
     - `supabase/migrations/20260303_tournament_partner_nearby.sql`

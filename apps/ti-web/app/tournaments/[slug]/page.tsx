@@ -90,9 +90,6 @@ export const revalidate = 300;
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
 const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
-const PREMIUM_PREVIEW_SLUGS = new Set(["refereeinsights-demo-tournament", "hooptown-championship"]);
-const PREMIUM_PREVIEW_NAMES = new Set(["hooptown championship"]);
-const PREMIUM_PREVIEW_VENUE_NAMES = new Set(["the hub", "grand canyon university", "gcu"]);
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -293,23 +290,8 @@ export default async function TournamentDetailPage({
   const linkedVenueIds = linkedVenues.map((v) => v.id).filter(Boolean);
   const linkedVenueNameById = new Map(linkedVenues.map((venue) => [venue.id, venue.name ?? "Tournament venue"]));
   const resolvedSlug = (data.slug ?? params.slug ?? "").toLowerCase();
-  const resolvedName = (data.name ?? "").trim().toLowerCase();
   const isDemoTournament = resolvedSlug === DEMO_TOURNAMENT_SLUG;
-  const hasPremiumPreviewVenue = linkedVenues.some((venue) => {
-    const name = (venue.name ?? "").trim().toLowerCase();
-    return (
-      PREMIUM_PREVIEW_VENUE_NAMES.has(name) ||
-      name.includes("grand canyon university") ||
-      name.includes("gcu")
-    );
-  });
-  const hasPremiumPreview =
-    PREMIUM_PREVIEW_SLUGS.has(resolvedSlug) ||
-    PREMIUM_PREVIEW_NAMES.has(resolvedName) ||
-    resolvedSlug.includes("hooptown") ||
-    resolvedName.includes("hooptown") ||
-    hasPremiumPreviewVenue;
-  const canViewPremiumDetails = isPaid || hasPremiumPreview;
+  const canViewPremiumDetails = isPaid || isDemoTournament;
   let nearbyCountsByVenueId = new Map<
     string,
     {

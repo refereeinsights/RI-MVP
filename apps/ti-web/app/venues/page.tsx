@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { getTier } from "@/lib/entitlements";
 import { TI_SPORT_LABELS } from "@/lib/tiSports";
+import { DEMO_STARFIRE_VENUE_ID } from "@/lib/owlsEyeScores";
 import StateMultiSelect from "../tournaments/StateMultiSelect";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
@@ -174,6 +177,31 @@ export default async function VenuesPage({
     : (includePastParam ?? "").toLowerCase() === "true";
   const sportsSelectedRaw = Array.isArray(sportsParam) ? sportsParam : sportsParam ? [sportsParam] : [];
   const sportsSelected = sportsSelectedRaw.map((s) => canonicalSport(s)).filter(Boolean);
+
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: entitlementProfile } = user
+    ? await supabase
+        .from("ti_users" as any)
+        .select("plan,subscription_status,current_period_end,trial_ends_at")
+        .eq("id", user.id)
+        .maybeSingle<{
+          plan: string | null;
+          subscription_status: string | null;
+          current_period_end: string | null;
+          trial_ends_at: string | null;
+        }>()
+    : {
+        data: null as {
+          plan: string | null;
+          subscription_status: string | null;
+          current_period_end: string | null;
+          trial_ends_at: string | null;
+        } | null,
+      };
+  const tier = getTier(user, entitlementProfile ?? null);
 
   const stateSelectionsRaw = (Array.isArray(stateParam) ? stateParam : stateParam ? [stateParam] : [])
     .map((s) => s.trim().toUpperCase())
@@ -500,6 +528,8 @@ export default async function VenuesPage({
                   address={venue.address}
                   zip={venue.zip}
                   notes={venue.notes}
+                  tier={tier}
+                  isDemo={venue.id === DEMO_STARFIRE_VENUE_ID}
                   sportCardClass={getVenueCardClassFromSports(venue.sports)}
                   upcomingTournaments={venue.upcomingTournaments}
                   venueUrl={venue.venue_url}
