@@ -2873,3 +2873,11 @@ Maintenance rules:
     - `apps/ti-web/app/admin/outreach-previews/OutreachPreviewsTable.tsx`
     - `apps/ti-web/app/api/outreach/generate-previews/route.ts`
     - `apps/ti-web/app/api/outreach/send-director/route.ts`
+
+- TI staff-verified badge placement:
+  - Added staff-verified badge to the tournament detail hero when `tournament_staff_verified` is true or the demo tournament is shown.
+  - Moved the staff-verified badge into the left slot of the tournament card footer icon row so the three badges (verified, sport ball, Owl’s Eye) are evenly spaced.
+  - Files:
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+    - `apps/ti-web/app/tournaments/page.tsx`
+    - `apps/ti-web/app/tournaments/hubs/HubTournamentsPage.tsx`

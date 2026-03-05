@@ -24,6 +24,7 @@ type TournamentDetailRow = {
   official_website_url?: string | null;
   sport: string | null;
   level: string | null;
+  tournament_staff_verified?: boolean | null;
   venue: string | null;
   address: string | null;
   venue_url?: string | null;
@@ -260,7 +261,7 @@ export default async function TournamentDetailPage({
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
     .select(
-      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,sport,level,venue,address,tournament_venues(venues(id,name,address,city,state,zip,latitude,longitude,venue_url,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at))"
+      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,sport,level,tournament_staff_verified,venue,address,tournament_venues(venues(id,name,address,city,state,zip,latitude,longitude,venue_url,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at))"
     )
     .eq("slug", params.slug)
     .maybeSingle<TournamentDetailRow>();
@@ -291,6 +292,7 @@ export default async function TournamentDetailPage({
   const linkedVenueNameById = new Map(linkedVenues.map((venue) => [venue.id, venue.name ?? "Tournament venue"]));
   const resolvedSlug = (data.slug ?? params.slug ?? "").toLowerCase();
   const isDemoTournament = resolvedSlug === DEMO_TOURNAMENT_SLUG;
+  const showStaffVerified = Boolean(data.tournament_staff_verified) || isDemoTournament;
   const canViewPremiumDetails = isPaid || isDemoTournament;
   let nearbyCountsByVenueId = new Map<
     string,
@@ -392,6 +394,15 @@ export default async function TournamentDetailPage({
     <main className="pitchWrap tournamentsWrap">
       <section className={`detailHero ${sportSurfaceClass}`}>
         <div className="detailHero__overlay">
+          {showStaffVerified ? (
+            <div className="detailBadgeRail">
+              <img
+                className="detailBadgeIcon detailBadgeIcon--verified"
+                src="/svg/ri/tournament_staff_verified.svg"
+                alt="Tournament staff verified"
+              />
+            </div>
+          ) : null}
           <script
             type="application/ld+json"
             suppressHydrationWarning

@@ -20,6 +20,7 @@ type Tournament = {
   official_website_url?: string | null;
   source_url?: string | null;
   level?: string | null;
+  tournament_staff_verified?: boolean | null;
 };
 type TournamentVenueLink = {
   tournament_id: string;
@@ -161,7 +162,9 @@ export async function HubTournamentsPage({
 
   let query = supabaseAdmin
     .from("tournaments_public" as any)
-    .select("id,name,slug,sport,tournament_association,state,city,zip,start_date,end_date,official_website_url,source_url,level")
+    .select(
+      "id,name,slug,sport,tournament_association,state,city,zip,start_date,end_date,official_website_url,source_url,level,tournament_staff_verified"
+    )
     .eq("sport", config.sport)
     .order("start_date", { ascending: true });
 
@@ -414,6 +417,7 @@ export async function HubTournamentsPage({
                 const locationLabel = [t.city, t.state].filter(Boolean).join(", ");
                 const isDemoTournament = t.slug === DEMO_TOURNAMENT_SLUG;
                 const showOwlsEyeBadge = isDemoTournament || Boolean(hasOwlsEyeByTournament.get(t.id));
+                const showStaffVerified = Boolean(t.tournament_staff_verified) || isDemoTournament;
                 const hasOfficialSite = Boolean(t.official_website_url) && !isDemoTournament;
 
                 return (
@@ -450,16 +454,24 @@ export async function HubTournamentsPage({
                         View details
                       </Link>
                     </div>
-                    <div className="cardFooterBadgeRow">
-                      <div className="cardFooterBadge cardFooterBadge--left" />
-                      <div className="sportIcon" aria-label={t.sport ?? "tournament sport"}>
-                        {sportIcon(t.sport)}
-                      </div>
-                      <div className="cardFooterBadge cardFooterBadge--right">
-                        {showOwlsEyeBadge ? (
-                          <img
-                            className="listingBadgeIcon listingBadgeIcon--owlsEye"
-                            src="/svg/ri/owls_eye_badge.svg"
+                  <div className="cardFooterBadgeRow">
+                    <div className="cardFooterBadge cardFooterBadge--left">
+                      {showStaffVerified ? (
+                        <img
+                          className="listingBadgeIcon listingBadgeIcon--verified"
+                          src="/svg/ri/tournament_staff_verified.svg"
+                          alt="Tournament staff verified"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="sportIcon" aria-label={t.sport ?? "tournament sport"}>
+                      {sportIcon(t.sport)}
+                    </div>
+                    <div className="cardFooterBadge cardFooterBadge--right">
+                      {showOwlsEyeBadge ? (
+                        <img
+                          className="listingBadgeIcon listingBadgeIcon--owlsEye"
+                          src="/svg/ri/owls_eye_badge.svg"
                             alt="Owl's Eye insights available"
                           />
                         ) : null}
