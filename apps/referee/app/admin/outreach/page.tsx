@@ -390,8 +390,8 @@ export default async function OutreachPage({
   return (
     <main className="pitchWrap">
       <section className="field">
-        <AdminNav />
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <AdminNav />
           <h1 style={{ fontSize: 22, fontWeight: 900, marginBottom: 6 }}>Tournament outreach</h1>
           <p style={{ color: "#555", marginTop: 0 }}>
             Draft and track outreach to tournament staff. Email sending is manual.

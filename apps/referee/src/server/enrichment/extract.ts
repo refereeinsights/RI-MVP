@@ -79,6 +79,19 @@ const DATE_CONTEXT_KEYWORDS = [
 ];
 
 const ASSIGNING_PLATFORMS = ["arbiter", "arbitersports", "assignr", "gameofficials", "zebraweb"];
+const TOURNAMENT_PLATFORM_HOSTS = [
+  "gotsport.com",
+  "gotsoccer.com",
+  "sincsports.com",
+  "stacksports.com",
+  "tourneymachine.com",
+  "tournamentcenter.gg",
+  "eventconnect.io",
+  "playmetrics.com",
+  "leaguelobster.com",
+  "tourneymachine.com",
+  "sportsengine.com",
+];
 const CONTACT_CUE_KEYWORDS = [
   "contact",
   "questions",
@@ -317,6 +330,13 @@ function isSameSiteHost(candidateHost: string, baseHost: string) {
   const candidate = candidateHost.toLowerCase();
   const base = baseHost.toLowerCase();
   return candidate === base || candidate.endsWith(`.${base}`) || base.endsWith(`.${candidate}`);
+}
+
+function isAllowedExternalTournamentHost(candidateHost: string) {
+  const candidate = candidateHost.toLowerCase();
+  return TOURNAMENT_PLATFORM_HOSTS.some(
+    (host) => candidate === host || candidate.endsWith(`.${host}`)
+  );
 }
 
 function extractContacts(html: string, url: string): ContactCandidate[] {
@@ -931,10 +951,16 @@ export function rankLinks($: cheerio.CheerioAPI, baseUrl: URL): string[] {
     try {
       const url = new URL(href, baseUrl);
       if (url.protocol !== "http:" && url.protocol !== "https:") return;
-      if (!isSameSiteHost(url.hostname, baseUrl.hostname)) return;
       const key = url.toString();
       const text = ($(el).text() || "").toLowerCase();
       const path = url.pathname.toLowerCase();
+      const combined = `${text} ${path}`.toLowerCase();
+      const externalAllowed =
+        isAllowedExternalTournamentHost(url.hostname) &&
+        /(contact|questions|referee|officials|assignor|director|staff|register|registration|event|schedule|details|info)/i.test(
+          combined
+        );
+      if (!isSameSiteHost(url.hostname, baseUrl.hostname) && !externalAllowed) return;
       let score = 0;
       const keywordHits = [...ROLE_KEYWORDS.TD, ...ROLE_KEYWORDS.ASSIGNOR, ...VENUE_KEYWORDS, ...RATE_KEYWORDS, ...TRAVEL_KEYWORDS];
       keywordHits.forEach((k) => {

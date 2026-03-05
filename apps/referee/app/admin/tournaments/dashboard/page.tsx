@@ -4,6 +4,18 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
+type OutreachCampaignSummary = {
+  campaignId: string;
+  sport: string;
+  createdAt: string | null;
+  total: number;
+  preview: number;
+  sent: number;
+  error: number;
+  variantA: number;
+  variantB: number;
+};
+
 type Search = {
   sport?: string;
   state?: string | string[];
@@ -29,6 +41,16 @@ function addDays(days: number) {
   return d.toISOString().slice(0, 10);
 }
 
+function hasText(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function normalizedPlan(value: string | null | undefined) {
+  const plan = (value ?? "").trim().toLowerCase();
+  if (!plan || plan === "free") return "insider";
+  return plan;
+}
+
 export default async function TournamentsDashboard({ searchParams }: { searchParams: Search }) {
   await requireAdmin();
   const sport = searchParams.sport ?? "";
@@ -49,7 +71,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   const supabase = supabaseAdmin;
   let tQuery = supabase
     .from("tournaments" as any)
-    .select("id,name,start_date,state,city,status,source_url,official_website_url,venue,address,sport")
+    .select("id,name,start_date,end_date,state,city,status,source_url,official_website_url,venue,address,sport,tournament_director_email")
     .or(`start_date.gte.${start},start_date.is.null`);
   if (end) tQuery = tQuery.lte("start_date", end);
   if (sport) tQuery = tQuery.eq("sport", sport);
@@ -61,13 +83,36 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
 
   let byStateQuery = supabase
     .from("tournaments" as any)
-    .select("id,name,start_date,state,city,status,source_url,official_website_url,venue,address,sport")
+    .select("id,name,start_date,end_date,state,city,status,source_url,official_website_url,venue,address,sport,tournament_director_email")
     .or(`start_date.gte.${start},start_date.is.null`);
   if (end) byStateQuery = byStateQuery.lte("start_date", end);
   if (sport) byStateQuery = byStateQuery.eq("sport", sport);
   const byStateRes = await byStateQuery;
   const byStateTournaments = byStateRes.data ?? [];
   const byStateIds = byStateTournaments.map((t: any) => t.id);
+
+  let sportTileQuery = supabase
+    .from("tournaments" as any)
+    .select("id,sport,start_date,end_date,state,tournament_director_email,venue,address")
+    .order("updated_at", { ascending: false });
+  if (sport) sportTileQuery = sportTileQuery.eq("sport", sport);
+  if (states.length) sportTileQuery = sportTileQuery.in("state", states);
+  const sportTileRes = await sportTileQuery;
+  const sportTileTournaments = sportTileRes.data ?? [];
+  const sportTileIds = sportTileTournaments.map((t: any) => t.id).filter(Boolean);
+
+  const sportTileVenueRes = sportTileIds.length
+    ? await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("tournament_id,venue_id")
+        .in("tournament_id", sportTileIds)
+    : { data: [] as any[], error: null };
+  const sportTileVenueLinks = sportTileVenueRes.data ?? [];
+  const linkedVenueCounts = new Map<string, number>();
+  sportTileVenueLinks.forEach((row: any) => {
+    if (!row.tournament_id || !row.venue_id) return;
+    linkedVenueCounts.set(String(row.tournament_id), (linkedVenueCounts.get(String(row.tournament_id)) ?? 0) + 1);
+  });
 
   const jobsRes = ids.length
     ? await supabase.from("tournament_enrichment_jobs" as any).select("tournament_id,status").in("tournament_id", ids)
@@ -151,6 +196,91 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
     },
     {}
   );
+
+  const sportTileMap = new Map<
+    string,
+    {
+      total: number;
+      upcoming: number;
+      missingDirectorEmail: number;
+      missingDates: number;
+      missingVenues: number;
+    }
+  >();
+  const today = todayIso();
+  sportTileTournaments.forEach((t: any) => {
+    const key = (t.sport || "unknown").toLowerCase();
+    const row = sportTileMap.get(key) ?? {
+      total: 0,
+      upcoming: 0,
+      missingDirectorEmail: 0,
+      missingDates: 0,
+      missingVenues: 0,
+    };
+    row.total += 1;
+    const effectiveDate = t.end_date ?? t.start_date ?? null;
+    if (effectiveDate && effectiveDate >= today) row.upcoming += 1;
+    if (!hasText(t.tournament_director_email)) row.missingDirectorEmail += 1;
+    if (!hasText(t.start_date) || !hasText(t.end_date)) row.missingDates += 1;
+    const hasLinkedVenue = (linkedVenueCounts.get(String(t.id)) ?? 0) > 0;
+    const hasFallbackVenue = hasText(t.venue) || hasText(t.address);
+    if (!hasLinkedVenue && !hasFallbackVenue) row.missingVenues += 1;
+    sportTileMap.set(key, row);
+  });
+
+  const [tiUsersRes, outreachRes] = await Promise.all([
+    (supabaseAdmin.from("ti_users" as any) as any).select("id,plan,subscription_status"),
+    (supabaseAdmin.from("email_outreach_previews" as any) as any)
+      .select("campaign_id,sport,variant,status,created_at")
+      .order("created_at", { ascending: false })
+      .limit(500),
+  ]);
+
+  const tiUsers = tiUsersRes.data ?? [];
+  const tiSummary = tiUsers.reduce(
+    (acc: { insider: number; weekendPro: number }, row: any) => {
+      const plan = normalizedPlan(row.plan);
+      if (plan === "weekend_pro") acc.weekendPro += 1;
+      else acc.insider += 1;
+      return acc;
+    },
+    { insider: 0, weekendPro: 0 }
+  );
+
+  const outreachRows = outreachRes.data ?? [];
+  const outreachCampaigns = (
+    Array.from(
+      outreachRows.reduce((acc, row: any) => {
+        const key = `${row.campaign_id ?? "unknown"}|${row.sport ?? "unknown"}`;
+        const existing =
+          acc.get(key) ??
+          {
+            campaignId: row.campaign_id ?? "unknown",
+            sport: row.sport ?? "unknown",
+            createdAt: row.created_at ?? null,
+            total: 0,
+            preview: 0,
+            sent: 0,
+            error: 0,
+            variantA: 0,
+            variantB: 0,
+          };
+        existing.total += 1;
+        if (row.status === "sent") existing.sent += 1;
+        else if (row.status === "error") existing.error += 1;
+        else existing.preview += 1;
+        if (row.variant === "A") existing.variantA += 1;
+        if (row.variant === "B") existing.variantB += 1;
+        if (!existing.createdAt || (row.created_at && existing.createdAt < row.created_at)) {
+          existing.createdAt = row.created_at;
+        }
+        acc.set(key, existing);
+        return acc;
+      }, new Map<string, OutreachCampaignSummary>()).values()
+    ) as OutreachCampaignSummary[]
+  )
+    .sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")))
+    .slice(0, 8);
 
   // Top sources (log rows in last 30 days)
   const thirtyAgo = addDays(-30);
@@ -329,17 +459,82 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
 
       <h2 style={{ marginTop: 0 }}>Tournaments by sport</h2>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginBottom: 20 }}>
-        {Object.entries(sportCounts)
-          .sort((a, b) => b[1] - a[1])
+        {Array.from(sportTileMap.entries())
+          .sort((a, b) => b[1].upcoming - a[1].upcoming || b[1].total - a[1].total)
           .map(([key, value]) => (
             <div key={key} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12, background: "#fff" }}>
-              <div style={{ fontSize: 12, color: "#555" }}>{key}</div>
-              <div style={{ fontSize: 20, fontWeight: 900 }}>{value}</div>
+              <div style={{ fontSize: 12, color: "#555", textTransform: "capitalize" }}>{key}</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{value.upcoming}</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>Upcoming tournaments</div>
+              <div style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
+                <div>Total tournaments: <strong>{value.total}</strong></div>
+                <div>Missing director email: <strong>{value.missingDirectorEmail}</strong></div>
+                <div>Missing dates: <strong>{value.missingDates}</strong></div>
+                <div>Missing venues: <strong>{value.missingVenues}</strong></div>
+              </div>
             </div>
           ))}
-        {!Object.keys(sportCounts).length && (
+        {!sportTileMap.size && (
           <div style={{ color: "#666" }}>No tournaments in range.</div>
         )}
+      </div>
+
+      <h2 style={{ marginTop: 0 }}>TournamentInsights</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, marginBottom: 12 }}>
+        <div style={{ border: "1px solid #dbeafe", borderRadius: 12, padding: 16, background: "#eff6ff", textAlign: "center" }}>
+          <div style={{ fontSize: 12, color: "#1d4ed8", fontWeight: 700 }}>Total TI Insider</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: "#0f172a" }}>{tiSummary.insider}</div>
+        </div>
+        <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16, background: "#fff", textAlign: "center" }}>
+          <div style={{ fontSize: 12, color: "#475569", fontWeight: 700 }}>Recent outreach campaigns</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: "#0f172a" }}>{outreachCampaigns.length}</div>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Latest {Math.min(outreachCampaigns.length, 8)} campaign groups</div>
+        </div>
+        <div style={{ border: "1px solid #ede9fe", borderRadius: 12, padding: 16, background: "#f5f3ff", textAlign: "center" }}>
+          <div style={{ fontSize: 12, color: "#7c3aed", fontWeight: 700 }}>Total Weekend Pro</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: "#0f172a" }}>{tiSummary.weekendPro}</div>
+        </div>
+      </div>
+
+      <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12, background: "#fff", marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 8 }}>
+          <h3 style={{ margin: 0, fontSize: 16 }}>TI outreach campaigns</h3>
+          <a href="https://www.tournamentinsights.com/admin/outreach-previews?sport=soccer" target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8", textDecoration: "none" }}>
+            Open TI outreach previews
+          </a>
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr>
+              {["Campaign", "Sport", "Preview", "Sent", "Errors", "Variant A", "Variant B", "Latest"].map((h) => (
+                <th key={h} style={{ textAlign: "left", padding: "6px 4px", borderBottom: "1px solid #eee" }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {outreachCampaigns.map((row) => (
+              <tr key={`${row.campaignId}-${row.sport}`}>
+                <td style={{ padding: "6px 4px" }}>{row.campaignId}</td>
+                <td style={{ padding: "6px 4px", textTransform: "capitalize" }}>{row.sport}</td>
+                <td style={{ padding: "6px 4px" }}>{row.preview}</td>
+                <td style={{ padding: "6px 4px" }}>{row.sent}</td>
+                <td style={{ padding: "6px 4px" }}>{row.error}</td>
+                <td style={{ padding: "6px 4px" }}>{row.variantA}</td>
+                <td style={{ padding: "6px 4px" }}>{row.variantB}</td>
+                <td style={{ padding: "6px 4px" }}>{row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}</td>
+              </tr>
+            ))}
+            {!outreachCampaigns.length && (
+              <tr>
+                <td colSpan={8} style={{ padding: 8, color: "#666" }}>
+                  No TI outreach campaign records yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       <h2 style={{ marginTop: 0 }}>Top sources (last 30d)</h2>
