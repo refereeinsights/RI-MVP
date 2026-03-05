@@ -500,6 +500,7 @@ export function applyDuplicateMatchToForm(
     verifyTargetTournamentId: current.verifyTargetTournamentId || match.id,
     tournament: {
       ...current.tournament,
+      name: current.tournament.name || match.name || "",
       sport: current.tournament.sport || match.sport || "",
       startDate: current.tournament.startDate || match.startDate || "",
       endDate: current.tournament.endDate || match.endDate || "",

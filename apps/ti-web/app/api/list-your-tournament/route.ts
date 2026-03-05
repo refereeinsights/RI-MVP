@@ -1,141 +1,20 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
-  getSponsorCategoryFormState,
   buildTournamentSlug,
-  type TournamentDuplicateMatch,
   type SanitizedTournamentSubmission,
   type TournamentSubmissionInput,
   validateTournamentSubmission,
 } from "@/lib/listTournamentForm";
+import {
+  findTournamentDuplicateMatchByName,
+  getTournamentDuplicateMatchById,
+} from "@/lib/tournamentDuplicateMatch";
 
 type TournamentInsertResult = {
   id: string;
   slug: string;
 };
-
-type DuplicateLookupRow = {
-  id: string;
-  slug: string | null;
-  name: string | null;
-  sport: string | null;
-  city: string | null;
-  state: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  official_website_url: string | null;
-  team_fee: string | null;
-  age_group: string | null;
-  tournament_director: string | null;
-  tournament_director_email: string | null;
-  referee_contact: string | null;
-  referee_contact_email: string | null;
-  referee_pay: string | null;
-  ref_cash_tournament: boolean | null;
-  ref_mentors: "yes" | "no" | null;
-  travel_lodging: "hotel" | "stipend" | null;
-  tournament_venues?: Array<{
-    venues:
-      | {
-          id: string;
-          name: string | null;
-          address1: string | null;
-          city: string | null;
-          state: string | null;
-          zip: string | null;
-          venue_url: string | null;
-          restrooms: string | null;
-          bring_field_chairs: boolean | null;
-        }
-      | null;
-  }> | null;
-};
-
-type TournamentPartnerRow = {
-  id: string;
-  name: string | null;
-  address: string | null;
-  sponsor_click_url: string | null;
-  category: string | null;
-  sort_order: number | null;
-};
-
-function normalizeLookupText(value: string) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-function scoreDuplicateMatch(row: DuplicateLookupRow, name: string, city: string, state: string) {
-  let score = 0;
-  const targetName = normalizeLookupText(name);
-  const rowName = normalizeLookupText(row.name ?? "");
-  const targetCity = city.trim().toLowerCase();
-  const rowCity = (row.city ?? "").trim().toLowerCase();
-  const targetState = state.trim().toUpperCase();
-  const rowState = (row.state ?? "").trim().toUpperCase();
-
-  if (rowName === targetName) score += 10;
-  else if (rowName.includes(targetName) || targetName.includes(rowName)) score += 5;
-  if (targetCity && rowCity === targetCity) score += 3;
-  if (targetState && rowState === targetState) score += 2;
-  return score;
-}
-
-function mapDuplicateMatch(row: DuplicateLookupRow, sponsorRows: TournamentPartnerRow[] = []): TournamentDuplicateMatch {
-  return {
-    id: row.id,
-    slug: row.slug ?? null,
-    name: row.name ?? "",
-    sport: row.sport ?? null,
-    city: row.city ?? null,
-    state: row.state ?? null,
-    startDate: row.start_date ?? null,
-    endDate: row.end_date ?? null,
-    officialWebsiteUrl: row.official_website_url ?? null,
-    teamFee: row.team_fee ?? null,
-    ageGroup: row.age_group ?? null,
-    tournamentDirector: row.tournament_director ?? null,
-    tournamentDirectorEmail: row.tournament_director_email ?? null,
-    refereeContact: row.referee_contact ?? null,
-    refereeEmail: row.referee_contact_email ?? null,
-    refereePay: row.referee_pay ?? null,
-    refCashTournament: row.ref_cash_tournament ?? null,
-    refMentors: row.ref_mentors ?? null,
-    travelLodging: row.travel_lodging ?? null,
-    sponsors: sponsorRows.map((sponsor) => {
-      const categoryState = getSponsorCategoryFormState(sponsor.category);
-      return {
-        id: sponsor.id,
-        name: sponsor.name ?? "",
-        address: sponsor.address ?? "",
-        websiteUrl: sponsor.sponsor_click_url ?? null,
-        category: sponsor.category ?? null,
-        categoryOption: categoryState.categoryOption,
-        otherCategory: categoryState.otherCategory,
-      };
-    }),
-    venues: (row.tournament_venues ?? [])
-      .map((entry) => entry?.venues ?? null)
-      .filter(
-        (venue): venue is NonNullable<NonNullable<DuplicateLookupRow["tournament_venues"]>[number]["venues"]> =>
-          Boolean(venue?.name)
-      )
-      .map((venue) => ({
-        id: venue.id ?? null,
-        name: venue.name ?? "",
-        address1: venue.address1 ?? "",
-        city: venue.city ?? "",
-        state: venue.state ?? "",
-        zip: venue.zip ?? "",
-        venueUrl: venue.venue_url ?? null,
-        restrooms:
-          venue.restrooms === "Portable" || venue.restrooms === "Building" || venue.restrooms === "Both"
-            ? venue.restrooms
-            : "",
-        bringFieldChairs:
-          venue.bring_field_chairs === true ? "yes" : venue.bring_field_chairs === false ? "no" : "",
-      })),
-  };
-}
 
 async function insertTournament(payload: Record<string, unknown>): Promise<TournamentInsertResult> {
   const baseSlug = String(payload.slug ?? "").trim() || `submission-${Date.now()}`;
@@ -460,71 +339,32 @@ export async function GET(request: Request) {
     "id,slug,name,sport,city,state,start_date,end_date,official_website_url,team_fee,age_group,tournament_director,tournament_director_email,referee_contact,referee_contact_email,referee_pay,ref_cash_tournament,ref_mentors,travel_lodging,tournament_venues(venues(id,name,address1,city,state,zip,venue_url,restrooms,bring_field_chairs))";
 
   if (tournamentId) {
-    const { data, error } = await ((supabaseAdmin.from("tournaments" as any) as any)
-      .select(baseSelect)
-      .eq("id", tournamentId)
-      .maybeSingle());
-
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    try {
+      return NextResponse.json({
+        ok: true,
+        match: await getTournamentDuplicateMatchById(tournamentId),
+      });
+    } catch (error) {
+      return NextResponse.json(
+        { ok: false, error: error instanceof Error ? error.message : "Unable to load tournament match." },
+        { status: 500 }
+      );
     }
-
-    const row = data as DuplicateLookupRow | null;
-    let sponsorRows: TournamentPartnerRow[] = [];
-    if (row?.id) {
-      const { data: sponsorData } = await (supabaseAdmin.from("tournament_partner_nearby" as any) as any)
-        .select("id,name,address,sponsor_click_url,category,sort_order")
-        .eq("tournament_id", row.id)
-        .is("venue_id", null)
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: false })
-        .limit(4);
-      sponsorRows = ((sponsorData ?? []) as TournamentPartnerRow[]).filter((sponsor) => Boolean(sponsor.name));
-    }
-
-    return NextResponse.json({
-      ok: true,
-      match: row ? mapDuplicateMatch(row, sponsorRows) : null,
-    });
   }
 
   if (name.length < 3) {
     return NextResponse.json({ ok: true, match: null });
   }
 
-  let query = (supabaseAdmin.from("tournaments" as any) as any)
-    .select(baseSelect)
-    .ilike("name", `%${name}%`)
-    .limit(8);
-
-  if (city) query = query.ilike("city", `%${city}%`);
-  if (state) query = query.eq("state", state);
-
-  const { data, error } = await query;
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  try {
+    return NextResponse.json({
+      ok: true,
+      match: await findTournamentDuplicateMatchByName({ name, city, state }),
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: error instanceof Error ? error.message : "Unable to lookup tournament match." },
+      { status: 500 }
+    );
   }
-
-  const rows = ((data ?? []) as DuplicateLookupRow[])
-    .filter((row) => row.id && row.name)
-    .sort((a, b) => scoreDuplicateMatch(b, name, city, state) - scoreDuplicateMatch(a, name, city, state));
-
-  const best = rows[0];
-  let sponsorRows: TournamentPartnerRow[] = [];
-  if (best?.id) {
-    const { data: sponsorData } = await (supabaseAdmin.from("tournament_partner_nearby" as any) as any)
-      .select("id,name,address,sponsor_click_url,category,sort_order")
-      .eq("tournament_id", best.id)
-      .is("venue_id", null)
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: false })
-      .limit(4);
-    sponsorRows = ((sponsorData ?? []) as TournamentPartnerRow[]).filter((row) => Boolean(row.name));
-  }
-  return NextResponse.json({
-    ok: true,
-    match: best ? mapDuplicateMatch(best, sponsorRows) : null,
-  });
 }
