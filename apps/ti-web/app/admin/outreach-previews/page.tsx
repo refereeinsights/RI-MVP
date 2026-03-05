@@ -3,6 +3,8 @@ import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireTiOutreachAdmin } from "@/lib/outreachAdmin";
 import { getOutreachMode } from "@/lib/outreach";
+import AutoSubmitInput from "@/components/filters/AutoSubmitInput";
+import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import CopyFieldButton from "./CopyFieldButton";
 import GeneratePreviewsForm from "./GeneratePreviewsForm";
 import OutreachPreviewsTable from "./OutreachPreviewsTable";
@@ -148,18 +150,18 @@ export default async function OutreachPreviewsPage({
             </label>
             <label style={{ display: "grid", gap: 6 }}>
               <span style={{ fontWeight: 600 }}>Sport</span>
-              <select name="sport" defaultValue={sport} style={inputStyle}>
+              <AutoSubmitSelect name="sport" defaultValue={sport} style={inputStyle}>
                 <option value="">All sports</option>
                 {OUTREACH_SPORTS.map((value) => (
                   <option key={value} value={value}>
                     {value}
                   </option>
                 ))}
-              </select>
+              </AutoSubmitSelect>
             </label>
             <label style={{ display: "grid", gap: 6 }}>
               <span style={{ fontWeight: 600 }}>Start after</span>
-              <input
+              <AutoSubmitInput
                 type="date"
                 name="start_after"
                 defaultValue={startAfter}

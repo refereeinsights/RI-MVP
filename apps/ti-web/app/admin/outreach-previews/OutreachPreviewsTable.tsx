@@ -1,13 +1,14 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type PreviewRow = {
   id: string;
   created_at: string;
+  sport: string;
   tournament_name: string;
   director_email: string;
   subject: string;
@@ -33,12 +34,19 @@ export default function OutreachPreviewsTable({
   startAfter,
 }: OutreachPreviewsTableProps) {
   const router = useRouter();
+  const [localPreviews, setLocalPreviews] = useState(previews);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
 
-  const allSelected = previews.length > 0 && selectedIds.length === previews.length;
-  const selectableIds = useMemo(() => previews.map((preview) => preview.id), [previews]);
+  useEffect(() => {
+    setLocalPreviews(previews);
+    setSelectedIds([]);
+  }, [previews]);
+
+  const allSelected = localPreviews.length > 0 && selectedIds.length === localPreviews.length;
+  const selectableIds = useMemo(() => localPreviews.map((preview) => preview.id), [localPreviews]);
+  const previewById = useMemo(() => new Map(localPreviews.map((preview) => [preview.id, preview])), [localPreviews]);
 
   function toggleSelected(id: string) {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]));
@@ -74,6 +82,42 @@ export default function OutreachPreviewsTable({
     router.refresh();
   }
 
+  async function handleSuppressSelected() {
+    if (selectedIds.length === 0) return;
+    setMessage("");
+
+    const tasks = selectedIds
+      .map((id) => previewById.get(id))
+      .filter((preview): preview is PreviewRow => Boolean(preview && preview.tournament_id))
+      .map((preview) =>
+        fetch("/api/outreach/suppressions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            preview_id: preview.id,
+            tournament_id: preview.tournament_id,
+            sport: preview.sport || sport,
+            director_email: preview.director_email,
+            reason: "removed",
+          }),
+        })
+      );
+
+    const results = await Promise.all(tasks);
+    const failures = results.filter((res) => !res.ok).length;
+    const succeeded = results.length - failures;
+
+    if (failures > 0) {
+      setMessage(`Suppressed ${succeeded} tournament${succeeded === 1 ? "" : "s"}, ${failures} failed.`);
+    } else {
+      setMessage(`Suppressed ${succeeded} tournament${succeeded === 1 ? "" : "s"}.`);
+    }
+
+    setSelectedIds([]);
+    setLocalPreviews((prev) => prev.filter((preview) => !selectedIds.includes(preview.id)));
+    router.refresh();
+  }
+
   return (
     <div className="bodyCard" style={{ display: "grid", gap: 12, paddingLeft: 12, paddingRight: 12 }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
@@ -81,8 +125,8 @@ export default function OutreachPreviewsTable({
           type="button"
           className="cta ti-home-cta ti-home-cta-secondary"
           onClick={toggleAll}
-          disabled={previews.length === 0}
-          style={{ opacity: previews.length === 0 ? 0.7 : 1 }}
+          disabled={localPreviews.length === 0}
+          style={{ opacity: localPreviews.length === 0 ? 0.7 : 1 }}
         >
           {allSelected ? "Clear selection" : "Select all"}
         </button>
@@ -94,6 +138,15 @@ export default function OutreachPreviewsTable({
           style={{ opacity: pending || selectedIds.length === 0 ? 0.7 : 1 }}
         >
           Send selected to directors
+        </button>
+        <button
+          type="button"
+          className="cta ti-home-cta ti-home-cta-secondary"
+          onClick={() => startTransition(() => void handleSuppressSelected())}
+          disabled={pending || selectedIds.length === 0}
+          style={{ opacity: pending || selectedIds.length === 0 ? 0.7 : 1 }}
+        >
+          Suppress selected
         </button>
         <span className="muted" style={{ fontSize: 13 }}>
           {selectedIds.length} selected
@@ -117,7 +170,7 @@ export default function OutreachPreviewsTable({
             </tr>
           </thead>
           <tbody>
-            {previews.map((preview) => {
+            {localPreviews.map((preview) => {
               const href = buildPreviewHref(preview.id, campaignId, sport, startAfter);
               const isSelected = selectedPreviewId === preview.id;
               const suppression = preview.tournament_id ? suppressionByTournamentId[preview.tournament_id] : null;
@@ -149,7 +202,7 @@ export default function OutreachPreviewsTable({
                 </tr>
               );
             })}
-            {previews.length === 0 ? (
+            {localPreviews.length === 0 ? (
               <tr>
                 <td style={tdStyle} colSpan={5}>
                   No previews found for the current filters.

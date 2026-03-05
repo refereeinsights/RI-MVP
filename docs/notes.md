@@ -2910,3 +2910,12 @@ Maintenance rules:
     - `apps/ti-web/app/admin/outreach-previews/GeneratePreviewsForm.tsx`
     - `apps/ti-web/app/admin/outreach-previews/OutreachPreviewsTable.tsx`
     - `apps/ti-web/app/api/outreach/generate-previews/route.ts`
+
+- TI outreach preview UX tweaks:
+  - Start-after date and sport filters now auto-submit on change.
+  - Added bulk suppress action to remove selected previews from future outreach.
+  - Bulk suppress now removes rows immediately from the table after the action completes.
+  - Files:
+    - `apps/ti-web/app/admin/outreach-previews/page.tsx`
+    - `apps/ti-web/app/admin/outreach-previews/OutreachPreviewsTable.tsx`
+    - `apps/ti-web/components/filters/AutoSubmitInput.tsx`
