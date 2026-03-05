@@ -21,6 +21,7 @@ type OutreachPreviewsTableProps = {
   campaignId: string;
   sport: string;
   suppressionByTournamentId: Record<string, { status: string }>;
+  startAfter: string;
 };
 
 export default function OutreachPreviewsTable({
@@ -29,6 +30,7 @@ export default function OutreachPreviewsTable({
   campaignId,
   sport,
   suppressionByTournamentId,
+  startAfter,
 }: OutreachPreviewsTableProps) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -73,7 +75,7 @@ export default function OutreachPreviewsTable({
   }
 
   return (
-    <div className="bodyCard" style={{ display: "grid", gap: 12 }}>
+    <div className="bodyCard" style={{ display: "grid", gap: 12, paddingLeft: 12, paddingRight: 12 }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
         <button
           type="button"
@@ -116,7 +118,7 @@ export default function OutreachPreviewsTable({
           </thead>
           <tbody>
             {previews.map((preview) => {
-              const href = buildPreviewHref(preview.id, campaignId, sport);
+              const href = buildPreviewHref(preview.id, campaignId, sport, startAfter);
               const isSelected = selectedPreviewId === preview.id;
               const suppression = preview.tournament_id ? suppressionByTournamentId[preview.tournament_id] : null;
               return (
@@ -161,10 +163,11 @@ export default function OutreachPreviewsTable({
   );
 }
 
-function buildPreviewHref(previewId: string, campaignId: string, sport: string) {
+function buildPreviewHref(previewId: string, campaignId: string, sport: string, startAfter: string) {
   const url = new URLSearchParams();
   if (campaignId) url.set("campaign_id", campaignId);
   if (sport) url.set("sport", sport);
+  if (startAfter) url.set("start_after", startAfter);
   url.set("preview_id", previewId);
   return `/admin/outreach-previews?${url.toString()}`;
 }

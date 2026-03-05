@@ -7,14 +7,17 @@ import { useRouter } from "next/navigation";
 export default function GeneratePreviewsForm({
   initialCampaignId,
   initialSport,
+  initialStartAfter,
 }: {
   initialCampaignId: string;
   initialSport: string;
+  initialStartAfter: string;
 }) {
   const router = useRouter();
   const [campaignId, setCampaignId] = useState(initialCampaignId);
   const [sport, setSport] = useState(initialSport || "soccer");
   const [limit, setLimit] = useState("50");
+  const [startAfter, setStartAfter] = useState(initialStartAfter);
   const [mode, setMode] = useState<"preview" | "send">("preview");
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
@@ -25,6 +28,7 @@ export default function GeneratePreviewsForm({
     const params = new URLSearchParams();
     if (campaignId.trim()) params.set("campaign_id", campaignId.trim());
     if (sport.trim()) params.set("sport", sport.trim().toLowerCase());
+    if (startAfter.trim()) params.set("start_after", startAfter.trim());
     return `/admin/outreach-previews?${params.toString()}`;
   }
 
@@ -48,6 +52,7 @@ export default function GeneratePreviewsForm({
           sport: sport.trim().toLowerCase(),
           limit: Number(limit),
           mode,
+          start_after: startAfter.trim() || undefined,
         }),
       });
 
@@ -95,6 +100,15 @@ export default function GeneratePreviewsForm({
           value={limit}
           onChange={(event) => setLimit(event.target.value)}
           style={{ ...inputStyle, minWidth: 110 }}
+        />
+      </label>
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={{ fontWeight: 600 }}>Start after</span>
+        <input
+          type="date"
+          value={startAfter}
+          onChange={(event) => setStartAfter(event.target.value)}
+          style={{ ...inputStyle, minWidth: 180 }}
         />
       </label>
       <label style={{ display: "grid", gap: 6 }}>

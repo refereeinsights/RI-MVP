@@ -20,6 +20,7 @@ type PreviewRequestBody = {
   limit?: number;
   test_email_override?: string;
   mode?: "preview" | "send";
+  start_after?: string;
 };
 
 type TournamentRow = {
@@ -81,6 +82,8 @@ export async function POST(request: NextRequest) {
   }
 
   const limit = capPreviewLimit(body.limit);
+  const startAfterRaw = (body.start_after || "").trim();
+  const startAfter = /^\d{4}-\d{2}-\d{2}$/.test(startAfterRaw) ? startAfterRaw : "";
   const emailOverride = (body.test_email_override || "").trim();
   if (emailOverride && !isValidEmail(emailOverride)) {
     return NextResponse.json({ error: "test_email_override must be a valid email." }, { status: 400 });
@@ -106,6 +109,7 @@ export async function POST(request: NextRequest) {
       .eq("sport", sport)
       .not("tournament_director_email", "is", null)
       .neq("tournament_director_email", "")
+      .gte("start_date", startAfter || "0001-01-01")
       .order("start_date", { ascending: true, nullsFirst: false })
       .range(from, to);
 

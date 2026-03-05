@@ -12,6 +12,7 @@ type SearchParams = {
   campaign_id?: string;
   sport?: string;
   preview_id?: string;
+  start_after?: string;
 };
 
 type PreviewRow = {
@@ -60,6 +61,7 @@ export default async function OutreachPreviewsPage({
   const campaignId = searchParams?.campaign_id?.trim() || "";
   const sport = normalizeOutreachSport(searchParams?.sport);
   const selectedId = searchParams?.preview_id?.trim() || "";
+  const startAfter = normalizeDateParam(searchParams?.start_after);
   const defaultMode = getOutreachMode();
 
   let query = (supabaseAdmin.from("email_outreach_previews" as any) as any)
@@ -75,11 +77,30 @@ export default async function OutreachPreviewsPage({
     throw new Error(error.message);
   }
 
-  const previews = (data ?? []) as PreviewRow[];
-  const selectedPreview = previews.find((preview) => preview.id === selectedId) ?? previews[0] ?? null;
+  let previews = (data ?? []) as PreviewRow[];
+  let selectedPreview = previews.find((preview) => preview.id === selectedId) ?? previews[0] ?? null;
   const campaignOptions = Array.from(new Set(previews.map((preview) => preview.campaign_id)));
-  const tournamentIds = Array.from(new Set(previews.map((preview) => preview.tournament_id).filter(Boolean))) as string[];
-  const eligibleCount = sport ? await countEligibleOutreachBySport(sport) : null;
+  let tournamentIds = Array.from(new Set(previews.map((preview) => preview.tournament_id).filter(Boolean))) as string[];
+
+  if (startAfter && tournamentIds.length > 0) {
+    const { data: tournamentRows, error: tournamentError } = await (supabaseAdmin.from("tournaments" as any) as any)
+      .select("id,start_date")
+      .in("id", tournamentIds)
+      .gte("start_date", startAfter);
+
+    if (tournamentError) {
+      throw new Error(tournamentError.message);
+    }
+
+    const allowedIds = new Set(
+      ((tournamentRows ?? []) as Array<{ id: string | null }>).map((row) => row.id).filter(Boolean) as string[]
+    );
+    previews = previews.filter((preview) => (preview.tournament_id ? allowedIds.has(preview.tournament_id) : false));
+    selectedPreview = previews.find((preview) => preview.id === selectedId) ?? previews[0] ?? null;
+    tournamentIds = Array.from(new Set(previews.map((preview) => preview.tournament_id).filter(Boolean))) as string[];
+  }
+
+  const eligibleCount = sport ? await countEligibleOutreachBySport(sport, startAfter) : null;
 
   let suppressionMap = new Map<string, SuppressionRow>();
   if (tournamentIds.length > 0) {
@@ -103,8 +124,8 @@ export default async function OutreachPreviewsPage({
   );
 
   return (
-    <main className="page">
-      <div className="shell" style={{ maxWidth: 1120 }}>
+    <main className="page" style={{ justifyContent: "flex-start", paddingLeft: 12, paddingRight: 12 }}>
+      <div className="shell" style={{ maxWidth: 1560, marginLeft: 0, marginRight: 0 }}>
         <section className="bodyCard" style={{ display: "grid", gap: 14 }}>
           <div style={{ display: "grid", gap: 6 }}>
             <h1 style={{ margin: 0 }}>Outreach Previews</h1>
@@ -136,6 +157,15 @@ export default async function OutreachPreviewsPage({
                 ))}
               </select>
             </label>
+            <label style={{ display: "grid", gap: 6 }}>
+              <span style={{ fontWeight: 600 }}>Start after</span>
+              <input
+                type="date"
+                name="start_after"
+                defaultValue={startAfter}
+                style={{ ...inputStyle, minWidth: 180 }}
+              />
+            </label>
             <button type="submit" className="cta ti-home-cta ti-home-cta-primary">
               Apply filters
             </button>
@@ -149,7 +179,11 @@ export default async function OutreachPreviewsPage({
             </datalist>
           </form>
 
-          <GeneratePreviewsForm initialCampaignId={campaignId} initialSport={sport || "soccer"} />
+          <GeneratePreviewsForm
+            initialCampaignId={campaignId}
+            initialSport={sport || "soccer"}
+            initialStartAfter={startAfter}
+          />
           <p className="muted" style={{ margin: 0 }}>
             Default mode: <strong>{defaultMode}</strong>
           </p>
@@ -163,7 +197,7 @@ export default async function OutreachPreviewsPage({
         <section
           style={{
             display: "grid",
-            gridTemplateColumns: selectedPreview ? "minmax(320px, 0.78fr) minmax(0, 1.22fr)" : "1fr",
+            gridTemplateColumns: selectedPreview ? "minmax(820px, 1.6fr) minmax(340px, 0.7fr)" : "1fr",
             gap: 16,
             alignItems: "start",
           }}
@@ -174,6 +208,7 @@ export default async function OutreachPreviewsPage({
             campaignId={campaignId}
             sport={sport}
             suppressionByTournamentId={suppressionByTournamentId}
+            startAfter={startAfter}
           />
 
           {selectedPreview ? (
@@ -183,7 +218,7 @@ export default async function OutreachPreviewsPage({
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
                     gap: 10,
                   }}
                 >
@@ -288,6 +323,13 @@ function normalizeOutreachSport(value?: string) {
   return "";
 }
 
+function normalizeDateParam(value?: string) {
+  const normalized = (value || "").trim();
+  if (!normalized) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized;
+  return "";
+}
+
 function isValidDirectorEmail(value: string | null | undefined) {
   if (!value) return false;
   const trimmed = value.trim().toLowerCase();
@@ -297,7 +339,7 @@ function isValidDirectorEmail(value: string | null | undefined) {
   return /.+@.+\..+/.test(trimmed);
 }
 
-async function countEligibleOutreachBySport(sport: string) {
+async function countEligibleOutreachBySport(sport: string, startAfter: string) {
   const batchSize = 800;
   let offset = 0;
   let scanCount = 0;
@@ -313,6 +355,7 @@ async function countEligibleOutreachBySport(sport: string) {
       .eq("sport", sport)
       .not("tournament_director_email", "is", null)
       .neq("tournament_director_email", "")
+      .gte("start_date", startAfter || "0001-01-01")
       .order("start_date", { ascending: true, nullsFirst: false })
       .range(from, to);
 

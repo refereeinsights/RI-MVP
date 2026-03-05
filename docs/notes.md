@@ -2881,3 +2881,13 @@ Maintenance rules:
     - `apps/ti-web/app/tournaments/[slug]/page.tsx`
     - `apps/ti-web/app/tournaments/page.tsx`
     - `apps/ti-web/app/tournaments/hubs/HubTournamentsPage.tsx`
+
+- TI outreach preview scheduling filter:
+  - Added a `Start after` date filter to the outreach preview filters and generator.
+  - Previews and eligible counts now respect the selected date by requiring tournament `start_date >= start_after`.
+  - Preview links preserve the date filter, and generate-previews accepts `start_after`.
+  - Files:
+    - `apps/ti-web/app/admin/outreach-previews/page.tsx`
+    - `apps/ti-web/app/admin/outreach-previews/GeneratePreviewsForm.tsx`
+    - `apps/ti-web/app/admin/outreach-previews/OutreachPreviewsTable.tsx`
+    - `apps/ti-web/app/api/outreach/generate-previews/route.ts`
