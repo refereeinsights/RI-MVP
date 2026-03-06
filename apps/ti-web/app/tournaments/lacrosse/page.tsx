@@ -9,5 +9,5 @@ export default async function LacrosseHubPage({
   searchParams?: { page?: string };
 }) {
   const page = Math.max(1, Number.parseInt(searchParams?.page ?? "1", 10) || 1);
-  return <SportHubPage sport="lacrosse" page={page} />;
+  return await SportHubPage({ sport: "lacrosse", page });
 }

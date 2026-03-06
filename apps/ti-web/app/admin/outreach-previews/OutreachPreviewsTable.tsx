@@ -10,6 +10,7 @@ type PreviewRow = {
   created_at: string;
   sport: string;
   tournament_name: string;
+  tournament_start_date?: string | null;
   director_email: string;
   subject: string;
   status: string;
@@ -162,7 +163,7 @@ export default function OutreachPreviewsTable({
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
           <thead>
             <tr>
-              {["", "Created", "Tournament", "Email", "Status"].map((heading) => (
+              {["", "Created", "Starts", "Tournament", "Email", "Status"].map((heading) => (
                 <th key={heading} style={thStyle}>
                   {heading}
                 </th>
@@ -174,6 +175,7 @@ export default function OutreachPreviewsTable({
               const href = buildPreviewHref(preview.id, campaignId, sport, startAfter);
               const isSelected = selectedPreviewId === preview.id;
               const suppression = preview.tournament_id ? suppressionByTournamentId[preview.tournament_id] : null;
+              const startLabel = formatDateOnly(preview.tournament_start_date);
               return (
                 <tr key={preview.id} style={{ background: isSelected ? "#eff6ff" : "transparent" }}>
                   <td style={tdStyle}>
@@ -184,6 +186,7 @@ export default function OutreachPreviewsTable({
                     />
                   </td>
                   <td style={tdStyle}>{formatDate(preview.created_at)}</td>
+                  <td style={tdStyle}>{startLabel || "TBA"}</td>
                   <td style={tdStyle}>
                     <Link href={href} style={rowLinkStyle}>
                       {preview.tournament_name}
@@ -204,7 +207,7 @@ export default function OutreachPreviewsTable({
             })}
             {localPreviews.length === 0 ? (
               <tr>
-                <td style={tdStyle} colSpan={5}>
+                <td style={tdStyle} colSpan={6}>
                   No previews found for the current filters.
                 </td>
               </tr>
@@ -228,6 +231,15 @@ function buildPreviewHref(previewId: string, campaignId: string, sport: string, 
 function formatDate(value: string) {
   try {
     return new Date(value).toLocaleString();
+  } catch {
+    return value;
+  }
+}
+
+function formatDateOnly(value?: string | null) {
+  if (!value) return "";
+  try {
+    return new Date(`${value}T00:00:00`).toLocaleDateString();
   } catch {
     return value;
   }

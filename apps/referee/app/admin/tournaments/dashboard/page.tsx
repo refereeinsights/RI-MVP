@@ -114,6 +114,24 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
     linkedVenueCounts.set(String(row.tournament_id), (linkedVenueCounts.get(String(row.tournament_id)) ?? 0) + 1);
   });
 
+  let staffVerifiedQuery = supabase
+    .from("tournaments" as any)
+    .select("id", { count: "exact", head: true })
+    .gte("tournament_staff_verified_at", todayIso());
+  if (sport) staffVerifiedQuery = staffVerifiedQuery.eq("sport", sport);
+  if (states.length) staffVerifiedQuery = staffVerifiedQuery.in("state", states);
+  const staffVerifiedRes = await staffVerifiedQuery;
+  const staffVerifiedToday = staffVerifiedRes.count ?? 0;
+
+  let staffVerifiedTotalQuery = supabase
+    .from("tournaments" as any)
+    .select("id", { count: "exact", head: true })
+    .eq("tournament_staff_verified", true);
+  if (sport) staffVerifiedTotalQuery = staffVerifiedTotalQuery.eq("sport", sport);
+  if (states.length) staffVerifiedTotalQuery = staffVerifiedTotalQuery.in("state", states);
+  const staffVerifiedTotalRes = await staffVerifiedTotalQuery;
+  const staffVerifiedTotal = staffVerifiedTotalRes.count ?? 0;
+
   const jobsRes = ids.length
     ? await supabase.from("tournament_enrichment_jobs" as any).select("tournament_id,status").in("tournament_id", ids)
     : { data: [] as any[], error: null };
@@ -419,6 +437,8 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
           { label: "Upcoming tournaments", value: total },
           { label: "Pending", value: pending },
           { label: "Approved", value: approved },
+          { label: "Staff verified today", value: staffVerifiedToday },
+          { label: "Staff verified total", value: staffVerifiedTotal },
           { label: "Official website", value: withSource },
           { label: "% with official website", value: `${sourcePct}%` },
           { label: "% with venue/address", value: `${venuePct}%` },

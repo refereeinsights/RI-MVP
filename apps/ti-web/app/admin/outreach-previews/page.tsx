@@ -24,6 +24,7 @@ type PreviewRow = {
   campaign_id: string;
   tournament_id: string | null;
   tournament_name: string;
+  tournament_start_date?: string | null;
   director_email: string;
   verify_url: string;
   subject: string;
@@ -51,6 +52,11 @@ type PreviewStatusRow = {
   status: string;
 };
 
+type TournamentDateRow = {
+  id: string;
+  start_date: string | null;
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function OutreachPreviewsPage({
@@ -65,6 +71,17 @@ export default async function OutreachPreviewsPage({
   const selectedId = searchParams?.preview_id?.trim() || "";
   const startAfter = normalizeDateParam(searchParams?.start_after);
   const defaultMode = getOutreachMode();
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  const { count: staffVerifiedTodayCount, error: staffVerifiedError } = await (supabaseAdmin.from(
+    "tournaments" as any
+  ) as any)
+    .select("id", { count: "exact", head: true })
+    .gte("tournament_staff_verified_at", todayIso);
+
+  if (staffVerifiedError) {
+    throw new Error(staffVerifiedError.message);
+  }
 
   let query = (supabaseAdmin.from("email_outreach_previews" as any) as any)
     .select("*")
@@ -84,20 +101,32 @@ export default async function OutreachPreviewsPage({
   const campaignOptions = Array.from(new Set(previews.map((preview) => preview.campaign_id)));
   let tournamentIds = Array.from(new Set(previews.map((preview) => preview.tournament_id).filter(Boolean))) as string[];
 
-  if (startAfter && tournamentIds.length > 0) {
-    const { data: tournamentRows, error: tournamentError } = await (supabaseAdmin.from("tournaments" as any) as any)
+  if (tournamentIds.length > 0) {
+    const { data: tournamentRowsRaw, error: tournamentError } = await (supabaseAdmin.from("tournaments" as any) as any)
       .select("id,start_date")
-      .in("id", tournamentIds)
-      .gte("start_date", startAfter);
+      .in("id", tournamentIds);
 
     if (tournamentError) {
       throw new Error(tournamentError.message);
     }
 
-    const allowedIds = new Set(
-      ((tournamentRows ?? []) as Array<{ id: string | null }>).map((row) => row.id).filter(Boolean) as string[]
-    );
-    previews = previews.filter((preview) => (preview.tournament_id ? allowedIds.has(preview.tournament_id) : false));
+    const tournamentRows = (tournamentRowsRaw ?? []) as TournamentDateRow[];
+    const startDateById = new Map(tournamentRows.map((row) => [row.id, row.start_date]));
+    previews = previews.map((preview) => ({
+      ...preview,
+      tournament_start_date: preview.tournament_id ? startDateById.get(preview.tournament_id) ?? null : null,
+    }));
+
+    if (startAfter) {
+      const allowedIds = new Set(
+        tournamentRows
+          .filter((row) => row.start_date && row.start_date >= startAfter)
+          .map((row) => row.id)
+          .filter(Boolean)
+      );
+      previews = previews.filter((preview) => (preview.tournament_id ? allowedIds.has(preview.tournament_id) : false));
+    }
+
     selectedPreview = previews.find((preview) => preview.id === selectedId) ?? previews[0] ?? null;
     tournamentIds = Array.from(new Set(previews.map((preview) => preview.tournament_id).filter(Boolean))) as string[];
   }
@@ -188,6 +217,9 @@ export default async function OutreachPreviewsPage({
           />
           <p className="muted" style={{ margin: 0 }}>
             Default mode: <strong>{defaultMode}</strong>
+          </p>
+          <p className="muted" style={{ margin: 0 }}>
+            Staff verified today: {staffVerifiedTodayCount ?? 0}
           </p>
           {eligibleCount !== null ? (
             <p className="muted" style={{ margin: 0 }}>
@@ -329,6 +361,13 @@ function normalizeDateParam(value?: string) {
   const normalized = (value || "").trim();
   if (!normalized) return "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized;
+  const slashMatch = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) {
+    const [, mm, dd, yyyy] = slashMatch;
+    const month = String(mm).padStart(2, "0");
+    const day = String(dd).padStart(2, "0");
+    return `${yyyy}-${month}-${day}`;
+  }
   return "";
 }
 
