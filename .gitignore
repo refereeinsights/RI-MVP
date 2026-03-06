@@ -1,33 +1,37 @@
-# env
+# Local scratch
+/tmp/
+
+# Test artifacts
+/test-results/
+/apps/ti-web/test-results/
+
+# Node compile cache
+**/node-compile-cache/
+
+# TypeScript incremental build artifacts
+*.tsbuildinfo
+
+# Brand/art assets accidentally added locally
+/apps/ti-web/public/brand/
+/shared-assets/svg/sports/baseball_count_2.png
+/shared-assets/svg/sports/softball_count.png
+
+# macOS
+.DS_Store
+
+# Env files
 .env.local
-.env
-apps/*/.env.local
-
-# OS-specific
-**/.DS_Store
-
-# next
-.next/
-out/
-
-# dependencies
-node_modules/
-
-# shared asset copies
-apps/*/public/svg/
-
-# supabase CLI artifacts
-supabase/
-!apps/referee/src/server/owlseye/supabase/
-!apps/referee/src/server/owlseye/supabase/*
-
-# logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Sentry Config File
+**/.env.local
 .env.sentry-build-plugin
 
-# fixtures with restricted permissions
-apps/referee/fixtures/uclub_files/
+# Build outputs
+.next/
+**/.next/
+node_modules/
+**/node_modules/
+
+# Supabase temp
+supabase/.temp/
+
+# Local one-off scripts
+/scripts/ingest/audit_venue_link_quality.ts
