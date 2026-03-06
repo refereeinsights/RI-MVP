@@ -35,3 +35,6 @@ supabase/.temp/
 
 # Local one-off scripts
 /scripts/ingest/audit_venue_link_quality.ts
+
+# Supabase temp (any app)
+**/supabase/.temp/
