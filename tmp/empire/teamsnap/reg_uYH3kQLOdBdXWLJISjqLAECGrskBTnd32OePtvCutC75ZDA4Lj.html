@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>TeamSnap Tournaments</title>
+
+    <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+    <meta content='width=device-width, initial-scale=1.0' name='viewport' />
+
+    <!-- Fonts -->
+    <link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Open+Sans:400italic,600italic,700italic,400,600,700' type='text/css'>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <style>
+
+    </style>
+
+    <link rel="icon" type="image/x-icon" href="/img/ts-tournaments-badge-square.png" />
+    <!--
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.13.0/react.js"></script>
+    -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/0.3.2/marked.min.js"></script>
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBJunp59Qfh0V4FM7nCi68VcfKBtz04FHg&libraries=places"></script>
+    <script src="https://cdn.ravenjs.com/3.22.1/raven.min.js" crossorigin="anonymous"></script>
+    
+    <!-- bring in stripe! -->
+    <script src="https://js.stripe.com/v2/"></script>
+
+  </head>
+  <body>
+    <div class="page-wrapper">
+        <!-- We can use this to put up a loading... w/ spinner or something -->
+        <div class="preloader">
+            <div class="inner">
+                <!-- Animation spinner for all modern browsers -->
+                <div class="preloader-spinner hidden-lt-ie10"></div>
+                <!-- Text for IE9 -->
+                <!--
+                <h3 class="visible-lt-ie10"><strong>Loading..</strong></h3>
+                -->
+            </div>
+        </div>
+        <div id="content" class="page-container"></div>
+    </div>
+    <script type="text/javascript" src="/bundle.js?ts=1751573264000"></script>
+  </body>
+</html>

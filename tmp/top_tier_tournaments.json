@@ -1,0 +1,3702 @@
+[
+  {
+    "sourceUrl": "https://toptiersports.net/eastern-washington-baseball-tournaments/#",
+    "sourceTitle": "Eastern Washington Baseball Tournaments - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Eastern Washington Baseball Tournaments",
+    "startDate": null,
+    "endDate": null,
+    "city": null,
+    "state": "WA",
+    "eventId": null,
+    "exposureDomain": null,
+    "exposureTitle": null,
+    "notes": null,
+    "confidence": 40,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/western-washington-baseball-tournaments/",
+    "sourceTitle": "Western Washington Baseball Tournaments - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Western Washington Baseball Tournaments",
+    "startDate": null,
+    "endDate": null,
+    "city": null,
+    "state": "WA",
+    "eventId": null,
+    "exposureDomain": null,
+    "exposureTitle": null,
+    "notes": null,
+    "confidence": 40,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/fall-classic/",
+    "sourceTitle": "Fall Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier Fall Classic",
+    "startDate": "2025-10-17",
+    "endDate": "2025-10-19",
+    "city": "Greater Puget Sound",
+    "state": "WA",
+    "eventId": "246115",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Fall Classic - Oct 17-19, 2025 - Greater Puget Sound, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey and Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Heritage Rec Center",
+        "address1": "9010 128th St E",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98373",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1402875,-122.3090211"
+      },
+      {
+        "name": "Hogan Park",
+        "address1": "24400 Russell Rd",
+        "city": "Kent",
+        "state": "WA",
+        "zip": "98032",
+        "venueUrl": "https://www.google.com/maps?daddr=47.386406,-122.2631941"
+      },
+      {
+        "name": "Kent Meridian HS",
+        "address1": "10020 SE 256th St.",
+        "city": "Kent",
+        "state": "WA",
+        "zip": "98030",
+        "venueUrl": "https://www.google.com/maps?daddr=47.3737204,-122.2073388"
+      },
+      {
+        "name": "Mariner HS",
+        "address1": "200 120th St SW",
+        "city": "Everett",
+        "state": "WA",
+        "zip": "98204",
+        "venueUrl": "https://www.google.com/maps?daddr=47.8880067,-122.2357399"
+      },
+      {
+        "name": "Puyallup Rec Center",
+        "address1": "808 Valley Ave NW",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98371",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2092962,-122.3043756"
+      },
+      {
+        "name": "Ravensdale Park",
+        "address1": "27200 SE Kent Kangley Rd",
+        "city": "Ravensdale",
+        "state": "WA",
+        "zip": "98051",
+        "venueUrl": "https://www.google.com/maps?daddr=47.3582426,-121.9791826"
+      },
+      {
+        "name": "Redmond Ridge",
+        "address1": "22915 Ne Alder Crest Dr.",
+        "city": "Redmond",
+        "state": "WA",
+        "zip": "98053",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6912133,-122.0334952"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/indoor-classic/",
+    "sourceTitle": "Indoor Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier Indoor Classic",
+    "startDate": "2026-01-09",
+    "endDate": "2026-01-11",
+    "city": "Centralia",
+    "state": "WA",
+    "eventId": "249988",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Indoor Classic - Jan 9-11, 2026 - Centralia, WA",
+    "notes": "Indoor Youth Baseball Tournament Series. Centralia, Washington. 8u-12u at the NW Sports Hub. Presented by Top Tier Sports. Where prospects play!",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "NW Sports Hub",
+        "address1": "701 Allen Ave",
+        "city": "Centralia",
+        "state": "WA",
+        "zip": "98531",
+        "venueUrl": "https://www.google.com/maps?daddr=46.7243921,-122.9839958"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/indoor-turf-wars/",
+    "sourceTitle": "Indoor Turf Wars - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier Turf Wars",
+    "startDate": "2026-01-23",
+    "endDate": "2026-01-25",
+    "city": "Centralia",
+    "state": "WA",
+    "eventId": "249987",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Turf Wars - Jan 23-25, 2026 - Centralia, WA",
+    "notes": "Indoor Youth Baseball Tournament Series. Centralia, Washington. 8u-12u at the NW Sports Hub. Presented by Top Tier Sports. Where prospects play!",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "NW Sports Hub",
+        "address1": "701 Allen Ave",
+        "city": "Centralia",
+        "state": "WA",
+        "zip": "98531",
+        "venueUrl": "https://www.google.com/maps?daddr=46.7243921,-122.9839958"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/twin-cities-classic/",
+    "sourceTitle": "Twin Cities Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier Twin Cities Classic",
+    "startDate": "2026-02-06",
+    "endDate": "2026-02-08",
+    "city": "Centralia",
+    "state": "WA",
+    "eventId": "249989",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Twin Cities Classic - Feb 6-8, 2026 - Centralia, WA",
+    "notes": "Indoor Youth Baseball Tournament Series. Centralia, Washington. 8u-12u at the NW Sports Hub. Presented by Top Tier Sports. Where prospects play!",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "NW Sports Hub",
+        "address1": "701 Allen Ave",
+        "city": "Centralia",
+        "state": "WA",
+        "zip": "98531",
+        "venueUrl": "https://www.google.com/maps?daddr=46.7243921,-122.9839958"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/hub-city-bash/",
+    "sourceTitle": "Hub City Bash - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier Hub City Bash",
+    "startDate": "2026-02-20",
+    "endDate": "2026-02-22",
+    "city": "Centralia",
+    "state": "WA",
+    "eventId": "249990",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Hub City Bash - Feb 20-22, 2026 - Centralia, WA",
+    "notes": "Indoor Youth Baseball Tournament Series. Centralia, Washington. 8u-12u at the NW Sports Hub. Presented by Top Tier Sports. Where prospects play!",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "NW Sports Hub",
+        "address1": "701 Allen Ave",
+        "city": "Centralia",
+        "state": "WA",
+        "zip": "98531",
+        "venueUrl": "https://www.google.com/maps?daddr=46.7243921,-122.9839958"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/king-of-the-nw-youth-world-series/",
+    "sourceTitle": "King of the Northwest Youth World Series - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "King of the Northwest - Youth World Series",
+    "startDate": "2026-07-24",
+    "endDate": "2026-07-26",
+    "city": "Puget Sound",
+    "state": "WA",
+    "eventId": "250340",
+    "exposureDomain": "baseball",
+    "exposureTitle": "King of the Northwest - Youth World Series - Jul 24-26, 2026 - Puget Sound, WA",
+    "notes": "Washington baseball tournament in Tacoma, Puyallup, Lacey and Auburn. Competitive and developmental divisions. 8u-14u. April 12-13th BPF Bats",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/king-of-the-northwest-highschool-world-series/",
+    "sourceTitle": "King of the Northwest High School World Series - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "King of the Northwest High School World Series",
+    "startDate": "2026-04-12",
+    "endDate": "2026-04-13",
+    "city": "Puget Sound",
+    "state": "WA",
+    "eventId": "250341",
+    "exposureDomain": "baseball",
+    "exposureTitle": "King of the Northwest - High School World Series - Jul 30 - Aug 2, 2026 - Puget Sound, WA",
+    "notes": "Washington baseball tournament in Tacoma, Puyallup, Lacey and Auburn. Competitive and developmental divisions. 8u-14u. April 12-13th BPF Bats",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/saint-paddys-bash-washington-baseball-tournament/",
+    "sourceTitle": "Saint Paddy's Bash - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier St. Paddy's Day Bash",
+    "startDate": "2026-03-14",
+    "endDate": "2026-03-15",
+    "city": "Puyallup",
+    "state": "WA",
+    "eventId": "250432",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier St. Paddy's Day Bash - Mar 14-15, 2026 - Puyallup, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey and Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Browns Point Elementary",
+        "address1": "1526 51st St NE",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98422",
+        "venueUrl": "https://www.google.com/maps?daddr=47.3023573,-122.425644"
+      },
+      {
+        "name": "Cirque Park",
+        "address1": "7401 Cirque Dr W",
+        "city": "University Place",
+        "state": "WA",
+        "zip": "98466",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2138356,-122.5360267"
+      },
+      {
+        "name": "Curtis HS",
+        "address1": "8425 40th St W",
+        "city": "University Place",
+        "state": "WA",
+        "zip": "98466",
+        "venueUrl": "https://www.google.com/maps?daddr=47.222624,-122.5524758"
+      },
+      {
+        "name": "Dacca",
+        "address1": "2901 54th Ave E",
+        "city": "Fife",
+        "state": "WA",
+        "zip": "98424",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2309017,-122.3550304"
+      },
+      {
+        "name": "Federal Way HS",
+        "address1": "30611 16th Ave S.",
+        "city": "Federal Way",
+        "state": "WA",
+        "zip": "98003",
+        "venueUrl": "https://www.google.com/maps?daddr=47.3278756,-122.3139878"
+      },
+      {
+        "name": "Fort Steilacoom Park",
+        "address1": "8714 87th Ave SW",
+        "city": "Lakewood",
+        "state": "WA",
+        "zip": "98498",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1756484,-122.5612041"
+      },
+      {
+        "name": "Heritage Rec Center",
+        "address1": "9010 128th St E",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98373",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1402875,-122.3090211"
+      },
+      {
+        "name": "Hunt Middle School",
+        "address1": "6501 S 10th Street",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98465",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2528779,-122.5232433"
+      },
+      {
+        "name": "Island Crest Park",
+        "address1": "5500 Island Crest Way",
+        "city": "Mercer Island",
+        "state": "WA",
+        "zip": "98040",
+        "venueUrl": "https://www.google.com/maps?daddr=47.5510679,-122.2242793"
+      },
+      {
+        "name": "Kent Meridian HS",
+        "address1": "10020 SE 256th St.",
+        "city": "Kent",
+        "state": "WA",
+        "zip": "98030",
+        "venueUrl": "https://www.google.com/maps?daddr=47.3737204,-122.2073388"
+      },
+      {
+        "name": "Lake Washington HS",
+        "address1": "12033 NE 80th St",
+        "city": "Kirkland",
+        "state": "WA",
+        "zip": "98033",
+        "venueUrl": "https://www.google.com/maps?daddr=47.672458,-122.1814115"
+      },
+      {
+        "name": "Lincoln High School",
+        "address1": "701 S 37th St",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98418",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2266739,-122.4418612"
+      },
+      {
+        "name": "Marymoor Park",
+        "address1": "6046 West Lake Sammamish Parkway NE",
+        "city": "Redmond",
+        "state": "WA",
+        "zip": "98052",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6594346,-122.1087919"
+      },
+      {
+        "name": "North Seatac Park",
+        "address1": "S 128th St and 20th Ave S",
+        "city": "seatac",
+        "state": "WA",
+        "zip": "98188",
+        "venueUrl": "https://www.google.com/maps?daddr=47.488639,-122.3074661"
+      },
+      {
+        "name": "Peck",
+        "address1": "1425 S. State St",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2474453,-122.4643162"
+      },
+      {
+        "name": "Ravensdale Park",
+        "address1": "27200 SE Kent Kangley Rd",
+        "city": "Ravensdale",
+        "state": "WA",
+        "zip": "98051",
+        "venueUrl": "https://www.google.com/maps?daddr=47.3582426,-121.9791826"
+      },
+      {
+        "name": "Sirius Sports Complex",
+        "address1": "1422 Bendigo Blvd",
+        "city": "North Bend",
+        "state": "WA",
+        "zip": "98045",
+        "venueUrl": "https://www.google.com/maps?daddr=47.4879363,-121.7970101"
+      },
+      {
+        "name": "Skagit Valley Playfields",
+        "address1": "2727 E. College Way",
+        "city": "Mount Vernon",
+        "state": "WA",
+        "zip": "98273",
+        "venueUrl": "https://www.google.com/maps?daddr=48.4368631,-122.3057945"
+      },
+      {
+        "name": "Sprinker Rec Center",
+        "address1": "521 Military Rd S",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98444",
+        "venueUrl": "https://www.google.com/maps?daddr=47.122442,-122.4384007"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/kpslfoundationclassic/",
+    "sourceTitle": "KPSL Foundation Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "KPSL Foundation Tournament",
+    "startDate": "2026-03-28",
+    "endDate": "2026-03-29",
+    "city": "Puyallup",
+    "state": "WA",
+    "eventId": "250436",
+    "exposureDomain": "baseball",
+    "exposureTitle": "KPSL Foundation Tournament - Mar 28-29, 2026 - Puyallup, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey and Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Browns Point Elementary",
+        "address1": "1526 51st St NE",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98422",
+        "venueUrl": "https://www.google.com/maps?daddr=47.3023573,-122.425644"
+      },
+      {
+        "name": "Chehalis Sports Complex",
+        "address1": "201 SW 13th St",
+        "city": "Chehalis",
+        "state": "WA",
+        "zip": "98532",
+        "venueUrl": "https://www.google.com/maps?daddr=46.6508921,-122.956156"
+      },
+      {
+        "name": "Dacca",
+        "address1": "2901 54th Ave E",
+        "city": "Fife",
+        "state": "WA",
+        "zip": "98424",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2309017,-122.3550304"
+      },
+      {
+        "name": "Fort Borst Park",
+        "address1": "2030 Borst Ave",
+        "city": "Centralia",
+        "state": "WA",
+        "zip": "98531",
+        "venueUrl": "https://www.google.com/maps?daddr=46.7265084,-122.9798974"
+      },
+      {
+        "name": "Foss High School",
+        "address1": "2112 S. Tyler Street",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2396549,-122.4953674"
+      },
+      {
+        "name": "Heidelberg",
+        "address1": "1902 S. Tyler St",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2405467,-122.4951395"
+      },
+      {
+        "name": "Hogan Park",
+        "address1": "24400 Russell Rd",
+        "city": "Kent",
+        "state": "WA",
+        "zip": "98032",
+        "venueUrl": "https://www.google.com/maps?daddr=47.386406,-122.2631941"
+      },
+      {
+        "name": "Lake Washington HS",
+        "address1": "12033 NE 80th St",
+        "city": "Kirkland",
+        "state": "WA",
+        "zip": "98033",
+        "venueUrl": "https://www.google.com/maps?daddr=47.672458,-122.1814115"
+      },
+      {
+        "name": "North Seatac Park",
+        "address1": "S 128th St and 20th Ave S",
+        "city": "seatac",
+        "state": "WA",
+        "zip": "98188",
+        "venueUrl": "https://www.google.com/maps?daddr=47.488639,-122.3074661"
+      },
+      {
+        "name": "Peck",
+        "address1": "1425 S. State St",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2474453,-122.4643162"
+      },
+      {
+        "name": "Ravensdale Park",
+        "address1": "27200 SE Kent Kangley Rd",
+        "city": "Ravensdale",
+        "state": "WA",
+        "zip": "98051",
+        "venueUrl": "https://www.google.com/maps?daddr=47.3582426,-121.9791826"
+      },
+      {
+        "name": "Sirius Sports Complex",
+        "address1": "1422 Bendigo Blvd",
+        "city": "North Bend",
+        "state": "WA",
+        "zip": "98045",
+        "venueUrl": "https://www.google.com/maps?daddr=47.4879363,-121.7970101"
+      },
+      {
+        "name": "Sprinker Rec Center",
+        "address1": "521 Military Rd S",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98444",
+        "venueUrl": "https://www.google.com/maps?daddr=47.122442,-122.4384007"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/aaronpointerclassic/",
+    "sourceTitle": "Aaron Pointer Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier Aaron Pointer Classic",
+    "startDate": "2026-04-18",
+    "endDate": "2026-04-19",
+    "city": "Puyallup",
+    "state": "WA",
+    "eventId": "250502",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Aaron Pointer Classic - Apr 18-19, 2026 - Puyallup, WA",
+    "notes": "Washington baseball tournament in Tacoma, Puyallup, Lacey and Auburn. Competitive and developmental divisions. 8u-14u. April 12-13th BPF Bats",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Dacca",
+        "address1": "2901 54th Ave E",
+        "city": "Fife",
+        "state": "WA",
+        "zip": "98424",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2309017,-122.3550304"
+      },
+      {
+        "name": "Fort Steilacoom Park",
+        "address1": "8714 87th Ave SW",
+        "city": "Lakewood",
+        "state": "WA",
+        "zip": "98498",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1756484,-122.5612041"
+      },
+      {
+        "name": "Foss High School",
+        "address1": "2112 S. Tyler Street",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2396549,-122.4953674"
+      },
+      {
+        "name": "Heritage Rec Center",
+        "address1": "9010 128th St E",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98373",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1402875,-122.3090211"
+      },
+      {
+        "name": "Puyallup Rec Center",
+        "address1": "808 Valley Ave NW",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98371",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2092962,-122.3043756"
+      },
+      {
+        "name": "Regional Athletic Complex",
+        "address1": "8345 Steilacoom Rd SE",
+        "city": "Olympia",
+        "state": "WA",
+        "zip": "98513",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0444502,-122.7625992"
+      },
+      {
+        "name": "Sirius Sports Complex",
+        "address1": "1422 Bendigo Blvd",
+        "city": "North Bend",
+        "state": "WA",
+        "zip": "98045",
+        "venueUrl": "https://www.google.com/maps?daddr=47.4879363,-121.7970101"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/cinco-de-mayo-slugfest/",
+    "sourceTitle": "Cinco de Mayo Slugfest - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier Cinco de Mayo Slugfest",
+    "startDate": "2026-05-02",
+    "endDate": "2026-05-03",
+    "city": "Puyallup",
+    "state": "WA",
+    "eventId": "250505",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Cinco de Mayo Slugfest - May 2-3, 2026 - Puyallup, WA",
+    "notes": "WA baseball tournament on turf fields in Pierce County, Lacey and Seattle. Competitive and development divisions 8u-14u. May 3-4th. BPF Bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Dacca",
+        "address1": "2901 54th Ave E",
+        "city": "Fife",
+        "state": "WA",
+        "zip": "98424",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2309017,-122.3550304"
+      },
+      {
+        "name": "Fort Steilacoom Park",
+        "address1": "8714 87th Ave SW",
+        "city": "Lakewood",
+        "state": "WA",
+        "zip": "98498",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1756484,-122.5612041"
+      },
+      {
+        "name": "Foss High School",
+        "address1": "2112 S. Tyler Street",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2396549,-122.4953674"
+      },
+      {
+        "name": "Heritage Rec Center",
+        "address1": "9010 128th St E",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98373",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1402875,-122.3090211"
+      },
+      {
+        "name": "LBA Park",
+        "address1": "3333 Morse-Merryman Rd SE",
+        "city": "Olympia",
+        "state": "WA",
+        "zip": "98501",
+        "venueUrl": "https://www.google.com/maps?daddr=47.015535,-122.857301"
+      },
+      {
+        "name": "Puyallup Rec Center",
+        "address1": "808 Valley Ave NW",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98371",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2092962,-122.3043756"
+      },
+      {
+        "name": "Regional Athletic Complex",
+        "address1": "8345 Steilacoom Rd SE",
+        "city": "Olympia",
+        "state": "WA",
+        "zip": "98513",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0444502,-122.7625992"
+      },
+      {
+        "name": "Sirius Sports Complex",
+        "address1": "1422 Bendigo Blvd",
+        "city": "North Bend",
+        "state": "WA",
+        "zip": "98045",
+        "venueUrl": "https://www.google.com/maps?daddr=47.4879363,-121.7970101"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/memorial-day-baseball-tournament/",
+    "sourceTitle": "Memorial Day Tournament - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier Art Wright Memorial Tournament",
+    "startDate": "2026-05-21",
+    "endDate": "2026-05-25",
+    "city": "Puyallup",
+    "state": "WA",
+    "eventId": "250529",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Art Wright Memorial Tournament - May 21-25, 2026 - Puyallup, WA",
+    "notes": "Memorial Day baseball tournament in Tacoma, Puyallup, Lacey, Seattle, Auburn. Competitive and developmental divisions 8u-18u.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Celebration Park",
+        "address1": "1095 S. 324th St",
+        "city": "Federal Way",
+        "state": "WA",
+        "zip": "98003",
+        "venueUrl": "https://www.google.com/maps?daddr=47.3080142,-122.3197116"
+      },
+      {
+        "name": "Dacca",
+        "address1": "2901 54th Ave E",
+        "city": "Fife",
+        "state": "WA",
+        "zip": "98424",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2309017,-122.3550304"
+      },
+      {
+        "name": "Federal Way HS",
+        "address1": "30611 16th Ave S.",
+        "city": "Federal Way",
+        "state": "WA",
+        "zip": "98003",
+        "venueUrl": "https://www.google.com/maps?daddr=47.3278756,-122.3139878"
+      },
+      {
+        "name": "Fort Steilacoom Park",
+        "address1": "8714 87th Ave SW",
+        "city": "Lakewood",
+        "state": "WA",
+        "zip": "98498",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1756484,-122.5612041"
+      },
+      {
+        "name": "Foss High School",
+        "address1": "2112 S. Tyler Street",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2396549,-122.4953674"
+      },
+      {
+        "name": "Heidelberg",
+        "address1": "1902 S. Tyler St",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2405467,-122.4951395"
+      },
+      {
+        "name": "Heritage Rec Center",
+        "address1": "9010 128th St E",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98373",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1402875,-122.3090211"
+      },
+      {
+        "name": "Hidden Valley",
+        "address1": "1903 112th Ave NE",
+        "city": "Bellevue",
+        "state": "WA",
+        "zip": "98004",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6272474,-122.1917658"
+      },
+      {
+        "name": "Hogan Park",
+        "address1": "24400 Russell Rd",
+        "city": "Kent",
+        "state": "WA",
+        "zip": "98032",
+        "venueUrl": "https://www.google.com/maps?daddr=47.386406,-122.2631941"
+      },
+      {
+        "name": "Lake Washington HS",
+        "address1": "12033 NE 80th St",
+        "city": "Kirkland",
+        "state": "WA",
+        "zip": "98033",
+        "venueUrl": "https://www.google.com/maps?daddr=47.672458,-122.1814115"
+      },
+      {
+        "name": "Marymoor Park",
+        "address1": "6046 West Lake Sammamish Parkway NE",
+        "city": "Redmond",
+        "state": "WA",
+        "zip": "98052",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6594346,-122.1087919"
+      },
+      {
+        "name": "Meadowdale Playfields",
+        "address1": "16700 66th Ave W",
+        "city": "Lynnwood",
+        "state": "WA",
+        "zip": "98037",
+        "venueUrl": "https://www.google.com/maps?daddr=47.8474613,-122.320518"
+      },
+      {
+        "name": "Northshore Athletic Fields",
+        "address1": "14735 NE 145th Street",
+        "city": "Woodinville",
+        "state": "WA",
+        "zip": "98072",
+        "venueUrl": "https://www.google.com/maps?daddr=47.7327136,-122.1443821"
+      },
+      {
+        "name": "Peck",
+        "address1": "1425 S. State St",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2474453,-122.4643162"
+      },
+      {
+        "name": "Puyallup Rec Center",
+        "address1": "808 Valley Ave NW",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98371",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2092962,-122.3043756"
+      },
+      {
+        "name": "Sirius Sports Complex",
+        "address1": "1422 Bendigo Blvd",
+        "city": "North Bend",
+        "state": "WA",
+        "zip": "98045",
+        "venueUrl": "https://www.google.com/maps?daddr=47.4879363,-121.7970101"
+      },
+      {
+        "name": "Sprinker Rec Center",
+        "address1": "521 Military Rd S",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98444",
+        "venueUrl": "https://www.google.com/maps?daddr=47.122442,-122.4384007"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/cardinal-classic-2/",
+    "sourceTitle": "Cardinal Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier Cardinal Classic",
+    "startDate": "2026-05-28",
+    "endDate": "2026-05-31",
+    "city": "Puyallup",
+    "state": "WA",
+    "eventId": "250538",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Cardinal Classic - May 28-31, 2026 - Puyallup, WA",
+    "notes": "Washington baseball tournament turf fields in Tacoma, Puyallup, Lacey, Seattle and Auburn. Competitive and developmental divisions. 9u - 18u.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Dacca",
+        "address1": "2901 54th Ave E",
+        "city": "Fife",
+        "state": "WA",
+        "zip": "98424",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2309017,-122.3550304"
+      },
+      {
+        "name": "Fort Steilacoom Park",
+        "address1": "8714 87th Ave SW",
+        "city": "Lakewood",
+        "state": "WA",
+        "zip": "98498",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1756484,-122.5612041"
+      },
+      {
+        "name": "Foss High School",
+        "address1": "2112 S. Tyler Street",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2396549,-122.4953674"
+      },
+      {
+        "name": "Heritage Rec Center",
+        "address1": "9010 128th St E",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98373",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1402875,-122.3090211"
+      },
+      {
+        "name": "Puyallup Rec Center",
+        "address1": "808 Valley Ave NW",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98371",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2092962,-122.3043756"
+      },
+      {
+        "name": "Regional Athletic Complex",
+        "address1": "8345 Steilacoom Rd SE",
+        "city": "Olympia",
+        "state": "WA",
+        "zip": "98513",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0444502,-122.7625992"
+      },
+      {
+        "name": "Sirius Sports Complex",
+        "address1": "1422 Bendigo Blvd",
+        "city": "North Bend",
+        "state": "WA",
+        "zip": "98045",
+        "venueUrl": "https://www.google.com/maps?daddr=47.4879363,-121.7970101"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/fathers-day-classic-2/",
+    "sourceTitle": "Father's Day Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier Father's Day Wood Bat Classic",
+    "startDate": "2026-06-18",
+    "endDate": "2026-06-21",
+    "city": "Puyallup",
+    "state": "WA",
+    "eventId": "250544",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Father's Day Wood Bat Classic - Jun 18-21, 2026 - Puyallup, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey, Seattle, Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Dacca",
+        "address1": "2901 54th Ave E",
+        "city": "Fife",
+        "state": "WA",
+        "zip": "98424",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2309017,-122.3550304"
+      },
+      {
+        "name": "Fort Steilacoom Park",
+        "address1": "8714 87th Ave SW",
+        "city": "Lakewood",
+        "state": "WA",
+        "zip": "98498",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1756484,-122.5612041"
+      },
+      {
+        "name": "Foss High School",
+        "address1": "2112 S. Tyler Street",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2396549,-122.4953674"
+      },
+      {
+        "name": "Heritage Rec Center",
+        "address1": "9010 128th St E",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98373",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1402875,-122.3090211"
+      },
+      {
+        "name": "LBA Park",
+        "address1": "3333 Morse-Merryman Rd SE",
+        "city": "Olympia",
+        "state": "WA",
+        "zip": "98501",
+        "venueUrl": "https://www.google.com/maps?daddr=47.015535,-122.857301"
+      },
+      {
+        "name": "Puyallup Rec Center",
+        "address1": "808 Valley Ave NW",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98371",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2092962,-122.3043756"
+      },
+      {
+        "name": "Regional Athletic Complex",
+        "address1": "8345 Steilacoom Rd SE",
+        "city": "Olympia",
+        "state": "WA",
+        "zip": "98513",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0444502,-122.7625992"
+      },
+      {
+        "name": "Sirius Sports Complex",
+        "address1": "1422 Bendigo Blvd",
+        "city": "North Bend",
+        "state": "WA",
+        "zip": "98045",
+        "venueUrl": "https://www.google.com/maps?daddr=47.4879363,-121.7970101"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/baseball-mania/",
+    "sourceTitle": "Baseball Mania - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Baseball Mania",
+    "startDate": "2026-07-02",
+    "endDate": "2026-07-05",
+    "city": "Centralia",
+    "state": "WA",
+    "eventId": "250306",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Baseball Mania - Jul 2-5, 2026 - Centralia, WA",
+    "notes": "Washington baseball tournament in Tacoma, Puyallup, Lacey and Auburn. Competitive and developmental divisions. 8u-14u. April 12-13th BPF Bats",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/summer-classic/",
+    "sourceTitle": "Summer Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier Summer Classic",
+    "startDate": "2026-07-23",
+    "endDate": "2026-07-26",
+    "city": "Puget Sound",
+    "state": "WA",
+    "eventId": "250630",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Summer Classic - Jul 23-26, 2026 - Puget Sound, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey, Auburn, Seattle. Competitive and developmental divisions. 15u - 18U",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Dacca",
+        "address1": "2901 54th Ave E",
+        "city": "Fife",
+        "state": "WA",
+        "zip": "98424",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2309017,-122.3550304"
+      },
+      {
+        "name": "Fort Steilacoom Park",
+        "address1": "8714 87th Ave SW",
+        "city": "Lakewood",
+        "state": "WA",
+        "zip": "98498",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1756484,-122.5612041"
+      },
+      {
+        "name": "Foss High School",
+        "address1": "2112 S. Tyler Street",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2396549,-122.4953674"
+      },
+      {
+        "name": "Heritage Rec Center",
+        "address1": "9010 128th St E",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98373",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1402875,-122.3090211"
+      },
+      {
+        "name": "Puyallup Rec Center",
+        "address1": "808 Valley Ave NW",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98371",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2092962,-122.3043756"
+      },
+      {
+        "name": "Regional Athletic Complex",
+        "address1": "8345 Steilacoom Rd SE",
+        "city": "Olympia",
+        "state": "WA",
+        "zip": "98513",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0444502,-122.7625992"
+      },
+      {
+        "name": "Sirius Sports Complex",
+        "address1": "1422 Bendigo Blvd",
+        "city": "North Bend",
+        "state": "WA",
+        "zip": "98045",
+        "venueUrl": "https://www.google.com/maps?daddr=47.4879363,-121.7970101"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/eastern-washington-baseball-tournaments/",
+    "sourceTitle": "Eastern Washington Baseball Tournaments - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Eastern Washington Baseball Tournaments",
+    "startDate": null,
+    "endDate": null,
+    "city": null,
+    "state": "WA",
+    "eventId": null,
+    "exposureDomain": null,
+    "exposureTitle": null,
+    "notes": null,
+    "confidence": 40,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-series-yakima-blast/",
+    "sourceTitle": "Bullpen Series: Yakima Blast - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Yakima Blast",
+    "startDate": "2025-09-20",
+    "endDate": "2025-09-21",
+    "city": "Yakima",
+    "state": "WA",
+    "eventId": "233894",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Yakima Blast - Sep 20-21, 2025 - Yakima, WA",
+    "notes": "Washington baseball tournament in Ellensburg/Yakima. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Gateway Sports Complex",
+        "address1": "405 S Fair Ave",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.6000563,-120.4880088"
+      },
+      {
+        "name": "Kiwanis Park",
+        "address1": "1501 E Maple St",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.5996438,-120.4831764"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-series-yakima-fall-kickoff/",
+    "sourceTitle": "Bullpen Series: Yakima Fall Kick-off - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier Season Opener",
+    "startDate": "2025-03-01",
+    "endDate": "2025-03-02",
+    "city": "Puyallup",
+    "state": "WA",
+    "eventId": "228400",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Season Opener - Mar 1-2, 2025 - Puyallup, WA",
+    "notes": "Washington baseball tournament in Ellensburg/Yakima. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Dacca",
+        "address1": "2901 54th Ave E",
+        "city": "Fife",
+        "state": "WA",
+        "zip": "98424",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2309017,-122.3550304"
+      },
+      {
+        "name": "Fort Steilacoom Park",
+        "address1": "8714 87th Ave SW",
+        "city": "Lakewood",
+        "state": "WA",
+        "zip": "98498",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1756484,-122.5612041"
+      },
+      {
+        "name": "Foss High School",
+        "address1": "2112 S. Tyler Street",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2396549,-122.4953674"
+      },
+      {
+        "name": "Heritage Rec Center",
+        "address1": "9010 128th St E",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98373",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1402875,-122.3090211"
+      },
+      {
+        "name": "Puyallup Rec Center",
+        "address1": "808 Valley Ave NW",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98371",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2092962,-122.3043756"
+      },
+      {
+        "name": "Regional Athletic Complex",
+        "address1": "8345 Steilacoom Rd SE",
+        "city": "Olympia",
+        "state": "WA",
+        "zip": "98513",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0444502,-122.7625992"
+      },
+      {
+        "name": "Sirius Sports Complex",
+        "address1": "1422 Bendigo Blvd",
+        "city": "North Bend",
+        "state": "WA",
+        "zip": "98045",
+        "venueUrl": "https://www.google.com/maps?daddr=47.4879363,-121.7970101"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-spokane-fall-opener/",
+    "sourceTitle": "Bullpen Series: Spokane Fall Opener - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Top Tier Season Opener",
+    "startDate": "2025-03-01",
+    "endDate": "2025-03-02",
+    "city": "Puyallup",
+    "state": "WA",
+    "eventId": "228400",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Season Opener - Mar 1-2, 2025 - Puyallup, WA",
+    "notes": "Washington baseball tournament in Ellensburg/Yakima. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Dacca",
+        "address1": "2901 54th Ave E",
+        "city": "Fife",
+        "state": "WA",
+        "zip": "98424",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2309017,-122.3550304"
+      },
+      {
+        "name": "Fort Steilacoom Park",
+        "address1": "8714 87th Ave SW",
+        "city": "Lakewood",
+        "state": "WA",
+        "zip": "98498",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1756484,-122.5612041"
+      },
+      {
+        "name": "Foss High School",
+        "address1": "2112 S. Tyler Street",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2396549,-122.4953674"
+      },
+      {
+        "name": "Heritage Rec Center",
+        "address1": "9010 128th St E",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98373",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1402875,-122.3090211"
+      },
+      {
+        "name": "Puyallup Rec Center",
+        "address1": "808 Valley Ave NW",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98371",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2092962,-122.3043756"
+      },
+      {
+        "name": "Regional Athletic Complex",
+        "address1": "8345 Steilacoom Rd SE",
+        "city": "Olympia",
+        "state": "WA",
+        "zip": "98513",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0444502,-122.7625992"
+      },
+      {
+        "name": "Sirius Sports Complex",
+        "address1": "1422 Bendigo Blvd",
+        "city": "North Bend",
+        "state": "WA",
+        "zip": "98045",
+        "venueUrl": "https://www.google.com/maps?daddr=47.4879363,-121.7970101"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-pasco-fiasco/",
+    "sourceTitle": "Bullpen Pasco Fiasco - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Pasco Fiasco",
+    "startDate": "2026-03-14",
+    "endDate": "2026-03-15",
+    "city": "Pasco",
+    "state": "WA",
+    "eventId": "249686",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Pasco Fiasco - Mar 14-15, 2026 - Pasco, WA",
+    "notes": "Washington baseball tournament in Tri Cities. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats. March 15-16th",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Lawrence Scott Park",
+        "address1": "6020 W Quinault",
+        "city": "Kennewick",
+        "state": "WA",
+        "zip": "99336",
+        "venueUrl": "https://www.google.com/maps?daddr=46.2240399,-119.2010735"
+      },
+      {
+        "name": "Pasco Sporting Complex",
+        "address1": "6520 Homerun Rd",
+        "city": "Pasco",
+        "state": "WA",
+        "zip": "99301",
+        "venueUrl": "https://www.google.com/maps?daddr=46.2649506,-119.1748929"
+      },
+      {
+        "name": "Southridge Sports Complex",
+        "address1": "2901 Southridge Blvd",
+        "city": "Kennewick",
+        "state": "WA",
+        "zip": "99338",
+        "venueUrl": "https://www.google.com/maps?daddr=46.1808145,-119.1870496"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-ellensburg-opener/",
+    "sourceTitle": "Bullpen Ellensburg Opener - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Ellensburg Opener",
+    "startDate": "2026-03-28",
+    "endDate": "2026-03-29",
+    "city": null,
+    "state": "WA",
+    "eventId": "249685",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Ellensburg Opener - Mar 28-29, 2026 - Ellensburg & Yakima, WA",
+    "notes": "Washington baseball tournament in Ellensburg/Yakima. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 95,
+    "venues": [
+      {
+        "name": "Ellensburg HS",
+        "address1": "1203 E Capitol Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9921415,-120.5235695"
+      },
+      {
+        "name": "Kittitas High School",
+        "address1": "7571 Kittitas Hwy",
+        "city": "Kittitas",
+        "state": "WA",
+        "zip": "98934",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9889551,-120.4258967"
+      },
+      {
+        "name": "Kiwanis Park",
+        "address1": "1501 E Maple St",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.5996438,-120.4831764"
+      },
+      {
+        "name": "Rotary Park",
+        "address1": "1200 W 5th Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.995392,-120.5629978"
+      },
+      {
+        "name": "Yakima County Stadium",
+        "address1": "1301 S Fair Ave",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.5914874,-120.4855649"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-river-city-easter-bash/",
+    "sourceTitle": "Bullpen River City 1-Day Easter Bash - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen River City 1-Day Easter Bash",
+    "startDate": null,
+    "endDate": null,
+    "city": "Spokane",
+    "state": "WA",
+    "eventId": "249695",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: River City Easter 1-Day Bash - Apr 4, 2026 - Spokane, WA",
+    "notes": "Washington baseball tournament in Spokane. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 90,
+    "venues": [
+      {
+        "name": "Dwight Merkel Sports Complex",
+        "address1": "5701 N Assembly St",
+        "city": "Spokane",
+        "state": "WA",
+        "zip": "99205",
+        "venueUrl": "https://www.google.com/maps?daddr=47.7100678,-117.4776664"
+      },
+      {
+        "name": "Franklin Park",
+        "address1": "302 W Queen Ave",
+        "city": "Spokane",
+        "state": "WA",
+        "zip": "99205",
+        "venueUrl": "https://www.google.com/maps?daddr=47.7065023,-117.4139147"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-pink-out-the-burg/",
+    "sourceTitle": "Bullpen Pink out the Burg - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Pink Out the 'Burg",
+    "startDate": "2026-04-11",
+    "endDate": "2026-04-12",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "249767",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Pink Out the 'Burg - Apr 11-12, 2026 - Ellensburg, WA",
+    "notes": "Washington baseball tournament in Ellensburg/Yakima. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Ellensburg HS",
+        "address1": "1203 E Capitol Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9921415,-120.5235695"
+      },
+      {
+        "name": "Rotary Park",
+        "address1": "1200 W 5th Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.995392,-120.5629978"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hop-town-throwdown/",
+    "sourceTitle": "Bullpen Hop-Town Throwdown - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Hop-Town Throwdown",
+    "startDate": "2026-04-18",
+    "endDate": "2026-04-19",
+    "city": "Yakima",
+    "state": "WA",
+    "eventId": "250022",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Hop-Town Throwdown - Apr 18-19, 2026 - Yakima, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Gateway Sports Complex",
+        "address1": "405 S Fair Ave",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.6000563,-120.4880088"
+      },
+      {
+        "name": "Kiwanis Park",
+        "address1": "1501 E Maple St",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.5996438,-120.4831764"
+      },
+      {
+        "name": "Yakima County Stadium",
+        "address1": "1301 S Fair Ave",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.5914874,-120.4855649"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-battle-in-the-basin/",
+    "sourceTitle": "Bullpen Battle in the Basin - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Battle in the Basin",
+    "startDate": "2026-04-25",
+    "endDate": "2026-04-26",
+    "city": "Moses Lake",
+    "state": "WA",
+    "eventId": "249934",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Battle in the Basin - Apr 25-26, 2026 - Moses Lake, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Larson Playfield",
+        "address1": "2501 W Broadway Ave",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1060451,-119.3065736"
+      },
+      {
+        "name": "Paul Lauzier Athletic Complex",
+        "address1": "933 West Central Drive",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1394249,-119.2839065"
+      },
+      {
+        "name": "Warden HS",
+        "address1": "101 W Beck Way",
+        "city": "Warden",
+        "state": "WA",
+        "zip": "98857",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9612637,-119.0406593"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/yakima-exclusive-1/",
+    "sourceTitle": "Bullpen Yakima 13U Exclusive #1 - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Yakima 13u Exclusive",
+    "startDate": "2026-04-25",
+    "endDate": "2026-04-26",
+    "city": "Yakima",
+    "state": "WA",
+    "eventId": "249940",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Yakima 13u Exclusive - Apr 25-26, 2026 - Yakima, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Gateway Sports Complex",
+        "address1": "405 S Fair Ave",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.6000563,-120.4880088"
+      },
+      {
+        "name": "Kiwanis Park",
+        "address1": "1501 E Maple St",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.5996438,-120.4831764"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-spring-championships/",
+    "sourceTitle": "Bullpen Spring Championships - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Spring Championships",
+    "startDate": "2026-05-02",
+    "endDate": "2026-05-03",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "249942",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Spring Championships - May 2-3, 2026 - Ellensburg, WA",
+    "notes": "Washington baseball tournament in Ellensburg/Yakima. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats. May 3-4.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Ellensburg HS",
+        "address1": "1203 E Capitol Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9921415,-120.5235695"
+      },
+      {
+        "name": "Rotary Park",
+        "address1": "1200 W 5th Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.995392,-120.5629978"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-river-city-bombs-4-moms/",
+    "sourceTitle": "Bullpen River City Bombs 4 Moms - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: River City Bombs 4 Moms",
+    "startDate": "2026-05-09",
+    "endDate": "2026-05-10",
+    "city": "Spokane",
+    "state": "WA",
+    "eventId": "249975",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: River City Bombs 4 Moms - May 9-10, 2026 - Spokane, WA",
+    "notes": "Mother's Day baseball tournament in Spokane. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats. May 10-11th.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Dwight Merkel Sports Complex",
+        "address1": "5701 N Assembly St",
+        "city": "Spokane",
+        "state": "WA",
+        "zip": "99205",
+        "venueUrl": "https://www.google.com/maps?daddr=47.7100678,-117.4776664"
+      },
+      {
+        "name": "Franklin Park",
+        "address1": "302 W Queen Ave",
+        "city": "Spokane",
+        "state": "WA",
+        "zip": "99205",
+        "venueUrl": "https://www.google.com/maps?daddr=47.7065023,-117.4139147"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-i82-classic/",
+    "sourceTitle": "Bullpen I-82 Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: I-82 Classic",
+    "startDate": "2026-05-16",
+    "endDate": "2026-05-17",
+    "city": null,
+    "state": "WA",
+    "eventId": "249976",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: I-82 Classic - May 16-17, 2026 - Yakima & Ellensburg, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 95,
+    "venues": [
+      {
+        "name": "Ellensburg HS",
+        "address1": "1203 E Capitol Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9921415,-120.5235695"
+      },
+      {
+        "name": "Rotary Park",
+        "address1": "1200 W 5th Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.995392,-120.5629978"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-rodeo-city-classic/",
+    "sourceTitle": "Bullpen Rodeo City Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Rodeo City Classic",
+    "startDate": "2026-05-30",
+    "endDate": "2026-05-31",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "249977",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Rodeo City Classic - May 30-31, 2026 - Ellensburg, WA",
+    "notes": "Washington baseball tournament in Ellensburg/Yakima. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats. May 31st - June 1st",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Ellensburg HS",
+        "address1": "1203 E Capitol Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9921415,-120.5235695"
+      },
+      {
+        "name": "Rotary Park",
+        "address1": "1200 W 5th Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.995392,-120.5629978"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-central-wa-showdown/",
+    "sourceTitle": "Bullpen Central WA Showdown - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Central Washington Showdown",
+    "startDate": "2026-06-06",
+    "endDate": "2026-06-07",
+    "city": "Yakima",
+    "state": "WA",
+    "eventId": "249771",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Central Washington Showdown - Jun 6-7, 2026 - Yakima, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Gateway Sports Complex",
+        "address1": "405 S Fair Ave",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.6000563,-120.4880088"
+      },
+      {
+        "name": "Kiwanis Park",
+        "address1": "1501 E Maple St",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.5996438,-120.4831764"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-eastside-collide/",
+    "sourceTitle": "Bullpen Eastside Collide - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: East Side Collide",
+    "startDate": "2026-07-11",
+    "endDate": "2026-07-12",
+    "city": null,
+    "state": "WA",
+    "eventId": "250121",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: East Side Collide - Jul 11-12, 2026 - Ellensburg & Yakima, WA",
+    "notes": "Washington baseball tournament in Ellensburg/Yakima. Competitive and developmental divisions. 9u-16u. 9-13u BPF & 14-16u BBCOR. June 20-22nd",
+    "confidence": 95,
+    "venues": [
+      {
+        "name": "Rotary Park",
+        "address1": "1200 W 5th Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.995392,-120.5629978"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-apple-city-classic/",
+    "sourceTitle": "Bullpen Apple City Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Apple City Classic",
+    "startDate": "2026-06-13",
+    "endDate": "2026-06-14",
+    "city": "Wenatchee",
+    "state": "WA",
+    "eventId": "260837",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Apple City Classic - Jun 13-14, 2026 - Wenatchee, WA",
+    "notes": "Boise baseball tournament in Idaho. 14u and 18u Father's Day tournament. Metal bats. June 13-15th. Quality high school baseball fields",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Eastmont 4-Plex",
+        "address1": "255 n Georgia ave",
+        "city": "East Wenatchee",
+        "state": "WA",
+        "zip": "98802",
+        "venueUrl": "https://www.google.com/maps?daddr=47.4088059,-120.2767772"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/eybs-fathers-day-classic/",
+    "sourceTitle": "EYBS Father's Day Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "EYBS Father's Day Classic",
+    "startDate": "2026-06-20",
+    "endDate": "2026-06-21",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "250023",
+    "exposureDomain": "baseball",
+    "exposureTitle": "EYBS Father's Day Classic - Jun 20-21, 2026 - Ellensburg, WA",
+    "notes": "Washington baseball tournament in Ellensburg/Yakima. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Rotary Park",
+        "address1": "1200 W 5th Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.995392,-120.5629978"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/yakima-fathers-day-classic/",
+    "sourceTitle": "Bullpen Yakima Father's Day Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Yakima Father's Day Classic",
+    "startDate": "2026-06-20",
+    "endDate": "2026-06-21",
+    "city": "Yakima",
+    "state": "WA",
+    "eventId": "250305",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Yakima Father's Day Classic - Jun 20-21, 2026 - Yakima, WA",
+    "notes": "Washington baseball tournament in Ellensburg/Yakima. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Gateway Sports Complex",
+        "address1": "405 S Fair Ave",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.6000563,-120.4880088"
+      },
+      {
+        "name": "Kiwanis Park",
+        "address1": "1501 E Maple St",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.5996438,-120.4831764"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-dune-city-dust-up/",
+    "sourceTitle": "Bullpen Dune City Dust Up - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Dune City Dust-Up",
+    "startDate": "2026-06-27",
+    "endDate": "2026-06-28",
+    "city": "Moses Lake",
+    "state": "WA",
+    "eventId": "250026",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Dune City Dust-Up - Jun 27-28, 2026 - Moses Lake, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats. June 28-29th",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Larson Playfield",
+        "address1": "2501 W Broadway Ave",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1060451,-119.3065736"
+      },
+      {
+        "name": "Paul Lauzier Athletic Complex",
+        "address1": "933 West Central Drive",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1394249,-119.2839065"
+      },
+      {
+        "name": "Warden HS",
+        "address1": "101 W Beck Way",
+        "city": "Warden",
+        "state": "WA",
+        "zip": "98857",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9612637,-119.0406593"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-yakima-13u-exclusive-2/",
+    "sourceTitle": "Bullpen Yakima 13U Exclusive #2 - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Yakima 13u Exclusive 2",
+    "startDate": "2026-06-27",
+    "endDate": "2026-06-28",
+    "city": "Yakima",
+    "state": "WA",
+    "eventId": "250061",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Yakima 13u Exclusive 2 - Jun 27-28, 2026 - Yakima, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Gateway Sports Complex",
+        "address1": "405 S Fair Ave",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.6000563,-120.4880088"
+      },
+      {
+        "name": "Kiwanis Park",
+        "address1": "1501 E Maple St",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.5996438,-120.4831764"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-moses-lake-meltdown/",
+    "sourceTitle": "Bullpen Moses Lake Meltdown - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Moses Lake Meltdown",
+    "startDate": "2026-07-25",
+    "endDate": "2026-07-26",
+    "city": "Moses Lake",
+    "state": "WA",
+    "eventId": "250353",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Moses Lake Meltdown - Jul 25-26, 2026 - Moses Lake, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats. July 18-20th",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Big Bend Community College",
+        "address1": "7662 Chanute St NE",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1855947,-119.3273649"
+      },
+      {
+        "name": "Larson Playfield",
+        "address1": "2501 W Broadway Ave",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1060451,-119.3065736"
+      },
+      {
+        "name": "Paul Lauzier Athletic Complex",
+        "address1": "933 West Central Drive",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1394249,-119.2839065"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-moses-lake-opener/",
+    "sourceTitle": "Bullpen HS: Moses Lake Opener 15/16U - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Moses Lake Opener 15/16u",
+    "startDate": "2026-05-28",
+    "endDate": "2026-05-31",
+    "city": "Moses Lake",
+    "state": "WA",
+    "eventId": "252151",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen HS: Moses Lake Opener 15/16u - May 28-31, 2026 - Moses Lake, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-boise-summer-kickoff/",
+    "sourceTitle": "Bullpen HS: Boise Summer Kick-off - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Boise Summer Kickoff",
+    "startDate": "2026-05-29",
+    "endDate": "2026-05-31",
+    "city": "Boise",
+    "state": "ID",
+    "eventId": "252153",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen HS: Boise Summer Kickoff - May 29-31, 2026 - Boise, ID",
+    "notes": "Washington baseball tournament in Ellensburg/Yakima. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats. May 16-18th",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Bishop Kelly HS",
+        "address1": "7009 Franklin Rd, Boise, ID 83709",
+        "city": "Boise",
+        "state": "ID",
+        "zip": "83709",
+        "venueUrl": "https://www.google.com/maps?daddr=43.6025329,-116.2694122"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-whitworth-series/",
+    "sourceTitle": "Bullpen HS: Whitworth Prospect Series 17/18U - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Whitworth Prospect Series 17/18U",
+    "startDate": null,
+    "endDate": null,
+    "city": null,
+    "state": "WA",
+    "eventId": "252152",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Not Found",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 85,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-central-wa-id/",
+    "sourceTitle": "Bullpen HS: Central Washington ID Event - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Central Washington ID Event 15u & 16u",
+    "startDate": "2026-06-05",
+    "endDate": "2026-06-07",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "252155",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen HS: Central Washington ID Event 15u & 16u - Jun 5-7, 2026 - Ellensburg, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-moses-lake-showdown-18u/",
+    "sourceTitle": "Bullpen Moses Lake Showdown 18U - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Moses Lake Showdown 18u",
+    "startDate": "2026-06-05",
+    "endDate": "2026-06-07",
+    "city": "Moses Lake",
+    "state": "WA",
+    "eventId": "251986",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen HS: Moses Lake Showdown 18u - Jun 5-7, 2026 - Moses Lake, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-whitworth-prospect-series-16-17u/",
+    "sourceTitle": "Bullpen HS: Whitworth Prospect Series 16/17U - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Whitworth Prospect Series 16/17U",
+    "startDate": null,
+    "endDate": null,
+    "city": null,
+    "state": "WA",
+    "eventId": "252154",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Not Found",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 85,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-high-desert-invitational/",
+    "sourceTitle": "Bullpen HS: High Desert Invitational - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: High Desert Invitational",
+    "startDate": "2026-06-12",
+    "endDate": "2026-06-14",
+    "city": "Moses Lake",
+    "state": "WA",
+    "eventId": "252156",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen HS: High Desert Invitational - Jun 12-14, 2026 - Moses Lake, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-moses-lake-id-event/",
+    "sourceTitle": "Bullpen HS: Moses Lake ID Event - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Moses Lake ID Event 16/18u",
+    "startDate": "2026-06-19",
+    "endDate": "2026-06-21",
+    "city": "Moses Lake",
+    "state": "WA",
+    "eventId": "252157",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen HS: Moses Lake ID Event 16/18u - Jun 19-21, 2026 - Moses Lake, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Big Bend Community College",
+        "address1": "7662 Chanute St NE",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1855947,-119.3273649"
+      },
+      {
+        "name": "Larson Playfield",
+        "address1": "2501 W Broadway Ave",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1060451,-119.3065736"
+      },
+      {
+        "name": "Paul Lauzier Athletic Complex",
+        "address1": "933 West Central Drive",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1394249,-119.2839065"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-central-washington-slugfest/",
+    "sourceTitle": "Bullpen HS: Central Washington Slugfest - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Central Washington Slugfest",
+    "startDate": "2026-06-25",
+    "endDate": "2026-06-28",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "252158",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen HS: Central Washington Slugfest - Jun 25-28, 2026 - Ellensburg, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-central-washington-firecracker/",
+    "sourceTitle": "Bullpen HS: Central Washington Firecracker - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Central Washington Firecracker",
+    "startDate": "2026-07-02",
+    "endDate": "2026-07-05",
+    "city": "Moses Lake",
+    "state": "WA",
+    "eventId": "252160",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen HS: Central Washington Firecracker - Jul 2-5, 2026 - Moses Lake, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-whitworth-prospect-series-16-17u-2/",
+    "sourceTitle": "Bullpen HS: Whitworth Prospect Series 16/17U - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Whitworth Prospect Series 16/17U",
+    "startDate": null,
+    "endDate": null,
+    "city": null,
+    "state": "WA",
+    "eventId": "252161",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Not Found",
+    "notes": "Washington baseball tournament in Moses Lake. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 85,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-moses-lake-finale-15-16u/",
+    "sourceTitle": "Bullpen HS: Moses Lake Finale 15/16U - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Moses Lake Finale 15-16u",
+    "startDate": "2026-07-09",
+    "endDate": "2026-07-12",
+    "city": "Moses Lake",
+    "state": "WA",
+    "eventId": "252166",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen HS: Moses Lake Finale 15-16u - Jul 9-12, 2026 - Moses Lake, WA",
+    "notes": "15u and 16u Eastern Washington Baseball Tournament. Games played at Big Bend College. Metal bats. June 13-15th. Father's Day tournament.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Big Bend Community College",
+        "address1": "7662 Chanute St NE",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1855947,-119.3273649"
+      },
+      {
+        "name": "Larson Playfield",
+        "address1": "2501 W Broadway Ave",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1060451,-119.3065736"
+      },
+      {
+        "name": "Paul Lauzier Athletic Complex",
+        "address1": "933 West Central Drive",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1394249,-119.2839065"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-central-wa-finale-15-16u/",
+    "sourceTitle": "Bullpen HS: Central Washington Finale 15/16U - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Central Washington Finale 15u & 16u",
+    "startDate": "2026-07-16",
+    "endDate": "2026-07-19",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "252163",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen HS: Central Washington Finale 15u & 16u - Jul 16-19, 2026 - Ellensburg, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Play on Big Bend college baseball field. Metal bats. May 30th - June 1st.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-moses-lake-finale-18u/",
+    "sourceTitle": "Bullpen HS: Moses Lake Finale 18U - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Moses Lake Finale 18u",
+    "startDate": "2026-07-16",
+    "endDate": "2026-07-19",
+    "city": "Moses Lake",
+    "state": "WA",
+    "eventId": "252164",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen HS: Moses Lake Finale 18u - Jul 16-19, 2026 - Moses Lake, WA",
+    "notes": "18u High School Washington baseball tournament in Moses Lake. Games played on a college field, Big Bend. Metal bats. June 6-8th.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Big Bend Community College",
+        "address1": "7662 Chanute St NE",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1855947,-119.3273649"
+      },
+      {
+        "name": "Larson Playfield",
+        "address1": "2501 W Broadway Ave",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1060451,-119.3065736"
+      },
+      {
+        "name": "Paul Lauzier Athletic Complex",
+        "address1": "933 West Central Drive",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1394249,-119.2839065"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-whitworth-prospect-16u/",
+    "sourceTitle": "Bullpen HS: Whitworth Prospect Series 16U - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen HS: Whitworth Prospect Series 16U",
+    "startDate": "2026-06-20",
+    "endDate": "2026-06-22",
+    "city": null,
+    "state": "WA",
+    "eventId": "252165",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Not Found",
+    "notes": "18u High School Washington baseball tournament in Moses Lake. Games played on a college field, Big Bend. Metal bats. June 20-22nd.",
+    "confidence": 95,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/columbia-river-series-march-kickoff/",
+    "sourceTitle": "Columbia River Series March Kick-Off - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Columbia River Series: March Kickoff",
+    "startDate": "2026-03-07",
+    "endDate": "2026-03-08",
+    "city": "Vancouver",
+    "state": "WA",
+    "eventId": "259065",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Columbia River Series: March Kickoff - Mar 7-8, 2026 - Vancouver, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey, Seattle, Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Union High School",
+        "address1": "6201 NW Friberg-Strunk St",
+        "city": "Camas",
+        "state": "WA",
+        "zip": "98607",
+        "venueUrl": "https://www.google.com/maps?daddr=45.6234177,-122.4669355"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/columbia-river-series-swing-into-spring/",
+    "sourceTitle": "Columbia River Series Swing into Spring - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Columbia River Series: Swing into Spring",
+    "startDate": "2026-03-14",
+    "endDate": "2026-03-15",
+    "city": "Vancouver",
+    "state": "WA",
+    "eventId": "259095",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Columbia River Series: Swing into Spring - Mar 14-15, 2026 - Vancouver, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey, Seattle, Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Union High School",
+        "address1": "6201 NW Friberg-Strunk St",
+        "city": "Camas",
+        "state": "WA",
+        "zip": "98607",
+        "venueUrl": "https://www.google.com/maps?daddr=45.6234177,-122.4669355"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/columbia-river-series-spring-opener/",
+    "sourceTitle": "Columbia River Series Spring Opener - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Columbia River Series: Spring Opener",
+    "startDate": "2026-03-21",
+    "endDate": "2026-03-22",
+    "city": "Vancouver",
+    "state": "WA",
+    "eventId": "254664",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Columbia River Series: Spring Opener - Mar 21-22, 2026 - Vancouver, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey, Seattle, Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Harmony Sports Complex",
+        "address1": "1500 NE 192nd Ave",
+        "city": "Vancouver",
+        "state": "WA",
+        "zip": "98684",
+        "venueUrl": "https://www.google.com/maps?daddr=45.6336843,-122.478814"
+      },
+      {
+        "name": "Union High School",
+        "address1": "6201 NW Friberg-Strunk St",
+        "city": "Camas",
+        "state": "WA",
+        "zip": "98607",
+        "venueUrl": "https://www.google.com/maps?daddr=45.6234177,-122.4669355"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/columbia-river-series-clash-on-the-columbia/",
+    "sourceTitle": "Columbia River Series Clash on the Columbia - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Columbia River Series: Clash on the Columbia",
+    "startDate": "2026-03-28",
+    "endDate": "2026-03-29",
+    "city": "Vancouver",
+    "state": "WA",
+    "eventId": "259125",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Columbia River Series: Clash on the Columbia - Mar 28-29, 2026 - Vancouver, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey, Seattle, Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Union High School",
+        "address1": "6201 NW Friberg-Strunk St",
+        "city": "Camas",
+        "state": "WA",
+        "zip": "98607",
+        "venueUrl": "https://www.google.com/maps?daddr=45.6234177,-122.4669355"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/columbia-river-series-spring-classic/",
+    "sourceTitle": "Columbia River Series Spring Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Columbia River Series: Spring Classic",
+    "startDate": "2026-04-11",
+    "endDate": "2026-04-12",
+    "city": "Vancouver",
+    "state": "WA",
+    "eventId": "259101",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Columbia River Series: Spring Classic - Apr 11-12, 2026 - Vancouver, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey, Seattle, Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/columbia-river-series-battle-at-the-border/",
+    "sourceTitle": "Columbia River Series Battle at the Border - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Columbia River Series: Battle at the Border",
+    "startDate": "2026-04-18",
+    "endDate": "2026-04-19",
+    "city": "Vancouver",
+    "state": "WA",
+    "eventId": "259102",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Columbia River Series: Battle at the Border - Apr 18-19, 2026 - Vancouver, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey, Seattle, Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/fort-vancouver-classic/",
+    "sourceTitle": "Columbia River Series Fort Vancouver Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Columbia River Series: Fort Vancouver Classic",
+    "startDate": "2026-05-16",
+    "endDate": "2026-05-17",
+    "city": "Vancouver",
+    "state": "WA",
+    "eventId": "254667",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Columbia River Series: Fort Vancouver Classic - May 16-17, 2026 - Vancouver, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey, Seattle, Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/columbia-river-series-cam-christian-memorial/",
+    "sourceTitle": "Columbia River Series Cam Christian Memorial - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Columbia River Series: Cam Christian Memorial",
+    "startDate": "2026-06-04",
+    "endDate": "2026-06-07",
+    "city": "Vancouver",
+    "state": "WA",
+    "eventId": "259340",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Columbia River Series: Cam Christian Memorial - Jun 4-7, 2026 - Vancouver, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey, Seattle, Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/columbia-river-series-couve-summer-showdown/",
+    "sourceTitle": "Columbia River Series Couve Summer Showdown - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Columbia River Series: Couve Summer Showdown",
+    "startDate": "2026-06-11",
+    "endDate": "2026-06-14",
+    "city": "Vancouver",
+    "state": "WA",
+    "eventId": "259126",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Columbia River Series: Couve Summer Showdown - Jun 11-14, 2026 - Vancouver, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey, Seattle, Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/columbia-river-series-carson-styron-memorial/",
+    "sourceTitle": "Columbia River Series Carson Styron Memorial - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Columbia River Series: Spring Classic",
+    "startDate": "2026-04-11",
+    "endDate": "2026-04-12",
+    "city": "Vancouver",
+    "state": "WA",
+    "eventId": "259101",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Columbia River Series: Spring Classic - Apr 11-12, 2026 - Vancouver, WA",
+    "notes": "Washington baseball tournament on turf fields in Tacoma, Puyallup, Lacey, Seattle, Auburn. Competitive and developmental divisions. 9u - 14u.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/pacific-university-prospect-series-week-1/",
+    "sourceTitle": "Pacific University Prospect Series Week 1 - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Pacific Prospect Series Week 1",
+    "startDate": "2026-06-11",
+    "endDate": "2026-06-14",
+    "city": "Forest Grove",
+    "state": "OR",
+    "eventId": "250792",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Pacific Prospect Series Week 1 - Jun 11-14, 2026 - Forest Grove, OR",
+    "notes": "Pacific 18u College Showcase event. Games hosted on campus. June 12-15th. Metal bats. Forest Grove, OR. 8 team tournament.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Pacific University",
+        "address1": "2632 Sunset Dr",
+        "city": "Forest Grove",
+        "state": "OR",
+        "zip": "97116",
+        "venueUrl": "https://www.google.com/maps?daddr=45.5283371,-123.1079817"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/pacific-university-prospect-series-week-2/",
+    "sourceTitle": "Pacific University Prospect Series Week 2 - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Pacific Prospect Series Week 2",
+    "startDate": "2026-06-18",
+    "endDate": "2026-06-21",
+    "city": "Forest Grove",
+    "state": "OR",
+    "eventId": "252095",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Pacific Prospect Series Week 2 - Jun 18-21, 2026 - Forest Grove, OR",
+    "notes": "Pacific 18u College Showcase event. Games hosted on campus. June 19-22nd. Metal bats. Forest Grove, OR. 8 team tournament.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Pacific University",
+        "address1": "2632 Sunset Dr",
+        "city": "Forest Grove",
+        "state": "OR",
+        "zip": "97116",
+        "venueUrl": "https://www.google.com/maps?daddr=45.5283371,-123.1079817"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/pacific-university-prospect-series-week-3/",
+    "sourceTitle": "Pacific University Prospect Series Week 3 - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Pacific Prospect Series Week 3",
+    "startDate": "2026-06-25",
+    "endDate": "2026-06-28",
+    "city": "Forest Grove",
+    "state": "OR",
+    "eventId": "252097",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Pacific Prospect Series Week 3 - Jun 25-28, 2026 - Forest Grove, OR",
+    "notes": "Pacific 18u College Showcase event. Games hosted on campus. June 26-29th. Metal bats. Forest Grove, OR. 8 team tournament.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Pacific University",
+        "address1": "2632 Sunset Dr",
+        "city": "Forest Grove",
+        "state": "OR",
+        "zip": "97116",
+        "venueUrl": "https://www.google.com/maps?daddr=45.5283371,-123.1079817"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/pacific-university-prospect-series-week-4/",
+    "sourceTitle": "Pacific University Prospect Series Week 4 - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Pacific Prospect Series Week 4",
+    "startDate": "2026-07-02",
+    "endDate": "2026-07-05",
+    "city": "Forest Grove",
+    "state": "OR",
+    "eventId": "252096",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Pacific Prospect Series Week 4 - Jul 2-5, 2026 - Forest Grove, OR",
+    "notes": "Pacific 18u College Showcase event. Games hosted on campus. July 3-6th. Metal bats. Forest Grove, OR. 8 team tournament.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Pacific University",
+        "address1": "2632 Sunset Dr",
+        "city": "Forest Grove",
+        "state": "OR",
+        "zip": "97116",
+        "venueUrl": "https://www.google.com/maps?daddr=45.5283371,-123.1079817"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/pacific-university-prospect-series-week-5/",
+    "sourceTitle": "Pacific University Prospect Series Week 5 - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Pacific Prospect Series Week 5",
+    "startDate": "2026-07-16",
+    "endDate": "2026-07-19",
+    "city": "Forest Grove",
+    "state": "OR",
+    "eventId": "252099",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Pacific Prospect Series Week 5 - Jul 16-19, 2026 - Forest Grove, OR",
+    "notes": "Pacific 18u College Showcase event. Games hosted on campus. July 17-20th. Metal bats. Forest Grove, OR. 8 team tournament.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Dacca",
+        "address1": "2901 54th Ave E",
+        "city": "Fife",
+        "state": "WA",
+        "zip": "98424",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2309017,-122.3550304"
+      },
+      {
+        "name": "Fort Steilacoom Park",
+        "address1": "8714 87th Ave SW",
+        "city": "Lakewood",
+        "state": "WA",
+        "zip": "98498",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1756484,-122.5612041"
+      },
+      {
+        "name": "Foss High School",
+        "address1": "2112 S. Tyler Street",
+        "city": "Tacoma",
+        "state": "WA",
+        "zip": "98405",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2396549,-122.4953674"
+      },
+      {
+        "name": "Heritage Rec Center",
+        "address1": "9010 128th St E",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98373",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1402875,-122.3090211"
+      },
+      {
+        "name": "Puyallup Rec Center",
+        "address1": "808 Valley Ave NW",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98371",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2092962,-122.3043756"
+      },
+      {
+        "name": "Regional Athletic Complex",
+        "address1": "8345 Steilacoom Rd SE",
+        "city": "Olympia",
+        "state": "WA",
+        "zip": "98513",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0444502,-122.7625992"
+      },
+      {
+        "name": "Sirius Sports Complex",
+        "address1": "1422 Bendigo Blvd",
+        "city": "North Bend",
+        "state": "WA",
+        "zip": "98045",
+        "venueUrl": "https://www.google.com/maps?daddr=47.4879363,-121.7970101"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/whitworth-prospect-series-week-1/",
+    "sourceTitle": "Whitworth Prospect Series Week 1 - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Whitworth Prospect Series Week 1",
+    "startDate": "2026-05-29",
+    "endDate": "2026-05-31",
+    "city": "Spokane",
+    "state": "WA",
+    "eventId": "250799",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Whitworth Prospect Series Week 1 - May 29-31, 2026 - Spokane, WA",
+    "notes": "Whitworth College Showcase event. Games hosted on campus. May 30-June 1. Metal bats. Spokane, Wa. 6 team tournament.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Spokane Falls Community College",
+        "address1": "3410 W Whistalks Way",
+        "city": "Spokane",
+        "state": "WA",
+        "zip": "99224",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6752215,-117.4697597"
+      },
+      {
+        "name": "Whitworth",
+        "address1": "W N Five Mile Rd",
+        "city": "Spokane",
+        "state": "WA",
+        "zip": "99218",
+        "venueUrl": "https://www.google.com/maps?daddr=47.7553836,-117.4406659"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/whitworth-prospect-series-week-2/",
+    "sourceTitle": "Whitworth Prospect Series Week 2 - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Whitworth Prospect Series Week 2",
+    "startDate": "2026-06-05",
+    "endDate": "2026-06-07",
+    "city": "Spokane",
+    "state": "WA",
+    "eventId": "252107",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Whitworth Prospect Series Week 2 - Jun 5-7, 2026 - Spokane, WA",
+    "notes": "Whitworth College Showcase event. Games hosted on campus. June 6-8th. Metal bats. Spokane, Wa. 6 team tournament.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/whitworth-prospect-series-week-3/",
+    "sourceTitle": "Whitworth Prospect Series Week 3 - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Whitworth Prospect Series Week 3",
+    "startDate": "2026-07-02",
+    "endDate": "2026-07-05",
+    "city": "Spokane",
+    "state": "WA",
+    "eventId": "252104",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Whitworth Prospect Series Week 3 - Jul 2-5, 2026 - Spokane, WA",
+    "notes": "Whitworth College Showcase event. Games hosted on campus. June 6-8th. Metal bats. Spokane, Wa. 6 team tournament.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/whitworth-prospect-series-week-4/",
+    "sourceTitle": "Whitworth Prospect Series Week 4 - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Whitworth Prospect Series Week 4",
+    "startDate": "2026-07-23",
+    "endDate": "2026-07-26",
+    "city": "Spokane",
+    "state": "WA",
+    "eventId": "252106",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Whitworth Prospect Series Week 4 - Jul 23-26, 2026 - Spokane, WA",
+    "notes": "Whitworth College Showcase event. Games hosted on campus. June 6-8th. Metal bats. Spokane, Wa. 6 team tournament.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-cbc-id-event/",
+    "sourceTitle": "Bullpen HS: CBC ID Event - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "CBC ID Event",
+    "startDate": "2026-06-12",
+    "endDate": "2026-06-14",
+    "city": "Pasco",
+    "state": "WA",
+    "eventId": "252258",
+    "exposureDomain": "baseball",
+    "exposureTitle": "CBC ID Event - Jun 12-14, 2026 - Pasco, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Play on Big Bend college baseball field. Metal bats. July 10-13th",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-hs-diamond-wars-cbc/",
+    "sourceTitle": "Bullpen HS: Diamond Wars at CBC - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "CBC Diamond Wars",
+    "startDate": "2026-07-16",
+    "endDate": "2026-07-19",
+    "city": "Pasco",
+    "state": "WA",
+    "eventId": "252259",
+    "exposureDomain": "baseball",
+    "exposureTitle": "CBC Diamond Wars - Jul 16-19, 2026 - Pasco, WA",
+    "notes": "Washington baseball tournament in Moses Lake. Play on Big Bend college baseball field. Metal bats. July 24-27th.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/western-washington-baseball-tournaments/#",
+    "sourceTitle": "Western Washington Baseball Tournaments - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Western Washington Baseball Tournaments",
+    "startDate": null,
+    "endDate": null,
+    "city": null,
+    "state": "WA",
+    "eventId": null,
+    "exposureDomain": null,
+    "exposureTitle": null,
+    "notes": null,
+    "confidence": 40,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/softball-tournaments/#",
+    "sourceTitle": "Softball Tournaments - Top Tier Sports",
+    "sport": "softball",
+    "tournamentName": "Softball Tournaments",
+    "startDate": null,
+    "endDate": null,
+    "city": null,
+    "state": "WA",
+    "eventId": null,
+    "exposureDomain": null,
+    "exposureTitle": null,
+    "notes": "Find exciting Softball tournaments in Washington State. Perfect for players looking to enhance skills and enjoy the game.",
+    "confidence": 40,
+    "venues": []
+  },
+  {
+    "sourceUrl": "http://toptiersports.net/softball-tournaments",
+    "sourceTitle": "Softball Tournaments - Top Tier Sports",
+    "sport": "softball",
+    "tournamentName": "Softball Tournaments",
+    "startDate": null,
+    "endDate": null,
+    "city": null,
+    "state": "WA",
+    "eventId": null,
+    "exposureDomain": null,
+    "exposureTitle": null,
+    "notes": "Find exciting Softball tournaments in Washington State. Perfect for players looking to enhance skills and enjoy the game.",
+    "confidence": 40,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/softball-yakima-classic/",
+    "sourceTitle": "Softball - Yakima Classic - Top Tier Sports",
+    "sport": "softball",
+    "tournamentName": "Top Tier Yakima Classic",
+    "startDate": "2026-04-25",
+    "endDate": "2026-04-26",
+    "city": "Yakima",
+    "state": "WA",
+    "eventId": "257409",
+    "exposureDomain": "softball",
+    "exposureTitle": "Top Tier Yakima Classic - Apr 25-26, 2026 - Yakima, WA",
+    "notes": "Discover upcoming softball tournaments in Washington State that cater to players of all skill levels and ages.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Kiwanis Park",
+        "address1": "1501 E Maple St",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.5996438,-120.4831764"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/softball-central-washington-showdown/",
+    "sourceTitle": "Softball - Central Washington Showdown - Top Tier Sports",
+    "sport": "softball",
+    "tournamentName": "Top Tier Central Washington Showdown",
+    "startDate": "2026-06-27",
+    "endDate": "2026-06-28",
+    "city": "Yakima",
+    "state": "WA",
+    "eventId": "257414",
+    "exposureDomain": "softball",
+    "exposureTitle": "Top Tier Central Washington Showdown - Jun 27-28, 2026 - Yakima, WA",
+    "notes": "Discover upcoming softball tournaments in Washington State that cater to players of all skill levels and ages.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Kiwanis Park",
+        "address1": "1501 E Maple St",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.5996438,-120.4831764"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/softball-spokane-season-finale/",
+    "sourceTitle": "Softball - Spokane Season Finale - Top Tier Sports",
+    "sport": "softball",
+    "tournamentName": "Top Tier Spokane Season Finale",
+    "startDate": "2026-07-24",
+    "endDate": "2026-07-26",
+    "city": "Spokane",
+    "state": "WA",
+    "eventId": "257422",
+    "exposureDomain": "softball",
+    "exposureTitle": "Top Tier Spokane Season Finale - Jul 24-26, 2026 - Spokane, WA",
+    "notes": "Discover upcoming softball tournaments in Washington State that cater to players of all skill levels and ages.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Dwight Merkel Sports Complex",
+        "address1": "5701 N Assembly St",
+        "city": "Spokane",
+        "state": "WA",
+        "zip": "99205",
+        "venueUrl": "https://www.google.com/maps?daddr=47.7100678,-117.4776664"
+      },
+      {
+        "name": "Franklin Park",
+        "address1": "302 W Queen Ave",
+        "city": "Spokane",
+        "state": "WA",
+        "zip": "99205",
+        "venueUrl": "https://www.google.com/maps?daddr=47.7065023,-117.4139147"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/softball-tournaments/toptiersports.net/softball-yakima-classic",
+    "sourceTitle": "Softball - Yakima Classic - Top Tier Sports",
+    "sport": "softball",
+    "tournamentName": "Top Tier Yakima Classic",
+    "startDate": "2026-04-25",
+    "endDate": "2026-04-26",
+    "city": "Yakima",
+    "state": "WA",
+    "eventId": "257409",
+    "exposureDomain": "softball",
+    "exposureTitle": "Top Tier Yakima Classic - Apr 25-26, 2026 - Yakima, WA",
+    "notes": "Discover upcoming softball tournaments in Washington State that cater to players of all skill levels and ages.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Kiwanis Park",
+        "address1": "1501 E Maple St",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.5996438,-120.4831764"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/softball-tournaments/toptiersports.net/softball-bombs-for-moms",
+    "sourceTitle": "Softball - Bombs 4 Moms - Top Tier Sports",
+    "sport": "softball",
+    "tournamentName": "Top Tier Bombs 4 Moms",
+    "startDate": "2026-05-09",
+    "endDate": "2026-05-10",
+    "city": "Redmond",
+    "state": "WA",
+    "eventId": "257411",
+    "exposureDomain": "softball",
+    "exposureTitle": "Top Tier Bombs 4 Moms - May 9-10, 2026 - Redmond, WA",
+    "notes": "Discover upcoming softball tournaments in Washington State that cater to players of all skill levels and ages.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/softball-central-washington-showdown",
+    "sourceTitle": "Softball - Central Washington Showdown - Top Tier Sports",
+    "sport": "softball",
+    "tournamentName": "Top Tier Central Washington Showdown",
+    "startDate": "2026-06-27",
+    "endDate": "2026-06-28",
+    "city": "Yakima",
+    "state": "WA",
+    "eventId": "257414",
+    "exposureDomain": "softball",
+    "exposureTitle": "Top Tier Central Washington Showdown - Jun 27-28, 2026 - Yakima, WA",
+    "notes": "Discover upcoming softball tournaments in Washington State that cater to players of all skill levels and ages.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Kiwanis Park",
+        "address1": "1501 E Maple St",
+        "city": "Yakima",
+        "state": "WA",
+        "zip": "98901",
+        "venueUrl": "https://www.google.com/maps?daddr=46.5996438,-120.4831764"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/softball-spokane-season-finale",
+    "sourceTitle": "Softball - Spokane Season Finale - Top Tier Sports",
+    "sport": "softball",
+    "tournamentName": "Top Tier Spokane Season Finale",
+    "startDate": "2026-07-24",
+    "endDate": "2026-07-26",
+    "city": "Spokane",
+    "state": "WA",
+    "eventId": "257422",
+    "exposureDomain": "softball",
+    "exposureTitle": "Top Tier Spokane Season Finale - Jul 24-26, 2026 - Spokane, WA",
+    "notes": "Discover upcoming softball tournaments in Washington State that cater to players of all skill levels and ages.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Dwight Merkel Sports Complex",
+        "address1": "5701 N Assembly St",
+        "city": "Spokane",
+        "state": "WA",
+        "zip": "99205",
+        "venueUrl": "https://www.google.com/maps?daddr=47.7100678,-117.4776664"
+      },
+      {
+        "name": "Franklin Park",
+        "address1": "302 W Queen Ave",
+        "city": "Spokane",
+        "state": "WA",
+        "zip": "99205",
+        "venueUrl": "https://www.google.com/maps?daddr=47.7065023,-117.4139147"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/softball-firecracker/",
+    "sourceTitle": "Page not found - Top Tier Sports",
+    "sport": "softball",
+    "tournamentName": "Page not found",
+    "startDate": "2026-06-13",
+    "endDate": "2026-06-14",
+    "city": "Yakima",
+    "state": "WA",
+    "eventId": null,
+    "exposureDomain": null,
+    "exposureTitle": null,
+    "notes": null,
+    "confidence": 55,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/basketball/#",
+    "sourceTitle": "AAU Basketball Tournaments - Top Tier Sports",
+    "sport": "basketball",
+    "tournamentName": "AAU Basketball Tournaments",
+    "startDate": null,
+    "endDate": null,
+    "city": null,
+    "state": "WA",
+    "eventId": null,
+    "exposureDomain": "basketball",
+    "exposureTitle": null,
+    "notes": "AAU Basketball tournaments in Central Washington. 3rd-8th grade Boys & Girls Developmental and competitive divisions.",
+    "confidence": 40,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/basketball-turkey-shoot/",
+    "sourceTitle": "Basketball - Turkey Shoot - Top Tier Sports",
+    "sport": "basketball",
+    "tournamentName": "Top Tier Turkey Shoot",
+    "startDate": "2025-11-22",
+    "endDate": "2025-11-23",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "249847",
+    "exposureDomain": "basketball",
+    "exposureTitle": "Top Tier Turkey Shoot - Nov 22-23, 2025 - Ellensburg, WA",
+    "notes": "AAU Basketball tournaments in Central Washington. 3rd-8th grade Boys & Girls Developmental and competitive divisions. November 30-December 1",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Ellensburg HS",
+        "address1": "1203 E Capitol Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9921415,-120.5235695"
+      },
+      {
+        "name": "Morgan Middle School",
+        "address1": "400 E. First Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9920498,-120.5430362"
+      },
+      {
+        "name": "The SURC - CWU",
+        "address1": "400 E. University Way",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0029902,-120.5377517"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/basketball-central-wa-shoot-out/",
+    "sourceTitle": "Basketball - Central Wa Shoot-Out - Top Tier Sports",
+    "sport": "basketball",
+    "tournamentName": "Top Tier Central Washington Shootout - WA State Qualifier",
+    "startDate": "2025-12-20",
+    "endDate": "2025-12-21",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "249854",
+    "exposureDomain": "basketball",
+    "exposureTitle": "Top Tier Central Washington Shootout - WA State Qualifier - Dec 20-21, 2025 - Ellensburg, WA",
+    "notes": "AAU Basketball tournaments in Central Washington. 3rd-8th Boys & Girls Developmental & competitive divisions. December 21-22 State Qualifier",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Kittitas Elementary",
+        "address1": "601 N Pierce St",
+        "city": "Kittitas",
+        "state": "WA",
+        "zip": "98934",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9860877,-120.4189807"
+      },
+      {
+        "name": "The SURC - CWU",
+        "address1": "400 E. University Way",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0029902,-120.5377517"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/basketball-new-years-jam-state-qualifier/",
+    "sourceTitle": "Basketball - New Year's Jam - Top Tier Sports",
+    "sport": "basketball",
+    "tournamentName": "Top Tier New Year's Jam - WA State Qualifier",
+    "startDate": "2026-01-03",
+    "endDate": "2026-01-04",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "249855",
+    "exposureDomain": "basketball",
+    "exposureTitle": "Top Tier New Year's Jam - WA State Qualifier - Jan 3-4, 2026 - Ellensburg, WA",
+    "notes": "AAU Basketball tournament in Central Washington. 3-8th grade Boys & Girls Developmental and competitive divisions State Championship Qualifier",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Kittitas Elementary",
+        "address1": "601 N Pierce St",
+        "city": "Kittitas",
+        "state": "WA",
+        "zip": "98934",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9860877,-120.4189807"
+      },
+      {
+        "name": "The SURC - CWU",
+        "address1": "400 E. University Way",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0029902,-120.5377517"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/basketball-hardwood-classic/",
+    "sourceTitle": "Basketball - Hardwood Classic - Top Tier Sports",
+    "sport": "basketball",
+    "tournamentName": "Top Tier Hardwood Classic",
+    "startDate": "2026-01-24",
+    "endDate": "2026-01-25",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "249857",
+    "exposureDomain": "basketball",
+    "exposureTitle": "Top Tier Hardwood Classic - Jan 24-25, 2026 - Ellensburg, WA",
+    "notes": "AAU Basketball tournaments in Central Washington. 3rd-8th grade Boys & Girls Developmental and competitive divisions.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "The SURC - CWU",
+        "address1": "400 E. University Way",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0029902,-120.5377517"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/basketball-presidents-day-classic/",
+    "sourceTitle": "Basketball - President's Day Classic - Top Tier Sports",
+    "sport": "basketball",
+    "tournamentName": "Top Tier President's Day Classic - WA State Qualifier",
+    "startDate": "2026-02-14",
+    "endDate": "2026-02-15",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "249858",
+    "exposureDomain": "basketball",
+    "exposureTitle": "Top Tier President's Day Classic - WA State Qualifier - Feb 14-15, 2026 - Ellensburg, WA",
+    "notes": "AAU Basketball tournament in Central Washington 3-8th Boys & Girls Developmental and competitive divisions February 15-16th State Qualifier",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Kittitas Elementary",
+        "address1": "601 N Pierce St",
+        "city": "Kittitas",
+        "state": "WA",
+        "zip": "98934",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9860877,-120.4189807"
+      },
+      {
+        "name": "The SURC - CWU",
+        "address1": "400 E. University Way",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0029902,-120.5377517"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/basketball-santa-hoops/",
+    "sourceTitle": "Basketball - Santa Hoops - Top Tier Sports",
+    "sport": "basketball",
+    "tournamentName": "Top Tier Santa Hoops - WA State Qualifier",
+    "startDate": "2025-12-06",
+    "endDate": "2025-12-07",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "249853",
+    "exposureDomain": "basketball",
+    "exposureTitle": "Top Tier Santa Hoops - WA State Qualifier - Dec 6-7, 2025 - Ellensburg, WA",
+    "notes": "AAU Basketball tournaments in Central Washington. 3rd-8th grade Boys & Girls Developmental and competitive divisions. November 30-December 1",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Kittitas Elementary",
+        "address1": "601 N Pierce St",
+        "city": "Kittitas",
+        "state": "WA",
+        "zip": "98934",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9860877,-120.4189807"
+      },
+      {
+        "name": "The SURC - CWU",
+        "address1": "400 E. University Way",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0029902,-120.5377517"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/basketball-tournament-rules/",
+    "sourceTitle": "Basketball - Tournament Rules - Top Tier Sports",
+    "sport": "basketball",
+    "tournamentName": "Basketball - Tournament Rules",
+    "startDate": "2026-12-06",
+    "endDate": "2026-12-07",
+    "city": null,
+    "state": null,
+    "eventId": null,
+    "exposureDomain": null,
+    "exposureTitle": null,
+    "notes": null,
+    "confidence": 50,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/basketball/Luke.Weaver@toptiersports.net",
+    "sourceTitle": "Page not found - Top Tier Sports",
+    "sport": "basketball",
+    "tournamentName": "Page not found",
+    "startDate": null,
+    "endDate": null,
+    "city": null,
+    "state": null,
+    "eventId": null,
+    "exposureDomain": null,
+    "exposureTitle": null,
+    "notes": null,
+    "confidence": 40,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/western-wa-youth-tournaments-8-12u/",
+    "sourceTitle": "A Tournament Template - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "A Tournament Template",
+    "startDate": null,
+    "endDate": null,
+    "city": "Seattle",
+    "state": "WA",
+    "eventId": "228175",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Top Tier Fall League - Sep 7 - Oct 12, 2024 - Seattle, WA",
+    "notes": null,
+    "confidence": 90,
+    "venues": [
+      {
+        "name": "Bannerwood Park",
+        "address1": "1790 Richards Rd",
+        "city": "Bellevue",
+        "state": "WA",
+        "zip": "98005",
+        "venueUrl": "https://www.google.com/maps?daddr=47.5956207,-122.1631992"
+      },
+      {
+        "name": "Bellevue HS",
+        "address1": "10416 SE Wolverine Way",
+        "city": "Bellevue",
+        "state": "WA",
+        "zip": "98004",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6038234,-122.1976296"
+      },
+      {
+        "name": "Curtis HS",
+        "address1": "8425 40th St W",
+        "city": "University Place",
+        "state": "WA",
+        "zip": "98466",
+        "venueUrl": "https://www.google.com/maps?daddr=47.222624,-122.5524758"
+      },
+      {
+        "name": "Heritage Rec Center",
+        "address1": "9010 128th St E",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98373",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1402875,-122.3090211"
+      },
+      {
+        "name": "Hidden Valley",
+        "address1": "1903 112th Ave NE",
+        "city": "Bellevue",
+        "state": "WA",
+        "zip": "98004",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6272474,-122.1917658"
+      },
+      {
+        "name": "Highland Park",
+        "address1": "14224 Bel-Red Road",
+        "city": "Bellevue",
+        "state": "WA",
+        "zip": "98007",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6255612,-122.1506471"
+      },
+      {
+        "name": "Ingraham HS",
+        "address1": "1819 N. 135th St",
+        "city": "Seattle",
+        "state": "WA",
+        "zip": "98133",
+        "venueUrl": "https://www.google.com/maps?daddr=47.7264111,-122.3379576"
+      },
+      {
+        "name": "Interlake HS",
+        "address1": "16245 NE 24th St",
+        "city": "Bellevue",
+        "state": "WA",
+        "zip": "98008",
+        "venueUrl": "https://www.google.com/maps?daddr=47.630478,-122.1226436"
+      },
+      {
+        "name": "Juanita HS",
+        "address1": "10601 NE 132nd St",
+        "city": "Kirkland",
+        "state": "WA",
+        "zip": "98034",
+        "venueUrl": "https://www.google.com/maps?daddr=47.7147227,-122.1998267"
+      },
+      {
+        "name": "Lake Washington HS",
+        "address1": "12033 NE 80th St",
+        "city": "Kirkland",
+        "state": "WA",
+        "zip": "98033",
+        "venueUrl": "https://www.google.com/maps?daddr=47.672458,-122.1814115"
+      },
+      {
+        "name": "Lower Woodland",
+        "address1": "1000 N. 50th St",
+        "city": "Seattle",
+        "state": "WA",
+        "zip": "98103",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6657072,-122.3449419"
+      },
+      {
+        "name": "Magnuson Park",
+        "address1": "7400 Sand Point Way NE",
+        "city": "Seattle",
+        "state": "WA",
+        "zip": "98115",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6817929,-122.2633244"
+      },
+      {
+        "name": "Marymoor Park",
+        "address1": "6046 West Lake Sammamish Parkway NE",
+        "city": "Redmond",
+        "state": "WA",
+        "zip": "98052",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6594346,-122.1087919"
+      },
+      {
+        "name": "Meadowdale Playfields",
+        "address1": "16700 66th Ave W",
+        "city": "Lynnwood",
+        "state": "WA",
+        "zip": "98037",
+        "venueUrl": "https://www.google.com/maps?daddr=47.8474613,-122.320518"
+      },
+      {
+        "name": "Petrovitsky Park",
+        "address1": "16400 SE Petrovitsky Rd",
+        "city": "Renton",
+        "state": "WA",
+        "zip": "98058",
+        "venueUrl": "https://www.google.com/maps?daddr=47.441135,-122.119604"
+      },
+      {
+        "name": "Puyallup Rec Center",
+        "address1": "808 Valley Ave NW",
+        "city": "Puyallup",
+        "state": "WA",
+        "zip": "98371",
+        "venueUrl": "https://www.google.com/maps?daddr=47.2092962,-122.3043756"
+      },
+      {
+        "name": "Redmond Ridge",
+        "address1": "22915 Ne Alder Crest Dr.",
+        "city": "Redmond",
+        "state": "WA",
+        "zip": "98053",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6912133,-122.0334952"
+      },
+      {
+        "name": "Regional Athletic Complex",
+        "address1": "8345 Steilacoom Rd SE",
+        "city": "Olympia",
+        "state": "WA",
+        "zip": "98513",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0444502,-122.7625992"
+      },
+      {
+        "name": "Sammamish HS",
+        "address1": "100 140th Ave SE",
+        "city": "Bellevue",
+        "state": "WA",
+        "zip": "98005",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6076468,-122.152213"
+      },
+      {
+        "name": "Southwest Athletic Complex (SWAC)",
+        "address1": "2801 SW Thistle Street",
+        "city": "Seattle",
+        "state": "WA",
+        "zip": "98126",
+        "venueUrl": "https://www.google.com/maps?daddr=47.5279711,-122.3689826"
+      },
+      {
+        "name": "Stanwood HS",
+        "address1": "7400 272nd St NW",
+        "city": "Stanwood",
+        "state": "WA",
+        "zip": "98292",
+        "venueUrl": "https://www.google.com/maps?daddr=48.2420848,-122.333228"
+      },
+      {
+        "name": "TBD",
+        "address1": "TBD",
+        "city": "Seattle",
+        "state": "WA",
+        "zip": "98003",
+        "venueUrl": "https://www.google.com/maps?daddr=47.3165043,-122.3223975"
+      },
+      {
+        "name": "Whitman MS",
+        "address1": "9201 15th Ave NW",
+        "city": "Seattle",
+        "state": "WA",
+        "zip": "98117",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6963787,-122.3778581"
+      },
+      {
+        "name": "Wilburton Park",
+        "address1": "12400 Main Street",
+        "city": "Bellevue",
+        "state": "WA",
+        "zip": "98005",
+        "venueUrl": "https://www.google.com/maps?daddr=47.6093569,-122.1737327"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/basketball-season-finale/",
+    "sourceTitle": "Basketball - Season Finale - Top Tier Sports",
+    "sport": "basketball",
+    "tournamentName": "Basketball - Season Finale",
+    "startDate": null,
+    "endDate": null,
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "249860",
+    "exposureDomain": "basketball",
+    "exposureTitle": "Top Tier Season Finale & 3rd Grade Championships - Feb 28 - Mar 1, 2026 - Ellensburg, WA",
+    "notes": "AAU Basketball tournaments in Central Washington. 3rd-8th grade Boys & Girls Developmental and competitive divisions. November 30-December 1",
+    "confidence": 90,
+    "venues": [
+      {
+        "name": "Morgan Middle School",
+        "address1": "400 E. First Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9920498,-120.5430362"
+      },
+      {
+        "name": "The SURC - CWU",
+        "address1": "400 E. University Way",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=47.0029902,-120.5377517"
+      },
+      {
+        "name": "Valley View Elementary",
+        "address1": "1508 E. Third Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.9941602,-120.5222805"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/basketball-shoot-out-in-centralia/",
+    "sourceTitle": "Basketball - Shoot-out in Centralia - Top Tier Sports",
+    "sport": "basketball",
+    "tournamentName": "Top Tier Turkey Tipoff",
+    "startDate": "2025-11-29",
+    "endDate": "2025-11-30",
+    "city": "Centralia",
+    "state": "WA",
+    "eventId": "252808",
+    "exposureDomain": "basketball",
+    "exposureTitle": "Top Tier Turkey Tipoff - Nov 29-30, 2025 - Centralia, WA",
+    "notes": "AAU Basketball tournaments in Central Washington. 3rd-8th Boys & Girls Developmental & competitive divisions. December 21-22 State Qualifier",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/basketball-feeder-program-frenzy/",
+    "sourceTitle": "Basketball - Feeder Program Frenzy - Top Tier Sports",
+    "sport": "basketball",
+    "tournamentName": "Top Tier Feeder Program Frenzy",
+    "startDate": "2026-01-10",
+    "endDate": "2026-01-11",
+    "city": "Centralia",
+    "state": "WA",
+    "eventId": "252809",
+    "exposureDomain": "basketball",
+    "exposureTitle": "Top Tier Feeder Program Frenzy - Jan 10-11, 2026 - Centralia, WA",
+    "notes": "AAU Basketball tournaments in Central Washington. 3rd-8th Boys & Girls Developmental & competitive divisions. December 21-22 State Qualifier",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/bullpen-series-moses-lake-hs/",
+    "sourceTitle": "Bullpen Series: Spokane Fall Opener - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Bullpen Series: Moses Lake HS Fall Ball",
+    "startDate": "2025-09-27",
+    "endDate": "2025-09-28",
+    "city": "Moses Lake",
+    "state": "WA",
+    "eventId": "249936",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Bullpen Series: Moses Lake HS Fall Ball - Sep 27-28, 2025 - Moses Lake, WA",
+    "notes": "Washington baseball tournament in Ellensburg/Yakima. Competitive and developmental divisions. 9u - 14u. BPF 1.15 bats.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Paul Lauzier Athletic Complex",
+        "address1": "933 West Central Drive",
+        "city": "Moses Lake",
+        "state": "WA",
+        "zip": "98837",
+        "venueUrl": "https://www.google.com/maps?daddr=47.1394249,-119.2839065"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/cwu-summer-series-week-1/",
+    "sourceTitle": "CWU Summer Series Week 1 - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Central Washington Summer Series 18u",
+    "startDate": "2025-06-13",
+    "endDate": "2025-06-15",
+    "city": "Ellensburg",
+    "state": "WA",
+    "eventId": "228589",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Central Washington Summer Series 18u - Jun 13-15, 2025 - Ellensburg, WA",
+    "notes": "Central Washington College Showcase event. Games hosted on campus. June 13-15. Metal bats. 8 team tournament.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Rotary Park",
+        "address1": "1200 W 5th Ave",
+        "city": "Ellensburg",
+        "state": "WA",
+        "zip": "98926",
+        "venueUrl": "https://www.google.com/maps?daddr=46.995392,-120.5629978"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/goldsmith-gallery-classic/",
+    "sourceTitle": "Goldsmith Gallery Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "College Series: MSUB Goldsmith Gallery Classic",
+    "startDate": "2026-06-25",
+    "endDate": "2026-06-28",
+    "city": "Billings",
+    "state": "MT",
+    "eventId": "255038",
+    "exposureDomain": "baseball",
+    "exposureTitle": "College Series: MSUB Goldsmith Gallery Classic - Jun 25-28, 2026 - Billings, MT",
+    "notes": "Centralia College Showcase event. Games at Borst Park. July 25-27. 32 team tournament. Wood Bats only. College Coaches in attendance.",
+    "confidence": 99,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/ken-garland-summer-classic/",
+    "sourceTitle": "Ken Garland Summer Classic - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "2nd Annual Ken Garland Summer Classic",
+    "startDate": "2026-06-18",
+    "endDate": "2026-06-21",
+    "city": "Lacey",
+    "state": "WA",
+    "eventId": "255431",
+    "exposureDomain": "baseball",
+    "exposureTitle": "2nd Annual Ken Garland Summer Classic - Jun 18-21, 2026 - Lacey, WA",
+    "notes": "Centralia College Showcase event. Games at Borst Park. July 25-27. 32 team tournament. Wood Bats only. College Coaches in attendance.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Saint Martins",
+        "address1": "927 Bowker St SE",
+        "city": "Lacey",
+        "state": "WA",
+        "zip": "98503",
+        "venueUrl": "https://www.google.com/maps?daddr=47.037689,-122.8111444"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/olympic-college-prospect-series-18u/",
+    "sourceTitle": "Olympic College Prospect Series 18U - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Olympic College Prospect Series 18U",
+    "startDate": "2026-06-25",
+    "endDate": "2026-06-28",
+    "city": "Bremerton",
+    "state": "WA",
+    "eventId": "259123",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Olympic College Prospect Series 18U - Jun 25-28, 2026 - Bremerton, WA",
+    "notes": "Centralia College Showcase event. Games at Borst Park. July 25-27. 32 team tournament. Wood Bats only. College Coaches in attendance.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Legion Field",
+        "address1": "1240 Sheridan Road",
+        "city": "Bremerton",
+        "state": "WA",
+        "zip": "98310",
+        "venueUrl": "https://www.google.com/maps?daddr=47.5887875,-122.6279374"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/olympic-college-prospect-series-15-16u/",
+    "sourceTitle": "Olympic College Prospect Series 15/16U - Top Tier Sports",
+    "sport": "baseball",
+    "tournamentName": "Olympic College Prospect Series 15/16U",
+    "startDate": "2026-07-16",
+    "endDate": "2026-07-19",
+    "city": "Bremerton",
+    "state": "WA",
+    "eventId": "259124",
+    "exposureDomain": "baseball",
+    "exposureTitle": "Olympic College Prospect Series 15/16U - Jul 16-19, 2026 - Bremerton, WA",
+    "notes": "Centralia College Showcase event. Games at Borst Park. July 25-27. 32 team tournament. Wood Bats only. College Coaches in attendance.",
+    "confidence": 99,
+    "venues": [
+      {
+        "name": "Legion Field",
+        "address1": "1240 Sheridan Road",
+        "city": "Bremerton",
+        "state": "WA",
+        "zip": "98310",
+        "venueUrl": "https://www.google.com/maps?daddr=47.5887875,-122.6279374"
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/basketball/",
+    "sourceTitle": "AAU Basketball Tournaments - Top Tier Sports",
+    "sport": "basketball",
+    "tournamentName": "AAU Basketball Tournaments",
+    "startDate": null,
+    "endDate": null,
+    "city": null,
+    "state": "WA",
+    "eventId": null,
+    "exposureDomain": "basketball",
+    "exposureTitle": null,
+    "notes": "AAU Basketball tournaments in Central Washington. 3rd-8th grade Boys & Girls Developmental and competitive divisions.",
+    "confidence": 40,
+    "venues": []
+  },
+  {
+    "sourceUrl": "https://toptiersports.net/softball-tournaments/",
+    "sourceTitle": "Softball Tournaments - Top Tier Sports",
+    "sport": "softball",
+    "tournamentName": "Softball Tournaments",
+    "startDate": null,
+    "endDate": null,
+    "city": null,
+    "state": "WA",
+    "eventId": null,
+    "exposureDomain": null,
+    "exposureTitle": null,
+    "notes": "Find exciting Softball tournaments in Washington State. Perfect for players looking to enhance skills and enjoy the game.",
+    "confidence": 40,
+    "venues": []
+  }
+]

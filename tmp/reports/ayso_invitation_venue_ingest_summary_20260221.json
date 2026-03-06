@@ -1,0 +1,8 @@
+{
+  "generated_at": "2026-02-21T18:59:00.765Z",
+  "source_csv": "/Users/roddavis/RI_MVP/RI-MVP/tmp/reports/ayso_invitation_links_20260221.csv",
+  "html_rows_considered": 20,
+  "scanned_pages": 20,
+  "inserted_tournament_venue_candidates": 3,
+  "summary_path": "/Users/roddavis/RI_MVP/RI-MVP/tmp/reports/ayso_invitation_venue_ingest_summary_20260221.json"
+}
