@@ -12,7 +12,7 @@
 *.tsbuildinfo
 
 # Brand/art assets accidentally added locally
-/apps/ti-web/public/brand/
+# (keep brand assets tracked now that header logo is needed)
 /shared-assets/svg/sports/baseball_count_2.png
 /shared-assets/svg/sports/softball_count.png
 
