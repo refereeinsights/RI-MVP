@@ -123,6 +123,16 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
     return nameJunkRegex.test(normalizedName);
   });
 
+  const normalize = (value?: string | null) => (value || "").toLowerCase().replace(/\s+/g, " ").trim();
+  const duplicateBucketKey = (venue: { name?: string | null; address1?: string | null; address?: string | null; city?: string | null; state?: string | null }) => {
+    const address = normalize(venue.address1 ?? venue.address);
+    const city = normalize(venue.city);
+    const state = normalize(venue.state);
+    const name = normalize(venue.name);
+    // Prefer address+city+state; fall back to name grouping when address missing.
+    return [address || name, city, state].join("|");
+  };
+
   const readyNotRunAll = notRunCandidates
     .filter((venue) => {
       return (linkedTournamentCountByVenue.get(venue.id) ?? 0) > 0;
@@ -133,22 +143,30 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
       return !nameJunkRegex.test(normalizedName);
     })
     .sort((a, b) => {
+      const aBucket = duplicateBucketKey(a);
+      const bBucket = duplicateBucketKey(b);
+      if (aBucket !== bBucket) return aBucket.localeCompare(bBucket);
+
       const aCount = linkedTournamentCountByVenue.get(a.id) ?? 0;
       const bCount = linkedTournamentCountByVenue.get(b.id) ?? 0;
       if (aCount !== bCount) return bCount - aCount;
 
-      const aAddress = (a.address1 ?? a.address ?? "").toLowerCase().trim();
-      const bAddress = (b.address1 ?? b.address ?? "").toLowerCase().trim();
-      if (aAddress !== bAddress) return aAddress.localeCompare(bAddress);
-      const aCity = (a.city ?? "").toLowerCase();
-      const bCity = (b.city ?? "").toLowerCase();
-      if (aCity !== bCity) return aCity.localeCompare(bCity);
-      const aState = (a.state ?? "").toLowerCase();
-      const bState = (b.state ?? "").toLowerCase();
-      if (aState !== bState) return aState.localeCompare(bState);
       const aPrimarySport = (tournamentSportsByVenue.get(a.id) ?? []).slice().sort((x, y) => x.localeCompare(y))[0] ?? "";
       const bPrimarySport = (tournamentSportsByVenue.get(b.id) ?? []).slice().sort((x, y) => x.localeCompare(y))[0] ?? "";
       if (aPrimarySport !== bPrimarySport) return aPrimarySport.localeCompare(bPrimarySport);
+
+      const aAddress = normalize(a.address1 ?? a.address);
+      const bAddress = normalize(b.address1 ?? b.address);
+      if (aAddress !== bAddress) return aAddress.localeCompare(bAddress);
+
+      const aCity = normalize(a.city);
+      const bCity = normalize(b.city);
+      if (aCity !== bCity) return aCity.localeCompare(bCity);
+
+      const aState = normalize(a.state);
+      const bState = normalize(b.state);
+      if (aState !== bState) return aState.localeCompare(bState);
+
       return (a.name ?? "").toLowerCase().localeCompare((b.name ?? "").toLowerCase());
     });
   const readyNotRunVenues = readyNotRunAll.slice(0, 120);

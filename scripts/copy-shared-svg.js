@@ -27,9 +27,8 @@ const refereeStackedDest = path.resolve(
 
 function copyDir(src, dest) {
   if (!fs.existsSync(src)) return;
-  fs.rmSync(dest, { recursive: true, force: true });
   fs.mkdirSync(dest, { recursive: true });
-  fs.cpSync(src, dest, { recursive: true });
+  fs.cpSync(src, dest, { recursive: true, force: true });
 }
 
 if (!fs.existsSync(source)) {

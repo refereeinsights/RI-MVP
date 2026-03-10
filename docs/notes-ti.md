@@ -66,6 +66,11 @@ Maintenance rules:
   - Validation:
     - `cd apps/ti-web && npm run build` passed.
 
+## 2026-03-10
+- TI admin polish (shared with RI note):
+  - Added dashboard cards on `admin/tournaments/dashboard` for Total outreach sent and Total tournaments verified.
+  - Restored badge SVG assets into `shared-assets/svg` and adjusted the SVG copy script to merge rather than delete app public/svg folders.
+
 - TI sports taxonomy reuse + signup copy polish:
   - Updated:
     - `apps/ti-web/lib/tiProfile.ts`

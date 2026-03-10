@@ -1062,14 +1062,19 @@ export async function adminUpdateTournamentStatus(params: {
   status: TournamentStatus;
 }) {
   await requireAdmin();
-  const { error } = await supabaseAdmin
+  const { error, data } = await supabaseAdmin
     .from("tournaments")
     .update({
       status: params.status,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", params.tournament_id);
+    .eq("id", params.tournament_id)
+    .select("id,status")
+    .limit(1);
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error("No tournament updated (id not found)");
+  }
 }
 
 export async function adminDeleteTournament(tournament_id: string) {

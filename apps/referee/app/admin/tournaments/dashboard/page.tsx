@@ -266,6 +266,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   );
 
   const outreachRows = outreachRes.data ?? [];
+  const outreachSentTotal = outreachRows.filter((row: any) => row.status === "sent").length;
   const outreachCampaigns = (
     Array.from(
       outreachRows.reduce((acc, row: any) => {
@@ -513,6 +514,14 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
         <div style={{ border: "1px solid #ede9fe", borderRadius: 12, padding: 16, background: "#f5f3ff", textAlign: "center" }}>
           <div style={{ fontSize: 12, color: "#7c3aed", fontWeight: 700 }}>Total Weekend Pro</div>
           <div style={{ fontSize: 28, fontWeight: 900, color: "#0f172a" }}>{tiSummary.weekendPro}</div>
+        </div>
+        <div style={{ border: "1px solid #dcfce7", borderRadius: 12, padding: 16, background: "#f0fdf4", textAlign: "center" }}>
+          <div style={{ fontSize: 12, color: "#15803d", fontWeight: 700 }}>Total outreach sent</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: "#0f172a" }}>{outreachSentTotal}</div>
+        </div>
+        <div style={{ border: "1px solid #fee2e2", borderRadius: 12, padding: 16, background: "#fef2f2", textAlign: "center" }}>
+          <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 700 }}>Total tournaments verified</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: "#0f172a" }}>{staffVerifiedTotal}</div>
         </div>
       </div>
 

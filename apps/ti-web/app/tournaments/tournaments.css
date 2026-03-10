@@ -442,7 +442,7 @@
 .summaryGrid .card.bg-sport-baseball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
-    url("/svg/sports/baseball_count_badge.svg"),
+    url("/svg/sports/baseball_count_2.png"),
     linear-gradient(180deg, #1b2c14, #0f1f0f);
   background-size: cover, 172% auto, cover;
   background-position: center, center 53%, center;
@@ -452,7 +452,7 @@
 .summaryGrid .card.bg-sport-softball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
-    url("/svg/sports/softball_count_badge.svg"),
+    url("/svg/sports/softball_count.png"),
     linear-gradient(180deg, #203310, #101f0d);
   background-size: cover, 180% auto, cover;
   background-position: center, center 62%, center;

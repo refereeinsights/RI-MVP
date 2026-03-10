@@ -31,6 +31,15 @@ Maintenance rules:
     - "Browse by State" section derives up to 12 states from query results and links to existing `/{sport}/{state}` hub pages,
     - hockey and ayso pages unchanged (still use `HubTournamentsPage`).
 
+## 2026-03-10
+- TI/RI admin fixes:
+  - Added revalidation to bulk tournament approve/archive/delete so the pending list refreshes immediately.
+  - Bulk action buttons now bypass hidden field validation (formNoValidate) to prevent blocked submits from invalid scraped emails.
+  - Restored badge SVG assets, added them to `shared-assets/svg`, and updated the copy script to merge without deleting targets so PNG/SVG copies persist.
+  - Tournament dashboard: added cards for Total outreach sent and Total tournaments verified.
+  - Admin dashboard “Missing URLs” card now counts both published and approved tournaments.
+  - Owl’s Eye ready list now groups/sorts venues by normalized address/name + city/state so suspected duplicates sit together when batching.
+
 ## 2026-03-04
 - TI outreach multi-sport refinements + RI launch links:
   - TI sport-aware outreach + verify updates:

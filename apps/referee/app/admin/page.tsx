@@ -607,7 +607,7 @@ export default async function AdminPage({
   const { data: publishedTournamentStatsRows } = await supabaseAdmin
     .from("tournaments" as any)
     .select("id,sport,venue,address,official_website_url,source_url,start_date,end_date")
-    .eq("status", "published")
+    .in("status", ["published", "approved"])
     .eq("is_canonical", true)
     .limit(5000);
 
@@ -1710,12 +1710,21 @@ export default async function AdminPage({
     }
     if (action === "approve") {
       await Promise.all(ids.map((id) => adminUpdateTournamentStatus({ tournament_id: id, status: "published" })));
+      revalidatePath("/admin");
+      revalidatePath("/admin/tournaments");
+      revalidatePath("/tournaments");
       return redirectWithNotice(redirectTo, `${ids.length} tournament(s) approved.`);
     } else if (action === "archive") {
       await Promise.all(ids.map((id) => adminUpdateTournamentStatus({ tournament_id: id, status: "archived" })));
+      revalidatePath("/admin");
+      revalidatePath("/admin/tournaments");
+      revalidatePath("/tournaments");
       return redirectWithNotice(redirectTo, `${ids.length} tournament(s) archived.`);
     } else if (action === "delete") {
       await Promise.all(ids.map((id) => adminDeleteTournament(id)));
+      revalidatePath("/admin");
+      revalidatePath("/admin/tournaments");
+      revalidatePath("/tournaments");
       return redirectWithNotice(redirectTo, `${ids.length} tournament(s) deleted.`);
     } else {
       return redirectWithNotice(redirectTo, "Unknown bulk action.");
@@ -4979,6 +4988,7 @@ export default async function AdminPage({
               <input type="hidden" name="redirect_to" value={adminBasePath} />
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                 <button
+                  formNoValidate
                   name="bulk_action"
                   value="approve"
                   style={{
@@ -4993,6 +5003,7 @@ export default async function AdminPage({
                   Approve selected
                 </button>
                 <button
+                  formNoValidate
                   name="bulk_action"
                   value="archive"
                   style={{
@@ -5007,6 +5018,7 @@ export default async function AdminPage({
                   Archive selected
                 </button>
                 <button
+                  formNoValidate
                   name="bulk_action"
                   value="delete"
                   style={{
