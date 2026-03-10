@@ -1658,6 +1658,8 @@ export default async function AdminPage({
     if (!tournamentId) return;
     const redirectTo = formData.get("redirect_to");
     await adminUpdateTournamentStatus({ tournament_id: tournamentId, status: "published" });
+    revalidatePath("/admin");
+    revalidatePath("/tournaments");
     redirectWithNotice(redirectTo, "Tournament approved");
   }
 
