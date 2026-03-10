@@ -198,11 +198,30 @@ export default function OwlsEyeVenueCard({
                 </div>
               </>
             ) : (
-              <div className="detailVenueNearbyPreview__teaser">
-                {tier === "explorer"
-                  ? "Owl's Eye planning data is available. Create a free Insider account to view scores."
-                  : "Owl's Eye planning data is available. Upgrade to Weekend Pro to view nearby lists."}
-              </div>
+              <>
+                {nearbyCounts.coffee > 0 || nearbyCounts.food > 0 || nearbyCounts.hotels > 0 || primaryAirport ? (
+                  <div className="detailVenueNearbyPreview__counts" style={{ marginTop: 2 }}>
+                    {nearbyCounts.coffee > 0 ? <div>☕ {nearbyCounts.coffee} coffee nearby</div> : null}
+                    {nearbyCounts.food > 0 ? <div>🍔 {nearbyCounts.food} food options nearby</div> : null}
+                    {nearbyCounts.hotels > 0 ? <div>🏨 {nearbyCounts.hotels} hotels nearby</div> : null}
+                    {primaryAirport ? (
+                      <div>
+                        ✈️ Nearest airport: {primaryAirport.name}{" "}
+                        {primaryAirport.iata_code || primaryAirport.ident
+                          ? `(${primaryAirport.iata_code || primaryAirport.ident})`
+                          : ""}{" "}
+                        {typeof primaryAirport.distance_miles === "number" ? `${primaryAirport.distance_miles} mi` : ""}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="detailVenueNearbyPreview__teaser">
+                    {tier === "explorer"
+                      ? "Owl's Eye planning data is available. Create a free Insider account to view scores."
+                      : "Owl's Eye planning data is available. Upgrade to Weekend Pro to view nearby lists."}
+                  </div>
+                )}
+              </>
             )}
           </div>
         ) : null}
