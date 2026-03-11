@@ -70,6 +70,9 @@ Maintenance rules:
 - TI admin polish (shared with RI note):
   - Added dashboard cards on `admin/tournaments/dashboard` for Total outreach sent and Total tournaments verified.
   - Restored badge SVG assets into `shared-assets/svg` and adjusted the SVG copy script to merge rather than delete app public/svg folders.
+  - Owl’s Eye ready list now shows an “Edit” link to jump to venue admin.
+  - Venues admin sport filter now includes Softball.
+  - DB groundwork: added `venue_sport_profiles` table and `tournament_venues.venue_sport_profile_id` FK to support per-sport (indoor/outdoor) venue profiles and future field-level detail.
 
 - TI sports taxonomy reuse + signup copy polish:
   - Updated:

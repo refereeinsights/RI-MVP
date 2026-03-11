@@ -39,6 +39,9 @@ Maintenance rules:
   - Tournament dashboard: added cards for Total outreach sent and Total tournaments verified.
   - Admin dashboard “Missing URLs” card now counts both published and approved tournaments.
   - Owl’s Eye ready list now groups/sorts venues by normalized address/name + city/state so suspected duplicates sit together when batching.
+  - Owl’s Eye ready list cards now include an “Edit” link to open the venue admin page quickly.
+  - Venues admin sport filter adds Softball.
+  - Schema groundwork: added `venue_sport_profiles` table (per-venue/per-sport overrides for address/coords/amenities) and `tournament_venues.venue_sport_profile_id` FK for future indoor/outdoor differentiation.
 
 ## 2026-03-04
 - TI outreach multi-sport refinements + RI launch links:

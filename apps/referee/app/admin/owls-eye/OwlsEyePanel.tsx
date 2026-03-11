@@ -906,6 +906,14 @@ export default function OwlsEyePanel({
                       >
                         Open
                       </a>
+                      <a
+                        href={`/admin/venues/${encodeURIComponent(venue.venue_id)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ fontSize: 12 }}
+                      >
+                        Edit
+                      </a>
                       <button
                         onClick={() => deleteVenue(venue)}
                         disabled={deletingVenueId === venue.venue_id}
