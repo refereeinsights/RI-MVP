@@ -21,6 +21,7 @@ type Tournament = {
   source_url?: string | null;
   level?: string | null;
   tournament_staff_verified?: boolean | null;
+  is_demo?: boolean | null;
 };
 type TournamentVenueLink = {
   tournament_id: string;
@@ -164,13 +165,13 @@ export default async function TournamentsPage({
   let query = supabaseAdmin
     .from("tournaments_public" as any)
     .select(
-      "id,name,slug,sport,tournament_association,state,city,zip,start_date,end_date,official_website_url,source_url,level,tournament_staff_verified"
+      "id,name,slug,sport,tournament_association,state,city,zip,start_date,end_date,official_website_url,source_url,level,tournament_staff_verified,is_demo"
     )
     .order("start_date", { ascending: true });
 
   const today = new Date().toISOString().slice(0, 10);
   if (!includePast) {
-    query = query.or(`start_date.gte.${today},end_date.gte.${today}`);
+    query = query.or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`);
   }
 
   if (q) {
@@ -297,8 +298,9 @@ export default async function TournamentsPage({
   }
 
   const tournamentsSorted = [...tournaments].sort((a, b) => {
-    if (a.slug === DEMO_TOURNAMENT_SLUG && b.slug !== DEMO_TOURNAMENT_SLUG) return -1;
-    if (b.slug === DEMO_TOURNAMENT_SLUG && a.slug !== DEMO_TOURNAMENT_SLUG) return 1;
+    const aDemo = Boolean(a.is_demo) || a.slug === DEMO_TOURNAMENT_SLUG;
+    const bDemo = Boolean(b.is_demo) || b.slug === DEMO_TOURNAMENT_SLUG;
+    if (aDemo !== bDemo) return aDemo ? -1 : 1;
     const aDate = a.start_date || a.end_date || "";
     const bDate = b.start_date || b.end_date || "";
     return aDate.localeCompare(bDate);
