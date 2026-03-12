@@ -383,9 +383,9 @@ function normalizeTournamentRow(
     defaults.defaultStatus;
 
   const level = pick(data, "level") || null;
-  const venue = pick(data, "venue") || null;
-  const address = pick(data, "address") || null;
-  const summary = pick(data, "summary") || null;
+  const venue = pick(data, "venue", "venue_name") || null;
+  const address = pick(data, "address", "venue_address") || null;
+  const summary = pick(data, "summary", "notes", "notes_summary") || null;
   const cashTournament = normalizeBoolean(pick(data, "ref_cash_tournament", "cash")) ?? false;
 
   const confidenceRaw = pick(data, "confidence");
@@ -411,7 +411,7 @@ function normalizeTournamentRow(
     state,
   });
 
-  let sourceEventId = pick(data, "source_event_id", "event_id", "external_id");
+  let sourceEventId = pick(data, "source_event_id", "event_id", "external_id", "stable_source_event_id");
   if (!sourceEventId) {
     sourceEventId = slug;
     warnings.push(`Row ${line}: missing source_event_id (fallback to slug)`);
