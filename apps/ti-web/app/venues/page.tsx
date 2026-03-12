@@ -33,6 +33,7 @@ type VenueRow = {
   venue_url: string | null;
   notes: string | null;
   sport: string | null;
+  venue_sport_profiles?: { sport: string | null }[] | null;
   restroom_cleanliness_avg: number | null;
   shade_score_avg: number | null;
   vendor_score_avg: number | null;
@@ -223,7 +224,7 @@ export default async function VenuesPage({
   const { data: venuesData, error } = await supabaseAdmin
     .from("venues" as any)
     .select(
-      "id,name,address,city,state,zip,latitude,longitude,venue_url,notes,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(tournaments(id,name,slug,sport,start_date,end_date))"
+      "id,name,address,city,state,zip,latitude,longitude,venue_url,notes,sport,venue_sport_profiles(sport),restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(tournaments(id,name,slug,sport,start_date,end_date))"
     )
     .order("name", { ascending: true });
 
@@ -310,11 +311,20 @@ export default async function VenuesPage({
           .filter((sport) => sport && sport !== "unknown")
       );
 
+      // Multi-sport support: include explicit venue_sport_profiles.
+      for (const p of venue.venue_sport_profiles ?? []) {
+        const s = canonicalSport(p?.sport);
+        if (s && s !== "unknown") sportsFromLinked.add(s);
+      }
+
+      const fallbackSport = canonicalSport(venue.sport);
       if (linkedTournaments.length === 0) {
-        const fallbackSport = canonicalSport(venue.sport);
         if (fallbackSport !== "unknown") {
           sportsFromLinked.add(fallbackSport);
         }
+      } else if (sportsFromLinked.size === 0 && fallbackSport !== "unknown") {
+        // No future-linked tournaments had a sport; fall back to the venue's own sport.
+        sportsFromLinked.add(fallbackSport);
       }
 
       return {
@@ -328,8 +338,8 @@ export default async function VenuesPage({
       };
     });
 
-  const venuesDateFiltered = venuesClean.filter((v) => !v.hasLinkedTournaments || v.tournamentCount > 0);
-  const venuesBase = venuesDateFiltered.filter((v) => matchesText(v, q));
+  // Keep venues even if linked tournaments are in the past; date filters only affect tournament counts.
+  const venuesBase = venuesClean.filter((v) => matchesText(v, q));
 
   const sportsCounts = venuesBase.reduce((acc: Record<string, number>, v) => {
     v.sports.forEach((sport) => {
@@ -340,7 +350,11 @@ export default async function VenuesPage({
 
   const sportsSorted = Object.entries(sportsCounts)
     .filter(([, count]) => count > 0)
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => {
+      const countDiff = b[1] - a[1];
+      if (countDiff !== 0) return countDiff;
+      return a[0].localeCompare(b[0]);
+    })
     .map(([sport, count]) => ({ sport, count }));
 
   const venuesBySport = sportsSelected.length
@@ -469,35 +483,39 @@ export default async function VenuesPage({
           </div>
         </form>
 
-        <div className="summaryGrid">
-          <Link
-            href={`/venues?${buildParams(null)}`}
-            className={`card card--mini summary-total ${styles.summaryAllLink} ${sportsSelected.length === 0 ? styles.summaryActive : ""}`}
-          >
-            <div className="summaryCount">{venuesAllSportCleared.length}</div>
-            <div className="summaryLabel">ALL VENUES</div>
-            <div className="summaryIcon" aria-hidden="true">
-              📍
-            </div>
-          </Link>
+        <div className={styles.summaryStack}>
+          <div className="summaryTotalRow">
+            <Link
+              href={`/venues?${buildParams(null)}`}
+              className={`card card--mini summary-total ${styles.summaryAllLink} ${sportsSelected.length === 0 ? styles.summaryActive : ""}`}
+            >
+              <div className="summaryCount">{venuesAllSportCleared.length}</div>
+              <div className="summaryLabel">ALL VENUES</div>
+              <div className="summaryIcon" aria-hidden="true">
+                📍
+              </div>
+            </Link>
+          </div>
 
-          {sportsSorted.map(({ sport, count }) => {
-            const isOnlyActiveSport = sportsSelected.length === 1 && sportsSelected[0] === sport;
-            const href = isOnlyActiveSport ? `/venues?${buildParams(null)}` : `/venues?${buildParams(sport)}`;
-            return (
-              <Link
-                key={sport}
-                href={href}
-                className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)} ${sportsSelected.includes(sport) ? styles.summaryActive : ""}`}
-              >
-                <div className="summaryCount">{count}</div>
-                <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
-                <div className="summaryIcon" aria-hidden="true">
-                  {venueIcon([sport])}
-                </div>
-              </Link>
-            );
-          })}
+          <div className="summaryGrid">
+            {sportsSorted.map(({ sport, count }) => {
+              const isOnlyActiveSport = sportsSelected.length === 1 && sportsSelected[0] === sport;
+              const href = isOnlyActiveSport ? `/venues?${buildParams(null)}` : `/venues?${buildParams(sport)}`;
+              return (
+                <Link
+                  key={sport}
+                  href={href}
+                  className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)} ${sportsSelected.includes(sport) ? styles.summaryActive : ""}`}
+                >
+                  <div className="summaryCount">{count}</div>
+                  <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
+                  <div className="summaryIcon" aria-hidden="true">
+                    {venueIcon([sport])}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         </div>
 
         {venues.length === 0 ? (

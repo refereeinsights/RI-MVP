@@ -38,6 +38,3 @@ supabase/.temp/
 
 # Supabase temp (any app)
 **/supabase/.temp/
-
-# Ignore broken svg placeholder
-apps/ti-web/public/svg/sports/baseball_count_2.png

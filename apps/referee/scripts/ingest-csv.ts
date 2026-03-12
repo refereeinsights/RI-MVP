@@ -3,14 +3,15 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-import { TournamentRow, TournamentSource, TournamentStatus } from "@/lib/types/tournament";
-import { buildTournamentSlug } from "@/lib/tournaments/slug";
-import { upsertTournamentFromSource } from "@/lib/tournaments/upsertFromSource";
+import { TournamentRow, TournamentSource, TournamentStatus } from "../lib/types/tournament";
+import { buildTournamentSlug } from "../lib/tournaments/slug";
+import { upsertTournamentFromSource } from "../lib/tournaments/upsertFromSource";
 
 type CliOptions = {
   filePath: string;
   dryRun: boolean;
   defaultSource?: TournamentSource;
+  defaultSport: TournamentRow["sport"];
   defaultStatus: TournamentStatus;
 };
 
@@ -28,9 +29,40 @@ const KNOWN_SOURCES: TournamentSource[] = [
   "cal_south",
   "gotsoccer",
   "soccerwire",
+  "public_submission",
+  "external_crawl",
 ];
 
 const KNOWN_STATUSES: TournamentStatus[] = ["draft", "published", "stale", "archived"];
+
+const KNOWN_SPORTS: TournamentRow["sport"][] = [
+  "soccer",
+  "futsal",
+  "basketball",
+  "baseball",
+  "softball",
+  "lacrosse",
+  "volleyball",
+  "football",
+  "wrestling",
+  "hockey",
+  "other",
+];
+
+const MONTHS: Record<string, number> = {
+  january: 1,
+  february: 2,
+  march: 3,
+  april: 4,
+  may: 5,
+  june: 6,
+  july: 7,
+  august: 8,
+  september: 9,
+  october: 10,
+  november: 11,
+  december: 12,
+};
 
 function usage(exitCode: number) {
   console.log(
@@ -39,7 +71,8 @@ function usage(exitCode: number) {
       "",
       "Options:",
       "  --dry-run           Parse and show the rows without writing to Supabase",
-      "  --source=<source>   Default TournamentSource (us_club_soccer|cal_south|gotsoccer|soccerwire)",
+      "  --source=<source>   Default TournamentSource (" + KNOWN_SOURCES.join("|") + ")",
+      "  --sport=<sport>     Default sport (" + KNOWN_SPORTS.join("|") + ")",
       "  --status=<status>   Default status (draft|published|stale|archived)",
       "  --help              Show this help message",
       "",
@@ -60,7 +93,8 @@ function parseArgs(): CliOptions {
   let fileArg: string | undefined;
   let dryRun = false;
   let defaultSource: TournamentSource | undefined;
-  let defaultStatus: TournamentStatus = "published";
+  let defaultStatus: TournamentStatus = "draft";
+  let defaultSport: TournamentRow["sport"] = "soccer";
 
   for (const arg of args) {
     if (arg === "--dry-run") {
@@ -71,6 +105,14 @@ function parseArgs(): CliOptions {
         defaultSource = value;
       } else {
         console.error(`Unknown source "${value}". Expected one of: ${KNOWN_SOURCES.join(", ")}.`);
+        process.exit(1);
+      }
+    } else if (arg.startsWith("--sport=")) {
+      const value = arg.split("=")[1]?.trim().toLowerCase();
+      if (value && isValidSport(value)) {
+        defaultSport = value as TournamentRow["sport"];
+      } else {
+        console.error(`Unknown sport "${value}". Expected one of: ${KNOWN_SPORTS.join(", ")}.`);
         process.exit(1);
       }
     } else if (arg.startsWith("--status=")) {
@@ -101,7 +143,7 @@ function parseArgs(): CliOptions {
     usage(1);
   }
 
-  return { filePath: fileArg, dryRun, defaultSource, defaultStatus };
+  return { filePath: fileArg, dryRun, defaultSource, defaultSport, defaultStatus };
 }
 
 function isValidSource(value: string): value is TournamentSource {
@@ -110,6 +152,10 @@ function isValidSource(value: string): value is TournamentSource {
 
 function isValidStatus(value: string): value is TournamentStatus {
   return KNOWN_STATUSES.includes(value as TournamentStatus);
+}
+
+function isValidSport(value: string): value is TournamentRow["sport"] {
+  return KNOWN_SPORTS.includes(value as TournamentRow["sport"]);
 }
 
 function parseCsv(text: string): string[][] {
@@ -205,6 +251,63 @@ function normalizeDate(value?: string): string | null {
   return parsed.toISOString().slice(0, 10);
 }
 
+function parseDateRange(value?: string): { start: string | null; end: string | null } {
+  if (!value) return { start: null, end: null };
+  let text = value.trim();
+  if (!text) return { start: null, end: null };
+
+  // Normalize weird dashes and ordinals.
+  text = text
+    .replace(/^"+|"+$/g, "")
+    .replace(/[\u2010-\u2015]/g, "-") // various dash chars
+    .replace(/\b(\d{1,2})(st|nd|rd|th)\b/gi, "$1")
+    .replace(/,\s*$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // Month-only patterns like "June 2026"
+  const monthOnly = text.match(
+    /^(January|February|March|April|May|June|July|August|September|October|November|December)\s*,?\s*(20\d{2})?$/i
+  );
+  if (monthOnly) {
+    const monthName = monthOnly[1].toLowerCase();
+    const year = monthOnly[2] ? Number(monthOnly[2]) : 2026;
+    const monthNum = MONTHS[monthName];
+    if (!monthNum || !year) return { start: null, end: null };
+    const start = new Date(Date.UTC(year, monthNum - 1, 1)).toISOString().slice(0, 10);
+    const lastDay = new Date(Date.UTC(year, monthNum, 0)).getUTCDate();
+    const end = new Date(Date.UTC(year, monthNum - 1, lastDay)).toISOString().slice(0, 10);
+    return { start, end };
+  }
+
+  // Example: "July 3-5, 2026" or "March 28-29 2026" or "July 3-5"
+  const re =
+    /^(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:\s*[-–—]\s*(\d{1,2}))?(?:,?\s*(20\d{2}))?/i;
+  const match = text.match(re);
+  if (!match) return { start: null, end: null };
+
+  const monthName = match[1].toLowerCase();
+  const startDay = Number(match[2]);
+  const endDay = match[3] ? Number(match[3]) : startDay;
+  const yearFromText = match[4] ? Number(match[4]) : null;
+  const fallbackYearMatch = text.match(/(20\\d{2})/);
+  const fallbackYear = fallbackYearMatch ? Number(fallbackYearMatch[1]) : null;
+  const year = yearFromText ?? fallbackYear ?? 2026;
+
+  const monthNum = MONTHS[monthName];
+  if (!monthNum || !startDay || !year) return { start: null, end: null };
+
+  const toIso = (day: number) => {
+    const d = new Date(Date.UTC(year, monthNum - 1, day));
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString().slice(0, 10);
+  };
+
+  const start = toIso(startDay);
+  const end = toIso(endDay);
+  return { start, end };
+}
+
 function normalizeBoolean(value?: string): boolean | null {
   if (!value) return null;
   const trimmed = value.trim().toLowerCase();
@@ -223,7 +326,7 @@ function getDomain(url: string): string | null {
 
 function normalizeTournamentRow(
   record: CsvRecord,
-  defaults: Pick<CliOptions, "defaultSource" | "defaultStatus">
+  defaults: Pick<CliOptions, "defaultSource" | "defaultStatus" | "defaultSport">
 ): NormalizeResult {
   const { data, line } = record;
 
@@ -237,7 +340,16 @@ function normalizeTournamentRow(
     return { ok: false, error: `Row ${line}: missing "state" column`, line };
   }
 
-  const sourceUrl = pick(data, "source_url", "url", "link");
+  const sourceUrl = pick(
+    data,
+    "source_url",
+    "url",
+    "link",
+    "tournament_url",
+    "website",
+    "registration_url",
+    "website_registration_url"
+  );
   if (!sourceUrl) {
     return { ok: false, error: `Row ${line}: missing "source_url" column`, line };
   }
@@ -256,8 +368,14 @@ function normalizeTournamentRow(
   }
 
   const city = pick(data, "city", "location_city");
-  const startDate = normalizeDate(pick(data, "start_date", "start"));
-  const endDate = normalizeDate(pick(data, "end_date", "end"));
+  let startDate = normalizeDate(pick(data, "start_date", "start"));
+  let endDate = normalizeDate(pick(data, "end_date", "end"));
+
+  if (!startDate) {
+    const dateRange = parseDateRange(pick(data, "dates", "date"));
+    startDate = dateRange.start;
+    endDate = endDate ?? dateRange.end;
+  }
   const statusRaw = pick(data, "status");
   const normalizedStatus = statusRaw?.toLowerCase();
   const status =
@@ -304,7 +422,7 @@ function normalizeTournamentRow(
   const tournament: TournamentRow = {
     name,
     slug,
-    sport: "soccer",
+    sport: defaults.defaultSport,
     level,
     sub_type: "internet",
     ref_cash_tournament: cashTournament,
