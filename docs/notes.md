@@ -2940,6 +2940,11 @@ Maintenance rules:
   - Command: `SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npx tsx apps/referee/scripts/ingest-csv.ts --sport=volleyball --status=draft --source=external_crawl tmp/inland_west_youth_volleyball_tournaments_2026.csv`
   - ~50 Inland West volleyball tournaments added for approval.
 
+- 2026-03-13: Venue SEO slugs added.
+  - Migration: `supabase/migrations/20260313_add_venues_seo_slug.sql` (+ down file).
+  - Added `seo_slug` column with backfill (deduped), unique index, NOT NULL, trigger-based slugging on insert, and SQL helper `fn_make_venue_slug`.
+  - App helper: `apps/referee/lib/venues/slug.ts`; venue creation paths updated in `scripts/ingest/link_missing_venues_deep.ts` and `apps/referee/lib/admin/topTierCrawler.ts` to set `seo_slug`.
+
 - 2026-03-13: TI tournament directory badge layout stabilized (no resize, 3+4 rows).
   - Files: `apps/ti-web/app/tournaments/page.tsx`, `apps/ti-web/app/tournaments/tournaments.css`.
   - Replaced auto-fit grid with two explicit flex rows (3 top, 4 bottom) and enforced non-shrinking badges (`min-width: 145px`) while keeping badge component sizing unchanged.

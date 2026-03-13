@@ -1,6 +1,7 @@
 import { load as cheerioLoad } from "cheerio";
 import { buildTournamentSlug } from "../tournaments/slug";
 import { normalizeSourceUrl } from "../normalizeSourceUrl";
+import { makeVenueSlug } from "@/lib/venues/slug";
 
 type Sport = "baseball" | "softball" | "basketball";
 
@@ -407,6 +408,7 @@ async function upsertVenueAndLink(
       state: venue.state,
       zip: venue.zip,
       venue_url: venue.venueUrl,
+      seo_slug: makeVenueSlug(venue.name, venue.city, venue.state),
     };
     const inserted = await supabaseAdmin.from("venues").insert(insertPayload).select("id").single();
     if (!inserted.error && inserted.data?.id) {

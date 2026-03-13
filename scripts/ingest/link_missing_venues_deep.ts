@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { makeVenueSlug } from "@/lib/venues/slug";
 import * as cheerio from "cheerio";
 
 type TournamentRow = {
@@ -648,6 +649,7 @@ async function run() {
             zip: clean(pv.zip),
             sport: clean(t.sport),
             venue_url: clean(pv.venue_url),
+            seo_slug: makeVenueSlug(safeName ?? addr, city, state),
           };
           const { data: insertedRaw, error: insertErr } = await supabase
             .from("venues" as any)

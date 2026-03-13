@@ -1548,3 +1548,8 @@ Maintenance rules:
 - 2026-03-13: Ingested inland_west_youth_volleyball_tournaments_2026.csv into RI (draft uploads, sport=volleyball, source=external_crawl).
   - Script: `apps/referee/scripts/ingest-csv.ts --sport=volleyball --status=draft --source=external_crawl tmp/inland_west_youth_volleyball_tournaments_2026.csv`
   - Inserted ~50 Inland West volleyball tournaments for approval.
+
+- 2026-03-13: Venue SEO slugs added.
+  - Migration: `supabase/migrations/20260313_add_venues_seo_slug.sql` (+ down file).
+  - Adds `seo_slug` column, backfills with deduped slugs, unique index, NOT NULL, and trigger to auto-generate on insert with collision handling; helper function `fn_make_venue_slug`.
+  - App: shared helper `apps/referee/lib/venues/slug.ts`; venue creation in `scripts/ingest/link_missing_venues_deep.ts` and `apps/referee/lib/admin/topTierCrawler.ts` now sets `seo_slug`.
