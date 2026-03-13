@@ -437,9 +437,10 @@
 }
 
 .summaryGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
-  gap: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
   margin-top: 0.75rem;
   padding: 0.5rem 0.75rem 0;
 }
@@ -517,6 +518,15 @@
   background-repeat: no-repeat, no-repeat;
 }
 
+.summaryGrid .card.summary-sport-volleyball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
+    url("/svg/sports/volleyball_count_badge.svg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
 .summaryGrid .card.summary-sport-hockey {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.40)),
@@ -541,6 +551,7 @@
 .summaryGrid .card.summary-sport-soccer::after,
 .summaryGrid .card.summary-sport-basketball::after,
 .summaryGrid .card.summary-sport-lacrosse::after,
+.summaryGrid .card.summary-sport-volleyball::after,
 .summaryGrid .card.summary-sport-hockey::after,
 .summaryGrid .card.summary-total::after,
 .summaryTotalRow .card.summary-total::after {
@@ -551,6 +562,21 @@
   background: linear-gradient(180deg, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.38) 42%, rgba(0,0,0,0.20) 100%);
   z-index: 0;
   pointer-events: none;
+}
+
+.summaryGrid .summaryRow {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
+}
+
+.summaryGrid .summaryBadgeFixed {
+  flex: 0 0 auto;
+  min-width: 145px;
+  text-decoration: none;
+  color: inherit;
+  background-color: transparent;
 }
 
 .summaryGrid .card--mini,
@@ -726,6 +752,15 @@
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
     url("/svg/sports/hockey_container.svg");
+  background-size: auto, 230% auto;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.card.bg-sport-volleyball {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+    url("/svg/sports/volleyball_container.svg");
   background-size: auto, 230% auto;
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;

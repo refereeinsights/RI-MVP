@@ -15,6 +15,8 @@ export function getSportCardClass(sport: string | null | undefined): string {
       return "bg-sport-football";
     case "hockey":
       return "bg-sport-hockey";
+    case "volleyball":
+      return "bg-sport-volleyball";
     default:
       return "bg-sport-default";
   }

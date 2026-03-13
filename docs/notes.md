@@ -2931,3 +2931,11 @@ Maintenance rules:
     - `apps/ti-web/app/admin/outreach-previews/page.tsx`
     - `apps/ti-web/app/admin/outreach-previews/OutreachPreviewsTable.tsx`
     - `apps/ti-web/components/filters/AutoSubmitInput.tsx`
+
+- 2026-03-13: RI tournaments directory parity (pagination >1000, demo first, volleyball styling).
+  - Files: `apps/referee/app/tournaments/page.tsx`, `apps/referee/app/tournaments/tournaments.css`, `apps/referee/lib/ui/sportBackground.ts`.
+  - Added range-based pagination to lift the 1000-row cap, ordered demo tournament first then by date, and matched volleyball badge/background to TI.
+
+- 2026-03-13: TI tournament directory badge layout stabilized (no resize, 3+4 rows).
+  - Files: `apps/ti-web/app/tournaments/page.tsx`, `apps/ti-web/app/tournaments/tournaments.css`.
+  - Replaced auto-fit grid with two explicit flex rows (3 top, 4 bottom) and enforced non-shrinking badges (`min-width: 145px`) while keeping badge component sizing unchanged.

@@ -113,6 +113,8 @@ function sportIcon(sport: string | null) {
   if (normalized === "lacrosse") return <img className="sportSvgIcon" src="/brand/lacrosse_icon.svg" alt="" />;
   if (normalized === "hockey") return <img className="sportSvgIcon" src="/svg/sports/hockey_puck_icon.svg" alt="" />;
   switch (normalized) {
+    case "volleyball":
+      return "🏐";
     case "soccer":
       return "⚽";
     case "football":
@@ -203,32 +205,47 @@ export default async function TournamentsPage({
     ? stateSelections.join(", ")
     : `${stateSelections.length} states`;
 
-  let query = supabase
-    .from("tournaments_public" as any)
-    .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url,tournament_staff_verified")
-    .order("start_date", { ascending: true });
-
   const today = new Date().toISOString().slice(0, 10);
-  if (!includePast) {
-    // Show only upcoming (or currently running) tournaments by default
-    query = query.or(`start_date.gte.${today},end_date.gte.${today}`);
-  }
+  const pageSize = 1000;
+  let offset = 0;
+  let tournamentsData: Tournament[] = [];
+  let error: any = null;
+  while (true) {
+    let query = supabase
+      .from("tournaments_public" as any)
+      .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url,tournament_staff_verified")
+      .order("start_date", { ascending: true })
+      .range(offset, offset + pageSize - 1);
 
-  if (q) {
-    // simple name/city search (Supabase OR syntax)
-    // Note: this uses ilike for partial matches
-    query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
+    if (!includePast) {
+      // Show only upcoming (or currently running) tournaments by default
+      query = query.or(`start_date.gte.${today},end_date.gte.${today}`);
+    }
+
+    if (q) {
+      // simple name/city search (Supabase OR syntax)
+      // Note: this uses ilike for partial matches
+      query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
+    }
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      const [y, m] = month.split("-").map(Number);
+      // Use UTC to avoid timezone drift moving the month window
+      const start = new Date(Date.UTC(y, m - 1, 1));
+      const end = new Date(Date.UTC(y, m, 1));
+      const startISO = start.toISOString().slice(0, 10);
+      const endISO = end.toISOString().slice(0, 10);
+      query = query.gte("start_date", startISO).lt("start_date", endISO);
+    }
+
+    const { data, error: pageError } = await query;
+    if (pageError) {
+      error = pageError;
+      break;
+    }
+    tournamentsData.push(...((data ?? []) as Tournament[]));
+    if (!data || data.length < pageSize) break;
+    offset += pageSize;
   }
-  if (month && /^\d{4}-\d{2}$/.test(month)) {
-    const [y, m] = month.split("-").map(Number);
-    // Use UTC to avoid timezone drift moving the month window
-    const start = new Date(Date.UTC(y, m - 1, 1));
-    const end = new Date(Date.UTC(y, m, 1));
-    const startISO = start.toISOString().slice(0, 10);
-    const endISO = end.toISOString().slice(0, 10);
-    query = query.gte("start_date", startISO).lt("start_date", endISO);
-  }
-  const { data, error } = await query;
 
   if (error) {
     return (
@@ -245,7 +262,6 @@ export default async function TournamentsPage({
     );
   }
 
-  const tournamentsData = (data ?? []) as Tournament[];
   const seriesMap = await loadSeriesTournamentIds(
     supabase,
     tournamentsData.map((t) => ({ id: t.id, slug: t.slug }))
@@ -327,9 +343,12 @@ export default async function TournamentsPage({
   }
 
   const tournamentsSorted = [...tournaments].sort((a, b) => {
-    if (a.slug === demoSlug && b.slug !== demoSlug) return -1;
-    if (b.slug === demoSlug && a.slug !== demoSlug) return 1;
-    return 0;
+    const aDemo = a.slug === demoSlug;
+    const bDemo = b.slug === demoSlug;
+    if (aDemo !== bDemo) return aDemo ? -1 : 1;
+    const aDate = a.start_date || a.end_date || "";
+    const bDate = b.start_date || b.end_date || "";
+    return aDate.localeCompare(bDate);
   });
 
   const hasOwlsEyeByTournament = new Map<string, boolean>();
@@ -542,43 +561,59 @@ export default async function TournamentsPage({
           <AdSlot placement="tournaments_sidebar" />
         </div>
 
-        {sportsSorted.length ? (
-          <>
-          <div className="summaryTotalRow">
-            <article className="card card--mini bg-sport-default summary-total">
-              <div className="summaryCount">{tournamentsSorted.length}</div>
-              <div className="summaryLabel">Total tournaments</div>
-              <div className="summaryIcon summaryIcon--ri" aria-hidden="true">
-                <img src="/refereeinsights_mark.svg" alt="" />
+        {sportsSorted.length ? (() => {
+          const badges =
+            sportsSelected.length > 0
+              ? sportsSelected.map((sport) => ({ sport, count: filteredSportCounts[sport] ?? 0 }))
+              : sportsSorted.slice(0, 7);
+          const row1 = badges.slice(0, 3);
+          const row2 = badges.slice(3, 7);
+
+          const renderCard = (sport: string, count: number) => (
+            <Link
+              key={sport}
+              href={(() => {
+                const params = new URLSearchParams();
+                if (q) params.set("q", q);
+                if (!isAllStates) {
+                  stateSelections.forEach((st) => params.append("state", st));
+                }
+                if (month) params.set("month", month);
+                params.set("reviewed", reviewedOnly ? "true" : "false");
+                params.set("includePast", includePast ? "true" : "false");
+                params.set("sports", sport);
+                return `/tournaments?${params.toString()}`;
+              })()}
+              className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)} summaryBadgeFixed`}
+            >
+              <div className="summaryCount">{count}</div>
+              <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
+              <div className="summaryIcon" aria-hidden="true">{sportIcon(sport)}</div>
+            </Link>
+          );
+
+          return (
+            <>
+              <div className="summaryTotalRow">
+                <article className="card card--mini bg-sport-default summary-total">
+                  <div className="summaryCount">{tournamentsSorted.length}</div>
+                  <div className="summaryLabel">Total tournaments</div>
+                  <div className="summaryIcon summaryIcon--ri" aria-hidden="true">
+                    <img src="/refereeinsights_mark.svg" alt="" />
+                  </div>
+                </article>
               </div>
-            </article>
-          </div>
-          <div className="summaryGrid">
-            {sportsSorted.map(({ sport, count }) => (
-              <Link
-                key={sport}
-                href={(() => {
-                  const params = new URLSearchParams();
-                  if (q) params.set("q", q);
-                  if (!isAllStates) {
-                    stateSelections.forEach((st) => params.append("state", st));
-                  }
-                  if (month) params.set("month", month);
-                  params.set("reviewed", reviewedOnly ? "true" : "false");
-                  params.set("includePast", includePast ? "true" : "false");
-                  params.set("sports", sport);
-                  return `/tournaments?${params.toString()}`;
-                })()}
-                className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)}`}
-              >
-                <div className="summaryCount">{count}</div>
-                <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
-                <div className="summaryIcon" aria-hidden="true">{sportIcon(sport)}</div>
-              </Link>
-            ))}
-          </div>
-          </>
-        ) : null}
+              <div className="summaryGrid summaryGrid--twoRows">
+                <div className="summaryRow summaryRow--top">
+                  {row1.map(({ sport, count }) => renderCard(sport, count))}
+                </div>
+                <div className="summaryRow summaryRow--bottom">
+                  {row2.map(({ sport, count }) => renderCard(sport, count))}
+                </div>
+              </div>
+            </>
+          );
+        })() : null}
 
           <div className="grid">
             {tournamentsSorted.map((t) => (

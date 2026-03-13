@@ -1536,3 +1536,11 @@ Maintenance rules:
 
 
 - 2026-03-13: Added volleyball support to tournament badges and admin filters (sport icon, dropdown options).
+
+- 2026-03-13: TI tournament directory badge layout stabilized (no resize, 3+4 rows).
+  - Files: apps/ti-web/app/tournaments/page.tsx, apps/ti-web/app/tournaments/tournaments.css.
+  - Replaced auto-fit grid with two explicit flex rows (3 on top, 4 on bottom) and enforced non-shrinking badges (`min-width: 145px`) while keeping badge component sizes unchanged.
+
+- 2026-03-13: RI tournaments directory parity (pagination >1000, demo first, volleyball styling).
+  - Files: apps/referee/app/tournaments/page.tsx, apps/referee/app/tournaments/tournaments.css, apps/referee/lib/ui/sportBackground.ts.
+  - Added range-based pagination to remove the 1000-row cap, sorted the demo tournament first then by date, and aligned volleyball badge/background with TI.
