@@ -162,31 +162,46 @@ export default async function TournamentsPage({
     ? stateSelections.join(", ")
     : `${stateSelections.length} states`;
 
-  let query = supabaseAdmin
-    .from("tournaments_public" as any)
-    .select(
-      "id,name,slug,sport,tournament_association,state,city,zip,start_date,end_date,official_website_url,source_url,level,tournament_staff_verified,is_demo"
-    )
-    .order("start_date", { ascending: true });
-
   const today = new Date().toISOString().slice(0, 10);
-  if (!includePast) {
-    query = query.or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`);
-  }
 
-  if (q) {
-    query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
-  }
-  if (month && /^\d{4}-\d{2}$/.test(month)) {
-    const [y, m] = month.split("-").map(Number);
-    const start = new Date(Date.UTC(y, m - 1, 1));
-    const end = new Date(Date.UTC(y, m, 1));
-    const startISO = start.toISOString().slice(0, 10);
-    const endISO = end.toISOString().slice(0, 10);
-    query = query.gte("start_date", startISO).lt("start_date", endISO);
-  }
+  const pageSize = 1000;
+  let offset = 0;
+  let tournamentsData: any[] = [];
+  let error = null as any;
+  while (true) {
+    let query = supabaseAdmin
+      .from("tournaments_public" as any)
+      .select(
+        "id,name,slug,sport,tournament_association,state,city,zip,start_date,end_date,official_website_url,source_url,level,tournament_staff_verified,is_demo"
+      )
+      .order("start_date", { ascending: true })
+      .range(offset, offset + pageSize - 1);
 
-  const { data: tournamentsData, error } = await query;
+    if (!includePast) {
+      query = query.or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`);
+    }
+
+    if (q) {
+      query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
+    }
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      const [y, m] = month.split("-").map(Number);
+      const start = new Date(Date.UTC(y, m - 1, 1));
+      const end = new Date(Date.UTC(y, m, 1));
+      const startISO = start.toISOString().slice(0, 10);
+      const endISO = end.toISOString().slice(0, 10);
+      query = query.gte("start_date", startISO).lt("start_date", endISO);
+    }
+
+    const { data, error: pageError } = await query;
+    if (pageError) {
+      error = pageError;
+      break;
+    }
+    tournamentsData.push(...(data ?? []));
+    if (!data || data.length < pageSize) break;
+    offset += pageSize;
+  }
 
   if (error) {
     return (

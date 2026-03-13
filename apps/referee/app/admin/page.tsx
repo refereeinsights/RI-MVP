@@ -128,6 +128,10 @@ const TOURNAMENT_SOURCES: TournamentSource[] = [
   "public_submission",
 ];
 const SUBMISSION_TYPES = ["internet", "website", "paid", "admin"] as const;
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
 const SUBMISSION_LABELS: Record<string, string> = {
   internet: "Crawler/import",
   website: "Public submission",
@@ -604,12 +608,24 @@ export default async function AdminPage({
     ? "—"
     : String(assignorNeedsReviewCount ?? 0);
 
-  const { data: publishedTournamentStatsRows } = await supabaseAdmin
-    .from("tournaments" as any)
-    .select("id,sport,venue,address,official_website_url,source_url,start_date,end_date")
-    .in("status", ["published", "approved"])
-    .eq("is_canonical", true)
-    .limit(5000);
+  const today = todayIso();
+  const pageSize = 1000;
+  let offset = 0;
+  let publishedTournamentStatsRows: any[] = [];
+  while (true) {
+    const { data, error } = await supabaseAdmin
+      .from("tournaments_public" as any)
+      .select("id,sport,venue,address,official_website_url,source_url,start_date,end_date")
+      .or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`)
+      .range(offset, offset + pageSize - 1);
+    if (error) {
+      console.error("Failed to load tournament stats", error);
+      break;
+    }
+    publishedTournamentStatsRows.push(...(data ?? []));
+    if (!data || data.length < pageSize) break;
+    offset += pageSize;
+  }
 
   const tournamentStatsRows = (publishedTournamentStatsRows ?? []) as Array<{
     id: string;
@@ -641,7 +657,8 @@ export default async function AdminPage({
     if (sportKey) {
       tournamentSportCounts.set(sportKey, (tournamentSportCounts.get(sportKey) ?? 0) + 1);
     }
-    const missingVenue = !linkedPublishedTournamentIds.has(row.id);
+    const hasInlineVenue = hasText(row.venue) || hasText(row.address);
+    const missingVenue = !linkedPublishedTournamentIds.has(row.id) && !hasInlineVenue;
     const missingUrls = !hasText(row.official_website_url) && !hasText(row.source_url);
     const missingDates = !hasText(row.start_date) || !hasText(row.end_date);
     if (missingVenue) tournamentsMissingVenueCount += 1;
