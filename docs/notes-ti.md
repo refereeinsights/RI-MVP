@@ -1544,3 +1544,7 @@ Maintenance rules:
 - 2026-03-13: RI tournaments directory parity (pagination >1000, demo first, volleyball styling).
   - Files: apps/referee/app/tournaments/page.tsx, apps/referee/app/tournaments/tournaments.css, apps/referee/lib/ui/sportBackground.ts.
   - Added range-based pagination to remove the 1000-row cap, sorted the demo tournament first then by date, and aligned volleyball badge/background with TI.
+
+- 2026-03-13: Ingested inland_west_youth_volleyball_tournaments_2026.csv into RI (draft uploads, sport=volleyball, source=external_crawl).
+  - Script: `apps/referee/scripts/ingest-csv.ts --sport=volleyball --status=draft --source=external_crawl tmp/inland_west_youth_volleyball_tournaments_2026.csv`
+  - Inserted ~50 Inland West volleyball tournaments for approval.
