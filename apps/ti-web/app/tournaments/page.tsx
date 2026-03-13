@@ -76,6 +76,7 @@ function sportIcon(sport: string | null) {
   const normalized = (sport ?? "").toLowerCase();
   if (normalized === "lacrosse") return <img className="sportSvgIcon" src="/brand/lacrosse_icon.svg" alt="" />;
   if (normalized === "hockey") return <img className="sportSvgIcon" src="/svg/sports/hockey_puck_icon.svg" alt="" />;
+  if (normalized === "volleyball") return "🏐";
   switch (normalized) {
     case "soccer":
       return "⚽";

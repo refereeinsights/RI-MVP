@@ -1534,3 +1534,5 @@ Maintenance rules:
   - Admin dashboard and directory now paginate `tournaments_public` (no 1k cap) and include AYSO and demo tournaments with upcoming filter.
   - Files: apps/referee/app/admin/page.tsx, apps/ti-web/app/tournaments/page.tsx.
 
+
+- 2026-03-13: Added volleyball support to tournament badges and admin filters (sport icon, dropdown options).

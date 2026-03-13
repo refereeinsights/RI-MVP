@@ -379,6 +379,11 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
             <option value="soccer">Soccer</option>
             <option value="basketball">Basketball</option>
             <option value="football">Football</option>
+            <option value="baseball">Baseball</option>
+            <option value="softball">Softball</option>
+            <option value="lacrosse">Lacrosse</option>
+            <option value="hockey">Hockey</option>
+            <option value="volleyball">Volleyball</option>
           </select>
         </label>
         <details style={{ border: "1px solid #ddd", borderRadius: 8, padding: 8, background: "#fff" }}>
