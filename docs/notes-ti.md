@@ -1527,3 +1527,5 @@ Maintenance rules:
   - Validation:
     - `npx tsc -p apps/ti-web/tsconfig.json --noEmit` passed
     - local baseball generate-previews smoke with `limit=50` returned `created: 50` in preview mode
+
+- 2026-03-12: Admin dashboard tiles now filter sport counts to published canonical + date window; added venue address CSV upsert helper and ran WA venue enrich (34 rows). Files: apps/referee/app/admin/tournaments/dashboard/page.tsx, scripts/ingest/update_venue_addresses.ts. Ingested wa_tournaments_combined.csv (120 rows) and venue_address_enrichment.csv (34 venues).

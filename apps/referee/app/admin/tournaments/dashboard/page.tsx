@@ -93,8 +93,11 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
 
   let sportTileQuery = supabase
     .from("tournaments" as any)
-    .select("id,sport,start_date,end_date,state,tournament_director_email,venue,address")
-    .order("updated_at", { ascending: false });
+    .select("id,sport,start_date,end_date,state,tournament_director_email,venue,address,status,is_canonical")
+    .eq("status", "published")
+    .eq("is_canonical", true)
+    .or(`start_date.gte.${start},start_date.is.null`);
+  if (end) sportTileQuery = sportTileQuery.lte("start_date", end);
   if (sport) sportTileQuery = sportTileQuery.eq("sport", sport);
   if (states.length) sportTileQuery = sportTileQuery.in("state", states);
   const sportTileRes = await sportTileQuery;
