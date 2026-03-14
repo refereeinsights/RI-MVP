@@ -467,70 +467,59 @@ export default async function TournamentsPage({
           </div>
         </form>
 
-        {sportsSorted.length ? (
-          <>
-          <div className="summaryTotalRow">
-            <article className="card card--mini bg-sport-default summary-total">
-              <div className="summaryCount">{tournamentsSorted.length}</div>
-              <div className="summaryLabel">TOTAL TOURNAMENTS</div>
-              <div className="summaryIcon summaryIcon--ri" aria-hidden="true">
-                <img src="/svg/ti/tournamentinsights_mark_transparent.svg" alt="" />
+        {sportsSorted.length ? (() => {
+          const badges =
+            sportsSelected.length > 0
+              ? sportsSelected.map((sport) => ({ sport, count: filteredSportCounts[sport] ?? 0 }))
+              : sportsSorted.slice(0, 7);
+          const row1 = badges.slice(0, 3);
+          const row2 = badges.slice(3, 7);
+
+          const renderCard = (sport: string, count: number) => (
+            <Link
+              key={sport}
+              href={(() => {
+                const params = new URLSearchParams();
+                if (q) params.set("q", q);
+                if (!isAllStates) stateSelections.forEach((st) => params.append("state", st));
+                if (month) params.set("month", month);
+                params.set("includePast", includePast ? "true" : "false");
+                params.set("aysoOnly", aysoOnly ? "true" : "false");
+                params.set("sports", sport);
+                return `/tournaments?${params.toString()}`;
+              })()}
+              className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)} summaryBadgeFixed`}
+            >
+              <div className="summaryCount">{count}</div>
+              <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
+              <div className="summaryIcon" aria-hidden="true">
+                {sportIcon(sport)}
               </div>
-            </article>
-          </div>
-          <div className="summaryGrid">
-            {sportsSelected.length > 0
-              ? sportsSelected.map((sport) => (
-                  <Link
-                    key={sport}
-                    href={(() => {
-                      const params = new URLSearchParams();
-                      if (q) params.set("q", q);
-                      if (!isAllStates) {
-                        stateSelections.forEach((st) => params.append("state", st));
-                      }
-                      if (month) params.set("month", month);
-                      params.set("includePast", includePast ? "true" : "false");
-                      params.set("aysoOnly", aysoOnly ? "true" : "false");
-                      params.set("sports", sport);
-                      return `/tournaments?${params.toString()}`;
-                    })()}
-                    className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)}`}
-                  >
-                    <div className="summaryCount">{filteredSportCounts[sport] ?? 0}</div>
-                    <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
-                    <div className="summaryIcon" aria-hidden="true">
-                      {sportIcon(sport)}
-                    </div>
-                  </Link>
-                ))
-              : sportsSorted.map(({ sport, count }) => (
-                  <Link
-                    key={sport}
-                    href={(() => {
-                      const params = new URLSearchParams();
-                      if (q) params.set("q", q);
-                      if (!isAllStates) {
-                        stateSelections.forEach((st) => params.append("state", st));
-                      }
-                      if (month) params.set("month", month);
-                      params.set("includePast", includePast ? "true" : "false");
-                      params.set("aysoOnly", aysoOnly ? "true" : "false");
-                      params.set("sports", sport);
-                      return `/tournaments?${params.toString()}`;
-                    })()}
-                    className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)}`}
-                  >
-                    <div className="summaryCount">{count}</div>
-                    <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
-                    <div className="summaryIcon" aria-hidden="true">
-                      {sportIcon(sport)}
-                    </div>
-                  </Link>
-                ))}
-          </div>
-          </>
-        ) : null}
+            </Link>
+          );
+
+          return (
+            <>
+              <div className="summaryTotalRow">
+                <article className="card card--mini bg-sport-default summary-total">
+                  <div className="summaryCount">{tournamentsSorted.length}</div>
+                  <div className="summaryLabel">TOTAL TOURNAMENTS</div>
+                  <div className="summaryIcon summaryIcon--ri" aria-hidden="true">
+                    <img src="/svg/ti/tournamentinsights_mark_transparent.svg" alt="" />
+                  </div>
+                </article>
+              </div>
+              <div className="summaryGrid summaryGrid--twoRows">
+                <div className="summaryRow summaryRow--top">
+                  {row1.map(({ sport, count }) => renderCard(sport, count))}
+                </div>
+                <div className="summaryRow summaryRow--bottom">
+                  {row2.map(({ sport, count }) => renderCard(sport, count))}
+                </div>
+              </div>
+            </>
+          );
+        })() : null}
 
         {tournamentsSorted.length === 0 ? (
           <div className="cards">

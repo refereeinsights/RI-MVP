@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import SportHubPage from "../../_components/SportHubPage";
+import { buildHubTitle } from "@/lib/seo/buildTitle";
 
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
 const PATH = "/tournaments/hubs/soccer/california";
@@ -9,8 +10,9 @@ const STATE_CODE = "CA";
 export const revalidate = 300;
 
 export async function generateMetadata(): Promise<Metadata> {
+  const year = new Date().getFullYear();
   return {
-    title: `Soccer Tournaments in ${STATE_NAME} (Calendar) | RefereeInsights`,
+    title: buildHubTitle(STATE_NAME, "Soccer", year),
     description: `Browse soccer tournaments in ${STATE_NAME}. Filter reviewed events and include past tournaments. Referee-informed tournament details.`,
     alternates: {
       canonical: `${SITE_ORIGIN}${PATH}`,

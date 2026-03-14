@@ -7,6 +7,7 @@ import type { RawWhistleScoreRow, TournamentSeriesEntry } from "@/lib/tournament
 import type { RefereeWhistleScore } from "@/lib/types/refereeReview";
 import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
 import { getSportCardClass } from "@/lib/ui/sportBackground";
+import { validateTournamentSport } from "@/lib/validation/validateTournamentSport";
 import StateMultiSelect from "@/app/tournaments/StateMultiSelect";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import "../../tournaments.css";
@@ -233,7 +234,8 @@ export default async function SportHubPage(props: Props) {
     });
 
   const applyBaseFilters = (query: any, includeSelectedStates: boolean) => {
-    let next = query.ilike("sport", `%${sportQuery}%`);
+    // strict sport + state matching
+    let next = query.eq("sport", sportQuery);
 
     if (props.mode === "state-seo") {
       next = next.eq("state", props.stateCode.toUpperCase());
@@ -277,7 +279,13 @@ export default async function SportHubPage(props: Props) {
     );
 
     error = queryError ? { message: queryError.message } : null;
-    const tournaments = sortDemoFirst((data ?? []) as Tournament[]);
+    const tournaments = sortDemoFirst((data ?? []) as Tournament[]).filter((t) => {
+      const status = validateTournamentSport(t);
+      if (status === "mismatched") {
+        console.warn("Sport mismatch detected", { id: t.id, sport: t.sport, url: t.official_website_url });
+      }
+      return status === "valid" && (t.sport ?? "").toLowerCase() === sportQuery;
+    });
     const seriesMap = await loadSeriesTournamentIds(
       supabase,
       tournaments.map((t) => ({ id: t.id, slug: t.slug }))
@@ -355,7 +363,13 @@ export default async function SportHubPage(props: Props) {
     ).range(offset, offset + PAGE_SIZE - 1);
 
     error = queryError ? { message: queryError.message } : null;
-    tournamentsSorted = sortDemoFirst((data ?? []) as Tournament[]);
+    tournamentsSorted = sortDemoFirst((data ?? []) as Tournament[]).filter((t) => {
+      const status = validateTournamentSport(t);
+      if (status === "mismatched") {
+        console.warn("Sport mismatch detected", { id: t.id, sport: t.sport, url: t.official_website_url });
+      }
+      return status === "valid" && (t.sport ?? "").toLowerCase() === sportQuery;
+    });
 
     const seriesMap = await loadSeriesTournamentIds(
       supabase,

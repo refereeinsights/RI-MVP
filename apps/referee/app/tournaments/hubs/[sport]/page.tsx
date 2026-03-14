@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import SportHubPage, { sportLabelFromParam } from "../_components/SportHubPage";
+import { buildHubTitle } from "@/lib/seo/buildTitle";
 
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
 
@@ -11,8 +12,9 @@ export async function generateMetadata({
   params: { sport: string };
 }): Promise<Metadata> {
   const sportLabel = sportLabelFromParam(params.sport);
+  const year = new Date().getFullYear();
   return {
-    title: `${sportLabel} Tournament Directory | RefereeInsights`,
+    title: buildHubTitle("All States", sportLabel, year),
     description: `Public beta directory for ${sportLabel} tournaments. Details sourced from public listings with referee insights coming soon.`,
     alternates: {
       canonical: `${SITE_ORIGIN}/tournaments/hubs/${params.sport.toLowerCase()}`,

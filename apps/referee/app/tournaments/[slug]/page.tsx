@@ -15,6 +15,7 @@ import type { RawWhistleScoreRow } from "@/lib/tournamentSeries";
 import type { RefereeReviewPublic, RefereeWhistleScore } from "@/lib/types/refereeReview";
 import { getSportCardClass } from "@/lib/ui/sportBackground";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
+import { buildTournamentTitle } from "@/lib/seo/buildTitle";
 import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
 import "../tournaments.css";
 
@@ -192,6 +193,7 @@ export async function generateMetadata({
     state: string | null;
     start_date: string | null;
     slug: string | null;
+    sport: string | null;
   };
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
@@ -200,7 +202,7 @@ export async function generateMetadata({
     .maybeSingle<TournamentMeta>();
   if (error || !data) {
     return {
-      title: "Tournament listing | RefereeInsights",
+      title: "Tournament listing | TournamentInsights",
       description:
         "Public beta tournament listing. Tournament details sourced from public listings. Referee insights coming soon.",
       alternates: {
@@ -208,13 +210,13 @@ export async function generateMetadata({
       },
     };
   }
-  const year = data.start_date ? new Date(`${data.start_date}T00:00:00`).getFullYear() : null;
-  const locationLabel = buildLocationLabel(data.city ?? null, data.state ?? null);
-  const titlePrefix = year ? `${year} ` : "";
-  const title = `${titlePrefix}${data.name}${locationLabel ? ` ${locationLabel}` : ""} | RefereeInsights`;
-  const description = `Public beta listing for ${data.name}${
-    locationLabel ? ` ${locationLabel}` : ""
-  }. Tournament details sourced from public listings. Referee insights coming soon.`;
+  const title = buildTournamentTitle(
+    data.name ?? "Tournament",
+    data.city ?? null,
+    data.state ?? null,
+    (data.sport ?? "").trim() || "Tournament"
+  );
+  const description = `Public listing for ${data.name ?? "tournament"}${buildLocationLabel(data.city ?? null, data.state ?? null)}.`;
   const canonical = buildCanonicalUrl(data.slug ?? params.slug);
   return {
     title,

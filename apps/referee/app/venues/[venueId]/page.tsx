@@ -8,6 +8,7 @@ import { getSportCardClass } from "@/lib/ui/sportBackground";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/venues/isUuid";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
+import { buildVenueTitle } from "@/lib/seo/buildTitle";
 import "../../tournaments/tournaments.css";
 
 type LinkedTournament = {
@@ -130,7 +131,7 @@ export async function generateMetadata({ params }: { params: { venueId: string }
   }
   if (!venue) return {};
 
-  const title = `${venue.name ?? "Venue"} | ${[venue.city, venue.state].filter(Boolean).join(", ")} Youth Sports Venue | TournamentInsights`;
+  const title = buildVenueTitle(venue.name ?? "Venue", venue.city ?? null, venue.state ?? null);
   const canonical = `https://www.tournamentinsights.com${getVenueHref(venue)}`;
   const desc =
     venue.address && (venue.city || venue.state)

@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSportCardClass } from "@/lib/ui/sportBackground";
+import { buildHubTitle } from "@/lib/seo/buildTitle";
+import { validateTournamentSport } from "@/lib/validation/validateTournamentSport";
 import "../../../tournaments.css";
 
 type Tournament = {
@@ -43,8 +45,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const sportLabel = sportLabelFromParam(params.sport);
   const stateLabel = params.state.toUpperCase();
+  const year = new Date().getFullYear();
   return {
-    title: `${sportLabel} Tournaments in ${stateLabel} | RefereeInsights`,
+    title: buildHubTitle(stateLabel, sportLabel, year),
     description: `Public beta directory for ${sportLabel.toLowerCase()} tournaments in ${stateLabel}. Details sourced from public listings with referee insights coming soon.`,
     alternates: {
       canonical: `${SITE_ORIGIN}/tournaments/hubs/${params.sport.toLowerCase()}/${params.state.toLowerCase()}`,
@@ -63,10 +66,12 @@ export default async function SportStateTournamentHub({
     .from("tournaments_public" as any)
     .select("id,name,slug,city,state,sport,start_date")
     .eq("state", stateQuery)
-    .ilike("sport", `%${sportQuery}%`)
+    .eq("sport", sportQuery)
     .order("start_date", { ascending: true });
 
-  const tournaments = (data ?? []) as Tournament[];
+  const tournaments = ((data ?? []) as Tournament[])
+    .filter((t) => Boolean(t?.id && t?.slug && t?.name))
+    .filter((t) => validateTournamentSport(t) === "valid");
   const sportLabel = sportLabelFromParam(params.sport);
   const stateLabel = stateQuery;
 
