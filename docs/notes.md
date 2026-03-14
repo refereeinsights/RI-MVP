@@ -2960,3 +2960,7 @@ Maintenance rules:
 - 2026-03-14: RI hub sport filtering + SEO title cleanup.
   - Files: `apps/referee/app/tournaments/hubs/_components/SportHubPage.tsx`, hub pages under `apps/referee/app/tournaments/hubs/`, `apps/referee/app/tournaments/[slug]/page.tsx`, `apps/referee/app/venues/[venueId]/page.tsx`, helpers `apps/referee/lib/seo/buildTitle.ts`, `apps/referee/lib/validation/validateTournamentSport.ts`.
   - Hub queries now require exact sport and state matches, exclude mismatched sport URLs, and log conflicts; shared SEO title builder prevents double-branding across hubs, tournaments, and venues.
+
+- 2026-03-14: Ingest sport normalization tweaks (RI ingest).
+  - File: `apps/referee/src/server/admin/pasteUrl.ts`.
+  - Detect sport from host for common mislabels: GSL (`gsltournaments.com`) and NW Youth Baseball (`nwyouthbaseball.com`) → baseball; NSAWA (`nsawa.com`) and WA USSSA fastpitch host → softball. Prevents future imports from defaulting to soccer.

@@ -1120,6 +1120,10 @@ function detectSport(params: {
   if (host.includes("usclublax.com")) return "lacrosse";
   if (host.includes("usssa.com") && host.includes("baseball")) return "baseball";
   if (host.includes("usssa.com") && host.includes("fastpitch")) return "softball";
+  if (host.includes("wafastpitch.usssa.com")) return "softball";
+  if (host.includes("gsltournaments.com")) return "baseball";
+  if (host.includes("nwyouthbaseball.com")) return "baseball";
+  if (host.includes("nsawa.com")) return "softball";
   if (host.includes("myhockeytournaments.com")) return "hockey";
   if (host.includes("tournamentmachine.com")) return "basketball";
   if (host.includes("tourneymachine.com")) return "basketball";
