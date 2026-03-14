@@ -1,13 +1,7 @@
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AdminNav from "@/components/admin/AdminNav";
-import {
-  bulkApproveForm,
-  bulkApproveOverwriteForm,
-  bulkRequeueForm,
-  runBatchForm,
-  approveWithSportForm,
-} from "./actions";
+import { runBatchForm, approveWithSportForm } from "./actions";
 import { getSportValidationCounts } from "@/lib/validation/getSportValidationCounts";
 
 export const runtime = "nodejs";
@@ -23,6 +17,8 @@ type ValidationRow = {
   rule_name: string | null;
   confidence_score: number | null;
   processed_at: string | null;
+  slug?: string | null;
+  official_website_url?: string | null;
 };
 
 function Badge({ children, tone }: { children: React.ReactNode; tone?: "success" | "warn" | "info" }) {
@@ -115,7 +111,8 @@ export default async function ValidationQueue() {
           <Tile label="Unconfirmed" value={counts.unconfirmed} />
         </div>
         <p style={{ color: "#444", marginBottom: 16 }}>
-          Select rows to approve. “Approve + Overwrite” will set the tournament sport to the validated sport when present.
+          Approve each row individually. Use “Overwrite tournament sport” if the validated sport should replace the current
+          tournament sport.
         </p>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
           <a className="cta secondary" href="/admin/tournaments/validation/rules">
@@ -137,137 +134,89 @@ export default async function ValidationQueue() {
             </button>
           </form>
         </div>
-        <form action={bulkApproveForm}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            <button type="submit" className="cta primary" style={{ padding: "8px 12px" }}>
-              Bulk Approve
-            </button>
-            <button
-              formAction={bulkApproveOverwriteForm}
-              type="submit"
-              className="cta secondary"
-              style={{ padding: "8px 12px" }}
-            >
-              Bulk Approve + Overwrite Sport
-            </button>
-            <button
-              formAction={bulkRequeueForm}
-              type="submit"
-              className="cta secondary"
-              style={{ padding: "8px 12px", background: "#fef3c7", color: "#92400e" }}
-            >
-              Mark for Revalidate
-            </button>
-          </div>
-          <table className="adminTable">
-            <thead>
+        <table className="adminTable">
+          <thead>
             <tr>
-              <th></th>
+              <th>Approve</th>
               <th>Tournament</th>
               <th>Current</th>
               <th>Validated</th>
-                <th>Status</th>
-                <th>Rule</th>
-                <th>Confidence</th>
-                <th>Processed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} data-tid={row.tournament_id}>
-                  <td>
-                    <input type="checkbox" name="selected" value={row.id} />
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>
-                      {row.official_website_url ? (
-                        <a href={row.official_website_url} target="_blank" rel="noopener noreferrer">
-                          {row.name ?? "Unnamed"}
-                        </a>
-                      ) : row.slug ? (
-                        <a href={`/tournaments/${row.slug}`} target="_blank" rel="noopener noreferrer">
-                          {row.name ?? "Unnamed"}
-                        </a>
-                      ) : (
-                        row.name ?? "Unnamed"
-                      )}
-                    </div>
-                    <div style={{ fontSize: 12, color: "#555" }}>{row.tournament_id}</div>
-                  </td>
-                  <td>{row.sport ?? "—"}</td>
-                  <td>{row.validated_sport ?? "—"}</td>
-                  <td>
-                    <Badge
-                      tone={
-                        row.validation_status === "confirmed" || row.validation_status === "rule_confirmed"
-                          ? "success"
-                          : row.validation_status === "conflict"
-                          ? "warn"
-                          : "info"
-                      }
-                    >
-                      {row.validation_status ?? "needs_review"}
-                    </Badge>
-                  </td>
-                  <td>{row.rule_name ?? "—"}</td>
-                  <td>{row.confidence_score ? row.confidence_score.toFixed(2) : "—"}</td>
-                  <td>{row.processed_at ? new Date(row.processed_at).toLocaleString() : "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </form>
-        {/* Inline per-row override */}
-        <div style={{ marginTop: 16, padding: 12, border: "1px solid #e5e7eb", borderRadius: 10 }}>
-          <h3 style={{ margin: 0, marginBottom: 8 }}>Set sport and approve (single row)</h3>
-          <p style={{ fontSize: 13, color: "#555", marginTop: 0, marginBottom: 8 }}>
-            Select a row checkbox, choose a sport, and click approve. Overwrite will also update the tournament sport.
-          </p>
-          <form action={approveWithSportForm} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <select name="validated_sport" required style={{ padding: 6, borderRadius: 8, border: "1px solid #ccc" }}>
-              <option value="">Choose sport</option>
-              {["soccer","basketball","baseball","softball","lacrosse","hockey","volleyball","football","futsal"].map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-            <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
-              <input type="checkbox" name="overwrite" value="true" />
-              Overwrite tournament sport
-            </label>
-            <input type="hidden" name="tournament_id" id="single-tid" />
-            <input type="hidden" name="validation_id" id="single-vid" />
-            <button type="submit" className="cta primary" style={{ padding: "8px 12px" }}>
-              Approve selected row
-            </button>
-          </form>
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                (function() {
-                  const form = document.currentScript?.previousElementSibling;
-                  if (!form) return;
-                  const tidInput = form.querySelector('#single-tid');
-                  const vidInput = form.querySelector('#single-vid');
-                  const checkboxes = document.querySelectorAll('input[type="checkbox"][name="selected"]');
-                  form.addEventListener('submit', (e) => {
-                    const checked = Array.from(checkboxes).find((c) => (c as HTMLInputElement).checked);
-                    if (!checked) {
-                      e.preventDefault();
-                      alert('Select a row checkbox first.');
-                      return false;
+              <th>Status</th>
+              <th>Rule</th>
+              <th>Confidence</th>
+              <th>Processed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td>
+                  <form action={approveWithSportForm} style={{ display: "grid", gap: 6 }}>
+                    <input type="hidden" name="tournament_id" value={row.tournament_id} />
+                    <input type="hidden" name="validation_id" value={row.id} />
+                    <label style={{ fontSize: 12, color: "#444", display: "grid", gap: 4 }}>
+                      Validated sport
+                      <select
+                        name="validated_sport"
+                        defaultValue={row.validated_sport ?? row.sport ?? ""}
+                        required
+                        style={{ padding: 6, borderRadius: 6, border: "1px solid #ccc", fontSize: 12 }}
+                      >
+                        <option value="">Pick sport</option>
+                        {["soccer","basketball","baseball","softball","lacrosse","hockey","volleyball","football","futsal"].map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 12 }}>
+                      <input type="checkbox" name="overwrite" value="true" />
+                      Overwrite tournament sport
+                    </label>
+                    <button type="submit" className="cta primary" style={{ padding: "6px 8px", fontSize: 12 }}>
+                      Approve
+                    </button>
+                  </form>
+                </td>
+                <td>
+                  <div style={{ fontWeight: 600 }}>
+                    {row.official_website_url ? (
+                      <a href={row.official_website_url} target="_blank" rel="noopener noreferrer">
+                        {row.name ?? "Unnamed"}
+                      </a>
+                    ) : row.slug ? (
+                      <a href={`/tournaments/${row.slug}`} target="_blank" rel="noopener noreferrer">
+                        {row.name ?? "Unnamed"}
+                      </a>
+                    ) : (
+                      row.name ?? "Unnamed"
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#555" }}>{row.tournament_id}</div>
+                </td>
+                <td>{row.sport ?? "—"}</td>
+                <td>{row.validated_sport ?? "—"}</td>
+                <td>
+                  <Badge
+                    tone={
+                      row.validation_status === "confirmed" || row.validation_status === "rule_confirmed"
+                        ? "success"
+                        : row.validation_status === "conflict"
+                        ? "warn"
+                        : "info"
                     }
-                    const tr = checked.closest('tr');
-                    if (!tr) return;
-                    const tid = tr.getAttribute('data-tid');
-                    const vid = (checked as HTMLInputElement).value;
-                    if (tidInput) tidInput.value = tid || '';
-                    if (vidInput) vidInput.value = vid || '';
-                  });
-                })();
-              `,
-            }}
-          />
-        </div>
+                  >
+                    {row.validation_status ?? "needs_review"}
+                  </Badge>
+                </td>
+                <td>{row.rule_name ?? "—"}</td>
+                <td>{row.confidence_score ? row.confidence_score.toFixed(2) : "—"}</td>
+                <td>{row.processed_at ? new Date(row.processed_at).toLocaleString() : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </main>
   );
