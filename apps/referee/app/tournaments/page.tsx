@@ -342,6 +342,12 @@ export default async function TournamentsPage({
     });
   }
 
+  const filteredSportCounts = tournaments.reduce<Record<string, number>>((acc, t) => {
+    const key = (t.sport ?? "unknown").toLowerCase();
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+
   const tournamentsSorted = [...tournaments].sort((a, b) => {
     const aDemo = a.slug === demoSlug;
     const bDemo = b.slug === demoSlug;
