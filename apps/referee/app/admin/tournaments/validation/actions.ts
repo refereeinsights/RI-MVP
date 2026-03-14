@@ -2,6 +2,8 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireAdmin } from "@/lib/admin";
+import { runSportValidationBatch } from "@/server/validation/sportValidation";
+import { revalidatePath } from "next/cache";
 
 type BulkResult = {
   total_selected: number;
@@ -10,6 +12,11 @@ type BulkResult = {
   total_overwritten: number;
   total_skipped: number;
   errors: string[];
+};
+
+type ActionResult = {
+  ok: boolean;
+  error?: string;
 };
 
 async function requeueRows(ids: string[]): Promise<BulkResult> {
@@ -73,7 +80,7 @@ async function bulkUpdate(ids: string[], overwrite: boolean): Promise<BulkResult
     try {
       const { data: row, error: fetchErr } = await supabaseAdmin
         .from("tournament_sport_validation" as any)
-        .select("tournament_id,validated_sport,validation_status")
+        .select("tournament_id,current_sport,validated_sport,validation_status,tournaments!inner(sport)")
         .eq("id", id)
         .maybeSingle();
       if (fetchErr || !row) {
@@ -86,11 +93,14 @@ async function bulkUpdate(ids: string[], overwrite: boolean): Promise<BulkResult
         continue;
       }
 
+      const currentSport = (row as any)?.tournaments?.sport ?? row.current_sport ?? null;
+      const validatedSport = row.validated_sport || currentSport || null;
       const updates = {
         validation_status: "confirmed",
         validation_method: "manual",
         reviewed_at: now,
         updated_at: now,
+        validated_sport: validatedSport ?? row.current_sport ?? null,
       };
       await supabaseAdmin.from("tournament_sport_validation" as any).update(updates).eq("id", id);
 
@@ -102,10 +112,11 @@ async function bulkUpdate(ids: string[], overwrite: boolean): Promise<BulkResult
         revalidate: false,
       };
 
-      if (row.validated_sport) {
-        rollup.validated_sport = row.validated_sport;
+      const sportToApply = validatedSport ?? row.current_sport ?? null;
+      if (sportToApply) {
+        rollup.validated_sport = sportToApply;
         if (overwrite) {
-          rollup.sport = row.validated_sport;
+          rollup.sport = sportToApply;
           totalOverwritten++;
         }
       }
@@ -132,15 +143,91 @@ async function bulkUpdate(ids: string[], overwrite: boolean): Promise<BulkResult
 
 export async function bulkApprove(ids: string[]): Promise<BulkResult> {
   await requireAdmin();
-  return bulkUpdate(ids, false);
+  const res = await bulkUpdate(ids, false);
+  revalidatePath("/admin/tournaments/validation");
+  return res;
 }
 
 export async function bulkApproveOverwrite(ids: string[]): Promise<BulkResult> {
   await requireAdmin();
-  return bulkUpdate(ids, true);
+  const res = await bulkUpdate(ids, true);
+  revalidatePath("/admin/tournaments/validation");
+  return res;
 }
 
 export async function bulkRequeue(ids: string[]): Promise<BulkResult> {
   await requireAdmin();
-  return requeueRows(ids);
+  const res = await requeueRows(ids);
+  revalidatePath("/admin/tournaments/validation");
+  return res;
+}
+
+export async function runBatch(limit?: number) {
+  await requireAdmin();
+  const effectiveLimit = limit && limit > 0 ? limit : 200;
+  const res = await runSportValidationBatch(effectiveLimit);
+  revalidatePath("/admin/tournaments/validation");
+  return res;
+}
+
+// FormData wrappers for server actions
+export async function bulkApproveForm(formData: FormData) {
+  const ids = formData.getAll("selected").map(String);
+  return bulkApprove(ids);
+}
+
+export async function bulkApproveOverwriteForm(formData: FormData) {
+  const ids = formData.getAll("selected").map(String);
+  return bulkApproveOverwrite(ids);
+}
+
+export async function bulkRequeueForm(formData: FormData) {
+  const ids = formData.getAll("selected").map(String);
+  return bulkRequeue(ids);
+}
+
+export async function runBatchForm(formData: FormData) {
+  const limitRaw = formData.get("limit");
+  const limit = limitRaw ? Number(limitRaw) : undefined;
+  return runBatch(limit);
+}
+
+export async function approveWithSportForm(formData: FormData): Promise<ActionResult> {
+  await requireAdmin();
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  const validationId = String(formData.get("validation_id") ?? "");
+  const sport = String(formData.get("validated_sport") ?? "").trim().toLowerCase();
+  const overwrite = formData.get("overwrite") === "true";
+  if (!tournamentId || !validationId || !sport) return { ok: false, error: "Missing data" };
+
+  const now = new Date().toISOString();
+  await supabaseAdmin
+    .from("tournament_sport_validation" as any)
+    .update({
+      validated_sport: sport,
+      validation_status: "confirmed",
+      validation_method: "manual",
+      rule_name: "manual_set",
+      reviewed_at: now,
+      processed_at: now,
+      updated_at: now,
+    })
+    .eq("id", validationId);
+
+  const rollup: Record<string, any> = {
+    validated_sport: sport,
+    sport_validation_status: "confirmed",
+    sport_validation_method: "manual",
+    sport_validation_rule: "manual_set",
+    sport_validated_at: now,
+    sport_validation_processed_at: now,
+    revalidate: false,
+  };
+  if (overwrite) {
+    rollup.sport = sport;
+  }
+
+  await supabaseAdmin.from("tournaments" as any).update(rollup).eq("id", tournamentId);
+  revalidatePath("/admin/tournaments/validation");
+  return { ok: true };
 }

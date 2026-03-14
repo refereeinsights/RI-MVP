@@ -2969,3 +2969,9 @@ Maintenance rules:
   - Migration: `supabase/migrations/20260314_sport_validation.sql` (tables `sport_validation_rules`, `tournament_sport_validation`; rollup columns on `tournaments`; seeded initial rules for AYSO, USSSA fastpitch, GSL, NW youth baseball, PGNW/NWN, NSAWA).
   - Rule engine: `apps/referee/src/server/validation/sportValidation.ts` with batch runner and rule-based auto-validation, conflict detection, rollup updates.
   - CLI batch runner: `apps/referee/scripts/processSportValidation.ts` (env `LIMIT` optional).
+
+- 2026-03-14: RI admin sport validation UI.
+  - Pages: `/admin/tournaments/validation` (queue with widgets, batch runner, bulk approve/requeue, inline per-row sport set + approve), `/admin/tournaments/validation/rules` (manage rules).
+  - Server actions: bulk approve/overwrite/requeue, run batch, per-row approve with selected sport; page revalidates after actions.
+  - Dashboard tiles added for validation counts on tournaments dashboard.
+  - Files: `apps/referee/app/admin/tournaments/validation/{page.tsx,actions.ts}`, `apps/referee/app/admin/tournaments/validation/rules/page.tsx`, `apps/referee/components/admin/AdminNav.tsx`, `apps/referee/app/admin/tournaments/dashboard/page.tsx`, `apps/referee/lib/validation/getSportValidationCounts.ts`.
