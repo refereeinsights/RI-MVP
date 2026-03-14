@@ -12,6 +12,56 @@ type BulkResult = {
   errors: string[];
 };
 
+async function requeueRows(ids: string[]): Promise<BulkResult> {
+  const now = new Date().toISOString();
+  let total = 0;
+  const errors: string[] = [];
+
+  for (const id of ids) {
+    try {
+      const { data: row } = await supabaseAdmin
+        .from("tournament_sport_validation" as any)
+        .select("tournament_id")
+        .eq("id", id)
+        .maybeSingle();
+      if (!row?.tournament_id) continue;
+      await supabaseAdmin
+        .from("tournaments" as any)
+        .update({
+          revalidate: true,
+          sport_validation_status: null,
+          sport_validation_method: null,
+          sport_validation_rule: null,
+          sport_validated_at: null,
+          sport_validation_processed_at: now,
+        })
+        .eq("id", row.tournament_id);
+      await supabaseAdmin
+        .from("tournament_sport_validation" as any)
+        .update({
+          validation_status: "needs_review",
+          validation_method: null,
+          rule_name: null,
+          processed_at: now,
+          updated_at: now,
+        })
+        .eq("id", id);
+      total++;
+    } catch (err: any) {
+      errors.push(err?.message ?? String(err));
+    }
+  }
+
+  return {
+    total_selected: ids.length,
+    total_eligible: ids.length,
+    total_approved: 0,
+    total_overwritten: 0,
+    total_skipped: ids.length - total,
+    errors,
+  };
+}
+
 async function bulkUpdate(ids: string[], overwrite: boolean): Promise<BulkResult> {
   const now = new Date().toISOString();
   let totalApproved = 0;
@@ -88,4 +138,9 @@ export async function bulkApprove(ids: string[]): Promise<BulkResult> {
 export async function bulkApproveOverwrite(ids: string[]): Promise<BulkResult> {
   await requireAdmin();
   return bulkUpdate(ids, true);
+}
+
+export async function bulkRequeue(ids: string[]): Promise<BulkResult> {
+  await requireAdmin();
+  return requeueRows(ids);
 }

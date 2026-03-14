@@ -1,6 +1,7 @@
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getSportValidationCounts } from "@/lib/validation/getSportValidationCounts";
 
 export const runtime = "nodejs";
 
@@ -51,8 +52,32 @@ function normalizedPlan(value: string | null | undefined) {
   return plan;
 }
 
+function Tile({ label, value, tone }: { label: string; value: number | string; tone?: "warn" | "info" | "success" }) {
+  const bg =
+    tone === "warn" ? "#fef3c7" : tone === "success" ? "#ecfdf3" : tone === "info" ? "#eff6ff" : "#f9fafb";
+  const color =
+    tone === "warn" ? "#92400e" : tone === "success" ? "#166534" : tone === "info" ? "#1d4ed8" : "#111827";
+  return (
+    <div
+      style={{
+        padding: "10px 12px",
+        borderRadius: 10,
+        border: "1px solid rgba(0,0,0,0.06)",
+        background: bg,
+        minWidth: 120,
+      }}
+    >
+      <div style={{ fontSize: 12, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
+    </div>
+  );
+}
+
 export default async function TournamentsDashboard({ searchParams }: { searchParams: Search }) {
   await requireAdmin();
+  const validationCountsPromise = getSportValidationCounts();
   const sport = searchParams.sport ?? "";
   const stateParamRaw = searchParams.state ?? "";
   const start = searchParams.start || todayIso();
@@ -258,6 +283,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   ]);
 
   const tiUsers = tiUsersRes.data ?? [];
+  const validationCounts = await validationCountsPromise;
   const tiSummary = tiUsers.reduce(
     (acc: { insider: number; weekendPro: number }, row: any) => {
       const plan = normalizedPlan(row.plan);
@@ -371,6 +397,14 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
     <div style={{ padding: 24 }}>
       <AdminNav />
       <h1 style={{ fontSize: 20, fontWeight: 900, marginBottom: 12 }}>Tournaments Dashboard</h1>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
+        <Tile label="Sport validated" value={validationCounts.confirmed + validationCounts.rule_confirmed} />
+        <Tile label="Rule confirmed" value={validationCounts.rule_confirmed} />
+        <Tile label="Needs review" value={validationCounts.needs_review} />
+        <Tile label="Conflicts" value={validationCounts.conflict} tone="warn" />
+        <Tile label="Unknown" value={validationCounts.unknown} tone="info" />
+        <Tile label="Unconfirmed" value={validationCounts.unconfirmed} />
+      </div>
       <form style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
         <label style={{ fontSize: 12, fontWeight: 700 }}>
           Sport

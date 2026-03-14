@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AdminNav from "@/components/admin/AdminNav";
-import { bulkApprove, bulkApproveOverwrite } from "./actions";
+import { bulkApprove, bulkApproveOverwrite, bulkRequeue } from "./actions";
 
 export const runtime = "nodejs";
 
@@ -65,13 +65,6 @@ export default async function ValidationQueue() {
       sport: row.tournaments?.sport ?? null,
     })) ?? [];
 
-  async function handleAction(formData: FormData, overwrite: boolean) {
-    "use server";
-    const ids = formData.getAll("selected") as string[];
-    if (overwrite) return bulkApproveOverwrite(ids);
-    return bulkApprove(ids);
-  }
-
   return (
     <main className="adminShell">
       <AdminNav active="tournaments" />
@@ -85,18 +78,26 @@ export default async function ValidationQueue() {
             Manage rules
           </a>
         </div>
-        <form action={async (formData) => handleAction(formData, false)} method="post">
+        <form action={bulkApprove}>
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <button type="submit" className="cta primary" style={{ padding: "8px 12px" }}>
               Bulk Approve
             </button>
             <button
-              formAction={async (formData) => handleAction(formData, true)}
+              formAction={bulkApproveOverwrite}
               type="submit"
               className="cta secondary"
               style={{ padding: "8px 12px" }}
             >
               Bulk Approve + Overwrite Sport
+            </button>
+            <button
+              formAction={bulkRequeue}
+              type="submit"
+              className="cta secondary"
+              style={{ padding: "8px 12px", background: "#fef3c7", color: "#92400e" }}
+            >
+              Mark for Revalidate
             </button>
           </div>
           <table className="adminTable">

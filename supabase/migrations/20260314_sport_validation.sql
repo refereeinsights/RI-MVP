@@ -17,6 +17,7 @@ create table if not exists public.sport_validation_rules (
 );
 
 create index if not exists sport_validation_rules_active_idx on public.sport_validation_rules(active, priority desc);
+create unique index if not exists sport_validation_rules_name_key on public.sport_validation_rules(rule_name);
 
 -- Validation ledger (one row per tournament, kept up to date)
 create table if not exists public.tournament_sport_validation (
