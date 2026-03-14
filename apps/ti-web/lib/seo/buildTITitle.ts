@@ -1,8 +1,9 @@
 const BRAND = "TournamentInsights";
 
 function ensureSingleBrand(title: string): string {
-  const stripped = title.replace(new RegExp(`\\s*\\|\\s*${BRAND}$`), "");
-  return `${stripped} | ${BRAND}`.replace(/\s+/g, " ").trim();
+  // Strip any existing brand repetitions and re-append once.
+  const withoutBrand = title.replace(new RegExp(`\\s*\\|\\s*${BRAND}`, "gi"), "").trim();
+  return `${withoutBrand} | ${BRAND}`.replace(/\s+/g, " ").trim();
 }
 
 export function buildTIHubTitle(state: string, sport: string, year: number): string {
