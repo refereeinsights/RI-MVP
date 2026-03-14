@@ -50,6 +50,9 @@ export async function AdminNav() {
         <Link href="/admin/tournaments/staff-verification-queue" style={linkStyle}>
           Staff verification
         </Link>
+        <Link href="/admin/tournaments/validation" style={linkStyle}>
+          Sport validation
+        </Link>
         <Link href="/admin/tournaments/sources" style={linkStyle}>
           Sources
           {overdueKeepSourcesCount && overdueKeepSourcesCount > 0 ? (
