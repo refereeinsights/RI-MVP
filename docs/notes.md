@@ -2964,3 +2964,8 @@ Maintenance rules:
 - 2026-03-14: Ingest sport normalization tweaks (RI ingest).
   - File: `apps/referee/src/server/admin/pasteUrl.ts`.
   - Detect sport from host for common mislabels: GSL (`gsltournaments.com`) and NW Youth Baseball (`nwyouthbaseball.com`) → baseball; NSAWA (`nsawa.com`) and WA USSSA fastpitch host → softball. Prevents future imports from defaulting to soccer.
+
+- 2026-03-14: Sport validation ledger + rules (RI).
+  - Migration: `supabase/migrations/20260314_sport_validation.sql` (tables `sport_validation_rules`, `tournament_sport_validation`; rollup columns on `tournaments`; seeded initial rules for AYSO, USSSA fastpitch, GSL, NW youth baseball, PGNW/NWN, NSAWA).
+  - Rule engine: `apps/referee/src/server/validation/sportValidation.ts` with batch runner and rule-based auto-validation, conflict detection, rollup updates.
+  - CLI batch runner: `apps/referee/scripts/processSportValidation.ts` (env `LIMIT` optional).
