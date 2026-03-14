@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { mapStateCodeToSlug, mapStateCodeToName } from "@/lib/seoHub";
+import { buildTIHubTitle, assertNoDoubleBrand } from "@/lib/seo/buildTITitle";
 import { getSportHubTournaments, SPORT_HUB_PAGE_SIZE } from "../_lib/getSportHubTournaments";
 import "../tournaments.css";
 
@@ -268,7 +269,8 @@ export async function SportHubPage({ sport, page }: { sport: string; page: numbe
 
 export function getSportHubMetadata(sport: string) {
   const config = getSportConfig(sport);
-  const title = `Youth ${config.displayName} Tournaments`;
+  const title = buildTIHubTitle("All States", config.displayName, new Date().getFullYear());
+  assertNoDoubleBrand(title);
   const description = `Find upcoming youth ${config.displayName.toLowerCase()} tournaments across the U.S. Dates, locations, venues, and official links.`;
   const canonicalPath = `/tournaments/${sport}`;
 

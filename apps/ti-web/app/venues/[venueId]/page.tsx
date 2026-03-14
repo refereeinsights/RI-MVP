@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
@@ -153,6 +154,36 @@ async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
 export const revalidate = 300;
 
 const PREMIUM_PREVIEW_TOURNAMENT_SLUGS = new Set(["refereeinsights-demo-tournament"]);
+
+export async function generateMetadata({ params }: { params: { venueId: string } }): Promise<Metadata> {
+  const { data } = await supabaseAdmin
+    .from("venues" as any)
+    .select("name,city,state,id")
+    .eq("id", params.venueId)
+    .maybeSingle<{ name: string | null; city: string | null; state: string | null; id: string }>();
+
+  if (!data) {
+    return {
+      title: "Venue not found | TournamentInsights",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const { buildTIVenueTitle, assertNoDoubleBrand } = await import("@/lib/seo/buildTITitle");
+  const title = buildTIVenueTitle(data.name ?? "Tournament venue", data.city, data.state);
+  assertNoDoubleBrand(title);
+  const description = `Youth sports venue details for ${data.name || "venue"} in ${[data.city, data.state]
+    .filter(Boolean)
+    .join(", ")}.`;
+  const canonical = `/venues/${params.venueId}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: { title, description, url: canonical },
+  };
+}
 
 export default async function VenueDetailsPage({
   params,

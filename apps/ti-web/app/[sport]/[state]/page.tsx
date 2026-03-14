@@ -10,6 +10,8 @@ import {
   normalizeSportSlug,
   sportDisplayName,
 } from "@/lib/seoHub";
+import { buildTIHubTitle, assertNoDoubleBrand } from "@/lib/seo/buildTITitle";
+import { validateTournamentSport } from "@/lib/validation/validateTournamentSport";
 import "../../tournaments/tournaments.css";
 
 type TournamentRow = {
@@ -73,10 +75,6 @@ function getSportCardClass(sport: string | null) {
   return map[normalized] ?? "bg-sport-default";
 }
 
-function monthYearLabel() {
-  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(new Date());
-}
-
 type RouteParams = {
   sport: string;
   state: string;
@@ -94,14 +92,16 @@ export async function generateMetadata({ params }: { params: RouteParams }): Pro
   }
   const sportName = sportDisplayName(sportKey);
   const description = `Find upcoming youth ${sportName.toLowerCase()} tournaments in ${stateName}. Dates, locations, levels, and official links to plan confidently.`;
+  const title = buildTIHubTitle(stateName, sportName, new Date().getFullYear());
+  assertNoDoubleBrand(title);
   return {
-    title: `${stateName} Youth ${sportName} Tournaments (Updated ${monthYearLabel()}) | TournamentInsights`,
+    title,
     description,
     alternates: {
       canonical: `/${params.sport.toLowerCase()}/${params.state.toLowerCase()}`,
     },
     openGraph: {
-      title: `${stateName} Youth ${sportName} Tournaments (Updated ${monthYearLabel()}) | TournamentInsights`,
+      title,
       description,
       url: `${SITE_ORIGIN}/${params.sport.toLowerCase()}/${params.state.toLowerCase()}`,
       images: [{ url: "/og-default.png", width: 1200, height: 630 }],
@@ -143,7 +143,9 @@ export default async function SportStateHubPage({
     throw new Error(`Failed to load SEO hub tournaments: ${error.message}`);
   }
 
-  const tournaments: TournamentRow[] = ((data ?? []) as TournamentRow[]).filter((t) => t?.id && t?.slug && t?.name);
+  const tournaments: TournamentRow[] = ((data ?? []) as TournamentRow[])
+    .filter((t) => t?.id && t?.slug && t?.name)
+    .filter((t) => validateTournamentSport(t, sportKey) === "valid");
   const totalCount = count ?? tournaments.length;
   const hasMore = offset + tournaments.length < totalCount;
 

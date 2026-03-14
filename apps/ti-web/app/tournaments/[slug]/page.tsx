@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { BRAND_OWL } from "@/lib/brand";
 import { canAccessWeekendPro, getTier } from "@/lib/entitlements";
 import { isTournamentSaved } from "@/lib/savedTournaments";
+import { buildTITournamentTitle, assertNoDoubleBrand } from "@/lib/seo/buildTITitle";
 import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SaveTournamentButton from "@/components/SaveTournamentButton";
 import "../tournaments.css";
@@ -201,7 +202,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   }
 
   const locationLabel = buildLocationLabel(data.city ?? null, data.state ?? null);
-  const title = locationLabel ? `${data.name} | ${locationLabel}` : `${data.name}`;
+  const title = buildTITournamentTitle(data.name ?? "Tournament", data.city, data.state, data.sport ?? undefined);
+  assertNoDoubleBrand(title);
   const description = `Dates and location for ${data.name}${locationLabel ? ` in ${locationLabel}` : ""}. View official site and event details.`;
   const canonicalPath = `/tournaments/${data.slug ?? params.slug}`;
 

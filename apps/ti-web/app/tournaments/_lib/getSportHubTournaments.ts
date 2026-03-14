@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { validateTournamentSport } from "@/lib/validation/validateTournamentSport";
 
 export type SportHubTournament = {
   id: string;
@@ -36,9 +37,9 @@ export async function getSportHubTournaments(
     return { tournaments: [], hasMore: false, page: safePage };
   }
 
-  const tournaments = (data ?? []).filter(
-    (t): t is SportHubTournament => Boolean(t?.id && t?.name && t?.slug)
-  );
+  const tournaments = (data ?? [])
+    .filter((t): t is SportHubTournament => Boolean(t?.id && t?.name && t?.slug))
+    .filter((t) => validateTournamentSport(t, sport) === "valid");
 
   return {
     tournaments,
