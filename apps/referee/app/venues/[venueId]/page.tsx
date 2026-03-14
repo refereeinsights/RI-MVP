@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
 import OwlsEyeVenueCard, { type AirportSummary, type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
 import MobileMapLink from "@/components/venues/MobileMapLink";
 import { buildOwlsEyeDemoScores, type VenueReviewChoiceRow } from "@/lib/owlsEyeScores";
 import { getSportCardClass } from "@/lib/ui/sportBackground";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isUuid } from "@/lib/venues/isUuid";
+import { getVenueHref } from "@/lib/venues/getVenueHref";
 import "../../tournaments/tournaments.css";
 
 type LinkedTournament = {
@@ -26,6 +28,7 @@ type VenueRow = {
   zip: string | null;
   notes: string | null;
   venue_url: string | null;
+  seo_slug?: string | null;
   sport: string | null;
   restroom_cleanliness_avg: number | null;
   shade_score_avg: number | null;
@@ -120,16 +123,60 @@ function getVenueCardClassFromSports(sports: string[]) {
 
 export const revalidate = 300;
 
-export default async function VenueDetailsPage({ params }: { params: { venueId: string } }) {
-  const { data, error } = await supabaseAdmin
-    .from("venues" as any)
-    .select(
-      "id,name,address,city,state,zip,notes,venue_url,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(tournaments(id,slug,name,sport,start_date,end_date))"
-    )
-    .eq("id", params.venueId)
-    .maybeSingle<VenueRow>();
+export async function generateMetadata({ params }: { params: { venueId: string } }) {
+  const { venue, redirectTo } = await fetchVenueByParam(params.venueId);
+  if (redirectTo) {
+    return { alternates: { canonical: `https://www.tournamentinsights.com${redirectTo}` } };
+  }
+  if (!venue) return {};
 
-  if (error || !data?.id) notFound();
+  const title = `${venue.name ?? "Venue"} | ${[venue.city, venue.state].filter(Boolean).join(", ")} Youth Sports Venue | TournamentInsights`;
+  const canonical = `https://www.tournamentinsights.com${getVenueHref(venue)}`;
+  const desc =
+    venue.address && (venue.city || venue.state)
+      ? `${venue.name ?? "Venue"} in ${[venue.city, venue.state].filter(Boolean).join(", ")}. Address: ${venue.address}`
+      : `${venue.name ?? "Venue"} in ${[venue.city, venue.state].filter(Boolean).join(", ")}.`;
+
+  return {
+    title,
+    description: desc,
+    alternates: { canonical },
+  };
+}
+
+async function fetchVenueByParam(param: string): Promise<{ venue: VenueRow | null; redirectTo: string | null }> {
+  // Try slug first
+  const baseSelect =
+    "id,seo_slug,name,address,city,state,zip,notes,venue_url,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(tournaments(id,slug,name,sport,start_date,end_date))";
+
+  const bySlug = await supabaseAdmin
+    .from("venues" as any)
+    .select(baseSelect)
+    .eq("seo_slug", param)
+    .maybeSingle<VenueRow>();
+  if (!bySlug.error && bySlug.data?.id) {
+    return { venue: bySlug.data, redirectTo: null };
+  }
+
+  // Fallback UUID lookup
+  if (isUuid(param)) {
+    const byId = await supabaseAdmin.from("venues" as any).select(baseSelect).eq("id", param).maybeSingle<VenueRow>();
+    if (!byId.error && byId.data?.id) {
+      if (byId.data.seo_slug && byId.data.seo_slug !== param) {
+        return { venue: byId.data, redirectTo: getVenueHref(byId.data) };
+      }
+      return { venue: byId.data, redirectTo: null };
+    }
+  }
+
+  return { venue: null, redirectTo: null };
+}
+
+export default async function VenueDetailsPage({ params }: { params: { venueId: string } }) {
+  const { venue, redirectTo } = await fetchVenueByParam(params.venueId);
+  if (redirectTo) redirect(redirectTo);
+  if (!venue?.id) notFound();
+  const data = venue;
 
   const venueInsightsExtra = await supabaseAdmin
     .from("venues" as any)

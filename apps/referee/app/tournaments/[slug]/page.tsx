@@ -14,6 +14,7 @@ import { aggregateWhistleScoreRows, loadSeriesTournamentIds } from "@/lib/tourna
 import type { RawWhistleScoreRow } from "@/lib/tournamentSeries";
 import type { RefereeReviewPublic, RefereeWhistleScore } from "@/lib/types/refereeReview";
 import { getSportCardClass } from "@/lib/ui/sportBackground";
+import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
 import "../tournaments.css";
 
@@ -263,12 +264,13 @@ export default async function TournamentDetailPage({
   const relatedTournamentIds = seriesEntry?.tournamentIds ?? [data.id];
   const { data: venueLinks } = await supabaseAdmin
     .from("tournament_venues" as any)
-    .select("venue_id,venues(id,name,address,city,state,zip)")
+    .select("venue_id,venues(id,seo_slug,name,address,city,state,zip)")
     .eq("tournament_id", data.id);
   const linkedVenues = (venueLinks ?? [])
     .map((row: any) => row.venues)
     .filter(Boolean) as Array<{
     id: string;
+    seo_slug?: string | null;
     name: string | null;
     address: string | null;
     city: string | null;
@@ -476,7 +478,7 @@ export default async function TournamentDetailPage({
                 {linkedVenues.map((venue) => (
                   <Link
                     key={venue.id}
-                    href={`/venues/${venue.id}`}
+                    href={getVenueHref(venue)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`detailVenueTile ${hasOwlsEyeByVenueId.get(venue.id) ? "detailVenueTile--withOwl" : ""}`}
