@@ -6,6 +6,7 @@ import {
   bulkApproveOverwriteForm,
   bulkRequeueForm,
   runBatchForm,
+  approveWithSportForm,
 } from "./actions";
 import { getSportValidationCounts } from "@/lib/validation/getSportValidationCounts";
 

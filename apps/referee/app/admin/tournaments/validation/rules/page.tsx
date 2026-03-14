@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AdminNav from "@/components/admin/AdminNav";
+import { revalidatePath } from "next/cache";
 
 export const runtime = "nodejs";
 
@@ -17,10 +18,14 @@ type RuleRow = {
   notes: string | null;
 };
 
-async function toggleActive(id: string, active: boolean) {
+async function toggleActive(formData: FormData) {
   "use server";
   await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const active = String(formData.get("active") ?? "") === "true";
+  if (!id) return;
   await supabaseAdmin.from("sport_validation_rules" as any).update({ active }).eq("id", id);
+  revalidatePath("/admin/tournaments/validation/rules");
 }
 
 async function saveRule(formData: FormData) {
@@ -49,6 +54,7 @@ async function saveRule(formData: FormData) {
     notes,
     updated_at: new Date().toISOString(),
   });
+  revalidatePath("/admin/tournaments/validation/rules");
 }
 
 export default async function RulesAdmin() {
@@ -121,7 +127,9 @@ export default async function RulesAdmin() {
                 <td>{rule.priority ?? "—"}</td>
                 <td>{rule.auto_confirm ? "yes" : "no"}</td>
                 <td>
-                  <form action={async () => toggleActive(rule.id, !rule.active)} method="post">
+                  <form action={toggleActive} method="post">
+                    <input type="hidden" name="id" value={rule.id} />
+                    <input type="hidden" name="active" value={(!rule.active).toString()} />
                     <button type="submit" className="cta secondary" style={{ padding: "4px 8px" }}>
                       {rule.active ? "Disable" : "Enable"}
                     </button>
