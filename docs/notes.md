@@ -2945,6 +2945,10 @@ Maintenance rules:
   - Added `seo_slug` column with backfill (deduped), unique index, NOT NULL, trigger-based slugging on insert, and SQL helper `fn_make_venue_slug`.
   - App helper: `apps/referee/lib/venues/slug.ts`; venue creation paths updated in `scripts/ingest/link_missing_venues_deep.ts` and `apps/referee/lib/admin/topTierCrawler.ts` to set `seo_slug`.
 
+- 2026-03-14: Venue slug routing rollout (RI).
+  - Files: `apps/referee/app/venues/[venueId]/page.tsx`, `apps/referee/app/tournaments/[slug]/page.tsx`, `apps/referee/lib/venues/{getVenueHref,isUuid}.ts`.
+  - Venue page resolves by slug or UUID with redirect to slug; internal public venue links now prefer slug with UUID fallback; canonical set to slug URL.
+
 - 2026-03-13: TI tournament directory badge layout stabilized (no resize, 3+4 rows).
   - Files: `apps/ti-web/app/tournaments/page.tsx`, `apps/ti-web/app/tournaments/tournaments.css`.
   - Replaced auto-fit grid with two explicit flex rows (3 top, 4 bottom) and enforced non-shrinking badges (`min-width: 145px`) while keeping badge component sizing unchanged.

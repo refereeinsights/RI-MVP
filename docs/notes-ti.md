@@ -1553,3 +1553,7 @@ Maintenance rules:
   - Migration: `supabase/migrations/20260313_add_venues_seo_slug.sql` (+ down file).
   - Adds `seo_slug` column, backfills with deduped slugs, unique index, NOT NULL, and trigger to auto-generate on insert with collision handling; helper function `fn_make_venue_slug`.
   - App: shared helper `apps/referee/lib/venues/slug.ts`; venue creation in `scripts/ingest/link_missing_venues_deep.ts` and `apps/referee/lib/admin/topTierCrawler.ts` now sets `seo_slug`.
+
+- 2026-03-14: Venue slug routing rollout (RI).
+  - Files: `apps/referee/app/venues/[venueId]/page.tsx`, `apps/referee/app/tournaments/[slug]/page.tsx`, `apps/referee/lib/venues/{getVenueHref,isUuid}.ts`.
+  - Venue page now resolves by `seo_slug` or UUID, redirects UUIDs to slug URLs, sets canonical to slug; public venue links prefer slug with UUID fallback.
