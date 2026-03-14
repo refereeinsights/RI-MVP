@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { makeVenueSlug } from "@/lib/venues/slug";
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
   const newVenuePayload = {
     ...omitKeys(sourceVenue, ["id", "created_at", "updated_at"]),
     name: payload?.new_name ? String(payload.new_name).trim() : sourceVenue.name,
+    seo_slug: makeVenueSlug(payload?.new_name ? String(payload.new_name).trim() : sourceVenue.name, sourceVenue.city, sourceVenue.state),
     created_at: nowIso,
   };
 
@@ -189,4 +191,3 @@ export async function POST(request: Request) {
     copied_owls_eye_run_id: newRunId,
   });
 }
-

@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { geocodeAddress } from "@/lib/google/geocodeAddress";
 import { timezoneFromCoordinates } from "@/lib/google/timezoneFromCoordinates";
+import { makeVenueSlug } from "@/lib/venues/slug";
 
 type VenueRow = {
   id: string;
@@ -170,6 +171,7 @@ export async function POST(request: Request) {
     bring_field_chairs: bringFieldChairs,
     seating_notes: seatingNotes || null,
     ref_paid_parking: paidParking || null,
+    seo_slug: makeVenueSlug(name, city, state),
   };
 
   const { data, error } = await supabaseAdmin
