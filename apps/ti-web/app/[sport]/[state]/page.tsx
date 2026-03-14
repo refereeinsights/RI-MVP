@@ -95,7 +95,7 @@ export async function generateMetadata({ params }: { params: RouteParams }): Pro
   const title = buildTIHubTitle(stateName, sportName, new Date().getFullYear());
   assertNoDoubleBrand(title);
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: {
       canonical: `/${params.sport.toLowerCase()}/${params.state.toLowerCase()}`,

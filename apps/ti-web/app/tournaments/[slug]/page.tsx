@@ -208,7 +208,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const canonicalPath = `/tournaments/${data.slug ?? params.slug}`;
 
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical: canonicalPath },
     openGraph: {

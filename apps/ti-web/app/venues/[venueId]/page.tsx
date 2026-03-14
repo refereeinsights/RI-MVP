@@ -178,7 +178,7 @@ export async function generateMetadata({ params }: { params: { venueId: string }
   const canonical = `/venues/${params.venueId}`;
 
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical },
     openGraph: { title, description, url: canonical },

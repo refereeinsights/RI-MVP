@@ -275,7 +275,7 @@ export function getSportHubMetadata(sport: string) {
   const canonicalPath = `/tournaments/${sport}`;
 
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: {
       canonical: canonicalPath,
