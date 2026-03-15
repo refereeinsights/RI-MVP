@@ -84,19 +84,20 @@ async function bulkUpdate(ids: string[], overwrite: boolean): Promise<BulkResult
         .from("tournament_sport_validation" as any)
         .select("tournament_id,current_sport,validated_sport,validation_status,tournaments!inner(sport)")
         .eq("id", id)
-        .maybeSingle();
+        // cast to any to avoid union-with-error type inference in build
+        .maybeSingle<any>();
       if (fetchErr || !row) {
         totalSkipped++;
         if (fetchErr) errors.push(fetchErr.message);
         continue;
       }
-      if (["confirmed", "rule_confirmed"].includes(row.validation_status)) {
+      if (["confirmed", "rule_confirmed"].includes((row as any).validation_status)) {
         totalSkipped++;
         continue;
       }
 
-      const currentSport = (row as any)?.tournaments?.sport ?? row.current_sport ?? null;
-      const validatedSport = row.validated_sport || currentSport || null;
+      const currentSport = (row as any)?.tournaments?.sport ?? (row as any).current_sport ?? null;
+      const validatedSport = (row as any).validated_sport || currentSport || null;
       const updates = {
         validation_status: "confirmed",
         validation_method: "manual",
