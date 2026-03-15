@@ -146,6 +146,29 @@ function safeSportsArray(value: any): string[] {
   return [];
 }
 
+function SummaryTile({ label, value, tone }: { label: string; value: number | string; tone?: "warn" | "info" | "success" }) {
+  const bg =
+    tone === "warn" ? "#fef3c7" : tone === "success" ? "#ecfdf3" : tone === "info" ? "#eff6ff" : "#f9fafb";
+  const color =
+    tone === "warn" ? "#92400e" : tone === "success" ? "#166534" : tone === "info" ? "#1d4ed8" : "#111827";
+  return (
+    <div
+      style={{
+        padding: "10px 12px",
+        borderRadius: 10,
+        border: "1px solid rgba(0,0,0,0.06)",
+        background: bg,
+        minWidth: 120,
+      }}
+    >
+      <div style={{ fontSize: 12, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
+    </div>
+  );
+}
+
 function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -215,6 +238,47 @@ export default async function AdminPage({
   await requireAdmin();
   const owlsEyeAdminToken =
     process.env.NEXT_PUBLIC_OWLS_EYE_ADMIN_TOKEN ?? process.env.OWLS_EYE_ADMIN_TOKEN ?? "";
+  const today = todayIso();
+
+  const [
+    publishedCountRes,
+    draftCountRes,
+    missingVenueCountRes,
+    missingUrlCountRes,
+    missingDateCountRes,
+    validationCounts,
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("tournaments" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "published")
+      .eq("is_canonical", true),
+    supabaseAdmin
+      .from("tournaments" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "draft"),
+    supabaseAdmin
+      .from("tournaments" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "published")
+      .eq("is_canonical", true)
+      .is("venue", null)
+      .is("address", null),
+    supabaseAdmin
+      .from("tournaments" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "published")
+      .eq("is_canonical", true)
+      .is("official_website_url", null),
+    supabaseAdmin
+      .from("tournaments" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "published")
+      .eq("is_canonical", true)
+      .is("start_date", null)
+      .is("end_date", null),
+    getSportValidationCounts(),
+  ]);
 
   const tab: Tab = (searchParams.tab as Tab) ?? "verification";
   const q = searchParams.q ?? "";
@@ -608,7 +672,6 @@ export default async function AdminPage({
     ? "—"
     : String(assignorNeedsReviewCount ?? 0);
 
-  const today = todayIso();
   const pageSize = 1000;
   let offset = 0;
   let publishedTournamentStatsRows: any[] = [];
@@ -2858,6 +2921,23 @@ export default async function AdminPage({
       </h1>
       <div style={{ marginBottom: 12 }}>
         <AdminNav />
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+        <SummaryTile label="Published" value={publishedCountRes.count ?? 0} />
+        <SummaryTile label="Draft" value={draftCountRes.count ?? 0} tone="info" />
+        <SummaryTile label="Missing venues" value={missingVenueCountRes.count ?? 0} tone="warn" />
+        <SummaryTile label="Missing URLs" value={missingUrlCountRes.count ?? 0} tone="warn" />
+        <SummaryTile label="Missing dates" value={missingDateCountRes.count ?? 0} tone="warn" />
+        <SummaryTile label="Validated (rule)" value={validationCounts.rule_confirmed ?? 0} tone="success" />
+        <SummaryTile label="Needs review" value={validationCounts.needs_review ?? 0} tone="info" />
+        <Link
+          href="/admin/tournaments/dashboard"
+          className="cta secondary"
+          style={{ alignSelf: "center", padding: "8px 12px" }}
+        >
+          Open tournaments dashboard
+        </Link>
       </div>
 
       {notice && (

@@ -12,3 +12,6 @@
 - Added per-row “Clear URL (bad link)” action in validation admin to null official_website_url and requeue validation.
 - Venue Insights and tournament badges now use the same responsive layout; added mobile wrapping (2-up) for TI and RI summaries.
 - TI venues list paginates Supabase fetch (no 1000 cap).
+- Sport/state hub routes added for TI with state-slug mapping; hubs include null-date tournaments when filtering future events.
+- /admin now shows summary tiles (published/draft/missing venues/URLs/dates, validation counts) and keeps link to the tournaments dashboard.
+- /admin/tournaments/dashboard now pages through all tournaments (no 1000 cap).

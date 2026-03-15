@@ -36,6 +36,23 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+async function fetchAll<T>(
+  pageSize: number,
+  factory: (from: number, to: number) => any
+): Promise<T[]> {
+  let offset = 0;
+  const rows: T[] = [];
+  while (true) {
+    const { data, error } = await factory(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const batch = (data as T[] | null) ?? [];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+    offset += pageSize;
+  }
+  return rows;
+}
+
 function addDays(days: number) {
   const d = new Date();
   d.setDate(d.getDate() + days);
@@ -94,39 +111,46 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   if (stateParam) baseParams.set("state", stateParam);
 
   const supabase = supabaseAdmin;
-  let tQuery = supabase
-    .from("tournaments" as any)
-    .select("id,name,start_date,end_date,state,city,status,source_url,official_website_url,venue,address,sport,tournament_director_email")
-    .or(`start_date.gte.${start},start_date.is.null`);
-  if (end) tQuery = tQuery.lte("start_date", end);
-  if (sport) tQuery = tQuery.eq("sport", sport);
-  if (states.length) tQuery = tQuery.in("state", states);
-  const tournamentsRes = await tQuery;
-  const tournaments = tournamentsRes.data ?? [];
+  const pageSize = 1000;
 
+  const tournaments = await fetchAll<any>(pageSize, (from, to) => {
+    let q = supabase
+      .from("tournaments" as any)
+      .select("id,name,start_date,end_date,state,city,status,source_url,official_website_url,venue,address,sport,tournament_director_email")
+      .or(`start_date.gte.${start},start_date.is.null`)
+      .range(from, to);
+    if (end) q = q.lte("start_date", end);
+    if (sport) q = q.eq("sport", sport);
+    if (states.length) q = q.in("state", states);
+    return q;
+  });
   const ids = tournaments.map((t: any) => t.id);
 
-  let byStateQuery = supabase
-    .from("tournaments" as any)
-    .select("id,name,start_date,end_date,state,city,status,source_url,official_website_url,venue,address,sport,tournament_director_email")
-    .or(`start_date.gte.${start},start_date.is.null`);
-  if (end) byStateQuery = byStateQuery.lte("start_date", end);
-  if (sport) byStateQuery = byStateQuery.eq("sport", sport);
-  const byStateRes = await byStateQuery;
-  const byStateTournaments = byStateRes.data ?? [];
+  const byStateTournaments = await fetchAll<any>(pageSize, (from, to) => {
+    let q = supabase
+      .from("tournaments" as any)
+      .select("id,name,start_date,end_date,state,city,status,source_url,official_website_url,venue,address,sport,tournament_director_email")
+      .or(`start_date.gte.${start},start_date.is.null`)
+      .range(from, to);
+    if (end) q = q.lte("start_date", end);
+    if (sport) q = q.eq("sport", sport);
+    return q;
+  });
   const byStateIds = byStateTournaments.map((t: any) => t.id);
 
-  let sportTileQuery = supabase
-    .from("tournaments" as any)
-    .select("id,sport,start_date,end_date,state,tournament_director_email,venue,address,status,is_canonical")
-    .eq("status", "published")
-    .eq("is_canonical", true)
-    .or(`start_date.gte.${start},start_date.is.null`);
-  if (end) sportTileQuery = sportTileQuery.lte("start_date", end);
-  if (sport) sportTileQuery = sportTileQuery.eq("sport", sport);
-  if (states.length) sportTileQuery = sportTileQuery.in("state", states);
-  const sportTileRes = await sportTileQuery;
-  const sportTileTournaments = sportTileRes.data ?? [];
+  const sportTileTournaments = await fetchAll<any>(pageSize, (from, to) => {
+    let q = supabase
+      .from("tournaments" as any)
+      .select("id,sport,start_date,end_date,state,tournament_director_email,venue,address,status,is_canonical")
+      .eq("status", "published")
+      .eq("is_canonical", true)
+      .or(`start_date.gte.${start},start_date.is.null`)
+      .range(from, to);
+    if (end) q = q.lte("start_date", end);
+    if (sport) q = q.eq("sport", sport);
+    if (states.length) q = q.in("state", states);
+    return q;
+  });
   const sportTileIds = sportTileTournaments.map((t: any) => t.id).filter(Boolean);
 
   const sportTileVenueRes = sportTileIds.length
