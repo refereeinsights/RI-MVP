@@ -1,0 +1,23 @@
+import { notFound } from "next/navigation";
+import { HubTournamentsPage, getHubMetadata } from "../../HubTournamentsPage";
+import { HUBS, type HubKey } from "../../config";
+
+export async function generateMetadata({ params }: { params: { sport: string; state: string } }) {
+  const hub = params.sport as HubKey;
+  if (!HUBS[hub]) return {};
+  return getHubMetadata(hub);
+}
+
+export default async function HubSportStatePage({
+  params,
+  searchParams,
+}: {
+  params: { sport: string; state: string };
+  searchParams?: { [key: string]: string | string[] | undefined };
+}) {
+  const hub = params.sport as HubKey;
+  if (!HUBS[hub]) return notFound();
+  const state = params.state?.toUpperCase();
+  const combinedSearch = { ...searchParams, state };
+  return HubTournamentsPage({ hub, searchParams: combinedSearch });
+}

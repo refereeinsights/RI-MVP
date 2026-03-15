@@ -170,7 +170,7 @@ export async function HubTournamentsPage({
 
   const today = new Date().toISOString().slice(0, 10);
   if (!includePast) {
-    query = query.or(`start_date.gte.${today},end_date.gte.${today}`);
+    query = query.or(`start_date.gte.${today},end_date.gte.${today},start_date.is.null,end_date.is.null`);
   }
   if (q) {
     query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
