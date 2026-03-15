@@ -30,8 +30,9 @@ async function requeueRows(ids: string[]): Promise<BulkResult> {
         .from("tournament_sport_validation" as any)
         .select("tournament_id")
         .eq("id", id)
-        .maybeSingle();
-      if (!row?.tournament_id) continue;
+        .maybeSingle<{ tournament_id: string | null }>();
+      const tournamentId = row?.tournament_id;
+      if (!tournamentId) continue;
       await supabaseAdmin
         .from("tournaments" as any)
         .update({
@@ -42,7 +43,7 @@ async function requeueRows(ids: string[]): Promise<BulkResult> {
           sport_validated_at: null,
           sport_validation_processed_at: now,
         })
-        .eq("id", row.tournament_id);
+        .eq("id", tournamentId);
       await supabaseAdmin
         .from("tournament_sport_validation" as any)
         .update({
