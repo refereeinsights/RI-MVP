@@ -67,7 +67,7 @@ export default async function RulesAdmin() {
 
   return (
     <main className="adminShell">
-      <AdminNav active="tournaments" />
+      <AdminNav />
       <div className="adminBody">
         <h1 style={{ marginBottom: 12 }}>Sport Validation Rules</h1>
         <details style={{ marginBottom: 16 }}>

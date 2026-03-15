@@ -99,7 +99,7 @@ export default async function ValidationQueue() {
 
   return (
     <main className="adminShell">
-      <AdminNav active="tournaments" />
+      <AdminNav />
       <div className="adminBody">
         <h1 style={{ marginBottom: 12 }}>Tournament Sport Validation</h1>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
