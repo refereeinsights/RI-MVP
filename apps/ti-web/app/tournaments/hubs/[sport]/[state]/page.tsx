@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { HubTournamentsPage, getHubMetadata } from "../../HubTournamentsPage";
 import { HUBS, type HubKey } from "../../config";
+import { mapStateSlugToCode } from "@/lib/seoHub";
 
 export async function generateMetadata({ params }: { params: { sport: string; state: string } }) {
   const hub = params.sport as HubKey;
@@ -17,7 +18,7 @@ export default async function HubSportStatePage({
 }) {
   const hub = params.sport as HubKey;
   if (!HUBS[hub]) return notFound();
-  const state = params.state?.toUpperCase();
-  const combinedSearch = { ...searchParams, state };
+  const stateCode = mapStateSlugToCode(params.state) ?? params.state?.toUpperCase();
+  const combinedSearch = { ...searchParams, state: stateCode };
   return HubTournamentsPage({ hub, searchParams: combinedSearch });
 }
