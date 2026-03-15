@@ -192,7 +192,7 @@ export async function bulkRequeueForm(formData: FormData) {
 export async function runBatchForm(formData: FormData) {
   const limitRaw = formData.get("limit");
   const limit = limitRaw ? Number(limitRaw) : undefined;
-  return runBatch(limit);
+  await runBatch(limit);
 }
 
 export async function approveWithSportForm(formData: FormData): Promise<ActionResult> {
