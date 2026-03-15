@@ -30,8 +30,9 @@ async function requeueRows(ids: string[]): Promise<BulkResult> {
         .from("tournament_sport_validation" as any)
         .select("tournament_id")
         .eq("id", id)
-        .maybeSingle<{ tournament_id: string | null }>();
-      const tournamentId = row?.tournament_id;
+        // casting to any to avoid supabase union-with-error type noise in CI builds
+        .maybeSingle<any>();
+      const tournamentId = (row as any)?.tournament_id as string | null;
       if (!tournamentId) continue;
       await supabaseAdmin
         .from("tournaments" as any)
