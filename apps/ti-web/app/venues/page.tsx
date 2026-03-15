@@ -221,12 +221,27 @@ export default async function VenuesPage({
     monthEndISO = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
   }
 
-  const { data: venuesData, error } = await supabaseAdmin
-    .from("venues" as any)
-    .select(
-      "id,name,address,city,state,zip,latitude,longitude,venue_url,notes,sport,venue_sport_profiles(sport),restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(tournaments(id,name,slug,sport,start_date,end_date))"
-    )
-    .order("name", { ascending: true });
+  const pageSize = 1000;
+  let offset = 0;
+  let venuesData: VenueRow[] = [];
+  let error: any = null;
+
+  while (true) {
+    const { data, error: pageError } = await supabaseAdmin
+      .from("venues" as any)
+      .select(
+        "id,name,address,city,state,zip,latitude,longitude,venue_url,notes,sport,venue_sport_profiles(sport),restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(tournaments(id,name,slug,sport,start_date,end_date))"
+      )
+      .order("name", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (pageError) {
+      error = pageError;
+      break;
+    }
+    venuesData = venuesData.concat(((data as VenueRow[] | null) ?? []));
+    if (!data || data.length < pageSize) break;
+    offset += pageSize;
+  }
 
   if (error) {
     return (
@@ -497,7 +512,7 @@ export default async function VenuesPage({
             </Link>
           </div>
 
-          <div className="summaryGrid">
+          <div className={`summaryGrid ${styles.venueSummaryGrid}`}>
             {sportsSorted.map(({ sport, count }) => {
               const isOnlyActiveSport = sportsSelected.length === 1 && sportsSelected[0] === sport;
               const href = isOnlyActiveSport ? `/venues?${buildParams(null)}` : `/venues?${buildParams(sport)}`;

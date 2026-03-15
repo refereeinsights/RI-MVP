@@ -171,7 +171,7 @@ export async function runSportValidationOnce(tournament: TournamentRow, rulesCac
     tournament.sport_validation_status === "confirmed" ||
     tournament.sport_validation_status === "rule_confirmed";
   if (alreadyConfirmed && !tournament.revalidate) {
-    return { skipped: true, reason: "already_confirmed" };
+    return { skipped: true, reason: "already_confirmed" as const, ruleConfirmed: false, conflict: false };
   }
 
   const rules = rulesCache ?? (await fetchActiveRules());
@@ -208,11 +208,15 @@ export async function runSportValidationOnce(tournament: TournamentRow, rulesCac
         revalidate: false,
       })
       .eq("id", tournament.id);
-    return { skipped: false, conflict: true };
+    return { skipped: false, conflict: true, ruleConfirmed: false };
   }
 
   await upsertLedger({ tournament, result: match });
-  return { skipped: false, conflict: false };
+  return {
+    skipped: false,
+    conflict: false,
+    ruleConfirmed: match?.status === "rule_confirmed",
+  };
 }
 
 export async function runSportValidationBatch(limit = 200) {
@@ -227,20 +231,22 @@ export async function runSportValidationBatch(limit = 200) {
 
   const tournaments = (rows as TournamentRow[] | null) ?? [];
   if (!tournaments.length) {
-    return { processed: 0, conflicts: 0, skipped: 0 };
+    return { processed: 0, conflicts: 0, skipped: 0, ruleConfirmed: 0 };
   }
 
   const rules = await fetchActiveRules();
   let processed = 0;
   let conflicts = 0;
   let skipped = 0;
+  let ruleConfirmed = 0;
 
   for (const t of tournaments) {
     const res = await runSportValidationOnce(t, rules);
     processed += res.skipped ? 0 : 1;
     conflicts += res.conflict ? 1 : 0;
     skipped += res.skipped ? 1 : 0;
+    ruleConfirmed += res.ruleConfirmed ? 1 : 0;
   }
 
-  return { processed, conflicts, skipped };
+  return { processed, conflicts, skipped, ruleConfirmed };
 }

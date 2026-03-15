@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AdminNav from "@/components/admin/AdminNav";
-import { runBatchForm, approveWithSportForm } from "./actions";
+import { runBatchForm, approveWithSportForm, clearTournamentUrlForm } from "./actions";
 import { getSportValidationCounts } from "@/lib/validation/getSportValidationCounts";
 
 export const runtime = "nodejs";
@@ -11,6 +11,7 @@ type ValidationRow = {
   tournament_id: string;
   name: string | null;
   sport: string | null;
+  source_url?: string | null;
   validated_sport: string | null;
   validation_status: string | null;
   validation_method: string | null;
@@ -73,7 +74,7 @@ export default async function ValidationQueue() {
   const { data } = await supabaseAdmin
     .from("tournament_sport_validation" as any)
     .select(
-      "id,tournament_id,validation_status,validation_method,validated_sport,rule_name,confidence_score,processed_at,tournaments(name,sport,slug,official_website_url)"
+      "id,tournament_id,validation_status,validation_method,validated_sport,rule_name,confidence_score,processed_at,tournaments(name,sport,slug,official_website_url,source_url)"
     )
     .not("validation_status", "in", "(confirmed,rule_confirmed)")
     .order("processed_at", { ascending: true })
@@ -93,6 +94,7 @@ export default async function ValidationQueue() {
       sport: row.tournaments?.sport ?? null,
       slug: row.tournaments?.slug ?? null,
       official_website_url: row.tournaments?.official_website_url ?? null,
+      source_url: (row as any)?.tournaments?.source_url ?? null,
     })) ?? [];
 
   const counts = await countsPromise;
@@ -181,19 +183,39 @@ export default async function ValidationQueue() {
                 </td>
                 <td>
                   <div style={{ fontWeight: 600 }}>
-                    {row.official_website_url ? (
-                      <a href={row.official_website_url} target="_blank" rel="noopener noreferrer">
-                        {row.name ?? "Unnamed"}
-                      </a>
-                    ) : row.slug ? (
-                      <a href={`/tournaments/${row.slug}`} target="_blank" rel="noopener noreferrer">
-                        {row.name ?? "Unnamed"}
-                      </a>
-                    ) : (
-                      row.name ?? "Unnamed"
-                    )}
+                    {(() => {
+                      const external = row.official_website_url || row.source_url;
+                      if (external) {
+                        return (
+                          <a href={external} target="_blank" rel="noopener noreferrer">
+                            {row.name ?? "Unnamed"}
+                          </a>
+                        );
+                      }
+                      if (row.slug) {
+                        return (
+                          <a href={`/tournaments/${row.slug}`} target="_blank" rel="noopener noreferrer">
+                            {row.name ?? "Unnamed"}
+                          </a>
+                        );
+                      }
+                      return row.name ?? "Unnamed";
+                    })()}
                   </div>
                   <div style={{ fontSize: 12, color: "#555" }}>{row.tournament_id}</div>
+                  <div style={{ marginTop: 6 }}>
+                    <form action={clearTournamentUrlForm} style={{ display: "inline" }}>
+                      <input type="hidden" name="tournament_id" value={row.tournament_id} />
+                      <button
+                        type="submit"
+                        className="cta secondary"
+                        style={{ padding: "4px 8px", fontSize: 11, background: "#fef2f2", color: "#991b1b" }}
+                        title="Mark official URL as bad and requeue validation"
+                      >
+                        Clear URL (bad link)
+                      </button>
+                    </form>
+                  </div>
                 </td>
                 <td>{row.sport ?? "—"}</td>
                 <td>{row.validated_sport ?? "—"}</td>

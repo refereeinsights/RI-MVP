@@ -2,7 +2,8 @@
 import { runSportValidationBatch } from "../src/server/validation/sportValidation";
 
 async function main() {
-  const limit = Number(process.env.LIMIT ?? "200");
+  const cliArg = process.argv.slice(2).find((arg) => /^\d+$/.test(arg));
+  const limit = Number(cliArg ?? process.env.LIMIT ?? "200");
   const res = await runSportValidationBatch(limit);
   console.log(
     JSON.stringify(
@@ -10,6 +11,7 @@ async function main() {
         processed: res.processed,
         conflicts: res.conflicts,
         skipped: res.skipped,
+        ruleConfirmed: res.ruleConfirmed,
         limit,
       },
       null,

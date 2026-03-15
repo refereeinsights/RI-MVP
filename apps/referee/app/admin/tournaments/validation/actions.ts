@@ -195,6 +195,28 @@ export async function runBatchForm(formData: FormData) {
   await runBatch(limit);
 }
 
+// Clear a bad tournament URL (sets official_website_url to null and requeues validation)
+export async function clearTournamentUrlForm(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  if (!tournamentId) return;
+
+  await supabaseAdmin
+    .from("tournaments" as any)
+    .update({
+      official_website_url: null,
+      sport_validation_status: null,
+      sport_validation_method: null,
+      sport_validation_rule: null,
+      sport_validation_processed_at: null,
+      validated_sport: null,
+      revalidate: true,
+    })
+    .eq("id", tournamentId);
+
+  revalidatePath("/admin/tournaments/validation");
+}
+
 export async function approveWithSportForm(formData: FormData): Promise<void> {
   await requireAdmin();
   const tournamentId = String(formData.get("tournament_id") ?? "");

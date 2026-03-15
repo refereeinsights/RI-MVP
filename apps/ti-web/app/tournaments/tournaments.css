@@ -548,6 +548,29 @@
   background-color: transparent;
 }
 
+@media (max-width: 720px) {
+  .summaryGrid {
+    padding: 0.5rem 0.25rem 0;
+    gap: 0.5rem;
+  }
+  .summaryTotalRow {
+    padding: 0.5rem 0.25rem 0;
+  }
+  .summaryGrid .summaryRow {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.55rem;
+  }
+  .summaryGrid .summaryBadgeFixed {
+    flex: 0 0 calc(50% - 0.55rem);
+    max-width: calc(50% - 0.55rem);
+    min-width: 150px;
+  }
+  .summaryTotalRow .summary-total {
+    width: min(220px, 92vw);
+  }
+}
+
 .summaryGrid .card--mini,
 .summaryTotalRow .card--mini {
   display: grid;
