@@ -7,6 +7,7 @@ import { canAccessWeekendPro, getTier } from "@/lib/entitlements";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
 import OwlsEyeVenueCard, { type AirportSummary, type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
 import MobileMapLink from "@/components/venues/MobileMapLink";
+import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
 import {
   DEMO_STARFIRE_VENUE_ID,
   buildOwlsEyeDemoScores,
@@ -507,6 +508,8 @@ export default async function VenueDetailsPage({
                   Venue scores are locked. Create a free Insider account to view.
                 </div>
               )}
+
+              <QuickVenueCheck venueId={data.id} pageType="venue" sourceTournamentId={searchParams?.tournament ?? null} />
 
               {canReviewVenue ? (
                 <div className="detailLinksRow">

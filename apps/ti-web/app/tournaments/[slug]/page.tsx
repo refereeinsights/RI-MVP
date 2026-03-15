@@ -9,6 +9,7 @@ import { isTournamentSaved } from "@/lib/savedTournaments";
 import { buildTITournamentTitle, assertNoDoubleBrand } from "@/lib/seo/buildTITitle";
 import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SaveTournamentButton from "@/components/SaveTournamentButton";
+import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
 import "../tournaments.css";
 
 type TournamentDetailRow = {
@@ -455,6 +456,16 @@ export default async function TournamentDetailPage({
                   )}
                 </Link>
               ))}
+            </div>
+          ) : null}
+
+          {linkedVenues.length > 0 ? (
+            <div style={{ marginTop: 12 }}>
+              <QuickVenueCheck
+                venueId={linkedVenues[0].id}
+                pageType="tournament"
+                sourceTournamentId={data.id}
+              />
             </div>
           ) : venueInfo ? (
             <div className="detailCard">

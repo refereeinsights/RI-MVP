@@ -15,3 +15,5 @@
 - Sport/state hub routes added for TI with state-slug mapping; hubs include null-date tournaments when filtering future events.
 - /admin now shows summary tiles (published/draft/missing venues/URLs/dates, validation counts) and keeps link to the tournaments dashboard.
 - /admin/tournaments/dashboard now pages through all tournaments (no 1000 cap).
+- Added anonymous “Quick Venue Check” widget (TI) with chip inputs, analytics, rate-limit per venue/browser, honeypot, and Supabase insert to new venue_quick_checks table; aggregates now union quick checks into venue averages.
+- Quick Venue Check embedded on TI venue detail and tournament detail (first linked venue).

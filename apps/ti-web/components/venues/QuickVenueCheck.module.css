@@ -1,0 +1,99 @@
+.card {
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 14px;
+  padding: 14px 14px 12px;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.08);
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0b1f14;
+  margin: 0 0 4px 0;
+}
+
+.note {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #34453a;
+}
+
+.form {
+  display: grid;
+  gap: 10px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0b1f14;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  gap: 6px;
+}
+
+.chip {
+  padding: 10px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: #f8faf7;
+  color: #0b1f14;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: center;
+  transition: all 120ms ease-out;
+}
+
+.chipSelected {
+  background: #0f7a3a;
+  color: #fff;
+  border-color: #0f7a3a;
+  box-shadow: 0 8px 18px rgba(15, 122, 58, 0.25);
+}
+
+.submit {
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: #0f7a3a;
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  transition: opacity 120ms ease-out;
+}
+
+.submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.honeypot {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 12px;
+  }
+  .chips {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
