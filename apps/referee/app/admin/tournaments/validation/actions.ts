@@ -195,13 +195,13 @@ export async function runBatchForm(formData: FormData) {
   await runBatch(limit);
 }
 
-export async function approveWithSportForm(formData: FormData): Promise<ActionResult> {
+export async function approveWithSportForm(formData: FormData): Promise<void> {
   await requireAdmin();
   const tournamentId = String(formData.get("tournament_id") ?? "");
   const validationId = String(formData.get("validation_id") ?? "");
   const sport = String(formData.get("validated_sport") ?? "").trim().toLowerCase();
   const overwrite = formData.get("overwrite") === "true";
-  if (!tournamentId || !validationId || !sport) return { ok: false, error: "Missing data" };
+  if (!tournamentId || !validationId || !sport) return;
 
   const now = new Date().toISOString();
   await supabaseAdmin
@@ -232,5 +232,4 @@ export async function approveWithSportForm(formData: FormData): Promise<ActionRe
 
   await supabaseAdmin.from("tournaments" as any).update(rollup).eq("id", tournamentId);
   revalidatePath("/admin/tournaments/validation");
-  return { ok: true };
 }
