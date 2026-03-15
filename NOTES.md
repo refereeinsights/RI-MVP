@@ -9,3 +9,6 @@
 - Validation batch script now shows ruleConfirmed count and accepts CLI limit arg.
 - Validation admin page now links tournament names to external URLs (uses official_website_url, then source_url, then slug).
 - Added run-time guidance to requeue needs_review items and rerun batch; processed ~949 with 575 rule-confirmed after new URL/keyword rules.
+- Added per-row “Clear URL (bad link)” action in validation admin to null official_website_url and requeue validation.
+- Venue Insights and tournament badges now use the same responsive layout; added mobile wrapping (2-up) for TI and RI summaries.
+- TI venues list paginates Supabase fetch (no 1000 cap).

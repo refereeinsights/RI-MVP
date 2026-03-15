@@ -512,24 +512,26 @@ export default async function VenuesPage({
             </Link>
           </div>
 
-          <div className={`summaryGrid ${styles.venueSummaryGrid}`}>
-            {sportsSorted.map(({ sport, count }) => {
-              const isOnlyActiveSport = sportsSelected.length === 1 && sportsSelected[0] === sport;
-              const href = isOnlyActiveSport ? `/venues?${buildParams(null)}` : `/venues?${buildParams(sport)}`;
-              return (
-                <Link
-                  key={sport}
-                  href={href}
-                  className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)} ${sportsSelected.includes(sport) ? styles.summaryActive : ""}`}
-                >
-                  <div className="summaryCount">{count}</div>
-                  <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
-                  <div className="summaryIcon" aria-hidden="true">
-                    {venueIcon([sport])}
-                  </div>
-                </Link>
-              );
-            })}
+          <div className="summaryGrid">
+            <div className="summaryRow">
+              {sportsSorted.map(({ sport, count }) => {
+                const isOnlyActiveSport = sportsSelected.length === 1 && sportsSelected[0] === sport;
+                const href = isOnlyActiveSport ? `/venues?${buildParams(null)}` : `/venues?${buildParams(sport)}`;
+                return (
+                  <Link
+                    key={sport}
+                    href={href}
+                    className={`card card--mini summaryBadgeFixed ${getSportCardClass(sport)} ${getSummarySportClass(sport)} ${sportsSelected.includes(sport) ? styles.summaryActive : ""}`}
+                  >
+                    <div className="summaryCount">{count}</div>
+                    <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
+                    <div className="summaryIcon" aria-hidden="true">
+                      {venueIcon([sport])}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
 
