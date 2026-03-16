@@ -959,7 +959,7 @@ export default function EnrichmentClient({
                       </a>
                     ) : null}
                     <a
-                      href={`/admin?tab=tournament-listings&q=${encodeURIComponent(t.slug ?? t.name ?? t.id)}`}
+                      href={`/admin?tab=tournament-listings&q=${encodeURIComponent(t.slug ?? t.name ?? t.id)}#tournament-listings`}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ color: "#0f172a", textDecoration: "underline", fontSize: 12 }}
@@ -1010,7 +1010,7 @@ export default function EnrichmentClient({
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
                     {t.slug ? (
                       <a
-                        href={`/admin?tab=tournament-listings&q=${encodeURIComponent(t.slug)}`}
+                        href={`/admin?tab=tournament-listings&q=${encodeURIComponent(t.slug)}#tournament-listings`}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ color: "#0f172a", textDecoration: "underline", fontSize: 12 }}
@@ -1019,7 +1019,7 @@ export default function EnrichmentClient({
                       </a>
                     ) : (
                       <a
-                        href={`/admin?tab=tournament-listings&q=${encodeURIComponent(t.name ?? "")}`}
+                        href={`/admin?tab=tournament-listings&q=${encodeURIComponent(t.name ?? "")}#tournament-listings`}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ color: "#0f172a", textDecoration: "underline", fontSize: 12 }}
@@ -1324,10 +1324,10 @@ export default function EnrichmentClient({
                     <Link
                       href={
                         info?.slug
-                          ? `/admin?tab=tournament-listings&q=${encodeURIComponent(info.slug)}`
+                          ? `/admin?tab=tournament-listings&q=${encodeURIComponent(info.slug)}#tournament-listings`
                           : info?.name
-                          ? `/admin?tab=tournament-listings&q=${encodeURIComponent(info.name)}`
-                          : "/admin?tab=tournament-listings"
+                          ? `/admin?tab=tournament-listings&q=${encodeURIComponent(info.name)}#tournament-listings`
+                          : "/admin?tab=tournament-listings#tournament-listings"
                       }
                       target="_blank"
                       rel="noreferrer"

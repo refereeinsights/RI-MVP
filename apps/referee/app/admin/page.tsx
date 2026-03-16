@@ -294,13 +294,41 @@ export default async function AdminPage({
       .from("tournaments" as any)
       .select("id", { count: "exact", head: true })
       .eq("status", "draft"),
-    supabaseAdmin
-      .from("tournaments" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "published")
-      .eq("is_canonical", true)
-      .is("venue", null)
-      .is("address", null),
+    (async () => {
+      // "Missing venues" means: no denormalized venue/address AND no linked venues.
+      // Linked venues live in tournament_venues and are the primary source of truth.
+      const base = await supabaseAdmin
+        .from("tournaments" as any)
+        .select("id")
+        .eq("status", "published")
+        .eq("is_canonical", true)
+        .is("venue", null)
+        .is("address", null)
+        .limit(5000);
+      if (base.error) throw base.error;
+      const ids = ((base.data ?? []) as Array<{ id: string | null }>)
+        .map((r) => String(r.id ?? ""))
+        .filter(Boolean);
+      if (!ids.length) return { count: 0 };
+
+      const linkedSet = new Set<string>();
+      const chunkSize = 50;
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        const { data: linked, error } = await supabaseAdmin
+          .from("tournament_venues" as any)
+          .select("tournament_id")
+          .in("tournament_id", chunk)
+          .limit(20000);
+        if (error) throw error;
+        for (const row of (linked ?? []) as Array<{ tournament_id: string | null }>) {
+          const tid = String(row.tournament_id ?? "");
+          if (tid) linkedSet.add(tid);
+        }
+      }
+      const count = ids.reduce((acc, id) => (linkedSet.has(id) ? acc : acc + 1), 0);
+      return { count };
+    })(),
     supabaseAdmin
       .from("tournaments" as any)
       .select("id", { count: "exact", head: true })
@@ -3524,7 +3552,7 @@ export default async function AdminPage({
 
       {/* TOURNAMENT LISTINGS */}
       {tab === "tournament-listings" && (
-        <section style={{ marginBottom: 22 }}>
+        <section id="tournament-listings" style={{ marginBottom: 22 }}>
           <div style={{ marginBottom: 12 }}>
             <h2 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>Tournament details</h2>
             <p style={{ color: "#555", fontSize: 13, marginTop: 6 }}>

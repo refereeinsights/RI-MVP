@@ -37,6 +37,7 @@ type VenueCandidate = {
   tournament_id: string | null;
   venue_name: string | null;
   address_text: string | null;
+  venue_url: string | null;
   confidence: number | null;
   source_url: string | null;
   created_at: string | null;
@@ -60,16 +61,24 @@ function trunc(value: string | null, max = 80) {
 
 async function loadTournamentVenueLinkIds(tournamentIds: string[]) {
   if (!tournamentIds.length) return new Set<string>();
-  const { data } = await supabaseAdmin
-    .from("tournament_venues" as any)
-    .select("tournament_id")
-    .in("tournament_id", tournamentIds)
-    .limit(20000);
-  return new Set(
-    ((data ?? []) as Array<{ tournament_id: string | null }>)
-      .map((r) => String(r.tournament_id ?? ""))
-      .filter(Boolean)
-  );
+  // PostgREST `.in()` filters can overflow URL/header limits for large arrays.
+  // Chunk the request to keep it reliable.
+  const out = new Set<string>();
+  const chunkSize = 50;
+  for (let i = 0; i < tournamentIds.length; i += chunkSize) {
+    const chunk = tournamentIds.slice(i, i + chunkSize);
+    const { data, error } = await supabaseAdmin
+      .from("tournament_venues" as any)
+      .select("tournament_id")
+      .in("tournament_id", chunk)
+      .limit(20000);
+    if (error) throw error;
+    for (const row of (data ?? []) as Array<{ tournament_id: string | null }>) {
+      const id = String(row.tournament_id ?? "");
+      if (id) out.add(id);
+    }
+  }
+  return out;
 }
 
 export default async function MissingVenuesPage({ searchParams }: { searchParams?: SearchParams }) {
@@ -80,12 +89,10 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   const state = (searchParams?.state ?? "").trim().toUpperCase();
 
   const pageSize = 50;
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
 
   let base = supabaseAdmin
     .from("tournaments" as any)
-    .select("id,name,slug,city,state,start_date,official_website_url,source_url", { count: "exact" })
+    .select("id,name,slug,city,state,start_date,official_website_url,source_url")
     .eq("status", "published")
     .eq("is_canonical", true)
     .is("venue", null)
@@ -94,10 +101,13 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   if (q) base = base.ilike("name", `%${q}%`);
   if (state) base = base.eq("state", state);
 
-  const { data, count, error } = await base
+  // Supabase/PostgREST doesn't make NOT EXISTS ergonomically available via the client,
+  // so we load the missing-venue set and then filter out anything that already has
+  // tournament_venues links (our primary venue storage).
+  const { data, error } = await base
     .order("start_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false })
-    .range(from, to);
+    .limit(5000);
 
   if (error) {
     return (
@@ -109,7 +119,16 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
     );
   }
 
-  const rows = ((data ?? []) as TournamentRow[]).filter((r) => r?.id);
+  const allRows = ((data ?? []) as TournamentRow[]).filter((r) => r?.id);
+  const allIds = allRows.map((r) => r.id);
+  const linkedIdsAll = await loadTournamentVenueLinkIds(allIds);
+  const filtered = allRows.filter((r) => !linkedIdsAll.has(r.id));
+  const count = filtered.length;
+
+  const totalPages = count ? Math.max(1, Math.ceil(count / pageSize)) : 1;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize;
+  const rows = filtered.slice(from, to);
   const tournamentIds = rows.map((r) => r.id);
 
   const [linkedIds, attrCandidatesResp, venueCandidatesResp] = await Promise.all([
@@ -124,7 +143,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
       .limit(5000),
     supabaseAdmin
       .from("tournament_venue_candidates" as any)
-      .select("tournament_id,venue_name,address_text,confidence,source_url,created_at")
+      .select("tournament_id,venue_name,address_text,venue_url,confidence,source_url,created_at")
       .is("accepted_at", null)
       .is("rejected_at", null)
       .in("tournament_id", tournamentIds)
@@ -153,8 +172,6 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
     const nextScore = row.confidence ?? 0;
     if (!existing || nextScore > existingScore) bestVenueByTournament.set(tid, row);
   }
-
-  const totalPages = count ? Math.max(1, Math.ceil(count / pageSize)) : 1;
   const paramsBase = new URLSearchParams();
   if (q) paramsBase.set("q", q);
   if (state) paramsBase.set("state", state);
@@ -225,7 +242,6 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                 const url = clean(t.official_website_url) ?? clean(t.source_url);
                 const title = t.name ?? t.slug ?? t.id;
                 const loc = [t.city, t.state].filter(Boolean).join(", ") || "—";
-                const isLinked = linkedIds.has(t.id);
                 const bestAttr = bestAttrByTournament.get(t.id) ?? {};
                 const bestVenue = bestVenueByTournament.get(t.id) ?? null;
                 const addressCandidate = (bestAttr as any).address as AttrCandidate | undefined;
@@ -248,11 +264,6 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                           )}
                         </div>
                         <div style={{ fontSize: 12, color: "#64748b" }}>{t.id}</div>
-                        {isLinked ? (
-                          <div style={{ fontSize: 12, color: "#92400e", fontWeight: 800 }}>
-                            Note: already linked in tournament_venues
-                          </div>
-                        ) : null}
                       </div>
                     </td>
                     <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{loc}</td>
@@ -269,7 +280,27 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                       <div style={{ display: "grid", gap: 6 }}>
                         <div style={{ fontSize: 12, color: "#111827" }}>
                           <strong>Venue:</strong>{" "}
-                          {bestVenue ? `${trunc(bestVenue.venue_name, 44)} (${(bestVenue.confidence ?? 0).toFixed(2)})` : "—"}
+                          {bestVenue ? (
+                            <>
+                              {trunc(bestVenue.venue_name, 44)} ({(bestVenue.confidence ?? 0).toFixed(2)})
+                              {hasText(bestVenue.venue_url) ? (
+                                <>
+                                  {" "}
+                                  <a
+                                    href={bestVenue.venue_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ color: "#1d4ed8", textDecoration: "none" }}
+                                    title="Open venue map image"
+                                  >
+                                    (map)
+                                  </a>
+                                </>
+                              ) : null}
+                            </>
+                          ) : (
+                            "—"
+                          )}
                         </div>
                         <div style={{ fontSize: 12, color: "#111827" }}>
                           <strong>Address:</strong>{" "}

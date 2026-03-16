@@ -34,3 +34,8 @@
 - Added `/admin/tournaments/missing-venues` queue with per-row deep scan (uses fees/venue enrichment in missing-venues mode) and quick links to venue search + current candidate confidence.
 - Made the Admin Dashboard “Missing venues” tile link to `/admin/tournaments/missing-venues`.
 - Added a “Deep scan 50” bulk button on `/admin/tournaments/missing-venues` to run the missing-venues enrichment for up to 50 tournaments at once.
+- Fees/Venue enrichment: improved deep scan to extract venue map cards (image + venue/city headings) and store the map image URL on venue candidates; added same-state guard + a small denylist for known sticky footer addresses.
+- Fees/Venue enrichment: per-tournament deep scans (when `tournament_id` is specified) now bypass linked/pending/cooldown skips so a user can always force a refresh on one tournament.
+- Missing venues admin: show a clickable `(map)` link for venue candidates when the scraper captured a map image URL.
+- Admin UX: Edit links from enrichment now deep-link into the Tournament listings section of `/admin?tab=tournament-listings` (anchor jump).
+- Missing venues counters: now treat `tournament_venues` links as the source of truth (exclude linked tournaments from the “missing venues” tile and list); implemented chunked queries to avoid Supabase/PostgREST URL/header limits.

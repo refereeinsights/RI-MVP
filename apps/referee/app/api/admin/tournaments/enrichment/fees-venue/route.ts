@@ -125,7 +125,18 @@ function extractAddresses(text: string): string[] {
   const pattern =
     /\d{1,5}\s+[A-Za-z0-9.\-#\s]{3,100},\s*[A-Za-z.\s]{2,60},\s*[A-Z]{2}\s*\d{5}(?:-\d{4})?/g;
   const matches = Array.from(text.matchAll(pattern)).map((m) => normalizeSpace(m[0] ?? ""));
-  return Array.from(new Set(matches.filter(Boolean)));
+  // Some tournament sites include a global "contact" address in the footer/header that
+  // can incorrectly get scraped across many unrelated tournaments. Keep a small
+  // denylist for known noisy addresses.
+  const denylist = new Set<string>([
+    "1529 third st. s., jacksonville beach, fl 32250",
+  ]);
+  const normalized = matches
+    .filter(Boolean)
+    .map((addr) => ({ raw: addr, key: normalizeLower(addr) }))
+    .filter((row) => !denylist.has(row.key))
+    .map((row) => row.raw);
+  return Array.from(new Set(normalized));
 }
 
 function inferLocality(addresses: string[]): { city: string; state: string; zip: string } | null {
@@ -220,6 +231,145 @@ function extractVenueEntriesFromPage(
   }
 
   return entries;
+}
+
+function extractStateFromFullAddress(address: string | null | undefined): string | null {
+  const raw = normalizeSpace(address ?? "");
+  if (!raw) return null;
+  const m = raw.match(/,\s*([A-Z]{2})\s*\d{5}(?:-\d{4})?\s*$/);
+  return m?.[1] ? m[1].toUpperCase() : null;
+}
+
+function extractVenueMapCardsFromPage(args: {
+  $: cheerio.CheerioAPI;
+  tournamentState: string | null;
+}): Array<{ venue_name: string; city: string | null; map_image_url: string | null }> {
+  const { $, tournamentState } = args;
+
+  // Some tournament sites publish "Venue Maps" as images with headings (no map links, no full addresses).
+  // Example: socalelitefc.com "Tournament Venue Maps" section.
+  const headingNodes = $("h1,h2,h3,h4,span")
+    .toArray()
+    .filter((el) => /venue\s+maps?/i.test(normalizeSpace($(el).text() || "")));
+
+  const results: Array<{ venue_name: string; city: string | null; map_image_url: string | null }> = [];
+  const seen = new Set<string>();
+
+  const pushCard = (venueNameRaw: string, cityRaw: string | null, imgUrlRaw: string | null) => {
+    const venue_name = cleanVenueName(venueNameRaw);
+    if (!venue_name) return;
+    const city = cityRaw ? normalizeSpace(cityRaw) : null;
+    const map_image_url = normalizeSpace(imgUrlRaw ?? "") || null;
+    const key = `${venue_name.toLowerCase()}|${(city ?? "").toLowerCase()}|${(map_image_url ?? "").toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    results.push({ venue_name, city: city || null, map_image_url });
+  };
+
+  for (const h of headingNodes.slice(0, 3)) {
+    const row = $(h).closest(".fl-row, section, article, main, body");
+    if (!row.length) continue;
+
+    // Cards are usually "image + h2 + h3" within the same column container.
+    const cardContainers = row
+      .find(".fl-col-content, .elementor-widget-wrap, .wp-block-group, .wp-block-column, div")
+      .toArray()
+      .slice(0, 400)
+      .filter((el) => $(el).find("img").length > 0 && $(el).find("h2").length > 0);
+
+    for (const card of cardContainers) {
+      const img = $(card).find("img").first();
+      const imgUrl = (img.attr("src") || "").trim() || null;
+      const h2Text = normalizeSpace($(card).find("h2").first().text() || "");
+      const h3Text = normalizeSpace($(card).find("h3").first().text() || "");
+
+      // Filter out obvious non-venue cards (e.g. sponsor logos) by requiring a plausible venue name.
+      if (!h2Text || h2Text.length < 3) continue;
+      if (!/[a-z]/i.test(h2Text)) continue;
+      // Often these map cards omit state; we store city separately and use tournamentState when building address_text.
+      pushCard(h2Text, h3Text || null, imgUrl);
+      if (results.length >= 12) break;
+    }
+    if (results.length) break;
+  }
+
+  // If we have a state but no city on some cards, still keep them; address_text is built later.
+  // Note: tournamentState is intentionally unused here to keep extraction purely structural.
+  void tournamentState;
+  return results;
+}
+
+async function searchFullAddressForVenue(args: {
+  venueName: string;
+  city: string | null;
+  state: string | null;
+  maxResults?: number;
+}): Promise<string | null> {
+  const venueName = normalizeSpace(args.venueName);
+  const city = normalizeSpace(args.city ?? "");
+  const state = normalizeSpace(args.state ?? "").toUpperCase();
+  if (!venueName || !state) return null;
+
+  const maxResults = Math.max(1, Math.min(args.maxResults ?? 3, 5));
+  const geo = [city, state].filter(Boolean).join(" ");
+
+  const queries = [
+    `"${venueName}" ${geo} address`,
+    `"${venueName}" ${geo}`,
+    `${venueName} ${geo} address`,
+  ];
+
+  const visited = new Set<string>();
+  for (const q of queries) {
+    const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(q)}`;
+    let html: string | null = null;
+    try {
+      const resp = await fetch(searchUrl, {
+        method: "GET",
+        cache: "no-cache",
+        redirect: "follow",
+        headers: {
+          "user-agent": "RI-FeesVenue-Scraper/2.2",
+          accept: "text/html,application/xhtml+xml",
+        },
+      });
+      if (!resp.ok) continue;
+      const contentType = resp.headers.get("content-type") ?? "";
+      if (!/text\/html/i.test(contentType)) continue;
+      html = await resp.text();
+    } catch {
+      continue;
+    }
+    if (!html) continue;
+    const $ = cheerio.load(html);
+    const hrefs = $("a.result__a, a[href]")
+      .toArray()
+      .map((el) => ($(el).attr("href") || "").trim())
+      .filter(Boolean)
+      .map((href) => decodeSearchRedirect(href))
+      .filter((href): href is string => !!href);
+
+    let checked = 0;
+    for (const href of hrefs) {
+      if (checked >= maxResults) break;
+      if (visited.has(href)) continue;
+      visited.add(href);
+      checked += 1;
+
+      const pageHtml = await fetchHtml(href);
+      if (!pageHtml) continue;
+      const pageText = cheerio.load(pageHtml).text().replace(/\s+/g, " ");
+      const addresses = extractAddresses(pageText);
+      for (const addr of addresses) {
+        const addrState = extractStateFromFullAddress(addr);
+        if (addrState && addrState !== state) continue;
+        if (city && !normalizeLower(addr).includes(normalizeLower(city))) continue;
+        return addr;
+      }
+    }
+  }
+
+  return null;
 }
 
 function decodeMapHint(urlRaw: string): string | null {
@@ -758,16 +908,20 @@ export async function POST(request: Request) {
     );
   }
   for (const t of (tournaments as any[] | null) ?? []) {
-    if (focusMissingVenues && linkedTournamentIds.has(String((t as any).id ?? ""))) {
+    // For bulk "missing venues" sweeps we skip tournaments already linked in tournament_venues,
+    // but for an explicit tournament deep-scan request we still run (it may be missing additional venues).
+    if (!tournamentIdParam && focusMissingVenues && linkedTournamentIds.has(String((t as any).id ?? ""))) {
       skipped_linked += 1;
       continue;
     }
-    if (enforcePendingSkip && pendingTournamentIds.has(String((t as any).id ?? ""))) {
+    // Pending-skip is for bulk runs; per-tournament scans should re-run to refresh candidates.
+    if (!tournamentIdParam && enforcePendingSkip && pendingTournamentIds.has(String((t as any).id ?? ""))) {
       skipped_pending += 1;
       continue;
     }
     const lastScraped = (t as any).fees_venue_scraped_at;
-    if (lastScraped) {
+    // Cooldown is for bulk runs; per-tournament scans should always attempt.
+    if (!tournamentIdParam && lastScraped) {
       const lastMs = new Date(lastScraped).getTime();
       if (Number.isFinite(lastMs) && lastMs > cooldownCutoffMs) {
         skipped_recent += 1;
@@ -893,12 +1047,17 @@ export async function POST(request: Request) {
     const found: string[] = [];
     const inferredAddressPool: string[] = [];
     const venuePageAddressPool: string[] = [];
-    const venueEntriesPool: Array<{ venue_name: string | null; address_text: string; source_url: string }> = [];
-    const venueUrlCandidates = new Set<string>();
-    const foundByKey = new Set<string>();
+  const venueEntriesPool: Array<{
+    venue_name: string | null;
+    address_text: string;
+    source_url: string;
+    venue_url?: string | null;
+  }> = [];
+  const venueUrlCandidates = new Set<string>();
+  const foundByKey = new Set<string>();
 
-    for (const page of pages) {
-      const $ = cheerio.load(page.html);
+  for (const page of pages) {
+    const $ = cheerio.load(page.html);
       const text = $.text().replace(/\s+/g, " ");
 
       const fee = extractFee(text);
@@ -945,11 +1104,50 @@ export async function POST(request: Request) {
       if (venuePathMatch || isLikelyVenueContentPage($)) {
         extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(addr));
         extractVenueEntriesFromPage($, locality).forEach((entry) =>
-          venueEntriesPool.push({ ...entry, source_url: page.url })
+          venueEntriesPool.push({ ...entry, source_url: page.url, venue_url: null })
         );
         extractMapLinkedVenueEntries($).forEach((entry) =>
-          venueEntriesPool.push({ ...entry, source_url: page.url })
+          venueEntriesPool.push({ ...entry, source_url: page.url, venue_url: null })
         );
+      }
+
+      if (focusMissingVenues) {
+        const tournamentState = normalizeSpace((t as any).state ?? "").toUpperCase() || null;
+        const mapCards = extractVenueMapCardsFromPage({ $, tournamentState });
+        if (mapCards.length) {
+          for (const card of mapCards.slice(0, 8)) {
+            const city = card.city ? normalizeSpace(card.city) : null;
+            const address_text = [city, tournamentState].filter(Boolean).join(", ");
+            if (!address_text) continue;
+            venueEntriesPool.push({
+              venue_name: card.venue_name,
+              address_text,
+              source_url: page.url,
+              venue_url: card.map_image_url,
+            });
+          }
+
+          // When running a single-tournament deep scan, attempt a lightweight lookup for full addresses
+          // based on the extracted venue name + city/state.
+          if (tournamentIdParam) {
+            const toLookup = mapCards.slice(0, 4);
+            for (const card of toLookup) {
+              const full = await searchFullAddressForVenue({
+                venueName: card.venue_name,
+                city: card.city,
+                state: tournamentState,
+                maxResults: 3,
+              });
+              if (!full) continue;
+              venueEntriesPool.push({
+                venue_name: card.venue_name,
+                address_text: full,
+                source_url: page.url,
+                venue_url: card.map_image_url,
+              });
+            }
+          }
+        }
       }
 
       if (venueUrlCandidates.size > 0 && !foundByKey.has("venue_url")) {
@@ -996,10 +1194,10 @@ export async function POST(request: Request) {
       const locality = inferLocality(inferredAddressPool);
       extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(addr));
       extractVenueEntriesFromPage($, locality).forEach((entry) =>
-        venueEntriesPool.push({ ...entry, source_url: forcedUrl })
+        venueEntriesPool.push({ ...entry, source_url: forcedUrl, venue_url: null })
       );
       extractMapLinkedVenueEntries($).forEach((entry) =>
-        venueEntriesPool.push({ ...entry, source_url: forcedUrl })
+        venueEntriesPool.push({ ...entry, source_url: forcedUrl, venue_url: null })
       );
     }
 
@@ -1025,15 +1223,22 @@ export async function POST(request: Request) {
         const locality = inferLocality(inferredAddressPool);
         extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(addr));
         extractVenueEntriesFromPage($, locality).forEach((entry) =>
-          venueEntriesPool.push({ ...entry, source_url: fallbackUrl })
+          venueEntriesPool.push({ ...entry, source_url: fallbackUrl, venue_url: null })
         );
         extractMapLinkedVenueEntries($).forEach((entry) =>
-          venueEntriesPool.push({ ...entry, source_url: fallbackUrl })
+          venueEntriesPool.push({ ...entry, source_url: fallbackUrl, venue_url: null })
         );
       }
     }
 
-    const allAddresses = Array.from(new Set([...inferredAddressPool, ...venuePageAddressPool])).slice(0, 12);
+    const tournamentState = normalizeSpace((t as any).state ?? "").toUpperCase() || null;
+    const allAddresses = Array.from(new Set([...inferredAddressPool, ...venuePageAddressPool]))
+      .filter((addr) => {
+        const addrState = extractStateFromFullAddress(addr);
+        if (!addrState || !tournamentState) return true;
+        return addrState === tournamentState;
+      })
+      .slice(0, 12);
     if (allAddresses.length) {
       for (const address of allAddresses) {
         candidates.push({
@@ -1052,11 +1257,18 @@ export async function POST(request: Request) {
         const key = `${(entry.venue_name ?? "").toLowerCase()}|${entry.address_text.toLowerCase()}|${entry.source_url}`;
         if (entryDedup.has(key)) continue;
         entryDedup.add(key);
-        const candidateVenueUrl = Array.from(venueUrlCandidates)[0] ?? null;
+        const candidateVenueUrl = entry.venue_url ?? Array.from(venueUrlCandidates)[0] ?? null;
         let autoLinked = false;
         if (focusMissingVenues) {
           const tournamentLocality = tournamentLocalityById.get(String(t.id ?? ""));
           const parsedAddress = parseAddressParts(entry.address_text);
+          const parsedState = parsedAddress.state ?? extractStateFromFullAddress(entry.address_text);
+          const tournamentState = normalizeSpace(tournamentLocality?.state ?? "") || null;
+          // If we have a state in the extracted address and it doesn't match the tournament state,
+          // skip to avoid "sticky" footer/contact addresses bleeding across states.
+          if (parsedState && tournamentState && parsedState.toUpperCase() !== tournamentState.toUpperCase()) {
+            continue;
+          }
           const addrKey = buildAddressKey({
             street: parsedAddress.street,
             city: parsedAddress.city ?? tournamentLocality?.city ?? null,
