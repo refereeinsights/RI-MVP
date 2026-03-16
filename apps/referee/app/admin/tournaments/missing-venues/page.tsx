@@ -3,6 +3,7 @@ import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import DeepScanButton from "./DeepScanButton";
+import BulkDeepScanButton from "./BulkDeepScanButton";
 
 export const runtime = "nodejs";
 
@@ -169,6 +170,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <BulkDeepScanButton limit={50} />
           <Link
             href="/admin/tournaments/enrichment"
             style={{
