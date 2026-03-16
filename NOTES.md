@@ -39,3 +39,4 @@
 - Missing venues admin: show a clickable `(map)` link for venue candidates when the scraper captured a map image URL.
 - Admin UX: Edit links from enrichment now deep-link into the Tournament listings section of `/admin?tab=tournament-listings` (anchor jump).
 - Missing venues counters: now treat `tournament_venues` links as the source of truth (exclude linked tournaments from the “missing venues” tile and list); implemented chunked queries to avoid Supabase/PostgREST URL/header limits.
+- Fees/Venue enrichment: added facility extraction for pages listing venues as `Venue Name – City, ST` (e.g. “Age Groups & Facilities” blocks) so deep scan captures facilities even without street addresses.

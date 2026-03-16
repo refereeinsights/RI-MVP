@@ -233,6 +233,67 @@ function extractVenueEntriesFromPage(
   return entries;
 }
 
+function extractFacilityMentionsFromText(textRaw: string): Array<{ venue_name: string; city: string; state: string }> {
+  const text = normalizeSpace(textRaw ?? "");
+  if (!text) return [];
+
+  // Matches patterns like:
+  // - "WyEast Middle School – Vancouver, WA"
+  // - "Olympus Sports Center - Hillsboro, OR"
+  // Often appears inside parentheses in schedule/facilities blocks.
+  const dash = "[\\u2013\\u2014\\-]"; // en/em dash or hyphen
+  const pattern = new RegExp(`\\(([^()]{3,120}?)\\s*${dash}\\s*([A-Za-z .']{2,60}),\\s*([A-Z]{2})\\)`, "g");
+  const pattern2 = new RegExp(`\\b([^()\\n]{3,120}?)\\s*${dash}\\s*([A-Za-z .']{2,60}),\\s*([A-Z]{2})\\b`, "g");
+
+  const out: Array<{ venue_name: string; city: string; state: string }> = [];
+  const seen = new Set<string>();
+
+  const add = (venueRaw: string, cityRaw: string, stateRaw: string) => {
+    const venue_name = cleanVenueName(venueRaw);
+    const city = normalizeSpace(cityRaw);
+    const state = (stateRaw ?? "").trim().toUpperCase();
+    if (!venue_name || !city || !state) return;
+    // Avoid capturing obvious non-venue tokens.
+    if (/(girls|boys|division|age group|g\d{1,2}s|u\d{1,2})/i.test(venue_name)) return;
+    if (venue_name.length > 120) return;
+    const key = `${venue_name.toLowerCase()}|${city.toLowerCase()}|${state}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ venue_name, city, state });
+  };
+
+  for (const m of text.matchAll(pattern)) {
+    add(m[1] ?? "", m[2] ?? "", m[3] ?? "");
+    if (out.length >= 12) break;
+  }
+  if (out.length < 12) {
+    for (const m of text.matchAll(pattern2)) {
+      add(m[1] ?? "", m[2] ?? "", m[3] ?? "");
+      if (out.length >= 12) break;
+    }
+  }
+
+  return out;
+}
+
+function extractFacilitiesFromPage($: cheerio.CheerioAPI): Array<{ venue_name: string; address_text: string }> {
+  // Lightweight extraction for pages that list facilities without street addresses.
+  // Example: https://cevaregion.org/freeze/ "Age Groups & Facilities"
+  const headingText = $("h1,h2,h3,h4")
+    .toArray()
+    .map((el) => normalizeSpace($(el).text() || ""))
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  const hasFacilitiesSignal = /(facilities|facility|venues?|locations?)/i.test(headingText) || /facilities/i.test(normalizeSpace($.text() || ""));
+  if (!hasFacilitiesSignal) return [];
+
+  const text = normalizeSpace($.text() || "");
+  const mentions = extractFacilityMentionsFromText(text);
+  return mentions.map((m) => ({ venue_name: m.venue_name, address_text: `${m.city}, ${m.state}` }));
+}
+
 function extractStateFromFullAddress(address: string | null | undefined): string | null {
   const raw = normalizeSpace(address ?? "");
   if (!raw) return null;
@@ -1109,6 +1170,19 @@ export async function POST(request: Request) {
         extractMapLinkedVenueEntries($).forEach((entry) =>
           venueEntriesPool.push({ ...entry, source_url: page.url, venue_url: null })
         );
+      }
+
+      // Some sites list facilities as "Venue Name – City, ST" with no street address.
+      // Capture those so we can later resolve to full addresses via follow-up lookup.
+      if (focusMissingVenues) {
+        for (const facility of extractFacilitiesFromPage($).slice(0, 12)) {
+          venueEntriesPool.push({
+            venue_name: facility.venue_name,
+            address_text: facility.address_text,
+            source_url: page.url,
+            venue_url: null,
+          });
+        }
       }
 
       if (focusMissingVenues) {
