@@ -18,3 +18,11 @@
 - Added anonymous “Quick Venue Check” widget (TI) with chip inputs, analytics, rate-limit per venue/browser, honeypot, and Supabase insert to new venue_quick_checks table; aggregates now union quick checks into venue averages.
 - Quick Venue Check embedded on TI venue detail and tournament detail (first linked venue).
 - Quick Venue Check restyled to match venue badges (dark translucent card, green accents), added close/reopen control, and guarded analytics open event to fire once per page.
+
+## 2026-03-16
+
+- Quick Venue Check: added “Have you played here before?” gate (Yes shows form; No shows acknowledgement) and expanded analytics to include Started/Dismissed.
+- Quick Venue Check: allow partial submissions (>= 1 field) and aligned API validation accordingly.
+- Quick Venue Check: multi-venue tournaments now pass venueOptions and require a venue pick before submit.
+- Quick Venue Check: improved chip labels (shade: None/Poor/Fair/Good/Great; cleanliness: Poor/Fair/Good/Great/Spotless) and moved restroom type above cleanliness.
+- Quick Venue Check: all chip selections are now toggleable (click again to de-select).

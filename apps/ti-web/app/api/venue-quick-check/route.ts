@@ -36,11 +36,12 @@ export async function POST(request: Request) {
     let parkingDistance: string | null = null;
     let parkingConvenienceScore: number | null = null;
     if (body.parking_distance) {
-      if (!PARKING_VALUES.has(body.parking_distance)) {
+      const distance = String(body.parking_distance);
+      if (!PARKING_VALUES.has(distance)) {
         return NextResponse.json({ ok: false, error: "Invalid parking_distance" }, { status: 400 });
       }
-      parkingDistance = body.parking_distance;
-      parkingConvenienceScore = PARKING_MAP[parkingDistance];
+      parkingDistance = distance;
+      parkingConvenienceScore = PARKING_MAP[distance];
     }
 
     let bringFieldChairs: boolean | null = null;
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
       restroomType = body.restroom_type;
     }
 
-    // Require at least two fields
+    // Require at least one field (all fields optional, but not empty submissions)
     const filled = [
       restroomCleanliness,
       shadeScore,
@@ -67,8 +68,8 @@ export async function POST(request: Request) {
       bringFieldChairs,
       restroomType,
     ].filter((v) => v !== null).length;
-    if (filled < 2) {
-      return NextResponse.json({ ok: false, error: "Select at least two items" }, { status: 400 });
+    if (filled < 1) {
+      return NextResponse.json({ ok: false, error: "Select at least one item" }, { status: 400 });
     }
 
     // Rate limit: one per venue/browser per 30 days

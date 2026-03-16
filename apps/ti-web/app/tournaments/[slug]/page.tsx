@@ -462,7 +462,8 @@ export default async function TournamentDetailPage({
           {linkedVenues.length > 0 ? (
             <div style={{ marginTop: 12 }}>
               <QuickVenueCheck
-                venueId={linkedVenues[0].id}
+                venueId={linkedVenues.length === 1 ? linkedVenues[0].id : undefined}
+                venueOptions={linkedVenues.map((v) => ({ id: v.id, name: v.name }))}
                 pageType="tournament"
                 sourceTournamentId={data.id}
               />

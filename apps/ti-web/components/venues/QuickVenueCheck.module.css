@@ -23,6 +23,14 @@
   text-align: center;
 }
 
+.trust {
+  margin: -6px 0 10px 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(246, 248, 246, 0.82);
+  text-align: center;
+}
+
 .form {
   display: grid;
   gap: 8px;
@@ -33,10 +41,17 @@
   gap: 6px;
 }
 
+.gateRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .label {
   font-size: 12px;
   font-weight: 700;
-  color: #0b1f14;
+  color: #f6f8f6;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -59,11 +74,23 @@
   transition: all 120ms ease-out;
 }
 
+.ctaChip {
+  background: linear-gradient(180deg, rgba(35, 164, 95, 0.35) 0%, rgba(15, 122, 58, 0.25) 100%);
+  border-color: rgba(35, 164, 95, 0.8);
+}
+
 .chipSelected {
   background: linear-gradient(180deg, #23a45f 0%, #0f7a3a 100%);
   color: #fff;
   border-color: #23a45f;
   box-shadow: 0 8px 18px rgba(35, 164, 95, 0.26);
+}
+
+.actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  justify-items: center;
 }
 
 .submit {

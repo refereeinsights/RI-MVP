@@ -4,8 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { sendTiAnalytics } from "@/lib/analytics";
 import styles from "./QuickVenueCheck.module.css";
 
+type VenueOption = { id: string; name: string | null };
+
 type Props = {
-  venueId: string;
+  venueId?: string;
+  venueOptions?: VenueOption[];
   pageType: "venue" | "tournament";
   sourceTournamentId?: string | null;
 };
@@ -13,18 +16,26 @@ type Props = {
 type ScoreOption = { label: string; value: number };
 type EnumOption = { label: string; value: string };
 
-const SCORE_OPTIONS: ScoreOption[] = [
-  { label: "1", value: 1 },
-  { label: "2", value: 2 },
-  { label: "3", value: 3 },
-  { label: "4", value: 4 },
-  { label: "5", value: 5 },
+const CLEANLINESS_OPTIONS: ScoreOption[] = [
+  { label: "Poor", value: 1 },
+  { label: "Fair", value: 2 },
+  { label: "Good", value: 3 },
+  { label: "Great", value: 4 },
+  { label: "Spotless", value: 5 },
 ];
 
 const PARKING_OPTIONS: EnumOption[] = [
   { label: "Close", value: "Close" },
   { label: "Medium", value: "Medium" },
   { label: "Far", value: "Far" },
+];
+
+const SHADE_OPTIONS: ScoreOption[] = [
+  { label: "None", value: 1 },
+  { label: "Poor", value: 2 },
+  { label: "Fair", value: 3 },
+  { label: "Good", value: 4 },
+  { label: "Great", value: 5 },
 ];
 
 const RESTROOM_OPTIONS: EnumOption[] = [
@@ -45,8 +56,11 @@ function useBrowserHash() {
   }, []);
 }
 
-export function QuickVenueCheck({ venueId, pageType, sourceTournamentId }: Props) {
+export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournamentId }: Props) {
   const browserHash = useBrowserHash();
+  const multiVenue = (venueOptions?.length ?? 0) > 1;
+  const singleVenueId = !multiVenue ? venueOptions?.[0]?.id || venueId || null : null;
+
   const [restroomCleanliness, setRestroomCleanliness] = useState<number | null>(null);
   const [parkingDistance, setParkingDistance] = useState<string | null>(null);
   const [shadeScore, setShadeScore] = useState<number | null>(null);
@@ -57,23 +71,44 @@ export function QuickVenueCheck({ venueId, pageType, sourceTournamentId }: Props
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(true);
   const openedOnce = useMemo(() => ({ sent: false }), []);
+  const [gate, setGate] = useState<"gate" | "form" | "dismissed">("gate");
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(singleVenueId);
 
   useEffect(() => {
     if (!openedOnce.sent) {
       openedOnce.sent = true;
       sendTiAnalytics("Venue Quick Check Opened", {
-        venueUuid: venueId,
+        venueUuid: selectedVenueId ?? venueId ?? null,
         pageType,
         sourceTournamentUuid: sourceTournamentId ?? null,
       });
     }
-  }, [venueId, pageType, sourceTournamentId, openedOnce]);
+  }, [venueId, selectedVenueId, pageType, sourceTournamentId, openedOnce]);
 
   const selectedCount = [restroomCleanliness, parkingDistance, shadeScore, bringChairs, restroomType].filter(
     (v) => v !== null
   ).length;
+  const resolvedVenueId = selectedVenueId || venueId || null;
 
-  const disabled = submitting || selectedCount < 2;
+  const disabled = submitting || selectedCount < 1 || !resolvedVenueId;
+
+  function handleGate(choice: "yes" | "no") {
+    if (choice === "yes") {
+      setGate("form");
+      sendTiAnalytics("Venue Quick Check Started", {
+        venueUuid: resolvedVenueId,
+        pageType,
+        sourceTournamentUuid: sourceTournamentId ?? null,
+      });
+    } else {
+      setGate("dismissed");
+      sendTiAnalytics("Venue Quick Check Dismissed", {
+        venueUuid: resolvedVenueId,
+        pageType,
+        sourceTournamentUuid: sourceTournamentId ?? null,
+      });
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -85,7 +120,7 @@ export function QuickVenueCheck({ venueId, pageType, sourceTournamentId }: Props
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          venue_id: venueId,
+          venue_id: resolvedVenueId,
           browser_hash: browserHash,
           source_page_type: pageType,
           source_tournament_id: sourceTournamentId,
@@ -102,7 +137,7 @@ export function QuickVenueCheck({ venueId, pageType, sourceTournamentId }: Props
         throw new Error(json.error || "Unable to submit");
       }
       sendTiAnalytics("Venue Quick Check Submitted", {
-        venueUuid: venueId,
+        venueUuid: resolvedVenueId,
         pageType,
         sourceTournamentUuid: sourceTournamentId ?? null,
         fieldsCompleted: selectedCount,
@@ -115,23 +150,28 @@ export function QuickVenueCheck({ venueId, pageType, sourceTournamentId }: Props
     }
   }
 
+  if (!isOpen) {
+    return (
+      <button className={styles.reopen} type="button" onClick={() => setIsOpen(true)}>
+        Quick venue check
+      </button>
+    );
+  }
+
   if (done) {
     return (
       <div className={styles.card}>
         <button className={styles.close} type="button" onClick={() => setIsOpen(false)} aria-label="Close quick check">
           ×
         </button>
-        <div className={styles.title}>Thanks for the quick check!</div>
-        <p className={styles.note}>Your taps help keep venue info fresh for everyone.</p>
+        <div className={styles.title}>Thanks! Your venue tip helps other teams.</div>
+        <p className={styles.note}>Takes 5 seconds • No login required</p>
+        <div className={styles.actions}>
+          <button type="button" className={styles.reopen} onClick={() => setIsOpen(false)}>
+            View venue insights
+          </button>
+        </div>
       </div>
-    );
-  }
-
-  if (!isOpen) {
-    return (
-      <button className={styles.reopen} type="button" onClick={() => setIsOpen(true)}>
-        Quick venue check
-      </button>
     );
   }
 
@@ -141,17 +181,68 @@ export function QuickVenueCheck({ venueId, pageType, sourceTournamentId }: Props
         ×
       </button>
       <div className={styles.title}>Quick venue check</div>
-      <p className={styles.note}>Been here before? Tap what you remember.</p>
+      {gate === "gate" ? (
+        <>
+          <p className={styles.note}>Have you played here before?</p>
+          <p className={styles.trust}>Takes 5 seconds • No login required</p>
+          <div className={styles.gateRow}>
+            <button type="button" className={`${styles.chip} ${styles.ctaChip}`} onClick={() => handleGate("yes")}>
+              Yes
+            </button>
+            <button type="button" className={styles.chip} onClick={() => handleGate("no")}>
+              No
+            </button>
+          </div>
+        </>
+      ) : gate === "dismissed" ? (
+        <p className={styles.note}>Thanks for checking.</p>
+      ) : (
+        <>
+          {multiVenue ? (
+            <div className={styles.field}>
+              <div className={styles.label}>Which venue?</div>
+              <div className={styles.chips}>
+                {venueOptions?.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className={`${styles.chip} ${selectedVenueId === opt.id ? styles.chipSelected : ""}`}
+                    onClick={() => setSelectedVenueId((prev) => (prev === opt.id ? null : opt.id))}
+                  >
+                    {opt.name || "Venue"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <p className={styles.note}>Tap anything you remember.</p>
+          <p className={styles.trust}>Takes 5 seconds • No login required</p>
       <form onSubmit={handleSubmit} className={styles.form}>
+        <div className={styles.field}>
+          <div className={styles.label}>Restroom type</div>
+          <div className={styles.chips}>
+            {RESTROOM_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`${styles.chip} ${restroomType === opt.value ? styles.chipSelected : ""}`}
+                onClick={() => setRestroomType((prev) => (prev === opt.value ? null : opt.value))}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className={styles.field}>
           <div className={styles.label}>Restroom cleanliness</div>
           <div className={styles.chips}>
-            {SCORE_OPTIONS.map((opt) => (
+            {CLEANLINESS_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
                 className={`${styles.chip} ${restroomCleanliness === opt.value ? styles.chipSelected : ""}`}
-                onClick={() => setRestroomCleanliness(opt.value)}
+                onClick={() => setRestroomCleanliness((prev) => (prev === opt.value ? null : opt.value))}
               >
                 {opt.label}
               </button>
@@ -167,23 +258,7 @@ export function QuickVenueCheck({ venueId, pageType, sourceTournamentId }: Props
                 key={opt.value}
                 type="button"
                 className={`${styles.chip} ${parkingDistance === opt.value ? styles.chipSelected : ""}`}
-                onClick={() => setParkingDistance(opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className={styles.field}>
-          <div className={styles.label}>Shade</div>
-          <div className={styles.chips}>
-            {SCORE_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`${styles.chip} ${shadeScore === opt.value ? styles.chipSelected : ""}`}
-                onClick={() => setShadeScore(opt.value)}
+                onClick={() => setParkingDistance((prev) => (prev === opt.value ? null : opt.value))}
               >
                 {opt.label}
               </button>
@@ -197,14 +272,14 @@ export function QuickVenueCheck({ venueId, pageType, sourceTournamentId }: Props
             <button
               type="button"
               className={`${styles.chip} ${bringChairs === true ? styles.chipSelected : ""}`}
-              onClick={() => setBringChairs(true)}
+              onClick={() => setBringChairs((prev) => (prev === true ? null : true))}
             >
               Yes
             </button>
             <button
               type="button"
               className={`${styles.chip} ${bringChairs === false ? styles.chipSelected : ""}`}
-              onClick={() => setBringChairs(false)}
+              onClick={() => setBringChairs((prev) => (prev === false ? null : false))}
             >
               No
             </button>
@@ -212,14 +287,14 @@ export function QuickVenueCheck({ venueId, pageType, sourceTournamentId }: Props
         </div>
 
         <div className={styles.field}>
-          <div className={styles.label}>Restroom type</div>
+          <div className={styles.label}>Shade</div>
           <div className={styles.chips}>
-            {RESTROOM_OPTIONS.map((opt) => (
+            {SHADE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
-                className={`${styles.chip} ${restroomType === opt.value ? styles.chipSelected : ""}`}
-                onClick={() => setRestroomType(opt.value)}
+                className={`${styles.chip} ${shadeScore === opt.value ? styles.chipSelected : ""}`}
+                onClick={() => setShadeScore((prev) => (prev === opt.value ? null : opt.value))}
               >
                 {opt.label}
               </button>
@@ -234,6 +309,8 @@ export function QuickVenueCheck({ venueId, pageType, sourceTournamentId }: Props
         </button>
         <input type="text" name="website" className={styles.honeypot} tabIndex={-1} autoComplete="off" />
       </form>
+        </>
+      )}
     </div>
   );
 }
