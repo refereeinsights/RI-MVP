@@ -63,6 +63,26 @@ type EventCodeLoadResult = {
   error: string | null;
 };
 
+type QuickCheckMetrics = {
+  windowDays: number;
+  totalOpened: number;
+  totalStarted: number;
+  totalDismissed: number;
+  totalSubmitted: number;
+  totalSubmissions: number;
+  avgFieldsCompleted: number;
+  submissionFieldCounts: Record<string, number>;
+  submissionPageTypeCounts: Record<string, number>;
+  topTournamentsByStarted: Array<{
+    tournamentId: string | null;
+    startedCount: number;
+    tournamentName: string | null;
+    tournamentSlug: string | null;
+    tournamentSport: string | null;
+    tournamentState: string | null;
+  }>;
+};
+
 const TI_SPORTS = [
   "soccer",
   "basketball",
@@ -576,6 +596,8 @@ export default async function TiAdminPage({
   const { data: tiUsers, error: tiUsersErr } = await query;
   const authTroubleshoot = await loadAuthTroubleshooting(q);
   const eventCodes = await loadEventCodes();
+  const { data: quickCheckMetricsRaw } = await (supabaseAdmin as any).rpc("get_venue_quick_check_metrics", { p_days: 30 });
+  const quickCheckMetrics = (quickCheckMetricsRaw ?? null) as QuickCheckMetrics | null;
 
   return (
     <main style={{ maxWidth: 1400, margin: "0 auto", padding: "1rem" }}>
@@ -644,6 +666,154 @@ export default async function TiAdminPage({
           {notice}
         </p>
       ) : null}
+
+      <details style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16, background: "#fff" }} open>
+        <summary
+          style={{
+            cursor: "pointer",
+            listStyle: "auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            fontWeight: 800,
+          }}
+        >
+          <span>Quick Venue Check Analytics</span>
+          <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+            {quickCheckMetrics ? `Last ${quickCheckMetrics.windowDays} days` : "Metrics unavailable"}
+          </span>
+        </summary>
+        {quickCheckMetrics ? (
+          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              {[
+                { label: "Opened", value: quickCheckMetrics.totalOpened },
+                { label: "Yes (Started)", value: quickCheckMetrics.totalStarted },
+                { label: "No (Dismissed)", value: quickCheckMetrics.totalDismissed },
+                { label: "Submitted (event)", value: quickCheckMetrics.totalSubmitted },
+                { label: "Submissions (DB)", value: quickCheckMetrics.totalSubmissions },
+                { label: "Avg fields", value: quickCheckMetrics.avgFieldsCompleted },
+              ].map((tile) => (
+                <div
+                  key={tile.label}
+                  style={{
+                    minWidth: 160,
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: "1px solid #e2e8f0",
+                    background: "#f8fafc",
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: "#64748b", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    {tile.label}
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 900, marginTop: 2 }}>{tile.value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "grid", gap: 10 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {[
+                  { label: "Restroom type", key: "restroom_type" },
+                  { label: "Cleanliness", key: "restroom_cleanliness" },
+                  { label: "Parking distance", key: "parking_distance" },
+                  { label: "Shade score", key: "shade_score" },
+                  { label: "Bring chairs", key: "bring_field_chairs" },
+                ].map((row) => (
+                  <div
+                    key={row.key}
+                    style={{
+                      minWidth: 180,
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid #e2e8f0",
+                      background: "#ffffff",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>{row.label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, marginTop: 2 }}>
+                      {quickCheckMetrics.submissionFieldCounts?.[row.key] ?? 0}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {[
+                  { label: "From venue pages", key: "venue" },
+                  { label: "From tournament pages", key: "tournament" },
+                  { label: "Unknown source", key: "unknown" },
+                ].map((row) => (
+                  <div
+                    key={row.key}
+                    style={{
+                      minWidth: 200,
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid #e2e8f0",
+                      background: "#ffffff",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>{row.label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, marginTop: 2 }}>
+                      {quickCheckMetrics.submissionPageTypeCounts?.[row.key] ?? 0}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {quickCheckMetrics.topTournamentsByStarted?.length ? (
+              <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "10px 12px", background: "#f8fafc", fontWeight: 900 }}>
+                  Top tournaments by “Yes” (Started)
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left" }}>
+                        <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>Tournament</th>
+                        <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>Sport</th>
+                        <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>State</th>
+                        <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>Started</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quickCheckMetrics.topTournamentsByStarted.map((row) => {
+                        const label = row.tournamentName || row.tournamentId || "Unknown";
+                        const href =
+                          row.tournamentSlug ? `${tiAdminBaseUrl}/tournaments/${row.tournamentSlug}` : null;
+                        return (
+                          <tr key={row.tournamentId ?? label} style={{ borderTop: "1px solid #e5e7eb" }}>
+                            <td style={{ padding: "10px 12px", fontWeight: 800 }}>
+                              {href ? (
+                                <a href={href} target="_blank" rel="noreferrer" style={{ color: "#1d4ed8", textDecoration: "none" }}>
+                                  {label}
+                                </a>
+                              ) : (
+                                label
+                              )}
+                            </td>
+                            <td style={{ padding: "10px 12px" }}>{row.tournamentSport ?? "—"}</td>
+                            <td style={{ padding: "10px 12px" }}>{row.tournamentState ?? "—"}</td>
+                            <td style={{ padding: "10px 12px", fontWeight: 900 }}>{row.startedCount}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div style={{ marginTop: 12, color: "#64748b" }}>
+            Quick check metrics RPC not found yet (apply latest Supabase migrations).
+          </div>
+        )}
+      </details>
 
       <details
         style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16, background: "#fff" }}

@@ -90,6 +90,16 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
   ).length;
   const resolvedVenueId = selectedVenueId || venueId || null;
 
+  const fieldsAnswered = useMemo(() => {
+    const out: string[] = [];
+    if (restroomType !== null) out.push("restroom_type");
+    if (restroomCleanliness !== null) out.push("restroom_cleanliness");
+    if (parkingDistance !== null) out.push("parking_distance");
+    if (shadeScore !== null) out.push("shade_score");
+    if (bringChairs !== null) out.push("bring_field_chairs");
+    return out;
+  }, [restroomType, restroomCleanliness, parkingDistance, shadeScore, bringChairs]);
+
   const disabled = submitting || selectedCount < 1 || !resolvedVenueId;
 
   function handleGate(choice: "yes" | "no") {
@@ -141,6 +151,7 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
         pageType,
         sourceTournamentUuid: sourceTournamentId ?? null,
         fieldsCompleted: selectedCount,
+        fieldsAnswered,
       });
       setDone(true);
     } catch (err: any) {
