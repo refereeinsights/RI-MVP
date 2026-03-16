@@ -618,6 +618,7 @@ export async function POST(request: Request) {
   const nowIso = new Date().toISOString();
   const cooldownDays = 10;
   const cooldownCutoffMs = Date.now() - cooldownDays * 24 * 60 * 60 * 1000;
+  const tournamentIdParam = (searchParams.get("tournament_id") ?? "").trim();
 
   const fetchTargetTournaments = async () => {
     const withCooldownSelect = "id,name,city,state,official_website_url,source_url,fees_venue_scraped_at";
@@ -696,7 +697,26 @@ export async function POST(request: Request) {
     return fallback;
   };
 
-  const { data: tournaments, error } = await fetchTargetTournaments();
+  let tournaments: any[] | null = null;
+  let error: any = null;
+  if (tournamentIdParam) {
+    const { data, error: fetchError } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("id,name,city,state,official_website_url,source_url,fees_venue_scraped_at,venue,address,venue_url,enrichment_skip,status,is_canonical")
+      .eq("id", tournamentIdParam)
+      .maybeSingle();
+    if (fetchError) {
+      error = fetchError;
+    } else if (!data) {
+      return NextResponse.json({ error: "tournament_not_found", tournament_id: tournamentIdParam }, { status: 404 });
+    } else {
+      tournaments = [data];
+    }
+  } else {
+    const resp = await fetchTargetTournaments();
+    tournaments = (resp.data as any[] | null) ?? null;
+    error = resp.error;
+  }
 
   if (error) {
     return NextResponse.json({ error: "fetch_tournaments_failed", detail: error.message }, { status: 500 });
