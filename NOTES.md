@@ -26,4 +26,5 @@
 - Quick Venue Check: multi-venue tournaments now pass venueOptions and require a venue pick before submit.
 - Quick Venue Check: improved chip labels (shade: None/Poor/Fair/Good/Great; cleanliness: Poor/Fair/Good/Great/Spotless) and moved restroom type above cleanliness.
 - Quick Venue Check: all chip selections are now toggleable (click again to de-select).
-- Quick Venue Check: persist funnel events to `venue_quick_check_events` and added `/admin/ti` dashboard tiles/top tournaments via `get_venue_quick_check_metrics`.
+- Quick Venue Check: persist funnel events to `venue_quick_check_events` (and include `fieldsAnswered` on submit) + added `/admin/ti` dashboard tiles/top tournaments via `get_venue_quick_check_metrics` (migration `20260316_quick_check_analytics.sql`).
+- RI: fixed `/admin` runtime error by importing `getSportValidationCounts` on `apps/referee/app/admin/page.tsx`.
