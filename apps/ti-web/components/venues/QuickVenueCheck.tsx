@@ -55,14 +55,19 @@ export function QuickVenueCheck({ venueId, pageType, sourceTournamentId }: Props
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(true);
+  const openedOnce = useMemo(() => ({ sent: false }), []);
 
   useEffect(() => {
-    sendTiAnalytics("Venue Quick Check Opened", {
-      venueUuid: venueId,
-      pageType,
-      sourceTournamentUuid: sourceTournamentId ?? null,
-    });
-  }, [venueId, pageType, sourceTournamentId]);
+    if (!openedOnce.sent) {
+      openedOnce.sent = true;
+      sendTiAnalytics("Venue Quick Check Opened", {
+        venueUuid: venueId,
+        pageType,
+        sourceTournamentUuid: sourceTournamentId ?? null,
+      });
+    }
+  }, [venueId, pageType, sourceTournamentId, openedOnce]);
 
   const selectedCount = [restroomCleanliness, parkingDistance, shadeScore, bringChairs, restroomType].filter(
     (v) => v !== null
@@ -113,14 +118,28 @@ export function QuickVenueCheck({ venueId, pageType, sourceTournamentId }: Props
   if (done) {
     return (
       <div className={styles.card}>
+        <button className={styles.close} type="button" onClick={() => setIsOpen(false)} aria-label="Close quick check">
+          ×
+        </button>
         <div className={styles.title}>Thanks for the quick check!</div>
         <p className={styles.note}>Your taps help keep venue info fresh for everyone.</p>
       </div>
     );
   }
 
+  if (!isOpen) {
+    return (
+      <button className={styles.reopen} type="button" onClick={() => setIsOpen(true)}>
+        Quick venue check
+      </button>
+    );
+  }
+
   return (
     <div className={styles.card}>
+      <button className={styles.close} type="button" onClick={() => setIsOpen(false)} aria-label="Close quick check">
+        ×
+      </button>
       <div className={styles.title}>Quick venue check</div>
       <p className={styles.note}>Been here before? Tap what you remember.</p>
       <form onSubmit={handleSubmit} className={styles.form}>

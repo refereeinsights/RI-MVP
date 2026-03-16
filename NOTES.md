@@ -17,3 +17,4 @@
 - /admin/tournaments/dashboard now pages through all tournaments (no 1000 cap).
 - Added anonymous “Quick Venue Check” widget (TI) with chip inputs, analytics, rate-limit per venue/browser, honeypot, and Supabase insert to new venue_quick_checks table; aggregates now union quick checks into venue averages.
 - Quick Venue Check embedded on TI venue detail and tournament detail (first linked venue).
+- Quick Venue Check restyled to match venue badges (dark translucent card, green accents), added close/reopen control, and guarded analytics open event to fire once per page.

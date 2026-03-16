@@ -1,27 +1,31 @@
 .card {
-  background: #ffffff;
-  border: 1px solid rgba(0,0,0,0.06);
-  border-radius: 14px;
+  position: relative;
+  background: rgba(19, 36, 26, 0.82);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 16px;
   padding: 14px 14px 12px;
-  box-shadow: 0 14px 32px rgba(0,0,0,0.08);
+  box-shadow: 0 14px 32px rgba(0,0,0,0.12);
+  color: #f6f8f6;
 }
 
 .title {
   font-size: 16px;
   font-weight: 800;
-  color: #0b1f14;
-  margin: 0 0 4px 0;
+  color: #fdfdfd;
+  margin: 0 0 2px 0;
+  text-align: center;
 }
 
 .note {
   margin: 0 0 10px 0;
-  font-size: 13px;
-  color: #34453a;
+  font-size: 12px;
+  color: #dfe5df;
+  text-align: center;
 }
 
 .form {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .field {
@@ -39,34 +43,34 @@
 
 .chips {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 5px;
 }
 
 .chip {
   padding: 10px 8px;
   border-radius: 12px;
-  border: 1px solid rgba(0,0,0,0.12);
-  background: #f8faf7;
-  color: #0b1f14;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.08);
+  color: #f6f8f6;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   text-align: center;
   transition: all 120ms ease-out;
 }
 
 .chipSelected {
-  background: #0f7a3a;
+  background: linear-gradient(180deg, #23a45f 0%, #0f7a3a 100%);
   color: #fff;
-  border-color: #0f7a3a;
-  box-shadow: 0 8px 18px rgba(15, 122, 58, 0.25);
+  border-color: #23a45f;
+  box-shadow: 0 8px 18px rgba(35, 164, 95, 0.26);
 }
 
 .submit {
   padding: 12px;
   border-radius: 12px;
   border: none;
-  background: #0f7a3a;
+  background: linear-gradient(180deg, #0f7a3a 0%, #0c5d2c 100%);
   color: #fff;
   font-weight: 800;
   font-size: 15px;
@@ -87,6 +91,36 @@
 
 .honeypot {
   display: none;
+}
+
+.close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: none;
+  background: transparent;
+  color: #f6f8f6;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.close:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.reopen {
+  background: rgba(19, 36, 26, 0.7);
+  color: #f6f8f6;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.18);
 }
 
 @media (max-width: 640px) {
