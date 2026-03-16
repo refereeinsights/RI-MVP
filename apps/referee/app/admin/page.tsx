@@ -170,6 +170,42 @@ function SummaryTile({ label, value, tone }: { label: string; value: number | st
   );
 }
 
+function SummaryTileLink({
+  label,
+  value,
+  href,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  href: string;
+  tone?: "warn" | "info" | "success";
+}) {
+  const bg =
+    tone === "warn" ? "#fef3c7" : tone === "success" ? "#ecfdf3" : tone === "info" ? "#eff6ff" : "#f9fafb";
+  const color =
+    tone === "warn" ? "#92400e" : tone === "success" ? "#166534" : tone === "info" ? "#1d4ed8" : "#111827";
+  return (
+    <a
+      href={href}
+      style={{
+        display: "block",
+        padding: "10px 12px",
+        borderRadius: 10,
+        border: "1px solid rgba(0,0,0,0.06)",
+        background: bg,
+        minWidth: 120,
+        textDecoration: "none",
+      }}
+    >
+      <div style={{ fontSize: 12, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
+    </a>
+  );
+}
+
 function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -2927,7 +2963,7 @@ export default async function AdminPage({
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
         <SummaryTile label="Published" value={publishedCountRes.count ?? 0} />
         <SummaryTile label="Draft" value={draftCountRes.count ?? 0} tone="info" />
-        <SummaryTile label="Missing venues" value={missingVenueCountRes.count ?? 0} tone="warn" />
+        <SummaryTileLink label="Missing venues" value={missingVenueCountRes.count ?? 0} tone="warn" href="/admin/tournaments/missing-venues" />
         <SummaryTile label="Missing URLs" value={missingUrlCountRes.count ?? 0} tone="warn" />
         <SummaryTile label="Missing dates" value={missingDateCountRes.count ?? 0} tone="warn" />
         <SummaryTile label="Validated (rule)" value={validationCounts.rule_confirmed ?? 0} tone="success" />
