@@ -16,6 +16,7 @@ import {
 } from "@/lib/identity/fingerprints";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { lookupSchoolZip } from "@/lib/googlePlaces";
+import { getSportValidationCounts } from "@/lib/validation/getSportValidationCounts";
 
 export const runtime = "nodejs";
 
