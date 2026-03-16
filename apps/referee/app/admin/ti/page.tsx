@@ -81,6 +81,15 @@ type QuickCheckMetrics = {
     tournamentSport: string | null;
     tournamentState: string | null;
   }>;
+  topVenuesBySubmissions: Array<{
+    venueId: string | null;
+    submissionCount: number;
+    lastSubmissionAt: string | null;
+    venueName: string | null;
+    venueCity: string | null;
+    venueState: string | null;
+    venueSeoSlug: string | null;
+  }>;
 };
 
 const TI_SPORTS = [
@@ -799,6 +808,55 @@ export default async function TiAdminPage({
                             <td style={{ padding: "10px 12px" }}>{row.tournamentSport ?? "—"}</td>
                             <td style={{ padding: "10px 12px" }}>{row.tournamentState ?? "—"}</td>
                             <td style={{ padding: "10px 12px", fontWeight: 900 }}>{row.startedCount}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            {quickCheckMetrics.topVenuesBySubmissions?.length ? (
+              <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "10px 12px", background: "#f8fafc", fontWeight: 900 }}>
+                  Top venues by submissions
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left" }}>
+                        <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>Venue</th>
+                        <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>City</th>
+                        <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>State</th>
+                        <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>Submissions</th>
+                        <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>Last</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quickCheckMetrics.topVenuesBySubmissions.map((row) => {
+                        const label = row.venueName || row.venueId || "Unknown";
+                        const venueHref = row.venueSeoSlug
+                          ? `${tiAdminBaseUrl}/venues/${row.venueSeoSlug}`
+                          : row.venueId
+                          ? `${tiAdminBaseUrl}/venues/${row.venueId}`
+                          : null;
+                        const last = row.lastSubmissionAt ? fmtDate(row.lastSubmissionAt) : "—";
+                        return (
+                          <tr key={row.venueId ?? label} style={{ borderTop: "1px solid #e5e7eb" }}>
+                            <td style={{ padding: "10px 12px", fontWeight: 800 }}>
+                              {venueHref ? (
+                                <a href={venueHref} target="_blank" rel="noreferrer" style={{ color: "#1d4ed8", textDecoration: "none" }}>
+                                  {label}
+                                </a>
+                              ) : (
+                                label
+                              )}
+                            </td>
+                            <td style={{ padding: "10px 12px" }}>{row.venueCity ?? "—"}</td>
+                            <td style={{ padding: "10px 12px" }}>{row.venueState ?? "—"}</td>
+                            <td style={{ padding: "10px 12px", fontWeight: 900 }}>{row.submissionCount}</td>
+                            <td style={{ padding: "10px 12px" }}>{last}</td>
                           </tr>
                         );
                       })}
