@@ -62,6 +62,14 @@ function normalizeDirectorEmail(value: string | null | undefined) {
   return normalized;
 }
 
+function parseCooldownDays() {
+  const raw = process.env.OUTREACH_COOLDOWN_DAYS;
+  if (!raw) return 30;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return 30;
+  return Math.max(0, Math.min(Math.floor(parsed), 3650));
+}
+
 export async function POST(request: NextRequest) {
   const headerKey = request.headers.get("X-OUTREACH-KEY") || "";
   const expected = getOutreachGuardSecret();
@@ -133,6 +141,29 @@ export async function POST(request: NextRequest) {
   for (const row of (existingPreviewEmails ?? []) as Array<{ director_email: string | null }>) {
     const normalized = normalizeDirectorEmail(row.director_email);
     if (normalized) blockedDirectorEmails.add(normalized);
+  }
+
+  // Cross-campaign cooldown to avoid emailing the same director repeatedly.
+  // Applies within the sport selected for generation.
+  const cooldownDays = parseCooldownDays();
+  if (cooldownDays > 0) {
+    const sinceIso = new Date(Date.now() - cooldownDays * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentlySentRows, error: recentlySentError } = await (supabaseAdmin.from(
+      "email_outreach_previews" as any
+    ) as any)
+      .select("director_email")
+      .eq("sport", sport)
+      .eq("status", "sent")
+      .gte("created_at", sinceIso);
+
+    if (recentlySentError) {
+      return NextResponse.json({ error: recentlySentError.message }, { status: 500 });
+    }
+
+    for (const row of (recentlySentRows ?? []) as Array<{ director_email: string | null }>) {
+      const normalized = normalizeDirectorEmail(row.director_email);
+      if (normalized) blockedDirectorEmails.add(normalized);
+    }
   }
   const batchSize = Math.min(Math.max(limit * 4, 100), 500);
   let offset = 0;
