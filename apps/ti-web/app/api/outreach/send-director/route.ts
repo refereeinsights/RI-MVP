@@ -15,6 +15,7 @@ type PreviewRow = {
   text_body: string;
   director_email: string;
   tournament_id: string | null;
+  tournament_ids?: string[] | null;
 };
 
 type SuppressionRow = {
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { data, error } = await (supabaseAdmin.from("email_outreach_previews" as any) as any)
-    .select("id,subject,html_body,text_body,director_email,tournament_id")
+    .select("id,subject,html_body,text_body,director_email,tournament_id,tournament_ids")
     .in("id", ids);
 
   if (error) {
@@ -59,7 +60,14 @@ export async function POST(request: NextRequest) {
   }
 
   const previews = (data ?? []) as PreviewRow[];
-  const tournamentIds = Array.from(new Set(previews.map((row) => row.tournament_id).filter(Boolean))) as string[];
+  const tournamentIds = Array.from(
+    new Set(
+      previews
+        .flatMap((row) => [row.tournament_id, ...(((row.tournament_ids ?? []) as string[]) || [])])
+        .map((value) => (value || "").trim())
+        .filter(Boolean)
+    )
+  ) as string[];
   const suppressed = new Set<string>();
 
   if (tournamentIds.length > 0) {
@@ -91,7 +99,14 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    if (preview.tournament_id && suppressed.has(preview.tournament_id)) {
+    const idsForPreview = Array.from(
+      new Set(
+        [preview.tournament_id, ...(((preview.tournament_ids ?? []) as string[]) || [])]
+          .map((value) => (value || "").trim())
+          .filter(Boolean)
+      )
+    );
+    if (idsForPreview.length > 0 && idsForPreview.every((id) => suppressed.has(id))) {
       skipped += 1;
       continue;
     }

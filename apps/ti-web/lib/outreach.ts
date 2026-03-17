@@ -28,6 +28,13 @@ export type SportVerifyEmailInput = SoccerVerifyEmailInput & {
 
 export type SportIntroReplyEmailInput = Omit<SoccerVerifyEmailInput, "verifyUrl"> & {
   sport: OutreachSport;
+  tournaments?: Array<{
+    id: string;
+    name: string | null;
+    startDate: string | null;
+    city: string | null;
+    state: string | null;
+  }>;
 };
 
 export function getOutreachMode() {
@@ -96,22 +103,31 @@ export function buildVerifyUrl({
 export function buildOutreachUnsubscribeUrl({
   sport,
   tournamentId,
+  tournamentIds,
   directorEmail,
 }: {
   sport: OutreachSport;
   tournamentId: string;
+  tournamentIds?: string[];
   directorEmail: string;
 }) {
+  const normalizedIds = Array.from(
+    new Set([tournamentId, ...(tournamentIds ?? [])].map((value) => String(value || "").trim()).filter(Boolean))
+  ).sort();
   const payload = JSON.stringify({
     sport,
-    tournamentId,
+    tournamentIds: normalizedIds,
     directorEmail: directorEmail.trim().toLowerCase(),
   });
   const token = signPayload(payload);
 
   const url = new URL("/unsubscribe-outreach", SITE_ORIGIN);
   url.searchParams.set("sport", sport);
-  url.searchParams.set("tournamentId", tournamentId);
+  if (normalizedIds.length === 1) {
+    url.searchParams.set("tournamentId", normalizedIds[0]);
+  } else {
+    url.searchParams.set("tournamentIds", normalizedIds.join(","));
+  }
   url.searchParams.set("email", directorEmail.trim().toLowerCase());
   url.searchParams.set("token", token);
   return url.toString();
@@ -120,17 +136,22 @@ export function buildOutreachUnsubscribeUrl({
 export function verifyOutreachUnsubscribeToken({
   sport,
   tournamentId,
+  tournamentIds,
   directorEmail,
   token,
 }: {
   sport: string;
   tournamentId: string;
+  tournamentIds?: string[];
   directorEmail: string;
   token: string;
 }) {
+  const normalizedIds = Array.from(
+    new Set([tournamentId, ...(tournamentIds ?? [])].map((value) => String(value || "").trim()).filter(Boolean))
+  ).sort();
   const payload = JSON.stringify({
     sport: normalizeOutreachSport(sport),
-    tournamentId,
+    tournamentIds: normalizedIds,
     directorEmail: directorEmail.trim().toLowerCase(),
   });
   const expected = signPayload(payload);
@@ -184,6 +205,7 @@ export function buildSportIntroReplyEmail({
   firstName,
   unsubscribeUrl,
   tournamentName,
+  tournaments,
   variant,
 }: SportIntroReplyEmailInput): SoccerVerifyEmailOutput {
   return buildSportDirectorIntroReplyEmail({
@@ -191,6 +213,7 @@ export function buildSportIntroReplyEmail({
     firstName: firstName ?? undefined,
     unsubscribeUrl,
     tournamentName: tournamentName ?? "",
+    tournaments,
     variant,
   });
 }

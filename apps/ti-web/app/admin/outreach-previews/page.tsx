@@ -23,6 +23,7 @@ type PreviewRow = {
   sport: string;
   campaign_id: string;
   tournament_id: string | null;
+  tournament_ids?: string[] | null;
   tournament_name: string;
   tournament_start_date?: string | null;
   director_email: string;

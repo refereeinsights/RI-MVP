@@ -15,6 +15,7 @@ type PreviewRow = {
   subject: string;
   status: string;
   tournament_id: string | null;
+  tournament_ids?: string[] | null;
 };
 
 type OutreachPreviewsTableProps = {
@@ -90,19 +91,27 @@ export default function OutreachPreviewsTable({
     const tasks = selectedIds
       .map((id) => previewById.get(id))
       .filter((preview): preview is PreviewRow => Boolean(preview && preview.tournament_id))
-      .map((preview) =>
-        fetch("/api/outreach/suppressions", {
+      .map((preview) => {
+        const tournamentIds = Array.from(
+          new Set(
+            [preview.tournament_id, ...((preview.tournament_ids ?? []) as string[])]
+              .map((value) => (value || "").trim())
+              .filter(Boolean)
+          )
+        );
+        return fetch("/api/outreach/suppressions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             preview_id: preview.id,
             tournament_id: preview.tournament_id,
+            tournament_ids: tournamentIds,
             sport: preview.sport || sport,
             director_email: preview.director_email,
             reason: "removed",
           }),
-        })
-      );
+        });
+      });
 
     const results = await Promise.all(tasks);
     const failures = results.filter((res) => !res.ok).length;
@@ -187,14 +196,22 @@ export default function OutreachPreviewsTable({
                   </td>
                   <td style={tdStyle}>{formatDate(preview.created_at)}</td>
                   <td style={tdStyle}>{startLabel || "TBA"}</td>
-                  <td style={tdStyle}>
-                    <Link href={href} style={rowLinkStyle}>
+                <td style={tdStyle}>
+                  <Link href={href} style={rowLinkStyle}>
                       {preview.tournament_name}
-                    </Link>
-                    <div className="muted" style={{ marginTop: 4, fontSize: 12, lineHeight: 1.45 }}>
-                      {preview.subject}
-                    </div>
-                  </td>
+                  </Link>
+                  {(() => {
+                    const count = (preview.tournament_ids ?? []).length;
+                    return count > 1 ? (
+                      <span className="muted" style={{ marginLeft: 8, fontSize: 12 }}>
+                        (+{count - 1} more)
+                      </span>
+                    ) : null;
+                  })()}
+                  <div className="muted" style={{ marginTop: 4, fontSize: 12, lineHeight: 1.45 }}>
+                    {preview.subject}
+                  </div>
+                </td>
                   <td style={tdStyle}>{preview.director_email}</td>
                   <td style={tdStyle}>
                     <div style={{ display: "grid", gap: 6 }}>

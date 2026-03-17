@@ -33,6 +33,8 @@ type TournamentRow = {
   tournament_director: string | null;
   tournament_director_email: string | null;
   start_date?: string | null;
+  city?: string | null;
+  state?: string | null;
 };
 
 type SuppressionRow = {
@@ -109,9 +111,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "OUTREACH_TEST_RECIPIENT must be a valid email." }, { status: 500 });
   }
 
-  const eligibleRows: TournamentRow[] = [];
   const seenTournamentIds = new Set<string>();
-  const seenDirectorEmails = new Set<string>();
+  const blockedDirectorEmails = new Set<string>();
+
+  // For intro outreach, we want one email per director that can cover multiple tournaments.
+  // For verify-link outreach, we keep the existing one-tournament-per-email behavior.
+  const maxTournamentsPerDirector = emailKind === "intro_reply" ? 5 : 1;
+  const directorGroups = new Map<string, TournamentRow[]>();
 
   const { data: existingPreviewEmails, error: existingError } = await (supabaseAdmin.from(
     "email_outreach_previews" as any
@@ -126,19 +132,26 @@ export async function POST(request: NextRequest) {
 
   for (const row of (existingPreviewEmails ?? []) as Array<{ director_email: string | null }>) {
     const normalized = normalizeDirectorEmail(row.director_email);
-    if (normalized) seenDirectorEmails.add(normalized);
+    if (normalized) blockedDirectorEmails.add(normalized);
   }
   const batchSize = Math.min(Math.max(limit * 4, 100), 500);
   let offset = 0;
   let scanCount = 0;
 
-  while (eligibleRows.length < limit && scanCount < 20) {
+  function groupsHaveCapacity() {
+    for (const tournaments of directorGroups.values()) {
+      if (tournaments.length < maxTournamentsPerDirector) return true;
+    }
+    return false;
+  }
+
+  while ((directorGroups.size < limit || groupsHaveCapacity()) && scanCount < 20) {
     scanCount += 1;
     const from = offset;
     const to = offset + batchSize - 1;
 
     const { data, error } = await (supabaseAdmin.from("tournaments" as any) as any)
-      .select("id,name,sport,tournament_director,tournament_director_email,start_date")
+      .select("id,name,sport,tournament_director,tournament_director_email,start_date,city,state")
       .eq("sport", sport)
       .not("tournament_director_email", "is", null)
       .neq("tournament_director_email", "")
@@ -159,9 +172,11 @@ export async function POST(request: NextRequest) {
         const normalizedEmail = normalizeDirectorEmail(row.tournament_director_email);
         if (!row.id || !row.name || !normalizedEmail || !isValidEmail(normalizedEmail)) return null;
         if (seenTournamentIds.has(row.id)) return null;
-        if (seenDirectorEmails.has(normalizedEmail)) return null;
+        // Skip creating new director groups once we hit the preview limit, but still allow adding
+        // additional tournaments to directors we already selected.
+        if (!directorGroups.has(normalizedEmail) && directorGroups.size >= limit) return null;
+        if (blockedDirectorEmails.has(normalizedEmail)) return null;
         seenTournamentIds.add(row.id);
-        seenDirectorEmails.add(normalizedEmail);
         return {
           ...row,
           tournament_director_email: normalizedEmail,
@@ -184,33 +199,45 @@ export async function POST(request: NextRequest) {
 
     const suppressedIds = new Set(((suppressionData ?? []) as SuppressionRow[]).map((row) => row.tournament_id));
     const unsuppressedRows = candidateRows.filter((row) => !suppressedIds.has(row.id));
-    eligibleRows.push(...unsuppressedRows);
+
+    for (const row of unsuppressedRows) {
+      const directorEmail = String(row.tournament_director_email || "").trim().toLowerCase();
+      if (!directorEmail) continue;
+      const existing = directorGroups.get(directorEmail);
+      if (existing) {
+        if (existing.length < maxTournamentsPerDirector) {
+          existing.push(row);
+        }
+        continue;
+      }
+
+      if (directorGroups.size >= limit) continue;
+      directorGroups.set(directorEmail, [row]);
+    }
   }
 
-  if (eligibleRows.length > limit) {
-    eligibleRows.splice(limit);
-  }
-
-  if (eligibleRows.length === 0) {
+  if (directorGroups.size === 0) {
     return NextResponse.json({ created: 0 }, { status: 200 });
   }
 
   const mode = body.mode === "send" ? "send" : body.mode === "preview" ? "preview" : getOutreachMode();
   const records = [];
 
-  for (const row of eligibleRows) {
-    const directorEmail = emailOverride || row.tournament_director_email!.trim();
-    const variant = pickVariant(row.id);
+  for (const [directorEmailRaw, tournaments] of directorGroups.entries()) {
+    const directorEmail = emailOverride || directorEmailRaw.trim();
+    const primary = tournaments[0]!;
+    const variant = pickVariant(directorEmail);
     const unsubscribeUrl = buildOutreachUnsubscribeUrl({
       sport,
-      tournamentId: row.id,
+      tournamentId: primary.id,
+      tournamentIds: tournaments.map((t) => t.id),
       directorEmail,
     });
     const verifyUrl =
       emailKind === "verify_link"
         ? buildVerifyUrl({
             sport,
-            tournamentId: row.id,
+            tournamentId: primary.id,
             campaignId,
             variant,
           })
@@ -219,17 +246,24 @@ export async function POST(request: NextRequest) {
       emailKind === "intro_reply"
         ? buildSportIntroReplyEmail({
             sport,
-            firstName: inferFirstName(row.tournament_director),
+            firstName: inferFirstName(primary.tournament_director),
             unsubscribeUrl,
-            tournamentName: row.name,
+            tournamentName: primary.name,
+            tournaments: tournaments.map((t) => ({
+              id: t.id,
+              name: t.name,
+              startDate: t.start_date ?? null,
+              city: t.city ?? null,
+              state: t.state ?? null,
+            })),
             variant,
           })
         : buildSportVerifyEmail({
             sport,
-            firstName: inferFirstName(row.tournament_director),
+            firstName: inferFirstName(primary.tournament_director),
             verifyUrl,
             unsubscribeUrl,
-            tournamentName: row.name,
+            tournamentName: primary.name,
             variant,
           });
     const sendRecipient = localSendOverride || directorEmail;
@@ -253,7 +287,7 @@ export async function POST(request: NextRequest) {
             JSON.stringify({
               intended_recipient: directorEmail,
               sent_to: localSendOverride,
-              tournament_id: row.id,
+              tournament_id: primary.id,
               campaign_id: campaignId,
             })
           );
@@ -268,8 +302,9 @@ export async function POST(request: NextRequest) {
       sport,
       campaign_id: campaignId,
       variant,
-      tournament_id: row.id,
-      tournament_name: row.name!,
+      tournament_id: primary.id,
+      tournament_ids: tournaments.map((t) => t.id),
+      tournament_name: primary.name!,
       director_email: directorEmail,
       verify_url: verifyUrl,
       subject: email.subject,

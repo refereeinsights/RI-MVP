@@ -2,8 +2,17 @@ import type { OutreachVariant } from "@/lib/outreach/ab";
 
 type OutreachEmailSport = "soccer" | "baseball" | "softball";
 
+type TournamentListItem = {
+  id: string;
+  name: string | null;
+  startDate: string | null;
+  city: string | null;
+  state: string | null;
+};
+
 type BuildSportDirectorIntroReplyEmailInput = {
   tournamentName: string;
+  tournaments?: TournamentListItem[];
   firstName?: string;
   unsubscribeUrl?: string;
   variant: OutreachVariant;
@@ -20,12 +29,15 @@ const EMAIL_LOGO_URL = "https://www.tournamentinsights.com/brand/ti-email-logo-5
 
 export function buildSportDirectorIntroReplyEmail({
   tournamentName,
+  tournaments,
   firstName,
   unsubscribeUrl,
   variant,
   sport,
 }: BuildSportDirectorIntroReplyEmailInput): BuildSportDirectorIntroReplyEmailOutput {
-  const safeName = tournamentName.trim() || "your tournament";
+  const tournamentList = (tournaments ?? []).filter((t) => (t.name || "").trim());
+  const primaryName = (tournamentList[0]?.name || "").trim() || tournamentName.trim() || "your tournament";
+  const safeName = primaryName;
   const greeting = firstName?.trim() ? `Hi ${escapeHtml(firstName.trim())},` : "Hi,";
   const isUmpireSport = sport === "baseball" || sport === "softball";
   const officialRole = isUmpireSport ? "umpires" : "referees";
@@ -35,12 +47,47 @@ export function buildSportDirectorIntroReplyEmail({
       ? "Quick question about your tournament listing"
       : "Can you confirm a few tournament details?";
 
+  const listIntro =
+    tournamentList.length > 1
+      ? `We have the following tournaments listed under this email:`
+      : `We have <strong>${escapeHtml(safeName)}</strong> listed on TournamentInsights and want to make sure the details are accurate for teams, families, and ${escapeHtml(
+          officialRole
+        )}.`;
+
+  const listHtml =
+    tournamentList.length > 1
+      ? `
+        <p style="margin:0 0 12px 0;">${listIntro}</p>
+        <ul style="margin:0 0 18px 20px;padding:0;color:#0f172a;">
+          ${tournamentList
+            .map((t) => {
+              const label = buildTournamentLabel(t);
+              return `<li style="margin:0 0 8px 0;">${escapeHtml(label)}</li>`;
+            })
+            .join("")}
+        </ul>
+      `
+      : `
+        <p style="margin:0 0 16px 0;">${listIntro}</p>
+      `;
+
+  const listText =
+    tournamentList.length > 1
+      ? [
+          "We have the following tournaments listed under this email:",
+          ...tournamentList.map((t) => `- ${buildTournamentLabel(t)}`),
+          "",
+        ].join("\n")
+      : `We have ${safeName} listed on TournamentInsights and want to make sure the details are accurate for teams, families, and ${
+          isUmpireSport ? "umpires" : "referees"
+        }.\n\n`;
+
   const unsubscribeBlock = unsubscribeUrl
     ? `
       <tr>
         <td style="padding:0 22px 24px 22px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#64748b;">
-          If you'd rather not receive future outreach about this event, you can
-          <a href="${unsubscribeUrl}" style="color:#2563EB;text-decoration:underline;">remove this tournament from future campaigns</a>.
+          If you'd rather not receive future outreach about these events, you can
+          <a href="${unsubscribeUrl}" style="color:#2563EB;text-decoration:underline;">remove them from future campaigns</a>.
         </td>
       </tr>
     `
@@ -64,9 +111,7 @@ export function buildSportDirectorIntroReplyEmail({
             <tr>
               <td style="padding:10px 22px 0 22px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.7;color:#0f172a;">
                 <p style="margin:0 0 16px 0;">${greeting}</p>
-                <p style="margin:0 0 16px 0;">
-                  We have <strong>${escapeHtml(safeName)}</strong> listed on TournamentInsights and want to make sure the details are accurate for teams, families, and ${escapeHtml(officialRole)}.
-                </p>
+                ${listHtml}
                 <p style="margin:0 0 16px 0;">
                   Could you reply to this email with any corrections (or just reply “Looks good”)?
                 </p>
@@ -96,10 +141,7 @@ export function buildSportDirectorIntroReplyEmail({
   const textLines = [
     firstName?.trim() ? `Hi ${firstName.trim()},` : "Hi,",
     "",
-    `We have ${safeName} listed on TournamentInsights and want to make sure the details are accurate for teams, families, and ${
-      isUmpireSport ? "umpires" : "referees"
-    }.`,
-    "",
+    listText.trimEnd(),
     'Could you reply to this email with any corrections (or just reply "Looks good")?',
     "",
     "Most helpful items:",
@@ -115,7 +157,7 @@ export function buildSportDirectorIntroReplyEmail({
   ];
 
   if (unsubscribeUrl) {
-    textLines.push("", "Prefer not to receive future outreach for this event?", unsubscribeUrl);
+    textLines.push("", "Prefer not to receive future outreach for these events?", unsubscribeUrl);
   }
 
   return {
@@ -123,6 +165,24 @@ export function buildSportDirectorIntroReplyEmail({
     html,
     text: textLines.join("\n"),
   };
+}
+
+function buildTournamentLabel(value: TournamentListItem) {
+  const name = (value.name || "").trim() || "Tournament";
+  const place = [value.city, value.state].map((v) => (v || "").trim()).filter(Boolean).join(", ");
+  const start = formatDateOnly(value.startDate);
+
+  const chunks = [name];
+  if (place) chunks.push(place);
+  if (start) chunks.push(`starts ${start}`);
+  return chunks.join(" - ");
+}
+
+function formatDateOnly(value: string | null) {
+  if (!value) return "";
+  // Dates from DB are typically YYYY-MM-DD; keep a stable, non-locale format.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  return value;
 }
 
 function escapeHtml(value: string) {
@@ -133,4 +193,3 @@ function escapeHtml(value: string) {
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
-

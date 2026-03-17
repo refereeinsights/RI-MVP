@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type SuppressionBody = {
   tournament_id?: string;
+  tournament_ids?: string[];
   sport?: string;
   director_email?: string;
   reason?: string;
@@ -39,12 +40,16 @@ export async function POST(request: NextRequest) {
   }
 
   const tournamentId = (body.tournament_id || "").trim();
+  const tournamentIds = Array.isArray(body.tournament_ids)
+    ? body.tournament_ids.map((value) => String(value || "").trim()).filter(Boolean)
+    : [];
   const sport = (body.sport || "").trim().toLowerCase();
   const directorEmail = (body.director_email || "").trim().toLowerCase();
   const reason = (body.reason || "removed").trim() || "removed";
   const previewId = (body.preview_id || "").trim();
 
-  if (!tournamentId) {
+  const idsToSuppress = Array.from(new Set([tournamentId, ...tournamentIds].filter(Boolean)));
+  if (idsToSuppress.length === 0) {
     return NextResponse.json({ error: "tournament_id is required." }, { status: 400 });
   }
   if (!sport) {
@@ -54,17 +59,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "director_email must be valid." }, { status: 400 });
   }
 
-  const { error: upsertError } = await (supabaseAdmin.from("email_outreach_suppressions" as any) as any).upsert(
-    {
-      tournament_id: tournamentId,
-      sport,
-      director_email: directorEmail || null,
-      reason,
-      status: "removed",
-      created_by_email: auth.email || null,
-    },
-    { onConflict: "tournament_id" }
-  );
+  const rows = idsToSuppress.map((id) => ({
+    tournament_id: id,
+    sport,
+    director_email: directorEmail || null,
+    reason,
+    status: "removed",
+    created_by_email: auth.email || null,
+  }));
+
+  const { error: upsertError } = await (supabaseAdmin.from("email_outreach_suppressions" as any) as any).upsert(rows, {
+    onConflict: "tournament_id",
+  });
 
   if (upsertError) {
     return NextResponse.json({ error: upsertError.message }, { status: 500 });
