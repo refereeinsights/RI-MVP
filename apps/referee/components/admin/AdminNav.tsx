@@ -19,6 +19,73 @@ export async function AdminNav() {
     .select("id", { count: "exact", head: true })
     .eq("review_status", "keep")
     .or(`last_swept_at.is.null,last_swept_at.lt.${overdueCutoff}`);
+
+  const claimCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: claimEventsRaw } = await (supabaseAdmin.from("tournament_claim_events" as any) as any)
+    .select("tournament_id,event_type,created_at")
+    .gte("created_at", claimCutoff)
+    .in("event_type", [
+      "Tournament Claim Request Review",
+      "Tournament Claim Failed Email Mismatch",
+      "Tournament Claim Failed Missing Director Email",
+      "Tournament Claim Admin Approved",
+      "Tournament Claim Admin Dismissed",
+      "Tournament Claim Authenticated",
+      "Tournament Claim Magic Link Sent",
+    ])
+    .order("created_at", { ascending: false })
+    .limit(1000);
+
+  const claimEvents = (claimEventsRaw ?? []) as Array<{
+    tournament_id: string | null;
+    event_type: string;
+    created_at: string;
+  }>;
+  const claimByTournament = new Map<
+    string,
+    {
+      latestOpenAt: string | null;
+      latestOpenType: string | null;
+      latestResolvedAt: string | null;
+    }
+  >();
+  for (const ev of claimEvents) {
+    if (!ev.tournament_id) continue;
+    const current = claimByTournament.get(ev.tournament_id) ?? {
+      latestOpenAt: null,
+      latestOpenType: null,
+      latestResolvedAt: null,
+    };
+
+    const isResolved =
+      ev.event_type === "Tournament Claim Authenticated" ||
+      ev.event_type === "Tournament Claim Magic Link Sent" ||
+      ev.event_type === "Tournament Claim Admin Approved" ||
+      ev.event_type === "Tournament Claim Admin Dismissed";
+    const isOpen =
+      ev.event_type === "Tournament Claim Request Review" ||
+      ev.event_type === "Tournament Claim Failed Missing Director Email" ||
+      ev.event_type === "Tournament Claim Failed Email Mismatch";
+
+    if (isResolved && !current.latestResolvedAt) current.latestResolvedAt = ev.created_at;
+    if (isOpen && !current.latestOpenAt) {
+      current.latestOpenAt = ev.created_at;
+      current.latestOpenType = ev.event_type;
+    }
+
+    claimByTournament.set(ev.tournament_id, current);
+  }
+
+  const openClaimTournamentIds = Array.from(claimByTournament.entries())
+    .filter(([, v]) => v.latestOpenAt && (!v.latestResolvedAt || v.latestOpenAt > v.latestResolvedAt))
+    .map(([id]) => id);
+  const openClaimCount = openClaimTournamentIds.length;
+  const openClaimMismatchCount = Array.from(claimByTournament.values()).filter(
+    (v) =>
+      v.latestOpenAt &&
+      (!v.latestResolvedAt || v.latestOpenAt > v.latestResolvedAt) &&
+      v.latestOpenType === "Tournament Claim Failed Email Mismatch"
+  ).length;
   const linkStyle: React.CSSProperties = {
     padding: "6px 10px",
     borderRadius: 8,
@@ -60,6 +127,35 @@ export async function AdminNav() {
         </Link>
         <Link href="/admin/tournaments/validation" style={linkStyle}>
           Sport validation
+        </Link>
+        <Link href="/admin/tournaments/claims" style={linkStyle}>
+          Claims
+          {openClaimCount > 0 ? (
+            <span
+              style={{
+                marginLeft: 6,
+                minWidth: 16,
+                height: 16,
+                borderRadius: 999,
+                background: openClaimMismatchCount > 0 ? "#b45309" : "#0f172a",
+                color: "#fff",
+                fontSize: 10,
+                fontWeight: 900,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "0 5px",
+                verticalAlign: "middle",
+              }}
+              title={
+                openClaimMismatchCount > 0
+                  ? `${openClaimCount} open claim item${openClaimCount === 1 ? "" : "s"} (${openClaimMismatchCount} mismatch)`
+                  : `${openClaimCount} open claim item${openClaimCount === 1 ? "" : "s"}`
+              }
+            >
+              {openClaimMismatchCount > 0 ? "!" : openClaimCount}
+            </span>
+          ) : null}
         </Link>
         <Link href="/admin/tournaments/sources" style={linkStyle}>
           Sources
