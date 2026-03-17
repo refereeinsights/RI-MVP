@@ -10,6 +10,9 @@ import { buildTITournamentTitle, assertNoDoubleBrand } from "@/lib/seo/buildTITi
 import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SaveTournamentButton from "@/components/SaveTournamentButton";
 import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
+import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
+import { canEditTournament } from "@/lib/tournamentClaim";
+import { saveClaimedTournamentEdits } from "./actions";
 import "../tournaments.css";
 
 type TournamentDetailRow = {
@@ -27,6 +30,10 @@ type TournamentDetailRow = {
   sport: string | null;
   level: string | null;
   tournament_staff_verified?: boolean | null;
+  tournament_director?: string | null;
+  tournament_director_email?: string | null;
+  referee_contact?: string | null;
+  referee_contact_email?: string | null;
   venue: string | null;
   address: string | null;
   venue_url?: string | null;
@@ -231,8 +238,10 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 
 export default async function TournamentDetailPage({
   params,
+  searchParams,
 }: {
   params: { slug: string };
+  searchParams?: { claim?: string; saved?: string };
 }) {
   const supabase = createSupabaseServerClient();
   const {
@@ -270,6 +279,20 @@ export default async function TournamentDetailPage({
     .maybeSingle<TournamentDetailRow>();
 
   if (error || !data) notFound();
+  const { data: privateRowRaw } = await (supabaseAdmin.from("tournaments" as any) as any)
+    .select("tournament_director,tournament_director_email,referee_contact,referee_contact_email")
+    .eq("id", data.id)
+    .maybeSingle();
+  const privateRow = (privateRowRaw ?? null) as {
+    tournament_director: string | null;
+    tournament_director_email: string | null;
+    referee_contact: string | null;
+    referee_contact_email: string | null;
+  } | null;
+  const directorEmailOnFile = privateRow?.tournament_director_email ?? null;
+  const directorNameOnFile = privateRow?.tournament_director ?? null;
+  const refereeContactOnFile = privateRow?.referee_contact ?? null;
+  const refereeContactEmailOnFile = privateRow?.referee_contact_email ?? null;
   const initialSaved = user?.id ? await isTournamentSaved(user.id, data.id) : false;
 
   const locationLabel = buildLocationLabel(data.city, data.state) || "Location TBA";
@@ -297,6 +320,25 @@ export default async function TournamentDetailPage({
   const isDemoTournament = resolvedSlug === DEMO_TOURNAMENT_SLUG;
   const showStaffVerified = Boolean(data.tournament_staff_verified) || isDemoTournament;
   const canViewPremiumDetails = isPaid || isDemoTournament;
+  const hasDirectorEmailOnFile = Boolean((directorEmailOnFile ?? "").trim());
+  const canEditThisTournament = canEditTournament(viewerEmail, directorEmailOnFile);
+  const showClaimNotice = searchParams?.claim === "1";
+  const showSavedNotice = searchParams?.saved === "1";
+
+  if (showClaimNotice && user?.id && canEditThisTournament) {
+    // Best-effort funnel marker; safe to ignore failures pre-migration.
+    try {
+      await (supabaseAdmin.from("tournament_claim_events" as any) as any).insert({
+        tournament_id: data.id,
+        event_type: "Tournament Claim Authenticated",
+        entered_email: viewerEmail?.trim().toLowerCase() || null,
+        user_id: user.id,
+        meta: { slug: data.slug ?? params.slug },
+      });
+    } catch {
+      // ignore
+    }
+  }
   let nearbyCountsByVenueId = new Map<
     string,
     {
@@ -428,6 +470,219 @@ export default async function TournamentDetailPage({
           </div>
           <div className="detailMeta">{dateLabel}</div>
           <div className="detailMeta">{locationLabel}</div>
+
+          {showSavedNotice ? (
+            <div
+              style={{
+                marginTop: 10,
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.18)",
+                background: "rgba(16, 185, 129, 0.16)",
+                color: "rgba(255,255,255,0.95)",
+                fontWeight: 800,
+              }}
+            >
+              Saved. Thanks for keeping this listing accurate.
+            </div>
+          ) : null}
+
+          {canEditThisTournament ? (
+            <details
+              style={{
+                marginTop: 12,
+                border: "1px solid rgba(255,255,255,0.18)",
+                background: "rgba(0,0,0,0.25)",
+                backdropFilter: "blur(10px)",
+                borderRadius: 16,
+                padding: 14,
+              }}
+              open={Boolean(showClaimNotice)}
+            >
+              <summary style={{ cursor: "pointer", color: "#fff", fontWeight: 900, listStyle: "auto" }}>
+                Edit this tournament listing
+              </summary>
+              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                {needsEmailVerification ? (
+                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)" }}>
+                    Your email is not confirmed yet. Please confirm your email and refresh this page to edit.
+                  </div>
+                ) : null}
+                <form
+                  action={saveClaimedTournamentEdits}
+                  style={{ display: "grid", gap: 10, opacity: needsEmailVerification ? 0.6 : 1 }}
+                >
+                  <input type="hidden" name="tournament_id" value={data.id} />
+                  <input type="hidden" name="slug" value={data.slug ?? params.slug} />
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Official website URL</span>
+                      <input
+                        name="official_website_url"
+                        defaultValue={data.official_website_url ?? ""}
+                        placeholder="https://..."
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          background: "rgba(255,255,255,0.10)",
+                          color: "#fff",
+                          outline: "none",
+                        }}
+                        disabled={needsEmailVerification}
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Start date</span>
+                      <input
+                        type="date"
+                        name="start_date"
+                        defaultValue={data.start_date ?? ""}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          background: "rgba(255,255,255,0.10)",
+                          color: "#fff",
+                          outline: "none",
+                        }}
+                        disabled={needsEmailVerification}
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>End date</span>
+                      <input
+                        type="date"
+                        name="end_date"
+                        defaultValue={data.end_date ?? ""}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          background: "rgba(255,255,255,0.10)",
+                          color: "#fff",
+                          outline: "none",
+                        }}
+                        disabled={needsEmailVerification}
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>City</span>
+                      <input
+                        name="city"
+                        defaultValue={data.city ?? ""}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          background: "rgba(255,255,255,0.10)",
+                          color: "#fff",
+                          outline: "none",
+                        }}
+                        disabled={needsEmailVerification}
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>State</span>
+                      <input
+                        name="state"
+                        defaultValue={data.state ?? ""}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          background: "rgba(255,255,255,0.10)",
+                          color: "#fff",
+                          outline: "none",
+                        }}
+                        disabled={needsEmailVerification}
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Tournament director</span>
+                      <input
+                        name="tournament_director"
+                        defaultValue={directorNameOnFile ?? ""}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          background: "rgba(255,255,255,0.10)",
+                          color: "#fff",
+                          outline: "none",
+                        }}
+                        disabled={needsEmailVerification}
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Referee contact</span>
+                      <input
+                        name="referee_contact"
+                        defaultValue={refereeContactOnFile ?? ""}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          background: "rgba(255,255,255,0.10)",
+                          color: "#fff",
+                          outline: "none",
+                        }}
+                        disabled={needsEmailVerification}
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Referee contact email</span>
+                      <input
+                        type="email"
+                        name="referee_contact_email"
+                        defaultValue={refereeContactEmailOnFile ?? ""}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          background: "rgba(255,255,255,0.10)",
+                          color: "#fff",
+                          outline: "none",
+                        }}
+                        disabled={needsEmailVerification}
+                      />
+                    </label>
+                  </div>
+
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.78)" }}>
+                    Need to change the director email on file? Use “Request review” in the claim box and we&apos;ll update it.
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="cta ti-home-cta ti-home-cta-primary"
+                    disabled={needsEmailVerification}
+                    style={{ padding: "10px 14px", justifySelf: "start" }}
+                  >
+                    Save changes
+                  </button>
+                </form>
+              </div>
+            </details>
+          ) : (
+            <div style={{ marginTop: 12 }}>
+              <ClaimThisTournament
+                tournamentId={data.id}
+                tournamentName={data.name}
+                hasDirectorEmailOnFile={hasDirectorEmailOnFile}
+                viewerEmail={viewerEmail}
+              />
+            </div>
+          )}
 
           {data.official_website_url && !isDemoTournament ? (
             <div className="detailLinksRow">
