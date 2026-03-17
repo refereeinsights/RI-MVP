@@ -8,8 +8,11 @@ export const runtime = "nodejs";
 
 function getRedirectTo(slug: string) {
   const origin = process.env.NEXT_PUBLIC_SITE_ORIGIN || "https://www.tournamentinsights.com";
-  const url = new URL(`/tournaments/${slug}`, origin);
-  url.searchParams.set("claim", "1");
+  // Route through /auth/confirm so Supabase can set the session cookie via verifyOtp,
+  // then bounce back to the tournament page.
+  const nextPath = `/tournaments/${slug}?claim=1`;
+  const url = new URL("/auth/confirm", origin);
+  url.searchParams.set("next", nextPath);
   return url.toString();
 }
 
