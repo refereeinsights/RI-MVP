@@ -503,14 +503,9 @@ export default async function TournamentDetailPage({
                 Edit this tournament listing
               </summary>
               <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-                {needsEmailVerification ? (
-                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)" }}>
-                    Your email is not confirmed yet. Please confirm your email and refresh this page to edit.
-                  </div>
-                ) : null}
                 <form
                   action={saveClaimedTournamentEdits}
-                  style={{ display: "grid", gap: 10, opacity: needsEmailVerification ? 0.6 : 1 }}
+                  style={{ display: "grid", gap: 10 }}
                 >
                   <input type="hidden" name="tournament_id" value={data.id} />
                   <input type="hidden" name="slug" value={data.slug ?? params.slug} />
@@ -527,11 +522,10 @@ export default async function TournamentDetailPage({
                           padding: "10px 12px",
                           borderRadius: 12,
                           border: "1px solid rgba(255,255,255,0.18)",
-                          background: "rgba(255,255,255,0.10)",
-                          color: "#fff",
-                          outline: "none",
-                        }}
-                        disabled={needsEmailVerification}
+                        background: "rgba(255,255,255,0.10)",
+                        color: "#fff",
+                        outline: "none",
+                      }}
                       />
                     </label>
                     <label style={{ display: "grid", gap: 6 }}>
@@ -545,11 +539,10 @@ export default async function TournamentDetailPage({
                           padding: "10px 12px",
                           borderRadius: 12,
                           border: "1px solid rgba(255,255,255,0.18)",
-                          background: "rgba(255,255,255,0.10)",
-                          color: "#fff",
-                          outline: "none",
-                        }}
-                        disabled={needsEmailVerification}
+                        background: "rgba(255,255,255,0.10)",
+                        color: "#fff",
+                        outline: "none",
+                      }}
                       />
                     </label>
                     <label style={{ display: "grid", gap: 6 }}>
@@ -563,11 +556,10 @@ export default async function TournamentDetailPage({
                           padding: "10px 12px",
                           borderRadius: 12,
                           border: "1px solid rgba(255,255,255,0.18)",
-                          background: "rgba(255,255,255,0.10)",
-                          color: "#fff",
-                          outline: "none",
-                        }}
-                        disabled={needsEmailVerification}
+                        background: "rgba(255,255,255,0.10)",
+                        color: "#fff",
+                        outline: "none",
+                      }}
                       />
                     </label>
                     <label style={{ display: "grid", gap: 6 }}>
@@ -580,11 +572,10 @@ export default async function TournamentDetailPage({
                           padding: "10px 12px",
                           borderRadius: 12,
                           border: "1px solid rgba(255,255,255,0.18)",
-                          background: "rgba(255,255,255,0.10)",
-                          color: "#fff",
-                          outline: "none",
-                        }}
-                        disabled={needsEmailVerification}
+                        background: "rgba(255,255,255,0.10)",
+                        color: "#fff",
+                        outline: "none",
+                      }}
                       />
                     </label>
                     <label style={{ display: "grid", gap: 6 }}>
@@ -597,11 +588,10 @@ export default async function TournamentDetailPage({
                           padding: "10px 12px",
                           borderRadius: 12,
                           border: "1px solid rgba(255,255,255,0.18)",
-                          background: "rgba(255,255,255,0.10)",
-                          color: "#fff",
-                          outline: "none",
-                        }}
-                        disabled={needsEmailVerification}
+                        background: "rgba(255,255,255,0.10)",
+                        color: "#fff",
+                        outline: "none",
+                      }}
                       />
                     </label>
                     <label style={{ display: "grid", gap: 6 }}>
@@ -614,11 +604,10 @@ export default async function TournamentDetailPage({
                           padding: "10px 12px",
                           borderRadius: 12,
                           border: "1px solid rgba(255,255,255,0.18)",
-                          background: "rgba(255,255,255,0.10)",
-                          color: "#fff",
-                          outline: "none",
-                        }}
-                        disabled={needsEmailVerification}
+                        background: "rgba(255,255,255,0.10)",
+                        color: "#fff",
+                        outline: "none",
+                      }}
                       />
                     </label>
                     <label style={{ display: "grid", gap: 6 }}>
@@ -631,11 +620,10 @@ export default async function TournamentDetailPage({
                           padding: "10px 12px",
                           borderRadius: 12,
                           border: "1px solid rgba(255,255,255,0.18)",
-                          background: "rgba(255,255,255,0.10)",
-                          color: "#fff",
-                          outline: "none",
-                        }}
-                        disabled={needsEmailVerification}
+                        background: "rgba(255,255,255,0.10)",
+                        color: "#fff",
+                        outline: "none",
+                      }}
                       />
                     </label>
                     <label style={{ display: "grid", gap: 6 }}>
@@ -649,11 +637,10 @@ export default async function TournamentDetailPage({
                           padding: "10px 12px",
                           borderRadius: 12,
                           border: "1px solid rgba(255,255,255,0.18)",
-                          background: "rgba(255,255,255,0.10)",
-                          color: "#fff",
-                          outline: "none",
-                        }}
-                        disabled={needsEmailVerification}
+                        background: "rgba(255,255,255,0.10)",
+                        color: "#fff",
+                        outline: "none",
+                      }}
                       />
                     </label>
                   </div>
@@ -662,14 +649,13 @@ export default async function TournamentDetailPage({
                     Need to change the director email on file? Use “Request review” in the claim box and we&apos;ll update it.
                   </div>
 
-                  <button
-                    type="submit"
-                    className="cta ti-home-cta ti-home-cta-primary"
-                    disabled={needsEmailVerification}
-                    style={{ padding: "10px 14px", justifySelf: "start" }}
-                  >
-                    Save changes
-                  </button>
+                <button
+                  type="submit"
+                  className="cta ti-home-cta ti-home-cta-primary"
+                  style={{ padding: "10px 14px", justifySelf: "start" }}
+                >
+                  Save changes
+                </button>
                 </form>
               </div>
             </details>
