@@ -43,3 +43,7 @@
 - TI SEO hubs: centered tournament card title/meta/date text on hub pages to match the directory badge/card layout on mobile.
 - RI email: password reset endpoint now returns success when the email is not found (prevents account enumeration and removes noisy 500s).
 - RI email: Resend sender fallback now defaults to `noreply@refereeinsights.com` instead of a gmail address (prevents 403 “domain not verified” failures).
+
+## 2026-03-17
+
+- Admin build stamp: RI admin nav and TI admin pages now display a build identifier (commit short + env + deployment short) to help diagnose dashboard inconsistencies across deployments.

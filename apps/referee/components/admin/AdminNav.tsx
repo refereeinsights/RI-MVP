@@ -3,8 +3,16 @@ import type React from "react";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function AdminNav() {
-  const buildStamp = process.env.NEXT_PUBLIC_BUILD_ID ?? process.env.VERCEL_GIT_COMMIT_SHA;
+  const buildStamp =
+    process.env.VERCEL_GIT_COMMIT_SHA ??
+    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
+    process.env.NEXT_PUBLIC_BUILD_ID;
   const buildShort = buildStamp ? buildStamp.slice(0, 7) : null;
+  const vercelEnv = process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "";
+  const deploymentId = process.env.VERCEL_DEPLOYMENT_ID ?? null;
+  const deploymentShort = deploymentId ? deploymentId.replace(/^dpl_/, "").slice(0, 7) : null;
+  const vercelRegion = process.env.VERCEL_REGION ?? "";
+  const vercelUrl = process.env.VERCEL_URL ?? "";
   const overdueCutoff = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString();
   const { count: overdueKeepSourcesCount } = await supabaseAdmin
     .from("tournament_sources" as any)
@@ -98,8 +106,21 @@ export async function AdminNav() {
         </Link>
       </nav>
       {buildShort ? (
-        <div style={{ fontSize: 11, color: "#6b7280", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        <div
+          style={{ fontSize: 11, color: "#6b7280", letterSpacing: "0.08em", textTransform: "uppercase" }}
+          title={[
+            buildStamp ? `commit: ${buildStamp}` : null,
+            vercelEnv ? `env: ${vercelEnv}` : null,
+            deploymentId ? `deployment: ${deploymentId}` : null,
+            vercelRegion ? `region: ${vercelRegion}` : null,
+            vercelUrl ? `url: ${vercelUrl}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n")}
+        >
           Build {buildShort}
+          {vercelEnv ? ` • ${vercelEnv}` : ""}
+          {deploymentShort ? ` • dpl ${deploymentShort}` : ""}
         </div>
       ) : null}
     </div>
