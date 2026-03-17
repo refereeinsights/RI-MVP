@@ -53,3 +53,4 @@
 - TI outreach: added an “Intro (reply only)” email mode for outreach previews/sends that includes the signed opt-out link but removes the verification link/button from the email body (verify-link mode remains available).
 - TI outreach: preview generation now batches up to 5 tournaments per director email for the intro reply-only outreach (one email can cover multiple tournaments); unsubscribe link suppresses all tournaments included in that email.
 - TI outreach: added a cross-campaign cooldown (default 30 days, configurable via `OUTREACH_COOLDOWN_DAYS`) so preview generation skips director emails that were already sent outreach recently.
+- TI outreach: added `/admin/outreach-reply` tool + `POST /api/outreach/generate-verify-reply` to generate a second-step director email that lists all associated tournaments (by director email) with per-tournament verify links (keeps signed opt-out link).

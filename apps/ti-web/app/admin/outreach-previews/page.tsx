@@ -164,6 +164,11 @@ export default async function OutreachPreviewsPage({
             <p className="muted" style={{ margin: 0 }}>
               Review preview-mode tournament director emails without sending anything.
             </p>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <Link href="/admin/outreach-reply" style={{ color: "#2563EB", fontWeight: 700 }}>
+                Generate verify-reply email (second step)
+              </Link>
+            </div>
           </div>
 
           <form method="get" style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end" }}>

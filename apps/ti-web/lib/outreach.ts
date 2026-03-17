@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { OutreachVariant } from "@/lib/outreach/ab";
 import { buildSportDirectorIntroReplyEmail } from "@/lib/outreach/templates/sportDirectorIntroReply";
+import { buildSportDirectorVerifyReplyEmail } from "@/lib/outreach/templates/sportDirectorVerifyReply";
 import { buildSportDirectorVerifyEmail } from "@/lib/outreach/templates/soccerDirectorVerify";
 
 const SITE_ORIGIN = process.env.NEXT_PUBLIC_TI_SITE_URL || "https://www.tournamentinsights.com";
@@ -35,6 +36,22 @@ export type SportIntroReplyEmailInput = Omit<SoccerVerifyEmailInput, "verifyUrl"
     city: string | null;
     state: string | null;
   }>;
+};
+
+export type SportVerifyReplyEmailInput = {
+  sport: OutreachSport;
+  directorEmail: string;
+  firstName?: string | null;
+  tournaments: Array<{
+    tournamentId: string;
+    tournamentName: string;
+    verifyUrl: string;
+    startDate?: string | null;
+    city?: string | null;
+    state?: string | null;
+  }>;
+  unsubscribeUrl?: string;
+  variant: OutreachVariant;
 };
 
 export function getOutreachMode() {
@@ -214,6 +231,24 @@ export function buildSportIntroReplyEmail({
     unsubscribeUrl,
     tournamentName: tournamentName ?? "",
     tournaments,
+    variant,
+  });
+}
+
+export function buildSportVerifyReplyEmail({
+  sport,
+  directorEmail,
+  firstName,
+  tournaments,
+  unsubscribeUrl,
+  variant,
+}: SportVerifyReplyEmailInput): SoccerVerifyEmailOutput {
+  return buildSportDirectorVerifyReplyEmail({
+    sport,
+    directorEmail,
+    firstName: firstName ?? undefined,
+    tournaments,
+    unsubscribeUrl,
     variant,
   });
 }
