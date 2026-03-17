@@ -19,7 +19,8 @@ type TournamentQuickCheckRollup = {
   shadeLabel: string | null;
   parkingDistanceTop: string | null;
   restroomTypeTop: string | null;
-  bringChairsYesPct: number | null;
+  bringChairsValue: string | null;
+  bringChairsTitle: string | null;
 };
 
 const pillStyle: React.CSSProperties = {
@@ -37,6 +38,23 @@ const pillStyle: React.CSSProperties = {
 function Pill({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <span style={pillStyle}>
+      <span style={{ color: "#64748b", fontWeight: 800 }}>{label}</span>
+      <span style={{ fontWeight: 900 }}>{value}</span>
+    </span>
+  );
+}
+
+function PillWithTitle({
+  label,
+  value,
+  title,
+}: {
+  label: string;
+  value: React.ReactNode;
+  title?: string | null;
+}) {
+  return (
+    <span style={pillStyle} title={title ?? undefined}>
       <span style={{ color: "#64748b", fontWeight: 800 }}>{label}</span>
       <span style={{ fontWeight: 900 }}>{value}</span>
     </span>
@@ -130,9 +148,10 @@ export default function TopTournamentsByStartedTable({
                         <Pill label="Shade" value={rollup?.shadeLabel ?? "—"} />
                         <Pill label="Parking" value={rollup?.parkingDistanceTop ?? "—"} />
                         <Pill label="Restrooms" value={rollup?.restroomTypeTop ?? "—"} />
-                        <Pill
+                        <PillWithTitle
                           label="Bring chairs"
-                          value={rollup?.bringChairsYesPct != null ? `${rollup.bringChairsYesPct}%` : "—"}
+                          value={rollup?.bringChairsValue ?? "—"}
+                          title={rollup?.bringChairsTitle ?? null}
                         />
                       </div>
                     </td>
@@ -146,4 +165,3 @@ export default function TopTournamentsByStartedTable({
     </div>
   );
 }
-

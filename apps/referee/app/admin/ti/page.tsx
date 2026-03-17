@@ -111,7 +111,8 @@ type TournamentQuickCheckRollup = {
   shadeLabel: string | null;
   parkingDistanceTop: string | null;
   restroomTypeTop: string | null;
-  bringChairsYesPct: number | null;
+  bringChairsValue: string | null;
+  bringChairsTitle: string | null;
 };
 
 function scoreLabel(kind: "cleanliness" | "shade", value: number | null): string | null {
@@ -726,9 +727,25 @@ export default async function TiAdminPage({
           const restroomTypeTop = topValue(list.map((r) => r.restroom_type));
 
           const chairsAnswered = list.filter((r) => r.bring_field_chairs != null);
+          const chairsYes = chairsAnswered.filter((r) => r.bring_field_chairs === true).length;
+          const chairsNo = chairsAnswered.filter((r) => r.bring_field_chairs === false).length;
           const bringChairsYesPct =
-            chairsAnswered.length > 0
-              ? Math.round((chairsAnswered.filter((r) => r.bring_field_chairs === true).length / chairsAnswered.length) * 100)
+            chairsAnswered.length > 0 ? Math.round((chairsYes / chairsAnswered.length) * 100) : null;
+          const bringChairsValue =
+            chairsAnswered.length === 0
+              ? null
+              : chairsYes === 0
+              ? "No"
+              : chairsNo === 0
+              ? "Yes"
+              : chairsYes === chairsNo
+              ? "Mixed"
+              : chairsYes > chairsNo
+              ? "Yes"
+              : "No";
+          const bringChairsTitle =
+            chairsAnswered.length > 0 && bringChairsYesPct != null
+              ? `Yes ${bringChairsYesPct}% (n=${chairsAnswered.length})`
               : null;
 
           const rollup: TournamentQuickCheckRollup = {
@@ -739,7 +756,8 @@ export default async function TiAdminPage({
             shadeLabel: scoreLabel("shade", shadeAvg),
             parkingDistanceTop: parkingTop,
             restroomTypeTop,
-            bringChairsYesPct,
+            bringChairsValue,
+            bringChairsTitle,
           };
           return [tournamentId, rollup];
         })
