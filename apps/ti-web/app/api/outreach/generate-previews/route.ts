@@ -3,6 +3,7 @@ import { pickVariant } from "@/lib/outreach/ab";
 import { sendEmail } from "@/lib/email";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
+  buildSportIntroReplyEmail,
   buildSportVerifyEmail,
   buildOutreachUnsubscribeUrl,
   buildVerifyUrl,
@@ -10,6 +11,7 @@ import {
   getOutreachGuardSecret,
   getOutreachMode,
   isValidEmail,
+  normalizeOutreachEmailKind,
   normalizeOutreachSport,
 } from "@/lib/outreach";
 import { getTiOutreachAdminUser } from "@/lib/outreachAdmin";
@@ -21,6 +23,7 @@ type PreviewRequestBody = {
   test_email_override?: string;
   mode?: "preview" | "send";
   start_after?: string;
+  email_kind?: string;
 };
 
 type TournamentRow = {
@@ -77,6 +80,7 @@ export async function POST(request: NextRequest) {
   }
 
   const sport = normalizeOutreachSport(body.sport);
+  const emailKind = normalizeOutreachEmailKind(body.email_kind);
   const campaignId = (body.campaign_id || "").trim();
   if (!campaignId) {
     return NextResponse.json({ error: "campaign_id is required." }, { status: 400 });
@@ -197,25 +201,37 @@ export async function POST(request: NextRequest) {
   for (const row of eligibleRows) {
     const directorEmail = emailOverride || row.tournament_director_email!.trim();
     const variant = pickVariant(row.id);
-    const verifyUrl = buildVerifyUrl({
-      sport,
-      tournamentId: row.id,
-      campaignId,
-      variant,
-    });
     const unsubscribeUrl = buildOutreachUnsubscribeUrl({
       sport,
       tournamentId: row.id,
       directorEmail,
     });
-    const email = buildSportVerifyEmail({
-      sport,
-      firstName: inferFirstName(row.tournament_director),
-      verifyUrl,
-      unsubscribeUrl,
-      tournamentName: row.name,
-      variant,
-    });
+    const verifyUrl =
+      emailKind === "verify_link"
+        ? buildVerifyUrl({
+            sport,
+            tournamentId: row.id,
+            campaignId,
+            variant,
+          })
+        : "";
+    const email =
+      emailKind === "intro_reply"
+        ? buildSportIntroReplyEmail({
+            sport,
+            firstName: inferFirstName(row.tournament_director),
+            unsubscribeUrl,
+            tournamentName: row.name,
+            variant,
+          })
+        : buildSportVerifyEmail({
+            sport,
+            firstName: inferFirstName(row.tournament_director),
+            verifyUrl,
+            unsubscribeUrl,
+            tournamentName: row.name,
+            variant,
+          });
     const sendRecipient = localSendOverride || directorEmail;
     let status: "preview" | "sent" | "error" = "preview";
     let providerMessageId: string | null = null;

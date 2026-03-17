@@ -1,10 +1,12 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { OutreachVariant } from "@/lib/outreach/ab";
+import { buildSportDirectorIntroReplyEmail } from "@/lib/outreach/templates/sportDirectorIntroReply";
 import { buildSportDirectorVerifyEmail } from "@/lib/outreach/templates/soccerDirectorVerify";
 
 const SITE_ORIGIN = process.env.NEXT_PUBLIC_TI_SITE_URL || "https://www.tournamentinsights.com";
 
 export type OutreachSport = "soccer" | "baseball" | "softball";
+export type OutreachEmailKind = "verify_link" | "intro_reply";
 
 export type SoccerVerifyEmailInput = {
   firstName?: string | null;
@@ -21,6 +23,10 @@ export type SoccerVerifyEmailOutput = {
 };
 
 export type SportVerifyEmailInput = SoccerVerifyEmailInput & {
+  sport: OutreachSport;
+};
+
+export type SportIntroReplyEmailInput = Omit<SoccerVerifyEmailInput, "verifyUrl"> & {
   sport: OutreachSport;
 };
 
@@ -49,6 +55,11 @@ export function isValidEmail(value: string) {
 export function normalizeOutreachSport(input: string | null | undefined): OutreachSport {
   const sport = (input || getOutreachSportDefault()).trim().toLowerCase();
   return sport === "baseball" || sport === "softball" || sport === "soccer" ? sport : "soccer";
+}
+
+export function normalizeOutreachEmailKind(input: string | null | undefined): OutreachEmailKind {
+  const kind = (input || "").trim().toLowerCase();
+  return kind === "intro_reply" ? "intro_reply" : "verify_link";
 }
 
 function getVerifyLinkSecret() {
@@ -162,6 +173,22 @@ export function buildSportVerifyEmail({
     sport,
     firstName: firstName ?? undefined,
     verifyUrl,
+    unsubscribeUrl,
+    tournamentName: tournamentName ?? "",
+    variant,
+  });
+}
+
+export function buildSportIntroReplyEmail({
+  sport,
+  firstName,
+  unsubscribeUrl,
+  tournamentName,
+  variant,
+}: SportIntroReplyEmailInput): SoccerVerifyEmailOutput {
+  return buildSportDirectorIntroReplyEmail({
+    sport,
+    firstName: firstName ?? undefined,
     unsubscribeUrl,
     tournamentName: tournamentName ?? "",
     variant,

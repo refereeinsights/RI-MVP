@@ -263,9 +263,13 @@ export default async function OutreachPreviewsPage({
                   <InfoCard
                     label="Verify URL"
                     value={
-                      <a href={selectedPreview.verify_url} target="_blank" rel="noreferrer" style={smallLinkStyle}>
-                        Open verify link
-                      </a>
+                      selectedPreview.verify_url ? (
+                        <a href={selectedPreview.verify_url} target="_blank" rel="noreferrer" style={smallLinkStyle}>
+                          Open verify link
+                        </a>
+                      ) : (
+                        <span className="muted">No verify link (intro email)</span>
+                      )
                     }
                   />
                   {selectedPreview.provider_message_id ? (
@@ -291,7 +295,9 @@ export default async function OutreachPreviewsPage({
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 <CopyFieldButton label="Copy subject" value={selectedPreview.subject} />
-                <CopyFieldButton label="Copy verify URL" value={selectedPreview.verify_url} />
+                {selectedPreview.verify_url ? (
+                  <CopyFieldButton label="Copy verify URL" value={selectedPreview.verify_url} />
+                ) : null}
                 <CopyFieldButton label="Copy HTML" value={selectedPreview.html_body} />
               </div>
 

@@ -19,6 +19,7 @@ export default function GeneratePreviewsForm({
   const [limit, setLimit] = useState("50");
   const [startAfter, setStartAfter] = useState(initialStartAfter);
   const [mode, setMode] = useState<"preview" | "send">("preview");
+  const [emailKind, setEmailKind] = useState<"intro_reply" | "verify_link">("intro_reply");
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -53,6 +54,7 @@ export default function GeneratePreviewsForm({
           limit: Number(limit),
           mode,
           start_after: startAfter.trim() || undefined,
+          email_kind: emailKind,
         }),
       });
 
@@ -116,6 +118,17 @@ export default function GeneratePreviewsForm({
         <select value={mode} onChange={(event) => setMode(event.target.value as "preview" | "send")} style={inputStyle}>
           <option value="preview">Preview only</option>
           <option value="send">Send emails</option>
+        </select>
+      </label>
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={{ fontWeight: 600 }}>Email</span>
+        <select
+          value={emailKind}
+          onChange={(event) => setEmailKind(event.target.value as "intro_reply" | "verify_link")}
+          style={inputStyle}
+        >
+          <option value="intro_reply">Intro (reply only)</option>
+          <option value="verify_link">Verify link (existing)</option>
         </select>
       </label>
       <button

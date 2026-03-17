@@ -2,8 +2,10 @@ import { notFound } from "next/navigation";
 import { pickVariant } from "@/lib/outreach/ab";
 import {
   buildOutreachUnsubscribeUrl,
+  buildSportIntroReplyEmail,
   buildSportVerifyEmail,
   buildVerifyUrl,
+  normalizeOutreachEmailKind,
   normalizeOutreachSport,
 } from "@/lib/outreach";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -12,6 +14,7 @@ type SearchParams = {
   sport?: string;
   tournamentId?: string;
   campaign_id?: string;
+  email_kind?: string;
 };
 
 type TournamentRow = {
@@ -67,28 +70,41 @@ export default async function OutreachPreviewPage({
 
   const row = tournament as TournamentRow;
   const sport = normalizeOutreachSport(searchParams?.sport || row.sport || "soccer");
+  const emailKind = normalizeOutreachEmailKind(searchParams?.email_kind);
   const campaignId = (searchParams?.campaign_id || "").trim() || `${sport}_preview_${new Date().toISOString().slice(0, 10)}`;
   const variant = pickVariant(row.id);
   const directorEmail = (row.tournament_director_email || "").trim().toLowerCase() || "support@tournamentinsights.com";
-  const verifyUrl = buildVerifyUrl({
-    sport,
-    tournamentId: row.id,
-    campaignId,
-    variant,
-  });
   const unsubscribeUrl = buildOutreachUnsubscribeUrl({
     sport,
     tournamentId: row.id,
     directorEmail,
   });
-  const email = buildSportVerifyEmail({
-    sport,
-    firstName: inferFirstName(row.tournament_director),
-    verifyUrl,
-    unsubscribeUrl,
-    tournamentName: row.name || "your tournament",
-    variant,
-  });
+  const verifyUrl =
+    emailKind === "verify_link"
+      ? buildVerifyUrl({
+          sport,
+          tournamentId: row.id,
+          campaignId,
+          variant,
+        })
+      : "";
+  const email =
+    emailKind === "intro_reply"
+      ? buildSportIntroReplyEmail({
+          sport,
+          firstName: inferFirstName(row.tournament_director),
+          unsubscribeUrl,
+          tournamentName: row.name || "your tournament",
+          variant,
+        })
+      : buildSportVerifyEmail({
+          sport,
+          firstName: inferFirstName(row.tournament_director),
+          verifyUrl,
+          unsubscribeUrl,
+          tournamentName: row.name || "your tournament",
+          variant,
+        });
 
   return (
     <main className="page">
@@ -96,7 +112,8 @@ export default async function OutreachPreviewPage({
         <section className="bodyCard" style={{ display: "grid", gap: 14 }}>
           <h1 style={{ margin: 0 }}>Outreach preview</h1>
           <p className="muted" style={{ margin: 0 }}>
-            Sport: <strong>{sport}</strong> | Tournament: <strong>{row.name || row.id}</strong> | Variant:{" "}
+            Sport: <strong>{sport}</strong> | Kind: <strong>{emailKind}</strong> | Tournament:{" "}
+            <strong>{row.name || row.id}</strong> | Variant:{" "}
             <strong>{variant}</strong>
           </p>
           <p style={{ margin: 0 }}>
