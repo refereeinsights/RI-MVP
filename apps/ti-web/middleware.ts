@@ -26,11 +26,27 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
+  try {
+    await supabase.auth.getUser();
+  } catch (err: any) {
+    // If the session cookies are in a broken state (e.g. access token cookie present but refresh token missing),
+    // auth-js will throw. Clear the session cookies so the request can continue as anonymous.
+    const code = err?.code ?? null;
+    const message = String(err?.message ?? "");
+    if (code === "refresh_token_not_found" || message.includes("Refresh Token Not Found")) {
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // ignore
+      }
+    }
+  }
 
   return res;
 }
 
 export const config = {
-  matcher: ["/account/:path*", "/logout", "/verify-email", "/auth/:path*"],
+  // Include tournaments so SSR pages that read auth state (claim/edit, saved tournaments, entitlements)
+  // have a chance to refresh/repair cookies.
+  matcher: ["/account/:path*", "/logout", "/verify-email", "/auth/:path*", "/tournaments/:path*"],
 };
