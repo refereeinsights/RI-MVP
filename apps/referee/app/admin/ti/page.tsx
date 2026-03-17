@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import LabelPrintSettings from "./LabelPrintSettings";
 import PrintLabelButton from "./PrintLabelButton";
+import TopTournamentsByStartedTable from "./TopTournamentsByStartedTable";
 
 export const runtime = "nodejs";
 
@@ -91,6 +92,80 @@ type QuickCheckMetrics = {
     venueSeoSlug: string | null;
   }>;
 };
+
+type QuickCheckRow = {
+  venue_id: string;
+  source_tournament_id: string | null;
+  restroom_cleanliness: number | null;
+  shade_score: number | null;
+  parking_distance: string | null;
+  bring_field_chairs: boolean | null;
+  restroom_type: string | null;
+};
+
+type TournamentQuickCheckRollup = {
+  tournamentId: string;
+  submissions: number;
+  venuesTouched: number;
+  restroomCleanlinessLabel: string | null;
+  shadeLabel: string | null;
+  parkingDistanceTop: string | null;
+  restroomTypeTop: string | null;
+  bringChairsYesPct: number | null;
+};
+
+function scoreLabel(kind: "cleanliness" | "shade", value: number | null): string | null {
+  if (value == null) return null;
+  const rounded = Math.max(1, Math.min(5, Math.round(value)));
+  if (kind === "cleanliness") {
+    return (
+      {
+        1: "Poor",
+        2: "Fair",
+        3: "Good",
+        4: "Great",
+        5: "Spotless",
+      } as const
+    )[rounded as 1 | 2 | 3 | 4 | 5];
+  }
+  return (
+    {
+      1: "None",
+      2: "Poor",
+      3: "Fair",
+      4: "Good",
+      5: "Great",
+    } as const
+  )[rounded as 1 | 2 | 3 | 4 | 5];
+}
+
+function avg(nums: Array<number | null | undefined>): number | null {
+  let sum = 0;
+  let n = 0;
+  for (const v of nums) {
+    if (v == null) continue;
+    sum += v;
+    n++;
+  }
+  return n ? sum / n : null;
+}
+
+function topValue(values: Array<string | null | undefined>): string | null {
+  const counts = new Map<string, number>();
+  for (const v of values) {
+    if (!v) continue;
+    counts.set(v, (counts.get(v) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  let bestCount = -1;
+  for (const [v, c] of counts.entries()) {
+    if (c > bestCount) {
+      best = v;
+      bestCount = c;
+    }
+  }
+  return best;
+}
 
 const TI_SPORTS = [
   "soccer",
@@ -608,6 +683,70 @@ export default async function TiAdminPage({
   const { data: quickCheckMetricsRaw } = await (supabaseAdmin as any).rpc("get_venue_quick_check_metrics", { p_days: 30 });
   const quickCheckMetrics = (quickCheckMetricsRaw ?? null) as QuickCheckMetrics | null;
 
+  // Lightweight per-tournament rollups for the "Top tournaments by Yes" table expanders.
+  let rollupByTournamentId: Record<string, TournamentQuickCheckRollup | undefined> = {};
+  if (quickCheckMetrics?.topTournamentsByStarted?.length) {
+    const tournamentIds = Array.from(
+      new Set(
+        quickCheckMetrics.topTournamentsByStarted
+          .map((t) => t.tournamentId)
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+
+    if (tournamentIds.length) {
+      const windowDays = quickCheckMetrics.windowDays ?? 30;
+      const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+      const { data: rowsRaw } = await (supabaseAdmin.from("venue_quick_checks" as any) as any)
+        .select(
+          "venue_id,source_tournament_id,restroom_cleanliness,shade_score,parking_distance,bring_field_chairs,restroom_type,created_at"
+        )
+        .in("source_tournament_id", tournamentIds)
+        .gte("created_at", cutoff)
+        // Cap this so one spammy tournament doesn't blow up the admin page render.
+        .limit(5000);
+
+      const rows = (rowsRaw ?? []) as QuickCheckRow[];
+      const byTournament = new Map<string, QuickCheckRow[]>();
+      for (const r of rows) {
+        const tid = r.source_tournament_id;
+        if (!tid) continue;
+        const list = byTournament.get(tid) ?? [];
+        list.push(r);
+        byTournament.set(tid, list);
+      }
+
+      rollupByTournamentId = Object.fromEntries(
+        Array.from(byTournament.entries()).map(([tournamentId, list]) => {
+          const submissions = list.length;
+          const venuesTouched = new Set(list.map((r) => r.venue_id).filter(Boolean)).size;
+          const cleanlinessAvg = avg(list.map((r) => r.restroom_cleanliness));
+          const shadeAvg = avg(list.map((r) => r.shade_score));
+          const parkingTop = topValue(list.map((r) => r.parking_distance));
+          const restroomTypeTop = topValue(list.map((r) => r.restroom_type));
+
+          const chairsAnswered = list.filter((r) => r.bring_field_chairs != null);
+          const bringChairsYesPct =
+            chairsAnswered.length > 0
+              ? Math.round((chairsAnswered.filter((r) => r.bring_field_chairs === true).length / chairsAnswered.length) * 100)
+              : null;
+
+          const rollup: TournamentQuickCheckRollup = {
+            tournamentId,
+            submissions,
+            venuesTouched,
+            restroomCleanlinessLabel: scoreLabel("cleanliness", cleanlinessAvg),
+            shadeLabel: scoreLabel("shade", shadeAvg),
+            parkingDistanceTop: parkingTop,
+            restroomTypeTop,
+            bringChairsYesPct,
+          };
+          return [tournamentId, rollup];
+        })
+      );
+    }
+  }
+
   return (
     <main style={{ maxWidth: 1400, margin: "0 auto", padding: "1rem" }}>
       <AdminNav />
@@ -779,41 +918,11 @@ export default async function TiAdminPage({
                 <div style={{ padding: "10px 12px", background: "#f8fafc", fontWeight: 900 }}>
                   Top tournaments by “Yes” (Started)
                 </div>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
-                      <tr style={{ textAlign: "left" }}>
-                        <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>Tournament</th>
-                        <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>Sport</th>
-                        <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>State</th>
-                        <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>Started</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {quickCheckMetrics.topTournamentsByStarted.map((row) => {
-                        const label = row.tournamentName || row.tournamentId || "Unknown";
-                        const href =
-                          row.tournamentSlug ? `${tiAdminBaseUrl}/tournaments/${row.tournamentSlug}` : null;
-                        return (
-                          <tr key={row.tournamentId ?? label} style={{ borderTop: "1px solid #e5e7eb" }}>
-                            <td style={{ padding: "10px 12px", fontWeight: 800 }}>
-                              {href ? (
-                                <a href={href} target="_blank" rel="noreferrer" style={{ color: "#1d4ed8", textDecoration: "none" }}>
-                                  {label}
-                                </a>
-                              ) : (
-                                label
-                              )}
-                            </td>
-                            <td style={{ padding: "10px 12px" }}>{row.tournamentSport ?? "—"}</td>
-                            <td style={{ padding: "10px 12px" }}>{row.tournamentState ?? "—"}</td>
-                            <td style={{ padding: "10px 12px", fontWeight: 900 }}>{row.startedCount}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <TopTournamentsByStartedTable
+                  rows={quickCheckMetrics.topTournamentsByStarted}
+                  tiAdminBaseUrl={tiAdminBaseUrl}
+                  rollupByTournamentId={rollupByTournamentId}
+                />
               </div>
             ) : null}
 

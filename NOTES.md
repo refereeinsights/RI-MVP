@@ -47,3 +47,4 @@
 ## 2026-03-17
 
 - Admin build stamp: RI admin nav and TI admin pages now display a build identifier (commit short + env + deployment short) to help diagnose dashboard inconsistencies across deployments.
+- /admin/ti: added an expandable “quick view” row under Top tournaments by “Yes” (Started) to show one-line venue quick check rollups (submissions, venues touched, avg cleanliness/shade labels, top parking/restroom type, bring-chairs %).
