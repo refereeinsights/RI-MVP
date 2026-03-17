@@ -46,7 +46,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Include tournaments so SSR pages that read auth state (claim/edit, saved tournaments, entitlements)
-  // have a chance to refresh/repair cookies.
-  matcher: ["/account/:path*", "/logout", "/verify-email", "/auth/:path*", "/tournaments/:path*"],
+  // Run Supabase cookie refresh/repair for all HTML pages (but not API routes or static assets).
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
