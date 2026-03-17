@@ -502,13 +502,16 @@ export default async function TournamentDetailPage({
               <summary style={{ cursor: "pointer", color: "#fff", fontWeight: 900, listStyle: "auto" }}>
                 Edit this tournament listing
               </summary>
-              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-                <form
-                  action={saveClaimedTournamentEdits}
-                  style={{ display: "grid", gap: 10 }}
-                >
-                  <input type="hidden" name="tournament_id" value={data.id} />
-                  <input type="hidden" name="slug" value={data.slug ?? params.slug} />
+	              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+	                <form
+	                  action={async (formData) => {
+	                    "use server";
+	                    await saveClaimedTournamentEdits(formData);
+	                  }}
+	                  style={{ display: "grid", gap: 10 }}
+	                >
+	                  <input type="hidden" name="tournament_id" value={data.id} />
+	                  <input type="hidden" name="slug" value={data.slug ?? params.slug} />
 
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
                     <label style={{ display: "grid", gap: 6 }}>
