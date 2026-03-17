@@ -35,7 +35,9 @@ export async function sendEmail(payload: EmailPayload) {
   const from =
     payload.from ??
     process.env.REVIEW_ALERT_FROM ??
-    "Referee Insights <refereeinsights@gmail.com>";
+    // Resend requires a verified sending domain. Avoid defaulting to consumer domains (e.g. gmail.com),
+    // which will hard-fail in production.
+    "Referee Insights <noreply@refereeinsights.com>";
   const replyTo =
     payload.replyTo ??
     process.env.EMAIL_REPLY_TO ??

@@ -99,11 +99,16 @@ export async function POST(req: Request) {
       options: { redirectTo },
     });
     if (error || !data?.properties?.action_link) {
+      // Do not reveal whether an account exists for this email.
+      // Supabase returns `user_not_found` for unknown emails; treat as success.
+      const code = (error as any)?.code;
+      const status = (error as any)?.status;
+      if (code === "user_not_found" || status === 404) {
+        return NextResponse.json({ ok: true });
+      }
+
       console.error("generateLink error", error);
-      return NextResponse.json(
-        { ok: false, error: "Unable to generate reset link right now." },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "Unable to generate reset link right now." }, { status: 500 });
     }
 
     const link = data.properties.action_link;

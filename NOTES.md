@@ -41,3 +41,5 @@
 - Missing venues counters: now treat `tournament_venues` links as the source of truth (exclude linked tournaments from the “missing venues” tile and list); implemented chunked queries to avoid Supabase/PostgREST URL/header limits.
 - Fees/Venue enrichment: added facility extraction for pages listing venues as `Venue Name – City, ST` (e.g. “Age Groups & Facilities” blocks) so deep scan captures facilities even without street addresses.
 - TI SEO hubs: centered tournament card title/meta/date text on hub pages to match the directory badge/card layout on mobile.
+- RI email: password reset endpoint now returns success when the email is not found (prevents account enumeration and removes noisy 500s).
+- RI email: Resend sender fallback now defaults to `noreply@refereeinsights.com` instead of a gmail address (prevents 403 “domain not verified” failures).
