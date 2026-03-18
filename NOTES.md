@@ -54,3 +54,11 @@
 - TI outreach: preview generation now batches up to 5 tournaments per director email for the intro reply-only outreach (one email can cover multiple tournaments); unsubscribe link suppresses all tournaments included in that email.
 - TI outreach: added a cross-campaign cooldown (default 30 days, configurable via `OUTREACH_COOLDOWN_DAYS`) so preview generation skips director emails that were already sent outreach recently.
 - TI outreach: added `/admin/outreach-reply` tool + `POST /api/outreach/generate-verify-reply` to generate a second-step director email that lists all associated tournaments (by director email) with per-tournament verify links (keeps signed opt-out link).
+
+## 2026-03-18
+
+- Owl's Eye nearby: added two new nearby categories in `owls_eye_nearby_food` (`sporting_goods`, `big_box_fallback`) via migration `20260318_owls_eye_nearby_sporting_goods.sql`.
+- Owl's Eye scan: extended nearby fetch to include team-sports gear stores within ~25 miles (filters out gun/range, running, racquet/tennis, golf, cycling, outdoors/ski, motorsports, fishing/marine, airsoft/paintball, etc); falls back to Target/Walmart/etc when no qualifying sporting goods store is found.
+- Venue pages (TI + RI): show “gear nearby” count and include a “Gear” section in the premium Weekend Guide accordion.
+- Tournament pages (TI + RI): Owls Eye presence indicator now counts gear rows (and big-box fallback) as part of “has Owl’s Eye data”.
+- Admin venue editor (RI): allow editing nearby rows with category `sporting_goods` / `big_box_fallback` (API sanitization + dropdown options).
