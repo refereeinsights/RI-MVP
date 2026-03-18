@@ -345,6 +345,7 @@ export default async function TournamentDetailPage({
       food: number;
       coffee: number;
       hotels: number;
+      sporting_goods: number;
       captured_at: string | null;
     }
   >();
@@ -380,14 +381,15 @@ export default async function TournamentDetailPage({
       .select("run_id,category")
       .in("run_id", runIds);
 
-    const countsByRunId = new Map<string, { food: number; coffee: number; hotels: number }>();
+    const countsByRunId = new Map<string, { food: number; coffee: number; hotels: number; sporting_goods: number }>();
     for (const row of ((nearbyRows as Array<{ run_id: string; category: string | null }> | null) ?? [])) {
       const runId = row.run_id;
       if (!runId) continue;
       const normalizedCategory = (row.category ?? "food").toLowerCase();
-      const current = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0 };
+      const current = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
       if (normalizedCategory === "coffee") current.coffee += 1;
       else if (normalizedCategory === "hotel" || normalizedCategory === "hotels") current.hotels += 1;
+      else if (normalizedCategory === "sporting_goods" || normalizedCategory === "big_box_fallback") current.sporting_goods += 1;
       else current.food += 1;
       countsByRunId.set(runId, current);
     }
@@ -395,7 +397,7 @@ export default async function TournamentDetailPage({
     nearbyCountsByVenueId = new Map(
       Array.from(latestRunByVenue.entries()).map(([venueId, run]) => {
         const runId = (run.run_id ?? run.id) as string;
-        const counts = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0 };
+        const counts = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
         return [
           venueId,
           {
@@ -408,7 +410,7 @@ export default async function TournamentDetailPage({
     hasOwlsEyeByVenueId = new Map(
       Array.from(nearbyCountsByVenueId.entries()).map(([venueId, counts]) => [
         venueId,
-        counts.food + counts.coffee + counts.hotels > 0,
+        counts.food + counts.coffee + counts.hotels + counts.sporting_goods > 0,
       ])
     );
   }

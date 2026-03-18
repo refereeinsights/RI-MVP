@@ -24,8 +24,11 @@ type UpsertParams = {
 
 const DEFAULT_RADIUS = 16093; // ~10 miles in meters
 const HOTEL_RADIUS = 48280; // ~30 miles in meters
+const SPORTING_GOODS_RADIUS = 40234; // ~25 miles in meters
+const SPORTING_GOODS_MILES = 25;
 const DEFAULT_LIMIT = 8;
 const HOTEL_LIMIT = 5;
+const SPORTING_GOODS_LIMIT = 6;
 const HOTEL_INCLUDE_RE = /\b(hotel|motel|inn|resort|suite|suites|lodge)\b/i;
 const HOTEL_EXCLUDE_RE =
   /\b(storage|self storage|mobile home|rv|campground|trailer|home park|apartment|apartments|condo|condominiums?|residential|residence|residences|retreat|getaway|holiday home|vacation rental|vacation rentals|private room|entire home|whole home|townhome|townhouse|single family|multi family|student housing|senior living|corporate housing|furnished rental|property management|leasing office|lease office|realty|real estate|homes for rent|villa rental)\b/i;
@@ -37,6 +40,15 @@ const HOTEL_TYPE_ALLOW = new Set(["lodging", "hotel", "motel", "resort_hotel", "
 const HOTEL_TYPE_BLOCK_RE = /\b(apartment|real_estate|housing|storage|campground|rv_park|route|lodging_business|hostel|guest_house)\b/i;
 const HOTEL_AMBIGUOUS_SIGNAL_RE =
   /\b(suites?|resort|lodge|inn|stay|retreat|villa|club)\b/i;
+
+const SPORTING_EXCLUDE_RE =
+  /\b(gun|guns|firearm|firearms|ammo|ammunition|armory|arms|range|shoot|shooter|shooters|tactical|surplus)\b|\b(run|runner|running)\b|\b(racquet|racket|racquetball|tennis|pickleball)\b|\b(golf|pro\s*shop|tee\s*it\s*up)\b|\b(bike|bicycle|cycling)\b|\b(bowling)\b|\b(outdoors?|outfitter|ski|snowboard|boot\s*fitting)\b|\b(motorsports?|powersports?)\b|\b(bait|tackle|fishing|marine|boat)\b|\b(airsoft|paintball)\b|\b(lululemon)\b/i;
+const SPORTING_CHAIN_ALLOW_RE =
+  /\b(dick'?s\b|academy\s+sports|big\s*5|play\s+it\s+again\s+sports|dunham'?s|scheels|sports\s+basement)\b/i;
+const SPORTING_TEAM_ALLOW_RE = /\b(soccer|hockey|lacrosse|baseball|softball|basketball)\b/i;
+const SPORTING_GENERIC_ALLOW_RE = /\b(sporting\\s+goods|sports\\s+equipment)\b/i;
+const SPORTING_PRIMARY_TYPES = new Set(["sporting_goods_store", "sports_store", "outdoor_sports_store"]);
+const BIG_BOX_ALLOW_RE = /\b(target|walmart|wal-mart|sam'?s\s*club|costco|meijer|fred\s*meyer)\b/i;
 
 function mapsUrl(placeId: string) {
   return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(placeId)}`;
@@ -60,12 +72,84 @@ function buildSponsorRow(runId: string) {
   };
 }
 
+type TextPlace = {
+  place_id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  primaryType?: string;
+};
+
+function milesFromMeters(meters: number) {
+  return meters / 1609.344;
+}
+
+async function searchPlacesText(args: {
+  apiKey: string;
+  lat: number;
+  lng: number;
+  query: string;
+  radiusMeters: number;
+  maxResultCount?: number;
+}): Promise<TextPlace[]> {
+  const safeMax = Math.max(1, Math.min(20, Math.floor(args.maxResultCount ?? 20)));
+  const endpoint = "https://places.googleapis.com/v1/places:searchText";
+  const fieldMask = "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType";
+
+  try {
+    const resp = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": args.apiKey,
+        "X-Goog-FieldMask": fieldMask,
+      },
+      body: JSON.stringify({
+        textQuery: args.query,
+        locationBias: {
+          circle: {
+            center: { latitude: args.lat, longitude: args.lng },
+            radius: args.radiusMeters,
+          },
+        },
+        maxResultCount: safeMax,
+        rankPreference: "DISTANCE",
+      }),
+    });
+    if (!resp.ok) return [];
+    const json = (await resp.json()) as { places?: any[] };
+    return (json.places ?? [])
+      .map((p) => {
+        const placeId = p.id || (p.name ? String(p.name).split("/").pop() : null);
+        const name = p.displayName?.text ? String(p.displayName.text) : null;
+        const address = p.formattedAddress ? String(p.formattedAddress) : null;
+        const latVal = p.location?.latitude;
+        const lngVal = p.location?.longitude;
+        if (!placeId || !name || !address || typeof latVal !== "number" || typeof lngVal !== "number") return null;
+        return {
+          place_id: placeId,
+          name,
+          address,
+          lat: latVal,
+          lng: lngVal,
+          primaryType: typeof p.primaryType === "string" ? p.primaryType : undefined,
+        } satisfies TextPlace;
+      })
+      .filter(Boolean) as TextPlace[];
+  } catch {
+    return [];
+  }
+}
+
 type NearbyResult = {
   ok: boolean;
   message?: string;
   foodCount?: number;
   coffeeCount?: number;
   hotelCount?: number;
+  sportingGoodsCount?: number;
+  bigBoxFallbackCount?: number;
 };
 
 export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyResult> {
@@ -184,12 +268,108 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     finalHotelResults = deduped;
   }
 
+  const isSportingGoodsPlace = (item: TextPlace) => {
+    const name = String(item?.name ?? "").trim();
+    if (!name) return false;
+    if (SPORTING_EXCLUDE_RE.test(name)) return false;
+    if (SPORTING_CHAIN_ALLOW_RE.test(name)) return true;
+    if (SPORTING_TEAM_ALLOW_RE.test(name)) return true;
+    const primaryType = String(item?.primaryType ?? "").trim();
+    if (!SPORTING_PRIMARY_TYPES.has(primaryType)) return false;
+    return SPORTING_GENERIC_ALLOW_RE.test(name);
+  };
+
+  const isBigBoxPlace = (item: TextPlace) => {
+    const name = String(item?.name ?? "").trim();
+    if (!name) return false;
+    if (SPORTING_EXCLUDE_RE.test(name)) return false;
+    return BIG_BOX_ALLOW_RE.test(name);
+  };
+
+  const sortByDistance = (items: TextPlace[]) =>
+    [...items].sort(
+      (a, b) =>
+        haversineMeters({ lat: venueLat, lng: venueLng }, { lat: a.lat, lng: a.lng }) -
+        haversineMeters({ lat: venueLat, lng: venueLng }, { lat: b.lat, lng: b.lng })
+    );
+
+  const dedupePlaces = (items: TextPlace[]) => {
+    const out: TextPlace[] = [];
+    const seen = new Set<string>();
+    for (const item of items) {
+      if (!item?.place_id || seen.has(item.place_id)) continue;
+      const meters = haversineMeters({ lat: venueLat, lng: venueLng }, { lat: item.lat, lng: item.lng });
+      if (milesFromMeters(meters) > SPORTING_GOODS_MILES) continue;
+      seen.add(item.place_id);
+      out.push(item);
+    }
+    return out;
+  };
+
+  const sportingGoodsQueries = ["sporting goods store", "sports equipment store", "soccer store", "hockey shop"];
+  const bigBoxQueries = ["Target", "Walmart", "Walmart Supercenter", "Target store"];
+
+  let sportingGoodsPlaces: TextPlace[] = [];
+  let bigBoxPlaces: TextPlace[] = [];
+  try {
+    const raw = (
+      await Promise.all(
+        sportingGoodsQueries.map((query) =>
+          searchPlacesText({
+            apiKey,
+            lat: venueLat,
+            lng: venueLng,
+            query,
+            radiusMeters: SPORTING_GOODS_RADIUS,
+            maxResultCount: 20,
+          })
+        )
+      )
+    ).flat();
+
+    const deduped = dedupePlaces(raw);
+    sportingGoodsPlaces = sortByDistance(deduped.filter(isSportingGoodsPlace)).slice(0, SPORTING_GOODS_LIMIT);
+
+    if (sportingGoodsPlaces.length === 0) {
+      const fallbackRaw = (
+        await Promise.all(
+          bigBoxQueries.map((query) =>
+            searchPlacesText({
+              apiKey,
+              lat: venueLat,
+              lng: venueLng,
+              query,
+              radiusMeters: SPORTING_GOODS_RADIUS,
+              maxResultCount: 20,
+            })
+          )
+        )
+      ).flat();
+      const fallbackDeduped = dedupePlaces(fallbackRaw);
+      bigBoxPlaces = sortByDistance(fallbackDeduped.filter(isBigBoxPlace)).slice(0, SPORTING_GOODS_LIMIT);
+    }
+  } catch (err) {
+    console.warn("[owlseye] Sporting goods search failed", err);
+  }
+
   const toRows = (items: any[], category: "food" | "coffee" | "hotel", limit = limitPerCategory) =>
     items.slice(0, limit).map((item) => ({
       run_id: runId,
       place_id: item.place_id,
       name: item.name,
       category: classifyCategory(item.name, category),
+      address: item.address ?? "",
+      distance_meters: haversineMeters({ lat: venueLat, lng: venueLng }, { lat: item.lat, lng: item.lng }),
+      maps_url: mapsUrl(item.place_id),
+      is_sponsor: false,
+    }));
+
+  const toSportingRows = (items: TextPlace[], category: "sporting_goods" | "big_box_fallback") =>
+    items.slice(0, SPORTING_GOODS_LIMIT).map((item) => ({
+      run_id: runId,
+      place_id: item.place_id,
+      name: item.name,
+      category,
       address: item.address ?? "",
       distance_meters: haversineMeters({ lat: venueLat, lng: venueLng }, { lat: item.lat, lng: item.lng }),
       maps_url: mapsUrl(item.place_id),
@@ -203,6 +383,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     ...toRows(foodResults, "food"),
     ...toRows(coffeeResults, "coffee"),
     ...toRows(finalHotelResults, "hotel", HOTEL_LIMIT),
+    ...toSportingRows(sportingGoodsPlaces, "sporting_goods"),
+    ...toSportingRows(bigBoxPlaces, "big_box_fallback"),
   ];
   const uniqueRows: typeof rows = [];
   const seen = new Set<string>();
@@ -226,6 +408,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       foodCount: foodResults.length,
       coffeeCount: coffeeResults.length,
       hotelCount: Math.min(finalHotelResults.length, HOTEL_LIMIT),
+      sportingGoodsCount: sportingGoodsPlaces.length,
+      bigBoxFallbackCount: bigBoxPlaces.length,
     };
   }
 
@@ -276,6 +460,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     foodCount: Math.min(foodResults.length, limitPerCategory),
     coffeeCount: Math.min(coffeeResults.length, limitPerCategory),
     hotelCount: Math.min(finalHotelResults.length, HOTEL_LIMIT),
+    sportingGoodsCount: sportingGoodsPlaces.length,
+    bigBoxFallbackCount: bigBoxPlaces.length,
   };
 }
 

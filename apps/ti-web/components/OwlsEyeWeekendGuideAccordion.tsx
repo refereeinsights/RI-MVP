@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import type { NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
 
 type Group = {
-  label: "Coffee" | "Food" | "Hotels";
+  label: "Coffee" | "Food" | "Hotels" | "Gear";
   items: NearbyPlace[];
 };
 
@@ -61,6 +61,7 @@ export default function OwlsEyeWeekendGuideAccordion({ groups, defaultAllCollaps
     Coffee: !defaultAllCollapsed,
     Food: false,
     Hotels: false,
+    Gear: false,
   });
 
   return (

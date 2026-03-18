@@ -39,12 +39,14 @@ type OwlsEyeVenueCardProps = {
     venue_url: string | null;
   };
   hasOwlsEye: boolean;
-  nearbyCounts: { food: number; coffee: number; hotels: number };
+  nearbyCounts: { food: number; coffee: number; hotels: number; sporting_goods: number };
   airportSummary?: {
     nearest_airport?: AirportSummary | null;
     nearest_major_airport?: AirportSummary | null;
   } | null;
-  premiumNearby: { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; captured_at: string | null } | null;
+  premiumNearby:
+    | { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; sporting_goods: NearbyPlace[]; captured_at: string | null }
+    | null;
   mapLinks: { google: string; apple: string; waze: string } | null;
   mapQuery: string | null;
   demoScores?: OwlsEyeDemoScores | null;
@@ -126,6 +128,7 @@ export default function OwlsEyeVenueCard({
               <div>☕ {nearbyCounts.coffee} coffee nearby</div>
               <div>🍔 {nearbyCounts.food} food options nearby</div>
               <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
+              <div>🧢 {nearbyCounts.sporting_goods} gear nearby</div>
             </div>
             {primaryAirport ? (
               <div style={{ marginTop: -3, display: "grid", gap: 1, justifyItems: "center" }}>
@@ -172,6 +175,7 @@ export default function OwlsEyeVenueCard({
                     { label: "Coffee", items: premiumNearby.coffee.slice(0, 10) },
                     { label: "Food", items: premiumNearby.food.slice(0, 10) },
                     { label: "Hotels", items: premiumNearby.hotels.slice(0, 10) },
+                    { label: "Gear", items: premiumNearby.sporting_goods.slice(0, 10) },
                   ]}
                 />
                 {premiumNearby.captured_at ? (

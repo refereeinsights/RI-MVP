@@ -174,7 +174,7 @@ export function mostSelectedBringFieldChairs(values: Array<boolean | null | unde
 }
 
 export function buildOwlsEyeDemoScores(input: {
-  nearbyCounts: { food: number; coffee: number; hotels: number };
+  nearbyCounts: { food: number; coffee: number; hotels: number; sporting_goods?: number };
   vendor_score_avg: number | null | undefined;
   restroom_cleanliness_avg: number | null | undefined;
   shade_score_avg: number | null | undefined;

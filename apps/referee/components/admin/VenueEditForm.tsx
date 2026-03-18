@@ -87,7 +87,7 @@ export default function VenueEditForm({ venue, tournaments, owlNearby = [] }: Pr
   const [nearbySaved, setNearbySaved] = useState<string | null>(null);
   const [newNearby, setNewNearby] = useState<{
     name: string;
-    category: "food" | "coffee" | "hotel";
+    category: "food" | "coffee" | "hotel" | "sporting_goods" | "big_box_fallback";
     address: string;
     maps_url: string;
     distance_meters: string;
@@ -367,6 +367,8 @@ export default function VenueEditForm({ venue, tournaments, owlNearby = [] }: Pr
                   <option value="food">Food</option>
                   <option value="coffee">Coffee</option>
                   <option value="hotel">Hotel</option>
+                  <option value="sporting_goods">Sporting goods</option>
+                  <option value="big_box_fallback">Big box fallback</option>
                 </select>
               </label>
               <Input label="Address" value={row.address ?? ""} onChange={(v) => updateNearbyField(row.id, "address", v)} />
@@ -415,12 +417,19 @@ export default function VenueEditForm({ venue, tournaments, owlNearby = [] }: Pr
               <div>Category</div>
               <select
                 value={newNearby.category}
-                onChange={(e) => setNewNearby((prev) => ({ ...prev, category: e.target.value as "food" | "coffee" | "hotel" }))}
+                onChange={(e) =>
+                  setNewNearby((prev) => ({
+                    ...prev,
+                    category: e.target.value as "food" | "coffee" | "hotel" | "sporting_goods" | "big_box_fallback",
+                  }))
+                }
                 style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
               >
                 <option value="food">Food</option>
                 <option value="coffee">Coffee</option>
                 <option value="hotel">Hotel</option>
+                <option value="sporting_goods">Sporting goods</option>
+                <option value="big_box_fallback">Big box fallback</option>
               </select>
             </label>
             <Input

@@ -31,10 +31,12 @@ async function ensureAdminRequest() {
   return data.user;
 }
 
-function sanitizeCategory(value: unknown): "food" | "coffee" | "hotel" {
+function sanitizeCategory(value: unknown): "food" | "coffee" | "hotel" | "sporting_goods" | "big_box_fallback" {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (normalized === "coffee") return "coffee";
   if (normalized === "hotel" || normalized === "hotels" || normalized === "lodging") return "hotel";
+  if (normalized === "sporting_goods" || normalized === "sporting" || normalized === "sporting-goods") return "sporting_goods";
+  if (normalized === "big_box_fallback" || normalized === "big-box" || normalized === "bigbox") return "big_box_fallback";
   return "food";
 }
 

@@ -40,12 +40,14 @@ type OwlsEyeVenueCardProps = {
   };
   hasOwlsEye: boolean;
   canViewPremiumDetails: boolean;
-  nearbyCounts: { food: number; coffee: number; hotels: number };
+  nearbyCounts: { food: number; coffee: number; hotels: number; sporting_goods: number };
   airportSummary?: {
     nearest_airport?: AirportSummary | null;
     nearest_major_airport?: AirportSummary | null;
   } | null;
-  premiumNearby: { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; captured_at: string | null } | null;
+  premiumNearby:
+    | { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; sporting_goods: NearbyPlace[]; captured_at: string | null }
+    | null;
   tier: "explorer" | "insider" | "weekend_pro";
   showAllDetails?: boolean;
   mapLinks: { google: string; apple: string; waze: string } | null;
@@ -134,11 +136,12 @@ export default function OwlsEyeVenueCard({
             <div className="detailVenueNearbyPreview__title">Nearby Options ({BRAND_OWL})</div>
             {showAllDetails ? (
               <>
-                <div className="detailVenueNearbyPreview__counts">
-                  <div>☕ {nearbyCounts.coffee} coffee nearby</div>
-                  <div>🍔 {nearbyCounts.food} food options nearby</div>
-                  <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
-                </div>
+	                <div className="detailVenueNearbyPreview__counts">
+	                  <div>☕ {nearbyCounts.coffee} coffee nearby</div>
+	                  <div>🍔 {nearbyCounts.food} food options nearby</div>
+	                  <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
+	                  <div>🧢 {nearbyCounts.sporting_goods} gear nearby</div>
+	                </div>
                 {primaryAirport ? (
                   <div style={{ marginTop: -3, display: "grid", gap: 1, justifyItems: "center" }}>
                     <div style={{ fontWeight: 700, lineHeight: 1.1 }}>✈️ Nearest Major Airport</div>
@@ -199,13 +202,18 @@ export default function OwlsEyeVenueCard({
               </>
             ) : (
               <>
-                {nearbyCounts.coffee > 0 || nearbyCounts.food > 0 || nearbyCounts.hotels > 0 || primaryAirport ? (
-                  <div className="detailVenueNearbyPreview__counts" style={{ marginTop: 2 }}>
-                    {nearbyCounts.coffee > 0 ? <div>☕ {nearbyCounts.coffee} coffee nearby</div> : null}
-                    {nearbyCounts.food > 0 ? <div>🍔 {nearbyCounts.food} food options nearby</div> : null}
-                    {nearbyCounts.hotels > 0 ? <div>🏨 {nearbyCounts.hotels} hotels nearby</div> : null}
-                    {primaryAirport ? (
-                      <div>
+	                {nearbyCounts.coffee > 0 ||
+	                nearbyCounts.food > 0 ||
+	                nearbyCounts.hotels > 0 ||
+	                nearbyCounts.sporting_goods > 0 ||
+	                primaryAirport ? (
+	                  <div className="detailVenueNearbyPreview__counts" style={{ marginTop: 2 }}>
+	                    {nearbyCounts.coffee > 0 ? <div>☕ {nearbyCounts.coffee} coffee nearby</div> : null}
+	                    {nearbyCounts.food > 0 ? <div>🍔 {nearbyCounts.food} food options nearby</div> : null}
+	                    {nearbyCounts.hotels > 0 ? <div>🏨 {nearbyCounts.hotels} hotels nearby</div> : null}
+	                    {nearbyCounts.sporting_goods > 0 ? <div>🧢 {nearbyCounts.sporting_goods} gear nearby</div> : null}
+	                    {primaryAirport ? (
+	                      <div>
                         ✈️ Nearest airport: {primaryAirport.name}{" "}
                         {primaryAirport.iata_code || primaryAirport.ident
                           ? `(${primaryAirport.iata_code || primaryAirport.ident})`
@@ -245,12 +253,13 @@ export default function OwlsEyeVenueCard({
                   <div className="detailVenueNearbyGuide__title">{BRAND_OWL} Weekend Guide</div>
                   <OwlsEyeWeekendGuideAccordion
                     defaultAllCollapsed={defaultNearbyAllCollapsed}
-                    groups={[
-                      { label: "Coffee", items: premiumNearby.coffee.slice(0, 10) },
-                      { label: "Food", items: premiumNearby.food.slice(0, 10) },
-                      { label: "Hotels", items: premiumNearby.hotels.slice(0, 10) },
-                    ]}
-                  />
+	                    groups={[
+	                      { label: "Coffee", items: premiumNearby.coffee.slice(0, 10) },
+	                      { label: "Food", items: premiumNearby.food.slice(0, 10) },
+	                      { label: "Hotels", items: premiumNearby.hotels.slice(0, 10) },
+	                      { label: "Gear", items: premiumNearby.sporting_goods.slice(0, 10) },
+	                    ]}
+	                  />
                   {premiumNearby.captured_at ? (
                     <div className="detailVenueNearbyPreview__teaser">
                       Updated {new Date(premiumNearby.captured_at).toLocaleDateString()}

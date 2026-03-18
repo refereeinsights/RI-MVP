@@ -161,8 +161,10 @@ export default async function PremiumPage() {
 
   let previewUnavailable = !demoVenue;
   let hasOwlsEye = false;
-  let nearbyCounts = { food: 0, coffee: 0, hotels: 0 };
-  let premiumNearby: { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; captured_at: string | null } | null = null;
+  let nearbyCounts = { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
+  let premiumNearby:
+    | { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; sporting_goods: NearbyPlace[]; captured_at: string | null }
+    | null = null;
   let demoScores: OwlsEyeDemoScores | null = null;
 
   if (demoVenue) {
@@ -189,23 +191,41 @@ export default async function PremiumPage() {
         sponsor_click_url: row.sponsor_click_url ?? null,
       });
 
-      const food = rows.filter((row) => (row.category ?? "food") === "food").map(toPlace);
-      const coffee = rows.filter((row) => row.category === "coffee").map(toPlace);
+      const food = rows
+        .filter((row) => {
+          const category = (row.category ?? "food").toLowerCase();
+          return (
+            category !== "coffee" &&
+            category !== "hotel" &&
+            category !== "hotels" &&
+            category !== "sporting_goods" &&
+            category !== "big_box_fallback"
+          );
+        })
+        .map(toPlace);
+      const coffee = rows.filter((row) => (row.category ?? "").toLowerCase() === "coffee").map(toPlace);
       const hotels = rows
         .filter((row) => {
           const category = (row.category ?? "").toLowerCase();
           return category === "hotel" || category === "hotels";
         })
         .map(toPlace);
+      const sportingGoods = rows
+        .filter((row) => {
+          const category = (row.category ?? "").toLowerCase();
+          return category === "sporting_goods" || category === "big_box_fallback";
+        })
+        .map(toPlace);
 
-      nearbyCounts = { food: food.length, coffee: coffee.length, hotels: hotels.length };
+      nearbyCounts = { food: food.length, coffee: coffee.length, hotels: hotels.length, sporting_goods: sportingGoods.length };
       premiumNearby = {
         food,
         coffee,
         hotels,
+        sporting_goods: sportingGoods,
         captured_at: latestRun?.updated_at ?? latestRun?.created_at ?? null,
       };
-      hasOwlsEye = nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels > 0;
+      hasOwlsEye = nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels + nearbyCounts.sporting_goods > 0;
       previewUnavailable = false;
     }
 

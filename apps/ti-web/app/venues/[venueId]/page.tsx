@@ -307,8 +307,10 @@ export default async function VenueDetailsPage({
       ) ?? []
     : [];
 
-  let nearbyCounts = { food: 0, coffee: 0, hotels: 0 };
-  let premiumNearby: { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; captured_at: string | null } | null = null;
+  let nearbyCounts = { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
+  let premiumNearby:
+    | { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; sporting_goods: NearbyPlace[]; captured_at: string | null }
+    | null = null;
   let demoScores: OwlsEyeDemoScores | null = null;
   const airportSummary = latestRun?.outputs?.airports ?? null;
 
@@ -389,7 +391,13 @@ export default async function VenueDetailsPage({
     const foodRows = dedupeRows(
       rows.filter((row) => {
         const category = (row.category ?? "food").toLowerCase();
-        return category !== "coffee" && category !== "hotel" && category !== "hotels";
+        return (
+          category !== "coffee" &&
+          category !== "hotel" &&
+          category !== "hotels" &&
+          category !== "sporting_goods" &&
+          category !== "big_box_fallback"
+        );
       }),
       partnerDedupKeys.food
     );
@@ -404,11 +412,16 @@ export default async function VenueDetailsPage({
       }),
       partnerDedupKeys.hotels
     );
+    const sportingGoodsRows = rows.filter((row) => {
+      const category = (row.category ?? "").toLowerCase();
+      return category === "sporting_goods" || category === "big_box_fallback";
+    });
 
     nearbyCounts = {
       food: partnerPlaces.food.length + foodRows.length,
       coffee: partnerPlaces.coffee.length + coffeeRows.length,
       hotels: partnerPlaces.hotels.length + hotelRows.length,
+      sporting_goods: sportingGoodsRows.length,
     };
 
     if (canViewPremiumDetails) {
@@ -416,6 +429,7 @@ export default async function VenueDetailsPage({
         food: [...partnerPlaces.food, ...foodRows.map(toPlace)],
         coffee: [...partnerPlaces.coffee, ...coffeeRows.map(toPlace)],
         hotels: [...partnerPlaces.hotels, ...hotelRows.map(toPlace)],
+        sporting_goods: sportingGoodsRows.map(toPlace),
         captured_at: latestRun?.updated_at ?? latestRun?.created_at ?? null,
       };
     }
@@ -424,18 +438,20 @@ export default async function VenueDetailsPage({
       food: partnerPlaces.food.length,
       coffee: partnerPlaces.coffee.length,
       hotels: partnerPlaces.hotels.length,
+      sporting_goods: 0,
     };
     if (canViewPremiumDetails) {
       premiumNearby = {
         food: partnerPlaces.food,
         coffee: partnerPlaces.coffee,
         hotels: partnerPlaces.hotels,
+        sporting_goods: [],
         captured_at: partnerRows[0]?.updated_at ?? partnerRows[0]?.created_at ?? null,
       };
     }
   }
 
-  const hasOwlsEye = nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels > 0;
+  const hasOwlsEye = nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels + nearbyCounts.sporting_goods > 0;
 
   const reviewChoicesPrimary = await supabaseAdmin
     .from("venue_reviews" as any)

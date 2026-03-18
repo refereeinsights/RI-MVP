@@ -216,8 +216,10 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const latestRun = runRows.find((row) => row.venue_id === data.id) ?? null;
   const latestRunId = latestRun ? latestRun.run_id ?? latestRun.id : null;
 
-  let nearbyCounts = { food: 0, coffee: 0, hotels: 0 };
-  let premiumNearby: { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; captured_at: string | null } | null = null;
+  let nearbyCounts = { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
+  let premiumNearby:
+    | { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; sporting_goods: NearbyPlace[]; captured_at: string | null }
+    | null = null;
   const airportSummary = latestRun?.outputs?.airports ?? null;
 
   if (latestRunId) {
@@ -238,23 +240,43 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
     });
 
     const rows = (nearbyRows as NearbyPlaceRow[] | null) ?? [];
-    const food = rows.filter((row) => (row.category ?? "food") === "food").map(toPlace);
-    const coffee = rows.filter((row) => row.category === "coffee").map(toPlace);
-    const hotels = rows.filter((row) => {
+    const food = rows
+      .filter((row) => {
+        const category = (row.category ?? "food").toLowerCase();
+        return (
+          category !== "coffee" &&
+          category !== "hotel" &&
+          category !== "hotels" &&
+          category !== "sporting_goods" &&
+          category !== "big_box_fallback"
+        );
+      })
+      .map(toPlace);
+    const coffee = rows.filter((row) => (row.category ?? "").toLowerCase() === "coffee").map(toPlace);
+    const hotels = rows
+      .filter((row) => {
       const category = (row.category ?? "").toLowerCase();
       return category === "hotel" || category === "hotels";
-    }).map(toPlace);
+    })
+      .map(toPlace);
+    const sportingGoods = rows
+      .filter((row) => {
+        const category = (row.category ?? "").toLowerCase();
+        return category === "sporting_goods" || category === "big_box_fallback";
+      })
+      .map(toPlace);
 
-    nearbyCounts = { food: food.length, coffee: coffee.length, hotels: hotels.length };
+    nearbyCounts = { food: food.length, coffee: coffee.length, hotels: hotels.length, sporting_goods: sportingGoods.length };
     premiumNearby = {
       food,
       coffee,
       hotels,
+      sporting_goods: sportingGoods,
       captured_at: latestRun?.updated_at ?? latestRun?.created_at ?? null,
     };
   }
 
-  const hasOwlsEye = nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels > 0;
+  const hasOwlsEye = nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels + nearbyCounts.sporting_goods > 0;
 
   const reviewChoicesPrimary = await supabaseAdmin
     .from("venue_reviews" as any)
