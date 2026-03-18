@@ -4,8 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 import { findNearestAirports } from "../../apps/referee/src/server/owlseye/airports/findNearestAirports";
 
 const APPLY = process.argv.includes("--apply");
+const ALL = process.argv.includes("--all");
 const LIMIT_ARG = process.argv.find((arg) => arg.startsWith("--limit="));
 const LIMIT = LIMIT_ARG ? Number(LIMIT_ARG.split("=")[1]) : 0;
+const OFFSET_ARG = process.argv.find((arg) => arg.startsWith("--offset="));
+const OFFSET = OFFSET_ARG ? Number(OFFSET_ARG.split("=")[1]) : 0;
 const CHUNK = 200;
 
 type OwlRunRow = {
@@ -49,6 +52,7 @@ async function main() {
   });
 
   const runRows: OwlRunRow[] = [];
+  const latestByVenue = new Map<string, OwlRunRow>();
   for (let from = 0; ; from += CHUNK) {
     const to = from + CHUNK - 1;
     const { data, error } = await supabase
@@ -60,11 +64,22 @@ async function main() {
     if (error) throw error;
     const chunk = (data ?? []) as OwlRunRow[];
     runRows.push(...chunk);
+    if (ALL) {
+      for (const row of chunk) {
+        if (!row.venue_id) continue;
+        // Because we scan newest -> oldest, the first row we see per venue is the latest complete run.
+        if (!latestByVenue.has(row.venue_id)) latestByVenue.set(row.venue_id, row);
+      }
+    }
     if (chunk.length < CHUNK) break;
   }
 
   const missingAirportRows = runRows.filter((row) => row.venue_id && !(row.outputs && row.outputs.airports));
-  const targetRows = LIMIT > 0 ? missingAirportRows.slice(0, LIMIT) : missingAirportRows;
+  const allVenueLatestRows = Array.from(latestByVenue.values());
+
+  const baseTargetRows = ALL ? allVenueLatestRows : missingAirportRows;
+  const offsetRows = OFFSET > 0 ? baseTargetRows.slice(OFFSET) : baseTargetRows;
+  const targetRows = LIMIT > 0 ? offsetRows.slice(0, LIMIT) : offsetRows;
   const venueIds = Array.from(new Set(targetRows.map((row) => row.venue_id).filter((value): value is string => Boolean(value))));
 
   const venueMap = new Map<string, VenueRow>();
@@ -115,8 +130,12 @@ async function main() {
     JSON.stringify(
       {
         mode: APPLY ? "apply" : "dry-run",
+        all: ALL,
+        offset: OFFSET,
+        limit: LIMIT,
         complete_runs_scanned: runRows.length,
         runs_missing_airports: missingAirportRows.length,
+        latest_complete_runs_by_venue: allVenueLatestRows.length,
         targeted_runs: targetRows.length,
         updates_prepared: updates.length,
         skipped_missing_coords: skippedMissingCoords,

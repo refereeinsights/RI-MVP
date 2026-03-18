@@ -87,8 +87,38 @@ async function fetchCandidates(args: {
     .order("latitude_deg", { ascending: true })
     .limit(3000);
 
-  if (args.majorOnly) query = query.eq("is_major", true);
-  else query = query.eq("is_commercial", true);
+  if (args.majorOnly) {
+    // "Major" is our strictest passenger-friendly definition (scheduled + large/medium via import rule).
+    query = query
+      .eq("is_major", true)
+      // Same false-positive guard rails as the non-major lookup.
+      .not("name", "ilike", "%University%")
+      .not("name", "ilike", "%Air Force%")
+      .not("name", "ilike", "%Army%")
+      .not("name", "ilike", "%Naval%")
+      .not("name", "ilike", "%Marine%")
+      .not("name", "ilike", "%Joint Base%")
+      .not("name", "ilike", "%AFB%");
+  } else {
+    // "Passenger airports only" heuristic:
+    // - scheduled_service must be true
+    // - must have an IATA code (filters out many GA strips that can still exist in the dataset)
+    // - exclude heliports/seaplane/etc by restricting to airport types that can plausibly host passengers.
+    query = query
+      .eq("scheduled_service", true)
+      .not("iata_code", "is", null)
+      // Exclude small_airport to avoid returning tiny/non-passenger fields.
+      .in("airport_type", ["large_airport", "medium_airport"])
+      // OurAirports' `scheduled_service` has some false positives (e.g. university airports).
+      // This heuristic blocks common non-passenger facility patterns while keeping most commercial airports.
+      .not("name", "ilike", "%University%")
+      .not("name", "ilike", "%Air Force%")
+      .not("name", "ilike", "%Army%")
+      .not("name", "ilike", "%Naval%")
+      .not("name", "ilike", "%Marine%")
+      .not("name", "ilike", "%Joint Base%")
+      .not("name", "ilike", "%AFB%");
+  }
 
   const { data, error } = await query;
   if (error) throw error;
