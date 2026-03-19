@@ -1,0 +1,34 @@
+{
+  "tournament_name": "NSAWA Mount Vernon Classic 2026",
+  "tournament_id": "69f490cc-e864-49ed-95a5-7073c997c4eb",
+  "venues": [
+    {
+      "venue_name": "Skagit River Park Sports Complex",
+      "address": "1100 S Skagit St",
+      "city": "Burlington",
+      "state": "WA",
+      "zip": "98233",
+      "venue_url": "https://www.burlingtonwa.gov/Facilities/Facility/Details/Skagit-River-Park-1"
+    },
+    {
+      "venue_name": "Bakerview Park",
+      "address": "3101 E Fir St",
+      "city": "Mount Vernon",
+      "state": "WA",
+      "zip": "98273",
+      "venue_url": "https://www.mountvernonwa.gov/Facilities/Facility/Details/Bakerview-Park-3"
+    },
+    {
+      "venue_name": "Hillcrest Park",
+      "address": "1717 S 13th St",
+      "city": "Mount Vernon",
+      "state": "WA",
+      "zip": "98274",
+      "venue_url": "https://www.mountvernonwa.gov/Facilities/Facility/Details/Hillcrest-Park-7"
+    }
+  ],
+  "source_url": "NSAWA tournament ecosystem (Mount Vernon / Skagit County usage patterns)",
+  "confidence": "medium-high",
+  "notes": "Venues derived from NSAWA and Skagit-area tournament usage patterns; Skagit River Park and Bakerview Park are primary anchors. Recommend confirming via schedule or field map PDF for exact 2026 assignment."
+}
+
