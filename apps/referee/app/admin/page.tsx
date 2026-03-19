@@ -1110,6 +1110,15 @@ export default async function AdminPage({
     const offsetInput = Number(formData.get("discover_offset") ?? "0");
     const offset = Number.isFinite(offsetInput) ? Math.max(0, offsetInput) : 0;
 
+    const toPct = (val: unknown): number | null => {
+      if (val === null || val === undefined || val === "") return null;
+      const n = Number(val);
+      if (!Number.isFinite(n)) return null;
+      // Enricher emits 0..1; admin UI expects 0..100.
+      const pct = n <= 1 ? Math.round(n * 100) : Math.round(n);
+      return Math.max(0, Math.min(100, pct));
+    };
+
     const { data: tournaments, error } = await supabaseAdmin
       .from("tournaments" as any)
       .select("id,official_website_url,source_url,enrichment_skip,tournament_director_email,referee_contact_email")
@@ -1169,7 +1178,7 @@ export default async function AdminPage({
         email: row.email ?? null,
         phone: row.phone ?? null,
         source_url: row.source_url ?? null,
-        confidence: row.confidence ?? null,
+        confidence: toPct(row.confidence),
         status: "pending",
         notes: "Auto-discovered from tournament site.",
       };
