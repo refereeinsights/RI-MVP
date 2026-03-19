@@ -19,6 +19,8 @@ import { lookupSchoolZip } from "@/lib/googlePlaces";
 import { getSportValidationCounts } from "@/lib/validation/getSportValidationCounts";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 import {
   requireAdmin,
