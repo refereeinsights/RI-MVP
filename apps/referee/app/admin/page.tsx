@@ -2993,7 +2993,12 @@ export default async function AdminPage({
         <SummaryTile label="Draft" value={draftCountRes.count ?? 0} tone="info" />
         <SummaryTileLink label="Missing venues" value={missingVenueCountRes.count ?? 0} tone="warn" href="/admin/tournaments/missing-venues" />
         <SummaryTile label="Missing URLs" value={missingUrlCountRes.count ?? 0} tone="warn" />
-        <SummaryTile label="Missing dates" value={missingDateCountRes.count ?? 0} tone="warn" />
+        <SummaryTileLink
+          label="Missing dates"
+          value={missingDateCountRes.count ?? 0}
+          tone="warn"
+          href="/admin?tab=tournament-listings&missing=dates"
+        />
         <SummaryTile label="Validated (rule)" value={validationCounts.rule_confirmed ?? 0} tone="success" />
         <SummaryTile label="Needs review" value={validationCounts.needs_review ?? 0} tone="info" />
         <Link
