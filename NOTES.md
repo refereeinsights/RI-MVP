@@ -77,3 +77,5 @@
 - TI SEO: replaced capped Next metadata sitemap with scalable sitemap index at `/sitemap.xml` and paged sitemaps under `/sitemaps/*` (static + hubs + `tournaments-<n>.xml`).
 - TI SEO: added `noindex,nofollow` for thin/utility pages (`/login`, `/signup`, `/join`, `/outreach/preview`, `/unsubscribe-outreach`, `/venues/maps/[venueId]`) and for secondary duplicate hub routes (`/tournaments/hubs/*`).
 - TI SEO: added crawlable internal links to sport hubs (`/tournaments/{sport}`) from `/` and `/tournaments` (and ensured `softball` hub is included in sitemap coverage).
+- RI admin: added a dashboard summary tile for “Missing director email” next to “Missing dates”, linking to `/admin?tab=tournament-listings&missing=director_email` (filters to tournaments where `tournament_director_email` is blank).
+- Data: ingested tournament director name/email from director research CSV batches (only fills missing values; does not overwrite existing data); added helper script `scripts/ingest/apply_tournament_directors_from_csv.ts`.
