@@ -36,12 +36,12 @@
   color: var(--ri-text);
   flex: 0 0 auto;
   min-width: 320px; /* reserves space for fallback text (no layout shift) */
-  height: 72px;
+  height: 216px; /* ~300% larger than prior 72px */
   justify-content: center;
 }
 
 .ri-header__logo {
-  height: 72px;
+  height: 216px;
   width: auto;
   display: block;
   user-select: none;
@@ -99,10 +99,21 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 10px 16px 14px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: center;
   gap: 14px;
+}
+
+.ri-header__leftActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  justify-self: start;
+}
+
+.ri-header__rightActions {
+  justify-self: end;
 }
 
 .ri-listBtn {
@@ -298,11 +309,11 @@
 @media (max-width: 768px) {
   .ri-header__brand {
     min-width: 240px;
-    height: 64px;
+    height: 96px;
   }
 
   .ri-header__logo {
-    height: 64px;
+    height: 96px;
   }
 
   .ri-header__nav {
@@ -313,8 +324,7 @@
     display: inline-flex;
   }
 
-  .ri-listBtn,
-  .ri-betaPill {
+  .ri-header__leftActions {
     display: none;
   }
 

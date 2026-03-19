@@ -69,7 +69,7 @@ export default function VenueCard({
           alt="Owl's Eye insights available for this venue"
         />
       ) : null}
-      <div className="cardWhistle" style={{ top: "1.1rem" }}>
+      <div className="cardWhistle">
         <div className="summaryIcon" aria-hidden="true">
           {icon ?? "📍"}
         </div>

@@ -62,14 +62,16 @@ export default function Header({ isAuthenticated = false }) {
 
       <div className="ri-header__bottom">
         <div className="ri-header__bottomInner">
-          <Link className="ri-listBtn" href="/tournaments/list" title="Submit a tournament">
-            <span className="ri-listBtn__icon" aria-hidden="true">
-              🏆
-            </span>
-            <span className="ri-listBtn__text">List your tournament</span>
-          </Link>
+          <div className="ri-header__leftActions">
+            <Link className="ri-listBtn" href="/tournaments/list" title="Submit a tournament">
+              <span className="ri-listBtn__icon" aria-hidden="true">
+                🏆
+              </span>
+              <span className="ri-listBtn__text">List your tournament</span>
+            </Link>
 
-          <span className="ri-betaPill">Public Beta</span>
+            <span className="ri-betaPill">Public Beta</span>
+          </div>
 
           <nav className="ri-header__nav" aria-label="Primary">
             <Link className="ri-navLink" href="/tournaments">
@@ -83,17 +85,19 @@ export default function Header({ isAuthenticated = false }) {
             </Link>
           </nav>
 
-          <button
-            ref={toggleRef}
-            type="button"
-            className="ri-menuToggle"
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={menuOpen ? "true" : "false"}
-            aria-controls="ri-mobile-menu"
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            <span className="ri-menuToggle__bars" aria-hidden="true" />
-          </button>
+          <div className="ri-header__rightActions">
+            <button
+              ref={toggleRef}
+              type="button"
+              className="ri-menuToggle"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen ? "true" : "false"}
+              aria-controls="ri-mobile-menu"
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              <span className="ri-menuToggle__bars" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </div>
 
