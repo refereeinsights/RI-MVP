@@ -43,6 +43,8 @@ function timeoutForHost(hostname: string): number {
   // Some providers can be slow to respond or rate-limit aggressively.
   // Keep defaults snappy, but allow a bit more time for known slow domains.
   if (hostname.endsWith("tagup.com")) return 20000;
+  // Self-fetches can occasionally be slow (or blocked) in some environments.
+  if (hostname.endsWith("refereeinsights.com")) return 20000;
   return FETCH_TIMEOUT_MS;
 }
 
@@ -292,7 +294,14 @@ async function processTournamentById(
   if (!tourneyUrl) {
     throw new Error("tournament_url_missing");
   }
+  if (!isHttpUrl(tourneyUrl)) {
+    throw new Error("tournament_url_invalid");
+  }
   const scrape = await scrapeTournament(tourneyUrl, options);
+  // Avoid silently "succeeding" when we never fetched anything (timeouts, blocks, non-HTML, etc).
+  if (scrape.pages === 0) {
+    throw new Error("enrichment_no_pages_fetched");
+  }
   await upsertCandidates(
     tournamentId,
     scrape.contacts.slice(0, 20),
