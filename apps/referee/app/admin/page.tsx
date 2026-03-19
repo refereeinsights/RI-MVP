@@ -1106,18 +1106,24 @@ export default async function AdminPage({
     await queueEnrichmentJobs(tournamentIds);
     await runQueuedEnrichment(Math.min(20, tournamentIds.length));
 
-    const { data: candidates } = await supabaseAdmin
+    const { data: candidates, error: candidatesError } = await supabaseAdmin
       .from("tournament_contact_candidates" as any)
       .select("id,tournament_id,role_normalized,name,email,phone,source_url,confidence")
       .in("tournament_id", tournamentIds)
       .is("accepted_at", null)
       .is("rejected_at", null)
       .limit(200);
+    if (candidatesError) {
+      redirectWithNotice(redirectTo, `Contact discovery failed (candidates): ${candidatesError.message}`);
+    }
 
     const existingResp = await supabaseAdmin
       .from("tournament_contacts" as any)
       .select("tournament_id,type,name,email,phone")
       .in("tournament_id", tournamentIds);
+    if (existingResp.error) {
+      redirectWithNotice(redirectTo, `Contact discovery failed (existing contacts): ${existingResp.error.message}`);
+    }
 
     const existingKeys = new Set<string>();
     (existingResp.data ?? []).forEach((row: any) => {
@@ -1145,20 +1151,35 @@ export default async function AdminPage({
       return !existingKeys.has(key.toLowerCase());
     });
 
+    let insertedCount = 0;
     if (toInsert.length) {
-      await supabaseAdmin.from("tournament_contacts" as any).insert(toInsert);
+      const insertResp = await supabaseAdmin
+        .from("tournament_contacts" as any)
+        .insert(toInsert)
+        .select("id");
+      if (insertResp.error) {
+        redirectWithNotice(redirectTo, `Contact discovery failed (insert): ${insertResp.error.message}`);
+      }
+      insertedCount = (insertResp.data ?? []).length;
+
       const candidateIds = (candidates ?? []).map((c: any) => c.id).filter(Boolean);
       if (candidateIds.length) {
-        await supabaseAdmin
+        const acceptResp = await supabaseAdmin
           .from("tournament_contact_candidates" as any)
           .update({ accepted_at: new Date().toISOString() })
           .in("id", candidateIds);
+        if (acceptResp.error) {
+          redirectWithNotice(
+            redirectTo,
+            `Contact discovery inserted ${toInsert.length} contact(s) but failed to mark candidates accepted: ${acceptResp.error.message}`
+          );
+        }
       }
     }
 
     redirectWithNotice(
       redirectTo,
-      `Contact discovery queued for ${tournamentIds.length} tournament(s). Added ${toInsert.length} pending contact(s).`
+      `Contact discovery queued for ${tournamentIds.length} tournament(s). Added ${insertedCount} pending contact(s).`
     );
   }
 
