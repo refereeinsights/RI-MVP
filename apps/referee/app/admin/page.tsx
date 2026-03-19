@@ -255,6 +255,25 @@ function redirectWithNotice(target: FormDataEntryValue | null, notice: string): 
   redirect(`${base}${joiner}notice=${encodeURIComponent(notice)}`);
 }
 
+function redirectWithNoticeAndQuery(
+  target: FormDataEntryValue | null,
+  notice: string,
+  extraQuery: Record<string, string | number | null | undefined>
+): never {
+  const base = typeof target === "string" && target.length > 0 ? target : "/admin";
+  const [path, qs] = base.split("?");
+  const params = new URLSearchParams(qs ?? "");
+  for (const [key, val] of Object.entries(extraQuery)) {
+    if (val === null || val === undefined || val === "") {
+      params.delete(key);
+    } else {
+      params.set(key, String(val));
+    }
+  }
+  params.set("notice", notice);
+  redirect(`${path}?${params.toString()}`);
+}
+
 export default async function AdminPage({
   searchParams,
 }: {
@@ -267,6 +286,7 @@ export default async function AdminPage({
     rstatus?: ReviewStatus;
     cstatus?: ContactStatus;
     notice?: string;
+    discover_offset?: string;
     fallback_source_url?: string;
     staff_token?: string;
     staff_token_tournament_id?: string;
@@ -360,6 +380,9 @@ export default async function AdminPage({
   const reviewStatus: ReviewStatus = (searchParams.rstatus as ReviewStatus) ?? "pending";
   const contactStatus: ContactStatus = (searchParams.cstatus as ContactStatus) ?? "pending";
   const notice = searchParams.notice ?? "";
+  const discoverOffsetRaw = (searchParams.discover_offset ?? "").trim();
+  const discoverOffset =
+    discoverOffsetRaw && Number.isFinite(Number(discoverOffsetRaw)) ? Math.max(0, Number(discoverOffsetRaw)) : 0;
   const staffToken = searchParams.staff_token ?? "";
   const staffTokenTournamentId = searchParams.staff_token_tournament_id ?? "";
   const fallbackSourceUrlParam = searchParams.fallback_source_url ?? "";
@@ -375,6 +398,7 @@ export default async function AdminPage({
   let emailDiscoveryHideSet = new Set<string>();
   if (tab === "tournament-contacts") {
     params.set("cstatus", contactStatus);
+    if (discoverOffset) params.set("discover_offset", String(discoverOffset));
   }
   if (q) {
     params.set("q", q);
@@ -1083,16 +1107,17 @@ export default async function AdminPage({
     const redirectTo = formData.get("redirect_to");
     const limitInput = Number(formData.get("limit") ?? "10");
     const limit = Number.isFinite(limitInput) ? Math.max(1, Math.min(limitInput, 25)) : 10;
+    const offsetInput = Number(formData.get("discover_offset") ?? "0");
+    const offset = Number.isFinite(offsetInput) ? Math.max(0, offsetInput) : 0;
 
     const { data: tournaments, error } = await supabaseAdmin
       .from("tournaments" as any)
-      .select("id,official_website_url,source_url,enrichment_skip,tournament_director,referee_contact")
+      .select("id,official_website_url,source_url,enrichment_skip,tournament_director_email,referee_contact_email")
       .eq("enrichment_skip", false)
       .or("official_website_url.not.is.null,source_url.not.is.null")
-      .is("tournament_director", null)
-      .is("referee_contact", null)
+      .or("tournament_director_email.is.null,tournament_director_email.eq.")
       .order("updated_at", { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       redirectWithNotice(redirectTo, `Contact discovery failed: ${error.message}`);
@@ -1100,7 +1125,9 @@ export default async function AdminPage({
 
     const tournamentIds = (tournaments ?? []).map((t: any) => t.id).filter(Boolean);
     if (!tournamentIds.length) {
-      redirectWithNotice(redirectTo, "No tournaments missing contact info.");
+      redirectWithNoticeAndQuery(redirectTo, "No tournaments missing contact info.", {
+        discover_offset: offset,
+      });
     }
 
     await queueEnrichmentJobs(tournamentIds);
@@ -1177,9 +1204,10 @@ export default async function AdminPage({
       }
     }
 
-    redirectWithNotice(
+    redirectWithNoticeAndQuery(
       redirectTo,
-      `Contact discovery queued for ${tournamentIds.length} tournament(s). Added ${insertedCount} pending contact(s).`
+      `Contact discovery queued for ${tournamentIds.length} tournament(s). Added ${insertedCount} pending contact(s).`,
+      { discover_offset: offset + limit }
     );
   }
 
@@ -5746,9 +5774,10 @@ export default async function AdminPage({
               </table>
             </div>
 
-            <h3 style={{ marginTop: 0, fontSize: 16 }}>Discover contacts for missing tournaments</h3>
+            <h3 style={{ marginTop: 0, fontSize: 16 }}>Discover contacts for tournaments missing director email</h3>
             <form action={discoverTournamentContactsAction} style={{ display: "grid", gap: 12, marginBottom: 16 }}>
               <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <input type="hidden" name="discover_offset" value={discoverOffset} />
               <label style={{ fontSize: 12, fontWeight: 700 }}>
                 Max tournaments to scan
                 <input
@@ -5775,8 +5804,17 @@ export default async function AdminPage({
                 Discover contacts
               </button>
               <p style={{ fontSize: 12, color: "#555", margin: 0 }}>
-                Queues enrichment for tournaments missing contact info, then promotes discovered contacts to the review queue.
+                Queues enrichment for tournaments missing director email, then promotes discovered contacts to the review queue.
               </p>
+              <div style={{ fontSize: 12, color: "#555" }}>
+                Offset: <strong>{discoverOffset}</strong>{" "}
+                <a
+                  href={`${tournamentContactLink(contactStatus)}&discover_offset=0`}
+                  style={{ color: "#0f3d2e", fontWeight: 800, textDecoration: "none" }}
+                >
+                  Reset
+                </a>
+              </div>
             </form>
 
             <h3 style={{ marginTop: 0, fontSize: 16 }}>Latest email discovery results</h3>
