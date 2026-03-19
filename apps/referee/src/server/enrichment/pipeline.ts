@@ -29,6 +29,23 @@ function isHttpUrl(url: string): boolean {
   }
 }
 
+function isAbortError(err: unknown): boolean {
+  // Node's fetch aborts with DOMException(name="AbortError") (undici).
+  return (
+    typeof err === "object" &&
+    err != null &&
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ((err as any).name === "AbortError" || (err as any).code === "ABORT_ERR")
+  );
+}
+
+function timeoutForHost(hostname: string): number {
+  // Some providers can be slow to respond or rate-limit aggressively.
+  // Keep defaults snappy, but allow a bit more time for known slow domains.
+  if (hostname.endsWith("tagup.com")) return 20000;
+  return FETCH_TIMEOUT_MS;
+}
+
 async function politeFetch(url: string): Promise<string | null> {
   try {
     if (!isHttpUrl(url)) {
@@ -42,14 +59,25 @@ async function politeFetch(url: string): Promise<string | null> {
       await new Promise((resolve) => setTimeout(resolve, waitMs));
     }
 
+    const timeoutMs = timeoutForHost(parsed.hostname);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    const resp = await fetch(url, {
-      redirect: "follow",
-      signal: controller.signal,
-      headers: { "user-agent": "RI-Tournament-Enricher/1.0" },
-    });
-    clearTimeout(timeout);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    let resp: Response;
+    try {
+      resp = await fetch(url, {
+        redirect: "follow",
+        signal: controller.signal,
+        headers: { "user-agent": "RI-Tournament-Enricher/1.0" },
+      });
+    } catch (err) {
+      if (isAbortError(err)) {
+        console.warn("[enricher] fetch timeout", url, `${timeoutMs}ms`);
+        return null;
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
     domainLastFetch.set(parsed.hostname, Date.now());
     const ct = resp.headers.get("content-type") || "";
     if (!ct.includes("text/html")) {
@@ -70,7 +98,9 @@ async function politeFetch(url: string): Promise<string | null> {
     }
     return Buffer.concat(chunks).toString("utf8");
   } catch (err) {
-    console.warn("[enricher] fetch failed", url, err);
+    // Avoid noisy stack traces for common network flakes; the job will retry later.
+    const msg = typeof err === "object" && err && "message" in err ? String((err as any).message) : String(err);
+    console.warn("[enricher] fetch failed", url, msg);
     return null;
   }
 }
