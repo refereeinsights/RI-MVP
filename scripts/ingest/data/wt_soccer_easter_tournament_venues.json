@@ -1,0 +1,34 @@
+{
+  "tournament_name": "WT Soccer Easter Tournament",
+  "tournament_id": "26c6485a-f83e-4580-9121-0675dc9fc0e8",
+  "venues": [
+    {
+      "venue_name": "Spokane Polo Fields",
+      "address": "5700 W 16th Ave",
+      "city": "Spokane",
+      "state": "WA",
+      "zip": "99224",
+      "venue_url": "https://my.spokanecity.org/parks/locations/spokane-polo-fields/"
+    },
+    {
+      "venue_name": "Dwight Merkel Sports Complex",
+      "address": "5701 N Assembly St",
+      "city": "Spokane",
+      "state": "WA",
+      "zip": "99205",
+      "venue_url": "https://my.spokanecity.org/parks/locations/dwight-merkel-sports-complex/"
+    },
+    {
+      "venue_name": "Plantes Ferry Sports Complex",
+      "address": "12320 E Upriver Dr",
+      "city": "Spokane Valley",
+      "state": "WA",
+      "zip": "99216",
+      "venue_url": "https://www.spokanevalley.org/facilities/facility/details/Plantes-Ferry-Sports-Complex-14"
+    }
+  ],
+  "source_url": "https://wtsoccer.net/eastertournament/",
+  "confidence": "medium-high",
+  "notes": "Venues derived from organizer historical usage across WT Soccer tournaments; direct page confirmation recommended for final validation."
+}
+
