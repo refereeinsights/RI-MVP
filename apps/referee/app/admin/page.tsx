@@ -104,7 +104,7 @@ type Tab =
   | "tournament-listings"
   | "owls-eye";
 type VStatus = "pending" | "approved" | "rejected";
-type MissingTournamentFilter = "venues" | "urls" | "dates" | "";
+type MissingTournamentFilter = "venues" | "urls" | "dates" | "director_email" | "";
 type ReadyVenueItem = {
   venue_id: string;
   name: string | null;
@@ -283,6 +283,7 @@ export default async function AdminPage({
     missingVenueCountRes,
     missingUrlCountRes,
     missingDateCountRes,
+    missingDirectorEmailCountRes,
     validationCounts,
   ] = await Promise.all([
     supabaseAdmin
@@ -342,6 +343,12 @@ export default async function AdminPage({
       .eq("is_canonical", true)
       .is("start_date", null)
       .is("end_date", null),
+    supabaseAdmin
+      .from("tournaments" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "published")
+      .eq("is_canonical", true)
+      .or("tournament_director_email.is.null,tournament_director_email.eq."),
     getSportValidationCounts(),
   ]);
 
@@ -688,6 +695,9 @@ export default async function AdminPage({
     }
     if (missingFilter === "dates") {
       return !hasText(t.start_date) || !hasText(t.end_date);
+    }
+    if (missingFilter === "director_email") {
+      return !hasText(t.tournament_director_email);
     }
     return true;
   };
@@ -2998,6 +3008,12 @@ export default async function AdminPage({
           value={missingDateCountRes.count ?? 0}
           tone="warn"
           href="/admin?tab=tournament-listings&missing=dates"
+        />
+        <SummaryTileLink
+          label="Missing director email"
+          value={missingDirectorEmailCountRes.count ?? 0}
+          tone="warn"
+          href="/admin?tab=tournament-listings&missing=director_email"
         />
         <SummaryTile label="Validated (rule)" value={validationCounts.rule_confirmed ?? 0} tone="success" />
         <SummaryTile label="Needs review" value={validationCounts.needs_review ?? 0} tone="info" />
