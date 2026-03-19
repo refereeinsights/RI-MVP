@@ -102,3 +102,4 @@
 - Data: created 4 Bay Area venues (Gunderson High School, Mission College, San Jose High School, Chabot College) and linked all 4 venues to 5 “Bay Area Roaddawgs” tournaments across May + July + August weekends (4 new venues, 20 new tournament->venue links).
 - Ingest (PLL): added `scripts/ingest/link_pll_missing_venues.ts` to scrape `premierlacrosseleague.com/play/tournaments/*` pages for the “Event Location(s)” table (location + full address + directions), create venues, and link them to tournaments missing `tournament_venues`.
 - Data (PLL): ran the PLL linker; 11 missing-venue targets found, all 11 published venue addresses, resulting in 13 venues created and 16 tournament->venue links inserted.
+- RI UI: replaced the legacy green inline-styled header with a dark premium sticky header component (gold accent, hover underline, responsive hamburger menu) and added `/assignments` as a stable link target (redirects to `/assignors` for now).
