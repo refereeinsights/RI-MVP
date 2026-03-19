@@ -79,3 +79,9 @@
 - TI SEO: added crawlable internal links to sport hubs (`/tournaments/{sport}`) from `/` and `/tournaments` (and ensured `softball` hub is included in sitemap coverage).
 - RI admin: added a dashboard summary tile for “Missing director email” next to “Missing dates”, linking to `/admin?tab=tournament-listings&missing=director_email` (filters to tournaments where `tournament_director_email` is blank).
 - Data: ingested tournament director name/email from director research CSV batches (only fills missing values; does not overwrite existing data); added helper script `scripts/ingest/apply_tournament_directors_from_csv.ts`.
+- RI admin (tournament contacts): added a sticky notice banner for `notice=` feedback so action results are visible without scrolling.
+- RI enrichment: `politeFetch` now uses abort timeouts and logs cleanly on timeout/fetch failures; 0-page fetch runs now mark the job as `error` (`enrichment_no_pages_fetched`) instead of silently "done".
+- RI admin (tournament contacts): fixed contact discovery to surface Supabase insert errors (instead of always claiming rows were added).
+- RI admin (tournament contacts): discovery now paginates through different tournaments via `discover_offset` (so repeated runs don't re-scan the same top N).
+- RI admin (tournament contacts): fixed `tournament_contacts.confidence` inserts by converting enricher confidence (0..1) into 0..100 (smallint).
+- RI admin: force `/admin` to be dynamic (`dynamic=force-dynamic`, `revalidate=0`) so save/delete mutations reflect immediately (no stale RSC payload).
