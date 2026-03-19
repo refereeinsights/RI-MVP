@@ -417,23 +417,64 @@ async function run() {
     return ranked[0] ?? null;
   };
 
+  const findVenueByUniqueKey = async (args: {
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+  }): Promise<VenueRow | null> => {
+    const { data, error } = await supabase
+      .from("venues" as any)
+      .select("id,name,address,address1,city,state,zip,venue_url")
+      .eq("name", args.name)
+      .eq("address", args.address)
+      .eq("city", args.city)
+      .eq("state", args.state)
+      .maybeSingle();
+    if (error && (error as any).code !== "PGRST116") throw error;
+    return (data as VenueRow | null) ?? null;
+  };
+
   let scanned = 0;
   let withVenueData = 0;
   let linkedExisting = 0;
   let created = 0;
   let linksInserted = 0;
   let failures = 0;
+  const unresolved: Array<{
+    tournament_id: string;
+    tournament_name: string | null;
+    url: string | null;
+    reason: "missing_url" | "fetch_empty" | "no_venue_data_found" | "error";
+    detail?: string;
+  }> = [];
 
   for (const t of targets) {
     scanned += 1;
     const url =
       (isUsssaEventUrl(t.official_website_url) ? t.official_website_url : null) ??
       (isUsssaEventUrl(t.source_url) ? t.source_url : null);
-    if (!url) continue;
+    if (!url) {
+      unresolved.push({
+        tournament_id: t.id,
+        tournament_name: (t as any).name ?? null,
+        url: null,
+        reason: "missing_url",
+      });
+      continue;
+    }
 
     try {
       const html = await fetchHtml(url);
-      if (!html) continue;
+      if (!html) {
+        unresolved.push({
+          tournament_id: t.id,
+          tournament_name: (t as any).name ?? null,
+          url,
+          reason: "fetch_empty",
+        });
+        continue;
+      }
       const $ = cheerio.load(html);
       const parsed = dedupeVenues([
         ...parseTableVenues($, t.city, t.state),
@@ -441,7 +482,15 @@ async function run() {
         ...parseJsonLdVenues($, t.city, t.state),
         ...parseMapLinksOnly($, t.city, t.state),
       ]);
-      if (!parsed.length) continue;
+      if (!parsed.length) {
+        unresolved.push({
+          tournament_id: t.id,
+          tournament_name: (t as any).name ?? null,
+          url,
+          reason: "no_venue_data_found",
+        });
+        continue;
+      }
       withVenueData += 1;
 
       for (const pv of parsed) {
@@ -480,15 +529,51 @@ async function run() {
             sport: ALLOWED_VENUE_SPORTS.has(clean(t.sport) ?? "") ? clean(t.sport) : null,
             venue_url: clean(pv.venue_url),
           };
-          const { data: insertRaw, error: insertErr } = await supabase
-            .from("venues" as any)
-            .insert(payload)
-            .select("id,name,address,address1,city,state,zip,venue_url")
-            .single();
-          if (insertErr) throw insertErr;
-          venue = insertRaw as VenueRow;
-          indexVenue(venue);
-          created += 1;
+          // Prefetching 50k venues for matching isn't always enough; the DB can have more.
+          // Before creating, double-check by the unique key to avoid duplicate-key failures.
+          const uniqueName = String(payload.name ?? "");
+          const uniqueAddress = String(payload.address ?? "");
+          const uniqueCity = String(payload.city ?? "");
+          const uniqueState = String(payload.state ?? "");
+          const existingByUnique = await findVenueByUniqueKey({
+            name: uniqueName,
+            address: uniqueAddress,
+            city: uniqueCity,
+            state: uniqueState,
+          });
+          if (existingByUnique) {
+            venue = existingByUnique;
+            indexVenue(venue);
+          } else {
+            const { data: insertRaw, error: insertErr } = await supabase
+              .from("venues" as any)
+              .insert(payload)
+              .select("id,name,address,address1,city,state,zip,venue_url")
+              .single();
+            if (insertErr) {
+              // Another process may have created it between our check and insert.
+              if ((insertErr as any).code === "23505") {
+                const existingAfter = await findVenueByUniqueKey({
+                  name: uniqueName,
+                  address: uniqueAddress,
+                  city: uniqueCity,
+                  state: uniqueState,
+                });
+                if (existingAfter) {
+                  venue = existingAfter;
+                  indexVenue(venue);
+                } else {
+                  throw insertErr;
+                }
+              } else {
+                throw insertErr;
+              }
+            } else {
+              venue = insertRaw as VenueRow;
+              indexVenue(venue);
+              created += 1;
+            }
+          }
         } else if (venue && APPLY && !venue.venue_url && pv.venue_url) {
           const { data: updatedRaw, error: updateErr } = await supabase
             .from("venues" as any)
@@ -533,6 +618,13 @@ async function run() {
             ? JSON.stringify(error)
             : String(error);
       console.error(`[link_usssa_missing_venues] ${t.id} failed: ${msg}`);
+      unresolved.push({
+        tournament_id: t.id,
+        tournament_name: (t as any).name ?? null,
+        url,
+        reason: "error",
+        detail: msg,
+      });
     }
   }
 
@@ -549,6 +641,8 @@ async function run() {
         created_venues: created,
         tournament_venue_links_upserted: linksInserted,
         failures,
+        unresolved_total: unresolved.length,
+        unresolved: unresolved.slice(0, 50),
       },
       null,
       2

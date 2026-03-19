@@ -85,3 +85,6 @@
 - RI admin (tournament contacts): discovery now paginates through different tournaments via `discover_offset` (so repeated runs don't re-scan the same top N).
 - RI admin (tournament contacts): fixed `tournament_contacts.confidence` inserts by converting enricher confidence (0..1) into 0..100 (smallint).
 - RI admin: force `/admin` to be dynamic (`dynamic=force-dynamic`, `revalidate=0`) so save/delete mutations reflect immediately (no stale RSC payload).
+- Data (USSSA venues): ran `scripts/ingest/link_usssa_missing_venues.ts` across all published canonical USSSA event URLs; created ~71 venues and upserted tournament->venue links where venue data was present on the page.
+- Ingest (USSSA venues): hardened venue creation by checking the DB unique key (name/address/city/state) before insert and recovering from `23505` duplicate-key races; script now reports unresolved tournaments (no URL, empty fetch, or no venue data).
+- Data (USSSA venues): 4 tournaments remain missing venues because their stored USSSA event URLs returned 404/empty HTML at crawl time (need URL fix or manual venue entry): `7f6da613-1721-446e-812a-2f0886f76332`, `a0e1aa79-0810-4d55-8a8d-13a496bc8cdc`, `945aa2a2-2095-45e2-a58f-dbb6c5e5b63d`, `5f460e94-ea38-4a52-b463-8266f59b916a`.
