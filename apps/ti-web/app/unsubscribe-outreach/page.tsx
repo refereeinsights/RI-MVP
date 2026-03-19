@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { normalizeOutreachSport, verifyOutreachUnsubscribeToken } from "@/lib/outreach";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import type { Metadata } from "next";
 
 type SearchParams = {
   sport?: string;
@@ -11,6 +12,11 @@ type SearchParams = {
 };
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Unsubscribe",
+  robots: { index: false, follow: false },
+};
 
 export default async function UnsubscribeOutreachPage({
   searchParams,

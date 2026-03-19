@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+
+export const metadata: Metadata = {
+  title: "Join",
+  robots: { index: false, follow: false },
+};
 
 function normalizeCode(value: string | null | undefined) {
   return (value ?? "").trim();

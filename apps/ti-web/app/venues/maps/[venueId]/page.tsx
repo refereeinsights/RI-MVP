@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
 type RunRow = { id: string; run_id: string | null; updated_at: string | null };
 type ArtifactRow = { image_url: string | null; north_bearing_degrees: number | null; created_at: string | null };
@@ -8,6 +9,11 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const REVALIDATE_SECONDS = 300;
 
 export const revalidate = REVALIDATE_SECONDS;
+
+export const metadata: Metadata = {
+  title: "Venue map",
+  robots: { index: false, follow: false },
+};
 
 async function fetchSupabase<T>(path: string, search: string): Promise<T> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {

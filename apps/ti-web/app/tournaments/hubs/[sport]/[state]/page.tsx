@@ -6,7 +6,7 @@ import { mapStateSlugToCode } from "@/lib/seoHub";
 export async function generateMetadata({ params }: { params: { sport: string; state: string } }) {
   const hub = params.sport as HubKey;
   if (!HUBS[hub]) return {};
-  return getHubMetadata(hub);
+  return { ...getHubMetadata(hub), robots: { index: false, follow: false } };
 }
 
 export default async function HubSportStatePage({

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { pickVariant } from "@/lib/outreach/ab";
 import {
   buildOutreachUnsubscribeUrl,
@@ -35,6 +36,11 @@ function isPreviewEnabled() {
 }
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Outreach preview",
+  robots: { index: false, follow: false },
+};
 
 export default async function OutreachPreviewPage({
   searchParams,

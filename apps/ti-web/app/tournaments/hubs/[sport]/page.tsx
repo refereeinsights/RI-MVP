@@ -5,7 +5,7 @@ import { HUBS, type HubKey } from "../config";
 export async function generateMetadata({ params }: { params: { sport: string } }) {
   const hub = params.sport as HubKey;
   if (!HUBS[hub]) return {};
-  return getHubMetadata(hub);
+  return { ...getHubMetadata(hub), robots: { index: false, follow: false } };
 }
 
 export default async function HubSportPage({

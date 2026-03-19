@@ -343,6 +343,38 @@ export default async function TournamentsPage({
             Browse upcoming tournaments by sport, state, and month. This directory focuses on logistics and basic details
             — no ratings or referee reviews.
           </p>
+          <nav
+            aria-label="Browse tournament sport hubs"
+            style={{
+              marginTop: 12,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 12,
+              fontSize: 14,
+            }}
+          >
+            <Link href="/tournaments/soccer" style={{ textDecoration: "underline", color: "inherit" }}>
+              Soccer
+            </Link>
+            <Link href="/tournaments/baseball" style={{ textDecoration: "underline", color: "inherit" }}>
+              Baseball
+            </Link>
+            <Link href="/tournaments/softball" style={{ textDecoration: "underline", color: "inherit" }}>
+              Softball
+            </Link>
+            <Link href="/tournaments/basketball" style={{ textDecoration: "underline", color: "inherit" }}>
+              Basketball
+            </Link>
+            <Link href="/tournaments/lacrosse" style={{ textDecoration: "underline", color: "inherit" }}>
+              Lacrosse
+            </Link>
+            <Link href="/tournaments/hockey" style={{ textDecoration: "underline", color: "inherit" }}>
+              Hockey
+            </Link>
+            <Link href="/tournaments/ayso" style={{ textDecoration: "underline", color: "inherit" }}>
+              AYSO
+            </Link>
+          </nav>
           <div
             className="subtitle"
             style={{

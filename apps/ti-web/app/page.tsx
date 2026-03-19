@@ -84,6 +84,30 @@ export default function Home() {
               Request Premium Access
             </a>
           </div>
+
+          <div style={{ marginTop: 14, fontSize: 13, display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <a href="/tournaments/soccer" style={{ textDecoration: "underline", color: "inherit" }}>
+              Soccer
+            </a>
+            <a href="/tournaments/baseball" style={{ textDecoration: "underline", color: "inherit" }}>
+              Baseball
+            </a>
+            <a href="/tournaments/softball" style={{ textDecoration: "underline", color: "inherit" }}>
+              Softball
+            </a>
+            <a href="/tournaments/basketball" style={{ textDecoration: "underline", color: "inherit" }}>
+              Basketball
+            </a>
+            <a href="/tournaments/lacrosse" style={{ textDecoration: "underline", color: "inherit" }}>
+              Lacrosse
+            </a>
+            <a href="/tournaments/hockey" style={{ textDecoration: "underline", color: "inherit" }}>
+              Hockey
+            </a>
+            <a href="/tournaments/ayso" style={{ textDecoration: "underline", color: "inherit" }}>
+              AYSO
+            </a>
+          </div>
         </section>
 
         <section className="bodyCard bodyCardCenteredList" aria-labelledby="ti-owls-eye">

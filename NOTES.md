@@ -62,3 +62,18 @@
 - Venue pages (TI + RI): show “gear nearby” count and include a “Gear” section in the premium Weekend Guide accordion.
 - Tournament pages (TI + RI): Owls Eye presence indicator now counts gear rows (and big-box fallback) as part of “has Owl’s Eye data”.
 - Admin venue editor (RI): allow editing nearby rows with category `sporting_goods` / `big_box_fallback` (API sanitization + dropdown options).
+- Data: updated TI tournament `Red Shield Classic` official URL to `https://www.ironboundsoccer.com/tournaments`; created the 18 provided NJ venues (dedupe-by-address where possible) and linked them to the tournament.
+- Data: ran Owl's Eye for all 18 Red Shield Classic venues (geocode + nearby + airports).
+- Data: updated `Chattanooga Cup` official URL to `https://soccer.sincsports.com/details.aspx?tid=ERSHAM&tab=1`.
+- Data: updated tournament director + director email fields for multiple tournaments from curated research lists (batch update scripts).
+- Data: updated `AYSO Grape Stomp` tournament details (director + referee contact + official URL + dates); created/link 5 venues after checking for existing.
+- Data: for `BATAAN DEATH MARCH`, created/link 2 additional venues (preserved existing tournament->venue links).
+- Data: corrected several venue records by ID (name/address/city/state/zip) and renamed WA "BALLFIELDS" placeholder venues to more accurate names.
+- RI admin: Owl's Eye batch runner now surfaces the duplicate-suspect candidates from a batch (so you can actually review/merge the duplicates that blocked a run).
+- RI: Owl's Eye duplicate detection + the `/admin/owls-eye` "ready" list now prefer `venues.address` over stale legacy `venues.address1` (fixes duplicates showing old addresses after cleanup edits).
+
+## 2026-03-19
+
+- TI SEO: replaced capped Next metadata sitemap with scalable sitemap index at `/sitemap.xml` and paged sitemaps under `/sitemaps/*` (static + hubs + `tournaments-<n>.xml`).
+- TI SEO: added `noindex,nofollow` for thin/utility pages (`/login`, `/signup`, `/join`, `/outreach/preview`, `/unsubscribe-outreach`, `/venues/maps/[venueId]`) and for secondary duplicate hub routes (`/tournaments/hubs/*`).
+- TI SEO: added crawlable internal links to sport hubs (`/tournaments/{sport}`) from `/` and `/tournaments` (and ensured `softball` hub is included in sitemap coverage).
