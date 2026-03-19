@@ -30,7 +30,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body>
         <PlausibleAnalytics />
         <PostHogClientProvider>
-          <Header />
+          <Header isAuthenticated={!!user} />
 
           {/* Main content (CENTER CHILDREN HORIZONTALLY) */}
           <main

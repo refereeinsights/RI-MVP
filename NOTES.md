@@ -103,3 +103,4 @@
 - Ingest (PLL): added `scripts/ingest/link_pll_missing_venues.ts` to scrape `premierlacrosseleague.com/play/tournaments/*` pages for the “Event Location(s)” table (location + full address + directions), create venues, and link them to tournaments missing `tournament_venues`.
 - Data (PLL): ran the PLL linker; 11 missing-venue targets found, all 11 published venue addresses, resulting in 13 venues created and 16 tournament->venue links inserted.
 - RI UI: replaced the legacy green inline-styled header with a dark premium sticky header component (gold accent, hover underline, responsive hamburger menu) and added `/assignments` as a stable link target (redirects to `/assignors` for now).
+- RI UI: adjusted the new header to match the prior layout hierarchy (larger centered logo, nav underneath) and restored the “List your tournament” CTA + account status icon (green when signed in, red when signed out).
