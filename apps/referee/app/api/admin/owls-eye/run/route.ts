@@ -75,6 +75,22 @@ type DuplicateCandidate = {
   owl_run_count: number;
 };
 
+function pickStreetAddress(row: {
+  address?: string | null;
+  address1?: string | null;
+  street?: string | null;
+}) {
+  const address = String(row.address ?? "").trim();
+  const address1 = String(row.address1 ?? "").trim();
+  const street = String(row.street ?? "").trim();
+
+  // Always prefer `address` over the legacy `address1` when both exist.
+  // `address1` is often stale after manual cleanup edits, and Owl's Eye should reflect the canonical field.
+  if (address) return address;
+  if (address1) return address1;
+  return street || "";
+}
+
 async function ensureAdminRequest() {
   const headerToken = headers().get("x-owls-eye-admin-token");
   const envToken = process.env.OWLS_EYE_ADMIN_TOKEN;
@@ -95,13 +111,13 @@ async function ensureAdminRequest() {
 }
 
 function buildAddress(venue: VenueRow) {
-  const street = venue.address1 ?? venue.address ?? venue.street ?? null;
+  const street = pickStreetAddress(venue) || null;
   const parts = [street, venue.city, venue.state, venue.zip].filter(Boolean);
   return parts.join(", ");
 }
 
 function hasCompleteAddress(venue: VenueRow) {
-  const street = String(venue.address1 ?? venue.address ?? venue.street ?? "").trim();
+  const street = String(pickStreetAddress(venue) ?? "").trim();
   const city = String(venue.city ?? "").trim();
   const state = String(venue.state ?? "").trim();
   return Boolean(street) && Boolean(city) && Boolean(state);
@@ -156,10 +172,13 @@ async function findDuplicateVenueCandidates(args: {
   venueLng: number | null;
 }) {
   const venueName = normalizeText(args.venue.name);
-  const venueStreet = normalizeStreet(args.venue.address1 ?? args.venue.address ?? args.venue.street ?? null);
+  const venueStreetRaw = pickStreetAddress(args.venue) || null;
+  // Use a conservative street normalization for search seeds (avoid "road" -> "rd" mismatches).
+  const venueStreetSearch = normalizeText(venueStreetRaw);
+  const venueStreet = normalizeStreet(venueStreetRaw);
   const venueCity = normalizeText(args.venue.city);
   const venueState = normalizeText(args.venue.state);
-  const venueStreetNumber = extractStreetNumber(args.venue.address1 ?? args.venue.address ?? args.venue.street ?? null);
+  const venueStreetNumber = extractStreetNumber(venueStreetRaw);
 
   const candidateMap = new Map<
     string,
@@ -178,7 +197,7 @@ async function findDuplicateVenueCandidates(args: {
   >();
 
   const seedName = venueName.split(" ").filter(Boolean).slice(0, 2).join(" ");
-  const seedStreet = venueStreet.split(" ").filter(Boolean).slice(0, 3).join(" ");
+  const seedStreet = venueStreetSearch.split(" ").filter(Boolean).slice(0, 3).join(" ");
 
   if (venueState) {
     if (seedName.length >= 3) {
@@ -206,28 +225,49 @@ async function findDuplicateVenueCandidates(args: {
   const scored = Array.from(candidateMap.values())
     .map((row) => {
       const rowName = normalizeText(row.name);
-      const rowStreet = normalizeStreet(row.address1 ?? row.address ?? row.street ?? null);
+      const rowStreetRaw = pickStreetAddress(row) || null;
+      const rowStreet = normalizeStreet(rowStreetRaw);
       const rowCity = normalizeText(row.city);
       const rowState = normalizeText(row.state);
-      const rowStreetNumber = extractStreetNumber(row.address1 ?? row.address ?? row.street ?? null);
+      const rowStreetNumber = extractStreetNumber(rowStreetRaw);
 
       let score = 0;
-      if (venueName && rowName && venueName === rowName) score += 50;
+      const nameExact = Boolean(venueName && rowName && venueName === rowName);
+      const cityExact = Boolean(venueCity && rowCity && venueCity === rowCity);
+      const stateExact = Boolean(venueState && rowState && venueState === rowState);
+      const streetExact = Boolean(venueStreet && rowStreet && venueStreet === rowStreet);
+      const streetContains = Boolean(
+        venueStreet && rowStreet && (venueStreet.includes(rowStreet) || rowStreet.includes(venueStreet))
+      );
+      let gotDistanceBonus = false;
+
+      if (nameExact) score += 50;
       else if (venueName && rowName && (venueName.includes(rowName) || rowName.includes(venueName))) score += 30;
 
-      if (venueStreet && rowStreet && venueStreet === rowStreet) score += 45;
-      else if (venueStreet && rowStreet && (venueStreet.includes(rowStreet) || rowStreet.includes(venueStreet))) score += 25;
+      if (streetExact) score += 45;
+      else if (streetContains) score += 25;
 
       if (venueStreetNumber && rowStreetNumber && venueStreetNumber === rowStreetNumber) score += 15;
-      if (venueCity && rowCity && venueCity === rowCity) score += 10;
-      if (venueState && rowState && venueState === rowState) score += 10;
+      if (cityExact) score += 10;
+      if (stateExact) score += 10;
 
       const rowLat = typeof row.latitude === "number" && Number.isFinite(row.latitude) ? row.latitude : null;
       const rowLng = typeof row.longitude === "number" && Number.isFinite(row.longitude) ? row.longitude : null;
       if (args.venueLat != null && args.venueLng != null && rowLat != null && rowLng != null) {
         const meters = haversineMeters({ lat: args.venueLat, lng: args.venueLng }, { lat: rowLat, lng: rowLng });
-        if (meters <= 120) score += 40;
-        else if (meters <= 300) score += 25;
+        if (meters <= 120) {
+          score += 40;
+          gotDistanceBonus = true;
+        } else if (meters <= 300) {
+          score += 25;
+          gotDistanceBonus = true;
+        }
+      }
+
+      // Reduce false positives: exact-name-only matches across a whole state are too noisy.
+      // If we didn't get a street or distance signal, require same city for an exact-name match.
+      if (nameExact && stateExact && !cityExact && !streetExact && !streetContains && !gotDistanceBonus) {
+        score = 0;
       }
 
       return { row, score };
@@ -256,7 +296,7 @@ async function findDuplicateVenueCandidates(args: {
     return {
       venue_id: row.id,
       name: row.name ?? null,
-      address: (row.address1 ?? row.address ?? row.street ?? null) || null,
+      address: pickStreetAddress(row) || null,
       city: row.city ?? null,
       state: row.state ?? null,
       zip: row.zip ?? null,

@@ -31,8 +31,22 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
     .limit(1200);
 
   const allVenues = (readyVenuesRaw ?? []) as ReadyVenueRow[];
+
+  const pickStreetAddress = (venue: { address?: string | null; address1?: string | null }) => {
+    const address = String(venue.address ?? "").trim();
+    const address1 = String(venue.address1 ?? "").trim();
+
+    // Prefer `address` over `address1` when both exist (address1 is often stale after cleanup edits).
+    if (address) return address;
+    return address1;
+  };
+
   const readyCandidates = allVenues.filter((venue) => {
-    const hasAddress = Boolean((venue.address1 ?? venue.address ?? "").trim()) && Boolean((venue.city ?? "").trim()) && Boolean((venue.state ?? "").trim());
+    const street = pickStreetAddress(venue);
+    const hasAddress =
+      Boolean(street.trim()) &&
+      Boolean((venue.city ?? "").trim()) &&
+      Boolean((venue.state ?? "").trim());
     return hasAddress;
   });
   const chunkValues = <T,>(values: T[], size = 120) => {
@@ -125,7 +139,7 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
 
   const normalize = (value?: string | null) => (value || "").toLowerCase().replace(/\s+/g, " ").trim();
   const duplicateBucketKey = (venue: { name?: string | null; address1?: string | null; address?: string | null; city?: string | null; state?: string | null }) => {
-    const address = normalize(venue.address1 ?? venue.address);
+    const address = normalize(pickStreetAddress(venue));
     const city = normalize(venue.city);
     const state = normalize(venue.state);
     const name = normalize(venue.name);
@@ -155,8 +169,8 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
       const bPrimarySport = (tournamentSportsByVenue.get(b.id) ?? []).slice().sort((x, y) => x.localeCompare(y))[0] ?? "";
       if (aPrimarySport !== bPrimarySport) return aPrimarySport.localeCompare(bPrimarySport);
 
-      const aAddress = normalize(a.address1 ?? a.address);
-      const bAddress = normalize(b.address1 ?? b.address);
+      const aAddress = normalize(pickStreetAddress(a));
+      const bAddress = normalize(pickStreetAddress(b));
       if (aAddress !== bAddress) return aAddress.localeCompare(bAddress);
 
       const aCity = normalize(a.city);
@@ -212,7 +226,7 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
           return {
             venue_id: venue.id,
             name: venue.name,
-            street: venue.address1 ?? venue.address ?? null,
+            street: pickStreetAddress(venue) || null,
             city: venue.city,
             state: venue.state,
             zip: venue.zip,

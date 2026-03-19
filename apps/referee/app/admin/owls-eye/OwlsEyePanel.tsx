@@ -101,6 +101,11 @@ type DuplicateCandidate = {
   owl_run_count: number;
 };
 
+type BatchDuplicateSuspect = {
+  source: VenueSearchResult;
+  candidates: DuplicateCandidate[];
+};
+
 type OwlsEyePanelProps = {
   embedded?: boolean;
   adminToken?: string;
@@ -270,6 +275,7 @@ export default function OwlsEyePanel({
   const [batchLimit, setBatchLimit] = useState(10);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchMessage, setBatchMessage] = useState<string | null>(null);
+  const [batchDuplicateSuspects, setBatchDuplicateSuspects] = useState<BatchDuplicateSuspect[]>([]);
   const [nearbyTab, setNearbyTab] = useState<"food" | "coffee" | "hotels">("food");
   const [sunPathEnabled, setSunPathEnabled] = useState(true);
 
@@ -545,6 +551,7 @@ export default function OwlsEyePanel({
       return;
     }
 
+    setBatchDuplicateSuspects([]);
     setBatchRunning(true);
     setBatchMessage(`Starting batch for ${targets.length} venue${targets.length === 1 ? "" : "s"}...`);
     setRunStatus("idle");
@@ -556,6 +563,7 @@ export default function OwlsEyePanel({
     const failedNames: string[] = [];
     const duplicateNames: string[] = [];
     const failureDetails: string[] = [];
+    const duplicateSuspects: BatchDuplicateSuspect[] = [];
 
     for (let index = 0; index < targets.length; index += 1) {
       const venue = targets[index];
@@ -572,6 +580,12 @@ export default function OwlsEyePanel({
           if (resp.status === 409 && json?.code === "DUPLICATE_VENUE_SUSPECT") {
             duplicateCount += 1;
             duplicateNames.push(venue.name || venue.venue_id);
+            if (Array.isArray(json?.candidates) && json.candidates.length > 0) {
+              duplicateSuspects.push({
+                source: venue,
+                candidates: json.candidates as DuplicateCandidate[],
+              });
+            }
             continue;
           }
           failureCount += 1;
@@ -603,7 +617,18 @@ export default function OwlsEyePanel({
       failureDetails.length ? `Errors: ${failureDetails.slice(0, 3).join(" | ")}${failureDetails.length > 3 ? "..." : ""}` : null,
     ].filter(Boolean);
     setBatchMessage([messageParts.join(" • "), detailParts.join(" • ")].filter(Boolean).join(" — "));
+    setBatchDuplicateSuspects(duplicateSuspects);
     setBatchRunning(false);
+  };
+
+  const reviewBatchDuplicateSuspect = (item: BatchDuplicateSuspect) => {
+    handleUseVenue(item.source);
+    setDuplicateCandidates(item.candidates);
+    setDuplicateSourceVenueId(item.source.venue_id);
+    if (item.candidates[0]?.venue_id) setMergeTargetId(item.candidates[0].venue_id);
+    setRunStatus("error");
+    setRunMessage("Possible duplicate venue(s) found.");
+    setRunReport(null);
   };
 
   const mergeSuggestedAndRun = async () => {
@@ -848,6 +873,71 @@ export default function OwlsEyePanel({
             </button>
             {batchMessage ? <div style={{ fontSize: 12, color: "#374151" }}>{batchMessage}</div> : null}
           </div>
+          {batchDuplicateSuspects.length > 0 ? (
+            <div
+              style={{
+                border: "1px solid #f59e0b",
+                background: "#fffbeb",
+                borderRadius: 8,
+                padding: 10,
+                display: "grid",
+                gap: 8,
+                maxWidth: 720,
+                marginBottom: 10,
+              }}
+            >
+              <div style={{ fontWeight: 700, color: "#92400e" }}>
+                Duplicate suspects from last batch ({batchDuplicateSuspects.length})
+              </div>
+              <div style={{ fontSize: 12, color: "#7c2d12" }}>
+                Click <strong>Review</strong> to load the venue + suggested merge targets so you can merge (or run anyway).
+              </div>
+              <div style={{ display: "grid", gap: 8, maxHeight: 220, overflowY: "auto", paddingRight: 4 }}>
+                {batchDuplicateSuspects.map((item) => {
+                  const source = item.source;
+                  const locationParts = [source.city, source.state, source.zip].filter(Boolean).join(", ");
+                  const suggested = item.candidates[0];
+                  return (
+                    <div
+                      key={`batch-dup-${source.venue_id}`}
+                      style={{
+                        border: "1px solid #fde68a",
+                        borderRadius: 8,
+                        padding: 10,
+                        display: "grid",
+                        gap: 6,
+                        background: "#fff",
+                      }}
+                    >
+                      <div style={{ fontWeight: 700 }}>{source.name || "Unnamed venue"}</div>
+                      <div style={{ fontSize: 12, color: "#374151", overflowWrap: "anywhere" }}>
+                        {source.street || "Address missing"}
+                        {locationParts ? ` • ${locationParts}` : ""}
+                      </div>
+                      {suggested ? (
+                        <div style={{ fontSize: 12, color: "#6b7280", overflowWrap: "anywhere" }}>
+                          Suggested target: <code>{truncateId(suggested.venue_id)}</code> — {suggested.name || "Unnamed venue"}
+                        </div>
+                      ) : null}
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <button type="button" onClick={() => reviewBatchDuplicateSuspect(item)} style={{ padding: "6px 10px", fontWeight: 700 }}>
+                          Review
+                        </button>
+                        <a href={`/admin/venues/${encodeURIComponent(source.venue_id)}`} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+                          Open source venue
+                        </a>
+                        {suggested ? (
+                          <a href={`/admin/venues/${encodeURIComponent(suggested.venue_id)}`} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+                            Open suggested target
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           {readyRows.length === 0 ? (
             <div style={{ color: "#6b7280" }}>No ready venues pending first run.</div>
           ) : (

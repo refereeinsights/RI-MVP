@@ -85,7 +85,12 @@ export type DuplicateVenueCandidate = {
 
 export type DuplicateVenueGroup = {
   key: string;
-  kind: "exact_address_city_state" | "same_name_city_state" | "same_street_state" | "same_name_state";
+  kind:
+    | "exact_address_city_state"
+    | "same_name_city_state"
+    | "same_street_state"
+    | "same_streetname_city_state"
+    | "same_name_state";
   suggested_target_id: string;
   candidates: DuplicateVenueCandidate[];
 };
@@ -310,10 +315,23 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 
   const duplicateGroups: DuplicateVenueGroup[] = [];
   if (showDuplicates) {
-    const { data: allVenuesLite } = await supabaseAdmin
-      .from("venues" as any)
-      .select("id,name,address,address1,normalized_address,city,state,zip,venue_url,address_fingerprint,name_city_state_fingerprint,venue_url_host")
-      .limit(3000);
+    // Pull all venues for duplicate checks (avoid truncation that can hide true dupes).
+    const allVenuesLite: Array<Record<string, any>> = [];
+    const pageSize = 2000;
+    for (let offset = 0; offset < 20000; offset += pageSize) {
+      const resp = await supabaseAdmin
+        .from("venues" as any)
+        .select(
+          "id,name,address,address1,normalized_address,city,state,zip,venue_url,address_fingerprint,name_city_state_fingerprint,venue_url_host"
+        )
+        .order("id", { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (resp.error) break;
+      const rows = (resp.data ?? []) as Array<Record<string, any>>;
+      if (!rows.length) break;
+      allVenuesLite.push(...rows);
+      if (rows.length < pageSize) break;
+    }
     const { data: allLinks } = await supabaseAdmin.from("tournament_venues" as any).select("venue_id");
     const { data: allRuns } = await supabaseAdmin.from("owls_eye_runs" as any).select("venue_id");
     let duplicateOverrides: Array<{ venue_a_id: string; venue_b_id: string }> = [];
@@ -345,25 +363,38 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
     const exactAddressGroups = new Map<string, DuplicateVenueCandidate[]>();
     const nameCityGroups = new Map<string, DuplicateVenueCandidate[]>();
     const streetStateGroups = new Map<string, DuplicateVenueCandidate[]>();
+    const streetNameCityGroups = new Map<string, DuplicateVenueCandidate[]>();
     const nameStateGroups = new Map<string, DuplicateVenueCandidate[]>();
 
-    for (const row of (allVenuesLite ?? []) as Array<Record<string, any>>) {
+    const normalizeStreetName = (address: string | null) => {
+      const raw = normalizeIdentityText(address);
+      if (!raw) return "";
+      // Drop the leading street number to catch obvious number typos like 390 vs 9390/94390.
+      const withoutNumber = raw.replace(/^\d+\s+/, "");
+      return normalizeIdentityText(withoutNumber);
+    };
+
+    for (const row of allVenuesLite) {
       const candidate: DuplicateVenueCandidate = {
         id: String(row.id),
         name: row.name ?? null,
-        address: row.address1 ?? row.address ?? row.normalized_address ?? null,
+        address: row.address ?? row.address1 ?? row.normalized_address ?? null,
         city: row.city ?? null,
         state: row.state ?? null,
         zip: row.zip ?? null,
         linked_tournaments: linkedByVenue.get(String(row.id)) ?? 0,
         owl_run_count: runsByVenue.get(String(row.id)) ?? 0,
         venue_url: row.venue_url ?? null,
+        venue_url_host: row.venue_url_host ?? null,
+        address_fingerprint: row.address_fingerprint ?? null,
+        name_city_state_fingerprint: row.name_city_state_fingerprint ?? null,
       };
 
       const state = normalizeIdentityText(candidate.state);
       const city = normalizeIdentityText(candidate.city);
       const street = normalizeIdentityStreet(candidate.address);
       const name = normalizeIdentityText(candidate.name);
+      const streetName = normalizeStreetName(candidate.address);
 
       if (street && state) {
         const key =
@@ -398,6 +429,12 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
           list.push(candidate);
           nameCityGroups.set(key, list);
         }
+      }
+      if (streetName && city && state) {
+        const key = `${streetName}|${city}|${state}`;
+        const list = streetNameCityGroups.get(key) ?? [];
+        list.push(candidate);
+        streetNameCityGroups.set(key, list);
       }
       if (name && state) {
         const key = `${name}|${state}`;
@@ -492,6 +529,34 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       });
       filtered.forEach((item) => seenIds.add(item.id));
     }
+    for (const [key, list] of streetNameCityGroups.entries()) {
+      if (list.length < 2) continue;
+      if (list.some((item) => seenIds.has(item.id))) continue;
+
+      const compatible = list.filter((candidate, _, all) => {
+        const candidateZip = normalizeIdentityText(candidate.zip);
+        const candidateHost = candidate.venue_url_host || normalizeIdentityUrlHost(candidate.venue_url);
+        return all.some((other) => {
+          if (other.id === candidate.id) return false;
+          const otherZip = normalizeIdentityText(other.zip);
+          const otherHost = other.venue_url_host || normalizeIdentityUrlHost(other.venue_url);
+          // Prefer same zip (if present) or same host; allow through if both are missing zip.
+          return (candidateZip && otherZip && candidateZip === otherZip) || (candidateHost && otherHost && candidateHost === otherHost) || (!candidateZip && !otherZip);
+        });
+      });
+
+      if (compatible.length < 2) continue;
+      const target = pickTarget(compatible);
+      const filtered = compatible.filter((item) => item.id === target.id || !keepBothPairs.has(pairKey(item.id, target.id)));
+      if (filtered.length < 2) continue;
+      duplicateGroups.push({
+        key,
+        kind: "same_streetname_city_state",
+        suggested_target_id: target.id,
+        candidates: filtered,
+      });
+      filtered.forEach((item) => seenIds.add(item.id));
+    }
     for (const [key, list] of nameStateGroups.entries()) {
       if (list.length < 2) continue;
       if (list.some((item) => seenIds.has(item.id))) continue;
@@ -527,6 +592,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         if (kind === "exact_address_city_state") return 4;
         if (kind === "same_name_city_state") return 3;
         if (kind === "same_street_state") return 2;
+        if (kind === "same_streetname_city_state") return 2;
         return 1;
       };
       if (kindRank(a.kind) !== kindRank(b.kind)) return kindRank(b.kind) - kindRank(a.kind);
