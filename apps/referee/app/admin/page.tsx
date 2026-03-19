@@ -3028,27 +3028,66 @@ export default async function AdminPage({
 
       {notice && (
         <div
+          id="admin-notice"
+          role="status"
+          aria-live="polite"
           style={{
-            background: "#e0f2f1",
-            border: "1px solid #26a69a",
-            color: "#004d40",
+            position: "sticky",
+            top: 12,
+            zIndex: 50,
+            background: "#ecfeff",
+            border: "1px solid #0891b2",
+            borderLeftWidth: 6,
+            color: "#083344",
             padding: "10px 14px",
-            borderRadius: 10,
+            borderRadius: 12,
             marginBottom: 16,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             gap: 12,
+            boxShadow: "0 12px 30px rgba(2, 132, 199, 0.12)",
           }}
         >
-          <span>{notice}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <div
+              aria-hidden="true"
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 999,
+                background: "#0891b2",
+                color: "#fff",
+                display: "grid",
+                placeItems: "center",
+                fontWeight: 900,
+                flex: "0 0 auto",
+              }}
+              title="Notice"
+            >
+              i
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Notice
+              </div>
+              <div style={{ fontWeight: 700, overflowWrap: "anywhere" }}>{notice}</div>
+            </div>
+          </div>
           <a
             href={adminBasePath}
             style={{
               fontSize: 12,
               textTransform: "uppercase",
               letterSpacing: "0.08em",
-              color: "#004d40",
+              color: "#083344",
+              fontWeight: 900,
+              padding: "6px 10px",
+              borderRadius: 999,
+              border: "1px solid rgba(8, 145, 178, 0.5)",
+              background: "rgba(255, 255, 255, 0.75)",
+              flex: "0 0 auto",
+              whiteSpace: "nowrap",
             }}
           >
             Dismiss
