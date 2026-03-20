@@ -117,3 +117,4 @@
 - RI UI: increased the RI header logo size again using real dimensions (no transform) so it grows without overlapping/capturing nav clicks; header gets slightly taller but links stay interactive.
 - RI UI: swapped the RI header logo to a trimmed/cropped PNG (original asset had a full-canvas faint background so it always looked small), then increased the rendered logo size so it actually appears ~2x larger.
 - RI UI: shifted the RI header logo + nav centerline slightly right to better match the logo lockup optical center (uses a single CSS variable so it stays consistent).
+- RI UI: centered the sport icon on RI venue cards by overriding the global tournament `.summaryIcon` positioning within `VenueCard` (icon now sits centered above the venue name).

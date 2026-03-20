@@ -108,6 +108,28 @@
   z-index: 1;
 }
 
+.card :global(.cardWhistle) {
+  /* Keep the sport icon centered above the venue name (unlike tournament cards). */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.card :global(.summaryIcon) {
+  /* Override the global tournament-card positioning (bottom-right). */
+  position: static;
+  right: auto;
+  bottom: auto;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto;
+  font-size: 34px;
+  opacity: 0.95;
+}
+
 .card :global(.cardFooter) {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
