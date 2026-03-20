@@ -49,7 +49,7 @@ export default function Header({ isAuthenticated = false }) {
 
         <div className="ri-pill" title="RefereeInsights is in public beta">
           <span className="ri-pill-dot" aria-hidden="true" />
-          Public Beta
+          {"Public\nBeta"}
         </div>
 
         <nav className="ri-nav" aria-label="Main navigation">

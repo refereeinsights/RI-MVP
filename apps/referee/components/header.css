@@ -91,6 +91,9 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   gap: 8px;
+  white-space: pre-line;
+  text-align: center;
+  line-height: 1.05;
 }
 
 .ri-pill-dot {
