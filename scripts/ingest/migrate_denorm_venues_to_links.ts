@@ -29,6 +29,8 @@ type ParsedAddress = {
 };
 
 const APPLY = process.argv.includes("--apply");
+const ALL = process.argv.includes("--all");
+const QUIET = process.argv.includes("--quiet");
 
 function argValue(name: string) {
   const prefix = `--${name}=`;
@@ -178,6 +180,9 @@ async function findOrCreateVenue(supabase: any, candidate: {
 async function main() {
   const limit = Number(argValue("limit") ?? "200");
   const offset = Number(argValue("offset") ?? "0");
+  const pageSize = Number(argValue("page_size") ?? String(limit));
+  const maxPages = Number(argValue("max_pages") ?? "0"); // 0 = unlimited
+  const progressEvery = Number(argValue("progress_every") ?? "50");
   const stateFilter = normalizeState(argValue("state"));
   const sportFilter = String(argValue("sport") ?? "").trim().toLowerCase() || null;
 
@@ -188,59 +193,27 @@ async function main() {
   });
 
   console.log(`${APPLY ? "[APPLY]" : "[DRY-RUN]"} Migrating tournaments.venue/address -> venues + tournament_venues`);
-  console.log(`- limit=${limit} offset=${offset}`);
+  if (ALL) {
+    console.log(`- all=true page_size=${pageSize} offset=${offset}${maxPages ? ` max_pages=${maxPages}` : ""}`);
+  } else {
+    console.log(`- limit=${limit} offset=${offset}`);
+  }
   if (stateFilter) console.log(`- state=${stateFilter}`);
   if (sportFilter) console.log(`- sport=${sportFilter}`);
 
-  let baseQuery = supabase
-    .from("tournaments" as any)
-    .select("id,name,sport,venue,address,city,state,zip")
-    .eq("status", "published")
-    .eq("is_canonical", true)
-    .or("venue.not.is.null,address.not.is.null")
-    .order("start_date", { ascending: true, nullsFirst: false });
+  let scannedTournamentRows = 0;
+  let targetedTournamentRows = 0;
 
-  if (stateFilter) baseQuery = baseQuery.eq("state", stateFilter);
-  if (sportFilter) baseQuery = baseQuery.eq("sport", sportFilter);
-
-  const { data: baseRaw, error: baseErr } = await baseQuery.range(offset, offset + Math.max(0, limit - 1));
-  if (baseErr) throw baseErr;
-
-  const base = (baseRaw ?? []) as TournamentRow[];
-  if (base.length === 0) {
-    console.log("No tournaments found for this range.");
-    return;
-  }
-
-  // Filter to only those with NO linked venues.
-  const ids = base.map((t) => t.id).filter(Boolean);
-  const linkedSet = new Set<string>();
-  const chunkSize = 50;
-  for (let i = 0; i < ids.length; i += chunkSize) {
-    const chunk = ids.slice(i, i + chunkSize);
-    const { data: linked, error } = await supabase
-      .from("tournament_venues" as any)
-      .select("tournament_id")
-      .in("tournament_id", chunk)
-      .limit(20000);
-    if (error) throw error;
-    for (const row of (linked ?? []) as Array<{ tournament_id: string | null }>) {
-      const tid = String(row.tournament_id ?? "");
-      if (tid) linkedSet.add(tid);
-    }
-  }
-
-  const targets = base.filter((t) => !linkedSet.has(t.id));
-
-  let processedTournaments = 0;
-  let skippedTournaments = 0;
+  let processedTournaments = 0; // targeted tournaments attempted
+  let skippedTournaments = 0; // targeted tournaments skipped due to missing/invalid data
   let matchedVenues = 0;
   let createdVenues = 0;
   let linkedCount = 0;
   let alreadyLinkedCount = 0;
   let skippedVenues = 0;
 
-  for (const t of targets) {
+  const chunkSize = 50;
+  const processTournament = async (t: TournamentRow) => {
     processedTournaments++;
     const tName = t.name ?? t.id;
     const tSport = t.sport ?? null;
@@ -250,20 +223,22 @@ async function main() {
 
     if (venueNames.length === 0 || addrStrings.length === 0) {
       skippedTournaments++;
-      console.log(`\n- Skipping (missing venue/address text): ${tName} (${t.id})`);
-      continue;
+      if (!QUIET) console.log(`\n- Skipping (missing venue/address text): ${tName} (${t.id})`);
+      return;
     }
 
     // If either has multiple but they don't line up, skip rather than guessing.
     if (venueNames.length !== addrStrings.length) {
       skippedTournaments++;
-      console.warn(
-        `\n- Skipping (multi-venue mismatch): ${tName} (${t.id}) venues=${venueNames.length} addresses=${addrStrings.length}`
-      );
-      continue;
+      if (!QUIET) {
+        console.warn(
+          `\n- Skipping (multi-venue mismatch): ${tName} (${t.id}) venues=${venueNames.length} addresses=${addrStrings.length}`
+        );
+      }
+      return;
     }
 
-    console.log(`\nTournament: ${tName} (${t.id})`);
+    if (!QUIET) console.log(`\nTournament: ${tName} (${t.id})`);
 
     for (let i = 0; i < venueNames.length; i++) {
       const venueName = venueNames[i];
@@ -277,23 +252,25 @@ async function main() {
       });
       if (!candidate) {
         skippedVenues++;
-        console.warn(`  - Skipping venue (cannot safely parse): ${venueName || "(blank)"} / ${addrRaw || "(blank)"}`);
+        if (!QUIET) console.warn(`  - Skipping venue (cannot safely parse): ${venueName || "(blank)"} / ${addrRaw || "(blank)"}`);
         continue;
       }
 
       const venueRes = await findOrCreateVenue(supabase, { ...candidate, sport: tSport });
       if (venueRes.matched) {
         matchedVenues++;
-        console.log(`  - Found venue: ${candidate.name} (${venueRes.id})`);
+        if (!QUIET) console.log(`  - Found venue: ${candidate.name} (${venueRes.id})`);
       } else if (venueRes.created) {
         createdVenues++;
-        console.log(
-          `  - ${APPLY ? "Created" : "Would create"} venue: ${candidate.name} (${candidate.address1}, ${candidate.city}, ${candidate.state}${candidate.zip ? ` ${candidate.zip}` : ""})`
-        );
+        if (!QUIET) {
+          console.log(
+            `  - ${APPLY ? "Created" : "Would create"} venue: ${candidate.name} (${candidate.address1}, ${candidate.city}, ${candidate.state}${candidate.zip ? ` ${candidate.zip}` : ""})`
+          );
+        }
       }
 
       if (!APPLY) {
-        console.log(`    -> Would link tournament_venues: ${t.id} <-> ${venueRes.id}`);
+        if (!QUIET) console.log(`    -> Would link tournament_venues: ${t.id} <-> ${venueRes.id}`);
         continue;
       }
 
@@ -307,7 +284,7 @@ async function main() {
 
       if (existingLink) {
         alreadyLinkedCount++;
-        console.log("    -> Already linked.");
+        if (!QUIET) console.log("    -> Already linked.");
         continue;
       }
 
@@ -317,13 +294,84 @@ async function main() {
       if (linkErr) throw linkErr;
 
       linkedCount++;
-      console.log("    -> Linked.");
+      if (!QUIET) console.log("    -> Linked.");
     }
+
+    if (progressEvery > 0 && processedTournaments % progressEvery === 0) {
+      console.log(
+        `[progress] processed=${processedTournaments} skipped_tournaments=${skippedTournaments} created_venues=${createdVenues} created_links=${linkedCount} skipped_venues=${skippedVenues}`
+      );
+    }
+  };
+
+  const fetchPage = async (pageOffset: number, size: number) => {
+    let baseQuery = supabase
+      .from("tournaments" as any)
+      .select("id,name,sport,venue,address,city,state,zip")
+      .eq("status", "published")
+      .eq("is_canonical", true)
+      .or("venue.not.is.null,address.not.is.null")
+      .order("start_date", { ascending: true, nullsFirst: false });
+
+    if (stateFilter) baseQuery = baseQuery.eq("state", stateFilter);
+    if (sportFilter) baseQuery = baseQuery.eq("sport", sportFilter);
+
+    const { data: baseRaw, error: baseErr } = await baseQuery.range(pageOffset, pageOffset + Math.max(0, size - 1));
+    if (baseErr) throw baseErr;
+    return (baseRaw ?? []) as TournamentRow[];
+  };
+
+  const runPage = async (page: TournamentRow[]) => {
+    scannedTournamentRows += page.length;
+
+    const ids = page.map((t) => t.id).filter(Boolean);
+    const linkedSet = new Set<string>();
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const { data: linked, error } = await supabase
+        .from("tournament_venues" as any)
+        .select("tournament_id")
+        .in("tournament_id", chunk)
+        .limit(20000);
+      if (error) throw error;
+      for (const row of (linked ?? []) as Array<{ tournament_id: string | null }>) {
+        const tid = String(row.tournament_id ?? "");
+        if (tid) linkedSet.add(tid);
+      }
+    }
+
+    const targets = page.filter((t) => !linkedSet.has(t.id));
+    targetedTournamentRows += targets.length;
+
+    for (const t of targets) {
+      await processTournament(t);
+    }
+  };
+
+  if (ALL) {
+    let pageOffset = offset;
+    let pageNo = 0;
+    while (true) {
+      if (maxPages && pageNo >= maxPages) break;
+      const page = await fetchPage(pageOffset, pageSize);
+      if (page.length === 0) break;
+      if (!QUIET) console.log(`\n[page] offset=${pageOffset} size=${page.length}`);
+      await runPage(page);
+      pageOffset += pageSize;
+      pageNo++;
+    }
+  } else {
+    const page = await fetchPage(offset, limit);
+    if (page.length === 0) {
+      console.log("No tournaments found for this range.");
+      return;
+    }
+    await runPage(page);
   }
 
   console.log("\nDone.");
-  console.log(`- Tournament rows scanned: ${base.length}`);
-  console.log(`- Tournament rows targeted (no links): ${targets.length}`);
+  console.log(`- Tournament rows scanned: ${scannedTournamentRows}`);
+  console.log(`- Tournament rows targeted (no links): ${targetedTournamentRows}`);
   console.log(`- Tournaments processed: ${processedTournaments}`);
   console.log(`- Tournaments skipped: ${skippedTournaments}`);
   console.log(`- Venues matched: ${matchedVenues}`);
