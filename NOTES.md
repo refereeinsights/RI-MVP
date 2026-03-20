@@ -110,3 +110,4 @@
 - RI UI: re-aligned the RI header to match TI’s header grid (Public Beta pill left, centered logo, right-side actions with CTA + auth links) and switched RI’s body font stack to match TI (`Inter`, then system fallbacks). No TI changes.
 - RI UI: updated RI header to explicitly use the TI font stack, renamed the nav item to “Assignors” (links to `/assignors`), shifted nav slightly left under the logo, and increased the logo size without a major header height increase.
 - RI UI: centered "Venues" precisely under the logo by switching the desktop nav to a 3-column grid layout, increased the perceived logo size further (still without inflating header height), and stacked the “List your tournament” CTA above the Sign up + account icon row.
+- RI UI: made the RI header logo + nav centerline match the full header by switching the header grid to `1fr auto 1fr`, increased the logo size further, and made the desktop nav links bolder.

@@ -24,7 +24,8 @@
   /* Keep the header compact; the logo is visually scaled. */
   padding: 6px 16px 4px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* Keep the logo truly centered in the full header width (not just leftover space). */
+  grid-template-columns: 1fr auto 1fr;
   grid-template-rows: auto auto;
   align-items: center;
   gap: 8px 18px;
@@ -54,7 +55,7 @@
   object-position: center;
   transform-origin: center;
   /* Make the logo feel bigger without inflating the grid row height. */
-  transform: scale(2.4);
+  transform: scale(3.8);
   border: 0;
 }
 
@@ -100,7 +101,7 @@
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   justify-items: center;
-  grid-column: 2;
+  grid-column: 1 / -1;
   grid-row: 2;
   column-gap: 1.6rem;
   width: min(620px, 100%);
@@ -111,7 +112,7 @@
 .ri-nav a {
   color: var(--ri-muted);
   font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   text-decoration: none;
@@ -345,7 +346,7 @@
 
 @media (max-width: 768px) {
   .ri-header-shell {
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: 1fr auto 1fr;
     grid-template-rows: auto;
     padding: 10px 12px;
     gap: 10px;
