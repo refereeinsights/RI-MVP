@@ -122,3 +122,4 @@
 - RI venues: use the volleyball ball icon (`/svg/sports/volleyball_ball_icon.svg`) for volleyball venues in the venues grid + summary badges.
 - RI UI: adjusted RI header logo centering independently (logo can shift without moving the nav) so the logo sits visually centered above the nav links.
 - RI UI: aligned the RI header logo over the nav by constraining the logo container to the same width as the nav row (avoids “logo shift doesn’t show” when it gets covered by right-side actions).
+- Ingest: added `scripts/ingest/link_tournament_venues_from_csv.ts` to import a CSV of tournament->venue mappings (checks for existing venues by state/zip + address/city or name/city, creates missing venues, and upserts `tournament_venues` links; dry-run by default, `--apply` to write).
