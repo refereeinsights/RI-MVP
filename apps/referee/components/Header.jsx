@@ -32,60 +32,55 @@ export default function Header({ isAuthenticated = false }) {
 
   return (
     <header className="ri-header">
-      <div className="ri-header__top">
-        <div className="ri-header__topInner">
-          <Link className="ri-header__brand" href="/" aria-label="RefereeInsights home">
-            {!logoFailed ? (
-              // Use <img> to avoid Next Image config; the logo is in /public.
-              <img
-                className="ri-header__logo"
-                src="/ri_new_logo_transparent.png"
-                alt="RefereeInsights"
-                onError={() => setLogoFailed(true)}
-                draggable="false"
-              />
-            ) : (
-              <span className="ri-header__brandText">RefereeInsights</span>
-            )}
-          </Link>
+      <div className="ri-header-shell">
+        <Link href="/" className="ri-logo" aria-label="RefereeInsights home">
+          {!logoFailed ? (
+            <img
+              className="ri-logo-img"
+              src="/ri_new_logo_transparent.png"
+              alt="RefereeInsights"
+              onError={() => setLogoFailed(true)}
+              draggable="false"
+            />
+          ) : (
+            <span className="ri-logo-fallback">RefereeInsights</span>
+          )}
+        </Link>
 
-          <Link
-            className={`ri-accountIcon ${isAuthenticated ? "is-auth" : "is-guest"}`}
-            href={isAuthenticated ? "/account" : "/account/login"}
-            aria-label={isAuthenticated ? "My account" : "Sign in"}
-            title={isAuthenticated ? "My account" : "Sign in"}
-          >
-            <img className="ri-accountIcon__img" src="/referee-avatar.svg" alt="" aria-hidden="true" />
-          </Link>
+        <div className="ri-pill" title="RefereeInsights is in public beta">
+          <span className="ri-pill-dot" aria-hidden="true" />
+          Public Beta
         </div>
-      </div>
 
-      <div className="ri-header__bottom">
-        <div className="ri-header__bottomInner">
-          <div className="ri-header__leftActions">
-            <Link className="ri-listBtn" href="/tournaments/list" title="Submit a tournament">
-              <span className="ri-listBtn__icon" aria-hidden="true">
-                🏆
-              </span>
-              <span className="ri-listBtn__text">List your tournament</span>
+        <nav className="ri-nav" aria-label="Main navigation">
+          <Link href="/tournaments">Tournaments</Link>
+          <Link href="/venues">Venues</Link>
+          <Link href="/assignments">Assignments</Link>
+        </nav>
+
+        <div className="ri-header-actions">
+          <Link href="/tournaments/list" className="ri-cta" title="Submit a tournament">
+            <span aria-hidden="true">🏆</span>
+            List your tournament
+          </Link>
+
+          <div className="ri-auth-links" aria-label="Account actions">
+            {!isAuthenticated ? (
+              <Link href="/signup?returnTo=%2Faccount" className="ri-signup">
+                <img className="ri-signup-icon" src="/referee-avatar.svg" alt="" aria-hidden="true" />
+                Sign up
+              </Link>
+            ) : null}
+
+            <Link
+              className={`ri-accountIcon ${isAuthenticated ? "is-auth" : "is-guest"}`}
+              href={isAuthenticated ? "/account" : "/account/login"}
+              aria-label={isAuthenticated ? "My account" : "Sign in"}
+              title={isAuthenticated ? "My account" : "Sign in"}
+            >
+              <img className="ri-accountIcon__img" src="/referee-avatar.svg" alt="" aria-hidden="true" />
             </Link>
 
-            <span className="ri-betaPill">Public Beta</span>
-          </div>
-
-          <nav className="ri-header__nav" aria-label="Primary">
-            <Link className="ri-navLink" href="/tournaments">
-              Tournaments
-            </Link>
-            <Link className="ri-navLink" href="/venues">
-              Venues
-            </Link>
-            <Link className="ri-navLink" href="/assignments">
-              Assignments
-            </Link>
-          </nav>
-
-          <div className="ri-header__rightActions">
             <button
               ref={toggleRef}
               type="button"
@@ -126,6 +121,11 @@ export default function Header({ isAuthenticated = false }) {
           >
             {isAuthenticated ? "Account" : "Login"}
           </Link>
+          {!isAuthenticated ? (
+            <Link className="ri-mobileLink" href="/signup?returnTo=%2Faccount" onClick={closeMenu}>
+              Sign up
+            </Link>
+          ) : null}
         </nav>
       </div>
     </header>

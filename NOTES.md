@@ -107,3 +107,4 @@
 - RI UI: increased header logo size significantly and centered nav under the logo; venues cards now use the shared `.cardWhistle` positioning (aligns the Venue icon badge with tournament cards).
 - RI UI: updated the Venues page summary badges to use the same two-row layout as Tournaments (fixes the “all in one line” badge count row) and tweaked header logo padding/typography to better match TI’s nav style (no TI changes).
 - RI UI: increased the perceived logo size without increasing header height by scaling the logo image (no borders/background around the logo container).
+- RI UI: re-aligned the RI header to match TI’s header grid (Public Beta pill left, centered logo, right-side actions with CTA + auth links) and switched RI’s body font stack to match TI (`Inter`, then system fallbacks). No TI changes.
