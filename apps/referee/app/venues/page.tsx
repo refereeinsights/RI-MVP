@@ -427,32 +427,59 @@ export default async function VenuesPage({
           </div>
         </form>
 
-        <div className="summaryGrid">
-          <Link
-            href={`/venues?${buildParams(null)}`}
-            className={`card card--mini summary-total ${styles.summaryAllLink} ${sportsSelected.length === 0 ? styles.summaryActive : ""}`}
-          >
-            <div className="summaryCount">{venuesAllSportCleared.length}</div>
-            <div className="summaryLabel">ALL VENUES</div>
-            <div className="summaryIcon" aria-hidden="true">📍</div>
-          </Link>
+        {(() => {
+          const bySportCount = new Map(sportsSorted.map((s) => [s.sport, s.count] as const));
+          const badges =
+            sportsSelected.length > 0
+              ? sportsSelected.map((sport) => ({ sport, count: bySportCount.get(sport) ?? 0 }))
+              : sportsSorted.slice(0, 7);
+          const row1 = badges.slice(0, 3);
+          const row2 = badges.slice(3, 7);
 
-          {sportsSorted.map(({ sport, count }) => {
+          const renderBadge = (sport: string, count: number) => {
             const isOnlyActiveSport = sportsSelected.length === 1 && sportsSelected[0] === sport;
             const href = isOnlyActiveSport ? `/venues?${buildParams(null)}` : `/venues?${buildParams(sport)}`;
             return (
               <Link
                 key={sport}
                 href={href}
-                className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)} ${sportsSelected.includes(sport) ? styles.summaryActive : ""}`}
+                className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)} summaryBadgeFixed ${
+                  sportsSelected.includes(sport) ? styles.summaryActive : ""
+                }`}
               >
                 <div className="summaryCount">{count}</div>
                 <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
-                <div className="summaryIcon" aria-hidden="true">{venueIcon([sport])}</div>
+                <div className="summaryIcon" aria-hidden="true">
+                  {venueIcon([sport])}
+                </div>
               </Link>
             );
-          })}
-        </div>
+          };
+
+          return (
+            <>
+              <div className="summaryTotalRow">
+                <Link
+                  href={`/venues?${buildParams(null)}`}
+                  className={`card card--mini summary-total ${styles.summaryAllLink} ${
+                    sportsSelected.length === 0 ? styles.summaryActive : ""
+                  }`}
+                >
+                  <div className="summaryCount">{venuesAllSportCleared.length}</div>
+                  <div className="summaryLabel">ALL VENUES</div>
+                  <div className="summaryIcon" aria-hidden="true">
+                    📍
+                  </div>
+                </Link>
+              </div>
+
+              <div className="summaryGrid summaryGrid--twoRows">
+                <div className="summaryRow summaryRow--top">{row1.map(({ sport, count }) => renderBadge(sport, count))}</div>
+                <div className="summaryRow summaryRow--bottom">{row2.map(({ sport, count }) => renderBadge(sport, count))}</div>
+              </div>
+            </>
+          );
+        })()}
 
         {venues.length === 0 ? (
           <div className="cards">

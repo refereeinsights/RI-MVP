@@ -105,3 +105,4 @@
 - RI UI: replaced the legacy green inline-styled header with a dark premium sticky header component (gold accent, hover underline, responsive hamburger menu) and added `/assignments` as a stable link target (redirects to `/assignors` for now).
 - RI UI: adjusted the new header to match the prior layout hierarchy (larger centered logo, nav underneath) and restored the “List your tournament” CTA + account status icon (green when signed in, red when signed out).
 - RI UI: increased header logo size significantly and centered nav under the logo; venues cards now use the shared `.cardWhistle` positioning (aligns the Venue icon badge with tournament cards).
+- RI UI: updated the Venues page summary badges to use the same two-row layout as Tournaments (fixes the “all in one line” badge count row) and tweaked header logo padding/typography to better match TI’s nav style (no TI changes).

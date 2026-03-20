@@ -22,7 +22,7 @@
 .ri-header__topInner {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 16px 16px 10px;
+  padding: 10px 16px 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -36,12 +36,12 @@
   color: var(--ri-text);
   flex: 0 0 auto;
   min-width: 320px; /* reserves space for fallback text (no layout shift) */
-  height: 216px; /* ~300% larger than prior 72px */
+  height: 160px; /* big, but avoid an overly tall header */
   justify-content: center;
 }
 
 .ri-header__logo {
-  height: 216px;
+  height: 160px;
   width: auto;
   display: block;
   user-select: none;
@@ -98,7 +98,7 @@
 .ri-header__bottomInner {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 10px 16px 14px;
+  padding: 6px 16px 12px;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -178,12 +178,13 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  padding: 10px 2px;
+  padding: 10px 2px 8px;
   text-decoration: none;
   color: var(--ri-muted);
-  font-size: 14px;
-  font-weight: 650;
-  letter-spacing: 0.03em;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
 }
 
 .ri-navLink::after {
@@ -309,11 +310,11 @@
 @media (max-width: 768px) {
   .ri-header__brand {
     min-width: 240px;
-    height: 96px;
+    height: 92px;
   }
 
   .ri-header__logo {
-    height: 96px;
+    height: 92px;
   }
 
   .ri-header__nav {
