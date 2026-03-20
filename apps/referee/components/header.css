@@ -16,7 +16,7 @@
   color: var(--ri-text);
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   /* Fine-tune the visual centerline of the logo lockup + nav under it. */
-  --ri-center-shift: 16px;
+  --ri-center-shift: 28px;
 }
 
 /* Match TI's header grid alignment: pill (left), logo (center), actions (right), nav row below. */
