@@ -115,6 +115,7 @@ function buildMapLinks(query: string) {
 function venueIcon(sports: string[]) {
   if (sports.includes("lacrosse")) return <img className="sportSvgIcon" src="/brand/lacrosse_icon.svg" alt="" />;
   if (sports.includes("hockey")) return <img className="sportSvgIcon" src="/svg/sports/hockey_puck_icon.svg" alt="" />;
+  if (sports.includes("volleyball")) return <img className="sportSvgIcon" src="/svg/sports/volleyball_ball_icon.svg" alt="" />;
   if (sports.includes("soccer")) return "⚽";
   if (sports.includes("basketball")) return "🏀";
   if (sports.includes("football")) return "🏈";

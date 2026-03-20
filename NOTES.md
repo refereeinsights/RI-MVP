@@ -119,3 +119,4 @@
 - RI UI: shifted the RI header logo + nav centerline slightly right to better match the logo lockup optical center (uses a single CSS variable so it stays consistent).
 - RI UI: centered the sport icon on RI venue cards by overriding the global tournament `.summaryIcon` positioning within `VenueCard` (icon now sits centered above the venue name).
 - Assets: added `shared-assets/svg/sports/volleyball_ball_icon.svg` (volleyball standalone icon to match `hockey_puck_icon.svg`).
+- RI venues: use the volleyball ball icon (`/svg/sports/volleyball_ball_icon.svg`) for volleyball venues in the venues grid + summary badges.
