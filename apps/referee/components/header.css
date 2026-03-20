@@ -116,6 +116,8 @@
   width: min(620px, 100%);
   padding: 2px 0 8px;
   justify-self: center;
+  /* Visual nudge to keep the nav centered under the logo lockup. */
+  transform: translateX(-10px);
   position: relative;
   z-index: 4;
 }
