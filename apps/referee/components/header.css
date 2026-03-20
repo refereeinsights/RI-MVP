@@ -52,10 +52,10 @@
     Make the logo larger by increasing its actual rendered size (not transform),
     so it pushes layout naturally and doesn't overlap/steal clicks from the nav.
   */
-  width: min(420px, 72vw);
+  width: min(760px, 90vw);
   height: auto;
   max-width: none;
-  max-height: 96px;
+  max-height: 140px;
   object-fit: contain;
   object-position: center;
   border: 0;
@@ -373,8 +373,8 @@
   }
 
   .ri-logo-img {
-    max-height: 74px;
-    width: min(320px, 80vw);
+    max-height: 110px;
+    width: min(560px, 92vw);
   }
 
   .ri-menuToggle {

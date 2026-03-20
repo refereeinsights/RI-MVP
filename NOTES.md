@@ -115,3 +115,4 @@
 - CI (smoke): fixed RI smoke test env handling so it no longer hard-requires `TI_SMOKE_INSIDER_PASSWORD` at import time (which caused "No tests found" + empty JUnit); it now prefers `RI_SMOKE_PASSWORD` and only uses TI vars as a local fallback.
 - RI UI: fixed RI header nav links not being clickable/hoverable (logo transform overlap) by reducing logo scale and ensuring nav/actions are above the scaled logo via z-index.
 - RI UI: increased the RI header logo size again using real dimensions (no transform) so it grows without overlapping/capturing nav clicks; header gets slightly taller but links stay interactive.
+- RI UI: swapped the RI header logo to a trimmed/cropped PNG (original asset had a full-canvas faint background so it always looked small), then increased the rendered logo size so it actually appears ~2x larger.

@@ -37,7 +37,7 @@ export default function Header({ isAuthenticated = false }) {
           {!logoFailed ? (
             <img
               className="ri-logo-img"
-              src="/ri_new_logo_transparent.png"
+              src="/ri_new_logo_transparent_trimmed.png"
               alt="RefereeInsights"
               onError={() => setLogoFailed(true)}
               draggable="false"
