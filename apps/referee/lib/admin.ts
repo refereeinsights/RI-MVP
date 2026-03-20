@@ -35,6 +35,25 @@ export type AdminBadgeRow = {
   is_public: boolean | null;
 };
 
+export async function adminListUsersPage(params: { page: number; pageSize: number }): Promise<{ rows: AdminUserRow[]; count: number }> {
+  await requireAdmin();
+  const safePageSize = Number.isFinite(params.pageSize)
+    ? Math.max(1, Math.min(200, Math.floor(params.pageSize)))
+    : 50;
+  const safePage = Number.isFinite(params.page) ? Math.max(1, Math.floor(params.page)) : 1;
+  const from = (safePage - 1) * safePageSize;
+  const to = from + safePageSize - 1;
+
+  const { data, error, count } = await supabaseAdmin
+    .from("profiles")
+    .select("user_id, email, handle, real_name, years_refereeing, sports, role, created_at", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (error) throw error;
+  return { rows: (data ?? []) as AdminUserRow[], count: count ?? 0 };
+}
+
 /**
  * If not logged in -> redirect to /admin/login
  * If logged in but not admin -> redirect to /admin/login?error=not_authorized

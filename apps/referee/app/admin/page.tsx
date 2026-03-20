@@ -25,6 +25,7 @@ export const revalidate = 0;
 import {
   requireAdmin,
   adminSearchUsers,
+  adminListUsersPage,
   adminUpdateUserProfile,
   adminSetUserDisabled,
   adminListBadges,
@@ -282,6 +283,8 @@ export default async function AdminPage({
   searchParams: {
     tab?: Tab;
     q?: string;
+    show_all?: string;
+    users_page?: string;
     sport?: string;
     missing?: MissingTournamentFilter;
     vstatus?: VStatus;
@@ -391,6 +394,14 @@ export default async function AdminPage({
 
   const tab: Tab = (searchParams.tab as Tab) ?? "verification";
   const q = searchParams.q ?? "";
+  const showAllUsersRaw = (searchParams.show_all ?? "").trim().toLowerCase();
+  const showAllUsers =
+    tab === "users" &&
+    !q &&
+    (showAllUsersRaw === "1" || showAllUsersRaw === "true" || showAllUsersRaw === "yes");
+  const usersPageRaw = (searchParams.users_page ?? "").trim();
+  const usersPage =
+    usersPageRaw && Number.isFinite(Number(usersPageRaw)) ? Math.max(1, Number(usersPageRaw)) : 1;
   const tournamentSportFilter = (searchParams.sport ?? "").trim().toLowerCase();
   const missingFilter = (searchParams.missing ?? "") as MissingTournamentFilter;
   const vstatus: VStatus = (searchParams.vstatus as VStatus) ?? "pending";
@@ -408,6 +419,10 @@ export default async function AdminPage({
   params.set("tab", tab);
   if (tab === "verification") {
     params.set("vstatus", vstatus);
+  }
+  if (tab === "users") {
+    if (showAllUsers) params.set("show_all", "1");
+    if (usersPage > 1) params.set("users_page", String(usersPage));
   }
   if (tab === "reviews" || tab === "school-reviews") {
     params.set("rstatus", reviewStatus);
@@ -428,8 +443,16 @@ export default async function AdminPage({
 
   const badges: AdminBadgeRow[] = await adminListBadges();
 
+  const usersPageSize = 50;
+  const usersPageRes =
+    tab === "users" && showAllUsers ? await adminListUsersPage({ page: usersPage, pageSize: usersPageSize }) : null;
+
   const users: AdminUserRow[] =
-    tab === "users" || tab === "badges" ? (q ? await adminSearchUsers(q) : []) : [];
+    tab === "users" || tab === "badges"
+      ? q
+        ? await adminSearchUsers(q)
+        : usersPageRes?.rows ?? []
+      : [];
 
   const requests =
     tab === "verification" ? await adminListVerificationRequests(vstatus) : [];
@@ -6655,9 +6678,80 @@ export default async function AdminPage({
       {/* USERS TAB */}
       {tab === "users" && (
         <section style={{ marginBottom: 18 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 10 }}>
-            User search
-          </h2>
+          <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 10 }}>Users</h2>
+
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+            <div style={{ color: "#555", fontSize: 13, alignSelf: "center" }}>
+              {showAllUsers
+                ? `Showing page ${usersPage}${usersPageRes?.count ? ` of ${Math.max(1, Math.ceil(usersPageRes.count / usersPageSize))}` : ""}`
+                : "Search users, or show all (paginated)."}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {!showAllUsers ? (
+                <a
+                  href="/admin?tab=users&show_all=1"
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #111",
+                    background: "#fff",
+                    color: "#111",
+                    fontWeight: 900,
+                    textDecoration: "none",
+                  }}
+                >
+                  Show all users
+                </a>
+              ) : (
+                <>
+                  <a
+                    href={`/admin?tab=users&show_all=1&users_page=${Math.max(1, usersPage - 1)}`}
+                    style={{
+                      pointerEvents: usersPage <= 1 ? "none" : "auto",
+                      opacity: usersPage <= 1 ? 0.4 : 1,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #111",
+                      background: "#fff",
+                      color: "#111",
+                      fontWeight: 900,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Prev
+                  </a>
+                  <a
+                    href={`/admin?tab=users&show_all=1&users_page=${usersPage + 1}`}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #111",
+                      background: "#fff",
+                      color: "#111",
+                      fontWeight: 900,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Next
+                  </a>
+                  <a
+                    href="/admin?tab=users"
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #bbb",
+                      background: "#fff",
+                      color: "#111",
+                      fontWeight: 900,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Search mode
+                  </a>
+                </>
+              )}
+            </div>
+          </div>
 
           <form action="/admin" method="get" style={{ display: "flex", gap: 8, marginBottom: 16 }}>
             <input type="hidden" name="tab" value="users" />
@@ -6682,6 +6776,7 @@ export default async function AdminPage({
           </form>
 
           {q && users.length === 0 && <div style={{ color: "#555" }}>No results.</div>}
+          {!q && showAllUsers && users.length === 0 && <div style={{ color: "#555" }}>No users found.</div>}
 
           {users.map((u) => {
             const selectedSports = safeSportsArray(u.sports);
