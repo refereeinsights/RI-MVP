@@ -13,9 +13,18 @@ function getEnvOrThrow(name: string) {
   return value;
 }
 
+function getFirstEnv(...names: string[]) {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return "";
+}
+
 const insider: Credentials = {
-  email: process.env.RI_SMOKE_EMAIL || process.env.TI_SMOKE_INSIDER_EMAIL || "insider_test@example.com",
-  password: process.env.RI_SMOKE_PASSWORD || getEnvOrThrow("TI_SMOKE_INSIDER_PASSWORD"),
+  email: getFirstEnv("RI_SMOKE_EMAIL", "TI_SMOKE_INSIDER_EMAIL") || "insider_test@example.com",
+  // In CI this should be the RI credential; TI fallback is for local convenience only.
+  password: getFirstEnv("RI_SMOKE_PASSWORD", "TI_SMOKE_INSIDER_PASSWORD") || getEnvOrThrow("RI_SMOKE_PASSWORD"),
 };
 
 async function logout(page: Page) {
