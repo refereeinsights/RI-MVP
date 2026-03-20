@@ -15,8 +15,7 @@
   border-bottom: 1px solid var(--ri-border);
   color: var(--ri-text);
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  /* Fine-tune the optical centering of the logo over the nav. */
-  --ri-logo-shift: 40px;
+  /* Keep logo + nav aligned by constraining logo to the same width as the nav row. */
 }
 
 /* Match TI's header grid alignment: pill (left), logo (center), actions (right), nav row below. */
@@ -40,8 +39,7 @@
   grid-column: 2;
   grid-row: 1;
   justify-self: center;
-  /* Use left instead of transform so the shift is unambiguous/visible. */
-  left: var(--ri-logo-shift);
+  width: min(620px, 100%);
   line-height: 0;
   text-decoration: none;
   border: 0;
@@ -56,7 +54,7 @@
     Make the logo larger by increasing its actual rendered size (not transform),
     so it pushes layout naturally and doesn't overlap/steal clicks from the nav.
   */
-  width: min(760px, 90vw);
+  width: 100%;
   height: auto;
   max-width: none;
   max-height: 140px;
@@ -381,7 +379,7 @@
 
   .ri-logo-img {
     max-height: 110px;
-    width: min(560px, 92vw);
+    width: 100%;
   }
 
   .ri-menuToggle {
