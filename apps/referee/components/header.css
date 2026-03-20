@@ -38,13 +38,19 @@
   min-width: 320px; /* reserves space for fallback text (no layout shift) */
   height: 160px; /* big, but avoid an overly tall header */
   justify-content: center;
+  border: 0;
+  background: transparent;
 }
 
 .ri-header__logo {
-  height: 160px;
+  /* Visually scale the logo up without increasing layout height. */
+  height: 140px;
   width: auto;
   display: block;
   user-select: none;
+  transform: scale(1.25);
+  transform-origin: center;
+  border: 0;
 }
 
 .ri-header__brandText {
