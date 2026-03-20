@@ -55,7 +55,7 @@ export default function Header({ isAuthenticated = false }) {
         <nav className="ri-nav" aria-label="Main navigation">
           <Link href="/tournaments">Tournaments</Link>
           <Link href="/venues">Venues</Link>
-          <Link href="/assignments">Assignments</Link>
+          <Link href="/assignors">Assignors</Link>
         </nav>
 
         <div className="ri-header-actions">
@@ -108,8 +108,8 @@ export default function Header({ isAuthenticated = false }) {
           <Link className="ri-mobileLink" href="/venues" onClick={closeMenu}>
             Venues
           </Link>
-          <Link className="ri-mobileLink" href="/assignments" onClick={closeMenu}>
-            Assignments
+          <Link className="ri-mobileLink" href="/assignors" onClick={closeMenu}>
+            Assignors
           </Link>
           <Link className="ri-mobileLink" href="/tournaments/list" onClick={closeMenu}>
             List your tournament

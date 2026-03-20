@@ -108,3 +108,4 @@
 - RI UI: updated the Venues page summary badges to use the same two-row layout as Tournaments (fixes the “all in one line” badge count row) and tweaked header logo padding/typography to better match TI’s nav style (no TI changes).
 - RI UI: increased the perceived logo size without increasing header height by scaling the logo image (no borders/background around the logo container).
 - RI UI: re-aligned the RI header to match TI’s header grid (Public Beta pill left, centered logo, right-side actions with CTA + auth links) and switched RI’s body font stack to match TI (`Inter`, then system fallbacks). No TI changes.
+- RI UI: updated RI header to explicitly use the TI font stack, renamed the nav item to “Assignors” (links to `/assignors`), shifted nav slightly left under the logo, and increased the logo size without a major header height increase.
