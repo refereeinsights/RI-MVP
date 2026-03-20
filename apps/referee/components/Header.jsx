@@ -67,7 +67,6 @@ export default function Header({ isAuthenticated = false }) {
           <div className="ri-auth-links" aria-label="Account actions">
             {!isAuthenticated ? (
               <Link href="/signup?returnTo=%2Faccount" className="ri-signup">
-                <img className="ri-signup-icon" src="/referee-avatar.svg" alt="" aria-hidden="true" />
                 Sign up
               </Link>
             ) : null}
