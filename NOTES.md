@@ -113,3 +113,4 @@
 - RI UI: made the RI header logo + nav centerline match the full header by switching the header grid to `1fr auto 1fr`, increased the logo size further, and made the desktop nav links bolder.
 - RI UI: fixed the Public Beta pill stretching (left column is `1fr`) by constraining it to `fit-content`, and centered the account icon row underneath the “List your tournament” CTA.
 - CI (smoke): fixed RI smoke test env handling so it no longer hard-requires `TI_SMOKE_INSIDER_PASSWORD` at import time (which caused "No tests found" + empty JUnit); it now prefers `RI_SMOKE_PASSWORD` and only uses TI vars as a local fallback.
+- RI UI: fixed RI header nav links not being clickable/hoverable (logo transform overlap) by reducing logo scale and ensuring nav/actions are above the scaled logo via z-index.

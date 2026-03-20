@@ -42,6 +42,8 @@
   text-decoration: none;
   border: 0;
   background: transparent;
+  position: relative;
+  z-index: 2;
 }
 
 .ri-logo-img {
@@ -54,8 +56,8 @@
   object-fit: contain;
   object-position: center;
   transform-origin: center;
-  /* Make the logo feel bigger without inflating the grid row height. */
-  transform: scale(3.8);
+  /* Enlarge the logo without increasing header height; keep it from overlapping nav clicks. */
+  transform: scale(1.8);
   border: 0;
 }
 
@@ -111,6 +113,8 @@
   width: min(620px, 100%);
   padding: 2px 0 8px;
   justify-self: center;
+  position: relative;
+  z-index: 4;
 }
 
 .ri-nav a {
@@ -157,6 +161,8 @@
   grid-row: 1;
   gap: 8px;
   justify-self: end;
+  position: relative;
+  z-index: 4;
 }
 
 .ri-cta {
