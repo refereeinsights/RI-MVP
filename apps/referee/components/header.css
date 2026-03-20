@@ -74,6 +74,10 @@
   grid-column: 1;
   grid-row: 1;
   align-self: start;
+  /* Keep the pill compact even though the left grid column is `1fr`. */
+  justify-self: start;
+  width: fit-content;
+  max-width: 320px;
   margin-top: 10px;
   padding: 4px 10px;
   border-radius: 999px;
@@ -147,7 +151,8 @@
 .ri-header-actions {
   display: grid;
   grid-auto-rows: min-content;
-  justify-items: end;
+  /* Width is driven by the widest child (CTA). Allow the auth row to stretch and center under it. */
+  justify-items: stretch;
   grid-column: 3;
   grid-row: 1;
   gap: 8px;
@@ -185,9 +190,11 @@
 }
 
 .ri-auth-links {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 10px;
+  justify-content: center;
+  justify-self: stretch;
 }
 
 .ri-signup {
