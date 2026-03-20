@@ -318,39 +318,54 @@ export default async function AdminPage({
       .select("id", { count: "exact", head: true })
       .eq("status", "draft"),
     (async () => {
-      // "Missing venues" means: no denormalized venue/address AND no linked venues.
-      // Linked venues live in tournament_venues and are the primary source of truth.
-      const base = await supabaseAdmin
-        .from("tournaments" as any)
-        .select("id")
-        .eq("status", "published")
-        .eq("is_canonical", true)
-        .is("venue", null)
-        .is("address", null)
-        .limit(5000);
-      if (base.error) throw base.error;
-      const ids = ((base.data ?? []) as Array<{ id: string | null }>)
-        .map((r) => String(r.id ?? ""))
-        .filter(Boolean);
-      if (!ids.length) return { count: 0 };
+      // "Missing venues" (moving forward) means:
+      // Published canonical tournaments with zero tournament_venues rows (linked venues).
+      //
+      // PostgREST doesn't expose NOT EXISTS ergonomically, so we page tournament ids and
+      // subtract those that have any tournament_venues links.
+      const pageSize = 500;
+      const inChunkSize = 50; // keep `.in()` URL size safe
 
-      const linkedSet = new Set<string>();
-      const chunkSize = 50;
-      for (let i = 0; i < ids.length; i += chunkSize) {
-        const chunk = ids.slice(i, i + chunkSize);
-        const { data: linked, error } = await supabaseAdmin
-          .from("tournament_venues" as any)
-          .select("tournament_id")
-          .in("tournament_id", chunk)
-          .limit(20000);
-        if (error) throw error;
-        for (const row of (linked ?? []) as Array<{ tournament_id: string | null }>) {
-          const tid = String(row.tournament_id ?? "");
-          if (tid) linkedSet.add(tid);
+      let offset = 0;
+      let missingCount = 0;
+
+      while (true) {
+        const page = await supabaseAdmin
+          .from("tournaments" as any)
+          .select("id")
+          .eq("status", "published")
+          .eq("is_canonical", true)
+          .range(offset, offset + pageSize - 1);
+        if (page.error) throw page.error;
+
+        const ids = ((page.data ?? []) as Array<{ id: string | null }>)
+          .map((r) => String(r.id ?? ""))
+          .filter(Boolean);
+        if (!ids.length) break;
+
+        const linkedSet = new Set<string>();
+        for (let i = 0; i < ids.length; i += inChunkSize) {
+          const chunk = ids.slice(i, i + inChunkSize);
+          const { data: linked, error } = await supabaseAdmin
+            .from("tournament_venues" as any)
+            .select("tournament_id")
+            .in("tournament_id", chunk)
+            .limit(20000);
+          if (error) throw error;
+          for (const row of (linked ?? []) as Array<{ tournament_id: string | null }>) {
+            const tid = String(row.tournament_id ?? "");
+            if (tid) linkedSet.add(tid);
+          }
         }
+
+        for (const id of ids) {
+          if (!linkedSet.has(id)) missingCount += 1;
+        }
+
+        offset += pageSize;
       }
-      const count = ids.reduce((acc, id) => (linkedSet.has(id) ? acc : acc + 1), 0);
-      return { count };
+
+      return { count: missingCount };
     })(),
     supabaseAdmin
       .from("tournaments" as any)
