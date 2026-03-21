@@ -162,3 +162,7 @@
 - RI tournament detail: matched TI's sport-specific SVG background treatment for tournament detail cards for better contrast/readability.
 - RI admin/ops: added local ops scripts to help clean the uploads queue (dedupe draft uploads, backfill missing fields/venues into existing tournaments, and remove/avoid placeholder venues like `TBD` and known organizer-address false positives).
 - RI admin sweep: improved URL normalization and the paste/sweep flow to reduce 404s from stale source URLs and keep review queues cleaner.
+- RI tournaments: refactored `/tournaments/[slug]` to use a sport-specific hero header and a separate plain-content section (cards) so long detail pages stay readable.
+- RI tournaments: centered detail content cards with consistent widths (standard vs wide), and reused the sport field/court hero textures as the background surface under the plain-content section.
+- RI tournaments: collapsed "Share your experience" behind a click-to-expand disclosure and widened the form area (full width) to reduce vertical scrolling.
+- RI tournaments: added "Help the crew" (light/white, centered) and "Invite another referee" (mailto invite) disclosures under About; also restyled Decision Signals to match the new dark card surface.

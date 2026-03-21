@@ -804,7 +804,8 @@
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
     url("/svg/sports/soccer_container.svg");
   background-size: auto, 230% auto;
-  background-position: center, center;
+  /* The RI detail panel can be very tall; keep the sport art anchored to the top. */
+  background-position: center, center top;
   background-repeat: no-repeat, no-repeat;
 }
 
@@ -813,7 +814,7 @@
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
     url("/svg/sports/basketball_court_container.svg");
   background-size: auto, 230% auto;
-  background-position: center, center;
+  background-position: center, center top;
   background-repeat: no-repeat, no-repeat;
   border-color: rgba(255,255,255,0.35);
 }
@@ -823,7 +824,7 @@
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
     url("/svg/sports/baseball_container.svg");
   background-size: auto, 230% auto;
-  background-position: center, center;
+  background-position: center, center top;
   background-repeat: no-repeat, no-repeat;
 }
 
@@ -832,7 +833,7 @@
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
     url("/svg/sports/softball_container.svg");
   background-size: auto, 230% auto;
-  background-position: center, center;
+  background-position: center, center top;
   background-repeat: no-repeat, no-repeat;
 }
 
@@ -841,7 +842,7 @@
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
     url("/svg/sports/football_container.svg");
   background-size: auto, 230% auto;
-  background-position: center, center;
+  background-position: center, center top;
   background-repeat: no-repeat, no-repeat;
 }
 
@@ -850,7 +851,7 @@
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
     url("/svg/sports/lacrosse_container.svg");
   background-size: auto, 230% auto;
-  background-position: center, center;
+  background-position: center, center top;
   background-repeat: no-repeat, no-repeat;
 }
 
@@ -859,7 +860,7 @@
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
     url("/svg/sports/hockey_container.svg");
   background-size: auto, 230% auto;
-  background-position: center, center;
+  background-position: center, center top;
   background-repeat: no-repeat, no-repeat;
 }
 
@@ -868,7 +869,7 @@
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
     url("/svg/sports/volleyball_container.svg");
   background-size: auto, 230% auto;
-  background-position: center, center;
+  background-position: center, center top;
   background-repeat: no-repeat, no-repeat;
 }
 /* Stadium-light glow on hover */
@@ -1247,6 +1248,11 @@
   gap: 10px;
 }
 
+.detailCard .detailVenueGrid {
+  width: 100%;
+  margin-top: 0;
+}
+
 .detailVenueTile {
   display: flex;
   min-height: 96px;
@@ -1255,7 +1261,7 @@
   gap: 10px;
   padding: 12px;
   border-radius: 14px;
-  background: rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.12);
   border: 1px solid rgba(255,255,255,0.25);
   color: #fff;
   text-decoration: none;
@@ -1340,6 +1346,379 @@
   margin: 0 auto;
   text-align: center;
   justify-items: center;
+}
+
+.detailContent {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.1rem 1rem 2.25rem;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  border-radius: 22px;
+  border: 1px solid rgba(0,0,0,0.06);
+  /* Give long pages a stable, readable surface under the cards. */
+  background:
+    radial-gradient(900px 500px at 50% 0%, rgba(255,255,255,0.08), rgba(255,255,255,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.74));
+  box-shadow: 0 18px 40px rgba(0,0,0,0.12);
+}
+
+.detailContent.bg-sport-default,
+.detailContent.bg-sport-basketball,
+.detailContent.bg-sport-baseball,
+.detailContent.bg-sport-softball,
+.detailContent.bg-sport-football {
+  background:
+    radial-gradient(900px 500px at 50% 0%, rgba(255,255,255,0.08), rgba(255,255,255,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.74)),
+    url("/textures/soccer-turf.svg");
+  background-size: auto, auto, cover;
+  background-position: center, center, center;
+}
+
+.detailContent.bg-sport-soccer {
+  background:
+    radial-gradient(900px 500px at 50% 0%, rgba(255,255,255,0.08), rgba(255,255,255,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.74)),
+    url("/textures/ti_soccer_hero_2_bg_1200x1000.png");
+  background-size: auto, auto, cover;
+  background-position: center, center, center;
+}
+
+.detailContent.bg-sport-lacrosse {
+  background:
+    radial-gradient(900px 500px at 50% 0%, rgba(255,255,255,0.08), rgba(255,255,255,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.74)),
+    url("/textures/ti_lacrosse_hero_bg_1200x1000.png");
+  background-size: auto, auto, cover;
+  background-position: center, center, center;
+}
+
+.detailContent.bg-sport-basketball {
+  background:
+    radial-gradient(900px 500px at 50% 0%, rgba(255,255,255,0.08), rgba(255,255,255,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.74)),
+    url("/textures/ti_basketball_hero_bg_1200x1000.png");
+  background-size: auto, auto, cover;
+  background-position: center, center, center;
+}
+
+.detailContent.bg-sport-baseball {
+  background:
+    radial-gradient(900px 500px at 50% 0%, rgba(255,255,255,0.08), rgba(255,255,255,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.74)),
+    url("/textures/ti_baseball_hero_bg_1200x1000.svg");
+  background-size: auto, auto, cover;
+  background-position: center, center, center;
+}
+
+.detailContent.bg-sport-softball {
+  background:
+    radial-gradient(900px 500px at 50% 0%, rgba(255,255,255,0.08), rgba(255,255,255,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.74)),
+    url("/textures/soccer-turf.svg");
+  background-size: auto, auto, cover;
+  background-position: center, center, center;
+}
+
+.detailContent.bg-sport-football {
+  background:
+    radial-gradient(900px 500px at 50% 0%, rgba(255,255,255,0.08), rgba(255,255,255,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.74)),
+    url("/textures/football-field.svg");
+  background-size: auto, auto, cover;
+  background-position: center, center, center;
+}
+
+.detailContent.bg-sport-hockey {
+  background:
+    radial-gradient(900px 500px at 50% 0%, rgba(255,255,255,0.08), rgba(255,255,255,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.74)),
+    url("/textures/ti_hockey_hero_bg_1200x1000.png");
+  background-size: auto, auto, cover;
+  background-position: center, center, center;
+}
+
+.detailContent.bg-sport-volleyball {
+  background:
+    radial-gradient(900px 500px at 50% 0%, rgba(255,255,255,0.08), rgba(255,255,255,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.74)),
+    url("/textures/ti_volleyball_hero_bg_1200x1000.png");
+  background-size: auto, auto, cover;
+  background-position: center, center, center;
+}
+
+.detailCard {
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+  color: #ffffff;
+  padding: 14px 14px 16px;
+  width: min(920px, 100%);
+}
+
+.detailCard--wide {
+  width: min(1120px, 100%);
+}
+
+@media (max-width: 640px) {
+  .detailContent {
+    padding: 0.85rem 0.65rem 2rem;
+    gap: 10px;
+  }
+  .detailCard {
+    padding: 12px 12px 14px;
+    border-radius: 14px;
+  }
+}
+
+.detailSectionTitle {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.92);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.28);
+}
+
+.detailContacts__rows {
+  display: grid;
+  gap: 6px;
+}
+
+.detailContacts__row {
+  line-height: 1.45;
+  color: rgba(255,255,255,0.92);
+}
+
+.detailContacts__label {
+  font-weight: 800;
+  color: rgba(255,255,255,0.92);
+}
+
+.detailContacts__value {
+  color: rgba(255,255,255,0.92);
+}
+
+.detailContacts__muted {
+  color: rgba(255,255,255,0.82);
+  line-height: 1.55;
+}
+
+.detailInlineLink {
+  font-weight: 800;
+  color: #ffffff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.detailContacts__pending {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(248,250,252,0.88);
+}
+
+/* When these blocks are used inside the plain-content cards, remove max-width and heavy shadows. */
+.detailContent .detailSummary,
+.detailContent .detailBody,
+.detailContent .detailMeta {
+  max-width: none;
+  text-shadow: none;
+}
+
+.detailActionGrid {
+  margin-top: 2px;
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.detailDisclosure {
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.32);
+  overflow: hidden;
+}
+
+.detailDisclosure--helpLight {
+  border-color: rgba(0,0,0,0.12);
+  background: rgba(255,255,255,0.96);
+}
+
+.detailDisclosure__summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.95);
+}
+
+.detailDisclosure__summary::marker {
+  content: "";
+}
+
+.reviewDisclosure__summary::marker {
+  content: "";
+}
+
+.detailDisclosure--helpLight .detailDisclosure__summary {
+  position: relative;
+  justify-content: center;
+  text-align: center;
+  color: #0b0b0b;
+}
+
+.detailDisclosure--helpLight .detailDisclosure__summary:hover {
+  background: rgba(0,0,0,0.04);
+}
+
+.detailDisclosure__summary::-webkit-details-marker {
+  display: none;
+}
+
+.detailDisclosure__summary:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.detailDisclosure__summary:focus-visible {
+  outline: 2px solid rgba(245,197,66,0.7);
+  outline-offset: -2px;
+}
+
+.detailDisclosure__chev {
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid rgba(255,255,255,0.85);
+  border-bottom: 2px solid rgba(255,255,255,0.85);
+  transform: rotate(45deg);
+  margin-left: 6px;
+  transition: transform 160ms ease;
+  flex: 0 0 auto;
+}
+
+.detailDisclosure--helpLight .detailDisclosure__chev {
+  position: absolute;
+  right: 14px;
+  border-right-color: rgba(0,0,0,0.55);
+  border-bottom-color: rgba(0,0,0,0.55);
+}
+
+.detailDisclosure[open] .detailDisclosure__chev {
+  transform: rotate(225deg);
+}
+
+.detailDisclosure__panel {
+  padding: 12px 14px 14px;
+  display: grid;
+  gap: 10px;
+  color: rgba(255,255,255,0.9);
+  line-height: 1.55;
+  font-size: 13px;
+}
+
+.detailDisclosure--helpLight .detailDisclosure__panel {
+  text-align: center;
+  color: rgba(11,11,11,0.88);
+}
+
+.detailDisclosure__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.detailDisclosure--helpLight .detailDisclosure__actions {
+  justify-content: center;
+}
+
+.detailActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.10);
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 12px;
+  min-height: 40px;
+}
+
+.detailDisclosure--helpLight .detailActionBtn {
+  border-color: rgba(0,0,0,0.16);
+  background: #0b0b0b;
+  color: #ffffff;
+}
+
+.detailDisclosure--helpLight .detailActionBtn:hover,
+.detailDisclosure--helpLight .detailActionBtn:focus-visible {
+  border-color: rgba(245,197,66,0.55);
+  background: #111111;
+}
+
+.detailActionBtn:hover,
+.detailActionBtn:focus-visible {
+  border-color: rgba(245,197,66,0.45);
+  background: rgba(245,197,66,0.10);
+  outline: none;
+}
+
+.detailActionBtn--ghost {
+  background: rgba(0,0,0,0.22);
+}
+
+.decisionSignals {
+  margin-top: 10px;
+  margin-bottom: 2px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.32);
+  padding: 12px 14px 14px;
+  width: 100%;
+}
+
+.decisionSignals__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: rgba(255,255,255,0.95);
+}
+
+.decisionSignals__lede {
+  margin: 8px 0 10px;
+  color: rgba(255,255,255,0.84);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.decisionSignals__list {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  color: rgba(255,255,255,0.92);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.decisionSignals__note {
+  margin: 0;
+  color: rgba(255,255,255,0.74);
+  font-size: 13px;
 }
 
 .detailBackLink {
@@ -1839,6 +2218,98 @@
   padding: 1rem;
   color: #fefefe;
   border: 1px solid rgba(255,255,255,0.15);
+}
+
+.detailCard.refereeInsights {
+  margin-top: 0;
+  /* Override the base `.refereeInsights` styles when it is already a `detailCard`. */
+  background: rgba(0, 0, 0, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 14px 14px 16px;
+}
+
+.refereeInsights__signInGate {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.35);
+  font-size: 13px;
+  color: rgba(255,255,255,0.92);
+  line-height: 1.5;
+}
+
+.reviewDisclosure {
+  margin-top: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.35);
+  overflow: hidden;
+}
+
+.reviewDisclosure__summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.95);
+}
+
+.reviewDisclosure__summary::-webkit-details-marker {
+  display: none;
+}
+
+.reviewDisclosure__summary:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.reviewDisclosure__summary:focus-visible {
+  outline: 2px solid rgba(245,197,66,0.7);
+  outline-offset: -2px;
+}
+
+.reviewDisclosure__chev {
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid rgba(255,255,255,0.85);
+  border-bottom: 2px solid rgba(255,255,255,0.85);
+  transform: rotate(45deg);
+  margin-left: 6px;
+  transition: transform 160ms ease;
+  flex: 0 0 auto;
+}
+
+.reviewDisclosure[open] .reviewDisclosure__chev {
+  transform: rotate(225deg);
+}
+
+.reviewDisclosure__panel {
+  padding: 12px 14px 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.reviewDisclosure__hint {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.22);
+  color: rgba(255,255,255,0.9);
+  line-height: 1.55;
+  font-size: 13px;
+}
+
+.reviewDisclosure__hint a {
+  color: #ffffff;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .reviewList {

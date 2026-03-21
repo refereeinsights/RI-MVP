@@ -101,6 +101,10 @@ function detailPanelVariant(sport: string | null) {
   return `detailPanel ${getSportCardClass(sport)}`;
 }
 
+function detailHeroVariant(sport: string | null) {
+  return `detailHero ${getSportCardClass(sport)}`;
+}
+
 function formatWhistleAverage(score: number | null) {
   if (score === null || Number.isNaN(score)) return null;
   const whistles = Math.round((score / 20) * 10) / 10; // convert percentage to 1-5 scale
@@ -264,6 +268,16 @@ export default async function TournamentDetailPage({
   const seriesMap = await loadSeriesTournamentIds(supabaseAdmin, [{ id: data.id, slug: data.slug }]);
   const seriesEntry = seriesMap.get(data.id);
   const relatedTournamentIds = seriesEntry?.tournamentIds ?? [data.id];
+
+  const listingUrl = buildCanonicalUrl(data.slug ?? params.slug);
+  const officialUrl = data.official_website_url || data.source_url || "";
+  const inviteMailtoHref =
+    `mailto:?subject=${encodeURIComponent(`RefereeInsights: ${data.name}`)}` +
+    `&body=${encodeURIComponent(
+      `Tournament listing:\\n${listingUrl}` +
+        (officialUrl ? `\\n\\nOfficial site:\\n${officialUrl}` : "") +
+        `\\n\\nShare a referee report after working this tournament so crews can decide before accepting games.`
+    )}`;
   const { data: venueLinks } = await supabaseAdmin
     .from("tournament_venues" as any)
     .select("venue_id,venues(id,seo_slug,name,address,city,state,zip)")
@@ -435,19 +449,18 @@ export default async function TournamentDetailPage({
           <span>{data.name}</span>
         </div>
 
-        <div className={detailPanelVariant(data.sport)}>
+        <div className={detailHeroVariant(data.sport)}>
           {data.tournament_staff_verified ? (
             <div className="detailBadgeRail" aria-label="Tournament badges">
-              {data.tournament_staff_verified ? (
-                <img
-                  className="detailBadgeIcon detailBadgeIcon--verified"
-                  src="/svg/ri/tournament_staff_verified.svg"
-                  alt="Tournament staff verified"
-                />
-              ) : null}
+              <img
+                className="detailBadgeIcon detailBadgeIcon--verified"
+                src="/svg/ri/tournament_staff_verified.svg"
+                alt="Tournament staff verified"
+              />
             </div>
           ) : null}
-          <div className="detailIntro">
+
+          <div className="detailHero__overlay">
             <h1 className="detailTitle">{data.name}</h1>
 
             <p className="detailMeta">
@@ -475,8 +488,13 @@ export default async function TournamentDetailPage({
                 Add referee insight
               </Link>
             </div>
+          </div>
+        </div>
 
-            {linkedVenues.length > 0 ? (
+        <div className={`detailContent ${getSportCardClass(data.sport)}`}>
+          {linkedVenues.length > 0 ? (
+            <section className="detailCard detailCard--wide" aria-label="Venues">
+              <h2 className="detailSectionTitle">Venues</h2>
               <div className="detailVenueGrid">
                 {linkedVenues.map((venue) => (
                   <Link
@@ -496,63 +514,53 @@ export default async function TournamentDetailPage({
                   </Link>
                 ))}
               </div>
-            ) : null}
+            </section>
+          ) : null}
 
-            <div
-              style={{
-                marginTop: 8,
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid rgba(255,255,255,0.24)",
-                background: "rgba(255,255,255,0.16)",
-                fontSize: 13,
-                color: "#f8fafc",
-                maxWidth: 520,
-                width: "100%",
-              }}
-            >
-              <div style={{ fontWeight: 800, marginBottom: 4 }}>Tournament contacts</div>
-              {user ? (
-                privateDetailRows.length ? (
-                  <div style={{ display: "grid", gap: 4 }}>
-                    {privateDetailRows.map((row) => (
-                      <div key={row.label}>
-                        {row.label}: {row.value}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div>No verified contact info yet.</div>
-                )
-              ) : data.tournament_director || data.referee_contact ? (
-                <div>
-                  Contact info is available for verified users.{" "}
-                  <Link href="/account/login" style={{ fontWeight: 700, color: "#ffffff" }}>
-                    Sign in
-                  </Link>{" "}
-                  to view.
+          <section className="detailCard detailContacts" aria-label="Tournament contacts">
+            <h2 className="detailSectionTitle">Tournament contacts</h2>
+            {user ? (
+              privateDetailRows.length ? (
+                <div className="detailContacts__rows">
+                  {privateDetailRows.map((row) => (
+                    <div key={row.label} className="detailContacts__row">
+                      <span className="detailContacts__label">{row.label}:</span>{" "}
+                      <span className="detailContacts__value">{row.value}</span>
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <div>
-                  No verified contact info yet.{" "}
-                  <Link href="/tournaments/list?intent=contact" style={{ fontWeight: 700, color: "#ffffff" }}>
-                    Sign in to add.
-                  </Link>
-                </div>
-              )}
-              {pendingContactsCount ? (
-                <div style={{ marginTop: 6, fontSize: 12, color: "rgba(248,250,252,0.88)" }}>
-                  Pending review: {pendingContactsCount}
-                </div>
-              ) : null}
-            </div>
+                <div className="detailContacts__muted">No verified contact info yet.</div>
+              )
+            ) : data.tournament_director || data.referee_contact ? (
+              <div className="detailContacts__muted">
+                Contact info is available for verified users.{" "}
+                <Link href="/account/login" className="detailInlineLink">
+                  Sign in
+                </Link>{" "}
+                to view.
+              </div>
+            ) : (
+              <div className="detailContacts__muted">
+                No verified contact info yet.{" "}
+                <Link href="/tournaments/list?intent=contact" className="detailInlineLink">
+                  Sign in to add.
+                </Link>
+              </div>
+            )}
+            {pendingContactsCount ? (
+              <div className="detailContacts__pending">Pending review: {pendingContactsCount}</div>
+            ) : null}
+          </section>
 
+          <section className="detailCard" aria-label="About this tournament">
+            <h2 className="detailSectionTitle">About</h2>
             <p className="detailSummary">
               {data.summary ||
                 "Tournament details sourced from public listings. More referee insights coming soon."}
             </p>
 
-            <p className="detailBody" style={{ marginTop: 10 }}>
+            <p className="detailBody">
               This listing is part of RefereeInsights public beta. We’re building a
               referee-first directory so officials can quickly understand tournament
               logistics and working conditions before accepting assignments. Insights and
@@ -560,9 +568,45 @@ export default async function TournamentDetailPage({
             </p>
 
             <DecisionSignals />
-          </div>
 
-          <div className="refereeInsights">
+            <div className="detailActionGrid" aria-label="Help the crew">
+              <details className="detailDisclosure detailDisclosure--helpLight">
+                <summary className="detailDisclosure__summary">
+                  Help the crew
+                  <span className="detailDisclosure__chev" aria-hidden="true" />
+                </summary>
+                <div className="detailDisclosure__panel">
+                  Add what you learned (pay timing, field conditions, scheduling, support) so other referees can decide
+                  before accepting assignments.
+                  <div className="detailDisclosure__actions">
+                    <a className="detailActionBtn" href="#share-experience">
+                      Share your experience
+                    </a>
+                  </div>
+                </div>
+              </details>
+
+              <details className="detailDisclosure">
+                <summary className="detailDisclosure__summary">
+                  Invite another referee
+                  <span className="detailDisclosure__chev" aria-hidden="true" />
+                </summary>
+                <div className="detailDisclosure__panel">
+                  Send this listing to a referee so they can add insight after working the tournament.
+                  <div className="detailDisclosure__actions">
+                    <a className="detailActionBtn" href={inviteMailtoHref}>
+                      Email invite
+                    </a>
+                    <a className="detailActionBtn detailActionBtn--ghost" href={listingUrl} target="_blank" rel="noopener noreferrer">
+                      Open listing
+                    </a>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </section>
+
+          <div className="refereeInsights detailCard detailCard--wide">
             <div className="refereeInsights__header">
               <div>
                 <h2 style={{ color: "#ffffff", textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>Referee Score Card</h2>
@@ -705,16 +749,7 @@ export default async function TournamentDetailPage({
                 {user ? (
                   <RefereeReviewList reviews={reviews} showReviewerHandle={false} />
                 ) : (
-                  <div
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      border: "1px solid rgba(0,0,0,0.08)",
-                      background: "rgba(255,255,255,0.9)",
-                      fontSize: 13,
-                      color: "#0f172a",
-                    }}
-                  >
+                  <div className="refereeInsights__signInGate">
                     Recent review details are available to signed-in users.{" "}
                     <Link href="/account/login" style={{ fontWeight: 700 }}>
                       Sign in
@@ -723,29 +758,17 @@ export default async function TournamentDetailPage({
                   </div>
                 )}
               </div>
-              <div className="refereeInsights__column">
-                <div
-                  style={{
-                    marginBottom: 12,
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "1px solid rgba(0,0,0,0.08)",
-                    background: "rgba(0,0,0,0.02)",
-                    fontSize: 13,
-                    color: "#ffffff",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  <strong style={{ display: "block", marginBottom: 4, fontSize: 13, color: "#ffffff" }}>
-                    Don’t see your tournament?
-                  </strong>
-                  Add it first so refs can submit insight:{" "}
-                  <a
-                    href="/tournaments/list?intent=insight"
-                    style={{ color: "#0f5132", fontWeight: 700, textDecoration: "underline" }}
-                  >
-                    add a tournament
-                  </a>.
+            </div>
+
+            <details className="reviewDisclosure" id="share-experience">
+              <summary className="reviewDisclosure__summary">
+                Share your experience
+                <span className="reviewDisclosure__chev" aria-hidden="true" />
+              </summary>
+              <div className="reviewDisclosure__panel">
+                <div className="reviewDisclosure__hint">
+                  <strong>Don’t see your tournament?</strong> Add it first so refs can submit insight:{" "}
+                  <a href="/tournaments/list?intent=insight">add a tournament</a>.
                 </div>
                 <RefereeReviewForm
                   tournamentId={data.id}
@@ -754,7 +777,7 @@ export default async function TournamentDetailPage({
                   disabledMessage={disabledMessage}
                 />
               </div>
-            </div>
+            </details>
           </div>
 
           <div className="sportIcon" aria-label={data.sport ?? "tournament sport"} style={{ marginTop: "1rem" }}>
