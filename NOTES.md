@@ -166,3 +166,4 @@
 - RI tournaments: centered detail content cards with consistent widths (standard vs wide), and reused the sport field/court hero textures as the background surface under the plain-content section.
 - RI tournaments: collapsed "Share your experience" behind a click-to-expand disclosure and widened the form area (full width) to reduce vertical scrolling.
 - RI tournaments: added "Help the crew" (light/white, centered) and "Invite another referee" (mailto invite) disclosures under About; also restyled Decision Signals to match the new dark card surface.
+- RI tournaments: removed the "Help the crew" white disclosure box (kept invite and the centered tournament referral CTA), and centered the tournament referral creative copy while removing the eyebrow line.

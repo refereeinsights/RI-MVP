@@ -10,6 +10,7 @@ export default function ReferralCTA({
 }) {
   const block = REFERRAL_PLACEMENTS[placement];
   if (!block) return null;
+  const isTournamentReferral = block.id === "tournament_referral";
 
   return (
     <section
@@ -22,6 +23,7 @@ export default function ReferralCTA({
         boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
         maxWidth: 640,
         margin: "0 auto",
+        textAlign: isTournamentReferral ? "center" : undefined,
       }}
     >
       {block.eyebrow && (
@@ -41,9 +43,27 @@ export default function ReferralCTA({
       <h3 style={{ margin: "0.4rem 0 0", fontSize: 26 }}>{block.title}</h3>
       <p style={{ marginTop: 12, marginBottom: 12, lineHeight: 1.6 }}>{block.body}</p>
       {block.highlights && block.highlights.length > 0 && (
-        <ul style={{ paddingLeft: "1.1rem", margin: "0 0 0.75rem" }}>
+        <ul
+          style={{
+            paddingLeft: isTournamentReferral ? 0 : "1.1rem",
+            margin: "0 0 0.75rem",
+            listStylePosition: isTournamentReferral ? "inside" : undefined,
+            display: isTournamentReferral ? "grid" : undefined,
+            justifyContent: isTournamentReferral ? "center" : undefined,
+            justifyItems: isTournamentReferral ? "center" : undefined,
+            gap: isTournamentReferral ? 6 : undefined,
+          }}
+        >
           {block.highlights.map((item) => (
-            <li key={item} style={{ marginBottom: 6, color: "#333", lineHeight: 1.4 }}>
+            <li
+              key={item}
+              style={{
+                marginBottom: isTournamentReferral ? 0 : 6,
+                color: "#333",
+                lineHeight: 1.4,
+                textAlign: isTournamentReferral ? "center" : undefined,
+              }}
+            >
               {item}
             </li>
           ))}

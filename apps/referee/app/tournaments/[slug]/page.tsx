@@ -570,22 +570,6 @@ export default async function TournamentDetailPage({
             <DecisionSignals />
 
             <div className="detailActionGrid" aria-label="Help the crew">
-              <details className="detailDisclosure detailDisclosure--helpLight">
-                <summary className="detailDisclosure__summary">
-                  Help the crew
-                  <span className="detailDisclosure__chev" aria-hidden="true" />
-                </summary>
-                <div className="detailDisclosure__panel">
-                  Add what you learned (pay timing, field conditions, scheduling, support) so other referees can decide
-                  before accepting assignments.
-                  <div className="detailDisclosure__actions">
-                    <a className="detailActionBtn" href="#share-experience">
-                      Share your experience
-                    </a>
-                  </div>
-                </div>
-              </details>
-
               <details className="detailDisclosure">
                 <summary className="detailDisclosure__summary">
                   Invite another referee

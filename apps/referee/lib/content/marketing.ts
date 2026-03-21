@@ -178,7 +178,6 @@ export const REFERRAL_PLACEMENTS: Record<ReferralPlacement, ReferralCreative> = 
   },
   tournament_referral: {
     id: "tournament_referral",
-    eyebrow: "Help the crew",
     title: "Know a ref working this event?",
     body: "Invite them to leave an honest review after the weekend and keep the assignments transparent.",
     highlights: ["Takes 2 minutes", "Anonymous feedback", "Helps future crews"],

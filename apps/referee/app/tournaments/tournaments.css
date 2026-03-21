@@ -1543,11 +1543,6 @@
   overflow: hidden;
 }
 
-.detailDisclosure--helpLight {
-  border-color: rgba(0,0,0,0.12);
-  background: rgba(255,255,255,0.96);
-}
-
 .detailDisclosure__summary {
   list-style: none;
   cursor: pointer;
@@ -1571,16 +1566,6 @@
   content: "";
 }
 
-.detailDisclosure--helpLight .detailDisclosure__summary {
-  position: relative;
-  justify-content: center;
-  text-align: center;
-  color: #0b0b0b;
-}
-
-.detailDisclosure--helpLight .detailDisclosure__summary:hover {
-  background: rgba(0,0,0,0.04);
-}
 
 .detailDisclosure__summary::-webkit-details-marker {
   display: none;
@@ -1606,12 +1591,6 @@
   flex: 0 0 auto;
 }
 
-.detailDisclosure--helpLight .detailDisclosure__chev {
-  position: absolute;
-  right: 14px;
-  border-right-color: rgba(0,0,0,0.55);
-  border-bottom-color: rgba(0,0,0,0.55);
-}
 
 .detailDisclosure[open] .detailDisclosure__chev {
   transform: rotate(225deg);
@@ -1626,10 +1605,6 @@
   font-size: 13px;
 }
 
-.detailDisclosure--helpLight .detailDisclosure__panel {
-  text-align: center;
-  color: rgba(11,11,11,0.88);
-}
 
 .detailDisclosure__actions {
   display: flex;
@@ -1637,9 +1612,6 @@
   gap: 10px;
 }
 
-.detailDisclosure--helpLight .detailDisclosure__actions {
-  justify-content: center;
-}
 
 .detailActionBtn {
   display: inline-flex;
@@ -1659,17 +1631,6 @@
   min-height: 40px;
 }
 
-.detailDisclosure--helpLight .detailActionBtn {
-  border-color: rgba(0,0,0,0.16);
-  background: #0b0b0b;
-  color: #ffffff;
-}
-
-.detailDisclosure--helpLight .detailActionBtn:hover,
-.detailDisclosure--helpLight .detailActionBtn:focus-visible {
-  border-color: rgba(245,197,66,0.55);
-  background: #111111;
-}
 
 .detailActionBtn:hover,
 .detailActionBtn:focus-visible {
