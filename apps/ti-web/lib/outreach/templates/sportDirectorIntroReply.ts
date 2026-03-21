@@ -1,6 +1,7 @@
 import type { OutreachVariant } from "@/lib/outreach/ab";
+import type { TiSport } from "@/lib/tiSports";
 
-type OutreachEmailSport = "soccer" | "baseball" | "softball";
+type OutreachEmailSport = TiSport;
 
 type TournamentListItem = {
   id: string;

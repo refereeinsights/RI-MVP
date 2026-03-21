@@ -111,6 +111,47 @@ function normalize(value: string | null | undefined) {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function isTbdToken(value: string) {
+  const v = normalize(value).toLowerCase();
+  if (!v) return false;
+  const compact = v.replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!compact) return false;
+  if (compact === "tbd" || compact === "tba") return true;
+  if (compact === "to be determined" || compact === "to be announced") return true;
+  // Common variants we see in uploads.
+  if (compact === "tbd tba" || compact === "tbd tba venues" || compact === "tbd venues") return true;
+  if (compact === "tbd - tba" || compact === "tba - tbd") return true;
+  return false;
+}
+
+function cleanMaybeVenueOrAddress(value: string | null | undefined): string | null {
+  const raw = normalize(value);
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  // Common organizer HQ address that is frequently misclassified as a venue/address.
+  // Example: "1529 Third St. S., Jacksonville Beach, FL 32250"
+  if (lower.includes("1529") && (lower.includes(" third st") || lower.includes(" 3rd st")) && lower.includes("jacksonville") && lower.includes("beach")) {
+    return null;
+  }
+  // If the whole value is TBD/TBA-ish, treat it as missing.
+  if (isTbdToken(raw)) return null;
+  // If it starts with TBD/TBA, strip the prefix and keep whatever is after (if anything).
+  if (/^(tbd|tba)\b/.test(lower)) {
+    const rest = raw.replace(/^(tbd|tba)\b[\s:–—-]*/i, "").trim();
+    if (!rest || isTbdToken(rest)) return null;
+    return rest;
+  }
+
+  // If it looks like a semicolon-separated list, drop TBD entries but keep real venues.
+  const parts = raw
+    .split(";")
+    .map((p) => normalize(p))
+    .filter(Boolean)
+    .filter((p) => !isTbdToken(p));
+  if (parts.length === 0) return null;
+  return parts.join("; ");
+}
+
 function referencesOtherSports(text: string) {
   if (!text) return false;
   const lower = text.toLowerCase();
@@ -205,6 +246,8 @@ export function csvRowsToTournamentRows(
     }
 
     const cashFlag = (row.ref_cash_tournament ?? row.cash ?? "").toLowerCase();
+    const venue = cleanMaybeVenueOrAddress(row.venue);
+    const address = cleanMaybeVenueOrAddress(row.address);
     const record: TournamentRow = {
       name: row.name,
       slug: row.slug,
@@ -214,8 +257,8 @@ export function csvRowsToTournamentRows(
       ref_cash_tournament: cashFlag === "true" || cashFlag === "1" || cashFlag === "yes",
       state: row.state || null,
       city: row.city || null,
-      venue: normalize(row.venue) || null,
-      address: normalize(row.address) || null,
+      venue,
+      address,
       start_date: normalize(row.start_date) || null,
       end_date: normalize(row.end_date) || null,
       summary: row.summary || null,

@@ -9,6 +9,15 @@ export function normalizeSourceUrl(raw: string): { canonical: string; host: stri
   const host = url.hostname.toLowerCase().replace(/^www\./, "");
   url.hostname = host;
 
+  // Known moved source URLs: keep sweep logic stable even when a directory URL changes.
+  // FYSA moved from /2026-sanctioned-tournaments/ -> /2026-2027-sanctioned-tournaments/.
+  if (host === "fysa.com") {
+    const p = url.pathname.replace(/\/+$/, "");
+    if (p === "/2026-sanctioned-tournaments") {
+      url.pathname = "/2026-2027-sanctioned-tournaments/";
+    }
+  }
+
   const params = url.searchParams;
   for (const key of Array.from(params.keys())) {
     const lower = key.toLowerCase();

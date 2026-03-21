@@ -23,13 +23,13 @@
   max-width: 1200px;
   margin: 0 auto;
   /* Keep the header compact; the logo is visually scaled. */
-  padding: 6px 16px 4px;
+  padding: 2px 16px 2px;
   display: grid;
   /* Keep the logo truly centered in the full header width (not just leftover space). */
   grid-template-columns: 1fr auto 1fr;
   grid-template-rows: auto auto;
   align-items: center;
-  gap: 8px 18px;
+  gap: 4px 18px;
 }
 
 .ri-logo {
@@ -50,14 +50,9 @@
 
 .ri-logo-img {
   display: block;
-  /*
-    Make the logo larger by increasing its actual rendered size (not transform),
-    so it pushes layout naturally and doesn't overlap/steal clicks from the nav.
-  */
-  width: 100%;
-  height: auto;
-  max-width: none;
-  max-height: 140px;
+  width: auto;
+  height: 190px;
+  max-width: min(620px, 100%);
   object-fit: contain;
   object-position: center;
   border: 0;
@@ -82,7 +77,7 @@
   justify-self: start;
   width: fit-content;
   max-width: 320px;
-  margin-top: 10px;
+  margin-top: 4px;
   padding: 4px 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.16);
@@ -116,7 +111,7 @@
   grid-row: 2;
   column-gap: 1.6rem;
   width: min(620px, 100%);
-  padding: 2px 0 8px;
+  padding: 0 0 6px;
   justify-self: center;
   position: relative;
   z-index: 4;
@@ -164,7 +159,7 @@
   justify-items: stretch;
   grid-column: 3;
   grid-row: 1;
-  gap: 8px;
+  gap: 6px;
   justify-self: end;
   position: relative;
   z-index: 4;
@@ -378,8 +373,12 @@
   }
 
   .ri-logo-img {
-    max-height: 110px;
-    width: 100%;
+    height: 110px;
+    max-width: min(420px, 100%);
+  }
+
+  .ri-logo {
+    width: min(420px, 100%);
   }
 
   .ri-menuToggle {

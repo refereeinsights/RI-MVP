@@ -2375,6 +2375,495 @@ export default async function AdminPage({
     return redirectWithNotice(redirectTo, `Cleanup removed ${dupes.length} draft duplicate(s).`);
   }
 
+  async function mergePendingTournamentDuplicatesAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-uploads";
+
+    const normalize = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
+    const isTbdToken = (value: unknown) => {
+      const v = normalize(value).toLowerCase();
+      if (!v) return false;
+      const compact = v.replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+      if (!compact) return false;
+      if (compact === "tbd" || compact === "tba") return true;
+      if (compact === "to be determined" || compact === "to be announced") return true;
+      if (compact === "tbd tba" || compact === "tbd tba venues" || compact === "tbd venues") return true;
+      if (compact === "tbd - tba" || compact === "tba - tbd") return true;
+      return false;
+    };
+    const cleanMaybeVenueOrAddress = (value: unknown): string | null => {
+      const raw = normalize(value);
+      if (!raw) return null;
+      if (isTbdToken(raw)) return null;
+      const lower = raw.toLowerCase();
+      if (/^(tbd|tba)\b/.test(lower)) {
+        const rest = raw.replace(/^(tbd|tba)\b[\s:–—-]*/i, "").trim();
+        if (!rest || isTbdToken(rest)) return null;
+        return rest;
+      }
+      const parts = raw
+        .split(";")
+        .map((p) => normalize(p))
+        .filter(Boolean)
+        .filter((p) => !isTbdToken(p));
+      if (parts.length === 0) return null;
+      return parts.join("; ");
+    };
+    const isBlank = (value: unknown) => {
+      if (value === null || value === undefined) return true;
+      const v = normalize(value);
+      if (!v) return true;
+      if (isTbdToken(v)) return true;
+      return false;
+    };
+
+    type DraftRow = {
+      id: string;
+      name?: string | null;
+      city?: string | null;
+      state?: string | null;
+      start_date?: string | null;
+      end_date?: string | null;
+      zip?: string | null;
+      venue?: string | null;
+      address?: string | null;
+      summary?: string | null;
+      source_url?: string | null;
+      official_website_url?: string | null;
+      tournament_director?: string | null;
+      tournament_director_email?: string | null;
+      created_at?: string | null;
+      updated_at?: string | null;
+      tournament_venues?:
+        | Array<{ venue_id?: string | null; venues?: { id?: string | null; name?: string | null } | null }>
+        | null;
+    };
+
+    const pageSize = 1000;
+    const all: DraftRow[] = [];
+    for (let page = 0; page < 25; page++) {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+      const { data, error } = await supabaseAdmin
+        .from("tournaments" as any)
+        .select(
+          "id,name,city,state,start_date,end_date,zip,venue,address,summary,source_url,official_website_url,tournament_director,tournament_director_email,created_at,updated_at,tournament_venues(venue_id,venues(id,name))"
+        )
+        .eq("status", "draft")
+        .order("updated_at", { ascending: false })
+        .range(from, to);
+      if (error) return redirectWithNotice(redirectTo, `Merge failed: ${error.message}`);
+      const rows = (data ?? []) as unknown as DraftRow[];
+      if (!rows.length) break;
+      all.push(...rows);
+      if (rows.length < pageSize) break;
+    }
+
+    if (all.length < 2) {
+      return redirectWithNotice(redirectTo, "Merge: not enough pending tournaments to check.");
+    }
+
+    const keyFor = (row: DraftRow) =>
+      [
+        normalize(row.name).toLowerCase(),
+        normalize(row.city).toLowerCase(),
+        normalize(row.state).toLowerCase(),
+        normalize(row.start_date),
+      ].join("|");
+
+    const groups = new Map<string, DraftRow[]>();
+    for (const row of all) {
+      const key = keyFor(row);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(row);
+    }
+
+    const score = (row: DraftRow) => {
+      let s = 0;
+      const venues = (row.tournament_venues ?? []).filter((tv) => {
+        const name = tv?.venues?.name ?? null;
+        return !isBlank(name);
+      });
+      if (venues.length) s += 50 + venues.length * 2;
+      if (!isBlank(row.official_website_url)) s += 12;
+      if (!isBlank(row.source_url)) s += 6;
+      if (!isBlank(row.tournament_director_email)) s += 12;
+      if (!isBlank(row.tournament_director)) s += 4;
+      if (!isBlank(cleanMaybeVenueOrAddress(row.venue))) s += 6;
+      if (!isBlank(cleanMaybeVenueOrAddress(row.address))) s += 6;
+      if (!isBlank(row.end_date)) s += 3;
+      if (!isBlank(row.summary)) s += 1;
+      return s;
+    };
+
+    let groupsWithDupes = 0;
+    let losersArchived = 0;
+    let winnersPatched = 0;
+    let fieldsPatched = 0;
+    let venueLinksUpserted = 0;
+
+    for (const [key, rows] of groups.entries()) {
+      if (rows.length < 2) continue;
+      // Skip bogus keys (missing name + missing city/state + missing start) to avoid accidental merges.
+      if (key === "|||") continue;
+
+      groupsWithDupes += 1;
+
+      const sorted = [...rows].sort((a, b) => {
+        const sa = score(a);
+        const sb = score(b);
+        if (sb !== sa) return sb - sa;
+        const ca = String(a.created_at ?? "");
+        const cb = String(b.created_at ?? "");
+        return ca.localeCompare(cb);
+      });
+
+      const winner = sorted[0];
+      const losers = sorted.slice(1);
+
+      for (const loser of losers) {
+        const patch: Record<string, unknown> = {};
+
+        const mergeField = (field: keyof DraftRow, value: unknown) => {
+          const current = (winner as any)[field];
+          if (!isBlank(current) || isBlank(value)) return;
+          patch[field as string] = value;
+          (winner as any)[field] = value;
+          fieldsPatched += 1;
+        };
+
+        mergeField("official_website_url", normalize(loser.official_website_url) || null);
+        mergeField("source_url", normalize(loser.source_url) || null);
+        mergeField("tournament_director_email", normalize(loser.tournament_director_email) || null);
+        mergeField("tournament_director", normalize(loser.tournament_director) || null);
+        mergeField("end_date", normalize(loser.end_date) || null);
+        mergeField("zip", normalize(loser.zip) || null);
+        mergeField("summary", normalize(loser.summary) || null);
+
+        const loserVenue = cleanMaybeVenueOrAddress(loser.venue);
+        const loserAddr = cleanMaybeVenueOrAddress(loser.address);
+        mergeField("venue", loserVenue);
+        mergeField("address", loserAddr);
+
+        if (Object.keys(patch).length) {
+          const { error: updErr } = await supabaseAdmin
+            .from("tournaments" as any)
+            .update(patch)
+            .eq("id", winner.id);
+          if (updErr) {
+            return redirectWithNotice(redirectTo, `Merge failed updating winner (${winner.id}): ${updErr.message}`);
+          }
+          winnersPatched += 1;
+        }
+
+        const loserVenueIds = (loser.tournament_venues ?? [])
+          .map((tv) => ({ venue_id: tv?.venue_id ?? null, venue_name: tv?.venues?.name ?? null }))
+          .filter((tv) => tv.venue_id && !isBlank(tv.venue_name))
+          .map((tv) => tv.venue_id as string);
+
+        if (loserVenueIds.length) {
+          const payload = Array.from(new Set(loserVenueIds)).map((venue_id) => ({
+            tournament_id: winner.id,
+            venue_id,
+          }));
+          const { error: upErr } = await supabaseAdmin
+            .from("tournament_venues" as any)
+            .upsert(payload, { onConflict: "tournament_id,venue_id" });
+          if (upErr) {
+            return redirectWithNotice(redirectTo, `Merge failed upserting venue links: ${upErr.message}`);
+          }
+          venueLinksUpserted += payload.length;
+        }
+
+        const loserSummary = normalize(loser.summary);
+        const archiveNote = `Archived duplicate of ${winner.id}.`;
+        const archivedSummary = loserSummary ? `${loserSummary}\n\n${archiveNote}` : archiveNote;
+        const { error: archErr } = await supabaseAdmin
+          .from("tournaments" as any)
+          .update({ status: "archived", summary: archivedSummary })
+          .eq("id", loser.id);
+        if (archErr) {
+          return redirectWithNotice(redirectTo, `Merge failed archiving duplicate (${loser.id}): ${archErr.message}`);
+        }
+        losersArchived += 1;
+      }
+    }
+
+    if (!groupsWithDupes) {
+      return redirectWithNotice(redirectTo, "Merge: no duplicate draft groups found (name/city/state/start_date).");
+    }
+
+    return redirectWithNotice(
+      redirectTo,
+      `Merge complete: groups=${groupsWithDupes}, archived=${losersArchived}, winners_patched=${winnersPatched}, fields_patched=${fieldsPatched}, venue_links_upserted=${venueLinksUpserted}.`
+    );
+  }
+
+  async function backfillExistingFromDraftsAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-uploads";
+
+    const normalize = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
+    const isTbdToken = (value: unknown) => {
+      const v = normalize(value).toLowerCase();
+      if (!v) return false;
+      const compact = v.replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+      if (!compact) return false;
+      if (compact === "tbd" || compact === "tba") return true;
+      if (compact === "to be determined" || compact === "to be announced") return true;
+      if (compact === "tbd tba" || compact === "tbd tba venues" || compact === "tbd venues") return true;
+      if (compact === "tbd - tba" || compact === "tba - tbd") return true;
+      return false;
+    };
+    const cleanMaybeVenueOrAddress = (value: unknown): string | null => {
+      const raw = normalize(value);
+      if (!raw) return null;
+      if (isTbdToken(raw)) return null;
+      const lower = raw.toLowerCase();
+      if (/^(tbd|tba)\b/.test(lower)) {
+        const rest = raw.replace(/^(tbd|tba)\b[\s:–—-]*/i, "").trim();
+        if (!rest || isTbdToken(rest)) return null;
+        return rest;
+      }
+      const parts = raw
+        .split(";")
+        .map((p) => normalize(p))
+        .filter(Boolean)
+        .filter((p) => !isTbdToken(p));
+      if (parts.length === 0) return null;
+      return parts.join("; ");
+    };
+    const isBlank = (value: unknown) => {
+      if (value === null || value === undefined) return true;
+      const v = normalize(value);
+      if (!v) return true;
+      if (isTbdToken(v)) return true;
+      return false;
+    };
+
+    type DraftRow = {
+      id: string;
+      name?: string | null;
+      city?: string | null;
+      state?: string | null;
+      start_date?: string | null;
+      end_date?: string | null;
+      zip?: string | null;
+      venue?: string | null;
+      address?: string | null;
+      summary?: string | null;
+      source_url?: string | null;
+      official_website_url?: string | null;
+      tournament_director?: string | null;
+      tournament_director_email?: string | null;
+      tournament_venues?:
+        | Array<{ venue_id?: string | null; venues?: { id?: string | null; name?: string | null } | null }>
+        | null;
+    };
+
+    type ExistingRow = {
+      id: string;
+      status: TournamentStatus;
+      name?: string | null;
+      city?: string | null;
+      state?: string | null;
+      start_date?: string | null;
+      end_date?: string | null;
+      zip?: string | null;
+      venue?: string | null;
+      address?: string | null;
+      summary?: string | null;
+      source_url?: string | null;
+      official_website_url?: string | null;
+      tournament_director?: string | null;
+      tournament_director_email?: string | null;
+    };
+
+    const { data: draftData, error: draftErr } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select(
+        "id,name,city,state,start_date,end_date,zip,venue,address,summary,source_url,official_website_url,tournament_director,tournament_director_email,tournament_venues(venue_id,venues(id,name))"
+      )
+      .eq("status", "draft")
+      .order("updated_at", { ascending: false })
+      .limit(1000);
+    if (draftErr) return redirectWithNotice(redirectTo, `Backfill failed: ${draftErr.message}`);
+    const drafts = (draftData ?? []) as unknown as DraftRow[];
+
+    let scanned = 0;
+    let candidates = 0;
+    let merged = 0;
+    let archived = 0;
+    let winnersPatched = 0;
+    let fieldsPatched = 0;
+    let venueLinksUpserted = 0;
+    let skippedMultiple = 0;
+    let skippedNoMatch = 0;
+    let skippedNoFingerprint = 0;
+
+    for (const draft of drafts) {
+      scanned += 1;
+      const hasVenueLinks = (draft.tournament_venues ?? []).some((tv) => tv?.venue_id && !isBlank(tv?.venues?.name));
+      const hasAnyUsefulField =
+        hasVenueLinks ||
+        !isBlank(draft.official_website_url) ||
+        !isBlank(draft.source_url) ||
+        !isBlank(draft.tournament_director_email) ||
+        !isBlank(cleanMaybeVenueOrAddress(draft.venue)) ||
+        !isBlank(cleanMaybeVenueOrAddress(draft.address));
+      if (!hasAnyUsefulField) continue;
+      candidates += 1;
+
+      const fingerprint =
+        buildTournamentNameStateSeasonFingerprint({
+          name: draft.name ?? null,
+          state: draft.state ?? null,
+          startDate: draft.start_date ?? null,
+          endDate: draft.end_date ?? null,
+        }) || "";
+      if (!fingerprint) {
+        skippedNoFingerprint += 1;
+        continue;
+      }
+
+      let query = supabaseAdmin
+        .from("tournaments" as any)
+        .select(
+          "id,status,name,city,state,start_date,end_date,zip,venue,address,summary,source_url,official_website_url,tournament_director,tournament_director_email"
+        )
+        .eq("name_state_season_fingerprint", fingerprint)
+        .in("status", ["published", "stale"] as any)
+        .limit(5);
+      if (!isBlank(draft.city)) query = query.eq("city", draft.city ?? null);
+      if (!isBlank(draft.state)) query = query.eq("state", draft.state ?? null);
+
+      const { data: existingData, error: exErr } = await query;
+      if (exErr) return redirectWithNotice(redirectTo, `Backfill failed: ${exErr.message}`);
+      const existingRows = (existingData ?? []) as unknown as ExistingRow[];
+
+      if (existingRows.length === 0) {
+        skippedNoMatch += 1;
+        continue;
+      }
+      if (existingRows.length > 1) {
+        skippedMultiple += 1;
+        continue;
+      }
+
+      const existing = existingRows[0];
+      merged += 1;
+
+      const patch: Record<string, unknown> = {};
+      const mergeField = (field: keyof ExistingRow, value: unknown) => {
+        const current = (existing as any)[field];
+        if (!isBlank(current) || isBlank(value)) return;
+        patch[field as string] = value;
+        (existing as any)[field] = value;
+        fieldsPatched += 1;
+      };
+
+      mergeField("official_website_url", normalize(draft.official_website_url) || null);
+      mergeField("source_url", normalize(draft.source_url) || null);
+      mergeField("tournament_director_email", normalize(draft.tournament_director_email) || null);
+      mergeField("tournament_director", normalize(draft.tournament_director) || null);
+      mergeField("end_date", normalize(draft.end_date) || null);
+      mergeField("zip", normalize(draft.zip) || null);
+      // Only fill summary if missing to avoid overwriting editorial content.
+      mergeField("summary", normalize(draft.summary) || null);
+      mergeField("venue", cleanMaybeVenueOrAddress(draft.venue));
+      mergeField("address", cleanMaybeVenueOrAddress(draft.address));
+
+      if (Object.keys(patch).length) {
+        const { error: updErr } = await supabaseAdmin
+          .from("tournaments" as any)
+          .update(patch)
+          .eq("id", existing.id);
+        if (updErr) return redirectWithNotice(redirectTo, `Backfill failed updating ${existing.id}: ${updErr.message}`);
+        winnersPatched += 1;
+      }
+
+      const venueIds = (draft.tournament_venues ?? [])
+        .map((tv) => ({ venue_id: tv?.venue_id ?? null, venue_name: tv?.venues?.name ?? null }))
+        .filter((tv) => tv.venue_id && !isBlank(tv.venue_name))
+        .map((tv) => tv.venue_id as string);
+      if (venueIds.length) {
+        const payload = Array.from(new Set(venueIds)).map((venue_id) => ({
+          tournament_id: existing.id,
+          venue_id,
+        }));
+        const { error: upErr } = await supabaseAdmin
+          .from("tournament_venues" as any)
+          .upsert(payload, { onConflict: "tournament_id,venue_id" });
+        if (upErr) return redirectWithNotice(redirectTo, `Backfill failed upserting venue links: ${upErr.message}`);
+        venueLinksUpserted += payload.length;
+      }
+
+      const draftSummary = normalize(draft.summary);
+      const archiveNote = `Merged into ${existing.id}.`;
+      const archivedSummary = draftSummary ? `${draftSummary}\n\n${archiveNote}` : archiveNote;
+      const { error: archErr } = await supabaseAdmin
+        .from("tournaments" as any)
+        .update({ status: "archived", summary: archivedSummary })
+        .eq("id", draft.id);
+      if (archErr) return redirectWithNotice(redirectTo, `Backfill failed archiving draft ${draft.id}: ${archErr.message}`);
+      archived += 1;
+    }
+
+    return redirectWithNotice(
+      redirectTo,
+      `Backfill complete: scanned=${scanned}, candidates=${candidates}, merged=${merged}, archived=${archived}, patched=${winnersPatched}, fields_patched=${fieldsPatched}, venue_links_upserted=${venueLinksUpserted}, skipped_no_fingerprint=${skippedNoFingerprint}, skipped_no_match=${skippedNoMatch}, skipped_multiple=${skippedMultiple}.`
+    );
+  }
+
+  async function deleteOrganizerAddressVenueCandidatesAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-uploads";
+
+    // Common organizer mailing address that gets misclassified as a venue.
+    const patterns = ["%1529%3rd%", "%1529%third%"];
+
+    const deletes = await Promise.all(
+      patterns.map(async (pattern) => {
+        const [venueCandResp, attrCandResp] = await Promise.all([
+          supabaseAdmin
+            .from("tournament_venue_candidates" as any)
+            .delete({ count: "exact" })
+            .ilike("address_text", pattern)
+            .is("accepted_at", null)
+            .is("rejected_at", null),
+          supabaseAdmin
+            .from("tournament_attribute_candidates" as any)
+            .delete({ count: "exact" })
+            .eq("attribute_key", "address")
+            .ilike("attribute_value", pattern)
+            .is("accepted_at", null)
+            .is("rejected_at", null),
+        ]);
+        return { pattern, venueCandResp, attrCandResp };
+      })
+    );
+
+    for (const row of deletes) {
+      if (row.venueCandResp.error) {
+        return redirectWithNotice(redirectTo, `Cleanup failed (venue candidates): ${row.venueCandResp.error.message}`);
+      }
+      if (row.attrCandResp.error) {
+        return redirectWithNotice(redirectTo, `Cleanup failed (address candidates): ${row.attrCandResp.error.message}`);
+      }
+    }
+
+    const venueDeleted = deletes.reduce((sum, row) => sum + (row.venueCandResp.count ?? 0), 0);
+    const attrDeleted = deletes.reduce((sum, row) => sum + (row.attrCandResp.count ?? 0), 0);
+
+    return redirectWithNotice(
+      redirectTo,
+      `Cleanup removed organizer address candidates: venue_candidates=${venueDeleted}, address_attributes=${attrDeleted}.`
+    );
+  }
+
   async function queuePendingEnrichmentAction(formData: FormData) {
     "use server";
     await requireAdmin();
@@ -5277,6 +5766,69 @@ export default async function AdminPage({
                 Cleanup pending duplicates
               </button>
             </form>
+            <form action={mergePendingTournamentDuplicatesAction} style={{ marginTop: 8 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <button
+                type="submit"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #555",
+                  background: "#fff",
+                  color: "#111",
+                  fontWeight: 800,
+                  width: "fit-content",
+                }}
+              >
+                Merge duplicate drafts (fill missing + archive extras)
+              </button>
+              <p style={{ fontSize: 12, color: "#777", margin: "6px 0 0 0" }}>
+                Groups draft uploads by name/city/state/start date, moves venue links and missing fields into the most
+                complete row, then archives the duplicates.
+              </p>
+            </form>
+            <form action={backfillExistingFromDraftsAction} style={{ marginTop: 8 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <button
+                type="submit"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #555",
+                  background: "#fff",
+                  color: "#111",
+                  fontWeight: 800,
+                  width: "fit-content",
+                }}
+              >
+                Backfill existing tournaments from drafts (then archive drafts)
+              </button>
+              <p style={{ fontSize: 12, color: "#777", margin: "6px 0 0 0" }}>
+                For draft uploads that match an existing published/stale tournament by fingerprint, copy missing
+                fields + venue links into the existing tournament and archive the draft so we don&apos;t approve duplicates.
+              </p>
+            </form>
+            <form action={deleteOrganizerAddressVenueCandidatesAction} style={{ marginTop: 8 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <button
+                type="submit"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #555",
+                  background: "#fff",
+                  color: "#111",
+                  fontWeight: 800,
+                  width: "fit-content",
+                }}
+              >
+                Delete suspected venue candidates (1529 3rd St)
+              </button>
+              <p style={{ fontSize: 12, color: "#777", margin: "6px 0 0 0" }}>
+                Removes pending venue/address candidates that match a common organizer address. Does not touch existing
+                tournament_venues links or venues rows.
+              </p>
+            </form>
           </div>
 
           {pendingTournaments.length === 0 ? (
@@ -5433,7 +5985,21 @@ export default async function AdminPage({
                           )}
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
-                          {t.venue ? <div>{t.venue}</div> : <div>Venue TBD</div>}
+                          {t.venue ? (
+                            <div>{t.venue}</div>
+                          ) : (t.tournament_venues?.length ?? 0) > 0 ? (
+                            <div>
+                              {t.tournament_venues!
+                                .map((row) => row?.venues?.name)
+                                .filter(Boolean)
+                                .slice(0, 3)
+                                .map((name) => (
+                                  <div key={name as string}>{name}</div>
+                                ))}
+                            </div>
+                          ) : (
+                            <div>Venue TBD</div>
+                          )}
                           {t.address && <div style={{ color: "#777" }}>{t.address}</div>}
                           {(t.tournament_venues?.length ?? 0) > 0 && (
                             <div style={{ marginTop: 4, fontSize: 11, color: "#1a7a3c", fontWeight: 600 }}>

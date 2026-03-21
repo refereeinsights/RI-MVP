@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Volleyball">
+  <defs>
+    <radialGradient id="vbShell" cx="35%" cy="28%" r="78%">
+      <stop offset="0%" stop-color="#fff3c4"/>
+      <stop offset="45%" stop-color="#f5c542"/>
+      <stop offset="100%" stop-color="#b87414"/>
+    </radialGradient>
+    <radialGradient id="vbShade" cx="50%" cy="70%" r="70%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.28"/>
+    </radialGradient>
+  </defs>
+
+  <ellipse cx="32" cy="51" rx="18" ry="5" fill="#000" opacity="0.24"/>
+
+  <circle cx="32" cy="30" r="18" fill="url(#vbShell)"/>
+  <circle cx="32" cy="30" r="18" fill="url(#vbShade)"/>
+
+  <!-- Highlight -->
+  <ellipse cx="26.5" cy="22" rx="9.5" ry="5.2" fill="#fff" opacity="0.16"/>
+
+  <!-- Seams -->
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 12 C24 14 18 20 16 28 C18 36 24 42 32 48"/>
+    <path d="M32 12 C40 14 46 20 48 28 C46 36 40 42 32 48"/>
+    <path d="M16 28 C24 30 40 30 48 28"/>
+    <path d="M20 18 C28 24 36 24 44 18"/>
+  </g>
+</svg>
+

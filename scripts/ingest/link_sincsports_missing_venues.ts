@@ -46,8 +46,11 @@ const SPORT_ARG = process.argv.find((arg) => arg.startsWith("--sport="));
 const SPORT_FILTER = SPORT_ARG ? clean(SPORT_ARG.split("=")[1]) : null;
 
 // Matches the SincSports tournament details pages we commonly store.
-function isSincSportsDetailsUrl(value: string | null | undefined) {
-  return /(?:^https?:\/\/)?(?:[a-z0-9-]+\.)?sincsports\.com\/details\.aspx\?/i.test(String(value ?? ""));
+function isSincSportsTournamentUrl(value: string | null | undefined) {
+  // We often store: details.aspx, TTContent.aspx, TTMore.aspx, TTSchedules.aspx...
+  return /(?:^https?:\/\/)?(?:[a-z0-9-]+\.)?sincsports\.com\/(?:details|TTContent|TTMore|TTSchedules)\.aspx\?/i.test(
+    String(value ?? "")
+  );
 }
 
 const ALLOWED_VENUE_SPORTS = new Set([
@@ -120,6 +123,22 @@ function parseCityStateZip(line: string): { city: string; state: string; zip: st
   const zip = clean(m[3]) ?? null;
   if (!city || !state) return null;
   return { city, state, zip };
+}
+
+function toDetailsUrl(url: string): string | null {
+  // Convert any stored SincSports tournament URL into a stable details page URL.
+  // Example inputs:
+  // - https://soccer.sincsports.com/details.aspx?tid=FSAINTCUP&tab=1
+  // - https://soccer.sincsports.com/TTMore.aspx?tid=BATTOB&tab=1...
+  // - https://soccer.sincsports.com/TTContent.aspx?tid=GULFC&tab=1
+  try {
+    const u = new URL(url);
+    const tid = clean(u.searchParams.get("tid"));
+    if (!tid) return null;
+    return `${u.protocol}//${u.host}/details.aspx?tid=${encodeURIComponent(tid)}&tab=1`;
+  } catch {
+    return null;
+  }
 }
 
 function parseFieldsVenues($: cheerio.CheerioAPI): { venues: ParsedVenue[]; hasFieldsSection: boolean } {
@@ -225,6 +244,161 @@ function parseFieldsVenues($: cheerio.CheerioAPI): { venues: ParsedVenue[]; hasF
   return { venues: deduped, hasFieldsSection: true };
 }
 
+function parseLocationsVenues($: cheerio.CheerioAPI): { venues: ParsedVenue[]; hasLocationsSection: boolean } {
+  // Many soccer.sincsports pages have an h2/h3 "Locations" block with <p><strong>Venue</strong><br/>...</p>.
+  const headers = $("h1,h2,h3,h4").filter((_, el) => normalize($(el).text()) === "locations");
+  if (!headers.length) return { venues: [], hasLocationsSection: false };
+
+  const out: ParsedVenue[] = [];
+  for (const el of headers.toArray()) {
+    const header = $(el);
+    const root = header.next().length ? header.next() : header.parent();
+
+    root.find("p").each((_, pEl) => {
+      const p = $(pEl);
+      const strong = clean(p.find("strong").first().text());
+      if (!strong || !looksLikeVenueName(strong)) return;
+
+      const clone = p.clone();
+      clone.find("strong").remove();
+      const rawHtml = clone.html() ?? "";
+      const withNewlines = rawHtml.replace(/<br\s*\/?\s*>/gi, "\n");
+      const text = cheerio.load(`<div>${withNewlines}</div>`).text();
+
+      const lines = text
+        .split(/\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .filter((s) => !/^\(.*\)$/.test(s)) // (Fields 1-16)
+        .filter((s) => !/\bfields?\b/i.test(s))
+        .filter((s) => !/https?:\/\//i.test(s));
+
+      // Find the last "City, ST ZIP" line; pick the closest prior street-ish line.
+      let cityLineIdx = -1;
+      let csz: { city: string; state: string; zip: string | null } | null = null;
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const parsed = parseCityStateZip(lines[i]);
+        if (parsed) {
+          cityLineIdx = i;
+          csz = parsed;
+          break;
+        }
+      }
+      if (!csz || cityLineIdx < 0) return;
+
+      let street: string | null = null;
+      for (let i = cityLineIdx - 1; i >= 0; i--) {
+        const ln = clean(lines[i]);
+        if (!ln) continue;
+        // Avoid generic marketing lines.
+        if (/\\bthings to do\\b/i.test(ln) || /\\blearn more\\b/i.test(ln)) continue;
+        street = ln;
+        break;
+      }
+      if (!street) return;
+
+      // Street lines are often plain text without commas; keep as-is.
+      out.push({
+        name: strong,
+        address: street,
+        city: csz.city,
+        state: csz.state,
+        zip: csz.zip,
+        venue_url: null,
+      });
+    });
+  }
+
+  const seen = new Set<string>();
+  const deduped: ParsedVenue[] = [];
+  for (const v of out) {
+    const key = [normalize(v.name), normalize(v.address), normalize(v.city), normalize(v.state), normalize(v.zip ?? "")].join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(v);
+  }
+
+  return { venues: deduped, hasLocationsSection: true };
+}
+
+function dedupeParsedVenues(list: ParsedVenue[]) {
+  const seen = new Set<string>();
+  const out: ParsedVenue[] = [];
+  for (const v of list) {
+    const key = [normalize(v.name), normalize(v.address), normalize(v.city), normalize(v.state), normalize(v.zip ?? "")].join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(v);
+  }
+  return out;
+}
+
+function absolutizeUrl(baseUrl: string, href: string) {
+  try {
+    return new URL(href, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+function findFieldLocationPages($: cheerio.CheerioAPI, baseUrl: string) {
+  // Many events publish venues on an "Information" subpage like:
+  //   /TTMore.aspx?tid=BATTOB&tab=4&sub=0&Qual=MISC&Seq=3  (Field Location)
+  const urls = new Set<string>();
+  $("a[href]").each((_, el) => {
+    const href = clean($(el).attr("href"));
+    if (!href) return;
+    if (!/TTMore\.aspx\?/i.test(href)) return;
+    if (!/[?&]tab=4\b/i.test(href)) return; // field location / misc info tab
+    const abs = absolutizeUrl(baseUrl, href);
+    if (!abs) return;
+    // Keep this scoped to the same host (avoid cross-site links).
+    try {
+      const u = new URL(abs);
+      const b = new URL(baseUrl);
+      if (u.host !== b.host) return;
+    } catch {
+      return;
+    }
+    urls.add(abs);
+  });
+  return Array.from(urls);
+}
+
+function parseFieldLocationPage($: cheerio.CheerioAPI): ParsedVenue[] {
+  // These pages are usually free-form HTML with <br/> separators.
+  const container =
+    $("#ctl00_ContentPlaceHolder1_TblUpdate").first().length
+      ? $("#ctl00_ContentPlaceHolder1_TblUpdate").first()
+      : $("#ctl00_ContentPlaceHolder1_pnlMain").first().length
+        ? $("#ctl00_ContentPlaceHolder1_pnlMain").first()
+        : $("body");
+
+  const rawHtml = container.html() ?? "";
+  const withNewlines = rawHtml.replace(/<br\s*\/?\s*>/gi, "\n");
+  const text = cheerio.load(`<div>${withNewlines}</div>`).text();
+  const lines = text
+    .split(/\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter((s) => !/https?:\/\//i.test(s));
+
+  const out: ParsedVenue[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const csz = parseCityStateZip(lines[i]);
+    if (!csz) continue;
+    const street = clean(lines[i - 1] ?? "");
+    const name = clean(lines[i - 2] ?? "");
+    if (!street || !name) continue;
+    if (!looksLikeVenueName(name)) continue;
+    // Basic street sanity: require at least one digit so we don't create junk like "Kennewick, WA".
+    if (!/\d/.test(street)) continue;
+    out.push({ name, address: street, city: csz.city, state: csz.state, zip: csz.zip, venue_url: null });
+  }
+
+  return dedupeParsedVenues(out);
+}
+
 async function run() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -240,7 +414,8 @@ async function run() {
     .select("id,name,sport,city,state,source_url,official_website_url,status,is_canonical")
     .eq("status", "published")
     .eq("is_canonical", true)
-    .or("source_url.ilike.%sincsports.com/details.aspx?%,official_website_url.ilike.%sincsports.com/details.aspx?%")
+    // Focus on the soccer subdomain first. Other sports live on other subdomains.
+    .or("source_url.ilike.%soccer.sincsports.com/%,official_website_url.ilike.%soccer.sincsports.com/%")
     .order("updated_at", { ascending: false })
     .limit(LIMIT);
   if (tournamentErr) throw tournamentErr;
@@ -322,9 +497,10 @@ async function run() {
 
   for (const t of targets) {
     scanned += 1;
-    const url =
-      (isSincSportsDetailsUrl(t.official_website_url) ? t.official_website_url : null) ??
-      (isSincSportsDetailsUrl(t.source_url) ? t.source_url : null);
+    const storedUrl =
+      (isSincSportsTournamentUrl(t.official_website_url) ? t.official_website_url : null) ??
+      (isSincSportsTournamentUrl(t.source_url) ? t.source_url : null);
+    const url = storedUrl ? toDetailsUrl(storedUrl) : null;
     if (!url) {
       unresolved.push({ tournament_id: t.id, tournament_name: t.name, url: null, reason: "missing_url" });
       continue;
@@ -338,20 +514,38 @@ async function run() {
       }
 
       const $ = cheerio.load(html);
-      const parsed = parseFieldsVenues($);
-      if (!parsed.hasFieldsSection) {
+      const parsedFields = parseFieldsVenues($);
+      const parsedLocs = parsedFields.venues.length ? null : parseLocationsVenues($);
+
+      let venues = parsedFields.venues.length ? parsedFields.venues : parsedLocs?.venues ?? [];
+      const hasSection = parsedFields.hasFieldsSection || (parsedLocs?.hasLocationsSection ?? false);
+
+      // If details.aspx doesn't expose venues, try the linked Field Location info pages.
+      if (!venues.length) {
+        const fieldPages = findFieldLocationPages($, url).slice(0, 5);
+        for (const fp of fieldPages) {
+          const fpHtml = await fetchHtml(fp);
+          if (!fpHtml) continue;
+          const $$ = cheerio.load(fpHtml);
+          const extra = parseFieldLocationPage($$);
+          if (extra.length) venues = dedupeParsedVenues(venues.concat(extra));
+        }
+      }
+
+      const hasAnyVenueSection = hasSection || venues.length > 0;
+      if (!hasAnyVenueSection) {
         unresolved.push({ tournament_id: t.id, tournament_name: t.name, url, reason: "no_fields_section" });
         continue;
       }
       withFields += 1;
 
-      if (!parsed.venues.length) {
+      if (!venues.length) {
         unresolved.push({ tournament_id: t.id, tournament_name: t.name, url, reason: "no_venues_found" });
         continue;
       }
       withVenueData += 1;
 
-      for (const pv of parsed.venues) {
+      for (const pv of venues) {
         let createdThisVenue = false;
         let venue = await findVenueByAddressCityState({ address: pv.address, city: pv.city, state: pv.state });
 
@@ -464,4 +658,3 @@ run().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-

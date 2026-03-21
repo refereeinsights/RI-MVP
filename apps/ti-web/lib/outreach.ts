@@ -3,10 +3,11 @@ import type { OutreachVariant } from "@/lib/outreach/ab";
 import { buildSportDirectorIntroReplyEmail } from "@/lib/outreach/templates/sportDirectorIntroReply";
 import { buildSportDirectorVerifyReplyEmail } from "@/lib/outreach/templates/sportDirectorVerifyReply";
 import { buildSportDirectorVerifyEmail } from "@/lib/outreach/templates/soccerDirectorVerify";
+import { TI_SPORTS, type TiSport } from "@/lib/tiSports";
 
 const SITE_ORIGIN = process.env.NEXT_PUBLIC_TI_SITE_URL || "https://www.tournamentinsights.com";
 
-export type OutreachSport = "soccer" | "baseball" | "softball";
+export type OutreachSport = TiSport;
 export type OutreachEmailKind = "verify_link" | "intro_reply";
 
 export type SoccerVerifyEmailInput = {
@@ -76,9 +77,11 @@ export function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+const OUTREACH_SPORT_SET = new Set<string>(TI_SPORTS);
+
 export function normalizeOutreachSport(input: string | null | undefined): OutreachSport {
   const sport = (input || getOutreachSportDefault()).trim().toLowerCase();
-  return sport === "baseball" || sport === "softball" || sport === "soccer" ? sport : "soccer";
+  return (OUTREACH_SPORT_SET.has(sport) ? sport : "soccer") as OutreachSport;
 }
 
 export function normalizeOutreachEmailKind(input: string | null | undefined): OutreachEmailKind {

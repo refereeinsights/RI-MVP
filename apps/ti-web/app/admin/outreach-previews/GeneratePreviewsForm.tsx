@@ -3,19 +3,22 @@
 import type { CSSProperties, FormEvent } from "react";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { TI_SPORT_LABELS, type TiSport } from "@/lib/tiSports";
 
 export default function GeneratePreviewsForm({
   initialCampaignId,
   initialSport,
   initialStartAfter,
+  sports,
 }: {
   initialCampaignId: string;
   initialSport: string;
   initialStartAfter: string;
+  sports: readonly TiSport[];
 }) {
   const router = useRouter();
   const [campaignId, setCampaignId] = useState(initialCampaignId);
-  const [sport, setSport] = useState(initialSport || "soccer");
+  const [sport, setSport] = useState((initialSport || sports[0] || "soccer").trim().toLowerCase());
   const [limit, setLimit] = useState("50");
   const [startAfter, setStartAfter] = useState(initialStartAfter);
   const [mode, setMode] = useState<"preview" | "send">("preview");
@@ -86,9 +89,9 @@ export default function GeneratePreviewsForm({
       <label style={{ display: "grid", gap: 6 }}>
         <span style={{ fontWeight: 600 }}>Sport</span>
         <select value={sport} onChange={(event) => setSport(event.target.value)} style={inputStyle}>
-          {OUTREACH_SPORTS.map((value) => (
+          {sports.map((value) => (
             <option key={value} value={value}>
-              {value}
+              {TI_SPORT_LABELS[value] ?? value}
             </option>
           ))}
         </select>
@@ -155,5 +158,3 @@ const inputStyle = {
   padding: "10px 12px",
   font: "inherit",
 } satisfies CSSProperties;
-
-const OUTREACH_SPORTS = ["soccer", "baseball", "softball"] as const;

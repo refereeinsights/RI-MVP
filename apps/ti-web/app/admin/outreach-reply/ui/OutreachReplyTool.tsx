@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import CopyFieldButton from "@/app/admin/outreach-previews/CopyFieldButton";
+import { TI_SPORT_LABELS, TI_SPORTS, type TiSport } from "@/lib/tiSports";
 
 type ReplyResult = {
   sport: string;
@@ -13,12 +14,10 @@ type ReplyResult = {
   text: string;
 };
 
-const SPORTS = ["soccer", "baseball", "softball"] as const;
-
 export default function OutreachReplyTool() {
   const todayYmd = useMemo(() => new Date().toISOString().slice(0, 10).replace(/-/g, ""), []);
   const [email, setEmail] = useState("");
-  const [sport, setSport] = useState<(typeof SPORTS)[number]>("soccer");
+  const [sport, setSport] = useState<TiSport>("soccer");
   const [campaignId, setCampaignId] = useState(`verify-reply-${todayYmd}`);
   const [limit, setLimit] = useState(10);
   const [result, setResult] = useState<ReplyResult | null>(null);
@@ -100,9 +99,9 @@ export default function OutreachReplyTool() {
                 background: "#ffffff",
               }}
             >
-              {SPORTS.map((s) => (
+              {TI_SPORTS.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {TI_SPORT_LABELS[s] ?? s}
                 </option>
               ))}
             </select>

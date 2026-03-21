@@ -1,6 +1,7 @@
 import type { OutreachVariant } from "@/lib/outreach/ab";
+import type { TiSport } from "@/lib/tiSports";
 
-type OutreachEmailSport = "soccer" | "baseball" | "softball";
+type OutreachEmailSport = TiSport;
 
 export type VerifyReplyTournament = {
   tournamentId: string;
@@ -173,4 +174,3 @@ function escapeHtml(value: string) {
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
-

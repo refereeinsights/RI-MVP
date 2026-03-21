@@ -3,6 +3,7 @@ import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireTiOutreachAdmin } from "@/lib/outreachAdmin";
 import { getOutreachMode } from "@/lib/outreach";
+import { TI_SPORT_LABELS, TI_SPORTS, type TiSport } from "@/lib/tiSports";
 import AutoSubmitInput from "@/components/filters/AutoSubmitInput";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import CopyFieldButton from "./CopyFieldButton";
@@ -68,7 +69,7 @@ export default async function OutreachPreviewsPage({
   const user = await requireTiOutreachAdmin();
 
   const campaignId = searchParams?.campaign_id?.trim() || "";
-  const sport = normalizeOutreachSport(searchParams?.sport);
+  const sport = normalizeSportFilterParam(searchParams?.sport);
   const selectedId = searchParams?.preview_id?.trim() || "";
   const startAfter = normalizeDateParam(searchParams?.start_after);
   const defaultMode = getOutreachMode();
@@ -184,16 +185,16 @@ export default async function OutreachPreviewsPage({
               />
             </label>
             <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontWeight: 600 }}>Sport</span>
-              <AutoSubmitSelect name="sport" defaultValue={sport} style={inputStyle}>
-                <option value="">All sports</option>
-                {OUTREACH_SPORTS.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </AutoSubmitSelect>
-            </label>
+	              <span style={{ fontWeight: 600 }}>Sport</span>
+	              <AutoSubmitSelect name="sport" defaultValue={sport} style={inputStyle}>
+	                <option value="">All sports</option>
+	                {TI_SPORTS.map((value) => (
+	                  <option key={value} value={value}>
+	                    {TI_SPORT_LABELS[value]}
+	                  </option>
+	                ))}
+	              </AutoSubmitSelect>
+	            </label>
             <label style={{ display: "grid", gap: 6 }}>
               <span style={{ fontWeight: 600 }}>Start after</span>
               <AutoSubmitInput
@@ -216,11 +217,12 @@ export default async function OutreachPreviewsPage({
             </datalist>
           </form>
 
-          <GeneratePreviewsForm
-            initialCampaignId={campaignId}
-            initialSport={sport || "soccer"}
-            initialStartAfter={startAfter}
-          />
+	          <GeneratePreviewsForm
+	            initialCampaignId={campaignId}
+	            initialSport={sport || "soccer"}
+	            initialStartAfter={startAfter}
+	            sports={TI_SPORTS}
+	          />
           <p className="muted" style={{ margin: 0 }}>
             Default mode: <strong>{defaultMode}</strong>
           </p>
@@ -360,12 +362,11 @@ export default async function OutreachPreviewsPage({
   );
 }
 
-const OUTREACH_SPORTS = ["soccer", "baseball", "softball"] as const;
-type OutreachSport = (typeof OUTREACH_SPORTS)[number];
+type OutreachSport = TiSport;
 
-function normalizeOutreachSport(value?: string) {
+function normalizeSportFilterParam(value?: string) {
   const normalized = (value || "").trim().toLowerCase();
-  if (OUTREACH_SPORTS.includes(normalized as OutreachSport)) return normalized;
+  if (TI_SPORTS.includes(normalized as OutreachSport)) return normalized;
   return "";
 }
 

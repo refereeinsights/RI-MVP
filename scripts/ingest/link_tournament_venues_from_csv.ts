@@ -116,6 +116,30 @@ function parseUsAddress(full: string): { address: string; city: string; state: s
   return { address, city, state: m[1].toUpperCase(), zip: m[2] };
 }
 
+async function findVenueByUniqueKey(
+  supabase: ReturnType<typeof createClient>,
+  params: { venueName: string; address: string; city: string; state: string }
+): Promise<VenueRow | null> {
+  // Our DB has a unique constraint on (name, address, city, state). Older rows may have
+  // missing/incorrect zip, so the primary lookup (state+zip) can miss the existing row.
+  const { venueName, address, city, state } = params;
+  const { data, error } = await supabase
+    .from("venues" as any)
+    .select("id,name,address,address1,city,state,zip,venue_url")
+    .eq("state", state)
+    .eq("city", city)
+    .eq("name", venueName)
+    .limit(50);
+  if (error) throw error;
+  const candidates = (data ?? []) as VenueRow[];
+  const targetAddr = normalize(address);
+  return (
+    candidates.find((v) => normalize(v.address1 || v.address) === targetAddr) ??
+    candidates.find((v) => normalize(v.address) === targetAddr) ??
+    null
+  );
+}
+
 async function main() {
   const filePath = argValue("file") || argValue("path");
   if (!filePath) {
@@ -222,11 +246,29 @@ async function main() {
             sport,
             updated_at: new Date().toISOString(),
           };
-          const { data: inserted, error: insertErr } = await supabase.from("venues" as any).insert(insertPayload).select("id").single();
-          if (insertErr) throw insertErr;
-          venueId = String((inserted as any).id);
-          createdVenues++;
-          console.log(`  - Created venue: ${venueName} (${venueId})`);
+          const { data: inserted, error: insertErr } = await supabase
+            .from("venues" as any)
+            .insert(insertPayload)
+            .select("id")
+            .single();
+
+          if (insertErr) {
+            // If a venue already exists but doesn't match our state+zip prefilter, treat the
+            // unique constraint violation as a "match" and fetch the existing row.
+            if ((insertErr as any).code === "23505") {
+              const dupe = await findVenueByUniqueKey(supabase, { venueName, address, city, state });
+              if (!dupe?.id) throw insertErr;
+              venueId = dupe.id;
+              matchedVenues++;
+              console.log(`  - Found venue (dupe): ${venueName} (${venueId})`);
+            } else {
+              throw insertErr;
+            }
+          } else {
+            venueId = String((inserted as any).id);
+            createdVenues++;
+            console.log(`  - Created venue: ${venueName} (${venueId})`);
+          }
         }
       }
 
@@ -270,4 +312,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

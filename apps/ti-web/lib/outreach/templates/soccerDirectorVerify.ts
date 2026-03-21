@@ -1,6 +1,7 @@
 import type { OutreachVariant } from "@/lib/outreach/ab";
+import { TI_SPORT_LABELS, type TiSport } from "@/lib/tiSports";
 
-type OutreachEmailSport = "soccer" | "baseball" | "softball";
+type OutreachEmailSport = TiSport;
 
 type BuildSoccerDirectorVerifyEmailInput = {
   tournamentName: string;
@@ -34,7 +35,7 @@ export function buildSportDirectorVerifyEmail({
   const greeting = firstName?.trim() ? `Hi ${escapeHtml(firstName.trim())},` : "Hi,";
   const isUmpireSport = sport === "baseball" || sport === "softball";
   const officialRole = isUmpireSport ? "umpire" : "referee";
-  const sportLabel = sport.charAt(0).toUpperCase() + sport.slice(1);
+  const sportLabel = TI_SPORT_LABELS[sport];
   const subject =
     variant === "A"
       ? "Quick favor – can you confirm your tournament details?"
@@ -78,7 +79,7 @@ export function buildSportDirectorVerifyEmail({
                 <p style="margin:0 0 10px 0;">It helps us keep the listing useful for teams, families, and officials:</p>
                 <ul style="margin:0 0 18px 20px;padding:0;color:#0f172a;">
                   <li style="margin:0 0 8px 0;">Staff Verified badge</li>
-                  <li style="margin:0 0 8px 0;">Improves how it appears in ${escapeHtml(sport)} searches</li>
+                  <li style="margin:0 0 8px 0;">Improves how it appears in ${escapeHtml(sportLabel)} searches</li>
                   <li style="margin:0 0 8px 0;">Clear ${escapeHtml(officialRole)} info (pay, lodging, mentors)</li>
                   <li style="margin:0 0 8px 0;">Highlight official hotel/sponsor links</li>
                 </ul>

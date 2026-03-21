@@ -497,7 +497,7 @@ export async function createTournamentFromUrl(params: {
     };
   }
 
-  if (parsedUrl.hostname.includes("fysa.com") && parsedUrl.pathname.includes("/2026-sanctioned-tournaments")) {
+  if (parsedUrl.hostname.includes("fysa.com") && parsedUrl.pathname.includes("sanctioned-tournaments")) {
     const events = parseFysaSanctionedTournaments(html);
     if (!events.length) {
       throw new SweepError("html_received_no_events", "FYSA sanctioned list parsed but no events found", diagnostics);
@@ -521,7 +521,7 @@ export async function createTournamentFromUrl(params: {
       source_type: "association_directory",
       sport: "soccer",
       state: "FL",
-      notes: "Florida Youth Soccer Association sanctioned tournaments (2026).",
+      notes: "Florida Youth Soccer Association sanctioned tournaments (2026-2027).",
       is_custom_source: true,
     });
     const runId = await insertRun({
@@ -530,7 +530,7 @@ export async function createTournamentFromUrl(params: {
       url: canonical,
       http_status: diagnostics.status ?? 200,
       domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
-      title: "FYSA sanctioned tournaments (2026)",
+      title: "FYSA sanctioned tournaments",
       extracted_json: { action: "fysa_import", extracted_count: tournamentIds.length },
       extract_confidence: 0.7,
     });
@@ -1786,7 +1786,7 @@ function buildFysaRow(args: {
   parsed: { start?: string; end?: string };
 }): TournamentRow {
   const slug = buildTournamentSlug({ name: args.name, city: args.city, state: "FL" });
-  const sourceUrl = args.sourceUrl || "https://www.fysa.com/2026-sanctioned-tournaments/";
+  const sourceUrl = args.sourceUrl || "https://www.fysa.com/2026-2027-sanctioned-tournaments/";
   const sourceDomain = sourceUrl.startsWith("http") ? new URL(sourceUrl).hostname : "www.fysa.com";
   return {
     name: args.name,
