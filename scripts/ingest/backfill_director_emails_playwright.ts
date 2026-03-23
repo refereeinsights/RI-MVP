@@ -59,6 +59,67 @@ const DEFAULT_ALLOWED_DOMAINS = new Set<string>([
   "hubsportscenter.org",
 ]);
 
+function decodeBasicHtmlEntities(input: string) {
+  const text = String(input ?? "");
+  const named: Record<string, string> = {
+    "&nbsp;": " ",
+    "&amp;": "&",
+    "&quot;": '"',
+    "&#34;": '"',
+    "&apos;": "'",
+    "&#39;": "'",
+    "&lt;": "<",
+    "&gt;": ">",
+  };
+  let out = text.replace(/&(nbsp|amp|quot|apos|lt|gt);|&#(?:34|39);/g, (m) => named[m] ?? m);
+  out = out
+    .replace(/&#x([0-9a-fA-F]+);/g, (_full, hex) => {
+      const n = Number.parseInt(String(hex), 16);
+      if (!Number.isFinite(n)) return _full;
+      try {
+        return String.fromCharCode(n);
+      } catch {
+        return _full;
+      }
+    })
+    .replace(/&#([0-9]{1,6});/g, (_full, dec) => {
+      const n = Number.parseInt(String(dec), 10);
+      if (!Number.isFinite(n)) return _full;
+      try {
+        return String.fromCharCode(n);
+      } catch {
+        return _full;
+      }
+    });
+  return out;
+}
+
+function stripHtmlTags(input: string) {
+  return String(input ?? "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+}
+
+function extractObfuscatedEmailsFromText(text: string): string[] {
+  const out = new Set<string>();
+  const t = decodeBasicHtmlEntities(String(text ?? ""))
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+  const pattern =
+    /\b([a-z0-9._%+-]{1,64})\s*(?:\(|\[)?\s*(?:at)\s*(?:\)|\])?\s*([a-z0-9.-]{1,190})\s*(?:\(|\[)?\s*(?:dot)\s*(?:\)|\])?\s*([a-z]{2,24})(\b|\s)/gi;
+  for (const m of t.matchAll(pattern)) {
+    const local = (m[1] ?? "").trim();
+    const domainLeft = (m[2] ?? "").trim().replace(/\s+/g, "");
+    const tld = (m[3] ?? "").trim();
+    const candidate = `${local}@${domainLeft}.${tld}`.toLowerCase();
+    if (isValidEmail(candidate)) out.add(candidate);
+  }
+
+  return Array.from(out);
+}
+
 function printHelp() {
   console.log(
     [
@@ -151,13 +212,23 @@ function extractEmailsFromText(text: string) {
 
   // Cloudflare Email Protection: <a class="__cf_email__" data-cfemail="...">[email&nbsp;protected]</a>
   // https://developers.cloudflare.com/fundamentals/reference/email-obfuscation/
-  const cf = text.match(/data-cfemail=\"([0-9a-fA-F]+)\"/g) ?? [];
-  for (const token of cf) {
-    const m = token.match(/data-cfemail=\"([0-9a-fA-F]+)\"/);
+  const cfTokens = text.match(/data-cfemail\s*=\s*["']?([0-9a-fA-F]+)["']?/g) ?? [];
+  for (const token of cfTokens) {
+    const m = token.match(/data-cfemail\s*=\s*["']?([0-9a-fA-F]+)["']?/i);
     const hex = m?.[1] ?? "";
     const decoded = decodeCloudflareEmail(hex);
     if (decoded && isValidEmail(decoded)) emails.add(decoded.trim().toLowerCase());
   }
+  const cfLinks = text.match(/\/cdn-cgi\/l\/email-protection#([0-9a-fA-F]+)/g) ?? [];
+  for (const token of cfLinks) {
+    const m = token.match(/email-protection#([0-9a-fA-F]+)/i);
+    const hex = m?.[1] ?? "";
+    const decoded = decodeCloudflareEmail(hex);
+    if (decoded && isValidEmail(decoded)) emails.add(decoded.trim().toLowerCase());
+  }
+
+  const asText = stripHtmlTags(text);
+  for (const e of extractObfuscatedEmailsFromText(asText)) emails.add(e);
 
   return Array.from(emails);
 }
@@ -340,6 +411,8 @@ async function main() {
 
       const content = await page.content().catch(() => "");
       for (const e of extractEmailsFromText(content)) emails.add(e);
+      const bodyText = await page.innerText("body").catch(() => "");
+      for (const e of extractObfuscatedEmailsFromText(bodyText)) emails.add(e);
 
       // Follow a same-domain contact-ish link if we didn't find anything.
       if (emails.size === 0) {
@@ -357,7 +430,8 @@ async function main() {
         const candidates: string[] = [];
         for (const href of contactUrls) {
           const lower = href.toLowerCase();
-          if (!/(contact|about|staff|directory)/.test(lower)) continue;
+          if (!/(contact|contact-us|contacts|about|about-us|staff|directory|board|officials|referee|tournament|director|registration)/.test(lower))
+            continue;
           if (lower.startsWith("mailto:") || lower.startsWith("tel:") || lower.startsWith("javascript:")) continue;
           try {
             const resolved = new URL(href, base).toString();
@@ -367,7 +441,7 @@ async function main() {
             // ignore
           }
         }
-        const follow = Array.from(new Set(candidates)).slice(0, 2);
+        const follow = Array.from(new Set(candidates)).slice(0, 3);
         for (const u of follow) {
           fetchedUrls.push(u);
           const r2 = await page.goto(u, { waitUntil: "domcontentloaded", timeout: 45_000 }).catch(() => null);
@@ -379,6 +453,8 @@ async function main() {
           if (r2) {
             const c2 = await page.content().catch(() => "");
             for (const e of extractEmailsFromText(c2)) emails.add(e);
+            const t2 = await page.innerText("body").catch(() => "");
+            for (const e of extractObfuscatedEmailsFromText(t2)) emails.add(e);
             const mail2 = await page
               .$$eval("a[href^='mailto:']", (els) =>
                 els

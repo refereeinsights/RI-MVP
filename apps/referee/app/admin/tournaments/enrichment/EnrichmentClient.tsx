@@ -160,6 +160,19 @@ export default function EnrichmentClient({
   candidateTournaments: Record<string, CandidateTournament>;
   feesVenueSummary: FeesVenueSummary[];
 }) {
+  const mountedRef = React.useRef(true);
+  const applyCleanupTimersRef = React.useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  React.useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      for (const timer of Object.values(applyCleanupTimersRef.current)) {
+        clearTimeout(timer);
+      }
+      applyCleanupTimersRef.current = {};
+    };
+  }, []);
+
   const [selected, setSelected] = React.useState<string[]>([]);
   const [status, setStatus] = React.useState<string>("");
   const [query, setQuery] = React.useState<string>("");
@@ -699,6 +712,36 @@ export default function EnrichmentClient({
     });
   };
 
+  const scheduleReviewCleanup = React.useCallback(
+    (
+      tournamentId: string,
+      {
+        contactIds,
+        venueIds,
+        dateIds,
+        attrIds,
+      }: {
+        contactIds: Set<string>;
+        venueIds: Set<string>;
+        dateIds: Set<string>;
+        attrIds: Set<string>;
+      }
+    ) => {
+      const existing = applyCleanupTimersRef.current[tournamentId];
+      if (existing) clearTimeout(existing);
+      applyCleanupTimersRef.current[tournamentId] = setTimeout(() => {
+        if (!mountedRef.current) return;
+        delete applyCleanupTimersRef.current[tournamentId];
+
+        if (contactIds.size) setPendingContacts((prev) => prev.filter((c) => !contactIds.has(c.id)));
+        if (venueIds.size) setPendingVenues((prev) => prev.filter((v) => !venueIds.has(v.id)));
+        if (dateIds.size) setPendingDates((prev) => prev.filter((d) => !dateIds.has(d.id)));
+        if (attrIds.size) setPendingAttributes((prev) => prev.filter((c) => !attrIds.has(c.id)));
+      }, 5000);
+    },
+    []
+  );
+
   const applyReviewItems = async (tournamentId: string) => {
     const items = reviewGroups.get(tournamentId) ?? [];
     const selected = selectedItems[tournamentId] ?? new Set<string>();
@@ -726,17 +769,35 @@ export default function EnrichmentClient({
       setApplyStatus((prev) => ({ ...prev, [tournamentId]: `Apply failed: ${json?.error || res.statusText}` }));
       return;
     }
-    setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Applied successfully." }));
+    const linkedVenue = Boolean(json?.did_link_venue);
+    const linkedBefore = typeof json?.linked_venues_before === "number" ? json.linked_venues_before : null;
+    const linkedAfter = typeof json?.linked_venues_after === "number" ? json.linked_venues_after : null;
+    const countsTowardDashboard =
+      typeof json?.counts_toward_missing_venues_dashboard === "boolean" ? json.counts_toward_missing_venues_dashboard : null;
+    setApplyStatus((prev) => ({
+      ...prev,
+      [tournamentId]: linkedVenue
+        ? `Applied successfully (venue linked). Linked venues: ${linkedBefore ?? "?"} → ${linkedAfter ?? "?"}.${
+            countsTowardDashboard === false
+              ? " (This tournament doesn’t count toward the /admin missing venues tile.)"
+              : linkedBefore && linkedBefore > 0
+              ? " (It already had linked venues, so the /admin missing venues tile won’t change.)"
+              : " Refresh /admin to see the missing venues tile update."
+          }`
+        : "Applied successfully. No venue link created (the /admin missing venues tile changes only when a published canonical tournament gets its first tournament_venues link).",
+    }));
 
     const contactIds = new Set(payload.filter((p: any) => p.kind === "contact").map((p: any) => p.id));
     const venueIds = new Set(payload.filter((p: any) => p.kind === "venue").map((p: any) => p.id));
     const dateIds = new Set(payload.filter((p: any) => p.kind === "date").map((p: any) => p.id));
     const attrIds = new Set(payload.filter((p: any) => p.kind === "attribute").map((p: any) => p.id));
 
-    if (contactIds.size) setPendingContacts((prev) => prev.filter((c) => !contactIds.has(c.id)));
-    if (venueIds.size) setPendingVenues((prev) => prev.filter((v) => !venueIds.has(v.id)));
-    if (dateIds.size) setPendingDates((prev) => prev.filter((d) => !dateIds.has(d.id)));
-    if (attrIds.size) setPendingAttributes((prev) => prev.filter((c) => !attrIds.has(c.id)));
+    setSelectedItems((prev) => ({ ...prev, [tournamentId]: new Set<string>() }));
+    setApplyStatus((prev) => ({
+      ...prev,
+      [tournamentId]: `${prev[tournamentId] ?? "Applied successfully."} (Updating row in ~5s.)`,
+    }));
+    scheduleReviewCleanup(tournamentId, { contactIds, venueIds, dateIds, attrIds });
   };
 
   const deleteReviewItems = async (tournamentId: string) => {
@@ -771,10 +832,12 @@ export default function EnrichmentClient({
     const venueIds = new Set(payload.filter((p: any) => p.kind === "venue").map((p: any) => p.id));
     const dateIds = new Set(payload.filter((p: any) => p.kind === "date").map((p: any) => p.id));
     const attrIds = new Set(payload.filter((p: any) => p.kind === "attribute").map((p: any) => p.id));
-    if (contactIds.size) setPendingContacts((prev) => prev.filter((c) => !contactIds.has(c.id)));
-    if (venueIds.size) setPendingVenues((prev) => prev.filter((v) => !venueIds.has(v.id)));
-    if (dateIds.size) setPendingDates((prev) => prev.filter((d) => !dateIds.has(d.id)));
-    if (attrIds.size) setPendingAttributes((prev) => prev.filter((c) => !attrIds.has(c.id)));
+    setSelectedItems((prev) => ({ ...prev, [tournamentId]: new Set<string>() }));
+    setApplyStatus((prev) => ({
+      ...prev,
+      [tournamentId]: `${prev[tournamentId] ?? "Deleted selected items."} (Updating row in ~5s.)`,
+    }));
+    scheduleReviewCleanup(tournamentId, { contactIds, venueIds, dateIds, attrIds });
   };
 
   return (

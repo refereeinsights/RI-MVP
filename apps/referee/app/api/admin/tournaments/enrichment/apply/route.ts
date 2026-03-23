@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { revalidatePath } from "next/cache";
+import { buildVenueAddressFingerprint, buildVenueNameCityStateFingerprint } from "@/lib/identity/fingerprints";
 
 type Item = {
   kind: "contact" | "venue" | "date" | "comp-rate" | "comp-hotel" | "comp-cash" | "attribute";
@@ -11,6 +13,170 @@ function cleanText(value: unknown): string | null {
   if (value == null) return null;
   const text = String(value).trim();
   return text ? text : null;
+}
+
+function normalizeLower(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function parseFullAddress(addr: string): { address: string; city: string; state: string; zip: string | null } | null {
+  const raw = String(addr ?? "").trim();
+  if (!raw) return null;
+  const normalized = raw.replace(/\s+/g, " ").trim();
+  // Common variants we see from scrapers:
+  // - "701 Pioneer Way Ave, Centralia, WA, 98531"
+  // - "701 Pioneer Way Ave, Centralia, WA 98531"
+  // - "1 Valley Park Drive, Hurricane, WV, 25526, WV" (duplicate trailing state)
+  const m = normalized.match(
+    /^(.+?),\s*([A-Za-z.\s]{2,60}),\s*([A-Z]{2})(?:\s*,?\s*(\d{5}(?:-\d{4})?))?(?:\s*,?\s*([A-Z]{2}))?\s*$/
+  );
+  if (!m) return null;
+  const address = String(m[1] ?? "").trim();
+  const city = String(m[2] ?? "").trim();
+  const state = String(m[3] ?? "").trim().toUpperCase();
+  const zip = m[4] ? String(m[4]).trim() : null;
+  const trailingState = m[5] ? String(m[5]).trim().toUpperCase() : null;
+  if (trailingState && trailingState !== state) {
+    // If the last token is a different state, parsing is unreliable; bail.
+    return null;
+  }
+  if (!address || !city || !state) return null;
+  return { address, city, state, zip };
+}
+
+async function getOrCreateVenueFromCandidate(args: {
+  tournament_id: string;
+  tournament_city: string | null;
+  tournament_state: string | null;
+  tournament_zip: string | null;
+  tournament_sport: string | null;
+  venue_name: string | null;
+  address_text: string | null;
+  venue_url: string | null;
+}) {
+  const venueName = cleanText(args.venue_name);
+  const addressText = cleanText(args.address_text);
+  const parsed = addressText ? parseFullAddress(addressText) : null;
+  const streetAddress = cleanText(parsed?.address ?? addressText);
+  const venueNameForInsert = (() => {
+    if (venueName) return venueName;
+    if (streetAddress) return `Venue (${streetAddress})`;
+    if (addressText) return `Venue (${addressText.slice(0, 80)})`;
+    const url = cleanText(args.venue_url);
+    if (url) {
+      try {
+        return `Venue (${new URL(url).hostname})`;
+      } catch {
+        return "Venue";
+      }
+    }
+    return "Venue";
+  })();
+
+  const city = cleanText(parsed?.city ?? args.tournament_city);
+  const state = cleanText(parsed?.state ?? args.tournament_state)?.toUpperCase() ?? null;
+  const zip = cleanText(parsed?.zip ?? args.tournament_zip);
+  const sport = cleanText(args.tournament_sport);
+
+  const address_fingerprint = buildVenueAddressFingerprint({
+    address: streetAddress,
+    city,
+    state,
+  });
+  const name_city_state_fingerprint = buildVenueNameCityStateFingerprint({
+    name: venueName,
+    city,
+    state,
+  });
+
+  // Prefer address-fingerprint de-dupe when possible.
+  if (address_fingerprint) {
+    const { data: hits, error } = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,name,address,city,state,venue_url,address_fingerprint,name_city_state_fingerprint")
+      .eq("address_fingerprint", address_fingerprint)
+      .limit(10);
+    if (error) throw error;
+    const rows = (hits ?? []) as any[];
+    if (rows.length) {
+      let pick = rows[0] as any;
+      if (name_city_state_fingerprint) {
+        const exact = rows.find((r) => String(r.name_city_state_fingerprint ?? "") === name_city_state_fingerprint);
+        if (exact) pick = exact;
+      }
+      const candidateUrl = cleanText(args.venue_url);
+      const patch: Record<string, unknown> = {};
+      if (candidateUrl && !cleanText(pick?.venue_url)) {
+        patch.venue_url = candidateUrl;
+      }
+      // Upgrade incomplete address rows when we have a full parsed address (prevents duplicates).
+      if (streetAddress && parsed?.address) {
+        const existingAddr = cleanText(pick?.address) ?? "";
+        const existingHasZip = /\b\d{5}(?:-\d{4})?\b/.test(existingAddr);
+        const candidateHasZip = Boolean(parsed.zip);
+        const existingHasCity = city ? normalizeLower(existingAddr).includes(normalizeLower(city)) : false;
+        const candidateLooksFull = candidateHasZip || existingHasCity;
+        if (candidateLooksFull && (!existingHasZip || existingAddr.length < streetAddress.length)) {
+          patch.address = streetAddress;
+        }
+      }
+      if (zip && !cleanText(pick?.zip)) patch.zip = zip;
+      if (venueName && !cleanText(pick?.name)) patch.name = venueName;
+      if (Object.keys(patch).length) {
+        const { error: updErr } = await supabaseAdmin.from("venues" as any).update(patch).eq("id", pick.id);
+        if (updErr) throw updErr;
+      }
+      return { id: String(pick.id), venue_url: pick?.venue_url ?? null };
+    }
+  }
+
+  // Secondary: name+city+state fingerprint.
+  if (name_city_state_fingerprint) {
+    const { data: hits, error } = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,venue_url")
+      .eq("name_city_state_fingerprint", name_city_state_fingerprint)
+      .limit(5);
+    if (error) throw error;
+    const pick = (hits ?? [])[0] as any;
+    if (pick?.id) {
+      const candidateUrl = cleanText(args.venue_url);
+      if (candidateUrl && !cleanText(pick?.venue_url)) {
+        const { error: updErr } = await supabaseAdmin.from("venues" as any).update({ venue_url: candidateUrl }).eq("id", pick.id);
+        if (updErr) throw updErr;
+      }
+      return { id: String(pick.id), venue_url: pick?.venue_url ?? null };
+    }
+  }
+
+  // Fallback: upsert using the exact unique key (if present in DB).
+  const payload = {
+    name: venueNameForInsert,
+    address: streetAddress,
+    city,
+    state,
+    zip,
+    sport,
+    venue_url: cleanText(args.venue_url),
+  };
+
+  const { data: upsertedRaw, error: upsertErr } = await supabaseAdmin
+    .from("venues" as any)
+    .upsert(payload, { onConflict: "name,address,city,state" })
+    .select("id,venue_url")
+    .maybeSingle();
+  if (upsertErr) {
+    // If the unique constraint isn't present (or any other schema issue), don't silently fail.
+    throw upsertErr;
+  }
+  const upserted = upsertedRaw as any;
+  if (!upserted?.id) {
+    throw new Error("venue_upsert_failed");
+  }
+  return { id: String(upserted.id), venue_url: upserted.venue_url ?? null };
 }
 
 async function ensureAdmin() {
@@ -55,6 +221,27 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   let attributeAddress: string | null = null;
   let attributeVenueUrl: string | null = null;
+  let didLinkVenue = false;
+  let linkedVenuesBefore: number | null = null;
+  let linkedVenuesAfter: number | null = null;
+  let countsTowardMissingVenuesDashboard: boolean | null = null;
+
+  try {
+    const [{ count: linkCount }, { data: tRow }] = await Promise.all([
+      supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("tournament_id", { count: "exact", head: true })
+        .eq("tournament_id", tournamentId),
+      supabaseAdmin.from("tournaments" as any).select("status,is_canonical").eq("id", tournamentId).maybeSingle(),
+    ]);
+    linkedVenuesBefore = typeof linkCount === "number" ? linkCount : null;
+    const status = String((tRow as any)?.status ?? "").trim();
+    const isCanonical = Boolean((tRow as any)?.is_canonical);
+    countsTowardMissingVenuesDashboard = status === "published" && isCanonical;
+  } catch {
+    linkedVenuesBefore = null;
+    countsTowardMissingVenuesDashboard = null;
+  }
 
   if (venueIds.length) {
     const { data: venues } = await supabaseAdmin
@@ -71,43 +258,31 @@ export async function POST(request: Request) {
     if (selectedVenueRows.length) {
       const { data: tournamentRowRaw } = await supabaseAdmin
         .from("tournaments" as any)
-        .select("city,state,sport")
+        .select("city,state,zip,sport")
         .eq("id", tournamentId)
         .maybeSingle();
       const tournamentRow = tournamentRowRaw as any;
 
       for (const venue of selectedVenueRows) {
         if (!venue?.venue_name && !venue?.address_text && !venue?.venue_url) continue;
-        const { data: upsertedRaw, error: upsertErr } = await supabaseAdmin
-          .from("venues" as any)
+        const upserted = await getOrCreateVenueFromCandidate({
+          tournament_id: tournamentId,
+          tournament_city: cleanText(tournamentRow?.city),
+          tournament_state: cleanText(tournamentRow?.state),
+          tournament_zip: cleanText(tournamentRow?.zip),
+          tournament_sport: cleanText(tournamentRow?.sport),
+          venue_name: cleanText(venue?.venue_name),
+          address_text: cleanText(venue?.address_text),
+          venue_url: cleanText(venue?.venue_url),
+        });
+        const { error: linkErr } = await supabaseAdmin
+          .from("tournament_venues" as any)
           .upsert(
-            {
-              name: venue?.venue_name ?? null,
-              address: venue?.address_text ?? null,
-              city: tournamentRow?.city ?? null,
-              state: tournamentRow?.state ?? null,
-              sport: tournamentRow?.sport ?? null,
-              venue_url: cleanText(venue?.venue_url),
-            },
-            { onConflict: "name,address,city,state" }
-          )
-          .select("id,venue_url")
-          .maybeSingle();
-        const upserted = upsertedRaw as any;
-        if (!upsertErr && upserted?.id) {
-          if (cleanText(venue?.venue_url) && !cleanText(upserted.venue_url)) {
-            await supabaseAdmin
-              .from("venues" as any)
-              .update({ venue_url: cleanText(venue.venue_url) })
-              .eq("id", upserted.id);
-          }
-          await supabaseAdmin
-            .from("tournament_venues" as any)
-            .upsert(
-              { tournament_id: tournamentId, venue_id: upserted.id },
-              { onConflict: "tournament_id,venue_id" }
-            );
-        }
+            { tournament_id: tournamentId, venue_id: upserted.id },
+            { onConflict: "tournament_id,venue_id" }
+          );
+        if (linkErr) throw linkErr;
+        didLinkVenue = true;
       }
     }
   }
@@ -201,36 +376,24 @@ export async function POST(request: Request) {
     const sport = cleanText(tournament?.sport);
 
     if (venueName || venueAddress || attributeVenueUrl) {
-      const { data: upsertedRaw, error: upsertErr } = await supabaseAdmin
-        .from("venues" as any)
+      const upserted = await getOrCreateVenueFromCandidate({
+        tournament_id: tournamentId,
+        tournament_city: city,
+        tournament_state: state,
+        tournament_zip: zip,
+        tournament_sport: sport,
+        venue_name: venueName,
+        address_text: venueAddress,
+        venue_url: attributeVenueUrl,
+      });
+      const { error: linkErr } = await supabaseAdmin
+        .from("tournament_venues" as any)
         .upsert(
-          {
-            name: venueName,
-            address: venueAddress,
-            city,
-            state,
-            zip,
-            sport,
-          },
-          { onConflict: "name,address,city,state" }
-        )
-        .select("id,venue_url")
-        .maybeSingle();
-      const upserted = upsertedRaw as any;
-      if (!upsertErr && upserted?.id) {
-        if (attributeVenueUrl && !cleanText(upserted.venue_url)) {
-          await supabaseAdmin
-            .from("venues" as any)
-            .update({ venue_url: attributeVenueUrl })
-            .eq("id", upserted.id);
-        }
-        await supabaseAdmin
-          .from("tournament_venues" as any)
-          .upsert(
-            { tournament_id: tournamentId, venue_id: upserted.id },
-            { onConflict: "tournament_id,venue_id" }
-          );
-      }
+          { tournament_id: tournamentId, venue_id: upserted.id },
+          { onConflict: "tournament_id,venue_id" }
+        );
+      if (linkErr) throw linkErr;
+      didLinkVenue = true;
     }
   }
 
@@ -460,9 +623,27 @@ export async function POST(request: Request) {
     }
   }
 
+  if (didLinkVenue) {
+    try {
+      const { count: linkCount } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("tournament_id", { count: "exact", head: true })
+        .eq("tournament_id", tournamentId);
+      linkedVenuesAfter = typeof linkCount === "number" ? linkCount : null;
+    } catch {
+      linkedVenuesAfter = null;
+    }
+    revalidatePath("/admin");
+    revalidatePath("/admin/tournaments/missing-venues");
+  }
+
   return NextResponse.json({
     ok: true,
     updated_fields: Object.keys(updates),
+    did_link_venue: didLinkVenue,
+    linked_venues_before: linkedVenuesBefore,
+    linked_venues_after: linkedVenuesAfter,
+    counts_toward_missing_venues_dashboard: countsTowardMissingVenuesDashboard,
     applied: {
       contacts: contactIds.length,
       venues: venueIds.length,

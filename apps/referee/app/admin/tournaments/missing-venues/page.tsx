@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import DeepScanButton from "./DeepScanButton";
 import BulkDeepScanButton from "./BulkDeepScanButton";
+import USClubSoccerUrlButton from "./USClubSoccerUrlButton";
 
 export const runtime = "nodejs";
 
@@ -187,7 +188,8 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <BulkDeepScanButton limit={50} />
+          <USClubSoccerUrlButton limit={400} />
+          <BulkDeepScanButton initialLimit={50} total={count} />
           <Link
             href="/admin/tournaments/enrichment"
             style={{

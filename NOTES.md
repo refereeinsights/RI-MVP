@@ -176,3 +176,14 @@
 - Supabase admin clients (RI + TI): trim URL and sanitize service role key to avoid hidden copy/paste characters.
 - RI admin venues: improved duplicate candidate matching by falling back to extracting a street-like string from venue names when address fields are missing; added a safety cap on the venue pagination loop.
 - Ingest/Ops: added `scripts/ingest/export_missing_tournament_venue_research.ts` (research grouping exports) and `scripts/ingest/ingest_tournament_search_csv.ts` (dry-run by default; `--apply` to upsert tournaments/venues/links from a search CSV).
+
+## 2026-03-23
+
+- RI admin enrichment: Apply status UX improvement — keep the row visible ~5 seconds after Apply/Delete so the status line can be read before the row disappears.
+- RI enrichment apply: venue-linking now de-dupes via fingerprints, returns richer apply response fields (linked venues before/after + whether the tournament counts toward the `/admin` missing-venues tile), and handles `venue_name` missing by generating a safe fallback name to satisfy `venues.name NOT NULL`.
+- Missing venues deep scan: fix bulk “skip linked” logic by chunking `tournament_venues` lookups (prevents re-scanning tournaments that already have venue links in missing-venues mode).
+- Missing venues prioritization: `mode=missing_venues` now targets the true backlog (`venue IS NULL` AND `address IS NULL`) to focus the 400+ tournaments with no venue data.
+- Missing venues scan quality: reduce low-quality venue candidates by ranking + filtering to require street-like addresses (drops `City, ST`-only rows and common placeholders like `TBD` / `multiple locations`), cap venue-url candidates, and expose `venue_candidates_dropped_low_quality` in the API response.
+- Missing venues UI: bulk deep scan now supports “Deep scan all (N)” running batches sequentially and lets you pick batch size (25/50/etc).
+- US Club Soccer: added an enrichment helper that parses the sanctioned tournament directory to create `tournament_url_suggestions` for tournaments whose URL incorrectly points at the directory page; added a Missing Venues UI button to trigger it and review suggestions in enrichment.
+- Ops: added `scripts/ops/link_venue_to_tournament.ts` to create/de-dupe a venue and link it to a tournament (used to create/link Kino South Complex to tournament `42517eeb-6c22-4d53-9b46-cff416cbcc12`).

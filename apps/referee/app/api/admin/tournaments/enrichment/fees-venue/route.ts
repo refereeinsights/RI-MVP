@@ -121,6 +121,65 @@ function normalizeSpace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function isJunkVenueName(name: string | null | undefined): boolean {
+  const raw = normalizeSpace(String(name ?? ""));
+  if (!raw) return true;
+  const v = raw.toLowerCase();
+  if (v.length < 3) return true;
+  if (/^(venue|venues|field|fields|facility|facilities|location|locations)$/i.test(raw)) return true;
+  const bad = [
+    "tbd",
+    "to be determined",
+    "various",
+    "multiple locations",
+    "see website",
+    "see site",
+    "online",
+    "virtual",
+    "zoom",
+    "check in",
+    "check-in",
+    "registration",
+    "headquarters",
+  ];
+  if (bad.some((token) => v.includes(token))) return true;
+  // "City, ST" and similar placeholders.
+  if (/^[a-z .'-]{2,60},\s*[a-z]{2}$/i.test(raw)) return true;
+  return false;
+}
+
+function looksLikeStreetAddress(addressText: string | null | undefined): boolean {
+  const addr = normalizeSpace(String(addressText ?? ""));
+  if (!addr) return false;
+  // Reject "City, ST" (no street).
+  if (/^[a-z .'-]{2,60},\s*[a-z]{2}$/i.test(addr)) return false;
+  // Prefer a number + street suffix, but allow strong street-like strings even without ZIP.
+  const strong =
+    /\b\d{1,6}\s+[A-Za-z0-9.'#\-\s]{2,90}\b(?:St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Ln|Lane|Blvd|Boulevard|Ct|Court|Way|Pkwy|Parkway|Pl|Place|Cir|Circle|Ter|Terrace|Highway|Hwy)\b/i.test(
+      addr
+    );
+  if (strong) return true;
+  // Fall back to the looser parser when it still finds a plausible street component.
+  const parsed = parseAddressParts(addr);
+  const street = normalizeSpace(String(parsed.street ?? ""));
+  if (!street) return false;
+  return /\d/.test(street) || street.length >= 10;
+}
+
+function scoreVenueEntryForInsert(entry: { venue_name: string | null; address_text: string; source_url: string }, candidateVenueUrl: string | null): number {
+  let score = 0;
+  const name = normalizeSpace(String(entry.venue_name ?? ""));
+  const addr = normalizeSpace(String(entry.address_text ?? ""));
+  if (name && !isJunkVenueName(name)) score += 3;
+  if (looksLikeStreetAddress(addr)) score += 4;
+  if (/\b\d{5}(?:-\d{4})?\b/.test(addr)) score += 1;
+  const src = normalizeSpace(String(entry.source_url ?? "")).toLowerCase();
+  if (/(^|\/)(venue|venues|field|fields|facility|facilities|location|locations|directions?|map|maps)(\/|$)/i.test(src)) score += 1;
+  const cand = normalizeSpace(String(candidateVenueUrl ?? "")).toLowerCase();
+  if (cand && /(venue|venues|facility|facilities|fields|location|directions|map)/i.test(cand)) score += 1;
+  return score;
+}
+
 function extractAddresses(text: string): string[] {
   const pattern =
     /\d{1,5}\s+[A-Za-z0-9.\-#\s]{3,100},\s*[A-Za-z.\s]{2,60},\s*[A-Z]{2}\s*\d{5}(?:-\d{4})?/g;
@@ -137,6 +196,19 @@ function extractAddresses(text: string): string[] {
     .filter((row) => !denylist.has(row.key))
     .map((row) => row.raw);
   return Array.from(new Set(normalized));
+}
+
+function extractLooseAddresses(text: string): string[] {
+  // Like extractAddresses(), but allows missing ZIP codes and requires a street suffix
+  // to reduce false positives.
+  const suffix =
+    "(?:St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Ln|Lane|Blvd|Boulevard|Ct|Court|Way|Pkwy|Parkway|Pl|Place|Cir|Circle|Ter|Terrace|Highway|Hwy)";
+  const pattern = new RegExp(
+    `\\b\\d{1,5}\\s+[A-Za-z0-9.'\\-#\\s]{2,90}\\b${suffix}\\b\\.?\\s*,\\s*[A-Za-z.'\\s]{2,60}\\s*,\\s*[A-Z]{2}(?:\\s*\\d{5}(?:-\\d{4})?)?\\b`,
+    "g"
+  );
+  const matches = Array.from(text.matchAll(pattern)).map((m) => normalizeSpace(m[0] ?? ""));
+  return Array.from(new Set(matches.filter(Boolean)));
 }
 
 function inferLocality(addresses: string[]): { city: string; state: string; zip: string } | null {
@@ -209,10 +281,13 @@ function extractVenueEntriesFromPage(
     if (!text) continue;
 
     const fullAddresses = extractAddresses(text);
+    const looseAddresses = fullAddresses.length ? [] : extractLooseAddresses(text);
     const partialStreet = fullAddresses.length ? null : extractStreetLike(text);
     const localitySuffix = locality ? `${locality.city}, ${locality.state} ${locality.zip}` : null;
     const addresses = fullAddresses.length
       ? fullAddresses
+      : looseAddresses.length
+      ? looseAddresses
       : partialStreet && localitySuffix
       ? [`${partialStreet}, ${localitySuffix}`]
       : [];
@@ -231,6 +306,104 @@ function extractVenueEntriesFromPage(
   }
 
   return entries;
+}
+
+function extractJsonLdVenueEntriesFromPage($: cheerio.CheerioAPI): Array<{ venue_name: string | null; address_text: string; venue_url: string | null }> {
+  const out: Array<{ venue_name: string | null; address_text: string; venue_url: string | null }> = [];
+  const seen = new Set<string>();
+
+  const toAddressText = (addr: any): string | null => {
+    if (!addr) return null;
+    if (typeof addr === "string") {
+      const cleaned = normalizeSpace(addr);
+      return cleaned.length >= 6 ? cleaned : null;
+    }
+    if (typeof addr !== "object") return null;
+    const street = normalizeSpace(addr.streetAddress ?? addr.street_address ?? "");
+    const city = normalizeSpace(addr.addressLocality ?? addr.city ?? "");
+    const state = normalizeSpace((addr.addressRegion ?? addr.state ?? "").toUpperCase());
+    const zip = normalizeSpace(addr.postalCode ?? addr.zip ?? addr.zipCode ?? "");
+    const parts = [street, [city, state].filter(Boolean).join(", "), zip].filter(Boolean);
+    const joined = normalizeSpace(parts.join(" "));
+    if (!joined) return null;
+    // Require some locality signal to avoid generic "USA" / etc.
+    if (!/[A-Z]{2}\b/.test(joined) && !/\d{5}\b/.test(joined)) return null;
+    return joined;
+  };
+
+  const push = (args: { venue_name: string | null; address_text: string | null; venue_url: string | null }) => {
+    const venue_name = args.venue_name ? cleanVenueName(args.venue_name) : null;
+    const address_text = normalizeSpace(args.address_text ?? "");
+    const venue_url = args.venue_url ? normalizeSpace(args.venue_url) : null;
+    if (!address_text || address_text.length < 6) return;
+    const key = `${(venue_name ?? "").toLowerCase()}|${address_text.toLowerCase()}|${(venue_url ?? "").toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ venue_name, address_text, venue_url });
+  };
+
+  const visit = (node: any) => {
+    if (!node) return;
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item);
+      return;
+    }
+    if (typeof node !== "object") return;
+
+    // Common schema: Event -> location -> Place -> address (PostalAddress)
+    const typeRaw = node["@type"] ?? node.type ?? null;
+    const types = Array.isArray(typeRaw) ? typeRaw : typeRaw ? [typeRaw] : [];
+    const typeStr = types.map((t: any) => String(t ?? "").toLowerCase()).join(" ");
+
+    const maybeAddress = toAddressText((node as any).address);
+    if (maybeAddress) {
+      push({
+        venue_name: (node as any).name ?? null,
+        address_text: maybeAddress,
+        venue_url: (node as any).url ?? (node as any).sameAs ?? null,
+      });
+    }
+
+    const location = (node as any).location ?? (node as any).venue ?? null;
+    if (location) {
+      if (Array.isArray(location)) {
+        for (const loc of location) visit(loc);
+      } else {
+        visit(location);
+      }
+    }
+
+    // Some schemas embed a Place under "organizer" or "performer" (less common but safe to traverse).
+    if (/event|sports|tournament/.test(typeStr)) {
+      const organizer = (node as any).organizer ?? null;
+      const performer = (node as any).performer ?? null;
+      if (organizer) visit(organizer);
+      if (performer) visit(performer);
+    }
+
+    for (const k of Object.keys(node)) {
+      if (k === "location" || k === "address" || k === "organizer" || k === "performer") continue;
+      const v = (node as any)[k];
+      if (typeof v === "object") visit(v);
+    }
+  };
+
+  const scripts = $("script[type='application/ld+json']")
+    .toArray()
+    .slice(0, 16);
+  for (const el of scripts) {
+    const raw = normalizeSpace($(el).contents().text() || "");
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw);
+      visit(parsed);
+    } catch {
+      // Some pages include multiple JSON blobs or invalid JSON; ignore.
+    }
+    if (out.length >= 16) break;
+  }
+
+  return out.slice(0, 16);
 }
 
 function extractFacilityMentionsFromText(textRaw: string): Array<{ venue_name: string; city: string; state: string }> {
@@ -819,6 +992,9 @@ export async function POST(request: Request) {
   const { searchParams } = new URL(request.url);
   const mode = (searchParams.get("mode") ?? "").trim().toLowerCase();
   const focusMissingVenues = mode === "missing_venues";
+  const statusParamRaw = (searchParams.get("status") ?? "").trim().toLowerCase();
+  const statusParam = statusParamRaw === "draft" ? "draft" : "published";
+  const requireCanonical = statusParam === "published";
   const skipPendingParam = (searchParams.get("skip_pending") ?? "").trim().toLowerCase();
   const enforcePendingSkip =
     skipPendingParam === "1" || skipPendingParam === "true" || (!focusMissingVenues && skipPendingParam !== "0");
@@ -838,13 +1014,15 @@ export async function POST(request: Request) {
     let primaryQuery = supabaseAdmin
       .from("tournaments" as any)
       .select(withCooldownSelect)
-      .eq("status", "published")
-      .eq("is_canonical", true)
+      .eq("status", statusParam)
       .eq("enrichment_skip", false)
       .or("official_website_url.not.is.null,source_url.not.is.null");
+    if (requireCanonical) primaryQuery = primaryQuery.eq("is_canonical", true);
 
     if (focusMissingVenues) {
-      primaryQuery = primaryQuery.or("venue.is.null,venue.eq.,address.is.null,address.eq.");
+      // Prioritize the true "no venue data at all" backlog (aligns with /admin/tournaments/missing-venues):
+      // published+canonical (for published runs) with both venue and address unset.
+      primaryQuery = primaryQuery.is("venue", null).is("address", null);
     } else {
       primaryQuery = primaryQuery.or(
         "team_fee.is.null,games_guaranteed.is.null,player_parking.is.null,venue.is.null,address.is.null,venue_url.is.null"
@@ -861,12 +1039,12 @@ export async function POST(request: Request) {
       let retryQuery = supabaseAdmin
         .from("tournaments" as any)
         .select(withoutCooldownSelect)
-        .eq("status", "published")
-        .eq("is_canonical", true)
+        .eq("status", statusParam)
         .eq("enrichment_skip", false)
         .or("official_website_url.not.is.null,source_url.not.is.null");
+      if (requireCanonical) retryQuery = retryQuery.eq("is_canonical", true);
       if (focusMissingVenues) {
-        retryQuery = retryQuery.or("venue.is.null,venue.eq.,address.is.null,address.eq.");
+        retryQuery = retryQuery.is("venue", null).is("address", null);
       } else {
         retryQuery = retryQuery.or(
           "team_fee.is.null,games_guaranteed.is.null,player_parking.is.null,venue.is.null,address.is.null,venue_url.is.null"
@@ -883,12 +1061,12 @@ export async function POST(request: Request) {
     let fallbackQuery = supabaseAdmin
       .from("tournaments" as any)
       .select(withCooldownSelect)
-      .eq("status", "published")
-      .eq("is_canonical", true)
+      .eq("status", statusParam)
       .eq("enrichment_skip", false)
       .or("official_website_url.not.is.null,source_url.not.is.null");
+    if (requireCanonical) fallbackQuery = fallbackQuery.eq("is_canonical", true);
     if (focusMissingVenues) {
-      fallbackQuery = fallbackQuery.or("venue.is.null,venue.eq.,address.is.null,address.eq.");
+      fallbackQuery = fallbackQuery.is("venue", null).is("address", null);
     }
     const fallback = await fallbackQuery.order("fees_venue_scraped_at", { ascending: true, nullsFirst: true }).limit(candidatePoolSize);
     if (!fallback.error) return fallback;
@@ -896,12 +1074,12 @@ export async function POST(request: Request) {
       let fallbackNoCooldownQuery = supabaseAdmin
         .from("tournaments" as any)
         .select(withoutCooldownSelect)
-        .eq("status", "published")
-        .eq("is_canonical", true)
+        .eq("status", statusParam)
         .eq("enrichment_skip", false)
         .or("official_website_url.not.is.null,source_url.not.is.null");
+      if (requireCanonical) fallbackNoCooldownQuery = fallbackNoCooldownQuery.eq("is_canonical", true);
       if (focusMissingVenues) {
-        fallbackNoCooldownQuery = fallbackNoCooldownQuery.or("venue.is.null,venue.eq.,address.is.null,address.eq.");
+        fallbackNoCooldownQuery = fallbackNoCooldownQuery.is("venue", null).is("address", null);
       }
       return fallbackNoCooldownQuery.limit(candidatePoolSize);
     }
@@ -942,14 +1120,27 @@ export async function POST(request: Request) {
   if (focusMissingVenues && (tournaments as any[] | null)?.length) {
     const candidateTournamentIds = ((tournaments as any[] | null) ?? []).map((t: any) => String(t.id ?? "")).filter(Boolean);
     if (candidateTournamentIds.length) {
-      const { data: links } = await supabaseAdmin
-        .from("tournament_venues" as any)
-        .select("tournament_id")
-        .in("tournament_id", candidateTournamentIds)
-        .limit(20000);
-      linkedTournamentIds = new Set(
-        ((links ?? []) as Array<{ tournament_id: string | null }>).map((r) => String(r.tournament_id ?? "")).filter(Boolean)
-      );
+      // PostgREST `.in()` filters can overflow URL/header limits for large arrays,
+      // so chunk these requests (otherwise we silently fail and end up scanning tournaments that already have venues).
+      const out = new Set<string>();
+      const chunkSize = 200;
+      for (let i = 0; i < candidateTournamentIds.length; i += chunkSize) {
+        const chunk = candidateTournamentIds.slice(i, i + chunkSize);
+        const { data: links, error: linkErr } = await supabaseAdmin
+          .from("tournament_venues" as any)
+          .select("tournament_id")
+          .in("tournament_id", chunk)
+          .limit(20000);
+        if (linkErr) {
+          console.warn("[fees-venue] failed to load tournament_venues for missing_venues skip", linkErr.message);
+          continue;
+        }
+        for (const row of (links ?? []) as Array<{ tournament_id: string | null }>) {
+          const id = String(row.tournament_id ?? "");
+          if (id) out.add(id);
+        }
+      }
+      linkedTournamentIds = out;
     }
   }
   let pendingTournamentIds = new Set<string>();
@@ -1012,6 +1203,7 @@ export async function POST(request: Request) {
   let pagesFetched = 0;
   let autoLinkedExisting = 0;
   let autoLinkedVenueUrlUpdated = 0;
+  let droppedLowQualityVenueEntries = 0;
 
   for (const t of selected) {
     tournamentLocalityById.set(String((t as any).id ?? ""), {
@@ -1170,6 +1362,10 @@ export async function POST(request: Request) {
         extractMapLinkedVenueEntries($).forEach((entry) =>
           venueEntriesPool.push({ ...entry, source_url: page.url, venue_url: null })
         );
+        // Many sites expose venue location via schema.org JSON-LD even when the rendered page is thin.
+        extractJsonLdVenueEntriesFromPage($).forEach((entry) =>
+          venueEntriesPool.push({ venue_name: entry.venue_name, address_text: entry.address_text, source_url: page.url, venue_url: entry.venue_url })
+        );
       }
 
       // Some sites list facilities as "Venue Name – City, ST" with no street address.
@@ -1181,6 +1377,18 @@ export async function POST(request: Request) {
             address_text: facility.address_text,
             source_url: page.url,
             venue_url: null,
+          });
+        }
+      }
+
+      // Even on non-venue landing pages, JSON-LD sometimes includes the event location.
+      if (focusMissingVenues && !(venuePathMatch || isLikelyVenueContentPage($))) {
+        for (const entry of extractJsonLdVenueEntriesFromPage($).slice(0, 6)) {
+          venueEntriesPool.push({
+            venue_name: entry.venue_name,
+            address_text: entry.address_text,
+            source_url: page.url,
+            venue_url: entry.venue_url,
           });
         }
       }
@@ -1225,7 +1433,10 @@ export async function POST(request: Request) {
       }
 
       if (venueUrlCandidates.size > 0 && !foundByKey.has("venue_url")) {
-        for (const urlCandidate of venueUrlCandidates) {
+        const filteredVenueUrls = Array.from(venueUrlCandidates)
+          .filter((u) => (focusMissingVenues ? isLikelyVenueLandingPath(u) : true))
+          .slice(0, 5);
+        for (const urlCandidate of filteredVenueUrls) {
           candidates.push({
             tournament_id: t.id,
             attribute_key: "venue_url",
@@ -1327,11 +1538,26 @@ export async function POST(request: Request) {
     }
     if (venueEntriesPool.length) {
       const entryDedup = new Set<string>();
-      for (const entry of venueEntriesPool.slice(0, 30)) {
+      const ranked = venueEntriesPool
+        .map((entry) => {
+          const candidateVenueUrl = entry.venue_url ?? Array.from(venueUrlCandidates)[0] ?? null;
+          return { entry, candidateVenueUrl, score: scoreVenueEntryForInsert(entry, candidateVenueUrl) };
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 20);
+
+      for (const { entry, candidateVenueUrl } of ranked) {
+        if (!looksLikeStreetAddress(entry.address_text)) {
+          droppedLowQualityVenueEntries += 1;
+          continue;
+        }
+        if (entry.venue_name && isJunkVenueName(entry.venue_name)) {
+          droppedLowQualityVenueEntries += 1;
+          continue;
+        }
         const key = `${(entry.venue_name ?? "").toLowerCase()}|${entry.address_text.toLowerCase()}|${entry.source_url}`;
         if (entryDedup.has(key)) continue;
         entryDedup.add(key);
-        const candidateVenueUrl = entry.venue_url ?? Array.from(venueUrlCandidates)[0] ?? null;
         let autoLinked = false;
         if (focusMissingVenues) {
           const tournamentLocality = tournamentLocalityById.get(String(t.id ?? ""));
@@ -1615,6 +1841,7 @@ export async function POST(request: Request) {
     venue_inserted: venueInserted,
     venue_candidates_parsed: venueCandidates.length,
     venue_candidates_inserted: venueInserted,
+    venue_candidates_dropped_low_quality: droppedLowQualityVenueEntries,
     auto_linked_existing: autoLinkedExisting,
     auto_linked_venue_url_updated: autoLinkedVenueUrlUpdated,
     attempted,

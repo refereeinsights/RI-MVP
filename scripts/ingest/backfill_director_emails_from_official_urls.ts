@@ -64,6 +64,88 @@ const BLOCKED_EMAIL_DOMAINS = new Set<string>([
   "teamtravelsource.com",
 ]);
 
+function decodeCloudflareEmail(hex: string) {
+  const cleanHex = (hex || "").trim().toLowerCase();
+  if (cleanHex.length < 4 || cleanHex.length % 2 !== 0) return "";
+  const bytes: number[] = [];
+  for (let i = 0; i < cleanHex.length; i += 2) {
+    const b = Number.parseInt(cleanHex.slice(i, i + 2), 16);
+    if (!Number.isFinite(b)) return "";
+    bytes.push(b);
+  }
+  const key = bytes[0] ?? 0;
+  const out: number[] = [];
+  for (const b of bytes.slice(1)) out.push(b ^ key);
+  try {
+    return String.fromCharCode(...out);
+  } catch {
+    return "";
+  }
+}
+
+function decodeBasicHtmlEntities(input: string) {
+  const text = String(input ?? "");
+  const named: Record<string, string> = {
+    "&nbsp;": " ",
+    "&amp;": "&",
+    "&quot;": '"',
+    "&#34;": '"',
+    "&apos;": "'",
+    "&#39;": "'",
+    "&lt;": "<",
+    "&gt;": ">",
+  };
+  let out = text.replace(/&(nbsp|amp|quot|apos|lt|gt);|&#(?:34|39);/g, (m) => named[m] ?? m);
+  out = out
+    .replace(/&#x([0-9a-fA-F]+);/g, (_full, hex) => {
+      const n = Number.parseInt(String(hex), 16);
+      if (!Number.isFinite(n)) return _full;
+      try {
+        return String.fromCharCode(n);
+      } catch {
+        return _full;
+      }
+    })
+    .replace(/&#([0-9]{1,6});/g, (_full, dec) => {
+      const n = Number.parseInt(String(dec), 10);
+      if (!Number.isFinite(n)) return _full;
+      try {
+        return String.fromCharCode(n);
+      } catch {
+        return _full;
+      }
+    });
+  return out;
+}
+
+function stripHtmlTags(input: string) {
+  return String(input ?? "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+}
+
+function extractObfuscatedEmailsFromText(text: string): string[] {
+  const out = new Set<string>();
+  const t = normalizeDomain(normalizeDomain(decodeBasicHtmlEntities(text)).replace(/\s+/g, " "));
+
+  // Examples:
+  // - john [at] example [dot] org
+  // - john(at)example(dot)org
+  // - john at example dot org
+  const pattern =
+    /\b([a-z0-9._%+-]{1,64})\s*(?:\(|\[)?\s*(?:at)\s*(?:\)|\])?\s*([a-z0-9.-]{1,190})\s*(?:\(|\[)?\s*(?:dot)\s*(?:\)|\])?\s*([a-z]{2,24})(\b|\s)/gi;
+  for (const m of t.matchAll(pattern)) {
+    const local = (m[1] ?? "").trim();
+    const domainLeft = (m[2] ?? "").trim().replace(/\s+/g, "");
+    const tld = (m[3] ?? "").trim();
+    const candidate = `${local}@${domainLeft}.${tld}`.toLowerCase();
+    if (isValidEmail(candidate)) out.add(candidate);
+  }
+
+  return Array.from(out);
+}
+
 function printHelp() {
   // NOTE: In some CI/sandbox environments, tsx needs TMPDIR pointed at a writable directory.
   // Example: TMPDIR=/tmp npx tsx scripts/ingest/backfill_director_emails_from_official_urls.ts --report-domains
@@ -147,19 +229,45 @@ function scoreEmail(email: string) {
 function extractEmailsFromHtml(html: string) {
   const emails = new Set<string>();
 
-  // mailto:
-  const mailtos = html.match(/mailto:([^\s"'<>]+)/gi) ?? [];
-  for (const m of mailtos) {
-    const raw = m.replace(/^mailto:/i, "").split("?")[0] ?? "";
-    const cleaned = raw.trim().toLowerCase();
-    if (isValidEmail(cleaned)) emails.add(cleaned);
-  }
+  const variants: Array<unknown> = [html, decodeBasicHtmlEntities(html)];
+  for (const vHtmlRaw of variants) {
+    const vHtml = String(vHtmlRaw ?? "");
+    // mailto:
+    const mailtos = vHtml.match(/mailto:([^\s"'<>]+)/gi) ?? [];
+    for (const m of mailtos) {
+      const raw = m.replace(/^mailto:/i, "").split("?")[0] ?? "";
+      const cleaned = raw.trim().toLowerCase();
+      if (isValidEmail(cleaned)) emails.add(cleaned);
+    }
 
-  // plain text
-  const plain = html.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
-  for (const p of plain) {
-    const cleaned = p.trim().toLowerCase();
-    if (isValidEmail(cleaned)) emails.add(cleaned);
+    // Cloudflare Email Protection
+    const cfTokens = vHtml.match(/data-cfemail\s*=\s*["']?([0-9a-fA-F]+)["']?/g) ?? [];
+    for (const token of cfTokens) {
+      const m = token.match(/data-cfemail\s*=\s*["']?([0-9a-fA-F]+)["']?/i);
+      const hex = m?.[1] ?? "";
+      const decoded = decodeCloudflareEmail(hex);
+      const cleaned = decoded.trim().toLowerCase();
+      if (decoded && isValidEmail(cleaned)) emails.add(cleaned);
+    }
+    const cfLinks = vHtml.match(/\/cdn-cgi\/l\/email-protection#([0-9a-fA-F]+)/g) ?? [];
+    for (const token of cfLinks) {
+      const m = token.match(/email-protection#([0-9a-fA-F]+)/i);
+      const hex = m?.[1] ?? "";
+      const decoded = decodeCloudflareEmail(hex);
+      const cleaned = decoded.trim().toLowerCase();
+      if (decoded && isValidEmail(cleaned)) emails.add(cleaned);
+    }
+
+    // plain text
+    const plain = vHtml.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
+    for (const p of plain) {
+      const cleaned = p.trim().toLowerCase();
+      if (isValidEmail(cleaned)) emails.add(cleaned);
+    }
+
+    // common obfuscations: name (at) domain (dot) tld, etc
+    const asText = stripHtmlTags(vHtml);
+    for (const ob of extractObfuscatedEmailsFromText(asText)) emails.add(ob);
   }
 
   return Array.from(emails);
@@ -170,15 +278,21 @@ function extractContactUrls(html: string, baseUrl: string) {
   const baseDomain = getDomainFromUrl(baseUrl);
   if (!baseDomain) return out;
 
-  // Very lightweight: find hrefs that contain "contact" or "about" or "staff".
-  const hrefs = html.match(/href\s*=\s*["']([^"']+)["']/gi) ?? [];
-  for (const h of hrefs) {
-    const raw = h.replace(/^href\s*=\s*["']/i, "").replace(/["']$/i, "").trim();
+  // Find contact-ish links. IMPORTANT: only scan anchors, not <link href=...> assets.
+  // Also avoid overly broad keywords (like "tournament") which match theme assets on many sites.
+  const keyword = /(contact|contact-us|contacts|about|about-us|staff|directory|board|officials|officers|commissioner)/i;
+  const isAssetHref = (href: string) =>
+    /\.(?:css|js|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot|map|pdf)(?:\?|#|$)/i.test(href) ||
+    /\/wp-content\/|\/wp-includes\//i.test(href);
+
+  for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>/gi)) {
+    const raw = (m?.[1] ?? "").trim();
     if (!raw) continue;
     const normalized = raw.toLowerCase();
-    if (!/(contact|about|staff|directory)/.test(normalized)) continue;
+    if (!keyword.test(normalized)) continue;
     if (normalized.startsWith("mailto:") || normalized.startsWith("tel:") || normalized.startsWith("javascript:"))
       continue;
+    if (isAssetHref(normalized)) continue;
     try {
       const resolved = new URL(raw, baseUrl).toString();
       const domain = getDomainFromUrl(resolved);
@@ -190,7 +304,7 @@ function extractContactUrls(html: string, baseUrl: string) {
   }
 
   // De-dupe while preserving order.
-  return Array.from(new Set(out)).slice(0, 2);
+  return Array.from(new Set(out)).slice(0, 3);
 }
 
 type FetchedHtml = {
@@ -210,9 +324,11 @@ async function fetchHtml(url: string): Promise<FetchedHtml | null> {
     // We accept 404 HTML so we can still extract footer "info@" emails and follow Contact links.
     if (!resp.ok && resp.status !== 404) return null;
     const contentType = resp.headers.get("content-type") ?? "";
-    if (!/text\/html/i.test(contentType)) return null;
+    // Some sites omit a useful content-type; accept if the payload looks like HTML.
+    if (contentType && !/text\/html|application\/xhtml\+xml/i.test(contentType)) return null;
     const text = await resp.text();
     if (!text) return null;
+    if (!/<html|<body|<!doctype/i.test(text) && contentType) return null;
     return { status: resp.status, html: text };
   } catch {
     return null;
@@ -360,7 +476,7 @@ async function main() {
       const nextHtml = await fetchHtml(nextUrl);
       fetchedUrls.push(nextUrl);
       if (!nextHtml) continue;
-      emails = emails.concat(extractEmailsFromHtml(nextHtml));
+      emails = emails.concat(extractEmailsFromHtml(nextHtml.html));
     }
 
     const uniqueEmails = Array.from(new Set(emails)).filter(isValidEmail);
