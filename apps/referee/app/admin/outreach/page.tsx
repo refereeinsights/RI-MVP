@@ -9,6 +9,7 @@ import CopyLinkButton from "@/components/admin/CopyLinkButton";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { DEFAULT_TEMPLATES, buildTournamentUrl, renderOutreachTemplate } from "@/lib/outreach";
+import { buildTiAdminSsoUrl } from "@/lib/tiSso";
 
 export const runtime = "nodejs";
 
@@ -41,7 +42,14 @@ export default async function OutreachPage({
 }: {
   searchParams?: { tab?: TabKey; notice?: string; state?: string; sport?: string; start_from?: string; start_to?: string; q?: string; staff_token?: string };
 }) {
-  await requireAdmin();
+  const adminUser = await requireAdmin();
+  const tiAdminBaseUrl =
+    process.env.NODE_ENV === "development" ? "http://localhost:3001" : "https://www.tournamentinsights.com";
+  const tiSoccerOutreachHref = buildTiAdminSsoUrl({
+    tiAdminBaseUrl,
+    email: adminUser.email ?? "",
+    returnTo: "/admin/outreach-previews?sport=soccer",
+  });
   const notice = searchParams?.notice ?? "";
   const tab: TabKey = (searchParams?.tab as TabKey) ?? "draft";
   const state = (searchParams?.state ?? "").trim();
@@ -565,7 +573,7 @@ export default async function OutreachPage({
               Create outreach rows
             </Link>
             <Link
-              href="https://www.tournamentinsights.com/admin/outreach-previews?sport=soccer"
+              href={tiSoccerOutreachHref}
               target="_blank"
               rel="noreferrer"
               style={{

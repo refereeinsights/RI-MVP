@@ -167,3 +167,12 @@
 - RI tournaments: collapsed "Share your experience" behind a click-to-expand disclosure and widened the form area (full width) to reduce vertical scrolling.
 - RI tournaments: added "Help the crew" (light/white, centered) and "Invite another referee" (mailto invite) disclosures under About; also restyled Decision Signals to match the new dark card surface.
 - RI tournaments: removed the "Help the crew" white disclosure box (kept invite and the centered tournament referral CTA), and centered the tournament referral creative copy while removing the eyebrow line.
+
+## 2026-03-22
+
+- Chore: stopped tracking `tsconfig.tsbuildinfo` caches.
+- Cross-domain admin SSO (RI -> TI): added RI-side helper to sign short-lived SSO links and wired it into RI admin pages (Outreach, TI, and Tournaments dashboard) to open TI outreach previews as the same admin user.
+- TI: added `/admin/sso` route to validate the signed token, generate/verify a Supabase magiclink server-side, set the TI auth cookie, and redirect to the requested admin page; TI login now surfaces `notice=` and outreach admin redirects preserve `returnTo`.
+- Supabase admin clients (RI + TI): trim URL and sanitize service role key to avoid hidden copy/paste characters.
+- RI admin venues: improved duplicate candidate matching by falling back to extracting a street-like string from venue names when address fields are missing; added a safety cap on the venue pagination loop.
+- Ingest/Ops: added `scripts/ingest/export_missing_tournament_venue_research.ts` (research grouping exports) and `scripts/ingest/ingest_tournament_search_csv.ts` (dry-run by default; `--apply` to upsert tournaments/venues/links from a search CSV).

@@ -66,7 +66,14 @@ export default async function OutreachPreviewsPage({
 }: {
   searchParams?: SearchParams;
 }) {
-  const user = await requireTiOutreachAdmin();
+  const returnParams = new URLSearchParams();
+  if (searchParams?.campaign_id) returnParams.set("campaign_id", searchParams.campaign_id);
+  if (searchParams?.sport) returnParams.set("sport", searchParams.sport);
+  if (searchParams?.preview_id) returnParams.set("preview_id", searchParams.preview_id);
+  if (searchParams?.start_after) returnParams.set("start_after", searchParams.start_after);
+  const returnTo = `/admin/outreach-previews${returnParams.toString() ? `?${returnParams.toString()}` : ""}`;
+
+  const user = await requireTiOutreachAdmin(returnTo);
 
   const campaignId = searchParams?.campaign_id?.trim() || "";
   const sport = normalizeSportFilterParam(searchParams?.sport);

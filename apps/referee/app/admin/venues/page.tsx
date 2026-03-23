@@ -318,7 +318,8 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
     // Pull all venues for duplicate checks (avoid truncation that can hide true dupes).
     const allVenuesLite: Array<Record<string, any>> = [];
     const pageSize = 2000;
-    for (let offset = 0; offset < 20000; offset += pageSize) {
+    const maxVenues = 100000; // safety cap; avoid infinite loops on unexpected PostgREST behavior
+    for (let offset = 0; offset < maxVenues; offset += pageSize) {
       const resp = await supabaseAdmin
         .from("venues" as any)
         .select(
@@ -374,11 +375,23 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       return normalizeIdentityText(withoutNumber);
     };
 
+    const extractStreetFromName = (name: string | null) => {
+      const raw = String(name ?? "");
+      if (!raw) return null;
+      // Common pattern: "... - 10100 SW 200 Street" or "... 10100 SW 200 Street"
+      const m =
+        raw.match(/(?:-\s*)?(\d{1,6}\s+[A-Za-z0-9 .'-]{2,80}\b(?:st|street|rd|road|ave|avenue|blvd|boulevard|dr|drive|ln|lane|ct|court|pl|place|pkwy|parkway)\b)/i) ??
+        raw.match(/(\d{1,6}\s+[A-Za-z0-9 .'-]{2,80})/);
+      return m?.[1]?.trim() ?? null;
+    };
+
     for (const row of allVenuesLite) {
+      const fallbackStreet = extractStreetFromName(row.name ?? null);
+      const fallbackAddress = row.address ?? row.address1 ?? row.normalized_address ?? fallbackStreet ?? null;
       const candidate: DuplicateVenueCandidate = {
         id: String(row.id),
         name: row.name ?? null,
-        address: row.address ?? row.address1 ?? row.normalized_address ?? null,
+        address: fallbackAddress,
         city: row.city ?? null,
         state: row.state ?? null,
         zip: row.zip ?? null,
@@ -400,7 +413,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         const key =
           (typeof row.address_fingerprint === "string" && row.address_fingerprint.trim()) ||
           buildVenueAddressFingerprint({
-            address: row.address ?? null,
+            address: fallbackAddress,
             address1: row.address1 ?? null,
             normalizedAddress: row.normalized_address ?? null,
             city: row.city ?? null,

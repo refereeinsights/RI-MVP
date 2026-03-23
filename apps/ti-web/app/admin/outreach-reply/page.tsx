@@ -4,7 +4,7 @@ import OutreachReplyTool from "./ui/OutreachReplyTool";
 export const dynamic = "force-dynamic";
 
 export default async function OutreachReplyPage() {
-  await requireTiOutreachAdmin();
+  await requireTiOutreachAdmin("/admin/outreach-reply");
 
   return (
     <div style={{ padding: "18px 18px 60px 18px", maxWidth: 1100, margin: "0 auto" }}>
@@ -25,4 +25,3 @@ export default async function OutreachReplyPage() {
     </div>
   );
 }
-

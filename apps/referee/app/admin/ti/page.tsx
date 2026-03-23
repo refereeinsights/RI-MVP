@@ -4,6 +4,7 @@ import type { User as AuthUser } from "@supabase/supabase-js";
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { buildTiAdminSsoUrl } from "@/lib/tiSso";
 import LabelPrintSettings from "./LabelPrintSettings";
 import PrintLabelButton from "./PrintLabelButton";
 import TopTournamentsByStartedTable from "./TopTournamentsByStartedTable";
@@ -658,7 +659,7 @@ export default async function TiAdminPage({
 }: {
   searchParams?: { q?: string; notice?: string };
 }) {
-  await requireAdmin();
+  const adminUser = await requireAdmin();
   const tiAdminBaseUrl =
     process.env.NODE_ENV === "development"
       ? "http://localhost:3001"
@@ -792,7 +793,11 @@ export default async function TiAdminPage({
           ].map((entry) => (
             <Link
               key={entry.sport}
-              href={`${tiAdminBaseUrl}/admin/outreach-previews?sport=${entry.sport}`}
+              href={buildTiAdminSsoUrl({
+                tiAdminBaseUrl,
+                email: adminUser.email ?? "",
+                returnTo: `/admin/outreach-previews?sport=${encodeURIComponent(entry.sport)}`,
+              })}
               target="_blank"
               rel="noreferrer"
               style={{

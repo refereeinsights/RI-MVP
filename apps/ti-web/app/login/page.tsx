@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = useState("");
   const code = (searchParams.get("code") || "").trim();
+  const notice = (searchParams.get("notice") || "").trim();
   const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/account");
   const nextPath = code ? `/join?code=${encodeURIComponent(code)}` : returnTo;
 
@@ -73,6 +74,7 @@ export default function LoginPage() {
         </button>
       </form>
       {message ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{message}</div> : null}
+      {notice ? <div style={{ fontSize: 12, color: "#64748b" }}>Notice: {notice}</div> : null}
       <div style={{ fontSize: 13 }}>
         Need an account?{" "}
         <Link
