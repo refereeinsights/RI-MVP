@@ -147,8 +147,6 @@
 - Ops: exported grouping reports for the remaining published canonical tournaments missing venue links: `/tmp/ri_missing_venues_by_domain.csv` and `/tmp/ri_missing_venues_by_sport.csv` (used to pick next scraper targets).
 - Ingest: upgraded `scripts/ingest/link_sincsports_missing_venues.ts` to focus on `soccer.sincsports.com` and parse venue addresses from both `details.aspx` (Locations section) and linked `TTMore.aspx?tab=4` Field Location pages; then ran it with `--apply` (upserted 4 tournament->venue links total and created 3 new venues; most SincSports events still do not publish venue addresses on-page).
 - Data: ran `scripts/ingest/migrate_denorm_venues_to_links.ts --limit=50 --offset=0 --apply`; created 6 venues and upserted 6 tournament->venue links (skips non-street placeholder addresses like "TBD" / "Multiple gyms").
-- Ingest: added `scripts/ingest/migrate_denorm_venues_to_links.ts` to backfill normalized venue rows + `tournament_venues` links from denormalized `tournaments.venue`/`tournaments.address` (additive-only; never deletes/overwrites tournament fields; dry-run by default, supports `--apply --limit --offset`).
-
 ## 2026-03-21
 
 - TI Outreach: expanded outreach sport support to all `TI_SPORTS` (admin preview/reply tools, templates, typing + normalization) so campaigns can be generated per sport beyond soccer/baseball/softball.
@@ -185,5 +183,7 @@
 - Missing venues prioritization: `mode=missing_venues` now targets the true backlog (`venue IS NULL` AND `address IS NULL`) to focus the 400+ tournaments with no venue data.
 - Missing venues scan quality: reduce low-quality venue candidates by ranking + filtering to require street-like addresses (drops `City, ST`-only rows and common placeholders like `TBD` / `multiple locations`), cap venue-url candidates, and expose `venue_candidates_dropped_low_quality` in the API response.
 - Missing venues UI: bulk deep scan now supports “Deep scan all (N)” running batches sequentially and lets you pick batch size (25/50/etc).
+- Missing venues deep scan: seed tournament-specific internal links based on the tournament name to “dig down” from hub URLs (helps sources like `https://toptiersports.net/basketball/` where multiple tournaments share the same page).
 - US Club Soccer: added an enrichment helper that parses the sanctioned tournament directory to create `tournament_url_suggestions` for tournaments whose URL incorrectly points at the directory page; added a Missing Venues UI button to trigger it and review suggestions in enrichment.
 - Ops: added `scripts/ops/link_venue_to_tournament.ts` to create/de-dupe a venue and link it to a tournament (used to create/link Kino South Complex to tournament `42517eeb-6c22-4d53-9b46-cff416cbcc12`).
+- Ingest: added `scripts/ingest/migrate_denorm_venues_to_links.ts` to backfill normalized venue rows + `tournament_venues` links from denormalized `tournaments.venue`/`tournaments.address` (additive-only; never deletes/overwrites tournament fields; dry-run by default, supports `--apply --limit --offset`).

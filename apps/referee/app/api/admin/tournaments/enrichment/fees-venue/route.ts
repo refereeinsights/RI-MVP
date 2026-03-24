@@ -735,6 +735,90 @@ function extractVenueKeywordLinks($: cheerio.CheerioAPI, baseUrl: string): strin
   return Array.from(out);
 }
 
+function extractTournamentSpecificLinks(
+  $: cheerio.CheerioAPI,
+  baseUrl: string,
+  tournamentName: string | null | undefined,
+  max = 6
+): string[] {
+  const rawName = normalizeSpace(String(tournamentName ?? ""));
+  if (!rawName) return [];
+  const base = new URL(baseUrl);
+
+  const stop = new Set([
+    "the",
+    "a",
+    "an",
+    "and",
+    "of",
+    "in",
+    "at",
+    "for",
+    "to",
+    "on",
+    "tournament",
+    "cup",
+    "classic",
+    "showcase",
+    "invitational",
+    "challenge",
+    "festival",
+    "spring",
+    "summer",
+    "fall",
+    "winter",
+    "soccer",
+    "basketball",
+    "softball",
+    "baseball",
+    "volleyball",
+  ]);
+
+  const nameTokens = rawName
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(" ")
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 3 && !stop.has(t));
+
+  if (!nameTokens.length) return [];
+
+  const scored: Array<{ href: string; score: number }> = [];
+  const seen = new Set<string>();
+  $("a[href]").each((_idx, el) => {
+    const hrefRaw = ($(el).attr("href") || "").trim();
+    if (!hrefRaw || hrefRaw.startsWith("mailto:") || hrefRaw.startsWith("tel:") || hrefRaw.startsWith("javascript:")) return;
+    const normalized = normalizeUrl(hrefRaw, base);
+    if (!normalized) return;
+    try {
+      const parsed = new URL(normalized);
+      if (parsed.hostname !== base.hostname) return;
+      if (seen.has(normalized)) return;
+      seen.add(normalized);
+
+      const anchorText = normalizeSpace($(el).text() || "");
+      const combined = `${anchorText} ${parsed.pathname} ${parsed.search}`.toLowerCase();
+      let hits = 0;
+      for (const token of nameTokens) {
+        if (combined.includes(token)) hits += 1;
+      }
+      if (hits === 0) return;
+      // Require at least two token hits for common names to avoid drifting to generic pages.
+      if (nameTokens.length >= 4 && hits < 2) return;
+      let score = hits * 10;
+      if (/(tournament|event|schedule|bracket|details|about)/i.test(combined)) score += 3;
+      if (/(venue|venues|facility|facilities|fields|location|directions|map)/i.test(combined)) score += 2;
+      scored.push({ href: normalized, score });
+    } catch {
+      return;
+    }
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, max).map((s) => s.href);
+}
+
 function detectVenuePageUrl(currentUrl: string, $: cheerio.CheerioAPI): string | null {
   const selfPath = new URL(currentUrl).pathname.toLowerCase();
   if (/(^|\/)(venue|venues|location|locations|field|fields|facility|facilities|map|maps|directions?)(\/|$)/.test(selfPath))
@@ -1285,15 +1369,19 @@ export async function POST(request: Request) {
     })();
     const prefetchedSeedUrls = seededVenueUrlsByTournament.get(String((t as any).id ?? "")) ?? [];
     let homepageKeywordUrls: string[] = [];
+    let tournamentSpecificUrls: string[] = [];
     const homepageHtml = await fetchHtml(url);
     if (homepageHtml) {
       const $home = cheerio.load(homepageHtml);
       homepageKeywordUrls = extractVenueKeywordLinks($home, url);
+      if (focusMissingVenues) {
+        tournamentSpecificUrls = extractTournamentSpecificLinks($home, url, (t as any).name ?? null, 6);
+      }
     }
     const pages = await fetchTournamentPages(
       url,
       focusMissingVenues ? 12 : 6,
-      Array.from(new Set([...prefetchedSeedUrls, ...homepageKeywordUrls]))
+      Array.from(new Set([...tournamentSpecificUrls, ...prefetchedSeedUrls, ...homepageKeywordUrls]))
     );
     pagesFetched += pages.length;
     if (!pages.length) continue;
