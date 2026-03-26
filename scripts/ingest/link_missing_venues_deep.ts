@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { makeVenueSlug } from "@/lib/venues/slug";
+import { makeVenueSlug } from "../../apps/referee/lib/venues/slug";
 import * as cheerio from "cheerio";
 
 type TournamentRow = {
@@ -701,7 +701,18 @@ async function run() {
 
     } catch (error) {
       failures += 1;
-      const message = error instanceof Error ? error.message : String(error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+          ? error
+          : (() => {
+              try {
+                return JSON.stringify(error);
+              } catch {
+                return String(error);
+              }
+            })();
       console.error(`[link_missing_venues_deep] ${t.id} failed: ${message}`);
     }
   }

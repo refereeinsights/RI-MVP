@@ -6,6 +6,7 @@
 - Owl’s Eye duplicates → venue duplicates workflow: added persisted suspects table `supabase/migrations/20260326_owls_eye_venue_duplicate_suspects.sql`, store `DUPLICATE_VENUE_SUSPECT` pairs during Owl’s Eye runs, and surface them as an “Owl’s Eye suspect” group in `/admin/venues?duplicates=1` (keep-both override also suppresses Owl suspects). Follow-up: venues duplicate UI now backfill-fetches any suspect venue IDs missing from the full venue scan so Owl suspects always render (even if the venue scan breaks/truncates).
 - Ops: added `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs` to ingest tournaments + venues from a CSV with duplicate checks and `tournament_venues` linking (idempotent-ish; avoids merging distinct tournaments that share a generic “tournaments landing page” URL). Follow-up: URL-only dedupe now skips generic directory URLs like `/events` to prevent merging distinct tournaments on shared listing pages.
 - Ops: added `scripts/ops/ingest_venues_from_csv.mjs` to ingest venue-only CSV lists (create new venues when address/city/state are present; otherwise skip; fill-in missing venue fields on exact matches).
+- Missing venues deep scan: fixed local script execution by removing `@/` path alias import from `scripts/ingest/link_missing_venues_deep.ts` and improved failure logging so errors don’t print as `[object Object]`.
 
 ## 2026-03-14
 
