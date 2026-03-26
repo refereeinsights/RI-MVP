@@ -110,7 +110,20 @@ function parseCsv(content: string): CsvRow[] {
     const venue_name = clean(cols[venueNameIdx]) ?? "";
     const venue_address = clean(cols[venueAddrIdx]) ?? "";
 
-    if (!tournament_id || !venue_name || !venue_address) continue;
+    // Treat missing required values as bad rows so we can report on them.
+    if (!tournament_id || !venue_name || !venue_address) {
+      rows.push({
+        tournament_id,
+        tournament_name: tNameIdx >= 0 ? clean(cols[tNameIdx]) : null,
+        sport: sportIdx >= 0 ? clean(cols[sportIdx]) : null,
+        state: stateIdx >= 0 ? clean(cols[stateIdx]) : null,
+        venue_name,
+        venue_address,
+        confidence: confIdx >= 0 ? clean(cols[confIdx]) : null,
+        source: sourceIdx >= 0 ? clean(cols[sourceIdx]) : null,
+      });
+      continue;
+    }
 
     rows.push({
       tournament_id,
@@ -185,6 +198,11 @@ async function main() {
   for (const row of rows) {
     const tournamentId = clean(row.tournament_id);
     if (!tournamentId || !isUuid(tournamentId)) {
+      summary.skippedBadRows += 1;
+      continue;
+    }
+
+    if (!clean(row.venue_name) || !clean(row.venue_address)) {
       summary.skippedBadRows += 1;
       continue;
     }
