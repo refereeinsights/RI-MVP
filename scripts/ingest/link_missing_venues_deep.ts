@@ -656,11 +656,37 @@ async function run() {
             .insert(payload)
             .select("id,name,address,address1,city,state,zip,venue_url")
             .single();
-          if (insertErr) throw insertErr;
-          venue = insertedRaw as VenueRow;
-          indexVenue(venue);
-          created += 1;
-          wasExisting = false;
+          if (insertErr) {
+            // When multiple tournaments share the same venue page/address we may race the unique
+            // constraint on (name,address,city,state). If that happens, re-select the existing row.
+            if (String((insertErr as any)?.code ?? "") === "23505") {
+              const venueName = String(payload.name ?? "").trim();
+              const { data: existingRows, error: selectErr } = await supabase
+                .from("venues" as any)
+                .select("id,name,address,address1,city,state,zip,venue_url")
+                .eq("name", venueName)
+                .eq("address", addr)
+                .eq("city", city)
+                .eq("state", state)
+                .limit(2);
+              if (selectErr) throw selectErr;
+              const rows = (existingRows ?? []).filter((r: any) => r?.id);
+              if (rows.length === 1) {
+                venue = rows[0] as VenueRow;
+                indexVenue(venue);
+                wasExisting = true;
+              } else {
+                throw insertErr;
+              }
+            } else {
+              throw insertErr;
+            }
+          } else {
+            venue = insertedRaw as VenueRow;
+            indexVenue(venue);
+            created += 1;
+            wasExisting = false;
+          }
         } else if (venue && APPLY && !venue.venue_url && pv.venue_url) {
           const { data: updatedRaw, error: updateErr } = await supabase
             .from("venues" as any)
