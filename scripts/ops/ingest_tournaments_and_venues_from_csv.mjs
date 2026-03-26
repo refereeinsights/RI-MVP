@@ -134,6 +134,24 @@ function sourceDomain(url) {
   }
 }
 
+function isGenericTournamentListingUrl(url) {
+  const u = clean(url);
+  if (!u) return false;
+  try {
+    const parsed = new URL(u);
+    const path = parsed.pathname.replace(/\/+$/, "");
+    // Common "directory" / landing pages used by many distinct tournaments.
+    if (!path || path === "") return true;
+    if (path === "/events") return true;
+    if (path === "/event") return true;
+    if (path === "/tournaments") return true;
+    if (path === "/programs/tournaments") return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 async function findExistingTournament(supabase, args) {
   const slug = clean(args.slug);
   if (slug) {
@@ -161,6 +179,9 @@ async function findExistingTournament(supabase, args) {
   }
 
   if (url) {
+    if (isGenericTournamentListingUrl(url)) {
+      return { tournament: null, note: "generic_url_skip" };
+    }
     const byUrl = await supabase
       .from("tournaments")
       .select("id,name,official_website_url,source_url,start_date,state")

@@ -488,6 +488,49 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 	        .order("last_seen_at", { ascending: false })
 	        .limit(5000);
 	      if (!owlResp.error && Array.isArray(owlResp.data)) {
+	        // Ensure we have venue rows for all suspect IDs, even if the full-venue scan above
+	        // was truncated or failed (e.g. schema mismatch on optional fingerprint columns).
+	        const neededIds = new Set<string>();
+	        for (const row of owlResp.data as any[]) {
+	          const sourceId = String(row?.source_venue_id ?? "");
+	          const candidateId = String(row?.candidate_venue_id ?? "");
+	          if (sourceId) neededIds.add(sourceId);
+	          if (candidateId) neededIds.add(candidateId);
+	        }
+	        const missingIds = Array.from(neededIds).filter((id) => !allById.has(id));
+	        const chunk = <T,>(values: T[], size = 80) => {
+	          const out: T[][] = [];
+	          for (let i = 0; i < values.length; i += size) out.push(values.slice(i, i + size));
+	          return out;
+	        };
+	        for (const idChunk of chunk(missingIds, 80)) {
+	          const resp = await supabaseAdmin
+	            .from("venues" as any)
+	            .select("id,name,address,address1,normalized_address,city,state,zip,venue_url")
+	            .in("id", idChunk)
+	            .limit(5000);
+	          if (resp.error) break;
+	          const rows = (resp.data ?? []) as Array<Record<string, any>>;
+	          for (const row of rows) {
+	            const id = String(row.id ?? "");
+	            if (!id) continue;
+	            const fallbackStreet = extractStreetFromName(row.name ?? null);
+	            const fallbackAddress = row.address ?? row.address1 ?? row.normalized_address ?? fallbackStreet ?? null;
+	            allById.set(id, {
+	              id,
+	              name: row.name ?? null,
+	              address: fallbackAddress,
+	              city: row.city ?? null,
+	              state: row.state ?? null,
+	              zip: row.zip ?? null,
+	              linked_tournaments: linkedByVenue.get(id) ?? 0,
+	              owl_run_count: runsByVenue.get(id) ?? 0,
+	              venue_url: row.venue_url ?? null,
+	              owl_score: null,
+	            });
+	          }
+	        }
+
 	        const bySource = new Map<string, Array<{ id: string; score: number }>>();
 	        for (const row of owlResp.data as any[]) {
 	          const sourceId = String(row?.source_venue_id ?? "");
