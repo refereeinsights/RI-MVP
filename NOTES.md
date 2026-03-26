@@ -1,3 +1,8 @@
+## 2026-03-26
+
+- Supabase Security Advisor: added migration `supabase/migrations/20260326_rls_disabled_in_public_fix.sql` to address `rls_disabled_in_public` (“Table publicly accessible”) by enabling RLS + adding explicit policies (admin-only for most tables; allow public select on `school_referee_scores_by_sport` where `status='clear'`).
+- Fargo Basketball ND ingest: added ops scripts `scripts/ops/audit_fargo_basketball_nd_venues.ts` and `scripts/ops/ingest_fargo_basketball_nd.ts` to scrape the tournament list, verify presence in Supabase, and (optionally) upsert venues/tournaments + `tournament_venues` links.
+
 ## 2026-03-14
 
 - Added per-row approval on admin tournament sport validation page to remove nested forms and hydration errors; bulk UI removed.
