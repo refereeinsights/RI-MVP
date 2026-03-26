@@ -23,6 +23,7 @@ type TournamentRow = {
   start_date: string | null;
   official_website_url: string | null;
   source_url: string | null;
+  total_count?: number | null;
 };
 
 type AttrCandidate = {
@@ -60,28 +61,6 @@ function trunc(value: string | null, max = 80) {
   return `${v.slice(0, max - 1)}…`;
 }
 
-async function loadTournamentVenueLinkIds(tournamentIds: string[]) {
-  if (!tournamentIds.length) return new Set<string>();
-  // PostgREST `.in()` filters can overflow URL/header limits for large arrays.
-  // Chunk the request to keep it reliable.
-  const out = new Set<string>();
-  const chunkSize = 50;
-  for (let i = 0; i < tournamentIds.length; i += chunkSize) {
-    const chunk = tournamentIds.slice(i, i + chunkSize);
-    const { data, error } = await supabaseAdmin
-      .from("tournament_venues" as any)
-      .select("tournament_id")
-      .in("tournament_id", chunk)
-      .limit(20000);
-    if (error) throw error;
-    for (const row of (data ?? []) as Array<{ tournament_id: string | null }>) {
-      const id = String(row.tournament_id ?? "");
-      if (id) out.add(id);
-    }
-  }
-  return out;
-}
-
 export default async function MissingVenuesPage({ searchParams }: { searchParams?: SearchParams }) {
   await requireAdmin();
 
@@ -90,65 +69,61 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   const state = (searchParams?.state ?? "").trim().toUpperCase();
 
   const pageSize = 50;
+  const offset = (page - 1) * pageSize;
+  const missingRes = await (supabaseAdmin as any).rpc("list_missing_venue_link_tournaments", {
+    p_limit: pageSize,
+    p_offset: offset,
+    p_state: state || null,
+    p_q: q || null,
+  });
 
-  let base = supabaseAdmin
-    .from("tournaments" as any)
-    .select("id,name,slug,city,state,start_date,official_website_url,source_url")
-    .eq("status", "published")
-    .eq("is_canonical", true)
-    .is("venue", null)
-    .is("address", null);
-
-  if (q) base = base.ilike("name", `%${q}%`);
-  if (state) base = base.eq("state", state);
-
-  // Supabase/PostgREST doesn't make NOT EXISTS ergonomically available via the client,
-  // so we load the missing-venue set and then filter out anything that already has
-  // tournament_venues links (our primary venue storage).
-  const { data, error } = await base
-    .order("start_date", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false })
-    .limit(5000);
-
-  if (error) {
+  if (missingRes.error) {
     return (
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "1rem" }}>
         <AdminNav />
         <h1 style={{ marginTop: 12 }}>Missing Venues</h1>
-        <p style={{ color: "#b91c1c" }}>Failed to load tournaments: {error.message}</p>
+        <p style={{ color: "#b91c1c" }}>Failed to load tournaments: {missingRes.error.message}</p>
       </main>
     );
   }
 
-  const allRows = ((data ?? []) as TournamentRow[]).filter((r) => r?.id);
-  const allIds = allRows.map((r) => r.id);
-  const linkedIdsAll = await loadTournamentVenueLinkIds(allIds);
-  const filtered = allRows.filter((r) => !linkedIdsAll.has(r.id));
-  const count = filtered.length;
-
+  const rows = ((missingRes.data ?? []) as TournamentRow[]).filter((r) => r?.id);
+  let count = Number(rows[0]?.total_count ?? 0) || 0;
+  if (!rows.length) {
+    const countRes = await (supabaseAdmin as any).rpc("list_missing_venue_link_tournaments", {
+      p_limit: 1,
+      p_offset: 0,
+      p_state: state || null,
+      p_q: q || null,
+    });
+    if (!countRes.error) {
+      const countRows = (countRes.data ?? []) as TournamentRow[];
+      count = Number(countRows[0]?.total_count ?? 0) || 0;
+    }
+  }
   const totalPages = count ? Math.max(1, Math.ceil(count / pageSize)) : 1;
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize;
-  const rows = filtered.slice(from, to);
   const tournamentIds = rows.map((r) => r.id);
 
-  const [linkedIds, attrCandidatesResp, venueCandidatesResp] = await Promise.all([
-    loadTournamentVenueLinkIds(tournamentIds),
-    supabaseAdmin
-      .from("tournament_attribute_candidates" as any)
-      .select("tournament_id,attribute_key,attribute_value,confidence,source_url,created_at")
-      .is("accepted_at", null)
-      .is("rejected_at", null)
-      .in("attribute_key", ["address", "venue_url"])
-      .in("tournament_id", tournamentIds)
-      .limit(5000),
-    supabaseAdmin
-      .from("tournament_venue_candidates" as any)
-      .select("tournament_id,venue_name,address_text,venue_url,confidence,source_url,created_at")
-      .is("accepted_at", null)
-      .is("rejected_at", null)
-      .in("tournament_id", tournamentIds)
-      .limit(5000),
+  const [attrCandidatesResp, venueCandidatesResp] = await Promise.all([
+    tournamentIds.length
+      ? supabaseAdmin
+          .from("tournament_attribute_candidates" as any)
+          .select("tournament_id,attribute_key,attribute_value,confidence,source_url,created_at")
+          .is("accepted_at", null)
+          .is("rejected_at", null)
+          .in("attribute_key", ["address", "venue_url"])
+          .in("tournament_id", tournamentIds)
+          .limit(5000)
+      : Promise.resolve({ data: [] as any[] } as any),
+    tournamentIds.length
+      ? supabaseAdmin
+          .from("tournament_venue_candidates" as any)
+          .select("tournament_id,venue_name,address_text,venue_url,confidence,source_url,created_at")
+          .is("accepted_at", null)
+          .is("rejected_at", null)
+          .in("tournament_id", tournamentIds)
+          .limit(5000)
+      : Promise.resolve({ data: [] as any[] } as any),
   ]);
 
   const bestAttrByTournament = new Map<string, { address?: AttrCandidate; venue_url?: AttrCandidate }>();
@@ -184,7 +159,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
         <div>
           <h1 style={{ margin: 0 }}>Missing Venues</h1>
           <p style={{ margin: "6px 0 0", color: "#475569" }}>
-            Published canonical tournaments missing venue/address. Run deep scan to extract venue/address candidates with confidence.
+            Published canonical tournaments missing venue links (no <code>tournament_venues</code> rows). Run deep scan to extract venue/address candidates with confidence.
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -223,7 +198,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
           Clear
         </Link>
         <span style={{ alignSelf: "center", color: "#475569", fontSize: 12 }}>
-          {count ?? 0} total • page {page} / {totalPages}
+          {count ?? 0} total • page {Math.min(page, totalPages)} / {totalPages}
         </span>
       </form>
 

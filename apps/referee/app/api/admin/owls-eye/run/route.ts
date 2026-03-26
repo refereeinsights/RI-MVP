@@ -456,6 +456,59 @@ export async function POST(request: Request) {
       });
 
       if (duplicateCandidates.length > 0) {
+        // Persist suspect pairs so `/admin/venues?duplicates=1` can surface them.
+        // Best-effort only (don't block the response if the table doesn't exist yet).
+        try {
+          const createdBy =
+            adminUser && typeof adminUser === "object" && "id" in adminUser ? String((adminUser as any).id) : null;
+          const now = new Date().toISOString();
+          const candidateIds = duplicateCandidates.map((c) => c.venue_id).filter(Boolean);
+          const existingResp = await supabaseAdmin
+            .from("owls_eye_venue_duplicate_suspects" as any)
+            .select("candidate_venue_id,status")
+            .eq("source_venue_id", venueId)
+            .in("candidate_venue_id", candidateIds)
+            .limit(50);
+          const existingRows = (existingResp.data ?? []) as Array<{ candidate_venue_id: string | null; status: string | null }>;
+          const existingStatusByCandidate = new Map(
+            existingRows
+              .filter((r) => r?.candidate_venue_id)
+              .map((r) => [String(r.candidate_venue_id), String(r.status ?? "open")])
+          );
+
+          for (const cand of duplicateCandidates) {
+            const candidateVenueId = String(cand.venue_id ?? "").trim();
+            if (!candidateVenueId) continue;
+            const status = existingStatusByCandidate.get(candidateVenueId);
+            if (status && status !== "open") continue;
+
+            if (!status) {
+              await supabaseAdmin.from("owls_eye_venue_duplicate_suspects" as any).insert({
+                source_venue_id: venueId,
+                candidate_venue_id: candidateVenueId,
+                score: Math.round(Number(cand.score ?? 0) || 0),
+                status: "open",
+                created_by: createdBy,
+                first_seen_at: now,
+                last_seen_at: now,
+              });
+            } else {
+              await supabaseAdmin
+                .from("owls_eye_venue_duplicate_suspects" as any)
+                .update({
+                  score: Math.round(Number(cand.score ?? 0) || 0),
+                  last_seen_at: now,
+                })
+                .eq("source_venue_id", venueId)
+                .eq("candidate_venue_id", candidateVenueId)
+                .eq("status", "open");
+            }
+          }
+        } catch (err) {
+          // Ignore missing-table errors or write failures.
+          console.warn("[owlseye] failed to persist duplicate suspects", err);
+        }
+
         return NextResponse.json(
           {
             ok: false,

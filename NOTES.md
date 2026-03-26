@@ -2,6 +2,9 @@
 
 - Supabase Security Advisor: added migration `supabase/migrations/20260326_rls_disabled_in_public_fix.sql` to address `rls_disabled_in_public` (“Table publicly accessible”) by enabling RLS + adding explicit policies (admin-only for most tables; allow public select on `school_referee_scores_by_sport` where `status='clear'`).
 - Fargo Basketball ND ingest: added ops scripts `scripts/ops/audit_fargo_basketball_nd_venues.ts` and `scripts/ops/ingest_fargo_basketball_nd.ts` to scrape the tournament list, verify presence in Supabase, and (optionally) upsert venues/tournaments + `tournament_venues` links.
+- Missing venues source of truth: updated admin dashboards + `/admin/tournaments/missing-venues` to define “missing venues” as tournaments missing `tournament_venues` links (ignore legacy inline `tournaments.venue/address`), and added chunking RPC `supabase/migrations/20260326_missing_venues_chunk_rpc.sql` (`list_missing_venue_link_tournaments`) so the list/counts can page by limit/offset without client-side NOT EXISTS emulation.
+- Owl’s Eye duplicates → venue duplicates workflow: added persisted suspects table `supabase/migrations/20260326_owls_eye_venue_duplicate_suspects.sql`, store `DUPLICATE_VENUE_SUSPECT` pairs during Owl’s Eye runs, and surface them as an “Owl’s Eye suspect” group in `/admin/venues?duplicates=1` (keep-both override also suppresses Owl suspects).
+- Ops: added `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs` to ingest tournaments + venues from a CSV with duplicate checks and `tournament_venues` linking (idempotent-ish; avoids merging distinct tournaments that share a generic “tournaments landing page” URL).
 
 ## 2026-03-14
 

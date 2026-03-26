@@ -75,5 +75,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message || "override_upsert_failed" }, { status: 500 });
   }
 
+  // Best-effort: suppress Owl's Eye suspect pairs when the admin explicitly keeps both.
+  try {
+    await supabaseAdmin
+      .from("owls_eye_venue_duplicate_suspects" as any)
+      .update({ status: "ignored", note: note || "keep_both override" })
+      .or(
+        `and(source_venue_id.eq.${sourceVenueId},candidate_venue_id.eq.${targetVenueId}),and(source_venue_id.eq.${targetVenueId},candidate_venue_id.eq.${sourceVenueId})`
+      );
+  } catch {
+    // ignore missing table
+  }
+
   return NextResponse.json({ ok: true, source_venue_id: sourceVenueId, target_venue_id: targetVenueId, status: "keep_both" });
 }

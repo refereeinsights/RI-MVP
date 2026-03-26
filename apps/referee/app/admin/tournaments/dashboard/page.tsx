@@ -301,8 +301,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
     if (!hasText(t.tournament_director_email)) row.missingDirectorEmail += 1;
     if (!hasText(t.start_date) || !hasText(t.end_date)) row.missingDates += 1;
     const hasLinkedVenue = (linkedVenueCounts.get(String(t.id)) ?? 0) > 0;
-    const hasFallbackVenue = hasText(t.venue) || hasText(t.address);
-    if (!hasLinkedVenue && !hasFallbackVenue) row.missingVenues += 1;
+    if (!hasLinkedVenue) row.missingVenues += 1;
     sportTileMap.set(key, row);
   });
 

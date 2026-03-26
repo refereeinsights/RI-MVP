@@ -15,6 +15,7 @@ type DuplicateVenueCandidate = {
   linked_tournaments: number;
   owl_run_count: number;
   venue_url: string | null;
+  owl_score?: number | null;
 };
 
 type DuplicateVenueGroup = {
@@ -24,7 +25,8 @@ type DuplicateVenueGroup = {
     | "same_name_city_state"
     | "same_street_state"
     | "same_streetname_city_state"
-    | "same_name_state";
+    | "same_name_state"
+    | "owls_eye_suspect";
   suggested_target_id: string;
   candidates: DuplicateVenueCandidate[];
 };
@@ -241,6 +243,7 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
                       </div>
                       <div style={{ fontSize: 12, color: "#6b7280" }}>
                         ID: <span style={{ fontFamily: "monospace" }}>{item.id}</span> • Linked tournaments: {item.linked_tournaments} • Owl&apos;s Eye runs: {item.owl_run_count}
+                        {item.owl_score != null ? ` • Owl score: ${item.owl_score}` : ""}
                       </div>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                         <Link
@@ -413,6 +416,7 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
   );
 }
   const duplicateKindLabel = (kind: DuplicateVenueGroup["kind"]) => {
+    if (kind === "owls_eye_suspect") return "Owl's Eye suspect";
     if (kind === "exact_address_city_state") return "Exact address match";
     if (kind === "same_name_city_state") return "Name + city + state match";
     if (kind === "same_street_state") return "Street + state match";

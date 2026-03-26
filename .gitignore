@@ -1,5 +1,6 @@
 # Local scratch
 /tmp/
+/apps/referee/tmp/
 
 # Test artifacts
 /test-results/

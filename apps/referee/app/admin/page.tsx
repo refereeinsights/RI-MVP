@@ -323,52 +323,15 @@ export default async function AdminPage({
     (async () => {
       // "Missing venues" (moving forward) means:
       // Published canonical tournaments with zero tournament_venues rows (linked venues).
-      //
-      // PostgREST doesn't expose NOT EXISTS ergonomically, so we page tournament ids and
-      // subtract those that have any tournament_venues links.
-      const pageSize = 500;
-      const inChunkSize = 50; // keep `.in()` URL size safe
-
-      let offset = 0;
-      let missingCount = 0;
-
-      while (true) {
-        const page = await supabaseAdmin
-          .from("tournaments" as any)
-          .select("id")
-          .eq("status", "published")
-          .eq("is_canonical", true)
-          .range(offset, offset + pageSize - 1);
-        if (page.error) throw page.error;
-
-        const ids = ((page.data ?? []) as Array<{ id: string | null }>)
-          .map((r) => String(r.id ?? ""))
-          .filter(Boolean);
-        if (!ids.length) break;
-
-        const linkedSet = new Set<string>();
-        for (let i = 0; i < ids.length; i += inChunkSize) {
-          const chunk = ids.slice(i, i + inChunkSize);
-          const { data: linked, error } = await supabaseAdmin
-            .from("tournament_venues" as any)
-            .select("tournament_id")
-            .in("tournament_id", chunk)
-            .limit(20000);
-          if (error) throw error;
-          for (const row of (linked ?? []) as Array<{ tournament_id: string | null }>) {
-            const tid = String(row.tournament_id ?? "");
-            if (tid) linkedSet.add(tid);
-          }
-        }
-
-        for (const id of ids) {
-          if (!linkedSet.has(id)) missingCount += 1;
-        }
-
-        offset += pageSize;
-      }
-
-      return { count: missingCount };
+      const res = await (supabaseAdmin as any).rpc("list_missing_venue_link_tournaments", {
+        p_limit: 1,
+        p_offset: 0,
+        p_state: null,
+        p_q: null,
+      });
+      if (res.error) throw res.error;
+      const rows = (res.data ?? []) as Array<{ total_count?: number | null }>;
+      return { count: Number(rows[0]?.total_count ?? 0) || 0 };
     })(),
     supabaseAdmin
       .from("tournaments" as any)
@@ -859,8 +822,7 @@ export default async function AdminPage({
     if (sportKey) {
       tournamentSportCounts.set(sportKey, (tournamentSportCounts.get(sportKey) ?? 0) + 1);
     }
-    const hasInlineVenue = hasText(row.venue) || hasText(row.address);
-    const missingVenue = !linkedPublishedTournamentIds.has(row.id) && !hasInlineVenue;
+    const missingVenue = !linkedPublishedTournamentIds.has(row.id);
     const missingUrls = !hasText(row.official_website_url) && !hasText(row.source_url);
     const missingDates = !hasText(row.start_date) || !hasText(row.end_date);
     if (missingVenue) tournamentsMissingVenueCount += 1;

@@ -78,6 +78,7 @@ export type DuplicateVenueCandidate = {
   linked_tournaments: number;
   owl_run_count: number;
   venue_url: string | null;
+  owl_score?: number | null;
   address_fingerprint?: string | null;
   name_city_state_fingerprint?: string | null;
   venue_url_host?: string | null;
@@ -90,7 +91,8 @@ export type DuplicateVenueGroup = {
     | "same_name_city_state"
     | "same_street_state"
     | "same_streetname_city_state"
-    | "same_name_state";
+    | "same_name_state"
+    | "owls_eye_suspect";
   suggested_target_id: string;
   candidates: DuplicateVenueCandidate[];
 };
@@ -361,11 +363,12 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       runsByVenue.set(venueId, (runsByVenue.get(venueId) ?? 0) + 1);
     }
 
-    const exactAddressGroups = new Map<string, DuplicateVenueCandidate[]>();
-    const nameCityGroups = new Map<string, DuplicateVenueCandidate[]>();
-    const streetStateGroups = new Map<string, DuplicateVenueCandidate[]>();
-    const streetNameCityGroups = new Map<string, DuplicateVenueCandidate[]>();
-    const nameStateGroups = new Map<string, DuplicateVenueCandidate[]>();
+	    const exactAddressGroups = new Map<string, DuplicateVenueCandidate[]>();
+	    const nameCityGroups = new Map<string, DuplicateVenueCandidate[]>();
+	    const streetStateGroups = new Map<string, DuplicateVenueCandidate[]>();
+	    const streetNameCityGroups = new Map<string, DuplicateVenueCandidate[]>();
+	    const nameStateGroups = new Map<string, DuplicateVenueCandidate[]>();
+	    const allById = new Map<string, DuplicateVenueCandidate>();
 
     const normalizeStreetName = (address: string | null) => {
       const raw = normalizeIdentityText(address);
@@ -385,23 +388,25 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       return m?.[1]?.trim() ?? null;
     };
 
-    for (const row of allVenuesLite) {
-      const fallbackStreet = extractStreetFromName(row.name ?? null);
-      const fallbackAddress = row.address ?? row.address1 ?? row.normalized_address ?? fallbackStreet ?? null;
-      const candidate: DuplicateVenueCandidate = {
-        id: String(row.id),
-        name: row.name ?? null,
-        address: fallbackAddress,
-        city: row.city ?? null,
-        state: row.state ?? null,
-        zip: row.zip ?? null,
-        linked_tournaments: linkedByVenue.get(String(row.id)) ?? 0,
-        owl_run_count: runsByVenue.get(String(row.id)) ?? 0,
-        venue_url: row.venue_url ?? null,
-        venue_url_host: row.venue_url_host ?? null,
-        address_fingerprint: row.address_fingerprint ?? null,
-        name_city_state_fingerprint: row.name_city_state_fingerprint ?? null,
-      };
+	    for (const row of allVenuesLite) {
+	      const fallbackStreet = extractStreetFromName(row.name ?? null);
+	      const fallbackAddress = row.address ?? row.address1 ?? row.normalized_address ?? fallbackStreet ?? null;
+	      const candidate: DuplicateVenueCandidate = {
+	        id: String(row.id),
+	        name: row.name ?? null,
+	        address: fallbackAddress,
+	        city: row.city ?? null,
+	        state: row.state ?? null,
+	        zip: row.zip ?? null,
+	        linked_tournaments: linkedByVenue.get(String(row.id)) ?? 0,
+	        owl_run_count: runsByVenue.get(String(row.id)) ?? 0,
+	        venue_url: row.venue_url ?? null,
+	        owl_score: null,
+	        venue_url_host: row.venue_url_host ?? null,
+	        address_fingerprint: row.address_fingerprint ?? null,
+	        name_city_state_fingerprint: row.name_city_state_fingerprint ?? null,
+	      };
+	      allById.set(candidate.id, candidate);
 
       const state = normalizeIdentityText(candidate.state);
       const city = normalizeIdentityText(candidate.city);
@@ -463,21 +468,68 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         .filter((row) => row?.venue_a_id && row?.venue_b_id)
         .map((row) => pairKey(row.venue_a_id, row.venue_b_id))
     );
-    const pickTarget = (candidates: DuplicateVenueCandidate[]) =>
-      [...candidates].sort((a, b) => {
-        if (a.owl_run_count !== b.owl_run_count) return b.owl_run_count - a.owl_run_count;
-        if (a.linked_tournaments !== b.linked_tournaments) return b.linked_tournaments - a.linked_tournaments;
-        const aHasUrl = a.venue_url ? 1 : 0;
-        const bHasUrl = b.venue_url ? 1 : 0;
-        if (aHasUrl !== bHasUrl) return bHasUrl - aHasUrl;
-        return a.id.localeCompare(b.id);
-      })[0];
+	    const pickTarget = (candidates: DuplicateVenueCandidate[]) =>
+	      [...candidates].sort((a, b) => {
+	        if (a.owl_run_count !== b.owl_run_count) return b.owl_run_count - a.owl_run_count;
+	        if (a.linked_tournaments !== b.linked_tournaments) return b.linked_tournaments - a.linked_tournaments;
+	        const aHasUrl = a.venue_url ? 1 : 0;
+	        const bHasUrl = b.venue_url ? 1 : 0;
+	        if (aHasUrl !== bHasUrl) return bHasUrl - aHasUrl;
+	        return a.id.localeCompare(b.id);
+	      })[0];
 
-    for (const [key, list] of exactAddressGroups.entries()) {
-      if (list.length < 2) continue;
-      const target = pickTarget(list);
-      const filtered = list.filter((item) => item.id === target.id || !keepBothPairs.has(pairKey(item.id, target.id)));
-      if (filtered.length < 2) continue;
+	    // Owl's Eye suspects: persisted fuzzy duplicates from the Owl's Eye run endpoint.
+	    // These are often higher signal than pure fingerprint heuristics, so surface them here.
+	    try {
+	      const owlResp = await supabaseAdmin
+	        .from("owls_eye_venue_duplicate_suspects" as any)
+	        .select("source_venue_id,candidate_venue_id,score,last_seen_at,status")
+	        .eq("status", "open")
+	        .order("last_seen_at", { ascending: false })
+	        .limit(5000);
+	      if (!owlResp.error && Array.isArray(owlResp.data)) {
+	        const bySource = new Map<string, Array<{ id: string; score: number }>>();
+	        for (const row of owlResp.data as any[]) {
+	          const sourceId = String(row?.source_venue_id ?? "");
+	          const candidateId = String(row?.candidate_venue_id ?? "");
+	          if (!sourceId || !candidateId) continue;
+	          if (keepBothPairs.has(pairKey(sourceId, candidateId))) continue;
+	          const score = Math.round(Number(row?.score ?? 0) || 0);
+	          const list = bySource.get(sourceId) ?? [];
+	          list.push({ id: candidateId, score });
+	          bySource.set(sourceId, list);
+	        }
+
+	        for (const [sourceId, suspects] of bySource.entries()) {
+	          const source = allById.get(sourceId);
+	          if (!source) continue;
+	          const candidateItems = suspects
+	            .map((s) => {
+	              const base = allById.get(s.id);
+	              return base ? ({ ...base, owl_score: s.score } as DuplicateVenueCandidate) : null;
+	            })
+	            .filter((v): v is DuplicateVenueCandidate => Boolean(v));
+	          if (candidateItems.length < 1) continue;
+	          const groupCandidates = [{ ...source, owl_score: null }, ...candidateItems].slice(0, 10);
+	          if (groupCandidates.length < 2) continue;
+	          const target = pickTarget(groupCandidates);
+	          duplicateGroups.push({
+	            key: sourceId,
+	            kind: "owls_eye_suspect",
+	            suggested_target_id: target.id,
+	            candidates: groupCandidates,
+	          });
+	        }
+	      }
+	    } catch {
+	      // Ignore missing-table errors.
+	    }
+
+	    for (const [key, list] of exactAddressGroups.entries()) {
+	      if (list.length < 2) continue;
+	      const target = pickTarget(list);
+	      const filtered = list.filter((item) => item.id === target.id || !keepBothPairs.has(pairKey(item.id, target.id)));
+	      if (filtered.length < 2) continue;
       duplicateGroups.push({
         key,
         kind: "exact_address_city_state",
@@ -600,14 +652,15 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       });
     }
 
-    duplicateGroups.sort((a, b) => {
-      const kindRank = (kind: DuplicateVenueGroup["kind"]) => {
-        if (kind === "exact_address_city_state") return 4;
-        if (kind === "same_name_city_state") return 3;
-        if (kind === "same_street_state") return 2;
-        if (kind === "same_streetname_city_state") return 2;
-        return 1;
-      };
+	    duplicateGroups.sort((a, b) => {
+	      const kindRank = (kind: DuplicateVenueGroup["kind"]) => {
+	        if (kind === "owls_eye_suspect") return 5;
+	        if (kind === "exact_address_city_state") return 4;
+	        if (kind === "same_name_city_state") return 3;
+	        if (kind === "same_street_state") return 2;
+	        if (kind === "same_streetname_city_state") return 2;
+	        return 1;
+	      };
       if (kindRank(a.kind) !== kindRank(b.kind)) return kindRank(b.kind) - kindRank(a.kind);
       const aWeight = a.candidates.reduce((sum, item) => sum + item.linked_tournaments + item.owl_run_count * 2, 0);
       const bWeight = b.candidates.reduce((sum, item) => sum + item.linked_tournaments + item.owl_run_count * 2, 0);
