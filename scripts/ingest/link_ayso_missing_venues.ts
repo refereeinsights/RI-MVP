@@ -578,11 +578,37 @@ async function run() {
             .insert(payload)
             .select("id,name,address,address1,city,state,zip,venue_url")
             .single();
-          if (insertErr) throw insertErr;
-          venue = insertedRaw as VenueRow;
-          indexVenue(venue);
-          created += 1;
-          wasExisting = false;
+          if (insertErr) {
+            // Some sources cause multiple tournaments to attempt inserting the same venue;
+            // if we race the unique constraint, re-select and proceed.
+            if (String((insertErr as any)?.code ?? "") === "23505") {
+              const venueName = String(payload.name ?? "").trim();
+              const { data: existingRows, error: selectErr } = await supabase
+                .from("venues" as any)
+                .select("id,name,address,address1,city,state,zip,venue_url")
+                .eq("name", venueName)
+                .eq("address", addr)
+                .eq("city", city)
+                .eq("state", state)
+                .limit(2);
+              if (selectErr) throw selectErr;
+              const rows = (existingRows ?? []).filter((r: any) => r?.id);
+              if (rows.length === 1) {
+                venue = rows[0] as VenueRow;
+                indexVenue(venue);
+                wasExisting = true;
+              } else {
+                throw insertErr;
+              }
+            } else {
+              throw insertErr;
+            }
+          } else {
+            venue = insertedRaw as VenueRow;
+            indexVenue(venue);
+            created += 1;
+            wasExisting = false;
+          }
         } else if (venue && APPLY && !venue.venue_url && pv.venue_url) {
           const { data: updatedRaw, error: updateErr } = await supabase
             .from("venues" as any)
@@ -615,7 +641,18 @@ async function run() {
 
     } catch (error) {
       failures += 1;
-      const message = error instanceof Error ? error.message : String(error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+          ? error
+          : (() => {
+              try {
+                return JSON.stringify(error);
+              } catch {
+                return String(error);
+              }
+            })();
       console.error(`[link_ayso_missing_venues] ${t.id} failed: ${message}`);
     }
   }
