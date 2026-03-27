@@ -5,6 +5,32 @@ import Link from "next/link";
 
 import VenueRow, { VenueItem } from "@/components/admin/VenueRow";
 
+type RecentTournamentVenueLink = {
+  venue_id: string;
+  link_created_at: string | null;
+  venue: {
+    id: string;
+    name: string | null;
+    address: string | null;
+    address1: string | null;
+    city: string | null;
+    state: string | null;
+    zip: string | null;
+    venue_url: string | null;
+  } | null;
+};
+
+type RecentTournamentVenueLinks = {
+  id: string;
+  name: string | null;
+  city: string | null;
+  state: string | null;
+  updated_at: string | null;
+  official_website_url: string | null;
+  source_url: string | null;
+  links: RecentTournamentVenueLink[];
+};
+
 type DuplicateVenueCandidate = {
   id: string;
   name: string | null;
@@ -34,15 +60,51 @@ type DuplicateVenueGroup = {
 type Props = {
   venues: VenueItem[];
   duplicateGroups?: DuplicateVenueGroup[];
+  recentTournamentVenueLinks?: RecentTournamentVenueLinks[];
+  recentTournamentVenueLinksFrom?: string;
+  recentTournamentVenueLinksTo?: string;
+  preservedFilters?: Record<string, string | undefined>;
 };
 
-export default function VenuesListClient({ venues, duplicateGroups = [] }: Props) {
+function duplicateKindLabel(kind: DuplicateVenueGroup["kind"]) {
+  if (kind === "owls_eye_suspect") return "Owl's Eye suspect";
+  if (kind === "exact_address_city_state") return "Exact address match";
+  if (kind === "same_name_city_state") return "Name + city + state match";
+  if (kind === "same_street_state") return "Street + state match";
+  if (kind === "same_streetname_city_state") return "Street name + city + state match";
+  return "Name + state match";
+}
+
+function formatShortDate(value: string | null) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toISOString().slice(0, 10);
+}
+
+function formatVenueLine(v: RecentTournamentVenueLink["venue"]) {
+  if (!v) return "Unknown venue";
+  const addr = v.address1 || v.address || "";
+  const line = [addr, v.city, v.state, v.zip].filter(Boolean).join(", ");
+  return [v.name || "Untitled venue", line].filter(Boolean).join(" • ");
+}
+
+export default function VenuesListClient({
+  venues,
+  duplicateGroups = [],
+  recentTournamentVenueLinks = [],
+  recentTournamentVenueLinksFrom = "",
+  recentTournamentVenueLinksTo = "",
+  preservedFilters = {},
+}: Props) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [mergingSource, setMergingSource] = useState<string | null>(null);
   const [keepingSource, setKeepingSource] = useState<string | null>(null);
   const [deletingVenueId, setDeletingVenueId] = useState<string | null>(null);
   const [targetByGroup, setTargetByGroup] = useState<Record<string, string>>({});
+  const [recentState, setRecentState] = useState<RecentTournamentVenueLinks[]>(recentTournamentVenueLinks);
+  const [unlinkingKey, setUnlinkingKey] = useState<string | null>(null);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const duplicateGroupId = (group: DuplicateVenueGroup) => `${group.kind}:${group.key}`;
@@ -183,6 +245,33 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
       window.alert(message);
     } finally {
       setDeletingVenueId(null);
+    }
+  };
+
+  const unlinkTournamentVenue = async (tournamentId: string, venueId: string) => {
+    const key = `${tournamentId}:${venueId}`;
+    if (!window.confirm(`Unlink venue ${venueId} from tournament ${tournamentId}?`)) return;
+    setUnlinkingKey(key);
+    try {
+      const resp = await fetch("/api/admin/tournament-venues/unlink", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tournament_id: tournamentId, venue_id: venueId }),
+      });
+      if (!resp.ok) {
+        const json = await resp.json().catch(() => ({}));
+        throw new Error(json?.error || "Unlink failed");
+      }
+      setRecentState((prev) =>
+        prev
+          .map((t) => (t.id !== tournamentId ? t : { ...t, links: t.links.filter((l) => l.venue_id !== venueId) }))
+          .filter((t) => t.links.length > 0)
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unlink failed";
+      window.alert(message);
+    } finally {
+      setUnlinkingKey(null);
     }
   };
 
@@ -363,6 +452,149 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
         </section>
       ) : null}
 
+      {duplicateGroups.length > 0 ? (
+        <section
+          style={{
+            border: "1px solid #d1d5db",
+            background: "#fff",
+            borderRadius: 10,
+            padding: 12,
+            display: "grid",
+            gap: 10,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>Recent tournament venue links</div>
+              <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
+                Review venue links added in this date range and quickly unlink incorrect ones.
+              </div>
+            </div>
+            <form method="GET" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {Object.entries(preservedFilters).map(([k, v]) => (v ? <input key={k} type="hidden" name={k} value={v} /> : null))}
+              <input type="hidden" name="duplicates" value="1" />
+              <label style={{ fontSize: 12, color: "#374151", fontWeight: 700 }}>
+                From{" "}
+                <input
+                  type="date"
+                  name="link_from"
+                  defaultValue={recentTournamentVenueLinksFrom}
+                  style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb", marginLeft: 6 }}
+                />
+              </label>
+              <label style={{ fontSize: 12, color: "#374151", fontWeight: 700 }}>
+                To{" "}
+                <input
+                  type="date"
+                  name="link_to"
+                  defaultValue={recentTournamentVenueLinksTo}
+                  style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb", marginLeft: 6 }}
+                />
+              </label>
+              <button
+                type="submit"
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #1d4ed8",
+                  background: "#fff",
+                  color: "#1d4ed8",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                Load
+              </button>
+            </form>
+          </div>
+
+          {recentState.length === 0 ? (
+            <div style={{ padding: 10, borderRadius: 8, background: "#f9fafb", border: "1px solid #e5e7eb", color: "#6b7280" }}>
+              No venue links found in this range.
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {recentState.slice(0, 80).map((t) => {
+                const url = t.official_website_url || t.source_url || "";
+                return (
+                  <details key={t.id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, background: "#fff" }}>
+                    <summary style={{ cursor: "pointer", padding: "10px 12px", display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 800 }}>{t.name || t.id}</span>
+                      <span style={{ color: "#6b7280", fontSize: 13 }}>
+                        {[t.city, t.state].filter(Boolean).join(", ") || "—"}
+                      </span>
+                      <span style={{ color: "#6b7280", fontSize: 13 }}>
+                        Updated: {formatShortDate(t.updated_at) || "—"}
+                      </span>
+                      <span style={{ marginLeft: "auto", fontSize: 13 }}>
+                        {url ? (
+                          <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: "#1d4ed8", textDecoration: "none", fontWeight: 700 }}>
+                            Official URL
+                          </a>
+                        ) : (
+                          <span style={{ color: "#9ca3af" }}>No URL</span>
+                        )}
+                      </span>
+                    </summary>
+                    <div style={{ padding: "10px 12px", display: "grid", gap: 8 }}>
+                      {t.links.map((l) => {
+                        const v = l.venue;
+                        const linkKey = `${t.id}:${l.venue_id}`;
+                        return (
+                          <div key={linkKey} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                            <div style={{ flex: 1, minWidth: 260 }}>
+                              <div style={{ fontWeight: 700 }}>{formatVenueLine(v)}</div>
+                              <div style={{ fontSize: 12, color: "#6b7280" }}>
+                                Linked: {formatShortDate(l.link_created_at) || "—"} • Venue ID:{" "}
+                                <span style={{ fontFamily: "monospace" }}>{l.venue_id}</span>
+                              </div>
+                            </div>
+                            {v?.id ? (
+                              <Link
+                                href={`/admin/venues/${v.id}`}
+                                style={{
+                                  padding: "6px 10px",
+                                  borderRadius: 8,
+                                  border: "1px solid #d1d5db",
+                                  textDecoration: "none",
+                                  color: "#111827",
+                                  fontSize: 13,
+                                  background: "#fff",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                Open venue
+                              </Link>
+                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() => unlinkTournamentVenue(t.id, l.venue_id)}
+                              disabled={unlinkingKey === linkKey}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: 8,
+                                border: "1px solid #dc2626",
+                                background: unlinkingKey === linkKey ? "#fee2e2" : "#fff",
+                                color: "#b91c1c",
+                                fontSize: 13,
+                                fontWeight: 800,
+                                cursor: unlinkingKey === linkKey ? "not-allowed" : "pointer",
+                              }}
+                            >
+                              {unlinkingKey === linkKey ? "Unlinking..." : "Unlink"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      ) : null}
+
       <div
         style={{
           display: "flex",
@@ -415,11 +647,3 @@ export default function VenuesListClient({ venues, duplicateGroups = [] }: Props
     </div>
   );
 }
-  const duplicateKindLabel = (kind: DuplicateVenueGroup["kind"]) => {
-    if (kind === "owls_eye_suspect") return "Owl's Eye suspect";
-    if (kind === "exact_address_city_state") return "Exact address match";
-    if (kind === "same_name_city_state") return "Name + city + state match";
-    if (kind === "same_street_state") return "Street + state match";
-    if (kind === "same_streetname_city_state") return "Street name + city + state match";
-    return "Name + state match";
-  };

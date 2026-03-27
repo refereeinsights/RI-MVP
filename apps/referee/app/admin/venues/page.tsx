@@ -110,8 +110,46 @@ type PageProps = {
     missing?: "address_geo" | "urls";
     owl?: "all" | "with_data" | "without_data";
     duplicates?: "1";
+    link_from?: string;
+    link_to?: string;
   };
 };
+
+type RecentTournamentVenueLink = {
+  venue_id: string;
+  link_created_at: string | null;
+  venue: {
+    id: string;
+    name: string | null;
+    address: string | null;
+    address1: string | null;
+    city: string | null;
+    state: string | null;
+    zip: string | null;
+    venue_url: string | null;
+  } | null;
+};
+
+type RecentTournamentVenueLinks = {
+  id: string;
+  name: string | null;
+  city: string | null;
+  state: string | null;
+  updated_at: string | null;
+  official_website_url: string | null;
+  source_url: string | null;
+  links: RecentTournamentVenueLink[];
+};
+
+function isoDate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function nextDayIsoStart(date: string) {
+  const d = new Date(`${date}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString();
+}
 
 export default async function AdminVenuesPage({ searchParams }: PageProps) {
   await requireAdmin();
@@ -123,6 +161,16 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
   const missing = (searchParams?.missing ?? "").trim();
   const owlFilter = (searchParams?.owl ?? "all").trim();
   const showDuplicates = searchParams?.duplicates === "1";
+  const linkFromParam = (searchParams?.link_from ?? "").trim();
+  const linkToParam = (searchParams?.link_to ?? "").trim();
+  const defaultLinkTo = isoDate(new Date());
+  const defaultLinkFrom = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return isoDate(d);
+  })();
+  const linkFrom = linkFromParam || defaultLinkFrom;
+  const linkTo = linkToParam || defaultLinkTo;
 
   const orFilters = [];
   if (q) {
@@ -316,6 +364,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       : venues;
 
   const duplicateGroups: DuplicateVenueGroup[] = [];
+  let recentTournamentVenueLinks: RecentTournamentVenueLinks[] = [];
   if (showDuplicates) {
     // Pull all venues for duplicate checks (avoid truncation that can hide true dupes).
     const allVenuesLite: Array<Record<string, any>> = [];
@@ -695,7 +744,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       });
     }
 
-	    duplicateGroups.sort((a, b) => {
+    duplicateGroups.sort((a, b) => {
 	      const kindRank = (kind: DuplicateVenueGroup["kind"]) => {
 	        if (kind === "owls_eye_suspect") return 5;
 	        if (kind === "exact_address_city_state") return 4;
@@ -709,6 +758,66 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       const bWeight = b.candidates.reduce((sum, item) => sum + item.linked_tournaments + item.owl_run_count * 2, 0);
       return bWeight - aWeight;
     });
+
+    // Under the duplicates view: show recent tournament_venues links so we can quickly verify
+    // and remove incorrect links after batch ingests.
+    try {
+      const fromIso = `${linkFrom}T00:00:00.000Z`;
+      const toIsoExclusive = nextDayIsoStart(linkTo);
+      const { data: recentLinksRaw, error: recentErr } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select(
+          `
+            tournament_id,
+            venue_id,
+            created_at,
+            tournaments(id,name,city,state,updated_at,official_website_url,source_url),
+            venues(id,name,address,address1,city,state,zip,venue_url)
+          `
+        )
+        .gte("created_at", fromIso)
+        .lt("created_at", toIsoExclusive)
+        .order("created_at", { ascending: false })
+        .limit(1500);
+      if (!recentErr && Array.isArray(recentLinksRaw)) {
+        const byTournament = new Map<string, RecentTournamentVenueLinks>();
+        for (const row of recentLinksRaw as any[]) {
+          const t = row?.tournaments ?? null;
+          const tournamentId = String(row?.tournament_id ?? t?.id ?? "");
+          if (!tournamentId) continue;
+          const existing = byTournament.get(tournamentId) ?? {
+            id: tournamentId,
+            name: t?.name ?? null,
+            city: t?.city ?? null,
+            state: t?.state ?? null,
+            updated_at: t?.updated_at ?? null,
+            official_website_url: t?.official_website_url ?? null,
+            source_url: t?.source_url ?? null,
+            links: [],
+          };
+          existing.links.push({
+            venue_id: String(row?.venue_id ?? ""),
+            link_created_at: row?.created_at ?? null,
+            venue: row?.venues
+              ? {
+                  id: String(row.venues.id),
+                  name: row.venues.name ?? null,
+                  address: row.venues.address ?? null,
+                  address1: row.venues.address1 ?? null,
+                  city: row.venues.city ?? null,
+                  state: row.venues.state ?? null,
+                  zip: row.venues.zip ?? null,
+                  venue_url: row.venues.venue_url ?? null,
+                }
+              : null,
+          });
+          byTournament.set(tournamentId, existing);
+        }
+        recentTournamentVenueLinks = Array.from(byTournament.values()).slice(0, 250);
+      }
+    } catch {
+      recentTournamentVenueLinks = [];
+    }
   }
 
   return (
@@ -840,7 +949,22 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 
       <VenueAddressVerifyPanel />
 
-      <VenuesListClient venues={filteredVenues} duplicateGroups={duplicateGroups} />
+      <VenuesListClient
+        venues={filteredVenues}
+        duplicateGroups={duplicateGroups}
+        recentTournamentVenueLinks={recentTournamentVenueLinks}
+        recentTournamentVenueLinksFrom={linkFrom}
+        recentTournamentVenueLinksTo={linkTo}
+        preservedFilters={{
+          q,
+          sport,
+          state,
+          tournament,
+          missing: missing || undefined,
+          owl: owlFilter || undefined,
+          duplicates: showDuplicates ? "1" : undefined,
+        }}
+      />
     </div>
   );
 }
