@@ -161,6 +161,18 @@ function isGenericTournamentListingUrl(url) {
 }
 
 async function findExistingTournament(supabase, args) {
+  const sourceEventId = clean(args.source_event_id);
+  if (sourceEventId) {
+    const bySourceEventId = await supabase
+      .from("tournaments")
+      .select("id,slug,name,source_event_id,official_website_url,source_url,start_date,state")
+      .eq("source_event_id", sourceEventId)
+      .limit(5);
+    if (bySourceEventId.error) throw bySourceEventId.error;
+    const rows = (bySourceEventId.data ?? []).filter((r) => r?.id);
+    if (rows.length === 1) return { tournament: rows[0], note: "source_event_id" };
+  }
+
   const slug = clean(args.slug);
   if (slug) {
     const bySlug = await supabase.from("tournaments").select("id,slug,name").eq("slug", slug).maybeSingle();
@@ -383,13 +395,13 @@ async function ensureTournament(supabase, args, apply) {
 
   const tournamentId = existingTournament?.id ? String(existingTournament.id) : null;
   if (tournamentId) {
-    const upd = await supabase.from("tournaments").update(args.patch).eq("id", tournamentId);
+    const upd = await supabase.from("tournaments").update(args.updatePatch ?? args.patch).eq("id", tournamentId);
     if (upd.error) throw upd.error;
     return { tournamentId, tournamentNote, created: false, updated: true };
   }
 
   const payload = {
-    ...args.patch,
+    ...(args.createPatch ?? args.patch),
     slug: args.slug,
     created_at: new Date().toISOString(),
   };
@@ -541,28 +553,41 @@ async function main() {
       const tournament_url = first.tournament_url;
       const director_email = first.director_email;
       const city = first.tournament_city ?? null;
+      const sourceEventId = first.tournament_external_id ?? null;
 
       const slug = buildSlug(tournament_name, state, start_date);
       const officialUrl = isGenericTournamentListingUrl(tournament_url) ? null : tournament_url;
 
-      const tournamentPatch = {
-        name: tournament_name,
-        sport,
-        city,
-        state,
-        start_date,
-        end_date,
-        official_website_url: officialUrl,
-        source_url: tournament_url,
-        source_domain: tournament_url ? sourceDomain(tournament_url) : null,
-        sub_type: "website",
-        source: "external_crawl",
-        source_event_id: first.tournament_external_id ?? tournament_url,
+      const assignIf = (target, field, value) => {
+        if (value === null || value === undefined) return;
+        if (typeof value === "string" && value.trim() === "") return;
+        target[field] = value;
+      };
+
+      // For updates: only apply fields we actually have data for (avoid wiping existing values with nulls).
+      const tournamentUpdatePatch = { updated_at: new Date().toISOString() };
+      assignIf(tournamentUpdatePatch, "name", tournament_name);
+      assignIf(tournamentUpdatePatch, "sport", sport);
+      assignIf(tournamentUpdatePatch, "city", city);
+      assignIf(tournamentUpdatePatch, "state", state);
+      assignIf(tournamentUpdatePatch, "start_date", start_date);
+      assignIf(tournamentUpdatePatch, "end_date", end_date);
+      if (officialUrl) assignIf(tournamentUpdatePatch, "official_website_url", officialUrl);
+      assignIf(tournamentUpdatePatch, "source_url", tournament_url);
+      assignIf(tournamentUpdatePatch, "source_domain", tournament_url ? sourceDomain(tournament_url) : null);
+      assignIf(tournamentUpdatePatch, "sub_type", "website");
+      assignIf(tournamentUpdatePatch, "source", "external_crawl");
+      if (sourceEventId) assignIf(tournamentUpdatePatch, "source_event_id", sourceEventId);
+      if (director_email) assignIf(tournamentUpdatePatch, "tournament_director_email", director_email);
+
+      // For creates: include ingest-config fields.
+      const tournamentCreatePatch = {
+        ...tournamentUpdatePatch,
         status,
         is_canonical: isCanonical,
-        tournament_director_email: director_email,
-        updated_at: new Date().toISOString(),
+        source_event_id: sourceEventId ?? tournament_url,
       };
+      if (!tournamentCreatePatch.official_website_url) tournamentCreatePatch.official_website_url = officialUrl;
 
       const tournamentArgs = {
         slug,
@@ -570,7 +595,10 @@ async function main() {
         state,
         start_date,
         official_website_url: officialUrl,
-        patch: tournamentPatch,
+        source_event_id: sourceEventId,
+        patch: tournamentCreatePatch,
+        createPatch: tournamentCreatePatch,
+        updatePatch: tournamentUpdatePatch,
       };
 
       const { tournamentId, tournamentNote, created: tCreated, updated: tUpdated } = await ensureTournament(supabase, tournamentArgs, APPLY);
