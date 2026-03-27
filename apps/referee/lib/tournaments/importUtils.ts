@@ -8,6 +8,7 @@ import type {
   TournamentSubmissionType,
 } from "@/lib/types/tournament";
 import { upsertTournamentFromSource } from "@/lib/tournaments/upsertFromSource";
+import { TOURNAMENT_SPORTS } from "@/lib/tournaments/sports";
 
 export type CsvRow = Record<string, string>;
 
@@ -16,19 +17,7 @@ export type ParsedCsv = {
   rows: CsvRow[];
 };
 
-export const ALLOWED_SPORTS = new Set([
-  "soccer",
-  "futsal",
-  "basketball",
-  "baseball",
-  "softball",
-  "lacrosse",
-  "volleyball",
-  "football",
-  "wrestling",
-  "hockey",
-  "other",
-]);
+export const ALLOWED_SPORTS = new Set<string>(TOURNAMENT_SPORTS as unknown as string[]);
 
 const OTHER_SPORT_KEYWORDS = [
   "volleyball",

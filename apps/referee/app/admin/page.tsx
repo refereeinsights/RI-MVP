@@ -8,6 +8,7 @@ import OwlsEyePanel from "./owls-eye/OwlsEyePanel";
 import AdminNav from "@/components/admin/AdminNav";
 import PendingTournamentSelection from "@/components/admin/PendingTournamentSelection";
 import TournamentVenueMatcher from "@/components/admin/TournamentVenueMatcher";
+import TournamentVenueLinker from "@/components/admin/TournamentVenueLinker";
 import TournamentPartnerNearbyEditor from "@/components/admin/TournamentPartnerNearbyEditor";
 import {
   buildTournamentNameStateSeasonFingerprint,
@@ -77,6 +78,9 @@ import {
   importTournamentRecords,
   parseCsv,
 } from "@/lib/tournaments/importUtils";
+import { ensureTournamentVenueLink } from "@/lib/tournaments/ensureTournamentVenueLink";
+import { updatePendingTournamentDraftFromFormData } from "@/lib/tournaments/pendingTournamentEdits";
+import { TOURNAMENT_SPORTS } from "@/lib/tournaments/sports";
 import type {
   TournamentRow,
   TournamentSource,
@@ -122,19 +126,6 @@ type ReadyVenueItem = {
 const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
 const CONTACT_TYPES = ["assignor", "director", "general", "referee_coordinator"] as const;
 const CONTACT_STATUSES: ContactStatus[] = ["pending", "verified", "rejected"];
-const TOURNAMENT_SPORTS = [
-  "soccer",
-  "futsal",
-  "basketball",
-  "baseball",
-  "softball",
-  "lacrosse",
-  "volleyball",
-  "football",
-  "wrestling",
-  "hockey",
-  "other",
-] as const;
 const TOURNAMENT_SOURCES: TournamentSource[] = [
   "external_crawl",
   "us_club_soccer",
@@ -1884,6 +1875,10 @@ export default async function AdminPage({
       String(formData.get("row_tournament_id") || formData.get("tournament_id") || "");
     if (!tournamentId) return;
     const redirectTo = formData.get("redirect_to");
+    const venueLinkRes = await ensureTournamentVenueLink(tournamentId);
+    if (venueLinkRes.error) {
+      return redirectWithNotice(redirectTo, `Approve blocked: ${venueLinkRes.error}`);
+    }
     await adminUpdateTournamentStatus({ tournament_id: tournamentId, status: "published" });
     revalidatePath("/admin");
     revalidatePath("/tournaments");
@@ -1936,11 +1931,19 @@ export default async function AdminPage({
       return redirectWithNotice(redirectTo, "Select at least one tournament.");
     }
     if (action === "approve") {
+      const failures: string[] = [];
+      for (const id of ids) {
+        const venueLinkRes = await ensureTournamentVenueLink(id);
+        if (venueLinkRes.error) failures.push(id);
+      }
       await Promise.all(ids.map((id) => adminUpdateTournamentStatus({ tournament_id: id, status: "published" })));
       revalidatePath("/admin");
       revalidatePath("/admin/tournaments");
       revalidatePath("/tournaments");
-      return redirectWithNotice(redirectTo, `${ids.length} tournament(s) approved.`);
+      return redirectWithNotice(
+        redirectTo,
+        failures.length ? `${ids.length} tournament(s) approved. Venue link failed for ${failures.length}.` : `${ids.length} tournament(s) approved.`
+      );
     } else if (action === "archive") {
       await Promise.all(ids.map((id) => adminUpdateTournamentStatus({ tournament_id: id, status: "archived" })));
       revalidatePath("/admin");
@@ -1968,85 +1971,31 @@ export default async function AdminPage({
       return redirectWithNotice(redirectTo, "Tournament id missing.");
     }
 
-    const key = (field: string) => `${field}_${tournamentId}`;
-    const stringOrNull = (field: string) => {
-      const value = String(formData.get(key(field)) || "").trim();
-      return value ? value : null;
-    };
+    const res = await updatePendingTournamentDraftFromFormData(tournamentId, formData);
+    if (res.error) return redirectWithNotice(redirectTo, res.error);
 
-    const sportRaw = String(formData.get(key("edit_sport")) || "").trim().toLowerCase();
-    const sportValue =
-      TOURNAMENT_SPORTS.includes(sportRaw as any) ? sportRaw : null;
-    const stateRaw = stringOrNull("edit_state");
-    const sourceUrlInput = stringOrNull("edit_source_url");
-    const officialWebsiteInput = stringOrNull("edit_official_website_url");
-
-    let normalizedSourceUrl = sourceUrlInput;
-    if (sourceUrlInput) {
-      try {
-        normalizedSourceUrl = new URL(sourceUrlInput).toString();
-      } catch {
-        try {
-          normalizedSourceUrl = new URL(`https://${sourceUrlInput}`).toString();
-        } catch {
-          normalizedSourceUrl = sourceUrlInput;
-        }
-      }
-    }
-
-    let normalizedOfficialWebsite = officialWebsiteInput;
-    if (officialWebsiteInput) {
-      try {
-        normalizedOfficialWebsite = new URL(officialWebsiteInput).toString();
-      } catch {
-        try {
-          normalizedOfficialWebsite = new URL(`https://${officialWebsiteInput}`).toString();
-        } catch {
-          normalizedOfficialWebsite = officialWebsiteInput;
-        }
-      }
-    }
-
-    let sourceDomain: string | null = null;
-    if (normalizedSourceUrl) {
-      try {
-        sourceDomain = new URL(normalizedSourceUrl).hostname.replace(/^www\./, "");
-      } catch {
-        sourceDomain = null;
-      }
-    }
-
-    const updates: Record<string, unknown> = {
-      name: stringOrNull("edit_name"),
-      sport: sportValue,
-      city: stringOrNull("edit_city"),
-      state: stateRaw ? stateRaw.toUpperCase() : null,
-      zip: stringOrNull("edit_zip"),
-      venue: stringOrNull("edit_venue"),
-      address: stringOrNull("edit_address"),
-      tournament_director: stringOrNull("edit_tournament_director"),
-      tournament_director_email: stringOrNull("edit_tournament_director_email"),
-      start_date: stringOrNull("edit_start_date"),
-      end_date: stringOrNull("edit_end_date"),
-      source_url: normalizedSourceUrl,
-      source_domain: sourceDomain,
-      official_website_url: normalizedOfficialWebsite,
-      summary: stringOrNull("edit_summary"),
-      updated_at: new Date().toISOString(),
-    };
-
-    const { error } = await supabaseAdmin
-      .from("tournaments" as any)
-      .update(updates)
-      .eq("id", tournamentId)
-      .eq("status", "draft");
-
-    if (error) {
-      return redirectWithNotice(redirectTo, `Update failed: ${error.message}`);
-    }
-
+    revalidatePath("/admin");
     revalidatePath("/tournaments");
     return redirectWithNotice(redirectTo, "Pending tournament updated.");
+  }
+
+  async function saveAndApprovePendingTournamentRowAction(boundTournamentId: string | null, formData: FormData) {
+    "use server";
+    const redirectTo = formData.get("redirect_to");
+    const tournamentId =
+      (boundTournamentId && String(boundTournamentId).trim()) ||
+      String(formData.get("row_tournament_id") || formData.get("tournament_id") || "").trim();
+    if (!tournamentId) {
+      return redirectWithNotice(redirectTo, "Tournament id missing.");
+    }
+
+    const res = await updatePendingTournamentDraftFromFormData(tournamentId, formData);
+    if (res.error) return redirectWithNotice(redirectTo, res.error);
+
+    await adminUpdateTournamentStatus({ tournament_id: tournamentId, status: "published" });
+    revalidatePath("/admin");
+    revalidatePath("/tournaments");
+    return redirectWithNotice(redirectTo, "Saved and approved.");
   }
 
   async function deletePendingTournamentRowAction(boundTournamentId: string | null, formData: FormData) {
@@ -5942,9 +5891,10 @@ export default async function AdminPage({
                               {t.summary.length > 160 ? `${t.summary.slice(0, 160)}…` : t.summary}
                             </div>
                           )}
-	                          <details open style={{ marginTop: 8 }}>
-	                            <summary style={{ cursor: "pointer", fontWeight: 700, color: "#0f3d2e" }}>Edit fields</summary>
-	                            <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+		                          <details style={{ marginTop: 8 }}>
+		                            <summary style={{ cursor: "pointer", fontWeight: 700, color: "#0f3d2e" }}>Edit fields (optional)</summary>
+		                            <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+		                              <input type="hidden" name="row_tournament_id" value={t.id} />
                               <label style={{ fontSize: 12, fontWeight: 700 }}>
                                 Name
                                 <input
@@ -6018,18 +5968,37 @@ export default async function AdminPage({
                                   style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
                                 />
                               </label>
-                              <label style={{ fontSize: 12, fontWeight: 700 }}>
-                                Venue full address
-                                <input
-                                  name={`edit_address_${t.id}`}
-                                  defaultValue={t.address ?? ""}
-                                  style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
-                                />
-                              </label>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                                <label style={{ fontSize: 12, fontWeight: 700 }}>
-                                  Start date
-                                  <input
+	                              <label style={{ fontSize: 12, fontWeight: 700 }}>
+	                                Venue full address
+	                                <input
+	                                  name={`edit_address_${t.id}`}
+	                                  defaultValue={t.address ?? ""}
+	                                  style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
+	                                />
+	                              </label>
+	                              <TournamentVenueLinker
+	                                tournamentId={t.id}
+	                                cityHint={t.city ?? null}
+	                                stateHint={t.state ?? null}
+	                                initialLinkedVenues={
+	                                  ((t.tournament_venues ?? [])
+	                                    .map((row) =>
+	                                      row?.venues
+	                                        ? {
+	                                            id: row.venues.id,
+	                                            name: row.venues.name ?? null,
+	                                            city: row.venues.city ?? null,
+	                                            state: row.venues.state ?? null,
+	                                          }
+	                                        : null
+	                                    )
+	                                    .filter(Boolean) as any) ?? []
+	                                }
+	                              />
+	                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+	                                <label style={{ fontSize: 12, fontWeight: 700 }}>
+	                                  Start date
+	                                  <input
                                     type="date"
                                     name={`edit_start_date_${t.id}`}
                                     defaultValue={t.start_date ?? ""}
@@ -6071,22 +6040,40 @@ export default async function AdminPage({
                                   style={{ width: "100%", padding: 6, borderRadius: 8, border: "1px solid #ccc", marginTop: 4 }}
                                 />
                               </label>
-                              <button
-                                formAction={updatePendingTournamentRowAction.bind(null, t.id)}
-                                style={{
-                                  width: "fit-content",
-                                  padding: "8px 12px",
-                                  borderRadius: 8,
-                                  border: "none",
-                                  background: "#0f3d2e",
-                                  color: "#fff",
-                                  fontWeight: 800,
-                                }}
-                              >
-                                Save
-                              </button>
-                            </div>
-	                          </details>
+	                              <button
+	                                type="submit"
+	                                formNoValidate
+	                                formAction={saveAndApprovePendingTournamentRowAction.bind(null, t.id)}
+	                                style={{
+	                                  width: "fit-content",
+	                                  padding: "8px 12px",
+	                                  borderRadius: 8,
+	                                  border: "none",
+	                                  background: "#0f3d2e",
+	                                  color: "#fff",
+	                                  fontWeight: 800,
+	                                }}
+	                              >
+	                                Save + approve
+	                              </button>
+	                              <button
+	                                type="submit"
+	                                formNoValidate
+	                                formAction={updatePendingTournamentRowAction.bind(null, t.id)}
+	                                style={{
+	                                  width: "fit-content",
+	                                  padding: "8px 12px",
+	                                  borderRadius: 8,
+	                                  border: "1px solid #d1d5db",
+	                                  background: "#fff",
+	                                  color: "#111827",
+	                                  fontWeight: 800,
+	                                }}
+	                              >
+	                                Save draft
+	                              </button>
+	                            </div>
+		                          </details>
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
                           {t.city ? `${t.city}, ` : ""}
