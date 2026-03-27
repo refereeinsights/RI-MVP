@@ -11,6 +11,7 @@ type TournamentRow = {
   source_url: string | null;
   official_website_url: string | null;
   tournament_association: string | null;
+  skip_venue_discovery?: boolean | null;
 };
 
 type VenueRow = {
@@ -491,7 +492,7 @@ async function run() {
   } else {
     const { data: tournamentsRaw, error: tournamentErr } = await supabase
       .from("tournaments" as any)
-      .select("id,name,sport,city,state,source_url,official_website_url,tournament_association,status,is_canonical")
+      .select("id,name,sport,city,state,source_url,official_website_url,tournament_association,status,is_canonical,skip_venue_discovery")
       .eq("status", "published")
       .eq("is_canonical", true)
       .or("tournament_association.is.null,tournament_association.neq.AYSO")
@@ -499,7 +500,7 @@ async function run() {
       .order("updated_at", { ascending: false })
       .limit(5000);
     if (tournamentErr) throw tournamentErr;
-    tournaments = (tournamentsRaw ?? []) as TournamentRow[];
+    tournaments = ((tournamentsRaw ?? []) as TournamentRow[]).filter((t) => !Boolean((t as any).skip_venue_discovery));
 
     const tIds = tournaments.map((t) => t.id);
     const linkedTournaments = new Set<string>();

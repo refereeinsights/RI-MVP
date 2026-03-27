@@ -28,6 +28,7 @@ type RecentTournamentVenueLinks = {
   updated_at: string | null;
   official_website_url: string | null;
   source_url: string | null;
+  skip_venue_discovery: boolean | null;
   links: RecentTournamentVenueLink[];
 };
 
@@ -115,6 +116,7 @@ export default function VenuesListClient({
   const [unlinkingKey, setUnlinkingKey] = useState<string | null>(null);
   const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null);
   const [selectedRecentByTournament, setSelectedRecentByTournament] = useState<Record<string, Record<string, boolean>>>({});
+  const [togglingSkipTournamentId, setTogglingSkipTournamentId] = useState<string | null>(null);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const duplicateGroupId = (group: DuplicateVenueGroup) => `${group.kind}:${group.key}`;
@@ -392,6 +394,28 @@ export default function VenuesListClient({
     }
   };
 
+  const setSkipVenueDiscovery = async (tournamentId: string, skip: boolean) => {
+    if (!tournamentId) return;
+    setTogglingSkipTournamentId(tournamentId);
+    try {
+      const resp = await fetch("/api/admin/tournaments/skip-venue-discovery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tournament_id: tournamentId, skip }),
+      });
+      if (!resp.ok) {
+        const json = await resp.json().catch(() => ({}));
+        throw new Error(json?.error || "Update failed");
+      }
+      setRecentState((prev) => prev.map((t) => (t.id !== tournamentId ? t : { ...t, skip_venue_discovery: skip })));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Update failed";
+      window.alert(message);
+    } finally {
+      setTogglingSkipTournamentId(null);
+    }
+  };
+
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(dismissedStorageKey);
@@ -656,6 +680,7 @@ export default function VenuesListClient({
             <div style={{ display: "grid", gap: 8 }}>
               {recentState.slice(0, 80).map((t) => {
                 const url = t.official_website_url || t.source_url || "";
+                const adminEditHref = `/admin?tab=tournament-listings&q=${encodeURIComponent(t.id)}`;
                 return (
                   <details key={t.id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, background: "#fff" }}>
                     <summary style={{ cursor: "pointer", padding: "10px 12px", display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -667,6 +692,17 @@ export default function VenuesListClient({
                         Updated: {formatShortDate(t.updated_at) || "—"}
                       </span>
                       <span style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                        <a
+                          href={adminEditHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #d1d5db", color: "#111827", textDecoration: "none", fontWeight: 800, fontSize: 13 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                        >
+                          Edit
+                        </a>
                         <button
                           type="button"
                           onClick={(e) => {
@@ -701,6 +737,27 @@ export default function VenuesListClient({
                         <div style={{ fontSize: 12, color: "#6b7280" }}>
                           Tournament ID: <span style={{ fontFamily: "monospace" }}>{t.id}</span>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => setSkipVenueDiscovery(t.id, !Boolean(t.skip_venue_discovery))}
+                          disabled={togglingSkipTournamentId === t.id}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #7c3aed",
+                            background: Boolean(t.skip_venue_discovery) ? "#f5f3ff" : "#fff",
+                            color: "#5b21b6",
+                            fontSize: 13,
+                            fontWeight: 800,
+                            cursor: togglingSkipTournamentId === t.id ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          {togglingSkipTournamentId === t.id
+                            ? "Saving..."
+                            : Boolean(t.skip_venue_discovery)
+                            ? "Venue search: skipped"
+                            : "Skip venue search"}
+                        </button>
                         <button
                           type="button"
                           onClick={() => {

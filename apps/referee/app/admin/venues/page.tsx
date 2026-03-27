@@ -138,6 +138,7 @@ type RecentTournamentVenueLinks = {
   updated_at: string | null;
   official_website_url: string | null;
   source_url: string | null;
+  skip_venue_discovery: boolean | null;
   links: RecentTournamentVenueLink[];
 };
 
@@ -771,7 +772,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
             tournament_id,
             venue_id,
             created_at,
-            tournaments(id,name,city,state,updated_at,official_website_url,source_url),
+            tournaments(id,name,city,state,updated_at,official_website_url,source_url,skip_venue_discovery),
             venues(id,name,address,address1,city,state,zip,venue_url)
           `
         )
@@ -793,6 +794,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
             updated_at: t?.updated_at ?? null,
             official_website_url: t?.official_website_url ?? null,
             source_url: t?.source_url ?? null,
+            skip_venue_discovery: typeof t?.skip_venue_discovery === "boolean" ? t.skip_venue_discovery : null,
             links: [],
           };
           existing.links.push({

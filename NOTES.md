@@ -4,6 +4,7 @@
 - Admin venues duplicates: added “Recent tournament venue links” panel (date-range filter) under `/admin/venues?duplicates=1` to review links created in a window and quickly unlink incorrect ones; added API `apps/referee/app/api/admin/tournament-venues/unlink/route.ts`.
 - Review workflow: added per-tournament `Reviewed (hide)` control on the recent-links panel (persists per date range in localStorage, with reset), plus “Delete tournament” action for the expanded row (API `apps/referee/app/api/admin/tournaments/delete/route.ts`).
 - UI: fixed a hydration mismatch in the recent-links panel by deferring localStorage reads until after mount (server/client first render now matches).
+- Skip venue discovery: added `tournaments.skip_venue_discovery` (migration `supabase/migrations/20260327_skip_venue_discovery.sql`) to opt a tournament out of venue searches; excluded skipped tournaments from the missing-venues RPC, added admin API `apps/referee/app/api/admin/tournaments/skip-venue-discovery/route.ts`, and surfaced controls + an “Edit” shortcut in the recent-links panel.
 - Ops ingest: extended `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs` to also accept the newer “tournament_external_id + venue_* columns” feed format, grouping multi-venue tournaments and creating/linking venues even when street address is missing (name + city + state fallback).
 - Docs: added `docs/templates/ayso_invitation_letter.md` template email for requesting AYSO venue details (includes venue/address fields to fill).
 
