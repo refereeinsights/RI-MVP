@@ -4351,7 +4351,7 @@ export default async function AdminPage({
             <input
               type="text"
               name="q"
-              placeholder="Search by name, slug, city, or state"
+              placeholder="Search by name, slug, city, state, or UUID"
               defaultValue={q}
               style={{
                 flex: "1 1 260px",

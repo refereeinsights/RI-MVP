@@ -980,11 +980,15 @@ export async function adminSearchPublishedTournaments(
 
   const trimmed = query?.trim();
   if (trimmed) {
-    const safe = trimmed.replace(/[%,]/g, " ").replace(/\s+/g, " ").trim();
-    const spacedPattern = safe.includes(" ") ? safe.split(" ").join("%") : safe;
-    const patterns = [safe, spacedPattern].filter(Boolean);
-    const clauses: string[] = [];
-    const fields = [
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (UUID_RE.test(trimmed)) {
+      request = request.eq("id", trimmed);
+    } else {
+      const safe = trimmed.replace(/[%,]/g, " ").replace(/\s+/g, " ").trim();
+      const spacedPattern = safe.includes(" ") ? safe.split(" ").join("%") : safe;
+      const patterns = [safe, spacedPattern].filter(Boolean);
+      const clauses: string[] = [];
+      const fields = [
       "name",
       "slug",
       "city",
@@ -1003,6 +1007,7 @@ export async function adminSearchPublishedTournaments(
       });
     });
     request = request.or(clauses.join(","));
+    }
   }
 
   const { data, error } = await request;
