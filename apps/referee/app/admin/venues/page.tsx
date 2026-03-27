@@ -765,21 +765,43 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
     try {
       const fromIso = `${linkFrom}T00:00:00.000Z`;
       const toIsoExclusive = nextDayIsoStart(linkTo);
-      const { data: recentLinksRaw, error: recentErr } = await supabaseAdmin
-        .from("tournament_venues" as any)
-        .select(
-          `
+      const selectWithSkip = `
             tournament_id,
             venue_id,
             created_at,
             tournaments(id,name,city,state,updated_at,official_website_url,source_url,skip_venue_discovery),
             venues(id,name,address,address1,city,state,zip,venue_url)
-          `
-        )
-        .gte("created_at", fromIso)
-        .lt("created_at", toIsoExclusive)
-        .order("created_at", { ascending: false })
-        .limit(1500);
+          `;
+      const selectWithoutSkip = `
+            tournament_id,
+            venue_id,
+            created_at,
+            tournaments(id,name,city,state,updated_at,official_website_url,source_url),
+            venues(id,name,address,address1,city,state,zip,venue_url)
+          `;
+
+      let recentLinksRaw: any[] | null = null;
+      let recentErr: any = null;
+
+      const runQuery = (select: string) =>
+        supabaseAdmin
+          .from("tournament_venues" as any)
+          .select(select)
+          .gte("created_at", fromIso)
+          .lt("created_at", toIsoExclusive)
+          .order("created_at", { ascending: false })
+          .limit(1500);
+
+      const withSkipRes = await runQuery(selectWithSkip);
+      if (withSkipRes.error && String(withSkipRes.error.message || "").includes("skip_venue_discovery")) {
+        const withoutSkipRes = await runQuery(selectWithoutSkip);
+        recentLinksRaw = (withoutSkipRes.data ?? null) as any[] | null;
+        recentErr = withoutSkipRes.error;
+      } else {
+        recentLinksRaw = (withSkipRes.data ?? null) as any[] | null;
+        recentErr = withSkipRes.error;
+      }
+
       if (!recentErr && Array.isArray(recentLinksRaw)) {
         const byTournament = new Map<string, RecentTournamentVenueLinks>();
         for (const row of recentLinksRaw as any[]) {

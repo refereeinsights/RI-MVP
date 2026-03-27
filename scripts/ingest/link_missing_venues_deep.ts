@@ -490,7 +490,10 @@ async function run() {
     // In USE_RPC mode all tournaments are missing venue links by definition.
     linkedVenueIdsByTournament = new Map();
   } else {
-    const { data: tournamentsRaw, error: tournamentErr } = await supabase
+    let tournamentsRaw: any[] | null = null;
+    let tournamentErr: any = null;
+
+    const withSkipRes = await supabase
       .from("tournaments" as any)
       .select("id,name,sport,city,state,source_url,official_website_url,tournament_association,status,is_canonical,skip_venue_discovery")
       .eq("status", "published")
@@ -499,6 +502,24 @@ async function run() {
       .not("name", "ilike", "%AYSO%")
       .order("updated_at", { ascending: false })
       .limit(5000);
+
+    if (withSkipRes.error && String(withSkipRes.error.message || "").includes("skip_venue_discovery")) {
+      const withoutSkipRes = await supabase
+        .from("tournaments" as any)
+        .select("id,name,sport,city,state,source_url,official_website_url,tournament_association,status,is_canonical")
+        .eq("status", "published")
+        .eq("is_canonical", true)
+        .or("tournament_association.is.null,tournament_association.neq.AYSO")
+        .not("name", "ilike", "%AYSO%")
+        .order("updated_at", { ascending: false })
+        .limit(5000);
+      tournamentsRaw = (withoutSkipRes.data ?? null) as any[] | null;
+      tournamentErr = withoutSkipRes.error;
+    } else {
+      tournamentsRaw = (withSkipRes.data ?? null) as any[] | null;
+      tournamentErr = withSkipRes.error;
+    }
+
     if (tournamentErr) throw tournamentErr;
     tournaments = ((tournamentsRaw ?? []) as TournamentRow[]).filter((t) => !Boolean((t as any).skip_venue_discovery));
 
