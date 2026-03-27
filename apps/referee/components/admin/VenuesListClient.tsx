@@ -114,6 +114,7 @@ export default function VenuesListClient({
   const [recentState, setRecentState] = useState<RecentTournamentVenueLinks[]>(recentTournamentVenueLinks);
   const [unlinkingKey, setUnlinkingKey] = useState<string | null>(null);
   const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null);
+  const [selectedRecentByTournament, setSelectedRecentByTournament] = useState<Record<string, Record<string, boolean>>>({});
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const duplicateGroupId = (group: DuplicateVenueGroup) => `${group.kind}:${group.key}`;
@@ -276,6 +277,60 @@ export default function VenuesListClient({
           .map((t) => (t.id !== tournamentId ? t : { ...t, links: t.links.filter((l) => l.venue_id !== venueId) }))
           .filter((t) => t.links.length > 0)
       );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unlink failed";
+      window.alert(message);
+    } finally {
+      setUnlinkingKey(null);
+    }
+  };
+
+  const toggleRecentSelected = (tournamentId: string, venueId: string, selected: boolean) => {
+    setSelectedRecentByTournament((prev) => {
+      const existing = prev[tournamentId] ?? {};
+      const nextTournament = { ...existing, [venueId]: selected };
+      return { ...prev, [tournamentId]: nextTournament };
+    });
+  };
+
+  const clearRecentSelected = (tournamentId: string) => {
+    setSelectedRecentByTournament((prev) => {
+      if (!prev[tournamentId]) return prev;
+      const next = { ...prev };
+      delete next[tournamentId];
+      return next;
+    });
+  };
+
+  const selectedRecentVenueIds = (tournamentId: string, links: RecentTournamentVenueLink[]) => {
+    const map = selectedRecentByTournament[tournamentId] ?? {};
+    const allowed = new Set(links.map((l) => l.venue_id));
+    return Object.entries(map)
+      .filter(([venueId, isSelected]) => Boolean(isSelected) && allowed.has(venueId))
+      .map(([venueId]) => venueId);
+  };
+
+  const unlinkTournamentVenuesBulk = async (tournamentId: string, venueIds: string[]) => {
+    if (!tournamentId || venueIds.length === 0) return;
+    if (!window.confirm(`Unlink ${venueIds.length} venue${venueIds.length === 1 ? "" : "s"} from tournament ${tournamentId}?`)) return;
+    const key = `${tournamentId}:bulk`;
+    setUnlinkingKey(key);
+    try {
+      const resp = await fetch("/api/admin/tournament-venues/unlink-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tournament_id: tournamentId, venue_ids: venueIds }),
+      });
+      if (!resp.ok) {
+        const json = await resp.json().catch(() => ({}));
+        throw new Error(json?.error || "Unlink failed");
+      }
+      setRecentState((prev) =>
+        prev
+          .map((t) => (t.id !== tournamentId ? t : { ...t, links: t.links.filter((l) => !venueIds.includes(l.venue_id)) }))
+          .filter((t) => t.links.length > 0)
+      );
+      clearRecentSelected(tournamentId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unlink failed";
       window.alert(message);
@@ -648,6 +703,65 @@ export default function VenuesListClient({
                         </div>
                         <button
                           type="button"
+                          onClick={() => {
+                            const ids = t.links.map((l) => l.venue_id);
+                            setSelectedRecentByTournament((prev) => ({
+                              ...prev,
+                              [t.id]: Object.fromEntries(ids.map((id) => [id, true])),
+                            }));
+                          }}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #d1d5db",
+                            background: "#fff",
+                            color: "#111827",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Select all
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => clearRecentSelected(t.id)}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #d1d5db",
+                            background: "#fff",
+                            color: "#111827",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Clear
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => unlinkTournamentVenuesBulk(t.id, selectedRecentVenueIds(t.id, t.links))}
+                          disabled={selectedRecentVenueIds(t.id, t.links).length === 0 || unlinkingKey === `${t.id}:bulk`}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #dc2626",
+                            background:
+                              selectedRecentVenueIds(t.id, t.links).length === 0 || unlinkingKey === `${t.id}:bulk` ? "#fee2e2" : "#fff",
+                            color: "#b91c1c",
+                            fontSize: 13,
+                            fontWeight: 800,
+                            cursor:
+                              selectedRecentVenueIds(t.id, t.links).length === 0 || unlinkingKey === `${t.id}:bulk` ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          {unlinkingKey === `${t.id}:bulk`
+                            ? "Unlinking..."
+                            : `Unlink selected (${selectedRecentVenueIds(t.id, t.links).length})`}
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => deleteTournament(t.id, t.name)}
                           disabled={deletingTournamentId === t.id}
                           style={{
@@ -668,8 +782,17 @@ export default function VenuesListClient({
                       {t.links.map((l) => {
                         const v = l.venue;
                         const linkKey = `${t.id}:${l.venue_id}`;
+                        const selected = Boolean(selectedRecentByTournament[t.id]?.[l.venue_id]);
                         return (
                           <div key={linkKey} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={(e) => toggleRecentSelected(t.id, l.venue_id, e.target.checked)}
+                              />
+                              <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 700 }}>Select</span>
+                            </label>
                             <div style={{ flex: 1, minWidth: 260 }}>
                               <div style={{ fontWeight: 700 }}>{formatVenueLine(v)}</div>
                               <div style={{ fontSize: 12, color: "#6b7280" }}>
