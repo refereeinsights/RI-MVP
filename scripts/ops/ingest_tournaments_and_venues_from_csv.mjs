@@ -94,6 +94,14 @@ function parseCsvLine(line) {
   return out;
 }
 
+function normalizeHeader(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^\w]/g, "");
+}
+
 function buildSlug(name, state, startDate) {
   const raw = `${name}-${state}-${startDate}`
     .trim()
@@ -200,6 +208,84 @@ async function findExistingTournament(supabase, args) {
   }
 
   return { tournament: null, note: "no_match" };
+}
+
+async function findExistingVenueFlexible(supabase, args) {
+  const name = clean(args.name);
+  const address = clean(args.address);
+  const city = clean(args.city);
+  const state = clean(args.state)?.toUpperCase() ?? null;
+
+  if (address && city && state && name) {
+    const resp = await supabase
+      .from("venues")
+      .select("id")
+      .eq("state", state)
+      .eq("city", city)
+      .or(`address.eq.${address},address1.eq.${address}`)
+      .ilike("name", name)
+      .limit(5);
+    if (resp.error) throw resp.error;
+    const rows = (resp.data ?? []).filter((r) => r?.id);
+    if (rows.length === 1) return { venueId: String(rows[0].id), note: "match_address_city_state_name" };
+    if (rows.length > 1) return { venueId: String(rows[0].id), note: "match_address_city_state_name_multi" };
+  }
+
+  if (address && city && state) {
+    const resp = await supabase
+      .from("venues")
+      .select("id")
+      .eq("state", state)
+      .eq("city", city)
+      .or(`address.eq.${address},address1.eq.${address}`)
+      .limit(5);
+    if (resp.error) throw resp.error;
+    const rows = (resp.data ?? []).filter((r) => r?.id);
+    if (rows.length === 1) return { venueId: String(rows[0].id), note: "match_address_city_state" };
+    if (rows.length > 1) return { venueId: String(rows[0].id), note: "match_address_city_state_multi" };
+  }
+
+  if (name && city && state) {
+    const resp = await supabase
+      .from("venues")
+      .select("id")
+      .eq("state", state)
+      .eq("city", city)
+      .ilike("name", name)
+      .limit(5);
+    if (resp.error) throw resp.error;
+    const rows = (resp.data ?? []).filter((r) => r?.id);
+    if (rows.length === 1) return { venueId: String(rows[0].id), note: "match_name_city_state" };
+    if (rows.length > 1) return { venueId: String(rows[0].id), note: "match_name_city_state_multi" };
+  }
+
+  return { venueId: null, note: "no_match" };
+}
+
+async function ensureVenueFlexible(supabase, args, apply) {
+  const name = clean(args.name);
+  const state = clean(args.state)?.toUpperCase() ?? null;
+  const city = clean(args.city);
+  const addressRaw = clean(args.address);
+
+  if (!name || !state) return { venueId: null, note: "missing_name_or_state" };
+
+  const existing = await findExistingVenueFlexible(supabase, { name, address: addressRaw, city, state });
+  if (existing.venueId || !apply) return existing;
+
+  const payload = {
+    name,
+    address: addressRaw,
+    city,
+    state,
+    zip: clean(args.zip),
+    sport: clean(args.sport),
+    venue_url: clean(args.venue_url),
+    updated_at: new Date().toISOString(),
+  };
+  const inserted = await supabase.from("venues").insert(payload).select("id").single();
+  if (inserted.error) throw inserted.error;
+  return { venueId: String(inserted.data.id), note: "created" };
 }
 
 async function findOrCreateVenue(supabase, args) {
@@ -339,20 +425,33 @@ async function main() {
     .filter((l) => l.length > 0);
   if (!lines.length) throw new Error(`empty_input:${inputPath}`);
 
-  const header = parseCsvLine(lines[0]).map((h) => clean(h)?.toLowerCase() ?? "");
-  const expected = [
-    "tournament_name",
-    "sport",
-    "state",
-    "start_date",
-    "end_date",
-    "website_url",
-    "director_email",
-    "venue_name",
-    "venue_address",
-  ];
-  const headerOk = expected.every((col, idx) => header[idx] === col);
-  if (!headerOk) throw new Error(`unexpected_header: got=${header.join("|")} expected=${expected.join("|")}`);
+  const headerRaw = parseCsvLine(lines[0]).map((h) => clean(h) ?? "");
+  const headers = headerRaw.map((h) => normalizeHeader(h));
+  const idx = (name) => headers.indexOf(normalizeHeader(name));
+  const hasNewFeed =
+    idx("tournament_external_id") >= 0 &&
+    idx("tournament_name") >= 0 &&
+    idx("sport") >= 0 &&
+    idx("state") >= 0 &&
+    idx("start_date") >= 0 &&
+    idx("tournament_url") >= 0 &&
+    idx("venue_name") >= 0;
+
+  const hasLegacyFeed =
+    headers.length >= 9 &&
+    headers[0] === "tournament_name" &&
+    headers[1] === "sport" &&
+    headers[2] === "state" &&
+    headers[3] === "start_date" &&
+    headers[4] === "end_date" &&
+    headers[5] === "website_url" &&
+    headers[6] === "director_email" &&
+    headers[7] === "venue_name" &&
+    headers[8] === "venue_address";
+
+  if (!hasNewFeed && !hasLegacyFeed) {
+    throw new Error(`unexpected_header: got=${headers.join("|")}`);
+  }
 
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   const reportCols = [
@@ -374,122 +473,286 @@ async function main() {
   let createdVenues = 0;
   let linked = 0;
 
-  for (let i = 1; i < lines.length; i++) {
-    const rowNum = i;
-    let fields = parseCsvLine(lines[i]);
-    if (fields.length > expected.length) {
-      // Forgiving parse: allow commas in `tournament_name` even if it's not quoted.
-      // Merge leading columns into the name until we have the expected column count.
-      const extra = fields.length - expected.length;
-      const mergedName = fields.slice(0, extra + 1).join(",").trim();
-      fields = [mergedName, ...fields.slice(extra + 1)];
-    }
-    if (fields.length < expected.length) {
-      fs.appendFileSync(outPath, `${[rowNum, "", "", "", "", "", "", "", "", "too_few_columns"].map(csv).join(",")}\n`);
-      continue;
-    }
+  if (hasNewFeed) {
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const rowNum = i;
+      const fields = parseCsvLine(lines[i]);
+      const get = (name) => (idx(name) >= 0 ? clean(fields[idx(name)]) : null);
 
-    const tournament_name = clean(fields[0]);
-    const sport = clean(fields[1]);
-    const state = clean(fields[2])?.toUpperCase() ?? null;
-    const start_date = clean(fields[3]);
-    const end_date = clean(fields[4]);
-    const website_url = clean(fields[5]);
-    const director_email = clean(fields[6]);
-    const venue_name = clean(fields[7]);
-    const venue_address = clean(fields[8]);
+      const tournament_external_id = get("tournament_external_id");
+      const tournament_name = get("tournament_name");
+      const sport = get("sport");
+      const state = clean(get("state"))?.toUpperCase() ?? null;
+      const tournament_city = get("tournament_city");
+      const start_date = get("start_date");
+      const end_date = get("end_date");
+      const tournament_url = get("tournament_url");
+      const director_email = get("director_email");
 
-    if (!tournament_name || !sport || !state || !start_date) {
-      fs.appendFileSync(outPath, `${[rowNum, "", tournament_name ?? "", "", "", website_url ?? "", "", "", "", "missing_required_fields"].map(csv).join(",")}\n`);
-      continue;
-    }
+      const venue_name = get("venue_name");
+      const venue_normalized_name = get("venue_normalized_name");
+      const venue_address = get("venue_address");
+      const venue_city = get("venue_city");
+      const venue_state = clean(get("venue_state"))?.toUpperCase() ?? null;
 
-    const slug = buildSlug(tournament_name, state, start_date);
-    const parsedVenue = parseFullAddress(venue_address);
-    const city = parsedVenue?.city ?? null;
-    const zip = parsedVenue?.zip ?? null;
-
-    const tournamentPatch = {
-      name: tournament_name,
-      sport,
-      city,
-      state,
-      zip,
-      start_date,
-      end_date,
-      official_website_url: website_url,
-      source_url: website_url,
-      source_domain: website_url ? sourceDomain(website_url) : null,
-      sub_type: "website",
-      source: "manual",
-      status,
-      is_canonical: isCanonical,
-      tournament_director_email: director_email,
-      updated_at: new Date().toISOString(),
-      // Keep legacy single-venue fields populated where we can.
-      venue: venue_name,
-      address: venue_address,
-    };
-
-    const tournamentArgs = {
-      slug,
-      name: tournament_name,
-      state,
-      start_date,
-      official_website_url: website_url,
-      patch: tournamentPatch,
-    };
-    const { tournamentId, tournamentNote, created: tCreated, updated: tUpdated } = await ensureTournament(
-      supabase,
-      tournamentArgs,
-      APPLY
-    );
-    if (tCreated) createdTournaments += 1;
-    if (tUpdated) updatedTournaments += 1;
-
-    let venueId = null;
-    let venueNote = "";
-    let didLink = false;
-    if (venue_name && venue_address) {
-      const venueRes = await ensureVenue(supabase, { name: venue_name, address: venue_address }, APPLY);
-      venueId = venueRes.venueId;
-      venueNote = venueRes.note;
-      if (venueNote === "created") createdVenues += 1;
-
-      if (APPLY && tournamentId && venueId) {
-        const linkRes = await supabase
-          .from("tournament_venues")
-          .upsert([{ tournament_id: tournamentId, venue_id: venueId }], { onConflict: "tournament_id,venue_id" });
-        if (linkRes.error) throw linkRes.error;
-        linked += 1;
-        didLink = true;
+      if (!tournament_name || !sport || !state || !start_date || !tournament_url) {
+        fs.appendFileSync(
+          outPath,
+          [rowNum, "", tournament_name ?? "", "", "", tournament_url ?? "", "", "", "", "missing_required_fields"].map(csv).join(",") + "\n"
+        );
+        continue;
       }
-    } else if (venue_name && !venue_address) {
-      venueNote = "missing_venue_address";
-    } else if (!venue_name && venue_address) {
-      venueNote = "missing_venue_name";
-    } else {
-      venueNote = "no_venue";
+
+      rows.push({
+        rowNum,
+        tournament_external_id,
+        tournament_name,
+        sport,
+        state,
+        tournament_city,
+        start_date,
+        end_date,
+        tournament_url,
+        director_email,
+        venue_name,
+        venue_normalized_name,
+        venue_address,
+        venue_city,
+        venue_state,
+      });
     }
 
-    const note = APPLY ? "" : "dry_run";
-    fs.appendFileSync(
-      outPath,
-      [
-        rowNum,
-        tournamentId ?? "",
-        tournament_name,
+    const byTournament = new Map();
+    for (const r of rows) {
+      const key = r.tournament_external_id || `${r.tournament_name}|${r.state}|${r.start_date}|${r.tournament_url}`;
+      const existing = byTournament.get(key) ?? { key, rows: [] };
+      existing.rows.push(r);
+      byTournament.set(key, existing);
+    }
+
+    for (const group of byTournament.values()) {
+      const first = group.rows[0];
+      const tournament_name = first.tournament_name;
+      const sport = first.sport;
+      const state = first.state;
+      const start_date = first.start_date;
+      const end_date = first.end_date;
+      const tournament_url = first.tournament_url;
+      const director_email = first.director_email;
+      const city = first.tournament_city ?? null;
+
+      const slug = buildSlug(tournament_name, state, start_date);
+      const officialUrl = isGenericTournamentListingUrl(tournament_url) ? null : tournament_url;
+
+      const tournamentPatch = {
+        name: tournament_name,
+        sport,
+        city,
+        state,
+        start_date,
+        end_date,
+        official_website_url: officialUrl,
+        source_url: tournament_url,
+        source_domain: tournament_url ? sourceDomain(tournament_url) : null,
+        sub_type: "website",
+        source: "external_crawl",
+        source_event_id: first.tournament_external_id ?? tournament_url,
+        status,
+        is_canonical: isCanonical,
+        tournament_director_email: director_email,
+        updated_at: new Date().toISOString(),
+      };
+
+      const tournamentArgs = {
         slug,
-        tournamentNote,
-        website_url ?? "",
-        venueId ?? "",
-        venueNote,
-        didLink ? "1" : "0",
-        note,
-      ]
-        .map(csv)
-        .join(",") + "\n"
-    );
+        name: tournament_name,
+        state,
+        start_date,
+        official_website_url: officialUrl,
+        patch: tournamentPatch,
+      };
+
+      const { tournamentId, tournamentNote, created: tCreated, updated: tUpdated } = await ensureTournament(supabase, tournamentArgs, APPLY);
+      if (tCreated) createdTournaments += 1;
+      if (tUpdated) updatedTournaments += 1;
+
+      const uniqueVenues = new Map();
+      for (const r of group.rows) {
+        const vn = r.venue_name;
+        if (!vn) continue;
+        const key = r.venue_normalized_name || `${vn}|${r.venue_city ?? ""}|${r.venue_state ?? ""}|${r.venue_address ?? ""}`;
+        if (!uniqueVenues.has(key)) uniqueVenues.set(key, r);
+      }
+
+      for (const r of uniqueVenues.values()) {
+        const venue_name = r.venue_name;
+        if (!venue_name) continue;
+        const parsed = parseFullAddress(r.venue_address);
+        const venueState = (parsed?.state ?? r.venue_state ?? state)?.toUpperCase() ?? state;
+        const venueCity = parsed?.city ?? r.venue_city ?? city;
+        const venueZip = parsed?.zip ?? null;
+        const venueStreet = parsed?.street ?? clean(r.venue_address);
+
+        const venueRes = await ensureVenueFlexible(
+          supabase,
+          { name: venue_name, address: venueStreet, city: venueCity, state: venueState, zip: venueZip, sport },
+          APPLY
+        );
+        const venueId = venueRes.venueId;
+        const venueNote = venueRes.note;
+        if (venueNote === "created") createdVenues += 1;
+
+        let didLink = false;
+        if (APPLY && tournamentId && venueId) {
+          const linkRes = await supabase
+            .from("tournament_venues")
+            .upsert([{ tournament_id: tournamentId, venue_id: venueId }], { onConflict: "tournament_id,venue_id" });
+          if (linkRes.error) throw linkRes.error;
+          linked += 1;
+          didLink = true;
+        }
+
+        fs.appendFileSync(
+          outPath,
+          [
+            r.rowNum,
+            tournamentId ?? "",
+            tournament_name,
+            slug,
+            tournamentNote,
+            tournament_url ?? "",
+            venueId ?? "",
+            venueNote,
+            didLink ? "1" : "0",
+            APPLY ? "" : "dry_run",
+          ]
+            .map(csv)
+            .join(",") + "\n"
+        );
+      }
+    }
+  } else {
+    const expectedLen = 9;
+    for (let i = 1; i < lines.length; i++) {
+      const rowNum = i;
+      let fields = parseCsvLine(lines[i]);
+      if (fields.length > expectedLen) {
+        // Forgiving parse: allow commas in `tournament_name` even if it's not quoted.
+        const extra = fields.length - expectedLen;
+        const mergedName = fields.slice(0, extra + 1).join(",").trim();
+        fields = [mergedName, ...fields.slice(extra + 1)];
+      }
+      if (fields.length < expectedLen) {
+        fs.appendFileSync(outPath, `${[rowNum, "", "", "", "", "", "", "", "", "too_few_columns"].map(csv).join(",")}\n`);
+        continue;
+      }
+
+      const tournament_name = clean(fields[0]);
+      const sport = clean(fields[1]);
+      const state = clean(fields[2])?.toUpperCase() ?? null;
+      const start_date = clean(fields[3]);
+      const end_date = clean(fields[4]);
+      const website_url = clean(fields[5]);
+      const director_email = clean(fields[6]);
+      const venue_name = clean(fields[7]);
+      const venue_address = clean(fields[8]);
+
+      if (!tournament_name || !sport || !state || !start_date) {
+        fs.appendFileSync(
+          outPath,
+          `${[rowNum, "", tournament_name ?? "", "", "", website_url ?? "", "", "", "", "missing_required_fields"].map(csv).join(",")}\n`
+        );
+        continue;
+      }
+
+      const slug = buildSlug(tournament_name, state, start_date);
+      const parsedVenue = parseFullAddress(venue_address);
+      const city = parsedVenue?.city ?? null;
+      const zip = parsedVenue?.zip ?? null;
+
+      const tournamentPatch = {
+        name: tournament_name,
+        sport,
+        city,
+        state,
+        zip,
+        start_date,
+        end_date,
+        official_website_url: website_url,
+        source_url: website_url,
+        source_domain: website_url ? sourceDomain(website_url) : null,
+        sub_type: "website",
+        source: "manual",
+        status,
+        is_canonical: isCanonical,
+        tournament_director_email: director_email,
+        updated_at: new Date().toISOString(),
+        // Keep legacy single-venue fields populated where we can.
+        venue: venue_name,
+        address: venue_address,
+      };
+
+      const tournamentArgs = {
+        slug,
+        name: tournament_name,
+        state,
+        start_date,
+        official_website_url: website_url,
+        patch: tournamentPatch,
+      };
+      const { tournamentId, tournamentNote, created: tCreated, updated: tUpdated } = await ensureTournament(
+        supabase,
+        tournamentArgs,
+        APPLY
+      );
+      if (tCreated) createdTournaments += 1;
+      if (tUpdated) updatedTournaments += 1;
+
+      let venueId = null;
+      let venueNote = "";
+      let didLink = false;
+      if (venue_name && venue_address) {
+        const venueRes = await ensureVenue(supabase, { name: venue_name, address: venue_address }, APPLY);
+        venueId = venueRes.venueId;
+        venueNote = venueRes.note;
+        if (venueNote === "created") createdVenues += 1;
+
+        if (APPLY && tournamentId && venueId) {
+          const linkRes = await supabase
+            .from("tournament_venues")
+            .upsert([{ tournament_id: tournamentId, venue_id: venueId }], { onConflict: "tournament_id,venue_id" });
+          if (linkRes.error) throw linkRes.error;
+          linked += 1;
+          didLink = true;
+        }
+      } else if (venue_name && !venue_address) {
+        venueNote = "missing_venue_address";
+      } else if (!venue_name && venue_address) {
+        venueNote = "missing_venue_name";
+      } else {
+        venueNote = "no_venue";
+      }
+
+      const note = APPLY ? "" : "dry_run";
+      fs.appendFileSync(
+        outPath,
+        [
+          rowNum,
+          tournamentId ?? "",
+          tournament_name,
+          slug,
+          tournamentNote,
+          website_url ?? "",
+          venueId ?? "",
+          venueNote,
+          didLink ? "1" : "0",
+          note,
+        ]
+          .map(csv)
+          .join(",") + "\n"
+      );
+    }
   }
 
   console.log(`[ingest_csv] report=${outPath}`);
