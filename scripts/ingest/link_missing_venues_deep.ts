@@ -35,6 +35,7 @@ type ParsedVenue = {
 };
 
 const APPLY = process.argv.includes("--apply");
+const USE_RPC = process.argv.includes("--use-rpc");
 const LIMIT_ARG = process.argv.find((arg) => arg.startsWith("--limit="));
 const LIMIT = LIMIT_ARG ? Math.max(1, Number(LIMIT_ARG.split("=")[1])) : 1500;
 const OFFSET_ARG = process.argv.find((arg) => arg.startsWith("--offset="));
@@ -42,6 +43,7 @@ const OFFSET = OFFSET_ARG ? Math.max(0, Number(OFFSET_ARG.split("=")[1])) : 0;
 const INCLUDE_JUNK_LINKED = process.argv.includes("--include-junk-linked");
 const CHUNK_SIZE = 200;
 const MAX_DISCOVERY_PAGES = 8;
+const MAX_VENUES_PER_TOURNAMENT = 5;
 const MAX_PDF_BYTES = 4_000_000;
 const FETCH_TIMEOUT_MS = 12_000;
 const BLOCKED_VENUE_IDS = new Set(
@@ -405,36 +407,119 @@ async function run() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: tournamentsRaw, error: tournamentErr } = await supabase
-    .from("tournaments" as any)
-    .select("id,name,sport,city,state,source_url,official_website_url,tournament_association,status,is_canonical")
-    .eq("status", "published")
-    .eq("is_canonical", true)
-    .or("tournament_association.is.null,tournament_association.neq.AYSO")
-    .not("name", "ilike", "%AYSO%")
-    .order("updated_at", { ascending: false })
-    .limit(5000);
-  if (tournamentErr) throw tournamentErr;
-  const tournaments = (tournamentsRaw ?? []) as TournamentRow[];
+  let rpcTotalCount: number | null = null;
+  let tournaments: TournamentRow[] = [];
+  let linkedVenueIdsByTournament = new Map<string, string[]>();
 
-  const tIds = tournaments.map((t) => t.id);
-  const linkedTournaments = new Set<string>();
-  const linkedVenueIdsByTournament = new Map<string, string[]>();
-  for (let i = 0; i < tIds.length; i += CHUNK_SIZE) {
-    const chunk = tIds.slice(i, i + CHUNK_SIZE);
-    if (!chunk.length) continue;
-    const { data: linksRaw, error: linksErr } = await supabase
-      .from("tournament_venues" as any)
-      .select("tournament_id,venue_id")
-      .in("tournament_id", chunk);
-    if (linksErr) throw linksErr;
-    for (const row of (linksRaw ?? []) as Array<{ tournament_id: string | null; venue_id?: string | null }>) {
-      if (!row.tournament_id) continue;
-      linkedTournaments.add(row.tournament_id);
-      if (row.venue_id) {
-        const existing = linkedVenueIdsByTournament.get(row.tournament_id) ?? [];
-        existing.push(row.venue_id);
-        linkedVenueIdsByTournament.set(row.tournament_id, existing);
+  if (USE_RPC) {
+    // Preferred paging: use the DB RPC that directly returns published canonical tournaments
+    // missing venue links. This avoids PostgREST row caps when scanning the backlog.
+    const { data: missingRowsRaw, error: missingErr } = await (supabase as any).rpc(
+      "list_missing_venue_link_tournaments",
+      {
+        p_limit: LIMIT,
+        p_offset: OFFSET,
+        p_state: null,
+        p_q: null,
+      }
+    );
+    if (missingErr) throw missingErr;
+    const missingRows = (missingRowsRaw ?? []) as Array<{
+      id: string;
+      name: string | null;
+      city: string | null;
+      state: string | null;
+      source_url: string | null;
+      official_website_url: string | null;
+      total_count?: number | null;
+    }>;
+    rpcTotalCount = Number(missingRows[0]?.total_count ?? 0) || 0;
+
+    const ids = missingRows.map((r) => r.id).filter(Boolean);
+    if (!ids.length) {
+      console.log(
+        JSON.stringify(
+          {
+            mode: APPLY ? "apply" : "dry-run",
+            missing_total: rpcTotalCount,
+            offset: OFFSET,
+            limit: LIMIT,
+            tournaments_in_chunk: 0,
+            pages_scanned: 0,
+            tournaments_with_venue_data: 0,
+            linked_existing: 0,
+            created_venues: 0,
+            tournament_venue_links_upserted: 0,
+            source_discovery_hits: 0,
+            failures: 0,
+          },
+          null,
+          2
+        )
+      );
+      return;
+    }
+
+    // Hydrate sport + association (RPC does not return sport).
+    const { data: tournamentMetaRaw, error: metaErr } = await supabase
+      .from("tournaments" as any)
+      .select("id,sport,tournament_association")
+      .in("id", ids);
+    if (metaErr) throw metaErr;
+    const metaById = new Map(
+      ((tournamentMetaRaw ?? []) as Array<{ id: string; sport?: string | null; tournament_association?: string | null }>).map(
+        (r) => [r.id, r]
+      )
+    );
+
+    tournaments = missingRows.map((r) => {
+      const meta = metaById.get(r.id);
+      return {
+        id: r.id,
+        name: r.name,
+        sport: meta?.sport ?? null,
+        city: r.city,
+        state: r.state,
+        source_url: r.source_url,
+        official_website_url: r.official_website_url,
+        tournament_association: meta?.tournament_association ?? null,
+      } satisfies TournamentRow;
+    });
+
+    // In USE_RPC mode all tournaments are missing venue links by definition.
+    linkedVenueIdsByTournament = new Map();
+  } else {
+    const { data: tournamentsRaw, error: tournamentErr } = await supabase
+      .from("tournaments" as any)
+      .select("id,name,sport,city,state,source_url,official_website_url,tournament_association,status,is_canonical")
+      .eq("status", "published")
+      .eq("is_canonical", true)
+      .or("tournament_association.is.null,tournament_association.neq.AYSO")
+      .not("name", "ilike", "%AYSO%")
+      .order("updated_at", { ascending: false })
+      .limit(5000);
+    if (tournamentErr) throw tournamentErr;
+    tournaments = (tournamentsRaw ?? []) as TournamentRow[];
+
+    const tIds = tournaments.map((t) => t.id);
+    const linkedTournaments = new Set<string>();
+    linkedVenueIdsByTournament = new Map<string, string[]>();
+    for (let i = 0; i < tIds.length; i += CHUNK_SIZE) {
+      const chunk = tIds.slice(i, i + CHUNK_SIZE);
+      if (!chunk.length) continue;
+      const { data: linksRaw, error: linksErr } = await supabase
+        .from("tournament_venues" as any)
+        .select("tournament_id,venue_id")
+        .in("tournament_id", chunk);
+      if (linksErr) throw linksErr;
+      for (const row of (linksRaw ?? []) as Array<{ tournament_id: string | null; venue_id?: string | null }>) {
+        if (!row.tournament_id) continue;
+        linkedTournaments.add(row.tournament_id);
+        if (row.venue_id) {
+          const existing = linkedVenueIdsByTournament.get(row.tournament_id) ?? [];
+          existing.push(row.venue_id);
+          linkedVenueIdsByTournament.set(row.tournament_id, existing);
+        }
       }
     }
   }
@@ -516,12 +601,18 @@ async function run() {
     return false;
   };
 
-  const missingAll = tournaments.filter((t) => {
-    if (!linkedTournaments.has(t.id)) return true;
-    if (!INCLUDE_JUNK_LINKED) return false;
-    return !hasValidLinkedVenue(t.id);
-  });
-  const targets = missingAll.slice(OFFSET, OFFSET + LIMIT);
+  const missingAll = USE_RPC
+    ? tournaments
+    : tournaments.filter((t) => {
+        // When not using the RPC we infer missing by checking tournament_venues rows.
+        // (In USE_RPC mode the DB already returned only missing-link tournaments.)
+        const linkedVenueIds = linkedVenueIdsByTournament.get(t.id) ?? [];
+        const hasAnyLink = linkedVenueIds.length > 0;
+        if (!hasAnyLink) return true;
+        if (!INCLUDE_JUNK_LINKED) return false;
+        return !hasValidLinkedVenue(t.id);
+      });
+  const targets = USE_RPC ? tournaments : missingAll.slice(OFFSET, OFFSET + LIMIT);
 
   let pagesScanned = 0;
   let tournamentsWithVenueData = 0;
@@ -598,7 +689,9 @@ async function run() {
       tournamentsWithVenueData += 1;
 
       const seenPerTournament = new Set<string>();
+      let linksThisTournament = 0;
       for (const pv of parsedAll) {
+        if (linksThisTournament >= MAX_VENUES_PER_TOURNAMENT) break;
         const city = clean(pv.city) ?? clean(t.city);
         const state = clean(pv.state)?.toUpperCase() ?? clean(t.state)?.toUpperCase() ?? null;
         const addr = clean(pv.address);
@@ -640,8 +733,10 @@ async function run() {
         let wasExisting = Boolean(venue);
 
         if (!venue && APPLY) {
+          // Avoid inserting address-only "venues" when we couldn't extract a real venue name.
+          if (!safeName) continue;
           const payload: Record<string, unknown> = {
-            name: safeName ?? addr,
+            name: safeName,
             address: addr,
             address1: addr,
             city,
@@ -720,8 +815,10 @@ async function run() {
             .upsert({ tournament_id: t.id, venue_id: venue.id }, { onConflict: "tournament_id,venue_id" });
           if (linkErr) throw linkErr;
           linksUpserted += 1;
+          linksThisTournament += 1;
         } else {
           linksUpserted += 1;
+          linksThisTournament += 1;
         }
       }
 
@@ -748,7 +845,8 @@ async function run() {
       {
         mode: APPLY ? "apply" : "dry-run",
         tournaments_scanned: tournaments.length,
-        non_ayso_without_linked_venue_total: missingAll.length,
+        missing_total: USE_RPC ? rpcTotalCount : null,
+        non_ayso_without_linked_venue_total: USE_RPC ? null : missingAll.length,
         non_ayso_without_linked_venue_in_chunk: targets.length,
         offset: OFFSET,
         limit: LIMIT,
