@@ -16,7 +16,19 @@ export type ParsedCsv = {
   rows: CsvRow[];
 };
 
-export const ALLOWED_SPORTS = new Set(["soccer", "basketball", "football", "lacrosse"]);
+export const ALLOWED_SPORTS = new Set([
+  "soccer",
+  "futsal",
+  "basketball",
+  "baseball",
+  "softball",
+  "lacrosse",
+  "volleyball",
+  "football",
+  "wrestling",
+  "hockey",
+  "other",
+]);
 
 const OTHER_SPORT_KEYWORDS = [
   "volleyball",
@@ -205,9 +217,11 @@ export function cleanCsvRows(rows: CsvRow[]) {
 
     const summary = normalize(row.summary);
     const combined = `${name} ${summary}`.toLowerCase();
-    if (referencesOtherSports(combined)) {
-      dropped.push({ row, reason: "references other sport" });
-      continue;
+    if (sportRaw === "soccer" || sportRaw === "futsal") {
+      if (referencesOtherSports(combined)) {
+        dropped.push({ row, reason: "references other sport" });
+        continue;
+      }
     }
 
     const baseSlug = normalize(row.slug) || generateSlug(name, city || null, state || null);

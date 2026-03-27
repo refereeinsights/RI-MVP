@@ -122,7 +122,19 @@ type ReadyVenueItem = {
 const SCHOOL_SPORTS = ["soccer", "basketball", "football"];
 const CONTACT_TYPES = ["assignor", "director", "general", "referee_coordinator"] as const;
 const CONTACT_STATUSES: ContactStatus[] = ["pending", "verified", "rejected"];
-const TOURNAMENT_SPORTS = ["soccer", "basketball", "football", "lacrosse", "baseball"] as const;
+const TOURNAMENT_SPORTS = [
+  "soccer",
+  "futsal",
+  "basketball",
+  "baseball",
+  "softball",
+  "lacrosse",
+  "volleyball",
+  "football",
+  "wrestling",
+  "hockey",
+  "other",
+] as const;
 const TOURNAMENT_SOURCES: TournamentSource[] = [
   "external_crawl",
   "us_club_soccer",
@@ -5909,8 +5921,8 @@ export default async function AdminPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {pendingTournaments.map((t) => (
-                      <tr key={t.id}>
+	                    {pendingTournaments.map((t) => (
+	                      <tr key={t.id}>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
                           <input
                             className="pending-tournament-checkbox"
@@ -5918,102 +5930,21 @@ export default async function AdminPage({
                             name="selected"
                             value={t.id}
                           />
-                        </td>
-                        <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                          <div style={{ fontWeight: 700 }}>{t.name}</div>
-                          <div style={{ color: "#666" }}>Slug: {t.slug}</div>
-                          <div style={{ color: "#666" }}>
-                            Sport: {t.sport} {t.level ? `• ${t.level}` : ""}
-                          </div>
+	                        </td>
+	                        <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+	                          <div style={{ fontWeight: 700 }}>{t.name}</div>
+	                          <div style={{ color: "#666" }}>Slug: {t.slug}</div>
+	                          <div style={{ color: "#666" }}>
+	                            Sport: {t.sport} {t.level ? `• ${t.level}` : ""}
+	                          </div>
                           {t.summary && (
                             <div style={{ marginTop: 4, color: "#444" }}>
                               {t.summary.length > 160 ? `${t.summary.slice(0, 160)}…` : t.summary}
                             </div>
                           )}
-                        </td>
-                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
-                          {t.city ? `${t.city}, ` : ""}
-                          {t.state ?? "State unknown"}
-                          {t.zip ? ` ${t.zip}` : ""}
-                        </td>
-                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
-                          {t.start_date || t.end_date ? (
-                            <>
-                              {t.start_date ?? "TBD"}
-                              {t.end_date && t.end_date !== t.start_date ? ` – ${t.end_date}` : ""}
-                            </>
-                          ) : (
-                            "TBD"
-                          )}
-                        </td>
-                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
-                          {t.venue ? (
-                            <div>{t.venue}</div>
-                          ) : (t.tournament_venues?.length ?? 0) > 0 ? (
-                            <div>
-                              {t.tournament_venues!
-                                .map((row) => row?.venues?.name)
-                                .filter(Boolean)
-                                .slice(0, 3)
-                                .map((name) => (
-                                  <div key={name as string}>{name}</div>
-                                ))}
-                            </div>
-                          ) : (
-                            <div>Venue TBD</div>
-                          )}
-                          {t.address && <div style={{ color: "#777" }}>{t.address}</div>}
-                          {(t.tournament_venues?.length ?? 0) > 0 && (
-                            <div style={{ marginTop: 4, fontSize: 11, color: "#1a7a3c", fontWeight: 600 }}>
-                              {t.tournament_venues!.length} venue{t.tournament_venues!.length > 1 ? "s" : ""} linked
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
-                          {t.referee_pay ? <div>Pay: {t.referee_pay}</div> : <div>Pay info TBD</div>}
-                          {t.ref_cash_tournament && (
-                            <div style={{ color: "#0f5132", fontWeight: 600 }}>Cash tournament</div>
-                          )}
-                        </td>
-                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
-                          {t.tournament_director ? t.tournament_director : "_"}
-                          {t.tournament_director_email ? (
-                            <div style={{ fontSize: 12, color: "#777" }}>{t.tournament_director_email}</div>
-                          ) : null}
-                        </td>
-                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
-                          {t.referee_contact ? t.referee_contact : "_"}
-                        </td>
-                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
-                          {t.source_url ? (
-                            <a href={t.source_url} target="_blank" rel="noreferrer">
-                              {t.source_domain ?? "link"}
-                            </a>
-                          ) : (
-                            "—"
-                          )}
-                          <div style={{ fontSize: 12, color: "#999" }}>
-                            Updated {t.updated_at ? new Date(t.updated_at).toLocaleDateString() : "–"}
-                          </div>
-                          {t.sub_type && (
-                            <div style={{ fontSize: 12, color: "#0f3d2e", marginTop: 4 }}>
-                              {SUBMISSION_LABELS[t.sub_type] ?? t.sub_type}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
-                          {t.official_website_url ? (
-                            <a href={t.official_website_url} target="_blank" rel="noreferrer">
-                              {t.official_website_url}
-                            </a>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555", minWidth: 280 }}>
-                          <details>
-                            <summary style={{ cursor: "pointer", fontWeight: 700, color: "#0f3d2e" }}>Edit</summary>
-                            <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+	                          <details open style={{ marginTop: 8 }}>
+	                            <summary style={{ cursor: "pointer", fontWeight: 700, color: "#0f3d2e" }}>Edit fields</summary>
+	                            <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
                               <label style={{ fontSize: 12, fontWeight: 700 }}>
                                 Name
                                 <input
@@ -6155,7 +6086,88 @@ export default async function AdminPage({
                                 Save
                               </button>
                             </div>
-                          </details>
+	                          </details>
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.city ? `${t.city}, ` : ""}
+                          {t.state ?? "State unknown"}
+                          {t.zip ? ` ${t.zip}` : ""}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.start_date || t.end_date ? (
+                            <>
+                              {t.start_date ?? "TBD"}
+                              {t.end_date && t.end_date !== t.start_date ? ` – ${t.end_date}` : ""}
+                            </>
+                          ) : (
+                            "TBD"
+                          )}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.venue ? (
+                            <div>{t.venue}</div>
+                          ) : (t.tournament_venues?.length ?? 0) > 0 ? (
+                            <div>
+                              {t.tournament_venues!
+                                .map((row) => row?.venues?.name)
+                                .filter(Boolean)
+                                .slice(0, 3)
+                                .map((name) => (
+                                  <div key={name as string}>{name}</div>
+                                ))}
+                            </div>
+                          ) : (
+                            <div>Venue TBD</div>
+                          )}
+                          {t.address && <div style={{ color: "#777" }}>{t.address}</div>}
+                          {(t.tournament_venues?.length ?? 0) > 0 && (
+                            <div style={{ marginTop: 4, fontSize: 11, color: "#1a7a3c", fontWeight: 600 }}>
+                              {t.tournament_venues!.length} venue{t.tournament_venues!.length > 1 ? "s" : ""} linked
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.referee_pay ? <div>Pay: {t.referee_pay}</div> : <div>Pay info TBD</div>}
+                          {t.ref_cash_tournament && (
+                            <div style={{ color: "#0f5132", fontWeight: 600 }}>Cash tournament</div>
+                          )}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.tournament_director ? t.tournament_director : "_"}
+                          {t.tournament_director_email ? (
+                            <div style={{ fontSize: 12, color: "#777" }}>{t.tournament_director_email}</div>
+                          ) : null}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.referee_contact ? t.referee_contact : "_"}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.source_url ? (
+                            <a href={t.source_url} target="_blank" rel="noreferrer">
+                              {t.source_domain ?? "link"}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                          <div style={{ fontSize: 12, color: "#999" }}>
+                            Updated {t.updated_at ? new Date(t.updated_at).toLocaleDateString() : "–"}
+                          </div>
+                          {t.sub_type && (
+                            <div style={{ fontSize: 12, color: "#0f3d2e", marginTop: 4 }}>
+                              {SUBMISSION_LABELS[t.sub_type] ?? t.sub_type}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
+                          {t.official_website_url ? (
+                            <a href={t.official_website_url} target="_blank" rel="noreferrer">
+                              {t.official_website_url}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+	                        </td>
+		                        <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555", minWidth: 280 }}>
                           <label style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 12 }}>
                             <input type="checkbox" name={`confirm_delete_${t.id}`} />
                             Confirm delete

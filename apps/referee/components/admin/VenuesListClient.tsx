@@ -394,8 +394,8 @@ export default function VenuesListClient({
     }
   };
 
-  const setSkipVenueDiscovery = async (tournamentId: string, skip: boolean) => {
-    if (!tournamentId) return;
+  const setSkipVenueDiscovery = async (tournamentId: string, skip: boolean): Promise<boolean> => {
+    if (!tournamentId) return false;
     setTogglingSkipTournamentId(tournamentId);
     try {
       const resp = await fetch("/api/admin/tournaments/skip-venue-discovery", {
@@ -408,12 +408,23 @@ export default function VenuesListClient({
         throw new Error(json?.error || "Update failed");
       }
       setRecentState((prev) => prev.map((t) => (t.id !== tournamentId ? t : { ...t, skip_venue_discovery: skip })));
+      return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Update failed";
       window.alert(message);
+      return false;
     } finally {
       setTogglingSkipTournamentId(null);
     }
+  };
+
+  const reviewTournamentFromRecent = async (t: RecentTournamentVenueLinks) => {
+    if (!t?.id) return;
+    if (!Boolean(t.skip_venue_discovery)) {
+      const ok = await setSkipVenueDiscovery(t.id, true);
+      if (!ok) return;
+    }
+    dismissTournamentFromRecent(t.id);
   };
 
   useEffect(() => {
@@ -705,10 +716,11 @@ export default function VenuesListClient({
                         </a>
                         <button
                           type="button"
+                          disabled={togglingSkipTournamentId === t.id}
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            dismissTournamentFromRecent(t.id);
+                            void reviewTournamentFromRecent(t);
                           }}
                           style={{
                             padding: "6px 10px",
@@ -718,10 +730,10 @@ export default function VenuesListClient({
                             color: "#065f46",
                             fontSize: 13,
                             fontWeight: 800,
-                            cursor: "pointer",
+                            cursor: togglingSkipTournamentId === t.id ? "not-allowed" : "pointer",
                           }}
                         >
-                          Reviewed (hide)
+                          {togglingSkipTournamentId === t.id ? "Saving..." : "Reviewed (skip + hide)"}
                         </button>
                         {url ? (
                           <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: "#1d4ed8", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>
