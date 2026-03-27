@@ -1,3 +1,11 @@
+## 2026-03-27
+
+- Court23 cleanup: added `scripts/ops/cleanup_court23_tournament_venues.mjs` to fetch each Court23 tournament’s specific page (via homepage date→URL mapping), parse “Playing Sites”, ensure only those venues are linked in `tournament_venues` (unlinking noise), and set `tournaments.official_website_url` to the tournament-specific URL (prevents homepage venue bleed during scans). Emits a CSV report under `tmp/` for audit.
+- Admin venues duplicates: added “Recent tournament venue links” panel (date-range filter) under `/admin/venues?duplicates=1` to review links created in a window and quickly unlink incorrect ones; added API `apps/referee/app/api/admin/tournament-venues/unlink/route.ts`.
+- Review workflow: added per-tournament `Reviewed (hide)` control on the recent-links panel (persists per date range in localStorage, with reset), plus “Delete tournament” action for the expanded row (API `apps/referee/app/api/admin/tournaments/delete/route.ts`).
+- UI: fixed a hydration mismatch in the recent-links panel by deferring localStorage reads until after mount (server/client first render now matches).
+- Docs: added `docs/templates/ayso_invitation_letter.md` template email for requesting AYSO venue details (includes venue/address fields to fill).
+
 ## 2026-03-26
 
 - Supabase Security Advisor: added migration `supabase/migrations/20260326_rls_disabled_in_public_fix.sql` to address `rls_disabled_in_public` (“Table publicly accessible”) by enabling RLS + adding explicit policies (admin-only for most tables; allow public select on `school_referee_scores_by_sport` where `status='clear'`).

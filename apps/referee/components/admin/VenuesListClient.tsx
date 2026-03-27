@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import VenueRow, { VenueItem } from "@/components/admin/VenueRow";
@@ -109,22 +109,9 @@ export default function VenuesListClient({
     return `admin:venues:recent_tournament_venue_links:dismissed:v1:${from}:${to}`;
   }, [recentTournamentVenueLinksFrom, recentTournamentVenueLinksTo]);
 
-  const [dismissedTournamentIds, setDismissedTournamentIds] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-    try {
-      const raw = window.localStorage.getItem(dismissedStorageKey);
-      const parsed = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(parsed)) return new Set();
-      return new Set(parsed.map((v) => String(v)).filter(Boolean));
-    } catch {
-      return new Set();
-    }
-  });
-
-  const [recentState, setRecentState] = useState<RecentTournamentVenueLinks[]>(() => {
-    if (dismissedTournamentIds.size === 0) return recentTournamentVenueLinks;
-    return recentTournamentVenueLinks.filter((t) => !dismissedTournamentIds.has(t.id));
-  });
+  // Hydration safety: do not read localStorage during initial render.
+  const [dismissedTournamentIds, setDismissedTournamentIds] = useState<Set<string>>(new Set());
+  const [recentState, setRecentState] = useState<RecentTournamentVenueLinks[]>(recentTournamentVenueLinks);
   const [unlinkingKey, setUnlinkingKey] = useState<string | null>(null);
   const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null);
 
@@ -349,6 +336,29 @@ export default function VenuesListClient({
       setDeletingTournamentId(null);
     }
   };
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(dismissedStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) {
+        setDismissedTournamentIds(new Set());
+        setRecentState(recentTournamentVenueLinks);
+        return;
+      }
+
+      const nextDismissed = new Set(parsed.map((v) => String(v)).filter(Boolean));
+      setDismissedTournamentIds(nextDismissed);
+      if (nextDismissed.size === 0) {
+        setRecentState(recentTournamentVenueLinks);
+        return;
+      }
+      setRecentState(recentTournamentVenueLinks.filter((t) => !nextDismissed.has(t.id)));
+    } catch {
+      setDismissedTournamentIds(new Set());
+      setRecentState(recentTournamentVenueLinks);
+    }
+  }, [dismissedStorageKey, recentTournamentVenueLinks]);
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
