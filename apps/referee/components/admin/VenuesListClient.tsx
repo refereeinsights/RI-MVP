@@ -103,8 +103,30 @@ export default function VenuesListClient({
   const [keepingSource, setKeepingSource] = useState<string | null>(null);
   const [deletingVenueId, setDeletingVenueId] = useState<string | null>(null);
   const [targetByGroup, setTargetByGroup] = useState<Record<string, string>>({});
-  const [recentState, setRecentState] = useState<RecentTournamentVenueLinks[]>(recentTournamentVenueLinks);
+  const dismissedStorageKey = useMemo(() => {
+    const from = recentTournamentVenueLinksFrom || "none";
+    const to = recentTournamentVenueLinksTo || "none";
+    return `admin:venues:recent_tournament_venue_links:dismissed:v1:${from}:${to}`;
+  }, [recentTournamentVenueLinksFrom, recentTournamentVenueLinksTo]);
+
+  const [dismissedTournamentIds, setDismissedTournamentIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.localStorage.getItem(dismissedStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) return new Set();
+      return new Set(parsed.map((v) => String(v)).filter(Boolean));
+    } catch {
+      return new Set();
+    }
+  });
+
+  const [recentState, setRecentState] = useState<RecentTournamentVenueLinks[]>(() => {
+    if (dismissedTournamentIds.size === 0) return recentTournamentVenueLinks;
+    return recentTournamentVenueLinks.filter((t) => !dismissedTournamentIds.has(t.id));
+  });
   const [unlinkingKey, setUnlinkingKey] = useState<string | null>(null);
+  const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const duplicateGroupId = (group: DuplicateVenueGroup) => `${group.kind}:${group.key}`;
@@ -272,6 +294,59 @@ export default function VenuesListClient({
       window.alert(message);
     } finally {
       setUnlinkingKey(null);
+    }
+  };
+
+  const persistDismissed = (next: Set<string>) => {
+    setDismissedTournamentIds(next);
+    try {
+      window.localStorage.setItem(dismissedStorageKey, JSON.stringify(Array.from(next)));
+    } catch {
+      // ignore
+    }
+  };
+
+  const dismissTournamentFromRecent = (tournamentId: string) => {
+    if (!tournamentId) return;
+    setRecentState((prev) => prev.filter((t) => t.id !== tournamentId));
+    const next = new Set(dismissedTournamentIds);
+    next.add(tournamentId);
+    persistDismissed(next);
+  };
+
+  const resetDismissedRecent = () => {
+    if (!window.confirm("Clear reviewed/hidden tournaments for this date range?")) return;
+    try {
+      window.localStorage.removeItem(dismissedStorageKey);
+    } catch {
+      // ignore
+    }
+    window.location.reload();
+  };
+
+  const deleteTournament = async (tournamentId: string, tournamentName: string | null) => {
+    if (!tournamentId) return;
+    const label = tournamentName || tournamentId;
+    if (!window.confirm(`Delete tournament "${label}"? This cannot be undone.`)) return;
+    const confirmed = window.confirm(`Really delete "${label}"? This will unlink any venues and remove it from listings.`);
+    if (!confirmed) return;
+    setDeletingTournamentId(tournamentId);
+    try {
+      const resp = await fetch("/api/admin/tournaments/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tournament_id: tournamentId }),
+      });
+      if (!resp.ok) {
+        const json = await resp.json().catch(() => ({}));
+        throw new Error(json?.error || "Delete tournament failed");
+      }
+      dismissTournamentFromRecent(tournamentId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Delete tournament failed";
+      window.alert(message);
+    } finally {
+      setDeletingTournamentId(null);
     }
   };
 
@@ -526,17 +601,60 @@ export default function VenuesListClient({
                       <span style={{ color: "#6b7280", fontSize: 13 }}>
                         Updated: {formatShortDate(t.updated_at) || "—"}
                       </span>
-                      <span style={{ marginLeft: "auto", fontSize: 13 }}>
+                      <span style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            dismissTournamentFromRecent(t.id);
+                          }}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #10b981",
+                            background: "#ecfdf5",
+                            color: "#065f46",
+                            fontSize: 13,
+                            fontWeight: 800,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Reviewed (hide)
+                        </button>
                         {url ? (
-                          <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: "#1d4ed8", textDecoration: "none", fontWeight: 700 }}>
+                          <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: "#1d4ed8", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>
                             Official URL
                           </a>
                         ) : (
-                          <span style={{ color: "#9ca3af" }}>No URL</span>
+                          <span style={{ color: "#9ca3af", fontSize: 13 }}>No URL</span>
                         )}
                       </span>
                     </summary>
                     <div style={{ padding: "10px 12px", display: "grid", gap: 8 }}>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>
+                          Tournament ID: <span style={{ fontFamily: "monospace" }}>{t.id}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => deleteTournament(t.id, t.name)}
+                          disabled={deletingTournamentId === t.id}
+                          style={{
+                            marginLeft: "auto",
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #dc2626",
+                            background: deletingTournamentId === t.id ? "#fee2e2" : "#fff",
+                            color: "#b91c1c",
+                            fontSize: 13,
+                            fontWeight: 800,
+                            cursor: deletingTournamentId === t.id ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          {deletingTournamentId === t.id ? "Deleting..." : "Delete tournament"}
+                        </button>
+                      </div>
                       {t.links.map((l) => {
                         const v = l.venue;
                         const linkKey = `${t.id}:${l.venue_id}`;
@@ -590,6 +708,26 @@ export default function VenuesListClient({
                   </details>
                 );
               })}
+              {dismissedTournamentIds.size > 0 ? (
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={resetDismissedRecent}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #d1d5db",
+                      background: "#fff",
+                      color: "#111827",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Reset hidden ({dismissedTournamentIds.size})
+                  </button>
+                </div>
+              ) : null}
             </div>
           )}
         </section>
