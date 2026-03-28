@@ -7,6 +7,7 @@
 - Semantic text (TI + RI): added deterministic, template-based relationship text on tournament + venue pages (no LLM): tournament→venues sentence and venue→tournaments sentence. Uses time-based ISR (`revalidate=3600`), dedupes + truncates long labels, and caps list size (venues=5, tournaments=8, with “and N more”). Shared helper: `shared/semantic/formatEntityList.ts`. Venue→tournaments list excludes tournaments with `start_date` missing or older than 7 days.
 - Demo sorting: ensured `refereeinsights-demo-tournament` stays first even when listings are ordered by `start_date` by including demo rows in “upcoming” filters and ordering `is_demo DESC` before `start_date` in TI/RI sport hub queries.
 - Admin venues: added a “To review: remaining/total” counter to the “Recent tournament venue links” panel; reviewed tournaments are now excluded server-side once `skip_venue_discovery=true` is set (so they don’t reappear when changing date ranges or resetting local hidden state).
+- Admin venues: added a per-tournament venue count in the collapsed recent-links row (next to “Updated”), to help prioritize which tournaments need review first.
 
 ## 2026-03-27
 

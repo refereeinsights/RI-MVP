@@ -717,6 +717,7 @@ export default function VenuesListClient({
               {recentState.slice(0, 80).map((t) => {
                 const url = t.official_website_url || t.source_url || "";
                 const adminEditHref = `/admin?tab=tournament-listings&q=${encodeURIComponent(t.id)}`;
+                const venueCount = new Set((t.links ?? []).map((l) => l.venue_id).filter(Boolean)).size;
                 return (
                   <details key={t.id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, background: "#fff" }}>
                     <summary style={{ cursor: "pointer", padding: "10px 12px", display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -726,6 +727,9 @@ export default function VenuesListClient({
                       </span>
                       <span style={{ color: "#6b7280", fontSize: 13 }}>
                         Updated: {formatShortDate(t.updated_at) || "—"}
+                      </span>
+                      <span style={{ color: "#6b7280", fontSize: 13 }}>
+                        Venues: {venueCount}
                       </span>
                       <span style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                         <a
