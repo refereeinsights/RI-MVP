@@ -23,6 +23,7 @@ type LinkedTournament = {
 
 type VenueRow = {
   id: string;
+  seo_slug?: string | null;
   name: string | null;
   address: string | null;
   city: string | null;
@@ -230,7 +231,7 @@ export default async function VenuesPage({
     const { data, error: pageError } = await supabaseAdmin
       .from("venues" as any)
       .select(
-        "id,name,address,city,state,zip,latitude,longitude,venue_url,notes,sport,venue_sport_profiles(sport),restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(tournaments(id,name,slug,sport,start_date,end_date))"
+        "id,seo_slug,name,address,city,state,zip,latitude,longitude,venue_url,notes,sport,venue_sport_profiles(sport),restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(tournaments(id,name,slug,sport,start_date,end_date))"
       )
       .order("name", { ascending: true })
       .range(offset, offset + pageSize - 1);
@@ -557,6 +558,7 @@ export default async function VenuesPage({
                 <VenueCard
                   key={venue.id}
                   venueId={venue.id}
+                  venueSeoSlug={venue.seo_slug ?? null}
                   name={venue.name || "Venue"}
                   city={venue.city}
                   state={venue.state}

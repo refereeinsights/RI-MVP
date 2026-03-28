@@ -15,6 +15,7 @@ export type SportHubTournament = {
 
 export const SPORT_HUB_PAGE_SIZE = 50;
 const MAX_PAGE = 20;
+const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
 
 export async function getSportHubTournaments(
   sport: string,
@@ -28,7 +29,8 @@ export async function getSportHubTournaments(
     .from("tournaments_public" as any)
     .select("id,name,slug,sport,state,city,start_date,end_date,official_website_url")
     .eq("sport", sport)
-    .or(`start_date.gte.${today},end_date.gte.${today}`)
+    .or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`)
+    .order("is_demo", { ascending: false })
     .order("start_date", { ascending: true })
     .order("name", { ascending: true })
     .range(offset, offset + SPORT_HUB_PAGE_SIZE - 1);
@@ -42,7 +44,14 @@ export async function getSportHubTournaments(
     .filter((t) => validateTournamentSport(t, sport) === "valid");
 
   return {
-    tournaments,
+    tournaments: [...tournaments].sort((a, b) => {
+      const aDemo = a.slug === DEMO_TOURNAMENT_SLUG;
+      const bDemo = b.slug === DEMO_TOURNAMENT_SLUG;
+      if (aDemo !== bDemo) return aDemo ? -1 : 1;
+      const dateCmp = (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31");
+      if (dateCmp !== 0) return dateCmp;
+      return a.name.localeCompare(b.name);
+    }),
     hasMore: tournaments.length === SPORT_HUB_PAGE_SIZE,
     page: safePage,
   };

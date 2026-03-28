@@ -17,6 +17,7 @@ type TournamentOption = {
 
 type VenueOption = {
   id: string;
+  seo_slug?: string | null;
   name: string | null;
   address: string | null;
   city: string | null;
@@ -378,7 +379,7 @@ export default function VenueReviewsClient() {
           router.push(`/tournaments/${selectedTournament.slug}`);
           return;
         }
-        router.push(`/venues/${selectedVenue.id}`);
+        router.push(`/venues/${selectedVenue.seo_slug || selectedVenue.id}`);
       }, 1000);
     } catch (err: any) {
       setFormError(err?.message || "Failed to submit review.");
@@ -735,7 +736,7 @@ export default function VenueReviewsClient() {
                     onClick={() =>
                       selectedTournament?.slug
                         ? router.push(`/tournaments/${selectedTournament.slug}`)
-                        : router.push(`/venues/${selectedVenue.id}`)
+                        : router.push(`/venues/${selectedVenue.seo_slug || selectedVenue.id}`)
                     }
                   >
                     {selectedTournament?.slug ? "Continue to tournament" : "Continue to venue"}

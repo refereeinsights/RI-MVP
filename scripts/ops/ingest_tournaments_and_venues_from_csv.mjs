@@ -229,32 +229,48 @@ async function findExistingVenueFlexible(supabase, args) {
   const state = clean(args.state)?.toUpperCase() ?? null;
 
   if (address && city && state && name) {
-    const resp = await supabase
-      .from("venues")
-      .select("id")
-      .eq("state", state)
-      .eq("city", city)
-      .or(`address.eq.${address},address1.eq.${address}`)
-      .ilike("name", name)
-      .limit(5);
-    if (resp.error) throw resp.error;
-    const rows = (resp.data ?? []).filter((r) => r?.id);
+    const run = async (field) => {
+      const resp = await supabase
+        .from("venues")
+        .select("id")
+        .eq("state", state)
+        .eq("city", city)
+        .eq(field, address)
+        .ilike("name", name)
+        .limit(5);
+      if (resp.error) throw resp.error;
+      return (resp.data ?? []).filter((r) => r?.id);
+    };
+
+    const rows = await run("address");
     if (rows.length === 1) return { venueId: String(rows[0].id), note: "match_address_city_state_name" };
     if (rows.length > 1) return { venueId: String(rows[0].id), note: "match_address_city_state_name_multi" };
+
+    const rowsAlt = await run("address1");
+    if (rowsAlt.length === 1) return { venueId: String(rowsAlt[0].id), note: "match_address1_city_state_name" };
+    if (rowsAlt.length > 1) return { venueId: String(rowsAlt[0].id), note: "match_address1_city_state_name_multi" };
   }
 
   if (address && city && state) {
-    const resp = await supabase
-      .from("venues")
-      .select("id")
-      .eq("state", state)
-      .eq("city", city)
-      .or(`address.eq.${address},address1.eq.${address}`)
-      .limit(5);
-    if (resp.error) throw resp.error;
-    const rows = (resp.data ?? []).filter((r) => r?.id);
+    const run = async (field) => {
+      const resp = await supabase
+        .from("venues")
+        .select("id")
+        .eq("state", state)
+        .eq("city", city)
+        .eq(field, address)
+        .limit(5);
+      if (resp.error) throw resp.error;
+      return (resp.data ?? []).filter((r) => r?.id);
+    };
+
+    const rows = await run("address");
     if (rows.length === 1) return { venueId: String(rows[0].id), note: "match_address_city_state" };
     if (rows.length > 1) return { venueId: String(rows[0].id), note: "match_address_city_state_multi" };
+
+    const rowsAlt = await run("address1");
+    if (rowsAlt.length === 1) return { venueId: String(rowsAlt[0].id), note: "match_address1_city_state" };
+    if (rowsAlt.length > 1) return { venueId: String(rowsAlt[0].id), note: "match_address1_city_state_multi" };
   }
 
   if (name && city && state) {
@@ -400,6 +416,10 @@ async function ensureTournament(supabase, args, apply) {
     return { tournamentId, tournamentNote, created: false, updated: true };
   }
 
+  if (args.allowCreate === false) {
+    return { tournamentId: null, tournamentNote: `${tournamentNote}|skip_create`, created: false, updated: false };
+  }
+
   const payload = {
     ...(args.createPatch ?? args.patch),
     slug: args.slug,
@@ -508,7 +528,8 @@ async function main() {
       const venue_city = get("venue_city");
       const venue_state = clean(get("venue_state"))?.toUpperCase() ?? null;
 
-      if (!tournament_name || !sport || !state || !start_date || !tournament_url) {
+      // For this feed, `tournament_url` can be missing; and `start_date` can be missing for update-only records.
+      if (!tournament_name || !sport || !state) {
         fs.appendFileSync(
           outPath,
           [rowNum, "", tournament_name ?? "", "", "", tournament_url ?? "", "", "", "", "missing_required_fields"].map(csv).join(",") + "\n"
@@ -555,8 +576,9 @@ async function main() {
       const city = first.tournament_city ?? null;
       const sourceEventId = first.tournament_external_id ?? null;
 
-      const slug = buildSlug(tournament_name, state, start_date);
-      const officialUrl = isGenericTournamentListingUrl(tournament_url) ? null : tournament_url;
+      const allowCreate = Boolean(start_date);
+      const slug = allowCreate ? buildSlug(tournament_name, state, start_date) : null;
+      const officialUrl = tournament_url && !isGenericTournamentListingUrl(tournament_url) ? tournament_url : null;
 
       const assignIf = (target, field, value) => {
         if (value === null || value === undefined) return;
@@ -585,7 +607,7 @@ async function main() {
         ...tournamentUpdatePatch,
         status,
         is_canonical: isCanonical,
-        source_event_id: sourceEventId ?? tournament_url,
+        source_event_id: sourceEventId ?? tournament_url ?? slug,
       };
       if (!tournamentCreatePatch.official_website_url) tournamentCreatePatch.official_website_url = officialUrl;
 
@@ -596,6 +618,7 @@ async function main() {
         start_date,
         official_website_url: officialUrl,
         source_event_id: sourceEventId,
+        allowCreate,
         patch: tournamentCreatePatch,
         createPatch: tournamentCreatePatch,
         updatePatch: tournamentUpdatePatch,

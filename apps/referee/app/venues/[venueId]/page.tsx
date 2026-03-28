@@ -9,6 +9,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/venues/isUuid";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { buildVenueTitle } from "@/lib/seo/buildTitle";
+import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import "../../tournaments/tournaments.css";
 
 type LinkedTournament = {
@@ -122,7 +123,18 @@ function getVenueCardClassFromSports(sports: string[]) {
   return getSportCardClass(chosen);
 }
 
-export const revalidate = 300;
+export const revalidate = 3600;
+
+function renderSemanticParts(parts: SemanticListPart[]) {
+  return parts.map((part, idx) => {
+    if (part.type === "text") return <span key={`t-${idx}`}>{part.value}</span>;
+    return (
+      <Link key={`l-${idx}`} href={part.href} style={{ textDecoration: "underline" }}>
+        {part.label}
+      </Link>
+    );
+  });
+}
 
 export async function generateMetadata({ params }: { params: { venueId: string } }) {
   const { venue, redirectTo } = await fetchVenueByParam(params.venueId);
@@ -197,9 +209,52 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
     .map((tv) => tv?.tournaments)
     .filter((t): t is LinkedTournament => Boolean(t?.id));
   const today = new Date().toISOString().slice(0, 10);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+  const cutoffIso = cutoff.toISOString().slice(0, 10);
   const upcomingTournaments = linkedTournaments
     .filter((t) => Boolean((t.start_date && t.start_date >= today) || (t.end_date && t.end_date >= today)))
     .sort((a, b) => (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31"));
+
+  const semanticLocationSentence = (() => {
+    const name = data.name ?? "This venue";
+    const city = (data.city ?? "").trim();
+    const state = (data.state ?? "").trim();
+    if (city && state) return `${name} is a sports venue located in ${city}, ${state}.`;
+    if (state) return `${name} is a sports venue located in ${state}.`;
+    return `${name} is a sports venue.`;
+  })();
+
+  const semanticTournamentCandidates = linkedTournaments
+    .filter((t) => {
+      const start = (t.start_date ?? "").trim();
+      if (!start) return false;
+      return start >= cutoffIso;
+    })
+    .sort((a, b) => {
+      const dateCmp = (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31");
+      if (dateCmp !== 0) return dateCmp;
+      return (a.name ?? "").localeCompare(b.name ?? "");
+    });
+
+  const MAX_TOURNAMENTS_IN_SENTENCE = 8;
+  const semanticTournamentUniqueCount = new Set(semanticTournamentCandidates.map((t) => t.id)).size;
+  const semanticTournamentItems: SemanticListItem[] = semanticTournamentCandidates
+    .slice(0, MAX_TOURNAMENTS_IN_SENTENCE + 1)
+    .map((t) => ({
+      id: t.id,
+      label: t.name ?? "",
+      href: t.slug ? `/tournaments/${t.slug}` : null,
+    }));
+  const semanticTournaments = formatEntityList(semanticTournamentItems, {
+    maxItems: MAX_TOURNAMENTS_IN_SENTENCE,
+    overflowNoun: "tournaments",
+    overflow:
+      semanticTournamentUniqueCount > MAX_TOURNAMENTS_IN_SENTENCE
+        ? { kind: "known", remainingCount: semanticTournamentUniqueCount - MAX_TOURNAMENTS_IN_SENTENCE }
+        : { kind: "none" },
+    truncateLabelAt: 120,
+  });
 
   const sportsFromTournaments = Array.from(new Set(linkedTournaments.map((t) => canonicalSport(t.sport)).filter((sport) => sport !== "unknown")));
   if (sportsFromTournaments.length === 0) {
@@ -396,6 +451,17 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                   <p style={{ margin: "4px 0 0", opacity: 0.95 }}>{data.notes}</p>
                 </div>
               ) : null}
+
+              <div style={{ marginTop: 10, fontSize: 13, opacity: 0.78, lineHeight: 1.35 }}>
+                <p style={{ margin: 0 }}>{semanticLocationSentence}</p>
+                {semanticTournaments.totalUnique > 0 ? (
+                  <p style={{ margin: "6px 0 0" }}>
+                    Tournaments played at this venue include {renderSemanticParts(semanticTournaments.parts)}.
+                  </p>
+                ) : (
+                  <p style={{ margin: "6px 0 0" }}>We don’t have any tournaments linked to this venue yet.</p>
+                )}
+              </div>
             </div>
           </article>
         </div>

@@ -17,6 +17,7 @@ import { getSportCardClass } from "@/lib/ui/sportBackground";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { buildTournamentTitle } from "@/lib/seo/buildTitle";
 import { FEATURE_TOURNAMENT_ENGAGEMENT_BADGES } from "@/lib/featureFlags";
+import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import "../tournaments.css";
 
 type TournamentDetailRow = {
@@ -66,10 +67,21 @@ type OwlsEyeRunRow = {
   created_at?: string | null;
 };
 
-// Revalidate tournament detail pages every 5 minutes.
-export const revalidate = 300;
+// Time-based ISR for tournament detail pages.
+export const revalidate = 3600;
 
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.refereeinsights.com").replace(/\/+$/, "");
+
+function renderSemanticParts(parts: SemanticListPart[]) {
+  return parts.map((part, idx) => {
+    if (part.type === "text") return <span key={`t-${idx}`}>{part.value}</span>;
+    return (
+      <Link key={`l-${idx}`} href={part.href} style={{ textDecoration: "underline" }}>
+        {part.label}
+      </Link>
+    );
+  });
+}
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -293,6 +305,46 @@ export default async function TournamentDetailPage({
     state: string | null;
     zip: string | null;
   }>;
+
+  const MAX_VENUES_IN_SENTENCE = 5;
+  const venueUniqueCount = new Set(linkedVenues.map((v) => v.id)).size;
+  const semanticVenueItems: SemanticListItem[] = linkedVenues
+    .slice(0, MAX_VENUES_IN_SENTENCE + 1)
+    .map((venue) => {
+      const labelBase = venue.name ?? "Venue";
+      const loc = [venue.city, venue.state].filter(Boolean).join(", ");
+      const label = loc ? `${labelBase} (${loc})` : labelBase;
+      return { id: venue.id, label, href: getVenueHref(venue) };
+    });
+  const semanticVenues = formatEntityList(semanticVenueItems, {
+    maxItems: MAX_VENUES_IN_SENTENCE,
+    overflowNoun: "venues",
+    overflow: venueUniqueCount > MAX_VENUES_IN_SENTENCE ? { kind: "known", remainingCount: venueUniqueCount - MAX_VENUES_IN_SENTENCE } : { kind: "none" },
+    truncateLabelAt: 120,
+  });
+
+  const semanticVenueSentence = (() => {
+    if (venueUniqueCount === 0) return "Venue information for this tournament is not yet confirmed.";
+    if (venueUniqueCount === 1) {
+      return (
+        <>
+          This tournament is played at {renderSemanticParts(semanticVenues.parts)}.
+        </>
+      );
+    }
+    if (venueUniqueCount > MAX_VENUES_IN_SENTENCE) {
+      return (
+        <>
+          Games for this tournament are played across multiple venues including {renderSemanticParts(semanticVenues.parts)}.
+        </>
+      );
+    }
+    return (
+      <>
+        Games for this tournament are played across multiple venues: {renderSemanticParts(semanticVenues.parts)}.
+      </>
+    );
+  })();
   const linkedVenueIds = linkedVenues.map((venue) => venue.id).filter(Boolean);
   const runRows = await fetchLatestOwlsEyeRuns(linkedVenueIds);
   const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
@@ -589,6 +641,10 @@ export default async function TournamentDetailPage({
               </details>
             </div>
           </section>
+
+          <div style={{ marginTop: 10, fontSize: 13, opacity: 0.78, lineHeight: 1.35 }}>
+            <p style={{ margin: 0 }}>{semanticVenueSentence}</p>
+          </div>
 
           <div className="refereeInsights detailCard detailCard--wide">
             <div className="refereeInsights__header">

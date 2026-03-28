@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 
 type RunRow = { id: string; run_id: string | null; updated_at: string | null };
 type ArtifactRow = { image_url: string | null; north_bearing_degrees: number | null; created_at: string | null };
+type VenueLookupRow = { id: string; seo_slug: string | null };
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -35,8 +36,36 @@ async function fetchSupabase<T>(path: string, search: string): Promise<T> {
   return (await resp.json()) as T;
 }
 
+async function resolveVenueId(param: string): Promise<{ id: string | null; seo_slug: string | null }> {
+  // Try slug first.
+  try {
+    const bySlug = await fetchSupabase<VenueLookupRow[]>(
+      "venues",
+      `select=id,seo_slug&seo_slug=eq.${encodeURIComponent(param)}&limit=1`
+    );
+    if (bySlug?.[0]?.id) return { id: bySlug[0].id, seo_slug: bySlug[0].seo_slug ?? null };
+  } catch {
+    // ignore
+  }
+
+  // Fallback id lookup (for existing UUID links).
+  try {
+    const byId = await fetchSupabase<VenueLookupRow[]>(
+      "venues",
+      `select=id,seo_slug&id=eq.${encodeURIComponent(param)}&limit=1`
+    );
+    if (byId?.[0]?.id) return { id: byId[0].id, seo_slug: byId[0].seo_slug ?? null };
+  } catch {
+    // ignore
+  }
+
+  return { id: null, seo_slug: null };
+}
+
 export default async function VenueMapPage({ params }: { params: { venueId: string } }) {
-  const venueId = params.venueId;
+  const venueParam = params.venueId;
+  const venueLookup = await resolveVenueId(venueParam);
+  const venueId = venueLookup.id ?? venueParam;
 
   let latestRun: RunRow | null = null;
   try {
@@ -81,7 +110,9 @@ export default async function VenueMapPage({ params }: { params: { venueId: stri
         >
           <div>
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>Venue Map</h1>
-            <p style={{ margin: "4px 0 0", color: "#4b5563", fontSize: 14 }}>Venue ID: {venueId}</p>
+            <p style={{ margin: "4px 0 0", color: "#4b5563", fontSize: 14 }}>
+              Venue: {venueLookup.seo_slug ? `${venueLookup.seo_slug} (${venueId})` : venueId}
+            </p>
           </div>
           <Link href="/" style={{ fontSize: 14, color: "#0f172a", textDecoration: "none" }}>
             TournamentInsights

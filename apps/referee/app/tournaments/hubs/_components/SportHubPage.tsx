@@ -255,7 +255,7 @@ export default async function SportHubPage(props: Props) {
       next = next.gte("start_date", startISO).lt("start_date", endISO);
     }
     if (!includePast) {
-      next = next.or(`start_date.gte.${today},end_date.gte.${today}`);
+      next = next.or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`);
     }
 
     return next;
@@ -274,6 +274,7 @@ export default async function SportHubPage(props: Props) {
       supabase
         .from("tournaments_public" as any)
         .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url")
+        .order("is_demo", { ascending: false })
         .order("start_date", { ascending: true }),
       false
     );
@@ -358,6 +359,7 @@ export default async function SportHubPage(props: Props) {
       supabase
         .from("tournaments_public" as any)
         .select("id,name,slug,sport,level,state,city,zip,start_date,end_date,source_url,official_website_url")
+        .order("is_demo", { ascending: false })
         .order("start_date", { ascending: true }),
       true
     ).range(offset, offset + PAGE_SIZE - 1);

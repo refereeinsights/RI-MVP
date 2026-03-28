@@ -67,6 +67,7 @@ export default async function SportStateTournamentHub({
     .select("id,name,slug,city,state,sport,start_date")
     .eq("state", stateQuery)
     .eq("sport", sportQuery)
+    .order("is_demo", { ascending: false })
     .order("start_date", { ascending: true });
 
   const tournaments = ((data ?? []) as Tournament[])

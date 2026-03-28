@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTiTierServer } from "@/lib/entitlementsServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isUuid } from "@/lib/venues/isUuid";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,7 @@ type VenueJoinRow = {
   venues:
     | {
         id: string;
+        seo_slug?: string | null;
         name: string | null;
         address: string | null;
         city: string | null;
@@ -28,6 +30,7 @@ type VenueJoinRow = {
 
 type VenueSearchRow = {
   id: string;
+  seo_slug?: string | null;
   name: string | null;
   address: string | null;
   city: string | null;
@@ -42,10 +45,6 @@ function tournamentOut(row: TournamentRow) {
     name: row.name ?? "Unnamed tournament",
     start_date: row.start_date ?? null,
   };
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function parseUsdToNumber(raw: unknown) {
@@ -184,7 +183,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from("tournament_venues" as any)
-      .select("venue_id,venues(id,name,address,city,state,zip)")
+      .select("venue_id,venues(id,seo_slug,name,address,city,state,zip)")
       .eq("tournament_id", tournamentId)
       .order("created_at", { ascending: true });
 
@@ -207,7 +206,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from("venues" as any)
-      .select("id,name,address,city,state,zip")
+      .select("id,seo_slug,name,address,city,state,zip")
       .or(
         [
           `name.ilike.%${q}%`,
@@ -229,16 +228,29 @@ export async function GET(request: Request) {
     const venueId = (searchParams.get("venueId") ?? "").trim();
     if (!venueId) return NextResponse.json({ ok: true, venue: null });
 
-    const { data, error } = await supabaseAdmin
+    const baseSelect = "id,seo_slug,name,address,city,state,zip";
+
+    // Try slug first.
+    const bySlug = await supabaseAdmin
       .from("venues" as any)
-      .select("id,name,address,city,state,zip")
-      .eq("id", venueId)
+      .select(baseSelect)
+      .eq("seo_slug", venueId)
       .maybeSingle<VenueSearchRow>();
+    if (!bySlug.error && bySlug.data?.id) return NextResponse.json({ ok: true, venue: bySlug.data });
 
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    if (!data?.id) return NextResponse.json({ ok: true, venue: null });
+    // Fallback UUID lookup.
+    if (isUuid(venueId)) {
+      const byId = await supabaseAdmin
+        .from("venues" as any)
+        .select(baseSelect)
+        .eq("id", venueId)
+        .maybeSingle<VenueSearchRow>();
+      if (byId.error) return NextResponse.json({ ok: false, error: byId.error.message }, { status: 500 });
+      if (!byId.data?.id) return NextResponse.json({ ok: true, venue: null });
+      return NextResponse.json({ ok: true, venue: byId.data });
+    }
 
-    return NextResponse.json({ ok: true, venue: data });
+    return NextResponse.json({ ok: true, venue: null });
   }
 
   return NextResponse.json({ ok: false, error: "Unsupported mode." }, { status: 400 });

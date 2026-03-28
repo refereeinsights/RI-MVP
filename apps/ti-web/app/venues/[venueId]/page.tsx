@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { canAccessWeekendPro, getTier } from "@/lib/entitlements";
@@ -14,7 +14,10 @@ import {
   type OwlsEyeDemoScores,
   type VenueReviewChoiceRow,
 } from "@/lib/owlsEyeScores";
+import { getVenueHref } from "@/lib/venues/getVenueHref";
+import { isUuid } from "@/lib/venues/isUuid";
 import { getVenueCardClassFromSports } from "../sportSurface";
+import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import "../../tournaments/tournaments.css";
 
 type LinkedTournament = {
@@ -28,6 +31,7 @@ type LinkedTournament = {
 
 type VenueRow = {
   id: string;
+  seo_slug?: string | null;
   name: string | null;
   address: string | null;
   city: string | null;
@@ -152,31 +156,43 @@ async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
   return [];
 }
 
-export const revalidate = 300;
+export const revalidate = 3600;
 
 const PREMIUM_PREVIEW_TOURNAMENT_SLUGS = new Set(["refereeinsights-demo-tournament"]);
 
-export async function generateMetadata({ params }: { params: { venueId: string } }): Promise<Metadata> {
-  const { data } = await supabaseAdmin
-    .from("venues" as any)
-    .select("name,city,state,id")
-    .eq("id", params.venueId)
-    .maybeSingle<{ name: string | null; city: string | null; state: string | null; id: string }>();
+function renderSemanticParts(parts: SemanticListPart[]) {
+  return parts.map((part, idx) => {
+    if (part.type === "text") return <span key={`t-${idx}`}>{part.value}</span>;
+    return (
+      <Link key={`l-${idx}`} href={part.href} style={{ textDecoration: "underline" }}>
+        {part.label}
+      </Link>
+    );
+  });
+}
 
-  if (!data) {
+export async function generateMetadata({ params }: { params: { venueId: string } }): Promise<Metadata> {
+  const { venue, redirectTo } = await fetchVenueByParam(params.venueId);
+
+  if (redirectTo) {
+    return { alternates: { canonical: `https://www.tournamentinsights.com${redirectTo}` } };
+  }
+
+  if (!venue) {
     return {
       title: "Venue not found | TournamentInsights",
       robots: { index: false, follow: false },
     };
   }
 
+  const data = venue;
   const { buildTIVenueTitle, assertNoDoubleBrand } = await import("@/lib/seo/buildTITitle");
   const title = buildTIVenueTitle(data.name ?? "Tournament venue", data.city, data.state);
   assertNoDoubleBrand(title);
   const description = `Youth sports venue details for ${data.name || "venue"} in ${[data.city, data.state]
     .filter(Boolean)
     .join(", ")}.`;
-  const canonical = `/venues/${params.venueId}`;
+  const canonical = getVenueHref(data);
 
   return {
     title: { absolute: title },
@@ -186,6 +202,32 @@ export async function generateMetadata({ params }: { params: { venueId: string }
   };
 }
 
+async function fetchVenueByParam(param: string): Promise<{ venue: VenueRow | null; redirectTo: string | null }> {
+  const baseSelect =
+    "id,seo_slug,name,address,city,state,zip,notes,venue_url,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(tournaments(id,slug,name,sport,start_date,end_date))";
+
+  const bySlug = await supabaseAdmin
+    .from("venues" as any)
+    .select(baseSelect)
+    .eq("seo_slug", param)
+    .maybeSingle<VenueRow>();
+  if (!bySlug.error && bySlug.data?.id) {
+    return { venue: bySlug.data, redirectTo: null };
+  }
+
+  if (isUuid(param)) {
+    const byId = await supabaseAdmin.from("venues" as any).select(baseSelect).eq("id", param).maybeSingle<VenueRow>();
+    if (!byId.error && byId.data?.id) {
+      if (byId.data.seo_slug && byId.data.seo_slug !== param) {
+        return { venue: byId.data, redirectTo: getVenueHref(byId.data) };
+      }
+      return { venue: byId.data, redirectTo: null };
+    }
+  }
+
+  return { venue: null, redirectTo: null };
+}
+
 export default async function VenueDetailsPage({
   params,
   searchParams,
@@ -193,6 +235,10 @@ export default async function VenueDetailsPage({
   params: { venueId: string };
   searchParams?: { tournament?: string };
 }) {
+  const { venue: resolvedVenue, redirectTo } = await fetchVenueByParam(params.venueId);
+  if (redirectTo) redirect(redirectTo);
+  if (!resolvedVenue?.id) notFound();
+
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
@@ -218,23 +264,13 @@ export default async function VenueDetailsPage({
       };
   const tier = getTier(user, entitlementProfile ?? null);
   const isPaid = canAccessWeekendPro(user, entitlementProfile ?? null);
+
+  const data = resolvedVenue;
   const canReviewVenue = tier !== "explorer";
-
-  const { data, error } = await supabaseAdmin
-    .from("venues" as any)
-    .select(
-      "id,name,address,city,state,zip,notes,venue_url,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(tournaments(id,slug,name,sport,start_date,end_date))"
-    )
-    .eq("id", params.venueId)
-    .maybeSingle<VenueRow>();
-
-  if (error || !data?.id) {
-    notFound();
-  }
   const venueInsightsExtra = await supabaseAdmin
     .from("venues" as any)
     .select("id,player_parking_fee,parking_notes,bring_field_chairs,seating_notes")
-    .eq("id", params.venueId)
+    .eq("id", data.id)
     .maybeSingle<{
       id: string;
       player_parking_fee: string | null;
@@ -264,6 +300,9 @@ export default async function VenueDetailsPage({
   const canViewPremiumDetails = isPaid || isDemoVenue || hasPremiumPreviewTournament;
 
   const today = new Date().toISOString().slice(0, 10);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+  const cutoffIso = cutoff.toISOString().slice(0, 10);
   const upcomingTournaments = linkedTournaments
     .filter((t) => {
       const startOk = Boolean(t.start_date && t.start_date >= today);
@@ -271,6 +310,44 @@ export default async function VenueDetailsPage({
       return startOk || endOk;
     })
     .sort((a, b) => (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31"));
+
+  const semanticLocationSentence = (() => {
+    const name = data.name ?? "This venue";
+    const city = (data.city ?? "").trim();
+    const state = (data.state ?? "").trim();
+    if (city && state) return `${name} is a sports venue located in ${city}, ${state}.`;
+    if (state) return `${name} is a sports venue located in ${state}.`;
+    return `${name} is a sports venue.`;
+  })();
+
+  const semanticTournamentCandidates = linkedTournaments
+    .filter((t) => {
+      const start = (t.start_date ?? "").trim();
+      if (!start) return false;
+      return start >= cutoffIso;
+    })
+    .sort((a, b) => {
+      const dateCmp = (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31");
+      if (dateCmp !== 0) return dateCmp;
+      return (a.name ?? "").localeCompare(b.name ?? "");
+    });
+
+  const MAX_TOURNAMENTS_IN_SENTENCE = 8;
+  const semanticTournamentUniqueCount = new Set(semanticTournamentCandidates.map((t) => t.id)).size;
+  const semanticTournamentItems: SemanticListItem[] = semanticTournamentCandidates.slice(0, MAX_TOURNAMENTS_IN_SENTENCE + 1).map((t) => ({
+    id: t.id,
+    label: t.name ?? "",
+    href: t.slug ? `/tournaments/${t.slug}` : null,
+  }));
+  const semanticTournaments = formatEntityList(semanticTournamentItems, {
+    maxItems: MAX_TOURNAMENTS_IN_SENTENCE,
+    overflowNoun: "tournaments",
+    overflow:
+      semanticTournamentUniqueCount > MAX_TOURNAMENTS_IN_SENTENCE
+        ? { kind: "known", remainingCount: semanticTournamentUniqueCount - MAX_TOURNAMENTS_IN_SENTENCE }
+        : { kind: "none" },
+    truncateLabelAt: 120,
+  });
 
   const sportsFromTournaments = Array.from(
     new Set(
@@ -289,7 +366,7 @@ export default async function VenueDetailsPage({
   const addressLabel = [data.address, data.city, data.state, data.zip].filter(Boolean).join(", ");
   const mapLinks = addressLabel ? buildMapLinks(addressLabel) : null;
   const reviewHref = `/venues/reviews?venueId=${encodeURIComponent(data.id)}`;
-  const reviewLoginHref = `/login?returnTo=${encodeURIComponent(`/venues/${data.id}`)}`;
+  const reviewLoginHref = `/login?returnTo=${encodeURIComponent(getVenueHref(data))}`;
 
   const runRows = await fetchLatestOwlsEyeRuns([data.id]);
   const latestRun = runRows.find((row) => row.venue_id === data.id) ?? null;
@@ -620,6 +697,17 @@ export default async function VenueDetailsPage({
                   <p style={{ margin: "4px 0 0", opacity: 0.95 }}>{data.notes}</p>
                 </div>
               ) : null}
+
+              <div style={{ marginTop: 10, fontSize: 13, opacity: 0.78, lineHeight: 1.35 }}>
+                <p style={{ margin: 0 }}>{semanticLocationSentence}</p>
+                {semanticTournaments.totalUnique > 0 ? (
+                  <p style={{ margin: "6px 0 0" }}>
+                    Tournaments played at this venue include {renderSemanticParts(semanticTournaments.parts)}.
+                  </p>
+                ) : (
+                  <p style={{ margin: "6px 0 0" }}>We don’t have any tournaments linked to this venue yet.</p>
+                )}
+              </div>
             </div>
           </article>
         </div>

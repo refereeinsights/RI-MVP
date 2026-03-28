@@ -13,6 +13,7 @@ import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
 import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
 import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
+import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import "../tournaments.css";
 
 type TournamentDetailRow = {
@@ -69,6 +70,7 @@ type OwlsEyeRunRow = {
 
 type LinkedVenue = {
   id: string;
+  seo_slug?: string | null;
   name: string | null;
   address: string | null;
   city: string | null;
@@ -96,10 +98,21 @@ type TournamentPartnerRow = {
   sort_order: number | null;
 };
 
-export const revalidate = 300;
+export const revalidate = 3600;
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
 const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
+
+function renderSemanticParts(parts: SemanticListPart[]) {
+  return parts.map((part, idx) => {
+    if (part.type === "text") return <span key={`t-${idx}`}>{part.value}</span>;
+    return (
+      <Link key={`l-${idx}`} href={part.href} style={{ textDecoration: "underline" }}>
+        {part.label}
+      </Link>
+    );
+  });
+}
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -273,7 +286,7 @@ export default async function TournamentDetailPage({
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
     .select(
-      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,sport,level,tournament_staff_verified,venue,address,tournament_venues(venues(id,name,address,city,state,zip,latitude,longitude,venue_url,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at))"
+      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,sport,level,tournament_staff_verified,venue,address,tournament_venues(venues(id,seo_slug,name,address,city,state,zip,latitude,longitude,venue_url,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at))"
     )
     .eq("slug", params.slug)
     .maybeSingle<TournamentDetailRow>();
@@ -324,6 +337,42 @@ export default async function TournamentDetailPage({
   const canEditThisTournament = canEditTournament(viewerEmail, directorEmailOnFile);
   const showClaimNotice = searchParams?.claim === "1";
   const showSavedNotice = searchParams?.saved === "1";
+
+  const MAX_VENUES_IN_SENTENCE = 5;
+  const venueItems: SemanticListItem[] = linkedVenues
+    .filter((v) => Boolean(v?.id && v?.name))
+    .slice()
+    .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
+    .map((v) => {
+      const loc = [v.city, v.state].filter(Boolean).join(", ");
+      const label = loc ? `${v.name ?? "Venue"} (${loc})` : (v.name ?? "Venue");
+      return { id: v.id, label, href: `/venues/${v.seo_slug || v.id}` };
+    });
+  const venueList = formatEntityList(venueItems, {
+    maxItems: MAX_VENUES_IN_SENTENCE,
+    overflowNoun: "venues",
+    overflow:
+      venueItems.length > MAX_VENUES_IN_SENTENCE
+        ? { kind: "known", remainingCount: venueItems.length - MAX_VENUES_IN_SENTENCE }
+        : { kind: "none" },
+    truncateLabelAt: 120,
+  });
+  const tournamentSemanticParts =
+    venueItems.length === 0
+      ? ([{ type: "text", value: "Venue information for this tournament is not yet confirmed." }] as SemanticListPart[])
+      : venueItems.length === 1
+        ? ([{ type: "text", value: "This tournament is played at " }, ...venueList.parts, { type: "text", value: "." }] as SemanticListPart[])
+        : venueItems.length <= MAX_VENUES_IN_SENTENCE
+          ? ([
+              { type: "text", value: "Games for this tournament are played across multiple venues: " },
+              ...venueList.parts,
+              { type: "text", value: "." },
+            ] as SemanticListPart[])
+          : ([
+              { type: "text", value: "Games for this tournament are played across multiple venues including " },
+              ...venueList.parts,
+              { type: "text", value: "." },
+            ] as SemanticListPart[]);
 
   if (showClaimNotice && user?.id && canEditThisTournament) {
     // Best-effort funnel marker; safe to ignore failures pre-migration.
@@ -688,7 +737,7 @@ export default async function TournamentDetailPage({
               {linkedVenues.map((venue) => (
                 <Link
                   key={venue.id}
-                  href={`/venues/${venue.id}?tournament=${encodeURIComponent(data.slug ?? params.slug)}`}
+                  href={`/venues/${venue.seo_slug || venue.id}?tournament=${encodeURIComponent(data.slug ?? params.slug)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`detailVenueTile ${hasOwlsEyeByVenueId.get(venue.id) ? "detailVenueTile--withOwl" : ""}`}
@@ -836,6 +885,10 @@ export default async function TournamentDetailPage({
                 </div>
               </div>
             )}
+          </div>
+
+          <div style={{ marginTop: 18, fontSize: 13, lineHeight: 1.45, opacity: 0.78 }}>
+            {renderSemanticParts(tournamentSemanticParts)}
           </div>
         </div>
       </section>

@@ -11,6 +11,7 @@ type MapLinks = {
 
 type Props = {
   venueId: string;
+  venueSeoSlug?: string | null;
   name: string;
   city: string | null;
   state: string | null;
@@ -40,6 +41,7 @@ type Props = {
 
 export default function VenueCard({
   venueId,
+  venueSeoSlug,
   name,
   city,
   state,
@@ -66,6 +68,7 @@ export default function VenueCard({
   const effectiveTier = isDemo ? "weekend_pro" : tier;
   const canReviewVenue = tier !== "explorer";
   const reviewHref = `/venues/reviews?venueId=${encodeURIComponent(venueId)}`;
+  const detailsHref = `/venues/${venueSeoSlug || venueId}`;
 
   return (
     <article className={`card ${sportCardClass} ${styles.card}`}>
@@ -130,7 +133,7 @@ export default function VenueCard({
       {notes && effectiveTier === "weekend_pro" ? <p className={styles.notes}>{notes}</p> : null}
 
       <div className="cardFooter">
-        <Link href={`/venues/${venueId}`} className={`primaryLink ${styles.detailsLink}`}>
+        <Link href={detailsHref} className={`primaryLink ${styles.detailsLink}`}>
           Venue details
         </Link>
 
