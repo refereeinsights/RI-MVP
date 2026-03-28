@@ -117,6 +117,9 @@ export default function VenuesListClient({
   const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null);
   const [selectedRecentByTournament, setSelectedRecentByTournament] = useState<Record<string, Record<string, boolean>>>({});
   const [togglingSkipTournamentId, setTogglingSkipTournamentId] = useState<string | null>(null);
+  const recentTotals = useMemo(() => {
+    return { total: recentTournamentVenueLinks.length, remaining: recentState.length };
+  }, [recentTournamentVenueLinks.length, recentState.length]);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const duplicateGroupId = (group: DuplicateVenueGroup) => `${group.kind}:${group.key}`;
@@ -644,6 +647,28 @@ export default function VenuesListClient({
               <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
                 Review venue links added in this date range and quickly unlink incorrect ones.
               </div>
+              {recentTotals.total > 0 ? (
+                <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <span
+                    style={{
+                      padding: "2px 10px",
+                      borderRadius: 999,
+                      background: "#eff6ff",
+                      border: "1px solid #bfdbfe",
+                      color: "#1e3a8a",
+                      fontSize: 12,
+                      fontWeight: 800,
+                    }}
+                  >
+                    To review: {recentTotals.remaining} / {recentTotals.total}
+                  </span>
+                  {dismissedTournamentIds.size > 0 ? (
+                    <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 700 }}>
+                      Hidden: {dismissedTournamentIds.size}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
             <form method="GET" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               {Object.entries(preservedFilters).map(([k, v]) => (v ? <input key={k} type="hidden" name={k} value={v} /> : null))}

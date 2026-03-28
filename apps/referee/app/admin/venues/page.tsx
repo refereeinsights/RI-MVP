@@ -837,7 +837,10 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
           });
           byTournament.set(tournamentId, existing);
         }
-        recentTournamentVenueLinks = Array.from(byTournament.values()).slice(0, 250);
+        // If a tournament is marked skip_venue_discovery (reviewed), keep it out of this review window.
+        recentTournamentVenueLinks = Array.from(byTournament.values())
+          .filter((t) => t.skip_venue_discovery !== true)
+          .slice(0, 250);
       }
     } catch {
       recentTournamentVenueLinks = [];
