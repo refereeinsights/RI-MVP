@@ -469,6 +469,11 @@ async function main() {
     idx("tournament_url") >= 0 &&
     idx("venue_name") >= 0;
 
+  const hasTournamentUuidVenueFeed =
+    idx("tournament_uuid") >= 0 &&
+    idx("venue_name") >= 0 &&
+    idx("venue_state") >= 0;
+
   const hasLegacyFeed =
     headers.length >= 9 &&
     headers[0] === "tournament_name" &&
@@ -481,7 +486,7 @@ async function main() {
     headers[7] === "venue_name" &&
     headers[8] === "venue_address";
 
-  if (!hasNewFeed && !hasLegacyFeed) {
+  if (!hasTournamentUuidVenueFeed && !hasNewFeed && !hasLegacyFeed) {
     throw new Error(`unexpected_header: got=${headers.join("|")}`);
   }
 
@@ -505,7 +510,88 @@ async function main() {
   let createdVenues = 0;
   let linked = 0;
 
-  if (hasNewFeed) {
+  if (hasTournamentUuidVenueFeed) {
+    for (let i = 1; i < lines.length; i++) {
+      const rowNum = i;
+      const fields = parseCsvLine(lines[i]);
+      const get = (name) => (idx(name) >= 0 ? clean(fields[idx(name)]) : null);
+
+      const tournament_uuid = get("tournament_uuid");
+      const tournament_name = get("tournament_name");
+      const venue_name = get("venue_name");
+      const venue_address = get("venue_address");
+      const venue_city = get("venue_city");
+      const venue_state = clean(get("venue_state"))?.toUpperCase() ?? null;
+      const venue_zip = get("venue_zip");
+
+      if (!tournament_uuid || !venue_name || !venue_state) {
+        fs.appendFileSync(
+          outPath,
+          [rowNum, tournament_uuid ?? "", tournament_name ?? "", "", "", "", "", "", "", "missing_required_fields"]
+            .map(csv)
+            .join(",") + "\n"
+        );
+        continue;
+      }
+
+      const { data: tournamentRow, error: tournamentErr } = await supabase
+        .from("tournaments")
+        .select("id,slug,name")
+        .eq("id", tournament_uuid)
+        .maybeSingle();
+
+      if (tournamentErr || !tournamentRow?.id) {
+        fs.appendFileSync(
+          outPath,
+          [rowNum, tournament_uuid, tournament_name ?? "", "", "tournament_not_found", "", "", "", "", tournamentErr ? tournamentErr.message : "tournament_not_found"]
+            .map(csv)
+            .join(",") + "\n"
+        );
+        continue;
+      }
+
+      const tournamentId = String(tournamentRow.id);
+      const slug = tournamentRow.slug ?? "";
+      const tournamentNote = "match_tournament_id";
+      // We only have one venue per row, but keep dedupe in case of repeats.
+      const venueRes = await ensureVenueFlexible(
+        supabase,
+        { name: venue_name, address: venue_address, city: venue_city, state: venue_state, zip: venue_zip },
+        APPLY
+      );
+      const venueId = venueRes.venueId;
+      const venueNote = venueRes.note;
+      if (venueNote === "created") createdVenues += 1;
+
+      let didLink = false;
+      if (APPLY && tournamentId && venueId) {
+        const linkRes = await supabase
+          .from("tournament_venues")
+          .upsert([{ tournament_id: tournamentId, venue_id: venueId }], { onConflict: "tournament_id,venue_id" });
+        if (linkRes.error) throw linkRes.error;
+        linked += 1;
+        didLink = true;
+      }
+
+      fs.appendFileSync(
+        outPath,
+        [
+          rowNum,
+          tournamentId,
+          tournamentRow.name ?? tournament_name ?? "",
+          slug,
+          tournamentNote,
+          "",
+          venueId ?? "",
+          venueNote,
+          didLink ? "1" : "0",
+          APPLY ? "" : "dry_run",
+        ]
+          .map(csv)
+          .join(",") + "\n"
+      );
+    }
+  } else if (hasNewFeed) {
     const rows = [];
     for (let i = 1; i < lines.length; i++) {
       const rowNum = i;

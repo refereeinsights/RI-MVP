@@ -8,6 +8,7 @@
 - Demo sorting: ensured `refereeinsights-demo-tournament` stays first even when listings are ordered by `start_date` by including demo rows in “upcoming” filters and ordering `is_demo DESC` before `start_date` in TI/RI sport hub queries.
 - Admin venues: added a “To review: remaining/total” counter to the “Recent tournament venue links” panel; reviewed tournaments are now excluded server-side once `skip_venue_discovery=true` is set (so they don’t reappear when changing date ranges or resetting local hidden state).
 - Admin venues: added a per-tournament venue count in the collapsed recent-links row (next to “Updated”), to help prioritize which tournaments need review first.
+- Ops ingest (WYO Club VB venue enrichment): extended `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs` to accept a `tournament_uuid + venue_*` enrichment CSV (no tournament creation; links venues to existing tournaments by id). Applied `wyo_club_vb_venue_enrichment.csv`: created_venues=3, linked=18 (report: `tmp/wyo_club_vb_venue_enrichment_report_apply.csv`).
 
 ## 2026-03-27
 
