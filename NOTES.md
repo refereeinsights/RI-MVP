@@ -9,6 +9,7 @@
 - Admin venues: added a “To review: remaining/total” counter to the “Recent tournament venue links” panel; reviewed tournaments are now excluded server-side once `skip_venue_discovery=true` is set (so they don’t reappear when changing date ranges or resetting local hidden state).
 - Admin venues: added a per-tournament venue count in the collapsed recent-links row (next to “Updated”), to help prioritize which tournaments need review first.
 - Ops ingest (WYO Club VB venue enrichment): extended `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs` to accept a `tournament_uuid + venue_*` enrichment CSV (no tournament creation; links venues to existing tournaments by id). Applied `wyo_club_vb_venue_enrichment.csv`: created_venues=3, linked=18 (report: `tmp/wyo_club_vb_venue_enrichment_report_apply.csv`).
+- Organizer venue suggestions (backend tooling): added `scripts/ingest/suggest_organizer_venue_candidates.ts` to propose venue links for tournaments missing `tournament_venues` based on evidence from existing organizer patterns (association first, domain fallback). Writes suggestions into `tournament_venue_candidates` (never auto-links) with confidence + evidence text + provenance (`source_url=organizer_pattern:*`) and emits a CSV report under `tmp/`.
 
 ## 2026-03-27
 
