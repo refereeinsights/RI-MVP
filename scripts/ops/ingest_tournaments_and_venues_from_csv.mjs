@@ -434,6 +434,7 @@ async function main() {
   loadEnvLocal();
 
   const APPLY = process.argv.includes("--apply");
+  const NO_CREATE_TOURNAMENTS = process.argv.includes("--no-create-tournaments");
   const inputPath = clean(argValue("input"));
   const outPath =
     clean(argValue("out")) || path.resolve(process.cwd(), "tmp", `ingest_tournaments_and_venues_${stamp()}.csv`);
@@ -662,7 +663,7 @@ async function main() {
       const city = first.tournament_city ?? null;
       const sourceEventId = first.tournament_external_id ?? null;
 
-      const allowCreate = Boolean(start_date);
+      const allowCreate = !NO_CREATE_TOURNAMENTS && Boolean(start_date);
       const slug = allowCreate ? buildSlug(tournament_name, state, start_date) : null;
       const officialUrl = tournament_url && !isGenericTournamentListingUrl(tournament_url) ? tournament_url : null;
 
@@ -713,6 +714,8 @@ async function main() {
       const { tournamentId, tournamentNote, created: tCreated, updated: tUpdated } = await ensureTournament(supabase, tournamentArgs, APPLY);
       if (tCreated) createdTournaments += 1;
       if (tUpdated) updatedTournaments += 1;
+      const canLink = Boolean(tournamentId);
+      const venueApply = APPLY && canLink;
 
       const uniqueVenues = new Map();
       for (const r of group.rows) {
@@ -734,14 +737,14 @@ async function main() {
         const venueRes = await ensureVenueFlexible(
           supabase,
           { name: venue_name, address: venueStreet, city: venueCity, state: venueState, zip: venueZip, sport },
-          APPLY
+          venueApply
         );
         const venueId = venueRes.venueId;
         const venueNote = venueRes.note;
         if (venueNote === "created") createdVenues += 1;
 
         let didLink = false;
-        if (APPLY && tournamentId && venueId) {
+        if (venueApply && tournamentId && venueId) {
           const linkRes = await supabase
             .from("tournament_venues")
             .upsert([{ tournament_id: tournamentId, venue_id: venueId }], { onConflict: "tournament_id,venue_id" });
@@ -836,6 +839,7 @@ async function main() {
         state,
         start_date,
         official_website_url: website_url,
+        allowCreate: !NO_CREATE_TOURNAMENTS,
         patch: tournamentPatch,
       };
       const { tournamentId, tournamentNote, created: tCreated, updated: tUpdated } = await ensureTournament(
@@ -850,12 +854,14 @@ async function main() {
       let venueNote = "";
       let didLink = false;
       if (venue_name && venue_address) {
-        const venueRes = await ensureVenue(supabase, { name: venue_name, address: venue_address }, APPLY);
+        const canLink = Boolean(tournamentId);
+        const venueApply = APPLY && canLink;
+        const venueRes = await ensureVenue(supabase, { name: venue_name, address: venue_address }, venueApply);
         venueId = venueRes.venueId;
         venueNote = venueRes.note;
         if (venueNote === "created") createdVenues += 1;
 
-        if (APPLY && tournamentId && venueId) {
+        if (venueApply && tournamentId && venueId) {
           const linkRes = await supabase
             .from("tournament_venues")
             .upsert([{ tournament_id: tournamentId, venue_id: venueId }], { onConflict: "tournament_id,venue_id" });

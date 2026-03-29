@@ -4,6 +4,7 @@
 - TI Outreach Previews: added tournament-name search (`tournament_q`) that also matches tournaments referenced inside multi-tournament outreach (via `tournament_id` / `tournament_ids`), so replies can be located even when the reply-from email differs from the sent-to address; list view now shows the replied timestamp inline.
 - Outreach tracking (Supabase): added migration `supabase/migrations/20260329_email_outreach_preview_tracking.sql` to add `sent_at`, `send_attempt_count`, and director reply fields (`director_replied_at`, `director_replied_note`, `director_replied_by_email`) + indexes.
 - TI outreach APIs: hardened `/api/outreach/mark-replied`, `/api/outreach/send-test`, and `/api/outreach/send-director` to (a) return actionable JSON errors when the migration hasn’t been applied (PostgREST schema cache / missing columns) and (b) fail fast when Supabase admin env is missing.
+- Ops ingest (Bottom 5 states intake): normalized `bottom5_states_tournament_intake.csv` via `scripts/ops/normalize_bottom5_states_intake_to_new_feed.mjs`, then ran ingest with `--no-create-tournaments` so only existing tournaments were updated and venue links were created when possible (created_tournaments=0, updated_tournaments=4, created_venues=13, linked=4; report: `tmp/bottom5_states_intake_report_apply.csv`). Follow-up: updated ingest script to avoid creating venues unless the tournament exists and can be linked (prevents orphan venues when tournament matches fail).
 
 ## 2026-03-28
 
