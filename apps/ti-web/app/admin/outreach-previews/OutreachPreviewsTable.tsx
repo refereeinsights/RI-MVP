@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 type PreviewRow = {
   id: string;
   created_at: string;
+  sent_at?: string | null;
+  director_replied_at?: string | null;
   sport: string;
   tournament_name: string;
   tournament_start_date?: string | null;
@@ -23,6 +25,7 @@ type OutreachPreviewsTableProps = {
   selectedPreviewId: string;
   campaignId: string;
   sport: string;
+  directorEmail: string;
   suppressionByTournamentId: Record<string, { status: string }>;
   startAfter: string;
 };
@@ -32,6 +35,7 @@ export default function OutreachPreviewsTable({
   selectedPreviewId,
   campaignId,
   sport,
+  directorEmail,
   suppressionByTournamentId,
   startAfter,
 }: OutreachPreviewsTableProps) {
@@ -169,10 +173,10 @@ export default function OutreachPreviewsTable({
       </div>
 
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
           <thead>
             <tr>
-              {["", "Created", "Starts", "Tournament", "Email", "Status"].map((heading) => (
+              {["", "Created", "Sent", "Starts", "Tournament", "Email", "Status"].map((heading) => (
                 <th key={heading} style={thStyle}>
                   {heading}
                 </th>
@@ -181,10 +185,12 @@ export default function OutreachPreviewsTable({
           </thead>
           <tbody>
             {localPreviews.map((preview) => {
-              const href = buildPreviewHref(preview.id, campaignId, sport, startAfter);
+              const href = buildPreviewHref(preview.id, campaignId, sport, directorEmail, startAfter);
               const isSelected = selectedPreviewId === preview.id;
               const suppression = preview.tournament_id ? suppressionByTournamentId[preview.tournament_id] : null;
               const startLabel = formatDateOnly(preview.tournament_start_date);
+              const sentLabel = preview.sent_at ? formatDate(preview.sent_at) : "—";
+              const replied = Boolean(preview.director_replied_at);
               return (
                 <tr key={preview.id} style={{ background: isSelected ? "#eff6ff" : "transparent" }}>
                   <td style={tdStyle}>
@@ -195,6 +201,12 @@ export default function OutreachPreviewsTable({
                     />
                   </td>
                   <td style={tdStyle}>{formatDate(preview.created_at)}</td>
+                  <td style={tdStyle}>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <span>{sentLabel}</span>
+                      {replied ? <span style={statusPillStyle("replied")}>replied</span> : null}
+                    </div>
+                  </td>
                   <td style={tdStyle}>{startLabel || "TBA"}</td>
                 <td style={tdStyle}>
                   <Link href={href} style={rowLinkStyle}>
@@ -224,7 +236,7 @@ export default function OutreachPreviewsTable({
             })}
             {localPreviews.length === 0 ? (
               <tr>
-                <td style={tdStyle} colSpan={6}>
+                <td style={tdStyle} colSpan={7}>
                   No previews found for the current filters.
                 </td>
               </tr>
@@ -236,10 +248,11 @@ export default function OutreachPreviewsTable({
   );
 }
 
-function buildPreviewHref(previewId: string, campaignId: string, sport: string, startAfter: string) {
+function buildPreviewHref(previewId: string, campaignId: string, sport: string, directorEmail: string, startAfter: string) {
   const url = new URLSearchParams();
   if (campaignId) url.set("campaign_id", campaignId);
   if (sport) url.set("sport", sport);
+  if (directorEmail) url.set("director_email", directorEmail);
   if (startAfter) url.set("start_after", startAfter);
   url.set("preview_id", previewId);
   return `/admin/outreach-previews?${url.toString()}`;
@@ -294,6 +307,19 @@ function statusPillStyle(status: string): CSSProperties {
       borderRadius: 999,
       background: "#dcfce7",
       color: "#166534",
+      fontSize: 12,
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: "0.04em",
+    };
+  }
+  if (normalized === "replied") {
+    return {
+      display: "inline-flex",
+      padding: "4px 8px",
+      borderRadius: 999,
+      background: "#ede9fe",
+      color: "#5b21b6",
       fontSize: 12,
       fontWeight: 700,
       textTransform: "uppercase",

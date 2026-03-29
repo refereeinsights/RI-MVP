@@ -14,6 +14,7 @@ type PreviewRow = {
   subject: string;
   html_body: string;
   text_body: string;
+  send_attempt_count?: number | null;
 };
 
 async function authorize(request: NextRequest) {
@@ -31,6 +32,18 @@ export async function POST(request: NextRequest) {
   const auth = await authorize(request);
   if (!auth.authorized) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "";
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || "";
+  if (!supabaseUrl || !serviceKey) {
+    return NextResponse.json(
+      {
+        error:
+          "Supabase admin client is not configured. Missing NEXT_PUBLIC_SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY in this runtime environment.",
+      },
+      { status: 500 }
+    );
   }
 
   let body: SendTestBody;
@@ -51,7 +64,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { data, error } = await (supabaseAdmin.from("email_outreach_previews" as any) as any)
-    .select("id,subject,html_body,text_body")
+    .select("id,subject,html_body,text_body,send_attempt_count")
     .eq("id", previewId)
     .maybeSingle();
 
@@ -72,16 +85,42 @@ export async function POST(request: NextRequest) {
       text: preview.text_body,
     });
 
-    await (supabaseAdmin.from("email_outreach_previews" as any) as any)
-      .update({ status: "sent", error: null })
+    const attempt = (preview.send_attempt_count ?? 0) + 1;
+    const { error: updateError } = await (supabaseAdmin.from("email_outreach_previews" as any) as any)
+      .update({ status: "sent", error: null, sent_at: new Date().toISOString(), send_attempt_count: attempt })
       .eq("id", preview.id);
+
+    if (updateError) {
+      const message = typeof updateError?.message === "string" ? updateError.message : String(updateError);
+      const normalized = message.toLowerCase();
+      const missingColumn =
+        normalized.includes("send_attempt_count") &&
+        (normalized.includes("does not exist") ||
+          normalized.includes("could not find") ||
+          normalized.includes("schema cache") ||
+          normalized.includes("column"));
+      if (missingColumn) {
+        return NextResponse.json(
+          {
+            error:
+              "Outreach tracking columns are missing in Supabase. Apply migration `supabase/migrations/20260329_email_outreach_preview_tracking.sql` (then retry).",
+          },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (sendError) {
     const message = sendError instanceof Error ? sendError.message : "Unable to send test email.";
-    await (supabaseAdmin.from("email_outreach_previews" as any) as any)
-      .update({ status: "error", error: message })
-      .eq("id", preview.id);
+    try {
+      await (supabaseAdmin.from("email_outreach_previews" as any) as any)
+        .update({ status: "error", error: message, send_attempt_count: (preview.send_attempt_count ?? 0) + 1 })
+        .eq("id", preview.id);
+    } catch {
+      // Ignore failures updating tracking columns; original send error is still actionable.
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

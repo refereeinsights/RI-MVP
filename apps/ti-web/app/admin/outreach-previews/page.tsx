@@ -16,11 +16,15 @@ type SearchParams = {
   sport?: string;
   preview_id?: string;
   start_after?: string;
+  director_email?: string;
 };
 
 type PreviewRow = {
   id: string;
   created_at: string;
+  sent_at?: string | null;
+  send_attempt_count?: number | null;
+  director_replied_at?: string | null;
   sport: string;
   campaign_id: string;
   tournament_id: string | null;
@@ -71,6 +75,7 @@ export default async function OutreachPreviewsPage({
   if (searchParams?.sport) returnParams.set("sport", searchParams.sport);
   if (searchParams?.preview_id) returnParams.set("preview_id", searchParams.preview_id);
   if (searchParams?.start_after) returnParams.set("start_after", searchParams.start_after);
+  if (searchParams?.director_email) returnParams.set("director_email", searchParams.director_email);
   const returnTo = `/admin/outreach-previews${returnParams.toString() ? `?${returnParams.toString()}` : ""}`;
 
   const user = await requireTiOutreachAdmin(returnTo);
@@ -79,8 +84,19 @@ export default async function OutreachPreviewsPage({
   const sport = normalizeSportFilterParam(searchParams?.sport);
   const selectedId = searchParams?.preview_id?.trim() || "";
   const startAfter = normalizeDateParam(searchParams?.start_after);
+  const directorEmailFilter = normalizeDirectorEmailParam(searchParams?.director_email);
+  const emailOverridesOtherFilters = Boolean(directorEmailFilter);
   const defaultMode = getOutreachMode();
   const todayIso = new Date().toISOString().slice(0, 10);
+
+  const formatSupabaseError = (err: any) => {
+    if (!err) return "Unknown error";
+    const message = typeof err?.message === "string" ? err.message : String(err);
+    const code = typeof err?.code === "string" && err.code ? ` [${err.code}]` : "";
+    const details = typeof err?.details === "string" && err.details ? ` — ${err.details}` : "";
+    const hint = typeof err?.hint === "string" && err.hint ? ` (hint: ${err.hint})` : "";
+    return `${message}${code}${details}${hint}`;
+  };
 
   const { count: staffVerifiedTodayCount, error: staffVerifiedError } = await (supabaseAdmin.from(
     "tournaments" as any
@@ -92,13 +108,28 @@ export default async function OutreachPreviewsPage({
     throw new Error(staffVerifiedError.message);
   }
 
+  // Campaign dropdown: show the most recent campaigns even if the current filter returns 0 rows.
+  const { data: recentCampaignRows } = await (supabaseAdmin.from("email_outreach_previews" as any) as any)
+    .select("campaign_id,created_at")
+    .order("created_at", { ascending: false })
+    .limit(600);
+  const recentCampaignOptions = Array.from(
+    new Set(((recentCampaignRows ?? []) as Array<{ campaign_id?: string | null }>).map((row) => row.campaign_id).filter(Boolean))
+  ) as string[];
+
   let query = (supabaseAdmin.from("email_outreach_previews" as any) as any)
     .select("*")
     .order("created_at", { ascending: false })
     .limit(200);
 
-  if (campaignId) query = query.eq("campaign_id", campaignId);
-  if (sport) query = query.eq("sport", sport);
+  // Director email search is intended as a global lookup across campaigns/sports/timeframes.
+  // Campaign/sport/start_after filters are still useful for batch work, but should not block
+  // finding a specific email address.
+  if (!emailOverridesOtherFilters) {
+    if (campaignId) query = query.eq("campaign_id", campaignId);
+    if (sport) query = query.eq("sport", sport);
+  }
+  if (directorEmailFilter) query = query.ilike("director_email", `%${directorEmailFilter}%`);
 
   const { data, error } = await query;
   if (error) {
@@ -107,7 +138,7 @@ export default async function OutreachPreviewsPage({
 
   let previews = (data ?? []) as PreviewRow[];
   let selectedPreview = previews.find((preview) => preview.id === selectedId) ?? previews[0] ?? null;
-  const campaignOptions = Array.from(new Set(previews.map((preview) => preview.campaign_id)));
+  const campaignOptions = recentCampaignOptions.length ? recentCampaignOptions : Array.from(new Set(previews.map((preview) => preview.campaign_id)));
   let tournamentIds = Array.from(new Set(previews.map((preview) => preview.tournament_id).filter(Boolean))) as string[];
 
   if (tournamentIds.length > 0) {
@@ -140,9 +171,20 @@ export default async function OutreachPreviewsPage({
     tournamentIds = Array.from(new Set(previews.map((preview) => preview.tournament_id).filter(Boolean))) as string[];
   }
 
-  const eligibleCount = sport ? await countEligibleOutreachBySport(sport, startAfter) : null;
+  let eligibleCount: number | null = null;
+  let eligibleCountError: string | null = null;
+  if (sport) {
+    try {
+      eligibleCount = await countEligibleOutreachBySport(sport, startAfter);
+    } catch (err) {
+      eligibleCount = null;
+      eligibleCountError = err instanceof Error ? err.message : String(err);
+      console.error("[ti-outreach-previews] eligible count failed", { sport, startAfter, error: eligibleCountError });
+    }
+  }
 
   let suppressionMap = new Map<string, SuppressionRow>();
+  let suppressionLoadError: string | null = null;
   if (tournamentIds.length > 0) {
     const { data: suppressionData, error: suppressionError } = await (supabaseAdmin.from(
       "email_outreach_suppressions" as any
@@ -151,22 +193,29 @@ export default async function OutreachPreviewsPage({
       .in("tournament_id", tournamentIds);
 
     if (suppressionError) {
-      throw new Error(suppressionError.message);
+      suppressionLoadError = formatSupabaseError(suppressionError);
+      console.error("[ti-outreach-previews] suppression load failed", {
+        campaignId,
+        sport,
+        startAfter,
+        error: suppressionLoadError,
+      });
+      suppressionMap = new Map();
+    } else {
+      suppressionMap = new Map(
+        ((suppressionData ?? []) as SuppressionRow[]).map((row) => [row.tournament_id, row])
+      );
     }
-
-    suppressionMap = new Map(
-      ((suppressionData ?? []) as SuppressionRow[]).map((row) => [row.tournament_id, row])
-    );
   }
 
   const suppressionByTournamentId = Object.fromEntries(
     Array.from(suppressionMap.entries()).map(([id, row]) => [id, { status: row.status }])
   );
 
-  return (
-    <main className="page" style={{ justifyContent: "flex-start", paddingLeft: 12, paddingRight: 12 }}>
-      <div className="shell" style={{ maxWidth: 1560, marginLeft: 0, marginRight: 0 }}>
-        <section className="bodyCard" style={{ display: "grid", gap: 14 }}>
+	  return (
+	    <main className="page" style={{ justifyContent: "flex-start", paddingLeft: 12, paddingRight: 12 }}>
+	      <div className="shell" style={{ maxWidth: 1560, marginLeft: 0, marginRight: 0 }}>
+	        <section className="bodyCard" style={{ display: "grid", gap: 14 }}>
           <div style={{ display: "grid", gap: 6 }}>
             <h1 style={{ margin: 0 }}>Outreach Previews</h1>
             <p className="muted" style={{ margin: 0 }}>
@@ -179,22 +228,40 @@ export default async function OutreachPreviewsPage({
             </div>
           </div>
 
-          <form method="get" style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end" }}>
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontWeight: 600 }}>Campaign</span>
-              <input
-                type="text"
-                name="campaign_id"
-                defaultValue={campaignId}
-                list="campaign-options"
-                placeholder="soccer_verify_round1_2026-03-03"
-                style={inputStyle}
-              />
-            </label>
-            <label style={{ display: "grid", gap: 6 }}>
-	              <span style={{ fontWeight: 600 }}>Sport</span>
-	              <AutoSubmitSelect name="sport" defaultValue={sport} style={inputStyle}>
-	                <option value="">All sports</option>
+          {eligibleCountError || suppressionLoadError ? (
+            <div
+              style={{
+                border: "1px solid #fde68a",
+                background: "#fffbeb",
+                borderRadius: 12,
+                padding: "10px 12px",
+                color: "#92400e",
+                fontSize: 13,
+                lineHeight: 1.35,
+              }}
+            >
+              <div style={{ fontWeight: 800, marginBottom: 4 }}>Outreach data temporarily unavailable</div>
+              {eligibleCountError ? <div>Eligible count failed: {eligibleCountError}</div> : null}
+              {suppressionLoadError ? <div>Suppression list failed: {suppressionLoadError}</div> : null}
+            </div>
+          ) : null}
+
+	          <form method="get" style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end" }}>
+	            <label style={{ display: "grid", gap: 6 }}>
+	              <span style={{ fontWeight: 600 }}>Campaign</span>
+                <AutoSubmitSelect name="campaign_id" defaultValue={campaignId} style={inputStyle}>
+                  <option value="">All campaigns</option>
+                  {campaignOptions.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </AutoSubmitSelect>
+	            </label>
+	            <label style={{ display: "grid", gap: 6 }}>
+		              <span style={{ fontWeight: 600 }}>Sport</span>
+		              <AutoSubmitSelect name="sport" defaultValue={sport} style={inputStyle}>
+		                <option value="">All sports</option>
 	                {TI_SPORTS.map((value) => (
 	                  <option key={value} value={value}>
 	                    {TI_SPORT_LABELS[value]}
@@ -202,27 +269,37 @@ export default async function OutreachPreviewsPage({
 	                ))}
 	              </AutoSubmitSelect>
 	            </label>
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontWeight: 600 }}>Start after</span>
-              <AutoSubmitInput
-                type="date"
-                name="start_after"
-                defaultValue={startAfter}
-                style={{ ...inputStyle, minWidth: 180 }}
-              />
-            </label>
-            <button type="submit" className="cta ti-home-cta ti-home-cta-primary">
-              Apply filters
-            </button>
-            <Link href="/admin/outreach-previews" className="cta ti-home-cta ti-home-cta-secondary">
-              Clear
-            </Link>
-            <datalist id="campaign-options">
-              {campaignOptions.map((value) => (
-                <option key={value} value={value} />
-              ))}
-            </datalist>
-          </form>
+	            <label style={{ display: "grid", gap: 6 }}>
+	              <span style={{ fontWeight: 600 }}>Start after</span>
+	              <AutoSubmitInput
+	                type="date"
+	                name="start_after"
+	                defaultValue={startAfter}
+	                style={{ ...inputStyle, minWidth: 180 }}
+	              />
+	            </label>
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontWeight: 600 }}>Director email</span>
+                <input
+                  type="email"
+                  name="director_email"
+                  defaultValue={directorEmailFilter}
+                  placeholder="director@example.com"
+                  style={{ ...inputStyle, minWidth: 260 }}
+                />
+              </label>
+	            <button type="submit" className="cta ti-home-cta ti-home-cta-primary">
+	              Apply filters
+	            </button>
+	            <Link href="/admin/outreach-previews" className="cta ti-home-cta ti-home-cta-secondary">
+	              Clear
+	            </Link>
+	          </form>
+            {emailOverridesOtherFilters ? (
+              <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+                Director email search ignores campaign and sport filters.
+              </p>
+            ) : null}
 
 	          <GeneratePreviewsForm
 	            initialCampaignId={campaignId}
@@ -240,6 +317,10 @@ export default async function OutreachPreviewsPage({
             <p className="muted" style={{ margin: 0 }}>
               {eligibleCount} director email{eligibleCount === 1 ? "" : "s"} available for outreach
             </p>
+          ) : eligibleCountError ? (
+            <p className="muted" style={{ margin: 0 }}>
+              Eligible count unavailable (check server logs).
+            </p>
           ) : null}
         </section>
 
@@ -251,14 +332,15 @@ export default async function OutreachPreviewsPage({
             alignItems: "start",
           }}
         >
-          <OutreachPreviewsTable
-            previews={previews}
-            selectedPreviewId={selectedPreview?.id ?? ""}
-            campaignId={campaignId}
-            sport={sport}
-            suppressionByTournamentId={suppressionByTournamentId}
-            startAfter={startAfter}
-          />
+	          <OutreachPreviewsTable
+	            previews={previews}
+	            selectedPreviewId={selectedPreview?.id ?? ""}
+	            campaignId={emailOverridesOtherFilters ? "" : campaignId}
+	            sport={emailOverridesOtherFilters ? "" : sport}
+              directorEmail={directorEmailFilter}
+	            suppressionByTournamentId={suppressionByTournamentId}
+	            startAfter={emailOverridesOtherFilters ? "" : startAfter}
+	          />
 
           {selectedPreview ? (
             <div className="bodyCard" style={{ display: "grid", gap: 14 }}>
@@ -271,14 +353,49 @@ export default async function OutreachPreviewsPage({
                     gap: 10,
                   }}
                 >
-                  <InfoCard label="Email" value={selectedPreview.director_email} />
-                  <InfoCard label="Campaign" value={selectedPreview.campaign_id} />
-                  <InfoCard label="Variant" value={selectedPreview.variant || "NA"} />
-                  <InfoCard label="Status" value={selectedPreview.status} />
-                  <InfoCard
-                    label="Verify URL"
-                    value={
-                      selectedPreview.verify_url ? (
+	                  <InfoCard
+                      label="Email"
+                      value={
+                        <span style={{ display: "inline-flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                          <span>{selectedPreview.director_email}</span>
+                          {selectedPreview.director_email ? (
+                            <Link
+                              href={`/admin/outreach-previews?director_email=${encodeURIComponent(
+                                selectedPreview.director_email.trim().toLowerCase()
+                              )}`}
+                              style={smallLinkStyle}
+                            >
+                              Search email
+                            </Link>
+                          ) : null}
+                        </span>
+                      }
+                    />
+	                  <InfoCard label="Campaign" value={selectedPreview.campaign_id} />
+	                  <InfoCard label="Variant" value={selectedPreview.variant || "NA"} />
+	                  <InfoCard label="Status" value={selectedPreview.status} />
+	                  <InfoCard
+	                    label="Sent"
+	                    value={
+	                      selectedPreview.sent_at ? (
+	                        new Date(selectedPreview.sent_at).toLocaleString()
+	                      ) : (
+	                        <span className="muted">—</span>
+	                      )
+	                    }
+	                  />
+	                  <InfoCard
+	                    label="Attempts"
+	                    value={typeof selectedPreview.send_attempt_count === "number" ? selectedPreview.send_attempt_count : 0}
+	                  />
+	                  <InfoCard
+	                    label="Replied"
+	                    value={selectedPreview.director_replied_at ? new Date(selectedPreview.director_replied_at).toLocaleString() : "—"}
+	                  />
+	                  <InfoCard
+	                    label="Verify URL"
+	                    value={
+	                      selectedPreview.verify_url ? (
                         <a href={selectedPreview.verify_url} target="_blank" rel="noreferrer" style={smallLinkStyle}>
                           Open verify link
                         </a>
@@ -316,16 +433,18 @@ export default async function OutreachPreviewsPage({
                 <CopyFieldButton label="Copy HTML" value={selectedPreview.html_body} />
               </div>
 
-              <PreviewAdminActions
-                previewId={selectedPreview.id}
-                tournamentId={selectedPreview.tournament_id}
-                previewLabel={selectedPreview.tournament_name}
-                campaignId={campaignId || selectedPreview.campaign_id}
-                sport={sport || selectedPreview.sport}
-                directorEmail={selectedPreview.director_email}
-                defaultTestEmail={user.email || ""}
-                isSuppressed={!!(selectedPreview.tournament_id && suppressionMap.get(selectedPreview.tournament_id))}
-              />
+	              <PreviewAdminActions
+	                previewId={selectedPreview.id}
+	                tournamentId={selectedPreview.tournament_id}
+	                previewLabel={selectedPreview.tournament_name}
+	                campaignId={campaignId || selectedPreview.campaign_id}
+	                sport={sport || selectedPreview.sport}
+	                directorEmail={selectedPreview.director_email}
+                  directorRepliedAt={selectedPreview.director_replied_at ?? null}
+                  directorEmailFilter={directorEmailFilter}
+	                defaultTestEmail={user.email || ""}
+	                isSuppressed={!!(selectedPreview.tournament_id && suppressionMap.get(selectedPreview.tournament_id))}
+	              />
 
               <section style={{ display: "grid", gap: 8 }}>
                 <h3 style={{ margin: 0 }}>HTML preview</h3>
@@ -391,6 +510,13 @@ function normalizeDateParam(value?: string) {
   return "";
 }
 
+function normalizeDirectorEmailParam(value?: string) {
+  const normalized = (value || "").trim().toLowerCase();
+  if (!normalized) return "";
+  if (normalized.length > 320) return "";
+  return normalized;
+}
+
 function isValidDirectorEmail(value: string | null | undefined) {
   if (!value) return false;
   const trimmed = value.trim().toLowerCase();
@@ -439,8 +565,10 @@ async function countEligibleOutreachBySport(sport: string, startAfter: string) {
   const suppressionIds = new Set<string>();
   const sentIds = new Set<string>();
 
-  for (let i = 0; i < tournamentIds.length; i += 800) {
-    const slice = tournamentIds.slice(i, i + 800);
+  // Smaller chunks keep the PostgREST "IN" filter from timing out on large campaigns.
+  const idChunkSize = 250;
+  for (let i = 0; i < tournamentIds.length; i += idChunkSize) {
+    const slice = tournamentIds.slice(i, i + idChunkSize);
     const { data: suppressionData, error: suppressionError } = await (supabaseAdmin.from(
       "email_outreach_suppressions" as any
     ) as any)

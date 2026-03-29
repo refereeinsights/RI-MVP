@@ -853,16 +853,38 @@ export default async function AdminPage({
 
   let owlRunVenueCount = 0;
   try {
-    const { data: owlRunRows } = await supabaseAdmin
-      .from("owls_eye_runs" as any)
-      .select("venue_id")
-      .not("venue_id", "is", null)
-      .limit(20000);
-    owlRunVenueCount = new Set(
-      ((owlRunRows as Array<{ venue_id?: string | null }> | null) ?? [])
-        .map((row) => row.venue_id)
-        .filter((value): value is string => typeof value === "string" && value.length > 0),
-    ).size;
+    // Prefer a set-based COUNT query so we don't hit PostgREST max-rows caps (often 1000).
+    const countResp = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,owls_eye_runs!inner(id)", { count: "exact", head: true })
+      .limit(1);
+
+    if (!countResp.error && typeof countResp.count === "number") {
+      owlRunVenueCount = countResp.count;
+    } else {
+      // Fallback: page through owls_eye_runs and dedupe by venue_id.
+      const pageSize = 1000;
+      const maxPages = 200; // safety cap (200k rows)
+      const venueIds = new Set<string>();
+      for (let page = 0; page < maxPages; page++) {
+        const start = page * pageSize;
+        const end = start + pageSize - 1;
+        const { data: owlRunRows, error } = await supabaseAdmin
+          .from("owls_eye_runs" as any)
+          .select("venue_id")
+          .not("venue_id", "is", null)
+          .order("venue_id", { ascending: true })
+          .range(start, end);
+        if (error) break;
+        const rows = ((owlRunRows as Array<{ venue_id?: string | null }> | null) ?? []).filter(Boolean);
+        for (const row of rows) {
+          const venueId = row?.venue_id;
+          if (typeof venueId === "string" && venueId.length > 0) venueIds.add(venueId);
+        }
+        if (!owlRunRows || (owlRunRows as any[]).length < pageSize) break;
+      }
+      owlRunVenueCount = venueIds.size;
+    }
   } catch {
     owlRunVenueCount = 0;
   }

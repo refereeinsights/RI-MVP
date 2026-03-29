@@ -11,6 +11,8 @@ type PreviewAdminActionsProps = {
   campaignId: string;
   sport: string;
   directorEmail: string;
+  directorRepliedAt: string | null;
+  directorEmailFilter: string;
   defaultTestEmail: string;
   isSuppressed: boolean;
 };
@@ -22,21 +24,27 @@ export default function PreviewAdminActions({
   campaignId,
   sport,
   directorEmail,
+  directorRepliedAt,
+  directorEmailFilter,
   defaultTestEmail,
   isSuppressed,
 }: PreviewAdminActionsProps) {
   const router = useRouter();
   const [testEmail, setTestEmail] = useState(defaultTestEmail);
+  const [editedDirectorEmail, setEditedDirectorEmail] = useState(directorEmail);
+  const [replyNote, setReplyNote] = useState("");
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
   const hasDirectorEmail = isValidEmail(directorEmail);
+  const hasEditedDirectorEmail = isValidEmail(editedDirectorEmail);
 
   const filtersHref = useMemo(() => {
     const params = new URLSearchParams();
     if (campaignId) params.set("campaign_id", campaignId);
     if (sport) params.set("sport", sport);
+    if (directorEmailFilter) params.set("director_email", directorEmailFilter);
     return `/admin/outreach-previews${params.toString() ? `?${params.toString()}` : ""}`;
-  }, [campaignId, sport]);
+  }, [campaignId, directorEmailFilter, sport]);
 
   async function handleSendTest() {
     setMessage("");
@@ -171,6 +179,58 @@ export default function PreviewAdminActions({
     router.refresh();
   }
 
+  async function handleUpdateDirectorEmail() {
+    if (!tournamentId) {
+      setMessage("This preview is not linked to a tournament id.");
+      return;
+    }
+    if (!hasEditedDirectorEmail) {
+      setMessage("Enter a valid email address.");
+      return;
+    }
+
+    setMessage("");
+    const response = await fetch("/api/outreach/update-director-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tournament_id: tournamentId,
+        director_email: editedDirectorEmail.trim().toLowerCase(),
+        preview_id: previewId,
+      }),
+    });
+
+    const json = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (!response.ok) {
+      setMessage(json.error || "Unable to update director email.");
+      return;
+    }
+
+    setMessage("Director email updated (tournament + preview).");
+    router.refresh();
+  }
+
+  async function handleMarkReplied(replied: boolean) {
+    setMessage("");
+    const response = await fetch("/api/outreach/mark-replied", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        preview_id: previewId,
+        replied,
+        note: replyNote.trim() || undefined,
+      }),
+    });
+    const json = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (!response.ok) {
+      setMessage(json.error || "Unable to update replied status.");
+      return;
+    }
+    setReplyNote("");
+    setMessage(replied ? "Marked replied." : "Cleared replied status.");
+    router.refresh();
+  }
+
   return (
     <section style={{ display: "grid", gap: 12, padding: 14, borderRadius: 12, border: "1px solid #dbe4ec" }}>
       <div style={{ display: "grid", gap: 6 }}>
@@ -214,6 +274,61 @@ export default function PreviewAdminActions({
         >
           Send to director
         </button>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "end" }}>
+        <label style={{ display: "grid", gap: 6 }}>
+          <span style={{ fontWeight: 600 }}>Director email</span>
+          <input
+            type="email"
+            value={editedDirectorEmail}
+            onChange={(event) => setEditedDirectorEmail(event.target.value)}
+            placeholder="director@example.com"
+            style={inputStyle}
+          />
+        </label>
+        <button
+          type="button"
+          className="cta ti-home-cta ti-home-cta-secondary"
+          disabled={pending || !tournamentId || !hasEditedDirectorEmail}
+          onClick={() => startTransition(() => void handleUpdateDirectorEmail())}
+          style={{ opacity: pending || !tournamentId || !hasEditedDirectorEmail ? 0.7 : 1 }}
+        >
+          Save email
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "end" }}>
+        <label style={{ display: "grid", gap: 6, minWidth: 320 }}>
+          <span style={{ fontWeight: 600 }}>Reply note (optional)</span>
+          <input
+            type="text"
+            value={replyNote}
+            onChange={(event) => setReplyNote(event.target.value)}
+            placeholder="e.g. Confirmed details / wrong email / will update later"
+            style={{ ...inputStyle, minWidth: 320 }}
+          />
+        </label>
+        <button
+          type="button"
+          className="cta ti-home-cta ti-home-cta-secondary"
+          disabled={pending}
+          onClick={() => startTransition(() => void handleMarkReplied(true))}
+          style={{ opacity: pending ? 0.7 : 1 }}
+        >
+          Mark replied{directorRepliedAt ? "" : ""}
+        </button>
+        {directorRepliedAt ? (
+          <button
+            type="button"
+            className="cta ti-home-cta ti-home-cta-secondary"
+            disabled={pending}
+            onClick={() => startTransition(() => void handleMarkReplied(false))}
+            style={{ opacity: pending ? 0.7 : 1 }}
+          >
+            Clear replied
+          </button>
+        ) : null}
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>

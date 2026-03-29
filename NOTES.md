@@ -1,3 +1,9 @@
+## 2026-03-29
+
+- TI Outreach Previews: director email search is now a global lookup (does not get blocked by selected `campaign_id`, `sport`, or `start_after`), and uses a case-insensitive contains match so minor whitespace/casing issues still return results.
+- Outreach tracking (Supabase): added migration `supabase/migrations/20260329_email_outreach_preview_tracking.sql` to add `sent_at`, `send_attempt_count`, and director reply fields (`director_replied_at`, `director_replied_note`, `director_replied_by_email`) + indexes.
+- TI outreach APIs: hardened `/api/outreach/mark-replied`, `/api/outreach/send-test`, and `/api/outreach/send-director` to (a) return actionable JSON errors when the migration hasn’t been applied (PostgREST schema cache / missing columns) and (b) fail fast when Supabase admin env is missing.
+
 ## 2026-03-28
 
 - Data (Swallows Cup): scraped the venues list and ensured all venue links exist for `Swallows Cup 2026` (tournament `39c6832b-d091-4787-a989-e8d7e2977a5e`): created 11 new `venues` and upserted 17 `tournament_venues` links. Added helper script `scripts/ops/link_swallowscup_venues_to_tournament.mjs` (uses map embed lat/lon + Nominatim reverse geocode when a full street address is not embedded).
@@ -227,4 +233,6 @@
 - TI tournament + venue detail: added deterministic, relationship-based semantic text blocks (tournament → venues, venue → tournaments) using a shared list formatter (dedupe + Oxford comma + safe truncation + “and N more” overflow) and venue routing via `seo_slug` fallback to UUID.
 - TI tournament detail: refactored to better support streaming and time-based cache hints (`revalidate = 3600`) by pushing viewer-specific work into Suspense’d server components (keeps the hero fast, avoids throwing on missing joins).
 - RI admin venues: added a “Venue Enrichment CSV” uploader + API route to dry-run/apply linking (match existing venues when possible; otherwise create + link; never creates duplicate `tournament_venues` links; hard caps rows per upload).
+- RI admin dashboard: fixed Owl’s Eye venue count to avoid PostgREST max-row caps (uses a set-based COUNT via `venues` + `owls_eye_runs` inner join, with a paged `owls_eye_runs` fallback).
 - Ingest: `scripts/ingest/suggest_organizer_venue_candidates.ts` now loads `.env.local` automatically and defaults CSV output to `~/Downloads/organizer_venue_candidates_<timestamp>.csv` (still supports `--out=...`).
+- Ingest: added `scripts/ingest/ingest_venue_enrichment_csv.ts` to ingest `tournament_uuid` + venue details from CSV, link existing venues when found, create venues only when needed, and upsert `tournament_venues` links; safely splits `A / B / C` venue+address rows into separate venues when the address list aligns; writes a report CSV to `~/Downloads/`.
