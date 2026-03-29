@@ -221,3 +221,10 @@
 - US Club Soccer: added an enrichment helper that parses the sanctioned tournament directory to create `tournament_url_suggestions` for tournaments whose URL incorrectly points at the directory page; added a Missing Venues UI button to trigger it and review suggestions in enrichment.
 - Ops: added `scripts/ops/link_venue_to_tournament.ts` to create/de-dupe a venue and link it to a tournament (used to create/link Kino South Complex to tournament `42517eeb-6c22-4d53-9b46-cff416cbcc12`).
 - Ingest: added `scripts/ingest/migrate_denorm_venues_to_links.ts` to backfill normalized venue rows + `tournament_venues` links from denormalized `tournaments.venue`/`tournaments.address` (additive-only; never deletes/overwrites tournament fields; dry-run by default, supports `--apply --limit --offset`).
+
+## 2026-03-28
+
+- TI tournament + venue detail: added deterministic, relationship-based semantic text blocks (tournament → venues, venue → tournaments) using a shared list formatter (dedupe + Oxford comma + safe truncation + “and N more” overflow) and venue routing via `seo_slug` fallback to UUID.
+- TI tournament detail: refactored to better support streaming and time-based cache hints (`revalidate = 3600`) by pushing viewer-specific work into Suspense’d server components (keeps the hero fast, avoids throwing on missing joins).
+- RI admin venues: added a “Venue Enrichment CSV” uploader + API route to dry-run/apply linking (match existing venues when possible; otherwise create + link; never creates duplicate `tournament_venues` links; hard caps rows per upload).
+- Ingest: `scripts/ingest/suggest_organizer_venue_candidates.ts` now loads `.env.local` automatically and defaults CSV output to `~/Downloads/organizer_venue_candidates_<timestamp>.csv` (still supports `--out=...`).

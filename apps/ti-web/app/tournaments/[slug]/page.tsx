@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { BRAND_OWL } from "@/lib/brand";
@@ -15,6 +16,25 @@ import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import "../tournaments.css";
+
+type TournamentDetailCoreRow = {
+  id: string;
+  slug: string | null;
+  name: string;
+  city: string | null;
+  state: string | null;
+  zip?: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  summary: string | null;
+  source_url: string | null;
+  official_website_url?: string | null;
+  sport: string | null;
+  level: string | null;
+  tournament_staff_verified?: boolean | null;
+  venue: string | null;
+  address: string | null;
+};
 
 type TournamentDetailRow = {
   id: string;
@@ -102,6 +122,650 @@ export const revalidate = 3600;
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
 const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
+
+type ViewerContext = {
+  userId: string | null;
+  viewerEmail: string;
+  tier: string;
+  isPaid: boolean;
+  needsEmailVerification: boolean;
+  isLoggedIn: boolean;
+  isVerified: boolean;
+  initialSaved: boolean;
+  directorEmailOnFile: string | null;
+  directorNameOnFile: string | null;
+  refereeContactOnFile: string | null;
+  refereeContactEmailOnFile: string | null;
+};
+
+async function loadViewerContext(tournamentId: string): Promise<ViewerContext> {
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: entitlementProfile } = user
+    ? await supabase
+        .from("ti_users" as any)
+        .select("plan,subscription_status,current_period_end,trial_ends_at")
+        .eq("id", user.id)
+        .maybeSingle<{
+          plan: string | null;
+          subscription_status: string | null;
+          current_period_end: string | null;
+          trial_ends_at: string | null;
+        }>()
+    : { data: null as any };
+
+  const tier = getTier(user, entitlementProfile ?? null) as unknown as string;
+  const isPaid = canAccessWeekendPro(user, entitlementProfile ?? null);
+  const viewerEmail = user?.email ?? "";
+  const needsEmailVerification = Boolean(user && !user.email_confirmed_at);
+
+  const { data: privateRowRaw } = await (supabaseAdmin.from("tournaments" as any) as any)
+    .select("tournament_director,tournament_director_email,referee_contact,referee_contact_email")
+    .eq("id", tournamentId)
+    .maybeSingle();
+  const privateRow = (privateRowRaw ?? null) as {
+    tournament_director: string | null;
+    tournament_director_email: string | null;
+    referee_contact: string | null;
+    referee_contact_email: string | null;
+  } | null;
+
+  const directorEmailOnFile = privateRow?.tournament_director_email ?? null;
+  const directorNameOnFile = privateRow?.tournament_director ?? null;
+  const refereeContactOnFile = privateRow?.referee_contact ?? null;
+  const refereeContactEmailOnFile = privateRow?.referee_contact_email ?? null;
+  const initialSaved = user?.id ? await isTournamentSaved(user.id, tournamentId) : false;
+
+  return {
+    userId: user?.id ?? null,
+    viewerEmail,
+    tier,
+    isPaid,
+    needsEmailVerification,
+    isLoggedIn: Boolean(user),
+    isVerified: Boolean(user?.email_confirmed_at),
+    initialSaved,
+    directorEmailOnFile,
+    directorNameOnFile,
+    refereeContactOnFile,
+    refereeContactEmailOnFile,
+  };
+}
+
+async function TournamentUserActions({
+  tournament,
+  paramsSlug,
+  searchParams,
+  viewerContext,
+}: {
+  tournament: TournamentDetailCoreRow;
+  paramsSlug: string;
+  searchParams?: { claim?: string; saved?: string };
+  viewerContext: Promise<ViewerContext>;
+}) {
+  const viewer = await viewerContext;
+  const resolvedSlug = (tournament.slug ?? paramsSlug ?? "").toLowerCase();
+  const isDemoTournament = resolvedSlug === DEMO_TOURNAMENT_SLUG;
+  const showClaimNotice = searchParams?.claim === "1";
+  const showSavedNotice = searchParams?.saved === "1";
+  const hasDirectorEmailOnFile = Boolean((viewer.directorEmailOnFile ?? "").trim());
+  const canEditThisTournament = canEditTournament(viewer.viewerEmail, viewer.directorEmailOnFile);
+
+  if (showClaimNotice && viewer.userId && canEditThisTournament) {
+    try {
+      await (supabaseAdmin.from("tournament_claim_events" as any) as any).insert({
+        tournament_id: tournament.id,
+        event_type: "Tournament Claim Authenticated",
+        entered_email: viewer.viewerEmail?.trim().toLowerCase() || null,
+        user_id: viewer.userId,
+        meta: { slug: tournament.slug ?? paramsSlug },
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  return (
+    <>
+      <SaveTournamentButton
+        tournamentId={tournament.id}
+        initialSaved={viewer.initialSaved}
+        isLoggedIn={viewer.isLoggedIn}
+        isVerified={viewer.isVerified}
+        returnTo={`/tournaments/${tournament.slug ?? paramsSlug}`}
+      />
+
+      {showSavedNotice ? (
+        <div
+          style={{
+            marginTop: 10,
+            padding: "10px 12px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "rgba(16, 185, 129, 0.16)",
+            color: "rgba(255,255,255,0.95)",
+            fontWeight: 800,
+          }}
+        >
+          Saved. Thanks for keeping this listing accurate.
+        </div>
+      ) : null}
+
+      {canEditThisTournament ? (
+        <details
+          style={{
+            marginTop: 12,
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "rgba(0,0,0,0.25)",
+            backdropFilter: "blur(10px)",
+            borderRadius: 16,
+            padding: 14,
+          }}
+          open={Boolean(showClaimNotice)}
+        >
+          <summary style={{ cursor: "pointer", color: "#fff", fontWeight: 900, listStyle: "auto" }}>
+            Edit this tournament listing
+          </summary>
+          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+            <form
+              action={async (formData) => {
+                "use server";
+                await saveClaimedTournamentEdits(formData);
+              }}
+              style={{ display: "grid", gap: 10 }}
+            >
+              <input type="hidden" name="tournament_id" value={tournament.id} />
+              <input type="hidden" name="slug" value={tournament.slug ?? paramsSlug} />
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Official website URL</span>
+                  <input
+                    name="official_website_url"
+                    defaultValue={tournament.official_website_url ?? ""}
+                    placeholder="https://..."
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "rgba(255,255,255,0.10)",
+                      color: "#fff",
+                      outline: "none",
+                    }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Start date</span>
+                  <input
+                    type="date"
+                    name="start_date"
+                    defaultValue={tournament.start_date ?? ""}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "rgba(255,255,255,0.10)",
+                      color: "#fff",
+                      outline: "none",
+                    }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>End date</span>
+                  <input
+                    type="date"
+                    name="end_date"
+                    defaultValue={tournament.end_date ?? ""}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "rgba(255,255,255,0.10)",
+                      color: "#fff",
+                      outline: "none",
+                    }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>City</span>
+                  <input
+                    name="city"
+                    defaultValue={tournament.city ?? ""}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "rgba(255,255,255,0.10)",
+                      color: "#fff",
+                      outline: "none",
+                    }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>State</span>
+                  <input
+                    name="state"
+                    defaultValue={tournament.state ?? ""}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "rgba(255,255,255,0.10)",
+                      color: "#fff",
+                      outline: "none",
+                    }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Tournament director</span>
+                  <input
+                    name="tournament_director"
+                    defaultValue={viewer.directorNameOnFile ?? ""}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "rgba(255,255,255,0.10)",
+                      color: "#fff",
+                      outline: "none",
+                    }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Tournament director email</span>
+                  <input
+                    type="email"
+                    name="tournament_director_email"
+                    defaultValue={viewer.directorEmailOnFile ?? ""}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "rgba(255,255,255,0.10)",
+                      color: "#fff",
+                      outline: "none",
+                    }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Referee contact</span>
+                  <input
+                    name="referee_contact"
+                    defaultValue={viewer.refereeContactOnFile ?? ""}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "rgba(255,255,255,0.10)",
+                      color: "#fff",
+                      outline: "none",
+                    }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Referee contact email</span>
+                  <input
+                    type="email"
+                    name="referee_contact_email"
+                    defaultValue={viewer.refereeContactEmailOnFile ?? ""}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "rgba(255,255,255,0.10)",
+                      color: "#fff",
+                      outline: "none",
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.78)" }}>
+                Need to change the director email on file? Use “Request review” in the claim box and we&apos;ll update it.
+              </div>
+
+              <button
+                type="submit"
+                className="cta ti-home-cta ti-home-cta-primary"
+                style={{ padding: "10px 14px", justifySelf: "start" }}
+              >
+                Save changes
+              </button>
+            </form>
+          </div>
+        </details>
+      ) : (
+        <div style={{ marginTop: 12 }}>
+          <ClaimThisTournament
+            tournamentId={tournament.id}
+            tournamentName={tournament.name}
+            hasDirectorEmailOnFile={hasDirectorEmailOnFile}
+            viewerEmail={viewer.viewerEmail}
+          />
+        </div>
+      )}
+
+      {tournament.official_website_url && !isDemoTournament ? (
+        <div className="detailLinksRow">
+          <a className="secondaryLink" href={tournament.official_website_url} target="_blank" rel="noopener noreferrer">
+            Official site
+          </a>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+async function TournamentVenueDetails({
+  tournament,
+  paramsSlug,
+  locationLabel,
+  mapLinks,
+  venueInfo,
+  venueAddress,
+  viewerContext,
+}: {
+  tournament: TournamentDetailCoreRow;
+  paramsSlug: string;
+  locationLabel: string;
+  mapLinks: ReturnType<typeof buildMapLinks> | null;
+  venueInfo: string | null;
+  venueAddress: string;
+  viewerContext: Promise<ViewerContext>;
+}) {
+  const viewer = await viewerContext;
+  const resolvedSlug = (tournament.slug ?? paramsSlug ?? "").toLowerCase();
+  const isDemoTournament = resolvedSlug === DEMO_TOURNAMENT_SLUG;
+  const canViewPremiumDetails = viewer.isPaid || isDemoTournament;
+
+  const { data: venueLinksRaw } = await supabaseAdmin
+    .from("tournament_venues" as any)
+    .select(
+      "venue_id,venues(id,seo_slug,name,city,state)"
+    )
+    .eq("tournament_id", tournament.id);
+
+  const linkedVenues: LinkedVenue[] = ((venueLinksRaw as any[]) ?? [])
+    .map((row: any) => row?.venues ?? null)
+    .filter((v: any): v is LinkedVenue => Boolean(v && typeof v.id === "string"));
+
+  const linkedVenueIds = linkedVenues.map((v) => v.id).filter(Boolean);
+  const linkedVenueNameById = new Map(linkedVenues.map((venue) => [venue.id, venue.name ?? "Tournament venue"]));
+
+  const standardPartnerCategories = new Set(["food", "coffee", "hotel", "hotels"]);
+  const { data: tournamentPartnerRowsRaw } = await supabaseAdmin
+    .from("tournament_partner_nearby" as any)
+    .select("id,venue_id,category,name,address,maps_url,sponsor_click_url,sort_order")
+    .eq("tournament_id", tournament.id)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false })
+    .limit(60);
+
+  const tournamentPartnerRows = ((tournamentPartnerRowsRaw as TournamentPartnerRow[] | null) ?? []).filter((row) => {
+    const normalized = (row.category ?? "").toLowerCase();
+    return row.name && normalized && !standardPartnerCategories.has(normalized);
+  });
+
+  let hasOwlsEyeByVenueId = new Map<string, boolean>();
+
+  const runRows = await fetchLatestOwlsEyeRuns(linkedVenueIds);
+  const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
+  for (const row of runRows) {
+    if (!row?.venue_id) continue;
+    if (latestRunByVenue.has(row.venue_id)) continue;
+    latestRunByVenue.set(row.venue_id, row);
+  }
+  const runIds = Array.from(latestRunByVenue.values())
+    .map((row) => row.run_id ?? row.id)
+    .filter((value): value is string => Boolean(value));
+
+  if (runIds.length) {
+    const { data: nearbyRows } = await supabaseAdmin
+      .from("owls_eye_nearby_food" as any)
+      .select("run_id,category")
+      .in("run_id", runIds);
+
+    const countsByRunId = new Map<string, { food: number; coffee: number; hotels: number; sporting_goods: number }>();
+    for (const row of ((nearbyRows as Array<{ run_id: string; category: string | null }> | null) ?? [])) {
+      const runId = row.run_id;
+      if (!runId) continue;
+      const normalizedCategory = (row.category ?? "food").toLowerCase();
+      const current = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
+      if (normalizedCategory === "coffee") current.coffee += 1;
+      else if (normalizedCategory === "hotel" || normalizedCategory === "hotels") current.hotels += 1;
+      else if (normalizedCategory === "sporting_goods" || normalizedCategory === "big_box_fallback") current.sporting_goods += 1;
+      else current.food += 1;
+      countsByRunId.set(runId, current);
+    }
+
+    hasOwlsEyeByVenueId = new Map(
+      Array.from(latestRunByVenue.entries()).map(([venueId, run]) => {
+        const runId = (run.run_id ?? run.id) as string;
+        const counts = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
+        return [venueId, counts.food + counts.coffee + counts.hotels + counts.sporting_goods > 0] as const;
+      })
+    );
+  }
+
+  const MAX_VENUES_IN_SENTENCE = 5;
+  const venueItems: SemanticListItem[] = linkedVenues
+    .filter((v) => Boolean(v?.id && v?.name))
+    .slice()
+    .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
+    .map((v) => {
+      const loc = [v.city, v.state].filter(Boolean).join(", ");
+      const label = loc ? `${v.name ?? "Venue"} (${loc})` : (v.name ?? "Venue");
+      return { id: v.id, label, href: `/venues/${v.seo_slug || v.id}` };
+    });
+
+  const venueList = formatEntityList(venueItems, {
+    maxItems: MAX_VENUES_IN_SENTENCE,
+    overflowNoun: "venues",
+    overflow:
+      venueItems.length > MAX_VENUES_IN_SENTENCE
+        ? { kind: "known", remainingCount: venueItems.length - MAX_VENUES_IN_SENTENCE }
+        : { kind: "none" },
+    truncateLabelAt: 120,
+  });
+
+  const tournamentSemanticParts =
+    venueItems.length === 0
+      ? ([{ type: "text", value: "Venue information for this tournament is not yet confirmed." }] as SemanticListPart[])
+      : venueItems.length === 1
+        ? ([
+            { type: "text", value: "This tournament is played at " },
+            ...venueList.parts,
+            { type: "text", value: "." },
+          ] as SemanticListPart[])
+        : venueItems.length > MAX_VENUES_IN_SENTENCE
+          ? ([
+              { type: "text", value: "Games for this tournament are played across multiple venues including " },
+              ...venueList.parts,
+              { type: "text", value: "." },
+            ] as SemanticListPart[])
+          : ([
+              { type: "text", value: "Games for this tournament are played across multiple venues: " },
+              ...venueList.parts,
+              { type: "text", value: "." },
+            ] as SemanticListPart[]);
+
+  return (
+    <>
+      {linkedVenues.length > 0 ? (
+        <div className="detailVenueGrid">
+          {linkedVenues.map((venue) => (
+            <Link
+              key={venue.id}
+              href={`/venues/${venue.seo_slug || venue.id}?tournament=${encodeURIComponent(tournament.slug ?? paramsSlug)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`detailVenueTile ${hasOwlsEyeByVenueId.get(venue.id) ? "detailVenueTile--withOwl" : ""}`}
+            >
+              <span className="detailVenueTile__eyebrow">Venue</span>
+              <span className="detailVenueTile__name">{venue.name || "Venue TBA"}</span>
+              {hasOwlsEyeByVenueId.get(venue.id) ? (
+                <span className="detailVenueTile__flag">{BRAND_OWL}</span>
+              ) : (
+                <span className="detailVenueTile__flag">Open details</span>
+              )}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+
+      {linkedVenues.length > 0 ? (
+        <div style={{ marginTop: 12 }}>
+          <QuickVenueCheck
+            venueId={linkedVenues.length === 1 ? linkedVenues[0].id : undefined}
+            venueOptions={linkedVenues.map((v) => ({ id: v.id, name: v.name }))}
+            pageType="tournament"
+            sourceTournamentId={tournament.id}
+          />
+        </div>
+      ) : venueInfo ? (
+        <div className="detailCard">
+          <div className="detailCard__title">Venue</div>
+          <div className="detailCard__body">
+            <div className="detailVenueRow">
+              <div className="detailVenueText">
+                <div className="detailVenueName">{tournament.venue || "Venue TBA"}</div>
+                {venueAddress ? <div className="detailVenueAddress">{venueAddress}</div> : null}
+              </div>
+              {mapLinks ? (
+                <div className="detailLinksRow detailLinksRow--inline">
+                  <a className="secondaryLink" href={mapLinks.google} target="_blank" rel="noopener noreferrer">
+                    Google Maps
+                  </a>
+                  <a className="secondaryLink" href={mapLinks.apple} target="_blank" rel="noopener noreferrer">
+                    Apple Maps
+                  </a>
+                  <a className="secondaryLink" href={mapLinks.waze} target="_blank" rel="noopener noreferrer">
+                    Waze
+                  </a>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {tournament.summary ? <p className="detailSummary">{tournament.summary}</p> : null}
+
+      {tournamentPartnerRows.length ? (
+        <div className="detailCard">
+          <div className="detailCard__title">Tournament Partners</div>
+          <div className="detailCard__body" style={{ display: "grid", gap: 12 }}>
+            {tournamentPartnerRows.map((partner) => {
+              const venueName = partner.venue_id ? linkedVenueNameById.get(partner.venue_id) ?? null : null;
+              const destination = partner.sponsor_click_url || partner.maps_url || null;
+              return (
+                <div
+                  key={partner.id}
+                  style={{
+                    display: "grid",
+                    gap: 4,
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(255,255,255,0.04)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 10,
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div style={{ display: "grid", gap: 3 }}>
+                      <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.74 }}>
+                        {formatPartnerCategory(partner.category)}
+                      </span>
+                      <strong style={{ fontSize: "1.02rem" }}>{partner.name}</strong>
+                    </div>
+                    {destination ? (
+                      <a className="secondaryLink" href={destination} target="_blank" rel="noopener noreferrer">
+                        Visit Partner
+                      </a>
+                    ) : null}
+                  </div>
+                  {venueName ? (
+                    <div style={{ fontSize: 13, opacity: 0.84 }}>
+                      Applies to <strong>{venueName}</strong>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, opacity: 0.84 }}>Applies across all tournament venues</div>
+                  )}
+                  {partner.address ? <div style={{ fontSize: 14, opacity: 0.88 }}>{partner.address}</div> : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      <p className="detailLegalNote">
+        Information may change. Verify critical details directly with organizers and venues. <Link href="/terms">Terms</Link> •{" "}
+        <Link href="/disclaimer">Disclaimer</Link>
+      </p>
+
+      <div className="detailCard premiumDetailCard">
+        <div className="detailCard__title premiumDetailCard__title">
+          <span aria-hidden="true">🔒</span>
+          <span>Premium Planning Details</span>
+        </div>
+        {!canViewPremiumDetails ? (
+          <div className="detailCard__body premiumDetailCard__body">
+            <p className="premiumDetailCard__copy">
+              Locked — Upgrade to view vendor, parking, restroom, seating, and travel/lodging details.
+            </p>
+            {viewer.needsEmailVerification ? (
+              <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
+                Verify your email to unlock Insider access first. <Link href="/verify-email">Verify email</Link>
+              </p>
+            ) : viewer.tier === "explorer" ? (
+              <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
+                Log in for Insider access. <Link href="/login">Log in</Link> or <Link href="/signup">sign up</Link>.
+              </p>
+            ) : null}
+            <div className="detailLinksRow">
+              <Link className="secondaryLink" href="/pricing">
+                Upgrade
+              </Link>
+            </div>
+            <PremiumInterestForm initialEmail={viewer.viewerEmail} />
+          </div>
+        ) : (
+          <div className="detailCard__body premiumDetailCard__body">
+            <div className="premiumDetailRow">
+              <span className="premiumDetailLabel">Venue-level premium details</span>
+              <span>Open any venue tile above to view venue details in a new tab.</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 18, fontSize: 13, lineHeight: 1.45, opacity: 0.78 }}>
+        {renderSemanticParts(tournamentSemanticParts)}
+      </div>
+    </>
+  );
+}
 
 function renderSemanticParts(parts: SemanticListPart[]) {
   return parts.map((part, idx) => {
@@ -256,57 +920,14 @@ export default async function TournamentDetailPage({
   params: { slug: string };
   searchParams?: { claim?: string; saved?: string };
 }) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: entitlementProfile } = user
-    ? await supabase
-        .from("ti_users" as any)
-        .select("plan,subscription_status,current_period_end,trial_ends_at")
-        .eq("id", user.id)
-        .maybeSingle<{
-          plan: string | null;
-          subscription_status: string | null;
-          current_period_end: string | null;
-          trial_ends_at: string | null;
-        }>()
-    : {
-        data: null as {
-          plan: string | null;
-          subscription_status: string | null;
-          current_period_end: string | null;
-          trial_ends_at: string | null;
-        } | null,
-      };
-  const tier = getTier(user, entitlementProfile ?? null);
-  const isPaid = canAccessWeekendPro(user, entitlementProfile ?? null);
-  const viewerEmail = user?.email ?? "";
-  const needsEmailVerification = Boolean(user && !user.email_confirmed_at);
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
-    .select(
-      "id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,sport,level,tournament_staff_verified,venue,address,tournament_venues(venues(id,seo_slug,name,address,city,state,zip,latitude,longitude,venue_url,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at))"
-    )
+    .select("id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,sport,level,tournament_staff_verified,venue,address")
     .eq("slug", params.slug)
-    .maybeSingle<TournamentDetailRow>();
+    .maybeSingle<TournamentDetailCoreRow>();
 
   if (error || !data) notFound();
-  const { data: privateRowRaw } = await (supabaseAdmin.from("tournaments" as any) as any)
-    .select("tournament_director,tournament_director_email,referee_contact,referee_contact_email")
-    .eq("id", data.id)
-    .maybeSingle();
-  const privateRow = (privateRowRaw ?? null) as {
-    tournament_director: string | null;
-    tournament_director_email: string | null;
-    referee_contact: string | null;
-    referee_contact_email: string | null;
-  } | null;
-  const directorEmailOnFile = privateRow?.tournament_director_email ?? null;
-  const directorNameOnFile = privateRow?.tournament_director ?? null;
-  const refereeContactOnFile = privateRow?.referee_contact ?? null;
-  const refereeContactEmailOnFile = privateRow?.referee_contact_email ?? null;
-  const initialSaved = user?.id ? await isTournamentSaved(user.id, data.id) : false;
+  const viewerContext = loadViewerContext(data.id);
 
   const locationLabel = buildLocationLabel(data.city, data.state) || "Location TBA";
   const start = formatDate(data.start_date);
@@ -318,151 +939,9 @@ export default async function TournamentDetailPage({
   const venueInfo = data.venue || data.address || mapQuery;
   const venueAddress = [data.address, buildLocationLabel(data.city, data.state)].filter(Boolean).join(", ");
   const sportSurfaceClass = getSportCardClass(data.sport);
-  const rawTournamentVenues = Array.isArray(data.tournament_venues)
-    ? data.tournament_venues
-    : [];
-  const linkedVenues: LinkedVenue[] = rawTournamentVenues
-    .map((tv: any) => tv?.venues ?? null)
-    .filter(
-      (venue: any): venue is LinkedVenue =>
-        Boolean(venue && typeof venue === "object" && typeof venue.id === "string")
-    );
-  const linkedVenueIds = linkedVenues.map((v) => v.id).filter(Boolean);
-  const linkedVenueNameById = new Map(linkedVenues.map((venue) => [venue.id, venue.name ?? "Tournament venue"]));
   const resolvedSlug = (data.slug ?? params.slug ?? "").toLowerCase();
   const isDemoTournament = resolvedSlug === DEMO_TOURNAMENT_SLUG;
   const showStaffVerified = Boolean(data.tournament_staff_verified) || isDemoTournament;
-  const canViewPremiumDetails = isPaid || isDemoTournament;
-  const hasDirectorEmailOnFile = Boolean((directorEmailOnFile ?? "").trim());
-  const canEditThisTournament = canEditTournament(viewerEmail, directorEmailOnFile);
-  const showClaimNotice = searchParams?.claim === "1";
-  const showSavedNotice = searchParams?.saved === "1";
-
-  const MAX_VENUES_IN_SENTENCE = 5;
-  const venueItems: SemanticListItem[] = linkedVenues
-    .filter((v) => Boolean(v?.id && v?.name))
-    .slice()
-    .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
-    .map((v) => {
-      const loc = [v.city, v.state].filter(Boolean).join(", ");
-      const label = loc ? `${v.name ?? "Venue"} (${loc})` : (v.name ?? "Venue");
-      return { id: v.id, label, href: `/venues/${v.seo_slug || v.id}` };
-    });
-  const venueList = formatEntityList(venueItems, {
-    maxItems: MAX_VENUES_IN_SENTENCE,
-    overflowNoun: "venues",
-    overflow:
-      venueItems.length > MAX_VENUES_IN_SENTENCE
-        ? { kind: "known", remainingCount: venueItems.length - MAX_VENUES_IN_SENTENCE }
-        : { kind: "none" },
-    truncateLabelAt: 120,
-  });
-  const tournamentSemanticParts =
-    venueItems.length === 0
-      ? ([{ type: "text", value: "Venue information for this tournament is not yet confirmed." }] as SemanticListPart[])
-      : venueItems.length === 1
-        ? ([{ type: "text", value: "This tournament is played at " }, ...venueList.parts, { type: "text", value: "." }] as SemanticListPart[])
-        : venueItems.length <= MAX_VENUES_IN_SENTENCE
-          ? ([
-              { type: "text", value: "Games for this tournament are played across multiple venues: " },
-              ...venueList.parts,
-              { type: "text", value: "." },
-            ] as SemanticListPart[])
-          : ([
-              { type: "text", value: "Games for this tournament are played across multiple venues including " },
-              ...venueList.parts,
-              { type: "text", value: "." },
-            ] as SemanticListPart[]);
-
-  if (showClaimNotice && user?.id && canEditThisTournament) {
-    // Best-effort funnel marker; safe to ignore failures pre-migration.
-    try {
-      await (supabaseAdmin.from("tournament_claim_events" as any) as any).insert({
-        tournament_id: data.id,
-        event_type: "Tournament Claim Authenticated",
-        entered_email: viewerEmail?.trim().toLowerCase() || null,
-        user_id: user.id,
-        meta: { slug: data.slug ?? params.slug },
-      });
-    } catch {
-      // ignore
-    }
-  }
-  let nearbyCountsByVenueId = new Map<
-    string,
-    {
-      food: number;
-      coffee: number;
-      hotels: number;
-      sporting_goods: number;
-      captured_at: string | null;
-    }
-  >();
-  let hasOwlsEyeByVenueId = new Map<string, boolean>();
-  const standardPartnerCategories = new Set(["food", "coffee", "hotel", "hotels"]);
-  const { data: tournamentPartnerRowsRaw } = await supabaseAdmin
-    .from("tournament_partner_nearby" as any)
-    .select("id,venue_id,category,name,address,maps_url,sponsor_click_url,sort_order")
-    .eq("tournament_id", data.id)
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false });
-  const tournamentPartnerRows = ((tournamentPartnerRowsRaw as TournamentPartnerRow[] | null) ?? []).filter((row) => {
-    const normalized = (row.category ?? "").toLowerCase();
-    return row.name && normalized && !standardPartnerCategories.has(normalized);
-  });
-
-  const runRows = await fetchLatestOwlsEyeRuns(linkedVenueIds);
-
-  const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
-  for (const row of runRows) {
-    if (!row?.venue_id) continue;
-    if (latestRunByVenue.has(row.venue_id)) continue;
-    latestRunByVenue.set(row.venue_id, row);
-  }
-  const runIds = Array.from(latestRunByVenue.values())
-    .map((row) => row.run_id ?? row.id)
-    .filter((value): value is string => Boolean(value));
-
-  if (runIds.length) {
-    const { data: nearbyRows } = await supabaseAdmin
-      .from("owls_eye_nearby_food" as any)
-      .select("run_id,category")
-      .in("run_id", runIds);
-
-    const countsByRunId = new Map<string, { food: number; coffee: number; hotels: number; sporting_goods: number }>();
-    for (const row of ((nearbyRows as Array<{ run_id: string; category: string | null }> | null) ?? [])) {
-      const runId = row.run_id;
-      if (!runId) continue;
-      const normalizedCategory = (row.category ?? "food").toLowerCase();
-      const current = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
-      if (normalizedCategory === "coffee") current.coffee += 1;
-      else if (normalizedCategory === "hotel" || normalizedCategory === "hotels") current.hotels += 1;
-      else if (normalizedCategory === "sporting_goods" || normalizedCategory === "big_box_fallback") current.sporting_goods += 1;
-      else current.food += 1;
-      countsByRunId.set(runId, current);
-    }
-
-    nearbyCountsByVenueId = new Map(
-      Array.from(latestRunByVenue.entries()).map(([venueId, run]) => {
-        const runId = (run.run_id ?? run.id) as string;
-        const counts = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
-        return [
-          venueId,
-          {
-            ...counts,
-            captured_at: run.updated_at ?? run.created_at ?? null,
-          },
-        ];
-      })
-    );
-    hasOwlsEyeByVenueId = new Map(
-      Array.from(nearbyCountsByVenueId.entries()).map(([venueId, counts]) => [
-        venueId,
-        counts.food + counts.coffee + counts.hotels + counts.sporting_goods > 0,
-      ])
-    );
-  }
 
   const canonicalUrl = buildCanonicalUrl(data.slug ?? params.slug);
   const structuredData = {
@@ -474,7 +953,7 @@ export default async function TournamentDetailPage({
     url: canonicalUrl,
     location: {
       "@type": "Place",
-      name: linkedVenues[0]?.name || data.venue || locationLabel || "Tournament venue",
+      name: data.venue || locationLabel || "Tournament venue",
       address: {
         "@type": "PostalAddress",
         addressLocality: data.city || undefined,
@@ -508,13 +987,6 @@ export default async function TournamentDetailPage({
             ← Back to directory
           </Link>
           <h1 className="detailTitle">{data.name}</h1>
-          <SaveTournamentButton
-            tournamentId={data.id}
-            initialSaved={initialSaved}
-            isLoggedIn={Boolean(user)}
-            isVerified={Boolean(user?.email_confirmed_at)}
-            returnTo={`/tournaments/${data.slug ?? params.slug}`}
-          />
           <div className="detailMeta">
             <strong>{(data.sport || "Tournament").toString()}</strong>
             {data.level ? ` • ${data.level}` : ""}
@@ -522,374 +994,26 @@ export default async function TournamentDetailPage({
           <div className="detailMeta">{dateLabel}</div>
           <div className="detailMeta">{locationLabel}</div>
 
-          {showSavedNotice ? (
-            <div
-              style={{
-                marginTop: 10,
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.18)",
-                background: "rgba(16, 185, 129, 0.16)",
-                color: "rgba(255,255,255,0.95)",
-                fontWeight: 800,
-              }}
-            >
-              Saved. Thanks for keeping this listing accurate.
-            </div>
-          ) : null}
+          <Suspense fallback={<div style={{ height: 44 }} />}>
+            <TournamentUserActions
+              tournament={data}
+              paramsSlug={params.slug}
+              searchParams={searchParams}
+              viewerContext={viewerContext}
+            />
+          </Suspense>
 
-          {canEditThisTournament ? (
-            <details
-              style={{
-                marginTop: 12,
-                border: "1px solid rgba(255,255,255,0.18)",
-                background: "rgba(0,0,0,0.25)",
-                backdropFilter: "blur(10px)",
-                borderRadius: 16,
-                padding: 14,
-              }}
-              open={Boolean(showClaimNotice)}
-            >
-              <summary style={{ cursor: "pointer", color: "#fff", fontWeight: 900, listStyle: "auto" }}>
-                Edit this tournament listing
-              </summary>
-	              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-	                <form
-	                  action={async (formData) => {
-	                    "use server";
-	                    await saveClaimedTournamentEdits(formData);
-	                  }}
-	                  style={{ display: "grid", gap: 10 }}
-	                >
-	                  <input type="hidden" name="tournament_id" value={data.id} />
-	                  <input type="hidden" name="slug" value={data.slug ?? params.slug} />
-
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-                    <label style={{ display: "grid", gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Official website URL</span>
-                      <input
-                        name="official_website_url"
-                        defaultValue={data.official_website_url ?? ""}
-                        placeholder="https://..."
-                        style={{
-                          width: "100%",
-                          padding: "10px 12px",
-                          borderRadius: 12,
-                          border: "1px solid rgba(255,255,255,0.18)",
-                        background: "rgba(255,255,255,0.10)",
-                        color: "#fff",
-                        outline: "none",
-                      }}
-                      />
-                    </label>
-                    <label style={{ display: "grid", gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Start date</span>
-                      <input
-                        type="date"
-                        name="start_date"
-                        defaultValue={data.start_date ?? ""}
-                        style={{
-                          width: "100%",
-                          padding: "10px 12px",
-                          borderRadius: 12,
-                          border: "1px solid rgba(255,255,255,0.18)",
-                        background: "rgba(255,255,255,0.10)",
-                        color: "#fff",
-                        outline: "none",
-                      }}
-                      />
-                    </label>
-                    <label style={{ display: "grid", gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>End date</span>
-                      <input
-                        type="date"
-                        name="end_date"
-                        defaultValue={data.end_date ?? ""}
-                        style={{
-                          width: "100%",
-                          padding: "10px 12px",
-                          borderRadius: 12,
-                          border: "1px solid rgba(255,255,255,0.18)",
-                        background: "rgba(255,255,255,0.10)",
-                        color: "#fff",
-                        outline: "none",
-                      }}
-                      />
-                    </label>
-                    <label style={{ display: "grid", gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>City</span>
-                      <input
-                        name="city"
-                        defaultValue={data.city ?? ""}
-                        style={{
-                          width: "100%",
-                          padding: "10px 12px",
-                          borderRadius: 12,
-                          border: "1px solid rgba(255,255,255,0.18)",
-                        background: "rgba(255,255,255,0.10)",
-                        color: "#fff",
-                        outline: "none",
-                      }}
-                      />
-                    </label>
-                    <label style={{ display: "grid", gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>State</span>
-                      <input
-                        name="state"
-                        defaultValue={data.state ?? ""}
-                        style={{
-                          width: "100%",
-                          padding: "10px 12px",
-                          borderRadius: 12,
-                          border: "1px solid rgba(255,255,255,0.18)",
-                        background: "rgba(255,255,255,0.10)",
-                        color: "#fff",
-                        outline: "none",
-                      }}
-                      />
-                    </label>
-                    <label style={{ display: "grid", gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Tournament director</span>
-                      <input
-                        name="tournament_director"
-                        defaultValue={directorNameOnFile ?? ""}
-                        style={{
-                          width: "100%",
-                          padding: "10px 12px",
-                          borderRadius: 12,
-                          border: "1px solid rgba(255,255,255,0.18)",
-                        background: "rgba(255,255,255,0.10)",
-                        color: "#fff",
-                        outline: "none",
-                      }}
-                      />
-                    </label>
-                    <label style={{ display: "grid", gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Referee contact</span>
-                      <input
-                        name="referee_contact"
-                        defaultValue={refereeContactOnFile ?? ""}
-                        style={{
-                          width: "100%",
-                          padding: "10px 12px",
-                          borderRadius: 12,
-                          border: "1px solid rgba(255,255,255,0.18)",
-                        background: "rgba(255,255,255,0.10)",
-                        color: "#fff",
-                        outline: "none",
-                      }}
-                      />
-                    </label>
-                    <label style={{ display: "grid", gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.95 }}>Referee contact email</span>
-                      <input
-                        type="email"
-                        name="referee_contact_email"
-                        defaultValue={refereeContactEmailOnFile ?? ""}
-                        style={{
-                          width: "100%",
-                          padding: "10px 12px",
-                          borderRadius: 12,
-                          border: "1px solid rgba(255,255,255,0.18)",
-                        background: "rgba(255,255,255,0.10)",
-                        color: "#fff",
-                        outline: "none",
-                      }}
-                      />
-                    </label>
-                  </div>
-
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.78)" }}>
-                    Need to change the director email on file? Use “Request review” in the claim box and we&apos;ll update it.
-                  </div>
-
-                <button
-                  type="submit"
-                  className="cta ti-home-cta ti-home-cta-primary"
-                  style={{ padding: "10px 14px", justifySelf: "start" }}
-                >
-                  Save changes
-                </button>
-                </form>
-              </div>
-            </details>
-          ) : (
-            <div style={{ marginTop: 12 }}>
-              <ClaimThisTournament
-                tournamentId={data.id}
-                tournamentName={data.name}
-                hasDirectorEmailOnFile={hasDirectorEmailOnFile}
-                viewerEmail={viewerEmail}
-              />
-            </div>
-          )}
-
-          {data.official_website_url && !isDemoTournament ? (
-            <div className="detailLinksRow">
-              <a className="secondaryLink" href={data.official_website_url} target="_blank" rel="noopener noreferrer">
-                Official site
-              </a>
-            </div>
-          ) : null}
-
-          {linkedVenues.length > 0 ? (
-            <div className="detailVenueGrid">
-              {linkedVenues.map((venue) => (
-                <Link
-                  key={venue.id}
-                  href={`/venues/${venue.seo_slug || venue.id}?tournament=${encodeURIComponent(data.slug ?? params.slug)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`detailVenueTile ${hasOwlsEyeByVenueId.get(venue.id) ? "detailVenueTile--withOwl" : ""}`}
-                >
-                  <span className="detailVenueTile__eyebrow">Venue</span>
-                  <span className="detailVenueTile__name">{venue.name || "Venue TBA"}</span>
-                  {hasOwlsEyeByVenueId.get(venue.id) ? (
-                    <span className="detailVenueTile__flag">{BRAND_OWL}</span>
-                  ) : (
-                    <span className="detailVenueTile__flag">Open details</span>
-                  )}
-                </Link>
-              ))}
-            </div>
-          ) : null}
-
-          {linkedVenues.length > 0 ? (
-            <div style={{ marginTop: 12 }}>
-              <QuickVenueCheck
-                venueId={linkedVenues.length === 1 ? linkedVenues[0].id : undefined}
-                venueOptions={linkedVenues.map((v) => ({ id: v.id, name: v.name }))}
-                pageType="tournament"
-                sourceTournamentId={data.id}
-              />
-            </div>
-          ) : venueInfo ? (
-            <div className="detailCard">
-              <div className="detailCard__title">Venue</div>
-              <div className="detailCard__body">
-                <div className="detailVenueRow">
-                  <div className="detailVenueText">
-                    <div className="detailVenueName">{data.venue || "Venue TBA"}</div>
-                    {venueAddress ? <div className="detailVenueAddress">{venueAddress}</div> : null}
-                  </div>
-                  {mapLinks ? (
-                    <div className="detailLinksRow detailLinksRow--inline">
-                      <a className="secondaryLink" href={mapLinks.google} target="_blank" rel="noopener noreferrer">
-                        Google Maps
-                      </a>
-                      <a className="secondaryLink" href={mapLinks.apple} target="_blank" rel="noopener noreferrer">
-                        Apple Maps
-                      </a>
-                      <a className="secondaryLink" href={mapLinks.waze} target="_blank" rel="noopener noreferrer">
-                        Waze
-                      </a>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {data.summary ? <p className="detailSummary">{data.summary}</p> : null}
-
-          {tournamentPartnerRows.length ? (
-            <div className="detailCard">
-              <div className="detailCard__title">Tournament Partners</div>
-              <div className="detailCard__body" style={{ display: "grid", gap: 12 }}>
-                {tournamentPartnerRows.map((partner) => {
-                  const venueName = partner.venue_id ? linkedVenueNameById.get(partner.venue_id) ?? null : null;
-                  const destination = partner.sponsor_click_url || partner.maps_url || null;
-                  return (
-                    <div
-                      key={partner.id}
-                      style={{
-                        display: "grid",
-                        gap: 4,
-                        padding: "12px 14px",
-                        borderRadius: 12,
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        background: "rgba(255,255,255,0.04)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          flexWrap: "wrap",
-                          gap: 10,
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                        }}
-                      >
-                        <div style={{ display: "grid", gap: 3 }}>
-                          <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.74 }}>
-                            {formatPartnerCategory(partner.category)}
-                          </span>
-                          <strong style={{ fontSize: "1.02rem" }}>{partner.name}</strong>
-                        </div>
-                        {destination ? (
-                          <a className="secondaryLink" href={destination} target="_blank" rel="noopener noreferrer">
-                            Visit Partner
-                          </a>
-                        ) : null}
-                      </div>
-                      {venueName ? (
-                        <div style={{ fontSize: 13, opacity: 0.84 }}>
-                          Applies to <strong>{venueName}</strong>
-                        </div>
-                      ) : (
-                        <div style={{ fontSize: 13, opacity: 0.84 }}>Applies across all tournament venues</div>
-                      )}
-                      {partner.address ? <div style={{ fontSize: 14, opacity: 0.88 }}>{partner.address}</div> : null}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-          <p className="detailLegalNote">
-            Information may change. Verify critical details directly with organizers and venues.{" "}
-            <Link href="/terms">Terms</Link> • <Link href="/disclaimer">Disclaimer</Link>
-          </p>
-
-          <div className="detailCard premiumDetailCard">
-            <div className="detailCard__title premiumDetailCard__title">
-              <span aria-hidden="true">🔒</span>
-              <span>Premium Planning Details</span>
-            </div>
-            {!canViewPremiumDetails ? (
-              <div className="detailCard__body premiumDetailCard__body">
-                <p className="premiumDetailCard__copy">
-                  Locked — Upgrade to view vendor, parking, restroom, seating, and travel/lodging details.
-                </p>
-                {needsEmailVerification ? (
-                  <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
-                    Verify your email to unlock Insider access first. <Link href="/verify-email">Verify email</Link>
-                  </p>
-                ) : tier === "explorer" ? (
-                  <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
-                    Log in for Insider access. <Link href="/login">Log in</Link> or <Link href="/signup">sign up</Link>.
-                  </p>
-                ) : null}
-                <div className="detailLinksRow">
-                  <Link className="secondaryLink" href="/pricing">
-                    Upgrade
-                  </Link>
-                </div>
-                <PremiumInterestForm initialEmail={viewerEmail} />
-              </div>
-            ) : (
-              <div className="detailCard__body premiumDetailCard__body">
-                <div className="premiumDetailRow">
-                  <span className="premiumDetailLabel">Venue-level premium details</span>
-                  <span>Open any venue tile above to view venue details in a new tab.</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div style={{ marginTop: 18, fontSize: 13, lineHeight: 1.45, opacity: 0.78 }}>
-            {renderSemanticParts(tournamentSemanticParts)}
-          </div>
+          <Suspense fallback={<div style={{ marginTop: 12, opacity: 0.78, fontSize: 13 }}>Loading tournament details…</div>}>
+            <TournamentVenueDetails
+              tournament={data}
+              paramsSlug={params.slug}
+              locationLabel={locationLabel}
+              mapLinks={mapLinks}
+              venueInfo={venueInfo}
+              venueAddress={venueAddress}
+              viewerContext={viewerContext}
+            />
+          </Suspense>
         </div>
       </section>
     </main>

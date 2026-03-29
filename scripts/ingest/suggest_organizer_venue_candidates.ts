@@ -1,6 +1,11 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import * as dotenv from "dotenv";
+
+dotenv.config({ path: ".env.local" });
+dotenv.config();
 
 type MissingTournamentRow = {
   id: string;
@@ -46,9 +51,13 @@ const LIMIT = Number(argValue("limit") ?? "200");
 const OFFSET = Number(argValue("offset") ?? "0");
 const MAX_PER_TOURNAMENT = Math.max(1, Math.min(10, Number(argValue("max-per-tournament") ?? "5")));
 const MIN_EVIDENCE = Math.max(1, Number(argValue("min-evidence") ?? "2"));
-const REPORT_PATH =
-  clean(argValue("out")) ??
-  path.resolve(process.cwd(), "tmp", `organizer_venue_candidates_${new Date().toISOString().replace(/[:.]/g, "-")}.csv`);
+const REPORT_PATH = clean(argValue("out")) ?? defaultReportPath();
+
+function defaultReportPath() {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const downloadsDir = path.join(os.homedir(), "Downloads");
+  return path.join(downloadsDir, `organizer_venue_candidates_${stamp}.csv`);
+}
 
 function argValue(name: string) {
   const prefix = `--${name}=`;

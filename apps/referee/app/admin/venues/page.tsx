@@ -12,6 +12,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AdminNav from "@/components/admin/AdminNav";
 import { VenueItem } from "@/components/admin/VenueRow";
 import VenueAddressVerifyPanel from "@/components/admin/VenueAddressVerifyPanel";
+import VenueVenueEnrichmentCsvPanel from "@/components/admin/VenueVenueEnrichmentCsvPanel";
 import VenuesListClient from "@/components/admin/VenuesListClient";
 
 type VenueRow = {
@@ -255,6 +256,14 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       </div>
     );
   }
+
+  // (rendered later) Admin-only tools
+  const adminTools = (
+    <>
+      <VenueAddressVerifyPanel />
+      <VenueVenueEnrichmentCsvPanel />
+    </>
+  );
 
   const venuesRaw: VenueRow[] = Array.isArray(data) ? ((data as unknown) as VenueRow[]) : [];
   const venues: VenueItem[] = venuesRaw.map((v) => {
@@ -974,7 +983,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         </div>
       ) : null}
 
-      <VenueAddressVerifyPanel />
+      {adminTools}
 
       <VenuesListClient
         venues={filteredVenues}
