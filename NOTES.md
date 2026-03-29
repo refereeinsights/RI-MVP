@@ -1,6 +1,7 @@
 ## 2026-03-29
 
 - TI Outreach Previews: director email search is now a global lookup (does not get blocked by selected `campaign_id`, `sport`, or `start_after`), and uses a case-insensitive contains match so minor whitespace/casing issues still return results.
+- TI Outreach Previews: added tournament-name search (`tournament_q`) so replies can be located even when the reply-from email differs from the sent-to address; list view now shows the replied timestamp inline.
 - Outreach tracking (Supabase): added migration `supabase/migrations/20260329_email_outreach_preview_tracking.sql` to add `sent_at`, `send_attempt_count`, and director reply fields (`director_replied_at`, `director_replied_note`, `director_replied_by_email`) + indexes.
 - TI outreach APIs: hardened `/api/outreach/mark-replied`, `/api/outreach/send-test`, and `/api/outreach/send-director` to (a) return actionable JSON errors when the migration hasn’t been applied (PostgREST schema cache / missing columns) and (b) fail fast when Supabase admin env is missing.
 

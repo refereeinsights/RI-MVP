@@ -191,6 +191,7 @@ export default function OutreachPreviewsTable({
               const startLabel = formatDateOnly(preview.tournament_start_date);
               const sentLabel = preview.sent_at ? formatDate(preview.sent_at) : "—";
               const replied = Boolean(preview.director_replied_at);
+              const repliedLabel = preview.director_replied_at ? formatDate(preview.director_replied_at) : "";
               return (
                 <tr key={preview.id} style={{ background: isSelected ? "#eff6ff" : "transparent" }}>
                   <td style={tdStyle}>
@@ -204,7 +205,16 @@ export default function OutreachPreviewsTable({
                   <td style={tdStyle}>
                     <div style={{ display: "grid", gap: 6 }}>
                       <span>{sentLabel}</span>
-                      {replied ? <span style={statusPillStyle("replied")}>replied</span> : null}
+                      {replied ? (
+                        <div style={{ display: "grid", gap: 4 }}>
+                          <span style={statusPillStyle("replied")}>replied</span>
+                          {repliedLabel ? (
+                            <span className="muted" style={{ fontSize: 12 }}>
+                              {repliedLabel}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   </td>
                   <td style={tdStyle}>{startLabel || "TBA"}</td>

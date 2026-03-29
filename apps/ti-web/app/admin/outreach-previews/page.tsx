@@ -17,6 +17,7 @@ type SearchParams = {
   preview_id?: string;
   start_after?: string;
   director_email?: string;
+  tournament_q?: string;
 };
 
 type PreviewRow = {
@@ -76,6 +77,7 @@ export default async function OutreachPreviewsPage({
   if (searchParams?.preview_id) returnParams.set("preview_id", searchParams.preview_id);
   if (searchParams?.start_after) returnParams.set("start_after", searchParams.start_after);
   if (searchParams?.director_email) returnParams.set("director_email", searchParams.director_email);
+  if (searchParams?.tournament_q) returnParams.set("tournament_q", searchParams.tournament_q);
   const returnTo = `/admin/outreach-previews${returnParams.toString() ? `?${returnParams.toString()}` : ""}`;
 
   const user = await requireTiOutreachAdmin(returnTo);
@@ -85,6 +87,7 @@ export default async function OutreachPreviewsPage({
   const selectedId = searchParams?.preview_id?.trim() || "";
   const startAfter = normalizeDateParam(searchParams?.start_after);
   const directorEmailFilter = normalizeDirectorEmailParam(searchParams?.director_email);
+  const tournamentNameFilter = normalizeTournamentNameParam(searchParams?.tournament_q);
   const emailOverridesOtherFilters = Boolean(directorEmailFilter);
   const defaultMode = getOutreachMode();
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -130,6 +133,7 @@ export default async function OutreachPreviewsPage({
     if (sport) query = query.eq("sport", sport);
   }
   if (directorEmailFilter) query = query.ilike("director_email", `%${directorEmailFilter}%`);
+  if (tournamentNameFilter) query = query.ilike("tournament_name", `%${tournamentNameFilter}%`);
 
   const { data, error } = await query;
   if (error) {
@@ -288,6 +292,16 @@ export default async function OutreachPreviewsPage({
                   style={{ ...inputStyle, minWidth: 260 }}
                 />
               </label>
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontWeight: 600 }}>Tournament name</span>
+                <input
+                  type="text"
+                  name="tournament_q"
+                  defaultValue={tournamentNameFilter}
+                  placeholder="e.g. Jefferson Cup"
+                  style={{ ...inputStyle, minWidth: 260 }}
+                />
+              </label>
 	            <button type="submit" className="cta ti-home-cta ti-home-cta-primary">
 	              Apply filters
 	            </button>
@@ -298,6 +312,11 @@ export default async function OutreachPreviewsPage({
             {emailOverridesOtherFilters ? (
               <p className="muted" style={{ margin: 0, fontSize: 12 }}>
                 Director email search ignores campaign and sport filters.
+              </p>
+            ) : null}
+            {!directorEmailFilter && tournamentNameFilter ? (
+              <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+                Tip: tournament search helps find replies when the reply-from email differs from the sent-to address.
               </p>
             ) : null}
 
@@ -514,6 +533,13 @@ function normalizeDirectorEmailParam(value?: string) {
   const normalized = (value || "").trim().toLowerCase();
   if (!normalized) return "";
   if (normalized.length > 320) return "";
+  return normalized;
+}
+
+function normalizeTournamentNameParam(value?: string) {
+  const normalized = (value || "").trim();
+  if (!normalized) return "";
+  if (normalized.length > 120) return normalized.slice(0, 120);
   return normalized;
 }
 
