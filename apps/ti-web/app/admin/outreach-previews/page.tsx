@@ -279,8 +279,12 @@ export default async function OutreachPreviewsPage({
   );
 
 	  return (
-	    <main className="page" style={{ justifyContent: "flex-start", paddingLeft: 12, paddingRight: 12 }}>
-	      <div className="shell" style={{ maxWidth: 1560, marginLeft: 0, marginRight: 0 }}>
+      // This admin tool benefits from a wider canvas than the default `ti-shell` (1080px).
+      // Use a full-bleed wrapper to avoid excessive empty space on large screens without
+      // affecting other pages.
+      <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)" }}>
+	    <main style={{ paddingLeft: 12, paddingRight: 12 }}>
+	      <div style={{ maxWidth: 1800, margin: "0 auto", display: "grid", gap: 16 }}>
 	        <section className="bodyCard" style={{ display: "grid", gap: 14 }}>
           <div style={{ display: "grid", gap: 6 }}>
             <h1 style={{ margin: 0 }}>Outreach Previews</h1>
@@ -566,6 +570,7 @@ export default async function OutreachPreviewsPage({
         </section>
       </div>
     </main>
+    </div>
   );
 }
 
