@@ -89,6 +89,8 @@ export default async function OutreachPreviewsPage({
   const directorEmailFilter = normalizeDirectorEmailParam(searchParams?.director_email);
   const tournamentNameFilter = normalizeTournamentNameParam(searchParams?.tournament_q);
   const emailOverridesOtherFilters = Boolean(directorEmailFilter);
+  const tournamentOverridesOtherFilters = Boolean(tournamentNameFilter);
+  const globalOverridesOtherFilters = emailOverridesOtherFilters || tournamentOverridesOtherFilters;
   const defaultMode = getOutreachMode();
   const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -120,27 +122,87 @@ export default async function OutreachPreviewsPage({
     new Set(((recentCampaignRows ?? []) as Array<{ campaign_id?: string | null }>).map((row) => row.campaign_id).filter(Boolean))
   ) as string[];
 
-  let query = (supabaseAdmin.from("email_outreach_previews" as any) as any)
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(200);
+  const baseQuery = () =>
+    (supabaseAdmin.from("email_outreach_previews" as any) as any).select("*").order("created_at", { ascending: false });
 
-  // Director email search is intended as a global lookup across campaigns/sports/timeframes.
-  // Campaign/sport/start_after filters are still useful for batch work, but should not block
-  // finding a specific email address.
-  if (!emailOverridesOtherFilters) {
-    if (campaignId) query = query.eq("campaign_id", campaignId);
-    if (sport) query = query.eq("sport", sport);
+  const applyFilters = (query: any) => {
+    // Director email search and tournament-name search are intended as global lookups across campaigns/sports/timeframes.
+    // Campaign/sport/start_after filters are still useful for batch work, but should not block finding a specific target.
+    if (!globalOverridesOtherFilters) {
+      if (campaignId) query = query.eq("campaign_id", campaignId);
+      if (sport) query = query.eq("sport", sport);
+    }
+    if (directorEmailFilter) query = query.ilike("director_email", `%${directorEmailFilter}%`);
+    return query;
+  };
+
+  const dedupeById = (rows: PreviewRow[]) => {
+    const map = new Map<string, PreviewRow>();
+    for (const row of rows) {
+      if (!row?.id) continue;
+      if (!map.has(row.id)) map.set(row.id, row);
+    }
+    return Array.from(map.values()).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  };
+
+  let previews: PreviewRow[] = [];
+
+  if (tournamentNameFilter) {
+    // First, look up tournament ids that match the name (so we can match previews where the tournament
+    // is included in `tournament_ids` even if it's not the primary `tournament_name` for the preview row).
+    let matchingTournamentIds: string[] = [];
+    try {
+      const { data: tournamentMatchRows, error: tournamentMatchError } = await (supabaseAdmin.from("tournaments" as any) as any)
+        .select("id")
+        .ilike("name", `%${tournamentNameFilter}%`)
+        .limit(200);
+      if (tournamentMatchError) {
+        console.error("[ti-outreach-previews] tournament name lookup failed", {
+          tournamentNameFilter,
+          error: tournamentMatchError.message,
+        });
+      } else {
+        matchingTournamentIds = Array.from(
+          new Set(((tournamentMatchRows ?? []) as Array<{ id?: string | null }>).map((row) => row.id).filter(Boolean))
+        ) as string[];
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[ti-outreach-previews] tournament name lookup threw", { tournamentNameFilter, error: message });
+      matchingTournamentIds = [];
+    }
+
+    const tasks: Array<Promise<{ data: any; error: any }>> = [];
+
+    // Primary preview row name match (fast path).
+    tasks.push(applyFilters(baseQuery()).ilike("tournament_name", `%${tournamentNameFilter}%`).limit(200));
+
+    if (matchingTournamentIds.length > 0) {
+      // Match previews where the primary tournament_id matches.
+      tasks.push(applyFilters(baseQuery()).in("tournament_id", matchingTournamentIds).limit(200));
+      // Match previews where the tournament is included in the multi-tournament payload.
+      try {
+        tasks.push((applyFilters(baseQuery()) as any).overlaps("tournament_ids", matchingTournamentIds).limit(200));
+      } catch (err) {
+        // Some deployments may have `tournament_ids` as JSON rather than an array; ignore if unsupported.
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("[ti-outreach-previews] tournament_ids overlaps unsupported", { error: message });
+      }
+    }
+
+    const results = await Promise.all(tasks);
+    const rows = results.flatMap((result) => (result?.data ?? []) as PreviewRow[]);
+    const errors = results.map((result) => result?.error).filter(Boolean);
+    if (errors.length > 0) {
+      throw new Error(errors[0].message || String(errors[0]));
+    }
+    previews = dedupeById(rows).slice(0, 200);
+  } else {
+    const { data, error } = await applyFilters(baseQuery()).limit(200);
+    if (error) throw new Error(error.message);
+    previews = (data ?? []) as PreviewRow[];
   }
-  if (directorEmailFilter) query = query.ilike("director_email", `%${directorEmailFilter}%`);
-  if (tournamentNameFilter) query = query.ilike("tournament_name", `%${tournamentNameFilter}%`);
 
-  const { data, error } = await query;
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  let previews = (data ?? []) as PreviewRow[];
   let selectedPreview = previews.find((preview) => preview.id === selectedId) ?? previews[0] ?? null;
   const campaignOptions = recentCampaignOptions.length ? recentCampaignOptions : Array.from(new Set(previews.map((preview) => preview.campaign_id)));
   let tournamentIds = Array.from(new Set(previews.map((preview) => preview.tournament_id).filter(Boolean))) as string[];
@@ -309,9 +371,9 @@ export default async function OutreachPreviewsPage({
 	              Clear
 	            </Link>
 	          </form>
-            {emailOverridesOtherFilters ? (
+            {globalOverridesOtherFilters ? (
               <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-                Director email search ignores campaign and sport filters.
+                Search ignores campaign and sport filters.
               </p>
             ) : null}
             {!directorEmailFilter && tournamentNameFilter ? (
@@ -354,11 +416,11 @@ export default async function OutreachPreviewsPage({
 	          <OutreachPreviewsTable
 	            previews={previews}
 	            selectedPreviewId={selectedPreview?.id ?? ""}
-	            campaignId={emailOverridesOtherFilters ? "" : campaignId}
-	            sport={emailOverridesOtherFilters ? "" : sport}
+	            campaignId={globalOverridesOtherFilters ? "" : campaignId}
+	            sport={globalOverridesOtherFilters ? "" : sport}
               directorEmail={directorEmailFilter}
 	            suppressionByTournamentId={suppressionByTournamentId}
-	            startAfter={emailOverridesOtherFilters ? "" : startAfter}
+	            startAfter={globalOverridesOtherFilters ? "" : startAfter}
 	          />
 
           {selectedPreview ? (
