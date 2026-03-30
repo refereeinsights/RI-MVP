@@ -2224,12 +2224,40 @@ export default async function AdminPage({
     }
 
     const result = await importTournamentRecords(records);
+    let venueLinkAttempted = 0;
+    let venueLinkCreated = 0;
+    let venueLinkErrors = 0;
+
+    // If the upload includes venue fields (and they survive the TBD/blank cleaner), create/match venues and
+    // upsert tournament_venues links during import so the approval queue has normalized venue links ready.
+    if (result.tournamentIds?.length) {
+      const ids = Array.from(new Set(result.tournamentIds)).filter(Boolean);
+      const concurrency = 8;
+      for (let i = 0; i < ids.length; i += concurrency) {
+        const batch = ids.slice(i, i + concurrency);
+        const settled = await Promise.allSettled(batch.map((id) => ensureTournamentVenueLink(id)));
+        for (const res of settled) {
+          if (res.status === "rejected") {
+            venueLinkErrors += 1;
+            continue;
+          }
+          if (res.value.attempted) venueLinkAttempted += 1;
+          if (res.value.attempted && res.value.linked) venueLinkCreated += 1;
+          if (res.value.error) venueLinkErrors += 1;
+        }
+      }
+    }
     const noticeParts: string[] = [];
     noticeParts.push(
       result.failures.length === 0
         ? `Imported ${result.success} tournament${result.success === 1 ? "" : "s"}.`
         : `Imported ${result.success} tournament(s); ${result.failures.length} failed.`
     );
+    if (venueLinkAttempted || venueLinkCreated || venueLinkErrors) {
+      noticeParts.push(
+        `Venue links: ${venueLinkCreated} created, ${venueLinkAttempted} attempted${venueLinkErrors ? `, ${venueLinkErrors} error(s)` : ""}.`
+      );
+    }
 
     if (dropSummary) {
       const detail = csvDropReasons.length ? ` ${csvDropReasons.join("; ")}` : "";
@@ -2254,6 +2282,9 @@ export default async function AdminPage({
         discovered_count: records.length,
         imported_count: result.success,
         duplicates_skipped_count: result.failures.length,
+        venue_links_created: venueLinkCreated,
+        venue_links_attempted: venueLinkAttempted,
+        venue_link_errors: venueLinkErrors,
         params: { sport: fallbackSport, state: fallbackState, city: fallbackCity },
       });
     }

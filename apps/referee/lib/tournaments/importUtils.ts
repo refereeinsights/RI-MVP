@@ -174,8 +174,17 @@ export function cleanCsvRows(rows: CsvRow[]) {
   const dropped: { row: CsvRow; reason: string }[] = [];
   const seenSlugs = new Set<string>();
 
+  const pick = (row: CsvRow, keys: string[]) => {
+    for (const key of keys) {
+      const val = row[key];
+      const normalized = normalize(val);
+      if (normalized) return normalized;
+    }
+    return "";
+  };
+
   for (const row of rows) {
-    const name = normalize(row.name);
+    const name = pick(row, ["name", "tournament_name", "tournament"]);
     if (!name) {
       dropped.push({ row, reason: "missing name" });
       continue;
@@ -185,26 +194,26 @@ export function cleanCsvRows(rows: CsvRow[]) {
       continue;
     }
 
-    const sportRaw = normalize(row.sport).toLowerCase();
+    const sportRaw = pick(row, ["sport", "tournament_sport"]).toLowerCase();
     if (!ALLOWED_SPORTS.has(sportRaw)) {
       dropped.push({ row, reason: `unsupported sport "${row.sport ?? ""}"` });
       continue;
     }
 
-    const state = normalize(row.state);
-    const city = normalize(row.city);
+    const state = pick(row, ["state", "tournament_state"]).toUpperCase();
+    const city = pick(row, ["city", "tournament_city"]);
     if (!state && !city) {
       dropped.push({ row, reason: "missing city/state" });
       continue;
     }
 
-    const sourceUrl = normalize(row.source_url);
+    const sourceUrl = pick(row, ["source_url", "official_website_url", "tournament_url", "url", "website"]);
     if (!sourceUrl) {
       dropped.push({ row, reason: "missing source URL" });
       continue;
     }
 
-    const summary = normalize(row.summary);
+    const summary = pick(row, ["summary", "notes"]);
     const combined = `${name} ${summary}`.toLowerCase();
     if (sportRaw === "soccer" || sportRaw === "futsal") {
       if (referencesOtherSports(combined)) {
@@ -213,10 +222,14 @@ export function cleanCsvRows(rows: CsvRow[]) {
       }
     }
 
-    const baseSlug = normalize(row.slug) || generateSlug(name, city || null, state || null);
+    const baseSlug = pick(row, ["slug", "tournament_slug"]) || generateSlug(name, city || null, state || null);
     const uniqueSlug = makeUniqueSlug(baseSlug, seenSlugs);
     const slugKey = uniqueSlug.toLowerCase();
     seenSlugs.add(slugKey);
+
+    const venue = pick(row, ["venue", "venue_name"]);
+    const address = pick(row, ["address", "venue_address", "venue_address_text"]);
+
     kept.push({
       ...row,
       name,
@@ -225,6 +238,8 @@ export function cleanCsvRows(rows: CsvRow[]) {
       state,
       city,
       summary,
+      venue,
+      address,
       source_url: sourceUrl,
     });
   }
@@ -249,8 +264,8 @@ export function csvRowsToTournamentRows(
     }
 
     const cashFlag = (row.ref_cash_tournament ?? row.cash ?? "").toLowerCase();
-    const venue = cleanMaybeVenueOrAddress(row.venue);
-    const address = cleanMaybeVenueOrAddress(row.address);
+    const venue = cleanMaybeVenueOrAddress(row.venue ?? (row as any).venue_name);
+    const address = cleanMaybeVenueOrAddress(row.address ?? (row as any).venue_address ?? (row as any).venue_address_text);
     const record: TournamentRow = {
       name: row.name,
       slug: row.slug,
