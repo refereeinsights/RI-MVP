@@ -902,11 +902,14 @@ export default async function AdminPage({
     const { data: readyVenuesRaw } = await supabaseAdmin
       .from("venues" as any)
       .select("id,name,address,address1,city,state,zip,latitude,longitude")
+      .not("city", "is", null)
+      .not("state", "is", null)
+      .or("address.not.is.null,address1.not.is.null")
       .not("name", "is", null)
       .order("state", { ascending: true })
       .order("city", { ascending: true })
       .order("name", { ascending: true })
-      .limit(1200);
+      .limit(6000);
 
     const readyCandidates = ((readyVenuesRaw ?? []) as Array<{
       id: string;
@@ -919,8 +922,9 @@ export default async function AdminPage({
       latitude: number | null;
       longitude: number | null;
     }>).filter((venue) => {
+      const street = String(venue.address ?? venue.address1 ?? "").trim();
       const hasAddress =
-        Boolean((venue.address1 ?? venue.address ?? "").trim()) &&
+        Boolean(street) &&
         Boolean((venue.city ?? "").trim()) &&
         Boolean((venue.state ?? "").trim());
       return hasAddress;
@@ -941,8 +945,9 @@ export default async function AdminPage({
       }
       runVenueIds = new Set(runRows.map((row) => row.venue_id || "").filter(Boolean));
 
+      const notRunVenueIds = readyVenueIds.filter((id) => id && !runVenueIds.has(id));
       const linkRows: Array<{ venue_id: string | null; tournament_id: string | null }> = [];
-      for (const idChunk of chunkValues(readyVenueIds)) {
+      for (const idChunk of chunkValues(notRunVenueIds)) {
         const { data: venueLinks } = await supabaseAdmin
           .from("tournament_venues" as any)
           .select("venue_id,tournament_id")
