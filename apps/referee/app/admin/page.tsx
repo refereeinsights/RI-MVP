@@ -6144,27 +6144,55 @@ export default async function AdminPage({
                           )}
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
-                          {t.venue ? (
-                            <div>{t.venue}</div>
-                          ) : (t.tournament_venues?.length ?? 0) > 0 ? (
-                            <div>
-                              {t.tournament_venues!
-                                .map((row) => row?.venues?.name)
-                                .filter(Boolean)
-                                .slice(0, 3)
-                                .map((name) => (
-                                  <div key={name as string}>{name}</div>
-                                ))}
-                            </div>
-                          ) : (
-                            <div>Venue TBD</div>
-                          )}
+                          {(() => {
+                            const linkedVenueNames = Array.from(
+                              new Set(
+                                (t.tournament_venues ?? [])
+                                  .map((row) => (row?.venues?.name || "").trim())
+                                  .filter(Boolean)
+                              )
+                            );
+                            const primaryVenue = String(t.venue ?? "").trim();
+
+                            let venueLabel = "Venue TBD";
+                            if (primaryVenue) venueLabel = primaryVenue;
+                            else if (linkedVenueNames.length === 1) venueLabel = linkedVenueNames[0];
+                            else if (linkedVenueNames.length > 1) venueLabel = "Multiple venues";
+
+                            const linkedCount = linkedVenueNames.length;
+                            const linkedBadge = linkedCount ? (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  color: "#1a7a3c",
+                                  fontWeight: 700,
+                                  whiteSpace: "nowrap",
+                                  flexShrink: 0,
+                                }}
+                                title={linkedVenueNames.join(", ")}
+                              >
+                                {linkedCount} venue{linkedCount > 1 ? "s" : ""} linked
+                              </span>
+                            ) : null;
+
+                            return (
+                              <div style={{ display: "flex", gap: 8, alignItems: "baseline", minWidth: 0, flexWrap: "nowrap" }}>
+                                <span
+                                  style={{
+                                    minWidth: 0,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                  title={venueLabel}
+                                >
+                                  {venueLabel}
+                                </span>
+                                {linkedBadge}
+                              </div>
+                            );
+                          })()}
                           {t.address && <div style={{ color: "#777" }}>{t.address}</div>}
-                          {(t.tournament_venues?.length ?? 0) > 0 && (
-                            <div style={{ marginTop: 4, fontSize: 11, color: "#1a7a3c", fontWeight: 600 }}>
-                              {t.tournament_venues!.length} venue{t.tournament_venues!.length > 1 ? "s" : ""} linked
-                            </div>
-                          )}
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
                           {t.referee_pay ? <div>Pay: {t.referee_pay}</div> : <div>Pay info TBD</div>}
