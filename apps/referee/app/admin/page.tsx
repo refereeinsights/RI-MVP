@@ -5464,8 +5464,25 @@ export default async function AdminPage({
                 Approve, archive, or delete the imports below once they look good.
               </p>
             </div>
-            <div style={{ fontSize: 13, color: "#555", alignSelf: "center" }}>
-              Pending: <strong>{pendingTournaments.length}</strong>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ fontSize: 13, color: "#555" }}>
+                Pending: <strong>{pendingTournaments.length}</strong>
+              </div>
+              <a
+                href="/api/admin/tournaments/uploads/export"
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  border: "1px solid #0f3d2e",
+                  background: "#fff",
+                  color: "#0f3d2e",
+                  fontWeight: 900,
+                  textDecoration: "none",
+                  fontSize: 13,
+                }}
+              >
+                Export CSV
+              </a>
             </div>
           </div>
 
