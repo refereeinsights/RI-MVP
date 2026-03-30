@@ -81,7 +81,7 @@ as $$
     where director_domain is not null and director_domain <> ''
     group by director_domain
   ),
-  window as (
+  window_bounds as (
     select
       greatest(
         (select start_after from params),
@@ -95,7 +95,7 @@ as $$
       count(*)::bigint as previews_created,
       count(*) filter (where sent)::bigint as sent,
       count(*) filter (where replied)::bigint as replied
-    from enriched, window w
+    from enriched, window_bounds w
     where created_at >= w.window_start
       and created_at < w.window_end
     group by 1
@@ -174,4 +174,3 @@ $$;
 
 revoke all on function public.get_outreach_dashboard_metrics(text, text, timestamptz, timestamptz, integer) from public;
 grant execute on function public.get_outreach_dashboard_metrics(text, text, timestamptz, timestamptz, integer) to service_role;
-
