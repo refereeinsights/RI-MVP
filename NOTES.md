@@ -1,3 +1,10 @@
+## 2026-03-30
+
+- Ops tooling: added `scripts/ops/update_missing_director_emails_from_csv.mjs` to apply curated director-email CSVs by tournament UUID (updates `tournaments.tournament_director_email` only when blank; emits a report CSV under `tmp/`).
+- Ops tooling: added `scripts/ops/convert_lacrosse_acquisition_csv.mjs` to normalize `lacrosse_acquisition_ingest.csv` into the standard ingest CSV shape used by `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs` (conservative venue parsing; avoids creating junk venues).
+- Ops tooling: added `scripts/ops/ingest_gotsport_fields_venues.mjs` to fetch venue name + address/coords from a GotSport fields page and match/create/link venues for a specific `tournament_id` (dry-run by default; `--apply` to write).
+- Ops tooling: added `scripts/ops/ingest_renoapex_springcup_venues.mjs` to parse venue blocks (name + city/state + map embed lat/lng) from the RenoApex Spring Cup page and match/create/link venues for a specific `tournament_id` (dry-run by default; `--apply` to write).
+
 ## 2026-03-29
 
 - TI Outreach Previews: director email search is now a global lookup (does not get blocked by selected `campaign_id`, `sport`, or `start_after`), and uses a case-insensitive contains match so minor whitespace/casing issues still return results.
