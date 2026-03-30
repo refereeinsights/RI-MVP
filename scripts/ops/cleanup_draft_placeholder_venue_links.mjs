@@ -65,6 +65,14 @@ function venueLooksAddressless(venue) {
   return !hasAddr && !hasGeo;
 }
 
+function tournamentVenueLooksPlaceholder(tournament) {
+  // Only clear when the denormalized venue looks like a placeholder and we don't have an address to preserve.
+  if (!tournament) return false;
+  if (!isPlaceholderVenueName(tournament.venue)) return false;
+  if (!isBlank(tournament.address)) return false;
+  return true;
+}
+
 function csvEscape(value) {
   const s = value === null || value === undefined ? "" : String(value);
   if (/[,"\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
@@ -104,6 +112,7 @@ function writeCsv(filePath, rows) {
 
 async function main() {
   const apply = hasFlag("apply");
+  const clearDenormVenue = hasFlag("clear_denorm_venue");
   const limit = Math.min(Math.max(parseInt(argValue("limit") || "5000", 10) || 5000, 1), 20000);
   const slug = argValue("slug");
   const maxPages = Math.min(Math.max(parseInt(argValue("max_pages") || "25", 10) || 25, 1), 200);
@@ -172,6 +181,7 @@ async function main() {
   }
 
   let unlinked = 0;
+  let denormVenueCleared = 0;
   let errors = 0;
   if (apply && candidates.length) {
     // Group deletes per tournament for fewer requests.
@@ -197,6 +207,29 @@ async function main() {
       }
       unlinked += uniqueVenueIds.length;
     }
+
+    // Note: denorm venue clearing runs below for all scanned drafts (even if we didn't find link candidates),
+    // so it can still clear placeholders after a prior unlink run.
+  }
+
+  if (apply && clearDenormVenue) {
+    // Clear placeholder denorm venue strings for scanned drafts (but keep real venues).
+    for (const t of tournaments.slice(0, limit)) {
+      if (!tournamentVenueLooksPlaceholder(t)) continue;
+      const currentVenue = t.venue;
+      const { error } = await supabase
+        .from("tournaments")
+        .update({ venue: null })
+        .eq("id", t.id)
+        .eq("status", "draft")
+        .eq("venue", currentVenue);
+      if (error) {
+        errors += 1;
+        console.error("Clear denorm venue failed", { tournamentId: t.id, error: error.message });
+        continue;
+      }
+      denormVenueCleared += 1;
+    }
   }
 
   const reportPath = path.join("tmp", `draft_placeholder_venue_unlinks_${nowStamp()}_${apply ? "apply" : "dry"}.csv`);
@@ -209,9 +242,10 @@ async function main() {
         tournaments_scanned: Math.min(tournaments.length, limit),
         candidates: candidates.length,
         unlinked,
+        denorm_venue_cleared: denormVenueCleared,
         errors,
         report: reportPath,
-        note: "Only unlinks venues that look like placeholders (TBD/TBA/etc) AND have no address/geo.",
+        note: "Only unlinks venues that look like placeholders (TBD/TBA/etc) AND have no address/geo. Optionally clears tournaments.venue when it matches a placeholder value (use --clear_denorm_venue).",
       },
       null,
       2
@@ -223,4 +257,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-
