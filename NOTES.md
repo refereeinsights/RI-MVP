@@ -7,6 +7,7 @@
 - RI Tournament uploads: CSV imports now (a) accept common header variants like `tournament_name`, `tournament_state`, `venue_name`, and `venue_address`, and (b) create/match venues + upsert `tournament_venues` links during import when venue fields are non-empty/non-TBD.
 - RI Tournament uploads: approval queue now shows a compact green “N venues linked” indicator (hover to see names) without increasing row height.
 - RI Tournament uploads: added an admin-only “Export CSV” download for the pending approval queue (includes tournament UUID + best URL).
+- RI Owl’s Eye admin: fixed “ready venues” selection to query for complete addresses server-side (so counts aren’t skewed by the first 1200 rows), and prioritize venues that have not had an Owl’s Eye run yet.
 - Ops tooling: added `scripts/ops/update_missing_director_emails_from_csv.mjs` to apply curated director-email CSVs by tournament UUID (updates `tournaments.tournament_director_email` only when blank; emits a report CSV under `tmp/`).
 - Ops tooling: added `scripts/ops/convert_lacrosse_acquisition_csv.mjs` to normalize `lacrosse_acquisition_ingest.csv` into the standard ingest CSV shape used by `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs` (conservative venue parsing; avoids creating junk venues).
 - Ops tooling: added `scripts/ops/ingest_gotsport_fields_venues.mjs` to fetch venue name + address/coords from a GotSport fields page and match/create/link venues for a specific `tournament_id` (dry-run by default; `--apply` to write).

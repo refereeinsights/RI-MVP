@@ -24,11 +24,14 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
   const { data: readyVenuesRaw } = await supabaseAdmin
     .from("venues" as any)
     .select("id,name,address,address1,city,state,zip,latitude,longitude")
+    .not("city", "is", null)
+    .not("state", "is", null)
+    .or("address.not.is.null,address1.not.is.null")
     .not("name", "is", null)
     .order("state", { ascending: true })
     .order("city", { ascending: true })
     .order("name", { ascending: true })
-    .limit(1200);
+    .limit(6000);
 
   const allVenues = (readyVenuesRaw ?? []) as ReadyVenueRow[];
 
@@ -62,6 +65,8 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
   const tournamentNamesByVenue = new Map<string, string[]>();
   const tournamentSportsByVenue = new Map<string, string[]>();
   const linkedTournamentCountByVenue = new Map<string, number>();
+  const tournamentIdsByVenue = new Map<string, Set<string>>();
+  const tournamentNameById = new Map<string, string>();
   let tournamentNameLookupError: string | null = null;
   if (venueIds.length) {
     const runRows: Array<{ venue_id: string | null }> = [];
@@ -74,8 +79,9 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
     }
     runVenueIds = new Set(runRows.map((row) => row.venue_id || "").filter(Boolean));
 
+    const notRunVenueIds = venueIds.filter((id) => id && !runVenueIds.has(id));
     const linkRows: Array<{ venue_id: string | null; tournament_id: string | null }> = [];
-    for (const idChunk of chunkValues(venueIds)) {
+    for (const idChunk of chunkValues(notRunVenueIds)) {
       const { data: venueLinks } = await supabaseAdmin
         .from("tournament_venues" as any)
         .select("venue_id,tournament_id")
@@ -85,11 +91,13 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
     linkRows.forEach((row) => {
       if (!row.venue_id || !row.tournament_id) return;
       linkedTournamentCountByVenue.set(row.venue_id, (linkedTournamentCountByVenue.get(row.venue_id) ?? 0) + 1);
+      const existing = tournamentIdsByVenue.get(row.venue_id) ?? new Set<string>();
+      existing.add(row.tournament_id);
+      tournamentIdsByVenue.set(row.venue_id, existing);
     });
     const tournamentIds = Array.from(
       new Set(linkRows.map((row) => row.tournament_id).filter((value): value is string => Boolean(value)))
     );
-    const tournamentNameById = new Map<string, string>();
     const tournamentSportById = new Map<string, string>();
     if (tournamentIds.length) {
       for (const idChunk of chunkValues(tournamentIds)) {
@@ -109,19 +117,14 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
         });
       }
     }
-    linkRows.forEach((row) => {
-      if (!row.venue_id || !row.tournament_id) return;
-      const tournamentName = tournamentNameById.get(row.tournament_id);
-      if (!tournamentName) return;
-      const existing = tournamentNamesByVenue.get(row.venue_id) ?? [];
-      if (!existing.includes(tournamentName)) existing.push(tournamentName);
-      tournamentNamesByVenue.set(row.venue_id, existing);
-      const sport = tournamentSportById.get(row.tournament_id);
-      if (sport) {
-        const existingSports = tournamentSportsByVenue.get(row.venue_id) ?? [];
-        if (!existingSports.includes(sport)) existingSports.push(sport);
-        tournamentSportsByVenue.set(row.venue_id, existingSports);
-      }
+    // Build per-venue sport lists for sorting. Tournament names are populated only for displayed ready rows below.
+    tournamentIdsByVenue.forEach((tournamentIdsForVenue, venueId) => {
+      const sports: string[] = [];
+      tournamentIdsForVenue.forEach((tournamentId) => {
+        const sport = tournamentSportById.get(tournamentId);
+        if (sport && !sports.includes(sport)) sports.push(sport);
+      });
+      if (sports.length) tournamentSportsByVenue.set(venueId, sports);
     });
   }
   const nameJunkRegex = /\b(born\s*\d{4}|\d{1,2}u\b|girls?\d{1,2}u|boys?\d{1,2}u|program|coach:|size\s*\d+)\b/i;
@@ -184,6 +187,15 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
       return (a.name ?? "").toLowerCase().localeCompare((b.name ?? "").toLowerCase());
     });
   const readyNotRunVenues = readyNotRunAll.slice(0, 120);
+  readyNotRunVenues.forEach((venue) => {
+    const tournamentIds = tournamentIdsByVenue.get(venue.id) ?? new Set<string>();
+    const names: string[] = [];
+    tournamentIds.forEach((tournamentId) => {
+      const name = tournamentNameById.get(tournamentId);
+      if (name && !names.includes(name)) names.push(name);
+    });
+    if (names.length) tournamentNamesByVenue.set(venue.id, names);
+  });
 
   const readyDebug = {
     total_fetched: allVenues.length,
@@ -196,6 +208,7 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
     final_ready_after_filters: readyNotRunAll.length,
     displayed_ready_rows: readyNotRunVenues.length,
     tournament_name_lookup_error: tournamentNameLookupError,
+    query_note: "Venues are pre-filtered server-side for non-null city/state and non-null address/address1 before applying run/link filters.",
     sample_not_run_no_linked: noLinkedTournamentCandidates.slice(0, 5).map((venue) => ({
       id: venue.id,
       name: venue.name,
