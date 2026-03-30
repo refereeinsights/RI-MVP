@@ -815,6 +815,27 @@ export default async function TiAdminPage({
             </Link>
           ))}
           <Link
+            href={buildTiAdminSsoUrl({
+              tiAdminBaseUrl,
+              email: adminUser.email ?? "",
+              returnTo: `/admin/outreach-dashboard?sport=soccer`,
+            })}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              textDecoration: "none",
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "#ffffff",
+              color: "#1d4ed8",
+              fontWeight: 800,
+              fontSize: 14,
+              border: "1px solid #93c5fd",
+            }}
+          >
+            TI Outreach Dashboard
+          </Link>
+          <Link
             href="/admin/ti"
             style={{
               textDecoration: "none",
