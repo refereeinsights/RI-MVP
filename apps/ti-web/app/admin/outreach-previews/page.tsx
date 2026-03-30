@@ -35,8 +35,8 @@ type PreviewRow = {
   director_email: string;
   verify_url: string;
   subject: string;
-  html_body: string;
-  text_body: string;
+  html_body?: string;
+  text_body?: string;
   variant: string | null;
   provider_message_id: string | null;
   status: string;
@@ -122,8 +122,13 @@ export default async function OutreachPreviewsPage({
     new Set(((recentCampaignRows ?? []) as Array<{ campaign_id?: string | null }>).map((row) => row.campaign_id).filter(Boolean))
   ) as string[];
 
+  const previewsListSelect =
+    "id,created_at,sent_at,send_attempt_count,director_replied_at,sport,campaign_id,tournament_id,tournament_ids,tournament_name,director_email,verify_url,subject,variant,provider_message_id,status,error";
+
   const baseQuery = () =>
-    (supabaseAdmin.from("email_outreach_previews" as any) as any).select("*").order("created_at", { ascending: false });
+    (supabaseAdmin.from("email_outreach_previews" as any) as any)
+      .select(previewsListSelect)
+      .order("created_at", { ascending: false });
 
   const applyFilters = (query: any) => {
     // Director email search and tournament-name search are intended as global lookups across campaigns/sports/timeframes.
@@ -203,7 +208,8 @@ export default async function OutreachPreviewsPage({
     previews = (data ?? []) as PreviewRow[];
   }
 
-  let selectedPreview = previews.find((preview) => preview.id === selectedId) ?? previews[0] ?? null;
+  const selectedPreviewId = selectedId || previews[0]?.id || "";
+  let selectedPreview = previews.find((preview) => preview.id === selectedPreviewId) ?? previews[0] ?? null;
   const campaignOptions = recentCampaignOptions.length ? recentCampaignOptions : Array.from(new Set(previews.map((preview) => preview.campaign_id)));
   let tournamentIds = Array.from(new Set(previews.map((preview) => preview.tournament_id).filter(Boolean))) as string[];
 
@@ -233,8 +239,27 @@ export default async function OutreachPreviewsPage({
       previews = previews.filter((preview) => (preview.tournament_id ? allowedIds.has(preview.tournament_id) : false));
     }
 
-    selectedPreview = previews.find((preview) => preview.id === selectedId) ?? previews[0] ?? null;
+    selectedPreview = previews.find((preview) => preview.id === selectedPreviewId) ?? previews[0] ?? null;
     tournamentIds = Array.from(new Set(previews.map((preview) => preview.tournament_id).filter(Boolean))) as string[];
+  }
+
+  const detailPreviewId = selectedPreview?.id || "";
+  if (detailPreviewId) {
+    const { data: selectedDetail, error: selectedDetailError } = await (supabaseAdmin.from(
+      "email_outreach_previews" as any
+    ) as any)
+      .select(`${previewsListSelect},html_body,text_body`)
+      .eq("id", detailPreviewId)
+      .maybeSingle();
+
+    if (selectedDetailError) {
+      throw new Error(selectedDetailError.message);
+    }
+
+    if (selectedDetail?.id) {
+      const startDate = previews.find((preview) => preview.id === selectedDetail.id)?.tournament_start_date ?? null;
+      selectedPreview = { ...(selectedDetail as PreviewRow), tournament_start_date: startDate };
+    }
   }
 
   let eligibleCount: number | null = null;
@@ -294,6 +319,14 @@ export default async function OutreachPreviewsPage({
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <Link href="/admin/outreach-reply" style={{ color: "#2563EB", fontWeight: 700 }}>
                 Generate verify-reply email (second step)
+              </Link>
+              <Link
+                href={`/admin/outreach-dashboard?sport=${encodeURIComponent(sport || "soccer")}${
+                  campaignId ? `&campaign_id=${encodeURIComponent(campaignId)}` : ""
+                }${startAfter ? `&start_after=${encodeURIComponent(startAfter)}` : ""}`}
+                style={{ color: "#2563EB", fontWeight: 700 }}
+              >
+                Outreach dashboard
               </Link>
             </div>
           </div>
@@ -515,7 +548,7 @@ export default async function OutreachPreviewsPage({
                 {selectedPreview.verify_url ? (
                   <CopyFieldButton label="Copy verify URL" value={selectedPreview.verify_url} />
                 ) : null}
-                <CopyFieldButton label="Copy HTML" value={selectedPreview.html_body} />
+                <CopyFieldButton label="Copy HTML" value={selectedPreview.html_body ?? ""} />
               </div>
 
 	              <PreviewAdminActions
@@ -536,7 +569,7 @@ export default async function OutreachPreviewsPage({
                 <iframe
                   title="Outreach HTML preview"
                   sandbox=""
-                  srcDoc={selectedPreview.html_body}
+                  srcDoc={selectedPreview.html_body ?? ""}
                   style={{
                     width: "100%",
                     minHeight: 340,
@@ -562,7 +595,7 @@ export default async function OutreachPreviewsPage({
                     lineHeight: 1.55,
                   }}
                 >
-                  {selectedPreview.text_body}
+                  {selectedPreview.text_body ?? ""}
                 </pre>
               </section>
             </div>
