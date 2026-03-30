@@ -10,6 +10,7 @@
 - Ops tooling: added `scripts/ops/convert_lacrosse_acquisition_csv.mjs` to normalize `lacrosse_acquisition_ingest.csv` into the standard ingest CSV shape used by `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs` (conservative venue parsing; avoids creating junk venues).
 - Ops tooling: added `scripts/ops/ingest_gotsport_fields_venues.mjs` to fetch venue name + address/coords from a GotSport fields page and match/create/link venues for a specific `tournament_id` (dry-run by default; `--apply` to write).
 - Ops tooling: added `scripts/ops/ingest_renoapex_springcup_venues.mjs` to parse venue blocks (name + city/state + map embed lat/lng) from the RenoApex Spring Cup page and match/create/link venues for a specific `tournament_id` (dry-run by default; `--apply` to write).
+- Ops tooling: added `scripts/ops/cleanup_draft_placeholder_venue_links.mjs` to unlink draft (pending approval) tournaments from placeholder venue links (TBD/TBA) when the venue has no address/geo (dry-run by default; `--apply` to write; emits a CSV report under `tmp/`).
 
 ## 2026-03-29
 
