@@ -65,6 +65,7 @@ function formatDate(value?: string | null) {
 
 export default async function SourcesPage({ searchParams }: { searchParams: SearchParams }) {
   await requireAdmin();
+  const overdueSweepCutoffMs = Date.now() - 45 * 24 * 60 * 60 * 1000;
   const notice = searchParams.notice ?? "";
   const selectedUrl = searchParams.source_url ? normalizeSourceUrl(searchParams.source_url).canonical : null;
   const filter: Filter = (searchParams.filter as Filter) || "all";
@@ -122,6 +123,14 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   const priorityIndex = new Map(reviewPriority.map((s, i) => [s, i]));
   const getPriority = (status?: string | null) =>
     priorityIndex.get((status || "untested").toLowerCase()) ?? reviewPriority.length + 1;
+
+  const isOverdueKeepSweep = (row: any) => {
+    if ((row.review_status || "") !== "keep") return false;
+    if (!row.last_swept_at) return true;
+    const sweptMs = Date.parse(String(row.last_swept_at));
+    if (Number.isNaN(sweptMs)) return true;
+    return sweptMs < overdueSweepCutoffMs;
+  };
 
   const registryRes = await supabaseAdmin
     .from("tournament_sources" as any)
@@ -228,7 +237,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
 
   const groupedRows =
     groupBy === "none"
-      ? [{ key: "all", label: "All sources", rows: sorted }]
+      ? [{ key: "all", label: "All sources", rows: sorted, overdueKeepSweepCount: 0 }]
       : Array.from(
           sorted.reduce((map, row: any) => {
             const label = getGroupLabel(row);
@@ -237,7 +246,13 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
             map.set(label, current);
             return map;
           }, new Map<string, any[]>())
-        ).map(([label, rows]) => ({ key: label, label, rows }));
+        ).map(([label, rows]) => ({
+          key: label,
+          label,
+          rows,
+          overdueKeepSweepCount:
+            groupBy === "sport" ? rows.filter((row) => row.is_active && isOverdueKeepSweep(row)).length : 0,
+        }));
 
   const upsertSource = upsertSourceAction.bind(null, stickyQueryString);
   const updateStatus = updateStatusAction.bind(null, stickyQueryString);
@@ -265,15 +280,22 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   const renderRegistryRow = (row: any) => {
     const reason = getSkipReason(row);
     const ignore = !!reason;
+    const overdueKeepSweep = row.is_active && isOverdueKeepSweep(row);
     return (
       <tr
         key={row.id}
         style={{
           ...(ignore ? { opacity: 0.65 } : undefined),
           ...(row.is_custom_source ? { background: "#ecfdf3" } : undefined),
+          ...(overdueKeepSweep ? { background: "#fff1f2" } : undefined),
         }}
       >
-        <td style={{ padding: "6px 4px" }}>
+        <td
+          style={{
+            padding: "6px 4px",
+            ...(overdueKeepSweep ? { borderLeft: "4px solid #e11d48" } : undefined),
+          }}
+        >
           <Link href={buildSourcesHref({ source_url: row.source_url })} style={{ color: "#0f172a", fontWeight: 700 }}>
             {row.source_url}
           </Link>
@@ -831,37 +853,59 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
             </table>
           ) : (
             <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
-              {groupedRows.map((group) => (
-                <details
-                  key={group.key}
-                  style={{
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 10,
-                    background: "#fff",
-                    overflow: "hidden",
-                  }}
-                >
-                  <summary
+          {groupedRows.map((group) => (
+            <details
+              key={group.key}
+              style={{
+                border: "1px solid #e5e7eb",
+                borderRadius: 10,
+                background: "#fff",
+                overflow: "hidden",
+              }}
+            >
+              <summary
+                style={{
+                  cursor: "pointer",
+                  listStyle: "none",
+                  padding: "10px 12px",
+                  background:
+                    groupBy === "sport" && group.overdueKeepSweepCount > 0 ? "#fff1f2" : "#f8fafc",
+                  fontSize: 13,
+                  fontWeight: 800,
+                  color: "#334155",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                }}
+              >
+                <span>
+                  {group.label} ({group.rows.length})
+                </span>
+                {groupBy === "sport" && group.overdueKeepSweepCount > 0 ? (
+                  <span
                     style={{
-                      cursor: "pointer",
-                      listStyle: "none",
-                      padding: "10px 12px",
-                      background: "#f8fafc",
-                      fontSize: 13,
-                      fontWeight: 800,
-                      color: "#334155",
+                      fontSize: 11,
+                      fontWeight: 900,
+                      background: "#e11d48",
+                      color: "#fff",
+                      borderRadius: 999,
+                      padding: "2px 8px",
                     }}
+                    title={`${group.overdueKeepSweepCount} keep source${group.overdueKeepSweepCount === 1 ? "" : "s"} overdue for sweep`}
                   >
-                    {group.label} ({group.rows.length})
-                  </summary>
-                  <div style={{ padding: "0 12px 12px" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginTop: 8 }}>
-                      <thead>{renderRegistryHeaders()}</thead>
-                      <tbody>{group.rows.map(renderRegistryRow)}</tbody>
-                    </table>
-                  </div>
-                </details>
-              ))}
+                    sweep {group.overdueKeepSweepCount}
+                  </span>
+                ) : null}
+              </summary>
+              <div style={{ padding: "0 12px 12px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginTop: 8 }}>
+                  <thead>{renderRegistryHeaders()}</thead>
+                  <tbody>{group.rows.map(renderRegistryRow)}</tbody>
+                </table>
+              </div>
+            </details>
+          ))}
             </div>
           )}
         </div>

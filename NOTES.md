@@ -3,6 +3,7 @@
 - TI Outreach Previews: improved load performance by avoiding `select("*")` on `email_outreach_previews`; list view now fetches a lightweight column set and loads `html_body`/`text_body` only for the selected preview row.
 - TI Outreach: added a new admin-only `/admin/outreach-dashboard` page backed by the `get_outreach_dashboard_metrics(...)` RPC for set-based outreach metrics (includes manual replies via `director_replied_at`).
 - RI admin: added a `TI Outreach Dashboard` button on `/admin/ti` that opens the TI dashboard via SSO (env-aware localhost vs prod domain).
+- RI Sources: highlighted sport groupings and source rows when `review_status=keep` sources are overdue for sweep (45+ days since `last_swept_at`).
 - Ops tooling: added `scripts/ops/update_missing_director_emails_from_csv.mjs` to apply curated director-email CSVs by tournament UUID (updates `tournaments.tournament_director_email` only when blank; emits a report CSV under `tmp/`).
 - Ops tooling: added `scripts/ops/convert_lacrosse_acquisition_csv.mjs` to normalize `lacrosse_acquisition_ingest.csv` into the standard ingest CSV shape used by `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs` (conservative venue parsing; avoids creating junk venues).
 - Ops tooling: added `scripts/ops/ingest_gotsport_fields_venues.mjs` to fetch venue name + address/coords from a GotSport fields page and match/create/link venues for a specific `tournament_id` (dry-run by default; `--apply` to write).
