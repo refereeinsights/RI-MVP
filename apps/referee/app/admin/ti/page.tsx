@@ -1441,6 +1441,12 @@ export default async function TiAdminPage({
   const showAlertKpis = String(searchParams?.alert_kpis ?? "").trim() === "1";
   const templateId = (searchParams?.template_id ?? "").trim();
 
+  const dismissNoticeParams = new URLSearchParams();
+  if (q) dismissNoticeParams.set("q", q);
+  if (showAlertKpis) dismissNoticeParams.set("alert_kpis", "1");
+  if (templateId) dismissNoticeParams.set("template_id", templateId);
+  const dismissNoticeHref = `/admin/ti${dismissNoticeParams.toString() ? `?${dismissNoticeParams.toString()}` : ""}`;
+
   let query = (supabaseAdmin.from("ti_users" as any) as any)
     .select(
       "id,email,signup_source,signup_source_code,plan,subscription_status,trial_ends_at,current_period_end,created_at,first_seen_at,last_seen_at,display_name,username,reviewer_handle,zip_code,sports_interests"
@@ -1552,6 +1558,28 @@ export default async function TiAdminPage({
   return (
     <main style={{ maxWidth: 1400, margin: "0 auto", padding: "1rem" }}>
       <AdminNav />
+      {notice ? (
+        <div style={{ position: "sticky", top: 12, zIndex: 50, margin: "0 0 12px" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "10px 12px",
+              background: "#eff6ff",
+              border: "1px solid #bfdbfe",
+              borderRadius: 10,
+              boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+            }}
+          >
+            <div style={{ fontWeight: 800, color: "#0f172a" }}>{notice}</div>
+            <Link href={dismissNoticeHref} style={{ fontSize: 12, fontWeight: 800, color: "#1d4ed8", textDecoration: "none" }}>
+              Dismiss
+            </Link>
+          </div>
+        </div>
+      ) : null}
       <section
         style={{
           display: "flex",
@@ -1865,12 +1893,6 @@ export default async function TiAdminPage({
           )
         ) : null}
       </section>
-
-      {notice ? (
-        <p style={{ margin: "0 0 12px", padding: "8px 10px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8 }}>
-          {notice}
-        </p>
-      ) : null}
 
       <details style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16, background: "#fff" }} open>
         <summary
