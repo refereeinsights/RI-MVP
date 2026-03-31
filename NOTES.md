@@ -32,6 +32,9 @@
   - Add/update suppressions by inserting rows into `public.email_suppressions` (admin-only via `public.is_admin()`; full CRUD allowed to `service_role`).
 - Preflight behavior:
   - Normalizes/dedupes recipients, blocks invalid `from` addresses/domains, and warns when email content contains `localhost` links (allowed by default outside production).
+- RI draft uploads: improved venue candidate scanning + auto-fill for pending approval tournaments:
+  - `scripts/ops/scan_draft_upload_venues.ts` now loads `.env.local` automatically, extracts per-venue address lines from “Fields:”/venue lists, and avoids silent insert failures by de-duping against existing candidates and writing insert errors to the CSV report.
+  - `scripts/ops/apply_high_confidence_draft_venues.ts` now loads `.env.local`, parses `City ST ZIP` addresses (comma optional), and treats `fields-link` venue candidates as high-confidence for safe auto-fill into blank `tournaments.venue/address`.
 
 ## 2026-03-29
 

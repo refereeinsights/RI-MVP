@@ -41,6 +41,24 @@ const MIN_CONF = MIN_CONF_ARG ? Number(MIN_CONF_ARG.split("=")[1]) : 0.92;
 const CANDIDATE_MIN_CONF_ARG = process.argv.find((arg) => arg.startsWith("--candidate_min_conf="));
 const CANDIDATE_MIN_CONF = CANDIDATE_MIN_CONF_ARG ? Number(CANDIDATE_MIN_CONF_ARG.split("=")[1]) : 0.8;
 
+function loadEnvLocalIfMissing() {
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  const envPath = path.join(process.cwd(), ".env.local");
+  if (!fs.existsSync(envPath)) return;
+  const lines = fs.readFileSync(envPath, "utf8").split(/\r?\n/);
+  for (const line of lines) {
+    if (!line || line.trim().startsWith("#")) continue;
+    const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (!m) continue;
+    const key = m[1];
+    let val = m[2] || "";
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (!process.env[key]) process.env[key] = val;
+  }
+}
+
 function printHelp() {
   console.log(
     [
@@ -100,7 +118,10 @@ function toCsvRow(values: Record<string, string>) {
 }
 
 function parseFullAddress(addr: string): { address1: string; city: string; state: string; zip: string } | null {
-  const m = addr.match(/^(.+?),\s*([A-Za-z.\s]{2,60}),\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)$/);
+  // Common variants we see from scrapers:
+  // - "2228 N Center St, Mesa, AZ 85201"
+  // - "7745 East Brown Rd, Mesa AZ 85207" (missing comma before state)
+  const m = addr.match(/^(.+?),\s*([A-Za-z.\s]{2,60}),?\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)$/);
   if (!m) return null;
   const address1 = clean(m[1] ?? "");
   const city = clean(m[2] ?? "");
@@ -151,6 +172,7 @@ function effectiveConfidence(args: { base: number; evidence: string | null; seed
   const evidence = normalizeLower(args.evidence ?? "");
   let boost = 0;
   if (evidence.includes("json-ld")) boost += 0.12;
+  else if (evidence.includes("fields-link")) boost += 0.1;
   else if (evidence.includes("page-text-address")) boost += 0.06;
   else if (evidence.includes("map-link")) boost += 0.04;
   else if (evidence.includes("venue-page")) boost += 0.04;
@@ -169,6 +191,8 @@ async function main() {
     printHelp();
     return;
   }
+
+  loadEnvLocalIfMissing();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
