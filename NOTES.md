@@ -23,6 +23,7 @@
 - TI account: added an Email preferences section on `/account` to opt out of marketing emails or pause all emails (writes to `public.email_suppressions` via `/api/account/email-preferences`).
 - TI outbound sender: standardized TI `From` to `TournamentInsights <hello@mail.tournamentinsights.com>` (TI no longer falls back to `REVIEW_ALERT_FROM`).
 - One-click unsubscribe (marketing): added `/unsubscribe` on TI and added `List-Unsubscribe` headers + per-recipient signed unsubscribe links for admin-blast sends.
+- RI admin: added reusable `TI admin email templates` (save/load/update/delete) for the bulk sender on `/admin/ti` (stored in `public.ti_admin_email_templates`).
 - Suppression behavior:
   - `kind: "marketing"` skips recipients where `suppress_marketing=true` **or** `suppress_all=true`.
   - `kind: "transactional"` skips recipients **only** when `suppress_all=true`.
