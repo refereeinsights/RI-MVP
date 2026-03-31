@@ -24,6 +24,7 @@
 - TI outbound sender: standardized TI `From` to `TournamentInsights <hello@mail.tournamentinsights.com>` (TI no longer falls back to `REVIEW_ALERT_FROM`).
 - One-click unsubscribe (marketing): added `/unsubscribe` on TI and added `List-Unsubscribe` headers + per-recipient signed unsubscribe links for admin-blast sends.
 - RI admin: added reusable `TI admin email templates` (save/load/update/delete) for the bulk sender on `/admin/ti` (stored in `public.ti_admin_email_templates`).
+- RI admin email rendering: improved bulk sender HTML for Outlook/webmail by converting newline formatting to `<br/>`, adding an Account CTA button, and rendering footer links as labeled anchors (no raw URLs).
 - Suppression behavior:
   - `kind: "marketing"` skips recipients where `suppress_marketing=true` **or** `suppress_all=true`.
   - `kind: "transactional"` skips recipients **only** when `suppress_all=true`.

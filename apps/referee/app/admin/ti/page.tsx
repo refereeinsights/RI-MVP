@@ -399,6 +399,11 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
+function plainTextToEmailHtml(value: string) {
+  const normalized = value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  return escapeHtml(normalized).replace(/\n/g, "<br/>");
+}
+
 function normalizeSlug(value: unknown) {
   const slug = String(value ?? "").trim();
   return slug ? slug : null;
@@ -890,16 +895,58 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
                 ? `Unsubscribe: ${unsubscribeUrl}\nManage preferences: ${manageUrl}`
                 : `Manage preferences: ${manageUrl}`;
             const fullText = `${safeBody}\n\n—\n${optOutText}`;
+
+            const bodyHtml = plainTextToEmailHtml(safeBody);
+            const footerLinksHtml =
+              kind === "marketing"
+                ? [
+                    unsubscribeUrl
+                      ? `<a href="${unsubscribeUrl}" style="color:#2563eb; text-decoration:underline;">Unsubscribe</a>`
+                      : null,
+                    `<a href="${manageUrl}" style="color:#2563eb; text-decoration:underline;">Manage preferences</a>`,
+                  ]
+                    .filter(Boolean)
+                    .join(`<span style="color:#94a3b8;"> · </span>`)
+                : `<a href="${manageUrl}" style="color:#2563eb; text-decoration:underline;">Manage preferences</a>`;
+
+            const accountButtonHtml = `
+              <a
+                href="${manageUrl}"
+                style="display:inline-block; background:#0f172a; color:#ffffff; text-decoration:none; padding:10px 14px; border-radius:8px; font-weight:800;"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Account
+              </a>
+            `;
+
             const html = `
-              <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; line-height:1.5; color:#0f172a;">
-                <div style="white-space: pre-wrap;">${escapeHtml(safeBody)}</div>
-                <div style="margin-top:16px; border-top: 1px solid #e2e8f0; padding-top: 12px; color:#64748b; font-size:12px;">
-                  ${escapeHtml(optOutText)}
-                </div>
-                <div style="margin-top:16px; color:#64748b; font-size:12px;">
-                  You’re receiving this email because you have a TournamentInsights account.
-                </div>
-              </div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; background:#f8fafc; margin:0; padding:0;">
+                <tr>
+                  <td align="center" style="padding:24px 12px;">
+                    <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:640px; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px;">
+                      <tr>
+                        <td style="padding:18px 18px 10px 18px; font-family: Arial, Helvetica, sans-serif; line-height:1.55; color:#0f172a; font-size:14px;">
+                          ${bodyHtml}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:0 18px 16px 18px;">
+                          ${accountButtonHtml}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 18px; border-top:1px solid #e2e8f0; font-family: Arial, Helvetica, sans-serif; color:#64748b; font-size:12px; line-height:1.4;">
+                          ${footerLinksHtml}
+                          <div style="margin-top:10px; color:#94a3b8;">
+                            You’re receiving this email because you have a TournamentInsights account.
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
             `;
 
             const headers: Record<string, string> = {};
