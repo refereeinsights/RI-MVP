@@ -46,6 +46,8 @@ Maintenance rules:
   - Added opt-in saved-tournament notification toggle + batched email digest cron with spam protections.
   - Saved tournament “Notify: On/Off” toggle is color-coded (green for On, red for Off) and includes a persistent `Browse tournaments` link.
 
+- RI: `/admin/ti` now includes a simple bulk email composer for sending a message to selected TI users (sends individual emails; max 50 per send).
+
 ## 2026-03-10
 - TI/RI admin fixes:
   - Added revalidation to bulk tournament approve/archive/delete so the pending list refreshes immediately.

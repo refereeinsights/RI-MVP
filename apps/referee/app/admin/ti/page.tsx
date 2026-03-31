@@ -782,6 +782,114 @@ async function sendTestSavedTournamentChangeEmailAction(formData: FormData) {
   redirect(buildPathWithNoticeAndAlertKpis(`Test notification sent to ${recipientEmail}.`));
 }
 
+async function sendTiUserBulkEmailAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+
+  const q = String(formData.get("q") ?? "").trim();
+  const subject = String(formData.get("subject") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  const sendToAllLoaded = String(formData.get("send_to_all_loaded") ?? "").trim() === "on";
+  const confirmSend = String(formData.get("confirm_send") ?? "").trim();
+
+  if (!subject) redirect(buildPathWithNotice("Subject is required.", q));
+  if (!body) redirect(buildPathWithNotice("Body is required.", q));
+  if (confirmSend !== "SEND") redirect(buildPathWithNotice('Type "SEND" to confirm.', q));
+
+  const MAX_RECIPIENTS = 50;
+
+  let recipients: string[] = [];
+  if (sendToAllLoaded) {
+    let query = (supabaseAdmin.from("ti_users" as any) as any)
+      .select("email,created_at,id")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (q) {
+      query = isUuid(q) ? query.or(`email.ilike.%${q}%,id.eq.${q}`) : query.ilike("email", `%${q}%`);
+    }
+    const { data, error } = await query;
+    if (error) redirect(buildPathWithNotice(`TI users load failed: ${error.message}`, q));
+    recipients = ((data ?? []) as Array<{ email: string | null }>).map((row) => (row.email ?? "").trim().toLowerCase()).filter(Boolean);
+  } else {
+    recipients = formData
+      .getAll("recipient_email")
+      .map((value) => String(value ?? "").trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  const unique = Array.from(new Set(recipients)).filter((email) => EMAIL_PATTERN.test(email));
+  if (!unique.length) redirect(buildPathWithNotice("Select at least one valid recipient email.", q));
+  if (unique.length > MAX_RECIPIENTS) {
+    redirect(buildPathWithNotice(`Too many recipients (${unique.length}). Max ${MAX_RECIPIENTS} per send.`, q));
+  }
+
+  const safeSubject = subject.length > 160 ? `${subject.slice(0, 160)}…` : subject;
+  const safeBody = body.length > 12000 ? `${body.slice(0, 12000)}…` : body;
+  const html = `
+    <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; line-height:1.5; color:#0f172a;">
+      <div style="white-space: pre-wrap;">${escapeHtml(safeBody)}</div>
+      <div style="margin-top:16px; color:#64748b; font-size:12px;">
+        You’re receiving this email because you have a TournamentInsights account.
+      </div>
+    </div>
+  `;
+
+  let sent = 0;
+  const errors: Array<{ email: string; message: string }> = [];
+
+  try {
+    const { sendEmail } = await import("@/lib/email");
+    const concurrency = 5;
+    for (let i = 0; i < unique.length; i += concurrency) {
+      const group = unique.slice(i, i + concurrency);
+      const results = await Promise.all(
+        group.map(async (email) => {
+          try {
+            const res = await sendEmail({ to: email, subject: safeSubject, html, text: safeBody });
+            if ((res as any)?.skipped) throw new Error("Skipped (email provider not configured).");
+            return { ok: true, email } as const;
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to send email.";
+            return { ok: false, email, message } as const;
+          }
+        })
+      );
+      for (const r of results) {
+        if (r.ok) sent += 1;
+        else errors.push({ email: r.email, message: r.message });
+      }
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to send email.";
+    redirect(buildPathWithNotice(`Bulk send failed: ${message}`, q));
+  }
+
+  for (const e of errors.slice(0, 20)) {
+    try {
+      const safeError = e.message.length > 900 ? `${e.message.slice(0, 900)}…` : e.message;
+      await (supabaseAdmin.from("ti_tournament_alert_send_logs" as any) as any).insert({
+        alert_id: null,
+        user_id: null,
+        cadence: null,
+        recipient_email: e.email,
+        tournaments_count: null,
+        result_hash: null,
+        outcome: "error",
+        error_message: `admin_blast: ${safeSubject} :: ${safeError}`,
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  const failed = errors.length;
+  const summary =
+    failed === 0
+      ? `Bulk email sent to ${sent} recipient(s).`
+      : `Bulk email sent to ${sent}/${unique.length}. ${failed} failed (first 20 logged).`;
+  redirect(buildPathWithNotice(summary, q));
+}
+
 async function updateTiUserFieldAction(formData: FormData) {
   "use server";
   await requireAdmin();
@@ -1757,6 +1865,70 @@ export default async function TiAdminPage({
               Clear
             </Link>
           </form>
+          <details style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12, background: "#fff", marginBottom: 12 }}>
+            <summary style={{ cursor: "pointer", listStyle: "auto", fontWeight: 800 }}>
+              Send email to selected users
+            </summary>
+            <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+              <p style={{ margin: 0, color: "#64748b", fontSize: 12 }}>
+                Sends individual emails (no BCC) to protect recipient privacy. Limit: 50 recipients per send.
+              </p>
+              <form action={sendTiUserBulkEmailAction} style={{ display: "grid", gap: 10 }}>
+                <input type="hidden" name="q" value={q} />
+                <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
+                  Subject
+                  <input name="subject" placeholder="Subject" style={{ padding: 8 }} required />
+                </label>
+                <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
+                  Body (plain text)
+                  <textarea
+                    name="body"
+                    placeholder="Paste message content…"
+                    rows={8}
+                    style={{ padding: 8, resize: "vertical" }}
+                    required
+                  />
+                </label>
+                <div style={{ display: "grid", gap: 8 }}>
+                  <label style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 12, color: "#334155" }}>
+                    <input type="checkbox" name="send_to_all_loaded" />
+                    Send to all loaded users (current search results)
+                  </label>
+                  <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 10, maxHeight: 220, overflow: "auto", background: "#f8fafc" }}>
+                    {((tiUsers ?? []) as TiUserRow[]).length ? (
+                      <div style={{ display: "grid", gap: 6 }}>
+                        {((tiUsers ?? []) as TiUserRow[]).map((row) => {
+                          const email = (row.email ?? "").trim();
+                          if (!email) return null;
+                          return (
+                            <label
+                              key={`bulk-${row.id}`}
+                              style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: "#0f172a" }}
+                            >
+                              <input type="checkbox" name="recipient_email" value={email} />
+                              <span style={{ fontWeight: 700 }}>{displayNameFromEmail(email)}</span>
+                              <span style={{ color: "#64748b" }}>{email}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{ color: "#64748b", fontSize: 12 }}>No users loaded.</div>
+                    )}
+                  </div>
+                </div>
+                <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
+                  Confirm by typing <code>SEND</code>
+                  <input name="confirm_send" placeholder="SEND" style={{ padding: 8, maxWidth: 160 }} required />
+                </label>
+                <div>
+                  <button type="submit" style={{ padding: "8px 12px", fontWeight: 800 }}>
+                    Send email
+                  </button>
+                </div>
+              </form>
+            </div>
+          </details>
           {tiUsersErr ? (
             <p style={{ color: "#b91c1c" }}>TI users load failed: {tiUsersErr.message}</p>
           ) : (

@@ -53,6 +53,9 @@ Maintenance rules:
     - Saved tournament “Notify: On/Off” toggle is color-coded (green for On, red for Off).
     - Added a persistent `Browse tournaments` link in the Saved Tournaments section header.
 
+- Admin:
+  - Added a simple bulk email composer to `apps/referee/app/admin/ti/page.tsx` for sending a message to selected TI users (individual sends; max 50 recipients per send).
+
 ## 2026-03-04
 - TI event-code redemption support + trial-aware entitlement gating:
   - Added:
