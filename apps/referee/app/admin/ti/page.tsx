@@ -825,9 +825,17 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
 
   const safeSubject = subject.length > 160 ? `${subject.slice(0, 160)}…` : subject;
   const safeBody = body.length > 12000 ? `${body.slice(0, 12000)}…` : body;
+  const tiBaseUrl = getTiPublicBaseUrl();
+  const manageUrl = `${tiBaseUrl}/account`;
+  const optOutText =
+    `To opt out of these emails, reply “unsubscribe” or manage your preferences in your account: ${manageUrl}`;
+  const fullText = `${safeBody}\n\n—\n${optOutText}`;
   const html = `
     <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; line-height:1.5; color:#0f172a;">
       <div style="white-space: pre-wrap;">${escapeHtml(safeBody)}</div>
+      <div style="margin-top:16px; border-top: 1px solid #e2e8f0; padding-top: 12px; color:#64748b; font-size:12px;">
+        ${escapeHtml(optOutText)}
+      </div>
       <div style="margin-top:16px; color:#64748b; font-size:12px;">
         You’re receiving this email because you have a TournamentInsights account.
       </div>
@@ -845,7 +853,7 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
       const results = await Promise.all(
         group.map(async (email) => {
           try {
-            const res = await sendEmail({ to: email, subject: safeSubject, html, text: safeBody });
+            const res = await sendEmail({ to: email, subject: safeSubject, html, text: fullText });
             if ((res as any)?.skipped) throw new Error("Skipped (email provider not configured).");
             return { ok: true, email } as const;
           } catch (err) {
