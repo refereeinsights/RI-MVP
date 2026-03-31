@@ -62,7 +62,18 @@ export async function sendEmail(payload: EmailPayload) {
   if (!res.ok) {
     const errorBody = await res.text().catch(() => "");
     console.error("Failed to send email", res.status, errorBody);
-    throw new Error("Failed to send email.");
+    let message = errorBody.trim();
+    try {
+      const parsed = JSON.parse(errorBody);
+      if (parsed && typeof parsed === "object" && "message" in parsed) {
+        const parsedMessage = String((parsed as any).message ?? "").trim();
+        if (parsedMessage) message = parsedMessage;
+      }
+    } catch {
+      // ignore parse failures
+    }
+    const safeMessage = message ? message.slice(0, 300) : "Unknown error";
+    throw new Error(`Resend API error (${res.status}): ${safeMessage}`);
   }
 
   return res.json().catch(() => ({}));

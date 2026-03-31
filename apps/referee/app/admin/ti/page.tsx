@@ -197,6 +197,9 @@ const TI_SPORT_LABELS: Record<(typeof TI_SPORTS)[number], string> = {
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 const ZIP_PATTERN = /^\d{5}(?:-\d{4})?$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+const ALERT_START_OFFSET_DAYS = 21;
+const ALERT_DAYS_AHEAD_DEFAULT = 14;
 
 function fmtDate(value: string | null | undefined) {
   if (!value) return "—";
@@ -310,6 +313,261 @@ function buildPathWithNotice(notice: string, q = "") {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function buildPathWithNoticeAndAlertKpis(notice: string) {
+  const params = new URLSearchParams();
+  params.set("alert_kpis", "1");
+  params.set("notice", notice);
+  return `/admin/ti?${params.toString()}`;
+}
+
+function normalizeZip5(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  if (!ZIP_PATTERN.test(raw)) return null;
+  const digits = raw.replace(/\D+/g, "");
+  if (digits.length < 5) return null;
+  return digits.slice(0, 5);
+}
+
+function computeUtcDateString(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function addUtcDays(date: Date, days: number) {
+  const d = new Date(date.getTime());
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
+
+function computeAlertWindowUtc(daysAhead: number) {
+  const today = new Date();
+  const utcToday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const windowStart = addUtcDays(utcToday, ALERT_START_OFFSET_DAYS);
+  const windowEnd = addUtcDays(utcToday, ALERT_START_OFFSET_DAYS + daysAhead);
+  return { start: computeUtcDateString(windowStart), end: computeUtcDateString(windowEnd) };
+}
+
+function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 3958.8; // miles
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function getTiPublicBaseUrl() {
+  const configured = (process.env.TI_PUBLIC_BASE_URL ?? "").trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  return "https://www.tournamentinsights.com";
+}
+
+function normalizeSlug(value: unknown) {
+  const slug = String(value ?? "").trim();
+  return slug ? slug : null;
+}
+
+function normalizeTiSport(value: unknown) {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw) return null;
+  const allowed = new Set<string>(TI_SPORTS.map((s) => s.toLowerCase()));
+  return allowed.has(raw) ? raw : null;
+}
+
+function chunk<T>(items: T[], size: number) {
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
+}
+
+async function sendTestTournamentAlertAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+
+  const recipientEmail = String(formData.get("recipient_email") ?? "").trim().toLowerCase();
+  const zip5 = normalizeZip5(formData.get("zip_code"));
+  const radiusMiles = Number(String(formData.get("radius_miles") ?? "").trim() || "0");
+  const sport = normalizeTiSport(formData.get("sport"));
+
+  if (!recipientEmail || !EMAIL_PATTERN.test(recipientEmail)) {
+    redirect(buildPathWithNoticeAndAlertKpis("Enter a valid recipient email."));
+  }
+  if (!zip5) {
+    redirect(buildPathWithNoticeAndAlertKpis("Enter a valid ZIP code (e.g., 99216)."));
+  }
+  if (!Number.isFinite(radiusMiles) || radiusMiles <= 0 || radiusMiles > 500) {
+    redirect(buildPathWithNoticeAndAlertKpis("Enter a radius in miles (1-500)."));
+  }
+
+  const { data: centroidRaw, error: centroidError } = await (supabaseAdmin.from("zip_centroids" as any) as any)
+    .select("zip, latitude, longitude")
+    .eq("zip", zip5)
+    .maybeSingle();
+  if (centroidError) redirect(buildPathWithNoticeAndAlertKpis(`ZIP centroid lookup failed: ${centroidError.message}`));
+  const centroid = centroidRaw as { zip?: string | null; latitude?: number | null; longitude?: number | null } | null;
+  if (!centroid?.zip || centroid.latitude == null || centroid.longitude == null) {
+    redirect(buildPathWithNoticeAndAlertKpis(`No ZIP centroid found for ${zip5}.`));
+  }
+
+  const window = computeAlertWindowUtc(ALERT_DAYS_AHEAD_DEFAULT);
+  let query = (supabaseAdmin.from("tournaments_public" as any) as any)
+    .select("id, slug, name, sport, city, state, zip, start_date, end_date")
+    .gte("start_date", window.start)
+    .lte("start_date", window.end)
+    .order("start_date", { ascending: true })
+    .limit(5000);
+  if (sport) query = query.eq("sport", sport);
+  const { data: tournamentsRaw, error: tournamentsError } = await query;
+  if (tournamentsError) redirect(buildPathWithNoticeAndAlertKpis(`Tournament lookup failed: ${tournamentsError.message}`));
+
+  const candidates = ((tournamentsRaw ?? []) as any[])
+    .map((row) => {
+      const slug = normalizeSlug(row.slug);
+      const tz = normalizeZip5(row.zip);
+      if (!slug) return null;
+      return {
+        id: String(row.id ?? ""),
+        slug,
+        name: String(row.name ?? "").trim() || null,
+        sport: String(row.sport ?? "").trim() || null,
+        city: String(row.city ?? "").trim() || null,
+        state: String(row.state ?? "").trim() || null,
+        zip: tz,
+        start_date: String(row.start_date ?? "").trim() || null,
+        end_date: String(row.end_date ?? "").trim() || null,
+      };
+    })
+    .filter(Boolean) as Array<{
+    id: string;
+    slug: string;
+    name: string | null;
+    sport: string | null;
+    city: string | null;
+    state: string | null;
+    zip: string | null;
+    start_date: string | null;
+    end_date: string | null;
+  }>;
+
+  const tournamentZips = candidates.map((t) => t.zip).filter((z): z is string => Boolean(z));
+  const zipMap = new Map<string, { latitude: number; longitude: number }>();
+  for (const group of chunk(Array.from(new Set(tournamentZips)), 500)) {
+    const { data, error } = await (supabaseAdmin.from("zip_centroids" as any) as any)
+      .select("zip, latitude, longitude")
+      .in("zip", group);
+    if (error) redirect(buildPathWithNoticeAndAlertKpis(`ZIP centroid batch lookup failed: ${error.message}`));
+    for (const row of (data ?? []) as any[]) {
+      if (!row?.zip || row.latitude == null || row.longitude == null) continue;
+      zipMap.set(String(row.zip), { latitude: Number(row.latitude), longitude: Number(row.longitude) });
+    }
+  }
+
+  const withinRadius: typeof candidates = [];
+  for (const t of candidates) {
+    if (!t.zip) continue;
+    const tz = zipMap.get(t.zip);
+    if (!tz) continue;
+    const distance = haversineMiles(centroid.latitude!, centroid.longitude!, tz.latitude, tz.longitude);
+    if (distance <= radiusMiles) withinRadius.push(t);
+  }
+
+  withinRadius.sort((a, b) => {
+    const aDate = a.start_date ?? "9999-12-31";
+    const bDate = b.start_date ?? "9999-12-31";
+    if (aDate !== bDate) return aDate.localeCompare(bDate);
+    return (a.name ?? "").localeCompare(b.name ?? "");
+  });
+
+  const top = withinRadius.slice(0, 10);
+  if (top.length === 0) {
+    redirect(buildPathWithNoticeAndAlertKpis("No tournaments matched this test alert. No email sent."));
+  }
+
+  const tiBaseUrl = getTiPublicBaseUrl();
+  const subject = `Test tournament alert: ${sport ? (TI_SPORT_LABELS as any)[sport] ?? sport : "Any sport"} near ${zip5}`;
+  const listHtml = top
+    .map((t) => {
+      const place = [t.city, t.state].filter(Boolean).join(", ");
+      const dates = [t.start_date, t.end_date].filter(Boolean).join(" → ");
+      const href = `${tiBaseUrl}/tournaments/${encodeURIComponent(t.slug)}`;
+      return `<li style="margin: 0 0 10px 0;">
+        <div><a href="${href}">${t.name ?? "Tournament"}</a></div>
+        <div style="color:#64748b;font-size:12px;">${dates}${place ? ` · ${place}` : ""}${t.sport ? ` · ${t.sport}` : ""}</div>
+      </li>`;
+    })
+    .join("");
+
+  const html = `
+    <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; line-height:1.4;">
+      <h2 style="margin: 0 0 8px 0;">Test alert results</h2>
+      <p style="margin: 0 0 12px 0; color:#334155;">
+        ZIP <strong>${zip5}</strong> · Radius <strong>${radiusMiles}</strong> miles ·
+        Window <strong>${window.start}</strong> → <strong>${window.end}</strong> (UTC start_date)
+      </p>
+      <ol style="padding-left: 18px; margin: 0;">${listHtml}</ol>
+      <p style="margin: 14px 0 0 0; color:#64748b; font-size:12px;">
+        This is an admin test send. It does not create or modify user alerts.
+      </p>
+    </div>
+  `;
+
+  try {
+    const { sendEmail } = await import("@/lib/email");
+    const sendResult = await sendEmail({
+      to: recipientEmail,
+      subject,
+      html,
+    });
+
+    if ((sendResult as any)?.skipped) {
+      try {
+        await (supabaseAdmin.from("ti_tournament_alert_send_logs" as any) as any).insert({
+          alert_id: null,
+          user_id: null,
+          cadence: null,
+          recipient_email: recipientEmail,
+          tournaments_count: top.length,
+          result_hash: null,
+          outcome: "error",
+          error_message: "test_send: skipped (missing RESEND_API_KEY or no recipients)",
+        });
+      } catch {
+        // ignore logging failures
+      }
+      redirect(
+        buildPathWithNoticeAndAlertKpis(
+          "Test alert skipped: RESEND_API_KEY is not configured for the Referee app."
+        )
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to send email.";
+    try {
+      const safeError = message.length > 900 ? `${message.slice(0, 900)}…` : message;
+      await (supabaseAdmin.from("ti_tournament_alert_send_logs" as any) as any).insert({
+        alert_id: null,
+        user_id: null,
+        cadence: null,
+        recipient_email: recipientEmail,
+        tournaments_count: top.length,
+        result_hash: null,
+        outcome: "error",
+        error_message: `test_send: ${safeError}`,
+      });
+    } catch {
+      // ignore logging failures
+    }
+    redirect(buildPathWithNoticeAndAlertKpis(`Test alert send failed: ${message}`));
+  }
+
+  redirect(buildPathWithNoticeAndAlertKpis(`Test alert sent to ${recipientEmail} (${top.length} tournaments).`));
 }
 
 async function updateTiUserFieldAction(formData: FormData) {
@@ -877,9 +1135,7 @@ export default async function TiAdminPage({
 
         {showAlertKpis ? (
           alertKpis?.error ? (
-            <p style={{ color: "#b91c1c", margin: "10px 0 0 0" }}>
-              Unable to load KPIs: {alertKpis.error}
-            </p>
+            <p style={{ color: "#b91c1c", margin: "10px 0 0 0" }}>Unable to load KPIs: {alertKpis.error}</p>
           ) : (
             <>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(160px, 1fr))", gap: 10, marginTop: 12 }}>
@@ -961,6 +1217,44 @@ export default async function TiAdminPage({
                 ) : (
                   <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>No errors found.</p>
                 )}
+              </div>
+
+              <div style={{ marginTop: 14, border: "1px solid #e2e8f0", borderRadius: 12, padding: 12, background: "#f8fafc" }}>
+                <h3 style={{ margin: "0 0 6px 0", fontSize: 15 }}>Send a test alert</h3>
+                <p style={{ margin: "0 0 12px 0", fontSize: 13, color: "#64748b" }}>
+                  One-off send (does not create an alert). Uses the v1 planning window: tournaments with start_date between UTC{" "}
+                  <strong>today + {ALERT_START_OFFSET_DAYS}</strong> and <strong>today + {ALERT_START_OFFSET_DAYS + ALERT_DAYS_AHEAD_DEFAULT}</strong>.
+                </p>
+                <form action={sendTestTournamentAlertAction} style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(140px, 1fr))", gap: 10, alignItems: "end" }}>
+                  <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
+                    <span style={{ fontWeight: 700 }}>Recipient email</span>
+                    <input name="recipient_email" defaultValue={adminUser.email ?? ""} placeholder="name@domain.com" required style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid #cbd5e1" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
+                    <span style={{ fontWeight: 700 }}>ZIP code</span>
+                    <input name="zip_code" defaultValue="" placeholder="99216" required style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid #cbd5e1" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
+                    <span style={{ fontWeight: 700 }}>Radius (miles)</span>
+                    <input name="radius_miles" type="number" min={1} max={500} defaultValue={25} required style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid #cbd5e1" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
+                    <span style={{ fontWeight: 700 }}>Sport</span>
+                    <select name="sport" defaultValue="" style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid #cbd5e1", background: "#fff" }}>
+                      <option value="">Any sport</option>
+                      {TI_SPORTS.map((value) => (
+                        <option key={value} value={value}>
+                          {TI_SPORT_LABELS[value]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                    <button type="submit" style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid #1d4ed8", background: "#2563eb", color: "#fff", fontWeight: 800 }}>
+                      Send test alert
+                    </button>
+                  </div>
+                </form>
               </div>
             </>
           )
