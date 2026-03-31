@@ -25,6 +25,7 @@
 - One-click unsubscribe (marketing): added `/unsubscribe` on TI and added `List-Unsubscribe` headers + per-recipient signed unsubscribe links for admin-blast sends.
 - RI admin: added reusable `TI admin email templates` (save/load/update/delete) for the bulk sender on `/admin/ti` (stored in `public.ti_admin_email_templates`).
 - RI admin email rendering: improved bulk sender HTML for Outlook/webmail by converting newline formatting to `<br/>`, adding an Account CTA button, and rendering footer links as labeled anchors (no raw URLs).
+- RI admin: made the `/admin/ti` notice banner sticky with a Dismiss action so send results stay visible while scrolling.
 - Suppression behavior:
   - `kind: "marketing"` skips recipients where `suppress_marketing=true` **or** `suppress_all=true`.
   - `kind: "transactional"` skips recipients **only** when `suppress_all=true`.
