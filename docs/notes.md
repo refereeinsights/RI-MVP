@@ -40,9 +40,11 @@ Maintenance rules:
   - Added an Insider-only Owl’s Eye™ teaser line (counts-only) for up to the first 1–2 matched tournaments that have persisted nearby data.
   - Updated Owl’s Eye “gear” emoji to `⚽` across venue teaser + emails.
   - Fixed Supabase SSR cookie `path` handling to always set auth cookies on `/` so `/api/account/profile` (and related API routes) can read the signed-in session reliably.
+  - Alerts page copy now clarifies tier limits (“As an Insider…”) instead of sounding like the user already has an alert.
 
 - TI saved tournament change notifications (v1):
   - Added opt-in saved-tournament notification toggle + batched email digest cron with spam protections.
+  - Saved tournament “Notify: On/Off” toggle is color-coded (green for On, red for Off) and includes a persistent `Browse tournaments` link.
 
 ## 2026-03-10
 - TI/RI admin fixes:

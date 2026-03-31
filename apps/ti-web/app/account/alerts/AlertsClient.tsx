@@ -211,8 +211,8 @@ export default function AlertsClient({ initialAlerts, tier, defaultZip, recipien
         <h2 className={styles.sectionTitle}>Your alerts</h2>
         <p className={styles.fieldHelp} style={{ margin: 0 }}>
           {tier === "weekend_pro"
-            ? `Weekend Pro: up to ${caps.maxActiveAlerts} active alerts · daily or weekly cadence`
-            : `Insider: ${caps.maxActiveAlerts} active alert · weekly cadence only`}
+            ? `As a Weekend Pro member you can have up to ${caps.maxActiveAlerts} active alerts · daily or weekly cadence`
+            : `As an Insider you can have ${caps.maxActiveAlerts} active alert · weekly cadence only`}
           {" · "}
           Radius cap: {caps.maxRadiusMiles} miles · “How far ahead” cap: {caps.maxDaysAhead} days
         </p>

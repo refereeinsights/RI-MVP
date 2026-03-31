@@ -34,6 +34,8 @@ Maintenance rules:
     - Updated Owl’s Eye “gear” emoji to `⚽` for consistency across the venue teaser and alert emails.
   - Fixes:
     - Fixed Supabase SSR cookie `path` handling to always set auth cookies on `/` so `/api/account/profile` and other API routes reliably see the signed-in session.
+  - UI polish:
+    - Alerts page copy now clarifies tier limits (“As an Insider…”) instead of sounding like the user already has an alert.
 
 - Saved tournament change notifications (v1):
   - Added:
@@ -47,6 +49,9 @@ Maintenance rules:
     - `apps/ti-web/app/account/SavedTournamentsSection.tsx`
     - `apps/ti-web/app/api/saved-tournaments/[tournamentId]/route.ts`
     - `apps/ti-web/vercel.json`
+  - UI polish:
+    - Saved tournament “Notify: On/Off” toggle is color-coded (green for On, red for Off).
+    - Added a persistent `Browse tournaments` link in the Saved Tournaments section header.
 
 ## 2026-03-04
 - TI event-code redemption support + trial-aware entitlement gating:

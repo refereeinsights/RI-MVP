@@ -195,6 +195,26 @@
   background: #f8fafc;
 }
 
+.notifyOnButton {
+  border-color: #16a34a;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.notifyOnButton:hover {
+  background: #dcfce7;
+}
+
+.notifyOffButton {
+  border-color: #dc2626;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.notifyOffButton:hover {
+  background: #fee2e2;
+}
+
 .primaryAction {
   background: #0f172a;
   color: #fff;

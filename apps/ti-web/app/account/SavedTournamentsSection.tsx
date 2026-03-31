@@ -104,16 +104,19 @@ export default function SavedTournamentsSection({ initialItems }: SavedTournamen
 
   return (
     <section className={styles.sectionCard}>
-      <h2 className={styles.sectionTitle}>My Saved Tournaments</h2>
+      <div className={styles.headerTop}>
+        <h2 className={styles.sectionTitle}>My Saved Tournaments</h2>
+        <Link href="/tournaments" className={styles.secondaryAction}>
+          Browse tournaments
+        </Link>
+      </div>
       <p className={styles.fieldHelp} style={{ marginTop: -4 }}>
         Turn on “Notify me of changes” to get an email when public tournament details change. We batch updates and limit emails to at most once per day.
       </p>
       {sortedItems.length === 0 ? (
         <div className={styles.emptyState}>
           <p>You haven&apos;t saved any tournaments yet.</p>
-          <Link href="/tournaments" className={styles.primaryAction}>
-            Browse tournaments
-          </Link>
+          <Link href="/tournaments" className={styles.primaryAction}>Browse tournaments</Link>
         </div>
       ) : (
         <div className={styles.savedList}>
@@ -132,7 +135,9 @@ export default function SavedTournamentsSection({ initialItems }: SavedTournamen
                 ) : null}
                 <button
                   type="button"
-                  className={styles.secondaryAction}
+                  className={`${styles.secondaryAction} ${
+                    item.notify_on_changes ? styles.notifyOnButton : styles.notifyOffButton
+                  }`}
                   onClick={() => toggleNotify(item.tournament_id, !item.notify_on_changes)}
                   disabled={busyId === item.tournament_id}
                   title="Email me when this tournament's public details change"
