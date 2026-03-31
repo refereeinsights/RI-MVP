@@ -315,6 +315,7 @@ export default function OwlsEyePanel({
     sportValue: Sport;
     publishedMapUrl?: string;
     allowDuplicate?: boolean;
+    force?: boolean;
   }) => {
     const resp = await fetch("/api/admin/owls-eye/run", {
       method: "POST",
@@ -327,6 +328,7 @@ export default function OwlsEyePanel({
         sport: args.sportValue,
         published_map_url: args.publishedMapUrl?.trim() || undefined,
         allow_duplicate: args.allowDuplicate ?? false,
+        force: args.force ?? false,
       }),
     });
     const json = await resp.json();
@@ -497,7 +499,7 @@ export default function OwlsEyePanel({
     if (!allowDuplicate) setDuplicateCandidates([]);
 
     try {
-      const { resp, json } = await runVenueRequest({
+      let { resp, json } = await runVenueRequest({
         venueId: trimmedVenueId,
         sportValue: sport,
         publishedMapUrl: mapUrl,
@@ -506,6 +508,38 @@ export default function OwlsEyePanel({
       const errorMessage = json?.error || json?.message;
 
       if (!resp.ok || json?.ok === false) {
+        if (resp.status === 409 && json?.code === "VENUE_ALREADY_SCANNED") {
+          const confirmed = window.confirm(
+            "Owl’s Eye was already run for this venue/sport. Run again with force refresh? (This will create a new run and refresh nearby data.)"
+          );
+          if (!confirmed) {
+            setRunStatus("error");
+            setRunMessage(errorMessage || "Already scanned.");
+            setRunReport(json?.report ?? json);
+            return;
+          }
+          ({ resp, json } = await runVenueRequest({
+            venueId: trimmedVenueId,
+            sportValue: sport,
+            publishedMapUrl: mapUrl,
+            allowDuplicate,
+            force: true,
+          }));
+          if (resp.ok && json?.ok !== false) {
+            const nextReport = (json?.report ?? json) as RunReport;
+            const totals = getNearbyTotals(nextReport);
+            setRunStatus("success");
+            setRunMessage(
+              totals
+                ? `Owl's Eye run completed (forced). food=${totals.food}, coffee=${totals.coffee}, hotels=${totals.hotels}`
+                : "Owl's Eye run completed (forced)."
+            );
+            setDuplicateCandidates([]);
+            setDuplicateSourceVenueId(null);
+            setRunReport(nextReport);
+            return;
+          }
+        }
         if (resp.status === 409 && json?.code === "DUPLICATE_VENUE_SUSPECT" && Array.isArray(json?.candidates)) {
           const candidates = json.candidates as DuplicateCandidate[];
           setDuplicateCandidates(candidates);
