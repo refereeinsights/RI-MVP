@@ -67,6 +67,7 @@ To prevent overlapping cron runs, the job acquires a lightweight DB lock:
 - Resend is used via `apps/ti-web/lib/email.ts` (`RESEND_API_KEY`).
 - Recipient email is always the user’s Supabase auth email (no separate email field in v1).
 - Sends up to 10 tournaments ordered by soonest `start_date`.
+- Insider-only email enhancement: if a matched tournament has persisted Owl’s Eye nearby data, render a single counts-only teaser line under the tournament metadata (up to the first 1–2 qualifying tournaments per email).
 - Due logic (UTC):
   - `daily`: due if `last_sent_at` is null or older than 24 hours
   - `weekly`: due if `last_sent_at` is null or older than 7 days (rolling; no fixed weekday in v1)

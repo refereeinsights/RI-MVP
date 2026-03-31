@@ -30,6 +30,8 @@ Maintenance rules:
     - `apps/referee/app/admin/ti/page.tsx` (TI admin KPIs entrypoint)
   - Follow-ups:
     - Added a one-off “Send test alert” form on the TI admin KPIs panel (email/zip/radius/sport) for on-demand debugging.
+    - Alert emails (Insider only) now include a lightweight Owl’s Eye™ teaser line (counts-only) for up to the first 1–2 matched tournaments that have persisted Owl’s Eye nearby data.
+    - Updated Owl’s Eye “gear” emoji to `⚽` for consistency across the venue teaser and alert emails.
 
 - Saved tournament change notifications (v1):
   - Added:

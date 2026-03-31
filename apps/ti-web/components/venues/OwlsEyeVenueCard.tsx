@@ -140,7 +140,7 @@ export default function OwlsEyeVenueCard({
 	                  <div>☕ {nearbyCounts.coffee} coffee nearby</div>
 	                  <div>🍔 {nearbyCounts.food} food options nearby</div>
 	                  <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
-	                  <div>🧢 {nearbyCounts.sporting_goods} gear nearby</div>
+	                  <div>⚽ {nearbyCounts.sporting_goods} gear nearby</div>
 	                </div>
                 {primaryAirport ? (
                   <div style={{ marginTop: -3, display: "grid", gap: 1, justifyItems: "center" }}>
@@ -211,7 +211,7 @@ export default function OwlsEyeVenueCard({
 	                    {nearbyCounts.coffee > 0 ? <div>☕ {nearbyCounts.coffee} coffee nearby</div> : null}
 	                    {nearbyCounts.food > 0 ? <div>🍔 {nearbyCounts.food} food options nearby</div> : null}
 	                    {nearbyCounts.hotels > 0 ? <div>🏨 {nearbyCounts.hotels} hotels nearby</div> : null}
-	                    {nearbyCounts.sporting_goods > 0 ? <div>🧢 {nearbyCounts.sporting_goods} gear nearby</div> : null}
+	                    {nearbyCounts.sporting_goods > 0 ? <div>⚽ {nearbyCounts.sporting_goods} gear nearby</div> : null}
 	                    {primaryAirport ? (
 	                      <div>
                         ✈️ Nearest airport: {primaryAirport.name}{" "}

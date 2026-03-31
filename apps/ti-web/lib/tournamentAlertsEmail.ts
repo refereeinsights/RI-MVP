@@ -1,6 +1,7 @@
 import { SITE_ORIGIN } from "@/lib/sitemaps";
 import { ALERT_START_OFFSET_DAYS, type AlertCadence } from "@/lib/tournamentAlerts";
 import { TI_SPORT_LABELS, type TiSport } from "@/lib/tiSports";
+import type { TiTier } from "@/lib/entitlements";
 
 export type TournamentAlertEmailTournament = {
   id: string;
@@ -11,10 +12,17 @@ export type TournamentAlertEmailTournament = {
   state: string | null;
   start_date: string | null;
   end_date: string | null;
+  owls_eye_counts?: {
+    coffee: number;
+    food: number;
+    hotels: number;
+    gear: number;
+  } | null;
 };
 
 export function buildTournamentAlertEmail(params: {
   cadence: AlertCadence;
+  tier: TiTier;
   zip: string;
   radiusMiles: number;
   daysAhead: number;
@@ -31,6 +39,21 @@ export function buildTournamentAlertEmail(params: {
     : `${cadenceLabel} tournaments near ${escapeHtml(params.zip)}`;
 
   const manageUrl = `${SITE_ORIGIN}/account/alerts`;
+  const pricingUrl = `${SITE_ORIGIN}/pricing`;
+
+  const teaserEligibleTournamentIds = new Set<string>();
+  if (params.tier === "insider") {
+    for (const tournament of params.tournaments) {
+      if (teaserEligibleTournamentIds.size >= 2) break;
+      const counts = tournament.owls_eye_counts ?? null;
+      if (!counts) continue;
+      const total = (counts.coffee ?? 0) + (counts.food ?? 0) + (counts.hotels ?? 0) + (counts.gear ?? 0);
+      if (total <= 0) continue;
+      teaserEligibleTournamentIds.add(tournament.id);
+    }
+  }
+
+  const shouldShowUpgradeLine = params.tier === "insider" && teaserEligibleTournamentIds.size > 0;
 
   const htmlRows = params.tournaments
     .map((t) => {
@@ -39,11 +62,21 @@ export function buildTournamentAlertEmail(params: {
       const where = escapeHtml(formatLocation(t.city, t.state) || "Location TBA");
       const sport = t.sport?.trim() ? ` · ${escapeHtml(t.sport.trim())}` : "";
       const url = `${SITE_ORIGIN}/tournaments/${encodeURIComponent(t.slug)}`;
+
+      const counts = t.owls_eye_counts ?? null;
+      const showTeaser = teaserEligibleTournamentIds.has(t.id) && Boolean(counts);
+      const teaserLine = showTeaser && counts ? buildOwlsEyeTeaserLine(counts) : null;
+
       return `
         <tr>
           <td style="padding:12px 0;border-top:1px solid #e2e8f0;">
             <div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.4;color:#0f172a;font-weight:700;margin:0 0 2px 0;">${name}</div>
             <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.55;color:#334155;">${when} · ${where}${sport}</div>
+            ${
+              teaserLine
+                ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;color:#334155;margin-top:2px;">${teaserLine}</div>`
+                : ""
+            }
             <div style="margin-top:8px;">
               <a href="${url}" style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#2563EB;text-decoration:underline;">View details</a>
             </div>
@@ -78,6 +111,12 @@ export function buildTournamentAlertEmail(params: {
             <tr>
               <td style="padding:14px 22px 22px 22px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#64748b;">
                 You’re receiving this because you set up a scheduled tournament alert in your TournamentInsights account.
+                ${
+                  shouldShowUpgradeLine
+                    ? `<br />
+                Weekend Pro unlocks full Owl’s Eye™ venue details. <a href="${pricingUrl}" style="color:#2563EB;text-decoration:underline;">Upgrade</a>`
+                    : ""
+                }
                 <br />
                 Manage or turn off alerts: <a href="${manageUrl}" style="color:#2563EB;text-decoration:underline;">${manageUrl}</a>
               </td>
@@ -98,9 +137,13 @@ export function buildTournamentAlertEmail(params: {
       const when = formatDateRange(t.start_date, t.end_date) || "Dates TBA";
       const where = formatLocation(t.city, t.state) || "Location TBA";
       const sport = t.sport?.trim() ? ` · ${t.sport.trim()}` : "";
-      return [`${name}`, `${when} · ${where}${sport}`, url, ""];
+      const counts = t.owls_eye_counts ?? null;
+      const showTeaser = teaserEligibleTournamentIds.has(t.id) && Boolean(counts);
+      const teaserLine = showTeaser && counts ? buildOwlsEyeTeaserLine(counts) : null;
+      return teaserLine ? [`${name}`, `${when} · ${where}${sport}`, teaserLine, url, ""] : [`${name}`, `${when} · ${where}${sport}`, url, ""];
     }),
     "Why you received this: You set up a scheduled tournament alert in your TournamentInsights account.",
+    ...(shouldShowUpgradeLine ? ["Weekend Pro unlocks full Owl’s Eye™ venue details.", `Upgrade: ${pricingUrl}`] : []),
     `Manage alerts: ${manageUrl}`,
   ];
 
@@ -135,3 +178,12 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
+function buildOwlsEyeTeaserLine(counts: { coffee: number; food: number; hotels: number; gear: number }) {
+  const parts: string[] = [];
+  if (counts.coffee > 0) parts.push(`☕ ${escapeHtml(String(counts.coffee))}`);
+  if (counts.food > 0) parts.push(`🍔 ${escapeHtml(String(counts.food))}`);
+  if (counts.hotels > 0) parts.push(`🏨 ${escapeHtml(String(counts.hotels))}`);
+  if (counts.gear > 0) parts.push(`⚽ ${escapeHtml(String(counts.gear))}`);
+  if (!parts.length) return null;
+  return `Owl’s Eye™ available — ${parts.join(" · ")}`;
+}

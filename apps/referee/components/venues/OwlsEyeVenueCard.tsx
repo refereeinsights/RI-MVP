@@ -128,7 +128,7 @@ export default function OwlsEyeVenueCard({
               <div>☕ {nearbyCounts.coffee} coffee nearby</div>
               <div>🍔 {nearbyCounts.food} food options nearby</div>
               <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
-              <div>🧢 {nearbyCounts.sporting_goods} gear nearby</div>
+              <div>⚽ {nearbyCounts.sporting_goods} gear nearby</div>
             </div>
             {primaryAirport ? (
               <div style={{ marginTop: -3, display: "grid", gap: 1, justifyItems: "center" }}>

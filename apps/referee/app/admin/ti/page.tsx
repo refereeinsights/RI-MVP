@@ -397,6 +397,112 @@ function chunk<T>(items: T[], size: number) {
   return result;
 }
 
+type OwlsEyeCounts = { coffee: number; food: number; hotels: number; gear: number };
+
+async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
+  if (!venueIds.length) return [] as Array<{ id: string; run_id: string | null; venue_id: string | null }>;
+
+  const primary = await (supabaseAdmin.from("owls_eye_runs" as any) as any)
+    .select("id,run_id,venue_id,status,updated_at,created_at")
+    .in("venue_id", venueIds)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  const primaryErrCode = (primary as any)?.error?.code;
+  if (!primary.error) {
+    return (primary.data as Array<{ id: string; run_id: string | null; venue_id: string | null }> | null) ?? [];
+  }
+
+  // Backward compatibility for environments where updated_at is missing.
+  if (primaryErrCode === "42703" || primaryErrCode === "PGRST204") {
+    const fallback = await (supabaseAdmin.from("owls_eye_runs" as any) as any)
+      .select("id,run_id,venue_id,status,created_at")
+      .in("venue_id", venueIds)
+      .order("created_at", { ascending: false });
+    return (fallback.data as Array<{ id: string; run_id: string | null; venue_id: string | null }> | null) ?? [];
+  }
+
+  return [];
+}
+
+function buildOwlsEyeTeaserLine(counts: OwlsEyeCounts) {
+  const parts: string[] = [];
+  if (counts.coffee > 0) parts.push(`☕ ${counts.coffee}`);
+  if (counts.food > 0) parts.push(`🍔 ${counts.food}`);
+  if (counts.hotels > 0) parts.push(`🏨 ${counts.hotels}`);
+  if (counts.gear > 0) parts.push(`⚽ ${counts.gear}`);
+  if (!parts.length) return null;
+  return `Owl’s Eye™ available — ${parts.join(" · ")}`;
+}
+
+async function loadOwlsEyeCountsByTournamentId(tournamentIds: string[]) {
+  const result = new Map<string, OwlsEyeCounts>();
+  const uniqueTournamentIds = Array.from(new Set(tournamentIds)).filter(Boolean);
+  if (!uniqueTournamentIds.length) return result;
+
+  const { data: linksRaw } = await (supabaseAdmin.from("tournament_venues" as any) as any)
+    .select("tournament_id,venue_id")
+    .in("tournament_id", uniqueTournamentIds);
+
+  const links = ((linksRaw as Array<{ tournament_id: string; venue_id: string }> | null) ?? []).filter(
+    (row) => Boolean(row?.tournament_id && row?.venue_id)
+  );
+  const venueIds = Array.from(new Set(links.map((row) => row.venue_id))).filter(Boolean);
+  if (!venueIds.length) return result;
+
+  const runRows = await fetchLatestOwlsEyeRuns(venueIds);
+  const latestRunIdByVenueId = new Map<string, string>();
+  for (const row of runRows) {
+    const venueId = row.venue_id ?? null;
+    if (!venueId) continue;
+    if (latestRunIdByVenueId.has(venueId)) continue;
+    const runId = (row.run_id ?? row.id ?? "").trim();
+    if (!runId) continue;
+    latestRunIdByVenueId.set(venueId, runId);
+  }
+
+  const runIds = Array.from(new Set(Array.from(latestRunIdByVenueId.values()))).filter(Boolean);
+  if (!runIds.length) return result;
+
+  const countsByRunId = new Map<string, OwlsEyeCounts>();
+  for (const group of chunk(runIds, 1000)) {
+    const { data: nearbyRowsRaw } = await (supabaseAdmin.from("owls_eye_nearby_food" as any) as any)
+      .select("run_id,category")
+      .in("run_id", group);
+
+    for (const row of ((nearbyRowsRaw as Array<{ run_id: string; category: string | null }> | null) ?? [])) {
+      const runId = String(row.run_id ?? "").trim();
+      if (!runId) continue;
+      const normalizedCategory = String(row.category ?? "food").toLowerCase();
+      const current = countsByRunId.get(runId) ?? { coffee: 0, food: 0, hotels: 0, gear: 0 };
+      if (normalizedCategory === "coffee") current.coffee += 1;
+      else if (normalizedCategory === "hotel" || normalizedCategory === "hotels") current.hotels += 1;
+      else if (normalizedCategory === "sporting_goods" || normalizedCategory === "big_box_fallback") current.gear += 1;
+      else current.food += 1;
+      countsByRunId.set(runId, current);
+    }
+  }
+
+  const countsByVenueId = new Map<string, OwlsEyeCounts>();
+  for (const [venueId, runId] of latestRunIdByVenueId.entries()) {
+    const counts = countsByRunId.get(runId) ?? { coffee: 0, food: 0, hotels: 0, gear: 0 };
+    countsByVenueId.set(venueId, counts);
+  }
+
+  for (const link of links) {
+    const counts = countsByVenueId.get(link.venue_id) ?? null;
+    if (!counts) continue;
+    const existing = result.get(link.tournament_id) ?? { coffee: 0, food: 0, hotels: 0, gear: 0 };
+    existing.coffee += counts.coffee;
+    existing.food += counts.food;
+    existing.hotels += counts.hotels;
+    existing.gear += counts.gear;
+    result.set(link.tournament_id, existing);
+  }
+
+  return result;
+}
+
 async function sendTestTournamentAlertAction(formData: FormData) {
   "use server";
   await requireAdmin();
@@ -502,14 +608,31 @@ async function sendTestTournamentAlertAction(formData: FormData) {
 
   const tiBaseUrl = getTiPublicBaseUrl();
   const subject = `Test tournament alert: ${sport ? (TI_SPORT_LABELS as any)[sport] ?? sport : "Any sport"} near ${zip5}`;
+
+  const owlsEyeCountsByTournamentId = await loadOwlsEyeCountsByTournamentId(top.map((t) => t.id)).catch(
+    () => new Map<string, OwlsEyeCounts>()
+  );
+  const teaserEligibleIds = new Set<string>();
+  for (const t of top) {
+    if (teaserEligibleIds.size >= 2) break;
+    const counts = owlsEyeCountsByTournamentId.get(t.id) ?? null;
+    if (!counts) continue;
+    const teaser = buildOwlsEyeTeaserLine(counts);
+    if (!teaser) continue;
+    teaserEligibleIds.add(t.id);
+  }
+
   const listHtml = top
     .map((t) => {
       const place = [t.city, t.state].filter(Boolean).join(", ");
       const dates = [t.start_date, t.end_date].filter(Boolean).join(" → ");
       const href = `${tiBaseUrl}/tournaments/${encodeURIComponent(t.slug)}`;
+      const counts = owlsEyeCountsByTournamentId.get(t.id) ?? null;
+      const teaserLine = teaserEligibleIds.has(t.id) && counts ? buildOwlsEyeTeaserLine(counts) : null;
       return `<li style="margin: 0 0 10px 0;">
         <div><a href="${href}">${t.name ?? "Tournament"}</a></div>
         <div style="color:#64748b;font-size:12px;">${dates}${place ? ` · ${place}` : ""}${t.sport ? ` · ${t.sport}` : ""}</div>
+        ${teaserLine ? `<div style="color:#334155;font-size:12px;margin-top:2px;">${escapeHtml(teaserLine)}</div>` : ""}
       </li>`;
     })
     .join("");
@@ -522,6 +645,13 @@ async function sendTestTournamentAlertAction(formData: FormData) {
         Window <strong>${window.start}</strong> → <strong>${window.end}</strong> (UTC start_date)
       </p>
       <ol style="padding-left: 18px; margin: 0;">${listHtml}</ol>
+      ${
+        teaserEligibleIds.size > 0
+          ? `<p style="margin: 14px 0 0 0; color:#475569; font-size:12px;">
+        Weekend Pro unlocks full Owl’s Eye™ venue details.
+      </p>`
+          : ""
+      }
       <p style="margin: 14px 0 0 0; color:#64748b; font-size:12px;">
         This is an admin test send. It does not create or modify user alerts.
       </p>

@@ -7,6 +7,7 @@ import {
   type AlertCadence,
 } from "@/lib/tournamentAlerts";
 import { buildTournamentAlertEmail } from "@/lib/tournamentAlertsEmail";
+import { getTier, type TiProfile, type TiTier } from "@/lib/entitlements";
 import { TI_SPORTS, type TiSport } from "@/lib/tiSports";
 
 type AlertRow = {
@@ -39,6 +40,19 @@ type TournamentPublicRow = {
   zip: string | null;
   start_date: string | null;
   end_date: string | null;
+};
+
+type TournamentVenueLinkRow = {
+  tournament_id: string;
+  venue_id: string;
+};
+
+type OwlsEyeRunRow = {
+  id: string;
+  run_id: string | null;
+  venue_id: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
 };
 
 function chunk<T>(items: T[], size: number) {
@@ -128,11 +142,113 @@ async function loadCandidateTournaments(params: {
   return (data ?? []) as TournamentPublicRow[];
 }
 
-async function getAuthEmailForUser(userId: string) {
+async function getUserTierAndRecipient(userId: string): Promise<{ tier: TiTier; email: string | null }> {
   const { data, error } = await supabaseAdmin.auth.admin.getUserById(userId);
   if (error) throw error;
   const email = data.user?.email?.trim() ?? "";
-  return email || null;
+
+  const { data: profile } = await (supabaseAdmin.from("ti_users" as any) as any)
+    .select("plan,subscription_status,current_period_end,trial_ends_at")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const tier = getTier((data.user ?? null) as any, (profile ?? null) as TiProfile);
+  return { tier, email: email || null };
+}
+
+async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
+  if (!venueIds.length) return [] as OwlsEyeRunRow[];
+
+  const primary = await (supabaseAdmin.from("owls_eye_runs" as any) as any)
+    .select("id,run_id,venue_id,status,updated_at,created_at")
+    .in("venue_id", venueIds)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  const primaryErrCode = (primary as any)?.error?.code;
+  if (!primary.error) {
+    return (primary.data as OwlsEyeRunRow[] | null) ?? [];
+  }
+
+  // Backward compatibility for environments where updated_at is missing.
+  if (primaryErrCode === "42703" || primaryErrCode === "PGRST204") {
+    const fallback = await (supabaseAdmin.from("owls_eye_runs" as any) as any)
+      .select("id,run_id,venue_id,status,created_at")
+      .in("venue_id", venueIds)
+      .order("created_at", { ascending: false });
+    return (fallback.data as OwlsEyeRunRow[] | null) ?? [];
+  }
+
+  return [];
+}
+
+async function loadOwlsEyeCountsByTournamentId(tournamentIds: string[]) {
+  const result = new Map<string, { coffee: number; food: number; hotels: number; gear: number }>();
+  const uniqueTournamentIds = Array.from(new Set(tournamentIds)).filter(Boolean);
+  if (!uniqueTournamentIds.length) return result;
+
+  const { data: linksRaw } = await (supabaseAdmin.from("tournament_venues" as any) as any)
+    .select("tournament_id,venue_id")
+    .in("tournament_id", uniqueTournamentIds);
+
+  const links = ((linksRaw as TournamentVenueLinkRow[] | null) ?? []).filter(
+    (row) => Boolean(row?.tournament_id && row?.venue_id)
+  );
+
+  const venueIds = Array.from(new Set(links.map((row) => row.venue_id))).filter(Boolean);
+  if (!venueIds.length) return result;
+
+  const runRows = await fetchLatestOwlsEyeRuns(venueIds);
+  const latestRunIdByVenueId = new Map<string, string>();
+  for (const row of runRows) {
+    const venueId = row.venue_id ?? null;
+    if (!venueId) continue;
+    if (latestRunIdByVenueId.has(venueId)) continue;
+    const runId = (row.run_id ?? row.id ?? "").trim();
+    if (!runId) continue;
+    latestRunIdByVenueId.set(venueId, runId);
+  }
+
+  const runIds = Array.from(new Set(Array.from(latestRunIdByVenueId.values()))).filter(Boolean);
+  if (!runIds.length) return result;
+
+  const countsByRunId = new Map<string, { coffee: number; food: number; hotels: number; gear: number }>();
+  for (const group of chunk(runIds, 1000)) {
+    const { data: nearbyRowsRaw } = await (supabaseAdmin.from("owls_eye_nearby_food" as any) as any)
+      .select("run_id,category")
+      .in("run_id", group);
+
+    for (const row of ((nearbyRowsRaw as Array<{ run_id: string; category: string | null }> | null) ?? [])) {
+      const runId = (row.run_id ?? "").trim();
+      if (!runId) continue;
+      const normalizedCategory = (row.category ?? "food").toLowerCase();
+      const current = countsByRunId.get(runId) ?? { coffee: 0, food: 0, hotels: 0, gear: 0 };
+      if (normalizedCategory === "coffee") current.coffee += 1;
+      else if (normalizedCategory === "hotel" || normalizedCategory === "hotels") current.hotels += 1;
+      else if (normalizedCategory === "sporting_goods" || normalizedCategory === "big_box_fallback") current.gear += 1;
+      else current.food += 1;
+      countsByRunId.set(runId, current);
+    }
+  }
+
+  const countsByVenueId = new Map<string, { coffee: number; food: number; hotels: number; gear: number }>();
+  for (const [venueId, runId] of latestRunIdByVenueId.entries()) {
+    const counts = countsByRunId.get(runId) ?? { coffee: 0, food: 0, hotels: 0, gear: 0 };
+    countsByVenueId.set(venueId, counts);
+  }
+
+  for (const link of links) {
+    const counts = countsByVenueId.get(link.venue_id) ?? null;
+    if (!counts) continue;
+    const existing = result.get(link.tournament_id) ?? { coffee: 0, food: 0, hotels: 0, gear: 0 };
+    existing.coffee += counts.coffee;
+    existing.food += counts.food;
+    existing.hotels += counts.hotels;
+    existing.gear += counts.gear;
+    result.set(link.tournament_id, existing);
+  }
+
+  return result;
 }
 
 export async function runTournamentAlertsCronJob() {
@@ -248,15 +364,17 @@ export async function runTournamentAlertsCronJob() {
       continue;
     }
 
-    const recipientEmail = await getAuthEmailForUser(alert.user_id);
+    const { tier, email: recipientEmail } = await getUserTierAndRecipient(alert.user_id);
     if (!recipientEmail) {
       result.skipped_missing_auth_email += 1;
       continue;
     }
 
     const sport = normalizeTiSport(alert.sport);
+    const owlsEyeCountsByTournamentId = tier === "insider" ? await loadOwlsEyeCountsByTournamentId(ids) : new Map();
     const email = buildTournamentAlertEmail({
       cadence: alert.cadence,
+      tier,
       zip: alertZip5,
       radiusMiles: alert.radius_miles,
       daysAhead: alert.days_ahead,
@@ -270,6 +388,7 @@ export async function runTournamentAlertsCronJob() {
         state: t.state,
         start_date: t.start_date,
         end_date: t.end_date,
+        owls_eye_counts: owlsEyeCountsByTournamentId.get(t.id) ?? null,
       })),
     });
 
