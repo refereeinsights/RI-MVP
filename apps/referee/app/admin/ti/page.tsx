@@ -200,6 +200,7 @@ const ZIP_PATTERN = /^\d{5}(?:-\d{4})?$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 const ALERT_START_OFFSET_DAYS = 21;
 const ALERT_DAYS_AHEAD_DEFAULT = 14;
+const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
 
 function fmtDate(value: string | null | undefined) {
   if (!value) return "—";
@@ -365,6 +366,15 @@ function getTiPublicBaseUrl() {
   const configured = (process.env.TI_PUBLIC_BASE_URL ?? "").trim().replace(/\/+$/, "");
   if (configured) return configured;
   return "https://www.tournamentinsights.com";
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function normalizeSlug(value: unknown) {
@@ -568,6 +578,78 @@ async function sendTestTournamentAlertAction(formData: FormData) {
   }
 
   redirect(buildPathWithNoticeAndAlertKpis(`Test alert sent to ${recipientEmail} (${top.length} tournaments).`));
+}
+
+async function sendTestSavedTournamentChangeEmailAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+
+  const recipientEmail = String(formData.get("recipient_email") ?? "").trim().toLowerCase();
+  const slugRaw = String(formData.get("tournament_slug") ?? "").trim();
+  const tournamentSlug = slugRaw || DEMO_TOURNAMENT_SLUG;
+
+  if (!recipientEmail || !EMAIL_PATTERN.test(recipientEmail)) {
+    redirect(buildPathWithNoticeAndAlertKpis("Enter a valid recipient email."));
+  }
+
+  const { data, error } = await (supabaseAdmin.from("tournaments_public" as any) as any)
+    .select("id,slug,name,sport,city,state,start_date,end_date")
+    .eq("slug", tournamentSlug)
+    .maybeSingle();
+  if (error) redirect(buildPathWithNoticeAndAlertKpis(`Tournament lookup failed: ${error.message}`));
+  if (!data?.id || !data.slug) {
+    redirect(buildPathWithNoticeAndAlertKpis(`No public tournament found for slug: ${tournamentSlug}`));
+  }
+
+  const tiBaseUrl = getTiPublicBaseUrl();
+  const href = `${tiBaseUrl}/tournaments/${encodeURIComponent(String(data.slug))}`;
+  const place = [data.city, data.state].filter(Boolean).join(", ");
+  const dates = [data.start_date, data.end_date].filter(Boolean).join(" → ");
+  const subject = `Saved tournament updated: ${String(data.name ?? "Tournament")}`;
+  const html = `
+    <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; line-height:1.4;">
+      <h2 style="margin: 0 0 8px 0;">Saved tournament updated (test)</h2>
+      <p style="margin: 0 0 12px 0; color:#334155;">
+        This is a one-off test notification that simulates a public tournament detail change.
+      </p>
+      <div style="padding:12px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
+        <div style="font-weight:800;color:#0f172a;">${escapeHtml(String(data.name ?? "Tournament"))}</div>
+        <div style="color:#64748b;font-size:12px;margin-top:4px;">${escapeHtml(dates || "Dates TBA")}${place ? ` · ${escapeHtml(place)}` : ""}${data.sport ? ` · ${escapeHtml(String(data.sport))}` : ""}</div>
+        <div style="margin-top:8px;"><a href="${href}">${href}</a></div>
+      </div>
+      <p style="margin: 14px 0 0 0; color:#64748b; font-size:12px;">
+        This does not require the tournament to actually change in the database.
+      </p>
+    </div>
+  `;
+
+  try {
+    const { sendEmail } = await import("@/lib/email");
+    const sendResult = await sendEmail({ to: recipientEmail, subject, html });
+    if ((sendResult as any)?.skipped) {
+      redirect(buildPathWithNoticeAndAlertKpis("Test notification skipped: RESEND_API_KEY is not configured."));
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to send email.";
+    try {
+      const safeError = message.length > 900 ? `${message.slice(0, 900)}…` : message;
+      await (supabaseAdmin.from("ti_tournament_alert_send_logs" as any) as any).insert({
+        alert_id: null,
+        user_id: null,
+        cadence: null,
+        recipient_email: recipientEmail,
+        tournaments_count: 1,
+        result_hash: null,
+        outcome: "error",
+        error_message: `saved_changes_test_send: ${safeError}`,
+      });
+    } catch {
+      // ignore
+    }
+    redirect(buildPathWithNoticeAndAlertKpis(`Test notification send failed: ${message}`));
+  }
+
+  redirect(buildPathWithNoticeAndAlertKpis(`Test notification sent to ${recipientEmail}.`));
 }
 
 async function updateTiUserFieldAction(formData: FormData) {
@@ -945,6 +1027,7 @@ export default async function TiAdminPage({
   const quickCheckMetrics = (quickCheckMetricsRaw ?? null) as QuickCheckMetrics | null;
 
   const alertKpis = showAlertKpis ? await loadTournamentAlertKpis() : null;
+  const savedChangeKpis = showAlertKpis ? await loadSavedTournamentChangeKpis() : null;
 
   // Lightweight per-tournament rollups for the "Top tournaments by Yes" table expanders.
   let rollupByTournamentId: Record<string, TournamentQuickCheckRollup | undefined> = {};
@@ -1255,6 +1338,89 @@ export default async function TiAdminPage({
                     </button>
                   </div>
                 </form>
+              </div>
+
+              <div style={{ marginTop: 14, border: "1px solid #e2e8f0", borderRadius: 12, padding: 12, background: "#fff" }}>
+                <h3 style={{ margin: "0 0 6px 0", fontSize: 15 }}>Saved tournament change notifications</h3>
+                <p style={{ margin: "0 0 12px 0", fontSize: 13, color: "#64748b" }}>
+                  Opt-in usage + recent errors. Notifications are computed from public `tournaments_public` fields only (no venue/enrichment updates).
+                </p>
+
+                {savedChangeKpis?.error ? (
+                  <p style={{ margin: 0, color: "#b91c1c", fontSize: 13 }}>Unable to load: {savedChangeKpis.error}</p>
+                ) : (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(160px, 1fr))", gap: 10 }}>
+                      {[
+                        ["Users opted-in", String(savedChangeKpis?.usersOptedIn ?? 0)],
+                        ["Subscriptions", String(savedChangeKpis?.subscriptionsOptedIn ?? 0)],
+                        ["Notified (7d)", String(savedChangeKpis?.subscriptionsNotifiedLast7Days ?? 0)],
+                        ["Errors (7d)", String(savedChangeKpis?.errorsLast7Days ?? 0)],
+                      ].map(([label, value]) => (
+                        <div key={label} style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 10 }}>
+                          <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>{label}</div>
+                          <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{value}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{ marginTop: 12 }}>
+                      <h4 style={{ margin: "0 0 8px 0", fontSize: 14 }}>Latest send errors</h4>
+                      {savedChangeKpis?.recentErrors?.length ? (
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+                            <thead>
+                              <tr>
+                                {[
+                                  ["When", 170],
+                                  ["Email", 260],
+                                  ["Error", 520],
+                                ].map(([h, w]) => (
+                                  <th
+                                    key={String(h)}
+                                    style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: "8px 6px", fontSize: 12, width: w }}
+                                  >
+                                    {h}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {savedChangeKpis.recentErrors.map((row, idx) => (
+                                <tr key={`${row.id ?? idx}`}>
+                                  <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.created_at)}</td>
+                                  <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12, wordBreak: "break-word" }}>{row.recipient_email ?? "—"}</td>
+                                  <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12, color: "#b91c1c" }}>{row.error_message ?? "Unknown error"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>No errors found.</p>
+                      )}
+                    </div>
+
+                    <div style={{ marginTop: 12, borderTop: "1px solid #e2e8f0", paddingTop: 12 }}>
+                      <h4 style={{ margin: "0 0 8px 0", fontSize: 14 }}>Send a test notification</h4>
+                      <form action={sendTestSavedTournamentChangeEmailAction} style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px, 1fr))", gap: 10, alignItems: "end" }}>
+                        <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
+                          <span style={{ fontWeight: 700 }}>Recipient email</span>
+                          <input name="recipient_email" defaultValue={adminUser.email ?? ""} placeholder="name@domain.com" required style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid #cbd5e1" }} />
+                        </label>
+                        <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
+                          <span style={{ fontWeight: 700 }}>Tournament slug</span>
+                          <input name="tournament_slug" defaultValue={DEMO_TOURNAMENT_SLUG} placeholder={DEMO_TOURNAMENT_SLUG} style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid #cbd5e1" }} />
+                        </label>
+                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                          <button type="submit" style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid #1d4ed8", background: "#2563eb", color: "#fff", fontWeight: 800 }}>
+                            Send test notification
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </>
+                )}
               </div>
             </>
           )
@@ -2125,4 +2291,87 @@ async function loadDistinctUsersWithAlerts(): Promise<number> {
     if (id) ids.add(id);
   }
   return ids.size;
+}
+
+async function loadSavedTournamentChangeKpis(): Promise<{
+  error: string | null;
+  usersOptedIn: number;
+  subscriptionsOptedIn: number;
+  subscriptionsNotifiedLast7Days: number;
+  errorsLast7Days: number;
+  recentErrors: Array<{
+    id: string;
+    created_at: string | null;
+    recipient_email: string | null;
+    error_message: string | null;
+  }>;
+}> {
+  const empty = {
+    error: null,
+    usersOptedIn: 0,
+    subscriptionsOptedIn: 0,
+    subscriptionsNotifiedLast7Days: 0,
+    errorsLast7Days: 0,
+    recentErrors: [],
+  };
+
+  try {
+    const since7dIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [subsOptedInRes, subsNotifiedRes, errorsRes, recentErrorsRes, optedRowsRes] = await Promise.all([
+      (supabaseAdmin.from("ti_saved_tournaments" as any) as any)
+        .select("id", { count: "exact", head: true })
+        .eq("notify_on_changes", true),
+      (supabaseAdmin.from("ti_saved_tournaments" as any) as any)
+        .select("id", { count: "exact", head: true })
+        .eq("notify_on_changes", true)
+        .gte("last_notified_at", since7dIso),
+      (supabaseAdmin.from("ti_tournament_alert_send_logs" as any) as any)
+        .select("id", { count: "exact", head: true })
+        .eq("outcome", "error")
+        .gte("created_at", since7dIso)
+        .ilike("error_message", "saved_changes:%"),
+      (supabaseAdmin.from("ti_tournament_alert_send_logs" as any) as any)
+        .select("id,created_at,recipient_email,error_message")
+        .eq("outcome", "error")
+        .ilike("error_message", "saved_changes:%")
+        .order("created_at", { ascending: false })
+        .limit(25),
+      (supabaseAdmin.from("ti_saved_tournaments" as any) as any)
+        .select("user_id")
+        .eq("notify_on_changes", true),
+    ]);
+
+    const subsOptedIn = (subsOptedInRes as any).count ?? 0;
+    const subsNotified = (subsNotifiedRes as any).count ?? 0;
+    const errorsLast7Days = (errorsRes as any).count ?? 0;
+
+    const rows = ((optedRowsRes as any).data ?? []) as Array<{ user_id?: string | null }>;
+    const userIds = new Set<string>();
+    for (const r of rows) {
+      const id = String(r.user_id ?? "").trim();
+      if (id) userIds.add(id);
+    }
+
+    const recentErrors = (((recentErrorsRes as any).data ?? []) as any[]).map((row) => ({
+      id: String(row.id ?? ""),
+      created_at: row.created_at ?? null,
+      recipient_email: row.recipient_email ?? null,
+      error_message: row.error_message ?? null,
+    }));
+
+    return {
+      ...empty,
+      usersOptedIn: userIds.size,
+      subscriptionsOptedIn: subsOptedIn,
+      subscriptionsNotifiedLast7Days: subsNotified,
+      errorsLast7Days,
+      recentErrors,
+    };
+  } catch (error) {
+    return {
+      ...empty,
+      error: error instanceof Error ? error.message : "Failed to load saved-tournament notification KPIs.",
+    };
+  }
 }
