@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickVariant } from "@/lib/outreach/ab";
-import { sendEmail } from "@/lib/email";
+import { sendEmailVerified } from "@/lib/email";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   buildSportIntroReplyEmail,
@@ -304,14 +304,15 @@ export async function POST(request: NextRequest) {
 
     if (mode === "send") {
       try {
-        const result = (await sendEmail({
+        const { result } = await sendEmailVerified({
           to: sendRecipient,
           subject: email.subject,
           html: email.html,
           text: email.text,
-        })) as { id?: string } | undefined;
+          kind: "marketing",
+        });
         status = "sent";
-        providerMessageId = result?.id ?? null;
+        providerMessageId = (result as { id?: string } | undefined)?.id ?? null;
         if (localSendOverride) {
           console.info(
             "[ti-outreach-send-override]",

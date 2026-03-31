@@ -1,3 +1,7 @@
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import type { EmailSendKind } from "../../../shared/email/emailSuppression";
+import { sendEmailWithPreflight } from "../../../shared/email/sendWithPreflight";
+
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
 type EmailRecipient = string | string[];
@@ -9,6 +13,7 @@ type EmailPayload = {
   text?: string;
   from?: string;
   replyTo?: string;
+  headers?: Record<string, string>;
 };
 
 function normalizeRecipients(to: EmailRecipient): string[] {
@@ -16,6 +21,18 @@ function normalizeRecipients(to: EmailRecipient): string[] {
     return to.map((value) => value.trim()).filter(Boolean);
   }
   return to.trim() ? [to.trim()] : [];
+}
+
+export function resolveFromAndReplyTo(payload: EmailPayload) {
+  const from =
+    payload.from ??
+    process.env.TI_OUTREACH_FROM ??
+    "TournamentInsights <hello@mail.tournamentinsights.com>";
+  const replyTo =
+    payload.replyTo ??
+    process.env.EMAIL_REPLY_TO ??
+    "hello@tournamentinsights.com";
+  return { from, replyTo };
 }
 
 export async function sendEmail(payload: EmailPayload) {
@@ -29,15 +46,7 @@ export async function sendEmail(payload: EmailPayload) {
     throw new Error("No email recipients provided.");
   }
 
-  const from =
-    payload.from ??
-    process.env.TI_OUTREACH_FROM ??
-    process.env.REVIEW_ALERT_FROM ??
-    "TournamentInsights <hello@mail.tournamentinsights.com>";
-  const replyTo =
-    payload.replyTo ??
-    process.env.EMAIL_REPLY_TO ??
-    "hello@tournamentinsights.com";
+  const { from, replyTo } = resolveFromAndReplyTo(payload);
 
   const response = await fetch(RESEND_ENDPOINT, {
     method: "POST",
@@ -52,6 +61,7 @@ export async function sendEmail(payload: EmailPayload) {
       html: payload.html,
       text: payload.text ?? "",
       reply_to: replyTo,
+      headers: payload.headers ?? undefined,
     }),
   });
 
@@ -61,4 +71,20 @@ export async function sendEmail(payload: EmailPayload) {
   }
 
   return response.json().catch(() => ({}));
+}
+
+export async function sendEmailVerified(
+  payload: EmailPayload & {
+    kind?: EmailSendKind;
+    allowLocalhostLinks?: boolean;
+  }
+) {
+  return sendEmailWithPreflight({
+    kind: payload.kind ?? "transactional",
+    supabaseAdmin,
+    allowLocalhostLinks: payload.allowLocalhostLinks ?? process.env.NODE_ENV !== "production",
+    payload,
+    sendEmail,
+    resolveFromAndReplyTo,
+  });
 }

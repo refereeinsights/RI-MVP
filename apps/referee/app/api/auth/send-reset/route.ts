@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import { sendEmail } from "@/lib/email";
+import { sendEmailVerified } from "@/lib/email";
 
 type Body = { email?: string };
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
       process.env.REVIEW_ALERT_FROM ||
       "Referee Insights <noreply@refereeinsights.com>";
 
-    await sendEmail({
+    await sendEmailVerified({
       to: email,
       from,
       subject: "Reset your Referee Insights password",
@@ -128,6 +128,7 @@ export async function POST(req: Request) {
         </div>
       `,
       text: `Reset your Referee Insights password: ${link}`,
+      kind: "transactional",
     });
 
     return NextResponse.json({ ok: true });

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { sendEmail } from "@/lib/email";
+import { sendEmailVerified } from "@/lib/email";
 import {
   buildResultHash,
   computeAlertWindowUtc,
@@ -395,11 +395,12 @@ export async function runTournamentAlertsCronJob() {
     const tournamentsCount = top.length;
     let sendErrorMessage: string | null = null;
     try {
-      await sendEmail({
+      await sendEmailVerified({
         to: recipientEmail,
         subject: email.subject,
         html: email.html,
         text: email.text,
+        kind: "transactional",
       });
     } catch (error) {
       sendErrorMessage = error instanceof Error ? error.message : "Failed to send email.";

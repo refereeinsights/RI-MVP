@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendEmail } from "@/lib/email";
+import { sendEmailVerified } from "@/lib/email";
 import { getTiOutreachAdminUser } from "@/lib/outreachAdmin";
 import { getOutreachGuardSecret, isValidEmail } from "@/lib/outreach";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -125,11 +125,12 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      await sendEmail({
+      await sendEmailVerified({
         to: directorEmail,
         subject: preview.subject,
         html: preview.html_body,
         text: preview.text_body,
+        kind: "marketing",
       });
 
       const attempt = (preview.send_attempt_count ?? 0) + 1;

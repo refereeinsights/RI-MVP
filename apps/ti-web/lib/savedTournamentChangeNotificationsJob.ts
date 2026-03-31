@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { sendEmail } from "@/lib/email";
+import { sendEmailVerified } from "@/lib/email";
 import { buildSavedTournamentChangeDigestEmail } from "@/lib/savedTournamentChangeNotificationsEmail";
 
 const USER_COOLDOWN_HOURS = 24;
@@ -291,11 +291,12 @@ export async function runSavedTournamentChangeNotificationsJob() {
 
     let sendError: string | null = null;
     try {
-      await sendEmail({
+      await sendEmailVerified({
         to: recipientEmail,
         subject: email.subject,
         html: email.html,
         text: email.text,
+        kind: "transactional",
       });
     } catch (error) {
       sendError = error instanceof Error ? error.message : "Failed to send email.";
@@ -331,4 +332,3 @@ export async function runSavedTournamentChangeNotificationsJob() {
 
   return result;
 }
-

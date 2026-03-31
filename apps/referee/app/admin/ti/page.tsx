@@ -8,6 +8,8 @@ import { buildTiAdminSsoUrl } from "@/lib/tiSso";
 import LabelPrintSettings from "./LabelPrintSettings";
 import PrintLabelButton from "./PrintLabelButton";
 import TopTournamentsByStartedTable from "./TopTournamentsByStartedTable";
+import { filterSuppressedRecipients } from "../../../../../shared/email/emailSuppression";
+import { signUnsubscribeToken } from "../../../../../shared/email/unsubscribeToken";
 
 export const runtime = "nodejs";
 
@@ -823,24 +825,24 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
     redirect(buildPathWithNotice(`Too many recipients (${unique.length}). Max ${MAX_RECIPIENTS} per send.`, q));
   }
 
+  const suppression = await filterSuppressedRecipients({
+    supabaseAdmin,
+    kind: "marketing",
+    recipients: unique,
+  }).catch(() => ({ allowed: unique, suppressed: [] as Array<{ email: string; reason: string | null }> }));
+
+  const allowedRecipients = suppression.allowed;
+  const suppressedRecipients = suppression.suppressed;
+  if (!allowedRecipients.length) {
+    redirect(buildPathWithNotice(`All selected recipients are suppressed (skipped ${suppressedRecipients.length}).`, q));
+  }
+
   const safeSubject = subject.length > 160 ? `${subject.slice(0, 160)}…` : subject;
   const safeBody = body.length > 12000 ? `${body.slice(0, 12000)}…` : body;
   const tiBaseUrl = getTiPublicBaseUrl();
   const manageUrl = `${tiBaseUrl}/account`;
-  const optOutText =
-    `To opt out of these emails, reply “unsubscribe” or manage your preferences in your account: ${manageUrl}`;
-  const fullText = `${safeBody}\n\n—\n${optOutText}`;
-  const html = `
-    <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; line-height:1.5; color:#0f172a;">
-      <div style="white-space: pre-wrap;">${escapeHtml(safeBody)}</div>
-      <div style="margin-top:16px; border-top: 1px solid #e2e8f0; padding-top: 12px; color:#64748b; font-size:12px;">
-        ${escapeHtml(optOutText)}
-      </div>
-      <div style="margin-top:16px; color:#64748b; font-size:12px;">
-        You’re receiving this email because you have a TournamentInsights account.
-      </div>
-    </div>
-  `;
+  const secret = (process.env.EMAIL_UNSUBSCRIBE_SECRET ?? "").trim();
+  const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30; // 30 days
 
   let sent = 0;
   const errors: Array<{ email: string; message: string }> = [];
@@ -848,12 +850,48 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
   try {
     const { sendEmail } = await import("@/lib/email");
     const concurrency = 5;
-    for (let i = 0; i < unique.length; i += concurrency) {
-      const group = unique.slice(i, i + concurrency);
+    for (let i = 0; i < allowedRecipients.length; i += concurrency) {
+      const group = allowedRecipients.slice(i, i + concurrency);
       const results = await Promise.all(
         group.map(async (email) => {
           try {
-            const res = await sendEmail({ to: email, subject: safeSubject, html, text: fullText });
+            const unsubscribeUrl = secret
+              ? (() => {
+                  const { sig } = signUnsubscribeToken({ email, scope: "marketing", exp, secret });
+                  return `${tiBaseUrl}/unsubscribe?email=${encodeURIComponent(email)}&scope=marketing&exp=${exp}&sig=${sig}`;
+                })()
+              : "";
+            const optOutText = unsubscribeUrl
+              ? `Unsubscribe: ${unsubscribeUrl}\nManage preferences: ${manageUrl}`
+              : `Manage preferences: ${manageUrl}`;
+            const fullText = `${safeBody}\n\n—\n${optOutText}`;
+            const html = `
+              <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; line-height:1.5; color:#0f172a;">
+                <div style="white-space: pre-wrap;">${escapeHtml(safeBody)}</div>
+                <div style="margin-top:16px; border-top: 1px solid #e2e8f0; padding-top: 12px; color:#64748b; font-size:12px;">
+                  ${escapeHtml(optOutText)}
+                </div>
+                <div style="margin-top:16px; color:#64748b; font-size:12px;">
+                  You’re receiving this email because you have a TournamentInsights account.
+                </div>
+              </div>
+            `;
+
+            const listUnsubscribe = unsubscribeUrl
+              ? `<${unsubscribeUrl}>, <mailto:hello@mail.tournamentinsights.com?subject=unsubscribe>`
+              : `<mailto:hello@mail.tournamentinsights.com?subject=unsubscribe>`;
+
+            const res = await sendEmail({
+              to: email,
+              subject: safeSubject,
+              html,
+              text: fullText,
+              from: process.env.TI_OUTREACH_FROM ?? "TournamentInsights <hello@mail.tournamentinsights.com>",
+              headers: {
+                "List-Unsubscribe": listUnsubscribe,
+                ...(unsubscribeUrl ? { "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : {}),
+              },
+            });
             if ((res as any)?.skipped) throw new Error("Skipped (email provider not configured).");
             return { ok: true, email } as const;
           } catch (err) {
@@ -891,10 +929,11 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
   }
 
   const failed = errors.length;
+  const skippedSuppressed = suppressedRecipients.length;
   const summary =
     failed === 0
-      ? `Bulk email sent to ${sent} recipient(s).`
-      : `Bulk email sent to ${sent}/${unique.length}. ${failed} failed (first 20 logged).`;
+      ? `Bulk email sent to ${sent} recipient(s).${skippedSuppressed ? ` Skipped ${skippedSuppressed} suppressed.` : ""}`
+      : `Bulk email sent to ${sent}/${allowedRecipients.length}. ${failed} failed (first 20 logged).${skippedSuppressed ? ` Skipped ${skippedSuppressed} suppressed.` : ""}`;
   redirect(buildPathWithNotice(summary, q));
 }
 
@@ -1879,7 +1918,7 @@ export default async function TiAdminPage({
             </summary>
             <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
               <p style={{ margin: 0, color: "#64748b", fontSize: 12 }}>
-                Sends individual emails (no BCC) to protect recipient privacy. Limit: 50 recipients per send.
+                Sends individual emails (no BCC) to protect recipient privacy. Limit: 50 recipients per send. Suppressed emails (opt-out list) are skipped automatically.
               </p>
               <form action={sendTiUserBulkEmailAction} style={{ display: "grid", gap: 10 }}>
                 <input type="hidden" name="q" value={q} />

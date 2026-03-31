@@ -5,6 +5,7 @@ import { getTier } from "@/lib/entitlements";
 import { extractProfileFromMetadata } from "@/lib/tiProfile";
 import { TI_SPORTS, TI_SPORT_LABELS } from "@/lib/tiSports";
 import { syncTiUserProfileFromAuthUser } from "@/lib/tiUserProfileServer";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SavedTournamentsSection, { type SavedTournamentItem } from "./SavedTournamentsSection";
 import styles from "./AccountPage.module.css";
@@ -116,6 +117,17 @@ export default async function AccountPage({
 
   const tier = getTier(user, profile ?? null);
   const effectivePlan = profile ? prettyPlan(profile.plan) : "Insider";
+
+  const accountEmail = (user.email ?? "").trim().toLowerCase();
+  const { data: emailSuppression } = accountEmail
+    ? await (supabaseAdmin.from("email_suppressions" as any) as any)
+        .select("suppress_marketing,suppress_all")
+        .eq("email", accountEmail)
+        .maybeSingle()
+    : { data: null as any };
+  const suppressMarketingDefault = Boolean((emailSuppression as any)?.suppress_marketing);
+  const suppressAllDefault = Boolean((emailSuppression as any)?.suppress_all);
+
   const { data: savedRowsRaw } = await supabase
     .from("ti_saved_tournaments" as any)
     .select("tournament_id,notify_on_changes,tournaments(id,slug,name,start_date,end_date,city,state)")
@@ -267,6 +279,40 @@ export default async function AccountPage({
       </section>
 
       <SavedTournamentsSection initialItems={savedTournaments} />
+
+      <section className={styles.sectionCard}>
+        <div>
+          <h2 className={styles.sectionTitle}>Email preferences</h2>
+          <p className={styles.mutedText}>
+            Control what emails we send you. Alerts and saved-tournament change notifications are treated as
+            transactional emails.
+          </p>
+        </div>
+
+        <form action="/api/account/email-preferences" method="post" className={styles.profileForm}>
+          <label className={styles.checkboxOption} style={{ alignItems: "flex-start" }}>
+            <input type="checkbox" name="suppress_marketing" defaultChecked={suppressMarketingDefault && !suppressAllDefault} />
+            <span>
+              <strong>Opt out of marketing</strong>
+              <div className={styles.fieldHelp}>Admin blasts, promos, and non-essential updates.</div>
+            </span>
+          </label>
+
+          <label className={styles.checkboxOption} style={{ alignItems: "flex-start" }}>
+            <input type="checkbox" name="suppress_all" defaultChecked={suppressAllDefault} />
+            <span>
+              <strong>Pause all emails</strong>
+              <div className={styles.fieldHelp}>
+                Includes alerts and saved-tournament change notifications. (You may still need email for account access like password resets.)
+              </div>
+            </span>
+          </label>
+
+          <div className={styles.formActions}>
+            <button type="submit" className={styles.primaryAction}>Save email preferences</button>
+          </div>
+        </form>
+      </section>
 
       <section className={styles.sectionCard}>
         <h2 className={styles.sectionTitle}>Scheduled alerts</h2>

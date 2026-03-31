@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
-import { sendEmail } from "@/lib/email";
+import { sendEmailVerified } from "@/lib/email";
 
 type InvitePayload = {
   referee_email?: string;
@@ -162,7 +162,7 @@ export async function POST(request: Request) {
 
     let sendSucceeded = false;
     try {
-      await sendEmail({
+      await sendEmailVerified({
         to: recipient,
         subject,
         html: `
@@ -176,6 +176,7 @@ export async function POST(request: Request) {
           </div>
         `,
         text: `You were invited to share referee insight. Submit here: ${inviteLink}`,
+        kind: "transactional",
       });
       sendSucceeded = true;
     } catch (sendErr) {

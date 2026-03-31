@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { recomputeAllWhistleScores } from "@/lib/whistleScores";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { sendEmail } from "@/lib/email";
+import { sendEmailVerified } from "@/lib/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -199,7 +199,7 @@ async function sendCronReportEmail(params: {
     `Smoke Summary:\n${JSON.stringify(params.smoke, null, 2)}\n\n` +
     `Whistle Result:\n${JSON.stringify(params.whistleResult, null, 2)}\n`;
 
-  await sendEmail({
+  await sendEmailVerified({
     to: recipients,
     subject,
     html,
@@ -207,7 +207,8 @@ async function sendCronReportEmail(params: {
     from:
       process.env.CRON_REPORT_FROM ??
       process.env.REVIEW_ALERT_FROM ??
-      "Referee Insights <refereeinsights@gmail.com>",
+      "Referee Insights <hello@mail.tournamentinsights.com>",
+    kind: "transactional",
   });
 
   return { skipped: false };

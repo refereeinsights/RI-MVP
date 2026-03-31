@@ -15,6 +15,21 @@
 - Ops tooling: added `scripts/ops/ingest_renoapex_springcup_venues.mjs` to parse venue blocks (name + city/state + map embed lat/lng) from the RenoApex Spring Cup page and match/create/link venues for a specific `tournament_id` (dry-run by default; `--apply` to write).
 - Ops tooling: added `scripts/ops/cleanup_draft_placeholder_venue_links.mjs` to unlink draft (pending approval) tournaments from placeholder venue links (TBD/TBA) when the venue has no address/geo (dry-run by default; `--apply` to write; emits a CSV report under `tmp/`).
 
+## 2026-03-31
+
+- Shared email preflight: added `shared/email/emailPreflight.ts` + `shared/email/sendWithPreflight.ts` for cross-app validation + suppression filtering before sends.
+- Shared suppressions table: added `supabase/migrations/20260331_email_suppressions.sql` (`public.email_suppressions`) for explicit opt-out / bounce / complaint suppression across TI + RI (marketing vs transactional behavior).
+- TI + RI email sends: added `sendEmailVerified(...)` wrappers in `apps/ti-web/lib/email.ts` and `apps/referee/lib/email.ts` and switched key send paths to use preflight + suppression checks.
+- TI account: added an Email preferences section on `/account` to opt out of marketing emails or pause all emails (writes to `public.email_suppressions` via `/api/account/email-preferences`).
+- TI outbound sender: standardized TI `From` to `TournamentInsights <hello@mail.tournamentinsights.com>` (TI no longer falls back to `REVIEW_ALERT_FROM`).
+- One-click unsubscribe (marketing): added `/unsubscribe` on TI and added `List-Unsubscribe` headers + per-recipient signed unsubscribe links for admin-blast sends.
+- Suppression behavior:
+  - `kind: "marketing"` skips recipients where `suppress_marketing=true` **or** `suppress_all=true`.
+  - `kind: "transactional"` skips recipients **only** when `suppress_all=true`.
+  - Add/update suppressions by inserting rows into `public.email_suppressions` (admin-only via `public.is_admin()`; full CRUD allowed to `service_role`).
+- Preflight behavior:
+  - Normalizes/dedupes recipients, blocks invalid `from` addresses/domains, and warns when email content contains `localhost` links (allowed by default outside production).
+
 ## 2026-03-29
 
 - TI Outreach Previews: director email search is now a global lookup (does not get blocked by selected `campaign_id`, `sport`, or `start_after`), and uses a case-insensitive contains match so minor whitespace/casing issues still return results.
