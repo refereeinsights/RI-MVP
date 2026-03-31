@@ -13,6 +13,18 @@ import { signUnsubscribeToken } from "../../../../../shared/email/unsubscribeTok
 
 export const runtime = "nodejs";
 
+type EmailTemplateKind = "marketing" | "transactional";
+
+type TiAdminEmailTemplateRow = {
+  id: string;
+  name: string;
+  kind: EmailTemplateKind;
+  subject: string;
+  body: string;
+  updated_at: string | null;
+  last_used_at: string | null;
+};
+
 type TiUserRow = {
   id: string;
   email: string | null;
@@ -310,6 +322,14 @@ async function loadEventCodes(): Promise<EventCodeLoadResult> {
 function buildPathWithNotice(notice: string, q = "") {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
+  params.set("notice", notice);
+  return `/admin/ti?${params.toString()}`;
+}
+
+function buildPathWithNoticeAndTemplate(notice: string, q: string, templateId?: string | null) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (templateId) params.set("template_id", templateId);
   params.set("notice", notice);
   return `/admin/ti?${params.toString()}`;
 }
@@ -789,10 +809,13 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
   await requireAdmin();
 
   const q = String(formData.get("q") ?? "").trim();
+  const templateId = String(formData.get("template_id") ?? "").trim();
   const subject = String(formData.get("subject") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const sendToAllLoaded = String(formData.get("send_to_all_loaded") ?? "").trim() === "on";
   const confirmSend = String(formData.get("confirm_send") ?? "").trim();
+  const kindRaw = String(formData.get("kind") ?? "").trim().toLowerCase();
+  const kind: EmailTemplateKind = kindRaw === "transactional" ? "transactional" : "marketing";
 
   if (!subject) redirect(buildPathWithNotice("Subject is required.", q));
   if (!body) redirect(buildPathWithNotice("Body is required.", q));
@@ -827,7 +850,7 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
 
   const suppression = await filterSuppressedRecipients({
     supabaseAdmin,
-    kind: "marketing",
+    kind,
     recipients: unique,
   }).catch(() => ({ allowed: unique, suppressed: [] as Array<{ email: string; reason: string | null }> }));
 
@@ -855,15 +878,17 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
       const results = await Promise.all(
         group.map(async (email) => {
           try {
-            const unsubscribeUrl = secret
-              ? (() => {
-                  const { sig } = signUnsubscribeToken({ email, scope: "marketing", exp, secret });
-                  return `${tiBaseUrl}/unsubscribe?email=${encodeURIComponent(email)}&scope=marketing&exp=${exp}&sig=${sig}`;
-                })()
-              : "";
-            const optOutText = unsubscribeUrl
-              ? `Unsubscribe: ${unsubscribeUrl}\nManage preferences: ${manageUrl}`
-              : `Manage preferences: ${manageUrl}`;
+            const unsubscribeUrl =
+              kind === "marketing" && secret
+                ? (() => {
+                    const { sig } = signUnsubscribeToken({ email, scope: "marketing", exp, secret });
+                    return `${tiBaseUrl}/unsubscribe?email=${encodeURIComponent(email)}&scope=marketing&exp=${exp}&sig=${sig}`;
+                  })()
+                : "";
+            const optOutText =
+              kind === "marketing" && unsubscribeUrl
+                ? `Unsubscribe: ${unsubscribeUrl}\nManage preferences: ${manageUrl}`
+                : `Manage preferences: ${manageUrl}`;
             const fullText = `${safeBody}\n\n—\n${optOutText}`;
             const html = `
               <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; line-height:1.5; color:#0f172a;">
@@ -877,9 +902,14 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
               </div>
             `;
 
-            const listUnsubscribe = unsubscribeUrl
-              ? `<${unsubscribeUrl}>, <mailto:hello@mail.tournamentinsights.com?subject=unsubscribe>`
-              : `<mailto:hello@mail.tournamentinsights.com?subject=unsubscribe>`;
+            const headers: Record<string, string> = {};
+            if (kind === "marketing") {
+              const listUnsubscribe = unsubscribeUrl
+                ? `<${unsubscribeUrl}>, <mailto:hello@mail.tournamentinsights.com?subject=unsubscribe>`
+                : `<mailto:hello@mail.tournamentinsights.com?subject=unsubscribe>`;
+              headers["List-Unsubscribe"] = listUnsubscribe;
+              if (unsubscribeUrl) headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
+            }
 
             const res = await sendEmail({
               to: email,
@@ -887,10 +917,7 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
               html,
               text: fullText,
               from: process.env.TI_OUTREACH_FROM ?? "TournamentInsights <hello@mail.tournamentinsights.com>",
-              headers: {
-                "List-Unsubscribe": listUnsubscribe,
-                ...(unsubscribeUrl ? { "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : {}),
-              },
+              headers,
             });
             if ((res as any)?.skipped) throw new Error("Skipped (email provider not configured).");
             return { ok: true, email } as const;
@@ -908,6 +935,16 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to send email.";
     redirect(buildPathWithNotice(`Bulk send failed: ${message}`, q));
+  }
+
+  if (templateId) {
+    try {
+      await (supabaseAdmin.from("ti_admin_email_templates" as any) as any)
+        .update({ last_used_at: new Date().toISOString() })
+        .eq("id", templateId);
+    } catch {
+      // ignore
+    }
   }
 
   for (const e of errors.slice(0, 20)) {
@@ -934,7 +971,69 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
     failed === 0
       ? `Bulk email sent to ${sent} recipient(s).${skippedSuppressed ? ` Skipped ${skippedSuppressed} suppressed.` : ""}`
       : `Bulk email sent to ${sent}/${allowedRecipients.length}. ${failed} failed (first 20 logged).${skippedSuppressed ? ` Skipped ${skippedSuppressed} suppressed.` : ""}`;
-  redirect(buildPathWithNotice(summary, q));
+  redirect(buildPathWithNoticeAndTemplate(summary, q, templateId || null));
+}
+
+async function saveTiEmailTemplateAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+
+  const q = String(formData.get("q") ?? "").trim();
+  const name = String(formData.get("template_name") ?? "").trim();
+  const subject = String(formData.get("subject") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  const kindRaw = String(formData.get("kind") ?? "").trim().toLowerCase();
+  const kind: EmailTemplateKind = kindRaw === "transactional" ? "transactional" : "marketing";
+
+  if (!name) redirect(buildPathWithNotice("Template name is required.", q));
+  if (!subject) redirect(buildPathWithNotice("Subject is required.", q));
+  if (!body) redirect(buildPathWithNotice("Body is required.", q));
+
+  const { data, error } = await (supabaseAdmin.from("ti_admin_email_templates" as any) as any)
+    .insert({ name, subject, body, kind })
+    .select("id")
+    .single();
+
+  if (error) redirect(buildPathWithNotice(`Save template failed: ${error.message}`, q));
+  redirect(buildPathWithNoticeAndTemplate("Template saved.", q, (data as any)?.id ?? null));
+}
+
+async function updateTiEmailTemplateAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+
+  const q = String(formData.get("q") ?? "").trim();
+  const templateId = String(formData.get("template_id") ?? "").trim();
+  const name = String(formData.get("template_name") ?? "").trim();
+  const subject = String(formData.get("subject") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  const kindRaw = String(formData.get("kind") ?? "").trim().toLowerCase();
+  const kind: EmailTemplateKind = kindRaw === "transactional" ? "transactional" : "marketing";
+
+  if (!templateId) redirect(buildPathWithNotice("Select a template to update.", q));
+  if (!name) redirect(buildPathWithNoticeAndTemplate("Template name is required.", q, templateId));
+  if (!subject) redirect(buildPathWithNoticeAndTemplate("Subject is required.", q, templateId));
+  if (!body) redirect(buildPathWithNoticeAndTemplate("Body is required.", q, templateId));
+
+  const { error } = await (supabaseAdmin.from("ti_admin_email_templates" as any) as any)
+    .update({ name, subject, body, kind, updated_at: new Date().toISOString() })
+    .eq("id", templateId);
+
+  if (error) redirect(buildPathWithNoticeAndTemplate(`Update template failed: ${error.message}`, q, templateId));
+  redirect(buildPathWithNoticeAndTemplate("Template updated.", q, templateId));
+}
+
+async function deleteTiEmailTemplateAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+
+  const q = String(formData.get("q") ?? "").trim();
+  const templateId = String(formData.get("template_id") ?? "").trim();
+  if (!templateId) redirect(buildPathWithNotice("Select a template to delete.", q));
+
+  const { error } = await (supabaseAdmin.from("ti_admin_email_templates" as any) as any).delete().eq("id", templateId);
+  if (error) redirect(buildPathWithNoticeAndTemplate(`Delete template failed: ${error.message}`, q, templateId));
+  redirect(buildPathWithNotice("Template deleted.", q));
 }
 
 async function updateTiUserFieldAction(formData: FormData) {
@@ -1282,7 +1381,7 @@ async function loadAuthTroubleshooting(q: string): Promise<{ rows: AuthTroublesh
 export default async function TiAdminPage({
   searchParams,
 }: {
-  searchParams?: { q?: string; notice?: string; alert_kpis?: string };
+  searchParams?: { q?: string; notice?: string; alert_kpis?: string; template_id?: string };
 }) {
   const adminUser = await requireAdmin();
   const tiAdminBaseUrl =
@@ -1293,6 +1392,7 @@ export default async function TiAdminPage({
   const notice = (searchParams?.notice ?? "").trim();
   const eventCodeNotice = notice.toLowerCase().includes("event code") ? notice : "";
   const showAlertKpis = String(searchParams?.alert_kpis ?? "").trim() === "1";
+  const templateId = (searchParams?.template_id ?? "").trim();
 
   let query = (supabaseAdmin.from("ti_users" as any) as any)
     .select(
@@ -1313,6 +1413,13 @@ export default async function TiAdminPage({
 
   const alertKpis = showAlertKpis ? await loadTournamentAlertKpis() : null;
   const savedChangeKpis = showAlertKpis ? await loadSavedTournamentChangeKpis() : null;
+
+  const { data: templatesRaw, error: templatesErr } = await (supabaseAdmin.from("ti_admin_email_templates" as any) as any)
+    .select("id,name,kind,subject,body,updated_at,last_used_at")
+    .order("updated_at", { ascending: false })
+    .limit(50);
+  const templates = (templatesRaw ?? []) as TiAdminEmailTemplateRow[];
+  const selectedTemplate = templateId ? templates.find((t) => t.id === templateId) ?? null : null;
 
   // Lightweight per-tournament rollups for the "Top tournaments by Yes" table expanders.
   let rollupByTournamentId: Record<string, TournamentQuickCheckRollup | undefined> = {};
@@ -1920,11 +2027,57 @@ export default async function TiAdminPage({
               <p style={{ margin: 0, color: "#64748b", fontSize: 12 }}>
                 Sends individual emails (no BCC) to protect recipient privacy. Limit: 50 recipients per send. Suppressed emails (opt-out list) are skipped automatically.
               </p>
+              {templatesErr ? (
+                <p style={{ margin: 0, color: "#b91c1c", fontSize: 12 }}>
+                  Templates load failed (apply latest Supabase migrations): {templatesErr.message}
+                </p>
+              ) : (
+                <form action="/admin/ti" method="get" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
+                  <input type="hidden" name="q" value={q} />
+                  <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
+                    Template
+                    <select name="template_id" defaultValue={templateId} style={{ padding: 8, minWidth: 260 }}>
+                      <option value="">(No template)</option>
+                      {templates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} {t.kind === "transactional" ? "· transactional" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button type="submit" style={{ padding: "8px 12px", fontWeight: 800 }}>
+                    Load
+                  </button>
+                </form>
+              )}
               <form action={sendTiUserBulkEmailAction} style={{ display: "grid", gap: 10 }}>
                 <input type="hidden" name="q" value={q} />
+                <input type="hidden" name="template_id" value={templateId} />
+                <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
+                  Template name (optional)
+                  <input
+                    name="template_name"
+                    defaultValue={selectedTemplate?.name ?? ""}
+                    placeholder="e.g. Insider announcement (v1)"
+                    style={{ padding: 8 }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
+                  Type
+                  <select name="kind" defaultValue={selectedTemplate?.kind ?? "marketing"} style={{ padding: 8, maxWidth: 220 }}>
+                    <option value="marketing">Marketing</option>
+                    <option value="transactional">Transactional</option>
+                  </select>
+                </label>
                 <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
                   Subject
-                  <input name="subject" placeholder="Subject" style={{ padding: 8 }} required />
+                  <input
+                    name="subject"
+                    defaultValue={selectedTemplate?.subject ?? ""}
+                    placeholder="Subject"
+                    style={{ padding: 8 }}
+                    required
+                  />
                 </label>
                 <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
                   Body (plain text)
@@ -1933,9 +2086,31 @@ export default async function TiAdminPage({
                     placeholder="Paste message content…"
                     rows={8}
                     style={{ padding: 8, resize: "vertical" }}
+                    defaultValue={selectedTemplate?.body ?? ""}
                     required
                   />
                 </label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button type="submit" formAction={saveTiEmailTemplateAction} style={{ padding: "8px 12px", fontWeight: 800 }}>
+                    Save as template
+                  </button>
+                  <button
+                    type="submit"
+                    formAction={updateTiEmailTemplateAction}
+                    disabled={!templateId}
+                    style={{ padding: "8px 12px", fontWeight: 800, opacity: templateId ? 1 : 0.5 }}
+                  >
+                    Update template
+                  </button>
+                  <button
+                    type="submit"
+                    formAction={deleteTiEmailTemplateAction}
+                    disabled={!templateId}
+                    style={{ padding: "8px 12px", fontWeight: 800, opacity: templateId ? 1 : 0.5 }}
+                  >
+                    Delete template
+                  </button>
+                </div>
                 <div style={{ display: "grid", gap: 8 }}>
                   <label style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 12, color: "#334155" }}>
                     <input type="checkbox" name="send_to_all_loaded" />
@@ -1966,7 +2141,7 @@ export default async function TiAdminPage({
                 </div>
                 <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
                   Confirm by typing <code>SEND</code>
-                  <input name="confirm_send" placeholder="SEND" style={{ padding: 8, maxWidth: 160 }} required />
+                  <input name="confirm_send" placeholder="SEND" style={{ padding: 8, maxWidth: 160 }} />
                 </label>
                 <div>
                   <button type="submit" style={{ padding: "8px 12px", fontWeight: 800 }}>
