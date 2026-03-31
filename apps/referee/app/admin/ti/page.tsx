@@ -657,7 +657,7 @@ async function loadAuthTroubleshooting(q: string): Promise<{ rows: AuthTroublesh
 export default async function TiAdminPage({
   searchParams,
 }: {
-  searchParams?: { q?: string; notice?: string };
+  searchParams?: { q?: string; notice?: string; alert_kpis?: string };
 }) {
   const adminUser = await requireAdmin();
   const tiAdminBaseUrl =
@@ -667,6 +667,7 @@ export default async function TiAdminPage({
   const q = (searchParams?.q ?? "").trim();
   const notice = (searchParams?.notice ?? "").trim();
   const eventCodeNotice = notice.toLowerCase().includes("event code") ? notice : "";
+  const showAlertKpis = String(searchParams?.alert_kpis ?? "").trim() === "1";
 
   let query = (supabaseAdmin.from("ti_users" as any) as any)
     .select(
@@ -684,6 +685,8 @@ export default async function TiAdminPage({
   const eventCodes = await loadEventCodes();
   const { data: quickCheckMetricsRaw } = await (supabaseAdmin as any).rpc("get_venue_quick_check_metrics", { p_days: 30 });
   const quickCheckMetrics = (quickCheckMetricsRaw ?? null) as QuickCheckMetrics | null;
+
+  const alertKpis = showAlertKpis ? await loadTournamentAlertKpis() : null;
 
   // Lightweight per-tournament rollups for the "Top tournaments by Yes" table expanders.
   let rollupByTournamentId: Record<string, TournamentQuickCheckRollup | undefined> = {};
@@ -851,6 +854,117 @@ export default async function TiAdminPage({
             TI Admin
           </Link>
         </div>
+      </section>
+
+      <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 14, background: "#fff", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 18 }}>Tournament Alert KPIs</h2>
+            <p style={{ margin: "6px 0 0 0", color: "#64748b", fontSize: 13 }}>
+              Adoption + sends + Resend errors (email + error message).
+            </p>
+          </div>
+          {showAlertKpis ? (
+            <Link href="/admin/ti" style={{ fontSize: 13 }}>
+              Hide
+            </Link>
+          ) : (
+            <Link href="/admin/ti?alert_kpis=1" style={{ padding: "8px 10px", border: "1px solid #cbd5e1", borderRadius: 10 }}>
+              Load alert KPIs
+            </Link>
+          )}
+        </div>
+
+        {showAlertKpis ? (
+          alertKpis?.error ? (
+            <p style={{ color: "#b91c1c", margin: "10px 0 0 0" }}>
+              Unable to load KPIs: {alertKpis.error}
+            </p>
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(160px, 1fr))", gap: 10, marginTop: 12 }}>
+                {[
+                  ["Users with alerts", String(alertKpis?.usersWithAnyAlerts ?? 0)],
+                  ["Active alerts", String(alertKpis?.activeAlerts ?? 0)],
+                  ["Daily active", String(alertKpis?.activeDailyAlerts ?? 0)],
+                  ["Weekly active", String(alertKpis?.activeWeeklyAlerts ?? 0)],
+                ].map(([label, value]) => (
+                  <div key={label} style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 10 }}>
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>{label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 12 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <h3 style={{ margin: 0, fontSize: 15 }}>Sends (last 7 days)</h3>
+                    <span style={{ fontSize: 12, color: "#64748b" }}>Successful sends only</span>
+                  </div>
+                  <div style={{ display: "grid", gap: 6, marginTop: 10, fontSize: 13 }}>
+                    <div><strong>Daily:</strong> {alertKpis?.sendsLast7DaysDaily ?? 0}</div>
+                    <div><strong>Weekly:</strong> {alertKpis?.sendsLast7DaysWeekly ?? 0}</div>
+                  </div>
+                </div>
+
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 12 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <h3 style={{ margin: 0, fontSize: 15 }}>Errors (last 7 days)</h3>
+                    <span style={{ fontSize: 12, color: "#64748b" }}>Resend failures</span>
+                  </div>
+                  <div style={{ display: "grid", gap: 6, marginTop: 10, fontSize: 13 }}>
+                    <div><strong>Daily:</strong> {alertKpis?.errorsLast7DaysDaily ?? 0}</div>
+                    <div><strong>Weekly:</strong> {alertKpis?.errorsLast7DaysWeekly ?? 0}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 14 }}>
+                <h3 style={{ margin: "0 0 8px 0", fontSize: 15 }}>Latest send errors</h3>
+                {alertKpis?.recentErrors?.length ? (
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 920 }}>
+                      <thead>
+                        <tr>
+                          {[
+                            ["When", 170],
+                            ["Cadence", 90],
+                            ["Email", 260],
+                            ["Alert", 140],
+                            ["Error", 520],
+                          ].map(([h, w]) => (
+                            <th
+                              key={String(h)}
+                              style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: "8px 6px", fontSize: 12, width: w }}
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {alertKpis.recentErrors.map((row, idx) => (
+                          <tr key={`${row.id ?? idx}`}>
+                            <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{fmtDate(row.created_at)}</td>
+                            <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12 }}>{row.cadence ?? "—"}</td>
+                            <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12, wordBreak: "break-word" }}>{row.recipient_email ?? "—"}</td>
+                            <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12, fontFamily: "monospace" }}>{row.alert_id ?? "—"}</td>
+                            <td style={{ borderBottom: "1px solid #f1f5f9", padding: "8px 6px", fontSize: 12, color: "#b91c1c" }}>
+                              {row.error_message ?? "Unknown error"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>No errors found.</p>
+                )}
+              </div>
+            </>
+          )
+        ) : null}
       </section>
 
       {notice ? (
@@ -1582,4 +1696,139 @@ export default async function TiAdminPage({
       </section>
     </main>
   );
+}
+
+async function loadTournamentAlertKpis(): Promise<{
+  error: string | null;
+  usersWithAnyAlerts: number;
+  activeAlerts: number;
+  activeDailyAlerts: number;
+  activeWeeklyAlerts: number;
+  sendsLast7DaysDaily: number;
+  sendsLast7DaysWeekly: number;
+  errorsLast7DaysDaily: number;
+  errorsLast7DaysWeekly: number;
+  recentErrors: Array<{
+    id: string;
+    created_at: string | null;
+    cadence: string | null;
+    recipient_email: string | null;
+    alert_id: string | null;
+    error_message: string | null;
+  }>;
+}> {
+  const empty = {
+    error: null,
+    usersWithAnyAlerts: 0,
+    activeAlerts: 0,
+    activeDailyAlerts: 0,
+    activeWeeklyAlerts: 0,
+    sendsLast7DaysDaily: 0,
+    sendsLast7DaysWeekly: 0,
+    errorsLast7DaysDaily: 0,
+    errorsLast7DaysWeekly: 0,
+    recentErrors: [],
+  };
+
+  try {
+    const since7dIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [
+      usersAny,
+      activeAny,
+      activeDaily,
+      activeWeekly,
+      sendsDaily,
+      sendsWeekly,
+      errsDaily,
+      errsWeekly,
+      recentErrors,
+    ] = await Promise.all([
+      (supabaseAdmin.from("user_tournament_alerts" as any) as any)
+        .select("user_id", { count: "exact", head: true })
+        .neq("user_id", "")
+        .then((r: any) => r.count ?? 0),
+      (supabaseAdmin.from("user_tournament_alerts" as any) as any)
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true)
+        .then((r: any) => r.count ?? 0),
+      (supabaseAdmin.from("user_tournament_alerts" as any) as any)
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true)
+        .eq("cadence", "daily")
+        .then((r: any) => r.count ?? 0),
+      (supabaseAdmin.from("user_tournament_alerts" as any) as any)
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true)
+        .eq("cadence", "weekly")
+        .then((r: any) => r.count ?? 0),
+      (supabaseAdmin.from("ti_tournament_alert_send_logs" as any) as any)
+        .select("id", { count: "exact", head: true })
+        .eq("outcome", "sent")
+        .eq("cadence", "daily")
+        .gte("created_at", since7dIso)
+        .then((r: any) => r.count ?? 0),
+      (supabaseAdmin.from("ti_tournament_alert_send_logs" as any) as any)
+        .select("id", { count: "exact", head: true })
+        .eq("outcome", "sent")
+        .eq("cadence", "weekly")
+        .gte("created_at", since7dIso)
+        .then((r: any) => r.count ?? 0),
+      (supabaseAdmin.from("ti_tournament_alert_send_logs" as any) as any)
+        .select("id", { count: "exact", head: true })
+        .eq("outcome", "error")
+        .eq("cadence", "daily")
+        .gte("created_at", since7dIso)
+        .then((r: any) => r.count ?? 0),
+      (supabaseAdmin.from("ti_tournament_alert_send_logs" as any) as any)
+        .select("id", { count: "exact", head: true })
+        .eq("outcome", "error")
+        .eq("cadence", "weekly")
+        .gte("created_at", since7dIso)
+        .then((r: any) => r.count ?? 0),
+      (supabaseAdmin.from("ti_tournament_alert_send_logs" as any) as any)
+        .select("id,created_at,cadence,recipient_email,alert_id,error_message")
+        .eq("outcome", "error")
+        .order("created_at", { ascending: false })
+        .limit(25)
+        .then((r: any) => (r.data ?? []) as any[]),
+    ]);
+
+    const distinctUsers = await loadDistinctUsersWithAlerts().catch(() => usersAny);
+
+    return {
+      ...empty,
+      usersWithAnyAlerts: distinctUsers,
+      activeAlerts: activeAny,
+      activeDailyAlerts: activeDaily,
+      activeWeeklyAlerts: activeWeekly,
+      sendsLast7DaysDaily: sendsDaily,
+      sendsLast7DaysWeekly: sendsWeekly,
+      errorsLast7DaysDaily: errsDaily,
+      errorsLast7DaysWeekly: errsWeekly,
+      recentErrors: (recentErrors ?? []).map((row: any) => ({
+        id: String(row.id ?? ""),
+        created_at: row.created_at ?? null,
+        cadence: row.cadence ?? null,
+        recipient_email: row.recipient_email ?? null,
+        alert_id: row.alert_id ?? null,
+        error_message: row.error_message ?? null,
+      })),
+    };
+  } catch (error) {
+    return { ...empty, error: error instanceof Error ? error.message : "Failed to load alert KPIs." };
+  }
+}
+
+async function loadDistinctUsersWithAlerts(): Promise<number> {
+  const { data, error } = await (supabaseAdmin.from("user_tournament_alerts" as any) as any)
+    .select("user_id");
+  if (error) throw error;
+  const rows = (data ?? []) as Array<{ user_id?: string | null }>;
+  const ids = new Set<string>();
+  for (const r of rows) {
+    const id = String(r.user_id ?? "").trim();
+    if (id) ids.add(id);
+  }
+  return ids.size;
 }

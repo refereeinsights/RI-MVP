@@ -1,0 +1,9 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/tournament-alerts?token=ti_cron_tournament_alerts_v1_20260331_3f2f0f98b7e34b7d9b7f2a0c9c5b6b53",
+      "schedule": "0 6 * * *"
+    }
+  ]
+}
+

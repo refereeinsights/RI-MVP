@@ -111,6 +111,101 @@ export interface Database {
           created_at?: string;
         };
       };
+      user_tournament_alerts: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string | null;
+          zip_code: string;
+          radius_miles: number;
+          days_ahead: number;
+          sport: string | null;
+          cadence: string;
+          is_active: boolean;
+          last_sent_at: string | null;
+          last_result_hash: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          name?: string | null;
+          zip_code: string;
+          radius_miles: number;
+          days_ahead: number;
+          sport?: string | null;
+          cadence: string;
+          is_active?: boolean;
+          last_sent_at?: string | null;
+          last_result_hash?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string | null;
+          zip_code?: string;
+          radius_miles?: number;
+          days_ahead?: number;
+          sport?: string | null;
+          cadence?: string;
+          is_active?: boolean;
+          last_sent_at?: string | null;
+          last_result_hash?: string | null;
+          updated_at?: string;
+        };
+      };
+      cron_job_locks: {
+        Row: {
+          key: string;
+          locked_until: string;
+          locked_at: string;
+          locked_by: string | null;
+        };
+        Insert: {
+          key: string;
+          locked_until: string;
+          locked_at?: string;
+          locked_by?: string | null;
+        };
+        Update: {
+          locked_until?: string;
+          locked_at?: string;
+          locked_by?: string | null;
+        };
+      };
+      ti_tournament_alert_send_logs: {
+        Row: {
+          id: string;
+          created_at: string;
+          alert_id: string | null;
+          user_id: string | null;
+          cadence: string | null;
+          recipient_email: string | null;
+          tournaments_count: number | null;
+          result_hash: string | null;
+          outcome: string;
+          error_message: string | null;
+        };
+        Insert: {
+          alert_id?: string | null;
+          user_id?: string | null;
+          cadence?: string | null;
+          recipient_email?: string | null;
+          tournaments_count?: number | null;
+          result_hash?: string | null;
+          outcome: string;
+          error_message?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          cadence?: string | null;
+          recipient_email?: string | null;
+          tournaments_count?: number | null;
+          result_hash?: string | null;
+          outcome?: string;
+          error_message?: string | null;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

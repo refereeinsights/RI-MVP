@@ -58,7 +58,8 @@ function prettyPlan(plan: string | null | undefined) {
   return normalizePlan(plan) === "weekend_pro" ? "Weekend Pro" : "Insider";
 }
 
-function prettySubscription(status: string | null | undefined) {
+function prettySubscription(status: string | null | undefined, tier: "explorer" | "insider" | "weekend_pro") {
+  if (tier === "insider") return "Free";
   const value = (status ?? "").trim().toLowerCase();
   if (!value || value === "none") return "None";
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -157,9 +158,11 @@ export default async function AccountPage({
           </p>
         ) : null}
         <div className={styles.headerMeta}>
-          <div><strong>Email:</strong> {user.email ?? "—"}</div>
+          <div>
+            <strong>Email:</strong> {user.email ?? "—"}
+          </div>
           <div><strong>Plan:</strong> {effectivePlan}</div>
-          <div><strong>Subscription status:</strong> {prettySubscription(profile?.subscription_status)}</div>
+          <div><strong>Subscription:</strong> {prettySubscription(profile?.subscription_status, tier)}</div>
           <div><strong>Member since:</strong> {prettyDate(profile?.first_seen_at ?? profile?.created_at ?? user.created_at)}</div>
           <div>
             <strong>{profile?.trial_ends_at ? "Trial ends:" : "Renewal date:"}</strong>{" "}
@@ -180,6 +183,28 @@ export default async function AccountPage({
           <h2 className={styles.sectionTitle}>Profile settings</h2>
           <p className={styles.mutedText}>Update the details used for your TI profile and recommendations.</p>
         </div>
+
+        <form action="/api/account/change-email" method="post" className={styles.profileForm}>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Sign-in email</span>
+            <span className={styles.fieldHelp}>
+              We’ll send a confirmation link to the new email address. You’ll keep using your current email until it’s confirmed.
+            </span>
+            <input
+              className={styles.textInput}
+              type="email"
+              name="new_email"
+              defaultValue=""
+              placeholder={user.email ?? "you@example.com"}
+              autoComplete="email"
+              required
+            />
+          </label>
+          <div className={styles.formActions}>
+            <button type="submit" className={styles.secondaryAction}>Change email</button>
+          </div>
+        </form>
+
         <form action="/api/account/profile" method="post" className={styles.profileForm}>
           <label className={styles.field}>
             <span className={styles.fieldLabel}>Full name</span>
@@ -241,6 +266,19 @@ export default async function AccountPage({
       </section>
 
       <SavedTournamentsSection initialItems={savedTournaments} />
+
+      <section className={styles.sectionCard}>
+        <h2 className={styles.sectionTitle}>Scheduled alerts</h2>
+        <p className={styles.mutedText}>
+          Get a quick email with tournaments near you. Alerts are designed for planning: they start looking{" "}
+          <strong>21+</strong> days out.
+        </p>
+        <div className={styles.formActions}>
+          <Link href="/account/alerts" className={styles.primaryAction}>
+            Manage alerts
+          </Link>
+        </div>
+      </section>
 
       <section className={styles.sectionCard}>
         <h2 className={styles.sectionTitle}>Weekend Pro (Coming Soon)</h2>

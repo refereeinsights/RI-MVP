@@ -31,6 +31,13 @@ Maintenance rules:
     - "Browse by State" section derives up to 12 states from query results and links to existing `/{sport}/{state}` hub pages,
     - hockey and ayso pages unchanged (still use `HubTournamentsPage`).
 
+## 2026-03-31
+- TI Scheduled Tournament Alerts (v1):
+  - Added migrations for alerts + cron job locks + send/error logging.
+  - Added TI account UI under `/account/alerts`.
+  - Added cron route + Vercel cron config to send emails via Resend.
+  - Added TI admin KPIs entrypoint for alert stats/debugging.
+
 ## 2026-03-10
 - TI/RI admin fixes:
   - Added revalidation to bulk tournament approve/archive/delete so the pending list refreshes immediately.

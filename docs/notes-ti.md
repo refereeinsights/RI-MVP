@@ -13,6 +13,22 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-03-31
+- Scheduled Tournament Alerts (v1):
+  - Added:
+    - `supabase/migrations/20260331_ti_user_tournament_alerts.sql` (alerts table + cron job lock RPCs)
+    - `supabase/migrations/20260331_ti_tournament_alert_send_logs.sql` (send/error logs for admin KPIs)
+    - `apps/ti-web/app/account/alerts/*` (account UI for create/edit/activate/delete)
+    - `apps/ti-web/app/api/account/alerts/*` (server routes for alert CRUD)
+    - `apps/ti-web/app/api/cron/tournament-alerts/route.ts` (cron send job; Resend)
+    - `apps/ti-web/lib/tournamentAlerts*.ts` (matching, due logic, email rendering, send job)
+    - `docs/ti-scheduled-tournament-alerts.md` (implementation notes)
+    - `apps/ti-web/vercel.json` (Vercel cron config)
+  - Updated:
+    - `apps/ti-web/app/account/page.tsx` (account surfacing + cleanup)
+    - `apps/ti-web/lib/types/supabase.ts` (generated types)
+    - `apps/referee/app/admin/ti/page.tsx` (TI admin KPIs entrypoint)
+
 ## 2026-03-04
 - TI event-code redemption support + trial-aware entitlement gating:
   - Added:
