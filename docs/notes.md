@@ -36,7 +36,10 @@ Maintenance rules:
   - Added migrations for alerts + cron job locks + send/error logging.
   - Added TI account UI under `/account/alerts`.
   - Added cron route + Vercel cron config to send emails via Resend.
-  - Added TI admin KPIs entrypoint for alert stats/debugging.
+  - Added TI admin KPIs entrypoint for alert stats/debugging + one-off “test alert” send form.
+
+- TI saved tournament change notifications (v1):
+  - Added opt-in saved-tournament notification toggle + batched email digest cron with spam protections.
 
 ## 2026-03-10
 - TI/RI admin fixes:

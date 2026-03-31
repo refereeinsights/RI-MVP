@@ -12,6 +12,7 @@ export type SavedTournamentItem = {
   end_date: string | null;
   city: string | null;
   state: string | null;
+  notify_on_changes: boolean;
 };
 
 type SavedTournamentsSectionProps = {
@@ -73,9 +74,40 @@ export default function SavedTournamentsSection({ initialItems }: SavedTournamen
     }
   }
 
+  async function toggleNotify(tournamentId: string, nextValue: boolean) {
+    if (!tournamentId || busyId) return;
+    setBusyId(tournamentId);
+    setStatus("");
+    try {
+      const response = await fetch(`/api/saved-tournaments/${encodeURIComponent(tournamentId)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ notify_on_changes: nextValue }),
+      });
+      const json = await response.json().catch(() => null);
+      if (!response.ok || !json?.ok) {
+        setStatus("Unable to update notification setting.");
+        return;
+      }
+      setItems((prev) =>
+        prev.map((row) =>
+          row.tournament_id === tournamentId ? { ...row, notify_on_changes: nextValue } : row
+        )
+      );
+      setStatus(nextValue ? "Notifications enabled." : "Notifications disabled.");
+    } catch {
+      setStatus("Unable to update notification setting.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <section className={styles.sectionCard}>
       <h2 className={styles.sectionTitle}>My Saved Tournaments</h2>
+      <p className={styles.fieldHelp} style={{ marginTop: -4 }}>
+        Turn on “Notify me of changes” to get an email when public tournament details change. We batch updates and limit emails to at most once per day.
+      </p>
       {sortedItems.length === 0 ? (
         <div className={styles.emptyState}>
           <p>You haven&apos;t saved any tournaments yet.</p>
@@ -100,6 +132,19 @@ export default function SavedTournamentsSection({ initialItems }: SavedTournamen
                 ) : null}
                 <button
                   type="button"
+                  className={styles.secondaryAction}
+                  onClick={() => toggleNotify(item.tournament_id, !item.notify_on_changes)}
+                  disabled={busyId === item.tournament_id}
+                  title="Email me when this tournament's public details change"
+                >
+                  {busyId === item.tournament_id
+                    ? "Saving..."
+                    : item.notify_on_changes
+                    ? "Notify: On"
+                    : "Notify: Off"}
+                </button>
+                <button
+                  type="button"
                   className={styles.removeButton}
                   onClick={() => removeSaved(item.tournament_id)}
                   disabled={busyId === item.tournament_id}
@@ -115,4 +160,3 @@ export default function SavedTournamentsSection({ initialItems }: SavedTournamen
     </section>
   );
 }
-

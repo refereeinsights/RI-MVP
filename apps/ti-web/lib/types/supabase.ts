@@ -99,16 +99,28 @@ export interface Database {
           user_id: string;
           tournament_id: string;
           created_at: string;
+          notify_on_changes: boolean;
+          last_notified_at: string | null;
+          last_notified_hash: string | null;
+          last_notified_critical_hash: string | null;
         };
         Insert: {
           user_id: string;
           tournament_id: string;
           created_at?: string;
+          notify_on_changes?: boolean;
+          last_notified_at?: string | null;
+          last_notified_hash?: string | null;
+          last_notified_critical_hash?: string | null;
         };
         Update: {
           user_id?: string;
           tournament_id?: string;
           created_at?: string;
+          notify_on_changes?: boolean;
+          last_notified_at?: string | null;
+          last_notified_hash?: string | null;
+          last_notified_critical_hash?: string | null;
         };
       };
       user_tournament_alerts: {

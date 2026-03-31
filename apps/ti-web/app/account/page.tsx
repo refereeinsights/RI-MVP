@@ -118,7 +118,7 @@ export default async function AccountPage({
   const effectivePlan = profile ? prettyPlan(profile.plan) : "Insider";
   const { data: savedRowsRaw } = await supabase
     .from("ti_saved_tournaments" as any)
-    .select("tournament_id,tournaments(id,slug,name,start_date,end_date,city,state)")
+    .select("tournament_id,notify_on_changes,tournaments(id,slug,name,start_date,end_date,city,state)")
     .eq("user_id", user.id);
 
   const savedRows = (savedRowsRaw ?? []) as SavedTournamentJoinRow[];
@@ -135,6 +135,7 @@ export default async function AccountPage({
         end_date: tournament.end_date ?? null,
         city: tournament.city ?? null,
         state: tournament.state ?? null,
+        notify_on_changes: Boolean((row as any).notify_on_changes),
       };
     })
     .filter((row): row is SavedTournamentItem => Boolean(row))

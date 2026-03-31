@@ -28,6 +28,21 @@ Maintenance rules:
     - `apps/ti-web/app/account/page.tsx` (account surfacing + cleanup)
     - `apps/ti-web/lib/types/supabase.ts` (generated types)
     - `apps/referee/app/admin/ti/page.tsx` (TI admin KPIs entrypoint)
+  - Follow-ups:
+    - Added a one-off “Send test alert” form on the TI admin KPIs panel (email/zip/radius/sport) for on-demand debugging.
+
+- Saved tournament change notifications (v1):
+  - Added:
+    - `supabase/migrations/20260331_ti_saved_tournament_change_notifications.sql`
+    - `apps/ti-web/app/api/cron/saved-tournament-changes/route.ts`
+    - `apps/ti-web/lib/savedTournamentChangeNotificationsJob.ts`
+    - `apps/ti-web/lib/savedTournamentChangeNotificationsEmail.ts`
+    - `docs/ti-saved-tournament-change-notifications.md`
+  - Updated:
+    - `apps/ti-web/app/account/page.tsx`
+    - `apps/ti-web/app/account/SavedTournamentsSection.tsx`
+    - `apps/ti-web/app/api/saved-tournaments/[tournamentId]/route.ts`
+    - `apps/ti-web/vercel.json`
 
 ## 2026-03-04
 - TI event-code redemption support + trial-aware entitlement gating:
