@@ -22,6 +22,22 @@ function normalizeLower(value: unknown): string {
     .replace(/\s+/g, " ");
 }
 
+function normalizeAddressForBlocklist(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isBlockedOrganizerAddress(value: unknown) {
+  const normalized = normalizeAddressForBlocklist(value);
+  if (!normalized) return false;
+  // Organizer mailing address that sometimes gets misclassified as a venue.
+  return normalized.includes("1529") && (normalized.includes("3rd") || normalized.includes("third")) && normalized.includes("32250");
+}
+
 function parseFullAddress(addr: string): { address: string; city: string; state: string; zip: string | null } | null {
   const raw = String(addr ?? "").trim();
   if (!raw) return null;
@@ -59,6 +75,9 @@ async function getOrCreateVenueFromCandidate(args: {
 }) {
   const venueName = cleanText(args.venue_name);
   const addressText = cleanText(args.address_text);
+  if (isBlockedOrganizerAddress(addressText)) {
+    throw new Error("blocked_organizer_address");
+  }
   const parsed = addressText ? parseFullAddress(addressText) : null;
   const streetAddress = cleanText(parsed?.address ?? addressText);
   const venueNameForInsert = (() => {
@@ -252,7 +271,7 @@ export async function POST(request: Request) {
     const selectedVenueRows = (venues ?? []) as any[];
     const firstVenue = selectedVenueRows[0] as any;
     if (firstVenue?.venue_name) updates.venue = firstVenue.venue_name;
-    if (firstVenue?.address_text) updates.address = firstVenue.address_text;
+    if (firstVenue?.address_text && !isBlockedOrganizerAddress(firstVenue.address_text)) updates.address = firstVenue.address_text;
     if (firstVenue?.venue_url) updates.venue_url = firstVenue.venue_url;
 
     if (selectedVenueRows.length) {
@@ -265,6 +284,9 @@ export async function POST(request: Request) {
 
       for (const venue of selectedVenueRows) {
         if (!venue?.venue_name && !venue?.address_text && !venue?.venue_url) continue;
+        if (isBlockedOrganizerAddress(venue?.address_text)) {
+          return NextResponse.json({ error: "blocked_organizer_address" }, { status: 400 });
+        }
         const upserted = await getOrCreateVenueFromCandidate({
           tournament_id: tournamentId,
           tournament_city: cleanText(tournamentRow?.city),

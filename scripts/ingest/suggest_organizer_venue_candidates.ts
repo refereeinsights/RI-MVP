@@ -76,6 +76,22 @@ function clean(value: string | null | undefined) {
   return v.length ? v : null;
 }
 
+function normalizeAddressForBlocklist(value: string | null | undefined) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isBlockedOrganizerAddress(value: string | null | undefined) {
+  const normalized = normalizeAddressForBlocklist(value);
+  if (!normalized) return false;
+  // Organizer mailing address that sometimes gets misclassified as a venue.
+  return normalized.includes("1529") && (normalized.includes("3rd") || normalized.includes("third")) && normalized.includes("32250");
+}
+
 function normalizeState(value: string | null | undefined) {
   const v = clean(value);
   return v ? v.toUpperCase() : null;
@@ -245,6 +261,7 @@ async function main() {
   let skippedNoOrganizer = 0;
   let skippedNoEvidence = 0;
   let skippedLowEvidence = 0;
+  let skippedBlockedAddress = 0;
   let skippedInsertDuplicate = 0;
 
   for (const tournamentId of missingIds) {
@@ -325,6 +342,28 @@ async function main() {
       const v = candidate.venue;
       if (!clean(v.name)) continue;
       const venueAddressText = formatVenueAddressText(v);
+      if (isBlockedOrganizerAddress(venueAddressText)) {
+        skippedBlockedAddress += 1;
+        fs.appendFileSync(
+          REPORT_PATH,
+          [
+            tournamentId,
+            t.name ?? "",
+            spec.kind,
+            spec.value,
+            v.id,
+            v.name ?? "",
+            venueAddressText,
+            candidate.evidenceCount,
+            candidate.confidence.toFixed(3),
+            "skipped",
+            "blocked_organizer_address",
+          ]
+            .map(csvCell)
+            .join(",") + "\n"
+        );
+        continue;
+      }
       const evidenceText = [
         `Organizer ${spec.kind}: ${spec.value}`,
         `Seen in ${candidate.evidenceCount} linked tournaments`,
@@ -397,7 +436,7 @@ async function main() {
 
   console.log(`[organizer_candidates] report=${REPORT_PATH}`);
   console.log(
-    `[organizer_candidates] apply=${APPLY} tournaments=${missingIds.length} inserted=${inserted} skipped_no_organizer=${skippedNoOrganizer} skipped_no_evidence=${skippedNoEvidence} skipped_low_evidence=${skippedLowEvidence} skipped_duplicate=${skippedInsertDuplicate}`
+    `[organizer_candidates] apply=${APPLY} tournaments=${missingIds.length} inserted=${inserted} skipped_no_organizer=${skippedNoOrganizer} skipped_no_evidence=${skippedNoEvidence} skipped_low_evidence=${skippedLowEvidence} skipped_blocked_address=${skippedBlockedAddress} skipped_duplicate=${skippedInsertDuplicate}`
   );
 }
 

@@ -721,14 +721,58 @@ function extractVenues($: cheerio.CheerioAPI, url: string): VenueCandidate[] {
     return venues;
   }
 
+  const normalizeLine = (value: string) => value.replace(/\s+/g, " ").trim();
+
+  const looksLikeFullAddressLine = (value: string) => {
+    const v = normalizeLine(value);
+    // Requires a comma-separated street prefix plus a city/state/zip-ish suffix.
+    // Handles: "..., Mesa, AZ 85201" and "..., Mesa AZ 85207"
+    return /,\s*[^,]{2,60}\s*,?\s*[A-Z]{2}\s*\d{5}(?:-\d{4})?\b/i.test(v);
+  };
+
+  const splitVenueNameAndAddress = (value: string): { venueName: string | null; addressText: string | null } => {
+    const v = normalizeLine(value);
+    const idx = v.search(/\b\d{1,5}\s+[A-Za-z0-9]/);
+    if (idx <= 0) return { venueName: null, addressText: looksLikeFullAddressLine(v) ? v : null };
+    const venueNameRaw = v.slice(0, idx).replace(/[\s\-–:.,]+$/g, "").trim();
+    const addressTextRaw = v.slice(idx).trim();
+    return {
+      venueName: venueNameRaw.length >= 2 ? venueNameRaw : null,
+      addressText: addressTextRaw.length ? addressTextRaw : null,
+    };
+  };
+
+  // Prefer extracting venue lines from anchors (common pattern: fields list with per-venue links/PDFs).
+  $("a[href]").each((_, el) => {
+    const anchorText = normalizeLine($(el).text() || "");
+    if (!anchorText) return;
+    if (!looksLikeFullAddressLine(anchorText)) return;
+    const href = String($(el).attr("href") || "").trim();
+    const { venueName, addressText } = splitVenueNameAndAddress(anchorText);
+    if (!addressText) return;
+    venues.push({
+      tournament_id: "",
+      venue_name: venueName,
+      address_text: addressText,
+      // Avoid setting a PDF link as the venue URL (we use it as evidence/source instead).
+      venue_url: href && !/\.pdf(\?|#|$)/i.test(href) ? href : null,
+      source_url: url,
+      evidence_text: normalizeLine(`${anchorText}${href ? ` (link: ${href})` : ""}`).slice(0, 300),
+      confidence: 0.85,
+    });
+  });
+
   const headingSelectors = ["h1", "h2", "h3", "li", "p"];
   headingSelectors.forEach((sel) => {
     $(sel).each((_, el) => {
-      const block = $(el).text().trim();
+      const block = normalizeLine($(el).text() || "");
       if (!block) return;
       const blockLower = block.toLowerCase();
       const hasKeyword = VENUE_KEYWORDS.some((k) => blockLower.includes(k));
       const addressMatch = block.match(/\d{1,5}\s+\w+/);
+      const looksLikeAddressLine = looksLikeFullAddressLine(block);
+      // Avoid spamming a single giant paragraph as one "venue".
+      if (block.length > 220 && !looksLikeAddressLine) return;
       if (hasKeyword || addressMatch) {
         const confidence = (hasKeyword ? 0.3 : 0) + (addressMatch ? 0.4 : 0);
         venues.push({
@@ -908,14 +952,16 @@ export function extractFromPage(html: string, url: string): PageResult {
   $("script,style").remove();
   const cleanedHtml = $.html() || html;
   const contacts = extractContacts(cleanedHtml, url);
+  const venues = extractVenues($, url);
+  const { comps, pdfs } = extractComp($, url);
   const dates = extractDates($, url);
   const attributes = extractAttributes($, url);
 
   return {
     contacts,
-    venues: [],
-    comps: [],
-    pdfHints: [],
+    venues,
+    comps,
+    pdfHints: pdfs,
     dates,
     attributes,
   };

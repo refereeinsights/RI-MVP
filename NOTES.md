@@ -273,3 +273,8 @@
 - RI admin dashboard: fixed Owl’s Eye venue count to avoid PostgREST max-row caps (uses a set-based COUNT via `venues` + `owls_eye_runs` inner join, with a paged `owls_eye_runs` fallback).
 - Ingest: `scripts/ingest/suggest_organizer_venue_candidates.ts` now loads `.env.local` automatically and defaults CSV output to `~/Downloads/organizer_venue_candidates_<timestamp>.csv` (still supports `--out=...`).
 - Ingest: added `scripts/ingest/ingest_venue_enrichment_csv.ts` to ingest `tournament_uuid` + venue details from CSV, link existing venues when found, create venues only when needed, and upsert `tournament_venues` links; safely splits `A / B / C` venue+address rows into separate venues when the address list aligns; writes a report CSV to `~/Downloads/`.
+
+## 2026-03-31
+
+- RI enrichment: enable venue extraction + persistence from tournament pages (fixes `TBD` venues when pages include a venue list like “Fields:” with per-venue links). Venue extractor now prefers per-anchor venue/address lines and avoids turning PDF layout links into venue URLs.
+- RI enrichment apply: hard-block known organizer mailing address `1529 Third St. S., Jacksonville Beach, FL 32250` from being inserted or applied as a venue candidate (prevents false venue matches). Also filters this address in draft-upload venue scan + organizer venue-candidate suggestion scripts.

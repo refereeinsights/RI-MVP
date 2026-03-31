@@ -177,6 +177,22 @@ async function upsertCandidates(
   dates: DateCandidate[],
   attributes: AttributeCandidate[]
 ) {
+  const normalizeAddressForBlocklist = (value: string | null | undefined) =>
+    String(value ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const isBlockedOrganizerAddress = (value: string | null | undefined) => {
+    const normalized = normalizeAddressForBlocklist(value);
+    if (!normalized) return false;
+    // Common organizer mailing address that gets misclassified as a venue.
+    // "1529 Third St. S., Jacksonville Beach, FL 32250" (+ variants like "3rd"/"third").
+    return normalized.includes("1529") && (normalized.includes("3rd") || normalized.includes("third")) && normalized.includes("32250");
+  };
+
   const withTid = <T extends { tournament_id: string }>(rows: T[]) =>
     rows.map((r) => ({ ...r, tournament_id: tournamentId }));
   const contactsNoPhone = contacts.map((c) => ({ ...c, phone: null }));
@@ -215,6 +231,7 @@ async function upsertCandidates(
     }
   }
   if (venues.length) {
+    const filtered = venues.filter((v) => !isBlockedOrganizerAddress(v.address_text));
     const { data: existing } = await supabaseAdmin
       .from("tournament_venue_candidates" as any)
       .select("venue_name,address_text")
@@ -223,7 +240,7 @@ async function upsertCandidates(
       .is("rejected_at", null);
     const existingSig = new Set((existing ?? []).map((v: any) => [norm(v.venue_name), norm(v.address_text)].join("|")));
     const batchSig = new Set<string>();
-    const deduped = venues.filter((v) => {
+    const deduped = filtered.filter((v) => {
       const sig = [norm(v.venue_name), norm(v.address_text)].join("|");
       if (existingSig.has(sig) || batchSig.has(sig)) return false;
       batchSig.add(sig);
@@ -255,6 +272,10 @@ async function upsertCandidates(
     }
   }
   if (attributes.length) {
+    const filtered = attributes.filter((a) => {
+      if (String(a.attribute_key ?? "") !== "address") return true;
+      return !isBlockedOrganizerAddress((a as any).attribute_value);
+    });
     const { data: existing } = await supabaseAdmin
       .from("tournament_attribute_candidates" as any)
       .select("attribute_key,attribute_value,source_url")
@@ -265,7 +286,7 @@ async function upsertCandidates(
       (existing ?? []).map((a: any) => [norm(a.attribute_key), norm(a.attribute_value), norm(a.source_url)].join("|"))
     );
     const batchSig = new Set<string>();
-    const deduped = attributes.filter((a) => {
+    const deduped = filtered.filter((a) => {
       const sig = [norm(a.attribute_key), norm(a.attribute_value), norm(a.source_url)].join("|");
       if (existingSig.has(sig) || batchSig.has(sig)) return false;
       batchSig.add(sig);
@@ -305,7 +326,7 @@ async function processTournamentById(
   await upsertCandidates(
     tournamentId,
     scrape.contacts.slice(0, 20),
-    [],
+    scrape.venues.slice(0, 20),
     [],
     scrape.dates.slice(0, 5),
     scrape.attributes.slice(0, 10)

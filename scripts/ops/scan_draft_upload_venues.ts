@@ -67,6 +67,22 @@ function isBlank(value: unknown) {
   return !clean(value);
 }
 
+function normalizeAddressForBlocklist(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isBlockedOrganizerAddress(value: unknown) {
+  const normalized = normalizeAddressForBlocklist(value);
+  if (!normalized) return false;
+  // Organizer mailing address that gets misclassified as a venue.
+  return normalized.includes("1529") && (normalized.includes("3rd") || normalized.includes("third")) && normalized.includes("32250");
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -393,7 +409,7 @@ async function main() {
     const best = candidates
       .slice()
       .sort((a, b) => Number(b.confidence ?? 0) - Number(a.confidence ?? 0))[0];
-    if (best?.address_text) {
+    if (best?.address_text && !isBlockedOrganizerAddress(best.address_text)) {
       attrs.push({
         tournament_id: draft.id,
         attribute_key: "address",
@@ -404,12 +420,15 @@ async function main() {
       });
     }
 
+    const filteredCandidates = candidates.filter((c) => !isBlockedOrganizerAddress(c.address_text));
+    const filteredAttrs = attrs.filter((a) => a.attribute_key !== "address" || !isBlockedOrganizerAddress(a.attribute_value));
+
     const dedupeKey = (c: VenueCandidateInsert) =>
       `${clean(c.venue_name).toLowerCase()}|${clean(c.address_text).toLowerCase()}|${clean(c.venue_url).toLowerCase()}|${clean(c.source_url).toLowerCase()}`;
-    const dedupedCandidates = Array.from(new Map(candidates.map((c) => [dedupeKey(c), c])).values()).slice(0, 12);
+    const dedupedCandidates = Array.from(new Map(filteredCandidates.map((c) => [dedupeKey(c), c])).values()).slice(0, 12);
     const dedupeAttrKey = (a: AttrCandidateInsert) =>
       `${a.attribute_key}|${clean(a.attribute_value).toLowerCase()}|${clean(a.source_url).toLowerCase()}`;
-    const dedupedAttrs = Array.from(new Map(attrs.map((a) => [dedupeAttrKey(a), a])).values()).slice(0, 12);
+    const dedupedAttrs = Array.from(new Map(filteredAttrs.map((a) => [dedupeAttrKey(a), a])).values()).slice(0, 12);
 
     const foundTags: string[] = [];
     if (dedupedCandidates.length) foundTags.push("venue_candidates");
@@ -479,4 +498,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

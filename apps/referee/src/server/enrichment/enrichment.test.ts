@@ -18,6 +18,18 @@ const sampleDates = `
   </section>
 `;
 
+const sampleVenues = `
+  <div>
+    <p>
+      <strong>Fields:</strong><br />
+      <strong>
+        <a href="https://example.com/AC_Lehi_Sports_Park_25.pdf">Lehi Sports Complex 2228 N Center St, Mesa, AZ 85201</a><br />
+        <a href="https://example.com/AC_New_Red_Mountain_25.pdf">Red Mountain Soccer Complex- North- 7745 East Brown Rd, Mesa AZ 85207</a>
+      </strong>
+    </p>
+  </div>
+`;
+
 describe("extractFromPage", () => {
   it("extracts contact candidates with normalized email and role", () => {
     const res = extractFromPage(sampleContact, "https://example.com");
@@ -35,5 +47,14 @@ describe("extractFromPage", () => {
     const deadline = res.dates.find((d) => d.start_date === "2026-02-20");
     assert(weekend);
     assert(deadline);
+  });
+
+  it("extracts venue candidates from linked field lists", () => {
+    const res = extractFromPage(sampleVenues, "https://example.com/events/arsenal-challenge");
+    const lehi = res.venues.find((v) => v.address_text?.includes("2228 N Center St") && v.address_text?.includes("85201"));
+    assert(lehi);
+    assert.strictEqual(lehi?.venue_name, "Lehi Sports Complex");
+    // PDF layout links should not become venue URLs.
+    assert.strictEqual(lehi?.venue_url ?? null, null);
   });
 });
