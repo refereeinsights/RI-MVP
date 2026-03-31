@@ -19,7 +19,7 @@ export async function middleware(req: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            res.cookies.set(name, value, options);
+            res.cookies.set(name, value, { ...options, path: "/" });
           });
         },
       },

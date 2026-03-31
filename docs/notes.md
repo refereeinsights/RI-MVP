@@ -39,6 +39,7 @@ Maintenance rules:
   - Added TI admin KPIs entrypoint for alert stats/debugging + one-off “test alert” send form.
   - Added an Insider-only Owl’s Eye™ teaser line (counts-only) for up to the first 1–2 matched tournaments that have persisted nearby data.
   - Updated Owl’s Eye “gear” emoji to `⚽` across venue teaser + emails.
+  - Fixed Supabase SSR cookie `path` handling to always set auth cookies on `/` so `/api/account/profile` (and related API routes) can read the signed-in session reliably.
 
 - TI saved tournament change notifications (v1):
   - Added opt-in saved-tournament notification toggle + batched email digest cron with spam protections.

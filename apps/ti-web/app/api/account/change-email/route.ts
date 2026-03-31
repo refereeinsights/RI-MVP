@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
+            response.cookies.set(name, value, { ...options, path: "/" });
           });
         },
       },
@@ -75,4 +75,3 @@ export async function POST(req: NextRequest) {
     `Confirmation sent to ${nextEmail}. Click the link in that email to finish updating your sign-in.`
   );
 }
-

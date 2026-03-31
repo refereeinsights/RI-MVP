@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            successRedirect.cookies.set(name, value, options);
+            successRedirect.cookies.set(name, value, { ...options, path: "/" });
           });
         },
       },
@@ -69,4 +69,3 @@ export async function GET(req: NextRequest) {
 
   return successRedirect;
 }
-
