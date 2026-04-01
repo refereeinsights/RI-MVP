@@ -101,9 +101,14 @@ export default function VenuesListClient({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [mergingSource, setMergingSource] = useState<string | null>(null);
+  const [mergingGroupId, setMergingGroupId] = useState<string | null>(null);
+  const [mergingGroupProgress, setMergingGroupProgress] = useState<{ done: number; total: number } | null>(null);
   const [keepingSource, setKeepingSource] = useState<string | null>(null);
   const [deletingVenueId, setDeletingVenueId] = useState<string | null>(null);
   const [targetByGroup, setTargetByGroup] = useState<Record<string, string>>({});
+  const [selectedDuplicateSourcesByGroup, setSelectedDuplicateSourcesByGroup] = useState<
+    Record<string, Record<string, boolean>>
+  >({});
   const dismissedStorageKey = useMemo(() => {
     const from = recentTournamentVenueLinksFrom || "none";
     const to = recentTournamentVenueLinksTo || "none";
@@ -198,6 +203,73 @@ export default function VenuesListClient({
       window.alert(message);
     } finally {
       setMergingSource(null);
+    }
+  };
+
+  const mergeVenueNoConfirm = async (sourceVenueId: string, targetVenueId: string) => {
+    const resp = await fetch("/api/admin/venues/merge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_venue_id: sourceVenueId, target_venue_id: targetVenueId, remove_source: true }),
+    });
+    if (!resp.ok) {
+      const json = await resp.json().catch(() => ({}));
+      throw new Error(json?.error || "Merge failed");
+    }
+  };
+
+  const setDuplicateSourceSelected = (groupId: string, venueId: string, selected: boolean) => {
+    setSelectedDuplicateSourcesByGroup((prev) => {
+      const groupMap = { ...(prev[groupId] || {}) };
+      if (selected) groupMap[venueId] = true;
+      else delete groupMap[venueId];
+      return { ...prev, [groupId]: groupMap };
+    });
+  };
+
+  const selectAllDuplicateSources = (group: DuplicateVenueGroup, groupId: string, targetVenueId: string) => {
+    setSelectedDuplicateSourcesByGroup((prev) => {
+      const nextMap: Record<string, boolean> = {};
+      for (const c of group.candidates) {
+        if (c.id === targetVenueId) continue;
+        nextMap[c.id] = true;
+      }
+      return { ...prev, [groupId]: nextMap };
+    });
+  };
+
+  const clearDuplicateSources = (groupId: string) => {
+    setSelectedDuplicateSourcesByGroup((prev) => ({ ...prev, [groupId]: {} }));
+  };
+
+  const mergeSelectedDuplicateSources = async (group: DuplicateVenueGroup, groupId: string, targetVenueId: string) => {
+    const selectedMap = selectedDuplicateSourcesByGroup[groupId] || {};
+    const sourceVenueIds = Object.keys(selectedMap).filter((id) => id && id !== targetVenueId);
+    if (sourceVenueIds.length === 0) return;
+
+    const ok = window.confirm(
+      `Merge ${sourceVenueIds.length} venue${sourceVenueIds.length === 1 ? "" : "s"} into target ${targetVenueId}? This will delete the source venues.`
+    );
+    if (!ok) return;
+
+    setMergingGroupId(groupId);
+    setMergingGroupProgress({ done: 0, total: sourceVenueIds.length });
+    try {
+      for (let i = 0; i < sourceVenueIds.length; i++) {
+        const sourceId = sourceVenueIds[i];
+        setMergingSource(sourceId);
+        await mergeVenueNoConfirm(sourceId, targetVenueId);
+        setMergingGroupProgress({ done: i + 1, total: sourceVenueIds.length });
+      }
+      window.location.reload();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Batch merge failed";
+      window.alert(message);
+      window.location.reload();
+    } finally {
+      setMergingSource(null);
+      setMergingGroupId(null);
+      setMergingGroupProgress(null);
     }
   };
 
@@ -480,15 +552,77 @@ export default function VenuesListClient({
                   const groupId = duplicateGroupId(group);
                   const selectedTargetId = selectedTargetIdForGroup(group);
                   const selectedTarget = group.candidates.find((item) => item.id === selectedTargetId) ?? group.candidates[0];
+                  const selectedSourcesMap = selectedDuplicateSourcesByGroup[groupId] || {};
+                  const selectedSourceIds = Object.keys(selectedSourcesMap).filter((id) => id && id !== selectedTargetId);
+                  const isBatchMerging = mergingGroupId === groupId;
                   return (
                     <>
                 <div style={{ fontSize: 12, color: "#6b7280" }}>
                   Merge target: <span style={{ fontFamily: "monospace", fontWeight: 700 }}>{selectedTargetId}</span>
                   {selectedTargetId === group.suggested_target_id ? " (suggested)" : " (override)"}
                 </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <button
+                    type="button"
+                    onClick={() => selectAllDuplicateSources(group, groupId, selectedTargetId)}
+                    disabled={isBatchMerging}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #d1d5db",
+                      background: "#fff",
+                      color: "#111827",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: isBatchMerging ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Select all sources
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => clearDuplicateSources(groupId)}
+                    disabled={isBatchMerging}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #d1d5db",
+                      background: "#fff",
+                      color: "#374151",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: isBatchMerging ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Clear selection
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void mergeSelectedDuplicateSources(group, groupId, selectedTargetId)}
+                    disabled={selectedSourceIds.length === 0 || isBatchMerging}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #1d4ed8",
+                      background: isBatchMerging ? "#dbeafe" : "#fff",
+                      color: "#1d4ed8",
+                      fontSize: 13,
+                      fontWeight: 900,
+                      cursor: selectedSourceIds.length === 0 || isBatchMerging ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {isBatchMerging
+                      ? `Merging… ${mergingGroupProgress?.done ?? 0}/${mergingGroupProgress?.total ?? selectedSourceIds.length}`
+                      : `Merge selected (${selectedSourceIds.length})`}
+                  </button>
+                  <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 700 }}>
+                    Tip: pick the target first, then multi-select sources.
+                  </span>
+                </div>
                 {group.candidates.map((item) => {
                   const isTarget = item.id === selectedTargetId;
                   const isSuggested = item.id === group.suggested_target_id;
+                  const isChecked = Boolean(selectedSourcesMap[item.id]);
                   return (
                     <div
                       key={item.id}
@@ -501,7 +635,22 @@ export default function VenuesListClient({
                         background: isTarget ? "#ecfdf5" : "#fff",
                       }}
                     >
-                      <div style={{ fontWeight: 700 }}>{item.name || "Untitled venue"}</div>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                        {!isTarget ? (
+                          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, fontWeight: 800, color: "#111827" }}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={isBatchMerging}
+                              onChange={(e) => setDuplicateSourceSelected(groupId, item.id, e.target.checked)}
+                            />
+                            Select
+                          </label>
+                        ) : (
+                          <span style={{ fontSize: 12, fontWeight: 900, color: "#065f46" }}>Target</span>
+                        )}
+                        <div style={{ fontWeight: 700 }}>{item.name || "Untitled venue"}</div>
+                      </div>
                       <div style={{ fontSize: 13, color: "#374151" }}>
                         {[item.address, item.city, item.state, item.zip].filter(Boolean).join(" • ") || "—"}
                       </div>
@@ -580,23 +729,23 @@ export default function VenuesListClient({
                       </div>
                       {!isTarget ? (
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <button
-                            type="button"
-                            onClick={() => mergeVenue(item.id, selectedTargetId)}
-                            disabled={mergingSource === item.id}
-                            style={{
-                              padding: "6px 10px",
-                              borderRadius: 8,
-                              border: "1px solid #1d4ed8",
-                              background: mergingSource === item.id ? "#dbeafe" : "#fff",
-                              color: "#1d4ed8",
-                              fontWeight: 700,
-                              cursor: mergingSource === item.id ? "not-allowed" : "pointer",
-                            }}
-                          >
-                            {mergingSource === item.id ? "Merging..." : "Merge into suggested target"}
-                          </button>
-                          <button
+                        <button
+                          type="button"
+                          onClick={() => mergeVenue(item.id, selectedTargetId)}
+                          disabled={mergingSource === item.id || isBatchMerging}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #1d4ed8",
+                            background: mergingSource === item.id ? "#dbeafe" : "#fff",
+                            color: "#1d4ed8",
+                            fontWeight: 700,
+                            cursor: mergingSource === item.id || isBatchMerging ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          {mergingSource === item.id ? "Merging..." : "Merge into suggested target"}
+                        </button>
+                        <button
                             type="button"
                             onClick={() => keepBoth(item.id, selectedTargetId)}
                             disabled={keepingSource === item.id}
