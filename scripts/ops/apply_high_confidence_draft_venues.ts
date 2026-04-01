@@ -121,13 +121,49 @@ function parseFullAddress(addr: string): { address1: string; city: string; state
   // Common variants we see from scrapers:
   // - "2228 N Center St, Mesa, AZ 85201"
   // - "7745 East Brown Rd, Mesa AZ 85207" (missing comma before state)
-  const m = addr.match(/^(.+?),\s*([A-Za-z.\s]{2,60}),?\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)$/);
-  if (!m) return null;
-  const address1 = clean(m[1] ?? "");
-  const city = clean(m[2] ?? "");
-  const state = clean(m[3] ?? "").toUpperCase();
-  const zip = clean(m[4] ?? "");
-  if (!address1 || !city || !state || !zip) return null;
+  const normalized = clean(addr);
+  if (!normalized) return null;
+
+  // Preferred: "street, city, ST ZIP" (comma between street and city).
+  const m = normalized.match(/^(.+?),\s*([A-Za-z.\s]{2,60}),?\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)$/);
+  if (m) {
+    const address1 = clean(m[1] ?? "");
+    const city = clean(m[2] ?? "");
+    const state = clean(m[3] ?? "").toUpperCase();
+    const zip = clean(m[4] ?? "");
+    if (!address1 || !city || !state || !zip) return null;
+    return { address1, city, state, zip };
+  }
+
+  // PerfectGame often renders: "21800 20th Ave S Des Moines, WA 98198" (no comma after street).
+  const tail = normalized.match(/,\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)$/);
+  if (!tail) return null;
+  const state = clean(tail[1] ?? "").toUpperCase();
+  const zip = clean(tail[2] ?? "");
+  const left = clean(normalized.slice(0, tail.index ?? normalized.length));
+  if (!left || !state || !zip) return null;
+
+  const tokens = left.split(" ").filter(Boolean);
+  if (tokens.length < 4) return null;
+
+  const suffix =
+    /\b(St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Ln|Lane|Blvd|Boulevard|Ct|Court|Way|Pkwy|Parkway|Pl|Place|Cir|Circle|Ter|Terrace|Highway|Hwy)\b\.?/i;
+  const direction = new Set(["n", "s", "e", "w", "ne", "nw", "se", "sw"]);
+
+  let splitIdx = -1;
+  for (let i = tokens.length - 1; i >= 0; i -= 1) {
+    if (suffix.test(tokens[i])) {
+      splitIdx = i + 1;
+      // Include a trailing direction token like "S" in "Ave S".
+      if (splitIdx < tokens.length && direction.has(tokens[splitIdx].toLowerCase())) splitIdx += 1;
+      break;
+    }
+  }
+  if (splitIdx < 2 || splitIdx >= tokens.length) return null;
+
+  const address1 = clean(tokens.slice(0, splitIdx).join(" "));
+  const city = clean(tokens.slice(splitIdx).join(" "));
+  if (!address1 || !city) return null;
   return { address1, city, state, zip };
 }
 
