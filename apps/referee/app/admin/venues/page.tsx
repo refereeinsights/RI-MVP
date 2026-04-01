@@ -394,8 +394,27 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       allVenuesLite.push(...rows);
       if (rows.length < pageSize) break;
     }
-    const { data: allLinks } = await supabaseAdmin.from("tournament_venues" as any).select("venue_id");
-    const { data: allRuns } = await supabaseAdmin.from("owls_eye_runs" as any).select("venue_id");
+    // These tables can easily exceed PostgREST's default page size (often 1000).
+    // Page through them to avoid undercounting "Linked tournaments" / Owl's Eye runs per venue.
+    const fetchAllVenueIds = async (table: string, order?: { column: string; ascending: boolean }) => {
+      const rows: Array<{ venue_id: string | null }> = [];
+      const pageSize = 5000;
+      const maxRows = 500000; // safety cap
+      for (let offset = 0; offset < maxRows; offset += pageSize) {
+        let q = supabaseAdmin.from(table as any).select("venue_id");
+        if (order) q = q.order(order.column as any, { ascending: order.ascending });
+        const resp = await q.range(offset, offset + pageSize - 1);
+        if (resp.error) break;
+        const batch = (resp.data ?? []) as Array<{ venue_id: string | null }>;
+        if (!batch.length) break;
+        rows.push(...batch);
+        if (batch.length < pageSize) break;
+      }
+      return rows;
+    };
+
+    const allLinks = await fetchAllVenueIds("tournament_venues", { column: "venue_id", ascending: true });
+    const allRuns = await fetchAllVenueIds("owls_eye_runs", { column: "venue_id", ascending: true });
     let duplicateOverrides: Array<{ venue_a_id: string; venue_b_id: string }> = [];
     try {
       const resp = await supabaseAdmin
