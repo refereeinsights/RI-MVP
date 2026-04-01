@@ -129,6 +129,14 @@ export async function POST(request: Request) {
     }
   }
 
+  // Remove old tournament_venues rows referencing the source venue.
+  // Without this, deleting the source venue can fail due to FK constraints (and it leaves duplicate links).
+  try {
+    await supabaseAdmin.from("tournament_venues" as any).delete().eq("venue_id", sourceVenueId);
+  } catch {
+    // ignore
+  }
+
   // Keep Owl's Eye history attached to the kept venue where possible.
   try {
     await supabaseAdmin.from("owls_eye_runs" as any).update({ venue_id: targetVenueId }).eq("venue_id", sourceVenueId);
