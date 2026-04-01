@@ -206,6 +206,36 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     ref_paid_parking: cleanBool(payload?.ref_paid_parking) ?? undefined,
   };
 
+  // Keep `address` (full string) in sync when admins edit `address1` (street) or locality fields.
+  // The admin UI primarily edits `address1`, but other tooling (like duplicates view) prefers `address`.
+  if (
+    typeof update.address === "undefined" &&
+    (typeof update.address1 !== "undefined" ||
+      typeof update.city !== "undefined" ||
+      typeof update.state !== "undefined" ||
+      typeof update.zip !== "undefined")
+  ) {
+    try {
+      const { data: current } = await supabaseAdmin
+        .from("venues" as any)
+        .select("address1,address,city,state,zip")
+        .eq("id", params.id)
+        .maybeSingle();
+      const currentVenue = (current ?? null) as Record<string, any> | null;
+      const street = typeof update.address1 !== "undefined" ? update.address1 : cleanString(currentVenue?.address1);
+      const city = typeof update.city !== "undefined" ? update.city : cleanString(currentVenue?.city);
+      const state = typeof update.state !== "undefined" ? update.state : cleanString(currentVenue?.state);
+      const zip = typeof update.zip !== "undefined" ? update.zip : cleanString(currentVenue?.zip);
+      const stateZip = [state, zip].filter(Boolean).join(" ");
+      const full = [street, city, stateZip].filter(Boolean).join(", ");
+      if (full) {
+        update.address = full;
+      }
+    } catch {
+      // best-effort; never block updates
+    }
+  }
+
   const needsTimezone = typeof update.timezone === "undefined";
   if (needsTimezone) {
     const { data } = await supabaseAdmin
