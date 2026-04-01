@@ -85,6 +85,9 @@ type QuickCheckMetrics = {
   totalStarted: number;
   totalDismissed: number;
   totalSubmitted: number;
+  totalSignupPromptShown?: number;
+  totalSignupClicked?: number;
+  totalSignupDismissed?: number;
   totalSubmissions: number;
   avgFieldsCompleted: number;
   submissionFieldCounts: Record<string, number>;
@@ -1912,18 +1915,21 @@ export default async function TiAdminPage({
           </span>
         </summary>
         {quickCheckMetrics ? (
-          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-              {[
-                { label: "Opened", value: quickCheckMetrics.totalOpened },
-                { label: "Yes (Started)", value: quickCheckMetrics.totalStarted },
-                { label: "No (Dismissed)", value: quickCheckMetrics.totalDismissed },
-                { label: "Submitted (event)", value: quickCheckMetrics.totalSubmitted },
-                { label: "Submissions (DB)", value: quickCheckMetrics.totalSubmissions },
-                { label: "Avg fields", value: quickCheckMetrics.avgFieldsCompleted },
-              ].map((tile) => (
-                <div
-                  key={tile.label}
+            <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {[
+                  { label: "Opened", value: quickCheckMetrics.totalOpened },
+                  { label: "Yes (Started)", value: quickCheckMetrics.totalStarted },
+                  { label: "No (Dismissed)", value: quickCheckMetrics.totalDismissed },
+                  { label: "Submitted (event)", value: quickCheckMetrics.totalSubmitted },
+                  { label: "Signup prompt shown", value: quickCheckMetrics.totalSignupPromptShown ?? 0 },
+                  { label: "Signup clicked", value: quickCheckMetrics.totalSignupClicked ?? 0 },
+                  { label: "Signup dismissed", value: quickCheckMetrics.totalSignupDismissed ?? 0 },
+                  { label: "Submissions (DB)", value: quickCheckMetrics.totalSubmissions },
+                  { label: "Avg fields", value: quickCheckMetrics.avgFieldsCompleted },
+                ].map((tile) => (
+                  <div
+                    key={tile.label}
                   style={{
                     minWidth: 160,
                     padding: "10px 12px",

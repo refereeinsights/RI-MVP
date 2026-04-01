@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { sendTiAnalytics } from "@/lib/analytics";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import styles from "./QuickVenueCheck.module.css";
 
 type VenueOption = { id: string; name: string | null };
@@ -11,6 +13,7 @@ type Props = {
   venueOptions?: VenueOption[];
   pageType: "venue" | "tournament";
   sourceTournamentId?: string | null;
+  signedIn?: boolean;
 };
 
 type ScoreOption = { label: string; value: number };
@@ -56,7 +59,7 @@ function useBrowserHash() {
   }, []);
 }
 
-export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournamentId }: Props) {
+export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournamentId, signedIn }: Props) {
   const browserHash = useBrowserHash();
   const multiVenue = (venueOptions?.length ?? 0) > 1;
   const singleVenueId = !multiVenue ? venueOptions?.[0]?.id || venueId || null : null;
@@ -73,6 +76,11 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
   const openedOnce = useMemo(() => ({ sent: false }), []);
   const [gate, setGate] = useState<"gate" | "form" | "dismissed">("gate");
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(singleVenueId);
+  const [promptDismissed, setPromptDismissed] = useState(false);
+  const [isSignedIn, setIsSignedIn] = useState<boolean | null>(typeof signedIn === "boolean" ? signedIn : null);
+  const promptSeenOnce = useMemo(() => ({ sent: false }), []);
+
+  const promptDismissKey = "ti_qvc_insider_prompt_dismissed_v1";
 
   useEffect(() => {
     if (!openedOnce.sent) {
@@ -84,6 +92,12 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
       });
     }
   }, [venueId, selectedVenueId, pageType, sourceTournamentId, openedOnce]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const dismissed = window.sessionStorage.getItem(promptDismissKey) === "1";
+    if (dismissed) setPromptDismissed(true);
+  }, []);
 
   const selectedCount = [restroomCleanliness, parkingDistance, shadeScore, bringChairs, restroomType].filter(
     (v) => v !== null
@@ -161,6 +175,43 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
     }
   }
 
+  useEffect(() => {
+    if (!done) return;
+    if (typeof signedIn === "boolean") return;
+    // Resolve signed-in status for the post-submit prompt (server pages can also pass this in).
+    let alive = true;
+    const resolve = async () => {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!alive) return;
+        setIsSignedIn(Boolean(user));
+      } catch {
+        if (!alive) return;
+        setIsSignedIn(false);
+      }
+    };
+    resolve();
+    return () => {
+      alive = false;
+    };
+  }, [done, signedIn]);
+
+  const shouldShowSignupPrompt = done && isSignedIn === false && !promptDismissed;
+
+  useEffect(() => {
+    if (!shouldShowSignupPrompt) return;
+    if (promptSeenOnce.sent) return;
+    promptSeenOnce.sent = true;
+    sendTiAnalytics("Venue Quick Check Signup Prompt Shown", {
+      venueUuid: resolvedVenueId,
+      pageType,
+      sourceTournamentUuid: sourceTournamentId ?? null,
+    });
+  }, [shouldShowSignupPrompt, resolvedVenueId, pageType, sourceTournamentId, promptSeenOnce]);
+
   if (!isOpen) {
     return (
       <button className={styles.reopen} type="button" onClick={() => setIsOpen(true)}>
@@ -170,13 +221,66 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
   }
 
   if (done) {
+    const signupHref = `/signup?returnTo=${encodeURIComponent("/account")}`;
+
+    function dismissPrompt() {
+      setPromptDismissed(true);
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem(promptDismissKey, "1");
+      }
+      sendTiAnalytics("Venue Quick Check Signup Dismissed", {
+        venueUuid: resolvedVenueId,
+        pageType,
+        sourceTournamentUuid: sourceTournamentId ?? null,
+      });
+    }
+
     return (
       <div className={styles.card}>
         <button className={styles.close} type="button" onClick={() => setIsOpen(false)} aria-label="Close quick check">
           ×
         </button>
-        <div className={styles.title}>Thanks! Your venue tip helps other teams.</div>
-        <p className={styles.note}>Takes 5 seconds • No login required</p>
+        <div className={styles.title}>Thanks for the quick check</div>
+        <p className={styles.note}>Your input helps improve venue information for other families and teams.</p>
+
+        {isSignedIn === true ? (
+          <div className={styles.actions}>
+            <Link href="/account" className={styles.primaryAction}>
+              Go to account
+            </Link>
+            <Link href="/account/alerts" className={styles.secondaryAction}>
+              View alerts
+            </Link>
+          </div>
+        ) : shouldShowSignupPrompt ? (
+          <>
+            <div className={styles.prompt}>
+              <div className={styles.promptTitle}>Join Insider free</div>
+              <div className={styles.promptBody}>
+                Save tournaments, get alerts for events near you, and track tournament updates.
+              </div>
+            </div>
+            <div className={styles.actions}>
+              <Link
+                href={signupHref}
+                className={styles.primaryAction}
+                onClick={() =>
+                  sendTiAnalytics("Venue Quick Check Signup Clicked", {
+                    venueUuid: resolvedVenueId,
+                    pageType,
+                    sourceTournamentUuid: sourceTournamentId ?? null,
+                  })
+                }
+              >
+                Join Insider Free
+              </Link>
+              <button type="button" className={styles.secondaryAction} onClick={dismissPrompt}>
+                Not now
+              </button>
+            </div>
+          </>
+        ) : null}
+
         <div className={styles.actions}>
           <button type="button" className={styles.reopen} onClick={() => setIsOpen(false)}>
             View venue insights

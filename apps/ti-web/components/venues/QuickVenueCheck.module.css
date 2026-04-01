@@ -93,6 +93,67 @@
   justify-items: center;
 }
 
+.prompt {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  text-align: center;
+}
+
+.promptTitle {
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: #fdfdfd;
+}
+
+.promptBody {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(246, 248, 246, 0.86);
+  line-height: 1.35;
+}
+
+.primaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 260px;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(180deg, #0f7a3a 0%, #0c5d2c 100%);
+  color: #fff;
+  font-weight: 900;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 260px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f6f8f6;
+  font-weight: 800;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.secondaryAction:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
 .submit {
   padding: 12px;
   border-radius: 12px;

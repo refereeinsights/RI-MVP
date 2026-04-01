@@ -11,6 +11,9 @@ const QUICK_CHECK_EVENTS = new Set([
   "Venue Quick Check Started",
   "Venue Quick Check Dismissed",
   "Venue Quick Check Submitted",
+  "Venue Quick Check Signup Prompt Shown",
+  "Venue Quick Check Signup Clicked",
+  "Venue Quick Check Signup Dismissed",
 ]);
 
 function asText(value: unknown) {
