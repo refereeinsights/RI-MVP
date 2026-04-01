@@ -41,6 +41,8 @@ const LIMIT_ARG = process.argv.find((arg) => arg.startsWith("--limit="));
 const LIMIT = LIMIT_ARG ? Number(LIMIT_ARG.split("=")[1]) : 50;
 const OFFSET_ARG = process.argv.find((arg) => arg.startsWith("--offset="));
 const OFFSET = OFFSET_ARG ? Number(OFFSET_ARG.split("=")[1]) : 0;
+const URL_CONTAINS_ARG = process.argv.find((arg) => arg.startsWith("--url_contains="));
+const URL_CONTAINS = URL_CONTAINS_ARG ? String(URL_CONTAINS_ARG.split("=")[1] ?? "").trim() : "";
 
 function loadEnvLocalIfMissing() {
   if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) return;
@@ -66,8 +68,8 @@ function printHelp() {
       "Scan draft tournament uploads missing venues and insert venue/address candidates.",
       "",
       "Usage:",
-      "  TMPDIR=./tmp node --import tsx scripts/ops/scan_draft_upload_venues.ts [--limit=50] [--offset=0]",
-      "  TMPDIR=./tmp node --import tsx scripts/ops/scan_draft_upload_venues.ts --apply [--limit=50] [--offset=0]",
+      "  TMPDIR=./tmp node --import tsx scripts/ops/scan_draft_upload_venues.ts [--limit=50] [--offset=0] [--url_contains=perfectgame.org]",
+      "  TMPDIR=./tmp node --import tsx scripts/ops/scan_draft_upload_venues.ts --apply [--limit=50] [--offset=0] [--url_contains=perfectgame.org]",
       "",
       "Env required:",
       "  NEXT_PUBLIC_SUPABASE_URL",
@@ -524,6 +526,7 @@ async function main() {
     scanned += 1;
     const seedUrl = clean(draft.official_website_url) || clean(draft.source_url);
     if (!seedUrl) continue;
+    if (URL_CONTAINS && !seedUrl.toLowerCase().includes(URL_CONTAINS.toLowerCase())) continue;
 
     const html = await fetchHtml(seedUrl);
     if (!html) {
