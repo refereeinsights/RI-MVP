@@ -1084,6 +1084,48 @@
   color: rgba(248, 251, 255, 0.95);
 }
 
+.detailSavePrompt {
+  width: min(520px, 92vw);
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(10, 20, 14, 0.68);
+  backdrop-filter: blur(12px);
+  color: rgba(248, 251, 255, 0.95);
+}
+
+.detailSavePromptTitle {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.detailSavePromptBody {
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: rgba(248, 251, 255, 0.86);
+}
+
+.detailSavePromptActions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.detailSavePromptPrimary {
+  background: #e7f8ef !important;
+  color: #0d6b4a !important;
+  border-color: rgba(13, 107, 74, 0.35) !important;
+}
+
+.detailSavePromptSecondary {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(248, 251, 255, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
 .detailLinksRow {
   display: flex;
   gap: 10px;

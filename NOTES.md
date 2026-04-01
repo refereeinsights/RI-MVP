@@ -78,6 +78,12 @@
 - Ops: added `scripts/ops/ingest_venues_from_csv.mjs` to ingest venue-only CSV lists (create new venues when address/city/state are present; otherwise skip; fill-in missing venue fields on exact matches).
 - Missing venues deep scan: fixed local script execution by removing `@/` path alias import from `scripts/ingest/link_missing_venues_deep.ts` and improved failure logging so errors don’t print as `[object Object]`.
 
+## 2026-04-01
+
+- TI tournament detail: after a successful Save, show a lightweight opt-in prompt to enable “Notify me of changes” for that specific saved tournament (soft opt-in; dismisses for the current session).
+- TI save tournament API: return `notify_on_changes` status on save-status GET and Save POST so the UI can decide whether to show the opt-in prompt.
+- RI admin bulk email: improved Outlook/webmail-safe button markup and point the Account CTA to TI login (`/login?returnTo=/account`) while preserving existing one-click unsubscribe behavior.
+
 ## 2026-03-14
 
 - Added per-row approval on admin tournament sport validation page to remove nested forms and hydration errors; bulk UI removed.

@@ -36,14 +36,14 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
   const { data, error } = await supabase
     .from("ti_saved_tournaments" as any)
-    .select("id")
+    .select("id,notify_on_changes")
     .eq("user_id", user.id)
     .eq("tournament_id", tournamentId)
     .maybeSingle();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
-  const row = data as { id?: string } | null;
-  return NextResponse.json({ ok: true, saved: Boolean(row?.id) });
+  const row = data as { id?: string; notify_on_changes?: boolean } | null;
+  return NextResponse.json({ ok: true, saved: Boolean(row?.id), notify_on_changes: Boolean(row?.notify_on_changes) });
 }
 
 export async function POST(_request: Request, { params }: RouteParams) {
@@ -56,17 +56,42 @@ export async function POST(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: false, code: "EMAIL_UNVERIFIED", error: "email_unverified" }, { status: 403 });
   }
 
-  const { error } = await (supabase.from("ti_saved_tournaments" as any) as any)
-    .upsert(
-      {
-        user_id: user.id,
-        tournament_id: tournamentId,
-      },
-      { onConflict: "user_id,tournament_id", ignoreDuplicates: true }
-    );
+  const existing = await supabase
+    .from("ti_saved_tournaments" as any)
+    .select("id,notify_on_changes")
+    .eq("user_id", user.id)
+    .eq("tournament_id", tournamentId)
+    .maybeSingle();
+
+  if (existing.error) return NextResponse.json({ ok: false, error: existing.error.message }, { status: 500 });
+  const existingRow = existing.data as { id?: string; notify_on_changes?: boolean } | null;
+
+  if (existingRow?.id) {
+    return NextResponse.json({
+      ok: true,
+      saved: true,
+      created: false,
+      notify_on_changes: Boolean(existingRow.notify_on_changes),
+    });
+  }
+
+  const { data, error } = await (supabase.from("ti_saved_tournaments" as any) as any)
+    .insert({
+      user_id: user.id,
+      tournament_id: tournamentId,
+      // keep notify_on_changes false by default; prompt handles opt-in
+    })
+    .select("id,notify_on_changes")
+    .maybeSingle();
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, saved: true });
+  const row = data as { id?: string; notify_on_changes?: boolean } | null;
+  return NextResponse.json({
+    ok: true,
+    saved: Boolean(row?.id),
+    created: true,
+    notify_on_changes: Boolean(row?.notify_on_changes),
+  });
 }
 
 export async function DELETE(_request: Request, { params }: RouteParams) {

@@ -872,6 +872,7 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
   const safeBody = body.length > 12000 ? `${body.slice(0, 12000)}…` : body;
   const tiBaseUrl = getTiPublicBaseUrl();
   const manageUrl = `${tiBaseUrl}/account`;
+  const loginUrl = `${tiBaseUrl}/login?returnTo=${encodeURIComponent("/account")}`;
   const secret = (process.env.EMAIL_UNSUBSCRIBE_SECRET ?? "").trim();
   const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30; // 30 days
 
@@ -912,34 +913,41 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
                     .join(`<span style="color:#94a3b8;"> · </span>`)
                 : `<a href="${manageUrl}" style="color:#2563eb; text-decoration:underline;">Manage preferences</a>`;
 
+            // "Bulletproof" button structure for Outlook/Webmail consistency.
             const accountButtonHtml = `
-              <a
-                href="${manageUrl}"
-                style="display:inline-block; background:#0f172a; color:#ffffff; text-decoration:none; padding:10px 14px; border-radius:8px; font-weight:800;"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Account
-              </a>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;">
+                <tr>
+                  <td align="center" bgcolor="#0f172a" style="border-radius:10px;">
+                    <a
+                      href="${loginUrl}"
+                      style="display:inline-block; padding:12px 18px; font-family: Arial, Helvetica, sans-serif; font-size:14px; font-weight:800; color:#ffffff; text-decoration:none; border-radius:10px;"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Log in to your account
+                    </a>
+                  </td>
+                </tr>
+              </table>
             `;
 
             const html = `
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; background:#f8fafc; margin:0; padding:0;">
                 <tr>
                   <td align="center" style="padding:24px 12px;">
-                    <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:640px; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px;">
+                    <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:640px; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; border-collapse:separate;">
                       <tr>
-                        <td style="padding:18px 18px 10px 18px; font-family: Arial, Helvetica, sans-serif; line-height:1.55; color:#0f172a; font-size:14px;">
+                        <td style="padding:22px 22px 12px 22px; font-family: Arial, Helvetica, sans-serif; line-height:1.6; mso-line-height-rule:exactly; color:#0f172a; font-size:14px;">
                           ${bodyHtml}
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding:0 18px 16px 18px;">
+                        <td style="padding:0 22px 20px 22px;">
                           ${accountButtonHtml}
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding:12px 18px; border-top:1px solid #e2e8f0; font-family: Arial, Helvetica, sans-serif; color:#64748b; font-size:12px; line-height:1.4;">
+                        <td style="padding:12px 22px; border-top:1px solid #e2e8f0; font-family: Arial, Helvetica, sans-serif; color:#64748b; font-size:12px; line-height:1.4; mso-line-height-rule:exactly;">
                           ${footerLinksHtml}
                           <div style="margin-top:10px; color:#94a3b8;">
                             You’re receiving this email because you have a TournamentInsights account.
