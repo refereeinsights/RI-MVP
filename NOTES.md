@@ -33,8 +33,8 @@
 - Preflight behavior:
   - Normalizes/dedupes recipients, blocks invalid `from` addresses/domains, and warns when email content contains `localhost` links (allowed by default outside production).
 - RI draft uploads: improved venue candidate scanning + auto-fill for pending approval tournaments:
-  - `scripts/ops/scan_draft_upload_venues.ts` now loads `.env.local` automatically, extracts per-venue address lines from “Fields:”/venue lists, and avoids silent insert failures by de-duping against existing candidates and writing insert errors to the CSV report.
-  - `scripts/ops/apply_high_confidence_draft_venues.ts` now loads `.env.local`, parses `City ST ZIP` addresses (comma optional), and treats `fields-link` venue candidates as high-confidence for safe auto-fill into blank `tournaments.venue/address`.
+  - `scripts/ops/scan_draft_upload_venues.ts` now loads `.env.local` automatically, paginates draft fetches, treats placeholder `venue` values (TBD/TBA) as missing, extracts per-venue address lines from “Fields:”/venue lists, and avoids silent insert failures by de-duping against existing candidates and writing insert errors to the CSV report.
+  - `scripts/ops/apply_high_confidence_draft_venues.ts` now loads `.env.local`, paginates draft fetches, parses `City ST ZIP` addresses (comma optional), treats `fields-link` venue candidates as high-confidence, and can overwrite placeholder `tournaments.venue` values (TBD/TBA) when `address` is blank.
 
 ## 2026-03-29
 

@@ -85,6 +85,19 @@ function isBlank(value: unknown) {
   return !clean(value);
 }
 
+function isPlaceholderVenueName(value: unknown) {
+  const v = clean(value).toLowerCase();
+  if (!v) return false;
+  const compact = v.replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!compact) return false;
+  if (compact === "tbd" || compact === "tba") return true;
+  if (compact === "to be determined" || compact === "to be announced") return true;
+  if (compact.includes("venue tbd") || compact.includes("venues tbd")) return true;
+  if (compact.includes("multiple locations") || compact.includes("multiple venues")) return true;
+  if (compact.includes("location tbd") || compact.includes("locations tbd")) return true;
+  return false;
+}
+
 function normalizeAddressForBlocklist(value: unknown) {
   return String(value ?? "")
     .trim()
@@ -332,14 +345,22 @@ async function main() {
 
   const supabase = createClient(url, key, { auth: { persistSession: false } });
 
-  const { data: draftsRaw, error: draftsErr } = await supabase
-    .from("tournaments" as any)
-    .select("id,name,city,state,official_website_url,source_url,venue,address,venue_url")
-    .eq("status", "draft")
-    .order("updated_at", { ascending: false })
-    .limit(1000);
-  if (draftsErr) throw new Error(draftsErr.message);
-  const allDrafts = (draftsRaw ?? []) as DraftRow[];
+  const allDrafts: DraftRow[] = [];
+  const pageSize = 1000;
+  for (let from = 0; from < 50000; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data: draftsRaw, error: draftsErr } = await supabase
+      .from("tournaments" as any)
+      .select("id,name,city,state,official_website_url,source_url,venue,address,venue_url,updated_at")
+      .eq("status", "draft")
+      .order("updated_at", { ascending: false })
+      .range(from, to);
+    if (draftsErr) throw new Error(draftsErr.message);
+    const chunk = (draftsRaw ?? []) as DraftRow[];
+    allDrafts.push(...chunk);
+    if (chunk.length < pageSize) break;
+    if (allDrafts.length >= OFFSET + LIMIT + 2000) break;
+  }
 
   // Focus on drafts that have no venue/address and no tournament_venues links.
   const draftIds = allDrafts.map((d) => String(d.id ?? "")).filter(Boolean);
@@ -355,7 +376,8 @@ async function main() {
 
   const targets = allDrafts
     .filter((d) => !linked.has(d.id))
-    .filter((d) => isBlank(d.venue) && isBlank(d.address))
+    // Treat placeholder venues like "TBD" as missing so we can still scan and replace them.
+    .filter((d) => isBlank(d.address) && (isBlank(d.venue) || isPlaceholderVenueName(d.venue)))
     .slice(OFFSET, OFFSET + LIMIT);
 
   const outPath = buildOutPath();
