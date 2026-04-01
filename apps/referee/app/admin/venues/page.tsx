@@ -437,38 +437,82 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       return normalizeIdentityText(withoutNumber);
     };
 
-    const extractStreetFromName = (name: string | null) => {
-      const raw = String(name ?? "");
-      if (!raw) return null;
-      // Common pattern: "... - 10100 SW 200 Street" or "... 10100 SW 200 Street"
-      const m =
-        raw.match(/(?:-\s*)?(\d{1,6}\s+[A-Za-z0-9 .'-]{2,80}\b(?:st|street|rd|road|ave|avenue|blvd|boulevard|dr|drive|ln|lane|ct|court|pl|place|pkwy|parkway)\b)/i) ??
-        raw.match(/(\d{1,6}\s+[A-Za-z0-9 .'-]{2,80})/);
-      return m?.[1]?.trim() ?? null;
-    };
+	    const extractStreetFromName = (name: string | null) => {
+	      const raw = String(name ?? "");
+	      if (!raw) return null;
+	      // Common pattern: "... - 10100 SW 200 Street" or "... 10100 SW 200 Street"
+	      const m =
+	        raw.match(/(?:-\s*)?(\d{1,6}\s+[A-Za-z0-9 .'-]{2,80}\b(?:st|street|rd|road|ave|avenue|blvd|boulevard|dr|drive|ln|lane|ct|court|pl|place|pkwy|parkway)\b)/i) ??
+	        raw.match(/(\d{1,6}\s+[A-Za-z0-9 .'-]{2,80})/);
+	      return m?.[1]?.trim() ?? null;
+	    };
 
-	    for (const row of allVenuesLite) {
-	      const fallbackStreet = extractStreetFromName(row.name ?? null);
-	      const fallbackAddress = row.address ?? row.address1 ?? row.normalized_address ?? fallbackStreet ?? null;
-	      const candidate: DuplicateVenueCandidate = {
-	        id: String(row.id),
-	        name: row.name ?? null,
-	        address: fallbackAddress,
-	        city: row.city ?? null,
-	        state: row.state ?? null,
-	        zip: row.zip ?? null,
-	        linked_tournaments: linkedByVenue.get(String(row.id)) ?? 0,
-	        owl_run_count: runsByVenue.get(String(row.id)) ?? 0,
-	        venue_url: row.venue_url ?? null,
-	        owl_score: null,
-	        venue_url_host: row.venue_url_host ?? null,
-	        address_fingerprint: row.address_fingerprint ?? null,
-	        name_city_state_fingerprint: row.name_city_state_fingerprint ?? null,
+	    const extractAddressBlobFromName = (name: string | null) => {
+	      const raw = String(name ?? "").trim();
+	      if (!raw) return null;
+	      // Many ingestion flows format as: "Venue Name • 123 Main St, City, ST 12345"
+	      // or "Venue Name · 123 Main St, City, ST 12345"
+	      const parts = raw
+	        .split(/[•·]/)
+	        .map((part) => part.trim())
+	        .filter(Boolean);
+	      if (parts.length < 2) return null;
+	      const candidate = parts[parts.length - 1] ?? "";
+	      if (!candidate) return null;
+	      // Require at least one digit to avoid grouping on non-address suffixes.
+	      if (!/\d/.test(candidate)) return null;
+	      return candidate;
+	    };
+
+	    const parseCityStateZipFromAddress = (addressText: string | null) => {
+	      const raw = String(addressText ?? "").trim();
+	      if (!raw) return { street: null, city: null, state: null, zip: null };
+	      // Some ingests accidentally duplicate state at the end: "... WA 98204, WA"
+	      const cleaned = raw.replace(/,\s*([A-Za-z]{2})\s*$/g, "").replace(/\s+/g, " ").trim();
+	      const m = cleaned.match(
+	        /^(.*?)(?:,\s*|\s+)([A-Za-z .'-]{2,80})\s*,\s*([A-Za-z]{2})\s*(\d{5}(?:-\d{4})?)?\s*$/i
+	      );
+	      if (!m) return { street: null, city: null, state: null, zip: null };
+	      return {
+	        street: (m[1] ?? "").trim() || null,
+	        city: (m[2] ?? "").trim() || null,
+	        state: (m[3] ?? "").trim().toUpperCase() || null,
+	        zip: (m[4] ?? "").trim() || null,
 	      };
-	      allById.set(candidate.id, candidate);
+	    };
 
-      const state = normalizeIdentityText(candidate.state);
-      const city = normalizeIdentityText(candidate.city);
+		    for (const row of allVenuesLite) {
+		      const fallbackStreet = extractStreetFromName(row.name ?? null);
+		      const fallbackAddress =
+		        row.address ??
+		        row.address1 ??
+		        row.normalized_address ??
+		        extractAddressBlobFromName(row.name ?? null) ??
+		        fallbackStreet ??
+		        null;
+		      const parsed = parseCityStateZipFromAddress(fallbackAddress);
+		      const derivedCity = row.city ?? parsed.city ?? null;
+		      const derivedState = row.state ?? parsed.state ?? null;
+		      const derivedZip = row.zip ?? parsed.zip ?? null;
+		      const candidate: DuplicateVenueCandidate = {
+		        id: String(row.id),
+		        name: row.name ?? null,
+		        address: fallbackAddress,
+		        city: derivedCity,
+		        state: derivedState,
+		        zip: derivedZip,
+		        linked_tournaments: linkedByVenue.get(String(row.id)) ?? 0,
+		        owl_run_count: runsByVenue.get(String(row.id)) ?? 0,
+		        venue_url: row.venue_url ?? null,
+		        owl_score: null,
+		        venue_url_host: row.venue_url_host ?? null,
+		        address_fingerprint: row.address_fingerprint ?? null,
+		        name_city_state_fingerprint: row.name_city_state_fingerprint ?? null,
+		      };
+		      allById.set(candidate.id, candidate);
+
+	      const state = normalizeIdentityText(candidate.state);
+	      const city = normalizeIdentityText(candidate.city);
       const street = normalizeIdentityStreet(candidate.address);
       const name = normalizeIdentityText(candidate.name);
       const streetName = normalizeStreetName(candidate.address);
