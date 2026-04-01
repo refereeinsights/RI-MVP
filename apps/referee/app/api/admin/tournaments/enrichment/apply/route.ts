@@ -75,25 +75,17 @@ async function getOrCreateVenueFromCandidate(args: {
 }) {
   const venueName = cleanText(args.venue_name);
   const addressText = cleanText(args.address_text);
+  if (!addressText) {
+    // Avoid creating "venue shell" rows from URLs alone. If we can't produce a real address,
+    // keep this as unresolved evidence rather than polluting venues.
+    throw new Error("venue_missing_address");
+  }
   if (isBlockedOrganizerAddress(addressText)) {
     throw new Error("blocked_organizer_address");
   }
   const parsed = addressText ? parseFullAddress(addressText) : null;
   const streetAddress = cleanText(parsed?.address ?? addressText);
-  const venueNameForInsert = (() => {
-    if (venueName) return venueName;
-    if (streetAddress) return `Venue (${streetAddress})`;
-    if (addressText) return `Venue (${addressText.slice(0, 80)})`;
-    const url = cleanText(args.venue_url);
-    if (url) {
-      try {
-        return `Venue (${new URL(url).hostname})`;
-      } catch {
-        return "Venue";
-      }
-    }
-    return "Venue";
-  })();
+  const venueNameForInsert = venueName ?? `Venue (${streetAddress ?? addressText.slice(0, 80)})`;
 
   const city = cleanText(parsed?.city ?? args.tournament_city);
   const state = cleanText(parsed?.state ?? args.tournament_state)?.toUpperCase() ?? null;
@@ -272,7 +264,8 @@ export async function POST(request: Request) {
     const firstVenue = selectedVenueRows[0] as any;
     if (firstVenue?.venue_name) updates.venue = firstVenue.venue_name;
     if (firstVenue?.address_text && !isBlockedOrganizerAddress(firstVenue.address_text)) updates.address = firstVenue.address_text;
-    if (firstVenue?.venue_url) updates.venue_url = firstVenue.venue_url;
+    // Only persist venue_url when we have a real address-backed venue.
+    if (firstVenue?.venue_url && firstVenue?.address_text) updates.venue_url = firstVenue.venue_url;
 
     if (selectedVenueRows.length) {
       const { data: tournamentRowRaw } = await supabaseAdmin
@@ -284,6 +277,10 @@ export async function POST(request: Request) {
 
       for (const venue of selectedVenueRows) {
         if (!venue?.venue_name && !venue?.address_text && !venue?.venue_url) continue;
+        if (!cleanText(venue?.address_text)) {
+          // Never create/link venues from URL-only candidates.
+          continue;
+        }
         if (isBlockedOrganizerAddress(venue?.address_text)) {
           return NextResponse.json({ error: "blocked_organizer_address" }, { status: 400 });
         }
@@ -373,16 +370,15 @@ export async function POST(request: Request) {
         }
       } else if (key === "venue_url") {
         const text = cleanText(value);
-        if (text) {
-          updates.venue_url = text;
-          attributeVenueUrl = text;
-        }
+        // Only ingest venue URLs when they are tied to a real address/venue row.
+        // A URL by itself is not a venue.
+        if (text) attributeVenueUrl = text;
       }
     }
   }
 
   // If fees/venue attribute enrichment provided address/url, create or link a canonical venue row.
-  if (attributeAddress || attributeVenueUrl) {
+  if (attributeAddress) {
     const { data: tournamentRaw } = await supabaseAdmin
       .from("tournaments" as any)
       .select("name,venue,address,city,state,zip,sport")
@@ -397,7 +393,7 @@ export async function POST(request: Request) {
     const zip = cleanText(tournament?.zip);
     const sport = cleanText(tournament?.sport);
 
-    if (venueName || venueAddress || attributeVenueUrl) {
+    if (venueName && venueAddress) {
       const upserted = await getOrCreateVenueFromCandidate({
         tournament_id: tournamentId,
         tournament_city: city,
@@ -410,12 +406,11 @@ export async function POST(request: Request) {
       });
       const { error: linkErr } = await supabaseAdmin
         .from("tournament_venues" as any)
-        .upsert(
-          { tournament_id: tournamentId, venue_id: upserted.id },
-          { onConflict: "tournament_id,venue_id" }
-        );
+        .upsert({ tournament_id: tournamentId, venue_id: upserted.id }, { onConflict: "tournament_id,venue_id" });
       if (linkErr) throw linkErr;
       didLinkVenue = true;
+      // Now that the venue is resolvable, allow storing the URL as a convenience inline field.
+      if (attributeVenueUrl) updates.venue_url = attributeVenueUrl;
     }
   }
 

@@ -963,25 +963,32 @@ export async function adminSearchPublishedTournaments(
 ): Promise<AdminListedTournament[]> {
   await requireAdmin();
   const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(5000, Math.floor(limit))) : 100;
+  const trimmed = query?.trim();
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const isUuidQuery = Boolean(trimmed && UUID_RE.test(trimmed));
+
   let request = supabaseAdmin
     .from("tournaments")
     .select(
-      "id,name,slug,sport,tournament_association,level,level_of_competition,sub_type,ref_cash_tournament,ref_cash_at_field,tournament_staff_verified,referee_food,facilities,referee_tents,travel_lodging,ref_game_schedule,ref_parking,ref_parking_cost,ref_mentors,assigned_appropriately,state,city,zip,venue,address,venue_url,start_date,end_date,age_group,team_fee,games_guaranteed,player_parking,summary,referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,official_website_url,source_url,source_domain"
+      "id,name,slug,sport,tournament_association,level,level_of_competition,sub_type,ref_cash_tournament,ref_cash_at_field,tournament_staff_verified,referee_food,facilities,referee_tents,travel_lodging,ref_game_schedule,ref_parking,ref_parking_cost,ref_mentors,assigned_appropriately,state,city,zip,venue,address,venue_url,start_date,end_date,age_group,team_fee,games_guaranteed,player_parking,summary,referee_pay,referee_contact,referee_contact_email,referee_contact_phone,tournament_director,tournament_director_email,tournament_director_phone,official_website_url,source_url,source_domain,status"
     )
-    .eq("status", "published")
     .eq("is_canonical", true)
     .order("updated_at", { ascending: false })
     .limit(safeLimit);
+
+  // Primary admin listings are published-only, but allow UUID lookups to return draft rows so
+  // enrichment "Edit" links work for upload-candidate tournaments.
+  if (!isUuidQuery) {
+    request = request.eq("status", "published");
+  }
 
   const normalizedSport = sport?.trim().toLowerCase();
   if (normalizedSport) {
     request = request.eq("sport", normalizedSport);
   }
 
-  const trimmed = query?.trim();
   if (trimmed) {
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (UUID_RE.test(trimmed)) {
+    if (isUuidQuery) {
       request = request.eq("id", trimmed);
     } else {
       const safe = trimmed.replace(/[%,]/g, " ").replace(/\s+/g, " ").trim();

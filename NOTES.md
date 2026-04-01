@@ -83,6 +83,8 @@
 - TI tournament detail: after a successful Save, show a lightweight opt-in prompt to enable “Notify me of changes” for that specific saved tournament (soft opt-in; dismisses for the current session).
 - TI save tournament API: return `notify_on_changes` status on save-status GET and Save POST so the UI can decide whether to show the opt-in prompt.
 - RI admin bulk email: improved Outlook/webmail-safe button markup and point the Account CTA to TI login (`/login?returnTo=/account`) while preserving existing one-click unsubscribe behavior.
+- RI enrichment (fees/venue): stop emitting `venue_url`-only attribute candidates; only treat venue URLs as useful when they resolve to a real venue candidate (name + address).
+- RI enrichment apply: prevent creating/linking venues from URL-only candidates and only persist `tournaments.venue_url` when an address-backed venue was created/linked.
 
 ## 2026-03-14
 

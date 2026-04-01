@@ -1520,21 +1520,10 @@ export async function POST(request: Request) {
         }
       }
 
-      if (venueUrlCandidates.size > 0 && !foundByKey.has("venue_url")) {
-        const filteredVenueUrls = Array.from(venueUrlCandidates)
-          .filter((u) => (focusMissingVenues ? isLikelyVenueLandingPath(u) : true))
-          .slice(0, 5);
-        for (const urlCandidate of filteredVenueUrls) {
-          candidates.push({
-            tournament_id: t.id,
-            attribute_key: "venue_url",
-            attribute_value: urlCandidate,
-            source_url: page.url,
-          });
-        }
-        found.push("venue_url");
-        foundByKey.add("venue_url");
-      }
+      // Do not insert raw venue_url-only candidates. If we can't resolve a URL to a real
+      // venue name + address (and thus create/link a venue), it creates junk rows and
+      // a confusing review experience. Venue URLs are still used to force-parse venue pages
+      // below, which can yield real venue candidates with address text.
 
       if (foundByKey.size >= 5) break;
     }

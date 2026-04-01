@@ -1385,13 +1385,7 @@ export default function EnrichmentClient({
                       {allSelected ? "Clear all" : "Select all"}
                     </button>
                     <Link
-                      href={
-                        info?.slug
-                          ? `/admin?tab=tournament-listings&q=${encodeURIComponent(info.slug)}#tournament-listings`
-                          : info?.name
-                          ? `/admin?tab=tournament-listings&q=${encodeURIComponent(info.name)}#tournament-listings`
-                          : "/admin?tab=tournament-listings#tournament-listings"
-                      }
+                      href={`/admin?tab=tournament-listings&q=${encodeURIComponent(tournamentId)}#tournament-listings`}
                       target="_blank"
                       rel="noreferrer"
                       style={{
