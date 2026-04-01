@@ -289,3 +289,4 @@
 - Ops (production): scanned PerfectGame Field Locations and inserted venue/address candidates for PGNW drafts (37 venue candidates + 20 attribute candidates): `scripts/ops/scan_draft_upload_venues.ts --apply --url_contains=perfectgame.org`.
 - Ops: improved draft-venue apply script to parse PerfectGame’s “street city, ST ZIP” address format (no comma after street) so high-confidence candidates can be auto-applied: `scripts/ops/apply_high_confidence_draft_venues.ts`.
 - Ops (production): applied high-confidence venue candidates to fill `tournaments.venue` + `tournaments.address` for PGNW drafts and enable approve-time linking via `ensureTournamentVenueLink`.
+- TI: Quick Venue Check post-submit success now includes an optional “Join Insider Free” prompt (dismissible per session), and logs analytics for prompt shown/clicked/dismissed; RI admin KPIs updated and Supabase RPC extended via `supabase/migrations/20260401_quick_check_signup_prompt_metrics.sql`.
