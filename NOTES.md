@@ -282,3 +282,10 @@
 - RI enrichment: enable venue extraction + persistence from tournament pages (fixes `TBD` venues when pages include a venue list like “Fields:” with per-venue links). Venue extractor now prefers per-anchor venue/address lines and avoids turning PDF layout links into venue URLs.
 - RI enrichment apply: hard-block known organizer mailing address `1529 Third St. S., Jacksonville Beach, FL 32250` from being inserted or applied as a venue candidate (prevents false venue matches). Also filters this address in draft-upload venue scan + organizer venue-candidate suggestion scripts.
 - Ops: upgraded `scripts/ops/scan_draft_upload_venues.ts` to pull ballpark names + full addresses from PerfectGame `GroupedEvents.aspx?gid=...` and `Locations.aspx?event=...` pages so PGNW draft uploads can auto-fill venues from the Field Locations pages.
+
+## 2026-04-01
+
+- Ops (production): updated `PGNW%` draft uploads to set `official_website_url` to the corresponding PerfectGame `GroupedEvents.aspx?gid=...` link scraped from the source page (adds a stable venue source for follow-on scans): `scripts/ops/update_pgnw_official_urls.ts --apply`.
+- Ops (production): scanned PerfectGame Field Locations and inserted venue/address candidates for PGNW drafts (37 venue candidates + 20 attribute candidates): `scripts/ops/scan_draft_upload_venues.ts --apply --url_contains=perfectgame.org`.
+- Ops: improved draft-venue apply script to parse PerfectGame’s “street city, ST ZIP” address format (no comma after street) so high-confidence candidates can be auto-applied: `scripts/ops/apply_high_confidence_draft_venues.ts`.
+- Ops (production): applied high-confidence venue candidates to fill `tournaments.venue` + `tournaments.address` for PGNW drafts and enable approve-time linking via `ensureTournamentVenueLink`.
