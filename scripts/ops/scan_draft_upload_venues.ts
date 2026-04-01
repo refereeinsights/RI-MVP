@@ -612,7 +612,7 @@ async function main() {
             venue_url: null,
             source_url: locationsUrl,
             evidence_text: `perfectgame-locations event=${eventId}`,
-            confidence: 0.9,
+            confidence: 0.95,
           });
         }
       }
