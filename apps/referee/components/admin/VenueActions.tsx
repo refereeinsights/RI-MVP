@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type Props = {
   venueId: string;
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export default function VenueActions({ venueId, venueName, hasOwlData = false, onRemoveFromList }: Props) {
+  const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [merging, setMerging] = useState(false);
   const [copying, setCopying] = useState(false);
@@ -37,7 +39,7 @@ export default function VenueActions({ venueId, venueName, hasOwlData = false, o
         const json = await resp.json().catch(() => ({}));
         throw new Error(json?.error || "Delete failed");
       }
-      window.location.reload();
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed");
     } finally {
@@ -70,7 +72,7 @@ export default function VenueActions({ venueId, venueName, hasOwlData = false, o
         const json = await resp.json().catch(() => ({}));
         throw new Error(json?.error || "Merge failed");
       }
-      window.location.reload();
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Merge failed");
     } finally {
@@ -95,7 +97,7 @@ export default function VenueActions({ venueId, venueName, hasOwlData = false, o
       const copiedId = json?.copied_venue_id ? String(json.copied_venue_id) : "";
       const copiedName = json?.copied_venue_name ? String(json.copied_venue_name) : "Copied venue";
       window.alert(`${copiedName} created with new ID: ${copiedId}`);
-      window.location.reload();
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Copy failed");
     } finally {

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import VenueRow, { VenueItem } from "@/components/admin/VenueRow";
 
@@ -98,6 +99,7 @@ export default function VenuesListClient({
   recentTournamentVenueLinksTo = "",
   preservedFilters = {},
 }: Props) {
+  const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [mergingSource, setMergingSource] = useState<string | null>(null);
@@ -109,6 +111,9 @@ export default function VenuesListClient({
   const [selectedDuplicateSourcesByGroup, setSelectedDuplicateSourcesByGroup] = useState<
     Record<string, Record<string, boolean>>
   >({});
+  const [mergedVenueIds, setMergedVenueIds] = useState<Set<string>>(new Set());
+  const [duplicateState, setDuplicateState] = useState<DuplicateVenueGroup[]>(duplicateGroups);
+  const [needsRefreshAfterMerge, setNeedsRefreshAfterMerge] = useState(false);
   const dismissedStorageKey = useMemo(() => {
     const from = recentTournamentVenueLinksFrom || "none";
     const to = recentTournamentVenueLinksTo || "none";
@@ -130,6 +135,10 @@ export default function VenuesListClient({
   const duplicateGroupId = (group: DuplicateVenueGroup) => `${group.kind}:${group.key}`;
   const selectedTargetIdForGroup = (group: DuplicateVenueGroup) =>
     targetByGroup[duplicateGroupId(group)] || group.suggested_target_id;
+
+  useEffect(() => {
+    setDuplicateState(duplicateGroups);
+  }, [duplicateGroups]);
 
   const toggleSelected = (venueId: string, selected: boolean) => {
     setSelectedIds((prev) => {
@@ -181,6 +190,40 @@ export default function VenuesListClient({
     }
   };
 
+  const applyLocalMergeToDuplicates = (sourceVenueId: string, targetVenueId: string) => {
+    if (!sourceVenueId) return;
+    setMergedVenueIds((prev) => new Set([...prev, sourceVenueId]));
+    setNeedsRefreshAfterMerge(true);
+
+    setDuplicateState((prev) =>
+      prev
+        .map((group) => ({
+          ...group,
+          candidates: group.candidates.filter((c) => c.id !== sourceVenueId),
+        }))
+        .filter((group) => group.candidates.length >= 2)
+    );
+
+    setSelectedDuplicateSourcesByGroup((prev) => {
+      const next: Record<string, Record<string, boolean>> = {};
+      for (const [groupId, map] of Object.entries(prev)) {
+        if (!map) continue;
+        const copy = { ...map };
+        delete copy[sourceVenueId];
+        next[groupId] = copy;
+      }
+      return next;
+    });
+
+    setTargetByGroup((prev) => {
+      const next = { ...prev };
+      for (const k of Object.keys(next)) {
+        if (next[k] === sourceVenueId) next[k] = targetVenueId;
+      }
+      return next;
+    });
+  };
+
   const mergeVenue = async (sourceVenueId: string, targetVenueId: string) => {
     if (!sourceVenueId || !targetVenueId || sourceVenueId === targetVenueId) return;
     if (!window.confirm(`Merge ${sourceVenueId} into ${targetVenueId}? This will delete the source venue.`)) {
@@ -188,16 +231,8 @@ export default function VenuesListClient({
     }
     setMergingSource(sourceVenueId);
     try {
-      const resp = await fetch("/api/admin/venues/merge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source_venue_id: sourceVenueId, target_venue_id: targetVenueId, remove_source: true }),
-      });
-      if (!resp.ok) {
-        const json = await resp.json().catch(() => ({}));
-        throw new Error(json?.error || "Merge failed");
-      }
-      window.location.reload();
+      await mergeVenueNoConfirm(sourceVenueId, targetVenueId);
+      applyLocalMergeToDuplicates(sourceVenueId, targetVenueId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Merge failed";
       window.alert(message);
@@ -260,12 +295,12 @@ export default function VenuesListClient({
         setMergingSource(sourceId);
         await mergeVenueNoConfirm(sourceId, targetVenueId);
         setMergingGroupProgress({ done: i + 1, total: sourceVenueIds.length });
+        applyLocalMergeToDuplicates(sourceId, targetVenueId);
       }
-      window.location.reload();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Batch merge failed";
       window.alert(message);
-      window.location.reload();
+      router.refresh();
     } finally {
       setMergingSource(null);
       setMergingGroupId(null);
@@ -527,7 +562,7 @@ export default function VenuesListClient({
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
-      {duplicateGroups.length > 0 ? (
+      {duplicateState.length > 0 ? (
         <section
           style={{
             border: "1px solid #f59e0b",
@@ -542,7 +577,48 @@ export default function VenuesListClient({
           <div style={{ fontSize: 13, color: "#78350f" }}>
             Review suggested targets and merge sources directly here. You can keep the suggestion or choose a different venue as the merge target before merging.
           </div>
-          {duplicateGroups.slice(0, 25).map((group) => (
+          {needsRefreshAfterMerge ? (
+            <div
+              style={{
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #bfdbfe",
+                background: "#eff6ff",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ fontSize: 13, color: "#1e3a8a", fontWeight: 800 }}>
+                Merges completed. Other groups and recent links may be stale until refresh.
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setNeedsRefreshAfterMerge(false);
+                  router.refresh();
+                }}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #1d4ed8",
+                  background: "#fff",
+                  color: "#1d4ed8",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                }}
+              >
+                Refresh page data
+              </button>
+            </div>
+          ) : null}
+          {duplicateState
+            .map((group) => ({ ...group, candidates: group.candidates.filter((c) => !mergedVenueIds.has(c.id)) }))
+            .filter((group) => group.candidates.length >= 2)
+            .slice(0, 25)
+            .map((group) => (
             <details key={duplicateGroupId(group)} style={{ border: "1px solid #fde68a", borderRadius: 8, background: "#fff" }}>
               <summary style={{ cursor: "pointer", padding: "8px 10px", fontWeight: 700 }}>
                 {duplicateKindLabel(group.kind)} • {group.candidates.length} venues
