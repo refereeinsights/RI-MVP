@@ -281,3 +281,4 @@
 
 - RI enrichment: enable venue extraction + persistence from tournament pages (fixes `TBD` venues when pages include a venue list like “Fields:” with per-venue links). Venue extractor now prefers per-anchor venue/address lines and avoids turning PDF layout links into venue URLs.
 - RI enrichment apply: hard-block known organizer mailing address `1529 Third St. S., Jacksonville Beach, FL 32250` from being inserted or applied as a venue candidate (prevents false venue matches). Also filters this address in draft-upload venue scan + organizer venue-candidate suggestion scripts.
+- Ops: upgraded `scripts/ops/scan_draft_upload_venues.ts` to pull ballpark names + full addresses from PerfectGame `GroupedEvents.aspx?gid=...` and `Locations.aspx?event=...` pages so PGNW draft uploads can auto-fill venues from the Field Locations pages.

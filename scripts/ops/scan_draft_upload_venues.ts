@@ -177,6 +177,135 @@ async function fetchHtml(url: string): Promise<string | null> {
   }
 }
 
+function isPerfectGameUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.toLowerCase() === "www.perfectgame.org";
+  } catch {
+    return false;
+  }
+}
+
+function perfectGameEventIdFromUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const event = parsed.searchParams.get("event");
+    if (!event) return null;
+    if (!/^\d{3,12}$/.test(event)) return null;
+    return event;
+  } catch {
+    return null;
+  }
+}
+
+function perfectGameGidFromUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const gid = parsed.searchParams.get("gid");
+    if (!gid) return null;
+    if (!/^\d{3,12}$/.test(gid)) return null;
+    return gid;
+  } catch {
+    return null;
+  }
+}
+
+function perfectGameLocationsUrlForEvent(eventId: string) {
+  return `https://www.perfectgame.org/Events/Locations.aspx?event=${encodeURIComponent(eventId)}`;
+}
+
+function normalizeForLooseMatch(value: unknown) {
+  return clean(value)
+    .toLowerCase()
+    .replace(/&amp;/g, "&")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreLooseNameMatch(a: string, b: string) {
+  const aa = normalizeForLooseMatch(a);
+  const bb = normalizeForLooseMatch(b);
+  if (!aa || !bb) return 0;
+  if (aa === bb) return 1;
+  if (aa.includes(bb) || bb.includes(aa)) {
+    const shorter = Math.min(aa.length, bb.length);
+    const longer = Math.max(aa.length, bb.length);
+    return Math.max(0.6, shorter / longer);
+  }
+  const aTokens = new Set(aa.split(" ").filter(Boolean));
+  const bTokens = new Set(bb.split(" ").filter(Boolean));
+  if (!aTokens.size || !bTokens.size) return 0;
+  let overlap = 0;
+  for (const t of aTokens) if (bTokens.has(t)) overlap += 1;
+  return overlap / Math.max(aTokens.size, bTokens.size);
+}
+
+function extractPerfectGameGroupedEvents(
+  $: cheerio.CheerioAPI,
+  baseUrl: string
+): Array<{ eventId: string; eventName: string; eventUrl: string }> {
+  const base = new URL(baseUrl);
+  const out: Array<{ eventId: string; eventName: string; eventUrl: string }> = [];
+
+  $("a[href*='Events/Default.aspx?event=']").each((_idx, el) => {
+    const hrefRaw = clean($(el).attr("href") || "");
+    if (!hrefRaw) return;
+    const abs = normalizeUrl(hrefRaw, base);
+    if (!abs) return;
+    const eventId = perfectGameEventIdFromUrl(abs);
+    if (!eventId) return;
+
+    const eventName =
+      clean($(el).find("span[id*='lblEventName']").first().text()) ||
+      clean($(el).find("[id*='lblEventName']").first().text()) ||
+      clean($(el).text());
+    if (!eventName) return;
+
+    out.push({ eventId, eventName, eventUrl: abs });
+  });
+
+  const uniq = new Map<string, { eventId: string; eventName: string; eventUrl: string }>();
+  for (const row of out) {
+    if (!uniq.has(row.eventId)) uniq.set(row.eventId, row);
+  }
+  return Array.from(uniq.values()).slice(0, 40);
+}
+
+function extractPerfectGameLocationsFromHtml($: cheerio.CheerioAPI): Array<{ venue_name: string; address_text: string }> {
+  const out: Array<{ venue_name: string; address_text: string }> = [];
+
+  const names = $("span[id*='lblBallParkNames_']").toArray().slice(0, 50);
+  for (const el of names) {
+    const venue_name = clean($(el).text());
+    if (!venue_name) continue;
+    const container = $(el).closest("div").parent();
+    const address_text =
+      clean(container.find("span[id*='lblBallParkAddresses_']").first().text()) ||
+      clean($(el).parent().find("span[id*='lblBallParkAddresses_']").first().text());
+    if (!address_text) continue;
+    out.push({ venue_name, address_text });
+  }
+
+  // Fallback: sometimes pages render the name/address in different wrappers.
+  if (!out.length) {
+    $("span[id*='lblBallParkAddresses_']").each((_idx, el) => {
+      const address_text = clean($(el).text());
+      if (!address_text) return;
+      const venue_name = clean($(el).closest("div").prevAll("div").find("span[id*='lblBallParkNames_']").first().text());
+      if (!venue_name) return;
+      out.push({ venue_name, address_text });
+    });
+  }
+
+  const uniq = new Map<string, { venue_name: string; address_text: string }>();
+  for (const row of out) {
+    const key = `${normalizeForLooseMatch(row.venue_name)}|${normalizeForLooseMatch(row.address_text)}`;
+    if (!uniq.has(key)) uniq.set(key, row);
+  }
+  return Array.from(uniq.values()).slice(0, 25);
+}
+
 function extractJsonLdLocation($: cheerio.CheerioAPI): Array<{ venue_name: string | null; address_text: string | null; venue_url: string | null }> {
   const out: Array<{ venue_name: string | null; address_text: string | null; venue_url: string | null }> = [];
   const scripts = $("script[type='application/ld+json']").toArray().slice(0, 16);
@@ -389,6 +518,8 @@ async function main() {
   let venueCandidatesInserted = 0;
   let attrCandidatesInserted = 0;
 
+  const perfectGameLocationsCache = new Map<string, Array<{ venue_name: string; address_text: string }>>();
+
   for (const draft of targets) {
     scanned += 1;
     const seedUrl = clean(draft.official_website_url) || clean(draft.source_url);
@@ -412,6 +543,72 @@ async function main() {
     const $ = cheerio.load(html);
     const candidates: VenueCandidateInsert[] = [];
     const attrs: AttrCandidateInsert[] = [];
+
+    // PerfectGame venue extraction (Group Schedule -> Event -> Locations).
+    if (isPerfectGameUrl(seedUrl)) {
+      const directEvent = perfectGameEventIdFromUrl(seedUrl);
+      const gid = perfectGameGidFromUrl(seedUrl);
+
+      let eventIds: string[] = [];
+      if (directEvent) {
+        eventIds = [directEvent];
+      } else if (gid) {
+        const events = extractPerfectGameGroupedEvents($, seedUrl);
+        if (events.length) {
+          const draftName = clean(draft.name);
+          if (draftName) {
+            const scored = events
+              .map((e) => ({ ...e, score: scoreLooseNameMatch(draftName, e.eventName) }))
+              .sort((a, b) => b.score - a.score);
+            const best = scored[0];
+            if (best && best.score >= 0.6) eventIds = [best.eventId];
+          }
+          if (!eventIds.length) eventIds = events.slice(0, 5).map((e) => e.eventId);
+        }
+      }
+
+      // As a fallback, any visible event links on the page.
+      if (!eventIds.length) {
+        const seen = new Set<string>();
+        $("a[href*='Events/Default.aspx?event=']").each((_idx, el) => {
+          const abs = normalizeUrl(clean($(el).attr("href") || ""), new URL(seedUrl));
+          if (!abs) return;
+          const eventId = perfectGameEventIdFromUrl(abs);
+          if (!eventId) return;
+          if (seen.has(eventId)) return;
+          seen.add(eventId);
+        });
+        eventIds = Array.from(seen).slice(0, 5);
+      }
+
+      for (const eventId of eventIds.slice(0, 3)) {
+        const cached = perfectGameLocationsCache.get(eventId);
+        let locations = cached ?? null;
+        const locationsUrl = perfectGameLocationsUrlForEvent(eventId);
+        if (!locations) {
+          const locHtml = await fetchHtml(locationsUrl);
+          if (!locHtml) continue;
+          const $loc = cheerio.load(locHtml);
+          locations = extractPerfectGameLocationsFromHtml($loc);
+          perfectGameLocationsCache.set(eventId, locations);
+        }
+        for (const loc of locations) {
+          const address_text = clean(loc.address_text);
+          const venue_name = clean(loc.venue_name);
+          if (!address_text || !venue_name) continue;
+          if (isBlockedOrganizerAddress(address_text)) continue;
+          candidates.push({
+            tournament_id: draft.id,
+            venue_name,
+            address_text,
+            venue_url: null,
+            source_url: locationsUrl,
+            evidence_text: `perfectgame-locations event=${eventId}`,
+            confidence: 0.9,
+          });
+        }
+      }
+    }
 
     // JSON-LD location signals.
     for (const loc of extractJsonLdLocation($)) {
