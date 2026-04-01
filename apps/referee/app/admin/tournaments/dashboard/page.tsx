@@ -217,7 +217,7 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   const withSource = tournaments.filter((t: any) => t.official_website_url).length;
   const missingOfficial = total - withSource;
   const withVenue = tournaments.filter((t: any) => t.venue || t.address).length;
-  const venueIdsInScope = new Set(
+  const tournamentIdsInScope = new Set(
     tournaments
       .map((t: any) => t.id)
       .filter(Boolean)
@@ -225,24 +225,44 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
 
   // Distinct venues linked to tournaments in current scope that have Owl's Eye run history.
   let owlVenueCount = 0;
-  if (venueIdsInScope.size > 0) {
+  if (tournamentIdsInScope.size > 0) {
     try {
-      const { data: tvRows } = await supabaseAdmin
-        .from("tournament_venues" as any)
-        .select("tournament_id,venue_id")
-        .in("tournament_id", Array.from(venueIdsInScope));
-      const linkedVenueIds = Array.from(
-        new Set(((tvRows as Array<{ venue_id: string }> | null) ?? []).map((row) => row.venue_id).filter(Boolean))
-      );
-      if (linkedVenueIds.length > 0) {
-        const { data: owlRows } = await supabaseAdmin
-          .from("owls_eye_runs" as any)
-          .select("venue_id,status")
-          .in("venue_id", linkedVenueIds)
-          .in("status", ["running", "complete"]);
-        owlVenueCount = new Set(((owlRows as Array<{ venue_id: string }> | null) ?? []).map((row) => row.venue_id)).size;
+      // `in(...)` filters are encoded in the URL; large sets can exceed URL limits and fail.
+      // Chunk tournament ids and venue ids to keep requests small and avoid silently returning zero.
+      const chunkValues = <T,>(values: T[], size = 200) => {
+        const chunks: T[][] = [];
+        for (let i = 0; i < values.length; i += size) {
+          chunks.push(values.slice(i, i + size));
+        }
+        return chunks;
+      };
+
+      const allTvRows: Array<{ venue_id: string | null }> = [];
+      for (const idChunk of chunkValues(Array.from(tournamentIdsInScope))) {
+        const { data } = await supabaseAdmin
+          .from("tournament_venues" as any)
+          .select("venue_id")
+          .in("tournament_id", idChunk);
+        allTvRows.push(...(((data as Array<{ venue_id: string | null }> | null) ?? []) as Array<{ venue_id: string | null }>));
       }
-    } catch {
+
+      const linkedVenueIds = Array.from(new Set(allTvRows.map((row) => row.venue_id).filter(Boolean))) as string[];
+      if (linkedVenueIds.length > 0) {
+        const owlVenueIds = new Set<string>();
+        for (const venueChunk of chunkValues(linkedVenueIds)) {
+          const { data } = await supabaseAdmin
+            .from("owls_eye_runs" as any)
+            .select("venue_id,status")
+            .in("venue_id", venueChunk)
+            .in("status", ["running", "complete"]);
+          for (const row of ((data as Array<{ venue_id: string | null }> | null) ?? []) as Array<{ venue_id: string | null }>) {
+            if (row.venue_id) owlVenueIds.add(row.venue_id);
+          }
+        }
+        owlVenueCount = owlVenueIds.size;
+      }
+    } catch (err) {
+      console.error("[admin:tournaments-dashboard] Owl's Eye venue count failed", err);
       owlVenueCount = 0;
     }
   }
