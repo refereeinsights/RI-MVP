@@ -228,6 +228,20 @@ async function main() {
   }
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
+  // Some environments created `owls_eye_venue_duplicate_suspects` without an `updated_at` column,
+  // but still attached the `set_updated_at()` trigger. That breaks UPDATEs (INSERTs still work).
+  // Detect this and skip updates so we can still (re)populate suspects safely.
+  let allowUpdates = true;
+  try {
+    const probe = await supabase.from("owls_eye_venue_duplicate_suspects" as any).select("updated_at").limit(1);
+    if (probe.error && (probe.error.code === "42703" || probe.error.code === "PGRST204")) {
+      allowUpdates = false;
+      console.warn("[rebuild] owls_eye_venue_duplicate_suspects missing updated_at; skipping updates (inserts only)");
+    }
+  } catch {
+    allowUpdates = true;
+  }
+
   if (resetOpen && APPLY) {
     console.log("[rebuild] deleting existing open suspects...");
     const resp = await supabase.from("owls_eye_venue_duplicate_suspects" as any).delete().eq("status", "open");
@@ -333,13 +347,27 @@ async function main() {
         if (ins.error) throw new Error(`insert_failed:${ins.error.message}`);
         inserted += 1;
       } else {
+        if (!allowUpdates) {
+          // Leave existing open suspects as-is (score/last_seen_at may be stale).
+          updated += 1;
+          continue;
+        }
         const upd = await supabase
           .from("owls_eye_venue_duplicate_suspects" as any)
           .update({ score: payload.score, last_seen_at: now })
           .eq("source_venue_id", venueId)
           .eq("candidate_venue_id", candidateVenueId)
           .eq("status", "open");
-        if (upd.error) throw new Error(`update_failed:${upd.error.message}`);
+        if (upd.error) {
+          // If the env has the broken updated_at trigger, disable updates and continue inserts.
+          if (upd.error.message.includes("updated_at")) {
+            allowUpdates = false;
+            console.warn("[rebuild] update failed due to missing updated_at; switching to inserts-only mode");
+            updated += 1;
+            continue;
+          }
+          throw new Error(`update_failed:${upd.error.message}`);
+        }
         updated += 1;
       }
     }
@@ -366,4 +394,3 @@ main().catch((err) => {
   console.error(err);
   process.exitCode = 1;
 });
-
