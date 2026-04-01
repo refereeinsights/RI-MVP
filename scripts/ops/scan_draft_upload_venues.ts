@@ -509,6 +509,12 @@ async function main() {
     .filter((d) => !linked.has(d.id))
     // Treat placeholder venues like "TBD" as missing so we can still scan and replace them.
     .filter((d) => isBlank(d.address) && (isBlank(d.venue) || isPlaceholderVenueName(d.venue)))
+    .filter((d) => {
+      if (!URL_CONTAINS) return true;
+      const seedUrl = clean(d.official_website_url) || clean(d.source_url);
+      if (!seedUrl) return false;
+      return seedUrl.toLowerCase().includes(URL_CONTAINS.toLowerCase());
+    })
     .slice(OFFSET, OFFSET + LIMIT);
 
   const outPath = buildOutPath();
@@ -526,7 +532,6 @@ async function main() {
     scanned += 1;
     const seedUrl = clean(draft.official_website_url) || clean(draft.source_url);
     if (!seedUrl) continue;
-    if (URL_CONTAINS && !seedUrl.toLowerCase().includes(URL_CONTAINS.toLowerCase())) continue;
 
     const html = await fetchHtml(seedUrl);
     if (!html) {
