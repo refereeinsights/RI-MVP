@@ -167,11 +167,47 @@ async function findTournamentIdBySlugOrId(supabase: SupabaseClient, slugOrId: st
   const key = clean(slugOrId);
   if (!key) return null;
   if (isUuid(key)) {
-    const { data } = await supabase.from("tournaments").select("id").eq("id", key).maybeSingle();
+    const { data, error } = await supabase.from("tournaments").select("id").eq("id", key).maybeSingle();
+    if (error) throw new Error(`tournament_lookup_failed(id): ${error.message}`);
     return data?.id ?? null;
   }
-  const { data } = await supabase.from("tournaments").select("id").eq("slug", key).maybeSingle();
+  const { data, error } = await supabase.from("tournaments").select("id").eq("slug", key).maybeSingle();
+  if (error) throw new Error(`tournament_lookup_failed(slug): ${error.message}`);
   return data?.id ?? null;
+}
+
+async function findTournamentIdByName(supabase: SupabaseClient, name: string) {
+  const n = clean(name);
+  if (!n) return null;
+  const { data, error } = await supabase
+    .from("tournaments")
+    .select("id,slug,status,start_date,is_canonical")
+    .eq("name", n)
+    .order("status", { ascending: true })
+    .order("start_date", { ascending: false })
+    .limit(5);
+  if (error) throw new Error(`tournament_lookup_failed(name): ${error.message}`);
+  const rows = (data ?? []) as Array<{ id: string; slug: string | null }>;
+  if (rows.length === 1) return rows[0]?.id ?? null;
+  if (rows.length > 1) {
+    throw new Error(`tournament_name_ambiguous("${n}") candidates=${rows.map((r) => r.slug || r.id).join(",")}`);
+  }
+  return null;
+}
+
+async function suggestTournamentSlugsByName(supabase: SupabaseClient, name: string) {
+  const n = clean(name);
+  if (!n) return [];
+  const q = n.length > 40 ? n.slice(0, 40) : n;
+  const like = `%${q}%`;
+  const { data, error } = await supabase
+    .from("tournaments")
+    .select("slug,name,status,start_date")
+    .ilike("name", like)
+    .order("updated_at", { ascending: false })
+    .limit(5);
+  if (error) return [];
+  return (data ?? []) as Array<{ slug: string | null; name: string | null; status: string | null; start_date: string | null }>;
 }
 
 async function matchExistingVenue(
@@ -198,7 +234,8 @@ async function matchExistingVenue(
 
   if (zip) query = query.eq("zip", zip);
 
-  const { data } = await query;
+  const { data, error } = await query;
+  if (error) throw new Error(`venue_lookup_failed: ${error.message}`);
   const candidates = (data ?? []) as VenueRow[];
   if (!candidates.length) return null;
 
@@ -274,10 +311,19 @@ async function main() {
   let failures = 0;
 
   for (const row of usable) {
-    const tournamentId = await findTournamentIdBySlugOrId(supabase, row.tournament_uuid);
+    let tournamentId = await findTournamentIdBySlugOrId(supabase, row.tournament_uuid);
+    if (!tournamentId && row.tournament_name) {
+      tournamentId = await findTournamentIdByName(supabase, row.tournament_name);
+    }
     if (!tournamentId) {
       missingTournaments += 1;
-      console.log(`[skip] tournament not found: ${row.tournament_uuid} (${row.tournament_name || "unknown"})`);
+      const suggestions = row.tournament_name ? await suggestTournamentSlugsByName(supabase, row.tournament_name) : [];
+      const hint = suggestions.length
+        ? ` suggestions=${suggestions
+            .map((s) => `${s.slug ?? "no-slug"}(${s.start_date ?? "no-date"})`)
+            .join(",")}`
+        : "";
+      console.log(`[skip] tournament not found: ${row.tournament_uuid} (${row.tournament_name || "unknown"})${hint}`);
       continue;
     }
 
@@ -339,4 +385,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-
