@@ -294,10 +294,15 @@ function buildPreviewHtml(params: {
       ? `<div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
           ${TI_SPORTS.map((sport) => {
             const row = bySport.find((r) => String(r.sport).toLowerCase() === sport);
-            const total = row ? formatInt(row.total) : "0";
-            const delta = row ? formatDelta(row.new_yesterday) : "";
-            return renderTile(TI_SPORT_LABELS[sport as any] ?? sport, total, delta, "neutral");
-          }).join("")}
+            return {
+              sport,
+              total: Number(row?.total ?? 0) || 0,
+              new_yesterday: Number(row?.new_yesterday ?? 0) || 0,
+            };
+          })
+            .sort((a, b) => b.total - a.total || a.sport.localeCompare(b.sport))
+            .map((row) => renderTile(TI_SPORT_LABELS[row.sport as any] ?? row.sport, formatInt(row.total), formatDelta(row.new_yesterday), "neutral"))
+            .join("")}
         </div>`
       : "";
 

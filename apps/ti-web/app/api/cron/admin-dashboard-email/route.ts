@@ -162,15 +162,27 @@ function buildEmailHtml(params: {
   const bySport = Array.isArray(tiles?.canonical?.by_sport) ? tiles?.canonical?.by_sport ?? [] : [];
 
   const sportTilesHtml =
-    includeSportTiles && bySport.length > 0
-      ? `<div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
-          ${TI_SPORTS.map((sport) => {
-            const row = bySport.find((r) => String(r.sport).toLowerCase() === sport);
-            const total = row ? formatInt(row.total) : "0";
-            const delta = row ? formatDelta(row.new_yesterday) : "";
-            return renderTile(TI_SPORT_LABELS[sport], total, delta, "neutral");
-          }).join("")}
-        </div>`
+    includeSportTiles
+      ? (() => {
+          const rows = TI_SPORTS.map((sport) => {
+            const hit = bySport.find((r) => String(r.sport).toLowerCase() === sport);
+            return {
+              sport,
+              total: Number(hit?.total ?? 0) || 0,
+              new_yesterday: Number(hit?.new_yesterday ?? 0) || 0,
+            };
+          }).sort((a, b) => b.total - a.total || a.sport.localeCompare(b.sport));
+
+          if (rows.length === 0) return "";
+
+          return `<div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
+            ${rows
+              .map((row) =>
+                renderTile(TI_SPORT_LABELS[row.sport], formatInt(row.total), formatDelta(row.new_yesterday), "neutral")
+              )
+              .join("")}
+          </div>`;
+        })()
       : "";
 
   const tilesHtml =
