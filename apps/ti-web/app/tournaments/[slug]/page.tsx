@@ -617,7 +617,7 @@ async function TournamentVenueDetails({
   return (
     <>
       {linkedVenues.length > 0 ? (
-        <div className="detailVenueGrid">
+        <div className={`detailVenueGrid${linkedVenues.length === 1 ? " detailVenueGrid--single" : ""}`}>
           {linkedVenues.map((venue) => (
             <Link
               key={venue.id}

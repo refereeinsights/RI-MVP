@@ -1301,6 +1301,15 @@
   }
 }
 
+.detailVenueGrid--single {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+}
+
+.detailVenueGrid--single .detailVenueTile {
+  width: min(360px, 100%);
+}
+
 .detailSummary {
   margin: 12px 0 0;
   font-size: 15px;
