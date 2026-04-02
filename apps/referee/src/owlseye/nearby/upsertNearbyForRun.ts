@@ -50,6 +50,14 @@ const SPORTING_GENERIC_ALLOW_RE = /\b(sporting\\s+goods|sports\\s+equipment)\b/i
 const SPORTING_PRIMARY_TYPES = new Set(["sporting_goods_store", "sports_store", "outdoor_sports_store"]);
 const BIG_BOX_ALLOW_RE = /\b(target|walmart|wal-mart|sam'?s\s*club|costco|meijer|fred\s*meyer)\b/i;
 
+// Some Places API results are actually residential / short-term rental listings.
+// These should never be promoted as "nearby amenities" for a tournament venue.
+const RESIDENTIAL_STRONG_RE =
+  /\b(mobile home|trailer|rv|campground|tent|private room|private bedroom|entire home|whole home|airbnb|vrbo|vacation rental|furnished|fully furn|garden apt|apartment|apartments|condo|condominiums?|townhome|townhouse|studio apartment|guest house|guesthouse|single family|multi family|bed\s*&\s*breakfast|b&b)\b/i;
+const HOME_WORD_RE = /\bhome\b/i;
+const HOME_CONTEXT_RE =
+  /\b(near|private|bedroom|bathroom|furn|furnished|family|yard|neighborhood|getaway|retreat|garden|apt|apartment|condo|townhome|townhouse|airbnb|vrbo|vacation)\b/i;
+
 function mapsUrl(placeId: string) {
   return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(placeId)}`;
 }
@@ -83,6 +91,25 @@ type TextPlace = {
 
 function milesFromMeters(meters: number) {
   return meters / 1609.344;
+}
+
+function looksLikeResidentialListing(nameRaw: unknown, addressRaw: unknown) {
+  const name = String(nameRaw ?? "").trim();
+  const address = String(addressRaw ?? "").trim();
+  const haystack = `${name} ${address}`.toLowerCase();
+
+  if (RESIDENTIAL_STRONG_RE.test(haystack)) return true;
+
+  // "Home" is too generic by itself; only block when the context looks like a rental listing
+  // or the address is not a real street address (no street number).
+  const hasHomeWord = HOME_WORD_RE.test(name);
+  if (!hasHomeWord) return false;
+
+  const hasStreetNumber = /\b\d{1,6}\b/.test(address);
+  if (!hasStreetNumber) return true;
+  if (HOME_CONTEXT_RE.test(haystack)) return true;
+
+  return false;
 }
 
 async function searchPlacesText(args: {
@@ -391,6 +418,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   for (const row of rows) {
     if (seen.has(row.place_id)) continue; // avoid conflicts if the same place appears in both categories/sponsor
     seen.add(row.place_id);
+    if (!row.is_sponsor && row.category === "hotel" && looksLikeResidentialListing(row.name, row.address)) continue;
     uniqueRows.push(row);
   }
   if (force) {
