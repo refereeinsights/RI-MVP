@@ -271,7 +271,9 @@ async function createVenue(supabase: SupabaseClient, row: InputRow): Promise<str
 async function upsertTournamentVenueLink(supabase: SupabaseClient, tournamentId: string, venueId: string) {
   const { error } = await supabase
     .from("tournament_venues")
-    .upsert({ tournament_id: tournamentId, venue_id: venueId }, { onConflict: "tournament_id,venue_id" });
+    // Always force non-primary on bulk ingestion to avoid accidentally creating multiple primaries
+    // in environments where defaults/triggers may set `is_primary=true`.
+    .upsert({ tournament_id: tournamentId, venue_id: venueId, is_primary: false }, { onConflict: "tournament_id,venue_id" });
   if (error) throw error;
 }
 
