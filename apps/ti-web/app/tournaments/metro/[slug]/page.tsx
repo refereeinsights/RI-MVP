@@ -1,10 +1,13 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { TI_SPORT_LABELS } from "@/lib/tiSports";
-import StateMultiSelect from "./StateMultiSelect";
+import StateMultiSelect from "../../StateMultiSelect";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
-import "./tournaments.css";
+import { getMetroMarketTournaments } from "../../_lib/getMetroMarketTournaments";
+import "../../tournaments.css";
 
 type Tournament = {
   id: string;
@@ -40,19 +43,179 @@ type OwlNearbyRow = {
 // Cache for 5 minutes.
 export const revalidate = 300;
 
-export const metadata = {
-  title: "Tournament Directory",
-  description: "Browse youth tournaments by sport, state, and month with official links and location details.",
-  alternates: {
-    canonical: "/tournaments",
-  },
-};
-
 const ISSUE_EMAIL = "tournamentinsights@gmail.com";
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
 
-const SPORTS_LABELS: Record<string, string> = { ...TI_SPORT_LABELS, unknown: "Unknown" };
 const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
+const SPORTS_LABELS: Record<string, string> = { ...TI_SPORT_LABELS, unknown: "Unknown" };
+
+type MetroMarketFaqItem = { q: string; a: string };
+type MetroMarketSeoContent = {
+  title: string;
+  label: string;
+  states: string[];
+  intro: string;
+  faq: MetroMarketFaqItem[];
+};
+
+const metroMarketSeoContent: Record<
+  string,
+  MetroMarketSeoContent
+> = {
+  "dc-metro": {
+    title: "DC Metro Youth Sports Tournaments",
+    label: "DC Metro",
+    states: ["DC", "VA", "MD"],
+    intro:
+      "The DC Metro area is a highly active youth sports travel market connecting Washington DC, Northern Virginia, and Maryland. This page brings together tournaments across the region so families, teams, and officials can discover events and plan more efficiently.",
+    faq: [
+      {
+        q: "What does the DC Metro area include?",
+        a: "This page groups tournaments across Washington DC, Northern Virginia, and Maryland to make regional tournament discovery easier.",
+      },
+      {
+        q: "Are tournaments limited to Washington DC?",
+        a: "No. This page includes tournaments across the broader DC Metro region, including nearby areas in Virginia and Maryland.",
+      },
+    ],
+  },
+  "new-england": {
+    title: "New England Youth Sports Tournaments",
+    label: "New England",
+    states: ["CT", "RI", "ME", "NH"],
+    intro:
+      "New England offers a wide range of youth sports tournaments across several closely connected states. This page combines tournaments from across the region to help families and teams find more opportunities and plan travel efficiently.",
+    faq: [
+      {
+        q: "Which states are included in New England on this page?",
+        a: "This page groups tournaments across our New England market, including Connecticut, Rhode Island, Maine, and New Hampshire.",
+      },
+      {
+        q: "Why are multiple states combined?",
+        a: "Many teams travel across New England for tournaments, so a regional view makes it easier to compare and plan.",
+      },
+    ],
+  },
+  "southern-california": {
+    title: "Southern California Youth Sports Tournaments",
+    label: "Southern California",
+    states: ["CA"],
+    intro:
+      "Southern California is one of the busiest youth sports regions in the country, with a dense network of tournament venues. This page highlights tournaments across key Southern California cities so families, teams, and officials can discover events and plan trips more efficiently.",
+    faq: [
+      {
+        q: "What does Southern California include on this page?",
+        a: "This page groups youth sports tournaments across Southern California, including events held in major tournament cities and venues throughout the region.",
+      },
+      {
+        q: "Are tournaments shown here limited to one city?",
+        a: "No. This page is designed to help families, teams, and officials explore tournaments across the broader Southern California region.",
+      },
+    ],
+  },
+  "northern-california": {
+    title: "Northern California Youth Sports Tournaments",
+    label: "Northern California",
+    states: ["CA"],
+    intro:
+      "Northern California has a strong network of youth sports venues across the Bay Area, Sacramento region, and surrounding areas. This page brings together tournaments across those locations to provide a more complete regional view.",
+    faq: [
+      {
+        q: "What does Northern California include on this page?",
+        a: "This page groups tournaments across key Northern California cities and tournament venues to improve regional discovery.",
+      },
+      {
+        q: "Why use a Northern California page instead of a city search?",
+        a: "Regional pages help users discover more tournaments across connected areas rather than limiting results to a single city.",
+      },
+    ],
+  },
+  "texas-triangle": {
+    title: "Texas Triangle Youth Sports Tournaments",
+    label: "Texas Triangle",
+    states: ["TX"],
+    intro:
+      "The Texas Triangle is one of the largest and most active youth sports regions in the United States. This page combines tournaments across major Texas travel hubs to help families and teams find more events and plan efficiently.",
+    faq: [
+      {
+        q: "What is the Texas Triangle in this context?",
+        a: "It refers to a major Texas travel region where many youth sports tournaments are hosted across connected cities.",
+      },
+      {
+        q: "Why use a regional tournament page?",
+        a: "Regional pages make it easier to compare tournaments across a broader travel area instead of searching one location at a time.",
+      },
+    ],
+  },
+  "great-lakes": {
+    title: "Great Lakes Youth Sports Tournaments",
+    label: "Great Lakes",
+    states: ["IL", "IN", "OH", "MI"],
+    intro:
+      "The Great Lakes region supports a high volume of youth sports tournaments across multiple connected states. This page helps families and teams explore events across the region in one place.",
+    faq: [
+      {
+        q: "Which states are included in the Great Lakes region?",
+        a: "This page groups tournaments from Illinois, Indiana, Ohio, and Michigan.",
+      },
+      {
+        q: "Is this page only for one sport?",
+        a: "No. It is designed to support tournament discovery across all supported sports.",
+      },
+    ],
+  },
+  southeast: {
+    title: "Southeast Youth Sports Tournaments",
+    label: "Southeast",
+    states: ["GA", "FL", "NC", "SC", "TN"],
+    intro:
+      "The Southeast is one of the most active youth sports regions, with tournaments happening across multiple connected states year-round. This page helps families and teams discover more opportunities across the region.",
+    faq: [
+      {
+        q: "What does the Southeast region include?",
+        a: "This page groups tournaments across our Southeast market, including Georgia, Florida, North Carolina, South Carolina, and Tennessee.",
+      },
+      {
+        q: "Why combine multiple states?",
+        a: "Many teams travel across the Southeast, so a regional page makes discovery and planning easier.",
+      },
+    ],
+  },
+  "mountain-west": {
+    title: "Mountain West Youth Sports Tournaments",
+    label: "Mountain West",
+    states: ["CO", "UT", "NV", "AZ"],
+    intro:
+      "The Mountain West region continues to grow as a destination for youth sports tournaments. This page combines tournaments across key states to provide a broader regional view for families and teams.",
+    faq: [
+      {
+        q: "Which states are included in the Mountain West?",
+        a: "This page groups tournaments across Colorado, Utah, Nevada, and Arizona.",
+      },
+      {
+        q: "Who is this page for?",
+        a: "It is designed for families, teams, coaches, and officials looking to discover tournaments across the region.",
+      },
+    ],
+  },
+  "pacific-northwest": {
+    title: "Pacific Northwest Youth Sports Tournaments",
+    label: "Pacific Northwest",
+    states: ["WA", "OR", "ID"],
+    intro:
+      "The Pacific Northwest offers a strong mix of local and travel youth sports tournaments. This page provides a regional view of tournaments across Washington, Oregon, and Idaho.",
+    faq: [
+      {
+        q: "Which states are included in the Pacific Northwest?",
+        a: "This page groups tournaments across Washington, Oregon, and Idaho.",
+      },
+      {
+        q: "Why use a regional page instead of a single state?",
+        a: "Regional pages help users discover more relevant tournaments across connected travel areas.",
+      },
+    ],
+  },
+};
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -118,9 +281,39 @@ function getSummarySportClass(sport: string) {
   return `summary-sport-${sport.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 }
 
-export default async function TournamentsPage({
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const safeSlug = (params.slug ?? "").toLowerCase();
+  const seo = metroMarketSeoContent[safeSlug];
+  if (!seo) return { robots: { index: false, follow: false } };
+
+  const canonical = `/tournaments/metro/${safeSlug}`;
+  const description = seo.intro;
+  return {
+    title: seo.title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: seo.title,
+      description,
+      type: "website",
+      url: `${SITE_ORIGIN}${canonical}`,
+      siteName: "TournamentInsights",
+      images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: seo.title,
+      description,
+      images: ["/og-default.png"],
+    },
+  };
+}
+
+export default async function MetroMarketTournamentsPage({
+  params,
   searchParams,
 }: {
+  params: { slug: string };
   searchParams?: {
     q?: string;
     state?: string | string[];
@@ -130,10 +323,10 @@ export default async function TournamentsPage({
     aysoOnly?: string;
   };
 }) {
+  const marketSlug = (params.slug ?? "").trim().toLowerCase();
+  const seo = metroMarketSeoContent[marketSlug] ?? null;
+
   const q = (searchParams?.q ?? "").trim();
-  const tournamentsIssueMailto = `mailto:${ISSUE_EMAIL}?subject=${encodeURIComponent(
-    "Tournament issue report"
-  )}&body=${encodeURIComponent(`Page: ${SITE_ORIGIN}/tournaments\n\nDescribe the issue:`)}`;
   const stateParam = searchParams?.state;
   const month = (searchParams?.month ?? "").trim(); // YYYY-MM
   const sportsParam = searchParams?.sports;
@@ -145,11 +338,7 @@ export default async function TournamentsPage({
   const aysoOnly = Array.isArray(aysoOnlyParam)
     ? aysoOnlyParam.includes("true")
     : (aysoOnlyParam ?? "").toLowerCase() === "true";
-  const sportsSelectedRaw = Array.isArray(sportsParam)
-    ? sportsParam
-    : sportsParam
-    ? [sportsParam]
-    : [];
+  const sportsSelectedRaw = Array.isArray(sportsParam) ? sportsParam : sportsParam ? [sportsParam] : [];
   const sportsSelected = sportsSelectedRaw.map((s) => s.toLowerCase()).filter(Boolean);
   const stateSelectionsRaw = (Array.isArray(stateParam) ? stateParam : stateParam ? [stateParam] : [])
     .map((s) => s.trim().toUpperCase())
@@ -163,60 +352,22 @@ export default async function TournamentsPage({
     ? stateSelections.join(", ")
     : `${stateSelections.length} states`;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const tournamentsIssueMailto = `mailto:${ISSUE_EMAIL}?subject=${encodeURIComponent(
+    "Tournament issue report"
+  )}&body=${encodeURIComponent(
+    `Page: ${SITE_ORIGIN}/tournaments/metro/${marketSlug}\n\nDescribe the issue:`
+  )}`;
 
-  const pageSize = 1000;
-  let offset = 0;
-  let tournamentsData: any[] = [];
-  let error = null as any;
-  while (true) {
-    let query = supabaseAdmin
-      .from("tournaments_public" as any)
-      .select(
-        "id,name,slug,sport,tournament_association,state,city,zip,start_date,end_date,official_website_url,source_url,level,tournament_staff_verified,is_demo"
-      )
-      .order("start_date", { ascending: true })
-      .range(offset, offset + pageSize - 1);
+  const { market, tournaments: tournamentsData } = await getMetroMarketTournaments({
+    slug: marketSlug,
+    q,
+    month,
+    includePast,
+  });
 
-    if (!includePast) {
-      query = query.or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`);
-    }
+  if (!market) notFound();
 
-    if (q) {
-      query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
-    }
-    if (month && /^\d{4}-\d{2}$/.test(month)) {
-      const [y, m] = month.split("-").map(Number);
-      const start = new Date(Date.UTC(y, m - 1, 1));
-      const end = new Date(Date.UTC(y, m, 1));
-      const startISO = start.toISOString().slice(0, 10);
-      const endISO = end.toISOString().slice(0, 10);
-      query = query.gte("start_date", startISO).lt("start_date", endISO);
-    }
-
-    const { data, error: pageError } = await query;
-    if (pageError) {
-      error = pageError;
-      break;
-    }
-    tournamentsData.push(...(data ?? []));
-    if (!data || data.length < pageSize) break;
-    offset += pageSize;
-  }
-
-  if (error) {
-    return (
-      <main className="pitchWrap tournamentsWrap">
-        <section className="field tournamentsField">
-          <div className="headerBlock">
-            <h1 className="title">Tournament Directory</h1>
-            <p className="subtitle">We couldn’t load tournaments right now. Please try again.</p>
-          </div>
-        </section>
-      </main>
-    );
-  }
-
+  // Keep directory behavior identical from here down (filters + badges + sorting).
   const tournamentsClean = (tournamentsData ?? [])
     .filter((t): t is Tournament => Boolean(t?.id && t?.name && t?.slug))
     .filter((t) =>
@@ -224,6 +375,7 @@ export default async function TournamentsPage({
         ? (t.tournament_association ?? "").trim().toUpperCase() === "AYSO"
         : (t.tournament_association ?? "").trim().toUpperCase() !== "AYSO"
     );
+
   const sportsCounts = tournamentsClean.reduce((acc: Record<string, number>, t) => {
     const key = (t.sport ?? "unknown").toLowerCase();
     acc[key] = (acc[key] || 0) + 1;
@@ -323,13 +475,23 @@ export default async function TournamentsPage({
   });
 
   const months = monthOptions();
+  const actionPath = `/tournaments/metro/${marketSlug}`;
+
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: seo?.title ?? `${market.name} Tournaments`,
+    url: `${SITE_ORIGIN}${actionPath}`,
+    description: seo?.intro,
+  };
 
   return (
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
         <div className="headerBlock brandedHeader">
           <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
-            Tournament Directory
+            {seo?.label ? `${seo.label} Tournaments` : "Tournament Directory"}
           </h1>
           <p
             className="subtitle"
@@ -340,9 +502,25 @@ export default async function TournamentsPage({
               lineHeight: 1.5,
             }}
           >
-            Browse upcoming tournaments by sport, state, and month. This directory focuses on logistics and basic details
-            — no ratings or referee reviews.
+            {seo?.states?.length
+              ? `Browse upcoming tournaments in ${seo.label} (${seo.states.join(", ")}).`
+              : "Browse upcoming tournaments by sport, state, and month."}{" "}
+            This directory focuses on logistics and basic details — no ratings or referee reviews.
           </p>
+          {seo?.intro ? (
+            <div
+              className="subtitle"
+              style={{
+                marginTop: 10,
+                maxWidth: 860,
+                fontSize: 14,
+                lineHeight: 1.6,
+                color: "#1f2937",
+              }}
+            >
+              <p style={{ marginTop: 0, marginBottom: 0 }}>{seo.intro}</p>
+            </div>
+          ) : null}
           <nav
             aria-label="Browse tournament sport hubs"
             style={{
@@ -353,32 +531,8 @@ export default async function TournamentsPage({
               fontSize: 14,
             }}
           >
-            <Link href="/tournaments/metro/dc-metro" style={{ textDecoration: "underline", color: "inherit" }}>
-              DC Metro
-            </Link>
-            <Link href="/tournaments/metro/new-england" style={{ textDecoration: "underline", color: "inherit" }}>
-              New England
-            </Link>
-            <Link href="/tournaments/metro/southern-california" style={{ textDecoration: "underline", color: "inherit" }}>
-              Southern California
-            </Link>
-            <Link href="/tournaments/metro/northern-california" style={{ textDecoration: "underline", color: "inherit" }}>
-              Northern California
-            </Link>
-            <Link href="/tournaments/metro/texas-triangle" style={{ textDecoration: "underline", color: "inherit" }}>
-              Texas Triangle
-            </Link>
-            <Link href="/tournaments/metro/great-lakes" style={{ textDecoration: "underline", color: "inherit" }}>
-              Great Lakes
-            </Link>
-            <Link href="/tournaments/metro/southeast" style={{ textDecoration: "underline", color: "inherit" }}>
-              Southeast
-            </Link>
-            <Link href="/tournaments/metro/mountain-west" style={{ textDecoration: "underline", color: "inherit" }}>
-              Mountain West
-            </Link>
-            <Link href="/tournaments/metro/pacific-northwest" style={{ textDecoration: "underline", color: "inherit" }}>
-              Pacific Northwest
+            <Link href="/tournaments" style={{ textDecoration: "underline", color: "inherit" }}>
+              All tournaments
             </Link>
             <Link href="/tournaments/soccer" style={{ textDecoration: "underline", color: "inherit" }}>
               Soccer
@@ -428,8 +582,7 @@ export default async function TournamentsPage({
               display: "flex",
               alignItems: "center",
               justifyContent: "flex-start",
-              gap: 10,
-              flexWrap: "wrap",
+              gap: 12,
               marginTop: 10,
               marginBottom: 12,
             }}
@@ -459,7 +612,7 @@ export default async function TournamentsPage({
           </div>
         </div>
 
-        <form className="filters" method="GET" action="/tournaments">
+        <form className="filters" method="GET" action={actionPath}>
           <div>
             <label className="label" htmlFor="q">
               Search
@@ -498,7 +651,12 @@ export default async function TournamentsPage({
           <div className="sportsRow">
             {sportsSorted.map(({ sport, count }) => (
               <label key={sport} className="sportToggle">
-                <AutoSubmitCheckbox type="checkbox" name="sports" value={sport} defaultChecked={sportsSelected.includes(sport)} />
+                <AutoSubmitCheckbox
+                  type="checkbox"
+                  name="sports"
+                  value={sport}
+                  defaultChecked={sportsSelected.includes(sport)}
+                />
                 <span>
                   {SPORTS_LABELS[sport] || sport} ({count})
                 </span>
@@ -520,69 +678,73 @@ export default async function TournamentsPage({
             <button type="submit" className="smallBtn">
               Apply
             </button>
-            <a className="smallBtn" href="/tournaments">
+            <a className="smallBtn" href={actionPath}>
               Reset
             </a>
           </div>
         </form>
 
-        {sportsSorted.length ? (() => {
-          const badges =
-            sportsSelected.length > 0
-              ? sportsSelected.map((sport) => ({ sport, count: filteredSportCounts[sport] ?? 0 }))
-              : sportsSorted.slice(0, 7);
-          const row1 = badges.slice(0, 3);
-          const row2 = badges.slice(3, 7);
+        {sportsSorted.length
+          ? (() => {
+              const badges =
+                sportsSelected.length > 0
+                  ? sportsSelected.map((sport) => ({ sport, count: filteredSportCounts[sport] ?? 0 }))
+                  : sportsSorted.slice(0, 7);
+              const row1 = badges.slice(0, 3);
+              const row2 = badges.slice(3, 7);
 
-          const renderCard = (sport: string, count: number) => (
-            <Link
-              key={sport}
-              href={(() => {
-                const params = new URLSearchParams();
-                if (q) params.set("q", q);
-                if (!isAllStates) stateSelections.forEach((st) => params.append("state", st));
-                if (month) params.set("month", month);
-                params.set("includePast", includePast ? "true" : "false");
-                params.set("aysoOnly", aysoOnly ? "true" : "false");
-                params.set("sports", sport);
-                return `/tournaments?${params.toString()}`;
-              })()}
-              className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)} summaryBadgeFixed`}
-            >
-              <div className="summaryCount">{count}</div>
-              <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
-              <div className="summaryIcon" aria-hidden="true">
-                {sportIcon(sport)}
-              </div>
-            </Link>
-          );
-
-          return (
-            <>
-              <div className="summaryTotalRow">
-                <article className="card card--mini bg-sport-default summary-total">
-                  <div className="summaryCount">{tournamentsSorted.length}</div>
-                  <div className="summaryLabel">TOTAL TOURNAMENTS</div>
-                  <div className="summaryIcon summaryIcon--ri" aria-hidden="true">
-                    <img src="/svg/ti/tournamentinsights_mark_transparent.svg" alt="" />
+              const renderCard = (sport: string, count: number) => (
+                <Link
+                  key={sport}
+                  href={(() => {
+                    const params = new URLSearchParams();
+                    if (q) params.set("q", q);
+                    if (!isAllStates) stateSelections.forEach((st) => params.append("state", st));
+                    if (month) params.set("month", month);
+                    params.set("includePast", includePast ? "true" : "false");
+                    params.set("aysoOnly", aysoOnly ? "true" : "false");
+                    params.set("sports", sport);
+                    return `${actionPath}?${params.toString()}`;
+                  })()}
+                  className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(
+                    sport
+                  )} summaryBadgeFixed`}
+                >
+                  <div className="summaryCount">{count}</div>
+                  <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
+                  <div className="summaryIcon" aria-hidden="true">
+                    {sportIcon(sport)}
                   </div>
-                </article>
-              </div>
-              <div className="summaryGrid summaryGrid--twoRows">
-                <div className="summaryRow summaryRow--top">
-                  {row1.map(({ sport, count }) => renderCard(sport, count))}
-                </div>
-                <div className="summaryRow summaryRow--bottom">
-                  {row2.map(({ sport, count }) => renderCard(sport, count))}
-                </div>
-              </div>
-            </>
-          );
-        })() : null}
+                </Link>
+              );
+
+              return (
+                <>
+                  <div className="summaryTotalRow">
+                    <article className="card card--mini bg-sport-default summary-total">
+                      <div className="summaryCount">{tournamentsSorted.length}</div>
+                      <div className="summaryLabel">TOTAL TOURNAMENTS</div>
+                      <div className="summaryIcon summaryIcon--ri" aria-hidden="true">
+                        <img src="/svg/ti/tournamentinsights_mark_transparent.svg" alt="" />
+                      </div>
+                    </article>
+                  </div>
+                  <div className="summaryGrid summaryGrid--twoRows">
+                    <div className="summaryRow summaryRow--top">
+                      {row1.map(({ sport, count }) => renderCard(sport, count))}
+                    </div>
+                    <div className="summaryRow summaryRow--bottom">
+                      {row2.map(({ sport, count }) => renderCard(sport, count))}
+                    </div>
+                  </div>
+                </>
+              );
+            })()
+          : null}
 
         {tournamentsSorted.length === 0 ? (
           <div className="cards">
-            <article className="card card-grass">
+            <article className={`card ${cardVariant(null)}`}>
               <div className="cardHeader">
                 <div>
                   <div className="cardTitle" style={{ fontSize: 18 }}>
@@ -598,8 +760,7 @@ export default async function TournamentsPage({
             {tournamentsSorted.map((t) => {
               const start = formatDate(t.start_date);
               const end = formatDate(t.end_date);
-              const dateLabel =
-                start && end && start !== end ? `${start} – ${end}` : start || end || "Dates TBA";
+              const dateLabel = start && end && start !== end ? `${start} – ${end}` : start || end || "Dates TBA";
               const locationLabel = [t.city, t.state].filter(Boolean).join(", ");
               const isDemoTournament = t.slug === DEMO_TOURNAMENT_SLUG;
               const showOwlsEyeBadge = isDemoTournament || Boolean(hasOwlsEyeByTournament.get(t.id));
@@ -668,6 +829,18 @@ export default async function TournamentsPage({
             })}
           </div>
         )}
+
+        {seo?.faq?.length ? (
+          <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid rgba(0,0,0,0.12)" }}>
+            <h2 style={{ margin: "0 0 10px 0", fontSize: 15 }}>FAQ</h2>
+            {seo.faq.map((item) => (
+              <div key={item.q} style={{ margin: "0 0 12px 0" }}>
+                <div style={{ fontWeight: 800 }}>{item.q}</div>
+                <div style={{ marginTop: 4, color: "#334155", lineHeight: 1.5 }}>{item.a}</div>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
     </main>
   );

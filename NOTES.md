@@ -1,3 +1,15 @@
+## 2026-04-02
+
+- TI SEO: Metro/Region markets (v1):
+  - Added service-role-only reference tables + seed: `supabase/migrations/20260402_metro_markets_dc_new_england.sql`
+  - Added region expansion seed: `supabase/migrations/20260402_metro_markets_region_expansion.sql`
+  - Added California city-split rules + seed: `supabase/migrations/20260402_metro_market_city_rules_ca_split.sql`
+  - Added metro listing pages: `apps/ti-web/app/tournaments/metro/[slug]/page.tsx`
+  - Added metro helper: `apps/ti-web/app/tournaments/_lib/getMetroMarketTournaments.ts`
+  - Added internal links on directory: `apps/ti-web/app/tournaments/page.tsx`
+  - Added deterministic metro labels on tournament details (incl. generic CA label): `apps/ti-web/app/tournaments/[slug]/page.tsx`
+  - Updated metro SEO content (unique titles/intros/FAQs + metadata derived from intro): `apps/ti-web/app/tournaments/metro/[slug]/page.tsx`
+
 ## 2026-03-30
 
 - TI Outreach Previews: improved load performance by avoiding `select("*")` on `email_outreach_previews`; list view now fetches a lightweight column set and loads `html_body`/`text_body` only for the selected preview row.

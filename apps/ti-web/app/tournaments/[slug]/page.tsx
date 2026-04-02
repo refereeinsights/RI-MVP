@@ -122,6 +122,18 @@ export const revalidate = 3600;
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
 const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
+const DC_METRO_STATES = new Set(["DC", "VA", "MD"]);
+const NEW_ENGLAND_STATES = new Set(["CT", "RI", "ME", "NH"]);
+const CALIFORNIA_STATES = new Set(["CA"]);
+
+function getMetroMarketLabel(state: string | null): string | null {
+  const code = (state ?? "").trim().toUpperCase();
+  if (!code) return null;
+  if (DC_METRO_STATES.has(code)) return "Part of the DC Metro market";
+  if (NEW_ENGLAND_STATES.has(code)) return "Part of the New England market";
+  if (CALIFORNIA_STATES.has(code)) return "Part of the California regional market";
+  return null;
+}
 
 type ViewerContext = {
   userId: string | null;
@@ -942,6 +954,7 @@ export default async function TournamentDetailPage({
   const resolvedSlug = (data.slug ?? params.slug ?? "").toLowerCase();
   const isDemoTournament = resolvedSlug === DEMO_TOURNAMENT_SLUG;
   const showStaffVerified = Boolean(data.tournament_staff_verified) || isDemoTournament;
+  const metroLabel = getMetroMarketLabel(data.state ?? null);
 
   const canonicalUrl = buildCanonicalUrl(data.slug ?? params.slug);
   const structuredData = {
@@ -993,6 +1006,7 @@ export default async function TournamentDetailPage({
           </div>
           <div className="detailMeta">{dateLabel}</div>
           <div className="detailMeta">{locationLabel}</div>
+          {metroLabel ? <div className="detailMeta">{metroLabel}</div> : null}
 
           <Suspense fallback={<div style={{ height: 44 }} />}>
             <TournamentUserActions

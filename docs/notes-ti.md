@@ -13,6 +13,23 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-04-02
+- SEO: Metro/Region markets (v1):
+  - Added service-role-only reference tables + seed:
+    - `supabase/migrations/20260402_metro_markets_dc_new_england.sql`
+  - Added region expansion seed (idempotent, insert-only mappings):
+    - `supabase/migrations/20260402_metro_markets_region_expansion.sql`
+  - Added California city-split rules (service-role-only) + seed data:
+    - `supabase/migrations/20260402_metro_market_city_rules_ca_split.sql`
+  - Added metro listing pages under `/tournaments/metro/[slug]` reusing the main directory listing UI/query shape:
+    - `apps/ti-web/app/tournaments/metro/[slug]/page.tsx`
+    - `apps/ti-web/app/tournaments/_lib/getMetroMarketTournaments.ts`
+  - Added deterministic SEO copy (title/description/intro + FAQ) per market slug in the metro page.
+  - Added metro/region internal links on the tournaments landing page:
+    - `apps/ti-web/app/tournaments/page.tsx`
+  - Tournament detail: added deterministic metro labels for DC Metro, New England, and a generic California regional label:
+    - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+
 ## 2026-03-31
 - Scheduled Tournament Alerts (v1):
   - Added:
