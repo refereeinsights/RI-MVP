@@ -500,6 +500,11 @@ async function main() {
     idx("venue_name") >= 0 &&
     idx("venue_state") >= 0;
 
+  const hasTournamentSlugVenueFeed =
+    idx("tournament_slug") >= 0 &&
+    idx("venue_name") >= 0 &&
+    idx("venue_state") >= 0;
+
   const hasLegacyFeed =
     headers.length >= 9 &&
     headers[0] === "tournament_name" &&
@@ -532,7 +537,7 @@ async function main() {
     headers[5] === "venue_address" &&
     headers[6] === "director_email";
 
-  if (!hasTournamentUuidVenueFeed && !hasNewFeed && !hasLegacyFeed && !hasSimpleFeed && !hasVenueFirstEnrichmentFeed) {
+  if (!hasTournamentUuidVenueFeed && !hasTournamentSlugVenueFeed && !hasNewFeed && !hasLegacyFeed && !hasSimpleFeed && !hasVenueFirstEnrichmentFeed) {
     throw new Error(`unexpected_header: got=${headers.join("|")}`);
   }
 
@@ -607,6 +612,97 @@ async function main() {
       );
       const venueId = venueRes.venueId;
       const venueNote = venueRes.note;
+      if (venueNote === "created") createdVenues += 1;
+
+      let didLink = false;
+      if (APPLY && tournamentId && venueId) {
+        const linkRes = await supabase
+          .from("tournament_venues")
+          .upsert([{ tournament_id: tournamentId, venue_id: venueId }], { onConflict: "tournament_id,venue_id" });
+        if (linkRes.error) throw linkRes.error;
+        linked += 1;
+        didLink = true;
+      }
+
+      fs.appendFileSync(
+        outPath,
+        [
+          rowNum,
+          tournamentId,
+          tournamentRow.name ?? tournament_name ?? "",
+          slug,
+          tournamentNote,
+          "",
+          venueId ?? "",
+          venueNote,
+          didLink ? "1" : "0",
+          APPLY ? "" : "dry_run",
+        ]
+          .map(csv)
+          .join(",") + "\n"
+      );
+    }
+  } else if (hasTournamentSlugVenueFeed) {
+    for (let i = 1; i < lines.length; i++) {
+      const rowNum = i;
+      const fields = parseCsvLine(lines[i]);
+      const get = (name) => (idx(name) >= 0 ? clean(fields[idx(name)]) : null);
+
+      const tournament_slug = get("tournament_slug");
+      const tournament_name = get("tournament_name");
+      const venue_name = get("venue_name");
+      const venue_address = get("venue_address");
+      const venue_city = get("venue_city");
+      const venue_state = clean(get("venue_state"))?.toUpperCase() ?? null;
+      const venue_zip = get("venue_zip");
+
+      // Allow pasting multiple blocks that repeat the header row mid-file.
+      if (
+        tournament_slug === "tournament_slug" &&
+        venue_name === "venue_name" &&
+        venue_state === "VENUE_STATE"
+      ) {
+        continue;
+      }
+
+      if (!tournament_slug || !venue_name || !venue_state) {
+        fs.appendFileSync(
+          outPath,
+          [rowNum, "", tournament_name ?? "", tournament_slug ?? "", "missing_required_fields", "", "", "", "", "missing_required_fields"]
+            .map(csv)
+            .join(",") + "\n"
+        );
+        continue;
+      }
+
+      const { data: tournamentRow, error: tournamentErr } = await supabase
+        .from("tournaments")
+        .select("id,slug,name")
+        .eq("slug", tournament_slug)
+        .maybeSingle();
+
+      if (tournamentErr || !tournamentRow?.id) {
+        fs.appendFileSync(
+          outPath,
+          [rowNum, "", tournament_name ?? "", tournament_slug, "tournament_not_found", "", "", "", "", tournamentErr ? tournamentErr.message : "tournament_not_found"]
+            .map(csv)
+            .join(",") + "\n"
+        );
+        continue;
+      }
+
+      const tournamentId = String(tournamentRow.id);
+      const slug = tournamentRow.slug ?? tournament_slug;
+      const tournamentNote = "match_tournament_slug";
+
+      const canCreateVenue = canCreateVenueFromStreet(venue_address, venue_zip);
+      const venueRes = await ensureVenueFlexible(
+        supabase,
+        { name: venue_name, address: venue_address, city: venue_city, state: venue_state, zip: venue_zip },
+        APPLY && canCreateVenue
+      );
+      const venueId = venueRes.venueId;
+      const venueNote = !canCreateVenue && venueRes.note === "no_match" ? "no_match_no_full_address" : venueRes.note;
       if (venueNote === "created") createdVenues += 1;
 
       let didLink = false;

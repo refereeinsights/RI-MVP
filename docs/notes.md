@@ -2992,3 +2992,8 @@ Maintenance rules:
   - Server actions: bulk approve/overwrite/requeue, run batch, per-row approve with selected sport; page revalidates after actions.
   - Dashboard tiles added for validation counts on tournaments dashboard.
   - Files: `apps/referee/app/admin/tournaments/validation/{page.tsx,actions.ts}`, `apps/referee/app/admin/tournaments/validation/rules/page.tsx`, `apps/referee/components/admin/AdminNav.tsx`, `apps/referee/app/admin/tournaments/dashboard/page.tsx`, `apps/referee/lib/validation/getSportValidationCounts.ts`.
+
+- 2026-04-01: Added CSV ingest support for linking venues to an existing tournament by `tournament_slug`.
+  - Script: `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs` (new feed: `tournament_slug, ... venue_*`).
+  - Used it to link IPGSA Ohana Blast (10U-12U) + (14U-18U) to their venues (19 links total; 1 new venue created: Hyland Hills - Carroll Butts Park).
+  - Command: `node scripts/ops/ingest_tournaments_and_venues_from_csv.mjs --input=tmp/ipgsa_ohana_blast_venues_by_slug.csv --out=tmp/ipgsa_ohana_blast_venues_report_apply.csv --no-create-tournaments --apply`
