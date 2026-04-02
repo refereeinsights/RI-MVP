@@ -93,6 +93,31 @@ type UrlSuggestion = {
   tournament_state?: string | null;
 };
 
+type InferredVenueApiTournament = {
+  tournament_id: string;
+  name: string | null;
+  city: string | null;
+  state: string | null;
+  sport: string | null;
+  start_date: string | null;
+  inferred_venues: Array<{
+    tournament_id: string;
+    venue_id: string;
+    inference_confidence: number | string | null;
+    inference_method: string | null;
+    inferred_at: string | null;
+    venue: {
+      id?: string | null;
+      name?: string | null;
+      address?: string | null;
+      city?: string | null;
+      state?: string | null;
+      zip?: string | null;
+      venue_url?: string | null;
+    } | null;
+  }>;
+};
+
 type UrlSearchResult = {
   tournament_id: string;
   applied_url?: string | null;
@@ -225,10 +250,91 @@ export default function EnrichmentClient({
   const [feesBatchRunning, setFeesBatchRunning] = React.useState<boolean>(false);
   const [feesBatchMissingVenuesOnly, setFeesBatchMissingVenuesOnly] = React.useState<boolean>(true);
   const [feesSkipPending, setFeesSkipPending] = React.useState<boolean>(true);
+
+  const [inferredOnly, setInferredOnly] = React.useState<boolean>(true);
+  const [inferredLoading, setInferredLoading] = React.useState<boolean>(false);
+  const [inferredError, setInferredError] = React.useState<string | null>(null);
+  const [inferredTournaments, setInferredTournaments] = React.useState<InferredVenueApiTournament[] | null>(null);
+
   const tournamentUrlFor = React.useCallback(
     (tournamentId: string) => tournamentUrlLookup[tournamentId] ?? null,
     [tournamentUrlLookup]
   );
+
+  const loadInferredVenues = React.useCallback(async () => {
+    setInferredLoading(true);
+    setInferredError(null);
+    try {
+      const q = new URLSearchParams();
+      q.set("only", inferredOnly ? "1" : "0");
+      q.set("limit", "50");
+      q.set("offset", "0");
+      const res = await fetch(`/api/admin/tournaments/enrichment/inferred-links?${q.toString()}`);
+      const raw = await res.text();
+      let json: any = null;
+      try {
+        json = raw ? JSON.parse(raw) : null;
+      } catch {
+        json = null;
+      }
+      if (!res.ok || json?.error) {
+        setInferredError(String(json?.error || res.statusText));
+        setInferredTournaments([]);
+        return;
+      }
+      setInferredTournaments((json?.tournaments ?? []) as InferredVenueApiTournament[]);
+    } catch (err: any) {
+      setInferredError(err?.message ? String(err.message) : "Unable to load inferred venues");
+      setInferredTournaments([]);
+    } finally {
+      setInferredLoading(false);
+    }
+  }, [inferredOnly]);
+
+  const promoteInferredVenue = React.useCallback(async (tournamentId: string, venueId: string) => {
+    const res = await fetch("/api/admin/tournaments/enrichment/inferred/promote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tournament_id: tournamentId, venue_id: venueId }),
+    });
+    const raw = await res.text();
+    let json: any = null;
+    try {
+      json = raw ? JSON.parse(raw) : null;
+    } catch {
+      json = null;
+    }
+    if (!res.ok || json?.error) throw new Error(String(json?.error || res.statusText));
+  }, []);
+
+  const rejectInferredVenue = React.useCallback(async (tournamentId: string, venueId: string, method: string) => {
+    const res = await fetch("/api/admin/tournaments/enrichment/inferred/reject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tournament_id: tournamentId, venue_id: venueId, method, remove_link: true }),
+    });
+    const raw = await res.text();
+    let json: any = null;
+    try {
+      json = raw ? JSON.parse(raw) : null;
+    } catch {
+      json = null;
+    }
+    if (!res.ok || json?.error) throw new Error(String(json?.error || res.statusText));
+  }, []);
+
+  const removeInferredRowFromUI = React.useCallback((tournamentId: string, venueId: string) => {
+    setInferredTournaments((prev) => {
+      if (!prev) return prev;
+      const next = prev
+        .map((t) => {
+          if (t.tournament_id !== tournamentId) return t;
+          return { ...t, inferred_venues: (t.inferred_venues ?? []).filter((v) => v.venue_id !== venueId) };
+        })
+        .filter((t) => (t.inferred_venues ?? []).length > 0);
+      return next;
+    });
+  }, []);
 
   const reviewGroups = React.useMemo(() => {
     const groups = new Map<string, Map<string, ReviewItem>>();
@@ -870,6 +976,172 @@ export default function EnrichmentClient({
       <p style={{ color: "#4b5563", marginBottom: 16 }}>
         Queue enrichment jobs for tournaments with URLs. Jobs fetch up to 8 pages per tournament and extract contacts, dates, and referee operations details.
       </p>
+
+      <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 16 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <strong>Inferred venues</strong>
+            <label style={{ fontSize: 12, color: "#4b5563", display: "flex", alignItems: "center", gap: 6 }}>
+              <input type="checkbox" checked={inferredOnly} onChange={(e) => setInferredOnly(e.target.checked)} />
+              only tournaments with no confirmed venues
+            </label>
+            <button
+              onClick={loadInferredVenues}
+              disabled={inferredLoading}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "1px solid #111827",
+                background: "#111827",
+                color: "#fff",
+                opacity: inferredLoading ? 0.6 : 1,
+              }}
+            >
+              {inferredLoading ? "Loading..." : inferredTournaments ? "Refresh" : "Load"}
+            </button>
+          </div>
+          <div style={{ fontSize: 12, color: "#6b7280" }}>
+            Promote = confirmed link. Reject = stored feedback + removes inferred link.
+          </div>
+        </div>
+
+        {inferredError ? <div style={{ marginTop: 10, color: "#b00020" }}>{inferredError}</div> : null}
+
+        {inferredTournaments && inferredTournaments.length === 0 ? (
+          <div style={{ marginTop: 10, color: "#6b7280" }}>No inferred venue links found.</div>
+        ) : null}
+
+        {inferredTournaments && inferredTournaments.length > 0 ? (
+          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+            {inferredTournaments.map((t) => (
+              <div key={t.tournament_id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>
+                      {t.name ?? t.tournament_id}{" "}
+                      <span style={{ fontWeight: 400, color: "#6b7280", fontSize: 12 }}>
+                        {[
+                          t.sport ? t.sport : null,
+                          t.city ? t.city : null,
+                          t.state ? t.state : null,
+                          t.start_date ? t.start_date : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" • ")}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, marginTop: 4 }}>
+                      <Link
+                        href={`/admin/tournaments/enrichment?focus=${encodeURIComponent(t.tournament_id)}`}
+                        style={{ color: "#1d4ed8", textDecoration: "none" }}
+                      >
+                        Focus
+                      </Link>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>{t.inferred_venues.length} inferred</div>
+                </div>
+
+                <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                  {t.inferred_venues.map((v) => (
+                    <div
+                      key={`${v.venue_id}`}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 10,
+                        padding: 8,
+                        border: "1px solid #f3f4f6",
+                        borderRadius: 8,
+                        background: "#fafafa",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div style={{ minWidth: 260 }}>
+                        <div style={{ fontWeight: 700 }}>
+                          {v.venue?.name ?? v.venue_id}{" "}
+                          <span style={{ fontWeight: 400, color: "#6b7280", fontSize: 12 }}>
+                            {v.inference_confidence != null ? `confidence ${String(v.inference_confidence)}` : ""}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: "#374151" }}>
+                          {[
+                            v.venue?.address ?? null,
+                            v.venue?.city ?? null,
+                            v.venue?.state ?? null,
+                            v.venue?.zip ?? null,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+                          {v.inference_method ?? "unknown method"}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <button
+                          onClick={async () => {
+                            setInferredError(null);
+                            try {
+                              await promoteInferredVenue(t.tournament_id, v.venue_id);
+                              removeInferredRowFromUI(t.tournament_id, v.venue_id);
+                            } catch (e: any) {
+                              setInferredError(e?.message ? String(e.message) : "Promote failed");
+                            }
+                          }}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #0f3d2e",
+                            background: "#0f3d2e",
+                            color: "#fff",
+                          }}
+                        >
+                          Promote
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setInferredError(null);
+                            try {
+                              await rejectInferredVenue(
+                                t.tournament_id,
+                                v.venue_id,
+                                v.inference_method ?? "city_state_sport_cluster_v2"
+                              );
+                              removeInferredRowFromUI(t.tournament_id, v.venue_id);
+                            } catch (e: any) {
+                              setInferredError(e?.message ? String(e.message) : "Reject failed");
+                            }
+                          }}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #b91c1c",
+                            background: "#fff",
+                            color: "#b91c1c",
+                          }}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
       <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <button onClick={() => runFeesEnrichment()} disabled={feesBatchRunning} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff", opacity: feesBatchRunning ? 0.6 : 1 }}>

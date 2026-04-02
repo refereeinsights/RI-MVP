@@ -43,9 +43,12 @@ test.describe("RI public beta smoke: auth sanity", () => {
   test("logged-in user can access /account", async ({ page }) => {
     await logout(page);
     await page.goto("/account/login", { waitUntil: "domcontentloaded" });
+    // Give Next.js hydration a moment so controlled inputs don't get reset after fill().
+    await page.waitForTimeout(750);
 
-    const emailInput = page.locator('input[type="email"]');
-    const passwordInput = page.locator('input[type="password"]');
+    // Scope to the login form in case other layout components include inputs.
+    const emailInput = page.locator('form input[type="email"]').first();
+    const passwordInput = page.locator('form input[type="password"]').first();
     await expect(emailInput).toBeVisible();
     await expect(passwordInput).toBeVisible();
     await emailInput.fill(insider.email);
