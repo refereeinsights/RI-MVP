@@ -49,6 +49,13 @@ function htmlEscape(value: string) {
     .replace(/'/g, "&#39;");
 }
 
+const SPORT_LABELS_ANY = TI_SPORT_LABELS as unknown as Record<string, string>;
+function getSportLabel(sport: unknown) {
+  const raw = typeof sport === "string" ? sport : "";
+  const key = raw.trim().toLowerCase();
+  return SPORT_LABELS_ANY[key] ?? raw ?? "Unknown";
+}
+
 type DashboardJson = {
   totals?: {
     total_previews?: number;
@@ -181,7 +188,7 @@ function buildEmailHtml(params: {
           return `<div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
             ${rows
               .map((row) =>
-                renderTile(TI_SPORT_LABELS[row.sport], formatInt(row.total), formatDelta(row.new_yesterday), "neutral")
+                renderTile(getSportLabel(row.sport), formatInt(row.total), formatDelta(row.new_yesterday), "neutral")
               )
               .join("")}
           </div>`;
@@ -205,7 +212,7 @@ function buildEmailHtml(params: {
       if (!row.ok) {
         return `<tr>
           <td style="padding:8px 10px;border-top:1px solid #e5e7eb;"><strong>${htmlEscape(
-            TI_SPORT_LABELS[row.sport as any] ?? row.sport
+            getSportLabel(row.sport)
           )}</strong></td>
           <td style="padding:8px 10px;border-top:1px solid #e5e7eb;" colspan="6">
             <span style="color:#b91c1c;">Error: ${htmlEscape(row.error ?? "unknown")}</span>
@@ -216,7 +223,7 @@ function buildEmailHtml(params: {
       const totals = row.totals ?? {};
       return `<tr>
         <td style="padding:8px 10px;border-top:1px solid #e5e7eb;"><strong>${htmlEscape(
-          TI_SPORT_LABELS[row.sport as any] ?? row.sport
+          getSportLabel(row.sport)
         )}</strong></td>
         <td style="padding:8px 10px;border-top:1px solid #e5e7eb;text-align:right;">${formatInt(totals.total_previews)}</td>
         <td style="padding:8px 10px;border-top:1px solid #e5e7eb;text-align:right;">${formatInt(totals.sent_count)}</td>

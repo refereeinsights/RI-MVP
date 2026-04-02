@@ -202,12 +202,19 @@ function buildPreviewHtml(params: {
   const tiWeekendNew = Number(tiles?.ti_users?.weekend_pro_new_yesterday ?? 0) || 0;
   const bySport = Array.isArray(tiles?.canonical?.by_sport) ? tiles?.canonical?.by_sport ?? [] : [];
 
+  const SPORT_LABELS_ANY = TI_SPORT_LABELS as unknown as Record<string, string>;
+  const getSportLabel = (sport: unknown) => {
+    const raw = typeof sport === "string" ? sport : "";
+    const key = raw.trim().toLowerCase();
+    return SPORT_LABELS_ANY[key] ?? raw ?? "Unknown";
+  };
+
   const totalsRows = totalsBySport
     .map((row) => {
       if (!row.ok) {
         return `<tr>
           <td style="padding:8px 10px;border-top:1px solid #e5e7eb;"><strong>${htmlEscape(
-            TI_SPORT_LABELS[row.sport as any] ?? row.sport
+            getSportLabel(row.sport)
           )}</strong></td>
           <td style="padding:8px 10px;border-top:1px solid #e5e7eb;" colspan="6"><span style="color:#b91c1c;">Error: ${htmlEscape(
             row.error ?? "unknown"
@@ -217,7 +224,7 @@ function buildPreviewHtml(params: {
       const totals = row.totals ?? {};
       return `<tr>
         <td style="padding:8px 10px;border-top:1px solid #e5e7eb;"><strong>${htmlEscape(
-          TI_SPORT_LABELS[row.sport as any] ?? row.sport
+          getSportLabel(row.sport)
         )}</strong></td>
         <td style="padding:8px 10px;border-top:1px solid #e5e7eb;text-align:right;">${formatInt(totals.total_previews)}</td>
         <td style="padding:8px 10px;border-top:1px solid #e5e7eb;text-align:right;">${formatInt(totals.sent_count)}</td>
@@ -304,7 +311,9 @@ function buildPreviewHtml(params: {
             };
           })
             .sort((a, b) => b.total - a.total || a.sport.localeCompare(b.sport))
-            .map((row) => renderTile(TI_SPORT_LABELS[row.sport as any] ?? row.sport, formatInt(row.total), formatDelta(row.new_yesterday), "neutral"))
+            .map((row) =>
+              renderTile(getSportLabel(row.sport), formatInt(row.total), formatDelta(row.new_yesterday), "neutral")
+            )
             .join("")}
         </div>`
       : "";
