@@ -53,7 +53,7 @@ const BIG_BOX_ALLOW_RE = /\b(target|walmart|wal-mart|sam'?s\s*club|costco|meijer
 // Some Places API results are actually residential / short-term rental listings.
 // These should never be promoted as "nearby amenities" for a tournament venue.
 const RESIDENTIAL_STRONG_RE =
-  /\b(mobile home|trailer|rv|campground|tent|private room|private bedroom|entire home|whole home|airbnb|vrbo|vacation rental|furnished|fully furn|garden apt|apartment|apartments|condo|condominiums?|townhome|townhouse|studio apartment|guest house|guesthouse|single family|multi family|bed\s*&\s*breakfast|b&b)\b/i;
+  /\b(mobile home|trailer|rv|campground|tent|private room|private bedroom|shared bathroom|ensuite|private entrance|guest suite|entire suite|entire home|whole home|airbnb|vrbo|vacation rental|furnished|fully furn|garden apt|apartment|apartments|condo|condominiums?|townhome|townhouse|studio apartment|guest house|guesthouse|single family|multi family|bed\s*&\s*breakfast|b&b)\b/i;
 const HOME_WORD_RE = /\bhome\b/i;
 const HOME_CONTEXT_RE =
   /\b(near|private|bedroom|bathroom|furn|furnished|family|yard|neighborhood|getaway|retreat|garden|apt|apartment|condo|townhome|townhouse|airbnb|vrbo|vacation)\b/i;
