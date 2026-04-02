@@ -102,6 +102,9 @@
 - TI ops: added two more tiles (success tone) for Venue Check submissions and TI users (Insider + Weekend Pro), each with “yesterday” deltas.
   - Metrics RPC update: `supabase/migrations/20260402_admin_dashboard_email_tiles_rpc_v2.sql`
 
+- Ops tooling: `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs` now supports an expanded CSV feed with explicit venue city/state/zip (`venue_city,venue_state,venue_zip`) while still de-duping tournaments/venues and linking via `tournament_venues`.
+  - Also treats `/state-tournaments` URLs as generic listing pages to avoid merging distinct tournaments on shared USSSA state listing URLs.
+
 ## 2026-03-14
 
 - Added per-row approval on admin tournament sport validation page to remove nested forms and hydration errors; bulk UI removed.
