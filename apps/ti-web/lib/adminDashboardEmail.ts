@@ -84,6 +84,13 @@ export type AdminDashboardEmailTiles = {
   };
   missing_venues?: { total?: number; new_yesterday?: number };
   owls_eye?: { venues_reviewed_total?: number; venues_reviewed_new_yesterday?: number };
+  venue_check?: { submissions_total?: number; submissions_new_yesterday?: number };
+  ti_users?: {
+    insider_total?: number;
+    insider_new_yesterday?: number;
+    weekend_pro_total?: number;
+    weekend_pro_new_yesterday?: number;
+  };
 };
 
 export function parseRecipients(raw: string | undefined | null) {

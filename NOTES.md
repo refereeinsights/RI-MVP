@@ -99,6 +99,8 @@
   - RI shortcut: button on RI `/admin` to open TI page via SSO (`apps/referee/app/admin/page.tsx`)
 - TI ops: dashboard email now leads with tile KPIs (canonical + deltas, missing venues + deltas, Owl’s Eye venue reviews + deltas, and per-sport tiles).
   - Metrics RPC: `supabase/migrations/20260402_admin_dashboard_email_tiles_rpc.sql` (`public.get_admin_dashboard_email_tiles(...)`)
+- TI ops: added two more tiles (success tone) for Venue Check submissions and TI users (Insider + Weekend Pro), each with “yesterday” deltas.
+  - Metrics RPC update: `supabase/migrations/20260402_admin_dashboard_email_tiles_rpc_v2.sql`
 
 ## 2026-03-14
 

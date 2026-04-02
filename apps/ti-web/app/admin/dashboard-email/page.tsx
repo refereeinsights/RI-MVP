@@ -157,6 +157,21 @@ function renderTile(label: string, value: string, delta?: string, tone?: "neutra
   </div>`;
 }
 
+function renderUsersTile(params: { insiderTotal: number; insiderNew: number; weekendTotal: number; weekendNew: number }) {
+  const bg = "#ecfdf3";
+  const border = "#bbf7d0";
+  const color = "#166534";
+
+  const insiderLine = `Insider: ${formatInt(params.insiderTotal)} ${formatDelta(params.insiderNew) ? `(${formatDelta(params.insiderNew)} yesterday)` : ""}`.trim();
+  const weekendLine = `Weekend Pro: ${formatInt(params.weekendTotal)} ${formatDelta(params.weekendNew) ? `(${formatDelta(params.weekendNew)} yesterday)` : ""}`.trim();
+
+  return `<div style="border:1px solid ${border};background:${bg};border-radius:12px;padding:10px 12px;">
+    <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">TI users</div>
+    <div style="font-size:14px;font-weight:900;color:${color};margin-top:6px;line-height:1.2;">${htmlEscape(insiderLine)}</div>
+    <div style="font-size:14px;font-weight:900;color:${color};margin-top:6px;line-height:1.2;">${htmlEscape(weekendLine)}</div>
+  </div>`;
+}
+
 function buildPreviewHtml(params: {
   generatedAtIso: string;
   baseUrl: string;
@@ -176,6 +191,12 @@ function buildPreviewHtml(params: {
   const missingVenuesNew = Number(tiles?.missing_venues?.new_yesterday ?? 0) || 0;
   const owlsEyeTotal = Number(tiles?.owls_eye?.venues_reviewed_total ?? 0) || 0;
   const owlsEyeNew = Number(tiles?.owls_eye?.venues_reviewed_new_yesterday ?? 0) || 0;
+  const venueCheckTotal = Number(tiles?.venue_check?.submissions_total ?? 0) || 0;
+  const venueCheckNew = Number(tiles?.venue_check?.submissions_new_yesterday ?? 0) || 0;
+  const tiInsiderTotal = Number(tiles?.ti_users?.insider_total ?? 0) || 0;
+  const tiInsiderNew = Number(tiles?.ti_users?.insider_new_yesterday ?? 0) || 0;
+  const tiWeekendTotal = Number(tiles?.ti_users?.weekend_pro_total ?? 0) || 0;
+  const tiWeekendNew = Number(tiles?.ti_users?.weekend_pro_new_yesterday ?? 0) || 0;
   const bySport = Array.isArray(tiles?.canonical?.by_sport) ? tiles?.canonical?.by_sport ?? [] : [];
 
   const totalsRows = totalsBySport
@@ -263,6 +284,8 @@ function buildPreviewHtml(params: {
         ${renderTile("Canonical tournaments", formatInt(canonicalTotal), formatDelta(canonicalNew), "info")}
         ${renderTile("Missing venues", formatInt(missingVenuesTotal), formatDelta(missingVenuesNew), "warn")}
         ${renderTile("Owl's Eye venues reviewed", formatInt(owlsEyeTotal), formatDelta(owlsEyeNew), "success")}
+        ${renderTile("Venue Check submissions", formatInt(venueCheckTotal), formatDelta(venueCheckNew), "success")}
+        ${renderUsersTile({ insiderTotal: tiInsiderTotal, insiderNew: tiInsiderNew, weekendTotal: tiWeekendTotal, weekendNew: tiWeekendNew })}
       </div>`
     : "";
 
