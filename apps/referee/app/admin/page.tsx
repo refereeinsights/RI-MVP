@@ -5886,37 +5886,6 @@ export default async function AdminPage({
             </div>
 	          ) : (
 	            <div style={{ marginTop: 16 }}>
-	              <form action="/admin" method="get" style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-	                <input type="hidden" name="tab" value="tournament-uploads" />
-	                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#555" }}>
-	                  Sort drafts
-	                  <select
-	                    name="uploads_sort"
-	                    defaultValue={uploadsSort}
-	                    style={{ padding: "7px 10px", borderRadius: 10, border: "1px solid #ccc", background: "#fff" }}
-	                  >
-	                    <option value="updated_desc">Recently updated</option>
-	                    <option value="start_date_asc">Start date (soonest)</option>
-	                    <option value="start_date_desc">Start date (latest)</option>
-	                    <option value="venue_name_asc">Venue name (A–Z)</option>
-	                    <option value="missing_venues_first">Missing linked venues first</option>
-	                  </select>
-	                </label>
-	                <button
-	                  type="submit"
-	                  style={{
-	                    padding: "8px 10px",
-	                    borderRadius: 10,
-	                    border: "1px solid #555",
-	                    background: "#fff",
-	                    color: "#111",
-	                    fontWeight: 800,
-	                    fontSize: 13,
-	                  }}
-	                >
-	                  Apply
-	                </button>
-	              </form>
 	              <form action={bulkTournamentAction}>
 	              <input type="hidden" name="redirect_to" value={adminBasePath} />
 	              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
@@ -5974,18 +5943,66 @@ export default async function AdminPage({
                 No tournaments selected
               </div>
 
-              <div style={{ overflowX: "auto" }}>
-                <table
-                  style={{
-                    width: "100%",
+	              <div style={{ overflowX: "auto" }}>
+	                {(() => {
+	                  const buildSortHref = (sort: typeof uploadsSort) => {
+	                    const base = new URL(adminBasePath, "http://localhost");
+	                    base.searchParams.set("tab", "tournament-uploads");
+	                    if (sort === "updated_desc") base.searchParams.delete("uploads_sort");
+	                    else base.searchParams.set("uploads_sort", sort);
+	                    return `${base.pathname}?${base.searchParams.toString()}`;
+	                  };
+
+	                  const SortLink = ({
+	                    sort,
+	                    label,
+	                  }: {
+	                    sort: typeof uploadsSort;
+	                    label: string;
+	                  }) => {
+	                    const active = uploadsSort === sort;
+	                    return (
+	                      <Link
+	                        href={buildSortHref(sort)}
+	                        style={{
+	                          padding: "6px 10px",
+	                          borderRadius: 999,
+	                          border: `1px solid ${active ? "#0f3d2e" : "#d1d5db"}`,
+	                          background: active ? "#e8f5ef" : "#fff",
+	                          color: "#111",
+	                          fontWeight: 800,
+	                          fontSize: 12,
+	                          textDecoration: "none",
+	                        }}
+	                      >
+	                        {label}
+	                      </Link>
+	                    );
+	                  };
+
+	                  return (
+	                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+	                      <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+	                        <span style={{ fontSize: 12, color: "#555", fontWeight: 800 }}>Sort</span>
+	                        <SortLink sort="updated_desc" label="Updated" />
+	                        <SortLink sort="start_date_asc" label="Dates (soonest)" />
+	                        <SortLink sort="venue_name_asc" label="Venue (A–Z)" />
+	                        <SortLink sort="missing_venues_first" label="Missing venues" />
+	                      </div>
+	                    </div>
+	                  );
+	                })()}
+	                <table
+	                  style={{
+	                    width: "100%",
                     borderCollapse: "collapse",
                     fontSize: 13,
                     minWidth: 700,
                   }}
                 >
-                  <thead>
-                    <tr style={{ background: "#f5f5f5" }}>
-                      <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>
+	                  <thead>
+	                    <tr style={{ background: "#f5f5f5" }}>
+	                      <th style={{ padding: 8, borderBottom: "1px solid #ddd" }}>
                         <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
                           <input
                             type="checkbox"
