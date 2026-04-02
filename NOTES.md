@@ -93,6 +93,10 @@
   - Schedule: `apps/ti-web/vercel.json` cron at `5 13 * * *` (UTC).
   - Env: `TI_ADMIN_DASHBOARD_EMAILS` (comma/newline-separated recipients), `RESEND_API_KEY`, `CRON_SECRET`.
   - Manual preview (no send): add `&dry_run=1` to the cron URL.
+- TI ops: added an admin UI to preview, customize (sections + recipients), and send the dashboard email on demand.
+  - Page: `apps/ti-web/app/admin/dashboard-email/page.tsx`
+  - Settings storage (Supabase): `supabase/migrations/20260402_ti_admin_dashboard_email_settings.sql` (table `public.ti_admin_dashboard_email_settings`)
+  - RI shortcut: button on RI `/admin` to open TI page via SSO (`apps/referee/app/admin/page.tsx`)
 
 ## 2026-03-14
 

@@ -18,6 +18,7 @@ import {
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { lookupSchoolZip } from "@/lib/googlePlaces";
 import { getSportValidationCounts } from "@/lib/validation/getSportValidationCounts";
+import { buildTiAdminSsoUrl } from "@/lib/tiSso";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -300,7 +301,14 @@ export default async function AdminPage({
     staff_token_tournament_id?: string;
   };
 }) {
-  await requireAdmin();
+  const adminUser = await requireAdmin();
+  const tiAdminBaseUrl =
+    process.env.NODE_ENV === "development" ? "http://localhost:3001" : "https://www.tournamentinsights.com";
+  const tiDashboardEmailHref = buildTiAdminSsoUrl({
+    tiAdminBaseUrl,
+    email: adminUser.email ?? "",
+    returnTo: "/admin/dashboard-email",
+  });
   const owlsEyeAdminToken =
     process.env.NEXT_PUBLIC_OWLS_EYE_ADMIN_TOKEN ?? process.env.OWLS_EYE_ADMIN_TOKEN ?? "";
   const today = todayIso();
@@ -3591,6 +3599,15 @@ export default async function AdminPage({
           style={{ alignSelf: "center", padding: "8px 12px" }}
         >
           Open tournaments dashboard
+        </Link>
+        <Link
+          href={tiDashboardEmailHref}
+          className="cta secondary"
+          target="_blank"
+          rel="noreferrer"
+          style={{ alignSelf: "center", padding: "8px 12px" }}
+        >
+          Manage TI dashboard email
         </Link>
       </div>
 
