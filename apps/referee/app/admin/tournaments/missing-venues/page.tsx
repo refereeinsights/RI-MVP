@@ -170,6 +170,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   const paramsBase = new URLSearchParams();
   if (q) paramsBase.set("q", q);
   if (state) paramsBase.set("state", state);
+  const exportHref = `/api/admin/tournaments/missing-venues/export${paramsBase.toString() ? `?${paramsBase.toString()}` : ""}`;
 
   return (
     <main style={{ maxWidth: 1200, margin: "0 auto", padding: "1rem" }}>
@@ -184,6 +185,21 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <USClubSoccerUrlButton limit={400} />
           <BulkDeepScanButton initialLimit={50} total={count} />
+          <a
+            href={exportHref}
+            style={{
+              textDecoration: "none",
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "#ffffff",
+              color: "#0f3d2e",
+              fontWeight: 800,
+              fontSize: 14,
+              border: "1px solid #0f3d2e",
+            }}
+          >
+            Export CSV
+          </a>
           <Link
             href="/admin/tournaments/enrichment"
             style={{
