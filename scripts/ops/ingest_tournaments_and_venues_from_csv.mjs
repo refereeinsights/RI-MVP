@@ -856,10 +856,27 @@ async function main() {
       if (venue_name && venue_address) {
         const canLink = Boolean(tournamentId);
         const venueApply = APPLY && canLink;
-        const venueRes = await ensureVenue(supabase, { name: venue_name, address: venue_address }, venueApply);
-        venueId = venueRes.venueId;
-        venueNote = venueRes.note;
-        if (venueNote === "created") createdVenues += 1;
+        const parsedVenue = parseFullAddress(venue_address);
+        if (parsedVenue?.street && parsedVenue?.city && parsedVenue?.state) {
+          const venueRes = await ensureVenueFlexible(
+            supabase,
+            {
+              name: venue_name,
+              address: parsedVenue.street,
+              city: parsedVenue.city,
+              state: parsedVenue.state,
+              zip: parsedVenue.zip,
+              sport,
+            },
+            venueApply
+          );
+          venueId = venueRes.venueId;
+          venueNote = venueRes.note;
+          if (venueNote === "created") createdVenues += 1;
+        } else {
+          venueId = null;
+          venueNote = "missing_name_or_address";
+        }
 
         if (venueApply && tournamentId && venueId) {
           const linkRes = await supabase
