@@ -5500,44 +5500,13 @@ export default async function AdminPage({
 	                Approve, archive, or delete the imports below once they look good.
 	              </p>
 	            </div>
-	            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-	              <div style={{ fontSize: 13, color: "#555" }}>
-	                Pending: <strong>{pendingTournaments.length}</strong>
-	              </div>
-	              <form action="/admin" method="get" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-	                <input type="hidden" name="tab" value="tournament-uploads" />
-	                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#555" }}>
-	                  Sort
-	                  <select
-	                    name="uploads_sort"
-	                    defaultValue={uploadsSort}
-	                    style={{ padding: "7px 10px", borderRadius: 10, border: "1px solid #ccc", background: "#fff" }}
-	                  >
-	                    <option value="updated_desc">Recently updated</option>
-	                    <option value="start_date_asc">Start date (soonest)</option>
-	                    <option value="start_date_desc">Start date (latest)</option>
-	                    <option value="venue_name_asc">Venue name (A–Z)</option>
-	                    <option value="missing_venues_first">Missing linked venues first</option>
-	                  </select>
-	                </label>
-	                <button
-	                  type="submit"
-	                  style={{
-	                    padding: "8px 10px",
-	                    borderRadius: 10,
-	                    border: "1px solid #555",
-	                    background: "#fff",
-	                    color: "#111",
-	                    fontWeight: 800,
-	                    fontSize: 13,
-	                  }}
-	                >
-	                  Apply
-	                </button>
-	              </form>
-	              <a
-	                href="/api/admin/tournaments/uploads/export"
-	                style={{
+		            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+		              <div style={{ fontSize: 13, color: "#555" }}>
+		                Pending: <strong>{pendingTournaments.length}</strong>
+		              </div>
+		              <a
+		                href="/api/admin/tournaments/uploads/export"
+		                style={{
 	                  padding: "8px 10px",
 	                  borderRadius: 10,
                   border: "1px solid #0f3d2e",
@@ -5891,7 +5860,7 @@ export default async function AdminPage({
             </form>
           </div>
 
-          {pendingTournaments.length === 0 ? (
+	          {pendingTournaments.length === 0 ? (
             <div
               style={{
                 marginTop: 16,
@@ -5915,10 +5884,42 @@ export default async function AdminPage({
                 </Link>
               </div>
             </div>
-          ) : (
-            <form action={bulkTournamentAction} style={{ marginTop: 16 }}>
-              <input type="hidden" name="redirect_to" value={adminBasePath} />
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+	          ) : (
+	            <div style={{ marginTop: 16 }}>
+	              <form action="/admin" method="get" style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+	                <input type="hidden" name="tab" value="tournament-uploads" />
+	                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#555" }}>
+	                  Sort drafts
+	                  <select
+	                    name="uploads_sort"
+	                    defaultValue={uploadsSort}
+	                    style={{ padding: "7px 10px", borderRadius: 10, border: "1px solid #ccc", background: "#fff" }}
+	                  >
+	                    <option value="updated_desc">Recently updated</option>
+	                    <option value="start_date_asc">Start date (soonest)</option>
+	                    <option value="start_date_desc">Start date (latest)</option>
+	                    <option value="venue_name_asc">Venue name (A–Z)</option>
+	                    <option value="missing_venues_first">Missing linked venues first</option>
+	                  </select>
+	                </label>
+	                <button
+	                  type="submit"
+	                  style={{
+	                    padding: "8px 10px",
+	                    borderRadius: 10,
+	                    border: "1px solid #555",
+	                    background: "#fff",
+	                    color: "#111",
+	                    fontWeight: 800,
+	                    fontSize: 13,
+	                  }}
+	                >
+	                  Apply
+	                </button>
+	              </form>
+	              <form action={bulkTournamentAction}>
+	              <input type="hidden" name="redirect_to" value={adminBasePath} />
+	              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                 <button
                   formNoValidate
                   name="bulk_action"
@@ -6385,8 +6386,9 @@ export default async function AdminPage({
                 </table>
               </div>
               <PendingTournamentSelection />
-            </form>
-          )}
+	              </form>
+	            </div>
+	          )}
         </section>
       )}
 
