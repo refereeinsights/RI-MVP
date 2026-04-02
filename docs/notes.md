@@ -38,6 +38,8 @@ Maintenance rules:
     - `apps/referee/app/admin/tournaments/sources/page.tsx`
   - Added minimal primary venue concept on `tournament_venues` (`is_primary`) with conservative backfill:
     - `supabase/migrations/20260402_tournament_venues_primary.sql`
+  - Added ops script to ingest venue rows from a CSV (match/create venues, then upsert `tournament_venues` links):
+    - `scripts/ops/ingest_tournament_venues_from_csv.ts`
 
 ## 2026-03-05
 - TI national sport hub pages (SEO step 1):
