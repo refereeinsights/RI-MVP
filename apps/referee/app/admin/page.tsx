@@ -5956,7 +5956,19 @@ export default async function AdminPage({
                           />
 	                        </td>
 	                        <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-	                          <div style={{ fontWeight: 700 }}>{t.name}</div>
+	                          {(t.official_website_url ?? t.source_url) ? (
+	                            <a
+	                              href={(t.official_website_url ?? t.source_url)!}
+	                              target="_blank"
+	                              rel="noreferrer noopener"
+	                              style={{ fontWeight: 700, color: "#0f3d2e" }}
+	                              title={t.official_website_url ?? t.source_url ?? undefined}
+	                            >
+	                              {t.name}
+	                            </a>
+	                          ) : (
+	                            <div style={{ fontWeight: 700 }}>{t.name}</div>
+	                          )}
 	                          <div style={{ color: "#666" }}>Slug: {t.slug}</div>
 	                          <div style={{ color: "#666" }}>
 	                            Sport: {t.sport} {t.level ? `• ${t.level}` : ""}
