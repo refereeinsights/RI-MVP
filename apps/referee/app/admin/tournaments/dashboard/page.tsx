@@ -161,12 +161,13 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
   });
   const sportTileIds = sportTileTournaments.map((t: any) => t.id).filter(Boolean);
 
-  const sportTileVenueRes = sportTileIds.length
-    ? await supabaseAdmin
-        .from("tournament_venues" as any)
-        .select("tournament_id,venue_id")
-        .in("tournament_id", sportTileIds)
-    : { data: [] as any[], error: null };
+	  const sportTileVenueRes = sportTileIds.length
+	    ? await supabaseAdmin
+	        .from("tournament_venues" as any)
+	        .select("tournament_id,venue_id")
+	        .in("tournament_id", sportTileIds)
+	        .eq("is_inferred", false)
+	    : { data: [] as any[], error: null };
   const sportTileVenueLinks = sportTileVenueRes.data ?? [];
   const linkedVenueCounts = new Map<string, number>();
   sportTileVenueLinks.forEach((row: any) => {
@@ -238,13 +239,14 @@ export default async function TournamentsDashboard({ searchParams }: { searchPar
       };
 
       const allTvRows: Array<{ venue_id: string | null }> = [];
-      for (const idChunk of chunkValues(Array.from(tournamentIdsInScope))) {
-        const { data } = await supabaseAdmin
-          .from("tournament_venues" as any)
-          .select("venue_id")
-          .in("tournament_id", idChunk);
-        allTvRows.push(...(((data as Array<{ venue_id: string | null }> | null) ?? []) as Array<{ venue_id: string | null }>));
-      }
+	      for (const idChunk of chunkValues(Array.from(tournamentIdsInScope))) {
+	        const { data } = await supabaseAdmin
+	          .from("tournament_venues" as any)
+	          .select("venue_id")
+	          .in("tournament_id", idChunk)
+	          .eq("is_inferred", false);
+	        allTvRows.push(...(((data as Array<{ venue_id: string | null }> | null) ?? []) as Array<{ venue_id: string | null }>));
+	      }
 
       const linkedVenueIds = Array.from(new Set(allTvRows.map((row) => row.venue_id).filter(Boolean))) as string[];
       if (linkedVenueIds.length > 0) {

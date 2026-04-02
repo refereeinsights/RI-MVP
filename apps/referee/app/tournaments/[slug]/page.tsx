@@ -293,7 +293,8 @@ export default async function TournamentDetailPage({
   const { data: venueLinks } = await supabaseAdmin
     .from("tournament_venues" as any)
     .select("venue_id,venues(id,seo_slug,name,address,city,state,zip)")
-    .eq("tournament_id", data.id);
+    .eq("tournament_id", data.id)
+    .eq("is_inferred", false);
   const linkedVenues = (venueLinks ?? [])
     .map((row: any) => row.venues)
     .filter(Boolean) as Array<{

@@ -26,6 +26,7 @@ type DuplicateLookupRow = {
   ref_mentors: "yes" | "no" | null;
   travel_lodging: "hotel" | "stipend" | null;
   tournament_venues?: Array<{
+    is_inferred?: boolean | null;
     venues:
       | {
           id: string;
@@ -52,7 +53,7 @@ type TournamentPartnerRow = {
 };
 
 const DUPLICATE_LOOKUP_SELECT =
-  "id,slug,name,sport,city,state,start_date,end_date,official_website_url,team_fee,age_group,tournament_director,tournament_director_email,referee_contact,referee_contact_email,referee_pay,ref_cash_tournament,ref_mentors,travel_lodging,tournament_venues(venues(id,name,address1,city,state,zip,venue_url,restrooms,bring_field_chairs))";
+  "id,slug,name,sport,city,state,start_date,end_date,official_website_url,team_fee,age_group,tournament_director,tournament_director_email,referee_contact,referee_contact_email,referee_pay,ref_cash_tournament,ref_mentors,travel_lodging,tournament_venues(is_inferred,venues(id,name,address1,city,state,zip,venue_url,restrooms,bring_field_chairs))";
 
 function normalizeLookupText(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -108,6 +109,7 @@ function mapDuplicateMatch(row: DuplicateLookupRow, sponsorRows: TournamentPartn
       };
     }),
     venues: (row.tournament_venues ?? [])
+      .filter((entry) => !entry?.is_inferred)
       .map((entry) => entry?.venues ?? null)
       .filter(
         (venue): venue is NonNullable<NonNullable<DuplicateLookupRow["tournament_venues"]>[number]["venues"]> =>

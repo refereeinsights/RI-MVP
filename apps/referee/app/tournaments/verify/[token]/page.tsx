@@ -165,7 +165,8 @@ async function submitVerificationAction(formData: FormData) {
   const { data: linkedVenuesRaw } = await supabaseAdmin
     .from("tournament_venues" as any)
     .select("venue_id,venues(name,address)")
-    .eq("tournament_id", tokenRow.tournament_id);
+    .eq("tournament_id", tokenRow.tournament_id)
+    .eq("is_inferred", false);
   const linkedVenues = (linkedVenuesRaw ?? []) as any[];
 
   if (!tournamentRow) {
@@ -308,7 +309,8 @@ export default async function TournamentVerifyPage({ params, searchParams }: Ver
   const { data: linkedVenuesRaw } = await supabaseAdmin
     .from("tournament_venues" as any)
     .select("venue_id,venues(name,address)")
-    .eq("tournament_id", tokenRow.tournament_id);
+    .eq("tournament_id", tokenRow.tournament_id)
+    .eq("is_inferred", false);
   const additionalVenuesValue = formatAdditionalVenuesForSnapshot(linkedVenuesRaw as any[]);
 
   if (!tournament) {

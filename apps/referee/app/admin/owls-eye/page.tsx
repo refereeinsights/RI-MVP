@@ -82,10 +82,11 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
     const notRunVenueIds = venueIds.filter((id) => id && !runVenueIds.has(id));
     const linkRows: Array<{ venue_id: string | null; tournament_id: string | null }> = [];
     for (const idChunk of chunkValues(notRunVenueIds)) {
-      const { data: venueLinks } = await supabaseAdmin
-        .from("tournament_venues" as any)
-        .select("venue_id,tournament_id")
-        .in("venue_id", idChunk);
+	      const { data: venueLinks } = await supabaseAdmin
+	        .from("tournament_venues" as any)
+	        .select("venue_id,tournament_id")
+	        .in("venue_id", idChunk)
+	        .eq("is_inferred", false);
       linkRows.push(...((venueLinks ?? []) as Array<{ venue_id: string | null; tournament_id: string | null }>));
     }
     linkRows.forEach((row) => {

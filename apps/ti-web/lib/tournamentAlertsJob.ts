@@ -189,7 +189,8 @@ async function loadOwlsEyeCountsByTournamentId(tournamentIds: string[]) {
 
   const { data: linksRaw } = await (supabaseAdmin.from("tournament_venues" as any) as any)
     .select("tournament_id,venue_id")
-    .in("tournament_id", uniqueTournamentIds);
+    .in("tournament_id", uniqueTournamentIds)
+    .eq("is_inferred", false);
 
   const links = ((linksRaw as TournamentVenueLinkRow[] | null) ?? []).filter(
     (row) => Boolean(row?.tournament_id && row?.venue_id)

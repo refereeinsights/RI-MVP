@@ -140,15 +140,16 @@ export default async function PremiumPage() {
   demoVenue = directVenue.data ?? null;
 
   if (!demoVenue) {
-    const { data: demoTournament } = await supabaseAdmin
-      .from("tournaments_public" as any)
-      .select(
-        "id,slug,tournament_venues(venues(id,name,address,city,state,zip,venue_url,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at))"
-      )
-      .eq("slug", DEMO_TOURNAMENT_SLUG)
-      .maybeSingle<DemoTournamentRow>();
+      const { data: demoTournament } = await supabaseAdmin
+        .from("tournaments_public" as any)
+        .select(
+          "id,slug,tournament_venues(is_inferred,venues(id,name,address,city,state,zip,venue_url,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at))"
+        )
+        .eq("slug", DEMO_TOURNAMENT_SLUG)
+        .maybeSingle<DemoTournamentRow>();
 
     const demoVenues = (demoTournament?.tournament_venues ?? [])
+      .filter((tv) => !(tv as any)?.is_inferred)
       .map((tv) => tv?.venues ?? null)
       .filter(
         (venue): venue is NonNullable<NonNullable<DemoTournamentRow["tournament_venues"]>[number]["venues"]> =>

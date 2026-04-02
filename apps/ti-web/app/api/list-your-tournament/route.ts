@@ -336,7 +336,7 @@ export async function GET(request: Request) {
   const state = (searchParams.get("state") ?? "").trim().toUpperCase();
 
   const baseSelect =
-    "id,slug,name,sport,city,state,start_date,end_date,official_website_url,team_fee,age_group,tournament_director,tournament_director_email,referee_contact,referee_contact_email,referee_pay,ref_cash_tournament,ref_mentors,travel_lodging,tournament_venues(venues(id,name,address1,city,state,zip,venue_url,restrooms,bring_field_chairs))";
+    "id,slug,name,sport,city,state,start_date,end_date,official_website_url,team_fee,age_group,tournament_director,tournament_director_email,referee_contact,referee_contact_email,referee_pay,ref_cash_tournament,ref_mentors,travel_lodging,tournament_venues(is_inferred,venues(id,name,address1,city,state,zip,venue_url,restrooms,bring_field_chairs))";
 
   if (tournamentId) {
     try {

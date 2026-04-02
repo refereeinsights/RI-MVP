@@ -1210,11 +1210,12 @@ export async function POST(request: Request) {
       const chunkSize = 200;
       for (let i = 0; i < candidateTournamentIds.length; i += chunkSize) {
         const chunk = candidateTournamentIds.slice(i, i + chunkSize);
-        const { data: links, error: linkErr } = await supabaseAdmin
-          .from("tournament_venues" as any)
-          .select("tournament_id")
-          .in("tournament_id", chunk)
-          .limit(20000);
+	        const { data: links, error: linkErr } = await supabaseAdmin
+	          .from("tournament_venues" as any)
+	          .select("tournament_id")
+	          .in("tournament_id", chunk)
+	          .eq("is_inferred", false)
+	          .limit(20000);
         if (linkErr) {
           console.warn("[fees-venue] failed to load tournament_venues for missing_venues skip", linkErr.message);
           continue;
@@ -1854,15 +1855,15 @@ export async function POST(request: Request) {
     }
   }
 
-  if (autoLinkRows.length) {
-    const dedup = new Map<string, { tournament_id: string; venue_id: string }>();
-    for (const row of autoLinkRows) {
-      dedup.set(`${row.tournament_id}|${row.venue_id}`, row);
-    }
-    const rows = Array.from(dedup.values());
-    const { error: linkError } = await supabaseAdmin
-      .from("tournament_venues" as any)
-      .upsert(rows, { onConflict: "tournament_id,venue_id" });
+	  if (autoLinkRows.length) {
+	    const dedup = new Map<string, { tournament_id: string; venue_id: string }>();
+	    for (const row of autoLinkRows) {
+	      dedup.set(`${row.tournament_id}|${row.venue_id}`, row);
+	    }
+	    const rows = Array.from(dedup.values()).map((row) => ({ ...row, is_inferred: false }));
+	    const { error: linkError } = await supabaseAdmin
+	      .from("tournament_venues" as any)
+	      .upsert(rows, { onConflict: "tournament_id,venue_id" });
     if (linkError) {
       return NextResponse.json(
         {

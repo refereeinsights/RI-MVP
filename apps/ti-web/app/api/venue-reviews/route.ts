@@ -185,6 +185,7 @@ export async function GET(request: Request) {
       .from("tournament_venues" as any)
       .select("venue_id,venues(id,seo_slug,name,address,city,state,zip)")
       .eq("tournament_id", tournamentId)
+      .eq("is_inferred", false)
       .order("created_at", { ascending: true });
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

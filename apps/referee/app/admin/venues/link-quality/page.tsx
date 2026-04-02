@@ -86,10 +86,11 @@ export default async function VenueLinkQualityPage({
   const q = String(searchParams?.q ?? "").trim().toLowerCase();
   const notice = String(searchParams?.notice ?? "").trim();
 
-  const { data: linksRaw, error: linksErr } = await (supabaseAdmin
-    .from("tournament_venues" as any)
-    .select("tournament_id,venue_id")
-    .limit(15000) as any);
+	  const { data: linksRaw, error: linksErr } = await (supabaseAdmin
+	    .from("tournament_venues" as any)
+	    .select("tournament_id,venue_id")
+	    .eq("is_inferred", false)
+	    .limit(15000) as any);
   if (linksErr) {
     return (
       <main style={{ padding: 24 }}>

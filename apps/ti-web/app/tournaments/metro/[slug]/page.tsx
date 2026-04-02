@@ -427,7 +427,8 @@ export default async function MetroMarketTournamentsPage({
     const { data: linkRows } = await supabaseAdmin
       .from("tournament_venues" as any)
       .select("tournament_id,venue_id")
-      .in("tournament_id", tournamentIds);
+      .in("tournament_id", tournamentIds)
+      .eq("is_inferred", false);
 
     const links = (linkRows as TournamentVenueLink[] | null) ?? [];
     const linksByTournament = new Map<string, string[]>();

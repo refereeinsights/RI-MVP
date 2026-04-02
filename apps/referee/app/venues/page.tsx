@@ -36,6 +36,7 @@ type VenueRow = {
   review_count: number | null;
   reviews_last_updated_at: string | null;
   tournament_venues?: {
+    is_inferred?: boolean | null;
     tournaments?: LinkedTournament | null;
   }[] | null;
 };
@@ -203,7 +204,7 @@ export default async function VenuesPage({
   const { data: venuesData, error } = await supabaseAdmin
     .from("venues" as any)
     .select(
-      "id,name,address,city,state,zip,latitude,longitude,venue_url,notes,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(tournaments(id,name,slug,sport,start_date,end_date))"
+      "id,name,address,city,state,zip,latitude,longitude,venue_url,notes,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(is_inferred,tournaments(id,name,slug,sport,start_date,end_date))"
     )
     .order("name", { ascending: true });
 
@@ -252,6 +253,7 @@ export default async function VenuesPage({
     .filter((v) => Boolean(v?.id && v?.name))
     .map((venue) => {
       const linkedTournaments = (venue.tournament_venues ?? [])
+        .filter((tv) => !tv?.is_inferred)
         .map((tv) => tv?.tournaments)
         .filter((t): t is LinkedTournament => Boolean(t?.id));
 

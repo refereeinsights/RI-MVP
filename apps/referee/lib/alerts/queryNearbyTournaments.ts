@@ -26,6 +26,7 @@ type TournamentRow = {
   created_at: string | null;
   tournament_venues: {
     venue_id: string | null;
+    is_inferred?: boolean | null;
     venues: {
       name: string | null;
       city: string | null;
@@ -76,6 +77,7 @@ export async function queryNearbyTournaments(params: {
       created_at,
       tournament_venues (
         venue_id,
+        is_inferred,
         venues (
           name,
           city,
@@ -98,6 +100,7 @@ export async function queryNearbyTournaments(params: {
 
   for (const row of rows) {
     for (const link of row.tournament_venues ?? []) {
+      if (link?.is_inferred) continue;
       const venue = link.venues;
       if (!venue || venue.latitude == null || venue.longitude == null) continue;
       const distance = haversineMiles(

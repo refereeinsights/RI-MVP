@@ -238,13 +238,14 @@ export async function POST(request: Request) {
   let countsTowardMissingVenuesDashboard: boolean | null = null;
 
   try {
-    const [{ count: linkCount }, { data: tRow }] = await Promise.all([
-      supabaseAdmin
-        .from("tournament_venues" as any)
-        .select("tournament_id", { count: "exact", head: true })
-        .eq("tournament_id", tournamentId),
-      supabaseAdmin.from("tournaments" as any).select("status,is_canonical").eq("id", tournamentId).maybeSingle(),
-    ]);
+	    const [{ count: linkCount }, { data: tRow }] = await Promise.all([
+	      supabaseAdmin
+	        .from("tournament_venues" as any)
+	        .select("tournament_id", { count: "exact", head: true })
+	        .eq("tournament_id", tournamentId)
+	        .eq("is_inferred", false),
+	      supabaseAdmin.from("tournaments" as any).select("status,is_canonical").eq("id", tournamentId).maybeSingle(),
+	    ]);
     linkedVenuesBefore = typeof linkCount === "number" ? linkCount : null;
     const status = String((tRow as any)?.status ?? "").trim();
     const isCanonical = Boolean((tRow as any)?.is_canonical);
@@ -294,12 +295,12 @@ export async function POST(request: Request) {
           address_text: cleanText(venue?.address_text),
           venue_url: cleanText(venue?.venue_url),
         });
-        const { error: linkErr } = await supabaseAdmin
-          .from("tournament_venues" as any)
-          .upsert(
-            { tournament_id: tournamentId, venue_id: upserted.id },
-            { onConflict: "tournament_id,venue_id" }
-          );
+	        const { error: linkErr } = await supabaseAdmin
+	          .from("tournament_venues" as any)
+	          .upsert(
+	            { tournament_id: tournamentId, venue_id: upserted.id, is_inferred: false },
+	            { onConflict: "tournament_id,venue_id" }
+	          );
         if (linkErr) throw linkErr;
         didLinkVenue = true;
       }
@@ -404,9 +405,9 @@ export async function POST(request: Request) {
         address_text: venueAddress,
         venue_url: attributeVenueUrl,
       });
-      const { error: linkErr } = await supabaseAdmin
-        .from("tournament_venues" as any)
-        .upsert({ tournament_id: tournamentId, venue_id: upserted.id }, { onConflict: "tournament_id,venue_id" });
+	      const { error: linkErr } = await supabaseAdmin
+	        .from("tournament_venues" as any)
+	        .upsert({ tournament_id: tournamentId, venue_id: upserted.id, is_inferred: false }, { onConflict: "tournament_id,venue_id" });
       if (linkErr) throw linkErr;
       didLinkVenue = true;
       // Now that the venue is resolvable, allow storing the URL as a convenience inline field.
@@ -641,15 +642,16 @@ export async function POST(request: Request) {
   }
 
   if (didLinkVenue) {
-    try {
-      const { count: linkCount } = await supabaseAdmin
-        .from("tournament_venues" as any)
-        .select("tournament_id", { count: "exact", head: true })
-        .eq("tournament_id", tournamentId);
-      linkedVenuesAfter = typeof linkCount === "number" ? linkCount : null;
-    } catch {
-      linkedVenuesAfter = null;
-    }
+	    try {
+	      const { count: linkCount } = await supabaseAdmin
+	        .from("tournament_venues" as any)
+	        .select("tournament_id", { count: "exact", head: true })
+	        .eq("tournament_id", tournamentId)
+	        .eq("is_inferred", false);
+	      linkedVenuesAfter = typeof linkCount === "number" ? linkCount : null;
+	    } catch {
+	      linkedVenuesAfter = null;
+	    }
     revalidatePath("/admin");
     revalidatePath("/admin/tournaments/missing-venues");
   }

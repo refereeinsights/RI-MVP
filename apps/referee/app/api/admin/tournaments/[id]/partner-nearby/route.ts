@@ -68,6 +68,7 @@ async function ensureVenueLinkedToTournament(tournamentId: string, venueId: stri
     .select("tournament_id,venue_id")
     .eq("tournament_id", tournamentId)
     .eq("venue_id", venueId)
+    .eq("is_inferred", false)
     .maybeSingle();
   if (error) throw error;
   return Boolean((data as any)?.venue_id);

@@ -271,11 +271,12 @@ export default async function TournamentsPage({
 
   const hasOwlsEyeByTournament = new Map<string, boolean>();
   if (tournaments.length > 0) {
-    const tournamentIds = tournaments.map((t) => t.id);
-    const { data: linkRows } = await supabaseAdmin
-      .from("tournament_venues" as any)
-      .select("tournament_id,venue_id")
-      .in("tournament_id", tournamentIds);
+	    const tournamentIds = tournaments.map((t) => t.id);
+	    const { data: linkRows } = await supabaseAdmin
+	      .from("tournament_venues" as any)
+	      .select("tournament_id,venue_id")
+	      .in("tournament_id", tournamentIds)
+	      .eq("is_inferred", false);
 
     const links = (linkRows as TournamentVenueLink[] | null) ?? [];
     const linksByTournament = new Map<string, string[]>();

@@ -863,7 +863,7 @@ export async function adminListPendingTournaments(opts?: {
   const { data, error } = await supabaseAdmin
     .from("tournaments")
     .select(
-      "id,name,slug,sport,level,state,city,zip,venue,address,start_date,end_date,source_url,source_domain,official_website_url,summary,referee_pay,referee_contact,tournament_director,tournament_director_email,sub_type,updated_at,ref_cash_tournament,tournament_venues(venues(id,name,city,state))"
+      "id,name,slug,sport,level,state,city,zip,venue,address,start_date,end_date,source_url,source_domain,official_website_url,summary,referee_pay,referee_contact,tournament_director,tournament_director_email,sub_type,updated_at,ref_cash_tournament,tournament_venues(is_inferred,venues(id,name,city,state))"
     )
     .eq("status", "draft")
     .order("updated_at", { ascending: false })
@@ -895,6 +895,7 @@ export async function adminListPendingTournaments(opts?: {
   const venueNameKey = (row: AdminPendingTournament) => {
     const linked =
       (row.tournament_venues ?? [])
+        .filter((tv) => !tv?.is_inferred)
         .map((tv) => tv?.venues?.name ?? null)
         .filter((name): name is string => Boolean(name && name.trim()))
         .map((name) => name.trim())
@@ -903,7 +904,7 @@ export async function adminListPendingTournaments(opts?: {
     return (linked ?? fallback ?? "").toLowerCase();
   };
   const linkedVenueCount = (row: AdminPendingTournament) =>
-    (row.tournament_venues ?? []).filter((tv) => Boolean(tv?.venues?.id)).length;
+    (row.tournament_venues ?? []).filter((tv) => !tv?.is_inferred && Boolean(tv?.venues?.id)).length;
 
   items.sort((a, b) => {
     if (safeSort === "start_date_asc" || safeSort === "start_date_desc") {
@@ -970,7 +971,10 @@ export type AdminPendingTournament = {
   tournament_director?: string | null;
   tournament_director_email?: string | null;
   updated_at?: string | null;
-  tournament_venues?: Array<{ venues: { id: string; name: string; city: string | null; state: string | null } | null }> | null;
+  tournament_venues?: Array<{
+    is_inferred?: boolean | null;
+    venues: { id: string; name: string; city: string | null; state: string | null } | null;
+  }> | null;
 };
 
 export type AdminListedTournament = {

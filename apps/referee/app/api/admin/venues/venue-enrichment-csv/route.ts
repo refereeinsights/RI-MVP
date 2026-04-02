@@ -196,7 +196,7 @@ export async function POST(request: Request) {
   const linkRowsTournamentIds = Array.from(new Set(rows.map((r) => r.tournament_uuid).filter((id) => tournamentById.has(id))));
   const { data: linkRows, error: linkError } = await supabaseAdmin
     .from("tournament_venues" as any)
-    .select("tournament_id,venue_id")
+    .select("tournament_id,venue_id,is_inferred")
     .in("tournament_id", linkRowsTournamentIds)
     .limit(20000);
 
@@ -206,8 +206,9 @@ export async function POST(request: Request) {
   }
 
   const existingLinks = new Set<string>();
-  for (const row of (linkRows ?? []) as Array<{ tournament_id: string | null; venue_id: string | null }>) {
+  for (const row of (linkRows ?? []) as Array<{ tournament_id: string | null; venue_id: string | null; is_inferred?: boolean | null }>) {
     if (!row?.tournament_id || !row?.venue_id) continue;
+    if (row.is_inferred) continue;
     existingLinks.add(`${row.tournament_id}|${row.venue_id}`);
   }
 
@@ -308,7 +309,7 @@ export async function POST(request: Request) {
 
       const upsertResp = await supabaseAdmin
         .from("tournament_venues" as any)
-        .upsert({ tournament_id: tournamentId, venue_id: explicitVenueId }, { onConflict: "tournament_id,venue_id" });
+        .upsert({ tournament_id: tournamentId, venue_id: explicitVenueId, is_inferred: false }, { onConflict: "tournament_id,venue_id" });
       if (upsertResp.error) {
         console.error("[venue-enrichment-csv] link upsert failed", upsertResp.error);
         errors += 1;
@@ -529,7 +530,7 @@ export async function POST(request: Request) {
 
     const upsertResp = await supabaseAdmin
       .from("tournament_venues" as any)
-      .upsert({ tournament_id: tournamentId, venue_id: venueId }, { onConflict: "tournament_id,venue_id" });
+      .upsert({ tournament_id: tournamentId, venue_id: venueId, is_inferred: false }, { onConflict: "tournament_id,venue_id" });
     if (upsertResp.error) {
       console.error("[venue-enrichment-csv] link upsert failed", upsertResp.error);
       errors += 1;

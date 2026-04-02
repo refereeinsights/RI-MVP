@@ -508,6 +508,7 @@ async function TournamentVenueDetails({
       "venue_id,is_primary,created_at,venues(id,seo_slug,name,city,state)"
     )
     .eq("tournament_id", tournament.id)
+    .eq("is_inferred", false)
     .order("is_primary", { ascending: false })
     .order("created_at", { ascending: true });
 

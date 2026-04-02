@@ -42,7 +42,7 @@ type VenueRow = {
   seating_notes?: string | null;
   review_count: number | null;
   reviews_last_updated_at: string | null;
-  tournament_venues?: { tournaments?: LinkedTournament | null }[] | null;
+  tournament_venues?: { is_inferred?: boolean | null; tournaments?: LinkedTournament | null }[] | null;
 };
 
 type OwlsEyeRunRow = {
@@ -160,7 +160,7 @@ export async function generateMetadata({ params }: { params: { venueId: string }
 async function fetchVenueByParam(param: string): Promise<{ venue: VenueRow | null; redirectTo: string | null }> {
   // Try slug first
   const baseSelect =
-    "id,seo_slug,name,address,city,state,zip,notes,venue_url,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(tournaments(id,slug,name,sport,start_date,end_date))";
+    "id,seo_slug,name,address,city,state,zip,notes,venue_url,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at,tournament_venues(is_inferred,tournaments(id,slug,name,sport,start_date,end_date))";
 
   const bySlug = await supabaseAdmin
     .from("venues" as any)
@@ -206,6 +206,7 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const resolvedVenueInsights = !venueInsightsExtra.error || extraCode === "42703" || extraCode === "PGRST204" ? venueInsightsExtra.data : null;
 
   const linkedTournaments = (data.tournament_venues ?? [])
+    .filter((tv) => !tv?.is_inferred)
     .map((tv) => tv?.tournaments)
     .filter((t): t is LinkedTournament => Boolean(t?.id));
   const today = new Date().toISOString().slice(0, 10);

@@ -229,10 +229,11 @@ async function loadTournamentVenueLinkRows(
     const select = includeVenueJoin
       ? "tournament_id,venues(id,name,address,city,state,zip)"
       : "tournament_id";
-    const { data, error } = await supabaseAdmin
-      .from("tournament_venues" as any)
-      .select(select)
-      .in("tournament_id", chunk);
+	    const { data, error } = await supabaseAdmin
+	      .from("tournament_venues" as any)
+	      .select(select)
+	      .in("tournament_id", chunk)
+	      .eq("is_inferred", false);
     if (error) {
       console.error("Failed to load tournament_venues chunk", {
         includeVenueJoin,
@@ -969,13 +970,14 @@ export default async function AdminPage({
 
       const notRunVenueIds = readyVenueIds.filter((id) => id && !runVenueIds.has(id));
       const linkRows: Array<{ venue_id: string | null; tournament_id: string | null }> = [];
-      for (const idChunk of chunkValues(notRunVenueIds)) {
-        const { data: venueLinks } = await supabaseAdmin
-          .from("tournament_venues" as any)
-          .select("venue_id,tournament_id")
-          .in("venue_id", idChunk);
-        linkRows.push(...((venueLinks ?? []) as Array<{ venue_id: string | null; tournament_id: string | null }>));
-      }
+	      for (const idChunk of chunkValues(notRunVenueIds)) {
+	        const { data: venueLinks } = await supabaseAdmin
+	          .from("tournament_venues" as any)
+	          .select("venue_id,tournament_id")
+	          .in("venue_id", idChunk)
+	          .eq("is_inferred", false);
+	        linkRows.push(...((venueLinks ?? []) as Array<{ venue_id: string | null; tournament_id: string | null }>));
+	      }
       const linkedTournamentIdsByVenue = new Map<string, Set<string>>();
       linkRows.forEach((row) => {
         if (!row.venue_id || !row.tournament_id) return;
@@ -2421,7 +2423,7 @@ export default async function AdminPage({
       return false;
     };
 
-    type DraftRow = {
+	    type DraftRow = {
       id: string;
       name?: string | null;
       city?: string | null;
@@ -2437,25 +2439,25 @@ export default async function AdminPage({
       tournament_director?: string | null;
       tournament_director_email?: string | null;
       created_at?: string | null;
-      updated_at?: string | null;
-      tournament_venues?:
-        | Array<{ venue_id?: string | null; venues?: { id?: string | null; name?: string | null } | null }>
-        | null;
-    };
+	      updated_at?: string | null;
+	      tournament_venues?:
+	        | Array<{ is_inferred?: boolean | null; venue_id?: string | null; venues?: { id?: string | null; name?: string | null } | null }>
+	        | null;
+	    };
 
     const pageSize = 1000;
     const all: DraftRow[] = [];
     for (let page = 0; page < 25; page++) {
       const from = page * pageSize;
       const to = from + pageSize - 1;
-      const { data, error } = await supabaseAdmin
-        .from("tournaments" as any)
-        .select(
-          "id,name,city,state,start_date,end_date,zip,venue,address,summary,source_url,official_website_url,tournament_director,tournament_director_email,created_at,updated_at,tournament_venues(venue_id,venues(id,name))"
-        )
-        .eq("status", "draft")
-        .order("updated_at", { ascending: false })
-        .range(from, to);
+	    const { data, error } = await supabaseAdmin
+	      .from("tournaments" as any)
+	      .select(
+	        "id,name,city,state,start_date,end_date,zip,venue,address,summary,source_url,official_website_url,tournament_director,tournament_director_email,created_at,updated_at,tournament_venues(is_inferred,venue_id,venues(id,name))"
+	      )
+	      .eq("status", "draft")
+	      .order("updated_at", { ascending: false })
+	      .range(from, to);
       if (error) return redirectWithNotice(redirectTo, `Merge failed: ${error.message}`);
       const rows = (data ?? []) as unknown as DraftRow[];
       if (!rows.length) break;
@@ -2482,12 +2484,13 @@ export default async function AdminPage({
       groups.get(key)!.push(row);
     }
 
-    const score = (row: DraftRow) => {
-      let s = 0;
-      const venues = (row.tournament_venues ?? []).filter((tv) => {
-        const name = tv?.venues?.name ?? null;
-        return !isBlank(name);
-      });
+	    const score = (row: DraftRow) => {
+	      let s = 0;
+	      const venues = (row.tournament_venues ?? []).filter((tv) => {
+	        if (tv?.is_inferred) return false;
+	        const name = tv?.venues?.name ?? null;
+	        return !isBlank(name);
+	      });
       if (venues.length) s += 50 + venues.length * 2;
       if (!isBlank(row.official_website_url)) s += 12;
       if (!isBlank(row.source_url)) s += 6;
@@ -2659,12 +2662,12 @@ export default async function AdminPage({
       summary?: string | null;
       source_url?: string | null;
       official_website_url?: string | null;
-      tournament_director?: string | null;
-      tournament_director_email?: string | null;
-      tournament_venues?:
-        | Array<{ venue_id?: string | null; venues?: { id?: string | null; name?: string | null } | null }>
-        | null;
-    };
+	      tournament_director?: string | null;
+	      tournament_director_email?: string | null;
+	      tournament_venues?:
+	        | Array<{ is_inferred?: boolean | null; venue_id?: string | null; venues?: { id?: string | null; name?: string | null } | null }>
+	        | null;
+	    };
 
     type ExistingRow = {
       id: string;

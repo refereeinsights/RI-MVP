@@ -199,17 +199,18 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       .select("id")
       .ilike("name", like)
       .limit(200);
-    const matchingTournamentIds = (matchingTournaments ?? []).map((row: any) => row.id).filter(Boolean);
-    if (matchingTournamentIds.length) {
-      const { data: links } = await supabaseAdmin
-        .from("tournament_venues" as any)
-        .select("venue_id")
-        .in("tournament_id", matchingTournamentIds);
-      venueIdsFromTournamentSearch = Array.from(
-        new Set(((links ?? []) as Array<{ venue_id: string }>).map((row) => row.venue_id).filter(Boolean))
-      );
-    }
-  }
+	    const matchingTournamentIds = (matchingTournaments ?? []).map((row: any) => row.id).filter(Boolean);
+	    if (matchingTournamentIds.length) {
+	      const { data: links } = await supabaseAdmin
+	        .from("tournament_venues" as any)
+	        .select("venue_id")
+	        .in("tournament_id", matchingTournamentIds)
+	        .eq("is_inferred", false);
+	      venueIdsFromTournamentSearch = Array.from(
+	        new Set(((links ?? []) as Array<{ venue_id: string }>).map((row) => row.venue_id).filter(Boolean))
+	      );
+	    }
+	  }
 
   let query = supabaseAdmin
     .from("venues" as any)

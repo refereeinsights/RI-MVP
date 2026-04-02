@@ -179,11 +179,14 @@ export default async function StaffVerificationQueuePage({
             .maybeSingle();
           venueId = (upsertedRaw as any)?.id ?? null;
         }
-        if (venueId) {
-          await supabaseAdmin
-            .from("tournament_venues" as any)
-            .upsert({ tournament_id: submission.tournament_id, venue_id: venueId }, { onConflict: "tournament_id,venue_id" });
-        }
+	        if (venueId) {
+	          await supabaseAdmin
+	            .from("tournament_venues" as any)
+	            .upsert(
+	              { tournament_id: submission.tournament_id, venue_id: venueId, is_inferred: false },
+	              { onConflict: "tournament_id,venue_id" }
+	            );
+	        }
       }
     }
 

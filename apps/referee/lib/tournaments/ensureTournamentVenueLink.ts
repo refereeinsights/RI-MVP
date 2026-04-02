@@ -18,6 +18,7 @@ export async function ensureTournamentVenueLink(
     .from("tournament_venues" as any)
     .select("venue_id")
     .eq("tournament_id", tournamentId)
+    .eq("is_inferred", false)
     .limit(1);
   if (existingErr) return { linked: false, attempted: false, error: existingErr.message || "failed_check_links" };
   if ((existingLinks ?? []).length > 0) return { linked: true, attempted: false };
@@ -90,11 +91,12 @@ export async function ensureTournamentVenueLink(
 
   if (!venueId) return { linked: false, attempted: true, error: "missing_venue_id" };
 
-  const linkRes = await supabaseAdmin.from("tournament_venues" as any).insert({ tournament_id: tournamentId, venue_id: venueId });
+  const linkRes = await supabaseAdmin
+    .from("tournament_venues" as any)
+    .upsert({ tournament_id: tournamentId, venue_id: venueId, is_inferred: false }, { onConflict: "tournament_id,venue_id" });
   if (linkRes.error && (linkRes.error as any).code !== "23505") {
     return { linked: false, attempted: true, error: linkRes.error.message || "failed_link_venue" };
   }
 
   return { linked: true, attempted: true };
 }
-

@@ -11,6 +11,7 @@
   - Updated metro SEO content (unique titles/intros/FAQs + metadata derived from intro): `apps/ti-web/app/tournaments/metro/[slug]/page.tsx`
   - Added tournament hero Save context copy (“Track this tournament” + helper text) + Save click/auth-redirect analytics: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/SaveTournamentButton.tsx`
   - Centered the single-venue tile layout on tournament detail pages: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/app/tournaments/tournaments.css`
+  - Venues (inference safety): added `tournament_venues.is_inferred` flag and updated all key reads/metrics (missing-venues RPC + dashboard tiles + public/admin pages + alerts) to treat only `is_inferred=false` links as confirmed: `supabase/migrations/20260402_tournament_venues_inferred_flag.sql`
 
 ## 2026-03-30
 
