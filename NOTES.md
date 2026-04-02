@@ -9,6 +9,8 @@
   - Added internal links on directory: `apps/ti-web/app/tournaments/page.tsx`
   - Added deterministic metro labels on tournament details (incl. generic CA label): `apps/ti-web/app/tournaments/[slug]/page.tsx`
   - Updated metro SEO content (unique titles/intros/FAQs + metadata derived from intro): `apps/ti-web/app/tournaments/metro/[slug]/page.tsx`
+  - Added tournament hero Save context copy (“Track this tournament” + helper text) + Save click/auth-redirect analytics: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/SaveTournamentButton.tsx`
+  - Centered the single-venue tile layout on tournament detail pages: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/app/tournaments/tournaments.css`
 
 ## 2026-03-30
 
