@@ -97,6 +97,8 @@
   - Page: `apps/ti-web/app/admin/dashboard-email/page.tsx`
   - Settings storage (Supabase): `supabase/migrations/20260402_ti_admin_dashboard_email_settings.sql` (table `public.ti_admin_dashboard_email_settings`)
   - RI shortcut: button on RI `/admin` to open TI page via SSO (`apps/referee/app/admin/page.tsx`)
+- TI ops: dashboard email now leads with tile KPIs (canonical + deltas, missing venues + deltas, Owl’s Eye venue reviews + deltas, and per-sport tiles).
+  - Metrics RPC: `supabase/migrations/20260402_admin_dashboard_email_tiles_rpc.sql` (`public.get_admin_dashboard_email_tiles(...)`)
 
 ## 2026-03-14
 

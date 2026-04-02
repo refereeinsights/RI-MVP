@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendEmailVerified } from "@/lib/email";
 import { TI_SPORT_LABELS, TI_SPORTS } from "@/lib/tiSports";
 import {
+  loadAdminDashboardEmailTiles,
   getEffectiveRecipients,
   loadLowestStates,
   loadRiSummaryCounts,
@@ -74,6 +75,31 @@ async function loadOutreachTotals(sport: string) {
   return { sport, ok: true as const, error: null, totals: payload.totals ?? {} };
 }
 
+function formatDelta(value: unknown) {
+  const n = typeof value === "number" ? value : Number(value ?? 0);
+  if (!Number.isFinite(n) || n === 0) return "";
+  return n > 0 ? `+${formatInt(n)}` : `-${formatInt(Math.abs(n))}`;
+}
+
+function renderTile(label: string, value: string, delta?: string, tone?: "neutral" | "info" | "warn" | "success") {
+  const bg =
+    tone === "warn" ? "#fef3c7" : tone === "success" ? "#ecfdf3" : tone === "info" ? "#eff6ff" : "#f8fafc";
+  const border =
+    tone === "warn" ? "#fde68a" : tone === "success" ? "#bbf7d0" : tone === "info" ? "#bfdbfe" : "#e2e8f0";
+  const color =
+    tone === "warn" ? "#92400e" : tone === "success" ? "#166534" : tone === "info" ? "#1d4ed8" : "#0f172a";
+
+  const deltaHtml = delta
+    ? `<div style="margin-top:4px;font-size:12px;color:#64748b;font-weight:800;">${htmlEscape(delta)} yesterday</div>`
+    : `<div style="margin-top:4px;font-size:12px;color:#94a3b8;font-weight:700;">&nbsp;</div>`;
+
+  return `<div style="border:1px solid ${border};background:${bg};border-radius:12px;padding:10px 12px;">
+    <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">${htmlEscape(label)}</div>
+    <div style="font-size:22px;font-weight:900;color:${color};margin-top:2px;line-height:1.1;">${htmlEscape(value)}</div>
+    ${deltaHtml}
+  </div>`;
+}
+
 function buildEmailHtml(params: {
   generatedAtIso: string;
   totalsBySport: Array<ReturnType<typeof loadOutreachTotals> extends Promise<infer T> ? T : never>;
@@ -82,9 +108,54 @@ function buildEmailHtml(params: {
   riSummary?: Awaited<ReturnType<typeof loadRiSummaryCounts>> | null;
   includeLowestStates: boolean;
   lowestStates?: Awaited<ReturnType<typeof loadLowestStates>> | null;
+  includeTiles: boolean;
+  includeSportTiles: boolean;
+  tiles?: Awaited<ReturnType<typeof loadAdminDashboardEmailTiles>> | null;
 }) {
-  const { generatedAtIso, totalsBySport, baseUrl, includeRiSummary, riSummary, includeLowestStates, lowestStates } = params;
+  const {
+    generatedAtIso,
+    totalsBySport,
+    baseUrl,
+    includeRiSummary,
+    riSummary,
+    includeLowestStates,
+    lowestStates,
+    includeTiles,
+    includeSportTiles,
+    tiles,
+  } = params;
   const dashboardUrl = `${baseUrl}/admin/outreach-dashboard`;
+
+  const canonicalTotal = Number(tiles?.canonical?.total ?? 0) || 0;
+  const canonicalNew = Number(tiles?.canonical?.new_yesterday ?? 0) || 0;
+  const missingVenuesTotal = Number(tiles?.missing_venues?.total ?? 0) || 0;
+  const missingVenuesNew = Number(tiles?.missing_venues?.new_yesterday ?? 0) || 0;
+  const owlsEyeTotal = Number(tiles?.owls_eye?.venues_reviewed_total ?? 0) || 0;
+  const owlsEyeNew = Number(tiles?.owls_eye?.venues_reviewed_new_yesterday ?? 0) || 0;
+
+  const bySport = Array.isArray(tiles?.canonical?.by_sport) ? tiles?.canonical?.by_sport ?? [] : [];
+
+  const sportTilesHtml =
+    includeSportTiles && bySport.length > 0
+      ? `<div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
+          ${TI_SPORTS.map((sport) => {
+            const row = bySport.find((r) => String(r.sport).toLowerCase() === sport);
+            const total = row ? formatInt(row.total) : "0";
+            const delta = row ? formatDelta(row.new_yesterday) : "";
+            return renderTile(TI_SPORT_LABELS[sport], total, delta, "neutral");
+          }).join("")}
+        </div>`
+      : "";
+
+  const tilesHtml =
+    includeTiles && tiles
+      ? `<div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;">
+          ${renderTile("Canonical tournaments", formatInt(canonicalTotal), formatDelta(canonicalNew), "info")}
+          ${renderTile("Missing venues", formatInt(missingVenuesTotal), formatDelta(missingVenuesNew), "warn")}
+          ${renderTile("Owl's Eye venues reviewed", formatInt(owlsEyeTotal), formatDelta(owlsEyeNew), "success")}
+        </div>
+        ${sportTilesHtml}`
+      : "";
 
   const rows = totalsBySport
     .map((row) => {
@@ -178,7 +249,9 @@ function buildEmailHtml(params: {
           <div style="color:#64748b;font-size:12px;">Generated: ${htmlEscape(generatedAtIso)}</div>
         </div>
 
-        <p style="margin:10px 0 14px;color:#334155;font-size:13px;line-height:1.45;">
+        ${tilesHtml}
+
+        <p style="margin:14px 0 12px;color:#334155;font-size:13px;line-height:1.45;">
           Outreach summary by sport (previews, sends, replies, follow-up queue).
         </p>
 
@@ -251,11 +324,14 @@ export async function GET(req: Request) {
   try {
     const baseUrl = resolveTiBaseUrl();
 
+    const includeTiles = settings?.include_tiles ?? true;
+    const includeSportTiles = settings?.include_sport_tiles ?? true;
     const includeOutreach = settings?.include_outreach ?? true;
     const includeRiSummary = settings?.include_ri_summary ?? true;
     const includeLowestStates = settings?.include_lowest_states ?? true;
 
-    const [totalsBySport, riSummary, lowestStates] = await Promise.all([
+    const [tiles, totalsBySport, riSummary, lowestStates] = await Promise.all([
+      includeTiles ? loadAdminDashboardEmailTiles() : Promise.resolve(null),
       includeOutreach ? Promise.all(TI_SPORTS.map((sport) => loadOutreachTotals(sport))) : Promise.resolve([]),
       includeRiSummary ? loadRiSummaryCounts() : Promise.resolve(null),
       includeLowestStates ? loadLowestStates(5) : Promise.resolve(null),
@@ -269,6 +345,9 @@ export async function GET(req: Request) {
       riSummary,
       includeLowestStates,
       lowestStates,
+      includeTiles,
+      includeSportTiles,
+      tiles,
     });
     const subject = `TI Admin Dashboard — ${generatedAtIso.slice(0, 10)}`;
 
@@ -289,11 +368,14 @@ export async function GET(req: Request) {
       subject,
       settings: settings ?? null,
       sections: {
+        tiles: includeTiles,
+        sport_tiles: includeSportTiles,
         outreach: includeOutreach,
         ri_summary: includeRiSummary,
         lowest_states: includeLowestStates,
       },
       totalsBySportCount: totalsBySport.length,
+      tiles: tiles ?? null,
       riSummary: riSummary ?? null,
       lowestStates: lowestStates ?? null,
     });

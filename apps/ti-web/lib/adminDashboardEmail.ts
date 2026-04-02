@@ -57,6 +57,8 @@ export const VALID_US_STATES_PLUS_DC = new Set([
 export type TiAdminDashboardEmailSettings = {
   key: string;
   recipients: string[];
+  include_tiles?: boolean;
+  include_sport_tiles?: boolean;
   include_outreach: boolean;
   include_ri_summary: boolean;
   include_lowest_states: boolean;
@@ -72,6 +74,17 @@ export type RiSummaryCounts = {
 };
 
 export type LowestStatesRow = { state: string; count: number };
+
+export type AdminDashboardEmailTiles = {
+  window?: { today_start_utc?: string; yesterday_start_utc?: string };
+  canonical?: {
+    total?: number;
+    new_yesterday?: number;
+    by_sport?: Array<{ sport: string; total: number; new_yesterday: number }>;
+  };
+  missing_venues?: { total?: number; new_yesterday?: number };
+  owls_eye?: { venues_reviewed_total?: number; venues_reviewed_new_yesterday?: number };
+};
 
 export function parseRecipients(raw: string | undefined | null) {
   const normalized = String(raw ?? "")
@@ -91,7 +104,7 @@ export function resolveTiBaseUrl() {
 export async function loadTiAdminDashboardEmailSettings(): Promise<TiAdminDashboardEmailSettings | null> {
   const { data, error } = await supabaseAdmin
     .from("ti_admin_dashboard_email_settings" as any)
-    .select("key,recipients,include_outreach,include_ri_summary,include_lowest_states")
+    .select("key,recipients,include_tiles,include_sport_tiles,include_outreach,include_ri_summary,include_lowest_states")
     .eq("key", "default")
     .maybeSingle();
 
@@ -105,6 +118,8 @@ export async function loadTiAdminDashboardEmailSettings(): Promise<TiAdminDashbo
   return {
     key: String(data.key),
     recipients: Array.isArray((data as any).recipients) ? (data as any).recipients.map(String).filter(Boolean) : [],
+    include_tiles: typeof (data as any).include_tiles === "boolean" ? (data as any).include_tiles : true,
+    include_sport_tiles: typeof (data as any).include_sport_tiles === "boolean" ? (data as any).include_sport_tiles : true,
     include_outreach: Boolean((data as any).include_outreach ?? true),
     include_ri_summary: Boolean((data as any).include_ri_summary ?? true),
     include_lowest_states: Boolean((data as any).include_lowest_states ?? true),
@@ -115,6 +130,8 @@ export async function upsertTiAdminDashboardEmailSettings(patch: Partial<TiAdmin
   const payload = {
     key: "default",
     recipients: Array.isArray(patch.recipients) ? patch.recipients : undefined,
+    include_tiles: typeof patch.include_tiles === "boolean" ? patch.include_tiles : undefined,
+    include_sport_tiles: typeof patch.include_sport_tiles === "boolean" ? patch.include_sport_tiles : undefined,
     include_outreach: typeof patch.include_outreach === "boolean" ? patch.include_outreach : undefined,
     include_ri_summary: typeof patch.include_ri_summary === "boolean" ? patch.include_ri_summary : undefined,
     include_lowest_states: typeof patch.include_lowest_states === "boolean" ? patch.include_lowest_states : undefined,
@@ -222,3 +239,8 @@ export async function loadLowestStates(limit = 5): Promise<LowestStatesRow[]> {
     .map(([state, count]) => ({ state, count }));
 }
 
+export async function loadAdminDashboardEmailTiles(): Promise<AdminDashboardEmailTiles> {
+  const { data, error } = await (supabaseAdmin as any).rpc("get_admin_dashboard_email_tiles", {});
+  if (error) throw error;
+  return (data ?? {}) as AdminDashboardEmailTiles;
+}
