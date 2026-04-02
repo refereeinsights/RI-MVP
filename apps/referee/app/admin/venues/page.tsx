@@ -173,6 +173,9 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
   })();
   const linkFrom = linkFromParam || defaultLinkFrom;
   const linkTo = linkToParam || defaultLinkTo;
+  const missingVenuesExportHref = `/api/admin/tournaments/missing-venues/export${
+    state ? `?state=${encodeURIComponent(state.toUpperCase())}` : ""
+  }`;
 
   const orFilters = [];
   if (q) {
@@ -931,11 +934,25 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
             Last 100 venues (filtered) • Owl&apos;s Eye with data: {venues.filter((v) => Boolean(v.owl_run_id)).length}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Link
-            href="/admin/venues/link-quality"
-            style={{
-              padding: "10px 14px",
+	        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+	          <a
+	            href={missingVenuesExportHref}
+	            style={{
+	              padding: "10px 14px",
+	              borderRadius: 10,
+	              background: "#fff",
+	              color: "#0f3d2e",
+	              fontWeight: 800,
+	              textDecoration: "none",
+	              border: "1px solid #0f3d2e",
+	            }}
+	          >
+	            Missing venues export
+	          </a>
+	          <Link
+	            href="/admin/venues/link-quality"
+	            style={{
+	              padding: "10px 14px",
               borderRadius: 10,
               background: "#fff",
               color: "#111827",
