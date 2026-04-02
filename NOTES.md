@@ -86,6 +86,14 @@
 - RI enrichment (fees/venue): stop emitting `venue_url`-only attribute candidates; only treat venue URLs as useful when they resolve to a real venue candidate (name + address).
 - RI enrichment apply: prevent creating/linking venues from URL-only candidates and only persist `tournaments.venue_url` when an address-backed venue was created/linked.
 
+## 2026-04-02
+
+- TI ops: added a scheduled cron email that sends a daily admin dashboard summary (Outreach Dashboard totals by sport) via Resend.
+  - Endpoint: `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts` (auth via `CRON_SECRET`, lock via `acquire_cron_job_lock`).
+  - Schedule: `apps/ti-web/vercel.json` cron at `5 13 * * *` (UTC).
+  - Env: `TI_ADMIN_DASHBOARD_EMAILS` (comma/newline-separated recipients), `RESEND_API_KEY`, `CRON_SECRET`.
+  - Manual preview (no send): add `&dry_run=1` to the cron URL.
+
 ## 2026-03-14
 
 - Added per-row approval on admin tournament sport validation page to remove nested forms and hydration errors; bulk UI removed.
