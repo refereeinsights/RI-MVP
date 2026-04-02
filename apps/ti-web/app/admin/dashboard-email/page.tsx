@@ -120,7 +120,10 @@ function formatInt(value: unknown) {
 function formatPercent(value: unknown) {
   const n = typeof value === "number" ? value : Number(value ?? NaN);
   if (!Number.isFinite(n)) return "—";
-  return `${Math.round(n * 1000) / 10}%`;
+  // `get_outreach_dashboard_metrics` returns a percent (0-100). Some older callers may treat it as a ratio (0-1).
+  // Normalize to a percent number before formatting.
+  const pct = n <= 1 ? n * 100 : n;
+  return `${Math.round(pct * 10) / 10}%`;
 }
 
 function htmlEscape(value: string) {
