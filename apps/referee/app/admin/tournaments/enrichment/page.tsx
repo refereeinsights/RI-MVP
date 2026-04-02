@@ -74,6 +74,7 @@ type VenueCandidate = {
   tournament_id: string;
   venue_name: string | null;
   address_text: string | null;
+  evidence_text: string | null;
   source_url: string | null;
   confidence: number | null;
   created_at: string | null;
@@ -229,7 +230,7 @@ async function loadData(): Promise<EnrichmentPageData> {
     ),
     fetchAllPendingRows(
       "tournament_venue_candidates",
-      "id,tournament_id,venue_name,address_text,source_url,confidence,created_at"
+      "id,tournament_id,venue_name,address_text,evidence_text,source_url,confidence,created_at"
     ),
     fetchAllPendingRows(
       "tournament_attribute_candidates",

@@ -722,6 +722,12 @@ function extractVenues($: cheerio.CheerioAPI, url: string): VenueCandidate[] {
   }
 
   const normalizeLine = (value: string) => value.replace(/\s+/g, " ").trim();
+  const withReason = (reason: string, detail: string) => {
+    const raw = normalizeLine(detail);
+    if (!raw) return `reason=${reason};`;
+    if (/^reason=[a-z0-9_]+\s*;/i.test(raw)) return raw.slice(0, 300);
+    return normalizeLine(`reason=${reason}; ${raw}`).slice(0, 300);
+  };
 
   const looksLikeFullAddressLine = (value: string) => {
     const v = normalizeLine(value);
@@ -757,7 +763,7 @@ function extractVenues($: cheerio.CheerioAPI, url: string): VenueCandidate[] {
       // Avoid setting a PDF link as the venue URL (we use it as evidence/source instead).
       venue_url: href && !/\.pdf(\?|#|$)/i.test(href) ? href : null,
       source_url: url,
-      evidence_text: normalizeLine(`${anchorText}${href ? ` (link: ${href})` : ""}`).slice(0, 300),
+      evidence_text: withReason("anchor_full_address", `${anchorText}${href ? ` (link: ${href})` : ""}`),
       confidence: 0.85,
     });
   });
@@ -780,7 +786,7 @@ function extractVenues($: cheerio.CheerioAPI, url: string): VenueCandidate[] {
           venue_name: hasKeyword ? block.slice(0, 80) : null,
           address_text: block,
           source_url: url,
-          evidence_text: block.slice(0, 300),
+          evidence_text: withReason("page_text_address", block),
           confidence: Math.min(1, confidence + 0.1),
         });
       }
@@ -798,7 +804,7 @@ function extractVenues($: cheerio.CheerioAPI, url: string): VenueCandidate[] {
         tournament_id: "",
         venue_url: href,
         source_url: url,
-        evidence_text: text.slice(0, 300),
+        evidence_text: withReason("map_link", `${text}${href ? ` (${href})` : ""}`),
         confidence: 0.5,
       });
     }

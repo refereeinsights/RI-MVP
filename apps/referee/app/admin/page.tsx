@@ -299,6 +299,7 @@ export default async function AdminPage({
     fallback_source_url?: string;
     staff_token?: string;
     staff_token_tournament_id?: string;
+    uploads_sort?: string;
   };
 }) {
   const adminUser = await requireAdmin();
@@ -382,6 +383,14 @@ export default async function AdminPage({
   const reviewStatus: ReviewStatus = (searchParams.rstatus as ReviewStatus) ?? "pending";
   const contactStatus: ContactStatus = (searchParams.cstatus as ContactStatus) ?? "pending";
   const notice = searchParams.notice ?? "";
+  const uploadsSortRaw = (searchParams.uploads_sort ?? "").trim();
+  const uploadsSort: "updated_desc" | "start_date_asc" | "start_date_desc" | "venue_name_asc" | "missing_venues_first" =
+    uploadsSortRaw === "start_date_asc" ||
+    uploadsSortRaw === "start_date_desc" ||
+    uploadsSortRaw === "venue_name_asc" ||
+    uploadsSortRaw === "missing_venues_first"
+      ? uploadsSortRaw
+      : "updated_desc";
   const discoverOffsetRaw = (searchParams.discover_offset ?? "").trim();
   const discoverOffset =
     discoverOffsetRaw && Number.isFinite(Number(discoverOffsetRaw)) ? Math.max(0, Number(discoverOffsetRaw)) : 0;
@@ -412,6 +421,9 @@ export default async function AdminPage({
   if (tab === "tournament-listings") {
     if (tournamentSportFilter) params.set("sport", tournamentSportFilter);
     if (missingFilter) params.set("missing", missingFilter);
+  }
+  if (tab === "tournament-uploads" && uploadsSort !== "updated_desc") {
+    params.set("uploads_sort", uploadsSort);
   }
   const adminBasePath = params.toString() ? `/admin?${params.toString()}` : "/admin";
 
@@ -525,7 +537,9 @@ export default async function AdminPage({
     }
   }
   const pendingTournaments: AdminPendingTournament[] =
-    tab === "tournament-uploads" ? await adminListPendingTournaments() : [];
+    tab === "tournament-uploads"
+      ? await adminListPendingTournaments({ sort: uploadsSort })
+      : [];
   const tournamentListingFetchLimit = missingFilter ? 5000 : 100;
   const listedTournaments: AdminListedTournament[] =
     tab === "tournament-listings"
@@ -5478,23 +5492,54 @@ export default async function AdminPage({
       {/* TOURNAMENT UPLOADS */}
       {tab === "tournament-uploads" && (
         <section style={{ marginBottom: 22 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-            <div>
-              <h2 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>Tournament uploads</h2>
-              <p style={{ color: "#555", marginTop: 4, fontSize: 13 }}>
-                Run the cleaner/importer on CSV or HTML files and stage tournaments as drafts or confirmed entries.
-                Approve, archive, or delete the imports below once they look good.
-              </p>
-            </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ fontSize: 13, color: "#555" }}>
-                Pending: <strong>{pendingTournaments.length}</strong>
-              </div>
-              <a
-                href="/api/admin/tournaments/uploads/export"
-                style={{
-                  padding: "8px 10px",
-                  borderRadius: 10,
+	          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+	            <div>
+	              <h2 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>Tournament uploads</h2>
+	              <p style={{ color: "#555", marginTop: 4, fontSize: 13 }}>
+	                Run the cleaner/importer on CSV or HTML files and stage tournaments as drafts or confirmed entries.
+	                Approve, archive, or delete the imports below once they look good.
+	              </p>
+	            </div>
+	            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+	              <div style={{ fontSize: 13, color: "#555" }}>
+	                Pending: <strong>{pendingTournaments.length}</strong>
+	              </div>
+	              <form action="/admin" method="get" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+	                <input type="hidden" name="tab" value="tournament-uploads" />
+	                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#555" }}>
+	                  Sort
+	                  <select
+	                    name="uploads_sort"
+	                    defaultValue={uploadsSort}
+	                    style={{ padding: "7px 10px", borderRadius: 10, border: "1px solid #ccc", background: "#fff" }}
+	                  >
+	                    <option value="updated_desc">Recently updated</option>
+	                    <option value="start_date_asc">Start date (soonest)</option>
+	                    <option value="start_date_desc">Start date (latest)</option>
+	                    <option value="venue_name_asc">Venue name (A–Z)</option>
+	                    <option value="missing_venues_first">Missing linked venues first</option>
+	                  </select>
+	                </label>
+	                <button
+	                  type="submit"
+	                  style={{
+	                    padding: "8px 10px",
+	                    borderRadius: 10,
+	                    border: "1px solid #555",
+	                    background: "#fff",
+	                    color: "#111",
+	                    fontWeight: 800,
+	                    fontSize: 13,
+	                  }}
+	                >
+	                  Apply
+	                </button>
+	              </form>
+	              <a
+	                href="/api/admin/tournaments/uploads/export"
+	                style={{
+	                  padding: "8px 10px",
+	                  borderRadius: 10,
                   border: "1px solid #0f3d2e",
                   background: "#fff",
                   color: "#0f3d2e",
@@ -6195,25 +6240,35 @@ export default async function AdminPage({
                           )}
                         </td>
                         <td style={{ padding: 8, borderBottom: "1px solid #eee", color: "#555" }}>
-                          {(() => {
-                            const linkedVenueNames = Array.from(
-                              new Set(
-                                (t.tournament_venues ?? [])
-                                  .map((row) => (row?.venues?.name || "").trim())
-                                  .filter(Boolean)
-                              )
-                            );
-                            const primaryVenue = String(t.venue ?? "").trim();
+	                          {(() => {
+	                            const linkedVenueNames = Array.from(
+	                              new Set(
+	                                (t.tournament_venues ?? [])
+	                                  .map((row) => (row?.venues?.name || "").trim())
+	                                  .filter(Boolean)
+	                              )
+	                            );
+	                            const primaryVenue = String(t.venue ?? "").trim();
 
-                            let venueLabel = "Venue TBD";
-                            if (primaryVenue) venueLabel = primaryVenue;
-                            else if (linkedVenueNames.length === 1) venueLabel = linkedVenueNames[0];
-                            else if (linkedVenueNames.length > 1) venueLabel = "Multiple venues";
+	                            let venueLabel = "Venue TBD";
+	                            let venueTitle = "";
+	                            if (primaryVenue) {
+	                              venueLabel = primaryVenue;
+	                              venueTitle = primaryVenue;
+	                            } else if (linkedVenueNames.length === 1) {
+	                              venueLabel = linkedVenueNames[0];
+	                              venueTitle = linkedVenueNames[0];
+	                            } else if (linkedVenueNames.length > 1) {
+	                              const inlineNames = linkedVenueNames.slice(0, 2);
+	                              const remaining = linkedVenueNames.length - inlineNames.length;
+	                              venueLabel = remaining > 0 ? `${inlineNames.join(", ")} +${remaining} more` : inlineNames.join(", ");
+	                              venueTitle = linkedVenueNames.join(", ");
+	                            }
 
-                            const linkedCount = linkedVenueNames.length;
-                            const linkedBadge = linkedCount ? (
-                              <span
-                                style={{
+	                            const linkedCount = linkedVenueNames.length;
+	                            const linkedBadge = linkedCount ? (
+	                              <span
+	                                style={{
                                   fontSize: 11,
                                   color: "#1a7a3c",
                                   fontWeight: 700,
@@ -6228,19 +6283,19 @@ export default async function AdminPage({
 
                             return (
                               <div style={{ display: "flex", gap: 8, alignItems: "baseline", minWidth: 0, flexWrap: "nowrap" }}>
-                                <span
-                                  style={{
-                                    minWidth: 0,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                  title={venueLabel}
-                                >
-                                  {venueLabel}
-                                </span>
-                                {linkedBadge}
-                              </div>
+	                                <span
+	                                  style={{
+	                                    minWidth: 0,
+	                                    overflow: "hidden",
+	                                    textOverflow: "ellipsis",
+	                                    whiteSpace: "nowrap",
+	                                  }}
+	                                  title={venueTitle || venueLabel}
+	                                >
+	                                  {venueLabel}
+	                                </span>
+	                                {linkedBadge}
+	                              </div>
                             );
                           })()}
                           {t.address && <div style={{ color: "#777" }}>{t.address}</div>}

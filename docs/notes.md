@@ -28,6 +28,16 @@ Maintenance rules:
     - `apps/ti-web/app/tournaments/page.tsx`
   - Tournament detail: added deterministic metro label lines for DC Metro, New England, and a generic California regional label:
     - `apps/ti-web/app/tournaments/[slug]/page.tsx`
+- RI Admin: tournament uploads + acquisition:
+  - Upload approval queue now supports sorting (start date, venue name, missing linked venues first):
+    - `apps/referee/app/admin/page.tsx`
+    - `apps/referee/lib/admin.ts`
+  - Upload approval venue cell now shows real venue names when multiple venues are linked (no hover required).
+  - Added admin acquisition tiles for quick targeting of high-volume domains/associations (incl. top domains by sport):
+    - `supabase/migrations/20260402_admin_tournament_acquisition_tiles.sql`
+    - `apps/referee/app/admin/tournaments/sources/page.tsx`
+  - Added minimal primary venue concept on `tournament_venues` (`is_primary`) with conservative backfill:
+    - `supabase/migrations/20260402_tournament_venues_primary.sql`
 
 ## 2026-03-05
 - TI national sport hub pages (SEO step 1):

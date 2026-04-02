@@ -83,6 +83,13 @@ function clean(value: unknown) {
   return v.length ? v : "";
 }
 
+function withReason(reason: string, detail: string) {
+  const raw = clean(detail);
+  if (!raw) return `reason=${reason};`;
+  if (/^reason=[a-z0-9_]+\s*;/i.test(raw)) return raw.slice(0, 300);
+  return clean(`reason=${reason}; ${raw}`).slice(0, 300);
+}
+
 function isBlank(value: unknown) {
   return !clean(value);
 }
@@ -415,7 +422,7 @@ function extractLinkedVenueAddressCandidates(
       address_text: addressText,
       venue_url: venueUrl,
       source_url: args.source_url,
-      evidence_text: "fields-link",
+      evidence_text: withReason("anchor_full_address", "fields-link"),
       confidence: 0.85,
     });
   });
@@ -611,7 +618,7 @@ async function main() {
             address_text,
             venue_url: null,
             source_url: locationsUrl,
-            evidence_text: `perfectgame-locations event=${eventId}`,
+            evidence_text: withReason("provider_perfectgame_locations", `event=${eventId}`),
             confidence: 0.95,
           });
         }
@@ -628,7 +635,7 @@ async function main() {
         address_text,
         venue_url: loc.venue_url ? clean(loc.venue_url) : null,
         source_url: seedUrl,
-        evidence_text: "json-ld",
+        evidence_text: withReason("jsonld_location", "json-ld"),
         confidence: 0.85,
       });
     }
@@ -649,7 +656,7 @@ async function main() {
         address_text: addr,
         venue_url: null,
         source_url: seedUrl,
-        evidence_text: "page-text-address",
+        evidence_text: withReason("page_text_address", "page-text-address"),
         confidence: 0.7,
       });
     }
@@ -661,7 +668,7 @@ async function main() {
         attribute_key: "venue_url",
         attribute_value: link,
         source_url: seedUrl,
-        evidence_text: "map-link",
+        evidence_text: withReason("map_link", "map-link"),
         confidence: 0.6,
       });
     }
@@ -681,7 +688,7 @@ async function main() {
           address_text,
           venue_url: loc.venue_url ? clean(loc.venue_url) : null,
           source_url: nextUrl,
-          evidence_text: "json-ld",
+          evidence_text: withReason("jsonld_location", "json-ld"),
           confidence: 0.85,
         });
       }
@@ -700,7 +707,7 @@ async function main() {
           address_text: addr,
           venue_url: null,
           source_url: nextUrl,
-          evidence_text: "page-text-address",
+          evidence_text: withReason("page_text_address", "page-text-address"),
           confidence: 0.7,
         });
       }
@@ -710,7 +717,7 @@ async function main() {
           attribute_key: "venue_url",
           attribute_value: link,
           source_url: nextUrl,
-          evidence_text: "map-link",
+          evidence_text: withReason("map_link", "map-link"),
           confidence: 0.6,
         });
       }

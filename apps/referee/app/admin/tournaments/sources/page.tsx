@@ -63,6 +63,16 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
 }
 
+type AcquisitionTileRow = { domain: string; count: number };
+type AcquisitionAssociationRow = { association: string; count: number };
+type AcquisitionSportDomainRow = { sport: string; domain: string; count: number };
+type AcquisitionTiles = {
+  source_domains: AcquisitionTileRow[];
+  official_domains: AcquisitionTileRow[];
+  associations: AcquisitionAssociationRow[];
+  top_domains_by_sport: AcquisitionSportDomainRow[];
+};
+
 export default async function SourcesPage({ searchParams }: { searchParams: SearchParams }) {
   await requireAdmin();
   const overdueSweepCutoffMs = Date.now() - 45 * 24 * 60 * 60 * 1000;
@@ -131,6 +141,11 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     if (Number.isNaN(sweptMs)) return true;
     return sweptMs < overdueSweepCutoffMs;
   };
+
+  const acquisitionTilesResp = await (supabaseAdmin as any).rpc("get_admin_tournament_acquisition_tiles", {
+    p_limit: 8,
+  });
+  const acquisitionTiles = (acquisitionTilesResp.data ?? null) as AcquisitionTiles | null;
 
   const registryRes = await supabaseAdmin
     .from("tournament_sources" as any)
@@ -260,6 +275,70 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   const quickAction = quickActionAction.bind(null, sourcesBasePath, stickyQueryString);
   const sweepSource = sweepSourceAction.bind(null, stickyQueryString);
   const runTopTierSweep = runTopTierSweepAction.bind(null, stickyQueryString);
+
+  const renderTopList = (rows: AcquisitionTileRow[] | null | undefined) => {
+    const list = (rows ?? []).filter((r) => r?.domain && Number.isFinite(r.count));
+    if (!list.length) return <div style={{ color: "#64748b", fontSize: 12 }}>No data yet.</div>;
+    return (
+      <div style={{ display: "grid", gap: 6 }}>
+        {list.slice(0, 8).map((row) => (
+          <div key={row.domain} style={{ display: "flex", justifyContent: "space-between", gap: 10, minWidth: 0 }}>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.domain}</span>
+            <span style={{ color: "#64748b", fontVariantNumeric: "tabular-nums" }}>{row.count}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderAssociations = (rows: AcquisitionAssociationRow[] | null | undefined) => {
+    const list = (rows ?? []).filter((r) => r?.association && Number.isFinite(r.count));
+    if (!list.length) return <div style={{ color: "#64748b", fontSize: 12 }}>No data yet.</div>;
+    return (
+      <div style={{ display: "grid", gap: 6 }}>
+        {list.slice(0, 8).map((row) => (
+          <div key={row.association} style={{ display: "flex", justifyContent: "space-between", gap: 10, minWidth: 0 }}>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.association}</span>
+            <span style={{ color: "#64748b", fontVariantNumeric: "tabular-nums" }}>{row.count}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderTopDomainsBySport = (rows: AcquisitionSportDomainRow[] | null | undefined) => {
+    const list = (rows ?? []).filter((r) => r?.sport && r?.domain && Number.isFinite(r.count));
+    if (!list.length) return <div style={{ color: "#64748b", fontSize: 12 }}>No data yet.</div>;
+
+    const bySport = new Map<string, AcquisitionSportDomainRow[]>();
+    for (const row of list) {
+      const sport = String(row.sport).toLowerCase();
+      const existing = bySport.get(sport) ?? [];
+      existing.push(row);
+      bySport.set(sport, existing);
+    }
+
+    return (
+      <div style={{ display: "grid", gap: 10 }}>
+        {Array.from(bySport.entries())
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .slice(0, 8)
+          .map(([sport, sportRows]) => (
+            <div key={sport} style={{ display: "grid", gap: 4 }}>
+              <div style={{ fontWeight: 800, fontSize: 12, textTransform: "capitalize" }}>{sport}</div>
+              <div style={{ display: "grid", gap: 4 }}>
+                {sportRows.slice(0, 3).map((row) => (
+                  <div key={`${sport}:${row.domain}`} style={{ display: "flex", justifyContent: "space-between", gap: 10, minWidth: 0 }}>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.domain}</span>
+                    <span style={{ color: "#64748b", fontVariantNumeric: "tabular-nums" }}>{row.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+      </div>
+    );
+  };
 
   const renderRegistryHeaders = () => (
     <tr>
@@ -576,6 +655,41 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
           {notice}
         </div>
       )}
+
+      <div style={{ marginBottom: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, background: "#fff" }}>
+          <div style={{ fontWeight: 900, marginBottom: 8 }}>Top source domains</div>
+          {acquisitionTilesResp.error ? (
+            <div style={{ color: "#b91c1c", fontSize: 12 }}>Failed to load: {acquisitionTilesResp.error.message}</div>
+          ) : (
+            renderTopList(acquisitionTiles?.source_domains)
+          )}
+        </div>
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, background: "#fff" }}>
+          <div style={{ fontWeight: 900, marginBottom: 8 }}>Top official-site domains</div>
+          {acquisitionTilesResp.error ? (
+            <div style={{ color: "#b91c1c", fontSize: 12 }}>Failed to load: {acquisitionTilesResp.error.message}</div>
+          ) : (
+            renderTopList(acquisitionTiles?.official_domains)
+          )}
+        </div>
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, background: "#fff" }}>
+          <div style={{ fontWeight: 900, marginBottom: 8 }}>Top associations</div>
+          {acquisitionTilesResp.error ? (
+            <div style={{ color: "#b91c1c", fontSize: 12 }}>Failed to load: {acquisitionTilesResp.error.message}</div>
+          ) : (
+            renderAssociations(acquisitionTiles?.associations)
+          )}
+        </div>
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, background: "#fff" }}>
+          <div style={{ fontWeight: 900, marginBottom: 8 }}>Top domains by sport</div>
+          {acquisitionTilesResp.error ? (
+            <div style={{ color: "#b91c1c", fontSize: 12 }}>Failed to load: {acquisitionTilesResp.error.message}</div>
+          ) : (
+            renderTopDomainsBySport(acquisitionTiles?.top_domains_by_sport)
+          )}
+        </div>
+      </div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
         {(["all", "untested", "keep", "ignored", "needs_review"] as Filter[]).map((f) => (

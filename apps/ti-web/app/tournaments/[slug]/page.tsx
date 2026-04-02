@@ -505,9 +505,11 @@ async function TournamentVenueDetails({
   const { data: venueLinksRaw } = await supabaseAdmin
     .from("tournament_venues" as any)
     .select(
-      "venue_id,venues(id,seo_slug,name,city,state)"
+      "venue_id,is_primary,created_at,venues(id,seo_slug,name,city,state)"
     )
-    .eq("tournament_id", tournament.id);
+    .eq("tournament_id", tournament.id)
+    .order("is_primary", { ascending: false })
+    .order("created_at", { ascending: true });
 
   const linkedVenues: LinkedVenue[] = ((venueLinksRaw as any[]) ?? [])
     .map((row: any) => row?.venues ?? null)

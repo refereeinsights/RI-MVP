@@ -40,10 +40,29 @@ type VenueCandidate = {
   venue_name: string | null;
   address_text: string | null;
   venue_url: string | null;
+  evidence_text: string | null;
   confidence: number | null;
   source_url: string | null;
   created_at: string | null;
 };
+
+const VENUE_REASON_CODES = new Set([
+  "jsonld_location",
+  "anchor_full_address",
+  "page_text_address",
+  "map_link",
+  "provider_perfectgame_locations",
+  "unknown",
+]);
+
+function reasonFromEvidence(evidence: string | null | undefined): string | null {
+  const text = String(evidence ?? "").trim();
+  if (!text) return null;
+  const m = text.match(/^reason=([a-z0-9_]+)\s*;/i);
+  if (!m?.[1]) return null;
+  const code = m[1].toLowerCase();
+  return VENUE_REASON_CODES.has(code) ? code : null;
+}
 
 function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -118,7 +137,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
     tournamentIds.length
       ? supabaseAdmin
           .from("tournament_venue_candidates" as any)
-          .select("tournament_id,venue_name,address_text,venue_url,confidence,source_url,created_at")
+          .select("tournament_id,venue_name,address_text,venue_url,evidence_text,confidence,source_url,created_at")
           .is("accepted_at", null)
           .is("rejected_at", null)
           .in("tournament_id", tournamentIds)
@@ -260,6 +279,21 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                           {bestVenue ? (
                             <>
                               {trunc(bestVenue.venue_name, 44)} ({(bestVenue.confidence ?? 0).toFixed(2)})
+                              <span
+                                style={{
+                                  marginLeft: 8,
+                                  fontSize: 11,
+                                  padding: "1px 6px",
+                                  borderRadius: 999,
+                                  border: "1px solid #e5e7eb",
+                                  background: "#f8fafc",
+                                  color: "#334155",
+                                  fontWeight: 700,
+                                }}
+                                title={reasonFromEvidence(bestVenue.evidence_text) ?? "unknown"}
+                              >
+                                {(reasonFromEvidence(bestVenue.evidence_text) ?? "unknown").replaceAll("_", " ")}
+                              </span>
                               {hasText(bestVenue.venue_url) ? (
                                 <>
                                   {" "}

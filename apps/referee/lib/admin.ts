@@ -856,7 +856,9 @@ export async function adminUnlinkRefereeContactFromTournament(link_id: string) {
   if (error) throw error;
 }
 
-export async function adminListPendingTournaments() {
+export async function adminListPendingTournaments(opts?: {
+  sort?: "updated_desc" | "start_date_asc" | "start_date_desc" | "venue_name_asc" | "missing_venues_first";
+}) {
   await requireAdmin();
   const { data, error } = await supabaseAdmin
     .from("tournaments")
@@ -880,7 +882,68 @@ export async function adminListPendingTournaments() {
       deduped.set(key, row);
     }
   }
-  return Array.from(deduped.values());
+
+  const items = Array.from(deduped.values());
+
+  const safeSort = opts?.sort ?? "updated_desc";
+  const dateKey = (value: string | null | undefined) => {
+    if (!value) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.getTime();
+  };
+  const venueNameKey = (row: AdminPendingTournament) => {
+    const linked =
+      (row.tournament_venues ?? [])
+        .map((tv) => tv?.venues?.name ?? null)
+        .filter((name): name is string => Boolean(name && name.trim()))
+        .map((name) => name.trim())
+        .sort((a, b) => a.localeCompare(b))[0] ?? null;
+    const fallback = (row.venue ?? "").trim() || null;
+    return (linked ?? fallback ?? "").toLowerCase();
+  };
+  const linkedVenueCount = (row: AdminPendingTournament) =>
+    (row.tournament_venues ?? []).filter((tv) => Boolean(tv?.venues?.id)).length;
+
+  items.sort((a, b) => {
+    if (safeSort === "start_date_asc" || safeSort === "start_date_desc") {
+      const ad = dateKey(a.start_date ?? null);
+      const bd = dateKey(b.start_date ?? null);
+      if (ad === null && bd !== null) return 1;
+      if (ad !== null && bd === null) return -1;
+      if (ad !== null && bd !== null && ad !== bd) {
+        return safeSort === "start_date_asc" ? ad - bd : bd - ad;
+      }
+      const au = dateKey(a.updated_at ?? null) ?? 0;
+      const bu = dateKey(b.updated_at ?? null) ?? 0;
+      return bu - au;
+    }
+
+    if (safeSort === "venue_name_asc") {
+      const ak = venueNameKey(a);
+      const bk = venueNameKey(b);
+      if (ak !== bk) return ak.localeCompare(bk);
+      const au = dateKey(a.updated_at ?? null) ?? 0;
+      const bu = dateKey(b.updated_at ?? null) ?? 0;
+      return bu - au;
+    }
+
+    if (safeSort === "missing_venues_first") {
+      const am = linkedVenueCount(a) === 0 ? 1 : 0;
+      const bm = linkedVenueCount(b) === 0 ? 1 : 0;
+      if (am !== bm) return bm - am;
+      const au = dateKey(a.updated_at ?? null) ?? 0;
+      const bu = dateKey(b.updated_at ?? null) ?? 0;
+      return bu - au;
+    }
+
+    // Default: updated desc (already roughly ordered from query, but keep deterministic after dedupe)
+    const au = dateKey(a.updated_at ?? null) ?? 0;
+    const bu = dateKey(b.updated_at ?? null) ?? 0;
+    return bu - au;
+  });
+
+  return items;
 }
 
 export type AdminPendingTournament = {

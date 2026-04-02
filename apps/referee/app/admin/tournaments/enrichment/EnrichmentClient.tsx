@@ -62,6 +62,7 @@ type VenueCandidate = {
   tournament_id: string;
   venue_name: string | null;
   address_text: string | null;
+  evidence_text: string | null;
   source_url: string | null;
   confidence: number | null;
   created_at: string | null;
@@ -123,12 +124,31 @@ type ReviewItem = {
   detail?: string | null;
   sourceUrl?: string | null;
   confidence?: number | null;
+  reason?: string | null;
 };
 type FeesVenueSummary = { tournament_id: string; name: string | null; found: string[] };
 
 function formatDate(val: string | null) {
   if (!val) return "";
   return new Date(val).toLocaleString();
+}
+
+const VENUE_REASON_CODES = new Set([
+  "jsonld_location",
+  "anchor_full_address",
+  "page_text_address",
+  "map_link",
+  "provider_perfectgame_locations",
+  "unknown",
+]);
+
+function reasonFromEvidence(evidence: string | null | undefined): string | null {
+  const text = String(evidence ?? "").trim();
+  if (!text) return null;
+  const m = text.match(/^reason=([a-z0-9_]+)\s*;/i);
+  if (!m?.[1]) return null;
+  const code = m[1].toLowerCase();
+  return VENUE_REASON_CODES.has(code) ? code : null;
 }
 
 export default function EnrichmentClient({
@@ -224,7 +244,9 @@ export default function EnrichmentClient({
         if ((item.confidence ?? 0) > (existing.confidence ?? 0)) {
           existing.confidence = item.confidence ?? existing.confidence;
           existing.sourceUrl = item.sourceUrl ?? existing.sourceUrl;
+          existing.reason = item.reason ?? existing.reason;
         }
+        if (!existing.reason && item.reason) existing.reason = item.reason;
         existingMap.set(sig, existing);
       } else {
         existingMap.set(sig, {
@@ -235,6 +257,7 @@ export default function EnrichmentClient({
           detail: item.detail,
           sourceUrl: item.sourceUrl,
           confidence: item.confidence,
+          reason: item.reason ?? null,
         });
       }
       groups.set(tournamentId, existingMap);
@@ -274,6 +297,7 @@ export default function EnrichmentClient({
         detail: detail || "—",
         sourceUrl: v.source_url,
         confidence: v.confidence,
+        reason: reasonFromEvidence(v.evidence_text) ?? (v.evidence_text ? "unknown" : null),
       });
     });
     const attributeLabels: Record<string, string> = {
@@ -1424,7 +1448,25 @@ export default function EnrichmentClient({
                     <label key={item.key} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                       <input type="checkbox" checked={selected.has(item.key)} onChange={() => toggleReviewItem(tournamentId, item.key)} />
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700 }}>{item.label}</div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <div style={{ fontWeight: 700 }}>{item.label}</div>
+                          {item.kind === "venue" ? (
+                            <span
+                              style={{
+                                fontSize: 11,
+                                padding: "2px 6px",
+                                borderRadius: 999,
+                                border: "1px solid #e5e7eb",
+                                background: "#f8fafc",
+                                color: "#334155",
+                                fontWeight: 700,
+                              }}
+                              title={item.reason ?? "unknown"}
+                            >
+                              {(item.reason ?? "unknown").replaceAll("_", " ")}
+                            </span>
+                          ) : null}
+                        </div>
                         {item.detail ? <div style={{ color: "#4b5563", fontSize: 12 }}>{item.detail}</div> : null}
                         {item.ids.length > 1 ? (
                           <div style={{ color: "#6b7280", fontSize: 11 }}>
