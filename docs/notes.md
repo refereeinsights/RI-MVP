@@ -32,14 +32,25 @@ Maintenance rules:
   - Upload approval queue now supports sorting (start date, venue name, missing linked venues first):
     - `apps/referee/app/admin/page.tsx`
     - `apps/referee/lib/admin.ts`
+  - Upload approval UI: added quick sort links above the table (Updated, Dates soonest, Venue A–Z, Missing venues) to make it easier to scan for missing venue links.
   - Upload approval venue cell now shows real venue names when multiple venues are linked (no hover required).
   - Added admin acquisition tiles for quick targeting of high-volume domains/associations (incl. top domains by sport):
     - `supabase/migrations/20260402_admin_tournament_acquisition_tiles.sql`
     - `apps/referee/app/admin/tournaments/sources/page.tsx`
   - Added minimal primary venue concept on `tournament_venues` (`is_primary`) with conservative backfill:
     - `supabase/migrations/20260402_tournament_venues_primary.sql`
+  - Added hardening migration for environments with an incorrectly-created primary-venue unique index:
+    - `supabase/migrations/20260402_tournament_venues_primary_fix_index.sql`
+    - Ensures the `tournament_venues_one_primary_per_tournament_idx` index is partial (`WHERE is_primary`), so tournaments can link multiple venues while still enforcing a single primary.
+  - Missing venues workflow:
+    - Added CSV export for missing linked venues (includes blank `venue_name` + `venue_address` columns for manual fill-in):
+      - `apps/referee/app/api/admin/tournaments/missing-venues/export/route.ts`
+      - `apps/referee/app/admin/tournaments/missing-venues/page.tsx`
+    - Added “Missing venues export” button to venues admin (links to the export, respects current `state` filter):
+      - `apps/referee/app/admin/venues/page.tsx`
   - Added ops script to ingest venue rows from a CSV (match/create venues, then upsert `tournament_venues` links):
     - `scripts/ops/ingest_tournament_venues_from_csv.ts`
+    - Script now forces `is_primary=false` when linking to avoid tripping the primary unique index during bulk linking.
 
 ## 2026-03-05
 - TI national sport hub pages (SEO step 1):
