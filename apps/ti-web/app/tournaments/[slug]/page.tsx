@@ -262,7 +262,7 @@ async function TournamentUserActions({
             fontWeight: 800,
           }}
         >
-          Saved. Thanks for keeping this listing accurate.
+          Tournament saved. You can track updates and access it quickly from your account.
         </div>
       ) : null}
 
@@ -1007,6 +1007,20 @@ export default async function TournamentDetailPage({
           <div className="detailMeta">{dateLabel}</div>
           <div className="detailMeta">{locationLabel}</div>
           {metroLabel ? <div className="detailMeta">{metroLabel}</div> : null}
+
+          <div
+            style={{
+              marginTop: 10,
+              display: "grid",
+              gap: 4,
+              justifyItems: "center",
+              textAlign: "center",
+              maxWidth: 520,
+            }}
+          >
+            <div style={{ fontWeight: 900, letterSpacing: "-0.01em" }}>Track this tournament</div>
+            <div style={{ fontSize: 13, opacity: 0.92 }}>Get email updates and quick access.</div>
+          </div>
 
           <Suspense fallback={<div style={{ height: 44 }} />}>
             <TournamentUserActions

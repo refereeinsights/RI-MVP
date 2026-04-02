@@ -50,11 +50,28 @@ export default function SaveTournamentButton({
   };
 
   async function onClick() {
+    sendTiAnalytics("Tournament Save Clicked", {
+      tournamentId,
+      saved_before: saved,
+      logged_in: isLoggedIn,
+      verified: isVerified,
+    }).catch(() => {});
+
     if (!isLoggedIn) {
+      sendTiAnalytics("Tournament Save Auth Redirect", {
+        tournamentId,
+        reason: "not_logged_in",
+        returnTo,
+      }).catch(() => {});
       window.location.href = `/signup?returnTo=${redirectPath}`;
       return;
     }
     if (!isVerified) {
+      sendTiAnalytics("Tournament Save Auth Redirect", {
+        tournamentId,
+        reason: "email_unverified",
+        returnTo,
+      }).catch(() => {});
       window.location.href = `/verify-email?returnTo=${redirectPath}`;
       return;
     }
