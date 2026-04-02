@@ -51,6 +51,18 @@ function canCreateVenueFromStreet(street, zip) {
   );
 }
 
+function inferSportFromNameAndUrl(nameRaw, urlRaw, fallback) {
+  const name = clean(nameRaw) ?? "";
+  const url = clean(urlRaw) ?? "";
+  const lower = `${name} ${url}`.toLowerCase();
+
+  if (/\bbaseball\b/.test(lower) || /\/baseball\b/.test(lower)) return "baseball";
+  if (/\bsoftball\b/.test(lower) || /\bfastpitch\b/.test(lower) || /\/fastpitch\b/.test(lower)) return "softball";
+  if (/\bsoccer\b/.test(lower)) return "soccer";
+
+  return fallback;
+}
+
 function stamp() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -679,7 +691,7 @@ async function main() {
     for (const group of byTournament.values()) {
       const first = group.rows[0];
       const tournament_name = first.tournament_name;
-      const sport = defaultSport;
+      const sport = inferSportFromNameAndUrl(tournament_name, first.tournament_url, defaultSport);
       const state = first.state;
       const start_date = first.start_date;
       const end_date = first.end_date;
