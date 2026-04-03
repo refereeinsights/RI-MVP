@@ -103,11 +103,30 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   });
 
   if (missingRes.error) {
+    const msg = String(missingRes.error.message ?? "");
+    const looksLikeRpcV2Missing =
+      /list_missing_venue_link_tournaments_v2/i.test(msg) && /schema cache/i.test(msg) && /could not find the function/i.test(msg);
+
     return (
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "1rem" }}>
         <AdminNav />
         <h1 style={{ marginTop: 12 }}>Missing Venues</h1>
         <p style={{ color: "#b91c1c" }}>Failed to load tournaments: {missingRes.error.message}</p>
+        {looksLikeRpcV2Missing ? (
+          <div style={{ marginTop: 10, padding: 12, borderRadius: 10, background: "#fff7ed", border: "1px solid #fdba74" }}>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>Fix</div>
+            <div style={{ color: "#7c2d12", fontSize: 13, lineHeight: 1.4 }}>
+              This page is calling a new RPC: <code>public.list_missing_venue_link_tournaments_v2</code>. It looks like your
+              Supabase DB/API hasn&apos;t been updated yet.
+              <br />
+              Apply the migration and reload the PostgREST schema cache, then refresh this page.
+              <br />
+              Migration: <code>supabase/migrations/20260402_missing_venues_include_drafts.sql</code>
+              <br />
+              Supabase dashboard: Settings → API → <b>Reload schema</b> (or run <code>NOTIFY pgrst, 'reload schema';</code>).
+            </div>
+          </div>
+        ) : null}
       </main>
     );
   }

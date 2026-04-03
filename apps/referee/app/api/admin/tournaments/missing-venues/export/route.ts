@@ -57,6 +57,24 @@ export async function GET(req: Request) {
       p_status: tournamentStatus,
     });
     if (resp.error) {
+      const msg = String(resp.error.message ?? "");
+      const looksLikeRpcV2Missing =
+        /list_missing_venue_link_tournaments_v2/i.test(msg) && /schema cache/i.test(msg) && /could not find the function/i.test(msg);
+      if (looksLikeRpcV2Missing && tournamentStatus === "published") {
+        const fallback = await (supabaseAdmin as any).rpc("list_missing_venue_link_tournaments", {
+          p_limit: pageSize,
+          p_offset: offset,
+          p_state: state || null,
+          p_q: q || null,
+        });
+        if (fallback.error) return NextResponse.json({ error: fallback.error.message }, { status: 500 });
+        const batch = (fallback.data ?? []) as Array<{ id?: string | null }>;
+        const ids = batch.map((r) => r?.id ?? null).filter(Boolean) as string[];
+        if (!ids.length) break;
+        missingIds.push(...ids);
+        if (ids.length < pageSize) break;
+        continue;
+      }
       return NextResponse.json({ error: resp.error.message }, { status: 500 });
     }
     const batch = (resp.data ?? []) as Array<{ id?: string | null }>;
