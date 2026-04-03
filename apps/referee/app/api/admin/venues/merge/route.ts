@@ -16,6 +16,14 @@ function isOnePrimaryIndexMisconfiguredError(err: any): boolean {
   return /tournament_venues_one_primary_per_tournament_idx/i.test(msg) && /\bKey\s*\(tournament_id\)\s*=/i.test(details);
 }
 
+async function tryRepairTournamentVenuesPrimaryIndex() {
+  try {
+    await (supabaseAdmin as any).rpc("repair_tournament_venues_primary_index_v1", { p_reload_schema: true });
+  } catch {
+    // ignore (migration not deployed in this env)
+  }
+}
+
 async function ensureAdminRequest() {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
@@ -129,9 +137,27 @@ export async function POST(request: Request) {
 
   if (tournamentIds.length > 0) {
     const upsertRows = tournamentIds.map((tournamentId) => ({ tournament_id: tournamentId, venue_id: targetVenueId }));
-    const { error: upsertError } = await supabaseAdmin
-      .from("tournament_venues" as any)
-      .upsert(upsertRows as any[], { onConflict: "tournament_id,venue_id" });
+    const attemptUpsert = async () =>
+      supabaseAdmin.from("tournament_venues" as any).upsert(upsertRows as any[], { onConflict: "tournament_id,venue_id" });
+
+    const { error: upsertError } = await attemptUpsert();
+    if (upsertError && isOnePrimaryIndexMisconfiguredError(upsertError)) {
+      await tryRepairTournamentVenuesPrimaryIndex();
+      const { error: retryErr } = await attemptUpsert();
+      if (!retryErr) {
+        // continue
+      } else if (isOnePrimaryIndexMisconfiguredError(retryErr)) {
+        return NextResponse.json(
+          {
+            error:
+              'Your DB has an incorrect unique index named "tournament_venues_one_primary_per_tournament_idx" that blocks multiple venues per tournament. Apply the migration `supabase/migrations/20260402_tournament_venues_primary_fix_index.sql` and reload the Supabase API schema cache (Settings → API → Reload schema; or run `NOTIFY pgrst, \'reload schema\';`).',
+          },
+          { status: 409 }
+        );
+      } else {
+        return NextResponse.json({ error: retryErr.message || "target_link_upsert_failed" }, { status: 500 });
+      }
+    }
     if (upsertError) {
       if (isOnePrimaryIndexMisconfiguredError(upsertError)) {
         return NextResponse.json(

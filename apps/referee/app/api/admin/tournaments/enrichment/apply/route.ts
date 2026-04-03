@@ -20,6 +20,14 @@ function isOnePrimaryIndexMisconfiguredError(err: any): boolean {
   );
 }
 
+async function tryRepairTournamentVenuesPrimaryIndex() {
+  try {
+    await (supabaseAdmin as any).rpc("repair_tournament_venues_primary_index_v1", { p_reload_schema: true });
+  } catch {
+    // ignore (migration not deployed in this env)
+  }
+}
+
 function cleanText(value: unknown): string | null {
   if (value == null) return null;
   const text = String(value).trim();
@@ -306,22 +314,27 @@ export async function POST(request: Request) {
 	          address_text: cleanText(venue?.address_text),
 	          venue_url: cleanText(venue?.venue_url),
 	        });
-		        const { error: linkErr } = await supabaseAdmin
-		          .from("tournament_venues" as any)
-		          .upsert(
-		            { tournament_id: tournamentId, venue_id: upserted.id, is_inferred: false, is_primary: false },
-		            { onConflict: "tournament_id,venue_id" }
-		          );
+          const attemptLink = async () =>
+            supabaseAdmin
+              .from("tournament_venues" as any)
+              .upsert({ tournament_id: tournamentId, venue_id: upserted.id, is_inferred: false, is_primary: false }, { onConflict: "tournament_id,venue_id" });
+		        const { error: linkErr } = await attemptLink();
 	        if (linkErr) {
 	          if (isOnePrimaryIndexMisconfiguredError(linkErr)) {
-	            return NextResponse.json(
-	              {
-	                error: "tournament_venues_primary_index_misconfigured",
-	                detail:
-	                  'Your DB has an incorrect unique index named "tournament_venues_one_primary_per_tournament_idx" that blocks multiple venues per tournament. Apply the migration `supabase/migrations/20260402_tournament_venues_primary_fix_index.sql` (or reload migrations) and reload the Supabase API schema cache.',
-	              },
-	              { status: 409 }
-	            );
+              await tryRepairTournamentVenuesPrimaryIndex();
+              const { error: retryErr } = await attemptLink();
+              if (retryErr) {
+                return NextResponse.json(
+                  {
+                    error: "tournament_venues_primary_index_misconfigured",
+                    detail:
+                      'Your DB has an incorrect unique index named "tournament_venues_one_primary_per_tournament_idx" that blocks multiple venues per tournament. Apply the migration `supabase/migrations/20260402_tournament_venues_primary_fix_index.sql` and reload the Supabase API schema cache.',
+                  },
+                  { status: 409 }
+                );
+              }
+              didLinkVenue = true;
+              continue;
 	          }
 	          throw linkErr;
 	        }
@@ -428,27 +441,33 @@ export async function POST(request: Request) {
 	        address_text: venueAddress,
 	        venue_url: attributeVenueUrl,
 	      });
-		      const { error: linkErr } = await supabaseAdmin
-		        .from("tournament_venues" as any)
-		        .upsert(
-		          { tournament_id: tournamentId, venue_id: upserted.id, is_inferred: false, is_primary: false },
-		          { onConflict: "tournament_id,venue_id" }
-		        );
+        const attemptLink = async () =>
+          supabaseAdmin
+            .from("tournament_venues" as any)
+            .upsert(
+              { tournament_id: tournamentId, venue_id: upserted.id, is_inferred: false, is_primary: false },
+              { onConflict: "tournament_id,venue_id" }
+            );
+		      const { error: linkErr } = await attemptLink();
 	      if (linkErr) {
 	        if (isOnePrimaryIndexMisconfiguredError(linkErr)) {
-	          return NextResponse.json(
-	            {
-	              error: "tournament_venues_primary_index_misconfigured",
-	              detail:
-	                'Your DB has an incorrect unique index named "tournament_venues_one_primary_per_tournament_idx" that blocks multiple venues per tournament. Apply the migration `supabase/migrations/20260402_tournament_venues_primary_fix_index.sql` (or reload migrations) and reload the Supabase API schema cache.',
-	            },
-	            { status: 409 }
-	          );
-	        }
-	        throw linkErr;
+            await tryRepairTournamentVenuesPrimaryIndex();
+            const { error: retryErr } = await attemptLink();
+            if (retryErr) {
+              return NextResponse.json(
+                {
+                  error: "tournament_venues_primary_index_misconfigured",
+                  detail:
+                    'Your DB has an incorrect unique index named "tournament_venues_one_primary_per_tournament_idx" that blocks multiple venues per tournament. Apply the migration `supabase/migrations/20260402_tournament_venues_primary_fix_index.sql` and reload the Supabase API schema cache.',
+                },
+                { status: 409 }
+              );
+            }
+          } else {
+            throw linkErr;
+          }
 	      }
 	      didLinkVenue = true;
-	      // Now that the venue is resolvable, allow storing the URL as a convenience inline field.
 	      if (attributeVenueUrl) updates.venue_url = attributeVenueUrl;
 	    }
 	  }
