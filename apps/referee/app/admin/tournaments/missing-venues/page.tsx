@@ -12,6 +12,7 @@ type SearchParams = {
   page?: string;
   q?: string;
   state?: string;
+  status?: string;
 };
 
 type TournamentRow = {
@@ -23,6 +24,8 @@ type TournamentRow = {
   start_date: string | null;
   official_website_url: string | null;
   source_url: string | null;
+  status?: string | null;
+  is_canonical?: boolean | null;
   total_count?: number | null;
 };
 
@@ -86,14 +89,17 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
   const q = (searchParams?.q ?? "").trim();
   const state = (searchParams?.state ?? "").trim().toUpperCase();
+  const tournamentStatusRaw = (searchParams?.status ?? "published").trim().toLowerCase();
+  const tournamentStatus = tournamentStatusRaw === "draft" ? "draft" : "published";
 
   const pageSize = 50;
   const offset = (page - 1) * pageSize;
-  const missingRes = await (supabaseAdmin as any).rpc("list_missing_venue_link_tournaments", {
+  const missingRes = await (supabaseAdmin as any).rpc("list_missing_venue_link_tournaments_v2", {
     p_limit: pageSize,
     p_offset: offset,
     p_state: state || null,
     p_q: q || null,
+    p_status: tournamentStatus,
   });
 
   if (missingRes.error) {
@@ -109,11 +115,12 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   const rows = ((missingRes.data ?? []) as TournamentRow[]).filter((r) => r?.id);
   let count = Number(rows[0]?.total_count ?? 0) || 0;
   if (!rows.length) {
-    const countRes = await (supabaseAdmin as any).rpc("list_missing_venue_link_tournaments", {
+    const countRes = await (supabaseAdmin as any).rpc("list_missing_venue_link_tournaments_v2", {
       p_limit: 1,
       p_offset: 0,
       p_state: state || null,
       p_q: q || null,
+      p_status: tournamentStatus,
     });
     if (!countRes.error) {
       const countRows = (countRes.data ?? []) as TournamentRow[];
@@ -170,6 +177,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   const paramsBase = new URLSearchParams();
   if (q) paramsBase.set("q", q);
   if (state) paramsBase.set("state", state);
+  if (tournamentStatus !== "published") paramsBase.set("status", tournamentStatus);
   const exportHref = `/api/admin/tournaments/missing-venues/export${paramsBase.toString() ? `?${paramsBase.toString()}` : ""}`;
 
   return (
@@ -179,12 +187,22 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
         <div>
           <h1 style={{ margin: 0 }}>Missing Venues</h1>
           <p style={{ margin: "6px 0 0", color: "#475569" }}>
-            Published canonical tournaments missing venue links (no <code>tournament_venues</code> rows). Run deep scan to extract venue/address candidates with confidence.
+            {tournamentStatus === "draft" ? (
+              <>
+                Draft tournaments (uploads queue) missing confirmed venue links (no <code>tournament_venues</code> rows with{" "}
+                <code>is_inferred=false</code>). Run deep scan to extract venue/address candidates with confidence.
+              </>
+            ) : (
+              <>
+                Published canonical tournaments missing venue links (no <code>tournament_venues</code> rows with{" "}
+                <code>is_inferred=false</code>). Run deep scan to extract venue/address candidates with confidence.
+              </>
+            )}
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <USClubSoccerUrlButton limit={400} />
-          <BulkDeepScanButton initialLimit={50} total={count} />
+          {tournamentStatus === "published" ? <USClubSoccerUrlButton limit={400} /> : null}
+          <BulkDeepScanButton initialLimit={50} total={count} tournamentStatus={tournamentStatus} />
           <a
             href={exportHref}
             style={{
@@ -226,6 +244,10 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
           placeholder="State (e.g. WA)"
           style={{ padding: 8, width: 140 }}
         />
+        <select name="status" defaultValue={tournamentStatus} style={{ padding: 8, width: 170 }}>
+          <option value="published">Published backlog</option>
+          <option value="draft">Draft uploads</option>
+        </select>
         <button type="submit" style={{ padding: "8px 12px" }}>
           Filter
         </button>

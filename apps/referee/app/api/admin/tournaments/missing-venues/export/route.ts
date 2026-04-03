@@ -37,22 +37,24 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const state = clean(url.searchParams.get("state") ?? "").toUpperCase();
   const q = clean(url.searchParams.get("q") ?? "");
+  const statusRaw = clean(url.searchParams.get("status") ?? "").toLowerCase();
+  const tournamentStatus = statusRaw === "draft" ? "draft" : "published";
 
   let limit = Number(url.searchParams.get("limit") ?? "5000");
   if (!Number.isFinite(limit)) limit = 5000;
   limit = Math.max(1, Math.min(20000, Math.floor(limit)));
 
-  // Use the same server-side definition as the Missing Venues admin page (published canonical tournaments
-  // missing linked venues) and then hydrate association fields from `tournaments`.
+  // Use the same server-side definition as the Missing Venues admin page and then hydrate association fields from `tournaments`.
   const pageSize = Math.min(1000, limit);
   const missingIds: string[] = [];
 
   for (let offset = 0; offset < limit; offset += pageSize) {
-    const resp = await (supabaseAdmin as any).rpc("list_missing_venue_link_tournaments", {
+    const resp = await (supabaseAdmin as any).rpc("list_missing_venue_link_tournaments_v2", {
       p_limit: pageSize,
       p_offset: offset,
       p_state: state || null,
       p_q: q || null,
+      p_status: tournamentStatus,
     });
     if (resp.error) {
       return NextResponse.json({ error: resp.error.message }, { status: 500 });

@@ -11,7 +11,15 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export default function BulkDeepScanButton({ initialLimit = 50, total }: { initialLimit?: number; total?: number }) {
+export default function BulkDeepScanButton({
+  initialLimit = 50,
+  total,
+  tournamentStatus = "published",
+}: {
+  initialLimit?: number;
+  total?: number;
+  tournamentStatus?: "published" | "draft";
+}) {
   const [status, setStatus] = useState<string>("");
   const [running, setRunning] = useState(false);
   const [limit, setLimit] = useState<number>(clampInt(initialLimit, 1, 200));
@@ -19,10 +27,11 @@ export default function BulkDeepScanButton({ initialLimit = 50, total }: { initi
   const runOnce = async (): Promise<any | null> => {
     if (running) return;
     try {
+      const statusQuery = tournamentStatus ? `&status=${encodeURIComponent(tournamentStatus)}` : "";
       const res = await fetch(
         `/api/admin/tournaments/enrichment/fees-venue?mode=missing_venues&limit=${encodeURIComponent(
           String(limit)
-        )}&skip_pending=0`,
+        )}&skip_pending=0${statusQuery}`,
         { method: "POST" }
       );
       const json = (await res.json().catch(() => null)) as any;
