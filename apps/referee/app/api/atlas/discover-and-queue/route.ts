@@ -274,6 +274,10 @@ export async function POST(req: Request) {
     });
   } catch (err: any) {
     const message = String(err?.message ?? "unknown error");
+    const lower = message.toLowerCase();
+    if (lower.includes("serpapi_api_key missing") || lower.includes("bing_search_key missing") || lower.includes("brave_search_key missing")) {
+      return jsonResponse({ error: "search_provider_not_configured", message }, 400);
+    }
     if (message.includes("429") || message.toLowerCase().includes("rate limit")) {
       return jsonResponse({ error: "provider_rate_limited", message }, 429);
     }

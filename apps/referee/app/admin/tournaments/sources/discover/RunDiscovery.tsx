@@ -77,10 +77,16 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
         data = null;
       }
       if (!res.ok) {
-        const label =
-          data?.error === "provider_rate_limited"
-            ? "Search provider rate limit reached. Try again in a minute."
-            : data?.error || `Run failed (${res.status})`;
+        const label = (() => {
+          if (data?.error === "provider_rate_limited") {
+            return "Search provider rate limit reached. Try again in a minute.";
+          }
+          if (data?.error === "search_provider_not_configured") {
+            return data?.message || "Search provider is not configured (missing API key).";
+          }
+          if (data?.message) return data.message;
+          return data?.error || `Run failed (${res.status})`;
+        })();
         setError(label);
         return;
       }
@@ -124,7 +130,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
         data = null;
       }
       if (!res.ok) {
-        setError(data?.error || `Update failed (${res.status})`);
+        setError(data?.message || data?.error || `Update failed (${res.status})`);
         return;
       }
       setSummary((prev) => {
@@ -167,7 +173,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
         data = null;
       }
       if (!res.ok) {
-        setError(data?.error || `Queue failed (${res.status})`);
+        setError(data?.message || data?.error || `Queue failed (${res.status})`);
         return;
       }
       setSummary((prev) => {
