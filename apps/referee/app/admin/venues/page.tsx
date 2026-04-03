@@ -176,6 +176,9 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
   const missingVenuesExportHref = `/api/admin/tournaments/missing-venues/export${
     state ? `?state=${encodeURIComponent(state.toUpperCase())}` : ""
   }`;
+  const missingVenuesToolHref = `/admin/tournaments/missing-venues${
+    state ? `?state=${encodeURIComponent(state.toUpperCase())}` : ""
+  }`;
 
   const orFilters = [];
   if (q) {
@@ -935,11 +938,11 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
             Last 100 venues (filtered) • Owl&apos;s Eye with data: {venues.filter((v) => Boolean(v.owl_run_id)).length}
           </p>
         </div>
-	        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-	          <a
-	            href={missingVenuesExportHref}
-	            style={{
-	              padding: "10px 14px",
+		        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+		          <a
+		            href={missingVenuesExportHref}
+		            style={{
+		              padding: "10px 14px",
 	              borderRadius: 10,
 	              background: "#fff",
 	              color: "#0f3d2e",
@@ -947,14 +950,28 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 	              textDecoration: "none",
 	              border: "1px solid #0f3d2e",
 	            }}
-	          >
-	            Missing venues export
-	          </a>
-	          <Link
-	            href="/admin/venues/link-quality"
-	            style={{
-	              padding: "10px 14px",
-              borderRadius: 10,
+		          >
+		            Missing venues export
+		          </a>
+              <Link
+                href={missingVenuesToolHref}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "#fff",
+                  color: "#1d4ed8",
+                  fontWeight: 800,
+                  textDecoration: "none",
+                  border: "1px solid #93c5fd",
+                }}
+              >
+                Missing venues tool
+              </Link>
+		          <Link
+		            href="/admin/venues/link-quality"
+		            style={{
+		              padding: "10px 14px",
+	              borderRadius: 10,
               background: "#fff",
               color: "#111827",
               fontWeight: 800,
