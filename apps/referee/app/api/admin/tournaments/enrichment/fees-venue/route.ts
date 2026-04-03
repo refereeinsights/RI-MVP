@@ -180,6 +180,12 @@ function scoreVenueEntryForInsert(entry: { venue_name: string | null; address_te
   return score;
 }
 
+function confidenceFromVenueScore(score: number): number {
+  const maxScore = 10;
+  const clamped = Math.max(0, Math.min(maxScore, Math.trunc(Number(score) || 0)));
+  return Math.round((clamped / maxScore) * 100) / 100;
+}
+
 function extractAddresses(text: string): string[] {
   const pattern =
     /\d{1,5}\s+[A-Za-z0-9.\-#\s]{3,100},\s*[A-Za-z.\s]{2,60},\s*[A-Z]{2}\s*\d{5}(?:-\d{4})?/g;
@@ -1051,6 +1057,13 @@ async function fetchTournamentPages(
     if (pages.length >= maxPages) break;
 
     const $ = cheerio.load(html);
+    // "1-hop" venue intelligence: if we land on a page that has a dedicated Fields/Locations/Venues link,
+    // prioritize crawling it immediately (without relying on general internal-link ranking).
+    const venueSeeds = extractVenueKeywordLinks($, nextUrl);
+    for (const href of venueSeeds) {
+      if (queue.length + pages.length >= maxPages * 8) break;
+      if (!seen.has(href) && !queue.includes(href)) queue.unshift(href);
+    }
     const ranked = rankInternalLinks($, nextUrl);
     for (const href of ranked) {
       if (queue.length + pages.length >= maxPages * 8) break;
@@ -1276,7 +1289,11 @@ export async function POST(request: Request) {
     address_text: string;
     source_url: string | null;
     venue_url: string | null;
+    evidence_text: string | null;
+    confidence: number | null;
   }> = [];
+  const venueReasonCounts = new Map<string, number>();
+  const bumpReason = (reason: string) => venueReasonCounts.set(reason, (venueReasonCounts.get(reason) ?? 0) + 1);
   const summary: Array<{ tournament_id: string; name: string | null; found: string[] }> = [];
   const attemptedTournamentIds: string[] = [];
   const seededVenueUrlsByTournament = new Map<string, string[]>();
@@ -1289,6 +1306,7 @@ export async function POST(request: Request) {
   let autoLinkedExisting = 0;
   let autoLinkedVenueUrlUpdated = 0;
   let droppedLowQualityVenueEntries = 0;
+  let droppedLowScoreVenueEntries = 0;
 
   for (const t of selected) {
     tournamentLocalityById.set(String((t as any).id ?? ""), {
@@ -1394,6 +1412,7 @@ export async function POST(request: Request) {
     address_text: string;
     source_url: string;
     venue_url?: string | null;
+    reason: string;
   }> = [];
   const venueUrlCandidates = new Set<string>();
   const foundByKey = new Set<string>();
@@ -1446,14 +1465,14 @@ export async function POST(request: Request) {
       if (venuePathMatch || isLikelyVenueContentPage($)) {
         extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(addr));
         extractVenueEntriesFromPage($, locality).forEach((entry) =>
-          venueEntriesPool.push({ ...entry, source_url: page.url, venue_url: null })
+          venueEntriesPool.push({ ...entry, source_url: page.url, venue_url: null, reason: "page_text_address" })
         );
         extractMapLinkedVenueEntries($).forEach((entry) =>
-          venueEntriesPool.push({ ...entry, source_url: page.url, venue_url: null })
+          venueEntriesPool.push({ ...entry, source_url: page.url, venue_url: null, reason: "map_link" })
         );
         // Many sites expose venue location via schema.org JSON-LD even when the rendered page is thin.
         extractJsonLdVenueEntriesFromPage($).forEach((entry) =>
-          venueEntriesPool.push({ venue_name: entry.venue_name, address_text: entry.address_text, source_url: page.url, venue_url: entry.venue_url })
+          venueEntriesPool.push({ venue_name: entry.venue_name, address_text: entry.address_text, source_url: page.url, venue_url: entry.venue_url, reason: "jsonld_location" })
         );
       }
 
@@ -1466,6 +1485,7 @@ export async function POST(request: Request) {
             address_text: facility.address_text,
             source_url: page.url,
             venue_url: null,
+            reason: "facility_city_state",
           });
         }
       }
@@ -1478,6 +1498,7 @@ export async function POST(request: Request) {
             address_text: entry.address_text,
             source_url: page.url,
             venue_url: entry.venue_url,
+            reason: "jsonld_location",
           });
         }
       }
@@ -1495,6 +1516,7 @@ export async function POST(request: Request) {
               address_text,
               source_url: page.url,
               venue_url: card.map_image_url,
+              reason: "map_link",
             });
           }
 
@@ -1515,6 +1537,7 @@ export async function POST(request: Request) {
                 address_text: full,
                 source_url: page.url,
                 venue_url: card.map_image_url,
+                reason: "map_link",
               });
             }
           }
@@ -1557,10 +1580,10 @@ export async function POST(request: Request) {
       const locality = inferLocality(inferredAddressPool);
       extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(addr));
       extractVenueEntriesFromPage($, locality).forEach((entry) =>
-        venueEntriesPool.push({ ...entry, source_url: forcedUrl, venue_url: null })
+        venueEntriesPool.push({ ...entry, source_url: forcedUrl, venue_url: null, reason: "page_text_address" })
       );
       extractMapLinkedVenueEntries($).forEach((entry) =>
-        venueEntriesPool.push({ ...entry, source_url: forcedUrl, venue_url: null })
+        venueEntriesPool.push({ ...entry, source_url: forcedUrl, venue_url: null, reason: "map_link" })
       );
     }
 
@@ -1586,10 +1609,10 @@ export async function POST(request: Request) {
         const locality = inferLocality(inferredAddressPool);
         extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(addr));
         extractVenueEntriesFromPage($, locality).forEach((entry) =>
-          venueEntriesPool.push({ ...entry, source_url: fallbackUrl, venue_url: null })
+          venueEntriesPool.push({ ...entry, source_url: fallbackUrl, venue_url: null, reason: "page_text_address" })
         );
         extractMapLinkedVenueEntries($).forEach((entry) =>
-          venueEntriesPool.push({ ...entry, source_url: fallbackUrl, venue_url: null })
+          venueEntriesPool.push({ ...entry, source_url: fallbackUrl, venue_url: null, reason: "map_link" })
         );
       }
     }
@@ -1619,18 +1642,24 @@ export async function POST(request: Request) {
       const ranked = venueEntriesPool
         .map((entry) => {
           const candidateVenueUrl = entry.venue_url ?? Array.from(venueUrlCandidates)[0] ?? null;
-          return { entry, candidateVenueUrl, score: scoreVenueEntryForInsert(entry, candidateVenueUrl) };
+          const score = scoreVenueEntryForInsert(entry, candidateVenueUrl);
+          return { entry, candidateVenueUrl, score, confidence: confidenceFromVenueScore(score) };
         })
         .sort((a, b) => b.score - a.score)
         .slice(0, 20);
 
-      for (const { entry, candidateVenueUrl } of ranked) {
+      const minScoreToInsert = focusMissingVenues ? 5 : 5;
+      for (const { entry, candidateVenueUrl, score, confidence } of ranked) {
         if (!looksLikeStreetAddress(entry.address_text)) {
           droppedLowQualityVenueEntries += 1;
           continue;
         }
         if (entry.venue_name && isJunkVenueName(entry.venue_name)) {
           droppedLowQualityVenueEntries += 1;
+          continue;
+        }
+        if (score < minScoreToInsert) {
+          droppedLowScoreVenueEntries += 1;
           continue;
         }
         const key = `${(entry.venue_name ?? "").toLowerCase()}|${entry.address_text.toLowerCase()}|${entry.source_url}`;
@@ -1666,12 +1695,15 @@ export async function POST(request: Request) {
           }
         }
         if (!autoLinked) {
+          bumpReason(entry.reason || "unknown");
           venueCandidates.push({
             tournament_id: t.id,
             venue_name: entry.venue_name,
             address_text: entry.address_text,
             source_url: entry.source_url,
             venue_url: candidateVenueUrl,
+            evidence_text: `reason=${entry.reason || "unknown"}; score=${score};`,
+            confidence,
           });
         }
       }
@@ -1920,6 +1952,12 @@ export async function POST(request: Request) {
     venue_candidates_parsed: venueCandidates.length,
     venue_candidates_inserted: venueInserted,
     venue_candidates_dropped_low_quality: droppedLowQualityVenueEntries,
+    venue_candidates_dropped_low_score: droppedLowScoreVenueEntries,
+    venue_reason_counts: Object.fromEntries(
+      Array.from(venueReasonCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 25)
+    ),
     auto_linked_existing: autoLinkedExisting,
     auto_linked_venue_url_updated: autoLinkedVenueUrlUpdated,
     attempted,

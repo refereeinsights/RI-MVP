@@ -242,6 +242,7 @@ export default function EnrichmentClient({
   const [batchMissingDatesOnly, setBatchMissingDatesOnly] = React.useState<boolean>(false);
   const [batchStatus, setBatchStatus] = React.useState<string>("");
   const [feesStatus, setFeesStatus] = React.useState<string>("");
+  const [feesVenueReasonSummary, setFeesVenueReasonSummary] = React.useState<string>("");
   const [feesSummaryState, setFeesSummaryState] = React.useState<FeesVenueSummary[]>(feesVenueSummary);
   const [usssaStatus, setUsssaStatus] = React.useState<string>("");
   const [usssaSummaryState, setUsssaSummaryState] = React.useState<FeesVenueSummary[]>([]);
@@ -445,6 +446,7 @@ export default function EnrichmentClient({
     async (opts?: { limit?: number; refreshOnInsert?: boolean; mode?: "default" | "missing_venues"; skipPending?: boolean }) => {
     const mode = opts?.mode ?? "default";
     setFeesStatus(mode === "missing_venues" ? "Running missing-venues fees/venue scrape..." : "Running fees/venue scrape...");
+    setFeesVenueReasonSummary("");
     try {
       const limit = Number(opts?.limit ?? 0);
       const params = new URLSearchParams();
@@ -461,10 +463,18 @@ export default function EnrichmentClient({
       if (json?.summary) {
         setFeesSummaryState(json.summary);
       }
+      if (json?.venue_reason_counts && typeof json.venue_reason_counts === "object") {
+        const entries = Object.entries(json.venue_reason_counts as Record<string, number>)
+          .filter((row) => typeof row[0] === "string")
+          .slice(0, 6)
+          .map(([k, v]) => `${k}=${v}`);
+        if (entries.length) setFeesVenueReasonSummary(`Venue reasons: ${entries.join(", ")}`);
+      }
       const pendingMode = json?.skip_pending === false ? " (pending-skip off)" : "";
       setFeesStatus(
         `${mode === "missing_venues" ? "Missing-venues mode: " : ""}Inserted ${json?.inserted ?? 0} candidates from ${json?.attempted ?? "?"} tournaments` +
           ` (venue candidates parsed: ${json?.venue_candidates_parsed ?? 0}, inserted: ${json?.venue_candidates_inserted ?? json?.venue_inserted ?? 0})` +
+          `${Number(json?.venue_candidates_dropped_low_score ?? 0) > 0 ? ` (dropped low-score venues: ${json.venue_candidates_dropped_low_score})` : ""}` +
           `${Number(json?.auto_linked_existing ?? 0) > 0 ? ` (auto-linked existing venues: ${json.auto_linked_existing})` : ""}` +
           `${Number(json?.auto_linked_venue_url_updated ?? 0) > 0 ? ` (venue URL backfills: ${json.auto_linked_venue_url_updated})` : ""}` +
           pendingMode +
@@ -1225,6 +1235,7 @@ export default function EnrichmentClient({
             {feesBatchRunning ? "Running batch..." : "Run fees batch"}
           </button>
           {feesStatus ? <span style={{ color: "#4b5563", fontSize: 12 }}>{feesStatus}</span> : null}
+          {feesVenueReasonSummary ? <span style={{ color: "#4b5563", fontSize: 12 }}>{feesVenueReasonSummary}</span> : null}
           {usssaStatus ? <span style={{ color: "#4b5563", fontSize: 12 }}>{usssaStatus}</span> : null}
         </div>
         {feesSummaryState?.length ? (
