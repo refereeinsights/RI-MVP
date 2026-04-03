@@ -29,6 +29,13 @@ begin
   alter table public.tournament_venues
     add column if not exists is_primary boolean not null default false;
 
+  -- Ensure a stable default regardless of how the column was introduced in this environment.
+  begin
+    alter table public.tournament_venues alter column is_primary set default false;
+  exception when others then
+    -- ignore
+  end;
+
   -- If multiple primaries exist, keep the oldest and clear the rest.
   with ranked as (
     select
@@ -79,4 +86,3 @@ end $$;
 
 revoke all on function public.repair_tournament_venues_primary_index_v1(boolean) from public;
 grant execute on function public.repair_tournament_venues_primary_index_v1(boolean) to service_role;
-

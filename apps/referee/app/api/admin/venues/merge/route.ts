@@ -125,18 +125,50 @@ export async function POST(request: Request) {
 
   const { data: sourceLinks, error: linksError } = await supabaseAdmin
     .from("tournament_venues" as any)
-    .select("tournament_id")
+    .select("tournament_id,is_inferred,is_primary,inference_confidence,inference_method,inferred_at,inference_run_id,venue_sport_profile_id")
     .eq("venue_id", sourceVenueId);
   if (linksError) {
     return NextResponse.json({ error: linksError.message || "source_links_failed" }, { status: 500 });
   }
 
-  const tournamentIds = Array.from(
-    new Set(((sourceLinks as Array<{ tournament_id: string }> | null) ?? []).map((row) => row.tournament_id).filter(Boolean))
-  );
+  const sourceLinkRows = ((sourceLinks as Array<any> | null) ?? []).filter((row) => row?.tournament_id);
+  const tournamentIds = Array.from(new Set(sourceLinkRows.map((row) => String(row.tournament_id))));
 
   if (tournamentIds.length > 0) {
-    const upsertRows = tournamentIds.map((tournamentId) => ({ tournament_id: tournamentId, venue_id: targetVenueId }));
+    // Avoid relying on DB defaults (some envs historically had a bad default for is_primary),
+    // and try to preserve source link metadata.
+    const primaryCandidateTournamentIds = Array.from(
+      new Set(sourceLinkRows.filter((r) => r.is_primary === true).map((r) => String(r.tournament_id)))
+    );
+    const tournamentsWithOtherPrimary = new Set<string>();
+    if (primaryCandidateTournamentIds.length) {
+      const { data: otherPrimaries } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("tournament_id")
+        .in("tournament_id", primaryCandidateTournamentIds)
+        .eq("is_primary", true)
+        .neq("venue_id", sourceVenueId)
+        .limit(5000);
+      for (const row of (otherPrimaries ?? []) as any[]) {
+        if (row?.tournament_id) tournamentsWithOtherPrimary.add(String(row.tournament_id));
+      }
+    }
+
+    const upsertRows = sourceLinkRows.map((row) => {
+      const tournamentId = String(row.tournament_id);
+      const shouldKeepPrimary = row.is_primary === true && !tournamentsWithOtherPrimary.has(tournamentId);
+      return {
+        tournament_id: tournamentId,
+        venue_id: targetVenueId,
+        is_inferred: row.is_inferred === true,
+        is_primary: shouldKeepPrimary,
+        inference_confidence: row.inference_confidence ?? null,
+        inference_method: row.inference_method ?? null,
+        inferred_at: row.inferred_at ?? null,
+        inference_run_id: row.inference_run_id ?? null,
+        venue_sport_profile_id: row.venue_sport_profile_id ?? null,
+      };
+    });
     const attemptUpsert = async () =>
       supabaseAdmin.from("tournament_venues" as any).upsert(upsertRows as any[], { onConflict: "tournament_id,venue_id" });
 
