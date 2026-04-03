@@ -18,7 +18,8 @@ function isOnePrimaryIndexMisconfiguredError(err: any): boolean {
 
 async function tryRepairTournamentVenuesPrimaryIndex() {
   try {
-    await (supabaseAdmin as any).rpc("repair_tournament_venues_primary_index_v1", { p_reload_schema: true });
+    const resp = await (supabaseAdmin as any).rpc("repair_tournament_venues_primary_index_v1", { p_reload_schema: true });
+    if (resp?.error) throw resp.error;
   } catch {
     // ignore (migration not deployed in this env)
   }
@@ -123,37 +124,42 @@ export async function POST(request: Request) {
   // Apply the target patch after deleting the source when we are removing it.
   // Otherwise, upgrading (name,address,city,state) can temporarily violate the unique constraint.
 
+  let primaryCandidateTournamentIds: string[] = [];
+
   const { data: sourceLinks, error: linksError } = await supabaseAdmin
     .from("tournament_venues" as any)
-    .select("tournament_id,is_inferred,is_primary,inference_confidence,inference_method,inferred_at,inference_run_id,venue_sport_profile_id")
+    .select("*")
     .eq("venue_id", sourceVenueId);
   if (linksError) {
     return NextResponse.json({ error: linksError.message || "source_links_failed" }, { status: 500 });
   }
 
   const sourceLinkRows = ((sourceLinks as Array<any> | null) ?? []).filter((row) => row?.tournament_id);
+  const tvColumns = new Set<string>(sourceLinkRows.length ? Object.keys(sourceLinkRows[0] ?? {}) : []);
   const tournamentIds = Array.from(new Set(sourceLinkRows.map((row) => String(row.tournament_id))));
 
   if (tournamentIds.length > 0) {
     // Avoid relying on DB defaults (some envs historically had a bad default for is_primary),
     // and try to preserve source link metadata.
-    const primaryCandidateTournamentIds = Array.from(new Set(sourceLinkRows.filter((r) => r.is_primary === true).map((r) => String(r.tournament_id))));
+    primaryCandidateTournamentIds =
+      tvColumns.has("is_primary")
+        ? Array.from(new Set(sourceLinkRows.filter((r) => r.is_primary === true).map((r) => String(r.tournament_id))))
+        : [];
 
     const upsertRows = sourceLinkRows.map((row) => {
       const tournamentId = String(row.tournament_id);
-      return {
+      const out: Record<string, any> = {
         tournament_id: tournamentId,
         venue_id: targetVenueId,
-        is_inferred: row.is_inferred === true,
-        // Never set primary during link-move; we may be inserting alongside an existing primary.
-        // We'll set primary afterward, safely, only when no primary exists yet.
-        is_primary: false,
-        inference_confidence: row.inference_confidence ?? null,
-        inference_method: row.inference_method ?? null,
-        inferred_at: row.inferred_at ?? null,
-        inference_run_id: row.inference_run_id ?? null,
-        venue_sport_profile_id: row.venue_sport_profile_id ?? null,
       };
+      if (tvColumns.has("is_inferred")) out.is_inferred = row.is_inferred === true;
+      if (tvColumns.has("is_primary")) out.is_primary = false;
+      if (tvColumns.has("inference_confidence")) out.inference_confidence = row.inference_confidence ?? null;
+      if (tvColumns.has("inference_method")) out.inference_method = row.inference_method ?? null;
+      if (tvColumns.has("inferred_at")) out.inferred_at = row.inferred_at ?? null;
+      if (tvColumns.has("inference_run_id")) out.inference_run_id = row.inference_run_id ?? null;
+      if (tvColumns.has("venue_sport_profile_id")) out.venue_sport_profile_id = row.venue_sport_profile_id ?? null;
+      return out;
     });
     const attemptUpsert = async () =>
       supabaseAdmin.from("tournament_venues" as any).upsert(upsertRows as any[], { onConflict: "tournament_id,venue_id" });
@@ -200,13 +206,14 @@ export async function POST(request: Request) {
 
   // If the source venue was primary for any tournaments, promote the target venue to primary only when
   // the tournament currently has no other primary. This avoids `tournament_venues_one_primary_per_tournament_idx` violations.
-  if (primaryCandidateTournamentIds.length) {
+  if (primaryCandidateTournamentIds.length && tvColumns.has("is_primary")) {
     try {
       // Use a single SQL update to keep the "no existing primary" condition atomic.
-      await (supabaseAdmin as any).rpc("set_primary_venue_for_tournaments_if_missing_v1", {
+      const resp = await (supabaseAdmin as any).rpc("set_primary_venue_for_tournaments_if_missing_v1", {
         p_tournament_ids: primaryCandidateTournamentIds,
         p_venue_id: targetVenueId,
       });
+      if (resp?.error) throw resp.error;
     } catch {
       // Fallback: best-effort row-by-row without the helper RPC.
       try {
