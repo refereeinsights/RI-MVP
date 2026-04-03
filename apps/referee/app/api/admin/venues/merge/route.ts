@@ -8,6 +8,14 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function isOnePrimaryIndexMisconfiguredError(err: any): boolean {
+  const code = String(err?.code ?? "");
+  if (code !== "23505") return false;
+  const msg = String(err?.message ?? "");
+  const details = String(err?.details ?? "");
+  return /tournament_venues_one_primary_per_tournament_idx/i.test(msg) && /\bKey\s*\(tournament_id\)\s*=/i.test(details);
+}
+
 async function ensureAdminRequest() {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
@@ -125,6 +133,15 @@ export async function POST(request: Request) {
       .from("tournament_venues" as any)
       .upsert(upsertRows as any[], { onConflict: "tournament_id,venue_id" });
     if (upsertError) {
+      if (isOnePrimaryIndexMisconfiguredError(upsertError)) {
+        return NextResponse.json(
+          {
+            error:
+              'Your DB has an incorrect unique index named "tournament_venues_one_primary_per_tournament_idx" that blocks multiple venues per tournament. Apply the migration `supabase/migrations/20260402_tournament_venues_primary_fix_index.sql` and reload the Supabase API schema cache (Settings → API → Reload schema; or run `NOTIFY pgrst, \'reload schema\';`).',
+          },
+          { status: 409 }
+        );
+      }
       return NextResponse.json({ error: upsertError.message || "target_link_upsert_failed" }, { status: 500 });
     }
   }
