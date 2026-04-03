@@ -9,6 +9,17 @@ type Item = {
   id: string;
 };
 
+function isOnePrimaryIndexMisconfiguredError(err: any): boolean {
+  const code = String(err?.code ?? "");
+  if (code !== "23505") return false;
+  const msg = String(err?.message ?? "");
+  const details = String(err?.details ?? "");
+  return (
+    /tournament_venues_one_primary_per_tournament_idx/i.test(msg) &&
+    /\bKey\s*\(tournament_id\)\s*=/i.test(details)
+  );
+}
+
 function cleanText(value: unknown): string | null {
   if (value == null) return null;
   const text = String(value).trim();
@@ -285,27 +296,39 @@ export async function POST(request: Request) {
         if (isBlockedOrganizerAddress(venue?.address_text)) {
           return NextResponse.json({ error: "blocked_organizer_address" }, { status: 400 });
         }
-        const upserted = await getOrCreateVenueFromCandidate({
-          tournament_id: tournamentId,
-          tournament_city: cleanText(tournamentRow?.city),
-          tournament_state: cleanText(tournamentRow?.state),
-          tournament_zip: cleanText(tournamentRow?.zip),
-          tournament_sport: cleanText(tournamentRow?.sport),
-          venue_name: cleanText(venue?.venue_name),
-          address_text: cleanText(venue?.address_text),
-          venue_url: cleanText(venue?.venue_url),
-        });
-	        const { error: linkErr } = await supabaseAdmin
-	          .from("tournament_venues" as any)
-	          .upsert(
-	            { tournament_id: tournamentId, venue_id: upserted.id, is_inferred: false },
-	            { onConflict: "tournament_id,venue_id" }
-	          );
-        if (linkErr) throw linkErr;
-        didLinkVenue = true;
-      }
-    }
-  }
+	        const upserted = await getOrCreateVenueFromCandidate({
+	          tournament_id: tournamentId,
+	          tournament_city: cleanText(tournamentRow?.city),
+	          tournament_state: cleanText(tournamentRow?.state),
+	          tournament_zip: cleanText(tournamentRow?.zip),
+	          tournament_sport: cleanText(tournamentRow?.sport),
+	          venue_name: cleanText(venue?.venue_name),
+	          address_text: cleanText(venue?.address_text),
+	          venue_url: cleanText(venue?.venue_url),
+	        });
+		        const { error: linkErr } = await supabaseAdmin
+		          .from("tournament_venues" as any)
+		          .upsert(
+		            { tournament_id: tournamentId, venue_id: upserted.id, is_inferred: false, is_primary: false },
+		            { onConflict: "tournament_id,venue_id" }
+		          );
+	        if (linkErr) {
+	          if (isOnePrimaryIndexMisconfiguredError(linkErr)) {
+	            return NextResponse.json(
+	              {
+	                error: "tournament_venues_primary_index_misconfigured",
+	                detail:
+	                  'Your DB has an incorrect unique index named "tournament_venues_one_primary_per_tournament_idx" that blocks multiple venues per tournament. Apply the migration `supabase/migrations/20260402_tournament_venues_primary_fix_index.sql` (or reload migrations) and reload the Supabase API schema cache.',
+	              },
+	              { status: 409 }
+	            );
+	          }
+	          throw linkErr;
+	        }
+	        didLinkVenue = true;
+	      }
+	    }
+	  }
 
   if (dateIds.length) {
     const { data: dates } = await supabaseAdmin
@@ -394,26 +417,41 @@ export async function POST(request: Request) {
     const zip = cleanText(tournament?.zip);
     const sport = cleanText(tournament?.sport);
 
-    if (venueName && venueAddress) {
-      const upserted = await getOrCreateVenueFromCandidate({
-        tournament_id: tournamentId,
-        tournament_city: city,
-        tournament_state: state,
-        tournament_zip: zip,
-        tournament_sport: sport,
-        venue_name: venueName,
-        address_text: venueAddress,
-        venue_url: attributeVenueUrl,
-      });
-	      const { error: linkErr } = await supabaseAdmin
-	        .from("tournament_venues" as any)
-	        .upsert({ tournament_id: tournamentId, venue_id: upserted.id, is_inferred: false }, { onConflict: "tournament_id,venue_id" });
-      if (linkErr) throw linkErr;
-      didLinkVenue = true;
-      // Now that the venue is resolvable, allow storing the URL as a convenience inline field.
-      if (attributeVenueUrl) updates.venue_url = attributeVenueUrl;
-    }
-  }
+	    if (venueName && venueAddress) {
+	      const upserted = await getOrCreateVenueFromCandidate({
+	        tournament_id: tournamentId,
+	        tournament_city: city,
+	        tournament_state: state,
+	        tournament_zip: zip,
+	        tournament_sport: sport,
+	        venue_name: venueName,
+	        address_text: venueAddress,
+	        venue_url: attributeVenueUrl,
+	      });
+		      const { error: linkErr } = await supabaseAdmin
+		        .from("tournament_venues" as any)
+		        .upsert(
+		          { tournament_id: tournamentId, venue_id: upserted.id, is_inferred: false, is_primary: false },
+		          { onConflict: "tournament_id,venue_id" }
+		        );
+	      if (linkErr) {
+	        if (isOnePrimaryIndexMisconfiguredError(linkErr)) {
+	          return NextResponse.json(
+	            {
+	              error: "tournament_venues_primary_index_misconfigured",
+	              detail:
+	                'Your DB has an incorrect unique index named "tournament_venues_one_primary_per_tournament_idx" that blocks multiple venues per tournament. Apply the migration `supabase/migrations/20260402_tournament_venues_primary_fix_index.sql` (or reload migrations) and reload the Supabase API schema cache.',
+	            },
+	            { status: 409 }
+	          );
+	        }
+	        throw linkErr;
+	      }
+	      didLinkVenue = true;
+	      // Now that the venue is resolvable, allow storing the URL as a convenience inline field.
+	      if (attributeVenueUrl) updates.venue_url = attributeVenueUrl;
+	    }
+	  }
 
   if (contactIds.length) {
     const { data: contacts } = await supabaseAdmin
