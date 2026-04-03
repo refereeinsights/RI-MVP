@@ -14,7 +14,9 @@ export type SportHubTournament = {
 };
 
 export const SPORT_HUB_PAGE_SIZE = 50;
-const MAX_PAGE = 20;
+// Safety cap: we allow deeper pagination so sport hubs can list >1000 tournaments,
+// but still avoid unbounded offset scans from arbitrary `?page=` inputs.
+const MAX_PAGE = 60;
 const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
 
 export async function getSportHubTournaments(
