@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { TI_SPORT_LABELS } from "@/lib/tiSports";
+import { lookupZipLatLng } from "@/lib/lookupZipLatLng";
 import StateMultiSelect from "./StateMultiSelect";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
@@ -22,6 +23,7 @@ type Tournament = {
   level?: string | null;
   tournament_staff_verified?: boolean | null;
   is_demo?: boolean | null;
+  distance_miles?: number | null;
 };
 type TournamentVenueLink = {
   tournament_id: string;
@@ -128,6 +130,8 @@ export default async function TournamentsPage({
     sports?: string | string[];
     includePast?: string;
     aysoOnly?: string;
+    zip?: string;
+    radius?: string;
   };
 }) {
   const q = (searchParams?.q ?? "").trim();
@@ -139,6 +143,8 @@ export default async function TournamentsPage({
   const sportsParam = searchParams?.sports;
   const includePastParam = searchParams?.includePast;
   const aysoOnlyParam = searchParams?.aysoOnly;
+  const zipParam = (searchParams?.zip ?? "").trim();
+  const radiusParam = (searchParams?.radius ?? "").trim();
   const includePast = Array.isArray(includePastParam)
     ? includePastParam.includes("true")
     : (includePastParam ?? "").toLowerCase() === "true";
@@ -164,37 +170,81 @@ export default async function TournamentsPage({
     : `${stateSelections.length} states`;
 
   const today = new Date().toISOString().slice(0, 10);
+  const zip = /^\d{5}$/.test(zipParam) ? zipParam : "";
+  const radiusMilesRaw = Number.parseInt(radiusParam || "50", 10);
+  const radiusMiles = Number.isFinite(radiusMilesRaw) ? Math.min(Math.max(radiusMilesRaw, 1), 500) : 50;
+  const zipRequested = Boolean(zip);
 
   const pageSize = 1000;
   let offset = 0;
   let tournamentsData: any[] = [];
   let error = null as any;
+  let zipError: string | null = null;
+  const radiusCenter = zipRequested
+    ? await (async () => {
+        try {
+          const center = await lookupZipLatLng(zip);
+          if (!center) zipError = "ZIP radius filter unavailable (missing geocode).";
+          return center;
+        } catch (err: any) {
+          zipError = err?.message ? String(err.message) : "ZIP lookup failed.";
+          return null;
+        }
+      })()
+    : null;
+  const radiusActive = Boolean(zipRequested && radiusCenter);
   while (true) {
-    let query = supabaseAdmin
-      .from("tournaments_public" as any)
-      .select(
-        "id,name,slug,sport,tournament_association,state,city,zip,start_date,end_date,official_website_url,source_url,level,tournament_staff_verified,is_demo"
-      )
-      .order("start_date", { ascending: true })
-      .range(offset, offset + pageSize - 1);
-
-    if (!includePast) {
-      query = query.or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`);
-    }
-
-    if (q) {
-      query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
-    }
-    if (month && /^\d{4}-\d{2}$/.test(month)) {
+    const monthRange = month && /^\d{4}-\d{2}$/.test(month) ? (() => {
       const [y, m] = month.split("-").map(Number);
       const start = new Date(Date.UTC(y, m - 1, 1));
       const end = new Date(Date.UTC(y, m, 1));
-      const startISO = start.toISOString().slice(0, 10);
-      const endISO = end.toISOString().slice(0, 10);
-      query = query.gte("start_date", startISO).lt("start_date", endISO);
-    }
+      return {
+        startISO: start.toISOString().slice(0, 10),
+        endISO: end.toISOString().slice(0, 10),
+      };
+    })() : null;
 
-    const { data, error: pageError } = await query;
+    const { data, error: pageError } = await (async () => {
+      if (!radiusActive) {
+        let query = supabaseAdmin
+          .from("tournaments_public" as any)
+          .select(
+            "id,name,slug,sport,tournament_association,state,city,zip,start_date,end_date,official_website_url,source_url,level,tournament_staff_verified,is_demo"
+          )
+          .order("start_date", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+
+        if (!includePast) {
+          query = query.or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`);
+        }
+
+        if (q) {
+          query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
+        }
+        if (monthRange) {
+          query = query.gte("start_date", monthRange.startISO).lt("start_date", monthRange.endISO);
+        }
+
+        return query;
+      }
+
+      const rpc = supabaseAdmin.rpc("list_tournaments_public_within_radius_v1" as any, {
+        p_center_lat: radiusCenter!.latitude,
+        p_center_lng: radiusCenter!.longitude,
+        p_radius_miles: radiusMiles,
+        p_limit: pageSize,
+        p_offset: offset,
+        p_today: today,
+        p_include_past: includePast,
+        p_q: q || null,
+        p_start_date_gte: monthRange ? monthRange.startISO : null,
+        p_start_date_lt: monthRange ? monthRange.endISO : null,
+        p_ayso_only: aysoOnly,
+      });
+
+      return rpc;
+    })();
+
     if (pageError) {
       error = pageError;
       break;
@@ -344,6 +394,16 @@ export default async function TournamentsPage({
             Browse upcoming tournaments by sport, state, and month. This directory focuses on logistics and basic details
             — no ratings or referee reviews.
           </p>
+          {radiusActive ? (
+            <p className="subtitle" style={{ marginTop: 6, maxWidth: 720, fontSize: 13, lineHeight: 1.4 }}>
+              Showing tournaments within <strong>{radiusMiles} miles</strong> of ZIP <strong>{zip}</strong>
+              {zipError ? ` (ZIP lookup issue: ${zipError})` : ""}.
+            </p>
+          ) : zipRequested && zipError ? (
+            <p className="subtitle" style={{ marginTop: 6, maxWidth: 720, fontSize: 13, lineHeight: 1.4 }}>
+              ZIP radius filter unavailable for <strong>{zip}</strong>: {zipError}
+            </p>
+          ) : null}
           <nav
             aria-label="Browse tournament sport hubs"
             style={{
@@ -483,6 +543,38 @@ export default async function TournamentsPage({
           </div>
 
           <div>
+            <label className="label" htmlFor="zip">
+              ZIP + radius
+            </label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                id="zip"
+                name="zip"
+                className="input"
+                placeholder="ZIP (e.g. 02139)"
+                inputMode="numeric"
+                pattern="\\d{5}"
+                maxLength={5}
+                defaultValue={zipParam}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <AutoSubmitSelect
+                id="radius"
+                name="radius"
+                className="select"
+                defaultValue={String(radiusMiles)}
+                style={{ width: 140 }}
+              >
+                {[10, 25, 50, 75, 100, 150, 200, 300].map((miles) => (
+                  <option key={miles} value={String(miles)}>
+                    {miles} mi
+                  </option>
+                ))}
+              </AutoSubmitSelect>
+            </div>
+          </div>
+
+          <div>
             <label className="label" htmlFor="month">
               Month
             </label>
@@ -602,6 +694,10 @@ export default async function TournamentsPage({
               const dateLabel =
                 start && end && start !== end ? `${start} – ${end}` : start || end || "Dates TBA";
               const locationLabel = [t.city, t.state].filter(Boolean).join(", ");
+              const distanceLabel =
+                radiusActive && typeof t.distance_miles === "number" && Number.isFinite(t.distance_miles)
+                  ? `${Math.round(t.distance_miles)} mi`
+                  : "";
               const isDemoTournament = t.slug === DEMO_TOURNAMENT_SLUG;
               const showOwlsEyeBadge = isDemoTournament || Boolean(hasOwlsEyeByTournament.get(t.id));
               const showStaffVerified = Boolean(t.tournament_staff_verified) || isDemoTournament;
@@ -614,6 +710,7 @@ export default async function TournamentsPage({
                   <p className="meta">
                     <strong>{SPORTS_LABELS[(t.sport ?? "unknown").toLowerCase()] ?? "Tournament"}</strong>
                     {locationLabel ? ` • ${locationLabel}` : ""}
+                    {distanceLabel ? ` • ${distanceLabel}` : ""}
                     {t.level ? ` • ${t.level}` : ""}
                   </p>
 

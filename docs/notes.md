@@ -3037,3 +3037,8 @@ Maintenance rules:
   - Script: `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs` (new feed: `tournament_slug, ... venue_*`).
   - Used it to link IPGSA Ohana Blast (10U-12U) + (14U-18U) to their venues (19 links total; 1 new venue created: Hyland Hills - Carroll Butts Park).
   - Command: `node scripts/ops/ingest_tournaments_and_venues_from_csv.mjs --input=tmp/ipgsa_ohana_blast_venues_by_slug.csv --out=tmp/ipgsa_ohana_blast_venues_report_apply.csv --no-create-tournaments --apply`
+
+- 2026-04-03: TI tournament directory ZIP + radius filter (cross-state search).
+  - Migration: `supabase/migrations/20260403_tournaments_public_radius_search.sql` adds RPC `public.list_tournaments_public_within_radius_v1`.
+  - Page: `apps/ti-web/app/tournaments/page.tsx` adds `zip` + `radius` filters and (when available) shows distance badges on results.
+  - Helper: `apps/ti-web/lib/lookupZipLatLng.ts` geocodes ZIP to lat/lng via Google Places (server-only).
