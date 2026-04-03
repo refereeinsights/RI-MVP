@@ -13,6 +13,7 @@ type SearchParams = {
   q?: string;
   state?: string;
   status?: string;
+  zip?: string;
 };
 
 type TournamentRow = {
@@ -89,6 +90,8 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
   const q = (searchParams?.q ?? "").trim();
   const state = (searchParams?.state ?? "").trim().toUpperCase();
+  const zipRaw = (searchParams?.zip ?? "").trim();
+  const zip = zipRaw.replace(/\D+/g, "").slice(0, 5);
   const tournamentStatusRaw = (searchParams?.status ?? "published").trim().toLowerCase();
   const tournamentStatus = tournamentStatusRaw === "draft" ? "draft" : "published";
 
@@ -99,6 +102,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
     p_offset: offset,
     p_state: state || null,
     p_q: q || null,
+    p_zip: zip || null,
     p_status: tournamentStatus,
   });
 
@@ -139,6 +143,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
       p_offset: 0,
       p_state: state || null,
       p_q: q || null,
+      p_zip: zip || null,
       p_status: tournamentStatus,
     });
     if (!countRes.error) {
@@ -196,6 +201,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   const paramsBase = new URLSearchParams();
   if (q) paramsBase.set("q", q);
   if (state) paramsBase.set("state", state);
+  if (zip) paramsBase.set("zip", zip);
   if (tournamentStatus !== "published") paramsBase.set("status", tournamentStatus);
   const exportHref = `/api/admin/tournaments/missing-venues/export${paramsBase.toString() ? `?${paramsBase.toString()}` : ""}`;
 
@@ -262,6 +268,15 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
           defaultValue={state}
           placeholder="State (e.g. WA)"
           style={{ padding: 8, width: 140 }}
+        />
+        <input
+          name="zip"
+          defaultValue={zipRaw}
+          placeholder="ZIP (e.g. 98052)"
+          style={{ padding: 8, width: 160 }}
+          inputMode="numeric"
+          pattern="\\d{5}"
+          maxLength={5}
         />
         <select name="status" defaultValue={tournamentStatus} style={{ padding: 8, width: 170 }}>
           <option value="published">Published backlog</option>

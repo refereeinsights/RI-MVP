@@ -221,6 +221,7 @@ export default function EnrichmentClient({
   const [selected, setSelected] = React.useState<string[]>([]);
   const [status, setStatus] = React.useState<string>("");
   const [query, setQuery] = React.useState<string>("");
+  const [zipQuery, setZipQuery] = React.useState<string>("");
   const [results, setResults] = React.useState<Tournament[]>(tournaments);
   const [searching, setSearching] = React.useState<boolean>(false);
   const [pendingContacts, setPendingContacts] = React.useState<ContactCandidate[]>(contacts);
@@ -706,13 +707,17 @@ export default function EnrichmentClient({
   };
 
   const search = async () => {
-    if (query.trim().length < 2) {
+    const zip = zipQuery.trim().replace(/\D+/g, "").slice(0, 5);
+    if (query.trim().length < 2 && !zip) {
       setResults(tournaments);
       setSelected([]);
       return;
     }
     setSearching(true);
-    const res = await fetch(`/api/admin/tournaments/enrichment/search?q=${encodeURIComponent(query.trim())}`);
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    if (zip) params.set("zip", zip);
+    const res = await fetch(`/api/admin/tournaments/enrichment/search?${params.toString()}`);
     const json = await res.json();
     if (json?.results) {
       setResults(json.results as Tournament[]);
@@ -1560,6 +1565,16 @@ export default function EnrichmentClient({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search tournaments by name/state"
               style={{ flex: 1, padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+            />
+            <input
+              type="text"
+              value={zipQuery}
+              onChange={(e) => setZipQuery(e.target.value)}
+              placeholder="ZIP (optional)"
+              inputMode="numeric"
+              pattern="\\d{5}"
+              maxLength={5}
+              style={{ width: 140, padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb" }}
             />
             <button onClick={search} disabled={searching} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff" }}>
               {searching ? "Searching..." : "Search"}

@@ -3046,3 +3046,8 @@ Maintenance rules:
 
 - 2026-04-03: Venue geocode backfill (ops).
   - Backfilled `venues.latitude/longitude` for 722 venues that had `address1/city/state` but were missing geo; 277 venues still missing geo (needs address discovery or failed geocode).
+
+- 2026-04-03: Admin search tools: optional ZIP filters.
+  - Migration: `supabase/migrations/20260403_missing_venues_zip_filter.sql` adds `p_zip` filtering to `public.list_missing_venue_link_tournaments_v2`.
+  - Missing venues UI + export now accept `zip` query param: `apps/referee/app/admin/tournaments/missing-venues/page.tsx`, `apps/referee/app/api/admin/tournaments/missing-venues/export/route.ts`.
+  - Enrichment search supports optional ZIP constraint: `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`, `apps/referee/app/api/admin/tournaments/enrichment/search/route.ts`.

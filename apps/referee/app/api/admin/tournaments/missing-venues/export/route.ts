@@ -37,6 +37,8 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const state = clean(url.searchParams.get("state") ?? "").toUpperCase();
   const q = clean(url.searchParams.get("q") ?? "");
+  const zipRaw = clean(url.searchParams.get("zip") ?? "");
+  const zip = zipRaw.replace(/\D+/g, "").slice(0, 5);
   const statusRaw = clean(url.searchParams.get("status") ?? "").toLowerCase();
   const tournamentStatus = statusRaw === "draft" ? "draft" : "published";
 
@@ -54,6 +56,7 @@ export async function GET(req: Request) {
       p_offset: offset,
       p_state: state || null,
       p_q: q || null,
+      p_zip: zip || null,
       p_status: tournamentStatus,
     });
     if (resp.error) {
@@ -97,7 +100,8 @@ export async function GET(req: Request) {
     ];
     const csv = header.join(",") + "\n";
     const suffix = state ? `_${state}` : "";
-    const filename = `missing_venues${suffix}_${new Date().toISOString().slice(0, 10)}.csv`;
+    const zipSuffix = zip ? `_${zip}` : "";
+    const filename = `missing_venues${suffix}${zipSuffix}_${new Date().toISOString().slice(0, 10)}.csv`;
     return new NextResponse(csv, {
       status: 200,
       headers: {
@@ -107,11 +111,15 @@ export async function GET(req: Request) {
     });
   }
 
-  const { data: tournaments, error: tournamentError } = await supabaseAdmin
+  let tournamentsQuery = supabaseAdmin
     .from("tournaments" as any)
-    .select("id,name,city,state,tournament_association,source_url,official_website_url")
-    .in("id", Array.from(new Set(missingIds)))
-    .limit(limit);
+    .select("id,name,city,state,tournament_association,source_url,official_website_url,zip");
+
+  tournamentsQuery = tournamentsQuery.in("id", Array.from(new Set(missingIds)));
+  if (zip) {
+    tournamentsQuery = tournamentsQuery.eq("zip", zip);
+  }
+  const { data: tournaments, error: tournamentError } = await tournamentsQuery.limit(limit);
 
   if (tournamentError) {
     return NextResponse.json({ error: tournamentError.message }, { status: 500 });
@@ -148,7 +156,8 @@ export async function GET(req: Request) {
   ].join("\n");
 
   const suffix = state ? `_${state}` : "";
-  const filename = `missing_venues${suffix}_${new Date().toISOString().slice(0, 10)}.csv`;
+  const zipSuffix = zip ? `_${zip}` : "";
+  const filename = `missing_venues${suffix}${zipSuffix}_${new Date().toISOString().slice(0, 10)}.csv`;
   return new NextResponse(csv, {
     status: 200,
     headers: {

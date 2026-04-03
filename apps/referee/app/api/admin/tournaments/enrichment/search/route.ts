@@ -24,16 +24,26 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get("q") ?? "").trim();
-  if (q.length < 2) {
+  const zipRaw = (searchParams.get("zip") ?? "").trim();
+  const zip = zipRaw.replace(/\D+/g, "").slice(0, 5);
+  if (q.length < 2 && !zip) {
     return NextResponse.json({ results: [] });
   }
 
-  const resp = await supabaseAdmin
+  let query = supabaseAdmin
     .from("tournaments" as any)
-    .select("id,name,source_url,state")
-    .or(`name.ilike.%${q}%,state.ilike.%${q}%`)
+    .select("id,name,source_url,state,zip,city")
     .order("created_at", { ascending: false })
     .limit(50);
+
+  if (q.length >= 2) {
+    query = query.or(`name.ilike.%${q}%,state.ilike.%${q}%,city.ilike.%${q}%`);
+  }
+  if (zip) {
+    query = query.eq("zip", zip);
+  }
+
+  const resp = await query;
 
   if (resp.error) {
     console.error("[enrichment] search failed", resp.error);
@@ -46,6 +56,7 @@ export async function GET(request: Request) {
       name: t.name,
       state: t.state ?? null,
       url: t.source_url ?? null,
+      zip: t.zip ?? null,
     })) ?? [];
 
   return NextResponse.json({ results });
