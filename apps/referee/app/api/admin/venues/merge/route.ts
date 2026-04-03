@@ -137,31 +137,17 @@ export async function POST(request: Request) {
   if (tournamentIds.length > 0) {
     // Avoid relying on DB defaults (some envs historically had a bad default for is_primary),
     // and try to preserve source link metadata.
-    const primaryCandidateTournamentIds = Array.from(
-      new Set(sourceLinkRows.filter((r) => r.is_primary === true).map((r) => String(r.tournament_id)))
-    );
-    const tournamentsWithOtherPrimary = new Set<string>();
-    if (primaryCandidateTournamentIds.length) {
-      const { data: otherPrimaries } = await supabaseAdmin
-        .from("tournament_venues" as any)
-        .select("tournament_id")
-        .in("tournament_id", primaryCandidateTournamentIds)
-        .eq("is_primary", true)
-        .neq("venue_id", sourceVenueId)
-        .limit(5000);
-      for (const row of (otherPrimaries ?? []) as any[]) {
-        if (row?.tournament_id) tournamentsWithOtherPrimary.add(String(row.tournament_id));
-      }
-    }
+    const primaryCandidateTournamentIds = Array.from(new Set(sourceLinkRows.filter((r) => r.is_primary === true).map((r) => String(r.tournament_id))));
 
     const upsertRows = sourceLinkRows.map((row) => {
       const tournamentId = String(row.tournament_id);
-      const shouldKeepPrimary = row.is_primary === true && !tournamentsWithOtherPrimary.has(tournamentId);
       return {
         tournament_id: tournamentId,
         venue_id: targetVenueId,
         is_inferred: row.is_inferred === true,
-        is_primary: shouldKeepPrimary,
+        // Never set primary during link-move; we may be inserting alongside an existing primary.
+        // We'll set primary afterward, safely, only when no primary exists yet.
+        is_primary: false,
         inference_confidence: row.inference_confidence ?? null,
         inference_method: row.inference_method ?? null,
         inferred_at: row.inferred_at ?? null,
@@ -210,6 +196,40 @@ export async function POST(request: Request) {
     await supabaseAdmin.from("tournament_venues" as any).delete().eq("venue_id", sourceVenueId);
   } catch {
     // ignore
+  }
+
+  // If the source venue was primary for any tournaments, promote the target venue to primary only when
+  // the tournament currently has no other primary. This avoids `tournament_venues_one_primary_per_tournament_idx` violations.
+  if (primaryCandidateTournamentIds.length) {
+    try {
+      // Use a single SQL update to keep the "no existing primary" condition atomic.
+      await (supabaseAdmin as any).rpc("set_primary_venue_for_tournaments_if_missing_v1", {
+        p_tournament_ids: primaryCandidateTournamentIds,
+        p_venue_id: targetVenueId,
+      });
+    } catch {
+      // Fallback: best-effort row-by-row without the helper RPC.
+      try {
+        const { data: existingPrimaries } = await supabaseAdmin
+          .from("tournament_venues" as any)
+          .select("tournament_id")
+          .in("tournament_id", primaryCandidateTournamentIds)
+          .eq("is_primary", true)
+          .limit(5000);
+        const hasPrimary = new Set(((existingPrimaries ?? []) as any[]).map((r) => String(r.tournament_id ?? "")).filter(Boolean));
+        const toPromote = primaryCandidateTournamentIds.filter((tid) => !hasPrimary.has(tid));
+        if (toPromote.length) {
+          await supabaseAdmin
+            .from("tournament_venues" as any)
+            .update({ is_primary: true })
+            .in("tournament_id", toPromote)
+            .eq("venue_id", targetVenueId)
+            .eq("is_primary", false);
+        }
+      } catch {
+        // ignore
+      }
+    }
   }
 
   // Keep Owl's Eye history attached to the kept venue where possible.
