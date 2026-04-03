@@ -401,17 +401,7 @@ export async function GET(req: Request) {
     });
     const subject = `TI Admin Dashboard — ${generatedAtIso.slice(0, 10)}`;
 
-    if (!dryRun) {
-      await sendEmailVerified({
-        kind: "transactional",
-        to: recipients,
-        subject,
-        html,
-        allowLocalhostLinks: true,
-      });
-    }
-
-    return NextResponse.json({
+    const responsePayload = {
       ok: true,
       dry_run: dryRun,
       to: recipients,
@@ -428,7 +418,45 @@ export async function GET(req: Request) {
       tiles: tiles ?? null,
       riSummary: riSummary ?? null,
       lowestStates: lowestStates ?? null,
-    });
+    };
+
+    try {
+      if (!dryRun) {
+        await sendEmailVerified({
+          kind: "transactional",
+          to: recipients,
+          subject,
+          html,
+          allowLocalhostLinks: true,
+        });
+      }
+      await supabaseAdmin.from("ti_admin_dashboard_email_runs" as any).insert({
+        run_at: generatedAtIso,
+        dry_run: dryRun,
+        recipients,
+        subject,
+        ok: true,
+        error: null,
+        payload: responsePayload,
+      });
+      return NextResponse.json(responsePayload);
+    } catch (err: any) {
+      const message = String(err?.message ?? err ?? "unknown_error");
+      try {
+        await supabaseAdmin.from("ti_admin_dashboard_email_runs" as any).insert({
+          run_at: generatedAtIso,
+          dry_run: dryRun,
+          recipients,
+          subject,
+          ok: false,
+          error: message,
+          payload: responsePayload,
+        });
+      } catch {
+        // best-effort logging only
+      }
+      return NextResponse.json({ ok: false, error: "send_failed", detail: message }, { status: 500 });
+    }
   } finally {
     try {
       await (supabaseAdmin as any).rpc("release_cron_job_lock", { p_key: LOCK_KEY });
