@@ -872,6 +872,7 @@ export default function EnrichmentClient({
         attrIds: Set<string>;
       }
     ) => {
+      const UI_REFRESH_MS = 350;
       const existing = applyCleanupTimersRef.current[tournamentId];
       if (existing) clearTimeout(existing);
       applyCleanupTimersRef.current[tournamentId] = setTimeout(() => {
@@ -882,7 +883,7 @@ export default function EnrichmentClient({
         if (venueIds.size) setPendingVenues((prev) => prev.filter((v) => !venueIds.has(v.id)));
         if (dateIds.size) setPendingDates((prev) => prev.filter((d) => !dateIds.has(d.id)));
         if (attrIds.size) setPendingAttributes((prev) => prev.filter((c) => !attrIds.has(c.id)));
-      }, 5000);
+      }, UI_REFRESH_MS);
     },
     []
   );
@@ -940,7 +941,7 @@ export default function EnrichmentClient({
     setSelectedItems((prev) => ({ ...prev, [tournamentId]: new Set<string>() }));
     setApplyStatus((prev) => ({
       ...prev,
-      [tournamentId]: `${prev[tournamentId] ?? "Applied successfully."} (Updating row in ~5s.)`,
+      [tournamentId]: `${prev[tournamentId] ?? "Applied successfully."} (Updating row...)`,
     }));
     scheduleReviewCleanup(tournamentId, { contactIds, venueIds, dateIds, attrIds });
   };
@@ -980,7 +981,7 @@ export default function EnrichmentClient({
     setSelectedItems((prev) => ({ ...prev, [tournamentId]: new Set<string>() }));
     setApplyStatus((prev) => ({
       ...prev,
-      [tournamentId]: `${prev[tournamentId] ?? "Deleted selected items."} (Updating row in ~5s.)`,
+      [tournamentId]: `${prev[tournamentId] ?? "Deleted selected items."} (Updating row...)`,
     }));
     scheduleReviewCleanup(tournamentId, { contactIds, venueIds, dateIds, attrIds });
   };
