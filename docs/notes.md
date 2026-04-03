@@ -3042,3 +3042,7 @@ Maintenance rules:
   - Migration: `supabase/migrations/20260403_tournaments_public_radius_search.sql` adds RPC `public.list_tournaments_public_within_radius_v1`.
   - Page: `apps/ti-web/app/tournaments/page.tsx` adds `zip` + `radius` filters and (when available) shows distance badges on results.
   - Helper: `apps/ti-web/lib/lookupZipLatLng.ts` geocodes ZIP to lat/lng via Google Places (server-only).
+  - Follow-up: `apps/ti-web/lib/lookupZipLatLng.ts` now prefers `zip_centroids` (DB cache) before calling Google, and best-effort upserts missing ZIP centroids to keep ongoing lookup costs low.
+
+- 2026-04-03: Venue geocode backfill (ops).
+  - Backfilled `venues.latitude/longitude` for 722 venues that had `address1/city/state` but were missing geo; 277 venues still missing geo (needs address discovery or failed geocode).
