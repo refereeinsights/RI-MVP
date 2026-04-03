@@ -10,6 +10,7 @@ import PendingTournamentSelection from "@/components/admin/PendingTournamentSele
 import TournamentVenueMatcher from "@/components/admin/TournamentVenueMatcher";
 import TournamentVenueLinker from "@/components/admin/TournamentVenueLinker";
 import TournamentPartnerNearbyEditor from "@/components/admin/TournamentPartnerNearbyEditor";
+import UploadsVenueInferencePanel from "@/components/admin/UploadsVenueInferencePanel";
 import {
   buildTournamentNameStateSeasonFingerprint,
   buildTournamentNameUrlFingerprint,
@@ -541,6 +542,43 @@ export default async function AdminPage({
     tab === "tournament-uploads"
       ? await adminListPendingTournaments({ sort: uploadsSort })
       : [];
+  const pendingUploadStats =
+    tab === "tournament-uploads"
+      ? (() => {
+          let withConfirmedVenueLinks = 0;
+          let withInferredVenueLinks = 0;
+          let onlyInferredVenueLinks = 0;
+          let missingAnyVenueLinks = 0;
+          let approveBlockedMissingFields = 0;
+
+          for (const t of pendingTournaments) {
+            const confirmedCount =
+              (t.tournament_venues ?? []).filter((tv) => !tv?.is_inferred && Boolean(tv?.venues?.id)).length ?? 0;
+            const inferredCount =
+              (t.tournament_venues ?? []).filter((tv) => tv?.is_inferred && Boolean(tv?.venues?.id)).length ?? 0;
+
+            if (confirmedCount > 0) withConfirmedVenueLinks += 1;
+            if (inferredCount > 0) withInferredVenueLinks += 1;
+            if (confirmedCount === 0 && inferredCount > 0) onlyInferredVenueLinks += 1;
+            if (confirmedCount === 0 && inferredCount === 0) missingAnyVenueLinks += 1;
+
+            const hasVenueInfo = hasText(t.venue) || hasText(t.address);
+            const hasLocation = hasText(t.city) || hasText(t.state);
+            if (confirmedCount === 0 && (!hasVenueInfo || !hasLocation)) {
+              approveBlockedMissingFields += 1;
+            }
+          }
+
+          return {
+            loadedDrafts: pendingTournaments.length,
+            withConfirmedVenueLinks,
+            withInferredVenueLinks,
+            onlyInferredVenueLinks,
+            missingAnyVenueLinks,
+            approveBlockedMissingFields,
+          };
+        })()
+      : null;
   const tournamentListingFetchLimit = missingFilter ? 5000 : 100;
   const listedTournaments: AdminListedTournament[] =
     tab === "tournament-listings"
@@ -5505,8 +5543,32 @@ export default async function AdminPage({
 	            </div>
 		            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
 		              <div style={{ fontSize: 13, color: "#555" }}>
-		                Pending: <strong>{pendingTournaments.length}</strong>
+		                Drafts (db): <strong>{pendingUploadsCount ?? "—"}</strong>
 		              </div>
+		              <div style={{ fontSize: 13, color: "#555" }}>
+		                Loaded (deduped): <strong>{pendingUploadStats?.loadedDrafts ?? 0}</strong>
+		              </div>
+		              <div style={{ fontSize: 13, color: "#555" }}>
+		                Missing confirmed venues:{" "}
+		                <strong>
+		                  {pendingUploadStats ? pendingUploadStats.loadedDrafts - pendingUploadStats.withConfirmedVenueLinks : 0}
+		                </strong>
+		              </div>
+		              <div style={{ fontSize: 13, color: "#555" }}>
+		                Approve blocked (missing venue/location): <strong>{pendingUploadStats?.approveBlockedMissingFields ?? 0}</strong>
+		              </div>
+		              <a
+		                href="/admin?tab=tournament-uploads&uploads_sort=missing_venues_first"
+		                style={{ fontSize: 13, fontWeight: 800, color: "#0f3d2e", textDecoration: "none" }}
+		              >
+		                Sort: missing venues first
+		              </a>
+		              <a
+		                href="/admin/tournaments/enrichment"
+		                style={{ fontSize: 13, fontWeight: 800, color: "#0f3d2e", textDecoration: "none" }}
+		              >
+		                Enrichment tool
+		              </a>
 		              <a
 		                href="/api/admin/tournaments/uploads/export"
 		                style={{
@@ -5523,6 +5585,10 @@ export default async function AdminPage({
                 Export CSV
               </a>
             </div>
+          </div>
+
+          <div style={{ marginTop: 16 }}>
+            <UploadsVenueInferencePanel />
           </div>
 
           <div

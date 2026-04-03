@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin.rpc("reject_inferred_venue" as any, {
+  const { data, error } = await (supabaseAdmin as any).rpc("reject_inferred_venue", {
     p_tournament_id: tournamentId,
     p_venue_id: venueId,
     p_method: method,
@@ -47,4 +47,3 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, rejected: Boolean(data) });
 }
-

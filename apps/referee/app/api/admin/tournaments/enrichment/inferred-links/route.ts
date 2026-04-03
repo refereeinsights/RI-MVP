@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
   const rpc =
     only === "0" ? "list_tournaments_with_inferred_venues" : "list_tournaments_with_only_inferred_venues";
-  const { data: tournaments, error: rpcErr } = await supabaseAdmin.rpc(rpc as any, {
+  const { data: tournaments, error: rpcErr } = await (supabaseAdmin as any).rpc(rpc, {
     p_limit: limit,
     p_offset: offset,
   });
@@ -85,4 +85,3 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ ok: true, tournaments: payload });
 }
-
