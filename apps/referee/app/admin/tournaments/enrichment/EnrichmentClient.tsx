@@ -1144,16 +1144,28 @@ export default function EnrichmentClient({
 
       <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <button onClick={() => runFeesEnrichment()} disabled={feesBatchRunning} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#0f3d2e", color: "#fff", opacity: feesBatchRunning ? 0.6 : 1 }}>
-            Run fees/venue scrape
+          <button
+            onClick={() => runFeesEnrichment()}
+            disabled={feesBatchRunning}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid #0f3d2e",
+              background: "#0f3d2e",
+              color: "#fff",
+              opacity: feesBatchRunning ? 0.6 : 1,
+            }}
+            title="Default mode: pulls fees + venue candidates from tournaments with URLs"
+          >
+            Run fees/venue scrape (default)
           </button>
           <button
             onClick={() => runFeesEnrichment({ mode: "missing_venues", limit: 50, skipPending: feesSkipPending })}
             disabled={feesBatchRunning}
             style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#fff", color: "#0f3d2e", opacity: feesBatchRunning ? 0.6 : 1 }}
-            title="Prioritizes tournaments missing venue/address with URLs"
+            title="Missing-venues mode: prioritizes tournaments missing venue/address (requires URL). Uses a small limit so it’s fast."
           >
-            Run missing venues scrape
+            Run fees/venue scrape (missing venues)
           </button>
           <button
             onClick={() => runUsssaEnrichment()}
