@@ -1,5 +1,6 @@
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeSourceUrl, upsertRegistry } from "@/server/admin/sources";
 import { redirect } from "next/navigation";
 import RunDiscovery from "./RunDiscovery";
@@ -25,6 +26,60 @@ const SOURCE_TYPE_OPTIONS = [
   "club",
   "directory",
   "association_directory",
+] as const;
+
+const US_STATES = [
+  "AL",
+  "AK",
+  "AZ",
+  "AR",
+  "CA",
+  "CO",
+  "CT",
+  "DE",
+  "DC",
+  "FL",
+  "GA",
+  "HI",
+  "ID",
+  "IL",
+  "IN",
+  "IA",
+  "KS",
+  "KY",
+  "LA",
+  "ME",
+  "MD",
+  "MA",
+  "MI",
+  "MN",
+  "MS",
+  "MO",
+  "MT",
+  "NE",
+  "NV",
+  "NH",
+  "NJ",
+  "NM",
+  "NY",
+  "NC",
+  "ND",
+  "OH",
+  "OK",
+  "OR",
+  "PA",
+  "RI",
+  "SC",
+  "SD",
+  "TN",
+  "TX",
+  "UT",
+  "VT",
+  "VA",
+  "WA",
+  "WV",
+  "WI",
+  "WY",
 ] as const;
 
 type SearchParams = {
@@ -156,6 +211,37 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Sea
   const { queries: customQueries, warnings } = parseCustomQueries(searchParams.custom);
   const mergedQueries = Array.from(new Set([...builderQueries, ...customQueries.map((q) => q.query)]));
 
+  const selectedSports = asArray(searchParams.sport).filter(Boolean);
+  const sportForRecs = selectedSports.length === 1 ? selectedSports[0] : null;
+  const seedRecResp = await (supabaseAdmin as any).rpc("get_admin_tournament_seed_source_recommendations_v1", {
+    p_sport: sportForRecs,
+    p_limit: 15,
+    p_low_volume_cutoff: 40,
+  });
+  const seedRecs = (seedRecResp?.data ?? null) as
+    | {
+        low_volume_states?: Array<{
+          state: string;
+          tournament_count: number;
+          distinct_source_domains: number;
+        }>;
+        top_domains_by_state?: Record<string, Array<{ domain: string; count: number }>>;
+        keep_seed_sources?: Array<{
+          state: string | null;
+          source_url: string;
+          source_type: string | null;
+          sport: string | null;
+        }>;
+      }
+    | null;
+  const lowStates = Array.isArray(seedRecs?.low_volume_states) ? seedRecs!.low_volume_states! : [];
+  const lowStateMap = new Map(lowStates.map((s) => [String(s.state || "").toUpperCase(), s]));
+  const topDomainsByState = (seedRecs?.top_domains_by_state ?? {}) as Record<
+    string,
+    Array<{ domain: string; count: number }>
+  >;
+  const keepSeedSources = Array.isArray(seedRecs?.keep_seed_sources) ? seedRecs!.keep_seed_sources! : [];
+
   return (
     <div style={{ padding: 24 }}>
       <AdminNav />
@@ -167,6 +253,68 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Sea
       )}
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr", marginBottom: 24 }}>
+        {lowStates.length > 0 && (
+          <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>Low-volume states (seed targets)</h2>
+            <p style={{ margin: "6px 0 10px", fontSize: 12, color: "#475569" }}>
+              Based on published canonical tournaments. Use these to focus discovery on states we currently under-cover.
+            </p>
+            <div style={{ display: "grid", gap: 8 }}>
+              {lowStates.slice(0, 10).map((row) => {
+                const state = String(row.state || "").toUpperCase();
+                const domains = Array.isArray(topDomainsByState[state]) ? topDomainsByState[state] : [];
+                return (
+                  <div key={state} style={{ display: "grid", gap: 4, padding: 8, borderRadius: 10, border: "1px solid #f1f5f9" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
+                      <div style={{ fontWeight: 900 }}>{state}</div>
+                      <div style={{ fontSize: 12, color: "#475569" }}>
+                        tournaments: {row.tournament_count} · domains: {row.distinct_source_domains}
+                      </div>
+                    </div>
+                    {domains.length > 0 && (
+                      <div style={{ fontSize: 12, color: "#334155" }}>
+                        Top domains:{" "}
+                        {domains
+                          .slice(0, 5)
+                          .map((d) => `${d.domain} (${d.count})`)
+                          .join(", ")}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {keepSeedSources.length > 0 && (
+          <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>Existing keep seed sources</h2>
+            <p style={{ margin: "6px 0 10px", fontSize: 12, color: "#475569" }}>
+              These are already marked <code>keep</code> in <code>tournament_sources</code> and can be used as seed URLs.
+            </p>
+            <div style={{ display: "grid", gap: 6, fontSize: 12 }}>
+              {keepSeedSources.slice(0, 40).map((row, idx) => {
+                const state = (row.state || "").toString().trim().toUpperCase();
+                const stateLabel = state ? state : "NATIONAL";
+                const href = state ? `/admin/tournaments/sources?filter=keep&state=${encodeURIComponent(state)}` : `/admin/tournaments/sources?filter=keep`;
+                return (
+                  <div key={`${row.source_url}_${idx}`} style={{ display: "grid", gap: 2, padding: 8, border: "1px solid #f1f5f9", borderRadius: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                      <a href={href} style={{ fontWeight: 800, color: "#0f172a", textDecoration: "underline" }}>
+                        {stateLabel}
+                      </a>
+                      <div style={{ color: "#475569" }}>{row.source_type || "—"}</div>
+                    </div>
+                    <div style={{ wordBreak: "break-word" }}>{row.source_url}</div>
+                  </div>
+                );
+              })}
+              {keepSeedSources.length > 40 && (
+                <div style={{ color: "#475569" }}>Showing 40 of {keepSeedSources.length}.</div>
+              )}
+            </div>
+          </div>
+        )}
         <form method="get" style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>Search query builder</h2>
           <div style={{ display: "grid", gap: 8, marginTop: 8, gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
@@ -190,11 +338,15 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Sea
             <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
               States
               <select name="state" multiple style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db", minHeight: 90 }}>
-                {["WA", "OR", "CA", "AZ", "NV", "UT", "ID", "MT"].map((s) => (
-                  <option key={s} value={s} selected={asArray(searchParams.state).includes(s)}>
-                    {s}
-                  </option>
-                ))}
+                {US_STATES.map((s) => {
+                  const low = lowStateMap.get(s);
+                  const label = low ? `${s} (low: ${low.tournament_count})` : s;
+                  return (
+                    <option key={s} value={s} selected={asArray(searchParams.state).includes(s)}>
+                      {label}
+                    </option>
+                  );
+                })}
               </select>
             </label>
             <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>

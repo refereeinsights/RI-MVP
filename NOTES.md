@@ -5,6 +5,7 @@
 - RI admin enrichment: call `router.refresh()` after Apply/Delete and sync refreshed server props into client state so the queue reflects DB changes without manual reloads (covers edge cases where optimistic removal misses de-duped rows): `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`.
 - Missing venues export: include `tournament_uuid` in the CSV to support downstream “link venues without creating tournaments” workflows: `apps/referee/app/api/admin/tournaments/missing-venues/export/route.ts`.
 - Ops tooling: add `scripts/ops/link_venues_from_csv_no_tournaments.mjs` to upsert venues and link them to existing tournaments from a CSV without creating tournaments (resolves tournaments by UUID/slug or conservative name+state match; idempotent; optional primary flag when none exists).
+- RI Sources discovery: add admin-only seed recommendations for low-volume states (published canonical counts + top source domains + keep seed sources) surfaced on `/admin/tournaments/sources/discover`: `supabase/migrations/20260403_admin_seed_source_recommendations.sql`, `apps/referee/app/admin/tournaments/sources/discover/page.tsx`.
 
 ## 2026-04-02
 
