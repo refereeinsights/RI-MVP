@@ -52,6 +52,7 @@ type Job = {
 type ContactCandidate = {
   id: string;
   tournament_id: string;
+  name: string | null;
   email: string | null;
   phone: string | null;
   role_normalized: string | null;
@@ -222,7 +223,7 @@ async function loadData(): Promise<EnrichmentPageData> {
   const [contactsRows, datesRows, venueRows, attributeRows, recentFeesVenueRows] = await Promise.all([
     fetchAllPendingRows(
       "tournament_contact_candidates",
-      "id,tournament_id,email,phone,role_normalized,source_url,confidence,created_at"
+      "id,tournament_id,name,email,phone,role_normalized,source_url,confidence,created_at"
     ),
     fetchAllPendingRows(
       "tournament_date_candidates",

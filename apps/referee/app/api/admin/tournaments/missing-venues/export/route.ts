@@ -89,6 +89,7 @@ export async function GET(req: Request) {
 
   if (!missingIds.length) {
     const header = [
+      "tournament_uuid",
       "tournament_name",
       "tournament_url",
       "city",
@@ -127,6 +128,7 @@ export async function GET(req: Request) {
 
   const rows = tournaments ?? [];
   const header = [
+    "tournament_uuid",
     "tournament_name",
     "tournament_url",
     "city",
@@ -142,6 +144,7 @@ export async function GET(req: Request) {
     ...rows.map((r: any) => {
       const tournamentUrl = (r.official_website_url || r.source_url || "").toString();
       const record = {
+        tournament_uuid: r.id ?? "",
         tournament_name: r.name ?? "",
         tournament_url: tournamentUrl,
         city: r.city ?? "",

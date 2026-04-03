@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type Tournament = { id: string; name: string | null; url: string | null; state: string | null };
 type MissingUrlTournament = {
@@ -40,6 +41,7 @@ type Job = {
 type ContactCandidate = {
   id: string;
   tournament_id: string;
+  name: string | null;
   email: string | null;
   phone: string | null;
   role_normalized: string | null;
@@ -205,6 +207,7 @@ export default function EnrichmentClient({
   candidateTournaments: Record<string, CandidateTournament>;
   feesVenueSummary: FeesVenueSummary[];
 }) {
+  const router = useRouter();
   const mountedRef = React.useRef(true);
   const applyCleanupTimersRef = React.useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -252,6 +255,16 @@ export default function EnrichmentClient({
   const [feesBatchRunning, setFeesBatchRunning] = React.useState<boolean>(false);
   const [feesBatchMissingVenuesOnly, setFeesBatchMissingVenuesOnly] = React.useState<boolean>(true);
   const [feesSkipPending, setFeesSkipPending] = React.useState<boolean>(true);
+
+  // When we `router.refresh()` after Apply/Delete, the server component re-fetches pending rows.
+  // Sync those refreshed props into our local state so the UI reflects DB changes without a full reload.
+  React.useEffect(() => setPendingContacts(contacts), [contacts]);
+  React.useEffect(() => setPendingDates(dates), [dates]);
+  React.useEffect(() => setPendingVenues(venues), [venues]);
+  React.useEffect(() => setPendingAttributes(attributes), [attributes]);
+  React.useEffect(() => setPendingUrlSuggestions(urlSuggestions), [urlSuggestions]);
+  React.useEffect(() => setPriorityTargets(priorityOutreachTargets), [priorityOutreachTargets]);
+  React.useEffect(() => setFeesSummaryState(feesVenueSummary), [feesVenueSummary]);
 
   const [inferredOnly, setInferredOnly] = React.useState<boolean>(true);
   const [inferredLoading, setInferredLoading] = React.useState<boolean>(false);
@@ -340,10 +353,23 @@ export default function EnrichmentClient({
 
   const reviewGroups = React.useMemo(() => {
     const groups = new Map<string, Map<string, ReviewItem>>();
-    const signatureFor = (kind: ReviewItem["kind"], label: string, detail?: string | null) =>
-      [kind, label.toLowerCase(), (detail ?? "").toLowerCase().trim()].join("|");
-    const upsert = (tournamentId: string, item: Omit<ReviewItem, "key" | "ids"> & { id: string }) => {
-      const sig = signatureFor(item.kind, item.label, item.detail);
+    const normalizeSpaces = (value: unknown) =>
+      String(value ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+    const normalizePhone = (value: unknown) => String(value ?? "").replace(/\D+/g, "");
+    const normalizeRole = (value: unknown) => String(value ?? "GENERAL").trim().toUpperCase();
+    const signatureForContact = (row: ContactCandidate) =>
+      [normalizeRole(row.role_normalized), normalizeSpaces(row.name), normalizeSpaces(row.email), normalizePhone(row.phone)].join("|");
+    const signatureForVenue = (row: VenueCandidate) =>
+      [normalizeSpaces(row.venue_name), normalizeSpaces(row.address_text)].join("|");
+    const signatureForDate = (row: DateCandidate) =>
+      [normalizeSpaces(row.date_text), String(row.start_date ?? ""), String(row.end_date ?? "")].join("|");
+    const signatureForAttribute = (row: AttributeCandidate) =>
+      [normalizeSpaces(row.attribute_key), normalizeSpaces(row.attribute_value)].join("|");
+
+    const upsert = (tournamentId: string, sig: string, item: Omit<ReviewItem, "key" | "ids"> & { id: string }) => {
       const key = `${item.kind}:${sig}`;
       const existingMap = groups.get(tournamentId) ?? new Map<string, ReviewItem>();
       const existing = existingMap.get(sig);
@@ -372,12 +398,12 @@ export default function EnrichmentClient({
     };
     pendingContacts.forEach((c) => {
       const role = c.role_normalized === "TD" ? "Tournament director" : c.role_normalized === "ASSIGNOR" ? "Referee contact" : "General contact";
-      const detail = [c.email].filter(Boolean).join(" • ");
-      upsert(c.tournament_id, {
+      const detail = [c.name, c.email, c.phone].filter(Boolean).join(" • ");
+      upsert(c.tournament_id, signatureForContact(c), {
         kind: "contact",
         id: c.id,
         label: role,
-        detail: detail || c.email || "—",
+        detail: detail || c.email || c.name || "—",
         sourceUrl: c.source_url,
         confidence: c.confidence,
       });
@@ -387,7 +413,7 @@ export default function EnrichmentClient({
         d.start_date || d.end_date
           ? `${d.start_date ?? "?"} → ${d.end_date ?? d.start_date ?? "?"}`
           : d.date_text ?? "—";
-      upsert(d.tournament_id, {
+      upsert(d.tournament_id, signatureForDate(d), {
         kind: "date",
         id: d.id,
         label: "Dates",
@@ -398,7 +424,7 @@ export default function EnrichmentClient({
     });
     pendingVenues.forEach((v) => {
       const detail = [v.venue_name, v.address_text].filter(Boolean).join(" • ");
-      upsert(v.tournament_id, {
+      upsert(v.tournament_id, signatureForVenue(v), {
         kind: "venue",
         id: v.id,
         label: "Venue",
@@ -417,7 +443,7 @@ export default function EnrichmentClient({
       venue_url: "Venue URL",
     };
     pendingAttributes.forEach((a) => {
-      upsert(a.tournament_id, {
+      upsert(a.tournament_id, signatureForAttribute(a), {
         kind: "attribute",
         id: a.id,
         label: attributeLabels[a.attribute_key] ?? a.attribute_key,
@@ -872,17 +898,36 @@ export default function EnrichmentClient({
         attrIds: Set<string>;
       }
     ) => {
-      const UI_REFRESH_MS = 350;
-      const existing = applyCleanupTimersRef.current[tournamentId];
-      if (existing) clearTimeout(existing);
-      applyCleanupTimersRef.current[tournamentId] = setTimeout(() => {
-        if (!mountedRef.current) return;
-        delete applyCleanupTimersRef.current[tournamentId];
+      const clearUpdatingSuffix = () => {
+        setApplyStatus((prev) => {
+          const current = prev[tournamentId];
+          if (!current) return prev;
+          const nextMsg = current.replace(/\s*\(Updating row(?:\.{3}|…)\)\s*$/i, "");
+          if (nextMsg === current) return prev;
+          return { ...prev, [tournamentId]: nextMsg };
+        });
+      };
 
+      const cleanup = () => {
+        if (!mountedRef.current) return;
         if (contactIds.size) setPendingContacts((prev) => prev.filter((c) => !contactIds.has(c.id)));
         if (venueIds.size) setPendingVenues((prev) => prev.filter((v) => !venueIds.has(v.id)));
         if (dateIds.size) setPendingDates((prev) => prev.filter((d) => !dateIds.has(d.id)));
         if (attrIds.size) setPendingAttributes((prev) => prev.filter((c) => !attrIds.has(c.id)));
+      };
+
+      // Optimistic UI: update immediately so rows disappear without a page reload.
+      cleanup();
+      clearUpdatingSuffix();
+
+      // Safety: schedule a short follow-up in case React batching/hydration delays the first render.
+      const UI_REFRESH_MS = 250;
+      const existing = applyCleanupTimersRef.current[tournamentId];
+      if (existing) clearTimeout(existing);
+      applyCleanupTimersRef.current[tournamentId] = setTimeout(() => {
+        delete applyCleanupTimersRef.current[tournamentId];
+        cleanup();
+        clearUpdatingSuffix();
       }, UI_REFRESH_MS);
     },
     []
@@ -891,6 +936,7 @@ export default function EnrichmentClient({
   const applyReviewItems = async (tournamentId: string) => {
     const items = reviewGroups.get(tournamentId) ?? [];
     const selected = selectedItems[tournamentId] ?? new Set<string>();
+    const selectedAll = items.length > 0 && items.every((item) => selected.has(item.key));
     const payload = items
       .filter((item) => selected.has(item.key))
       .flatMap((item) => item.ids.map((id) => ({ kind: item.kind, id })));
@@ -943,12 +989,22 @@ export default function EnrichmentClient({
       ...prev,
       [tournamentId]: `${prev[tournamentId] ?? "Applied successfully."} (Updating row...)`,
     }));
+    if (selectedAll) {
+      // When the user applies the entire tournament section, clear any stragglers by tournament_id.
+      setPendingContacts((prev) => prev.filter((row) => row.tournament_id !== tournamentId));
+      setPendingVenues((prev) => prev.filter((row) => row.tournament_id !== tournamentId));
+      setPendingDates((prev) => prev.filter((row) => row.tournament_id !== tournamentId));
+      setPendingAttributes((prev) => prev.filter((row) => row.tournament_id !== tournamentId));
+    }
     scheduleReviewCleanup(tournamentId, { contactIds, venueIds, dateIds, attrIds });
+    // Ensure the server-rendered page data stays consistent (no manual refresh required).
+    setTimeout(() => router.refresh(), 150);
   };
 
   const deleteReviewItems = async (tournamentId: string) => {
     const items = reviewGroups.get(tournamentId) ?? [];
     const selected = selectedItems[tournamentId] ?? new Set<string>();
+    const selectedAll = items.length > 0 && items.every((item) => selected.has(item.key));
     const payload = items
       .filter((item) => selected.has(item.key))
       .flatMap((item) => item.ids.map((id) => ({ kind: item.kind, id })));
@@ -983,7 +1039,16 @@ export default function EnrichmentClient({
       ...prev,
       [tournamentId]: `${prev[tournamentId] ?? "Deleted selected items."} (Updating row...)`,
     }));
+    if (selectedAll) {
+      // When the user deletes the entire tournament section, clear any stragglers by tournament_id.
+      setPendingContacts((prev) => prev.filter((row) => row.tournament_id !== tournamentId));
+      setPendingVenues((prev) => prev.filter((row) => row.tournament_id !== tournamentId));
+      setPendingDates((prev) => prev.filter((row) => row.tournament_id !== tournamentId));
+      setPendingAttributes((prev) => prev.filter((row) => row.tournament_id !== tournamentId));
+    }
     scheduleReviewCleanup(tournamentId, { contactIds, venueIds, dateIds, attrIds });
+    // Ensure the server-rendered page data stays consistent (no manual refresh required).
+    setTimeout(() => router.refresh(), 150);
   };
 
   return (

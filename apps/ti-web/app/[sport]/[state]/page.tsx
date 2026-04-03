@@ -14,6 +14,9 @@ import { buildTIHubTitle, assertNoDoubleBrand } from "@/lib/seo/buildTITitle";
 import { validateTournamentSport } from "@/lib/validation/validateTournamentSport";
 import "../../tournaments/tournaments.css";
 
+// Keep SEO hub pages fresh without hammering Supabase.
+export const revalidate = 300;
+
 type TournamentRow = {
   id: string;
   slug: string;
@@ -134,7 +137,7 @@ export default async function SportStateHubPage({
     .select("id,slug,name,sport,state,city,level,start_date,end_date,official_website_url,source_url", { count: "exact" })
     .eq("sport", sportKey)
     .eq("state", stateCode)
-    .gte("end_date", today)
+    .or(`start_date.gte.${today},end_date.gte.${today}`)
     .order("start_date", { ascending: true })
     .order("name", { ascending: true });
 
@@ -154,7 +157,7 @@ export default async function SportStateHubPage({
     .select("id,city,start_date,end_date")
     .eq("sport", sportKey)
     .eq("state", stateCode)
-    .gte("end_date", today)
+    .or(`start_date.gte.${today},end_date.gte.${today}`)
     .order("start_date", { ascending: true })
     .limit(2000);
 

@@ -1,6 +1,6 @@
 import { SportHubPage, getSportHubMetadata } from "../_components/SportHubPage";
 
-export const revalidate = 21600;
+export const revalidate = 300;
 export const metadata = getSportHubMetadata("basketball");
 
 export default async function BasketballHubPage({
