@@ -7,6 +7,7 @@
 - Ops tooling: add `scripts/ops/link_venues_from_csv_no_tournaments.mjs` to upsert venues and link them to existing tournaments from a CSV without creating tournaments (resolves tournaments by UUID/slug or conservative name+state match; idempotent; optional primary flag when none exists).
 - RI Sources discovery: add admin-only seed recommendations for low-volume states (published canonical counts + top source domains + keep seed sources) surfaced on `/admin/tournaments/sources/discover`: `supabase/migrations/20260403_admin_seed_source_recommendations.sql`, `apps/referee/app/admin/tournaments/sources/discover/page.tsx`.
 - RI Sources discovery: surface underlying Atlas search errors (missing API keys, provider failures) in the UI instead of a generic 500: `apps/referee/app/api/atlas/discover-and-queue/route.ts`, `apps/referee/app/admin/tournaments/sources/discover/RunDiscovery.tsx`.
+- RI Sources discovery: avoid Brave 400-char query limit by chunking multi-state searches into multiple queries automatically (prevents 422 “too_long”): `apps/referee/app/admin/tournaments/sources/discover/page.tsx`.
 
 ## 2026-04-02
 

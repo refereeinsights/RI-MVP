@@ -100,6 +100,15 @@ function asArray(val: string | string[] | undefined): string[] {
   return Array.isArray(val) ? val : [val];
 }
 
+function chunkArray<T>(items: T[], size: number): T[][] {
+  if (size <= 0) return [items];
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 function buildQueriesFromParams(params: SearchParams): string[] {
   const target = (params.target ?? "tournament").toString();
   const sports = asArray(params.sport).filter(Boolean);
@@ -109,6 +118,8 @@ function buildQueriesFromParams(params: SearchParams): string[] {
   const includeHotel = params.hotel === "on";
   const includeMeals = params.meals === "on";
   const pdfFirst = params.pdf === "on";
+  const MAX_QUERY_LEN = 400; // Brave enforces 400 chars.
+  const SAFE_QUERY_LEN = 380; // Leave headroom for provider-specific encoding.
 
   const baseTerms =
     target === "assignor"
@@ -120,7 +131,6 @@ function buildQueriesFromParams(params: SearchParams): string[] {
   if (includeHotel) extras.push("(hotel OR housing OR lodging)");
   if (includeMeals) extras.push('("meals" OR "per diem" OR stipend)');
   if (sports.length) extras.push(`(${sports.join(" OR ")})`);
-  if (states.length) extras.push(`(${states.map((s) => `"${s}"`).join(" OR ")})`);
 
   const negatives =
     target === "assignor"
@@ -128,12 +138,35 @@ function buildQueriesFromParams(params: SearchParams): string[] {
       : "-casino -gambling -booking -concert -tickets -assignor -assignors -refereeassignor -arbiter";
   const pdf = pdfFirst ? "(filetype:pdf OR filetype:doc OR filetype:docx)" : "";
 
-  const body = [...baseTerms, ...extras].join(" AND ");
-  if (!body) return [];
-  const queries: string[] = [];
-  for (let i = 0; i < Math.max(6, extras.length + 2); i++) {
-    queries.push([body, pdf, negatives].filter(Boolean).join(" "));
+  const baseBody = [...baseTerms, ...extras].join(" AND ");
+  if (!baseBody) return [];
+
+  const makeQuery = (stateChunk: string[] | null) => {
+    const stateClause =
+      stateChunk && stateChunk.length ? `(${stateChunk.map((s) => `"${s}"`).join(" OR ")})` : "";
+    const body = [baseBody, stateClause].filter(Boolean).join(" AND ");
+    return [body, pdf, negatives].filter(Boolean).join(" ");
+  };
+
+  if (!states.length) {
+    return [makeQuery(null)].slice(0, 10);
   }
+
+  const full = makeQuery(states);
+  if (full.length <= MAX_QUERY_LEN) {
+    return [full].slice(0, 10);
+  }
+
+  // Too many states: split into multiple queries with state chunks that fit provider limits.
+  let chunkSize = Math.min(12, states.length);
+  while (chunkSize > 1) {
+    const probe = makeQuery(states.slice(0, chunkSize));
+    if (probe.length <= SAFE_QUERY_LEN) break;
+    chunkSize -= 1;
+  }
+  if (chunkSize <= 1) chunkSize = 1;
+
+  const queries = chunkArray(states, chunkSize).map((chunk) => makeQuery(chunk));
   return queries.slice(0, 10);
 }
 
