@@ -127,6 +127,14 @@ function isJunkVenueName(name: string | null | undefined): boolean {
   const v = raw.toLowerCase();
   if (v.length < 3) return true;
   if (/^(venue|venues|field|fields|facility|facilities|location|locations)$/i.test(raw)) return true;
+  // Reject obvious site chrome / footer / auth tokens that sometimes get glued into extracted "venue" strings.
+  if (/(privacy|cookie|cookies|terms|policy|policies|login|log\s*in|sign\s*in|register|copyright|©|all\s*rights\s*reserved)/i.test(raw)) {
+    return true;
+  }
+  if (/(leagueapps|sportsengine|eventbrite|tickets|checkout)/i.test(raw)) return true;
+  if (/(https?:\/\/|www\.|\.com\b|\.net\b|\.org\b)/i.test(raw)) return true;
+  // Bullet separators usually indicate we're accidentally capturing a whole nav line.
+  if (/[•·|]/.test(raw) && raw.split(/\s+/).length > 6) return true;
   const bad = [
     "tbd",
     "to be determined",
