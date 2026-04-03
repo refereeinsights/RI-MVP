@@ -20,6 +20,112 @@ import { getVenueCardClassFromSports } from "../sportSurface";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import "../../tournaments/tournaments.css";
 
+const US_STATE_CODES = new Set(
+  [
+    "AL",
+    "AK",
+    "AZ",
+    "AR",
+    "CA",
+    "CO",
+    "CT",
+    "DE",
+    "FL",
+    "GA",
+    "HI",
+    "ID",
+    "IL",
+    "IN",
+    "IA",
+    "KS",
+    "KY",
+    "LA",
+    "ME",
+    "MD",
+    "MA",
+    "MI",
+    "MN",
+    "MS",
+    "MO",
+    "MT",
+    "NE",
+    "NV",
+    "NH",
+    "NJ",
+    "NM",
+    "NY",
+    "NC",
+    "ND",
+    "OH",
+    "OK",
+    "OR",
+    "PA",
+    "RI",
+    "SC",
+    "SD",
+    "TN",
+    "TX",
+    "UT",
+    "VT",
+    "VA",
+    "WA",
+    "WV",
+    "WI",
+    "WY",
+    "DC",
+  ].sort()
+);
+
+const STREET_TOKENS = new Set([
+  "st",
+  "street",
+  "ave",
+  "avenue",
+  "rd",
+  "road",
+  "dr",
+  "drive",
+  "blvd",
+  "boulevard",
+  "ln",
+  "lane",
+  "ct",
+  "court",
+  "way",
+  "pkwy",
+  "parkway",
+  "pl",
+  "place",
+  "cir",
+  "circle",
+  "ter",
+  "terrace",
+  "hwy",
+  "highway",
+]);
+
+function parseLegacyAddressSlug(param: string): { state: string; number: string; keyword: string | null } | null {
+  const raw = param.trim().toLowerCase();
+  if (!raw || raw.length > 140) return null;
+  // Heuristic: looks like "425-woodward-st-austin-tx" or "32200-del-obispo-street-san-juan-capistrano-ca".
+  if (!/^\d{1,6}-[a-z0-9-]{3,140}-[a-z]{2}$/.test(raw)) return null;
+  const parts = raw.split("-").filter(Boolean);
+  if (parts.length < 4) return null;
+  const number = parts[0] ?? "";
+  const stateRaw = (parts[parts.length - 1] ?? "").toUpperCase();
+  if (!/^\d{1,6}$/.test(number)) return null;
+  if (!US_STATE_CODES.has(stateRaw)) return null;
+
+  const body = parts.slice(1, -1);
+  const hasStreetSignal = body.some((p) => STREET_TOKENS.has(p));
+  if (!hasStreetSignal) return null;
+
+  const keyword =
+    body.find((p) => p.length >= 4 && !STREET_TOKENS.has(p) && !/^\d+$/.test(p) && !["of", "the", "and", "at", "in"].includes(p)) ??
+    null;
+  return { state: stateRaw, number, keyword };
+}
+
 type LinkedTournament = {
   id: string;
   slug: string | null;
@@ -223,6 +329,25 @@ async function fetchVenueByParam(param: string): Promise<{ venue: VenueRow | nul
         return { venue: byId.data, redirectTo: getVenueHref(byId.data) };
       }
       return { venue: byId.data, redirectTo: null };
+    }
+  }
+
+  const legacy = parseLegacyAddressSlug(param);
+  if (legacy) {
+    try {
+      let query = supabaseAdmin
+        .from("venues" as any)
+        .select(baseSelect)
+        .eq("state", legacy.state)
+        .ilike("address", `%${legacy.number}%`);
+      if (legacy.keyword) query = query.ilike("address", `%${legacy.keyword}%`);
+      const resp = await query.limit(5);
+      if (!resp.error && Array.isArray(resp.data) && resp.data.length) {
+        const pick = resp.data[0] as VenueRow;
+        return { venue: pick, redirectTo: getVenueHref(pick) };
+      }
+    } catch {
+      // best-effort only
     }
   }
 
