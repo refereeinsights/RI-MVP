@@ -167,6 +167,7 @@ export default async function TournamentsPage({
     sports?: string | string[];
     reviewed?: string;
     includePast?: string;
+    metro?: string;
   };
 }) {
   const supabase = supabaseAdmin;
@@ -187,6 +188,7 @@ export default async function TournamentsPage({
   const includePast = Array.isArray(includePastParam)
     ? includePastParam.includes("true")
     : (includePastParam ?? "").toLowerCase() === "true";
+  const metroParam = (searchParams?.metro ?? "").trim().toLowerCase();
   const sportsSelectedRaw = Array.isArray(sportsParam)
     ? sportsParam
     : sportsParam
@@ -314,22 +316,82 @@ export default async function TournamentsPage({
         return sportsSelected.includes(key);
       })
     : reviewedTournaments;
+
+  const normalizeCityKey = (value: unknown) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+
+  type MetroMarket = { id: string; name: string; slug: string };
+  let metroMarkets: MetroMarket[] = [];
+  let metroLabel: string | null = null;
+  let metroStates: Set<string> | null = null;
+  let metroCities: Set<string> | null = null; // CA city-split overlay
+  if (metroParam) {
+    try {
+      const { data: market } = await supabaseAdmin
+        .from("metro_markets" as any)
+        .select("id,name,slug")
+        .eq("slug", metroParam)
+        .maybeSingle<MetroMarket>();
+      if (market?.id) {
+        metroLabel = market.name ?? metroParam;
+        const { data: statesRaw } = await supabaseAdmin
+          .from("metro_market_states" as any)
+          .select("metro_market_id,state")
+          .eq("metro_market_id", market.id)
+          .limit(200);
+        const states = ((statesRaw ?? []) as Array<{ state: string | null }>)
+          .map((s) => (s.state ?? "").trim().toUpperCase())
+          .filter(Boolean);
+        if (states.length) metroStates = new Set(states);
+
+        if (metroParam === "southern-california" || metroParam === "northern-california") {
+          const { data: cityRulesRaw } = await supabaseAdmin
+            .from("metro_market_city_rules" as any)
+            .select("metro_market_id,state,city")
+            .eq("metro_market_id", market.id)
+            .eq("state", "CA")
+            .limit(10000);
+          const cities = ((cityRulesRaw ?? []) as Array<{ city: string | null }>)
+            .map((r) => normalizeCityKey(r.city))
+            .filter(Boolean);
+          if (cities.length) metroCities = new Set(cities);
+        }
+      }
+    } catch {
+      metroLabel = null;
+      metroStates = null;
+      metroCities = null;
+    }
+  }
+  try {
+    const { data } = await supabaseAdmin.from("metro_markets" as any).select("id,name,slug").order("name").limit(50);
+    metroMarkets = ((data ?? []) as MetroMarket[]).filter((m) => m?.id && m?.slug && m?.name);
+  } catch {
+    metroMarkets = [];
+  }
+
+  const tournamentsByMetro =
+    metroParam && (metroStates?.size || metroCities?.size)
+      ? tournamentsBySport.filter((t) => {
+          if (metroCities?.size) {
+            return String(t.state ?? "").trim().toUpperCase() === "CA" && metroCities.has(normalizeCityKey(t.city));
+          }
+          const key = String(t.state ?? "").trim().toUpperCase();
+          return Boolean(key && metroStates?.has(key));
+        })
+      : tournamentsBySport;
+
   const availableStates = Array.from(
-    new Set(
-      tournamentsBySport
-        .map((t) => (t.state ?? "").trim().toUpperCase())
-        .filter(Boolean)
-    )
+    new Set(tournamentsByMetro.map((t) => (t.state ?? "").trim().toUpperCase()).filter(Boolean))
   ).sort();
-  const stateCounts = tournamentsBySport.reduce<Record<string, number>>((acc, t) => {
+  const stateCounts = tournamentsByMetro.reduce<Record<string, number>>((acc, t) => {
     const key = (t.state ?? "").trim().toUpperCase();
     if (!key) return acc;
     acc[key] = (acc[key] ?? 0) + 1;
     return acc;
   }, {});
   const tournaments = isAllStates
-    ? tournamentsBySport
-    : tournamentsBySport.filter((t) => stateSelections.includes((t.state ?? "").trim().toUpperCase()));
+    ? tournamentsByMetro
+    : tournamentsByMetro.filter((t) => stateSelections.includes((t.state ?? "").trim().toUpperCase()));
 
   const engagementMap = new Map<string, EngagementRow>();
   if (FEATURE_TOURNAMENT_ENGAGEMENT_BADGES && tournaments.length) {
@@ -482,31 +544,48 @@ export default async function TournamentsPage({
         </div>
 
         {/* Filters */}
-        <form className="filters" method="GET" action="/tournaments">
-          <div>
-            <label className="label" htmlFor="q">Search</label>
-            <input
+	        <form className="filters" method="GET" action="/tournaments">
+	          <div>
+	            <label className="label" htmlFor="q">Search</label>
+	            <input
               id="q"
               name="q"
               className="input"
               placeholder="Search tournaments..."
               defaultValue={q}
             />
-          </div>
+	          </div>
 
-          <div>
-            <span className="label">State</span>
-            <StateMultiSelect
-              availableStates={availableStates}
-              stateSelections={stateSelections}
-              isAllStates={isAllStates}
-              allStatesValue={ALL_STATES_VALUE}
-              summaryLabel={stateSummaryLabel}
-              stateCounts={stateCounts}
-              totalCount={tournamentsBySport.length}
-              autoSubmit
-            />
-          </div>
+            <div>
+              <label className="label" htmlFor="metro">Region</label>
+              <AutoSubmitSelect id="metro" name="metro" className="select" defaultValue={metroParam}>
+                <option value="">All regions</option>
+                {metroMarkets.map((m) => (
+                  <option key={m.id} value={m.slug}>
+                    {m.name}
+                  </option>
+                ))}
+              </AutoSubmitSelect>
+              {metroLabel ? (
+                <div style={{ marginTop: 6, fontSize: 12, color: "#475569" }}>
+                  Filtering to: <strong>{metroLabel}</strong>
+                </div>
+              ) : null}
+            </div>
+
+	          <div>
+	            <span className="label">State</span>
+	            <StateMultiSelect
+	              availableStates={availableStates}
+	              stateSelections={stateSelections}
+	              isAllStates={isAllStates}
+	              allStatesValue={ALL_STATES_VALUE}
+	              summaryLabel={stateSummaryLabel}
+	              stateCounts={stateCounts}
+	              totalCount={tournamentsByMetro.length}
+	              autoSubmit
+	            />
+	          </div>
 
           <div>
             <label className="label" htmlFor="month">Month</label>
