@@ -87,6 +87,7 @@ type SearchParams = {
   target?: string;
   sport?: string | string[];
   state?: string | string[];
+  metro?: string | string[];
   etype?: string | string[];
   pay?: string;
   hotel?: string;
@@ -240,7 +241,49 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Sea
   await requireAdmin();
   const notice = searchParams.notice ?? "";
   const target = (searchParams.target ?? "tournament").toString();
-  const builderQueries = buildQueriesFromParams(searchParams);
+
+  const metroMarketsResp = await supabaseAdmin
+    .from("metro_markets" as any)
+    .select("id,slug,name")
+    .order("name", { ascending: true });
+  const metroMarkets = (metroMarketsResp.data ?? []) as Array<{ id: string; slug: string; name: string }>;
+  const metroIds = metroMarkets.map((m) => m.id).filter(Boolean);
+  const metroStatesResp =
+    metroIds.length > 0
+      ? await supabaseAdmin
+          .from("metro_market_states" as any)
+          .select("metro_market_id,state")
+          .in("metro_market_id", metroIds)
+      : ({ data: [], error: null } as any);
+  const metroStatesRows = (metroStatesResp.data ?? []) as Array<{ metro_market_id: string; state: string }>;
+  const metroStatesBySlug = (() => {
+    const idToSlug = new Map(metroMarkets.map((m) => [m.id, m.slug]));
+    const map = new Map<string, string[]>();
+    for (const row of metroStatesRows) {
+      const slug = idToSlug.get(row.metro_market_id);
+      if (!slug) continue;
+      const state = String(row.state || "").trim().toUpperCase();
+      if (!state) continue;
+      const list = map.get(slug) ?? [];
+      if (!list.includes(state)) list.push(state);
+      map.set(slug, list);
+    }
+    for (const [slug, states] of map.entries()) {
+      states.sort();
+      map.set(slug, states);
+    }
+    return map;
+  })();
+
+  const selectedMetroSlugs = asArray(searchParams.metro)
+    .map((v) => String(v || "").trim())
+    .filter(Boolean);
+  const selectedMetroStates = selectedMetroSlugs.flatMap((slug) => metroStatesBySlug.get(slug) ?? []);
+  const expandedStatesForQuery = Array.from(
+    new Set([...asArray(searchParams.state).map((s) => String(s || "").trim().toUpperCase()).filter(Boolean), ...selectedMetroStates])
+  );
+  const builderQueries = buildQueriesFromParams({ ...(searchParams as any), state: expandedStatesForQuery } as SearchParams);
+
   const { queries: customQueries, warnings } = parseCustomQueries(searchParams.custom);
   const mergedQueries = Array.from(new Set([...builderQueries, ...customQueries.map((q) => q.query)]));
 
@@ -381,6 +424,26 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Sea
                   );
                 })}
               </select>
+            </label>
+            <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+              Regions / metros
+              <select name="metro" multiple style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db", minHeight: 90 }}>
+                {metroMarkets.map((m) => {
+                  const states = metroStatesBySlug.get(m.slug) ?? [];
+                  const suffix = states.length > 1 ? ` (${states.join(", ")})` : states.length === 1 ? ` (${states[0]})` : "";
+                  return (
+                    <option key={m.slug} value={m.slug} selected={selectedMetroSlugs.includes(m.slug)}>
+                      {m.name}
+                      {suffix}
+                    </option>
+                  );
+                })}
+              </select>
+              {selectedMetroStates.length > 0 && (
+                <div style={{ marginTop: 4, fontSize: 12, color: "#475569", fontWeight: 600 }}>
+                  Expands to states: {Array.from(new Set(selectedMetroStates)).sort().join(", ")}
+                </div>
+              )}
             </label>
             <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
               Event types
