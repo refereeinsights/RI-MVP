@@ -188,8 +188,9 @@ function buildPreviewHtml(params: {
   const { generatedAtIso, baseUrl, tiles, includeTiles, includeSportTiles, totalsBySport, riSummary, lowestStates } = params;
   const dashboardUrl = `${baseUrl}/admin/outreach-dashboard`;
 
-  const canonicalTotal = Number(tiles?.canonical?.total ?? 0) || 0;
-  const canonicalNew = Number(tiles?.canonical?.new_yesterday ?? 0) || 0;
+  const dbTotal = Number((tiles as any)?.tournaments_db?.total ?? 0) || 0;
+  const publishedTotal = Number((tiles as any)?.public_directory?.total ?? tiles?.canonical?.total ?? 0) || 0;
+  const publishedNew = Number((tiles as any)?.public_directory?.new_yesterday ?? tiles?.canonical?.new_yesterday ?? 0) || 0;
   const missingVenuesTotal = Number(tiles?.missing_venues?.total ?? 0) || 0;
   const missingVenuesNew = Number(tiles?.missing_venues?.new_yesterday ?? 0) || 0;
   const owlsEyeTotal = Number(tiles?.owls_eye?.venues_reviewed_total ?? 0) || 0;
@@ -200,7 +201,11 @@ function buildPreviewHtml(params: {
   const tiInsiderNew = Number(tiles?.ti_users?.insider_new_yesterday ?? 0) || 0;
   const tiWeekendTotal = Number(tiles?.ti_users?.weekend_pro_total ?? 0) || 0;
   const tiWeekendNew = Number(tiles?.ti_users?.weekend_pro_new_yesterday ?? 0) || 0;
-  const bySport = Array.isArray(tiles?.canonical?.by_sport) ? tiles?.canonical?.by_sport ?? [] : [];
+  const bySport = Array.isArray((tiles as any)?.public_directory?.by_sport)
+    ? ((tiles as any)?.public_directory?.by_sport ?? [])
+    : Array.isArray(tiles?.canonical?.by_sport)
+    ? tiles?.canonical?.by_sport ?? []
+    : [];
 
   const SPORT_LABELS_ANY = TI_SPORT_LABELS as unknown as Record<string, string>;
   const getSportLabel = (sport: unknown) => {
@@ -291,7 +296,8 @@ function buildPreviewHtml(params: {
 
   const tilesHtml = includeTiles
     ? `<div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;">
-        ${renderTile("Canonical tournaments", formatInt(canonicalTotal), formatDelta(canonicalNew), "info")}
+        ${renderTile("Total tournaments in DB", formatInt(dbTotal), "", "info")}
+        ${renderTile("Published (public directory)", formatInt(publishedTotal), formatDelta(publishedNew), "info")}
         ${renderTile("Missing venues", formatInt(missingVenuesTotal), formatDelta(missingVenuesNew), "warn")}
         ${renderTile("Owl's Eye venues reviewed", formatInt(owlsEyeTotal), formatDelta(owlsEyeNew), "success")}
         ${renderTile("Venue Check submissions", formatInt(venueCheckTotal), formatDelta(venueCheckNew), "success")}

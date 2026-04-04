@@ -327,9 +327,7 @@ export default async function AdminPage({
   ] = await Promise.all([
     supabaseAdmin
       .from("tournaments" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("status", "published")
-      .eq("is_canonical", true),
+      .select("id", { count: "exact", head: true }),
     supabaseAdmin
       .from("tournaments" as any)
       .select("id", { count: "exact", head: true })
@@ -3630,7 +3628,7 @@ export default async function AdminPage({
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
-        <SummaryTile label="Published" value={publishedCountRes.count ?? 0} />
+        <SummaryTile label="Total Tournaments in DB" value={publishedCountRes.count ?? 0} />
         <SummaryTile label="Draft" value={draftCountRes.count ?? 0} tone="info" />
         <SummaryTileLink label="Missing venues" value={missingVenueCountRes.count ?? 0} tone="warn" href="/admin/tournaments/missing-venues" />
         <SummaryTile label="Missing URLs" value={missingUrlCountRes.count ?? 0} tone="warn" />

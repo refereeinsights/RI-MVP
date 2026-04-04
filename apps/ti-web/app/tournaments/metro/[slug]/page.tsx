@@ -370,11 +370,10 @@ export default async function MetroMarketTournamentsPage({
   // Keep directory behavior identical from here down (filters + badges + sorting).
   const tournamentsClean = (tournamentsData ?? [])
     .filter((t): t is Tournament => Boolean(t?.id && t?.name && t?.slug))
-    .filter((t) =>
-      aysoOnly
-        ? (t.tournament_association ?? "").trim().toUpperCase() === "AYSO"
-        : (t.tournament_association ?? "").trim().toUpperCase() !== "AYSO"
-    );
+    .filter((t) => {
+      if (!aysoOnly) return true; // default: include AYSO + non-AYSO
+      return (t.tournament_association ?? "").trim().toUpperCase() === "AYSO";
+    });
 
   const sportsCounts = tournamentsClean.reduce((acc: Record<string, number>, t) => {
     const key = (t.sport ?? "unknown").toLowerCase();

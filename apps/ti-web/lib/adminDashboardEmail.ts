@@ -77,7 +77,13 @@ export type LowestStatesRow = { state: string; count: number };
 
 export type AdminDashboardEmailTiles = {
   window?: { today_start_utc?: string; yesterday_start_utc?: string };
+  tournaments_db?: { total?: number };
   canonical?: {
+    total?: number;
+    new_yesterday?: number;
+    by_sport?: Array<{ sport: string; total: number; new_yesterday: number }>;
+  };
+  public_directory?: {
     total?: number;
     new_yesterday?: number;
     by_sport?: Array<{ sport: string; total: number; new_yesterday: number }>;
