@@ -10,6 +10,7 @@
 - RI Sources discovery: add admin-only seed recommendations for low-volume states (published canonical counts + top source domains + keep seed sources) surfaced on `/admin/tournaments/sources/discover`: `supabase/migrations/20260403_admin_seed_source_recommendations.sql`, `apps/referee/app/admin/tournaments/sources/discover/page.tsx`.
 - RI Sources discovery: surface underlying Atlas search errors (missing API keys, provider failures) in the UI instead of a generic 500: `apps/referee/app/api/atlas/discover-and-queue/route.ts`, `apps/referee/app/admin/tournaments/sources/discover/RunDiscovery.tsx`.
 - RI Sources discovery: avoid Brave 400-char query limit by chunking multi-state searches into multiple queries automatically (prevents 422 “too_long”): `apps/referee/app/admin/tournaments/sources/discover/page.tsx`.
+- RI Sources discovery: keep the runner’s query list in sync with regenerated queries (unless manually edited) and fail fast on Brave’s 400-char limit with an actionable 400: `apps/referee/app/admin/tournaments/sources/discover/RunDiscovery.tsx`, `apps/referee/app/api/atlas/discover-and-queue/route.ts`.
 
 ## 2026-04-02
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ResultRow = {
   url: string;
@@ -30,6 +30,7 @@ type Props = {
 
 export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions, defaultTarget }: Props) {
   const [localQueries, setLocalQueries] = useState(() => queries);
+  const lastPropQueriesRef = useRef<string[]>(queries);
   const [sport, setSport] = useState("");
   const [sourceType, setSourceType] = useState("");
   const [target, setTarget] = useState(defaultTarget === "assignor" ? "assignor" : "tournament");
@@ -40,6 +41,15 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
+
+  useEffect(() => {
+    // Keep localQueries in sync with generated queries unless the user has manually edited them.
+    const prevProp = lastPropQueriesRef.current;
+    const userEdited = localQueries.join("\n") !== prevProp.join("\n");
+    lastPropQueriesRef.current = queries;
+    if (!userEdited) setLocalQueries(queries);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queries]);
 
   const hasQueries = localQueries.length > 0;
   const queryPreview = useMemo(() => localQueries.slice(0, 6), [localQueries]);

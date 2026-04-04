@@ -137,6 +137,20 @@ export async function POST(req: Request) {
       return jsonResponse({ error: "rate_limited" }, 429);
     }
 
+    const providerName = getSearchProviderName();
+    if (providerName === "brave") {
+      const tooLong = queries.find((q) => q.length > 400);
+      if (tooLong) {
+        return jsonResponse(
+          {
+            error: "query_too_long",
+            message: `Search query must be at most 400 characters for Brave (got ${tooLong.length}). Regenerate queries with fewer states/terms.`,
+          },
+          400
+        );
+      }
+    }
+
     const deduped = new Map<string, { url: string; title?: string | null; snippet?: string | null; domain?: string | null }>();
     let totalFound = 0;
     let duplicates_dropped = 0;
@@ -245,7 +259,7 @@ export async function POST(req: Request) {
       const logPayload = {
         version: 1,
         query: queries.join(" | "),
-        provider: getSearchProviderName(),
+        provider: providerName,
         total_found: totalFound,
         inserted,
         skipped_existing,
@@ -270,7 +284,7 @@ export async function POST(req: Request) {
       total_found: totalFound,
       sample_urls,
       results: previews,
-      meta: { provider: getSearchProviderName(), fetched_at: new Date().toISOString() },
+      meta: { provider: providerName, fetched_at: new Date().toISOString() },
     });
   } catch (err: any) {
     const message = String(err?.message ?? "unknown error");
