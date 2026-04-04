@@ -1,6 +1,7 @@
 ## 2026-04-03
 
 - TI tournaments: reduce sport hub page caching from 6h → 5m so newly ingested tournaments show up quickly (`apps/ti-web/app/tournaments/{soccer,baseball,softball,basketball,lacrosse}/page.tsx`). Also make sport/state SEO pages refresh + include tournaments with only `start_date` (use `start_date >= today OR end_date >= today`) via `apps/ti-web/app/[sport]/[state]/page.tsx`.
+- TI cron: allow `x-vercel-cron: 1` production invocations for the admin dashboard email route so scheduled crons work even when `?token=` isn’t configured: `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts`.
 - RI admin enrichment: fix Apply/Delete rows not disappearing without a full page refresh by aligning client-side candidate grouping with server de-dupe signatures, fetching contact `name` for accurate de-dupe, and optimistically removing candidates + clearing the stale “(Updating row…)” suffix after mutations: `apps/referee/app/admin/tournaments/enrichment/page.tsx`, `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`.
 - RI admin enrichment: call `router.refresh()` after Apply/Delete and sync refreshed server props into client state so the queue reflects DB changes without manual reloads (covers edge cases where optimistic removal misses de-duped rows): `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`.
 - Missing venues export: include `tournament_uuid` in the CSV to support downstream “link venues without creating tournaments” workflows: `apps/referee/app/api/admin/tournaments/missing-venues/export/route.ts`.
