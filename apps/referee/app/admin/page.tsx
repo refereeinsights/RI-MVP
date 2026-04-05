@@ -114,6 +114,7 @@ type Tab =
   | "owls-eye";
 type VStatus = "pending" | "approved" | "rejected";
 type MissingTournamentFilter = "venues" | "urls" | "dates" | "director_email" | "";
+type UploadsVenuesFilter = "all" | "missing" | "has";
 type ReadyVenueItem = {
   venue_id: string;
   name: string | null;
@@ -302,6 +303,7 @@ export default async function AdminPage({
     staff_token?: string;
     staff_token_tournament_id?: string;
     uploads_sort?: string;
+    uploads_venues?: string;
   };
 }) {
   const adminUser = await requireAdmin();
@@ -404,6 +406,9 @@ export default async function AdminPage({
     uploadsSortRaw === "missing_venues_first"
       ? uploadsSortRaw
       : "updated_desc";
+  const uploadsVenuesRaw = (searchParams.uploads_venues ?? "").trim().toLowerCase();
+  const uploadsVenuesFilter: UploadsVenuesFilter =
+    uploadsVenuesRaw === "missing" || uploadsVenuesRaw === "has" ? (uploadsVenuesRaw as UploadsVenuesFilter) : "all";
   const discoverOffsetRaw = (searchParams.discover_offset ?? "").trim();
   const discoverOffset =
     discoverOffsetRaw && Number.isFinite(Number(discoverOffsetRaw)) ? Math.max(0, Number(discoverOffsetRaw)) : 0;
@@ -437,6 +442,9 @@ export default async function AdminPage({
   }
   if (tab === "tournament-uploads" && uploadsSort !== "updated_desc") {
     params.set("uploads_sort", uploadsSort);
+  }
+  if (tab === "tournament-uploads" && uploadsVenuesFilter !== "all") {
+    params.set("uploads_venues", uploadsVenuesFilter);
   }
   const adminBasePath = params.toString() ? `/admin?${params.toString()}` : "/admin";
 
@@ -549,9 +557,19 @@ export default async function AdminPage({
       });
     }
   }
-  const pendingTournaments: AdminPendingTournament[] =
+  const pendingTournamentsAll: AdminPendingTournament[] =
     tab === "tournament-uploads"
       ? await adminListPendingTournaments({ sort: uploadsSort })
+      : [];
+  const pendingTournaments: AdminPendingTournament[] =
+    tab === "tournament-uploads"
+      ? pendingTournamentsAll.filter((t) => {
+          const confirmedCount =
+            (t.tournament_venues ?? []).filter((tv) => !tv?.is_inferred && Boolean(tv?.venues?.id)).length ?? 0;
+          if (uploadsVenuesFilter === "missing") return confirmedCount === 0;
+          if (uploadsVenuesFilter === "has") return confirmedCount > 0;
+          return true;
+        })
       : [];
   const pendingUploadStats =
     tab === "tournament-uploads"
@@ -562,7 +580,7 @@ export default async function AdminPage({
           let missingAnyVenueLinks = 0;
           let approveBlockedMissingFields = 0;
 
-          for (const t of pendingTournaments) {
+          for (const t of pendingTournamentsAll) {
             const confirmedCount =
               (t.tournament_venues ?? []).filter((tv) => !tv?.is_inferred && Boolean(tv?.venues?.id)).length ?? 0;
             const inferredCount =
@@ -581,7 +599,7 @@ export default async function AdminPage({
           }
 
           return {
-            loadedDrafts: pendingTournaments.length,
+            loadedDrafts: pendingTournamentsAll.length,
             withConfirmedVenueLinks,
             withInferredVenueLinks,
             onlyInferredVenueLinks,
@@ -5567,19 +5585,59 @@ export default async function AdminPage({
 		                  {pendingUploadStats ? pendingUploadStats.loadedDrafts - pendingUploadStats.withConfirmedVenueLinks : 0}
 		                </strong>
 		              </div>
-		              <div style={{ fontSize: 13, color: "#555" }}>
-		                Approve blocked (missing venue/location): <strong>{pendingUploadStats?.approveBlockedMissingFields ?? 0}</strong>
-		              </div>
-		              <a
-		                href="/admin?tab=tournament-uploads&uploads_sort=missing_venues_first"
-		                style={{ fontSize: 13, fontWeight: 800, color: "#0f3d2e", textDecoration: "none" }}
-		              >
-		                Sort: missing venues first
-		              </a>
-		              <a
-		                href="/admin/tournaments/enrichment"
-		                style={{ fontSize: 13, fontWeight: 800, color: "#0f3d2e", textDecoration: "none" }}
-		              >
+			              <div style={{ fontSize: 13, color: "#555" }}>
+			                Approve blocked (missing venue/location): <strong>{pendingUploadStats?.approveBlockedMissingFields ?? 0}</strong>
+			              </div>
+			              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+			                <span style={{ fontSize: 13, color: "#555", fontWeight: 800 }}>Filter</span>
+			                {(() => {
+			                  const buildUploadsHref = (filter: UploadsVenuesFilter) => {
+			                    const base = new URL(adminBasePath, "http://localhost");
+			                    base.searchParams.set("tab", "tournament-uploads");
+			                    if (uploadsSort === "updated_desc") base.searchParams.delete("uploads_sort");
+			                    else base.searchParams.set("uploads_sort", uploadsSort);
+			                    if (filter === "all") base.searchParams.delete("uploads_venues");
+			                    else base.searchParams.set("uploads_venues", filter);
+			                    return `${base.pathname}?${base.searchParams.toString()}`;
+			                  };
+			                  const Chip = ({ filter, label }: { filter: UploadsVenuesFilter; label: string }) => {
+			                    const active = uploadsVenuesFilter === filter;
+			                    return (
+			                      <Link
+			                        href={buildUploadsHref(filter)}
+			                        style={{
+			                          padding: "6px 10px",
+			                          borderRadius: 999,
+			                          border: `1px solid ${active ? "#0f3d2e" : "#d1d5db"}`,
+			                          background: active ? "#e8f5ef" : "#fff",
+			                          color: "#111",
+			                          fontWeight: 800,
+			                          fontSize: 12,
+			                          textDecoration: "none",
+			                        }}
+			                      >
+			                        {label}
+			                      </Link>
+			                    );
+			                  };
+			                  return (
+			                    <>
+			                      <Chip filter="all" label="All" />
+			                      <Chip filter="missing" label="Missing venues" />
+			                      <Chip filter="has" label="Has venues" />
+			                    </>
+			                  );
+			                })()}
+			              </div>
+			              {uploadsVenuesFilter !== "all" ? (
+			                <div style={{ fontSize: 13, color: "#555" }}>
+			                  Showing: <strong>{pendingTournaments.length}</strong> / {pendingUploadStats?.loadedDrafts ?? pendingTournaments.length}
+			                </div>
+			              ) : null}
+			              <a
+			                href="/admin/tournaments/enrichment"
+			                style={{ fontSize: 13, fontWeight: 800, color: "#0f3d2e", textDecoration: "none" }}
+			              >
 		                Enrichment tool
 		              </a>
 		              <a
@@ -6026,19 +6084,28 @@ export default async function AdminPage({
               </div>
 
 	              <div style={{ overflowX: "auto" }}>
-	                {(() => {
-	                  const buildSortHref = (sort: typeof uploadsSort) => {
-	                    const base = new URL(adminBasePath, "http://localhost");
-	                    base.searchParams.set("tab", "tournament-uploads");
-	                    if (sort === "updated_desc") base.searchParams.delete("uploads_sort");
-	                    else base.searchParams.set("uploads_sort", sort);
-	                    return `${base.pathname}?${base.searchParams.toString()}`;
-	                  };
+		                {(() => {
+		                  const buildSortHref = (sort: typeof uploadsSort) => {
+		                    const base = new URL(adminBasePath, "http://localhost");
+		                    base.searchParams.set("tab", "tournament-uploads");
+		                    if (sort === "updated_desc") base.searchParams.delete("uploads_sort");
+		                    else base.searchParams.set("uploads_sort", sort);
+		                    return `${base.pathname}?${base.searchParams.toString()}`;
+		                  };
+		                  const buildFilterHref = (filter: UploadsVenuesFilter) => {
+		                    const base = new URL(adminBasePath, "http://localhost");
+		                    base.searchParams.set("tab", "tournament-uploads");
+		                    if (uploadsSort === "updated_desc") base.searchParams.delete("uploads_sort");
+		                    else base.searchParams.set("uploads_sort", uploadsSort);
+		                    if (filter === "all") base.searchParams.delete("uploads_venues");
+		                    else base.searchParams.set("uploads_venues", filter);
+		                    return `${base.pathname}?${base.searchParams.toString()}`;
+		                  };
 
-	                  const SortLink = ({
-	                    sort,
-	                    label,
-	                  }: {
+		                  const SortLink = ({
+		                    sort,
+		                    label,
+		                  }: {
 	                    sort: typeof uploadsSort;
 	                    label: string;
 	                  }) => {
@@ -6060,14 +6127,40 @@ export default async function AdminPage({
 	                        {label}
 	                      </Link>
 	                    );
-	                  };
+		                  };
+		                  const FilterLink = ({ filter, label }: { filter: UploadsVenuesFilter; label: string }) => {
+		                    const active = uploadsVenuesFilter === filter;
+		                    return (
+		                      <Link
+		                        href={buildFilterHref(filter)}
+		                        style={{
+		                          padding: "6px 10px",
+		                          borderRadius: 999,
+		                          border: `1px solid ${active ? "#0f3d2e" : "#d1d5db"}`,
+		                          background: active ? "#e8f5ef" : "#fff",
+		                          color: "#111",
+		                          fontWeight: 800,
+		                          fontSize: 12,
+		                          textDecoration: "none",
+		                        }}
+		                      >
+		                        {label}
+		                      </Link>
+		                    );
+		                  };
 
-	                  return (
-	                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-	                      <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-	                        <span style={{ fontSize: 12, color: "#555", fontWeight: 800 }}>Sort</span>
-	                        <SortLink sort="updated_desc" label="Updated" />
-	                        <SortLink sort="start_date_asc" label="Dates (soonest)" />
+		                  return (
+		                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+		                      <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+		                        <span style={{ fontSize: 12, color: "#555", fontWeight: 800 }}>Filter</span>
+		                        <FilterLink filter="all" label="All" />
+		                        <FilterLink filter="missing" label="Missing venues" />
+		                        <FilterLink filter="has" label="Has venues" />
+		                      </div>
+		                      <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+		                        <span style={{ fontSize: 12, color: "#555", fontWeight: 800 }}>Sort</span>
+		                        <SortLink sort="updated_desc" label="Updated" />
+		                        <SortLink sort="start_date_asc" label="Dates (soonest)" />
 	                        <SortLink sort="venue_name_asc" label="Venue (A–Z)" />
 	                        <SortLink sort="missing_venues_first" label="Missing venues" />
 	                      </div>
