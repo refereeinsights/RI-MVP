@@ -3047,9 +3047,28 @@ Maintenance rules:
 - 2026-04-03: Venue geocode backfill (ops).
   - Backfilled `venues.latitude/longitude` for 722 venues that had `address1/city/state` but were missing geo; 277 venues still missing geo (needs address discovery or failed geocode).
 
+- 2026-04-04: CSV import: multi-venue city/state fallback and rationalization.
+  - File: `apps/referee/lib/tournaments/importUtils.ts`.
+  - `cleanCsvRows` now accepts `venue_city`/`venue_state` as fallback column aliases for city/state — useful when a CSV carries location data on venue columns but not tournament columns.
+  - Added `rationalizeCityState` pre-pass in `importTournamentRecords`: groups rows by `name + start_date`, picks the most common city and state across the group, normalises all rows to those values and regenerates their slugs so multi-venue rows for the same tournament deduplicate as one record rather than being treated as separate tournaments.
+
 - 2026-04-04: CSV import: wire `zip` and `tournament_association` through pipeline.
   - Files: `apps/referee/lib/types/tournament.ts` (added `zip?: string | null` to `TournamentRow`), `apps/referee/lib/tournaments/importUtils.ts` (`csvRowsToTournamentRows` now maps `zip` and `tournament_association` from CSV row), `apps/referee/lib/tournaments/upsertFromSource.ts` (writes `zip` to `tournaments` table; `tournament_association` was already written).
   - Both fields are optional — existing CSVs without these columns are unaffected. `zip` flows through to venues via `ensureTournamentVenueLink`. `tournament_association` is used for AYSO filtering in public tournament queries.
+
+- 2026-04-04: CSV ingest: reduce accidental duplicates for multi-venue imports.
+  - `cleanCsvRows()` now accepts `venue_city`/`venue_state` as fallbacks for tournament `city/state` so venue-first CSVs don’t get dropped.
+  - `importTournamentRecords()` normalizes city/state across same-tournament rows (same `name + start_date`) to the most common values and regenerates slugs so multi-venue CSVs dedupe to a single tournament instead of creating near-duplicates with different venue city/state.
+  - File: `apps/referee/lib/tournaments/importUtils.ts`.
+
+- 2026-04-04: TI auth session persistence hardening (iPhone Chrome “logged out” issue).
+  - Switched Supabase SSR cookie encoding to `tokens-only` to reduce cookie size/chunking and prevent mobile browsers from dropping parts of the session cookie (which can present as random logouts when navigating between pages).
+  - Files: `apps/ti-web/lib/supabaseClient.ts`, `apps/ti-web/lib/supabaseServer.ts`, `apps/ti-web/middleware.ts`.
+
+- 2026-04-04: Fix ti-web Vercel build TypeScript errors (admin dashboard email).
+  - Added explicit typing for `public_directory.by_sport` rows (fixes `implicitly has an 'any' type` in `.find()` callbacks).
+  - Fixed `crypto.timingSafeEqual` typing by comparing `Uint8Array` values.
+  - Files: `apps/ti-web/app/admin/dashboard-email/page.tsx`, `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts`, `shared/email/unsubscribeToken.ts`.
 
 - 2026-04-03: Admin search tools: optional ZIP filters.
   - Migration: `supabase/migrations/20260403_missing_venues_zip_filter.sql` adds `p_zip` filtering to `public.list_missing_venue_link_tournaments_v2`.

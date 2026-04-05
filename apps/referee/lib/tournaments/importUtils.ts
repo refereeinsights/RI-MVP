@@ -200,8 +200,8 @@ export function cleanCsvRows(rows: CsvRow[]) {
       continue;
     }
 
-    const state = pick(row, ["state", "tournament_state"]).toUpperCase();
-    const city = pick(row, ["city", "tournament_city"]);
+    const state = pick(row, ["state", "tournament_state", "venue_state"]).toUpperCase();
+    const city = pick(row, ["city", "tournament_city", "venue_city"]);
     if (!state && !city) {
       dropped.push({ row, reason: "missing city/state" });
       continue;
@@ -395,6 +395,38 @@ function supabaseAdmin() {
   });
 }
 
+/**
+ * For multi-venue CSVs where multiple rows share the same tournament (same name + start_date)
+ * but carry different venue city/state, normalise all rows to the most common city and state
+ * within the group and regenerate their slugs so they deduplicate as one tournament.
+ */
+function rationalizeCityState(records: TournamentRow[]): TournamentRow[] {
+  const groups = new Map<string, TournamentRow[]>();
+  for (const r of records) {
+    const key = `${(r.name || "").toLowerCase().trim()}|${r.start_date || ""}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(r);
+  }
+
+  return records.map((r) => {
+    const key = `${(r.name || "").toLowerCase().trim()}|${r.start_date || ""}`;
+    const group = groups.get(key)!;
+    if (group.length === 1) return r;
+
+    const cityCount = new Map<string, number>();
+    const stateCount = new Map<string, number>();
+    for (const row of group) {
+      if (row.city) cityCount.set(row.city, (cityCount.get(row.city) || 0) + 1);
+      if (row.state) stateCount.set(row.state, (stateCount.get(row.state) || 0) + 1);
+    }
+    const bestCity = [...cityCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? r.city ?? null;
+    const bestState = [...stateCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? r.state ?? null;
+
+    if (bestCity === r.city && bestState === r.state) return r;
+    return { ...r, city: bestCity, state: bestState, slug: generateSlug(r.name, bestCity, bestState) };
+  });
+}
+
 function triKey(record: TournamentRow) {
   const name = (record.name || "").toLowerCase().trim();
   const city = (record.city || "").toLowerCase().trim();
@@ -404,6 +436,7 @@ function triKey(record: TournamentRow) {
 }
 
 export async function importTournamentRecords(records: TournamentRow[]) {
+  records = rationalizeCityState(records);
   let success = 0;
   const failures: { record: TournamentRow; error: string }[] = [];
   const tournamentIds: string[] = [];
