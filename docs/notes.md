@@ -12,6 +12,23 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-04-04
+- RI Admin: tournament location backfill + duplicate detection improvements:
+  - Backfilled `city`/`zip` on 2,294 published canonical tournaments from their linked primary venue:
+    - `scripts/ingest/backfill_tournament_city_zip_from_venue.ts`
+    - 281 city fills, 2,283 zip fills; only NULL fields touched, no overwrites.
+  - Improved admin duplicate detection to catch year-suffix and state-prefix name variants:
+    - Added `stripYearFromNormalizedName` — removes embedded 4-digit years from normalized tournament names (e.g. "Spring Showcase 2026" → "spring showcase")
+    - Added `stripStatePrefixFromNormalizedName` — strips leading full state name or two-letter abbreviation using the tournament's `state` field (e.g. "California State Cup" / "WA State Cup" → "state cup")
+    - Added `buildTournamentFuzzyNameStateSeasonFingerprint` — applies both strips then hashes as `name|state|season`
+    - `apps/referee/lib/identity/fingerprints.ts`
+  - Admin duplicate panel: added new "fuzzy name" section (year/state prefix stripped) alongside existing exact/URL/name panels:
+    - Groups already caught by exact-name panel are suppressed (deduped by ID set)
+    - Still requires close dates (≤14 days) or same city to reduce false positives
+    - "Not a duplicate" dismiss uses new `"fuzzy"` key type
+    - Name column shown explicitly so differing names are visible side by side
+    - `apps/referee/app/admin/page.tsx`
+
 ## 2026-04-02
 - TI SEO: Metro/Region markets (v1):
   - Added service-role-only reference tables + seed for initial markets:

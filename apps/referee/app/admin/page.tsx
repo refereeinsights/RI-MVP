@@ -12,6 +12,7 @@ import TournamentVenueLinker from "@/components/admin/TournamentVenueLinker";
 import TournamentPartnerNearbyEditor from "@/components/admin/TournamentPartnerNearbyEditor";
 import UploadsVenueInferencePanel from "@/components/admin/UploadsVenueInferencePanel";
 import {
+  buildTournamentFuzzyNameStateSeasonFingerprint,
   buildTournamentNameStateSeasonFingerprint,
   buildTournamentNameUrlFingerprint,
   buildTournamentUrlFingerprint,
@@ -642,6 +643,7 @@ export default async function AdminPage({
   >();
   const duplicateByUrl = new Map<string, { url: string; items: any[] }>();
   const duplicateByName = new Map<string, { key: string; name: string; state: string; season: string; items: any[] }>();
+  const duplicateByFuzzyName = new Map<string, { key: string; name: string; state: string; season: string; items: any[] }>();
   const seasonYear = (startDate: string | null | undefined, endDate: string | null | undefined) => {
     const primary = String(startDate ?? endDate ?? "").trim();
     return primary ? primary.slice(0, 4) : "unknown";
@@ -680,10 +682,12 @@ export default async function AdminPage({
   const dismissedExact = new Set<string>();
   const dismissedUrl = new Set<string>();
   const dismissedName = new Set<string>();
+  const dismissedFuzzy = new Set<string>();
   duplicateDismissals.forEach((row: any) => {
     if (row.key_type === "exact") dismissedExact.add(String(row.key_value));
     if (row.key_type === "url") dismissedUrl.add(String(row.key_value));
     if (row.key_type === "name") dismissedName.add(String(row.key_value));
+    if (row.key_type === "fuzzy") dismissedFuzzy.add(String(row.key_value));
   });
   if (duplicateCandidates.length) {
     duplicateCandidates.forEach((row: any) => {
@@ -751,6 +755,28 @@ export default async function AdminPage({
         confidence: typeof row.confidence === "number" ? row.confidence : null,
       });
       duplicateByName.set(nameKey, nameGroup);
+
+      const fuzzyKey = buildTournamentFuzzyNameStateSeasonFingerprint({
+        name: row.name ?? null,
+        state: row.state ?? null,
+        startDate: row.start_date ?? null,
+        endDate: row.end_date ?? null,
+      });
+      if (fuzzyKey) {
+        const fuzzyGroup = duplicateByFuzzyName.get(fuzzyKey) ?? { key: fuzzyKey, name, state: row.state ?? "", season, items: [] };
+        fuzzyGroup.items.push({
+          id: row.id,
+          name: row.name ?? null,
+          slug: row.slug ?? null,
+          city: row.city ?? null,
+          state: row.state ?? null,
+          start_date: row.start_date ?? null,
+          end_date: row.end_date ?? null,
+          url,
+          confidence: typeof row.confidence === "number" ? row.confidence : null,
+        });
+        duplicateByFuzzyName.set(fuzzyKey, fuzzyGroup);
+      }
     });
   }
   const suspectDuplicates = Array.from(duplicateGroups.entries())
@@ -772,6 +798,26 @@ export default async function AdminPage({
   const suspectByName = Array.from(duplicateByName.entries())
     .filter(([key, group]) => {
       if (group.items.length < 2 || dismissedName.has(key)) return false;
+      const hasCloseDates = group.items.some((item, index) =>
+        group.items.some((other, otherIndex) => {
+          if (index >= otherIndex) return false;
+          const delta = daysBetween(item.start_date ?? null, other.start_date ?? null);
+          return delta === null ? item.city && other.city && item.city === other.city : delta <= 14;
+        })
+      );
+      return hasCloseDates;
+    })
+    .map(([key, group]) => ({ ...group, key }));
+
+  // IDs already surfaced in the exact name groups — skip re-showing in fuzzy panel
+  const nameGroupIdSets = suspectByName.map((g) => new Set(g.items.map((i) => i.id)));
+  const suspectByFuzzyName = Array.from(duplicateByFuzzyName.entries())
+    .filter(([key, group]) => {
+      if (group.items.length < 2 || dismissedFuzzy.has(key) || dismissedName.has(key)) return false;
+      // Skip if already covered identically by an exact-name group
+      const thisIds = new Set(group.items.map((i) => i.id));
+      if (nameGroupIdSets.some((s) => s.size === thisIds.size && [...thisIds].every((id) => s.has(id)))) return false;
+      // Require close dates or same city to reduce false positives
       const hasCloseDates = group.items.some((item, index) =>
         group.items.some((other, otherIndex) => {
           if (index >= otherIndex) return false;
@@ -4763,6 +4809,117 @@ export default async function AdminPage({
                               <tr key={item.id}>
                                 <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
                                   {item.name ?? "—"}
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  {item.start_date ?? "—"}
+                                  {item.end_date ? ` → ${item.end_date}` : ""}
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  {item.city ?? "—"}, {item.state ?? "—"}
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  <a
+                                    href={
+                                      item.slug
+                                        ? `/admin?tab=tournament-listings&q=${encodeURIComponent(item.slug)}`
+                                        : `/admin?tab=tournament-listings&q=${encodeURIComponent(item.name ?? "")}`
+                                    }
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    Open listing ↗
+                                  </a>
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  <form action={deleteTournamentAction} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                    <input type="hidden" name="tournament_id" value={item.id} />
+                                    <input type="hidden" name="redirect_to" value={adminBasePath} />
+                                    <label style={{ fontSize: 11 }}>
+                                      <input type="checkbox" name="confirm_delete" /> confirm
+                                    </label>
+                                    <button
+                                      style={{
+                                        padding: "4px 8px",
+                                        borderRadius: 8,
+                                        border: "1px solid #c62828",
+                                        background: "#fff",
+                                        color: "#c62828",
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
+                                  </form>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </details>
+            <details style={{ marginTop: 10 }}>
+              <summary style={{ cursor: "pointer", fontWeight: 900 }}>
+                Suspect duplicates (fuzzy name — year/state prefix stripped) ({suspectByFuzzyName.length})
+              </summary>
+              <div style={{ marginTop: 12, display: "grid", gap: 16 }}>
+                {suspectByFuzzyName.length === 0 ? (
+                  <div style={{ color: "#555" }}>No fuzzy-name duplicates found.</div>
+                ) : (
+                  suspectByFuzzyName.map((group) => (
+                    <div
+                      key={group.key}
+                      style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12 }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                        <div style={{ fontWeight: 800 }}>
+                          {group.name}
+                          <span style={{ color: "#6b7280", fontWeight: 600 }}>
+                            {group.state ? ` • ${group.state}` : ""}
+                            {group.season && group.season !== "unknown" ? ` • ${group.season}` : ""}
+                          </span>
+                        </div>
+                        <form action={dismissDuplicateGroupAction}>
+                          <input type="hidden" name="redirect_to" value={adminBasePath} />
+                          <input type="hidden" name="key_type" value="fuzzy" />
+                          <input type="hidden" name="key_value" value={group.key} />
+                          <button
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: 8,
+                              border: "1px solid #111",
+                              background: "#fff",
+                              color: "#111",
+                              fontWeight: 700,
+                            }}
+                          >
+                            Not a duplicate
+                          </button>
+                        </form>
+                      </div>
+                      <div style={{ overflowX: "auto", marginTop: 8 }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ background: "#f9fafb" }}>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Name</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>URL</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Dates</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>City/State</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Listing</th>
+                              <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #eee" }}>Delete</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {group.items.map((item) => (
+                              <tr key={item.id}>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0", fontWeight: 600 }}>
+                                  {item.name ?? "—"}
+                                </td>
+                                <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
+                                  {item.url ?? "—"}
                                 </td>
                                 <td style={{ padding: 6, borderBottom: "1px solid #f0f0f0" }}>
                                   {item.start_date ?? "—"}
