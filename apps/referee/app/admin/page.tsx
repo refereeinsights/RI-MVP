@@ -787,7 +787,7 @@ export default async function AdminPage({
         !dismissedExact.has(key) &&
         !shouldSuppressHistoricalGroup(group.items)
     )
-    .map(([, group]) => group);
+    .map(([key, group]) => ({ ...group, key }));
   const suspectByUrl = Array.from(duplicateByUrl.entries())
     .filter(
       ([key, group]) =>
@@ -795,7 +795,7 @@ export default async function AdminPage({
         !dismissedUrl.has(key) &&
         !shouldSuppressHistoricalGroup(group.items)
     )
-    .map(([, group]) => group);
+    .map(([key, group]) => ({ ...group, key }));
   const suspectByName = Array.from(duplicateByName.entries())
     .filter(([key, group]) => {
       if (group.items.length < 2 || dismissedName.has(key)) return false;
@@ -4795,7 +4795,7 @@ export default async function AdminPage({
                 ) : (
                   suspectDuplicates.map((group) => (
                     <div
-                      key={`${group.name}-${group.url}`}
+                      key={group.key}
                       style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12 }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
@@ -4815,11 +4815,7 @@ export default async function AdminPage({
                           <input
                             type="hidden"
                             name="key_value"
-                            value={buildTournamentNameUrlFingerprint({
-                              name: group.name,
-                              officialWebsiteUrl: group.url,
-                              sourceUrl: group.url,
-                            })}
+                            value={group.key}
                           />
                           <button
                             style={{
@@ -4909,7 +4905,7 @@ export default async function AdminPage({
                 ) : (
                   suspectByUrl.map((group) => (
                     <div
-                      key={group.url}
+                      key={group.key}
                       style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12 }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
@@ -4917,7 +4913,7 @@ export default async function AdminPage({
                         <form action={dismissDuplicateGroupAction}>
                           <input type="hidden" name="redirect_to" value={adminBasePath} />
                           <input type="hidden" name="key_type" value="url" />
-                          <input type="hidden" name="key_value" value={buildTournamentUrlFingerprint(group.url)} />
+                          <input type="hidden" name="key_value" value={group.key} />
                           <button
                             style={{
                               padding: "4px 8px",
