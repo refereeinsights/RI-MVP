@@ -63,8 +63,9 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
     }
     const sportValue = sport === "__ANY__" ? "" : sport;
     const sourceTypeValue = sourceType === "__ANY__" ? "" : sourceType;
-    if ((!sportValue && target === "assignor") || (target === "tournament" && !sourceTypeValue)) {
-      setError(target === "tournament" ? "Source type is required (or choose Any source type)." : "Sport is required.");
+    // Tournament discovery supports an "Any source type" mode (source_type omitted).
+    if (target === "assignor" && !sportValue) {
+      setError("Sport is required.");
       return;
     }
     setRunning(true);
@@ -162,8 +163,8 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
     setError(null);
     const sportValue = sport === "__ANY__" ? "" : sport;
     const sourceTypeValue = sourceType === "__ANY__" ? "" : sourceType;
-    if ((!sportValue && nextTarget === "assignor") || (nextTarget === "tournament" && !sourceTypeValue)) {
-      setError(nextTarget === "tournament" ? "Source type is required (or choose Any source type)." : "Sport is required.");
+    if (nextTarget === "assignor" && !sportValue) {
+      setError("Sport is required.");
       return;
     }
     try {
