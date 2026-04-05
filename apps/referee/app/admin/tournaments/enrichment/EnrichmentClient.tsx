@@ -251,6 +251,9 @@ export default function EnrichmentClient({
   const [feesSummaryState, setFeesSummaryState] = React.useState<FeesVenueSummary[]>(feesVenueSummary);
   const [usssaStatus, setUsssaStatus] = React.useState<string>("");
   const [usssaSummaryState, setUsssaSummaryState] = React.useState<FeesVenueSummary[]>([]);
+  const [extractSourceUrlsStatus, setExtractSourceUrlsStatus] = React.useState<string>("");
+  const [extractSourceUrlsLimit, setExtractSourceUrlsLimit] = React.useState<number>(50);
+  const [extractSourceUrlsRunning, setExtractSourceUrlsRunning] = React.useState<boolean>(false);
   const [feesBatchTotal, setFeesBatchTotal] = React.useState<number>(300);
   const [feesBatchChunk, setFeesBatchChunk] = React.useState<number>(50);
   const [feesBatchRunning, setFeesBatchRunning] = React.useState<boolean>(false);
@@ -605,6 +608,31 @@ export default function EnrichmentClient({
       setUsssaStatus(`Error: ${err?.message || err}`);
     }
   }, []);
+
+  const runExtractSourceUrls = React.useCallback(async () => {
+    setExtractSourceUrlsRunning(true);
+    setExtractSourceUrlsStatus("Running…");
+    try {
+      const resp = await fetch(
+        `/api/admin/tournaments/enrichment/extract-source-urls?limit=${encodeURIComponent(String(extractSourceUrlsLimit))}`,
+        { method: "POST" }
+      );
+      const json = await resp.json();
+      if (!resp.ok) {
+        setExtractSourceUrlsStatus(`Failed: ${json?.error || resp.status}`);
+        return;
+      }
+      setExtractSourceUrlsStatus(
+        `Done: ${json.attempted} attempted, ${json.fetched} fetched, ${json.blocked} blocked/404, ` +
+          `${json.no_links} no useful links, ${json.inserted} suggestions inserted`
+      );
+      if (json.inserted > 0) setTimeout(() => refreshPage(), 400);
+    } catch (err: any) {
+      setExtractSourceUrlsStatus(`Error: ${err?.message || err}`);
+    } finally {
+      setExtractSourceUrlsRunning(false);
+    }
+  }, [extractSourceUrlsLimit]);
 
   React.useEffect(() => {
     setSelectedItems((prev) => {
@@ -1307,6 +1335,23 @@ export default function EnrichmentClient({
           >
             Run all USSSA
           </button>
+          <button
+            onClick={runExtractSourceUrls}
+            disabled={extractSourceUrlsRunning}
+            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #0f3d2e", background: "#fff", color: "#0f3d2e", opacity: extractSourceUrlsRunning ? 0.6 : 1 }}
+            title="For tournaments with no official URL: fetches their source page and looks for an outbound link to the actual tournament website. Adds matches as pending URL suggestions."
+          >
+            {extractSourceUrlsRunning ? "Running…" : "Extract URLs from source pages"}
+          </button>
+          <input
+            type="number"
+            min={1}
+            max={200}
+            value={extractSourceUrlsLimit}
+            onChange={(e) => setExtractSourceUrlsLimit(Math.max(1, Math.min(200, Math.trunc(Number(e.target.value) || 50))))}
+            style={{ width: 70, padding: "6px 8px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 12 }}
+            title="Max tournaments to process per run"
+          />
           <input
             type="number"
             min={1}
@@ -1353,6 +1398,7 @@ export default function EnrichmentClient({
           {feesStatus ? <span style={{ color: "#4b5563", fontSize: 12 }}>{feesStatus}</span> : null}
           {feesVenueReasonSummary ? <span style={{ color: "#4b5563", fontSize: 12 }}>{feesVenueReasonSummary}</span> : null}
           {usssaStatus ? <span style={{ color: "#4b5563", fontSize: 12 }}>{usssaStatus}</span> : null}
+          {extractSourceUrlsStatus ? <span style={{ color: "#4b5563", fontSize: 12 }}>{extractSourceUrlsStatus}</span> : null}
         </div>
         {feesSummaryState?.length ? (
           <div style={{ fontSize: 12, color: "#111827" }}>

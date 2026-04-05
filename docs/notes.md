@@ -13,6 +13,19 @@ Maintenance rules:
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
 ## 2026-04-05
+- RI Admin: extract official URLs from aggregator/source pages for enrichment
+  - Context: 284 published canonical tournaments have source_url but no official_website_url; enrichment scraper was hitting aggregator pages and finding no contact emails
+  - New endpoint: `POST /api/admin/tournaments/enrichment/extract-source-urls?limit=N`
+    - Fetches each source page, parses outbound external links via cheerio
+    - Scores by anchor text: keyword match ("official website", "tournament website", "register") = 1.0, non-empty anchor = 0.5
+    - Skips CDN/social/analytics/known-aggregator hosts; requires score ≥ 0.5
+    - Inserts best candidate as `tournament_url_suggestions` (status: pending) — same review/approve flow as US Club Soccer endpoint
+  - Button "Extract URLs from source pages" + limit input added to enrichment page next to USSSA scrape buttons
+  - Location: `/admin/tournaments/enrichment` → fees/venue section
+  - Workflow: run → approve suggestions → re-run enrichment scraper to find contact emails
+  - Expected hit rate: ~20-40% (many aggregators block scraping; keyword anchor matches most reliable)
+  - Files: `apps/referee/app/api/admin/tournaments/enrichment/extract-source-urls/route.ts`, `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`
+
 - RI Admin: batch venue-linking for draft uploads (`apps/referee/app/admin/page.tsx`)
   - Added "Link venues for drafts (batch)" action in the tournament-uploads tab
   - Location: `/admin?tab=tournament-uploads` → scroll to batch tools section, below "Delete suspected venue candidates (1529 3rd St)" button
