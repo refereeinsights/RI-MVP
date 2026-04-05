@@ -210,6 +210,7 @@ export default function EnrichmentClient({
   const router = useRouter();
   const mountedRef = React.useRef(true);
   const applyCleanupTimersRef = React.useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const [atlasEmailLoading, setAtlasEmailLoading] = React.useState<Record<string, boolean>>({});
 
   React.useEffect(() => {
     return () => {
@@ -1001,6 +1002,50 @@ export default function EnrichmentClient({
     setTimeout(() => router.refresh(), 150);
   };
 
+  const runAtlasEmailDiscovery = React.useCallback(
+    async (tournamentId: string) => {
+      setAtlasEmailLoading((prev) => ({ ...prev, [tournamentId]: true }));
+      setApplyStatus((prev) => ({ ...prev, [tournamentId]: "Atlas: finding director email..." }));
+      try {
+        const res = await fetch("/api/admin/tournaments/atlas-email-discovery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tournament_id: tournamentId, apply: true }),
+        });
+        const raw = await res.text();
+        let json: any = null;
+        try {
+          json = raw ? JSON.parse(raw) : null;
+        } catch {
+          json = null;
+        }
+        if (!res.ok || json?.ok !== true) {
+          setApplyStatus((prev) => ({
+            ...prev,
+            [tournamentId]: `Atlas: failed to find director email (${json?.error || res.statusText}).`,
+          }));
+          return;
+        }
+        const row = Array.isArray(json?.results) ? json.results[0] : null;
+        const topEmail = row?.top_email ?? null;
+        const updated = Boolean(row?.updated);
+        setApplyStatus((prev) => ({
+          ...prev,
+          [tournamentId]: topEmail
+            ? updated
+              ? `Atlas: set director email to ${topEmail}. (Updating row...)`
+              : `Atlas: found ${topEmail} (no update—already had a director email).`
+            : "Atlas: no email found.",
+        }));
+        // Refresh so server-side filters remove TD candidates once the email is set.
+        setTimeout(() => router.refresh(), 150);
+      } finally {
+        setAtlasEmailLoading((prev) => ({ ...prev, [tournamentId]: false }));
+      }
+    },
+    [router]
+  );
+
   const deleteReviewItems = async (tournamentId: string) => {
     const items = reviewGroups.get(tournamentId) ?? [];
     const selected = selectedItems[tournamentId] ?? new Set<string>();
@@ -1783,6 +1828,22 @@ export default function EnrichmentClient({
                       style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #111", background: "#fff", color: "#111", fontSize: 12 }}
                     >
                       {allSelected ? "Clear all" : "Select all"}
+                    </button>
+                    <button
+                      onClick={() => runAtlasEmailDiscovery(tournamentId)}
+                      disabled={atlasEmailLoading[tournamentId]}
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #111",
+                        background: "#fff",
+                        color: "#111",
+                        fontSize: 12,
+                        opacity: atlasEmailLoading[tournamentId] ? 0.6 : 1,
+                      }}
+                      title="Uses Atlas + scrape to find a director email and save it to the tournament (when missing)."
+                    >
+                      {atlasEmailLoading[tournamentId] ? "Atlas..." : "Atlas email"}
                     </button>
                     <Link
                       href={`/admin?tab=tournament-listings&q=${encodeURIComponent(tournamentId)}#tournament-listings`}
