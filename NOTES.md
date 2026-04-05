@@ -2,6 +2,7 @@
 
 - RI admin: clarify tournament metrics on the main dashboard by splitting the old “Published” count into three tiles: Total Tournaments in DB (all statuses), Published (Canonical), and Public Directory (Upcoming): `apps/referee/app/admin/page.tsx`.
 - RI enrichment: add per-tournament “Atlas email” action to discover + save missing director emails directly from the enrichment queue (refreshes the row so TD candidates disappear once filled): `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`, `apps/referee/app/api/admin/tournaments/atlas-email-discovery/route.ts`, `apps/referee/src/server/atlas/tournamentEmails.ts`.
+- Atlas search: add lightweight debug logging for Brave/Bing/SerpAPI search calls (status, latency, query summary) to help verify provider usage: `apps/referee/src/server/atlas/search.ts`.
 - Ops ingest: avoid merging distinct tournaments that share a generic listing URL by using `slug` (not `tournament_url`) for `source_event_id` when the URL is generic (e.g. `/tournaments`, homepage): `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs`.
 - Ops repair: add one-off script to split/repair the Spokane ingest where generic `source_event_id` collisions merged multiple events into one tournament: `scripts/ops/repair_spokane_ingest_20260404.mjs`.
 

@@ -9,6 +9,16 @@ type Provider = "serpapi" | "bing" | "brave";
 const BRAVE_MIN_INTERVAL_MS = 1000;
 let braveLastRequestAt = 0;
 
+function shouldDebugAtlas() {
+  return process.env.ATLAS_SEARCH_DEBUG === "true" || process.env.NODE_ENV === "development";
+}
+
+function summarizeQuery(q: string) {
+  const cleaned = q.replace(/\s+/g, " ").trim();
+  if (cleaned.length <= 140) return cleaned;
+  return `${cleaned.slice(0, 140)}…`;
+}
+
 async function throttleBrave() {
   const now = Date.now();
   const waitMs = Math.max(0, BRAVE_MIN_INTERVAL_MS - (now - braveLastRequestAt));
@@ -63,6 +73,8 @@ function domainFromUrl(url: string) {
 export async function atlasSearch(query: string, limit: number): Promise<AtlasSearchResult[]> {
   const provider = getProvider();
   const count = clampLimit(limit);
+  const debug = shouldDebugAtlas();
+  const startedAt = Date.now();
 
   if (provider === "bing") {
     const key = process.env.BING_SEARCH_KEY;
@@ -75,6 +87,14 @@ export async function atlasSearch(query: string, limit: number): Promise<AtlasSe
     const resp = await fetch(url.toString(), {
       headers: { "Ocp-Apim-Subscription-Key": key },
     });
+    if (debug) {
+      console.info("[atlas][bing]", {
+        status: resp.status,
+        ms: Date.now() - startedAt,
+        q: summarizeQuery(query),
+        count,
+      });
+    }
     if (!resp.ok) {
       const text = await resp.text();
       throw new Error(`Bing search failed: ${resp.status} ${text}`);
@@ -99,6 +119,14 @@ export async function atlasSearch(query: string, limit: number): Promise<AtlasSe
       Accept: "application/json",
       "X-Subscription-Token": key,
     });
+    if (debug) {
+      console.info("[atlas][brave]", {
+        status: resp.status,
+        ms: Date.now() - startedAt,
+        q: summarizeQuery(query),
+        count,
+      });
+    }
     if (!resp.ok) {
       const text = await resp.text();
       throw new Error(`Brave search failed: ${resp.status} ${text}`);
@@ -121,6 +149,14 @@ export async function atlasSearch(query: string, limit: number): Promise<AtlasSe
   url.searchParams.set("num", String(count));
   url.searchParams.set("api_key", key);
   const resp = await fetch(url.toString());
+  if (debug) {
+    console.info("[atlas][serpapi]", {
+      status: resp.status,
+      ms: Date.now() - startedAt,
+      q: summarizeQuery(query),
+      count,
+    });
+  }
   if (!resp.ok) {
     const text = await resp.text();
     throw new Error(`SerpAPI search failed: ${resp.status} ${text}`);
