@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import AdminNav from "@/components/admin/AdminNav";
-import { runBatchForm, approveWithSportForm, clearTournamentUrlForm } from "./actions";
+import { runBatchForm, approveWithSportForm, clearTournamentUrlForm, bulkApproveByCurrentSportForm } from "./actions";
 import { getSportValidationCounts } from "@/lib/validation/getSportValidationCounts";
 
 export const runtime = "nodejs";
@@ -120,6 +120,24 @@ export default async function ValidationQueue() {
           <a className="cta secondary" href="/admin/tournaments/validation/rules">
             Manage rules
           </a>
+          <form action={bulkApproveByCurrentSportForm} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#444" }}>
+              Approve all where current sport =
+              <select
+                name="sport"
+                required
+                style={{ padding: 6, borderRadius: 8, border: "1px solid #ccc", fontSize: 12, marginLeft: 6 }}
+              >
+                <option value="">Pick sport</option>
+                {["soccer","basketball","baseball","softball","lacrosse","hockey","volleyball","football","futsal"].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+            <button type="submit" className="cta secondary" style={{ padding: "8px 12px" }}>
+              Bulk approve
+            </button>
+          </form>
           <form action={runBatchForm} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
             <label style={{ fontSize: 12, fontWeight: 700, color: "#444" }}>
               Limit

@@ -217,6 +217,22 @@ export async function clearTournamentUrlForm(formData: FormData): Promise<void> 
   revalidatePath("/admin/tournaments/validation");
 }
 
+export async function bulkApproveByCurrentSportForm(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const sport = String(formData.get("sport") ?? "").trim().toLowerCase();
+  if (!sport) return;
+
+  const { data: rows } = await supabaseAdmin
+    .from("tournament_sport_validation" as any)
+    .select("id")
+    .eq("current_sport", sport)
+    .not("validation_status", "in", "(confirmed,rule_confirmed)");
+
+  const ids = ((rows as any[]) ?? []).map((r: any) => String(r.id));
+  if (ids.length) await bulkUpdate(ids, true);
+  revalidatePath("/admin/tournaments/validation");
+}
+
 export async function approveWithSportForm(formData: FormData): Promise<void> {
   await requireAdmin();
   const tournamentId = String(formData.get("tournament_id") ?? "");

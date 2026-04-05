@@ -13,6 +13,12 @@ Maintenance rules:
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
 ## 2026-04-04
+- RI Admin: tournament sport validation improvements:
+  - Bulk-approved 97 baseball `needs_review` validation rows directly via API
+  - Added "Bulk approve where current sport =" control to the validation page — pick any sport and approve all unconfirmed rows for it in one click (with overwrite):
+    - `apps/referee/app/admin/tournaments/validation/page.tsx`
+    - `apps/referee/app/admin/tournaments/validation/actions.ts`
+
 - RI Admin: tournament location backfill + duplicate detection improvements:
   - Backfilled `city`/`zip` on 2,294 published canonical tournaments from their linked primary venue:
     - `scripts/ingest/backfill_tournament_city_zip_from_venue.ts`
