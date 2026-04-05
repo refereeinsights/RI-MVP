@@ -324,7 +324,12 @@ function buildPreviewHtml(params: {
           })
             .sort((a, b) => b.total - a.total || a.sport.localeCompare(b.sport))
             .map((row) =>
-              renderTile(getSportLabel(row.sport), formatInt(row.total), formatDelta(row.new_yesterday), "neutral")
+              renderTile(
+                getSportLabel(row.sport),
+                formatInt(row.total),
+                row.new_yesterday === 0 ? "0" : formatDelta(row.new_yesterday),
+                "neutral"
+              )
             )
             .join("")}
         </div>`

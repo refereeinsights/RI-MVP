@@ -207,7 +207,12 @@ function buildEmailHtml(params: {
           return `<div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
             ${rows
               .map((row) =>
-                renderTile(getSportLabel(row.sport), formatInt(row.total), formatDelta(row.new_yesterday), "neutral")
+                renderTile(
+                  getSportLabel(row.sport),
+                  formatInt(row.total),
+                  row.new_yesterday === 0 ? "0" : formatDelta(row.new_yesterday),
+                  "neutral"
+                )
               )
               .join("")}
           </div>`;
