@@ -2080,9 +2080,13 @@ export default async function AdminPage({
     if (!keyType || !keyValue) {
       return redirectWithNotice(redirectTo, "Missing duplicate key.");
     }
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from("tournament_duplicate_dismissals" as any)
       .upsert({ key_type: keyType, key_value: keyValue }, { onConflict: "key_type,key_value" });
+    if (error) {
+      return redirectWithNotice(redirectTo, `Unable to mark not duplicate: ${error.message}`);
+    }
+    revalidatePath("/admin");
     return redirectWithNotice(redirectTo, "Marked as not duplicate.");
   }
 
