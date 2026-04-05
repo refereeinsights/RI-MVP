@@ -1,5 +1,6 @@
 ## 2026-04-04
 
+- RI admin: clarify tournament metrics on the main dashboard by splitting the old “Published” count into three tiles: Total Tournaments in DB (all statuses), Published (Canonical), and Public Directory (Upcoming): `apps/referee/app/admin/page.tsx`.
 - Ops ingest: avoid merging distinct tournaments that share a generic listing URL by using `slug` (not `tournament_url`) for `source_event_id` when the URL is generic (e.g. `/tournaments`, homepage): `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs`.
 - Ops repair: add one-off script to split/repair the Spokane ingest where generic `source_event_id` collisions merged multiple events into one tournament: `scripts/ops/repair_spokane_ingest_20260404.mjs`.
 
