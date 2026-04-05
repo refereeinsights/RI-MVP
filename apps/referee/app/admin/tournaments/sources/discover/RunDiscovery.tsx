@@ -31,7 +31,7 @@ type Props = {
 export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions, defaultTarget }: Props) {
   const [localQueries, setLocalQueries] = useState(() => queries);
   const lastPropQueriesRef = useRef<string[]>(queries);
-  const [sport, setSport] = useState("");
+  const [sport, setSport] = useState("__ANY__");
   const [sourceType, setSourceType] = useState("");
   const [target, setTarget] = useState(defaultTarget === "assignor" ? "assignor" : "tournament");
   const [state, setState] = useState("");
@@ -61,8 +61,9 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
       setError("Generate queries first.");
       return;
     }
-    if (!sport || (!sourceType && target === "tournament")) {
-      setError(target === "tournament" ? "Sport and source type are required." : "Sport is required.");
+    const sportValue = sport === "__ANY__" ? "" : sport;
+    if ((!sportValue && target === "assignor") || (!sourceType && target === "tournament")) {
+      setError(target === "tournament" ? "Source type is required." : "Sport is required.");
       return;
     }
     setRunning(true);
@@ -73,7 +74,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
         body: JSON.stringify({
           queries: localQueries,
           target,
-          sport,
+          sport: sportValue || undefined,
           source_type: target === "tournament" ? sourceType : undefined,
           state: state.trim() || undefined,
           result_limit_per_query: perQueryLimit,
@@ -158,8 +159,9 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
 
   async function queueResult(row: ResultRow, nextTarget: "tournament" | "assignor") {
     setError(null);
-    if (!sport || (!sourceType && nextTarget === "tournament")) {
-      setError(nextTarget === "tournament" ? "Sport and source type are required." : "Sport is required.");
+    const sportValue = sport === "__ANY__" ? "" : sport;
+    if ((!sportValue && nextTarget === "assignor") || (!sourceType && nextTarget === "tournament")) {
+      setError(nextTarget === "tournament" ? "Source type is required." : "Sport is required.");
       return;
     }
     try {
@@ -169,7 +171,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
         body: JSON.stringify({
           url: row.url,
           target: nextTarget,
-          sport,
+          sport: sportValue || undefined,
           source_type: nextTarget === "tournament" ? sourceType : undefined,
           state: state.trim() || undefined,
           title: row.title ?? undefined,
@@ -231,7 +233,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
             onChange={(e) => setSport(e.target.value)}
             style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}
           >
-            <option value="">Select sport</option>
+            <option value="__ANY__">Any sport (recommended for multi-sport)</option>
             {sportOptions.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}

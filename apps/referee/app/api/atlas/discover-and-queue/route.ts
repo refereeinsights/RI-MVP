@@ -121,8 +121,8 @@ export async function POST(req: Request) {
     const target = typeof body?.target === "string" ? body.target.trim() : "tournament";
     const state = typeof body?.state === "string" ? body.state.trim() : "";
     const crawlRunId = typeof body?.crawl_run_id === "string" ? body.crawl_run_id.trim() : "";
-    if (!sport || (target === "tournament" && !source_type)) {
-      return jsonResponse({ error: "sport_and_source_type_required" }, 400);
+    if ((target === "assignor" && !sport) || (target === "tournament" && !source_type)) {
+      return jsonResponse({ error: target === "assignor" ? "sport_required" : "source_type_required" }, 400);
     }
 
     let perQueryLimit = Number(body?.result_limit_per_query ?? 10);
@@ -181,8 +181,7 @@ export async function POST(req: Request) {
     let skipped_existing = 0;
     let skipped_terminal = 0;
     const previews: ResultPreview[] = [];
-    const assignorSourceId =
-      target === "assignor" ? await ensureAssignorSourceId(sport || null, state || null) : null;
+    const assignorSourceId = target === "assignor" ? await ensureAssignorSourceId(sport || null, state || null) : null;
 
     for (const item of deduped.values()) {
       const normalized = normalizeSourceUrl(item.url).canonical;
@@ -203,7 +202,7 @@ export async function POST(req: Request) {
           name: item.title ?? item.domain ?? normalized,
           website_url: normalized,
           source_url: normalized,
-          sport,
+          sport: sport || null,
           state,
           search_title: item.title ?? null,
           search_snippet: item.snippet ?? null,
@@ -242,7 +241,7 @@ export async function POST(req: Request) {
       await upsertRegistry({
         source_url: normalized,
         source_type,
-        sport,
+        sport: sport || null,
         state: state || null,
         review_status: "needs_review",
         review_notes: "discovered via atlas",
