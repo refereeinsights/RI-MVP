@@ -2224,11 +2224,31 @@ export default async function AdminPage({
         csvOriginalRowCount = rows.length;
         const { kept, dropped } = cleanCsvRows(rows);
         if (dropped.length) {
+          const bucketReason = (reason: string) => {
+            const r = String(reason || "").trim();
+            if (!r) return "unknown";
+            if (r.startsWith("unsupported sport")) return "unsupported sport";
+            return r;
+          };
+          const reasonCounts = new Map<string, number>();
+          for (const entry of dropped) {
+            const bucket = bucketReason(entry.reason);
+            reasonCounts.set(bucket, (reasonCounts.get(bucket) || 0) + 1);
+          }
+          const topReasons = [...reasonCounts.entries()]
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .slice(0, 4)
+            .map(([reason, count]) => `${reason}: ${count}`)
+            .join("; ");
+
           csvDropReasons = dropped.slice(0, 3).map((entry) => {
             const name = entry.row?.name || entry.row?.slug || "row";
             return `${name}: ${entry.reason}`;
           });
-          dropSummary = `${dropped.length} row(s) skipped by cleaner`;
+          dropSummary = `${dropped.length} row(s) skipped by cleaner${topReasons ? ` (top: ${topReasons})` : ""}`;
+          if (dropSummary.length > 260) {
+            dropSummary = `${dropSummary.slice(0, 257)}...`;
+          }
         }
         if (!kept.length) {
           const message =
