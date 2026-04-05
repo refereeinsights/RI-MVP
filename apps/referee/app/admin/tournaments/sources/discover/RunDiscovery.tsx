@@ -32,7 +32,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
   const [localQueries, setLocalQueries] = useState(() => queries);
   const lastPropQueriesRef = useRef<string[]>(queries);
   const [sport, setSport] = useState("__ANY__");
-  const [sourceType, setSourceType] = useState("");
+  const [sourceType, setSourceType] = useState("__ANY__");
   const [target, setTarget] = useState(defaultTarget === "assignor" ? "assignor" : "tournament");
   const [state, setState] = useState("");
   const [perQueryLimit, setPerQueryLimit] = useState(10);
@@ -62,8 +62,9 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
       return;
     }
     const sportValue = sport === "__ANY__" ? "" : sport;
-    if ((!sportValue && target === "assignor") || (!sourceType && target === "tournament")) {
-      setError(target === "tournament" ? "Source type is required." : "Sport is required.");
+    const sourceTypeValue = sourceType === "__ANY__" ? "" : sourceType;
+    if ((!sportValue && target === "assignor") || (target === "tournament" && !sourceTypeValue)) {
+      setError(target === "tournament" ? "Source type is required (or choose Any source type)." : "Sport is required.");
       return;
     }
     setRunning(true);
@@ -75,7 +76,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
           queries: localQueries,
           target,
           sport: sportValue || undefined,
-          source_type: target === "tournament" ? sourceType : undefined,
+          source_type: target === "tournament" ? (sourceTypeValue || undefined) : undefined,
           state: state.trim() || undefined,
           result_limit_per_query: perQueryLimit,
           max_total_urls: maxTotal,
@@ -160,8 +161,9 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
   async function queueResult(row: ResultRow, nextTarget: "tournament" | "assignor") {
     setError(null);
     const sportValue = sport === "__ANY__" ? "" : sport;
-    if ((!sportValue && nextTarget === "assignor") || (!sourceType && nextTarget === "tournament")) {
-      setError(nextTarget === "tournament" ? "Source type is required." : "Sport is required.");
+    const sourceTypeValue = sourceType === "__ANY__" ? "" : sourceType;
+    if ((!sportValue && nextTarget === "assignor") || (nextTarget === "tournament" && !sourceTypeValue)) {
+      setError(nextTarget === "tournament" ? "Source type is required (or choose Any source type)." : "Sport is required.");
       return;
     }
     try {
@@ -172,7 +174,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
           url: row.url,
           target: nextTarget,
           sport: sportValue || undefined,
-          source_type: nextTarget === "tournament" ? sourceType : undefined,
+          source_type: nextTarget === "tournament" ? (sourceTypeValue || undefined) : undefined,
           state: state.trim() || undefined,
           title: row.title ?? undefined,
           snippet: row.snippet ?? undefined,
@@ -249,7 +251,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
               onChange={(e) => setSourceType(e.target.value)}
               style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}
             >
-              <option value="">Select type</option>
+              <option value="__ANY__">Any source type (recommended)</option>
               {sourceTypeOptions.map((opt) => (
                 <option key={opt} value={opt}>
                   {opt}

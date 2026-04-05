@@ -121,8 +121,8 @@ export async function POST(req: Request) {
     const target = typeof body?.target === "string" ? body.target.trim() : "tournament";
     const state = typeof body?.state === "string" ? body.state.trim() : "";
     const crawlRunId = typeof body?.crawl_run_id === "string" ? body.crawl_run_id.trim() : "";
-    if ((target === "assignor" && !sport) || (target === "tournament" && !source_type)) {
-      return jsonResponse({ error: target === "assignor" ? "sport_required" : "source_type_required" }, 400);
+    if (target === "assignor" && !sport) {
+      return jsonResponse({ error: "sport_required" }, 400);
     }
 
     let perQueryLimit = Number(body?.result_limit_per_query ?? 10);
@@ -240,7 +240,7 @@ export async function POST(req: Request) {
       }
       await upsertRegistry({
         source_url: normalized,
-        source_type,
+        source_type: source_type || null,
         sport: sport || null,
         state: state || null,
         review_status: "needs_review",
