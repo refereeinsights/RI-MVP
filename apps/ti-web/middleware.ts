@@ -14,12 +14,19 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
+        encode: "tokens-only",
         getAll() {
           return req.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          const secure = req.nextUrl.protocol === "https:";
           cookiesToSet.forEach(({ name, value, options }) => {
-            res.cookies.set(name, value, { ...options, path: "/" });
+            res.cookies.set(name, value, {
+              ...options,
+              path: "/",
+              secure,
+              sameSite: options?.sameSite ?? "lax",
+            });
           });
         },
       },

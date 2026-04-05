@@ -3047,9 +3047,9 @@ Maintenance rules:
 - 2026-04-03: Venue geocode backfill (ops).
   - Backfilled `venues.latitude/longitude` for 722 venues that had `address1/city/state` but were missing geo; 277 venues still missing geo (needs address discovery or failed geocode).
 
-- 2026-04-04: CSV import: wire `zip` through to venues.
-  - Files: `apps/referee/lib/types/tournament.ts` (added `zip?: string | null` to `TournamentRow`), `apps/referee/lib/tournaments/importUtils.ts` (`csvRowsToTournamentRows` now maps `zip` from CSV row), `apps/referee/lib/tournaments/upsertFromSource.ts` (writes `zip` to `tournaments` table).
-  - `zip` was already a column on both `tournaments` and `venues` tables, and `ensureTournamentVenueLink` already reads `zip` off the tournament record when creating venue rows — it just never had a value because the CSV pipeline dropped it. Now a `zip` column in an uploaded CSV flows end-to-end to the venue.
+- 2026-04-04: CSV import: wire `zip` and `tournament_association` through pipeline.
+  - Files: `apps/referee/lib/types/tournament.ts` (added `zip?: string | null` to `TournamentRow`), `apps/referee/lib/tournaments/importUtils.ts` (`csvRowsToTournamentRows` now maps `zip` and `tournament_association` from CSV row), `apps/referee/lib/tournaments/upsertFromSource.ts` (writes `zip` to `tournaments` table; `tournament_association` was already written).
+  - Both fields are optional — existing CSVs without these columns are unaffected. `zip` flows through to venues via `ensureTournamentVenueLink`. `tournament_association` is used for AYSO filtering in public tournament queries.
 
 - 2026-04-03: Admin search tools: optional ZIP filters.
   - Migration: `supabase/migrations/20260403_missing_venues_zip_filter.sql` adds `p_zip` filtering to `public.list_missing_venue_link_tournaments_v2`.

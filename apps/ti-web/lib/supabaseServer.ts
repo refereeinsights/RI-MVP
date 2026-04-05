@@ -10,6 +10,8 @@ export function createSupabaseServerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
+        // Match browser/middleware encoding to avoid cookie bloat and chunk drops.
+        encode: "tokens-only",
         getAll() {
           return cookieStore.getAll();
         },

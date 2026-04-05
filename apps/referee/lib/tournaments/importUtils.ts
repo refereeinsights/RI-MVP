@@ -275,6 +275,7 @@ export function csvRowsToTournamentRows(
       ref_cash_tournament: cashFlag === "true" || cashFlag === "1" || cashFlag === "yes",
       state: row.state || null,
       city: row.city || null,
+      tournament_association: normalize(row.tournament_association) || null,
       venue,
       address,
       zip: normalize(row.zip) || null,
