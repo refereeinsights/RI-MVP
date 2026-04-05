@@ -830,6 +830,7 @@ async function main() {
       const allowCreate = !NO_CREATE_TOURNAMENTS && Boolean(start_date);
       const slug = allowCreate ? buildSlug(tournament_name, state, start_date) : null;
       const officialUrl = tournament_url && !isGenericTournamentListingUrl(tournament_url) ? tournament_url : null;
+      const sourceEventId = officialUrl ? officialUrl : slug;
 
       const tournamentUpdatePatch = { updated_at: new Date().toISOString() };
       tournamentUpdatePatch.name = tournament_name;
@@ -849,7 +850,7 @@ async function main() {
         ...tournamentUpdatePatch,
         status,
         is_canonical: isCanonical,
-        source_event_id: tournament_url ?? slug,
+        source_event_id: sourceEventId,
       };
       if (!tournamentCreatePatch.official_website_url) tournamentCreatePatch.official_website_url = officialUrl;
 
@@ -859,7 +860,7 @@ async function main() {
         state,
         start_date,
         official_website_url: officialUrl,
-        source_event_id: tournament_url ?? slug,
+        source_event_id: sourceEventId,
         allowCreate,
         patch: tournamentCreatePatch,
         createPatch: tournamentCreatePatch,

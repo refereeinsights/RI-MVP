@@ -1,3 +1,8 @@
+## 2026-04-04
+
+- Ops ingest: avoid merging distinct tournaments that share a generic listing URL by using `slug` (not `tournament_url`) for `source_event_id` when the URL is generic (e.g. `/tournaments`, homepage): `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs`.
+- Ops repair: add one-off script to split/repair the Spokane ingest where generic `source_event_id` collisions merged multiple events into one tournament: `scripts/ops/repair_spokane_ingest_20260404.mjs`.
+
 ## 2026-04-03
 
 - TI tournaments: reduce sport hub page caching from 6h → 5m so newly ingested tournaments show up quickly (`apps/ti-web/app/tournaments/{soccer,baseball,softball,basketball,lacrosse}/page.tsx`). Also make sport/state SEO pages refresh + include tournaments with only `start_date` (use `start_date >= today OR end_date >= today`) via `apps/ti-web/app/[sport]/[state]/page.tsx`.
