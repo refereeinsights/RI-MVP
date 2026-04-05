@@ -42,6 +42,7 @@ export interface TournamentRow {
   city?: string | null;
   venue?: string | null;
   address?: string | null;
+  zip?: string | null;
 
   start_date?: string | null;
   end_date?: string | null;

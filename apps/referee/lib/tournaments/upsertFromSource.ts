@@ -31,6 +31,7 @@ export async function upsertTournamentFromSource(row: TournamentRow) {
         city: row.city ?? null,
         venue: row.venue ?? null,
         address: row.address ?? null,
+        zip: row.zip ?? null,
         start_date: row.start_date ?? null,
         end_date: row.end_date ?? null,
         summary: row.summary ?? null,

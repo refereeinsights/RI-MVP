@@ -277,6 +277,7 @@ export function csvRowsToTournamentRows(
       city: row.city || null,
       venue,
       address,
+      zip: normalize(row.zip) || null,
       start_date: normalize(row.start_date) || null,
       end_date: normalize(row.end_date) || null,
       summary: row.summary || null,
