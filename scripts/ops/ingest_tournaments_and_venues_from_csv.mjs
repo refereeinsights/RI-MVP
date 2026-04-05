@@ -42,7 +42,9 @@ function clean(value) {
 function canCreateVenueFromStreet(street, zip) {
   const s = clean(street);
   const z = clean(zip);
-  if (!s) return false;
+  // If we have a ZIP but no street address, we can still create a venue stub (name + city/state/zip).
+  // This supports feeds that only provide "City, ST ZIP" for a complex.
+  if (!s) return Boolean(z);
   if (z) return true;
   if (/\d/.test(s)) return true;
   if (/\b(multiple|various|metro|area|tbd|unknown)\b/i.test(s)) return false;
@@ -156,6 +158,19 @@ function parseFullAddress(addr) {
   if (trailingState && trailingState !== state) return null;
   if (!street || !city || !state) return null;
   return { street, city, state, zip };
+}
+
+function parseCityStateZip(addr) {
+  const normalized = String(addr ?? "").replace(/\s+/g, " ").trim();
+  if (!normalized) return null;
+  // "Spokane, WA 99205" (no street)
+  const m = normalized.match(/^([A-Za-z.\s]{2,60}),\s*([A-Z]{2})(?:\s+(\d{5}(?:-\d{4})?))?\s*$/);
+  if (!m) return null;
+  const city = String(m[1] ?? "").trim();
+  const state = String(m[2] ?? "").trim().toUpperCase();
+  const zip = m[3] ? String(m[3]).trim() : null;
+  if (!city || !state) return null;
+  return { city, state, zip };
 }
 
 function sourceDomain(url) {
@@ -1125,6 +1140,9 @@ async function main() {
 
       const venue_name = get("venue_name");
       const venue_address = get("venue_address");
+      const venue_city = get("venue_city");
+      const venue_state = clean(get("venue_state"))?.toUpperCase() ?? null;
+      const venue_zip = get("venue_zip");
 
       if (!tournament_name || !sport || !state || !venue_name) {
         fs.appendFileSync(
@@ -1147,6 +1165,9 @@ async function main() {
         state,
         venue_name,
         venue_address,
+        venue_city,
+        venue_state,
+        venue_zip,
       });
     }
 
@@ -1171,6 +1192,7 @@ async function main() {
       const allowCreate = !NO_CREATE_TOURNAMENTS && Boolean(start_date);
       const slug = allowCreate ? buildSlug(tournament_name, state, start_date) : null;
       const officialUrl = tournament_url && !isGenericTournamentListingUrl(tournament_url) ? tournament_url : null;
+      const sourceEventId = officialUrl ? officialUrl : slug;
 
       const tournamentUpdatePatch = { updated_at: new Date().toISOString() };
       tournamentUpdatePatch.name = tournament_name;
@@ -1189,7 +1211,7 @@ async function main() {
         ...tournamentUpdatePatch,
         status,
         is_canonical: isCanonical,
-        source_event_id: tournament_url ?? slug,
+        source_event_id: sourceEventId,
       };
       if (!tournamentCreatePatch.official_website_url) tournamentCreatePatch.official_website_url = officialUrl;
 
@@ -1199,7 +1221,7 @@ async function main() {
         state,
         start_date,
         official_website_url: officialUrl,
-        source_event_id: tournament_url ?? slug,
+        source_event_id: sourceEventId,
         allowCreate,
         patch: tournamentCreatePatch,
         createPatch: tournamentCreatePatch,
@@ -1226,9 +1248,10 @@ async function main() {
         const venue_name = r.venue_name;
         if (!venue_name) continue;
         const parsed = parseFullAddress(r.venue_address);
-        const venueState = (parsed?.state ?? state)?.toUpperCase() ?? state;
-        const venueCity = parsed?.city ?? null;
-        const venueZip = parsed?.zip ?? null;
+        const cityStateZip = !parsed ? parseCityStateZip(r.venue_address) : null;
+        const venueState = (parsed?.state ?? r.venue_state ?? cityStateZip?.state ?? state)?.toUpperCase() ?? state;
+        const venueCity = parsed?.city ?? r.venue_city ?? cityStateZip?.city ?? null;
+        const venueZip = parsed?.zip ?? r.venue_zip ?? cityStateZip?.zip ?? null;
         const venueStreet = parsed?.street ?? clean(r.venue_address);
         const canCreateVenue = canCreateVenueFromStreet(venueStreet, venueZip);
 
