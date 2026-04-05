@@ -3107,6 +3107,10 @@ Maintenance rules:
   - The dismiss action now checks for DB errors and triggers `revalidatePath("/admin")` so dismissed duplicate groups disappear immediately after marking.
   - File: `apps/referee/app/admin/page.tsx`.
 
+- 2026-04-05: Admin CSV uploads: show skip reason breakdown.
+  - Upload notice now includes a “top reasons” summary with counts for rows skipped by `cleanCsvRows()` (e.g. missing URL, unsupported sport, missing city/state), plus a few concrete sample rows.
+  - File: `apps/referee/app/admin/page.tsx`.
+
 - 2026-04-03: Admin search tools: optional ZIP filters.
   - Migration: `supabase/migrations/20260403_missing_venues_zip_filter.sql` adds `p_zip` filtering to `public.list_missing_venue_link_tournaments_v2`.
   - Missing venues UI + export now accept `zip` query param: `apps/referee/app/admin/tournaments/missing-venues/page.tsx`, `apps/referee/app/api/admin/tournaments/missing-venues/export/route.ts`.
