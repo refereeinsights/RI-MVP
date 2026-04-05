@@ -40,9 +40,10 @@ export function verifyUnsubscribeToken(params: {
     secret: params.secret,
   }).sig;
   try {
-    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(params.sig));
+    const expectedBytes = Uint8Array.from(Buffer.from(expected));
+    const sigBytes = Uint8Array.from(Buffer.from(params.sig));
+    return crypto.timingSafeEqual(expectedBytes, sigBytes);
   } catch {
     return false;
   }
 }
-

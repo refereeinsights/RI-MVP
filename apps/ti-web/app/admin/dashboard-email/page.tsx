@@ -26,6 +26,12 @@ type TotalsRow = {
   totals: any;
 };
 
+type PublicDirectoryBySportRow = {
+  sport: unknown;
+  total?: unknown;
+  new_yesterday?: unknown;
+};
+
 async function loadOutreachTotals(sport: string): Promise<TotalsRow> {
   const { data, error } = await (supabaseAdmin.rpc("get_outreach_dashboard_metrics" as any, {
     p_sport: sport || null,
@@ -201,11 +207,11 @@ function buildPreviewHtml(params: {
   const tiInsiderNew = Number(tiles?.ti_users?.insider_new_yesterday ?? 0) || 0;
   const tiWeekendTotal = Number(tiles?.ti_users?.weekend_pro_total ?? 0) || 0;
   const tiWeekendNew = Number(tiles?.ti_users?.weekend_pro_new_yesterday ?? 0) || 0;
-  const bySport = Array.isArray((tiles as any)?.public_directory?.by_sport)
+  const bySport: PublicDirectoryBySportRow[] = (Array.isArray((tiles as any)?.public_directory?.by_sport)
     ? ((tiles as any)?.public_directory?.by_sport ?? [])
     : Array.isArray(tiles?.canonical?.by_sport)
     ? tiles?.canonical?.by_sport ?? []
-    : [];
+    : []) as PublicDirectoryBySportRow[];
 
   const SPORT_LABELS_ANY = TI_SPORT_LABELS as unknown as Record<string, string>;
   const getSportLabel = (sport: unknown) => {
@@ -309,7 +315,7 @@ function buildPreviewHtml(params: {
     includeTiles && includeSportTiles && bySport.length > 0
       ? `<div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
           ${TI_SPORTS.map((sport) => {
-            const row = bySport.find((r) => String(r.sport).toLowerCase() === sport);
+            const row = bySport.find((r: PublicDirectoryBySportRow) => String(r.sport).toLowerCase() === sport);
             return {
               sport,
               total: Number(row?.total ?? 0) || 0,

@@ -17,6 +17,12 @@ export const revalidate = 0;
 
 const LOCK_KEY = "ti_admin_dashboard_email_v1";
 
+type PublicDirectoryBySportRow = {
+  sport: unknown;
+  total?: unknown;
+  new_yesterday?: unknown;
+};
+
 function isAuthorized(req: Request) {
   const url = new URL(req.url);
   const tokenFromQuery = url.searchParams.get("token");
@@ -178,17 +184,17 @@ function buildEmailHtml(params: {
   const tiWeekendTotal = Number(tiles?.ti_users?.weekend_pro_total ?? 0) || 0;
   const tiWeekendNew = Number(tiles?.ti_users?.weekend_pro_new_yesterday ?? 0) || 0;
 
-  const bySport = Array.isArray((tiles as any)?.public_directory?.by_sport)
+  const bySport: PublicDirectoryBySportRow[] = (Array.isArray((tiles as any)?.public_directory?.by_sport)
     ? ((tiles as any)?.public_directory?.by_sport ?? [])
     : Array.isArray(tiles?.canonical?.by_sport)
     ? tiles?.canonical?.by_sport ?? []
-    : [];
+    : []) as PublicDirectoryBySportRow[];
 
   const sportTilesHtml =
     includeSportTiles
       ? (() => {
           const rows = TI_SPORTS.map((sport) => {
-            const hit = bySport.find((r) => String(r.sport).toLowerCase() === sport);
+            const hit = bySport.find((r: PublicDirectoryBySportRow) => String(r.sport).toLowerCase() === sport);
             return {
               sport,
               total: Number(hit?.total ?? 0) || 0,
