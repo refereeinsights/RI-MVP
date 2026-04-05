@@ -7,8 +7,12 @@ type TournamentRow = {
   sport: string | null;
   city: string | null;
   state: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   source_url: string | null;
   official_website_url: string | null;
+  status?: string | null;
+  is_canonical?: boolean | null;
 };
 
 type VenueRow = {
@@ -36,6 +40,11 @@ const LIMIT_ARG = process.argv.find((arg) => arg.startsWith("--limit="));
 const LIMIT = LIMIT_ARG ? Number(LIMIT_ARG.split("=")[1]) : 5000;
 const SPORT_ARG = process.argv.find((arg) => arg.startsWith("--sport="));
 const SPORT_FILTER = SPORT_ARG ? clean(SPORT_ARG.split("=")[1]) : null;
+const STATUS_ARG = process.argv.find((arg) => arg.startsWith("--status="));
+const STATUS_FILTER = STATUS_ARG ? clean(STATUS_ARG.split("=")[1]) : "published";
+const INCLUDE_LINKED = process.argv.includes("--include-linked");
+const UPDATE_DATES = process.argv.includes("--update-dates");
+const FORCE_DATES = process.argv.includes("--force-dates");
 const CHUNK = 250;
 const ALLOWED_VENUE_SPORTS = new Set([
   "soccer",
@@ -313,6 +322,130 @@ async function fetchHtml(url: string) {
   }
 }
 
+function asIsoDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+function parseMonthIndex(token: string | null | undefined) {
+  if (!token) return null;
+  const idx = MONTHS.findIndex((m) => token.toLowerCase().startsWith(m));
+  return idx >= 0 ? idx : null;
+}
+
+function parseDateRangeFromText(textRaw: string): { start_date: string | null; end_date: string | null } {
+  const text = String(textRaw ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return { start_date: null, end_date: null };
+
+  // 05/01/2026 - 05/03/2026
+  const mdyRange = text.match(/(\d{1,2}\/\d{1,2}\/20\d{2})\s*[-–]\s*(\d{1,2}\/\d{1,2}\/20\d{2})/);
+  if (mdyRange) {
+    const start = asIsoDate(mdyRange[1]);
+    const end = asIsoDate(mdyRange[2]);
+    return { start_date: start, end_date: end ?? start };
+  }
+
+  // May 1 - 3, 2026 OR May 1 - May 3, 2026
+  const fullRange = text.match(
+    /([A-Za-z]{3,9})\s*(\d{1,2})\s*[-–]\s*(?:(\d{1,2})|([A-Za-z]{3,9})\s*(\d{1,2})),?\s*(20\d{2})/i
+  );
+  if (fullRange) {
+    const month1 = parseMonthIndex(fullRange[1]);
+    const day1 = Number(fullRange[2]);
+    const day2 = fullRange[3] ? Number(fullRange[3]) : Number(fullRange[5] || "");
+    const month2 = fullRange[4] ? parseMonthIndex(fullRange[4]) : month1;
+    const yearRaw = Number(fullRange[6]);
+    if (month1 === null || month2 === null || !Number.isFinite(day1) || !Number.isFinite(day2) || !Number.isFinite(yearRaw)) {
+      return { start_date: null, end_date: null };
+    }
+    return {
+      start_date: `${yearRaw}-${String(month1 + 1).padStart(2, "0")}-${String(day1).padStart(2, "0")}`,
+      end_date: `${yearRaw}-${String(month2 + 1).padStart(2, "0")}-${String(day2).padStart(2, "0")}`,
+    };
+  }
+
+  // May 1, 2026
+  const single = text.match(/([A-Za-z]{3,9})\s*(\d{1,2}),?\s*(20\d{2})/i);
+  if (single) {
+    const month = parseMonthIndex(single[1]);
+    const day = Number(single[2]);
+    const yearRaw = Number(single[3]);
+    if (month === null || !Number.isFinite(day) || !Number.isFinite(yearRaw)) return { start_date: null, end_date: null };
+    const iso = `${yearRaw}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return { start_date: iso, end_date: iso };
+  }
+
+  // 2026-05-01
+  const isoRange = text.match(/(20\d{2}-\d{2}-\d{2})\s*[-–]\s*(20\d{2}-\d{2}-\d{2})/);
+  if (isoRange) {
+    const start = clean(isoRange[1]);
+    const end = clean(isoRange[2]);
+    return { start_date: start, end_date: end ?? start };
+  }
+  const isoSingle = text.match(/\b(20\d{2}-\d{2}-\d{2})\b/);
+  if (isoSingle) {
+    const iso = clean(isoSingle[1]);
+    return { start_date: iso, end_date: iso };
+  }
+
+  return { start_date: null, end_date: null };
+}
+
+function parseJsonLdEventDates($: cheerio.CheerioAPI): { start_date: string | null; end_date: string | null } {
+  let start_date: string | null = null;
+  let end_date: string | null = null;
+
+  $("script[type='application/ld+json']").each((_idx, el) => {
+    if (start_date && end_date) return;
+    const raw = ($(el).html() || "").trim();
+    if (!raw) return;
+    let parsed: any;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    const items = Array.isArray(parsed) ? parsed : [parsed];
+    for (const item of items) {
+      if (start_date && end_date) break;
+      if (!item || typeof item !== "object") continue;
+      const typeRaw = item["@type"];
+      const type = Array.isArray(typeRaw) ? typeRaw.join(" ").toLowerCase() : String(typeRaw ?? "").toLowerCase();
+      if (!type.includes("event")) continue;
+      start_date = start_date ?? asIsoDate(item.startDate);
+      end_date = end_date ?? asIsoDate(item.endDate);
+    }
+  });
+
+  return { start_date, end_date };
+}
+
+function parseUsssaEventDates($: cheerio.CheerioAPI, html: string): { start_date: string | null; end_date: string | null } {
+  const ld = parseJsonLdEventDates($);
+  if (ld.start_date) return { start_date: ld.start_date, end_date: ld.end_date ?? ld.start_date };
+
+  const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+  const lower = bodyText.toLowerCase();
+  const keywords = ["event date", "event dates", "dates", "tournament dates", "date:"];
+  for (const kw of keywords) {
+    const idx = lower.indexOf(kw);
+    if (idx < 0) continue;
+    const window = bodyText.slice(Math.max(0, idx - 40), Math.min(bodyText.length, idx + 200));
+    const parsed = parseDateRangeFromText(window);
+    if (parsed.start_date) return parsed;
+  }
+
+  // Fallback: regex over raw HTML (sometimes dates are in attributes or JSON blobs not captured in text())
+  const htmlCompact = String(html ?? "").replace(/\s+/g, " ");
+  const parsed = parseDateRangeFromText(htmlCompact);
+  if (parsed.start_date) return parsed;
+
+  return { start_date: null, end_date: null };
+}
+
 async function run() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -323,11 +456,20 @@ async function run() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: tournamentsRaw, error: tournamentErr } = await supabase
+  if (STATUS_FILTER !== "published" && STATUS_FILTER !== "draft") {
+    throw new Error(`Invalid --status="${STATUS_FILTER}". Use --status=published or --status=draft.`);
+  }
+
+  let tournamentsQuery = supabase
     .from("tournaments" as any)
-    .select("id,name,sport,city,state,source_url,official_website_url,status,is_canonical")
-    .eq("status", "published")
-    .eq("is_canonical", true)
+    .select("id,name,sport,city,state,start_date,end_date,source_url,official_website_url,status,is_canonical")
+    .eq("status", STATUS_FILTER);
+
+  if (STATUS_FILTER === "published") {
+    tournamentsQuery = tournamentsQuery.eq("is_canonical", true);
+  }
+
+  const { data: tournamentsRaw, error: tournamentErr } = await tournamentsQuery
     .or(
       "source_url.ilike.%usssa.com/event/%,official_website_url.ilike.%usssa.com/event/%,source_url.ilike.%fastpitch.usssa.com/event/%,official_website_url.ilike.%fastpitch.usssa.com/event/%"
     )
@@ -353,7 +495,7 @@ async function run() {
     }
   }
 
-  const targets = tournaments.filter((t) => !linked.has(t.id));
+  const targets = INCLUDE_LINKED || UPDATE_DATES ? tournaments : tournaments.filter((t) => !linked.has(t.id));
 
   const { data: venuesRaw, error: venuesErr } = await supabase
     .from("venues" as any)
@@ -441,6 +583,9 @@ async function run() {
   let created = 0;
   let linksInserted = 0;
   let failures = 0;
+  let tournamentsDatesUpdated = 0;
+  let tournamentsMissingDates = 0;
+  let tournamentsDatesFound = 0;
   const unresolved: Array<{
     tournament_id: string;
     tournament_name: string | null;
@@ -476,6 +621,40 @@ async function run() {
         continue;
       }
       const $ = cheerio.load(html);
+
+      if (UPDATE_DATES) {
+        if (!clean(t.start_date ?? null) || !clean(t.end_date ?? null)) tournamentsMissingDates += 1;
+        const parsedDates = parseUsssaEventDates($, html);
+        const nextStart = parsedDates.start_date;
+        const nextEnd = parsedDates.end_date ?? parsedDates.start_date;
+        if (nextStart) tournamentsDatesFound += 1;
+        const shouldUpdate =
+          Boolean(nextStart) &&
+          (FORCE_DATES ||
+            (!clean(t.start_date ?? null) && !clean(t.end_date ?? null)) ||
+            (!clean(t.start_date ?? null) && Boolean(clean(t.end_date ?? null))) ||
+            (Boolean(clean(t.start_date ?? null)) && !clean(t.end_date ?? null)));
+
+        if (shouldUpdate && APPLY) {
+          const { error: updateErr } = await supabase
+            .from("tournaments" as any)
+            .update({
+              start_date: nextStart,
+              end_date: nextEnd,
+            })
+            .eq("id", t.id);
+          if (updateErr) throw updateErr;
+          tournamentsDatesUpdated += 1;
+        } else if (shouldUpdate && !APPLY) {
+          tournamentsDatesUpdated += 1;
+        }
+      }
+
+      const alreadyLinked = linked.has(t.id);
+      if (!INCLUDE_LINKED && alreadyLinked) {
+        continue;
+      }
+
       const parsed = dedupeVenues([
         ...parseTableVenues($, t.city, t.state),
         ...parseDataMapLocations($, t.city, t.state),
@@ -633,13 +812,20 @@ async function run() {
       {
         mode: APPLY ? "apply" : "dry-run",
         sport_filter: SPORT_FILTER,
+        status_filter: STATUS_FILTER,
+        include_linked: INCLUDE_LINKED,
+        update_dates: UPDATE_DATES,
+        force_dates: FORCE_DATES,
         usssa_tournaments_scanned: tournaments.length,
-        usssa_without_linked_venue: targets.length,
+        usssa_targets_scanned: targets.length,
         pages_scanned: scanned,
         pages_with_venue_data: withVenueData,
         linked_existing: linkedExisting,
         created_venues: created,
         tournament_venue_links_upserted: linksInserted,
+        tournament_dates_updated: tournamentsDatesUpdated,
+        tournaments_missing_dates: tournamentsMissingDates,
+        tournaments_dates_found_on_page: tournamentsDatesFound,
         failures,
         unresolved_total: unresolved.length,
         unresolved: unresolved.slice(0, 50),
