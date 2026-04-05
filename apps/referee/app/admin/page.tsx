@@ -82,6 +82,7 @@ import {
   parseCsv,
 } from "@/lib/tournaments/importUtils";
 import { ensureTournamentVenueLink } from "@/lib/tournaments/ensureTournamentVenueLink";
+import { fetchPageText, extractLocationFromPageText } from "@/lib/pageScanner";
 import { updatePendingTournamentDraftFromFormData } from "@/lib/tournaments/pendingTournamentEdits";
 import { TOURNAMENT_SPORTS } from "@/lib/tournaments/sports";
 import type {
@@ -3004,6 +3005,120 @@ export default async function AdminPage({
     return redirectWithNotice(
       redirectTo,
       `Cleanup removed organizer address candidates: venue_candidates=${venueDeleted}, address_attributes=${attrDeleted}.`
+    );
+  }
+
+  /**
+   * Batch venue-linking for draft tournaments missing confirmed venue links.
+   *
+   * Pass 1 — for drafts that have venue/address/city/state data: call
+   * ensureTournamentVenueLink to create or match a venue record.
+   *
+   * Pass 2 — for drafts with no venue info but a URL: fetch the page, extract
+   * city/state/zip, backfill those null fields on the tournament record, then
+   * retry ensureTournamentVenueLink. Tournaments that still have no venue name
+   * or address after the page scan will NOT get a venue link here — they'll be
+   * counted as "location filled" so the inference panel can find nearby venues.
+   */
+  async function batchLinkVenuesForDraftsAction(formData: FormData) {
+    "use server";
+    await requireAdmin();
+    const redirectTo = formData.get("redirect_to") || "/admin?tab=tournament-uploads";
+    const limitRaw = Number(formData.get("batch_limit") || "50");
+    const batchLimit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 50;
+
+    // Fetch draft tournaments with their current venue link status.
+    const { data: drafts, error: draftsErr } = await supabaseAdmin
+      .from("tournaments" as any)
+      .select("id,venue,address,city,state,zip,official_website_url,source_url,tournament_venues(venue_id,is_inferred)")
+      .eq("status", "draft")
+      .limit(500);
+
+    if (draftsErr) {
+      return redirectWithNotice(redirectTo, `Batch link failed: ${draftsErr.message}`);
+    }
+
+    const allDrafts = (drafts ?? []) as any[];
+
+    // Keep only those without any confirmed (non-inferred) venue link.
+    const needsVenue = allDrafts
+      .filter((t: any) => !(t.tournament_venues ?? []).some((tv: any) => !tv.is_inferred && tv.venue_id))
+      .slice(0, batchLimit);
+
+    let linked = 0;
+    let locationFilled = 0;
+    let locationFilledAndLinked = 0;
+    let skipped = 0;
+
+    for (const t of needsVenue) {
+      // --- Pass 1: try with existing tournament data ---
+      const res = await ensureTournamentVenueLink(t.id);
+      if (res.linked) {
+        linked++;
+        continue;
+      }
+
+      // --- Pass 2: no venue info — try page scan for location ---
+      if (!res.attempted) {
+        const url = (t.official_website_url ?? t.source_url ?? "").trim();
+        if (!url) {
+          skipped++;
+          continue;
+        }
+
+        const pageText = await fetchPageText(url);
+        if (!pageText) {
+          skipped++;
+          continue;
+        }
+
+        const loc = extractLocationFromPageText(pageText);
+        const wouldFill =
+          (!t.city && loc.city) || (!t.state && loc.state) || (!t.zip && loc.zip);
+
+        if (!wouldFill) {
+          skipped++;
+          continue;
+        }
+
+        // Backfill only null location fields.
+        const update: Record<string, string> = {};
+        if (!t.city && loc.city) update.city = loc.city;
+        if (!t.state && loc.state) update.state = loc.state;
+        if (!t.zip && loc.zip) update.zip = loc.zip;
+        await supabaseAdmin.from("tournaments" as any).update(update).eq("id", t.id);
+
+        // Retry venue link — succeeds only if there's also venue name/address data.
+        const res2 = await ensureTournamentVenueLink(t.id);
+        if (res2.linked) {
+          locationFilledAndLinked++;
+        } else {
+          // Location backfilled but no venue name — inference panel can pick it up.
+          locationFilled++;
+        }
+        continue;
+      }
+
+      // Attempted but a DB error occurred.
+      skipped++;
+    }
+
+    revalidatePath("/admin");
+
+    const totalMissing = allDrafts.filter(
+      (t: any) => !(t.tournament_venues ?? []).some((tv: any) => !tv.is_inferred && tv.venue_id)
+    ).length;
+
+    const parts: string[] = [];
+    if (linked) parts.push(`${linked} linked from existing data`);
+    if (locationFilledAndLinked) parts.push(`${locationFilledAndLinked} linked after page scan`);
+    if (locationFilled) parts.push(`${locationFilled} location filled (no venue name — use inference panel)`);
+    if (skipped) parts.push(`${skipped} skipped`);
+    const summary = parts.length ? parts.join(", ") : "nothing to do";
+
+    return redirectWithNotice(
+      redirectTo,
+      `Venue link batch (${needsVenue.length}/${totalMissing} checked): ${summary}.`
     );
   }
 
@@ -6177,6 +6292,41 @@ export default async function AdminPage({
               <p style={{ fontSize: 12, color: "#777", margin: "6px 0 0 0" }}>
                 Removes pending venue/address candidates that match a common organizer address. Does not touch existing
                 tournament_venues links or venues rows.
+              </p>
+            </form>
+            <form action={batchLinkVenuesForDraftsAction} style={{ marginTop: 8 }}>
+              <input type="hidden" name="redirect_to" value={adminBasePath} />
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <button
+                  type="submit"
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #555",
+                    background: "#fff",
+                    color: "#111",
+                    fontWeight: 800,
+                    width: "fit-content",
+                  }}
+                >
+                  Link venues for drafts (batch)
+                </button>
+                <label style={{ fontSize: 12, color: "#555", display: "inline-flex", gap: 6, alignItems: "center" }}>
+                  Limit
+                  <input
+                    name="batch_limit"
+                    type="number"
+                    min={1}
+                    max={200}
+                    defaultValue={50}
+                    style={{ width: 70, padding: "4px 6px", borderRadius: 8, border: "1px solid #ccc", fontSize: 12 }}
+                  />
+                </label>
+              </div>
+              <p style={{ fontSize: 12, color: "#777", margin: "6px 0 0 0" }}>
+                For drafts missing confirmed venue links: tries to create/match a venue from the tournament&apos;s own
+                venue/address/city/state data. For drafts with no venue data but a URL, scans the page to extract
+                city/state/zip and backfills those fields — then use the inference panel above to match nearby venues.
               </p>
             </form>
           </div>

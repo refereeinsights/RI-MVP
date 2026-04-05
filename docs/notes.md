@@ -12,6 +12,15 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-04-05
+- RI Admin: batch venue-linking for draft uploads (`apps/referee/app/admin/page.tsx`)
+  - Added "Link venues for drafts (batch)" action in the tournament-uploads tab
+  - Pass 1: runs `ensureTournamentVenueLink` for drafts that have venue/address/city/state data — creates or matches a venue and links it as confirmed
+  - Pass 2: for drafts with no venue data but a URL, fetches the page and extracts city/state/zip using title-case regex + valid state code guard; backfills null location fields on the tournament so the inference panel can find nearby venues
+  - Reports: linked from existing data / linked after page scan / location filled (no venue name) / skipped per run
+  - Configurable limit (default 50, max 200); processes up to 500 drafts to count total missing
+  - Added shared `apps/referee/lib/pageScanner.ts` with `fetchPageText` (6s timeout, strips HTML) and `extractLocationFromPageText` (city/state/zip regex, valid-state guard, zip-only fallback)
+
 ## 2026-04-04
 - RI Admin: tournament sport validation improvements:
   - Bulk-approved 97 baseball `needs_review` validation rows directly via API
