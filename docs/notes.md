@@ -3093,6 +3093,10 @@ Maintenance rules:
   - Fixed `crypto.timingSafeEqual` typing by comparing `Uint8Array` values.
   - Files: `apps/ti-web/app/admin/dashboard-email/page.tsx`, `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts`, `shared/email/unsubscribeToken.ts`.
 
+- 2026-04-05: Admin tournament listings: “Not a duplicate” now refreshes correctly.
+  - The dismiss action now checks for DB errors and triggers `revalidatePath("/admin")` so dismissed duplicate groups disappear immediately after marking.
+  - File: `apps/referee/app/admin/page.tsx`.
+
 - 2026-04-03: Admin search tools: optional ZIP filters.
   - Migration: `supabase/migrations/20260403_missing_venues_zip_filter.sql` adds `p_zip` filtering to `public.list_missing_venue_link_tournaments_v2`.
   - Missing venues UI + export now accept `zip` query param: `apps/referee/app/admin/tournaments/missing-venues/page.tsx`, `apps/referee/app/api/admin/tournaments/missing-venues/export/route.ts`.
