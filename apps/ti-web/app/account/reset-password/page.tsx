@@ -2,10 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { sanitizeReturnTo } from "@/lib/returnTo";
 
 export default function ResetPasswordPage() {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const searchParams = useSearchParams();
+  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/account");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +138,7 @@ export default function ResetPasswordPage() {
       </form>
 
       <div style={{ fontSize: 13 }}>
-        <Link href="/login">Back to login</Link>
+        <Link href={`/login?returnTo=${encodeURIComponent(returnTo)}`}>Back to login</Link>
       </div>
     </main>
   );

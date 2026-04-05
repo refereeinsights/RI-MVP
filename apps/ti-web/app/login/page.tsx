@@ -65,6 +65,14 @@ export default function LoginPage() {
           required
           style={{ padding: 10, border: "1px solid #cbd5e1", borderRadius: 8 }}
         />
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <Link
+            href={`/forgot-password?returnTo=${encodeURIComponent(returnTo)}`}
+            style={{ fontSize: 13, color: "#0f3d2e", fontWeight: 600, textDecoration: "none" }}
+          >
+            Forgot password?
+          </Link>
+        </div>
         <button
           type="submit"
           disabled={status === "saving"}
