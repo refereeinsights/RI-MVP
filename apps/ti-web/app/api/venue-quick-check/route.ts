@@ -14,6 +14,10 @@ function validateScore(value: unknown) {
   return n;
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => null)) as Record<string, any> | null;
@@ -28,7 +32,9 @@ export async function POST(request: Request) {
     const browserHash = typeof body.browser_hash === "string" ? body.browser_hash.slice(0, 128) : "";
     const sourcePageType = typeof body.source_page_type === "string" ? body.source_page_type.slice(0, 40) : null;
     const sourceTournamentId =
-      typeof body.source_tournament_id === "string" && body.source_tournament_id ? body.source_tournament_id : null;
+      typeof body.source_tournament_id === "string" && body.source_tournament_id && isUuid(body.source_tournament_id)
+        ? body.source_tournament_id
+        : null;
 
     const restroomCleanliness = validateScore(body.restroom_cleanliness);
     const shadeScore = validateScore(body.shade_score);

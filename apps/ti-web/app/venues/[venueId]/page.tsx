@@ -416,11 +416,17 @@ export default async function VenueDetailsPage({
     .filter((tv) => !tv?.is_inferred)
     .map((tv) => tv?.tournaments)
     .filter((t): t is LinkedTournament => Boolean(t?.id));
-  const requestedTournamentSlug = typeof searchParams?.tournament === "string" ? searchParams.tournament.trim().toLowerCase() : "";
+  const requestedTournamentRaw = typeof searchParams?.tournament === "string" ? searchParams.tournament.trim() : "";
+  const isUuid = (value: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  const requestedTournamentId = requestedTournamentRaw && isUuid(requestedTournamentRaw) ? requestedTournamentRaw : "";
+  const requestedTournamentSlug = requestedTournamentId ? "" : requestedTournamentRaw.toLowerCase();
   const selectedTournament =
-    requestedTournamentSlug.length > 0
-      ? linkedTournaments.find((t) => (t.slug ?? "").trim().toLowerCase() === requestedTournamentSlug) ?? null
-      : null;
+    requestedTournamentId
+      ? linkedTournaments.find((t) => t.id === requestedTournamentId) ?? null
+      : requestedTournamentSlug.length > 0
+        ? linkedTournaments.find((t) => (t.slug ?? "").trim().toLowerCase() === requestedTournamentSlug) ?? null
+        : null;
   const hasPremiumPreviewTournament = linkedTournaments.some((t) =>
     PREMIUM_PREVIEW_TOURNAMENT_SLUGS.has((t.slug ?? "").trim().toLowerCase())
   );
@@ -729,7 +735,7 @@ export default async function VenueDetailsPage({
                 </div>
               )}
 
-              <QuickVenueCheck venueId={data.id} pageType="venue" sourceTournamentId={searchParams?.tournament ?? null} />
+              <QuickVenueCheck venueId={data.id} pageType="venue" sourceTournamentId={selectedTournament?.id ?? null} />
 
               {canReviewVenue ? (
                 <div className="detailLinksRow">
