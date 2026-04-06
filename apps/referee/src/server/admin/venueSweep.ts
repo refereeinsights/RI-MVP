@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { TournamentRow } from "@/lib/types/tournament";
+import * as cheerio from "cheerio";
 import { atlasSearch, getSearchProviderName } from "@/server/atlas/search";
 import {
   getRegistryRowByUrl,
@@ -7,7 +8,7 @@ import {
   TERMINAL_REVIEW_STATUSES,
   upsertRegistry,
 } from "@/server/admin/sources";
-import { createTournamentFromUrl } from "@/server/admin/pasteUrl";
+import { createTournamentFromUrl, fetchHtml } from "@/server/admin/pasteUrl";
 
 type VenueRow = {
   id: string;
@@ -27,11 +28,20 @@ function safeSport(value: string | null | undefined) {
   return (v || "other") as TournamentRow["sport"];
 }
 
+function safeHost(url: string | null | undefined) {
+  try {
+    return url ? new URL(url).hostname.toLowerCase() : "";
+  } catch {
+    return "";
+  }
+}
+
 function buildVenueSweepQueries(venue: VenueRow) {
   const name = clean(venue.name);
   const city = clean(venue.city);
   const state = clean(venue.state).toUpperCase();
   const sport = safeSport(venue.sport);
+  const venueHost = safeHost(venue.venue_url);
 
   // Keep these short (Brave hard limit is 400 chars; other providers are more forgiving).
   const quoted = name.includes('"') ? name.replace(/"/g, "") : `"${name}"`;
@@ -47,6 +57,11 @@ function buildVenueSweepQueries(venue: VenueRow) {
   // Some venues are generic names; add city/state anchored variants.
   if (city && state) {
     base.push(`${quoted} tournament ${city}`);
+  }
+
+  // If the venue has a website, add a site-anchored query that can find hidden “events” pages or PDFs.
+  if (venueHost) {
+    base.push(`site:${venueHost} (${sport} OR tournament OR cup OR classic OR showcase) ${state}`);
   }
 
   // Keep deterministic and unique.
@@ -90,6 +105,127 @@ function isLikelyTournamentResult(args: {
   return true;
 }
 
+function isLikelyVenueInfoResult(args: {
+  url: string;
+  domain?: string | null;
+  title?: string | null;
+  snippet?: string | null;
+  venueHost?: string;
+}) {
+  const domain = String(args.domain ?? "").toLowerCase();
+  const venueHost = String(args.venueHost ?? "").toLowerCase();
+  const text = `${args.title ?? ""} ${args.snippet ?? ""} ${args.url}`.toLowerCase();
+
+  // If it’s on the venue’s own site, allow it as a venue-info candidate.
+  if (venueHost && (domain === venueHost || domain.endsWith(`.${venueHost}`))) return true;
+
+  // Otherwise, only allow clear “facility” pages (low volume).
+  const facility = /(sports\s+complex|soccer\s+complex|baseball\s+complex|athletic\s+complex|recreation\s+center|park|fields|sportsplex|facility)/i;
+  if (!facility.test(text)) return false;
+
+  // Drop obvious noise.
+  const hardBlockDomains = ["facebook.com", "instagram.com", "tiktok.com", "x.com", "twitter.com", "youtube.com"];
+  if (hardBlockDomains.some((d) => domain === d || domain.endsWith(`.${d}`))) return false;
+  if (domain.endsWith(".gov")) return false;
+
+  return true;
+}
+
+function looksLikeTournamentLink(textRaw: string, hrefRaw: string) {
+  const text = `${textRaw ?? ""}`.replace(/\s+/g, " ").trim().toLowerCase();
+  const href = `${hrefRaw ?? ""}`.trim().toLowerCase();
+  if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return false;
+  if (href.endsWith(".jpg") || href.endsWith(".png") || href.endsWith(".svg")) return false;
+
+  const positive = /(tournament|cup|classic|showcase|shootout|invitational|championship|qualifier|state\s+cup|memorial\s+day)/i;
+  const negative = /(league|rental|availability|reservation|permit|field\s*map|rules|hours|calendar\s*sync|pickleball)/i;
+  if (negative.test(text) || negative.test(href)) return false;
+  return positive.test(text) || positive.test(href);
+}
+
+function extractEventNameCandidates(textRaw: string) {
+  const text = String(textRaw ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return [];
+  const out: string[] = [];
+  const re =
+    /\b([A-Z0-9][A-Za-z0-9&'’.\- ]{3,64}?\s+(Cup|Classic|Showcase|Invitational|Shootout|Tournament|Championship|Qualifier))\b/g;
+  for (const match of text.matchAll(re)) {
+    const phrase = String(match[1] ?? "").replace(/\s+/g, " ").trim();
+    if (!phrase) continue;
+    // Avoid overly generic phrases
+    if (/season|league/i.test(phrase)) continue;
+    out.push(phrase);
+    if (out.length >= 5) break;
+  }
+  return Array.from(new Set(out));
+}
+
+async function expandFromVenuePage(args: {
+  pageUrl: string;
+  venueState: string;
+  perQueryLimit: number;
+  maxNewUrls: number;
+  venueHost: string;
+}) {
+  const html = await fetchHtml(args.pageUrl);
+  if (!html) return { links: [] as string[], eventQueries: [] as string[] };
+
+  const $ = cheerio.load(html);
+  const found = new Set<string>();
+
+  $("a[href]").each((_i, el) => {
+    const hrefRaw = String($(el).attr("href") ?? "").trim();
+    const text = $(el).text().replace(/\s+/g, " ").trim();
+    if (!looksLikeTournamentLink(text, hrefRaw)) return;
+    let abs = "";
+    try {
+      abs = new URL(hrefRaw, args.pageUrl).toString();
+    } catch {
+      return;
+    }
+    const host = safeHost(abs);
+    // Prefer off-page tournament links; but allow same-host event pages as well.
+    if (!host) return;
+    found.add(abs);
+  });
+
+  // If the page lists tournaments without links, try a small follow-up search using extracted event names.
+  const bodyText = $.text().replace(/\s+/g, " ");
+  const events = extractEventNameCandidates(bodyText);
+  const eventQueries = events.map((e) => `"${e.replace(/"/g, "")}" ${args.venueState}`).slice(0, 3);
+
+  for (const q of eventQueries) {
+    const results = await atlasSearch(q, Math.max(1, Math.min(6, args.perQueryLimit)));
+    for (const r of results) {
+      const raw = clean(r.url);
+      if (!raw) continue;
+      let canonical = "";
+      try {
+        canonical = normalizeSourceUrl(raw).canonical;
+      } catch {
+        continue;
+      }
+      // For these event-name queries, accept results more liberally but still block obvious facility/rental pages.
+      if (
+        !isLikelyTournamentResult({
+          url: canonical,
+          domain: r.domain ?? null,
+          title: r.title ?? null,
+          snippet: r.snippet ?? null,
+        })
+      ) {
+        continue;
+      }
+      found.add(canonical);
+      if (found.size >= args.maxNewUrls) break;
+    }
+    if (found.size >= args.maxNewUrls) break;
+  }
+
+  const links = Array.from(found).slice(0, args.maxNewUrls);
+  return { links, eventQueries };
+}
+
 export async function runVenueSweepToDraftUploads(args: {
   venueId: string;
   createdBy: string;
@@ -128,8 +264,10 @@ export async function runVenueSweepToDraftUploads(args: {
   const queries = buildVenueSweepQueries(venue);
 
   const deduped = new Map<string, { url: string; discovered_query: string }>();
+  const venuePages = new Map<string, { url: string; discovered_query: string }>();
   let totalFound = 0;
   let noise_dropped = 0;
+  let venue_pages_considered = 0;
 
   for (const query of queries) {
     const results = await atlasSearch(query, perQueryLimit);
@@ -144,19 +282,65 @@ export async function runVenueSweepToDraftUploads(args: {
         continue;
       }
       if (
-        !isLikelyTournamentResult({
+        isLikelyTournamentResult({
           url: canonical,
           domain: result.domain ?? null,
           title: result.title ?? null,
           snippet: result.snippet ?? null,
         })
       ) {
+        if (deduped.has(canonical)) continue;
+        deduped.set(canonical, { url: canonical, discovered_query: query });
+      } else if (
+        isLikelyVenueInfoResult({
+          url: canonical,
+          domain: result.domain ?? null,
+          title: result.title ?? null,
+          snippet: result.snippet ?? null,
+          venueHost: safeHost(venue.venue_url),
+        })
+      ) {
+        venue_pages_considered += 1;
+        if (!venuePages.has(canonical)) {
+          venuePages.set(canonical, { url: canonical, discovered_query: query });
+        }
+      } else {
         noise_dropped += 1;
         continue;
       }
-      if (deduped.has(canonical)) continue;
-      deduped.set(canonical, { url: canonical, discovered_query: query });
       if (deduped.size >= maxTotalUrls) break;
+    }
+    if (deduped.size >= maxTotalUrls) break;
+  }
+
+  // Second stage: if we saw likely venue/facility pages, fetch them and extract outbound tournament links.
+  const venueHost = safeHost(venue.venue_url);
+  let venue_pages_fetched = 0;
+  let venue_page_links_extracted = 0;
+  let venue_page_event_queries = 0;
+
+  for (const page of Array.from(venuePages.values()).slice(0, 4)) {
+    const expanded = await expandFromVenuePage({
+      pageUrl: page.url,
+      venueState: state,
+      perQueryLimit,
+      maxNewUrls: 12,
+      venueHost,
+    });
+    venue_pages_fetched += 1;
+    venue_page_links_extracted += expanded.links.length;
+    venue_page_event_queries += expanded.eventQueries.length;
+
+    for (const link of expanded.links) {
+      let canonical = "";
+      try {
+        canonical = normalizeSourceUrl(link).canonical;
+      } catch {
+        continue;
+      }
+      if (deduped.has(canonical)) continue;
+      if (deduped.size >= maxTotalUrls) break;
+      deduped.set(canonical, { url: canonical, discovered_query: `venue_page:${page.url}` });
     }
     if (deduped.size >= maxTotalUrls) break;
   }
@@ -252,6 +436,10 @@ export async function runVenueSweepToDraftUploads(args: {
     total_found: totalFound,
     discovered_urls: deduped.size,
     noise_dropped,
+    venue_pages_considered,
+    venue_pages_fetched,
+    venue_page_links_extracted,
+    venue_page_event_queries,
     inserted_sources,
     skipped_existing,
     skipped_terminal,
