@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { parseCsv } from "@/lib/tournaments/importUtils";
 import { runVenueCsvImport } from "@/server/admin/venueImport";
+import { runVenueSweepToDraftUploads } from "@/server/admin/venueSweep";
 
 export const runtime = "nodejs";
 
@@ -72,6 +73,47 @@ export default async function AdminVenueImportPage({ searchParams }: PageProps) 
     );
   }
 
+  async function sweepVenueAction(formData: FormData) {
+    "use server";
+    const user = await requireAdmin();
+    const run_id = String(formData.get("run_id") ?? "").trim();
+    const row_number = Number(formData.get("row_number") ?? 0);
+    const venue_id = String(formData.get("venue_id") ?? "").trim();
+
+    if (!run_id || !Number.isFinite(row_number) || row_number <= 0 || !venue_id) {
+      redirectWithNoticeAndQuery("/admin/venues/import", "Sweep failed: missing parameters.", { run_id });
+    }
+
+    const res = await runVenueSweepToDraftUploads({ venueId: venue_id, createdBy: user.id }).catch((err: any) => ({
+      ok: false as const,
+      reason: String(err?.message ?? "unknown_error"),
+    }));
+
+    const payload: any = {
+      sweep_ran_at: new Date().toISOString(),
+    };
+    if ((res as any)?.ok) {
+      payload.sweep_result = res;
+      payload.sweep_error = null;
+    } else {
+      payload.sweep_result = null;
+      payload.sweep_error = String((res as any)?.reason ?? "sweep_failed");
+    }
+
+    await supabaseAdmin
+      .from("venue_import_run_rows" as any)
+      .update(payload)
+      .eq("run_id", run_id)
+      .eq("row_number", row_number);
+
+    if ((res as any)?.ok) {
+      const summary = `Venue sweep: sources+${(res as any).inserted_sources ?? 0}, tournaments+${(res as any).imported_tournaments ?? 0}`;
+      redirectWithNoticeAndQuery("/admin/venues/import", summary, { run_id });
+    }
+
+    redirectWithNoticeAndQuery("/admin/venues/import", `Venue sweep failed: ${(res as any)?.reason ?? "unknown error"}`, { run_id });
+  }
+
   const run = runId
     ? await supabaseAdmin.from("venue_import_runs" as any).select("*").eq("id", runId).maybeSingle()
     : null;
@@ -81,7 +123,9 @@ export default async function AdminVenueImportPage({ searchParams }: PageProps) 
     runId && runData?.id
       ? await supabaseAdmin
           .from("venue_import_run_rows" as any)
-          .select("row_number,venue_name,venue_address,city,state,zip,sport,venue_url,action,matched_venue_id,reason")
+          .select(
+            "row_number,venue_name,venue_address,city,state,zip,sport,venue_url,action,matched_venue_id,reason,sweep_ran_at,sweep_result,sweep_error"
+          )
           .eq("run_id", runId)
           .order("row_number", { ascending: true })
           .limit(250)
@@ -183,7 +227,7 @@ export default async function AdminVenueImportPage({ searchParams }: PageProps) 
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f3f4f6" }}>
-                {["#", "Venue", "City/State", "Action", "Matched", "Reason"].map((h) => (
+                {["#", "Venue", "City/State", "Action", "Matched", "Sweep", "Reason"].map((h) => (
                   <th key={h} style={{ textAlign: "left", padding: 8, fontSize: 12, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>
                     {h}
                   </th>
@@ -206,7 +250,42 @@ export default async function AdminVenueImportPage({ searchParams }: PageProps) 
                   <td style={{ padding: 8, fontFamily: "monospace", fontSize: 12 }}>
                     {r.matched_venue_id ? <Link href={`/admin/venues/${r.matched_venue_id}`}>{r.matched_venue_id.slice(0, 8)}</Link> : "—"}
                   </td>
-                  <td style={{ padding: 8, fontSize: 12, color: "#6b7280" }}>{r.reason ?? ""}</td>
+                  <td style={{ padding: 8, fontSize: 12 }}>
+                    {r.matched_venue_id && (r.action === "inserted" || r.action === "skipped_existing") ? (
+                      <form action={sweepVenueAction}>
+                        <input type="hidden" name="run_id" value={runId ?? ""} />
+                        <input type="hidden" name="row_number" value={String(r.row_number)} />
+                        <input type="hidden" name="venue_id" value={String(r.matched_venue_id)} />
+                        <button
+                          type="submit"
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #e5e7eb",
+                            background: "white",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Sweep venue
+                        </button>
+                      </form>
+                    ) : (
+                      <span style={{ color: "#9ca3af" }}>—</span>
+                    )}
+                    {r.sweep_error ? (
+                      <div style={{ marginTop: 6, color: "#b91c1c", fontSize: 11 }}>error</div>
+                    ) : r.sweep_result?.imported_tournaments ? (
+                      <div style={{ marginTop: 6, color: "#065f46", fontSize: 11 }}>
+                        +{r.sweep_result.imported_tournaments} tournaments
+                      </div>
+                    ) : r.sweep_ran_at ? (
+                      <div style={{ marginTop: 6, color: "#6b7280", fontSize: 11 }}>swept</div>
+                    ) : null}
+                  </td>
+                  <td style={{ padding: 8, fontSize: 12, color: "#6b7280" }}>
+                    <div>{r.reason ?? ""}</div>
+                    {r.sweep_error ? <div style={{ marginTop: 4 }}>sweep_error: {r.sweep_error}</div> : null}
+                  </td>
                 </tr>
               ))}
             </tbody>

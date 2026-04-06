@@ -17,6 +17,17 @@ export async function upsertTournamentFromSource(row: TournamentRow) {
   const supabase = supabaseAdmin();
   const now = new Date().toISOString();
 
+  // Never downgrade an existing non-draft tournament back to draft.
+  // Sweeps/imports typically use `status='draft'` so they land in the approval queue, but if a tournament
+  // with the same slug is already published (or otherwise non-draft), preserve the existing status.
+  const { data: existing } = await supabase
+    .from("tournaments")
+    .select("id,status")
+    .eq("slug", row.slug)
+    .maybeSingle();
+  const existingStatus = (existing as any)?.status as string | null | undefined;
+  const statusToWrite = existingStatus && existingStatus !== "draft" ? existingStatus : row.status;
+
   // 1️⃣ Upsert canonical tournament
   const { data: tournament, error: tErr } = await supabase
     .from("tournaments")
@@ -37,7 +48,7 @@ export async function upsertTournamentFromSource(row: TournamentRow) {
         summary: row.summary ?? null,
         sub_type: row.sub_type ?? "internet",
         ref_cash_tournament: row.ref_cash_tournament ?? false,
-        status: row.status,
+        status: statusToWrite,
         updated_at: now,
         source_url: row.source_url,
         source_domain: row.source_domain,
