@@ -167,8 +167,15 @@ async function expandFromVenuePage(args: {
   maxNewUrls: number;
   venueHost: string;
 }) {
-  const html = await fetchHtml(args.pageUrl);
-  if (!html) return { links: [] as string[], eventQueries: [] as string[] };
+  let html: string | null = null;
+  try {
+    html = await fetchHtml(args.pageUrl);
+  } catch (err: any) {
+    // Non-fatal: some venue/facility pages return non-HTML (PDF), are bot-blocked, or are JS-only.
+    // We keep the sweep running and just skip expansion for this page.
+    return { links: [] as string[], eventQueries: [] as string[], error: String(err?.message ?? "fetch_failed") };
+  }
+  if (!html) return { links: [] as string[], eventQueries: [] as string[], error: "empty_html" };
 
   const $ = cheerio.load(html);
   const found = new Set<string>();
@@ -223,7 +230,7 @@ async function expandFromVenuePage(args: {
   }
 
   const links = Array.from(found).slice(0, args.maxNewUrls);
-  return { links, eventQueries };
+  return { links, eventQueries, error: null as string | null };
 }
 
 export async function runVenueSweepToDraftUploads(args: {
@@ -318,6 +325,7 @@ export async function runVenueSweepToDraftUploads(args: {
   let venue_pages_fetched = 0;
   let venue_page_links_extracted = 0;
   let venue_page_event_queries = 0;
+  let venue_page_fetch_errors = 0;
 
   for (const page of Array.from(venuePages.values()).slice(0, 4)) {
     const expanded = await expandFromVenuePage({
@@ -330,6 +338,7 @@ export async function runVenueSweepToDraftUploads(args: {
     venue_pages_fetched += 1;
     venue_page_links_extracted += expanded.links.length;
     venue_page_event_queries += expanded.eventQueries.length;
+    if (expanded.error) venue_page_fetch_errors += 1;
 
     for (const link of expanded.links) {
       let canonical = "";
@@ -440,6 +449,7 @@ export async function runVenueSweepToDraftUploads(args: {
     venue_pages_fetched,
     venue_page_links_extracted,
     venue_page_event_queries,
+    venue_page_fetch_errors,
     inserted_sources,
     skipped_existing,
     skipped_terminal,
