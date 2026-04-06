@@ -11,6 +11,14 @@
 - Ops ingest: avoid merging distinct tournaments that share a generic listing URL by using `slug` (not `tournament_url`) for `source_event_id` when the URL is generic (e.g. `/tournaments`, homepage): `scripts/ops/ingest_tournaments_and_venues_from_csv.mjs`.
 - Ops repair: add one-off script to split/repair the Spokane ingest where generic `source_event_id` collisions merged multiple events into one tournament: `scripts/ops/repair_spokane_ingest_20260404.mjs`.
 
+## 2026-04-06
+
+- RI admin venues: add a venue-only CSV import flow with dry-run + apply, row-level reporting, and downloadable results CSV: `apps/referee/app/admin/venues/import/page.tsx`, `apps/referee/app/api/admin/venues/import/route.ts`, `apps/referee/app/api/admin/venues/import/export/route.ts`, `apps/referee/src/server/admin/venueImport.ts`, `supabase/migrations/20260406_venue_import_and_venue_discovery.sql`.
+- RI admin venues: add a venue-driven Atlas discovery page that generates venue-anchored queries and queues discovered URLs into the existing `tournament_sources` review pipeline: `apps/referee/app/admin/venues/sweep/page.tsx`, `apps/referee/app/admin/tournaments/sources/discover/RunDiscovery.tsx`.
+- Discovery provenance: persist venue/query/provider for discovered URLs via new `tournament_source_discoveries` table (keeps `tournament_sources` as the canonical URL registry): `supabase/migrations/20260406_venue_import_and_venue_discovery.sql`, `apps/referee/app/api/atlas/discover-and-queue/route.ts`.
+- Venue import robustness: parse common “no-comma” address format (`street city ST ZIP`) so city/state aren’t dropped during import (prevents false `invalid`): `apps/referee/src/server/admin/venueImport.ts`.
+- Admin nav: add quick links for Venue CSV import + Venue sweep from `/admin/venues`: `apps/referee/app/admin/venues/page.tsx`.
+
 ## 2026-04-03
 
 - TI tournaments: reduce sport hub page caching from 6h → 5m so newly ingested tournaments show up quickly (`apps/ti-web/app/tournaments/{soccer,baseball,softball,basketball,lacrosse}/page.tsx`). Also make sport/state SEO pages refresh + include tournaments with only `start_date` (use `start_date >= today OR end_date >= today`) via `apps/ti-web/app/[sport]/[state]/page.tsx`.
