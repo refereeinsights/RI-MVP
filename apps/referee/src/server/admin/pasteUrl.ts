@@ -16,6 +16,10 @@ import {
   isSoftballConnectedTournamentsUrl,
   sweepSoftballConnectedTournaments,
 } from "@/server/sweeps/softballConnectedTournaments";
+import {
+  isExposureBasketballEventsDirectoryUrl,
+  sweepExposureBasketballEventsDirectory,
+} from "@/server/sweeps/exposureBasketballEvents";
 import { insertRun, normalizeSourceUrl, upsertRegistry, updateRunExtractedJson } from "./sources";
 import { SweepError, classifyHtmlPayload, httpErrorCode } from "./sweepDiagnostics";
 
@@ -1018,6 +1022,67 @@ export async function createTournamentFromUrl(params: {
       tournamentId: sweepResult.imported_ids[0] ?? "",
       meta: { name: `Imported ${sweepResult.counts.imported} softball events`, warnings: [] },
       slug: "softball-connected-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: sweepResult.counts.imported,
+      details: {
+        counts: sweepResult.counts,
+        sample: sweepResult.sample,
+      },
+    };
+  }
+
+  if (isExposureBasketballEventsDirectoryUrl(canonical)) {
+    const sweepResult = await sweepExposureBasketballEventsDirectory({
+      sourceUrl: canonical,
+      status,
+      writeDb: true,
+      maxPages: 3,
+      maxEvents: 120,
+      includeVenues: true,
+    });
+
+    if (!sweepResult.counts.found) {
+      throw new SweepError("html_received_no_events", "Exposure Events page parsed but no events found", diagnostics);
+    }
+
+    await queueEnrichmentJobs(sweepResult.imported_ids);
+
+    const registry = await upsertRegistry({
+      source_url: canonical,
+      source_type: "directory",
+      sport: "basketball",
+      notes: "Exposure Basketball Events directory (AJAX). Uses per-session token + API paging; imports upcoming events and links venues via widgets endpoint.",
+      is_custom_source: true,
+      is_active: true,
+    });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: diagnostics.final_url ? new URL(diagnostics.final_url).hostname : parsedUrl.hostname,
+      title: "Exposure Basketball Events (directory)",
+      extracted_json: {
+        action: "exposure_basketball_directory_import",
+        extracted_count: sweepResult.counts.imported,
+        counts: sweepResult.counts,
+        sample: sweepResult.sample,
+      },
+      extract_confidence: 0.85,
+    });
+    await updateRunExtractedJson(runId, {
+      action: "exposure_basketball_directory_import",
+      extracted_count: sweepResult.counts.imported,
+      counts: sweepResult.counts,
+      sample: sweepResult.sample,
+    });
+
+    return {
+      tournamentId: sweepResult.imported_ids[0] ?? "",
+      meta: { name: `Imported ${sweepResult.counts.imported} events`, warnings: [] },
+      slug: "exposure-basketball-directory-import",
       registry_id: registry.registry_id,
       run_id: runId,
       diagnostics,
