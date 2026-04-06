@@ -12,6 +12,7 @@ import {
   upsertSourceAction,
   updateStatusAction,
   updateMetadataAction,
+  updateSourceUrlAction,
   quickActionAction,
   sweepSourceAction,
   runTopTierSweepAction,
@@ -272,6 +273,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   const upsertSource = upsertSourceAction.bind(null, stickyQueryString);
   const updateStatus = updateStatusAction.bind(null, stickyQueryString);
   const updateMetadata = updateMetadataAction.bind(null, stickyQueryString);
+  const updateSourceUrl = updateSourceUrlAction.bind(null, stickyQueryString);
   const quickAction = quickActionAction.bind(null, sourcesBasePath, stickyQueryString);
   const sweepSource = sweepSourceAction.bind(null, stickyQueryString);
   const runTopTierSweep = runTopTierSweepAction.bind(null, stickyQueryString);
@@ -391,6 +393,29 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
         <td style={{ padding: "6px 4px" }}>{row.state || "—"}</td>
         <td style={{ padding: "6px 4px" }}>{row.city || "—"}</td>
         <td style={{ padding: "6px 4px" }}>
+          <form action={updateSourceUrl} style={{ display: "flex", gap: 4, alignItems: "center", marginBottom: 8 }}>
+            <input type="hidden" name="id" value={row.id} />
+            <input
+              name="new_source_url"
+              defaultValue={row.source_url}
+              style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 11, flex: 1, minWidth: 0 }}
+            />
+            <button
+              type="submit"
+              style={{
+                padding: "4px 8px",
+                borderRadius: 6,
+                border: "1px solid #7c3aed",
+                background: "#f5f3ff",
+                color: "#5b21b6",
+                fontSize: 11,
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Update URL
+            </button>
+          </form>
           <form action={updateMetadata} style={{ display: "grid", gap: 6, marginBottom: 8 }}>
             <input type="hidden" name="id" value={row.id} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(110px,1fr))", gap: 6 }}>

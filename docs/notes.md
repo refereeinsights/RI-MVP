@@ -12,6 +12,14 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-04-06
+- RI Admin: editable source URLs in sources registry (`/admin/tournaments/sources`)
+  - Previously the source_url was immutable (used as the upsert key); no way to correct a saved URL
+  - Added `updateSourceUrlAction` in `actions.ts`: normalizes new URL, checks for collision with a different existing row (graceful notice instead of crash), updates `source_url`, `url`, `normalized_url`, `normalized_host` by row `id`
+  - Logs remain attached (they FK on UUID `source_id`, not on the URL string)
+  - Added inline "Update URL" form above the existing metadata form in each registry row — text input pre-filled with current URL + purple "Update URL" button
+  - Files: `apps/referee/app/admin/tournaments/sources/actions.ts`, `apps/referee/app/admin/tournaments/sources/page.tsx`
+
 ## 2026-04-05
 - RI Admin: extract official URLs from aggregator/source pages for enrichment
   - Context: 284 published canonical tournaments have source_url but no official_website_url; enrichment scraper was hitting aggregator pages and finding no contact emails

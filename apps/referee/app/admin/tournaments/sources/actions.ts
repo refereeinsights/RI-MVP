@@ -396,6 +396,38 @@ export async function sweepSourceAction(stickyQueryString: string, formData: For
   }
 }
 
+export async function updateSourceUrlAction(stickyQueryString: string, formData: FormData) {
+  await requireAdmin();
+  try {
+    const id = String(formData.get("id") || "");
+    const newUrl = String(formData.get("new_source_url") || "").trim();
+    if (!id || !newUrl) {
+      redirect(buildSourcesNoticeUrl(stickyQueryString, "Missing id or URL"));
+    }
+    const { canonical, normalized, host } = normalizeSourceUrl(newUrl);
+    // Check for collision with a different existing row
+    const { data: existing } = await supabaseAdmin
+      .from("tournament_sources" as any)
+      .select("id")
+      .or(`normalized_url.eq.${normalized},source_url.eq.${canonical}`)
+      .is("tournament_id", null)
+      .maybeSingle();
+    if (existing && (existing as any).id && (existing as any).id !== id) {
+      redirect(buildSourcesNoticeUrl(stickyQueryString, "A source with that URL already exists"));
+    }
+    const { error } = await supabaseAdmin
+      .from("tournament_sources" as any)
+      .update({ source_url: canonical, url: canonical, normalized_url: normalized, normalized_host: host })
+      .eq("id", id)
+      .is("tournament_id", null);
+    const noticeMsg = error ? `URL update failed: ${describeActionError(error)}` : "Source URL updated";
+    redirect(buildSourcesNoticeUrl(stickyQueryString, noticeMsg, { source_url: canonical }));
+  } catch (err: any) {
+    if (err?.digest && String(err.digest).includes("NEXT_REDIRECT")) throw err;
+    redirect(buildSourcesNoticeUrl(stickyQueryString, `URL update exception: ${describeActionError(err)}`));
+  }
+}
+
 export async function runTopTierSweepAction(stickyQueryString: string) {
   await requireAdmin();
   try {
