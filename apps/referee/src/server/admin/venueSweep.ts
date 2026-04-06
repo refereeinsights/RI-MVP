@@ -36,11 +36,12 @@ function buildVenueSweepQueries(venue: VenueRow) {
   // Keep these short (Brave hard limit is 400 chars; other providers are more forgiving).
   const quoted = name.includes('"') ? name.replace(/"/g, "") : `"${name}"`;
 
+  const negatives = "-league -rental -availability -reservation -permit -jobs -construction";
   const base = [
-    `${quoted} tournament ${city} ${state}`,
-    `${quoted} youth tournament ${state}`,
-    `${quoted} ${sport} tournament ${state}`,
-    `${quoted} schedule ${sport} ${state}`,
+    `${quoted} tournament ${city} ${state} ${negatives}`,
+    `${quoted} youth tournament ${state} ${negatives}`,
+    `${quoted} ${sport} tournament ${state} ${negatives}`,
+    `${quoted} cup showcase classic invitational ${state} ${negatives}`,
   ];
 
   // Some venues are generic names; add city/state anchored variants.
@@ -50,6 +51,43 @@ function buildVenueSweepQueries(venue: VenueRow) {
 
   // Keep deterministic and unique.
   return Array.from(new Set(base.map((q) => q.replace(/\s+/g, " ").trim()).filter(Boolean))).slice(0, 8);
+}
+
+function isLikelyTournamentResult(args: {
+  url: string;
+  domain?: string | null;
+  title?: string | null;
+  snippet?: string | null;
+}) {
+  const domain = String(args.domain ?? "").toLowerCase();
+  const text = `${args.title ?? ""} ${args.snippet ?? ""} ${args.url}`.toLowerCase();
+
+  // Always allow known tournament platforms/directories.
+  const allowDomains = [
+    "usssa.com",
+    "gotsport.com",
+    "gotsoccer.com",
+    "tourneymachine.com",
+    "exposureevents.com",
+    "perfectgame.org",
+    "sportsengine.com",
+    "leagueapps.com",
+    "playpass.com",
+    "eventconnect.io",
+  ];
+  if (allowDomains.some((d) => domain === d || domain.endsWith(`.${d}`))) return true;
+
+  // Drop obvious non-tournament content.
+  const hardBlockDomains = ["facebook.com", "instagram.com", "tiktok.com", "x.com", "twitter.com", "youtube.com"];
+  if (hardBlockDomains.some((d) => domain === d || domain.endsWith(`.${d}`))) return false;
+  if (domain.endsWith(".gov")) return false;
+
+  const positive = /(tournament|cup|classic|showcase|shootout|invitational|championship|qualifier|state\s+cup|memorial\s+day)/i;
+  const negative = /(field\s*(rental|availability|reservation|schedule)|facility\s*(rental|availability)|park\s+rules|hours\s+of\s+operation|construction|locker\s+rooms|restrooms|pickleball|recreation\s+center)/i;
+
+  if (!positive.test(text)) return false;
+  if (negative.test(text)) return false;
+  return true;
 }
 
 export async function runVenueSweepToDraftUploads(args: {
@@ -91,6 +129,7 @@ export async function runVenueSweepToDraftUploads(args: {
 
   const deduped = new Map<string, { url: string; discovered_query: string }>();
   let totalFound = 0;
+  let noise_dropped = 0;
 
   for (const query of queries) {
     const results = await atlasSearch(query, perQueryLimit);
@@ -102,6 +141,17 @@ export async function runVenueSweepToDraftUploads(args: {
       try {
         canonical = normalizeSourceUrl(raw).canonical;
       } catch {
+        continue;
+      }
+      if (
+        !isLikelyTournamentResult({
+          url: canonical,
+          domain: result.domain ?? null,
+          title: result.title ?? null,
+          snippet: result.snippet ?? null,
+        })
+      ) {
+        noise_dropped += 1;
         continue;
       }
       if (deduped.has(canonical)) continue;
@@ -201,6 +251,7 @@ export async function runVenueSweepToDraftUploads(args: {
     queries,
     total_found: totalFound,
     discovered_urls: deduped.size,
+    noise_dropped,
     inserted_sources,
     skipped_existing,
     skipped_terminal,

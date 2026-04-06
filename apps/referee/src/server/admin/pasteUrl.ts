@@ -223,6 +223,11 @@ export function extractDateGuess(text: string): { start: string | null; end: str
   const month = "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*";
   const day = "(\\d{1,2})";
   const year = "(20\\d{2})";
+  // Examples:
+  // - Apr 10-12, 2026
+  // - Apr 10 - 12 2026
+  // - Apr 10 – May 2, 2026
+  const sameMonthRangeRegex = new RegExp(`${month}\\s+${day}\\s*[-–]\\s*${day}[,\\s]+${year}`, "i");
   const rangeRegex = new RegExp(`${month}\\s+${day}(?:\\s*[-–]\\s*${month}\\s+${day})?[,\\s]+${year}`, "i");
   const singleRegex = new RegExp(`${month}\\s+${day}[,\\s]+${year}`, "i");
 
@@ -234,6 +239,14 @@ export function extractDateGuess(text: string): { start: string | null; end: str
     const dd = String(Number(d)).padStart(2, "0");
     return `${y}-${mm}-${dd}`;
   };
+
+  const sameMonth = text.match(sameMonthRangeRegex);
+  if (sameMonth) {
+    const [_, m, dStart, dEnd, y] = sameMonth;
+    const start = toIso(m, dStart, y);
+    const end = toIso(m, dEnd, y);
+    return { start, end: end ?? start ?? null };
+  }
 
   const rangeMatch = text.match(rangeRegex);
   if (rangeMatch) {
