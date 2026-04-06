@@ -116,6 +116,7 @@ async function fetchTextWithCookies(url: string): Promise<{ html: string; cookie
     const resp = await fetch(url, {
       method: "GET",
       redirect: "follow",
+      cache: "no-store",
       signal: controller.signal,
       headers: { "user-agent": "RI-Exposure-Sweep/1.0" },
     });
@@ -176,6 +177,7 @@ async function fetchDirectoryPage(params: {
     const resp = await fetch(url, {
       method: "POST",
       redirect: "follow",
+      cache: "no-store",
       signal: controller.signal,
       headers: {
         "user-agent": "RI-Exposure-Sweep/1.0",
@@ -255,6 +257,7 @@ async function fetchVenuesForEvent(baseUrl: string, eventId: number): Promise<Pa
     const resp = await fetch(url, {
       method: "GET",
       redirect: "follow",
+      cache: "no-store",
       signal: controller.signal,
       headers: { "user-agent": "RI-Exposure-Sweep/1.0" },
     });
