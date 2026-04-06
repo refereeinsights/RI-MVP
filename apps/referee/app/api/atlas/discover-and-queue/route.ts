@@ -155,6 +155,17 @@ export async function POST(req: Request) {
       }
     }
 
+    // If this discovery run is anchored to a specific venue, mark it as swept now so admin
+    // tooling can show last-swept and hide recently swept venues. Ignore failures for envs
+    // that haven't added the column yet.
+    if (venueId) {
+      try {
+        await supabaseAdmin.from("venues" as any).update({ last_swept_at: new Date().toISOString() }).eq("id", venueId);
+      } catch {
+        // ignore
+      }
+    }
+
     const deduped = new Map<
       string,
       { url: string; title?: string | null; snippet?: string | null; domain?: string | null; discovered_query?: string | null }

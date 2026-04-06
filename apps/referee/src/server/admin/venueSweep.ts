@@ -78,6 +78,14 @@ export async function runVenueSweepToDraftUploads(args: {
   if (!name) return { ok: false as const, reason: "missing_venue_name" as const };
   if (!city || !state) return { ok: false as const, reason: "missing_city_state" as const };
 
+  // Mark the venue as swept (even if no URLs are found) so admin tooling can de-noise repeats.
+  // Non-fatal if the column hasn't been migrated yet in some environments.
+  try {
+    await supabaseAdmin.from("venues" as any).update({ last_swept_at: new Date().toISOString() }).eq("id", venue.id);
+  } catch {
+    // ignore
+  }
+
   const provider = getSearchProviderName();
   const queries = buildVenueSweepQueries(venue);
 
