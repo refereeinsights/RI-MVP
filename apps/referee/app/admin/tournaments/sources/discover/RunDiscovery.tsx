@@ -26,15 +26,28 @@ type Props = {
   sportOptions: readonly string[];
   sourceTypeOptions: readonly string[];
   defaultTarget: string;
+  venueId?: string | null;
+  defaultSport?: string | null;
+  defaultSourceType?: string | null;
+  defaultState?: string | null;
 };
 
-export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions, defaultTarget }: Props) {
+export default function RunDiscovery({
+  queries,
+  sportOptions,
+  sourceTypeOptions,
+  defaultTarget,
+  venueId,
+  defaultSport,
+  defaultSourceType,
+  defaultState,
+}: Props) {
   const [localQueries, setLocalQueries] = useState(() => queries);
   const lastPropQueriesRef = useRef<string[]>(queries);
-  const [sport, setSport] = useState("__ANY__");
-  const [sourceType, setSourceType] = useState("__ANY__");
+  const [sport, setSport] = useState(defaultSport ? String(defaultSport) : "__ANY__");
+  const [sourceType, setSourceType] = useState(defaultSourceType ? String(defaultSourceType) : "__ANY__");
   const [target, setTarget] = useState(defaultTarget === "assignor" ? "assignor" : "tournament");
-  const [state, setState] = useState("");
+  const [state, setState] = useState(defaultState ? String(defaultState) : "");
   const [perQueryLimit, setPerQueryLimit] = useState(10);
   const [maxTotal, setMaxTotal] = useState(100);
   const [hideUpdated, setHideUpdated] = useState(false);
@@ -79,6 +92,7 @@ export default function RunDiscovery({ queries, sportOptions, sourceTypeOptions,
           sport: sportValue || undefined,
           source_type: target === "tournament" ? (sourceTypeValue || undefined) : undefined,
           state: state.trim() || undefined,
+          venue_id: venueId || undefined,
           result_limit_per_query: perQueryLimit,
           max_total_urls: maxTotal,
         }),

@@ -17,6 +17,7 @@ type ResultPreview = {
   title?: string | null;
   snippet?: string | null;
   domain?: string | null;
+  discovered_query?: string | null;
   status: "inserted" | "existing" | "terminal";
 };
 
@@ -120,6 +121,9 @@ export async function POST(req: Request) {
     const source_type = typeof body?.source_type === "string" ? body.source_type.trim() : "";
     const target = typeof body?.target === "string" ? body.target.trim() : "tournament";
     const state = typeof body?.state === "string" ? body.state.trim() : "";
+    const venueIdRaw = typeof body?.venue_id === "string" ? body.venue_id.trim() : "";
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const venueId = venueIdRaw && UUID_RE.test(venueIdRaw) ? venueIdRaw : "";
     const crawlRunId = typeof body?.crawl_run_id === "string" ? body.crawl_run_id.trim() : "";
     if (target === "assignor" && !sport) {
       return jsonResponse({ error: "sport_required" }, 400);
@@ -151,7 +155,10 @@ export async function POST(req: Request) {
       }
     }
 
-    const deduped = new Map<string, { url: string; title?: string | null; snippet?: string | null; domain?: string | null }>();
+    const deduped = new Map<
+      string,
+      { url: string; title?: string | null; snippet?: string | null; domain?: string | null; discovered_query?: string | null }
+    >();
     let totalFound = 0;
     let duplicates_dropped = 0;
 
@@ -171,6 +178,7 @@ export async function POST(req: Request) {
           title: result.title ?? null,
           snippet: result.snippet ?? null,
           domain: result.domain ?? normalized.host,
+          discovered_query: query,
         });
         if (deduped.size >= maxTotal) break;
       }
@@ -238,7 +246,7 @@ export async function POST(req: Request) {
         }
         continue;
       }
-      await upsertRegistry({
+      const { registry_id } = await upsertRegistry({
         source_url: normalized,
         source_type: source_type || null,
         sport: sport || null,
@@ -247,6 +255,19 @@ export async function POST(req: Request) {
         review_notes: "discovered via atlas",
         is_active: true,
       });
+      if (venueId) {
+        const payload = {
+          created_by: admin.user!.id,
+          provider: providerName,
+          query: item.discovered_query ?? null,
+          venue_id: venueId,
+          source_id: registry_id,
+        };
+        const ins = await supabaseAdmin.from("tournament_source_discoveries" as any).insert(payload);
+        if (ins.error && (ins.error as any)?.code !== "23505") {
+          console.warn("[discover-and-queue] failed to persist venue discovery provenance", ins.error);
+        }
+      }
       inserted += 1;
       previews.push({ ...item, url: normalized, status: "inserted" });
     }

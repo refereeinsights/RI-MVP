@@ -79,6 +79,7 @@ import {
   extractEventsFromJsonLd,
   extractGrassrootsCalendar,
   importTournamentRecords,
+  inferSportFromCsvRow,
   parseCsv,
 } from "@/lib/tournaments/importUtils";
 import { ensureTournamentVenueLink } from "@/lib/tournaments/ensureTournamentVenueLink";
@@ -2222,8 +2223,16 @@ export default async function AdminPage({
 
       if (filename.endsWith(".csv")) {
         const { rows } = parseCsv(contents);
-        csvOriginalRowCount = rows.length;
-        const { kept, dropped } = cleanCsvRows(rows);
+        // Allow CSVs that omit `sport` by applying the selected fallback sport.
+        // This is common for small venue-only exports where sport is implicit.
+        const rowsWithFallback = rows.map((row) => {
+          const current = String((row as any).sport ?? (row as any).tournament_sport ?? "").trim();
+          if (current) return row;
+          const inferred = inferSportFromCsvRow(row, { fallbackSport });
+          return { ...row, sport: inferred || fallbackSport };
+        });
+        csvOriginalRowCount = rowsWithFallback.length;
+        const { kept, dropped } = cleanCsvRows(rowsWithFallback);
         if (dropped.length) {
           const bucketReason = (reason: string) => {
             const r = String(reason || "").trim();

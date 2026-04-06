@@ -967,6 +967,34 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
               >
                 Missing venues tool
               </Link>
+              <Link
+                href="/admin/venues/import"
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "#fff",
+                  color: "#111827",
+                  fontWeight: 800,
+                  textDecoration: "none",
+                  border: "1px solid #e5e7eb",
+                }}
+              >
+                Venue CSV import
+              </Link>
+              <Link
+                href="/admin/venues/sweep"
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "#fff",
+                  color: "#0f766e",
+                  fontWeight: 800,
+                  textDecoration: "none",
+                  border: "1px solid #99f6e4",
+                }}
+              >
+                Venue sweep
+              </Link>
 		          <Link
 		            href="/admin/venues/link-quality"
 		            style={{

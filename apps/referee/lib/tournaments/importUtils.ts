@@ -45,66 +45,214 @@ const OTHER_SPORT_KEYWORDS = [
   "hockey",
 ];
 
+export function inferSportFromCsvRow(
+  row: CsvRow,
+  opts?: { fallbackSport?: string | null }
+): string | null {
+  const normalizeSport = (value: unknown) => String(value ?? "").trim().toLowerCase();
+  const pick = (keys: string[]) => {
+    for (const key of keys) {
+      const v = normalizeSport((row as any)[key]);
+      if (v) return v;
+    }
+    return "";
+  };
+
+  const explicit = pick(["sport", "tournament_sport"]);
+  if (explicit) return explicit;
+
+  const fallback = normalizeSport(opts?.fallbackSport ?? "");
+  if (fallback && fallback !== "other") return fallback;
+
+  const name = String((row as any).name ?? (row as any).tournament_name ?? "").toLowerCase();
+  const urlRaw = String(
+    (row as any).source_url ??
+      (row as any).official_website_url ??
+      (row as any).tournament_url ??
+      (row as any).url ??
+      ""
+  ).trim();
+
+  const inferFromText = (text: string) => {
+    const t = text.toLowerCase();
+    if (!t) return null;
+    if (/\bfutsal\b/.test(t)) return "futsal";
+    if (/\bsoccer\b/.test(t)) return "soccer";
+    if (/\bvolleyball\b/.test(t) || /\bvball\b/.test(t)) return "volleyball";
+    if (/\blacrosse\b/.test(t)) return "lacrosse";
+    if (/\bwrestling\b/.test(t)) return "wrestling";
+    if (/\bfield hockey\b/.test(t) || /\bhockey\b/.test(t)) return "hockey";
+    if (/\bfootball\b/.test(t)) return "football";
+    if (/\bsoftball\b/.test(t) || /\bfastpitch\b/.test(t)) return "softball";
+    if (/\bbaseball\b/.test(t)) return "baseball";
+    if (/\bbasketball\b/.test(t) || /\bhoop\b/.test(t)) return "basketball";
+    return null;
+  };
+
+  const fromName = inferFromText(name);
+  if (fromName) return fromName;
+
+  if (urlRaw) {
+    try {
+      const url = new URL(urlRaw);
+      const host = url.hostname.toLowerCase();
+      const path = url.pathname.toLowerCase();
+      const full = `${host}${path}${url.search.toLowerCase()}`;
+
+      // Domain-based hints.
+      if (host.includes("perfectgame.")) return "baseball";
+      if (host.includes("gotsoccer") || host.includes("gotsport")) return "soccer";
+      if (host.includes("usclubsoccer")) return "soccer";
+      if (host.includes("ayso")) return "soccer";
+      if (host.includes("exposureevents") && host.includes("basketball")) return "basketball";
+
+      // Path-based hints.
+      if (full.includes("/baseball")) return "baseball";
+      if (full.includes("/fastpitch") || full.includes("/softball")) return "softball";
+      if (full.includes("/soccer")) return "soccer";
+      if (full.includes("/futsal")) return "futsal";
+      if (full.includes("/volleyball")) return "volleyball";
+      if (full.includes("/lacrosse")) return "lacrosse";
+      if (full.includes("/wrestling")) return "wrestling";
+      if (full.includes("/hockey")) return "hockey";
+      if (full.includes("/football")) return "football";
+      if (full.includes("/basketball")) return "basketball";
+    } catch {
+      // ignore invalid URLs
+    }
+  }
+
+  return fallback || null;
+}
+
 export function parseCsv(text: string): ParsedCsv {
-  const headers: string[] = [];
-  const rows: CsvRow[] = [];
-  const currentField: string[] = [];
-  const currentRow: string[] = [];
-  let insideQuotes = false;
+  const parseInternal = (input: string): ParsedCsv => {
+    const headers: string[] = [];
+    const rows: CsvRow[] = [];
+    const currentField: string[] = [];
+    const currentRow: string[] = [];
+    let insideQuotes = false;
 
-  const pushField = () => {
-    currentRow.push(currentField.join(""));
-    currentField.length = 0;
-  };
+    const looksLikeAddress = (value: string) => {
+      const v = String(value || "").trim();
+      if (!v) return false;
+      if (!/\d/.test(v)) return false;
+      if (/\b\d{5}(-\d{4})?\b/.test(v)) return true;
+      if (/\b[A-Z]{2}\b/.test(v)) return true;
+      return v.length >= 12;
+    };
 
-  const pushRow = () => {
-    if (!currentRow.length) return;
-    if (!headers.length) {
-      headers.push(...currentRow);
-    } else {
-      const row: CsvRow = {};
-      headers.forEach((header, index) => {
-        row[header] = currentRow[index] ?? "";
-      });
-      rows.push(row);
-    }
-    currentRow.length = 0;
-  };
+    const repairFieldCount = (fields: string[]) => {
+      if (!headers.length) return fields;
 
-  const chars = text.split("");
-  for (let i = 0; i < chars.length; i++) {
-    const char = chars[i];
-    const nextChar = chars[i + 1];
-    if (char === '"') {
-      if (insideQuotes && nextChar === '"') {
-        currentField.push('"');
-        i++;
-      } else {
-        insideQuotes = !insideQuotes;
+      // Common export bug: header has N columns, rows have N+1 (usually an extra empty column).
+      // Prefer to keep venue name + address when the overflow looks like an address.
+      if (fields.length === headers.length + 1) {
+        const venueNameIdx = headers.indexOf("venue_name");
+        const venueAddressIdx = headers.indexOf("venue_address");
+        if (venueNameIdx !== -1 && venueAddressIdx !== -1) {
+          const maybeVenueName = String(fields[venueAddressIdx] ?? "").trim();
+          const overflow = String(fields[headers.length] ?? "").trim();
+          if (!String(fields[venueNameIdx] ?? "").trim() && maybeVenueName && overflow && looksLikeAddress(overflow)) {
+            const repaired = fields.slice(0, headers.length);
+            repaired[venueNameIdx] = fields[venueAddressIdx] ?? "";
+            repaired[venueAddressIdx] = fields[headers.length] ?? "";
+            return repaired;
+          }
+        }
       }
-      continue;
+
+      // Fallback: if the row has more columns than the header, merge overflow into the last column.
+      if (fields.length > headers.length && headers.length > 0) {
+        const repaired = fields.slice(0, headers.length);
+        const overflow = fields.slice(headers.length).filter((v) => String(v || "").trim());
+        if (overflow.length) {
+          repaired[headers.length - 1] = [repaired[headers.length - 1], ...overflow]
+            .filter((v) => String(v || "").trim())
+            .join(", ");
+        }
+        return repaired;
+      }
+
+      return fields;
+    };
+
+    const pushField = () => {
+      currentRow.push(currentField.join(""));
+      currentField.length = 0;
+    };
+
+    const pushRow = () => {
+      if (!currentRow.length) return;
+      if (!headers.length) {
+        headers.push(...currentRow);
+      } else {
+        const repairedRow = repairFieldCount(currentRow);
+        const row: CsvRow = {};
+        headers.forEach((header, index) => {
+          row[header] = repairedRow[index] ?? "";
+        });
+        rows.push(row);
+      }
+      currentRow.length = 0;
+    };
+
+    const chars = input.split("");
+    for (let i = 0; i < chars.length; i++) {
+      const char = chars[i];
+      const nextChar = chars[i + 1];
+      if (char === '"') {
+        if (insideQuotes && nextChar === '"') {
+          currentField.push('"');
+          i++;
+        } else {
+          insideQuotes = !insideQuotes;
+        }
+        continue;
+      }
+      if (char === "," && !insideQuotes) {
+        pushField();
+        continue;
+      }
+      if ((char === "\n" || char === "\r") && !insideQuotes) {
+        pushField();
+        pushRow();
+        if (char === "\r" && nextChar === "\n") {
+          i++;
+        }
+        continue;
+      }
+      currentField.push(char);
     }
-    if (char === "," && !insideQuotes) {
-      pushField();
-      continue;
-    }
-    if ((char === "\n" || char === "\r") && !insideQuotes) {
+
+    if (currentField.length || currentRow.length) {
       pushField();
       pushRow();
-      if (char === "\r" && nextChar === "\n") {
-        i++;
-      }
-      continue;
     }
-    currentField.push(char);
+
+    return { headers, rows };
+  };
+
+  const parsed = parseInternal(text);
+
+  // Common bad export: each CSV line is wrapped in quotes, making the whole line a single cell.
+  // Example header: `"tournament_name,tournament_url,...,notes"`
+  // Repair by stripping outer quotes per line and un-escaping doubled quotes.
+  if (parsed.headers.length === 1 && parsed.headers[0]?.includes(",") && parsed.rows.length > 0) {
+    const repaired = text
+      .split(/\r?\n/)
+      .map((line) => {
+        const trimmed = line.trim();
+        if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+          return trimmed.slice(1, -1).replace(/""/g, '"');
+        }
+        return line;
+      })
+      .join("\n");
+    return parseInternal(repaired);
   }
 
-  if (currentField.length || currentRow.length) {
-    pushField();
-    pushRow();
-  }
-
-  return { headers, rows };
+  return parsed;
 }
 
 function normalize(value: string | null | undefined) {
@@ -195,6 +343,10 @@ export function cleanCsvRows(rows: CsvRow[]) {
     }
 
     const sportRaw = pick(row, ["sport", "tournament_sport"]).toLowerCase();
+    if (!sportRaw) {
+      dropped.push({ row, reason: "missing sport" });
+      continue;
+    }
     if (!ALLOWED_SPORTS.has(sportRaw)) {
       dropped.push({ row, reason: `unsupported sport "${row.sport ?? ""}"` });
       continue;
@@ -207,6 +359,7 @@ export function cleanCsvRows(rows: CsvRow[]) {
       continue;
     }
 
+    const zip = pick(row, ["zip", "tournament_zip", "venue_zip"]);
     const sourceUrl = pick(row, ["source_url", "official_website_url", "tournament_url", "url", "website"]);
     if (!sourceUrl) {
       dropped.push({ row, reason: "missing source URL" });
@@ -228,7 +381,7 @@ export function cleanCsvRows(rows: CsvRow[]) {
     seenSlugs.add(slugKey);
 
     const venue = pick(row, ["venue", "venue_name"]);
-    const address = pick(row, ["address", "venue_address", "venue_address_text"]);
+    const address = pick(row, ["address", "venue_address", "venue_address_text", "address_with_zip"]);
 
     kept.push({
       ...row,
@@ -237,6 +390,7 @@ export function cleanCsvRows(rows: CsvRow[]) {
       sport: sportRaw,
       state,
       city,
+      zip,
       summary,
       venue,
       address,
@@ -266,6 +420,12 @@ export function csvRowsToTournamentRows(
     const cashFlag = (row.ref_cash_tournament ?? row.cash ?? "").toLowerCase();
     const venue = cleanMaybeVenueOrAddress(row.venue ?? (row as any).venue_name);
     const address = cleanMaybeVenueOrAddress(row.address ?? (row as any).venue_address ?? (row as any).venue_address_text);
+    const association = normalize(
+      row.tournament_association ??
+        (row as any).organization ??
+        (row as any).organizer ??
+        (row as any).association
+    ) || null;
     const record: TournamentRow = {
       name: row.name,
       slug: row.slug,
@@ -275,7 +435,7 @@ export function csvRowsToTournamentRows(
       ref_cash_tournament: cashFlag === "true" || cashFlag === "1" || cashFlag === "yes",
       state: row.state || null,
       city: row.city || null,
-      tournament_association: normalize(row.tournament_association) || null,
+      tournament_association: association,
       venue,
       address,
       zip: normalize(row.zip) || null,
