@@ -109,6 +109,33 @@ function toCookieHeader(setCookieHeaders: string[]) {
     .join("; ");
 }
 
+function splitCombinedSetCookie(value: string): string[] {
+  const raw = String(value || "").trim();
+  if (!raw) return [];
+  // Node/undici may coalesce multiple Set-Cookie headers into a single comma-delimited string.
+  // A safe split is to only split on commas that start a new cookie pair (name=value),
+  // avoiding the comma in Expires=Mon, 06 Apr...
+  return raw
+    .split(/,(?=[^;,=\s]+=[^;,]+)/g)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function getSetCookieHeaders(resp: Response): string[] {
+  const headersAny = resp.headers as any;
+  if (typeof headersAny.getSetCookie === "function") {
+    const arr = headersAny.getSetCookie();
+    return Array.isArray(arr) ? arr : [];
+  }
+  if (typeof headersAny.raw === "function") {
+    const raw = headersAny.raw();
+    const arr = raw?.["set-cookie"];
+    return Array.isArray(arr) ? arr : [];
+  }
+  const single = resp.headers.get("set-cookie");
+  return single ? splitCombinedSetCookie(single) : [];
+}
+
 async function fetchTextWithCookies(url: string): Promise<{ html: string; cookie: string | null }> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
@@ -124,10 +151,8 @@ async function fetchTextWithCookies(url: string): Promise<{ html: string; cookie
       return { html: "", cookie: null };
     }
     const html = await resp.text();
-    const headersAny = resp.headers as any;
-    const setCookies: string[] =
-      typeof headersAny.getSetCookie === "function" ? headersAny.getSetCookie() : [resp.headers.get("set-cookie") ?? ""];
-    const cookie = toCookieHeader(setCookies.filter(Boolean));
+    const setCookies = getSetCookieHeaders(resp);
+    const cookie = toCookieHeader(setCookies);
     return { html, cookie };
   } catch {
     return { html: "", cookie: null };
@@ -407,6 +432,22 @@ export async function sweepExposureBasketballEventsDirectory(params: {
 
   const boot = parseDirectoryBootstrap(bootstrap.html);
   if (!boot.tokenName || !boot.tokenValue || !boot.postPath || !boot.sportType) {
+    return {
+      imported_ids: [],
+      counts: {
+        pages_fetched: 0,
+        found: 0,
+        imported: 0,
+        venues_found: 0,
+        venues_created: 0,
+        venues_matched: 0,
+        venue_links_created: 0,
+      },
+      sample: [],
+    };
+  }
+  // The directory POST requires the cookies set by the initial GET.
+  if (!bootstrap.cookie) {
     return {
       imported_ids: [],
       counts: {
