@@ -163,7 +163,6 @@ function parseAddressBlob(rawAddress: string) {
 
       // Heuristic split: use last street-type token to separate street from city.
       const tokens = before.split(" ").map((t) => t.trim()).filter(Boolean);
-      const startsWithNumber = Boolean(tokens[0] && /\d/.test(tokens[0]));
       const STREET_TYPES = new Set([
         "st",
         "street",
@@ -197,7 +196,9 @@ function parseAddressBlob(rawAddress: string) {
         "loop",
       ]);
 
-      if (startsWithNumber && tokens.length >= 4) {
+      // Some venue addresses omit a street number ("Siebel Soccer Park Rd Bozeman MT 59718").
+      // If we can identify a street-type token, split there even without a leading number.
+      if (tokens.length >= 3) {
         let splitIdx = -1;
         for (let i = tokens.length - 1; i >= 0; i--) {
           if (STREET_TYPES.has(tokens[i].toLowerCase())) {

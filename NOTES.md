@@ -21,6 +21,7 @@
 - Venues: track `venues.last_swept_at` and make `/admin/venues/sweep` filterable by state/sport, showing last-swept and hiding venues swept in the last 30 days by default: `supabase/migrations/20260406_venues_last_swept_at.sql`, `apps/referee/app/admin/venues/sweep/page.tsx`, `apps/referee/app/api/atlas/discover-and-queue/route.ts`, `apps/referee/src/server/admin/venueSweep.ts`.
 - Venue sweep quality: reduce noisy non-tournament URLs during venue sweeps (keyword/domain filtering + negative terms) and improve generic date parsing to support same-month ranges like “Apr 10–12, 2026”: `apps/referee/src/server/admin/venueSweep.ts`, `apps/referee/src/server/admin/pasteUrl.ts`.
 - Venue import robustness: parse common “no-comma” address format (`street city ST ZIP`) so city/state aren’t dropped during import (prevents false `invalid`): `apps/referee/src/server/admin/venueImport.ts`.
+- Venue import robustness: parse addresses that omit a leading street number (e.g. “Siebel Soccer Park Rd Bozeman MT 59718”) so city/state still populate and rows don’t get marked invalid: `apps/referee/src/server/admin/venueImport.ts`.
 - Admin nav: add quick links for Venue CSV import + Venue sweep from `/admin/venues`: `apps/referee/app/admin/venues/page.tsx`.
 
 ## 2026-04-03
