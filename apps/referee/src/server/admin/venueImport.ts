@@ -142,6 +142,78 @@ function parseAddressBlob(rawAddress: string) {
     if (street && city && state && zip) return { street, city, state, zip };
   }
 
+  // Common variant without commas:
+  // "3335 Pine Tar Alley Southaven MS 38672"
+  // "5000 W Wellesley Ave Spokane WA 99205"
+  const tailMatch = raw.match(/^(.*)\s+([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+  if (tailMatch) {
+    const before = (tailMatch[1] ?? "").trim();
+    const state = (tailMatch[2] ?? "").trim();
+    const zip = (tailMatch[3] ?? "").trim();
+    if (before && state && zip) {
+      // Prefer comma split if present: "street, City"
+      if (before.includes(",")) {
+        const parts = before.split(",").map((p) => p.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          const city = parts[parts.length - 1];
+          const street = parts.slice(0, -1).join(", ");
+          if (street && city) return { street, city, state, zip };
+        }
+      }
+
+      // Heuristic split: use last street-type token to separate street from city.
+      const tokens = before.split(" ").map((t) => t.trim()).filter(Boolean);
+      const startsWithNumber = Boolean(tokens[0] && /\d/.test(tokens[0]));
+      const STREET_TYPES = new Set([
+        "st",
+        "street",
+        "ave",
+        "avenue",
+        "rd",
+        "road",
+        "blvd",
+        "boulevard",
+        "dr",
+        "drive",
+        "ln",
+        "lane",
+        "ct",
+        "court",
+        "pl",
+        "place",
+        "pkwy",
+        "parkway",
+        "way",
+        "cir",
+        "circle",
+        "trl",
+        "trail",
+        "ter",
+        "terrace",
+        "hwy",
+        "highway",
+        "alley",
+        "aly",
+        "loop",
+      ]);
+
+      if (startsWithNumber && tokens.length >= 4) {
+        let splitIdx = -1;
+        for (let i = tokens.length - 1; i >= 0; i--) {
+          if (STREET_TYPES.has(tokens[i].toLowerCase())) {
+            splitIdx = i;
+            break;
+          }
+        }
+        if (splitIdx !== -1 && splitIdx < tokens.length - 1) {
+          const street = tokens.slice(0, splitIdx + 1).join(" ").trim();
+          const city = tokens.slice(splitIdx + 1).join(" ").trim();
+          if (street && city) return { street, city, state, zip };
+        }
+      }
+    }
+  }
+
   return null;
 }
 
