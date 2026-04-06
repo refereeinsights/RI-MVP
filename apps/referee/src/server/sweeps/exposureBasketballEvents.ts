@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { request } from "undici";
 import { upsertTournamentFromSource } from "@/lib/tournaments/upsertFromSource";
 import { buildTournamentSlug } from "@/lib/tournaments/slug";
 import type { TournamentRow, TournamentStatus } from "@/lib/types/tournament";
@@ -136,28 +137,38 @@ function getSetCookieHeaders(resp: Response): string[] {
   return single ? splitCombinedSetCookie(single) : [];
 }
 
+async function readUndiciBodyText(body: any): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of body) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+function getUndiciSetCookieHeaders(headers: Record<string, any>): string[] {
+  const raw = headers?.["set-cookie"];
+  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+  if (typeof raw === "string") return splitCombinedSetCookie(raw);
+  return [];
+}
+
 async function fetchTextWithCookies(url: string): Promise<{ html: string; cookie: string | null }> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
   try {
-    const resp = await fetch(url, {
+    const resp = await request(url, {
       method: "GET",
-      redirect: "follow",
-      cache: "no-store",
-      signal: controller.signal,
       headers: { "user-agent": "RI-Exposure-Sweep/1.0" },
+      bodyTimeout: 12000,
+      headersTimeout: 12000,
     });
-    if (!resp.ok) {
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
       return { html: "", cookie: null };
     }
-    const html = await resp.text();
-    const setCookies = getSetCookieHeaders(resp);
+    const html = await readUndiciBodyText(resp.body);
+    const setCookies = getUndiciSetCookieHeaders(resp.headers as any);
     const cookie = toCookieHeader(setCookies);
     return { html, cookie };
   } catch {
     return { html: "", cookie: null };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -195,15 +206,17 @@ async function fetchDirectoryPage(params: {
   sportType: string;
   startDateString: string | null;
 }): Promise<ExposureDirectoryResponse | null> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
   try {
     const url = new URL(params.postPath, params.baseUrl).toString();
-    const resp = await fetch(url, {
+    const body = buildFormBody({
+      Page: params.page,
+      sportType: params.sportType,
+      StartDateString: params.startDateString,
+    });
+    const resp = await request(url, {
       method: "POST",
-      redirect: "follow",
-      cache: "no-store",
-      signal: controller.signal,
+      bodyTimeout: 12000,
+      headersTimeout: 12000,
       headers: {
         "user-agent": "RI-Exposure-Sweep/1.0",
         "x-requested-with": "XMLHttpRequest",
@@ -213,18 +226,13 @@ async function fetchDirectoryPage(params: {
         [params.tokenName]: params.tokenValue,
         ...(params.cookie ? { cookie: params.cookie } : {}),
       },
-      body: buildFormBody({
-        Page: params.page,
-        sportType: params.sportType,
-        StartDateString: params.startDateString,
-      }),
+      body,
     });
-    if (!resp.ok) return null;
-    return (await resp.json()) as ExposureDirectoryResponse;
+    if (resp.statusCode < 200 || resp.statusCode >= 300) return null;
+    const text = await readUndiciBodyText(resp.body);
+    return JSON.parse(text) as ExposureDirectoryResponse;
   } catch {
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -275,24 +283,19 @@ function parseVenuesFromWidget(html: string, baseUrl: string): ParsedVenue[] {
 }
 
 async function fetchVenuesForEvent(baseUrl: string, eventId: number): Promise<ParsedVenue[]> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
   try {
     const url = new URL(`/widgets/v1/venues?eventid=${eventId}&header=true&menu=true`, baseUrl).toString();
-    const resp = await fetch(url, {
+    const resp = await request(url, {
       method: "GET",
-      redirect: "follow",
-      cache: "no-store",
-      signal: controller.signal,
       headers: { "user-agent": "RI-Exposure-Sweep/1.0" },
+      bodyTimeout: 12000,
+      headersTimeout: 12000,
     });
-    if (!resp.ok) return [];
-    const html = await resp.text();
+    if (resp.statusCode < 200 || resp.statusCode >= 300) return [];
+    const html = await readUndiciBodyText(resp.body);
     return parseVenuesFromWidget(html, baseUrl);
   } catch {
     return [];
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
