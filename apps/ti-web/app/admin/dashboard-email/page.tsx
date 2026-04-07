@@ -440,7 +440,7 @@ export default async function AdminDashboardEmailPage({ searchParams }: { search
           </div>
         ) : null}
 
-        <form action={saveSettingsAction} style={{ display: "grid", gap: 10 }}>
+        <form action={saveSettingsAction as any} style={{ display: "grid", gap: 10 }}>
           <h2 style={{ margin: 0, fontSize: 16 }}>Settings</h2>
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontWeight: 700 }}>Recipients</span>
@@ -486,7 +486,7 @@ export default async function AdminDashboardEmailPage({ searchParams }: { search
           </div>
         </form>
 
-        <form action={sendNowAction} style={{ display: "grid", gap: 10 }}>
+        <form action={sendNowAction as any} style={{ display: "grid", gap: 10 }}>
           <h2 style={{ margin: "4px 0 0 0", fontSize: 16 }}>Send Now</h2>
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontWeight: 700 }}>Send to (override)</span>
