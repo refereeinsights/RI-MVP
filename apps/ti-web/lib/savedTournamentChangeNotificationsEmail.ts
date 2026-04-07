@@ -9,6 +9,7 @@ export type SavedTournamentChangeEmailTournament = {
   state: string | null;
   start_date: string | null;
   end_date: string | null;
+  change_summary?: string[] | null;
 };
 
 export function buildSavedTournamentChangeDigestEmail(params: {
@@ -24,11 +25,28 @@ export function buildSavedTournamentChangeDigestEmail(params: {
       const where = escapeHtml(formatLocation(t.city, t.state) || "Location TBA");
       const sport = t.sport?.trim() ? ` · ${escapeHtml(t.sport.trim())}` : "";
       const url = `${SITE_ORIGIN}/tournaments/${encodeURIComponent(t.slug)}`;
+      const changeSummary = (t.change_summary ?? []).map((v) => (v ?? "").trim()).filter(Boolean);
+      const changeHtml = changeSummary.length
+        ? `
+          <ul style="margin:8px 0 0 0;padding:0 0 0 18px;">
+            ${changeSummary
+              .slice(0, 6)
+              .map(
+                (item) =>
+                  `<li style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;color:#0f172a;margin:0 0 2px 0;">${escapeHtml(
+                    item
+                  )}</li>`
+              )
+              .join("")}
+          </ul>
+        `
+        : "";
       return `
         <tr>
           <td style="padding:12px 0;border-top:1px solid #e2e8f0;">
             <div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.4;color:#0f172a;font-weight:700;margin:0 0 2px 0;">${name}</div>
             <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.55;color:#334155;">${when} · ${where}${sport}</div>
+            ${changeHtml}
             <div style="margin-top:8px;">
               <a href="${url}" style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#2563EB;text-decoration:underline;">View details</a>
             </div>
@@ -82,7 +100,14 @@ export function buildSavedTournamentChangeDigestEmail(params: {
       const when = formatDateRange(t.start_date, t.end_date) || "Dates TBA";
       const where = formatLocation(t.city, t.state) || "Location TBA";
       const sport = t.sport?.trim() ? ` · ${t.sport.trim()}` : "";
-      return [`${name}`, `${when} · ${where}${sport}`, url, ""];
+      const changeSummary = (t.change_summary ?? []).map((v) => (v ?? "").trim()).filter(Boolean);
+      return [
+        `${name}`,
+        `${when} · ${where}${sport}`,
+        ...(changeSummary.length ? changeSummary.slice(0, 6).map((line) => `- ${line}`) : []),
+        url,
+        "",
+      ];
     }),
     "Why you received this: You enabled notifications for saved tournaments in your TournamentInsights account.",
     `Manage: ${manageUrl}`,
@@ -118,4 +143,3 @@ function escapeHtml(value: string) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
-

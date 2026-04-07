@@ -15,6 +15,7 @@ type SubscriptionRow = {
   last_notified_at: string | null;
   last_notified_hash: string | null;
   last_notified_critical_hash: string | null;
+  last_notified_snapshot: any | null;
 };
 
 type TournamentPublicRow = {
@@ -81,15 +82,106 @@ function buildCriticalSnapshot(t: TournamentPublicRow) {
   };
 }
 
+function safeString(value: unknown) {
+  if (value == null) return "";
+  return String(value);
+}
+
+function normalizeUrlHost(value: unknown) {
+  const raw = safeString(value).trim();
+  if (!raw) return "";
+  try {
+    return new URL(raw).host;
+  } catch {
+    return "";
+  }
+}
+
+function formatLocation(city: string | null | undefined, state: string | null | undefined) {
+  const parts = [city, state].map((v) => (v ?? "").trim()).filter(Boolean);
+  return parts.length ? parts.join(", ") : "";
+}
+
+function formatDate(iso: string | null | undefined) {
+  if (!iso) return "";
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function formatDateRange(start: string | null | undefined, end: string | null | undefined) {
+  const s = formatDate(start);
+  const e = formatDate(end);
+  if (s && e && s !== e) return `${s} - ${e}`;
+  return s || e || "";
+}
+
+function summarizeSnapshotChange(prevRaw: any | null, next: ReturnType<typeof buildSnapshot>): string[] | null {
+  const prev = prevRaw && typeof prevRaw === "object" ? prevRaw : null;
+  if (!prev) return null;
+
+  const changes: string[] = [];
+
+  const prevDates = formatDateRange(prev.start_date ?? null, prev.end_date ?? null);
+  const nextDates = formatDateRange(next.start_date, next.end_date);
+  if ((prev.start_date ?? null) !== next.start_date || (prev.end_date ?? null) !== next.end_date) {
+    changes.push(`Dates: ${prevDates || "TBA"} → ${nextDates || "TBA"}`);
+  }
+
+  const prevLoc = formatLocation(prev.city ?? null, prev.state ?? null);
+  const nextLoc = formatLocation(next.city, next.state);
+  if ((prev.city ?? null) !== next.city || (prev.state ?? null) !== next.state) {
+    changes.push(`Location: ${prevLoc || "TBA"} → ${nextLoc || "TBA"}`);
+  }
+
+  const prevName = safeString(prev.name ?? "").trim();
+  const nextName = safeString(next.name ?? "").trim();
+  if (prevName && nextName && prevName !== nextName) {
+    changes.push(`Name: ${prevName} → ${nextName}`);
+  }
+
+  const prevSport = safeString(prev.sport ?? "").trim();
+  const nextSport = safeString(next.sport ?? "").trim();
+  if (prevSport && nextSport && prevSport !== nextSport) {
+    changes.push(`Sport: ${prevSport} → ${nextSport}`);
+  }
+
+  const prevHost = normalizeUrlHost(prev.official_website_url ?? null);
+  const nextHost = normalizeUrlHost(next.official_website_url ?? null);
+  if ((prev.official_website_url ?? null) !== next.official_website_url) {
+    if (prevHost || nextHost) changes.push(`Official site: ${prevHost || "removed"} → ${nextHost || "added"}`);
+    else changes.push("Official site updated");
+  }
+
+  return changes.length ? changes.slice(0, 6) : null;
+}
+
 async function loadSubscriptions(): Promise<SubscriptionRow[]> {
-  const { data, error } = await (supabaseAdmin.from("ti_saved_tournaments" as any) as any)
-    .select(
-      "id,user_id,tournament_id,notify_on_changes,last_notified_at,last_notified_hash,last_notified_critical_hash"
-    )
-    .eq("notify_on_changes", true)
-    .limit(5000);
-  if (error) throw error;
-  return (data ?? []) as SubscriptionRow[];
+  const selectBase =
+    "id,user_id,tournament_id,notify_on_changes,last_notified_at,last_notified_hash,last_notified_critical_hash";
+  const selectWithSnapshot = `${selectBase},last_notified_snapshot`;
+
+  const query = () =>
+    (supabaseAdmin.from("ti_saved_tournaments" as any) as any)
+      .select(selectWithSnapshot)
+      .eq("notify_on_changes", true)
+      .limit(5000);
+
+  const { data, error } = await query();
+  if (!error) return (data ?? []) as SubscriptionRow[];
+
+  // Backwards-compat: allow deploy before migration is applied.
+  const message = (error as any)?.message ? String((error as any).message) : "";
+  if (message.toLowerCase().includes("last_notified_snapshot")) {
+    const fallback = await (supabaseAdmin.from("ti_saved_tournaments" as any) as any)
+      .select(selectBase)
+      .eq("notify_on_changes", true)
+      .limit(5000);
+    if (fallback.error) throw fallback.error;
+    return ((fallback.data ?? []) as any[]).map((row) => ({ ...row, last_notified_snapshot: null })) as SubscriptionRow[];
+  }
+
+  throw error;
 }
 
 async function loadTournamentsPublicById(ids: string[]) {
@@ -277,16 +369,20 @@ export async function runSavedTournamentChangeNotificationsJob() {
 
     const toSend = changed.slice(0, MAX_TOURNAMENTS_PER_EMAIL);
     const email = buildSavedTournamentChangeDigestEmail({
-      tournaments: toSend.map(({ tournament }) => ({
-        id: tournament.id,
-        slug: normalizeSlug(tournament.slug)!,
-        name: tournament.name,
-        sport: tournament.sport,
-        city: tournament.city,
-        state: tournament.state,
-        start_date: tournament.start_date,
-        end_date: tournament.end_date,
-      })),
+      tournaments: toSend.map(({ sub, tournament }) => {
+        const snapshot = buildSnapshot(tournament);
+        return {
+          id: tournament.id,
+          slug: normalizeSlug(tournament.slug)!,
+          name: tournament.name,
+          sport: tournament.sport,
+          city: tournament.city,
+          state: tournament.state,
+          start_date: tournament.start_date,
+          end_date: tournament.end_date,
+          change_summary: summarizeSnapshotChange(sub.last_notified_snapshot ?? null, snapshot),
+        };
+      }),
     });
 
     let sendError: string | null = null;
@@ -318,15 +414,32 @@ export async function runSavedTournamentChangeNotificationsJob() {
 
     // Update only the rows included in this email so overflow changes can be delivered next run/day.
     for (const item of toSend) {
+      const snapshot = buildSnapshot(item.tournament);
       const { error } = await (supabaseAdmin.from("ti_saved_tournaments" as any) as any)
         .update({
           last_notified_at: triggeredAt,
           last_notified_hash: item.snapshotHash,
           last_notified_critical_hash: item.criticalHash,
+          last_notified_snapshot: snapshot,
         })
         .eq("id", item.sub.id)
         .eq("user_id", userId);
-      if (error) result.update_failures += 1;
+      if (error) {
+        const message = (error as any)?.message ? String((error as any).message) : "";
+        if (message.toLowerCase().includes("last_notified_snapshot")) {
+          const fallback = await (supabaseAdmin.from("ti_saved_tournaments" as any) as any)
+            .update({
+              last_notified_at: triggeredAt,
+              last_notified_hash: item.snapshotHash,
+              last_notified_critical_hash: item.criticalHash,
+            })
+            .eq("id", item.sub.id)
+            .eq("user_id", userId);
+          if (fallback.error) result.update_failures += 1;
+        } else {
+          result.update_failures += 1;
+        }
+      }
     }
   }
 

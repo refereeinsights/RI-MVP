@@ -103,6 +103,7 @@ export interface Database {
           last_notified_at: string | null;
           last_notified_hash: string | null;
           last_notified_critical_hash: string | null;
+          last_notified_snapshot: unknown | null;
         };
         Insert: {
           user_id: string;
@@ -112,6 +113,7 @@ export interface Database {
           last_notified_at?: string | null;
           last_notified_hash?: string | null;
           last_notified_critical_hash?: string | null;
+          last_notified_snapshot?: unknown | null;
         };
         Update: {
           user_id?: string;
@@ -121,6 +123,7 @@ export interface Database {
           last_notified_at?: string | null;
           last_notified_hash?: string | null;
           last_notified_critical_hash?: string | null;
+          last_notified_snapshot?: unknown | null;
         };
       };
       user_tournament_alerts: {

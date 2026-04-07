@@ -9,10 +9,12 @@ Migration: `supabase/migrations/20260331_ti_saved_tournament_change_notification
 Adds columns on `public.ti_saved_tournaments`:
 - `notify_on_changes` (user-controlled)
 - `last_notified_at`, `last_notified_hash`, `last_notified_critical_hash` (job-controlled)
+- `last_notified_snapshot` (job-controlled; used to summarize “what changed”)
 
 RLS:
 - Users can read/write only their own rows (`auth.uid() = user_id`).
 - Update policy is required so users can toggle `notify_on_changes`.
+- Postgres privileges are tightened so authenticated users can only update the `notify_on_changes` column.
 
 ## Public-field protections (v1)
 Change detection hashes a “public snapshot” from `public.tournaments_public` using only:
@@ -51,4 +53,3 @@ Required:
 - `RESEND_API_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `CRON_SECRET`
-
