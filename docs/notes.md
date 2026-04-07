@@ -13,6 +13,13 @@ Maintenance rules:
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
 ## 2026-04-07
+- RI: Added 17 missing USSSA baseball state sources to the registry
+  - Checked all 22 missing states; 5 returned 404 (AR, NE, NC, OH, SC — no active USSSA baseball program)
+  - 17 active states added via script: AK, CT, HI, ID, IN, ME, MA, MT, NH, NY, ND, OR, PA, RI, VT, WA, WY
+  - All set to `sport=baseball`, `source_type=association_directory`, `is_custom_source=true`, `review_status=untested`
+  - Full USSSA baseball coverage now: 45 state sources in registry
+
+## 2026-04-07
 - RI: USSSA baseball sweeper now fetches venue data from individual event pages
   - Root cause: baseball sweeper only parsed the state listing page (name/city/date); hardcoded `venue: null, address: null`
   - Fastpitch sweeper was already the correct model — fetches each event's detail page and extracts JSON-LD Event schema (primary) + HTML table fallback
