@@ -940,6 +940,8 @@ export default async function TournamentDetailPage({
 
   if (error || !data) notFound();
   const viewerContext = loadViewerContext(data.id);
+  const TournamentUserActionsComponent = TournamentUserActions as any;
+  const TournamentVenueDetailsComponent = TournamentVenueDetails as any;
 
   const locationLabel = buildLocationLabel(data.city, data.state) || "Location TBA";
   const start = formatDate(data.start_date);
@@ -1022,26 +1024,26 @@ export default async function TournamentDetailPage({
             <div style={{ fontSize: 13, opacity: 0.92 }}>Get email updates and quick access.</div>
           </div>
 
-          <Suspense fallback={<div style={{ height: 44 }} />}>
-            <TournamentUserActions
-              tournament={data}
-              paramsSlug={params.slug}
-              searchParams={searchParams}
-              viewerContext={viewerContext}
-            />
-          </Suspense>
+	          <Suspense fallback={<div style={{ height: 44 }} />}>
+	            <TournamentUserActionsComponent
+	              tournament={data}
+	              paramsSlug={params.slug}
+	              searchParams={searchParams}
+	              viewerContext={viewerContext}
+	            />
+	          </Suspense>
 
-          <Suspense fallback={<div style={{ marginTop: 12, opacity: 0.78, fontSize: 13 }}>Loading tournament details…</div>}>
-            <TournamentVenueDetails
-              tournament={data}
-              paramsSlug={params.slug}
-              locationLabel={locationLabel}
-              mapLinks={mapLinks}
-              venueInfo={venueInfo}
-              venueAddress={venueAddress}
-              viewerContext={viewerContext}
-            />
-          </Suspense>
+	          <Suspense fallback={<div style={{ marginTop: 12, opacity: 0.78, fontSize: 13 }}>Loading tournament details…</div>}>
+	            <TournamentVenueDetailsComponent
+	              tournament={data}
+	              paramsSlug={params.slug}
+	              locationLabel={locationLabel}
+	              mapLinks={mapLinks}
+	              venueInfo={venueInfo}
+	              venueAddress={venueAddress}
+	              viewerContext={viewerContext}
+	            />
+	          </Suspense>
         </div>
       </section>
     </main>
