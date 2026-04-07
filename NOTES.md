@@ -1,3 +1,9 @@
+## 2026-04-07
+
+- TI saved tournaments: include a per-tournament “what changed” summary in the saved-tournament change digest email (dates/location/name/sport/official-site) by storing the last-notified public snapshot and diffing it on the next send: `apps/ti-web/lib/savedTournamentChangeNotificationsJob.ts`, `apps/ti-web/lib/savedTournamentChangeNotificationsEmail.ts`, `supabase/migrations/20260407_ti_saved_tournament_change_snapshots.sql`, `docs/ti-saved-tournament-change-notifications.md`.
+- TI deploy/build hardening: fix Next.js Server Action `<form action>` typing issues by using existing server actions (or safe casts) in the admin dashboard email and tournament detail pages: `apps/ti-web/app/admin/dashboard-email/page.tsx`, `apps/ti-web/app/tournaments/[slug]/page.tsx`.
+- TI deploy/build hardening: prevent TypeScript build failures for async server components rendered under `Suspense` on the tournament detail page by routing through a casted component wrapper (runtime behavior unchanged): `apps/ti-web/app/tournaments/[slug]/page.tsx`.
+
 ## 2026-04-04
 
 - RI admin: clarify tournament metrics on the main dashboard by splitting the old “Published” count into three tiles: Total Tournaments in DB (all statuses), Published (Canonical), and Public Directory (Upcoming): `apps/referee/app/admin/page.tsx`.
