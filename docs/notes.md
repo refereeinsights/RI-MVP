@@ -12,6 +12,17 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-04-07
+- RI: USSSA baseball sweeper now fetches venue data from individual event pages
+  - Root cause: baseball sweeper only parsed the state listing page (name/city/date); hardcoded `venue: null, address: null`
+  - Fastpitch sweeper was already the correct model — fetches each event's detail page and extracts JSON-LD Event schema (primary) + HTML table fallback
+  - Added `fetchEventDetails`, `parseJsonLdDetails`, `extractVenueFromTable` to `usssaBaseballTournaments.ts` (ported from fastpitch sweeper)
+  - Updated `toRow()` to accept `EventDetails`; fills `venue`/`address`, prefers JSON-LD dates over listing-page date text
+  - File: `apps/referee/src/server/sweeps/usssaBaseballTournaments.ts`
+- RI: Backfilled venue links for 12 existing USSSA baseball draft uploads
+  - Ran `link_usssa_missing_venues.ts --status=draft --sport=baseball --apply`
+  - 12/12 pages had venue data; 17 new venues created, 33 matched existing, 57 tournament-venue links upserted
+
 ## 2026-04-06
 - RI Admin: editable source URLs in sources registry (`/admin/tournaments/sources`)
   - Previously the source_url was immutable (used as the upsert key); no way to correct a saved URL

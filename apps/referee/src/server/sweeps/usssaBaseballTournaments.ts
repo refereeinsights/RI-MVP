@@ -165,7 +165,96 @@ async function fetchStatePage(url: string) {
   }
 }
 
-function toRow(event: ParsedEvent, status: TournamentStatus): TournamentRow {
+type EventDetails = {
+  start_date: string | null;
+  end_date: string | null;
+  venue_name: string | null;
+  address_text: string | null;
+};
+
+function asIsoDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+function clean(value: string | null | undefined): string | null {
+  const v = String(value ?? "").replace(/\s+/g, " ").trim();
+  return v.length ? v : null;
+}
+
+function parseJsonLdDetails($: ReturnType<typeof import("cheerio").load>): EventDetails {
+  const details: EventDetails = { start_date: null, end_date: null, venue_name: null, address_text: null };
+  $("script[type='application/ld+json']").each((_idx, el) => {
+    const raw = ($( el).html() || "").trim();
+    if (!raw) return;
+    let parsed: any;
+    try { parsed = JSON.parse(raw); } catch { return; }
+    const items = Array.isArray(parsed) ? parsed : [parsed];
+    for (const item of items) {
+      if (!item || typeof item !== "object") continue;
+      const typeRaw = item["@type"];
+      const type = Array.isArray(typeRaw) ? typeRaw.join(" ").toLowerCase() : String(typeRaw ?? "").toLowerCase();
+      if (!type.includes("event")) continue;
+      details.start_date = details.start_date ?? asIsoDate(item.startDate);
+      details.end_date = details.end_date ?? asIsoDate(item.endDate);
+      const loc = item.location;
+      if (!loc || typeof loc !== "object") continue;
+      details.venue_name = details.venue_name ?? clean(loc.name);
+      const addr = loc.address;
+      if (addr && typeof addr === "object") {
+        const full = clean(
+          [addr.streetAddress, addr.addressLocality, addr.addressRegion, addr.postalCode]
+            .filter(Boolean)
+            .join(", ")
+        );
+        details.address_text = details.address_text ?? full;
+      }
+    }
+  });
+  return details;
+}
+
+function extractVenueFromTable($: ReturnType<typeof import("cheerio").load>): Pick<EventDetails, "venue_name" | "address_text"> {
+  const row = $("table tr")
+    .filter((_idx, tr) => $(tr).find("td").length >= 2)
+    .first();
+  if (!row.length) return { venue_name: null, address_text: null };
+  const tds = row.find("td");
+  return {
+    venue_name: clean($(tds[0]).text()),
+    address_text: clean($(tds[1]).text()),
+  };
+}
+
+async function fetchEventDetails(url: string): Promise<EventDetails> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  try {
+    const resp = await fetch(url, {
+      headers: { "user-agent": "RI-USSSA-Baseball-Sweep/1.0" },
+      signal: controller.signal,
+    });
+    if (!resp.ok) return { start_date: null, end_date: null, venue_name: null, address_text: null };
+    const html = await resp.text();
+    const $ = cheerio.load(html);
+    const ld = parseJsonLdDetails($);
+    const table = extractVenueFromTable($);
+    return {
+      start_date: ld.start_date,
+      end_date: ld.end_date,
+      venue_name: ld.venue_name ?? table.venue_name,
+      address_text: ld.address_text ?? table.address_text,
+    };
+  } catch {
+    return { start_date: null, end_date: null, venue_name: null, address_text: null };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function toRow(event: ParsedEvent, details: EventDetails, status: TournamentStatus): TournamentRow {
   let eventUrl = event.sourcePageUrl;
   if (event.url) {
     try {
@@ -175,7 +264,9 @@ function toRow(event: ParsedEvent, status: TournamentStatus): TournamentRow {
     }
   }
   const parsed = new URL(eventUrl);
-  const dates = parseDateRange(event.dateText);
+  const fallbackDates = parseDateRange(event.dateText);
+  const startDate = details.start_date ?? fallbackDates.start;
+  const endDate = details.end_date ?? fallbackDates.end ?? startDate;
   const summaryParts = [event.dateText, event.level, event.feeText].filter(Boolean);
   const slug = buildTournamentSlug({
     name: event.name,
@@ -191,10 +282,10 @@ function toRow(event: ParsedEvent, status: TournamentStatus): TournamentRow {
     ref_cash_tournament: false,
     state: event.state ?? "NA",
     city: event.city ?? "Unknown",
-    venue: null,
-    address: null,
-    start_date: dates.start,
-    end_date: dates.end ?? dates.start,
+    venue: details.venue_name,
+    address: details.address_text,
+    start_date: startDate,
+    end_date: endDate,
     summary: summaryParts.length ? summaryParts.join(" | ") : null,
     status,
     source: "external_crawl",
@@ -205,6 +296,8 @@ function toRow(event: ParsedEvent, status: TournamentStatus): TournamentRow {
       source_page_url: event.sourcePageUrl,
       date_text: event.dateText,
       fee_text: event.feeText,
+      venue_name: details.venue_name,
+      address_text: details.address_text,
     },
   };
 }
@@ -283,17 +376,18 @@ export async function sweepUsssaBaseballTournaments(params: {
     }
 
     for (const event of events) {
+      const details = event.url ? await fetchEventDetails(new URL(event.url, stateUrl).toString()) : { start_date: null, end_date: null, venue_name: null, address_text: null };
       if (sample.length < 8) {
         sample.push({
           name: event.name,
           state: event.state,
           city: event.city,
-          date: event.dateText,
+          date: details.start_date ?? event.dateText,
           url: event.url,
         });
       }
       if (!writeDb) continue;
-      const id = await upsertTournamentFromSource(toRow(event, params.status));
+      const id = await upsertTournamentFromSource(toRow(event, details, params.status));
       importedSet.add(id);
     }
   }
