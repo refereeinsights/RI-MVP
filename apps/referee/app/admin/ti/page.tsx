@@ -34,6 +34,7 @@ type TiUserRow = {
   subscription_status: string | null;
   trial_ends_at: string | null;
   current_period_end: string | null;
+  email_confirmed_at?: string | null;
   created_at: string | null;
   first_seen_at: string | null;
   last_seen_at: string | null;
@@ -1437,6 +1438,38 @@ async function loadAuthTroubleshooting(q: string): Promise<{ rows: AuthTroublesh
   }
 }
 
+async function loadEmailConfirmedAtByUserId(
+  userIds: string[],
+): Promise<{ map: Map<string, string | null>; error: string | null }> {
+  const wanted = new Set(userIds.filter(Boolean));
+  if (!wanted.size) return { map: new Map(), error: null };
+
+  const found = new Map<string, string | null>();
+  try {
+    const maxPages = 20;
+    const perPage = 500;
+    for (let page = 1; page <= maxPages; page += 1) {
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+      if (error) return { map: found, error: error.message };
+      const pageUsers = data?.users ?? [];
+      if (!pageUsers.length) break;
+
+      for (const user of pageUsers) {
+        const id = String(user.id ?? "");
+        if (!wanted.has(id)) continue;
+        found.set(id, user.email_confirmed_at ?? null);
+      }
+
+      if (found.size >= wanted.size) break;
+      if (pageUsers.length < perPage) break;
+    }
+
+    return { map: found, error: null };
+  } catch (error) {
+    return { map: found, error: error instanceof Error ? error.message : "Failed to load auth users." };
+  }
+}
+
 export default async function TiAdminPage({
   searchParams,
 }: {
@@ -1470,7 +1503,18 @@ export default async function TiAdminPage({
       ? query.or(`email.ilike.%${q}%,id.eq.${q}`)
       : query.ilike("email", `%${q}%`);
   }
-  const { data: tiUsers, error: tiUsersErr } = await query;
+  const { data: tiUsersRaw, error: tiUsersErr } = await query;
+  const tiUsersBase = (tiUsersRaw ?? []) as TiUserRow[];
+  const emailConfirmedLoad = await loadEmailConfirmedAtByUserId(tiUsersBase.map((row) => row.id));
+  const tiUsers = tiUsersBase.map((row) => ({
+    ...row,
+    email_confirmed_at: emailConfirmedLoad.map.get(row.id) ?? null,
+  })) as TiUserRow[];
+  const freePlanUsers = tiUsers.filter((row) => {
+    const plan = String(row.plan ?? "").trim().toLowerCase();
+    return !plan || plan === "free";
+  });
+  const freePlanConfirmedCount = freePlanUsers.filter((row) => Boolean(row.email_confirmed_at)).length;
   const authTroubleshoot = await loadAuthTroubleshooting(q);
   const eventCodes = await loadEventCodes();
   const { data: quickCheckMetricsRaw } = await (supabaseAdmin as any).rpc("get_venue_quick_check_metrics", { p_days: 30 });
@@ -2090,11 +2134,13 @@ export default async function TiAdminPage({
             fontWeight: 800,
           }}
         >
-          <span>TI User Admin</span>
-          <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
-            {tiUsersErr ? "Load error" : `${(tiUsers ?? []).length} users loaded`}
-          </span>
-        </summary>
+	          <span>TI User Admin</span>
+	          <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+	            {tiUsersErr
+	              ? "Load error"
+	              : `${(tiUsers ?? []).length} users loaded · free+confirmed ${freePlanConfirmedCount}/${freePlanUsers.length}`}
+	          </span>
+	        </summary>
         <div style={{ marginTop: 12 }}>
           <form action="/admin/ti" method="get" style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
             <input name="q" defaultValue={q} placeholder="Search email or user id" style={{ padding: 8, minWidth: 280 }} />
@@ -2200,26 +2246,31 @@ export default async function TiAdminPage({
                     <input type="checkbox" name="send_to_all_loaded" />
                     Send to all loaded users (current search results)
                   </label>
-                  <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 10, maxHeight: 220, overflow: "auto", background: "#f8fafc" }}>
-                    {((tiUsers ?? []) as TiUserRow[]).length ? (
-                      <div style={{ display: "grid", gap: 6 }}>
-                        {((tiUsers ?? []) as TiUserRow[]).map((row) => {
-                          const email = (row.email ?? "").trim();
-                          if (!email) return null;
-                          return (
-                            <label
-                              key={`bulk-${row.id}`}
-                              style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: "#0f172a" }}
-                            >
-                              <input type="checkbox" name="recipient_email" value={email} />
-                              <span style={{ fontWeight: 700 }}>{displayNameFromEmail(email)}</span>
-                              <span style={{ color: "#64748b" }}>{email}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div style={{ color: "#64748b", fontSize: 12 }}>No users loaded.</div>
+	                  <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 10, maxHeight: 220, overflow: "auto", background: "#f8fafc" }}>
+	                    {((tiUsers ?? []) as TiUserRow[]).length ? (
+	                      <div style={{ display: "grid", gap: 6 }}>
+	                        {((tiUsers ?? []) as TiUserRow[]).map((row) => {
+	                          const email = (row.email ?? "").trim();
+	                          if (!email) return null;
+	                          const plan = String(row.plan ?? "").trim().toLowerCase();
+	                          const entitlementLabel =
+	                            plan === "weekend_pro" ? "weekend_pro" : row.email_confirmed_at ? "insider" : plan || "free";
+	                          return (
+	                            <label
+	                              key={`bulk-${row.id}`}
+	                              style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: "#0f172a" }}
+	                            >
+	                              <input type="checkbox" name="recipient_email" value={email} />
+	                              <span style={{ fontWeight: 700 }}>{displayNameFromEmail(email)}</span>
+	                              <span style={{ color: "#64748b" }}>
+	                                {email} · {entitlementLabel} · auth:{row.email_confirmed_at ? "confirmed" : "pending"}
+	                              </span>
+	                            </label>
+	                          );
+	                        })}
+	                      </div>
+	                    ) : (
+	                      <div style={{ color: "#64748b", fontSize: 12 }}>No users loaded.</div>
                     )}
                   </div>
                 </div>
@@ -2239,6 +2290,11 @@ export default async function TiAdminPage({
             <p style={{ color: "#b91c1c" }}>TI users load failed: {tiUsersErr.message}</p>
           ) : (
             <div style={{ display: "grid", gap: 10 }}>
+              {emailConfirmedLoad.error ? (
+                <p style={{ margin: 0, color: "#b91c1c", fontSize: 13 }}>
+                  Could not load auth email confirmation status: {emailConfirmedLoad.error}
+                </p>
+              ) : null}
               {((tiUsers ?? []) as TiUserRow[]).map((row, idx) => (
                 <details
                   key={row.id}
@@ -2263,7 +2319,13 @@ export default async function TiAdminPage({
                     {displayNameFromEmail(row.email)} <span style={{ fontWeight: 500, color: "#334155" }}>({row.email ?? "—"})</span>
                   </span>
                   <span style={{ fontSize: 12, color: "#64748b" }}>
-                    {row.username ?? row.reviewer_handle ?? "—"} · {row.plan ?? "insider"} · {row.subscription_status ?? "none"}
+                    {row.username ?? row.reviewer_handle ?? "—"} ·{" "}
+                    {String(row.plan ?? "").trim().toLowerCase() === "weekend_pro"
+                      ? "weekend_pro"
+                      : row.email_confirmed_at
+                        ? "insider"
+                        : (row.plan ?? "free")}{" "}
+                    · {row.subscription_status ?? "none"} · auth:{row.email_confirmed_at ? "confirmed" : "pending"}
                   </span>
                 </summary>
                 <div style={{ padding: "0 12px 12px", borderTop: "1px solid #dbe4ef", display: "grid", gap: 10 }}>
@@ -2276,6 +2338,10 @@ export default async function TiAdminPage({
                     <div style={{ fontSize: 12 }}>
                       <div style={{ color: "#64748b" }}>Source code</div>
                       <div>{row.signup_source_code ?? "—"}</div>
+                    </div>
+                    <div style={{ fontSize: 12 }}>
+                      <div style={{ color: "#64748b" }}>Email confirmed</div>
+                      <div>{fmtDate(row.email_confirmed_at ?? null)}</div>
                     </div>
                     <div style={{ fontSize: 12 }}>
                       <div style={{ color: "#64748b" }}>Created</div>
