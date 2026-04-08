@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { User as AuthUser } from "@supabase/supabase-js";
+import { createHash } from "node:crypto";
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -14,6 +15,11 @@ import { signUnsubscribeToken } from "../../../../../shared/email/unsubscribeTok
 export const runtime = "nodejs";
 
 type EmailTemplateKind = "marketing" | "transactional";
+
+function computeAdminBlastSubjectKey(subject: string) {
+  const normalized = subject.trim().toLowerCase();
+  return `admin_blast_subject_v1:${createHash("sha256").update(normalized).digest("hex").slice(0, 24)}`;
+}
 
 type TiAdminEmailTemplateRow = {
   id: string;
@@ -872,6 +878,7 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
 
   const safeSubject = subject.length > 160 ? `${subject.slice(0, 160)}…` : subject;
   const safeBody = body.length > 12000 ? `${body.slice(0, 12000)}…` : body;
+  const subjectKey = computeAdminBlastSubjectKey(safeSubject);
   const tiBaseUrl = getTiPublicBaseUrl();
   const manageUrl = `${tiBaseUrl}/account`;
   const loginUrl = `${tiBaseUrl}/login?returnTo=${encodeURIComponent("/account")}`;
@@ -879,6 +886,7 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
   const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30; // 30 days
 
   let sent = 0;
+  const sentEmails: string[] = [];
   const errors: Array<{ email: string; message: string }> = [];
 
   try {
@@ -988,13 +996,50 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
         })
       );
       for (const r of results) {
-        if (r.ok) sent += 1;
+        if (r.ok) {
+          sent += 1;
+          sentEmails.push(r.email);
+        }
         else errors.push({ email: r.email, message: r.message });
       }
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to send email.";
     redirect(buildPathWithNotice(`Bulk send failed: ${message}`, q));
+  }
+
+  if (sentEmails.length) {
+    try {
+      const { data: idRows, error: idErr } = await (supabaseAdmin.from("ti_users" as any) as any)
+        .select("id,email")
+        .in("email", Array.from(new Set(sentEmails)));
+      if (!idErr) {
+        const userIdByEmail = new Map<string, string>(
+          ((idRows ?? []) as Array<{ id: string; email: string | null }>).flatMap((row) => {
+            const email = String(row.email ?? "").trim().toLowerCase();
+            return email ? [[email, row.id]] : [];
+          }),
+        );
+
+        const rows = sentEmails.map((email) => {
+          const normalizedEmail = email.trim().toLowerCase();
+          return {
+            alert_id: null,
+            user_id: userIdByEmail.get(normalizedEmail) ?? null,
+            cadence: null,
+            recipient_email: normalizedEmail,
+            tournaments_count: null,
+            result_hash: subjectKey,
+            outcome: "sent",
+            error_message: null,
+          };
+        });
+
+        await (supabaseAdmin.from("ti_tournament_alert_send_logs" as any) as any).insert(rows);
+      }
+    } catch {
+      // ignore
+    }
   }
 
   if (templateId) {
@@ -1470,6 +1515,37 @@ async function loadEmailConfirmedAtByUserId(
   }
 }
 
+async function loadLastAdminBlastSentAtByEmail(params: {
+  subjectKey: string | null;
+  emails: string[];
+}): Promise<{ map: Map<string, string>; error: string | null }> {
+  const subjectKey = (params.subjectKey ?? "").trim();
+  const emails = Array.from(new Set(params.emails.map((e) => e.trim().toLowerCase()).filter(Boolean)));
+  if (!subjectKey || !emails.length) return { map: new Map(), error: null };
+
+  try {
+    const { data, error } = await (supabaseAdmin.from("ti_tournament_alert_send_logs" as any) as any)
+      .select("recipient_email,created_at,outcome,result_hash")
+      .eq("outcome", "sent")
+      .eq("result_hash", subjectKey)
+      .in("recipient_email", emails)
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    if (error) return { map: new Map(), error: error.message };
+
+    const map = new Map<string, string>();
+    for (const row of (data ?? []) as Array<{ recipient_email: string | null; created_at: string | null }>) {
+      const email = String(row.recipient_email ?? "").trim().toLowerCase();
+      const createdAt = String(row.created_at ?? "").trim();
+      if (!email || !createdAt) continue;
+      if (!map.has(email)) map.set(email, createdAt);
+    }
+    return { map, error: null };
+  } catch (error) {
+    return { map: new Map(), error: error instanceof Error ? error.message : "Failed to load send logs." };
+  }
+}
+
 export default async function TiAdminPage({
   searchParams,
 }: {
@@ -1529,6 +1605,11 @@ export default async function TiAdminPage({
     .limit(50);
   const templates = (templatesRaw ?? []) as TiAdminEmailTemplateRow[];
   const selectedTemplate = templateId ? templates.find((t) => t.id === templateId) ?? null : null;
+  const selectedSubjectKey = selectedTemplate?.subject ? computeAdminBlastSubjectKey(selectedTemplate.subject) : null;
+  const bulkSendAlreadySentLoad = await loadLastAdminBlastSentAtByEmail({
+    subjectKey: selectedSubjectKey,
+    emails: tiUsers.map((row) => String(row.email ?? "").trim().toLowerCase()).filter(Boolean),
+  });
 
   // Lightweight per-tournament rollups for the "Top tournaments by Yes" table expanders.
   let rollupByTournamentId: Record<string, TournamentQuickCheckRollup | undefined> = {};
@@ -2255,6 +2336,7 @@ export default async function TiAdminPage({
 	                          const plan = String(row.plan ?? "").trim().toLowerCase();
 	                          const entitlementLabel =
 	                            plan === "weekend_pro" ? "weekend_pro" : row.email_confirmed_at ? "insider" : plan || "free";
+	                          const sentAt = bulkSendAlreadySentLoad.map.get(email.toLowerCase()) ?? null;
 	                          return (
 	                            <label
 	                              key={`bulk-${row.id}`}
@@ -2264,6 +2346,7 @@ export default async function TiAdminPage({
 	                              <span style={{ fontWeight: 700 }}>{displayNameFromEmail(email)}</span>
 	                              <span style={{ color: "#64748b" }}>
 	                                {email} · {entitlementLabel} · auth:{row.email_confirmed_at ? "confirmed" : "pending"}
+	                                {sentAt ? ` · sent:${fmtDate(sentAt)}` : ""}
 	                              </span>
 	                            </label>
 	                          );
