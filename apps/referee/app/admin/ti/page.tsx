@@ -4,6 +4,7 @@ import type { User as AuthUser } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
+import { sendEmail } from "@/lib/email";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildTiAdminSsoUrl } from "@/lib/tiSso";
 import LabelPrintSettings from "./LabelPrintSettings";
@@ -792,7 +793,6 @@ async function sendTestSavedTournamentChangeEmailAction(formData: FormData) {
   `;
 
   try {
-    const { sendEmail } = await import("@/lib/email");
     const sendResult = await sendEmail({ to: recipientEmail, subject, html });
     if ((sendResult as any)?.skipped) {
       redirect(buildPathWithNoticeAndAlertKpis("Test notification skipped: RESEND_API_KEY is not configured."));
@@ -890,7 +890,6 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
   const errors: Array<{ email: string; message: string }> = [];
 
   try {
-    const { sendEmail } = await import("@/lib/email");
     const concurrency = 5;
     for (let i = 0; i < allowedRecipients.length; i += concurrency) {
       const group = allowedRecipients.slice(i, i + concurrency);
