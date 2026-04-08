@@ -1,3 +1,8 @@
+## 2026-04-08
+
+- TI outreach dashboard: add an “All sports” filter option so admins can view all campaigns/metrics at once (passes `p_sport = null` to the metrics RPC): `apps/ti-web/app/admin/outreach-dashboard/page.tsx`.
+- RI sources: add a `venues` pseudo-sport bucket for venue-based sources (`source_type=venue_sweep|venue_calendar`) so they group/filter alongside sports on the Sources page: `apps/referee/app/admin/tournaments/sources/page.tsx`.
+
 ## 2026-04-07
 
 - TI saved tournaments: include a per-tournament “what changed” summary in the saved-tournament change digest email (dates/location/name/sport/official-site) by storing the last-notified public snapshot and diffing it on the next send: `apps/ti-web/lib/savedTournamentChangeNotificationsJob.ts`, `apps/ti-web/lib/savedTournamentChangeNotificationsEmail.ts`, `supabase/migrations/20260407_ti_saved_tournament_change_snapshots.sql`, `docs/ti-saved-tournament-change-notifications.md`.
