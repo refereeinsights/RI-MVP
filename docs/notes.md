@@ -12,6 +12,17 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-04-08
+- RI: Built NSA (National Softball Association) softball tournament sweeper
+  - File: `apps/referee/src/server/sweeps/nsaSoftballTournaments.ts`
+  - API: `https://nationalsoftballassociation.com/api/v1/` (Angular SPA with REST JSON backend)
+  - Flow: `GET /Event/display/weekend` (filter `sport=FP`) → per event `GET /EP/info-v2.0/desktop/{key}`
+  - The `info-v2.0` response contains `facilities[]` array with `{ name, address, location ("City, ST"), zip }` — no need for separate division/pool/bracket endpoints
+  - Multi-venue support: creates venue rows (dedup by name+city+state, then address+city+state), links all to tournament via `tournament_venues` (first = `is_primary`)
+  - `sport=softball`, `tournament_association="National Softball Association"`
+  - Wired into `pasteUrl.ts` via `isNsaSoftballEventsUrl` — paste `https://nationalsoftballassociation.com/pages/events` to trigger sweep
+- RI: Added bulk softball sources import (state-level USSSA fastpitch URLs × 39 states, no duplication of existing sources)
+
 ## 2026-04-07
 - RI: Added 17 missing USSSA baseball state sources to the registry
   - Checked all 22 missing states; 5 returned 404 (AR, NE, NC, OH, SC — no active USSSA baseball program)

@@ -11,6 +11,9 @@ import {
   sweepUsssaBaseballTournaments,
 } from "@/server/sweeps/usssaBaseballTournaments";
 import { isUsssaFastpitchEventsUrl, sweepUsssaFastpitchTournaments } from "@/server/sweeps/usssaFastpitchTournaments";
+import { isNsaSoftballEventsUrl, sweepNsaSoftballTournaments } from "@/server/sweeps/nsaSoftballTournaments";
+
+const NSA_DOMAIN = "nationalsoftballassociation.com";
 import { isMyHockeySearchUrl, sweepMyHockeyTournaments } from "@/server/sweeps/myHockeyTournaments";
 import {
   isSoftballConnectedTournamentsUrl,
@@ -924,6 +927,58 @@ export async function createTournamentFromUrl(params: {
       extracted_count: sweepResult.counts.imported,
       details: {
         action: "usssa_fastpitch_import",
+        counts: sweepResult.counts,
+        sample: sweepResult.sample,
+      },
+    };
+  }
+
+  if (isNsaSoftballEventsUrl(canonical)) {
+    const sweepResult = await sweepNsaSoftballTournaments({ status, writeDb: true });
+
+    if (!sweepResult.counts.found) {
+      throw new SweepError("html_received_no_events", "NSA events page returned no tournaments", diagnostics);
+    }
+
+    const registry = await upsertRegistry({
+      source_url: canonical,
+      source_type: "association_directory",
+      sport: "softball",
+      notes: "National Softball Association tournaments listing.",
+      is_custom_source: true,
+    });
+    const runId = await insertRun({
+      registry_id: registry.registry_id,
+      source_url: canonical,
+      url: canonical,
+      http_status: diagnostics.status ?? 200,
+      domain: NSA_DOMAIN,
+      title: "NSA softball tournaments",
+      extracted_json: {
+        action: "nsa_softball_import",
+        extracted_count: sweepResult.counts.imported,
+        counts: sweepResult.counts,
+        sample: sweepResult.sample,
+      },
+      extract_confidence: 0.85,
+    });
+    await updateRunExtractedJson(runId, {
+      action: "nsa_softball_import",
+      extracted_count: sweepResult.counts.imported,
+      counts: sweepResult.counts,
+      sample: sweepResult.sample,
+    });
+
+    return {
+      tournamentId: sweepResult.imported_ids[0] ?? "",
+      meta: { name: `Imported ${sweepResult.counts.imported} NSA softball events`, warnings: [] },
+      slug: "nsa-softball-import",
+      registry_id: registry.registry_id,
+      run_id: runId,
+      diagnostics,
+      extracted_count: sweepResult.counts.imported,
+      details: {
+        action: "nsa_softball_import",
         counts: sweepResult.counts,
         sample: sweepResult.sample,
       },
