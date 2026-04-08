@@ -90,6 +90,7 @@ export type DuplicateVenueGroup = {
   kind:
     | "exact_address_city_state"
     | "same_name_city_state"
+    | "same_base_name_city_state"
     | "same_street_state"
     | "same_streetname_city_state"
     | "same_name_state"
@@ -452,6 +453,7 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 
 	    const exactAddressGroups = new Map<string, DuplicateVenueCandidate[]>();
 	    const nameCityGroups = new Map<string, DuplicateVenueCandidate[]>();
+	    const baseNameCityGroups = new Map<string, DuplicateVenueCandidate[]>();
 	    const streetStateGroups = new Map<string, DuplicateVenueCandidate[]>();
 	    const streetNameCityGroups = new Map<string, DuplicateVenueCandidate[]>();
 	    const nameStateGroups = new Map<string, DuplicateVenueCandidate[]>();
@@ -559,8 +561,11 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 		      const cityRaw = normalizeIdentityText(candidate.city);
 		      const city = cityRaw === "unknown" ? "" : cityRaw;
 	      const street = normalizeIdentityStreet(candidate.address);
-	      const name = normalizeIdentityText(stripSportQualifierFromVenueName(candidate.name) ?? candidate.name);
+	      const name = normalizeIdentityText(candidate.name);
+	      const baseName = normalizeIdentityText(stripSportQualifierFromVenueName(candidate.name));
 	      const streetName = normalizeStreetName(candidate.address);
+	      const zip = normalizeIdentityText(candidate.zip);
+	      const host = candidate.venue_url_host || normalizeIdentityUrlHost(candidate.venue_url);
 
 	      if (street && state) {
 	        const key =
@@ -586,16 +591,24 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 	        const key =
 	          (typeof row.name_city_state_fingerprint === "string" && row.name_city_state_fingerprint.trim()) ||
 	          buildVenueNameCityStateFingerprint({
-	            name: stripSportQualifierFromVenueName(row.name ?? null) ?? (row.name ?? null),
-	            city: row.city ?? parsed.city ?? null,
-	            state: row.state ?? parsed.state ?? null,
+	            name: row.name ?? null,
+	            city: row.city ?? null,
+	            state: row.state ?? null,
 	          });
 	        if (key) {
 	          const list = nameCityGroups.get(key) ?? [];
 	          list.push(candidate);
-          nameCityGroups.set(key, list);
-        }
-      }
+	          nameCityGroups.set(key, list);
+	        }
+	      }
+	      // Base-name groupings are review-only and only used when we have some location evidence
+	      // (street/zip/host) to avoid over-grouping generic venue names.
+	      if (baseName && city && state && (street || zip || host)) {
+	        const key = `${baseName}|${city}|${state}`;
+	        const list = baseNameCityGroups.get(key) ?? [];
+	        list.push(candidate);
+	        baseNameCityGroups.set(key, list);
+	      }
       if (streetName && city && state) {
         const key = `${streetName}|${city}|${state}`;
         const list = streetNameCityGroups.get(key) ?? [];
@@ -760,6 +773,37 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       });
       filtered.forEach((item) => seenIds.add(item.id));
     }
+    for (const [key, list] of baseNameCityGroups.entries()) {
+      if (list.length < 2) continue;
+      if (list.some((item) => seenIds.has(item.id))) continue;
+      const compatible = list.filter((candidate, _, all) => {
+        const candidateStreet = normalizeIdentityStreet(candidate.address);
+        const candidateZip = normalizeIdentityText(candidate.zip);
+        const candidateHost = candidate.venue_url_host || normalizeIdentityUrlHost(candidate.venue_url);
+        return all.some((other) => {
+          if (other.id === candidate.id) return false;
+          const otherStreet = normalizeIdentityStreet(other.address);
+          const otherZip = normalizeIdentityText(other.zip);
+          const otherHost = other.venue_url_host || normalizeIdentityUrlHost(other.venue_url);
+          return (
+            (candidateStreet && otherStreet && candidateStreet === otherStreet) ||
+            (candidateZip && otherZip && candidateZip === otherZip) ||
+            (candidateHost && otherHost && candidateHost === otherHost)
+          );
+        });
+      });
+      if (compatible.length < 2) continue;
+      const target = pickTarget(compatible);
+      const filtered = compatible.filter((item) => item.id === target.id || !keepBothPairs.has(pairKey(item.id, target.id)));
+      if (filtered.length < 2) continue;
+      duplicateGroups.push({
+        key,
+        kind: "same_base_name_city_state",
+        suggested_target_id: target.id,
+        candidates: filtered,
+      });
+      filtered.forEach((item) => seenIds.add(item.id));
+    }
     for (const [key, list] of streetStateGroups.entries()) {
       if (list.length < 2) continue;
       if (list.some((item) => seenIds.has(item.id))) continue;
@@ -846,11 +890,12 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       });
     }
 
-    duplicateGroups.sort((a, b) => {
+	    duplicateGroups.sort((a, b) => {
 	      const kindRank = (kind: DuplicateVenueGroup["kind"]) => {
 	        if (kind === "owls_eye_suspect") return 5;
 	        if (kind === "exact_address_city_state") return 4;
 	        if (kind === "same_name_city_state") return 3;
+	        if (kind === "same_base_name_city_state") return 3;
 	        if (kind === "same_street_state") return 2;
 	        if (kind === "same_streetname_city_state") return 2;
 	        return 1;

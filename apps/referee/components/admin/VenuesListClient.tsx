@@ -51,6 +51,7 @@ type DuplicateVenueGroup = {
   kind:
     | "exact_address_city_state"
     | "same_name_city_state"
+    | "same_base_name_city_state"
     | "same_street_state"
     | "same_streetname_city_state"
     | "same_name_state"
@@ -72,6 +73,7 @@ function duplicateKindLabel(kind: DuplicateVenueGroup["kind"]) {
   if (kind === "owls_eye_suspect") return "Owl's Eye suspect";
   if (kind === "exact_address_city_state") return "Exact address match";
   if (kind === "same_name_city_state") return "Name + city + state match";
+  if (kind === "same_base_name_city_state") return "Base name + city + state match";
   if (kind === "same_street_state") return "Street + state match";
   if (kind === "same_streetname_city_state") return "Street name + city + state match";
   return "Name + state match";
