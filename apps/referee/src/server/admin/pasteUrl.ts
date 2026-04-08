@@ -123,14 +123,20 @@ async function fetchHtmlWithDiagnostics(url: string): Promise<{ html: string; di
   const status = resp.status;
   const contentType = resp.headers.get("content-type");
   if (!resp.ok) {
-    throw new SweepError(httpErrorCode(status), `HTTP error ${status}`, {
-      status,
-      content_type: contentType,
-      final_url: finalUrl,
-      redirect_count: redirectCount,
-      redirect_chain: redirectChain,
-      location_header: lastLocation,
-    });
+    const allowHtmlOn404 =
+      status === 404 &&
+      Boolean(contentType && contentType.toLowerCase().includes("text/html")) &&
+      (isNsaSoftballEventsUrl(finalUrl) || isNsaSoftballEventsUrl(url));
+    if (!allowHtmlOn404) {
+      throw new SweepError(httpErrorCode(status), `HTTP error ${status}`, {
+        status,
+        content_type: contentType,
+        final_url: finalUrl,
+        redirect_count: redirectCount,
+        redirect_chain: redirectChain,
+        location_header: lastLocation,
+      });
+    }
   }
 
   let html = "";
