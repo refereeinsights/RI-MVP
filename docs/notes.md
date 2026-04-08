@@ -3154,3 +3154,8 @@ Maintenance rules:
   - Migration: `supabase/migrations/20260403_missing_venues_zip_filter.sql` adds `p_zip` filtering to `public.list_missing_venue_link_tournaments_v2`.
   - Missing venues UI + export now accept `zip` query param: `apps/referee/app/admin/tournaments/missing-venues/page.tsx`, `apps/referee/app/api/admin/tournaments/missing-venues/export/route.ts`.
   - Enrichment search supports optional ZIP constraint: `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`, `apps/referee/app/api/admin/tournaments/enrichment/search/route.ts`.
+
+- 2026-04-08: Venue admin: batch “scan venues for duplicates” → persistent candidate queue.
+  - Adds an admin-only API to scan venues (optionally filtered by `state`/`sport`) and insert high-confidence duplicate pairs into `owls_eye_venue_duplicate_suspects` for follow-up merge/keep-both action.
+  - Ignores existing `venue_duplicate_overrides` “keep_both” pairs and does not mutate existing suspect rows (won’t reopen ignored/resolved pairs).
+  - Files: `apps/referee/app/api/admin/venues/scan-duplicate-candidates/route.ts`, `apps/referee/components/admin/VenuesListClient.tsx`.

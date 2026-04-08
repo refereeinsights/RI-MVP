@@ -116,6 +116,7 @@ export default function VenuesListClient({
   const [mergedVenueIds, setMergedVenueIds] = useState<Set<string>>(new Set());
   const [duplicateState, setDuplicateState] = useState<DuplicateVenueGroup[]>(duplicateGroups);
   const [needsRefreshAfterMerge, setNeedsRefreshAfterMerge] = useState(false);
+  const [scanningDuplicates, setScanningDuplicates] = useState(false);
   const dismissedStorageKey = useMemo(() => {
     const from = recentTournamentVenueLinksFrom || "none";
     const to = recentTournamentVenueLinksTo || "none";
@@ -141,6 +142,41 @@ export default function VenuesListClient({
   useEffect(() => {
     setDuplicateState(duplicateGroups);
   }, [duplicateGroups]);
+
+  const scanDuplicateCandidates = async () => {
+    if (scanningDuplicates) return;
+    setScanningDuplicates(true);
+    try {
+      const state = typeof preservedFilters.state === "string" ? preservedFilters.state : "";
+      const sport = typeof preservedFilters.sport === "string" ? preservedFilters.sport : "";
+      const res = await fetch("/api/admin/venues/scan-duplicate-candidates", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          limit: 160,
+          max_per_venue: 6,
+          state: state || null,
+          sport: sport || null,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json?.error || "Duplicate scan failed");
+      }
+      const scanned = Number(json?.scanned ?? 0) || 0;
+      const inserted = Number(json?.inserted ?? 0) || 0;
+      const overrides = Number(json?.skipped_overrides ?? 0) || 0;
+      window.alert(
+        `Duplicate scan complete: scanned ${scanned} venues, inserted ${inserted} candidates${overrides ? ` (${overrides} overridden)` : ""}.`
+      );
+      router.refresh();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Duplicate scan failed";
+      window.alert(message);
+    } finally {
+      setScanningDuplicates(false);
+    }
+  };
 
   const toggleSelected = (venueId: string, selected: boolean) => {
     setSelectedIds((prev) => {
@@ -578,6 +614,27 @@ export default function VenuesListClient({
           <div style={{ fontSize: 16, fontWeight: 800 }}>Duplicate venue candidates</div>
           <div style={{ fontSize: 13, color: "#78350f" }}>
             Review suggested targets and merge sources directly here. You can keep the suggestion or choose a different venue as the merge target before merging.
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <button
+              type="button"
+              onClick={() => void scanDuplicateCandidates()}
+              disabled={scanningDuplicates}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: "1px solid #78350f",
+                background: scanningDuplicates ? "#fde68a" : "#fff",
+                color: "#78350f",
+                fontWeight: 900,
+                cursor: scanningDuplicates ? "not-allowed" : "pointer",
+              }}
+            >
+              {scanningDuplicates ? "Scanning…" : "Scan venues for duplicates"}
+            </button>
+            <div style={{ fontSize: 12, color: "#92400e", fontWeight: 700 }}>
+              Creates persistent candidates (won&apos;t reopen ignored/resolved pairs).
+            </div>
           </div>
           {needsRefreshAfterMerge ? (
             <div
