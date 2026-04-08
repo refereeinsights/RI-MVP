@@ -4,7 +4,13 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function ensureTournamentVenueLink(
   tournamentId: string
-): Promise<{ linked: boolean; attempted: boolean; error?: string }> {
+): Promise<{
+  linked: boolean;
+  attempted: boolean;
+  venue_created: boolean;
+  venue_matched: boolean;
+  error?: string;
+}> {
   const clean = (value: unknown): string | null => {
     const v = String(value ?? "").trim();
     return v ? v : null;
@@ -20,16 +26,36 @@ export async function ensureTournamentVenueLink(
     .eq("tournament_id", tournamentId)
     .eq("is_inferred", false)
     .limit(1);
-  if (existingErr) return { linked: false, attempted: false, error: existingErr.message || "failed_check_links" };
-  if ((existingLinks ?? []).length > 0) return { linked: true, attempted: false };
+  if (existingErr) {
+    return {
+      linked: false,
+      attempted: false,
+      venue_created: false,
+      venue_matched: false,
+      error: existingErr.message || "failed_check_links",
+    };
+  }
+  if ((existingLinks ?? []).length > 0) {
+    return { linked: true, attempted: false, venue_created: false, venue_matched: false };
+  }
 
   const { data: tournament, error: tournamentErr } = await supabaseAdmin
     .from("tournaments" as any)
     .select("id,venue,address,city,state,zip,sport")
     .eq("id", tournamentId)
     .maybeSingle();
-  if (tournamentErr) return { linked: false, attempted: false, error: tournamentErr.message || "failed_load_tournament" };
-  if (!tournament) return { linked: false, attempted: false, error: "tournament_not_found" };
+  if (tournamentErr) {
+    return {
+      linked: false,
+      attempted: false,
+      venue_created: false,
+      venue_matched: false,
+      error: tournamentErr.message || "failed_load_tournament",
+    };
+  }
+  if (!tournament) {
+    return { linked: false, attempted: false, venue_created: false, venue_matched: false, error: "tournament_not_found" };
+  }
 
   const venueAddress = clean((tournament as any).address);
   const venueName = clean((tournament as any).venue) ?? (venueAddress ? venueAddress : null);
@@ -40,7 +66,9 @@ export async function ensureTournamentVenueLink(
 
   const hasVenueInfo = Boolean(venueName || venueAddress);
   const hasLocation = Boolean(venueCity || venueState);
-  if (!hasVenueInfo || !hasLocation) return { linked: false, attempted: false };
+  if (!hasVenueInfo || !hasLocation) {
+    return { linked: false, attempted: false, venue_created: false, venue_matched: false };
+  }
 
   const applyNullableFilter = (query: any, field: string, value: string | null) => {
     if (value === null) return query.is(field, null);
@@ -54,10 +82,18 @@ export async function ensureTournamentVenueLink(
     venueState
   ).maybeSingle();
   if (existingVenueRes.error) {
-    return { linked: false, attempted: true, error: existingVenueRes.error.message || "failed_lookup_venue" };
+    return {
+      linked: false,
+      attempted: true,
+      venue_created: false,
+      venue_matched: false,
+      error: existingVenueRes.error.message || "failed_lookup_venue",
+    };
   }
 
   let venueId = (existingVenueRes.data as any)?.id as string | undefined;
+  let venueMatched = Boolean(venueId);
+  let venueCreated = false;
   if (!venueId) {
     const insertPayload: Record<string, unknown> = {
       name: venueName,
@@ -80,23 +116,47 @@ export async function ensureTournamentVenueLink(
           venueState
         ).maybeSingle();
         venueId = (retryRes.data as any)?.id as string | undefined;
-        if (!venueId) return { linked: false, attempted: true, error: retryRes.error?.message || "failed_create_venue" };
+        venueMatched = Boolean(venueId);
+        if (!venueId) {
+          return {
+            linked: false,
+            attempted: true,
+            venue_created: false,
+            venue_matched: false,
+            error: retryRes.error?.message || "failed_create_venue",
+          };
+        }
       } else {
-        return { linked: false, attempted: true, error: insertRes.error.message || "failed_create_venue" };
+        return {
+          linked: false,
+          attempted: true,
+          venue_created: false,
+          venue_matched: false,
+          error: insertRes.error.message || "failed_create_venue",
+        };
       }
     } else {
       venueId = (insertRes.data as any)?.id as string | undefined;
+      venueCreated = Boolean(venueId);
     }
   }
 
-  if (!venueId) return { linked: false, attempted: true, error: "missing_venue_id" };
+  if (!venueId) {
+    return { linked: false, attempted: true, venue_created: false, venue_matched: false, error: "missing_venue_id" };
+  }
 
   const linkRes = await supabaseAdmin
     .from("tournament_venues" as any)
     .upsert({ tournament_id: tournamentId, venue_id: venueId, is_inferred: false }, { onConflict: "tournament_id,venue_id" });
   if (linkRes.error && (linkRes.error as any).code !== "23505") {
-    return { linked: false, attempted: true, error: linkRes.error.message || "failed_link_venue" };
+    return {
+      linked: false,
+      attempted: true,
+      venue_created: venueCreated,
+      venue_matched: venueMatched,
+      error: linkRes.error.message || "failed_link_venue",
+    };
   }
 
-  return { linked: true, attempted: true };
+  return { linked: true, attempted: true, venue_created: venueCreated, venue_matched: venueMatched };
 }

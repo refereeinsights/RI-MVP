@@ -2048,7 +2048,15 @@ export default async function AdminPage({
     await adminUpdateTournamentStatus({ tournament_id: tournamentId, status: "published" });
     revalidatePath("/admin");
     revalidatePath("/tournaments");
-    redirectWithNotice(redirectTo, "Tournament approved");
+    const venueSuffix =
+      venueLinkRes.attempted && venueLinkRes.linked
+        ? venueLinkRes.venue_created
+          ? " (venue created + linked)"
+          : venueLinkRes.venue_matched
+            ? " (venue linked)"
+            : " (venue linked)"
+        : "";
+    redirectWithNotice(redirectTo, `Tournament approved${venueSuffix}`);
   }
 
   async function archiveTournamentAction(formData: FormData) {
@@ -2102,17 +2110,32 @@ export default async function AdminPage({
     }
     if (action === "approve") {
       const failures: string[] = [];
+      let venuesCreated = 0;
+      let venuesLinkedExisting = 0;
       for (const id of ids) {
         const venueLinkRes = await ensureTournamentVenueLink(id);
-        if (venueLinkRes.error) failures.push(id);
+        if (venueLinkRes.error) {
+          failures.push(id);
+          continue;
+        }
+        if (venueLinkRes.attempted && venueLinkRes.linked) {
+          if (venueLinkRes.venue_created) venuesCreated += 1;
+          else if (venueLinkRes.venue_matched) venuesLinkedExisting += 1;
+        }
       }
       await Promise.all(ids.map((id) => adminUpdateTournamentStatus({ tournament_id: id, status: "published" })));
       revalidatePath("/admin");
       revalidatePath("/admin/tournaments");
       revalidatePath("/tournaments");
+      const venuePart =
+        venuesCreated || venuesLinkedExisting
+          ? ` Venues: ${venuesLinkedExisting} linked, ${venuesCreated} created.`
+          : "";
       return redirectWithNotice(
         redirectTo,
-        failures.length ? `${ids.length} tournament(s) approved. Venue link failed for ${failures.length}.` : `${ids.length} tournament(s) approved.`
+        failures.length
+          ? `${ids.length} tournament(s) approved.${venuePart} Venue link failed for ${failures.length}.`
+          : `${ids.length} tournament(s) approved.${venuePart}`
       );
     } else if (action === "archive") {
       await Promise.all(ids.map((id) => adminUpdateTournamentStatus({ tournament_id: id, status: "archived" })));
