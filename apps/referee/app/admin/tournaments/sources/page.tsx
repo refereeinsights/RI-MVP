@@ -49,6 +49,9 @@ const SPORT_OPTIONS = [
   "other",
 ] as const;
 
+const VENUE_SPORT_BUCKET = "venues";
+const SPORT_FILTER_OPTIONS = [...SPORT_OPTIONS, VENUE_SPORT_BUCKET] as const;
+
 const SOURCE_TYPE_OPTIONS = [
   "tournament_platform",
   "governing_body",
@@ -143,6 +146,11 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
     return sweptMs < overdueSweepCutoffMs;
   };
 
+  const isVenueBasedSource = (row: any) => {
+    const sourceType = String(row?.source_type ?? "").toLowerCase();
+    return sourceType === "venue_sweep" || sourceType === "venue_calendar";
+  };
+
   const acquisitionTilesResp = await (supabaseAdmin as any).rpc("get_admin_tournament_acquisition_tiles", {
     p_limit: 8,
   });
@@ -185,7 +193,13 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
       const hay = String(row.source_url || "").toLowerCase();
       if (!hay.includes(q.toLowerCase())) return false;
     }
-    if (sportFilter && String(row.sport || "").toLowerCase() !== sportFilter.toLowerCase()) return false;
+    if (sportFilter) {
+      if (sportFilter.toLowerCase() === VENUE_SPORT_BUCKET) {
+        if (!isVenueBasedSource(row)) return false;
+      } else if (String(row.sport || "").toLowerCase() !== sportFilter.toLowerCase()) {
+        return false;
+      }
+    }
     if (stateFilter && String(row.state || "").toUpperCase() !== stateFilter) return false;
     return true;
   });
@@ -244,7 +258,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
   ];
 
   const getGroupLabel = (row: any) => {
-    if (groupBy === "sport") return row.sport || "Unknown sport";
+    if (groupBy === "sport") return isVenueBasedSource(row) ? VENUE_SPORT_BUCKET : row.sport || "Unknown sport";
     if (groupBy === "state") return row.state || "No state";
     if (groupBy === "review_status") return row.review_status || "untested";
     if (groupBy === "source_type") return row.source_type || "Unknown type";
@@ -389,7 +403,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
           )}
         </td>
         <td style={{ padding: "6px 4px" }}>{row.source_type || "—"}</td>
-        <td style={{ padding: "6px 4px" }}>{row.sport || "—"}</td>
+        <td style={{ padding: "6px 4px" }}>{isVenueBasedSource(row) ? VENUE_SPORT_BUCKET : row.sport || "—"}</td>
         <td style={{ padding: "6px 4px" }}>{row.state || "—"}</td>
         <td style={{ padding: "6px 4px" }}>{row.city || "—"}</td>
         <td style={{ padding: "6px 4px" }}>
@@ -823,7 +837,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Sear
             style={{ padding: 8, borderRadius: 8, border: "1px solid #d1d5db" }}
           >
             <option value="">All sports</option>
-            {SPORT_OPTIONS.map((s) => (
+            {SPORT_FILTER_OPTIONS.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
