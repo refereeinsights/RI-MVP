@@ -57,6 +57,15 @@
   font: inherit;
 }
 
+.select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px;
+  font: inherit;
+  background: #fff;
+}
+
 .textarea {
   min-height: 92px;
   resize: vertical;

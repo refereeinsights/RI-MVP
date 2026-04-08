@@ -735,7 +735,12 @@ export default async function VenueDetailsPage({
                 </div>
               )}
 
-              <QuickVenueCheck venueId={data.id} pageType="venue" sourceTournamentId={selectedTournament?.id ?? null} />
+              <QuickVenueCheck
+                venueId={data.id}
+                pageType="venue"
+                sourceTournamentId={selectedTournament?.id ?? null}
+                sport={selectedTournament?.sport ?? null}
+              />
 
               {canReviewVenue ? (
                 <div className="detailLinksRow">

@@ -3159,3 +3159,10 @@ Maintenance rules:
   - Adds an admin-only API to scan venues (optionally filtered by `state`/`sport`) and insert high-confidence duplicate pairs into `owls_eye_venue_duplicate_suspects` for follow-up merge/keep-both action.
   - Ignores existing `venue_duplicate_overrides` “keep_both” pairs and does not mutate existing suspect rows (won’t reopen ignored/resolved pairs).
   - Files: `apps/referee/app/api/admin/venues/scan-duplicate-candidates/route.ts`, `apps/referee/components/admin/VenuesListClient.tsx`.
+
+- 2026-04-08: TI venue feedback: sport/surface-specific quick checks + reviews via `venue_sport_profiles`.
+  - Adds optional `venue_sport_profile_id` to `venue_quick_checks` and `venue_reviews`, plus per-profile aggregate columns on `venue_sport_profiles`.
+  - Updates TI quick-check and review submit APIs to attach feedback to a matching `venue_sport_profiles(venue_id,sport)` row when available, while keeping venue-level aggregates intact.
+  - UI: Quick venue check on venue pages now includes a “Sport context” dropdown; tournament pages pass the tournament sport automatically.
+  - Migrations: `supabase/migrations/20260408_venue_feedback_sport_profiles.sql`, `supabase/migrations/20260408_submit_venue_review_profile.sql`.
+  - Files: `apps/ti-web/app/api/venue-quick-check/route.ts`, `apps/ti-web/app/api/venue-reviews/route.ts`, `apps/ti-web/components/venues/QuickVenueCheck.tsx`, `apps/ti-web/components/venues/QuickVenueCheck.module.css`, `apps/ti-web/app/venues/reviews/_components/VenueReviewsClient.tsx`, `apps/ti-web/app/venues/reviews/_components/VenueReviews.module.css`, `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/app/venues/[venueId]/page.tsx`.

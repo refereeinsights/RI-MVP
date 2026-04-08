@@ -62,6 +62,17 @@
   gap: 5px;
 }
 
+.select {
+  width: 100%;
+  padding: 10px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f6f8f6;
+  font-weight: 800;
+  font-size: 13px;
+}
+
 .chip {
   padding: 10px 8px;
   border-radius: 12px;

@@ -11,6 +11,7 @@ type TournamentRow = {
   slug: string | null;
   name: string | null;
   start_date: string | null;
+  sport?: string | null;
 };
 
 type VenueJoinRow = {
@@ -44,8 +45,20 @@ function tournamentOut(row: TournamentRow) {
     slug: row.slug ?? "",
     name: row.name ?? "Unnamed tournament",
     start_date: row.start_date ?? null,
+    sport: row.sport ?? null,
   };
 }
+
+const SPORT_PROFILE_SPORTS = new Set([
+  "soccer",
+  "baseball",
+  "softball",
+  "lacrosse",
+  "basketball",
+  "hockey",
+  "volleyball",
+  "futsal",
+]);
 
 function parseUsdToNumber(raw: unknown) {
   if (typeof raw === "number" && Number.isFinite(raw)) return Math.round(raw * 100) / 100;
@@ -91,7 +104,7 @@ async function findTournamentByCode(codeRaw: string) {
   const normalizedSlug = code.toLowerCase();
   const slugMatch = await supabaseAdmin
     .from("tournaments_public" as any)
-    .select("id,slug,name,start_date")
+    .select("id,slug,name,start_date,sport")
     .eq("slug", normalizedSlug)
     .maybeSingle<TournamentRow>();
   if (!slugMatch.error && slugMatch.data?.id) return slugMatch.data;
@@ -99,7 +112,7 @@ async function findTournamentByCode(codeRaw: string) {
   if (isUuid(code)) {
     const idMatch = await supabaseAdmin
       .from("tournaments_public" as any)
-      .select("id,slug,name,start_date")
+      .select("id,slug,name,start_date,sport")
       .eq("id", code)
       .maybeSingle<TournamentRow>();
     if (!idMatch.error && idMatch.data?.id) return idMatch.data;
@@ -120,7 +133,7 @@ async function findTournamentByCode(codeRaw: string) {
     if (tournamentId) {
       const idLookup = await supabaseAdmin
         .from("tournaments_public" as any)
-        .select("id,slug,name,start_date")
+        .select("id,slug,name,start_date,sport")
         .eq("id", tournamentId)
         .maybeSingle<TournamentRow>();
       if (!idLookup.error && idLookup.data?.id) return idLookup.data;
@@ -129,7 +142,7 @@ async function findTournamentByCode(codeRaw: string) {
     if (tournamentSlug) {
       const slugLookup = await supabaseAdmin
         .from("tournaments_public" as any)
-        .select("id,slug,name,start_date")
+        .select("id,slug,name,start_date,sport")
         .eq("slug", tournamentSlug)
         .maybeSingle<TournamentRow>();
       if (!slugLookup.error && slugLookup.data?.id) return slugLookup.data;
@@ -152,7 +165,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from("tournaments_public" as any)
-      .select("id,slug,name,start_date")
+      .select("id,slug,name,start_date,sport")
       .ilike("name", `%${q}%`)
       .order("start_date", { ascending: false })
       .limit(10);
@@ -266,6 +279,10 @@ export async function POST(request: Request) {
 
   const venueId = typeof body.venue_id === "string" ? body.venue_id.trim() : "";
   const tournamentId = typeof body.tournament_id === "string" ? body.tournament_id.trim() : null;
+  const sport = typeof (body as any).sport === "string" ? String((body as any).sport).trim().toLowerCase() : "";
+  const rawProfileId =
+    typeof (body as any).venue_sport_profile_id === "string" ? String((body as any).venue_sport_profile_id).trim() : "";
+  const venueSportProfileId = rawProfileId && isUuid(rawProfileId) ? rawProfileId : null;
   const restrooms = typeof body.restrooms === "string" ? body.restrooms.trim() : "";
   const restroomCleanliness = Number(body.restroom_cleanliness);
   const playerParkingFee = parseUsdToNumber(body.player_parking_fee);
@@ -320,7 +337,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Vendor score must be 1 to 5." }, { status: 400 });
   }
 
-  const { error } = await (auth.supabase as any).rpc("submit_venue_review", {
+  let resolvedProfileId: string | null = venueSportProfileId;
+  if (!resolvedProfileId && sport && SPORT_PROFILE_SPORTS.has(sport) && venueId) {
+    const { data } = await supabaseAdmin
+      .from("venue_sport_profiles" as any)
+      .select("id")
+      .eq("venue_id", venueId)
+      .eq("sport", sport)
+      .maybeSingle();
+    const id = typeof (data as any)?.id === "string" ? String((data as any).id) : "";
+    resolvedProfileId = id && isUuid(id) ? id : null;
+  }
+
+  const payloadWithProfile = {
     p_venue_id: venueId,
     p_tournament_id: tournamentId || null,
     p_restrooms: restrooms,
@@ -336,7 +365,17 @@ export async function POST(request: Request) {
     p_coffee_vendors: coffeeVendors,
     p_vendor_score: vendorScore,
     p_venue_notes: venueNotes,
-  });
+    p_venue_sport_profile_id: resolvedProfileId,
+  };
+
+  let rpc = await (auth.supabase as any).rpc("submit_venue_review", payloadWithProfile);
+  if (rpc.error && /p_venue_sport_profile_id|function .*submit_venue_review/i.test(rpc.error.message || "")) {
+    // Backward-compat for older DBs missing the new profile param.
+    const { p_venue_sport_profile_id: _, ...legacyPayload } = payloadWithProfile as any;
+    rpc = await (auth.supabase as any).rpc("submit_venue_review", legacyPayload);
+  }
+
+  const { error } = rpc;
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

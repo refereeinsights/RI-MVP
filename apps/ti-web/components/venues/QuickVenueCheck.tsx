@@ -13,6 +13,7 @@ type Props = {
   venueOptions?: VenueOption[];
   pageType: "venue" | "tournament";
   sourceTournamentId?: string | null;
+  sport?: string | null;
   signedIn?: boolean;
 };
 
@@ -47,6 +48,18 @@ const RESTROOM_OPTIONS: EnumOption[] = [
   { label: "Both", value: "Both" },
 ];
 
+const SPORT_OPTIONS: EnumOption[] = [
+  { label: "General", value: "" },
+  { label: "Soccer", value: "soccer" },
+  { label: "Lacrosse", value: "lacrosse" },
+  { label: "Baseball", value: "baseball" },
+  { label: "Softball", value: "softball" },
+  { label: "Basketball", value: "basketball" },
+  { label: "Hockey", value: "hockey" },
+  { label: "Volleyball", value: "volleyball" },
+  { label: "Futsal", value: "futsal" },
+];
+
 function useBrowserHash() {
   return useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -59,7 +72,7 @@ function useBrowserHash() {
   }, []);
 }
 
-export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournamentId, signedIn }: Props) {
+export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournamentId, sport, signedIn }: Props) {
   const browserHash = useBrowserHash();
   const multiVenue = (venueOptions?.length ?? 0) > 1;
   const singleVenueId = !multiVenue ? venueOptions?.[0]?.id || venueId || null : null;
@@ -76,6 +89,7 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
   const openedOnce = useMemo(() => ({ sent: false }), []);
   const [gate, setGate] = useState<"gate" | "form" | "dismissed">("gate");
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(singleVenueId);
+  const [contextSport, setContextSport] = useState<string>(() => String(sport ?? "").trim().toLowerCase());
   const [promptDismissed, setPromptDismissed] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState<boolean | null>(typeof signedIn === "boolean" ? signedIn : null);
   const promptSeenOnce = useMemo(() => ({ sent: false }), []);
@@ -89,9 +103,10 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
         venueUuid: selectedVenueId ?? venueId ?? null,
         pageType,
         sourceTournamentUuid: sourceTournamentId ?? null,
+        sport: contextSport || null,
       });
     }
-  }, [venueId, selectedVenueId, pageType, sourceTournamentId, openedOnce]);
+  }, [venueId, selectedVenueId, pageType, sourceTournamentId, openedOnce, contextSport]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -123,6 +138,7 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
         venueUuid: resolvedVenueId,
         pageType,
         sourceTournamentUuid: sourceTournamentId ?? null,
+        sport: contextSport || null,
       });
     } else {
       setGate("dismissed");
@@ -130,6 +146,7 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
         venueUuid: resolvedVenueId,
         pageType,
         sourceTournamentUuid: sourceTournamentId ?? null,
+        sport: contextSport || null,
       });
     }
   }
@@ -148,6 +165,7 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
           browser_hash: browserHash,
           source_page_type: pageType,
           source_tournament_id: sourceTournamentId,
+          sport: contextSport || null,
           restroom_cleanliness: restroomCleanliness,
           parking_distance: parkingDistance,
           shade_score: shadeScore,
@@ -164,6 +182,7 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
         venueUuid: resolvedVenueId,
         pageType,
         sourceTournamentUuid: sourceTournamentId ?? null,
+        sport: contextSport || null,
         fieldsCompleted: selectedCount,
         fieldsAnswered,
       });
@@ -209,6 +228,7 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
       venueUuid: resolvedVenueId,
       pageType,
       sourceTournamentUuid: sourceTournamentId ?? null,
+      sport: contextSport || null,
     });
   }, [shouldShowSignupPrompt, resolvedVenueId, pageType, sourceTournamentId, promptSeenOnce]);
 
@@ -328,6 +348,23 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
                   </button>
                 ))}
               </div>
+            </div>
+          ) : null}
+          {pageType === "venue" ? (
+            <div className={styles.field}>
+              <div className={styles.label}>Sport context</div>
+              <select
+                className={styles.select}
+                value={contextSport}
+                onChange={(e) => setContextSport(e.target.value)}
+                aria-label="Sport context"
+              >
+                {SPORT_OPTIONS.map((opt) => (
+                  <option key={opt.value || "general"} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
           ) : null}
           <p className={styles.note}>Tap anything you remember.</p>

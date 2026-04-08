@@ -645,6 +645,7 @@ async function TournamentVenueDetails({
             venueOptions={linkedVenues.map((v) => ({ id: v.id, name: v.name }))}
             pageType="tournament"
             sourceTournamentId={tournament.id}
+            sport={tournament.sport}
           />
         </div>
       ) : venueInfo ? (

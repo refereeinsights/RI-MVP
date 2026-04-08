@@ -13,6 +13,7 @@ type TournamentOption = {
   slug: string;
   name: string;
   start_date: string | null;
+  sport?: string | null;
 };
 
 type VenueOption = {
@@ -54,6 +55,18 @@ const INITIAL_FORM: ReviewFormState = {
   vendor_score: null,
   venue_notes: "",
 };
+
+const SPORT_OPTIONS: Array<{ label: string; value: string }> = [
+  { label: "General", value: "" },
+  { label: "Soccer", value: "soccer" },
+  { label: "Lacrosse", value: "lacrosse" },
+  { label: "Baseball", value: "baseball" },
+  { label: "Softball", value: "softball" },
+  { label: "Basketball", value: "basketball" },
+  { label: "Hockey", value: "hockey" },
+  { label: "Volleyball", value: "volleyball" },
+  { label: "Futsal", value: "futsal" },
+];
 
 function formatDate(value: string | null) {
   if (!value) return "Date TBA";
@@ -116,6 +129,7 @@ export default function VenueReviewsClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedTournament, setSelectedTournament] = useState<TournamentOption | null>(null);
+  const [contextSport, setContextSport] = useState<string>("");
   const [selectedVenueId, setSelectedVenueId] = useState<string>("");
   const [venues, setVenues] = useState<VenueOption[]>([]);
   const [venuesLoading, setVenuesLoading] = useState(false);
@@ -206,6 +220,7 @@ export default function VenueReviewsClient() {
 
   function applyTournament(tournament: TournamentOption) {
     setSelectedTournament(tournament);
+    setContextSport(String(tournament.sport ?? "").trim().toLowerCase());
     setSearchResults([]);
     setSearchInput("");
     setCodeMessage("");
@@ -215,6 +230,7 @@ export default function VenueReviewsClient() {
 
   function clearTournament() {
     setSelectedTournament(null);
+    setContextSport("");
     setSelectedVenueId("");
     setVenues([]);
     setVenuesError("");
@@ -355,6 +371,7 @@ export default function VenueReviewsClient() {
         body: JSON.stringify({
           venue_id: selectedVenue.id,
           tournament_id: selectedTournament?.id ?? null,
+          sport: contextSport || selectedTournament?.sport || null,
           restrooms: form.restrooms,
           restroom_cleanliness: form.restroom_cleanliness,
           player_parking_fee: parkingFee,
@@ -402,6 +419,23 @@ export default function VenueReviewsClient() {
               <div>
                 <strong>{selectedTournament.name}</strong>
                 <div className={styles.meta}>Starts {formatDate(selectedTournament.start_date)}</div>
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label className={styles.meta} style={{ margin: 0 }}>
+                  Sport context
+                </label>
+                <select
+                  className={styles.select}
+                  value={contextSport}
+                  onChange={(e) => setContextSport(e.target.value)}
+                  aria-label="Sport context"
+                >
+                  {SPORT_OPTIONS.map((opt) => (
+                    <option key={opt.value || "general"} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <button type="button" className={styles.secondaryBtn} onClick={clearTournament}>
                 Change tournament

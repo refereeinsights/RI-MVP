@@ -18,6 +18,17 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+const SPORT_PROFILE_SPORTS = new Set([
+  "soccer",
+  "baseball",
+  "softball",
+  "lacrosse",
+  "basketball",
+  "hockey",
+  "volleyball",
+  "futsal",
+]);
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => null)) as Record<string, any> | null;
@@ -28,6 +39,12 @@ export async function POST(request: Request) {
 
     const venueId = typeof body.venue_id === "string" ? body.venue_id.trim() : "";
     if (!venueId) return NextResponse.json({ ok: false, error: "venue_id required" }, { status: 400 });
+
+    let venueSportProfileId: string | null =
+      typeof body.venue_sport_profile_id === "string" && isUuid(body.venue_sport_profile_id)
+        ? body.venue_sport_profile_id
+        : null;
+    const sport = typeof body.sport === "string" ? body.sport.trim().toLowerCase() : "";
 
     const browserHash = typeof body.browser_hash === "string" ? body.browser_hash.slice(0, 128) : "";
     const sourcePageType = typeof body.source_page_type === "string" ? body.source_page_type.slice(0, 40) : null;
@@ -78,6 +95,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Select at least one item" }, { status: 400 });
     }
 
+    if (!venueSportProfileId && sport && SPORT_PROFILE_SPORTS.has(sport)) {
+      const { data } = await supabaseAdmin
+        .from("venue_sport_profiles" as any)
+        .select("id")
+        .eq("venue_id", venueId)
+        .eq("sport", sport)
+        .maybeSingle();
+      const id = typeof (data as any)?.id === "string" ? String((data as any).id) : "";
+      venueSportProfileId = id && isUuid(id) ? id : null;
+    }
+
     // Rate limit: one per venue/browser per 30 days
     if (browserHash) {
       const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -92,7 +120,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const { error } = await supabaseAdmin.from("venue_quick_checks" as any).insert({
+    const insertPayload: Record<string, any> = {
       venue_id: venueId,
       restroom_cleanliness: restroomCleanliness,
       parking_distance: parkingDistance,
@@ -103,7 +131,18 @@ export async function POST(request: Request) {
       source_page_type: sourcePageType,
       source_tournament_id: sourceTournamentId,
       browser_hash: browserHash || null,
-    });
+      venue_sport_profile_id: venueSportProfileId,
+    };
+
+    let insert = await supabaseAdmin.from("venue_quick_checks" as any).insert(insertPayload);
+    if (insert.error && /venue_sport_profile_id|column .* does not exist/i.test(insert.error.message || "")) {
+      // Backward-compat for older DBs missing the new profile column.
+      delete insertPayload.venue_sport_profile_id;
+      venueSportProfileId = null;
+      insert = await supabaseAdmin.from("venue_quick_checks" as any).insert(insertPayload);
+    }
+
+    const { error } = insert;
 
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -111,6 +150,15 @@ export async function POST(request: Request) {
 
     // Recompute aggregates
     await supabaseAdmin.rpc("recompute_venue_review_aggregates", { p_venue_id: venueId });
+    if (venueSportProfileId) {
+      try {
+        await supabaseAdmin.rpc("recompute_venue_sport_profile_review_aggregates", {
+          p_venue_sport_profile_id: venueSportProfileId,
+        });
+      } catch {
+        // ignore missing RPC
+      }
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
