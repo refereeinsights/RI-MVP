@@ -359,7 +359,7 @@ export default async function VenueDetailsPage({
   searchParams,
 }: {
   params: { venueId: string };
-  searchParams?: { tournament?: string };
+  searchParams?: { tournament?: string; venue_sport?: string };
 }) {
   const { venue: resolvedVenue, redirectTo } = await fetchVenueByParam(params.venueId);
   if (redirectTo) redirect(redirectTo);
@@ -493,6 +493,58 @@ export default async function VenueDetailsPage({
     const fallback = canonicalSport(data.sport);
     if (fallback !== "unknown") sportsFromTournaments.push(fallback);
   }
+
+  type VenueSportProfileRow = {
+    id: string;
+    sport: string;
+    restroom_cleanliness_avg?: number | null;
+    shade_score_avg?: number | null;
+    vendor_score_avg?: number | null;
+    parking_convenience_score_avg?: number | null;
+    review_count?: number | null;
+    reviews_last_updated_at?: string | null;
+  };
+
+  const requestedVenueSport = typeof searchParams?.venue_sport === "string" ? searchParams.venue_sport.trim().toLowerCase() : "";
+  const venueSportProfilesResp = await supabaseAdmin
+    .from("venue_sport_profiles" as any)
+    .select("id,sport,restroom_cleanliness_avg,shade_score_avg,vendor_score_avg,parking_convenience_score_avg,review_count,reviews_last_updated_at")
+    .eq("venue_id", data.id)
+    .order("sport", { ascending: true });
+  const venueSportProfilesCode = (venueSportProfilesResp as any)?.error?.code;
+  const venueSportProfilesFallback =
+    venueSportProfilesResp.error && (venueSportProfilesCode === "42703" || venueSportProfilesCode === "PGRST204")
+      ? await supabaseAdmin
+          .from("venue_sport_profiles" as any)
+          .select("id,sport")
+          .eq("venue_id", data.id)
+          .order("sport", { ascending: true })
+      : null;
+  const venueSportProfiles = ((venueSportProfilesResp.data as any) ?? (venueSportProfilesFallback?.data as any) ?? []) as VenueSportProfileRow[];
+  const profilesBySport = new Map(
+    venueSportProfiles
+      .filter((p) => p?.id && p?.sport)
+      .map((p) => [String(p.sport).trim().toLowerCase(), p])
+  );
+  const availableVenueSports = Array.from(new Set([...sportsFromTournaments, ...Array.from(profilesBySport.keys())])).sort();
+  const selectedSportProfile = requestedVenueSport ? profilesBySport.get(requestedVenueSport) ?? null : null;
+  const activeScoreSource = selectedSportProfile
+    ? {
+        restroom_cleanliness_avg: selectedSportProfile.restroom_cleanliness_avg ?? null,
+        shade_score_avg: selectedSportProfile.shade_score_avg ?? null,
+        vendor_score_avg: selectedSportProfile.vendor_score_avg ?? null,
+        parking_convenience_score_avg: selectedSportProfile.parking_convenience_score_avg ?? null,
+        review_count: selectedSportProfile.review_count ?? null,
+        reviews_last_updated_at: selectedSportProfile.reviews_last_updated_at ?? null,
+      }
+    : {
+        restroom_cleanliness_avg: data.restroom_cleanliness_avg,
+        shade_score_avg: data.shade_score_avg,
+        vendor_score_avg: data.vendor_score_avg,
+        parking_convenience_score_avg: data.parking_convenience_score_avg,
+        review_count: data.review_count,
+        reviews_last_updated_at: data.reviews_last_updated_at,
+      };
 
   const sportSurfaceClass = getVenueCardClassFromSports(sportsFromTournaments);
   const locationLabel = [data.city, data.state].filter(Boolean).join(", ");
@@ -663,11 +715,17 @@ export default async function VenueDetailsPage({
 
   const hasOwlsEye = nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels + nearbyCounts.sporting_goods > 0;
 
-  const reviewChoicesPrimary = await supabaseAdmin
+  let reviewChoicesQuery = supabaseAdmin
     .from("venue_reviews" as any)
-    .select("restrooms,parking_distance,parking_convenience_score,food_vendors,coffee_vendors,bring_field_chairs,player_parking_fee,parking_notes,seating_notes,created_at,updated_at")
+    .select(
+      "restrooms,parking_distance,parking_convenience_score,food_vendors,coffee_vendors,bring_field_chairs,player_parking_fee,parking_notes,seating_notes,created_at,updated_at"
+    )
     .eq("venue_id", data.id)
     .eq("status", "active");
+  if (selectedSportProfile?.id) {
+    reviewChoicesQuery = reviewChoicesQuery.eq("venue_sport_profile_id", selectedSportProfile.id);
+  }
+  const reviewChoicesPrimary = await reviewChoicesQuery;
   const reviewChoicesCode = (reviewChoicesPrimary as any)?.error?.code;
   const reviewChoicesFallback =
     reviewChoicesPrimary.error && (reviewChoicesCode === "42703" || reviewChoicesCode === "PGRST204")
@@ -684,16 +742,16 @@ export default async function VenueDetailsPage({
 
   demoScores = buildOwlsEyeDemoScores({
     nearbyCounts,
-    vendor_score_avg: data.vendor_score_avg,
-    restroom_cleanliness_avg: data.restroom_cleanliness_avg,
-    shade_score_avg: data.shade_score_avg,
-    parking_convenience_score_avg: data.parking_convenience_score_avg,
+    vendor_score_avg: activeScoreSource.vendor_score_avg,
+    restroom_cleanliness_avg: activeScoreSource.restroom_cleanliness_avg,
+    shade_score_avg: activeScoreSource.shade_score_avg,
+    parking_convenience_score_avg: activeScoreSource.parking_convenience_score_avg,
     venue_player_parking_fee: resolvedVenueInsights?.player_parking_fee ?? null,
     parking_notes: resolvedVenueInsights?.parking_notes ?? null,
     venue_bring_field_chairs: resolvedVenueInsights?.bring_field_chairs ?? null,
     seating_notes: resolvedVenueInsights?.seating_notes ?? null,
-    review_count: data.review_count,
-    reviews_last_updated_at: data.reviews_last_updated_at,
+    review_count: activeScoreSource.review_count,
+    reviews_last_updated_at: activeScoreSource.reviews_last_updated_at,
     reviewChoices: reviewChoiceRows,
   });
 
@@ -713,14 +771,56 @@ export default async function VenueDetailsPage({
               </p>
 
               {canViewPremiumDetails || tier !== "explorer" ? (
-                <VenueIndexBadge
-                  restroom_cleanliness_avg={data.restroom_cleanliness_avg}
-                  shade_score_avg={data.shade_score_avg}
-                  vendor_score_avg={data.vendor_score_avg}
-                  parking_convenience_score_avg={data.parking_convenience_score_avg}
-                  review_count={data.review_count}
-                  reviews_last_updated_at={data.reviews_last_updated_at}
-                />
+                <div style={{ display: "grid", gap: 10 }}>
+                  {availableVenueSports.length > 1 ? (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <Link
+                        href={`/venues/${encodeURIComponent(data.seo_slug || data.id)}${selectedTournament?.id ? `?tournament=${encodeURIComponent(selectedTournament.id)}` : ""}`}
+                        className="secondaryLink"
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: 999,
+                          border: "1px solid rgba(255,255,255,0.22)",
+                          background: !requestedVenueSport ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.06)",
+                          fontWeight: 900,
+                        }}
+                      >
+                        All sports
+                      </Link>
+                      {availableVenueSports.map((sport) => {
+                        const isActive = requestedVenueSport === sport;
+                        const qp = new URLSearchParams();
+                        if (selectedTournament?.id) qp.set("tournament", selectedTournament.id);
+                        qp.set("venue_sport", sport);
+                        return (
+                          <Link
+                            key={sport}
+                            href={`/venues/${encodeURIComponent(data.seo_slug || data.id)}?${qp.toString()}`}
+                            className="secondaryLink"
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 999,
+                              border: "1px solid rgba(255,255,255,0.22)",
+                              background: isActive ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.06)",
+                              fontWeight: 900,
+                              textTransform: "capitalize",
+                            }}
+                          >
+                            {sport}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  <VenueIndexBadge
+                    restroom_cleanliness_avg={activeScoreSource.restroom_cleanliness_avg}
+                    shade_score_avg={activeScoreSource.shade_score_avg}
+                    vendor_score_avg={activeScoreSource.vendor_score_avg}
+                    parking_convenience_score_avg={activeScoreSource.parking_convenience_score_avg}
+                    review_count={activeScoreSource.review_count}
+                    reviews_last_updated_at={activeScoreSource.reviews_last_updated_at}
+                  />
+                </div>
               ) : (
                 <div
                   style={{
@@ -739,7 +839,7 @@ export default async function VenueDetailsPage({
                 venueId={data.id}
                 pageType="venue"
                 sourceTournamentId={selectedTournament?.id ?? null}
-                sport={selectedTournament?.sport ?? null}
+                sport={requestedVenueSport || selectedTournament?.sport || null}
               />
 
               {canReviewVenue ? (
