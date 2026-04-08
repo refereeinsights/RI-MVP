@@ -4,6 +4,9 @@
 - RI sources: add a `venues` pseudo-sport bucket for venue-based sources (`source_type=venue_sweep|venue_calendar`) so they group/filter alongside sports on the Sources page: `apps/referee/app/admin/tournaments/sources/page.tsx`.
 - RI tournament uploads approval: include venue linking details in the approval notice (counts of venues linked vs created) for both single-row and bulk “Approve selected”: `apps/referee/app/admin/page.tsx`, `apps/referee/lib/tournaments/ensureTournamentVenueLink.ts`.
 - RI venues duplicates: keep sport-suffixed venue names (e.g. “(Baseball)”) as distinct, but add a review-only “base name + city/state” duplicate group to surface likely duplicates without forcing merges (requires street/zip/url evidence): `apps/referee/app/admin/venues/page.tsx`, `apps/referee/components/admin/VenuesListClient.tsx`.
+- RI TI admin: show `auth.users.email_confirmed_at` on `/admin/ti`, display effective entitlement inline (free+confirmed → Insider), and show “already sent” for a selected template subject by logging admin blasts into `ti_tournament_alert_send_logs.result_hash` (subject hash): `apps/referee/app/admin/ti/page.tsx`.
+- RI TI admin: improve bulk sender diagnostics by surfacing suppressed-recipient previews (email + reason) in the post-send notice: `apps/referee/app/admin/ti/page.tsx`.
+- RI TI admin: fix dev-only `Cannot find module './_rsc_lib_email_ts.js'` bulk-send crash by removing dynamic `import("@/lib/email")` usage and using static imports: `apps/referee/app/admin/ti/page.tsx`.
 
 ## 2026-04-07
 
