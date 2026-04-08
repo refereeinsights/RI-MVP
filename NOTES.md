@@ -2,6 +2,7 @@
 
 - TI outreach dashboard: add an “All sports” filter option so admins can view all campaigns/metrics at once (passes `p_sport = null` to the metrics RPC): `apps/ti-web/app/admin/outreach-dashboard/page.tsx`.
 - RI sources: add a `venues` pseudo-sport bucket for venue-based sources (`source_type=venue_sweep|venue_calendar`) so they group/filter alongside sports on the Sources page: `apps/referee/app/admin/tournaments/sources/page.tsx`.
+- RI tournament uploads approval: include venue linking details in the approval notice (counts of venues linked vs created) for both single-row and bulk “Approve selected”: `apps/referee/app/admin/page.tsx`, `apps/referee/lib/tournaments/ensureTournamentVenueLink.ts`.
 
 ## 2026-04-07
 
