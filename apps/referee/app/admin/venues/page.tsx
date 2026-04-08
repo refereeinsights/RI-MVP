@@ -457,6 +457,22 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 	    const nameStateGroups = new Map<string, DuplicateVenueCandidate[]>();
 	    const allById = new Map<string, DuplicateVenueCandidate>();
 
+    const stripSportQualifierFromVenueName = (value: string | null) => {
+      const raw = String(value ?? "").trim();
+      if (!raw) return null;
+      // Common ingest output patterns: "Venue (Baseball)" / "Venue - Baseball" / "Venue • Baseball"
+      // Keep this conservative: only strip well-known sport qualifiers at the end.
+      const sportWord =
+        "(baseball|softball|soccer|futsal|football|basketball|lacrosse|volleyball|wrestling|hockey)";
+      const stripped =
+        raw
+          .replace(new RegExp(`\\s*[•·-]\\s*${sportWord}\\s*$`, "i"), "")
+          .replace(new RegExp(`\\s*\\(\\s*${sportWord}\\s*\\)\\s*$`, "i"), "")
+          .replace(new RegExp(`\\s*\\[\\s*${sportWord}\\s*\\]\\s*$`, "i"), "")
+          .trim() || raw;
+      return stripped;
+    };
+
     const normalizeStreetName = (address: string | null) => {
       const raw = normalizeIdentityText(address);
       if (!raw) return "";
@@ -509,10 +525,10 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 	      };
 	    };
 
-		    for (const row of allVenuesLite) {
-		      const fallbackStreet = extractStreetFromName(row.name ?? null);
-		      const fallbackAddress =
-		        row.address ??
+			    for (const row of allVenuesLite) {
+			      const fallbackStreet = extractStreetFromName(row.name ?? null);
+			      const fallbackAddress =
+			        row.address ??
 		        row.address1 ??
 		        row.normalized_address ??
 		        extractAddressBlobFromName(row.name ?? null) ??
@@ -522,13 +538,13 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 		      const derivedCity = row.city ?? parsed.city ?? null;
 		      const derivedState = row.state ?? parsed.state ?? null;
 		      const derivedZip = row.zip ?? parsed.zip ?? null;
-		      const candidate: DuplicateVenueCandidate = {
-		        id: String(row.id),
-		        name: row.name ?? null,
-		        address: fallbackAddress,
-		        city: derivedCity,
-		        state: derivedState,
-		        zip: derivedZip,
+			      const candidate: DuplicateVenueCandidate = {
+			        id: String(row.id),
+			        name: row.name ?? null,
+			        address: fallbackAddress,
+			        city: derivedCity,
+			        state: derivedState,
+			        zip: derivedZip,
 		        linked_tournaments: linkedByVenue.get(String(row.id)) ?? 0,
 		        owl_run_count: runsByVenue.get(String(row.id)) ?? 0,
 		        venue_url: row.venue_url ?? null,
@@ -536,17 +552,18 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
 		        venue_url_host: row.venue_url_host ?? null,
 		        address_fingerprint: row.address_fingerprint ?? null,
 		        name_city_state_fingerprint: row.name_city_state_fingerprint ?? null,
-		      };
-		      allById.set(candidate.id, candidate);
+			      };
+			      allById.set(candidate.id, candidate);
 
-	      const state = normalizeIdentityText(candidate.state);
-	      const city = normalizeIdentityText(candidate.city);
-      const street = normalizeIdentityStreet(candidate.address);
-      const name = normalizeIdentityText(candidate.name);
-      const streetName = normalizeStreetName(candidate.address);
+		      const state = normalizeIdentityText(candidate.state);
+		      const cityRaw = normalizeIdentityText(candidate.city);
+		      const city = cityRaw === "unknown" ? "" : cityRaw;
+	      const street = normalizeIdentityStreet(candidate.address);
+	      const name = normalizeIdentityText(stripSportQualifierFromVenueName(candidate.name) ?? candidate.name);
+	      const streetName = normalizeStreetName(candidate.address);
 
-      if (street && state) {
-        const key =
+	      if (street && state) {
+	        const key =
           (typeof row.address_fingerprint === "string" && row.address_fingerprint.trim()) ||
           buildVenueAddressFingerprint({
             address: fallbackAddress,
@@ -564,18 +581,18 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         const streetStateList = streetStateGroups.get(streetStateKey) ?? [];
         streetStateList.push(candidate);
         streetStateGroups.set(streetStateKey, streetStateList);
-      }
-      if (name && city && state) {
-        const key =
-          (typeof row.name_city_state_fingerprint === "string" && row.name_city_state_fingerprint.trim()) ||
-          buildVenueNameCityStateFingerprint({
-            name: row.name ?? null,
-            city: row.city ?? null,
-            state: row.state ?? null,
-          });
-        if (key) {
-          const list = nameCityGroups.get(key) ?? [];
-          list.push(candidate);
+	      }
+	      if (name && city && state) {
+	        const key =
+	          (typeof row.name_city_state_fingerprint === "string" && row.name_city_state_fingerprint.trim()) ||
+	          buildVenueNameCityStateFingerprint({
+	            name: stripSportQualifierFromVenueName(row.name ?? null) ?? (row.name ?? null),
+	            city: row.city ?? parsed.city ?? null,
+	            state: row.state ?? parsed.state ?? null,
+	          });
+	        if (key) {
+	          const list = nameCityGroups.get(key) ?? [];
+	          list.push(candidate);
           nameCityGroups.set(key, list);
         }
       }
@@ -584,11 +601,11 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
         const list = streetNameCityGroups.get(key) ?? [];
         list.push(candidate);
         streetNameCityGroups.set(key, list);
-      }
-      if (name && state) {
-        const key = `${name}|${state}`;
-        const list = nameStateGroups.get(key) ?? [];
-        list.push(candidate);
+	      }
+	      if (name && state) {
+	        const key = `${name}|${state}`;
+	        const list = nameStateGroups.get(key) ?? [];
+	        list.push(candidate);
         nameStateGroups.set(key, list);
       }
     }
@@ -802,14 +819,17 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
       const compatible = list.filter((candidate, _, all) => {
         const candidateCity = normalizeIdentityText(candidate.city);
         const candidateStreet = normalizeIdentityStreet(candidate.address);
+        const candidateZip = normalizeIdentityText(candidate.zip);
         const candidateHost = candidate.venue_url_host || normalizeIdentityUrlHost(candidate.venue_url);
         return all.some((other) => {
           if (other.id === candidate.id) return false;
           const otherCity = normalizeIdentityText(other.city);
           const otherStreet = normalizeIdentityStreet(other.address);
+          const otherZip = normalizeIdentityText(other.zip);
           const otherHost = other.venue_url_host || normalizeIdentityUrlHost(other.venue_url);
           if (candidateCity && otherCity && candidateCity === otherCity) return true;
           if (candidateStreet && otherStreet && candidateStreet === otherStreet) return true;
+          if (candidateZip && otherZip && candidateZip === otherZip) return true;
           if (candidateHost && otherHost && candidateHost === otherHost) return true;
           return false;
         });
