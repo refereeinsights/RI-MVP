@@ -15,13 +15,22 @@ Maintenance rules:
 ## 2026-04-08
 - RI: Built NSA (National Softball Association) softball tournament sweeper
   - File: `apps/referee/src/server/sweeps/nsaSoftballTournaments.ts`
-  - API: `https://nationalsoftballassociation.com/api/v1/` (Angular SPA with REST JSON backend)
-  - Flow: `GET /Event/display/weekend` (filter `sport=FP`) → per event `GET /EP/info-v2.0/desktop/{key}`
-  - The `info-v2.0` response contains `facilities[]` array with `{ name, address, location ("City, ST"), zip }` — no need for separate division/pool/bracket endpoints
-  - Multi-venue support: creates venue rows (dedup by name+city+state, then address+city+state), links all to tournament via `tournament_venues` (first = `is_primary`)
-  - `sport=softball`, `tournament_association="National Softball Association"`
-  - Wired into `pasteUrl.ts` via `isNsaSoftballEventsUrl` — paste `https://nationalsoftballassociation.com/pages/events` to trigger sweep
-- RI: Added bulk softball sources import (state-level USSSA fastpitch URLs × 39 states, no duplication of existing sources)
+  - Site is an Angular SPA — no server-rendered HTML to scrape; discovered a clean REST JSON API at `https://nationalsoftballassociation.com/api/v1/` via Playwright network interception
+  - Flow (2 API calls per event):
+    1. `GET /Event/display/weekend` → array of all upcoming events; filter `sport=FP` for fastpitch
+    2. `GET /EP/info-v2.0/desktop/{eventKey}` → event detail with `eventInfo.starts/ends` (accurate ISO dates) and a `facilities[]` array
+  - `facilities[]` shape: `{ name, abr, address, location ("City, ST"), zip }` — full venue data, no division/pool/bracket endpoints needed
+  - API discovery note: initial assumption was that division keys (`EP/poolSearch`) held facility data; Playwright probe showed keys were in the `info-v2.0` response under `divisions[].rounds[]._key`. The `facilities[]` top-level field in the same response made separate round-level fetching unnecessary.
+  - Tournament fields: `sport=softball`, `tournament_association="National Softball Association"`, `source="external_crawl"`, `source_event_id=eventKey`, `source_url=https://nationalsoftballassociation.com/pages/event/{key}`
+  - `level` = joined competition class names from `competitionClassesList` (e.g. "10uC, 12uC")
+  - `summary` = dates | level | entry fee | director
+  - Multi-venue support: for each event's `facilities[]`, calls `findOrCreateVenue` (dedup: name+city+state first, address+city+state fallback, then insert), then upserts `tournament_venues` row; first facility gets `is_primary=true`, `is_inferred=false`
+  - Venue insert includes `address`, `address1`, `city`, `state`, `zip`, `sport=softball`
+  - Enrichment jobs queued for all imported IDs after sweep completes
+  - Wired into `pasteUrl.ts` via `isNsaSoftballEventsUrl` — paste `https://nationalsoftballassociation.com/pages/events` into admin sources paste-URL tool to trigger
+- RI: Added bulk softball sources import — 39 USSSA fastpitch state URLs added to sources registry
+  - Each set to `sport=softball`, `source_type=association_directory`, `is_custom_source=true`
+  - Skipped any URLs already present to avoid duplicates
 
 ## 2026-04-07
 - RI: Added 17 missing USSSA baseball state sources to the registry
