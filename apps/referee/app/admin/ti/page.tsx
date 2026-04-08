@@ -872,7 +872,16 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
   const allowedRecipients = suppression.allowed;
   const suppressedRecipients = suppression.suppressed;
   if (!allowedRecipients.length) {
-    redirect(buildPathWithNotice(`All selected recipients are suppressed (skipped ${suppressedRecipients.length}).`, q));
+    const preview = suppressedRecipients
+      .slice(0, 5)
+      .map((r) => `${r.email}${r.reason ? ` (${r.reason})` : ""}`)
+      .join(", ");
+    redirect(
+      buildPathWithNotice(
+        `All selected recipients are suppressed (skipped ${suppressedRecipients.length})${preview ? `: ${preview}` : ""}.`,
+        q,
+      ),
+    );
   }
 
   const safeSubject = subject.length > 160 ? `${subject.slice(0, 160)}…` : subject;
@@ -1070,10 +1079,18 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
 
   const failed = errors.length;
   const skippedSuppressed = suppressedRecipients.length;
+  const suppressedPreview = suppressedRecipients
+    .slice(0, 5)
+    .map((r) => `${r.email}${r.reason ? ` (${r.reason})` : ""}`)
+    .join(", ");
   const summary =
     failed === 0
-      ? `Bulk email sent to ${sent} recipient(s).${skippedSuppressed ? ` Skipped ${skippedSuppressed} suppressed.` : ""}`
-      : `Bulk email sent to ${sent}/${allowedRecipients.length}. ${failed} failed (first 20 logged).${skippedSuppressed ? ` Skipped ${skippedSuppressed} suppressed.` : ""}`;
+      ? `Bulk email sent to ${sent} recipient(s).${
+          skippedSuppressed ? ` Skipped ${skippedSuppressed} suppressed${suppressedPreview ? `: ${suppressedPreview}` : ""}.` : ""
+        }`
+      : `Bulk email sent to ${sent}/${allowedRecipients.length}. ${failed} failed (first 20 logged).${
+          skippedSuppressed ? ` Skipped ${skippedSuppressed} suppressed${suppressedPreview ? `: ${suppressedPreview}` : ""}.` : ""
+        }`;
   redirect(buildPathWithNoticeAndTemplate(summary, q, templateId || null));
 }
 
