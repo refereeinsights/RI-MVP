@@ -66,12 +66,13 @@ export default async function OutreachDashboardPage({ searchParams }: { searchPa
 
   const campaignId = (searchParams?.campaign_id || "").trim();
   const sport = normalizeSportFilterParam(searchParams?.sport) || "soccer";
+  const sportFilter = sport === "all" ? null : sport;
   const startAfter = normalizeDateParam(searchParams?.start_after);
   const startBefore = normalizeDateParam(searchParams?.start_before);
   const followupDays = 7;
 
   const { data, error } = await (supabaseAdmin.rpc("get_outreach_dashboard_metrics" as any, {
-    p_sport: sport || null,
+    p_sport: sportFilter || null,
     p_campaign_id: campaignId || null,
     p_start_after: startAfter ? `${startAfter}T00:00:00Z` : null,
     p_start_before: startBefore ? `${startBefore}T00:00:00Z` : null,
@@ -125,6 +126,7 @@ export default async function OutreachDashboardPage({ searchParams }: { searchPa
             <label style={{ display: "grid", gap: 6 }}>
               <span style={{ fontWeight: 600 }}>Sport</span>
               <AutoSubmitSelect name="sport" defaultValue={sport} style={inputStyle}>
+                <option value="all">All sports</option>
                 {TI_SPORTS.map((value) => (
                   <option key={value} value={value}>
                     {TI_SPORT_LABELS[value]}
@@ -210,6 +212,7 @@ type OutreachSport = TiSport;
 
 function normalizeSportFilterParam(value?: string) {
   const normalized = (value || "").trim().toLowerCase();
+  if (normalized === "all") return "all";
   if (TI_SPORTS.includes(normalized as OutreachSport)) return normalized;
   return "";
 }
@@ -348,4 +351,3 @@ const tdStyle: CSSProperties = {
   fontSize: 13,
   verticalAlign: "top",
 };
-
