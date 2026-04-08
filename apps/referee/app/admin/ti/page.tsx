@@ -698,7 +698,6 @@ async function sendTestTournamentAlertAction(formData: FormData) {
   `;
 
   try {
-    const { sendEmail } = await import("@/lib/email");
     const sendResult = await sendEmail({
       to: recipientEmail,
       subject,
