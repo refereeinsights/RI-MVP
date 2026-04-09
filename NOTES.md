@@ -7,6 +7,7 @@
 - RI TI admin: show `auth.users.email_confirmed_at` on `/admin/ti`, display effective entitlement inline (free+confirmed → Insider), and show “already sent” for a selected template subject by logging admin blasts into `ti_tournament_alert_send_logs.result_hash` (subject hash): `apps/referee/app/admin/ti/page.tsx`.
 - RI TI admin: improve bulk sender diagnostics by surfacing suppressed-recipient previews (email + reason) in the post-send notice: `apps/referee/app/admin/ti/page.tsx`.
 - RI TI admin: fix dev-only `Cannot find module './_rsc_lib_email_ts.js'` bulk-send crash by removing dynamic `import("@/lib/email")` usage and using static imports: `apps/referee/app/admin/ti/page.tsx`.
+- TI admin daily email: add a US tournament “heatmap” image (public directory upcoming counts by state) under the tiles, rendered via a Next.js `ImageResponse` endpoint and backed by a small state-counts RPC: `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts`, `apps/ti-web/app/api/admin-dashboard-email/heatmap/route.ts`, `supabase/migrations/20260409_admin_dashboard_heatmap_state_counts.sql`.
 
 ## 2026-04-07
 
