@@ -125,15 +125,14 @@ export default async function Home({ searchParams }: { searchParams?: { sport?: 
     <main className="ti-home">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <section className="ti-home-hero" aria-labelledby="ti-home-title">
-        <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
+        <div className="ti-home-heroLeft">
           <h1 id="ti-home-title">Find youth sports tournaments near you</h1>
           <p>
             Explore verified tournaments on an interactive map and quickly find the right weekends, locations, and events — without
             digging through dozens of tabs.
           </p>
 
-          <div className="ti-home-ctaRow" aria-label="Map controls">
-            <HomepageSportFilter value={sportParam || "all"} options={sportOptions} />
+          <div className="ti-home-actions" aria-label="Map actions">
             <TrackedLink
               href="/heatmap?sport=all"
               className="ti-home-ctaPrimary"
@@ -141,9 +140,10 @@ export default async function Home({ searchParams }: { searchParams?: { sport?: 
             >
               Explore the map
             </TrackedLink>
+            <HomepageSportFilter value={sportParam || "all"} options={sportOptions} showLabel={false} variant="compact" />
             <TrackedLink
               href="/tournaments"
-              className="ti-home-ctaSecondary"
+              className="ti-home-secondaryLink"
               event={{ name: "homepage_cta_clicked", properties: { cta: "browse_tournaments" } }}
             >
               Browse tournaments
