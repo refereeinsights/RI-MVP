@@ -79,6 +79,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </Link>
               <div className="ti-pill">Public Beta</div>
               <nav className="ti-nav" aria-label="Main navigation">
+                <Link href="/heatmap?sport=all">Map</Link>
                 <Link href="/tournaments">Tournament Directory</Link>
                 <Link href="/venues">Venue Insights</Link>
                 <Link href="/how-it-works">How it works</Link>

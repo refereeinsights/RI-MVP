@@ -88,7 +88,7 @@ export async function GET(req: Request) {
   const mapH = gridH * cell + (gridH - 1) * gap;
 
   const baseUrl = resolveTiBaseUrl();
-  const title = "US Tournament Heatmap (Public Directory · Upcoming)";
+  const title = "US Tournament Map (Public Directory · Upcoming)";
   const subtitle = new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
 
   const h = React.createElement;
@@ -137,10 +137,14 @@ export async function GET(req: Request) {
           },
         },
         [
-          h("div", { key: `${pos.state}-abbr`, style: { fontSize: 16, fontWeight: 900, color: "#0f172a" } }, pos.state),
           h(
             "div",
-            { key: `${pos.state}-count`, style: { fontSize: 14, fontWeight: 800, color: "#334155" } },
+            { key: `${pos.state}-abbr`, style: { display: "flex", fontSize: 16, fontWeight: 900, color: "#0f172a" } },
+            pos.state,
+          ),
+          h(
+            "div",
+            { key: `${pos.state}-count`, style: { display: "flex", fontSize: 14, fontWeight: 800, color: "#334155" } },
             count ? String(count) : "",
           ),
         ],
@@ -155,9 +159,20 @@ export async function GET(req: Request) {
       [
         h("div", {
           key: `swatch-${label}`,
-          style: { width: 22, height: 22, borderRadius: 6, background: color, border: `1px solid ${border}` },
+          style: {
+            display: "flex",
+            width: 22,
+            height: 22,
+            borderRadius: 6,
+            background: color,
+            border: `1px solid ${border}`,
+          },
         }),
-        h("div", { key: `label-${label}`, style: { fontSize: 14, color: "#334155" } }, label),
+        h(
+          "div",
+          { key: `label-${label}`, style: { display: "flex", fontSize: 14, color: "#334155" } },
+          label,
+        ),
       ],
     );
 
@@ -184,11 +199,15 @@ export async function GET(req: Request) {
             "div",
             { key: "title", style: { display: "flex", flexDirection: "column", gap: 6 } },
             [
-              h("div", { key: "titleText", style: { fontSize: 34, fontWeight: 900 } }, title),
-              h("div", { key: "subtitleText", style: { fontSize: 18, color: "#475569" } }, subtitle),
+              h("div", { key: "titleText", style: { display: "flex", fontSize: 34, fontWeight: 900 } }, title),
+              h(
+                "div",
+                { key: "subtitleText", style: { display: "flex", fontSize: 18, color: "#475569" } },
+                subtitle,
+              ),
             ],
           ),
-          h("div", { key: "host", style: { fontSize: 14, color: "#64748b" } }, hostLabel),
+          h("div", { key: "host", style: { display: "flex", fontSize: 14, color: "#64748b" } }, hostLabel),
         ],
       ),
       h(
@@ -200,13 +219,20 @@ export async function GET(req: Request) {
             "div",
             { key: "legend", style: { flex: 1, display: "flex", flexDirection: "column", gap: 14 } },
             [
-              h("div", { key: "legendTitle", style: { fontSize: 16, fontWeight: 900 } }, "Legend"),
+              h(
+                "div",
+                { key: "legendTitle", style: { display: "flex", fontSize: 16, fontWeight: 900 } },
+                "Legend",
+              ),
               legendRow("#f1f5f9", "0 tournaments"),
               legendRow("#dbeafe", "low"),
               legendRow("#1d4ed8", `high (max ${max})`, "#1e40af"),
               h(
                 "div",
-                { key: "legendNote", style: { marginTop: 10, fontSize: 12, color: "#64748b", lineHeight: 1.4 } },
+                {
+                  key: "legendNote",
+                  style: { display: "flex", marginTop: 10, fontSize: 12, color: "#64748b", lineHeight: 1.4 },
+                },
                 "Counts reflect the TI public directory default (published + canonical + upcoming).",
               ),
             ],

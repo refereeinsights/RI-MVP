@@ -9,6 +9,17 @@
 - RI TI admin: fix dev-only `Cannot find module './_rsc_lib_email_ts.js'` bulk-send crash by removing dynamic `import("@/lib/email")` usage and using static imports: `apps/referee/app/admin/ti/page.tsx`.
 - TI admin daily email: add a US tournament “heatmap” image (public directory upcoming counts by state) under the tiles, rendered via a Next.js `ImageResponse` endpoint and backed by a small state-counts RPC: `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts`, `apps/ti-web/app/api/admin-dashboard-email/heatmap/route.ts`, `supabase/migrations/20260409_admin_dashboard_heatmap_state_counts.sql`.
 
+## 2026-04-09
+
+- Public map discovery: add a public interactive US tournament map at `/heatmap` with an `all` default and a sport filter; states are clickable into the tournament directory (state + optional sport): `apps/ti-web/app/heatmap/page.tsx`, `apps/ti-web/app/heatmap/SportFilter.tsx`.
+- Public directory counts by state + optional sport: add RPC `public.get_public_directory_tournament_counts_by_state_sport(p_sport, p_now)` used by the map and map previews: `supabase/migrations/20260409_public_directory_state_counts_by_sport.sql`.
+- Homepage redesign (map-first): make the map preview the primary entry point, add “Explore the map” CTA → `/heatmap?sport=all`, add sport chips, and move Owl’s Eye/Premium messaging below discovery sections: `apps/ti-web/app/page.tsx`, `apps/ti-web/app/home.css`, `apps/ti-web/app/layout.tsx`.
+- Map labeling polish: switch label placement to explicit `US_STATE_LABELS` and tune several state label coordinates (AK/CA/FL/MI/VA/ID/LA/etc.) for readability: `apps/ti-web/app/api/admin-dashboard-email/heatmap-us/usStatesMap.ts`.
+- Map analytics (persisted): add `public.ti_map_events` table + indexes to store lightweight map/homepage interaction events: `supabase/migrations/20260409_ti_map_analytics_events.sql`.
+- Map analytics (ingest): extend `POST /api/analytics` to persist `map_viewed`, `map_filter_changed`, `map_state_clicked`, `homepage_cta_clicked`, and `homepage_sport_chip_clicked` into `ti_map_events` (still logs all events to console; only quick-check + map events are persisted): `apps/ti-web/app/api/analytics/route.ts`.
+- TI admin dashboard: add `/admin` page that shows the existing tile summary and a “Map Analytics (last 7 days)” section with recent event rows: `apps/ti-web/app/admin/page.tsx`.
+- Rename: update “US Tournament Heatmap” labeling to “US Tournament Map” across public/admin/email surfaces: `apps/ti-web/app/heatmap/page.tsx`, `apps/ti-web/app/admin/dashboard-email/page.tsx`, `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts`, `apps/ti-web/app/api/admin-dashboard-email/heatmap/route.ts`, `apps/ti-web/app/api/admin-dashboard-email/heatmap-us/route.ts`.
+
 ## 2026-04-07
 
 - TI saved tournaments: include a per-tournament “what changed” summary in the saved-tournament change digest email (dates/location/name/sport/official-site) by storing the last-notified public snapshot and diffing it on the next send: `apps/ti-web/lib/savedTournamentChangeNotificationsJob.ts`, `apps/ti-web/lib/savedTournamentChangeNotificationsEmail.ts`, `supabase/migrations/20260407_ti_saved_tournament_change_snapshots.sql`, `docs/ti-saved-tournament-change-notifications.md`.

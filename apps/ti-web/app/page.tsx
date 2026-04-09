@@ -1,21 +1,25 @@
-import { BRAND_TI } from "@/lib/brand";
 import type { Metadata } from "next";
-
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { curatedSports, mapStateCodeToSlug, normalizeSportSlug, sportDisplayName } from "@/lib/seoHub";
+import { US_MAP_VIEWBOX, US_STATE_LABELS, US_STATE_PATHS } from "@/app/api/admin-dashboard-email/heatmap-us/usStatesMap";
+import HomepageSportFilter from "@/components/homepage/HomepageSportFilter";
+import TrackedLink from "@/components/homepage/TrackedLink";
+import "./home.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.tournamentinsights.com"),
   title: {
-    absolute: "TournamentInsights | Verified Youth Sports Tournaments",
+    absolute: "TournamentInsights | Find Youth Sports Tournaments Near You",
   },
   description:
-    "Verified youth sports tournament directory for families, coaches, and teams. Find upcoming multisport tournaments with structured logistics and Owl's Eye™ validated venue intelligence.",
+    "Find verified youth sports tournaments near you. Explore upcoming events on an interactive map, compare weekends faster, and plan with better venue insight.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "TournamentInsights | Verified Youth Sports Tournaments",
+    title: "TournamentInsights | Find Youth Sports Tournaments Near You",
     description:
-      "Find upcoming youth sports tournaments with verified logistics, venue details, and Owl's Eye™ venue intelligence. Built for families, coaches, and teams.",
+      "Explore verified youth sports tournaments on an interactive map and quickly find the right weekends, locations, and events.",
     url: "https://www.tournamentinsights.com",
     siteName: "TournamentInsights",
     type: "website",
@@ -30,14 +34,70 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "TournamentInsights | Verified Youth Sports Tournaments",
+    title: "TournamentInsights | Find Youth Sports Tournaments Near You",
     description:
-      "Find upcoming youth sports tournaments with verified logistics and Owl's Eye™ venue intelligence.",
+      "Explore verified youth sports tournaments on an interactive map and quickly find the right weekends, locations, and events.",
     images: ["/og/ti-og-premium.jpg"],
   },
 };
 
-export default function Home() {
+export const revalidate = 300;
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function hexToRgb(hex: string) {
+  const h = hex.replace("#", "").trim();
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const n = Number.parseInt(full, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function rgbToHex(rgb: { r: number; g: number; b: number }) {
+  const to = (v: number) => clamp(Math.round(v), 0, 255).toString(16).padStart(2, "0");
+  return `#${to(rgb.r)}${to(rgb.g)}${to(rgb.b)}`;
+}
+
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
+
+function lerpColor(a: string, b: string, t: number) {
+  const A = hexToRgb(a);
+  const B = hexToRgb(b);
+  return rgbToHex({ r: lerp(A.r, B.r, t), g: lerp(A.g, B.g, t), b: lerp(A.b, B.b, t) });
+}
+
+function colorForCount(count: number, max: number) {
+  if (!count) return "#f1f5f9"; // slate-100
+  const denom = Math.log(max + 1) || 1;
+  const t = clamp(Math.log(count + 1) / denom, 0, 1);
+  return lerpColor("#dcfce7", "#166534", t); // green-100 -> green-800
+}
+
+export default async function Home({ searchParams }: { searchParams?: { sport?: string } }) {
+  const sportParam = (searchParams?.sport ?? "all").trim().toLowerCase();
+  const sportKey = sportParam === "all" ? null : normalizeSportSlug(sportParam);
+  const sportLabel = sportKey ? sportDisplayName(sportKey) : "All sports";
+
+  const { data, error } = await (supabaseAdmin.rpc("get_public_directory_tournament_counts_by_state_sport" as any, {
+    p_sport: sportKey,
+  }) as any);
+  if (error) {
+    throw new Error(`Failed to load homepage heatmap counts: ${error.message}`);
+  }
+
+  const rows = (Array.isArray(data) ? data : []) as Array<{ state?: unknown; count?: unknown }>;
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    const state = String(row.state ?? "").trim().toUpperCase();
+    const count = Number(row.count ?? 0) || 0;
+    if (!state || state.length !== 2) continue;
+    counts[state] = count;
+  }
+  const max = Math.max(1, ...Object.values(counts));
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -56,130 +116,288 @@ export default function Home() {
     },
   };
 
+  const sportOptions = [
+    { value: "all", label: "All sports" },
+    ...curatedSports.map((s) => ({ value: s.slug, label: s.name })),
+  ];
+
+  const mapHref = `/heatmap?sport=${encodeURIComponent(sportParam || "all")}`;
+
   return (
-    <main className="page">
+    <main className="ti-home">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <div className="shell">
-        <section className="hero" aria-labelledby="ti-title">
-          <h1 id="ti-title">TournamentInsights</h1>
-
-          <p className="muted heroCopy">
-            Public Beta — Help Build Smarter Tournament Planning
+      <section className="ti-home-hero" aria-labelledby="ti-home-title">
+        <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
+          <h1 id="ti-home-title">Find youth sports tournaments near you</h1>
+          <p>
+            Explore verified tournaments on an interactive map and quickly find the right weekends, locations, and events — without
+            digging through dozens of tabs.
           </p>
 
-          <p className="muted heroCopy">
-            TournamentInsights is launching a new standard in youth tournament intelligence. Through our proprietary Owl&apos;s Eye™
-            system, Premium members unlock validated venue intelligence — including verified addresses, nearby coffee, food, hotels,
-            mobile directions, and structured Insider venue insights. Less guesswork. More clarity. Better planning.
+          <div className="ti-home-ctaRow">
+            <TrackedLink
+              href="/heatmap?sport=all"
+              className="ti-home-ctaPrimary"
+              event={{ name: "homepage_cta_clicked", properties: { cta: "explore_map" } }}
+            >
+              Explore the map
+            </TrackedLink>
+            <TrackedLink
+              href="/tournaments"
+              className="ti-home-ctaSecondary"
+              event={{ name: "homepage_cta_clicked", properties: { cta: "browse_tournaments" } }}
+            >
+              Browse tournaments
+            </TrackedLink>
+          </div>
+
+          <div className="ti-home-trustStrip" aria-label="Trust highlights">
+            <div className="ti-home-trustPill">Verified websites</div>
+            <div className="ti-home-trustPill">Clear dates & locations</div>
+            <div className="ti-home-trustPill">Built for real planning</div>
+          </div>
+
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "end", marginTop: 6 }}>
+            <HomepageSportFilter value={sportParam || "all"} options={sportOptions} />
+            <TrackedLink
+              href={mapHref}
+              className="ti-home-ctaSecondary"
+              event={{ name: "homepage_cta_clicked", properties: { cta: "open_map_from_preview" } }}
+            >
+              Open full map
+            </TrackedLink>
+          </div>
+        </div>
+
+        <section className="ti-home-mapCard" aria-label="Tournament map preview">
+          <div className="ti-home-mapCardHeader">
+            <div className="ti-home-mapCardHeaderTitle">
+              <span>Map preview</span>
+              <span>{sportLabel} · Click a state to browse tournaments</span>
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>
+              Max {max.toLocaleString("en-US")}
+            </div>
+          </div>
+
+          <div style={{ padding: 14 }}>
+            <div id="ti-home-map-tip" style={{ fontSize: 13, color: "#0f172a", minHeight: 18 }}>
+              Hover a state to see counts.
+            </div>
+            <svg
+              viewBox={`0 0 ${US_MAP_VIEWBOX.width} ${US_MAP_VIEWBOX.height}`}
+              width="100%"
+              style={{ display: "block", margin: "10px auto 0", maxWidth: 980 }}
+              role="img"
+              aria-label="United States tournament counts by state"
+            >
+              {Object.keys(US_STATE_PATHS)
+                .sort()
+                .map((abbr) => {
+                  const d = US_STATE_PATHS[abbr];
+                  const count = counts[abbr] ?? 0;
+                  const fill = colorForCount(count, max);
+
+                  const stateSlug = mapStateCodeToSlug(abbr) ?? abbr.toLowerCase();
+                  const href = sportKey
+                    ? `/tournaments?state=${encodeURIComponent(abbr)}&sports=${encodeURIComponent(sportKey)}`
+                    : `/tournaments?state=${encodeURIComponent(abbr)}`;
+
+                  return (
+                    <path
+                      key={abbr}
+                      d={d}
+                      fill={fill}
+                      stroke="#ffffff"
+                      strokeWidth={1}
+                      data-abbr={abbr}
+                      data-count={count}
+                      data-href={href}
+                      style={{ cursor: "pointer" }}
+                    />
+                  );
+                })}
+              {Object.entries(US_STATE_LABELS).map(([abbr, pos]) => {
+                const count = counts[abbr] ?? 0;
+                const showCount = count > 0;
+                const hidden = new Set(["DC", "RI", "DE", "CT", "NJ", "MA", "VT", "NH"] as const);
+                if (hidden.has(abbr as any)) return null;
+
+                return (
+                  <g key={`${abbr}-label`} pointerEvents="none">
+                    <text
+                      x={pos.x}
+                      y={pos.y - (showCount ? 4 : 0)}
+                      textAnchor="middle"
+                      fontSize={12}
+                      fontWeight={900}
+                      fill="#0f172a"
+                      style={{ paintOrder: "stroke", stroke: "rgba(255,255,255,0.92)", strokeWidth: 3 }}
+                    >
+                      {abbr}
+                    </text>
+                    {showCount ? (
+                      <text
+                        x={pos.x}
+                        y={pos.y + 12}
+                        textAnchor="middle"
+                        fontSize={11}
+                        fontWeight={800}
+                        fill="#334155"
+                        style={{ paintOrder: "stroke", stroke: "rgba(255,255,255,0.92)", strokeWidth: 3 }}
+                      >
+                        {count.toLocaleString("en-US")}
+                      </text>
+                    ) : null}
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+
+          <script
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{
+              __html: `
+              (function(){
+                try{
+                  var body = JSON.stringify({event:'map_viewed',properties:{page_type:'homepage',sport:${JSON.stringify(
+                    sportParam || "all"
+                  )}}});
+                  if (navigator && navigator.sendBeacon) {
+                    navigator.sendBeacon('/api/analytics', new Blob([body], {type:'application/json'}));
+                  }
+                }catch{}
+
+                const tip = document.getElementById('ti-home-map-tip');
+                const svg = document.currentScript && document.currentScript.parentElement
+                  ? document.currentScript.parentElement.querySelector('svg')
+                  : null;
+                if(!tip || !svg) return;
+
+                const getTarget = (e) => {
+                  const t = e.target;
+                  if(!(t instanceof SVGPathElement)) return null;
+                  const href = t.getAttribute('data-href');
+                  if(!href) return null;
+                  return t;
+                };
+
+                svg.addEventListener('mousemove', (e) => {
+                  const t = getTarget(e);
+                  if(!t) return;
+                  const abbr = t.getAttribute('data-abbr') || '';
+                  const count = Number(t.getAttribute('data-count') || '0');
+                  tip.textContent = abbr + ' — ' + count.toLocaleString() + ' upcoming tournaments';
+                });
+
+                svg.addEventListener('mouseleave', () => {
+                  tip.textContent = 'Hover a state to see counts.';
+                });
+
+                svg.addEventListener('click', (e) => {
+                  const t = getTarget(e);
+                  if(!t) return;
+                  const href = t.getAttribute('data-href');
+                  const abbr = t.getAttribute('data-abbr') || '';
+                  if(!href) return;
+                  try{
+                    var payload = JSON.stringify({event:'map_state_clicked',properties:{page_type:'homepage',sport:${JSON.stringify(
+                      sportParam || "all"
+                    )},state:abbr,href:href}});
+                    if (navigator && navigator.sendBeacon) {
+                      navigator.sendBeacon('/api/analytics', new Blob([payload], {type:'application/json'}));
+                    }
+                  }catch{}
+                  window.location.href = href;
+                });
+              })();
+            `,
+            }}
+          />
+        </section>
+      </section>
+
+      <section className="ti-home-section" aria-labelledby="ti-home-start">
+        <h2 id="ti-home-start">Start with your sport</h2>
+        <div className="ti-home-chips" role="list" aria-label="Sport map shortcuts">
+          {curatedSports.map((sport) => (
+            <TrackedLink
+              key={sport.key}
+              href={`/heatmap?sport=${encodeURIComponent(sport.slug)}`}
+              className="ti-home-chip"
+              event={{ name: "homepage_sport_chip_clicked", properties: { sport: sport.slug } }}
+            >
+              {sport.name}
+            </TrackedLink>
+          ))}
+        </div>
+        <div style={{ marginTop: 12, fontSize: 13, color: "#64748b" }}>
+          Prefer browsing? Use the{" "}
+          <a href="/tournaments" style={{ textDecoration: "underline" }}>
+            tournament directory
+          </a>{" "}
+          to filter by sport, state, and month.
+        </div>
+      </section>
+
+      <section className="ti-home-section" aria-labelledby="ti-home-plan">
+        <h2 id="ti-home-plan">Plan tournament weekends faster</h2>
+        <div className="ti-home-cards">
+          <div className="ti-home-card">
+            <h3>See tournaments visually</h3>
+            <p>Find hotspots quickly and get a clear sense of where weekends are stacked.</p>
+          </div>
+          <div className="ti-home-card">
+            <h3>Compare weekends faster</h3>
+            <p>Filter by sport and drill into states to review dates, locations, and official links.</p>
+          </div>
+          <div className="ti-home-card">
+            <h3>Plan with better venue insight</h3>
+            <p>Premium Owl&apos;s Eye™ venue intelligence helps reduce guesswork on tournament travel days.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="ti-home-section" aria-labelledby="ti-home-owl">
+        <div style={{ display: "grid", gap: 12, justifyItems: "center", textAlign: "center" }}>
+          <img
+            src="/svg/ri/owls_eye_badge.svg"
+            alt="Owl's Eye badge"
+            width={86}
+            height={86}
+            style={{ width: 86, height: 86 }}
+          />
+          <h2 id="ti-home-owl" style={{ margin: 0 }}>
+            Level up your planning with Owl&apos;s Eye™
+          </h2>
+          <p style={{ margin: 0, maxWidth: "62ch", color: "#475569", lineHeight: 1.6 }}>
+            Owl&apos;s Eye™ identifies tournaments with enhanced venue intelligence — verified addresses, nearby coffee/food/hotels,
+            mobile directions, and structured Insider venue insights.
           </p>
-
-          <div className="ctaRow">
-            <a className="cta ti-home-cta ti-home-cta-primary" href="/signup?returnTo=%2Faccount">
-              Sign up
+          <div className="ti-home-chips" aria-label="Premium shortcuts">
+            <a className="ti-home-chip" href="/premium">
+              Learn about Premium
             </a>
-            <a className="cta ti-home-cta ti-home-cta-primary" href="/tournaments">
-              Explore Tournaments
-            </a>
-            <a className="cta ti-home-cta ti-home-cta-secondary" href="/premium">
-              Request Premium Access
+            <a className="ti-home-chip" href="/tournaments">
+              Browse tournaments
             </a>
           </div>
+        </div>
+      </section>
 
-          <div style={{ marginTop: 14, fontSize: 13, display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <a href="/tournaments/soccer" style={{ textDecoration: "underline", color: "inherit" }}>
-              Soccer
+      <section className="ti-home-section" aria-labelledby="ti-home-browse">
+        <h2 id="ti-home-browse">Browse (SEO)</h2>
+        <div className="ti-home-seoLinks" aria-label="Browse links">
+          <a href="/tournaments">Tournament Directory</a>
+          <a href="/venues">Venue Insights</a>
+          {curatedSports.slice(0, 8).map((sport) => (
+            <a key={sport.key} href={`/tournaments/${sport.slug}`}>
+              {sport.name}
             </a>
-            <a href="/tournaments/baseball" style={{ textDecoration: "underline", color: "inherit" }}>
-              Baseball
-            </a>
-            <a href="/tournaments/softball" style={{ textDecoration: "underline", color: "inherit" }}>
-              Softball
-            </a>
-            <a href="/tournaments/basketball" style={{ textDecoration: "underline", color: "inherit" }}>
-              Basketball
-            </a>
-            <a href="/tournaments/lacrosse" style={{ textDecoration: "underline", color: "inherit" }}>
-              Lacrosse
-            </a>
-            <a href="/tournaments/hockey" style={{ textDecoration: "underline", color: "inherit" }}>
-              Hockey
-            </a>
-            <a href="/tournaments/ayso" style={{ textDecoration: "underline", color: "inherit" }}>
-              AYSO
-            </a>
-          </div>
-        </section>
-
-        <section className="bodyCard bodyCardCenteredList" aria-labelledby="ti-owls-eye">
-          <div style={{ display: "grid", gap: 10, justifyItems: "center", textAlign: "center" }}>
-            <img
-              src="/svg/ri/owls_eye_badge.svg"
-              alt="Owl's Eye badge"
-              width={86}
-              height={86}
-              style={{ width: 86, height: 86 }}
-            />
-            <h2 id="ti-owls-eye" style={{ margin: 0 }}>
-              What is Owl&apos;s Eye™?
-            </h2>
-            <p style={{ margin: 0, maxWidth: "62ch" }}>
-              Owl&apos;s Eye™ identifies tournaments with enhanced venue intelligence.
-            </p>
-            <ul className="list" style={{ textAlign: "left" }}>
-              <li>Venue addresses validated</li>
-              <li>Nearby coffee, food, and hotels mapped</li>
-              <li>One-tap mobile directions</li>
-              <li>Structured Insider venue insights</li>
-            </ul>
-            <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-              Owl&apos;s Eye™ details are available to Premium members. Select demo access may be available during Public Beta.
-            </p>
-            <a className="cta secondary" href="/tournaments">
-              See Owl&apos;s Eye tournaments
-            </a>
-          </div>
-        </section>
-
-        <section
-          className="bodyCard"
-          aria-labelledby="ti-inspired"
-          style={{
-            background: "linear-gradient(135deg, rgba(6, 25, 147, 0.06), rgba(25, 115, 209, 0.06))",
-            border: "1px solid rgba(25, 115, 209, 0.25)",
-            borderRadius: 14,
-            boxShadow: "0 12px 26px rgba(0,0,0,0.06)",
-          }}
-        >
-          <div style={{ maxWidth: "72ch", margin: "0 auto", textAlign: "center" }}>
-            <h2 id="ti-inspired" style={{ margin: "0 0 8px 0", fontWeight: 700 }}>
-              Inspired by real tournament families. Built for real tournament weekends.
-            </h2>
-            <p style={{ margin: "0 0 8px 0", lineHeight: 1.6, color: "#0f172a" }}>
-              TournamentInsights was shaped and vetted by a tournament mom and youth coach who understands the reality of
-              tournament life — schedules, hotels, carpools, and long weekends at the fields.
-            </p>
-            <p style={{ margin: 0, fontWeight: 600, color: "#0f172a" }}>Clear. Practical. No noise.</p>
-          </div>
-        </section>
-
-        <section className="bodyCard bodyCardCenteredList" aria-labelledby="ti-provides">
-          <h2 id="ti-provides">What {BRAND_TI} Provides</h2>
-          <ul className="list">
-            <li>Verified tournament essentials — sport, dates, location, and official links</li>
-            <li>Clean filtering by sport, state, and month</li>
-            <li>Structured, moderated event insights</li>
-            <li>Logistics-focused detail pages built for real tournament planning</li>
-          </ul>
-        </section>
-
-        <section className="notice" role="note" aria-label="Tournament insights overview">
-          <p className="clarity">
-            TournamentInsights delivers organized, moderated tournament intelligence designed to help families, coaches,
-            and teams evaluate events faster and with greater confidence.
-          </p>
-        </section>
-
-      </div>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }

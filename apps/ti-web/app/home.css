@@ -1,0 +1,213 @@
+.ti-home {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.ti-home-hero {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.ti-home-hero h1 {
+  font-size: 34px;
+  letter-spacing: -0.03em;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.ti-home-hero p {
+  margin: 0;
+  line-height: 1.55;
+  color: #475569;
+  max-width: 66ch;
+}
+
+.ti-home-ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.ti-home-ctaPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 10px 16px;
+  min-height: 44px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--ti-cta);
+  color: var(--ti-cta-text);
+  border: 2px solid rgba(6, 25, 147, 0.18);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.14);
+}
+
+.ti-home-ctaPrimary:hover {
+  background: #f4c83a;
+}
+
+.ti-home-ctaSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 10px 16px;
+  min-height: 44px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  color: #0f172a;
+}
+
+.ti-home-trustStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.ti-home-trustPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(15, 107, 74, 0.08);
+  border: 1px solid rgba(15, 107, 74, 0.22);
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ti-home-mapCard {
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #f8fafc;
+  overflow: hidden;
+  display: grid;
+}
+
+.ti-home-mapCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 14px 10px;
+  background: #ffffff;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.ti-home-mapCardHeaderTitle {
+  display: grid;
+  gap: 3px;
+}
+
+.ti-home-mapCardHeaderTitle span:first-child {
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+
+.ti-home-mapCardHeaderTitle span:last-child {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.ti-home-section {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+.ti-home-section h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.ti-home-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ti-home-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 10px 14px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: rgba(15, 23, 42, 0.03);
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ti-home-chip:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.ti-home-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ti-home-card {
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: linear-gradient(180deg, rgba(15, 107, 74, 0.06), rgba(15, 107, 74, 0.02));
+  padding: 14px 14px 16px;
+}
+
+.ti-home-card h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.ti-home-card p {
+  margin: 0;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.55;
+}
+
+.ti-home-seoLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  color: #0f172a;
+}
+
+.ti-home-seoLinks a {
+  text-decoration: underline;
+  text-decoration-color: rgba(15, 23, 42, 0.3);
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 980px) {
+  .ti-home-hero {
+    grid-template-columns: 1fr;
+  }
+  .ti-home-hero h1 {
+    font-size: 30px;
+  }
+  .ti-home-cards {
+    grid-template-columns: 1fr;
+  }
+}
+

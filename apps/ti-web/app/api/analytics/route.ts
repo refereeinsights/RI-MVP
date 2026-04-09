@@ -16,10 +16,24 @@ const QUICK_CHECK_EVENTS = new Set([
   "Venue Quick Check Signup Dismissed",
 ]);
 
+const MAP_EVENTS = new Set([
+  "map_viewed",
+  "map_filter_changed",
+  "map_state_clicked",
+  "homepage_cta_clicked",
+  "homepage_sport_chip_clicked",
+]);
+
 function asText(value: unknown) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function asTextWithLimit(value: unknown, maxLen: number) {
+  const text = asText(value);
+  if (!text) return null;
+  return text.length > maxLen ? text.slice(0, maxLen) : text;
 }
 
 function asNumber(value: unknown) {
@@ -38,6 +52,12 @@ function asStringArray(value: unknown) {
   return out.length ? out : null;
 }
 
+function asObject(value: unknown) {
+  if (!value || typeof value !== "object") return null;
+  if (Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
 export async function POST(request: Request) {
   let payload: AnalyticsRequest | null = null;
 
@@ -50,6 +70,8 @@ export async function POST(request: Request) {
   if (!payload?.event || typeof payload.event !== "string") {
     return NextResponse.json({ ok: false, error: "Event is required." }, { status: 400 });
   }
+
+  const userAgent = asTextWithLimit(request.headers.get("user-agent"), 256);
 
   console.info(
     "[ti-analytics]",
@@ -78,6 +100,42 @@ export async function POST(request: Request) {
         source_tournament_id: sourceTournamentUuid,
         fields_completed: fieldsCompleted,
         fields_answered: fieldsAnswered,
+      });
+    } catch {
+      // Ignore persistence failures; analytics must never block UX.
+    }
+  }
+
+  // Persist map interactions so we can review adoption and usage patterns.
+  if (MAP_EVENTS.has(payload.event)) {
+    const propsRaw = payload.properties ?? {};
+    const props = asObject(propsRaw) ?? {};
+    const pageType = asTextWithLimit((props as any).page_type, 32);
+    const sport = asTextWithLimit((props as any).sport, 32);
+    const state = asTextWithLimit((props as any).state, 8);
+    const href = asTextWithLimit((props as any).href, 512);
+    const filterName = asTextWithLimit((props as any).filter_name, 32);
+    const oldValue = asTextWithLimit((props as any).old_value, 64);
+    const newValue = asTextWithLimit((props as any).new_value, 64);
+    const cta = asTextWithLimit((props as any).cta, 64);
+
+    const properties = {
+      ...(props as any),
+      ua: (props as any).ua ?? userAgent ?? null,
+    };
+
+    try {
+      await supabaseAdmin.from("ti_map_events" as any).insert({
+        event_name: payload.event,
+        properties,
+        page_type: pageType,
+        sport,
+        state,
+        href,
+        filter_name: filterName,
+        old_value: oldValue,
+        new_value: newValue,
+        cta,
       });
     } catch {
       // Ignore persistence failures; analytics must never block UX.
