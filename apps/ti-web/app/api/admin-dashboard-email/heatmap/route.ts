@@ -100,7 +100,10 @@ export async function GET(req: Request) {
       style: {
         width: mapW,
         height: mapH,
-        display: "block",
+        // @vercel/og requires explicit `display:flex` for any element with >1 child.
+        // We position children absolutely, so flex layout here is effectively irrelevant.
+        display: "flex",
+        flexDirection: "column",
         position: "relative",
         borderRadius: 16,
         border: "1px solid #e2e8f0",
