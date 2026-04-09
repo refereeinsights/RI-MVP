@@ -195,7 +195,7 @@ export async function GET(req: Request) {
         "div",
         { key: "body", style: { display: "flex", gap: 28, marginTop: 28, alignItems: "flex-start" } },
         [
-          h("div", { key: "map" }, mapGrid),
+          h("div", { key: "map", style: { display: "flex" } }, mapGrid),
           h(
             "div",
             { key: "legend", style: { flex: 1, display: "flex", flexDirection: "column", gap: 14 } },
