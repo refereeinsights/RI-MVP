@@ -219,6 +219,26 @@ function buildEmailHtml(params: {
         })()
       : "";
 
+  const heatmapHtml =
+    includeTiles && tiles
+      ? (() => {
+          const imgUrl = `${baseUrl}/api/admin-dashboard-email/heatmap?scope=public_directory&v=${encodeURIComponent(
+            generatedAtIso.slice(0, 10),
+          )}`;
+          return `<div style="margin-top:16px;border:1px solid #e2e8f0;border-radius:12px;padding:12px;background:#ffffff;">
+            <div style="font-size:12px;color:#64748b;font-weight:900;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">
+              Tournament heatmap (US)
+            </div>
+            <img
+              src="${imgUrl}"
+              alt="US Tournament Heatmap"
+              width="640"
+              style="display:block;width:100%;max-width:640px;height:auto;border-radius:12px;border:1px solid #e2e8f0;"
+            />
+          </div>`;
+        })()
+      : "";
+
   const tilesHtml =
     includeTiles && tiles
       ? `<div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;">
@@ -229,7 +249,8 @@ function buildEmailHtml(params: {
           ${renderTile("Venue Check submissions", formatInt(venueCheckTotal), formatDelta(venueCheckNew), "success")}
           ${renderUsersTile({ insiderTotal: tiInsiderTotal, insiderNew: tiInsiderNew, weekendTotal: tiWeekendTotal, weekendNew: tiWeekendNew })}
         </div>
-        ${sportTilesHtml}`
+        ${sportTilesHtml}
+        ${heatmapHtml}`
       : "";
 
   const rows = totalsBySport
