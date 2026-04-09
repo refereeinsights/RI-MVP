@@ -128,6 +128,7 @@ export default async function PublicHeatmapPage({
                     fill={fill}
                     stroke="#ffffff"
                     strokeWidth={1}
+                    className="ti-map-state"
                     data-abbr={abbr}
                     data-count={count}
                     data-href={href}

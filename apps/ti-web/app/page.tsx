@@ -121,8 +121,6 @@ export default async function Home({ searchParams }: { searchParams?: { sport?: 
     ...curatedSports.map((s) => ({ value: s.slug, label: s.name })),
   ];
 
-  const mapHref = `/heatmap?sport=${encodeURIComponent(sportParam || "all")}`;
-
   return (
     <main className="ti-home">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
@@ -134,7 +132,8 @@ export default async function Home({ searchParams }: { searchParams?: { sport?: 
             digging through dozens of tabs.
           </p>
 
-          <div className="ti-home-ctaRow">
+          <div className="ti-home-ctaRow" aria-label="Map controls">
+            <HomepageSportFilter value={sportParam || "all"} options={sportOptions} />
             <TrackedLink
               href="/heatmap?sport=all"
               className="ti-home-ctaPrimary"
@@ -156,28 +155,15 @@ export default async function Home({ searchParams }: { searchParams?: { sport?: 
             <div className="ti-home-trustPill">Clear dates & locations</div>
             <div className="ti-home-trustPill">Built for real planning</div>
           </div>
-
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "end", marginTop: 6 }}>
-            <HomepageSportFilter value={sportParam || "all"} options={sportOptions} />
-            <TrackedLink
-              href={mapHref}
-              className="ti-home-ctaSecondary"
-              event={{ name: "homepage_cta_clicked", properties: { cta: "open_map_from_preview" } }}
-            >
-              Open full map
-            </TrackedLink>
-          </div>
         </div>
 
-        <section className="ti-home-mapCard" aria-label="Tournament map preview">
+        <section className="ti-home-mapCard" aria-label="Tournament map">
           <div className="ti-home-mapCardHeader">
             <div className="ti-home-mapCardHeaderTitle">
-              <span>Map preview</span>
+              <span>Tournament Map</span>
               <span>{sportLabel} · Click a state to browse tournaments</span>
             </div>
-            <div style={{ fontSize: 12, color: "#64748b" }}>
-              Max {max.toLocaleString("en-US")}
-            </div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Max {max.toLocaleString("en-US")}</div>
           </div>
 
           <div style={{ padding: 14 }}>
@@ -187,7 +173,7 @@ export default async function Home({ searchParams }: { searchParams?: { sport?: 
             <svg
               viewBox={`0 0 ${US_MAP_VIEWBOX.width} ${US_MAP_VIEWBOX.height}`}
               width="100%"
-              style={{ display: "block", margin: "10px auto 0", maxWidth: 980 }}
+              style={{ display: "block", margin: "10px auto 0", maxWidth: "none" }}
               role="img"
               aria-label="United States tournament counts by state"
             >
@@ -210,6 +196,7 @@ export default async function Home({ searchParams }: { searchParams?: { sport?: 
                       fill={fill}
                       stroke="#ffffff"
                       strokeWidth={1}
+                      className="ti-map-state"
                       data-abbr={abbr}
                       data-count={count}
                       data-href={href}
