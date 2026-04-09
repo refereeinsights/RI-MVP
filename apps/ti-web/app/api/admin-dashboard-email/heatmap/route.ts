@@ -100,10 +100,8 @@ export async function GET(req: Request) {
       style: {
         width: mapW,
         height: mapH,
-        display: "grid",
-        gridTemplateColumns: `repeat(${gridW}, ${cell}px)`,
-        gridTemplateRows: `repeat(${gridH}, ${cell}px)`,
-        gap,
+        display: "block",
+        position: "relative",
         borderRadius: 16,
         border: "1px solid #e2e8f0",
         padding: 18,
@@ -113,13 +111,16 @@ export async function GET(req: Request) {
     GRID.map((pos) => {
       const count = counts.get(pos.state) ?? 0;
       const bg = colorForCount(count, max);
+      const left = pos.x * (cell + gap);
+      const top = pos.y * (cell + gap);
       return h(
         "div",
         {
           key: pos.state,
           style: {
-            gridColumnStart: pos.x + 1,
-            gridRowStart: pos.y + 1,
+            position: "absolute",
+            left,
+            top,
             width: cell,
             height: cell,
             borderRadius: 12,
@@ -147,10 +148,13 @@ export async function GET(req: Request) {
   const legendRow = (color: string, label: string, border = "#cbd5e1") =>
     h(
       "div",
-      { style: { display: "flex", alignItems: "center", gap: 10 } },
+      { key: `legend-${label}`, style: { display: "flex", alignItems: "center", gap: 10 } },
       [
-        h("div", { style: { width: 22, height: 22, borderRadius: 6, background: color, border: `1px solid ${border}` } }),
-        h("div", { style: { fontSize: 14, color: "#334155" } }, label),
+        h("div", {
+          key: `swatch-${label}`,
+          style: { width: 22, height: 22, borderRadius: 6, background: color, border: `1px solid ${border}` },
+        }),
+        h("div", { key: `label-${label}`, style: { fontSize: 14, color: "#334155" } }, label),
       ],
     );
 
@@ -171,35 +175,35 @@ export async function GET(req: Request) {
     [
       h(
         "div",
-        { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } },
+        { key: "header", style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } },
         [
           h(
             "div",
-            { style: { display: "flex", flexDirection: "column", gap: 6 } },
+            { key: "title", style: { display: "flex", flexDirection: "column", gap: 6 } },
             [
-              h("div", { style: { fontSize: 34, fontWeight: 900 } }, title),
-              h("div", { style: { fontSize: 18, color: "#475569" } }, subtitle),
+              h("div", { key: "titleText", style: { fontSize: 34, fontWeight: 900 } }, title),
+              h("div", { key: "subtitleText", style: { fontSize: 18, color: "#475569" } }, subtitle),
             ],
           ),
-          h("div", { style: { fontSize: 14, color: "#64748b" } }, hostLabel),
+          h("div", { key: "host", style: { fontSize: 14, color: "#64748b" } }, hostLabel),
         ],
       ),
       h(
         "div",
-        { style: { display: "flex", gap: 28, marginTop: 28, alignItems: "flex-start" } },
+        { key: "body", style: { display: "flex", gap: 28, marginTop: 28, alignItems: "flex-start" } },
         [
-          mapGrid,
+          h("div", { key: "map" }, mapGrid),
           h(
             "div",
-            { style: { flex: 1, display: "flex", flexDirection: "column", gap: 14 } },
+            { key: "legend", style: { flex: 1, display: "flex", flexDirection: "column", gap: 14 } },
             [
-              h("div", { style: { fontSize: 16, fontWeight: 900 } }, "Legend"),
+              h("div", { key: "legendTitle", style: { fontSize: 16, fontWeight: 900 } }, "Legend"),
               legendRow("#f1f5f9", "0 tournaments"),
               legendRow("#dbeafe", "low"),
               legendRow("#1d4ed8", `high (max ${max})`, "#1e40af"),
               h(
                 "div",
-                { style: { marginTop: 10, fontSize: 12, color: "#64748b", lineHeight: 1.4 } },
+                { key: "legendNote", style: { marginTop: 10, fontSize: 12, color: "#64748b", lineHeight: 1.4 } },
                 "Counts reflect the TI public directory default (published + canonical + upcoming).",
               ),
             ],
