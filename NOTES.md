@@ -15,6 +15,7 @@
 - Discover → Queue: filter obvious junk discovery results (e.g. wikipedia/world cup) by domain so they don’t clutter the candidate list: `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx`.
 - Discover → Queue: improve Atlas queries by using full state names (“Alabama” instead of “AL”), add negative keywords (Canada/world cup), and filter out results that look out-of-state based on title/snippet heuristics: `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx`.
 - Discover → Queue: add per-row “Hide” controls (client-side, stored in localStorage per sport+state) so big candidate lists are manageable without affecting the underlying source registry: `apps/referee/app/admin/tournaments/discover-to-queue/CandidatesTableClient.tsx`, `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx`.
+- Discover → Queue: stop auto-running discovery on page load (prevents Brave 429s on refresh); discovery/queue now run via admin API calls and results are cached locally per sport+state+years: `apps/referee/app/api/admin/tournaments/discover-to-queue/route.ts`, `apps/referee/app/admin/tournaments/discover-to-queue/DiscoverToQueueClient.tsx`, `apps/referee/src/server/admin/discoverToQueue.ts`.
 
 ## 2026-04-08
 
