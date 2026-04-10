@@ -92,6 +92,28 @@ function clampInt(value: unknown, min: number, max: number, fallback: number) {
   return Math.min(max, Math.max(min, Math.floor(n)));
 }
 
+async function fetchUpcomingCountsByStateForSport(sport: string) {
+  const normalizedSport = sport.trim().toLowerCase();
+  if (!normalizedSport) return new Map<string, number>();
+
+  const res = await supabaseAdmin.rpc("get_public_directory_tournament_counts_by_state_sport" as any, {
+    p_sport: normalizedSport,
+  });
+
+  if (res.error) {
+    // Safe fallback for envs that haven't deployed the RPC yet.
+    return new Map<string, number>();
+  }
+
+  const map = new Map<string, number>();
+  for (const row of (res.data ?? []) as any[]) {
+    const state = String(row?.state ?? "").trim().toUpperCase();
+    const count = Number(row?.count ?? 0);
+    if (state && Number.isFinite(count)) map.set(state, count);
+  }
+  return map;
+}
+
 function buildQueries(params: { sport: string; state: string; years: number[] }) {
   const sport = params.sport.trim().toLowerCase();
   const state = params.state.trim().toUpperCase();
@@ -313,6 +335,8 @@ export default async function DiscoverToQueuePage({
 
   const provider = getSearchProviderName();
 
+  const stateCounts = await fetchUpcomingCountsByStateForSport(sport);
+
   const candidates = run && state ? await discoverCandidates({ sport, state, perQueryLimit, years }) : [];
 
   return (
@@ -359,10 +383,13 @@ export default async function DiscoverToQueuePage({
               <option value="">Select…</option>
               {US_STATES.map((st) => (
                 <option key={st} value={st}>
-                  {st}
+                  {st} ({stateCounts.get(st) ?? 0})
                 </option>
               ))}
             </select>
+            <span style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>
+              Counts are upcoming published canonical tournaments for the selected sport.
+            </span>
           </label>
           <label style={{ display: "grid", gap: 6, fontSize: 12, fontWeight: 800 }}>
             Per-query results
