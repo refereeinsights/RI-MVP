@@ -9,6 +9,8 @@
 - Analytics hygiene: skip persisting analytics events when running on localhost, stamp `host/origin/referer` into `ti_map_events.properties`, and add a cleanup migration to delete previously persisted localhost rows: `apps/ti-web/app/api/analytics/route.ts`, `supabase/migrations/20260410_cleanup_localhost_ti_analytics_events.sql`.
 - Analytics hygiene (dev hardening): ensure `ti-web` never persists analytics when `NODE_ENV=development` (covers local/private-network hostnames beyond literal `localhost`): `apps/ti-web/app/api/analytics/route.ts`.
 - Hydration fix: move homepage + heatmap SVG tooltip/click handling out of inline scripts and into a client `useEffect` binder to avoid “Text content does not match server-rendered HTML” errors: `apps/ti-web/app/_components/UsMapInteractions.tsx`, `apps/ti-web/app/page.tsx`, `apps/ti-web/app/heatmap/page.tsx`.
+- RI admin tournament uploads (CSV): allow ingesting multiple venue rows for the same tournament (same `tournament_external_id`), linking additional venues without duplicating the tournament in the approval queue: `apps/referee/app/api/admin/tournaments/uploads/import/route.ts`, `apps/referee/src/server/admin/tournamentUploads.ts`.
+- RI admin discovery: add `/admin/tournaments/discover-to-queue` that uses Atlas search (Brave/Bing/SerpAPI) to discover candidate tournament URLs by sport+state+year and queue selected URLs into the uploads approval queue as `draft` tournaments (respects `tournament_sources` skip guards, with optional override): `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx`, `apps/referee/app/admin/page.tsx`.
 
 ## 2026-04-08
 
