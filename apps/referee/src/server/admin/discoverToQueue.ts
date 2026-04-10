@@ -373,6 +373,18 @@ export async function queueDiscoveredUrls(params: { sport: string; urls: string[
         is_active: true,
         review_status: "untested",
       });
+
+      // Tag existing registry rows too (but don't clobber curated types).
+      // This lets us filter "what came through Discover→Queue" even when the URL already existed.
+      try {
+        await supabaseAdmin
+          .from("tournament_sources" as any)
+          .update({ source_type: "atlas_discovery" })
+          .eq("id", row.id)
+          .in("source_type", [null, "other"]);
+      } catch {
+        // If an environment hasn't applied the CHECK constraint migration yet, avoid breaking queueing.
+      }
       const skipReason = getSkipReason(row);
       if (skipReason && !overrideSkip) {
         skipped += 1;
