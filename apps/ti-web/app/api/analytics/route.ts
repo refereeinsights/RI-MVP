@@ -42,14 +42,34 @@ function isLocalhostHost(host: string) {
   if (!h) return false;
   if (h === "localhost" || h.startsWith("localhost:")) return true;
   if (h === "127.0.0.1" || h.startsWith("127.0.0.1:")) return true;
+  if (h === "0.0.0.0" || h.startsWith("0.0.0.0:")) return true;
   if (h === "[::1]" || h.startsWith("[::1]:")) return true;
   if (h.endsWith(".local")) return true;
   return false;
 }
 
+function isPrivateNetworkHost(host: string) {
+  const h = host.trim().toLowerCase();
+  if (!h) return false;
+  const withoutPort = h.startsWith("[") ? h : h.split(":")[0];
+  const ip = withoutPort.replace(/^\[/, "").replace(/\]$/, "");
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) return false;
+  const parts = ip.split(".").map((p) => Number(p));
+  if (parts.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return false;
+  const [a, b] = parts;
+  if (a === 10) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  return false;
+}
+
 function shouldPersistMapEvents(request: Request) {
+  // Local dev should never persist analytics into Supabase.
+  if (process.env.NODE_ENV === "development") return false;
+
   const host = asTextWithLimit(request.headers.get("x-forwarded-host") ?? request.headers.get("host"), 128);
   if (host && isLocalhostHost(host)) return false;
+  if (host && isPrivateNetworkHost(host)) return false;
 
   const origin = asTextWithLimit(request.headers.get("origin"), 256);
   if (origin && (origin.includes("://localhost") || origin.includes("://127.0.0.1") || origin.includes("://[::1]"))) {

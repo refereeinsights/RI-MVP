@@ -7,6 +7,8 @@
 - Map analytics (admin surface): add a “Load map analytics” toggle on RI `/admin/ti` that shows TI map/homepage event counts + a recent-events table (last 7 days): `apps/referee/app/admin/ti/page.tsx`.
 - Map analytics (tournament detail clicks): track clicks on “More tournaments in {state}” links into `ti_map_events` as `tournament_detail_more_in_state_clicked`: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/app/tournaments/_components/MoreTournamentsInStateLinks.tsx`, `apps/ti-web/lib/tiAnalyticsEvents.ts`.
 - Analytics hygiene: skip persisting analytics events when running on localhost, stamp `host/origin/referer` into `ti_map_events.properties`, and add a cleanup migration to delete previously persisted localhost rows: `apps/ti-web/app/api/analytics/route.ts`, `supabase/migrations/20260410_cleanup_localhost_ti_analytics_events.sql`.
+- Analytics hygiene (dev hardening): ensure `ti-web` never persists analytics when `NODE_ENV=development` (covers local/private-network hostnames beyond literal `localhost`): `apps/ti-web/app/api/analytics/route.ts`.
+- Hydration fix: move homepage + heatmap SVG tooltip/click handling out of inline scripts and into a client `useEffect` binder to avoid “Text content does not match server-rendered HTML” errors: `apps/ti-web/app/_components/UsMapInteractions.tsx`, `apps/ti-web/app/page.tsx`, `apps/ti-web/app/heatmap/page.tsx`.
 
 ## 2026-04-08
 

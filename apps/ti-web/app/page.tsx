@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { curatedSports, mapStateCodeToSlug, normalizeSportSlug, sportDisplayName } from "@/lib/seoHub";
 import { US_MAP_VIEWBOX, US_STATE_LABELS, US_STATE_PATHS } from "@/app/api/admin-dashboard-email/heatmap-us/usStatesMap";
+import UsMapInteractions from "@/app/_components/UsMapInteractions";
 import HomepageSportFilter from "@/components/homepage/HomepageSportFilter";
 import TrackedLink from "@/components/homepage/TrackedLink";
 import "./home.css";
@@ -167,7 +168,7 @@ export default async function Home({ searchParams }: { searchParams?: { sport?: 
           </div>
 
           <div style={{ padding: 14 }}>
-            <div id="ti-home-map-tip" style={{ fontSize: 13, color: "#0f172a", minHeight: 18 }}>
+            <div id="ti-home-map-tip" style={{ fontSize: 13, color: "#0f172a", minHeight: 18 }} suppressHydrationWarning>
               Hover a state to see counts.
             </div>
             <svg
@@ -242,65 +243,11 @@ export default async function Home({ searchParams }: { searchParams?: { sport?: 
             </svg>
           </div>
 
-          <script
-            // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{
-              __html: `
-              (function(){
-                try{
-                  var body = JSON.stringify({event:'map_viewed',properties:{page_type:'homepage',sport:${JSON.stringify(
-                    sportParam || "all"
-                  )}}});
-                  if (navigator && navigator.sendBeacon) {
-                    navigator.sendBeacon('/api/analytics', new Blob([body], {type:'application/json'}));
-                  }
-                }catch{}
-
-                const tip = document.getElementById('ti-home-map-tip');
-                const svg = document.currentScript && document.currentScript.parentElement
-                  ? document.currentScript.parentElement.querySelector('svg')
-                  : null;
-                if(!tip || !svg) return;
-
-                const getTarget = (e) => {
-                  const t = e.target;
-                  if(!(t instanceof SVGPathElement)) return null;
-                  const href = t.getAttribute('data-href');
-                  if(!href) return null;
-                  return t;
-                };
-
-                svg.addEventListener('mousemove', (e) => {
-                  const t = getTarget(e);
-                  if(!t) return;
-                  const abbr = t.getAttribute('data-abbr') || '';
-                  const count = Number(t.getAttribute('data-count') || '0');
-                  tip.textContent = abbr + ' — ' + count.toLocaleString() + ' upcoming tournaments';
-                });
-
-                svg.addEventListener('mouseleave', () => {
-                  tip.textContent = 'Hover a state to see counts.';
-                });
-
-                svg.addEventListener('click', (e) => {
-                  const t = getTarget(e);
-                  if(!t) return;
-                  const href = t.getAttribute('data-href');
-                  const abbr = t.getAttribute('data-abbr') || '';
-                  if(!href) return;
-                  try{
-                    var payload = JSON.stringify({event:'map_state_clicked',properties:{page_type:'homepage',sport:${JSON.stringify(
-                      sportParam || "all"
-                    )},state:abbr,href:href}});
-                    if (navigator && navigator.sendBeacon) {
-                      navigator.sendBeacon('/api/analytics', new Blob([payload], {type:'application/json'}));
-                    }
-                  }catch{}
-                  window.location.href = href;
-                });
-              })();
-            `,
-            }}
+          <UsMapInteractions
+            tipId="ti-home-map-tip"
+            pageType="homepage"
+            sport={sportParam || "all"}
+            defaultTip="Hover a state to see counts."
           />
         </section>
       </section>
