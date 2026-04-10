@@ -86,6 +86,17 @@ type Candidate = AtlasSearchResult & {
   registrySkipReason: string | null;
 };
 
+const BLOCKED_HOST_SUFFIXES = ["wikipedia.org", "wikidata.org", "fifa.com"] as const;
+const BLOCKED_HOST_SUBSTRINGS = ["worldcup", "world-cup"] as const;
+
+function isBlockedHost(host: string) {
+  const h = host.trim().toLowerCase();
+  if (!h) return false;
+  if (BLOCKED_HOST_SUFFIXES.some((suffix) => h === suffix || h.endsWith(`.${suffix}`))) return true;
+  if (BLOCKED_HOST_SUBSTRINGS.some((s) => h.includes(s))) return true;
+  return false;
+}
+
 function clampInt(value: unknown, min: number, max: number, fallback: number) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -195,11 +206,16 @@ async function discoverCandidates(params: {
   }
 
   const deduped = new Map<string, Candidate>();
+  let blockedCount = 0;
   for (const row of results) {
     const url = String(row.url ?? "").trim();
     if (!url) continue;
     const { canonical, host, normalized } = normalizeSourceUrl(url);
     if (!canonical) continue;
+    if (isBlockedHost(host)) {
+      blockedCount += 1;
+      continue;
+    }
     if (!deduped.has(normalized)) {
       deduped.set(normalized, {
         ...row,
@@ -232,7 +248,7 @@ async function discoverCandidates(params: {
     registryByNormalized.set(n, row);
   }
 
-  return list
+  const candidates = list
     .map((c) => {
       const reg = registryByNormalized.get(c.normalized) ?? null;
       const registrySkipReason = getSkipReason(reg);
@@ -246,6 +262,8 @@ async function discoverCandidates(params: {
       if (Boolean(a.registrySkipReason) !== Boolean(b.registrySkipReason)) return a.registrySkipReason ? 1 : -1;
       return (a.domain ?? a.host).localeCompare(b.domain ?? b.host);
     });
+
+  return { candidates, blockedCount };
 }
 
 async function queueSelectedAction(formData: FormData) {
@@ -337,7 +355,9 @@ export default async function DiscoverToQueuePage({
 
   const stateCounts = await fetchUpcomingCountsByStateForSport(sport);
 
-  const candidates = run && state ? await discoverCandidates({ sport, state, perQueryLimit, years }) : [];
+  const discovery = run && state ? await discoverCandidates({ sport, state, perQueryLimit, years }) : null;
+  const candidates = discovery?.candidates ?? [];
+  const blockedCount = discovery?.blockedCount ?? 0;
 
   return (
     <main style={{ padding: 18, maxWidth: 1100, margin: "0 auto" }}>
@@ -416,6 +436,22 @@ export default async function DiscoverToQueuePage({
       {run && !state ? (
         <div style={{ marginTop: 14, border: "1px solid #e2e8f0", background: "#f8fafc", borderRadius: 12, padding: "10px 12px", color: "#475569", fontSize: 13 }}>
           Select a state, then run discovery.
+        </div>
+      ) : null}
+
+      {blockedCount ? (
+        <div
+          style={{
+            marginTop: 14,
+            border: "1px solid #e2e8f0",
+            background: "#f8fafc",
+            borderRadius: 12,
+            padding: "10px 12px",
+            color: "#475569",
+            fontSize: 13,
+          }}
+        >
+          Filtered out <strong>{blockedCount}</strong> junk results (wikipedia / fifa / world cup).
         </div>
       ) : null}
 

@@ -12,6 +12,7 @@
 - RI admin tournament uploads (CSV): allow ingesting multiple venue rows for the same tournament (same `tournament_external_id`), linking additional venues without duplicating the tournament in the approval queue: `apps/referee/app/api/admin/tournaments/uploads/import/route.ts`, `apps/referee/src/server/admin/tournamentUploads.ts`.
 - RI admin discovery: add `/admin/tournaments/discover-to-queue` that uses Atlas search (Brave/Bing/SerpAPI) to discover candidate tournament URLs by sport+state+year and queue selected URLs into the uploads approval queue as `draft` tournaments (respects `tournament_sources` skip guards, with optional override): `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx`, `apps/referee/app/admin/page.tsx`.
 - Discover → Queue: show upcoming tournament counts per state (for the selected sport) inline in the state dropdown to help prioritize under-covered states: `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx`, `supabase/migrations/20260409_public_directory_state_counts_by_sport.sql`.
+- Discover → Queue: filter obvious junk discovery results (e.g. wikipedia/world cup) by domain so they don’t clutter the candidate list: `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx`.
 
 ## 2026-04-08
 
