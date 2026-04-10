@@ -2423,29 +2423,9 @@ export default async function AdminPage({
     }
 
     const result = await importTournamentRecords(records);
-    let venueLinkAttempted = 0;
-    let venueLinkCreated = 0;
-    let venueLinkErrors = 0;
-
-    // If the upload includes venue fields (and they survive the TBD/blank cleaner), create/match venues and
-    // upsert tournament_venues links during import so the approval queue has normalized venue links ready.
-    if (result.tournamentIds?.length) {
-      const ids = Array.from(new Set(result.tournamentIds)).filter(Boolean);
-      const concurrency = 8;
-      for (let i = 0; i < ids.length; i += concurrency) {
-        const batch = ids.slice(i, i + concurrency);
-        const settled = await Promise.allSettled(batch.map((id) => ensureTournamentVenueLink(id)));
-        for (const res of settled) {
-          if (res.status === "rejected") {
-            venueLinkErrors += 1;
-            continue;
-          }
-          if (res.value.attempted) venueLinkAttempted += 1;
-          if (res.value.attempted && res.value.linked) venueLinkCreated += 1;
-          if (res.value.error) venueLinkErrors += 1;
-        }
-      }
-    }
+    const venueLinkAttempted = result.venue_links_attempted ?? 0;
+    const venueLinkCreated = result.venue_links_created ?? 0;
+    const venueLinkErrors = result.venue_link_errors ?? 0;
     const noticeParts: string[] = [];
     noticeParts.push(
       result.failures.length === 0

@@ -595,20 +595,224 @@ function triKey(record: TournamentRow) {
   return `${name}|${city}|${state}|${start}`;
 }
 
+type VenueCandidate = {
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  sport: string | null;
+};
+
+function normalizeVenueField(value: unknown): string | null {
+  const v = String(value ?? "").trim();
+  return v ? v : null;
+}
+
+function normalizeStateCode(value: unknown): string | null {
+  const v = normalizeVenueField(value);
+  return v ? v.toUpperCase() : null;
+}
+
+function venueKey(v: VenueCandidate) {
+  const name = (v.name ?? "").trim().toLowerCase();
+  const address = (v.address ?? "").trim().toLowerCase();
+  const city = (v.city ?? "").trim().toLowerCase();
+  const state = (v.state ?? "").trim().toLowerCase();
+  const zip = (v.zip ?? "").trim();
+  return `${name}|${address}|${city}|${state}|${zip}`;
+}
+
+function extractVenueCandidate(record: TournamentRow): VenueCandidate | null {
+  const raw = (record.raw ?? null) as Record<string, unknown> | null;
+
+  const name =
+    normalizeVenueField(raw?.venue ?? raw?.venue_name ?? raw?.venueName) ??
+    normalizeVenueField(record.venue);
+  const address =
+    normalizeVenueField(
+      raw?.address ??
+        raw?.venue_address ??
+        raw?.venue_address_text ??
+        raw?.address_with_zip ??
+        raw?.venueAddress ??
+        raw?.venueAddressText
+    ) ?? normalizeVenueField(record.address);
+
+  const city =
+    normalizeVenueField(raw?.venue_city ?? raw?.venueCity) ??
+    normalizeVenueField(raw?.city ?? raw?.tournament_city) ??
+    normalizeVenueField(record.city);
+  const state =
+    normalizeStateCode(raw?.venue_state ?? raw?.venueState) ??
+    normalizeStateCode(raw?.state ?? raw?.tournament_state) ??
+    normalizeStateCode(record.state);
+  const zip =
+    normalizeVenueField(raw?.venue_zip ?? raw?.venueZip) ??
+    normalizeVenueField(raw?.zip ?? raw?.tournament_zip) ??
+    normalizeVenueField(record.zip);
+
+  const hasVenueInfo = Boolean(name || address);
+  const hasLocation = Boolean(city || state);
+  if (!hasVenueInfo || !hasLocation) return null;
+
+  return {
+    name,
+    address,
+    city,
+    state,
+    zip,
+    sport: normalizeVenueField(record.sport),
+  };
+}
+
+async function upsertVenueAndLinkTournament(params: {
+  supabase: ReturnType<typeof supabaseAdmin>;
+  tournamentId: string;
+  venue: VenueCandidate;
+  setPrimary: boolean;
+}): Promise<{ attempted: boolean; linked: boolean; error?: string }> {
+  const { supabase, tournamentId, venue, setPrimary } = params;
+
+  try {
+    const applyNullableFilter = (query: any, field: string, value: string | null) => {
+      if (value === null) return query.is(field, null);
+      return query.eq(field, value);
+    };
+
+    const existingVenueQuery = supabase.from("venues").select("id").limit(1);
+    const existingVenueRes = await applyNullableFilter(
+      applyNullableFilter(
+        applyNullableFilter(
+          applyNullableFilter(existingVenueQuery as any, "name", venue.name),
+          "address",
+          venue.address
+        ),
+        "city",
+        venue.city
+      ),
+      "state",
+      venue.state
+    ).maybeSingle();
+
+    if (existingVenueRes.error) {
+      return { attempted: true, linked: false, error: existingVenueRes.error.message || "failed_lookup_venue" };
+    }
+
+    let venueId = (existingVenueRes.data as any)?.id as string | undefined;
+    if (!venueId) {
+      const insertPayload: Record<string, unknown> = {
+        name: venue.name,
+        address: venue.address,
+        city: venue.city,
+        state: venue.state,
+        zip: venue.zip,
+        sport: venue.sport,
+      };
+      const insertRes = await (supabase.from("venues") as any).insert(insertPayload).select("id").single();
+      if (insertRes.error) {
+        if ((insertRes.error as any).code === "23505") {
+          const retryRes = await applyNullableFilter(
+            applyNullableFilter(
+              applyNullableFilter(
+                applyNullableFilter((supabase.from("venues") as any).select("id").limit(1), "name", venue.name),
+                "address",
+                venue.address
+              ),
+              "city",
+              venue.city
+            ),
+            "state",
+            venue.state
+          ).maybeSingle();
+          venueId = (retryRes.data as any)?.id as string | undefined;
+          if (!venueId) {
+            return { attempted: true, linked: false, error: retryRes.error?.message || "failed_create_venue" };
+          }
+        } else {
+          return { attempted: true, linked: false, error: insertRes.error.message || "failed_create_venue" };
+        }
+      } else {
+        venueId = (insertRes.data as any)?.id as string | undefined;
+      }
+    }
+
+    if (!venueId) return { attempted: true, linked: false, error: "missing_venue_id" };
+
+    const linkRes = await (supabase.from("tournament_venues") as any).upsert(
+      { tournament_id: tournamentId, venue_id: venueId, is_inferred: false },
+      { onConflict: "tournament_id,venue_id" }
+    );
+    if (linkRes.error && (linkRes.error as any).code !== "23505") {
+      return { attempted: true, linked: false, error: linkRes.error.message || "failed_link_venue" };
+    }
+
+    if (setPrimary) {
+      const primaryRes = await (supabase.from("tournament_venues") as any)
+        .update({ is_primary: true })
+        .eq("tournament_id", tournamentId)
+        .eq("venue_id", venueId);
+      if (primaryRes.error) {
+        return { attempted: true, linked: true, error: primaryRes.error.message || "failed_set_primary" };
+      }
+    }
+
+    return { attempted: true, linked: true };
+  } catch (error) {
+    return { attempted: true, linked: false, error: error instanceof Error ? error.message : "failed_link_venue" };
+  }
+}
+
 export async function importTournamentRecords(records: TournamentRow[]) {
   records = rationalizeCityState(records);
   let success = 0;
   const failures: { record: TournamentRow; error: string }[] = [];
   const tournamentIds: string[] = [];
-  const seenKeys = new Set<string>();
+  let venue_links_attempted = 0;
+  let venue_links_created = 0;
+  let venue_link_errors = 0;
+
   const supabase = supabaseAdmin();
+
+  const groups = new Map<
+    string,
+    {
+      base: TournamentRow;
+      rows: TournamentRow[];
+    }
+  >();
+
+  const mergeTournamentFields = (base: TournamentRow, next: TournamentRow): TournamentRow => {
+    const pick = <T>(a: T | null | undefined, b: T | null | undefined) => (a ?? b ?? null);
+    return {
+      ...base,
+      // Keep base slug stable for dedupe; only fill missing tournament fields.
+      level: pick(base.level ?? null, next.level ?? null),
+      tournament_association: pick(base.tournament_association ?? null, next.tournament_association ?? null),
+      venue: pick(base.venue ?? null, next.venue ?? null),
+      address: pick(base.address ?? null, next.address ?? null),
+      zip: pick(base.zip ?? null, next.zip ?? null),
+      end_date: pick(base.end_date ?? null, next.end_date ?? null),
+      summary: pick(base.summary ?? null, next.summary ?? null),
+      source_url: pick(base.source_url ?? null, next.source_url ?? null) as any,
+      raw: base.raw ?? next.raw,
+    };
+  };
 
   for (const record of records) {
     const key = triKey(record);
-    if (seenKeys.has(key)) {
-      failures.push({ record, error: "Duplicate in upload (same name/city/state/start_date)" });
+    const group = groups.get(key);
+    if (!group) {
+      groups.set(key, { base: record, rows: [record] });
       continue;
     }
+    group.base = mergeTournamentFields(group.base, record);
+    group.rows.push(record);
+    groups.set(key, group);
+  }
+
+  for (const { base, rows } of groups.values()) {
+    const record = base;
 
     if (record.name && record.start_date) {
       const { data: existing, error: dupErr } = await supabase
@@ -634,17 +838,49 @@ export async function importTournamentRecords(records: TournamentRow[]) {
       }
     }
 
-    seenKeys.add(key);
     try {
       const id = await upsertTournamentFromSource(record);
       if (id) tournamentIds.push(id);
       success++;
+
+      if (id) {
+        const candidates = rows
+          .map(extractVenueCandidate)
+          .filter(Boolean) as VenueCandidate[];
+        const unique = new Map<string, VenueCandidate>();
+        for (const v of candidates) {
+          unique.set(venueKey(v), v);
+        }
+        const venues = Array.from(unique.values());
+
+        if (venues.length) {
+          const { data: existingPrimaries } = await (supabase.from("tournament_venues") as any)
+            .select("venue_id")
+            .eq("tournament_id", id)
+            .eq("is_primary", true)
+            .limit(1);
+          let hasPrimary = Boolean((existingPrimaries ?? []).length);
+
+          for (let idx = 0; idx < venues.length; idx += 1) {
+            const venue = venues[idx];
+            venue_links_attempted += 1;
+            const setPrimary = !hasPrimary && idx === 0;
+            const res = await upsertVenueAndLinkTournament({ supabase, tournamentId: id, venue, setPrimary });
+            if (!res.linked) {
+              venue_link_errors += 1;
+              continue;
+            }
+            venue_links_created += 1;
+            if (setPrimary) hasPrimary = true;
+          }
+        }
+      }
     } catch (error) {
       failures.push({ record, error: (error as Error).message });
     }
   }
 
-  return { success, failures, tournamentIds };
+  return { success, failures, tournamentIds, venue_links_attempted, venue_links_created, venue_link_errors };
 }
 
 // Extract events from JSON-LD scripts (schema.org Event)
