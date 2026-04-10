@@ -78,6 +78,60 @@ const US_STATES = [
   "WY",
 ] as const;
 
+const STATE_NAME_BY_ABBR: Record<(typeof US_STATES)[number], string> = {
+  AL: "Alabama",
+  AK: "Alaska",
+  AZ: "Arizona",
+  AR: "Arkansas",
+  CA: "California",
+  CO: "Colorado",
+  CT: "Connecticut",
+  DE: "Delaware",
+  DC: "District of Columbia",
+  FL: "Florida",
+  GA: "Georgia",
+  HI: "Hawaii",
+  ID: "Idaho",
+  IL: "Illinois",
+  IN: "Indiana",
+  IA: "Iowa",
+  KS: "Kansas",
+  KY: "Kentucky",
+  LA: "Louisiana",
+  ME: "Maine",
+  MD: "Maryland",
+  MA: "Massachusetts",
+  MI: "Michigan",
+  MN: "Minnesota",
+  MS: "Mississippi",
+  MO: "Missouri",
+  MT: "Montana",
+  NE: "Nebraska",
+  NV: "Nevada",
+  NH: "New Hampshire",
+  NJ: "New Jersey",
+  NM: "New Mexico",
+  NY: "New York",
+  NC: "North Carolina",
+  ND: "North Dakota",
+  OH: "Ohio",
+  OK: "Oklahoma",
+  OR: "Oregon",
+  PA: "Pennsylvania",
+  RI: "Rhode Island",
+  SC: "South Carolina",
+  SD: "South Dakota",
+  TN: "Tennessee",
+  TX: "Texas",
+  UT: "Utah",
+  VT: "Vermont",
+  VA: "Virginia",
+  WA: "Washington",
+  WV: "West Virginia",
+  WI: "Wisconsin",
+  WY: "Wyoming",
+};
+
 type Candidate = AtlasSearchResult & {
   canonical: string;
   host: string;
@@ -89,11 +143,62 @@ type Candidate = AtlasSearchResult & {
 const BLOCKED_HOST_SUFFIXES = ["wikipedia.org", "wikidata.org", "fifa.com"] as const;
 const BLOCKED_HOST_SUBSTRINGS = ["worldcup", "world-cup"] as const;
 
+const CANADA_JUNK_TERMS = [
+  "canada",
+  "ontario",
+  "quebec",
+  "alberta",
+  "british columbia",
+  "saskatchewan",
+  "manitoba",
+  "nova scotia",
+  "newfoundland",
+  "labrador",
+] as const;
+
 function isBlockedHost(host: string) {
   const h = host.trim().toLowerCase();
   if (!h) return false;
   if (BLOCKED_HOST_SUFFIXES.some((suffix) => h === suffix || h.endsWith(`.${suffix}`))) return true;
   if (BLOCKED_HOST_SUBSTRINGS.some((s) => h.includes(s))) return true;
+  return false;
+}
+
+function containsUppercaseAbbrToken(text: string, abbr: string) {
+  if (!abbr || abbr.length !== 2) return false;
+  // Avoid false positives on common lowercase words (e.g. OR, IN) by requiring uppercase token in the original text.
+  return new RegExp(`\\b${abbr}\\b`).test(text);
+}
+
+function normalizeForMatch(input: string) {
+  return String(input || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function looksLikeWrongLocation(params: { selectedState: string; title: string | null; snippet: string | null; url: string }) {
+  const selected = params.selectedState.trim().toUpperCase();
+  const selectedName = (STATE_NAME_BY_ABBR as any)[selected] as string | undefined;
+  const raw = `${params.title ?? ""} ${params.snippet ?? ""} ${params.url ?? ""}`.trim();
+  const text = normalizeForMatch(raw);
+
+  // Filter obvious non-US results.
+  if (CANADA_JUNK_TERMS.some((t) => text.includes(t))) return true;
+
+  // If the snippet/title clearly mentions another state AND does not mention the selected state, treat as junk.
+  const mentionsSelected =
+    (selectedName ? text.includes(selectedName.toLowerCase()) : false) || containsUppercaseAbbrToken(raw, selected);
+  if (mentionsSelected) return false;
+
+  for (const abbr of US_STATES) {
+    if (abbr === selected) continue;
+    const otherName = STATE_NAME_BY_ABBR[abbr].toLowerCase();
+    if (otherName && text.includes(otherName)) {
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -128,24 +233,27 @@ async function fetchUpcomingCountsByStateForSport(sport: string) {
 function buildQueries(params: { sport: string; state: string; years: number[] }) {
   const sport = params.sport.trim().toLowerCase();
   const state = params.state.trim().toUpperCase();
+  const stateName = (STATE_NAME_BY_ABBR as any)[state] ? STATE_NAME_BY_ABBR[state as (typeof US_STATES)[number]] : state;
   const years = params.years.length ? params.years : [new Date().getFullYear()];
 
   const baseTerms = [
-    `${state} ${sport} youth tournament`,
-    `${state} ${sport} tournament`,
-    `${sport} tournament ${state}`,
-    `${state} ${sport} tournament registration`,
+    `future youth ${sport} tournaments in ${stateName}`,
+    `upcoming youth ${sport} tournaments in ${stateName}`,
+    `youth ${sport} tournament in ${stateName}`,
+    `${stateName} youth ${sport} tournament registration`,
   ];
 
+  const negative = 'United States -Canada -Ontario -Quebec -Alberta -Manitoba -Saskatchewan -"British Columbia" -worldcup -"world cup"';
+
   const siteHints = [
-    `site:gotsport.com ${state} ${sport} tournament`,
-    sport === "soccer" || sport === "futsal" ? `site:gotsoccer.com ${state} tournament` : null,
-    sport === "baseball" || sport === "softball" ? `site:usssa.com ${state} ${sport} tournament` : null,
-    `site:tourneymachine.com ${state} ${sport} tournament`,
+    `site:gotsport.com ${stateName} ${sport} tournament`,
+    sport === "soccer" || sport === "futsal" ? `site:gotsoccer.com ${stateName} tournament` : null,
+    sport === "baseball" || sport === "softball" ? `site:usssa.com ${stateName} ${sport} tournament` : null,
+    `site:tourneymachine.com ${stateName} ${sport} tournament`,
   ].filter(Boolean) as string[];
 
   const withYears = (terms: string[]) =>
-    years.flatMap((y) => terms.map((t) => `${t} ${y}`.trim()));
+    years.flatMap((y) => terms.map((t) => `${t} ${y} ${negative}`.trim()));
 
   // Keep the set small; Brave rate limits and has a 400-char query constraint.
   return [...withYears(baseTerms).slice(0, 6), ...withYears(siteHints).slice(0, 6)];
@@ -207,6 +315,7 @@ async function discoverCandidates(params: {
 
   const deduped = new Map<string, Candidate>();
   let blockedCount = 0;
+  let wrongLocationCount = 0;
   for (const row of results) {
     const url = String(row.url ?? "").trim();
     if (!url) continue;
@@ -214,6 +323,10 @@ async function discoverCandidates(params: {
     if (!canonical) continue;
     if (isBlockedHost(host)) {
       blockedCount += 1;
+      continue;
+    }
+    if (looksLikeWrongLocation({ selectedState: params.state, title: row.title, snippet: row.snippet, url: canonical })) {
+      wrongLocationCount += 1;
       continue;
     }
     if (!deduped.has(normalized)) {
@@ -263,7 +376,7 @@ async function discoverCandidates(params: {
       return (a.domain ?? a.host).localeCompare(b.domain ?? b.host);
     });
 
-  return { candidates, blockedCount };
+  return { candidates, blockedCount, wrongLocationCount };
 }
 
 async function queueSelectedAction(formData: FormData) {
@@ -358,6 +471,7 @@ export default async function DiscoverToQueuePage({
   const discovery = run && state ? await discoverCandidates({ sport, state, perQueryLimit, years }) : null;
   const candidates = discovery?.candidates ?? [];
   const blockedCount = discovery?.blockedCount ?? 0;
+  const wrongLocationCount = discovery?.wrongLocationCount ?? 0;
 
   return (
     <main style={{ padding: 18, maxWidth: 1100, margin: "0 auto" }}>
@@ -452,6 +566,22 @@ export default async function DiscoverToQueuePage({
           }}
         >
           Filtered out <strong>{blockedCount}</strong> junk results (wikipedia / fifa / world cup).
+        </div>
+      ) : null}
+
+      {wrongLocationCount ? (
+        <div
+          style={{
+            marginTop: 10,
+            border: "1px solid #e2e8f0",
+            background: "#f8fafc",
+            borderRadius: 12,
+            padding: "10px 12px",
+            color: "#475569",
+            fontSize: 13,
+          }}
+        >
+          Filtered out <strong>{wrongLocationCount}</strong> results that look out-of-state / non-US based on title/snippet.
         </div>
       ) : null}
 
