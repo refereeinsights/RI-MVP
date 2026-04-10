@@ -5,6 +5,7 @@ import { atlasSearch, getSearchProviderName, type AtlasSearchResult } from "@/se
 import { ensureRegistryRow, getSkipReason, normalizeSourceUrl } from "@/server/admin/sources";
 import { createTournamentFromUrl } from "@/server/admin/pasteUrl";
 import { redirect } from "next/navigation";
+import CandidatesTableClient, { type DiscoverToQueueCandidate } from "./CandidatesTableClient";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -473,6 +474,8 @@ export default async function DiscoverToQueuePage({
   const blockedCount = discovery?.blockedCount ?? 0;
   const wrongLocationCount = discovery?.wrongLocationCount ?? 0;
 
+  const candidatesForClient = candidates as unknown as DiscoverToQueueCandidate[];
+
   return (
     <main style={{ padding: 18, maxWidth: 1100, margin: "0 auto" }}>
       <AdminNav />
@@ -590,54 +593,14 @@ export default async function DiscoverToQueuePage({
           <input type="hidden" name="redirect_to" value="/admin/tournaments/discover-to-queue" />
           <input type="hidden" name="sport" value={sport} />
 
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "baseline" }}>
-            <h2 style={{ margin: 0, fontSize: 16 }}>Candidates ({candidates.length})</h2>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
             <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
               <input type="checkbox" name="override_skip" />
               Override source skip guard
             </label>
           </div>
 
-          <div style={{ marginTop: 10, border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", background: "#fff" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ textAlign: "left", background: "#f8fafc" }}>
-                  <th style={{ padding: "10px 10px", fontSize: 12, borderBottom: "1px solid #e2e8f0", width: 46 }}>Pick</th>
-                  <th style={{ padding: "10px 10px", fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>Result</th>
-                  <th style={{ padding: "10px 10px", fontSize: 12, borderBottom: "1px solid #e2e8f0", width: 220 }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {candidates.map((c) => {
-                  const disabled = c.alreadyKnown || Boolean(c.registrySkipReason);
-                  const status = c.alreadyKnown
-                    ? "Already in DB/registry"
-                    : c.registrySkipReason
-                    ? c.registrySkipReason
-                    : "New";
-                  return (
-                    <tr key={c.normalized}>
-                      <td style={{ padding: "10px 10px", borderTop: "1px solid #eef2f7", verticalAlign: "top" }}>
-                        <input type="checkbox" name="url" value={c.canonical} defaultChecked={!disabled} disabled={disabled} />
-                      </td>
-                      <td style={{ padding: "10px 10px", borderTop: "1px solid #eef2f7", verticalAlign: "top" }}>
-                        <div style={{ fontWeight: 900, fontSize: 13, color: "#0f172a" }}>{c.title ?? c.domain ?? c.host}</div>
-                        <div style={{ marginTop: 2, fontSize: 12, color: "#475569" }}>{c.snippet ?? ""}</div>
-                        <div style={{ marginTop: 6, fontSize: 12 }}>
-                          <a href={c.canonical} target="_blank" rel="noreferrer" style={{ color: "#1d4ed8", textDecoration: "none" }}>
-                            {c.host}
-                          </a>
-                        </div>
-                      </td>
-                      <td style={{ padding: "10px 10px", borderTop: "1px solid #eef2f7", verticalAlign: "top", fontSize: 12, color: disabled ? "#64748b" : "#0f172a", fontWeight: 800 }}>
-                        {status}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <CandidatesTableClient sport={sport} state={state} candidates={candidatesForClient} />
 
           <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
             <button type="submit" style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid #0f172a", background: "#0f172a", color: "#fff", fontWeight: 900 }}>

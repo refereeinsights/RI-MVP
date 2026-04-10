@@ -14,6 +14,7 @@
 - Discover → Queue: show upcoming tournament counts per state (for the selected sport) inline in the state dropdown to help prioritize under-covered states: `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx`, `supabase/migrations/20260409_public_directory_state_counts_by_sport.sql`.
 - Discover → Queue: filter obvious junk discovery results (e.g. wikipedia/world cup) by domain so they don’t clutter the candidate list: `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx`.
 - Discover → Queue: improve Atlas queries by using full state names (“Alabama” instead of “AL”), add negative keywords (Canada/world cup), and filter out results that look out-of-state based on title/snippet heuristics: `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx`.
+- Discover → Queue: add per-row “Hide” controls (client-side, stored in localStorage per sport+state) so big candidate lists are manageable without affecting the underlying source registry: `apps/referee/app/admin/tournaments/discover-to-queue/CandidatesTableClient.tsx`, `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx`.
 
 ## 2026-04-08
 
