@@ -3,6 +3,10 @@
 - Tournament directory (state → metro): when a single state is selected in the directory, show “Explore by area” chips that jump into existing `metro_markets` pages (e.g. Northern/Southern California, DC Metro) and preserve the active filters (sport/q/month/includePast/AYSO): `apps/ti-web/app/tournaments/page.tsx`, `apps/ti-web/app/tournaments/_components/MetroMarketChips.tsx`, `apps/ti-web/app/tournaments/_lib/getMetroMarketsForState.ts`, `apps/ti-web/app/tournaments/tournaments.css`.
 - SEO sport+state hub pages: add the same “Explore {State} by area” chips under the hero so users can pivot from a state hub into a metro/region view: `apps/ti-web/app/[sport]/[state]/page.tsx`.
 - Tournament detail discovery: add “More tournaments in {state}” links that deep-link into the directory as “upcoming” plus quick links for the next 4 months (keeps `includePast=false` explicit and preserves sport when available): `apps/ti-web/app/tournaments/[slug]/page.tsx`.
+- Tournament directory filters: adjust layout so the State selector is narrower and the ZIP input has room for a full 5-digit ZIP: `apps/ti-web/app/tournaments/page.tsx`, `apps/ti-web/app/tournaments/tournaments.css`.
+- Map analytics (admin surface): add a “Load map analytics” toggle on RI `/admin/ti` that shows TI map/homepage event counts + a recent-events table (last 7 days): `apps/referee/app/admin/ti/page.tsx`.
+- Map analytics (tournament detail clicks): track clicks on “More tournaments in {state}” links into `ti_map_events` as `tournament_detail_more_in_state_clicked`: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/app/tournaments/_components/MoreTournamentsInStateLinks.tsx`, `apps/ti-web/lib/tiAnalyticsEvents.ts`.
+- Analytics hygiene: skip persisting analytics events when running on localhost, stamp `host/origin/referer` into `ti_map_events.properties`, and add a cleanup migration to delete previously persisted localhost rows: `apps/ti-web/app/api/analytics/route.ts`, `supabase/migrations/20260410_cleanup_localhost_ti_analytics_events.sql`.
 
 ## 2026-04-08
 

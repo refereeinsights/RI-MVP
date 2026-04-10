@@ -3,7 +3,8 @@ export type TiAnalyticsEventName =
   | "map_filter_changed"
   | "map_state_clicked"
   | "homepage_cta_clicked"
-  | "homepage_sport_chip_clicked";
+  | "homepage_sport_chip_clicked"
+  | "tournament_detail_more_in_state_clicked";
 
 export type TiAnalyticsEventPropertiesByName = {
   map_viewed: {
@@ -28,5 +29,13 @@ export type TiAnalyticsEventPropertiesByName = {
   homepage_sport_chip_clicked: {
     sport: string;
   };
+  tournament_detail_more_in_state_clicked: {
+    page_type: "tournament_detail";
+    tournament_slug: string;
+    sport: string;
+    state: string;
+    href: string;
+    link_kind: "upcoming" | "month";
+    month: string | null;
+  };
 };
-

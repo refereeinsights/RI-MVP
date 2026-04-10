@@ -1561,10 +1561,79 @@ async function loadLastAdminBlastSentAtByEmail(params: {
   }
 }
 
+async function countTiMapEventSince(eventName: string, sinceIso: string) {
+  try {
+    const { count, error } = await supabaseAdmin
+      .from("ti_map_events" as any)
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", sinceIso)
+      .eq("event_name", eventName);
+
+    if (error) return { ok: false as const, count: 0, error: error.message };
+    return { ok: true as const, count: count ?? 0, error: null as string | null };
+  } catch (error) {
+    return {
+      ok: false as const,
+      count: 0,
+      error: error instanceof Error ? error.message : "Failed to query ti_map_events.",
+    };
+  }
+}
+
+async function loadTiMapAnalytics(sinceIso: string) {
+  const [views7d, filter7d, stateClicks7d, cta7d, chip7d, moreInState7d, recentRes] = await Promise.all([
+    countTiMapEventSince("map_viewed", sinceIso),
+    countTiMapEventSince("map_filter_changed", sinceIso),
+    countTiMapEventSince("map_state_clicked", sinceIso),
+    countTiMapEventSince("homepage_cta_clicked", sinceIso),
+    countTiMapEventSince("homepage_sport_chip_clicked", sinceIso),
+    countTiMapEventSince("tournament_detail_more_in_state_clicked", sinceIso),
+    supabaseAdmin
+      .from("ti_map_events" as any)
+      .select("created_at,event_name,page_type,sport,state,cta,filter_name,old_value,new_value,href")
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
+
+  if (!views7d.ok) return { ok: false as const, error: views7d.error ?? "Failed to load map views." };
+  if (!filter7d.ok) return { ok: false as const, error: filter7d.error ?? "Failed to load map filter changes." };
+  if (!stateClicks7d.ok) return { ok: false as const, error: stateClicks7d.error ?? "Failed to load map state clicks." };
+  if (!cta7d.ok) return { ok: false as const, error: cta7d.error ?? "Failed to load CTA clicks." };
+  if (!chip7d.ok) return { ok: false as const, error: chip7d.error ?? "Failed to load sport chip clicks." };
+  if (!moreInState7d.ok) return { ok: false as const, error: moreInState7d.error ?? "Failed to load detail clicks." };
+  if (recentRes.error) return { ok: false as const, error: recentRes.error.message };
+
+  const recentEvents = (recentRes.data ?? []) as Array<{
+    created_at?: string | null;
+    event_name?: string | null;
+    page_type?: string | null;
+    sport?: string | null;
+    state?: string | null;
+    cta?: string | null;
+    filter_name?: string | null;
+    old_value?: string | null;
+    new_value?: string | null;
+    href?: string | null;
+  }>;
+
+  return {
+    ok: true as const,
+    counts: {
+      map_views: views7d.count,
+      sport_filter_changes: filter7d.count,
+      state_clicks: stateClicks7d.count,
+      homepage_cta_clicks: cta7d.count,
+      homepage_sport_chip_clicks: chip7d.count,
+      tournament_detail_more_in_state_clicks: moreInState7d.count,
+    },
+    recentEvents,
+  };
+}
+
 export default async function TiAdminPage({
   searchParams,
 }: {
-  searchParams?: { q?: string; notice?: string; alert_kpis?: string; template_id?: string };
+  searchParams?: { q?: string; notice?: string; alert_kpis?: string; map_analytics?: string; template_id?: string };
 }) {
   const adminUser = await requireAdmin();
   const tiAdminBaseUrl =
@@ -1575,11 +1644,24 @@ export default async function TiAdminPage({
   const notice = (searchParams?.notice ?? "").trim();
   const eventCodeNotice = notice.toLowerCase().includes("event code") ? notice : "";
   const showAlertKpis = String(searchParams?.alert_kpis ?? "").trim() === "1";
+  const showMapAnalytics = String(searchParams?.map_analytics ?? "").trim() === "1";
   const templateId = (searchParams?.template_id ?? "").trim();
+
+  const toggleParams = new URLSearchParams();
+  if (q) toggleParams.set("q", q);
+  if (templateId) toggleParams.set("template_id", templateId);
+
+  const withToggles = ({ alertKpis, mapAnalytics }: { alertKpis: boolean; mapAnalytics: boolean }) => {
+    const params = new URLSearchParams(toggleParams);
+    if (alertKpis) params.set("alert_kpis", "1");
+    if (mapAnalytics) params.set("map_analytics", "1");
+    return `/admin/ti${params.toString() ? `?${params.toString()}` : ""}`;
+  };
 
   const dismissNoticeParams = new URLSearchParams();
   if (q) dismissNoticeParams.set("q", q);
   if (showAlertKpis) dismissNoticeParams.set("alert_kpis", "1");
+  if (showMapAnalytics) dismissNoticeParams.set("map_analytics", "1");
   if (templateId) dismissNoticeParams.set("template_id", templateId);
   const dismissNoticeHref = `/admin/ti${dismissNoticeParams.toString() ? `?${dismissNoticeParams.toString()}` : ""}`;
 
@@ -1613,6 +1695,9 @@ export default async function TiAdminPage({
 
   const alertKpis = showAlertKpis ? await loadTournamentAlertKpis() : null;
   const savedChangeKpis = showAlertKpis ? await loadSavedTournamentChangeKpis() : null;
+
+  const mapSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const tiMapAnalytics = showMapAnalytics ? await loadTiMapAnalytics(mapSince) : null;
 
   const { data: templatesRaw, error: templatesErr } = await (supabaseAdmin.from("ti_admin_email_templates" as any) as any)
     .select("id,name,kind,subject,body,updated_at,last_used_at")
@@ -1824,15 +1909,20 @@ export default async function TiAdminPage({
               Adoption + sends + Resend errors (email + error message).
             </p>
           </div>
-          {showAlertKpis ? (
-            <Link href="/admin/ti" style={{ fontSize: 13 }}>
-              Hide
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <Link
+              href={withToggles({ alertKpis: !showAlertKpis, mapAnalytics: showMapAnalytics })}
+              style={{ padding: "8px 10px", border: "1px solid #cbd5e1", borderRadius: 10, fontSize: 13, textDecoration: "none" }}
+            >
+              {showAlertKpis ? "Hide alert KPIs" : "Load alert KPIs"}
             </Link>
-          ) : (
-            <Link href="/admin/ti?alert_kpis=1" style={{ padding: "8px 10px", border: "1px solid #cbd5e1", borderRadius: 10 }}>
-              Load alert KPIs
+            <Link
+              href={withToggles({ alertKpis: showAlertKpis, mapAnalytics: !showMapAnalytics })}
+              style={{ padding: "8px 10px", border: "1px solid #cbd5e1", borderRadius: 10, fontSize: 13, textDecoration: "none" }}
+            >
+              {showMapAnalytics ? "Hide map analytics" : "Load map analytics"}
             </Link>
-          )}
+          </div>
         </div>
 
         {showAlertKpis ? (
@@ -2042,6 +2132,133 @@ export default async function TiAdminPage({
                 )}
               </div>
             </>
+          )
+        ) : null}
+
+        {showMapAnalytics ? (
+          tiMapAnalytics?.ok === false ? (
+            <div
+              style={{
+                marginTop: 14,
+                border: "1px solid #e2e8f0",
+                background: "#f8fafc",
+                borderRadius: 12,
+                padding: "10px 12px",
+              }}
+            >
+              <div style={{ fontSize: 13, color: "#0f172a", fontWeight: 800 }}>
+                Map analytics not available yet.
+              </div>
+              <div style={{ marginTop: 4, fontSize: 13, color: "#64748b" }}>
+                Apply migration `supabase/migrations/20260409_ti_map_analytics_events.sql` (and ensure the service role can read/write `ti_map_events`).
+              </div>
+              <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>{tiMapAnalytics.error}</div>
+            </div>
+          ) : (
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ margin: "0 0 8px 0", fontSize: 15 }}>TI Map Analytics (last 7 days)</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(160px, 1fr))", gap: 10 }}>
+                {[
+                  ["Map views", String(tiMapAnalytics?.counts.map_views ?? 0)],
+                  ["Sport filter changes", String(tiMapAnalytics?.counts.sport_filter_changes ?? 0)],
+                  ["State clicks", String(tiMapAnalytics?.counts.state_clicks ?? 0)],
+                  ["Homepage CTA clicks", String(tiMapAnalytics?.counts.homepage_cta_clicks ?? 0)],
+                  ["Sport chip clicks", String(tiMapAnalytics?.counts.homepage_sport_chip_clicks ?? 0)],
+                  ["Detail → directory clicks", String(tiMapAnalytics?.counts.tournament_detail_more_in_state_clicks ?? 0)],
+                ].map(([label, value]) => (
+                  <div key={label} style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 10 }}>
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>{label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 12 }}>
+                <h4 style={{ margin: "0 0 8px 0", fontSize: 14 }}>Recent events</h4>
+                {tiMapAnalytics?.recentEvents?.length ? (
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 920 }}>
+                      <thead>
+                        <tr>
+                          {[
+                            ["When", 170],
+                            ["Event", 240],
+                            ["Page", 140],
+                            ["Sport", 120],
+                            ["State", 80],
+                            ["Details", 520],
+                          ].map(([h, w]) => (
+                            <th
+                              key={String(h)}
+                              style={{
+                                textAlign: "left",
+                                borderBottom: "1px solid #e5e7eb",
+                                padding: "8px 6px",
+                                fontSize: 12,
+                                width: w,
+                              }}
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tiMapAnalytics.recentEvents.map((row, idx) => {
+                          const time = row.created_at ? new Date(row.created_at).toLocaleString() : "—";
+                          const details =
+                            row.event_name === "map_filter_changed"
+                              ? `${row.filter_name ?? ""}: ${row.old_value ?? ""} → ${row.new_value ?? ""}`.trim()
+                              : row.event_name === "homepage_cta_clicked"
+                              ? `cta=${row.cta ?? ""}`.trim()
+                              : row.href
+                              ? row.href
+                              : "";
+                          return (
+                            <tr key={`${row.created_at ?? "t"}-${idx}`}>
+                              <td
+                                style={{
+                                  borderTop: "1px solid #e5e7eb",
+                                  padding: "8px 6px",
+                                  fontSize: 12,
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {time}
+                              </td>
+                              <td style={{ borderTop: "1px solid #e5e7eb", padding: "8px 6px", fontSize: 12 }}>
+                                {row.event_name ?? "—"}
+                              </td>
+                              <td style={{ borderTop: "1px solid #e5e7eb", padding: "8px 6px", fontSize: 12 }}>
+                                {row.page_type ?? "—"}
+                              </td>
+                              <td style={{ borderTop: "1px solid #e5e7eb", padding: "8px 6px", fontSize: 12 }}>
+                                {row.sport ?? "—"}
+                              </td>
+                              <td style={{ borderTop: "1px solid #e5e7eb", padding: "8px 6px", fontSize: 12 }}>
+                                {row.state ?? "—"}
+                              </td>
+                              <td
+                                style={{
+                                  borderTop: "1px solid #e5e7eb",
+                                  padding: "8px 6px",
+                                  fontSize: 12,
+                                  maxWidth: 520,
+                                }}
+                              >
+                                <span style={{ color: "#475569" }}>{details}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>No recent events.</p>
+                )}
+              </div>
+            </div>
           )
         ) : null}
       </section>

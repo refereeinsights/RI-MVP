@@ -12,6 +12,7 @@ import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SaveTournamentButton from "@/components/SaveTournamentButton";
 import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
 import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
+import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
 import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
@@ -713,6 +714,7 @@ async function TournamentVenueDetails({
         const stateCode = (tournament.state ?? "").trim().toUpperCase();
         if (!/^[A-Z]{2}$/.test(stateCode)) return null;
 
+        const tournamentSlug = String(tournament.slug ?? "").trim() || "unknown";
         const monthLinks = nextMonths(4);
         const upcomingHref = buildDirectoryHref({ state: stateCode, sport: tournament.sport, month: null });
         const titleSport = (tournament.sport ?? "").trim()
@@ -720,27 +722,18 @@ async function TournamentVenueDetails({
           : "";
 
         return (
-          <div className="detailCard">
-            <div className="detailCard__title">More {titleSport}tournaments in {stateCode}</div>
-            <div className="detailCard__body">
-              <div className="detailLinksRow">
-                <Link className="secondaryLink" href={upcomingHref}>
-                  View upcoming
-                </Link>
-              </div>
-              <div className="detailLinksRow">
-                {monthLinks.map((m) => (
-                  <Link
-                    key={m.value}
-                    className="secondaryLink detailLinkSmall"
-                    href={buildDirectoryHref({ state: stateCode, sport: tournament.sport, month: m.value })}
-                  >
-                    {m.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
+          <MoreTournamentsInStateLinks
+            tournamentSlug={tournamentSlug}
+            stateCode={stateCode}
+            sport={String(tournament.sport ?? "")}
+            title={`More ${titleSport}tournaments in ${stateCode}`}
+            upcomingHref={upcomingHref}
+            monthLinks={monthLinks.map((m) => ({
+              value: m.value,
+              label: m.label,
+              href: buildDirectoryHref({ state: stateCode, sport: tournament.sport, month: m.value }),
+            }))}
+          />
         );
       })()}
 

@@ -571,7 +571,7 @@ export default async function TournamentsPage({
                 name="radius"
                 className="select"
                 defaultValue={String(radiusMiles)}
-                style={{ width: 140 }}
+                style={{ width: 120 }}
               >
                 {[10, 25, 50, 75, 100, 150, 200, 300].map((miles) => (
                   <option key={miles} value={String(miles)}>

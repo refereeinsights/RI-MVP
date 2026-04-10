@@ -183,6 +183,13 @@
   z-index: 3;
 }
 
+@media (min-width: 901px) {
+  .tournamentsField .filters {
+    /* Search | State | ZIP + radius (wider so ZIP can show 5 digits) */
+    grid-template-columns: minmax(240px, 420px) 150px minmax(260px, 320px);
+  }
+}
+
 .tournamentsField .label {
   color: rgba(16,34,19,0.7);
 }

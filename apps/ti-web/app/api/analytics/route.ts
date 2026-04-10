@@ -22,6 +22,7 @@ const MAP_EVENTS = new Set([
   "map_state_clicked",
   "homepage_cta_clicked",
   "homepage_sport_chip_clicked",
+  "tournament_detail_more_in_state_clicked",
 ]);
 
 function asText(value: unknown) {
@@ -34,6 +35,33 @@ function asTextWithLimit(value: unknown, maxLen: number) {
   const text = asText(value);
   if (!text) return null;
   return text.length > maxLen ? text.slice(0, maxLen) : text;
+}
+
+function isLocalhostHost(host: string) {
+  const h = host.trim().toLowerCase();
+  if (!h) return false;
+  if (h === "localhost" || h.startsWith("localhost:")) return true;
+  if (h === "127.0.0.1" || h.startsWith("127.0.0.1:")) return true;
+  if (h === "[::1]" || h.startsWith("[::1]:")) return true;
+  if (h.endsWith(".local")) return true;
+  return false;
+}
+
+function shouldPersistMapEvents(request: Request) {
+  const host = asTextWithLimit(request.headers.get("x-forwarded-host") ?? request.headers.get("host"), 128);
+  if (host && isLocalhostHost(host)) return false;
+
+  const origin = asTextWithLimit(request.headers.get("origin"), 256);
+  if (origin && (origin.includes("://localhost") || origin.includes("://127.0.0.1") || origin.includes("://[::1]"))) {
+    return false;
+  }
+
+  const referer = asTextWithLimit(request.headers.get("referer"), 512);
+  if (referer && (referer.includes("://localhost") || referer.includes("://127.0.0.1") || referer.includes("://[::1]"))) {
+    return false;
+  }
+
+  return true;
 }
 
 function asNumber(value: unknown) {
@@ -85,6 +113,11 @@ export async function POST(request: Request) {
   // Persist quick-check events for admin analytics. Keep the surface area small: only store
   // the venue quick check funnel events, with tight parsing and field limits.
   if (QUICK_CHECK_EVENTS.has(payload.event)) {
+    // Avoid polluting analytics with local testing / admin poking around.
+    if (!shouldPersistMapEvents(request)) {
+      return NextResponse.json({ ok: true, skipped: "localhost" });
+    }
+
     const props = payload.properties ?? {};
     const venueUuid = asText((props as any).venueUuid);
     const pageType = asText((props as any).pageType);
@@ -108,6 +141,15 @@ export async function POST(request: Request) {
 
   // Persist map interactions so we can review adoption and usage patterns.
   if (MAP_EVENTS.has(payload.event)) {
+    const host = asTextWithLimit(request.headers.get("x-forwarded-host") ?? request.headers.get("host"), 128);
+    const origin = asTextWithLimit(request.headers.get("origin"), 256);
+    const referer = asTextWithLimit(request.headers.get("referer"), 512);
+
+    // Avoid polluting analytics with local testing / admin poking around.
+    if (!shouldPersistMapEvents(request)) {
+      return NextResponse.json({ ok: true, skipped: "localhost" });
+    }
+
     const propsRaw = payload.properties ?? {};
     const props = asObject(propsRaw) ?? {};
     const pageType = asTextWithLimit((props as any).page_type, 32);
@@ -122,6 +164,9 @@ export async function POST(request: Request) {
     const properties = {
       ...(props as any),
       ua: (props as any).ua ?? userAgent ?? null,
+      host: (props as any).host ?? host ?? null,
+      origin: (props as any).origin ?? origin ?? null,
+      referer: (props as any).referer ?? referer ?? null,
     };
 
     try {
