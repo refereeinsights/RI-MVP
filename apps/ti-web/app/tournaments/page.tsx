@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { TI_SPORT_LABELS } from "@/lib/tiSports";
 import { lookupZipLatLng } from "@/lib/lookupZipLatLng";
 import StateMultiSelect from "./StateMultiSelect";
+import MetroMarketChips from "./_components/MetroMarketChips";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import "./tournaments.css";
@@ -273,7 +274,15 @@ export default async function TournamentsPage({
       if (!aysoOnly) return true; // default: include AYSO + non-AYSO
       return (t.tournament_association ?? "").trim().toUpperCase() === "AYSO";
     });
-  const sportsCounts = tournamentsClean.reduce((acc: Record<string, number>, t) => {
+
+  // Important UX detail: when users land here from the map with a state filter,
+  // the per-sport counts should reflect *that* state (not national totals).
+  const stateFilterActive = !isAllStates && stateSelections.length > 0;
+  const tournamentsScopedForSportCounts = stateFilterActive
+    ? tournamentsClean.filter((t) => stateSelections.includes((t.state ?? "").trim().toUpperCase()))
+    : tournamentsClean;
+
+  const sportsCounts = tournamentsScopedForSportCounts.reduce((acc: Record<string, number>, t) => {
     const key = (t.sport ?? "unknown").toLowerCase();
     acc[key] = (acc[key] || 0) + 1;
     return acc;
@@ -617,6 +626,18 @@ export default async function TournamentsPage({
             </a>
           </div>
         </form>
+
+        {stateSelections.length === 1 && !isAllStates ? (
+          <MetroMarketChips
+            stateCode={stateSelections[0]}
+            sports={sportsSelected}
+            q={q}
+            month={month}
+            includePast={includePast}
+            aysoOnly={aysoOnly}
+            title="Explore by area"
+          />
+        ) : null}
 
         {sportsSorted.length ? (() => {
           const badges =

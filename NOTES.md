@@ -1,3 +1,9 @@
+## 2026-04-10
+
+- Tournament directory (state → metro): when a single state is selected in the directory, show “Explore by area” chips that jump into existing `metro_markets` pages (e.g. Northern/Southern California, DC Metro) and preserve the active filters (sport/q/month/includePast/AYSO): `apps/ti-web/app/tournaments/page.tsx`, `apps/ti-web/app/tournaments/_components/MetroMarketChips.tsx`, `apps/ti-web/app/tournaments/_lib/getMetroMarketsForState.ts`, `apps/ti-web/app/tournaments/tournaments.css`.
+- SEO sport+state hub pages: add the same “Explore {State} by area” chips under the hero so users can pivot from a state hub into a metro/region view: `apps/ti-web/app/[sport]/[state]/page.tsx`.
+- Tournament detail discovery: add “More tournaments in {state}” links that deep-link into the directory as “upcoming” plus quick links for the next 4 months (keeps `includePast=false` explicit and preserves sport when available): `apps/ti-web/app/tournaments/[slug]/page.tsx`.
+
 ## 2026-04-08
 
 - TI outreach dashboard: add an “All sports” filter option so admins can view all campaigns/metrics at once (passes `p_sport = null` to the metrics RPC): `apps/ti-web/app/admin/outreach-dashboard/page.tsx`.

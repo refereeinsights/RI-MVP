@@ -375,7 +375,12 @@ export default async function MetroMarketTournamentsPage({
       return (t.tournament_association ?? "").trim().toUpperCase() === "AYSO";
     });
 
-  const sportsCounts = tournamentsClean.reduce((acc: Record<string, number>, t) => {
+  const stateFilterActive = !isAllStates && stateSelections.length > 0;
+  const tournamentsScopedForSportCounts = stateFilterActive
+    ? tournamentsClean.filter((t) => stateSelections.includes((t.state ?? "").trim().toUpperCase()))
+    : tournamentsClean;
+
+  const sportsCounts = tournamentsScopedForSportCounts.reduce((acc: Record<string, number>, t) => {
     const key = (t.sport ?? "unknown").toLowerCase();
     acc[key] = (acc[key] || 0) + 1;
     return acc;

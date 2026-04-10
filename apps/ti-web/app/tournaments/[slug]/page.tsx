@@ -135,6 +135,38 @@ function getMetroMarketLabel(state: string | null): string | null {
   return null;
 }
 
+function buildDirectoryHref({
+  state,
+  sport,
+  month,
+}: {
+  state: string;
+  sport: string | null;
+  month?: string | null;
+}) {
+  const params = new URLSearchParams();
+  const st = (state ?? "").trim().toUpperCase();
+  if (st) params.append("state", st);
+  const sp = (sport ?? "").trim().toLowerCase();
+  if (sp) params.append("sports", sp);
+  if (month) params.set("month", month);
+  // Keep this explicit so the link is self-explanatory when shared.
+  params.set("includePast", "false");
+  return `/tournaments?${params.toString()}`;
+}
+
+function nextMonths(count: number) {
+  const out: Array<{ value: string; label: string }> = [];
+  const now = new Date();
+  for (let i = 0; i < count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const label = d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+    out.push({ value, label });
+  }
+  return out;
+}
+
 type ViewerContext = {
   userId: string | null;
   viewerEmail: string;
@@ -676,6 +708,41 @@ async function TournamentVenueDetails({
       ) : null}
 
       {tournament.summary ? <p className="detailSummary">{tournament.summary}</p> : null}
+
+      {(() => {
+        const stateCode = (tournament.state ?? "").trim().toUpperCase();
+        if (!/^[A-Z]{2}$/.test(stateCode)) return null;
+
+        const monthLinks = nextMonths(4);
+        const upcomingHref = buildDirectoryHref({ state: stateCode, sport: tournament.sport, month: null });
+        const titleSport = (tournament.sport ?? "").trim()
+          ? `${String(tournament.sport).toLowerCase()} `
+          : "";
+
+        return (
+          <div className="detailCard">
+            <div className="detailCard__title">More {titleSport}tournaments in {stateCode}</div>
+            <div className="detailCard__body">
+              <div className="detailLinksRow">
+                <Link className="secondaryLink" href={upcomingHref}>
+                  View upcoming
+                </Link>
+              </div>
+              <div className="detailLinksRow">
+                {monthLinks.map((m) => (
+                  <Link
+                    key={m.value}
+                    className="secondaryLink detailLinkSmall"
+                    href={buildDirectoryHref({ state: stateCode, sport: tournament.sport, month: m.value })}
+                  >
+                    {m.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {tournamentPartnerRows.length ? (
         <div className="detailCard">

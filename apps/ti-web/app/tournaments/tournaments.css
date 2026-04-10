@@ -2442,6 +2442,70 @@
   color: #fff0f8;
 }
 
+.areaHeader {
+  display: grid;
+  gap: 4px;
+  text-align: center;
+  margin-bottom: 10px;
+}
+.areaTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.areaSubtitle {
+  font-size: 12px;
+  color: #64748b;
+}
+.areaGroup {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.areaGroupLabel {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.areaChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.areaChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  background: rgba(2, 6, 23, 0.03);
+  border: 1px solid rgba(2, 6, 23, 0.12);
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.areaChip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(0,0,0,0.08);
+  border-color: rgba(15, 23, 42, 0.22);
+  background: rgba(2, 6, 23, 0.05);
+}
+.areaChipLabel {
+  white-space: nowrap;
+}
+.areaChipHint {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.55);
+  white-space: nowrap;
+}
+
 .schoolsPage .cardWhistle {
   background: transparent;
   padding: 0;
