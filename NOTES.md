@@ -16,6 +16,7 @@
 - Discover → Queue: improve Atlas queries by using full state names (“Alabama” instead of “AL”), add negative keywords (Canada/world cup), and filter out results that look out-of-state based on title/snippet heuristics: `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx`.
 - Discover → Queue: add per-row “Hide” controls (client-side, stored in localStorage per sport+state) so big candidate lists are manageable without affecting the underlying source registry: `apps/referee/app/admin/tournaments/discover-to-queue/CandidatesTableClient.tsx`, `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx`.
 - Discover → Queue: stop auto-running discovery on page load (prevents Brave 429s on refresh); discovery/queue now run via admin API calls and results are cached locally per sport+state+years: `apps/referee/app/api/admin/tournaments/discover-to-queue/route.ts`, `apps/referee/app/admin/tournaments/discover-to-queue/DiscoverToQueueClient.tsx`, `apps/referee/src/server/admin/discoverToQueue.ts`.
+- Sources registry: add `source_type='atlas_discovery'` for URLs discovered via Discover → Queue so they can be filtered/reviewed in `/admin/tournaments/sources`: `supabase/migrations/20260410_tournament_sources_allow_atlas_discovery.sql`, `apps/referee/src/server/admin/discoverToQueue.ts`, `apps/referee/app/admin/tournaments/sources/page.tsx`.
 
 ## 2026-04-08
 

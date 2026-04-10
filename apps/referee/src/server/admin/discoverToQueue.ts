@@ -368,7 +368,7 @@ export async function queueDiscoveredUrls(params: { sport: string; urls: string[
     try {
       const { row } = await ensureRegistryRow(canonical, {
         source_url: canonical,
-        source_type: "other",
+        source_type: "atlas_discovery",
         sport,
         is_active: true,
         review_status: "untested",
@@ -393,4 +393,3 @@ export async function queueDiscoveredUrls(params: { sport: string; urls: string[
 
   return { queued, skipped, errors, errorSamples };
 }
-

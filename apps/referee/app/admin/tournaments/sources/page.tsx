@@ -59,6 +59,7 @@ const SOURCE_TYPE_OPTIONS = [
   "club",
   "directory",
   "association_directory",
+  "atlas_discovery",
 ] as const;
 const TOURNAMENT_SPORTS = SPORT_OPTIONS;
 
