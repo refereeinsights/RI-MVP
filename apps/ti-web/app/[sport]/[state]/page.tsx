@@ -13,6 +13,7 @@ import {
 import { buildTIHubTitle, assertNoDoubleBrand } from "@/lib/seo/buildTITitle";
 import { validateTournamentSport } from "@/lib/validation/validateTournamentSport";
 import MetroMarketChips from "@/app/tournaments/_components/MetroMarketChips";
+import SeoMetroHubChips from "./_components/SeoMetroHubChips";
 import "../../tournaments/tournaments.css";
 
 // Keep SEO hub pages fresh without hammering Supabase.
@@ -213,6 +214,11 @@ export default async function SportStateHubPage({
     sports: [sportKey],
     title: `Explore ${stateName} by area`,
   });
+  const seoMetroHubChips = await SeoMetroHubChips({
+    stateCode,
+    sportKey,
+    title: `Explore ${stateName} by city`,
+  });
 
   return (
     <main className="page">
@@ -231,6 +237,7 @@ export default async function SportStateHubPage({
         </section>
 
         {metroMarketChips}
+        {seoMetroHubChips}
 
         <section
           className="bodyCard"

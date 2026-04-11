@@ -1,3 +1,10 @@
+## 2026-04-11
+
+- SEO metro hubs (city-rule-based): add `/[sport]/[state]/[metro]` pages backed by `metro_market_city_rules` so we can expand beyond state hubs without auto-generating thin pages; pages noindex unless they meet an upcoming-tournament threshold and include breadcrumbs + ItemList JSON-LD: `apps/ti-web/app/[sport]/[state]/[metro]/page.tsx`.
+- SEO metro hub discovery: surface indexable city-based metro hubs as chips on the existing sport+state hub page (so users can drill into high-density metros): `apps/ti-web/app/[sport]/[state]/page.tsx`, `apps/ti-web/app/[sport]/[state]/_components/SeoMetroHubChips.tsx`.
+- Sitemap: add `sitemaps/metros.xml` and include it in the sitemap index so search engines can find qualified metro hubs: `apps/ti-web/app/sitemaps/metros.xml/route.ts`, `apps/ti-web/app/sitemap.xml/route.ts`.
+- Supabase: add RPCs to (1) rank city→metro candidates from tournament density and (2) list indexable sport/state/metro URLs for sitemap + internal linking; seed the top 25 city candidates into `metro_markets` + `metro_market_states` + `metro_market_city_rules` (idempotent): `supabase/migrations/20260411_seo_city_metro_hubs.sql`.
+
 ## 2026-04-10
 
 - Tournament directory (state → metro): when a single state is selected in the directory, show “Explore by area” chips that jump into existing `metro_markets` pages (e.g. Northern/Southern California, DC Metro) and preserve the active filters (sport/q/month/includePast/AYSO): `apps/ti-web/app/tournaments/page.tsx`, `apps/ti-web/app/tournaments/_components/MetroMarketChips.tsx`, `apps/ti-web/app/tournaments/_lib/getMetroMarketsForState.ts`, `apps/ti-web/app/tournaments/tournaments.css`.
