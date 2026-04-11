@@ -18,6 +18,7 @@
 - Discover → Queue: stop auto-running discovery on page load (prevents Brave 429s on refresh); discovery/queue now run via admin API calls and results are cached locally per sport+state+years: `apps/referee/app/api/admin/tournaments/discover-to-queue/route.ts`, `apps/referee/app/admin/tournaments/discover-to-queue/DiscoverToQueueClient.tsx`, `apps/referee/src/server/admin/discoverToQueue.ts`.
 - Sources registry: add `source_type='atlas_discovery'` for URLs discovered via Discover → Queue so they can be filtered/reviewed in `/admin/tournaments/sources`: `supabase/migrations/20260410_tournament_sources_allow_atlas_discovery.sql`, `apps/referee/src/server/admin/discoverToQueue.ts`, `apps/referee/app/admin/tournaments/sources/page.tsx`.
 - Sources registry: when queueing discovered URLs, also tag existing `tournament_sources` rows as `atlas_discovery` when their current type is blank/`other` (so previously-known URLs still show up under the new filter): `apps/referee/src/server/admin/discoverToQueue.ts`.
+- RI admin uploads: add “Tourney Export” tool to export tournaments + linked venues as CSV with filters for state(s), sport(s), and optional venue (typeahead search), emitting one row per tournament↔venue link: `apps/referee/app/admin/tournaments/tourney-export/page.tsx`, `apps/referee/app/admin/tournaments/tourney-export/TourneyExportClient.tsx`, `apps/referee/app/api/admin/tournaments/tourney-export/route.ts`, `apps/referee/app/admin/page.tsx`.
 
 ## 2026-04-08
 

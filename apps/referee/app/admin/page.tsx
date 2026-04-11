@@ -5944,16 +5944,22 @@ export default async function AdminPage({
 			              >
 		                Enrichment tool
 		              </a>
-		              <a
-		                href="/admin/tournaments/discover-to-queue"
-		                style={{ fontSize: 13, fontWeight: 800, color: "#0f3d2e", textDecoration: "none" }}
-		              >
-		                Discover → Queue
-		              </a>
-		              <a
-		                href="/api/admin/tournaments/uploads/export"
-		                style={{
-	                  padding: "8px 10px",
+			              <a
+			                href="/admin/tournaments/discover-to-queue"
+			                style={{ fontSize: 13, fontWeight: 800, color: "#0f3d2e", textDecoration: "none" }}
+			              >
+			                Discover → Queue
+			              </a>
+			              <a
+			                href="/admin/tournaments/tourney-export"
+			                style={{ fontSize: 13, fontWeight: 800, color: "#0f3d2e", textDecoration: "none" }}
+			              >
+			                Tourney Export
+			              </a>
+			              <a
+			                href="/api/admin/tournaments/uploads/export"
+			                style={{
+		                  padding: "8px 10px",
 	                  borderRadius: 10,
                   border: "1px solid #0f3d2e",
                   background: "#fff",
