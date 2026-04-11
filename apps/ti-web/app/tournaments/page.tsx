@@ -164,6 +164,18 @@ export default async function TournamentsPage({
   const ALL_STATES_VALUE = "__ALL__";
   const stateSelections = stateSelectionsRaw.filter((s) => s !== ALL_STATES_VALUE);
   const isAllStates = stateSelections.length === 0 || stateSelectionsRaw.includes(ALL_STATES_VALUE);
+  const metroMarketChips =
+    stateSelections.length === 1 && !isAllStates
+      ? await MetroMarketChips({
+          stateCode: stateSelections[0],
+          sports: sportsSelected,
+          q,
+          month,
+          includePast,
+          aysoOnly,
+          title: "Explore by area",
+        })
+      : null;
   const stateSummaryLabel = isAllStates
     ? "All states"
     : stateSelections.length <= 3
@@ -627,17 +639,7 @@ export default async function TournamentsPage({
           </div>
         </form>
 
-        {stateSelections.length === 1 && !isAllStates ? (
-          <MetroMarketChips
-            stateCode={stateSelections[0]}
-            sports={sportsSelected}
-            q={q}
-            month={month}
-            includePast={includePast}
-            aysoOnly={aysoOnly}
-            title="Explore by area"
-          />
-        ) : null}
+        {metroMarketChips}
 
         {sportsSorted.length ? (() => {
           const badges =

@@ -208,6 +208,11 @@ export default async function SportStateHubPage({
 
   const otherSportsInState = curatedSports.filter((sport) => sport.key !== sportKey);
   const otherStatesForSport = curatedStates.filter((state) => state.code !== stateCode);
+  const metroMarketChips = await MetroMarketChips({
+    stateCode,
+    sports: [sportKey],
+    title: `Explore ${stateName} by area`,
+  });
 
   return (
     <main className="page">
@@ -225,11 +230,7 @@ export default async function SportStateHubPage({
           </div>
         </section>
 
-        <MetroMarketChips
-          stateCode={stateCode}
-          sports={[sportKey]}
-          title={`Explore ${stateName} by area`}
-        />
+        {metroMarketChips}
 
         <section
           className="bodyCard"
