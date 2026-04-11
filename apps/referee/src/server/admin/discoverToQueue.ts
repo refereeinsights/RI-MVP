@@ -196,7 +196,8 @@ export async function fetchUpcomingCountsByStateForSport(sport: string) {
   const normalizedSport = sport.trim().toLowerCase();
   if (!normalizedSport) return new Map<string, number>();
 
-  const res = await supabaseAdmin.rpc("get_public_directory_tournament_counts_by_state_sport" as any, {
+  // Cast to any to avoid environments where the generated Supabase types don't include this RPC yet.
+  const res = await (supabaseAdmin as any).rpc("get_public_directory_tournament_counts_by_state_sport", {
     p_sport: normalizedSport,
   });
 
