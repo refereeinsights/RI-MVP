@@ -787,7 +787,7 @@ export default async function MetroMarketTournamentsPage({
                   <div className="cardFooter">
                     {hasOfficialSite ? (
                       <a
-                        href={t.official_website_url!}
+                        href={`/go/tournament/${t.slug}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="secondaryLink"

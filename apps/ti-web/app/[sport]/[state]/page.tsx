@@ -299,7 +299,7 @@ export default async function SportStateHubPage({
                       <p className="dates">{dateLabel}</p>
                       <div className="cardFooter">
                         {officialUrl ? (
-                          <a href={officialUrl} target="_blank" rel="noopener noreferrer" className="secondaryLink">
+                          <a href={`/go/tournament/${t.slug}`} target="_blank" rel="noopener noreferrer" className="secondaryLink">
                             <span>Official site</span>
                           </a>
                         ) : (

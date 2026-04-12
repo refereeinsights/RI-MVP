@@ -155,7 +155,7 @@ export async function SportHubPage({ sport, page }: { sport: string; page: numbe
                     <div className="cardFooter">
                       {hasOfficialSite ? (
                         <a
-                          href={t.official_website_url!}
+                          href={`/go/tournament/${t.slug}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="secondaryLink"

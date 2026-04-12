@@ -1,3 +1,9 @@
+## 2026-04-12
+
+- TI outbound click tracking: route all tournament “Official site” clicks through `/go/tournament/[slug]` (adds UTM params, logs click server-side, and 302s to the organizer URL); skips localhost/bot traffic and never redirects to arbitrary URLs: `apps/ti-web/app/go/tournament/[slug]/route.ts`.
+- TI outbound click tracking: update all “Official site” links across the directory, hubs, metro pages, and tournament detail pages to use `/go/tournament/[slug]`: `apps/ti-web/app/tournaments/page.tsx`, `apps/ti-web/app/tournaments/hubs/HubTournamentsPage.tsx`, `apps/ti-web/app/tournaments/_components/SportHubPage.tsx`, `apps/ti-web/app/tournaments/metro/[slug]/page.tsx`, `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/app/[sport]/[state]/page.tsx`, `apps/ti-web/app/[sport]/[state]/[metro]/page.tsx`.
+- Supabase: add `public.ti_outbound_clicks` to store outbound official-link click logs (admin/service-role only): `supabase/migrations/20260412_ti_outbound_clicks.sql`.
+
 ## 2026-04-11
 
 - SEO metro hubs (city-rule-based): add `/[sport]/[state]/[metro]` pages backed by `metro_market_city_rules` so we can expand beyond state hubs without auto-generating thin pages; pages noindex unless they meet an upcoming-tournament threshold and include breadcrumbs + ItemList JSON-LD: `apps/ti-web/app/[sport]/[state]/[metro]/page.tsx`.

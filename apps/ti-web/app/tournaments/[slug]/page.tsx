@@ -501,7 +501,7 @@ async function TournamentUserActions({
 
       {tournament.official_website_url && !isDemoTournament ? (
         <div className="detailLinksRow">
-          <a className="secondaryLink" href={tournament.official_website_url} target="_blank" rel="noopener noreferrer">
+          <a className="secondaryLink" href={`/go/tournament/${resolvedSlug}`} target="_blank" rel="noopener noreferrer">
             Official site
           </a>
         </div>
