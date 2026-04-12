@@ -42,6 +42,14 @@ const SHADE_OPTIONS: ScoreOption[] = [
   { label: "Great", value: 5 },
 ];
 
+const VENDOR_OPTIONS: ScoreOption[] = [
+  { label: "Poor", value: 1 },
+  { label: "Fair", value: 2 },
+  { label: "Good", value: 3 },
+  { label: "Great", value: 4 },
+  { label: "Excellent", value: 5 },
+];
+
 const RESTROOM_OPTIONS: EnumOption[] = [
   { label: "Portable", value: "Portable" },
   { label: "Building", value: "Building" },
@@ -82,6 +90,10 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
   const [shadeScore, setShadeScore] = useState<number | null>(null);
   const [bringChairs, setBringChairs] = useState<boolean | null>(null);
   const [restroomType, setRestroomType] = useState<string | null>(null);
+  const [foodVendors, setFoodVendors] = useState<boolean | null>(null);
+  const [coffeeVendors, setCoffeeVendors] = useState<boolean | null>(null);
+  const [vendorScore, setVendorScore] = useState<number | null>(null);
+  const [venueNotes, setVenueNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +107,7 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
   const promptSeenOnce = useMemo(() => ({ sent: false }), []);
 
   const promptDismissKey = "ti_qvc_insider_prompt_dismissed_v1";
+  const pendingRewardKey = "ti_qvc_weekendpro_pending_v1";
 
   useEffect(() => {
     if (!openedOnce.sent) {
@@ -114,9 +127,6 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
     if (dismissed) setPromptDismissed(true);
   }, []);
 
-  const selectedCount = [restroomCleanliness, parkingDistance, shadeScore, bringChairs, restroomType].filter(
-    (v) => v !== null
-  ).length;
   const resolvedVenueId = selectedVenueId || venueId || null;
 
   const fieldsAnswered = useMemo(() => {
@@ -126,9 +136,14 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
     if (parkingDistance !== null) out.push("parking_distance");
     if (shadeScore !== null) out.push("shade_score");
     if (bringChairs !== null) out.push("bring_field_chairs");
+    if (foodVendors !== null) out.push("food_vendors");
+    if (coffeeVendors !== null) out.push("coffee_vendors");
+    if ((foodVendors === true || coffeeVendors === true) && vendorScore !== null) out.push("vendor_score");
+    if (venueNotes.trim()) out.push("venue_notes");
     return out;
-  }, [restroomType, restroomCleanliness, parkingDistance, shadeScore, bringChairs]);
+  }, [restroomType, restroomCleanliness, parkingDistance, shadeScore, bringChairs, foodVendors, coffeeVendors, vendorScore, venueNotes]);
 
+  const selectedCount = fieldsAnswered.length;
   const disabled = submitting || selectedCount < 1 || !resolvedVenueId;
 
   function handleGate(choice: "yes" | "no") {
@@ -157,6 +172,10 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
     setSubmitting(true);
     setError(null);
     try {
+      const notesTrimmed = venueNotes.trim().slice(0, 255);
+      const shouldAskVendorScore = foodVendors === true || coffeeVendors === true;
+      const vendorScoreValue = shouldAskVendorScore ? vendorScore : null;
+
       const res = await fetch("/api/venue-quick-check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -171,12 +190,32 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
           shade_score: shadeScore,
           bring_field_chairs: bringChairs,
           restroom_type: restroomType,
+          food_vendors: foodVendors,
+          coffee_vendors: coffeeVendors,
+          vendor_score: vendorScoreValue,
+          venue_notes: notesTrimmed || null,
           website: "", // honeypot
         }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
         throw new Error(json.error || "Unable to submit");
+      }
+      const quickCheckId = typeof json.quick_check_id === "string" ? json.quick_check_id : "";
+      if (quickCheckId && typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(
+            pendingRewardKey,
+            JSON.stringify({
+              quick_check_id: quickCheckId,
+              venue_id: resolvedVenueId,
+              browser_hash: browserHash,
+              created_at: json.created_at || null,
+            })
+          );
+        } catch {
+          // ignore storage failures
+        }
       }
       sendTiAnalytics("Venue Quick Check Submitted", {
         venueUuid: resolvedVenueId,
@@ -241,7 +280,8 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
   }
 
   if (done) {
-    const signupHref = `/signup?returnTo=${encodeURIComponent("/account")}`;
+    const signupHref = `/signup`;
+    const loginHref = `/login?returnTo=${encodeURIComponent("/account")}`;
 
     function dismissPrompt() {
       setPromptDismissed(true);
@@ -275,9 +315,9 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
         ) : shouldShowSignupPrompt ? (
           <>
             <div className={styles.prompt}>
-              <div className={styles.promptTitle}>Join Insider free</div>
+              <div className={styles.promptTitle}>Unlock Weekend Pro free for 12 months</div>
               <div className={styles.promptBody}>
-                Save tournaments, get alerts for events near you, and track tournament updates.
+                Create your free account and verify your email to unlock Weekend Pro for 12 months for submitting this venue check.
               </div>
             </div>
             <div className={styles.actions}>
@@ -292,7 +332,20 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
                   })
                 }
               >
-                Join Insider Free
+                Create free account
+              </Link>
+              <Link
+                href={loginHref}
+                className={styles.secondaryAction}
+                onClick={() =>
+                  sendTiAnalytics("Venue Quick Check Login Clicked", {
+                    venueUuid: resolvedVenueId,
+                    pageType,
+                    sourceTournamentUuid: sourceTournamentId ?? null,
+                  })
+                }
+              >
+                Sign in
               </Link>
               <button type="button" className={styles.secondaryAction} onClick={dismissPrompt}>
                 Not now
@@ -452,6 +505,78 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
               </button>
             ))}
           </div>
+        </div>
+
+        <div className={styles.field}>
+          <div className={styles.label}>Food vendors</div>
+          <div className={styles.chips}>
+            <button
+              type="button"
+              className={`${styles.chip} ${foodVendors === true ? styles.chipSelected : ""}`}
+              onClick={() => setFoodVendors((prev) => (prev === true ? null : true))}
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              className={`${styles.chip} ${foodVendors === false ? styles.chipSelected : ""}`}
+              onClick={() => setFoodVendors((prev) => (prev === false ? null : false))}
+            >
+              No
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.field}>
+          <div className={styles.label}>Coffee vendors</div>
+          <div className={styles.chips}>
+            <button
+              type="button"
+              className={`${styles.chip} ${coffeeVendors === true ? styles.chipSelected : ""}`}
+              onClick={() => setCoffeeVendors((prev) => (prev === true ? null : true))}
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              className={`${styles.chip} ${coffeeVendors === false ? styles.chipSelected : ""}`}
+              onClick={() => setCoffeeVendors((prev) => (prev === false ? null : false))}
+            >
+              No
+            </button>
+          </div>
+        </div>
+
+        {foodVendors === true || coffeeVendors === true ? (
+          <div className={styles.field}>
+            <div className={styles.label}>Vendor score (1-5)</div>
+            <div className={styles.chips}>
+              {VENDOR_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`${styles.chip} ${vendorScore === opt.value ? styles.chipSelected : ""}`}
+                  onClick={() => setVendorScore((prev) => (prev === opt.value ? null : opt.value))}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div className={styles.field}>
+          <label className={styles.questionLabel} htmlFor="venue_notes">
+            What should other families know?
+          </label>
+          <textarea
+            id="venue_notes"
+            className={styles.textarea}
+            value={venueNotes}
+            maxLength={255}
+            onChange={(e) => setVenueNotes(e.target.value.slice(0, 255))}
+          />
+          <div className={styles.meta}>{venueNotes.length}/255</div>
         </div>
 
         {error ? <div className={styles.error}>{error}</div> : null}

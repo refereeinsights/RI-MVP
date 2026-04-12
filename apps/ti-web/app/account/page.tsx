@@ -8,6 +8,7 @@ import { syncTiUserProfileFromAuthUser } from "@/lib/tiUserProfileServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SavedTournamentsSection, { type SavedTournamentItem } from "./SavedTournamentsSection";
+import QuickVenueCheckRewardClaim from "./QuickVenueCheckRewardClaim";
 import styles from "./AccountPage.module.css";
 
 type TiUserRow = {
@@ -160,6 +161,7 @@ export default async function AccountPage({
 
   return (
     <main className={styles.accountPage}>
+      <QuickVenueCheckRewardClaim />
       <header className={styles.headerCard}>
         <div className={styles.headerTop}>
           <h1 className={styles.pageTitle}>Welcome back</h1>

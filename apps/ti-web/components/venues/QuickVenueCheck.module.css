@@ -62,6 +62,36 @@
   gap: 5px;
 }
 
+.textarea {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  padding: 10px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f6f8f6;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.meta {
+  margin-top: -2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(246, 248, 246, 0.72);
+  text-align: right;
+}
+
+.questionLabel {
+  font-size: 12px;
+  font-weight: 800;
+  color: #f6f8f6;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
 .select {
   width: 100%;
   padding: 10px 10px;
