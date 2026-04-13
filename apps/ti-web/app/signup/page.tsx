@@ -73,8 +73,8 @@ export default function SignupPage() {
       )}${qvcBrowserHash ? `&browser_hash=${encodeURIComponent(qvcBrowserHash)}` : ""}`;
       return `${origin}/auth/confirm?next=${encodeURIComponent(next)}`;
     }
-    return `${origin}/auth/confirm`;
-  }, [qvcActive, promo, qvcQuickCheckId, qvcBrowserHash]);
+    return `${origin}/auth/confirm?next=${encodeURIComponent(returnTo)}`;
+  }, [qvcActive, promo, qvcQuickCheckId, qvcBrowserHash, returnTo]);
 
   function toggleSportInterest(value: string) {
     setSportsInterests((current) =>
