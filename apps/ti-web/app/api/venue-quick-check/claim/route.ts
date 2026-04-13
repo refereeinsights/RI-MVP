@@ -109,7 +109,7 @@ export async function POST(request: Request) {
       .eq("id", user.id);
   }
 
-  const { data: promoInsert } = await supabaseAdmin
+  const promoInsert = await supabaseAdmin
     .from("ti_promo_grants" as any)
     .insert({
       user_id: user.id,
@@ -120,7 +120,38 @@ export async function POST(request: Request) {
     .select("id")
     .maybeSingle();
 
-  if (!promoInsert?.id) {
+  if (promoInsert.error) {
+    const code = String((promoInsert.error as any)?.code ?? "");
+    if (code === "23505") {
+      // Unique constraint hit => promo already granted; clear pending marker.
+      await supabaseAdmin
+        .from("ti_users" as any)
+        .update({
+          qvc_pending_quick_check_id: null,
+          qvc_pending_browser_hash: null,
+          qvc_pending_set_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+      return NextResponse.json({ ok: true, granted: false });
+    }
+
+    // If the promo ledger migration hasn't been applied yet (or other server error),
+    // keep the pending marker so the user can retry later.
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          code === "42P01"
+            ? "Reward system is not ready yet (missing promo ledger). Please try again shortly."
+            : `Unable to claim reward: ${promoInsert.error.message}`,
+      },
+      { status: 500 }
+    );
+  }
+
+  if (!promoInsert.data?.id) {
+    // Defensive: no insert id, treat as already applied and clear pending marker.
     await supabaseAdmin
       .from("ti_users" as any)
       .update({
