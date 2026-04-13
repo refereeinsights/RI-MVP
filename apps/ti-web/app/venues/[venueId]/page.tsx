@@ -835,12 +835,14 @@ export default async function VenueDetailsPage({
                 </div>
               )}
 
-              <QuickVenueCheck
-                venueId={data.id}
-                pageType="venue"
-                sourceTournamentId={selectedTournament?.id ?? null}
-                sport={requestedVenueSport || selectedTournament?.sport || null}
-              />
+              <div id="quick-venue-check" style={{ scrollMarginTop: 90 }}>
+                <QuickVenueCheck
+                  venueId={data.id}
+                  pageType="venue"
+                  sourceTournamentId={selectedTournament?.id ?? null}
+                  sport={requestedVenueSport || selectedTournament?.sport || null}
+                />
+              </div>
 
               {canReviewVenue ? (
                 <div className="detailLinksRow">

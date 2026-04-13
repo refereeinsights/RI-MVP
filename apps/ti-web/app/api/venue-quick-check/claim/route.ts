@@ -52,6 +52,7 @@ export async function POST(request: Request) {
         .eq("id", user.id)
         .maybeSingle<{ qvc_pending_quick_check_id: string | null }>();
       if (pendingLookup.error) {
+        console.error("[ti][qvc-claim] pending lookup failed", { userId: user.id, error: pendingLookup.error });
         return NextResponse.json(
           { ok: false, error: `Pending lookup failed: ${pendingLookup.error.message}` },
           { status: 500 }
@@ -64,26 +65,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "quick_check_id required." }, { status: 400 });
     }
 
+    type QuickCheckRow = {
+      id: string;
+      venue_id: string;
+      browser_hash: string | null;
+      user_id?: string | null;
+      created_at: string | null;
+    };
+
     const quickCheckLookup = await supabaseAdmin
       .from("venue_quick_checks" as any)
       .select("id,venue_id,browser_hash,user_id,created_at")
       .eq("id", quickCheckId)
-      .maybeSingle<{
-        id: string;
-        venue_id: string;
-        browser_hash: string | null;
-        user_id: string | null;
-        created_at: string | null;
-      }>();
+      .maybeSingle<QuickCheckRow>();
 
     if (quickCheckLookup.error) {
-      return NextResponse.json(
-        { ok: false, error: `Quick check lookup failed: ${quickCheckLookup.error.message}` },
-        { status: 500 }
-      );
+      const code = String((quickCheckLookup.error as any)?.code ?? "");
+      const message = String(quickCheckLookup.error.message ?? "");
+      if (code === "42703" && message.includes("venue_quick_checks.user_id")) {
+        console.error("[ti][qvc-claim] schema missing venue_quick_checks.user_id", { userId: user.id, quickCheckId });
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Database schema is missing `venue_quick_checks.user_id`. Apply the migration `20260412_qvc_review_fields_and_weekend_pro_reward.sql` to Supabase before testing the reward claim flow.",
+          },
+          { status: 500 }
+        );
+      }
+      console.error("[ti][qvc-claim] quick check lookup failed", { userId: user.id, quickCheckId, error: quickCheckLookup.error });
+      return NextResponse.json({ ok: false, error: `Quick check lookup failed: ${quickCheckLookup.error.message}` }, { status: 500 });
     }
 
-    let quickCheck = quickCheckLookup.data ?? null;
+    let quickCheck: QuickCheckRow | null = quickCheckLookup.data ?? null;
 
     // Fallback: if the stored quick_check_id is missing/stale, try to recover by browser_hash.
     // This keeps the flow resilient when email confirmation happens in a different browser/tab.
@@ -94,15 +108,23 @@ export async function POST(request: Request) {
         .eq("browser_hash", browserHash)
         .order("created_at", { ascending: false })
         .limit(1)
-        .maybeSingle<{
-          id: string;
-          venue_id: string;
-          browser_hash: string | null;
-          user_id: string | null;
-          created_at: string | null;
-        }>();
+        .maybeSingle<QuickCheckRow>();
 
       if (fallbackLookup.error) {
+        const code = String((fallbackLookup.error as any)?.code ?? "");
+        const message = String(fallbackLookup.error.message ?? "");
+        if (code === "42703" && message.includes("venue_quick_checks.user_id")) {
+          console.error("[ti][qvc-claim] schema missing venue_quick_checks.user_id (fallback)", { userId: user.id, browserHash });
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                "Database schema is missing `venue_quick_checks.user_id`. Apply the migration `20260412_qvc_review_fields_and_weekend_pro_reward.sql` to Supabase before testing the reward claim flow.",
+            },
+            { status: 500 }
+          );
+        }
+        console.error("[ti][qvc-claim] quick check fallback lookup failed", { userId: user.id, browserHash, error: fallbackLookup.error });
         return NextResponse.json(
           { ok: false, error: `Quick check lookup failed: ${fallbackLookup.error.message}` },
           { status: 500 }
@@ -122,6 +144,7 @@ export async function POST(request: Request) {
           })
           .eq("id", user.id);
         if (pendingUpdate.error) {
+          console.error("[ti][qvc-claim] pending update failed", { userId: user.id, quickCheckId: quickCheck.id, error: pendingUpdate.error });
           return NextResponse.json(
             { ok: false, error: `Pending update failed: ${pendingUpdate.error.message}` },
             { status: 500 }
@@ -150,6 +173,7 @@ export async function POST(request: Request) {
         .eq("id", quickCheck.id)
         .is("user_id", null);
       if (claimUpdate.error) {
+        console.error("[ti][qvc-claim] claim update failed", { userId: user.id, quickCheckId: quickCheck.id, error: claimUpdate.error });
         return NextResponse.json({ ok: false, error: `Claim update failed: ${claimUpdate.error.message}` }, { status: 500 });
       }
     }
@@ -162,6 +186,7 @@ export async function POST(request: Request) {
       .eq("id", user.id)
       .maybeSingle<{ id: string }>();
     if (hasProfileLookup.error) {
+      console.error("[ti][qvc-claim] profile lookup failed", { userId: user.id, error: hasProfileLookup.error });
       return NextResponse.json({ ok: false, error: `Profile lookup failed: ${hasProfileLookup.error.message}` }, { status: 500 });
     }
     if (hasProfileLookup.data?.id) {
@@ -175,105 +200,163 @@ export async function POST(request: Request) {
         })
         .eq("id", user.id);
       if (profilePendingUpdate.error) {
+        console.error("[ti][qvc-claim] profile update failed", { userId: user.id, quickCheckId: quickCheck.id, error: profilePendingUpdate.error });
         return NextResponse.json({ ok: false, error: `Profile update failed: ${profilePendingUpdate.error.message}` }, { status: 500 });
       }
     }
 
-  const promoInsert = await supabaseAdmin
-    .from("ti_promo_grants" as any)
-    .insert({
-      user_id: user.id,
-      promo_key: PROMO_KEY,
-      source: "venue_quick_check",
-      source_quick_check_id: quickCheck.id,
-    })
-    .select("id")
-    .maybeSingle();
+    const promoInsert = await supabaseAdmin
+      .from("ti_promo_grants" as any)
+      .insert({
+        user_id: user.id,
+        promo_key: PROMO_KEY,
+        source: "venue_quick_check",
+        source_quick_check_id: quickCheck.id,
+      })
+      .select("id")
+      .maybeSingle<{ id: string }>();
 
-  if (promoInsert.error) {
-    const code = String((promoInsert.error as any)?.code ?? "");
-    if (code === "23505") {
-      // Unique constraint hit => promo already granted; clear pending marker.
+    const promoErrorCode = promoInsert.error ? String((promoInsert.error as any)?.code ?? "") : "";
+
+    if (promoInsert.error && promoErrorCode !== "23505") {
+      console.error("[ti][qvc-claim] promo insert failed", {
+        userId: user.id,
+        promoKey: PROMO_KEY,
+        code: promoErrorCode,
+        message: promoInsert.error.message,
+      });
+      // If the promo ledger migration hasn't been applied yet (or other server error),
+      // keep the pending marker so the user can retry later.
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            promoErrorCode === "42P01"
+              ? "Reward system is not ready yet (missing promo ledger). Please try again shortly."
+              : `Unable to claim reward: ${promoInsert.error.message}`,
+        },
+        { status: 500 }
+      );
+    }
+
+    const { data: profile } = await supabaseAdmin
+      .from("ti_users" as any)
+      .select("plan,subscription_status,current_period_end,trial_ends_at")
+      .eq("id", user.id)
+      .maybeSingle<{
+        plan: string | null;
+        subscription_status: string | null;
+        current_period_end: string | null;
+        trial_ends_at: string | null;
+      }>();
+
+    const now = new Date();
+    const currentPeriodEnd = parseDate(profile?.current_period_end ?? null);
+    const trialEndsAt = parseDate(profile?.trial_ends_at ?? null);
+
+    // If the promo grant already exists (23505), do NOT grant a second year.
+    // Instead, reconcile the profile to at least reflect the original 12-month window (or paid end date if later).
+    if (promoErrorCode === "23505") {
+      const existingGrant = await supabaseAdmin
+        .from("ti_promo_grants" as any)
+        .select("granted_at")
+        .eq("user_id", user.id)
+        .eq("promo_key", PROMO_KEY)
+        .maybeSingle<{ granted_at: string | null }>();
+      if (existingGrant.error) {
+        console.error("[ti][qvc-claim] promo grant lookup failed", { userId: user.id, promoKey: PROMO_KEY, error: existingGrant.error });
+        return NextResponse.json({ ok: false, error: `Promo lookup failed: ${existingGrant.error.message}` }, { status: 500 });
+      }
+
+      const grantedAt = parseDate(existingGrant.data?.granted_at ?? null);
+      const grantedEnd = grantedAt ? plusOneYear(grantedAt) : null;
+      const desiredEnd = maxDate(grantedEnd, currentPeriodEnd, trialEndsAt, now) ?? now;
+      const isExpired = Boolean(grantedEnd && grantedEnd.getTime() <= now.getTime());
+
+      if (!isExpired) {
+        const currentStatus = (profile?.subscription_status ?? "").trim().toLowerCase();
+        const isActive = currentStatus === "active";
+        const nextStatus = isActive ? "active" : "trialing";
+
+        const reconcile = await supabaseAdmin
+          .from("ti_users" as any)
+          .update({
+            email: (user.email ?? "").trim().toLowerCase() || null,
+            plan: "weekend_pro",
+            subscription_status: nextStatus,
+            current_period_end: desiredEnd.toISOString(),
+            trial_ends_at: desiredEnd.toISOString(),
+            last_seen_at: now.toISOString(),
+            updated_at: now.toISOString(),
+            qvc_pending_quick_check_id: null,
+            qvc_pending_browser_hash: null,
+            qvc_pending_set_at: null,
+          })
+          .eq("id", user.id);
+        if (reconcile.error) {
+          console.error("[ti][qvc-claim] profile reconcile failed", { userId: user.id, error: reconcile.error });
+          return NextResponse.json({ ok: false, error: `Profile update failed: ${reconcile.error.message}` }, { status: 500 });
+        }
+      } else {
+        // Grant already used/expired; clear pending marker.
+        await supabaseAdmin
+          .from("ti_users" as any)
+          .update({
+            qvc_pending_quick_check_id: null,
+            qvc_pending_browser_hash: null,
+            qvc_pending_set_at: null,
+            updated_at: now.toISOString(),
+          })
+          .eq("id", user.id);
+      }
+
+      return NextResponse.json({ ok: true, granted: false, trial_ends_at: desiredEnd.toISOString() });
+    }
+
+    if (!promoInsert.data?.id) {
+      // Defensive: no insert id, treat as already applied and clear pending marker.
       await supabaseAdmin
         .from("ti_users" as any)
         .update({
           qvc_pending_quick_check_id: null,
           qvc_pending_browser_hash: null,
           qvc_pending_set_at: null,
-          updated_at: new Date().toISOString(),
+          updated_at: now.toISOString(),
         })
         .eq("id", user.id);
       return NextResponse.json({ ok: true, granted: false });
     }
 
-    // If the promo ledger migration hasn't been applied yet (or other server error),
-    // keep the pending marker so the user can retry later.
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          code === "42P01"
-            ? "Reward system is not ready yet (missing promo ledger). Please try again shortly."
-            : `Unable to claim reward: ${promoInsert.error.message}`,
-      },
-      { status: 500 }
-    );
-  }
+    const base = maxDate(now, currentPeriodEnd, trialEndsAt) ?? now;
+    const newEnd = plusOneYear(base);
 
-  if (!promoInsert.data?.id) {
-    // Defensive: no insert id, treat as already applied and clear pending marker.
-    await supabaseAdmin
-      .from("ti_users" as any)
-      .update({
-        qvc_pending_quick_check_id: null,
-        qvc_pending_browser_hash: null,
-        qvc_pending_set_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
-    return NextResponse.json({ ok: true, granted: false });
-  }
+    const currentStatus = (profile?.subscription_status ?? "").trim().toLowerCase();
+    const isActive = currentStatus === "active";
+    const nextStatus = isActive ? "active" : "trialing";
 
-  const { data: profile } = await supabaseAdmin
-    .from("ti_users" as any)
-    .select("plan,subscription_status,current_period_end,trial_ends_at")
-    .eq("id", user.id)
-    .maybeSingle<{
-      plan: string | null;
-      subscription_status: string | null;
-      current_period_end: string | null;
-      trial_ends_at: string | null;
-    }>();
+    const updatePayload = {
+      id: user.id,
+      email: (user.email ?? "").trim().toLowerCase() || null,
+      plan: "weekend_pro",
+      subscription_status: nextStatus,
+      current_period_end: newEnd.toISOString(),
+      trial_ends_at: newEnd.toISOString(),
+      last_seen_at: now.toISOString(),
+      updated_at: now.toISOString(),
+      qvc_pending_quick_check_id: null,
+      qvc_pending_browser_hash: null,
+      qvc_pending_set_at: null,
+    };
 
-  const now = new Date();
-  const currentPeriodEnd = parseDate(profile?.current_period_end ?? null);
-  const trialEndsAt = parseDate(profile?.trial_ends_at ?? null);
-  const base = maxDate(now, currentPeriodEnd, trialEndsAt) ?? now;
-  const newEnd = plusOneYear(base);
+    const upsert = await supabaseAdmin.from("ti_users" as any).upsert(updatePayload, { onConflict: "id" });
+    if (upsert.error) {
+      console.error("[ti][qvc-claim] profile upsert failed", { userId: user.id, error: upsert.error });
+      return NextResponse.json({ ok: false, error: `Profile update failed: ${upsert.error.message}` }, { status: 500 });
+    }
 
-  const currentStatus = (profile?.subscription_status ?? "").trim().toLowerCase();
-  const isActive = currentStatus === "active";
-  const nextStatus = isActive ? "active" : "trialing";
-
-  const updatePayload = {
-    id: user.id,
-    email: (user.email ?? "").trim().toLowerCase() || null,
-    plan: "weekend_pro",
-    subscription_status: nextStatus,
-    current_period_end: newEnd.toISOString(),
-    trial_ends_at: newEnd.toISOString(),
-    last_seen_at: now.toISOString(),
-    updated_at: now.toISOString(),
-    first_seen_at: now.toISOString(),
-    qvc_pending_quick_check_id: null,
-    qvc_pending_browser_hash: null,
-    qvc_pending_set_at: null,
-  };
-
-  await supabaseAdmin.from("ti_users" as any).upsert(updatePayload, { onConflict: "id" });
-
-  return NextResponse.json({ ok: true, granted: true, trial_ends_at: newEnd.toISOString() });
+    return NextResponse.json({ ok: true, granted: true, trial_ends_at: newEnd.toISOString() });
   } catch (err: any) {
+    console.error("[ti][qvc-claim] unexpected error", { message: err?.message, stack: err?.stack });
     return NextResponse.json(
       { ok: false, error: err?.message ?? "Server error" },
       { status: 500 }

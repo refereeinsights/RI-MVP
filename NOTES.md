@@ -10,6 +10,15 @@
 - TI Quick Venue Check reward hardening: pass `promo` + `quick_check_id` through signup/login + email verification redirects so claims work across browsers; also persist a pending-reward marker on `ti_users` from auth metadata and clear it on claim: `apps/ti-web/components/venues/QuickVenueCheck.tsx`, `apps/ti-web/app/signup/page.tsx`, `apps/ti-web/app/verify-email/{page.tsx,ResendVerificationForm.tsx}`, `apps/ti-web/app/account/QuickVenueCheckRewardClaim.tsx`, `apps/ti-web/lib/tiUserProfileServer.ts`, `supabase/migrations/20260412_ti_users_qvc_pending_reward.sql`.
 - Supabase: extend `venue_quick_checks` with the new fields + optional `user_id` linkage, include quick-check vendor scores in `recompute_venue_review_aggregates`, and add `public.ti_promo_grants` to prevent duplicate reward grants: `supabase/migrations/20260412_qvc_review_fields_and_weekend_pro_reward.sql`.
 
+## 2026-04-13
+
+- TI Quick Venue Check reward (debugging): add visible “claiming/pending” banners on `/account`, and make the claim endpoint log detailed failure reasons to the dev server console (so 500s aren’t silent): `apps/ti-web/app/account/QuickVenueCheckRewardClaim.tsx`, `apps/ti-web/app/account/page.tsx`, `apps/ti-web/app/api/venue-quick-check/claim/route.ts`.
+- TI Quick Venue Check reward (compat): when the Supabase DB hasn’t applied the `venue_quick_checks.user_id` migration yet, return an explicit actionable error telling which migration to apply instead of a generic 500 (`20260412_qvc_review_fields_and_weekend_pro_reward.sql`): `apps/ti-web/app/api/venue-quick-check/claim/route.ts`.
+- TI Quick Venue Check reward (correctness): handle duplicate promo grants (`23505`) by reconciling `ti_users` to Weekend Pro based on the original `ti_promo_grants.granted_at` window (without granting an extra year): `apps/ti-web/app/api/venue-quick-check/claim/route.ts`.
+- TI Quick Venue Check reward (UX): auto-dismiss the claim banner after success/already-applied, and show an “until” date for already-applied results: `apps/ti-web/app/account/QuickVenueCheckRewardClaim.tsx`.
+- TI conversion surfaces: replace tournament/venue premium-upgrade messaging with “Unlock Weekend Pro for free” CTAs that jump into the existing Quick Venue Check flow (no “coming soon” or pricing upgrade prompts): `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`, `apps/ti-web/app/account/page.tsx`.
+- TI Quick Venue Check: support `#quick-venue-check` deep links + a global `ti:qvc:open` event so “Start quick venue check” buttons reliably open the component: `apps/ti-web/components/venues/QuickVenueCheck.tsx`, `apps/ti-web/components/venues/StartQuickVenueCheckButton.tsx`, `apps/ti-web/app/tournaments/[slug]/page.tsx`.
+
 ## 2026-04-11
 
 - SEO metro hubs (city-rule-based): add `/[sport]/[state]/[metro]` pages backed by `metro_market_city_rules` so we can expand beyond state hubs without auto-generating thin pages; pages noindex unless they meet an upcoming-tournament threshold and include breadcrumbs + ItemList JSON-LD: `apps/ti-web/app/[sport]/[state]/[metro]/page.tsx`.

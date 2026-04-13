@@ -124,6 +124,32 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    const open = () => {
+      setIsOpen(true);
+      setGate("form");
+      const el = window.document.getElementById("quick-venue-check");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+
+    const onHash = () => {
+      if (window.location.hash === "#quick-venue-check") open();
+    };
+
+    const onEvent = () => open();
+
+    window.addEventListener("hashchange", onHash);
+    window.addEventListener("ti:qvc:open", onEvent as EventListener);
+    onHash();
+
+    return () => {
+      window.removeEventListener("hashchange", onHash);
+      window.removeEventListener("ti:qvc:open", onEvent as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     const dismissed = window.sessionStorage.getItem(promptDismissKey) === "1";
     if (dismissed) setPromptDismissed(true);
   }, []);

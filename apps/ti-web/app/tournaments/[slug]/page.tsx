@@ -11,6 +11,7 @@ import { buildTITournamentTitle, assertNoDoubleBrand } from "@/lib/seo/buildTITi
 import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SaveTournamentButton from "@/components/SaveTournamentButton";
 import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
+import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheckButton";
 import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
 import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
 import { canEditTournament } from "@/lib/tournamentClaim";
@@ -645,7 +646,9 @@ async function TournamentVenueDetails({
               { type: "text", value: "Games for this tournament are played across multiple venues: " },
               ...venueList.parts,
               { type: "text", value: "." },
-            ] as SemanticListPart[]);
+          ] as SemanticListPart[]);
+
+  const tournamentDetailHref = `/tournaments/${encodeURIComponent(tournament.slug ?? paramsSlug)}`;
 
   return (
     <>
@@ -672,7 +675,7 @@ async function TournamentVenueDetails({
       ) : null}
 
       {linkedVenues.length > 0 ? (
-        <div style={{ marginTop: 12 }}>
+        <div id="quick-venue-check" style={{ marginTop: 12, scrollMarginTop: 90 }}>
           <QuickVenueCheck
             venueId={linkedVenues.length === 1 ? linkedVenues[0].id : undefined}
             venueOptions={linkedVenues.map((v) => ({ id: v.id, name: v.name }))}
@@ -800,34 +803,45 @@ async function TournamentVenueDetails({
       <div className="detailCard premiumDetailCard">
         <div className="detailCard__title premiumDetailCard__title">
           <span aria-hidden="true">🔒</span>
-          <span>Premium Planning Details</span>
+          <span>Unlock Weekend Pro for free</span>
         </div>
         {!canViewPremiumDetails ? (
           <div className="detailCard__body premiumDetailCard__body">
             <p className="premiumDetailCard__copy">
-              Locked — Upgrade to view vendor, parking, restroom, seating, and travel/lodging details.
+              Submit a quick venue check to unlock 12 months of Weekend Pro.
             </p>
+            <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
+              Takes about 10 seconds.
+            </p>
+            <p className="premiumDetailCard__copy" style={{ marginTop: 8, fontWeight: 700 }}>
+              Includes:
+            </p>
+            <div
+              className="premiumDetailCard__copy"
+              style={{ marginTop: 6, display: "grid", gap: 2, textAlign: "center" }}
+            >
+              <div>Full Owl&apos;s Eye</div>
+              <div>Compare venues</div>
+              <div>Better planning details</div>
+            </div>
             {viewer.needsEmailVerification ? (
               <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
-                Verify your email to unlock Insider access first. <Link href="/verify-email">Verify email</Link>
+                Verify your email to activate your account. <Link href="/verify-email">Verify email</Link>
               </p>
             ) : viewer.tier === "explorer" ? (
               <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
-                Log in for Insider access. <Link href="/login">Log in</Link> or <Link href="/signup">sign up</Link>.
+                Already have an account? <Link href="/login">Sign in</Link>. New here? <Link href="/signup">Create a free account</Link>.
               </p>
             ) : null}
             <div className="detailLinksRow">
-              <Link className="secondaryLink" href="/pricing">
-                Upgrade
-              </Link>
+              <StartQuickVenueCheckButton className="secondaryLink">Start quick venue check</StartQuickVenueCheckButton>
             </div>
-            <PremiumInterestForm initialEmail={viewer.viewerEmail} />
           </div>
         ) : (
           <div className="detailCard__body premiumDetailCard__body">
             <div className="premiumDetailRow">
-              <span className="premiumDetailLabel">Venue-level premium details</span>
-              <span>Open any venue tile above to view venue details in a new tab.</span>
+              <span className="premiumDetailLabel">Weekend Pro active</span>
+              <span>Open any venue tile above to view Owl&apos;s Eye planning details.</span>
             </div>
           </div>
         )}

@@ -175,6 +175,11 @@ export default async function AccountPage({
             : null
         }
       />
+      {tier !== "weekend_pro" && profile?.qvc_pending_quick_check_id ? (
+        <p className={styles.noticeBanner}>
+          Weekend Pro reward pending — confirm your email to unlock it (or refresh if you already confirmed).
+        </p>
+      ) : null}
       <header className={styles.headerCard}>
         <div className={styles.headerTop}>
           <h1 className={styles.pageTitle}>Welcome back</h1>
@@ -342,13 +347,22 @@ export default async function AccountPage({
         </div>
       </section>
 
-      <section className={styles.sectionCard}>
-        <h2 className={styles.sectionTitle}>Weekend Pro (Coming Soon)</h2>
-        <p className={styles.mutedText}>
-          Unlock venue logistics + full Owl&apos;s Eye lists (Weekend Pro coming soon).
-        </p>
-        <PremiumInterestForm initialEmail={user.email ?? ""} />
-      </section>
+      {tier !== "weekend_pro" ? (
+        <section className={styles.sectionCard}>
+          <h2 className={styles.sectionTitle}>Unlock Weekend Pro for free</h2>
+          <p className={styles.mutedText}>
+            Submit a quick venue check on any venue page to unlock 12 months of Weekend Pro.
+          </p>
+          <div className={styles.formActions} style={{ gap: 10, flexWrap: "wrap" }}>
+            <Link href="/venues" className={styles.primaryAction}>
+              Find a venue to review
+            </Link>
+            <Link href="/tournaments" className={styles.secondaryAction}>
+              Browse tournaments
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <div className={styles.footerAction}>
         <Link href="/logout">Log out</Link>

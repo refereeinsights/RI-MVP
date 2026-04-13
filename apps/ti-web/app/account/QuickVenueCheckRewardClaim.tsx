@@ -20,6 +20,7 @@ export default function QuickVenueCheckRewardClaim({
   const searchParams = useSearchParams();
   const [result, setResult] = useState<ClaimResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   const searchParamsString = searchParams.toString();
   const urlQuickCheckId = (searchParams.get("quick_check_id") || "").trim();
@@ -54,6 +55,12 @@ export default function QuickVenueCheckRewardClaim({
     (urlQuickCheckId ? { quick_check_id: urlQuickCheckId, browser_hash: urlBrowserHash } : null);
 
   useEffect(() => {
+    if (!result?.ok) return;
+    const t = window.setTimeout(() => setDismissed(true), 4000);
+    return () => window.clearTimeout(t);
+  }, [result]);
+
+  useEffect(() => {
     if (!effectivePending) return;
     if (loading || result) return;
 
@@ -83,6 +90,9 @@ export default function QuickVenueCheckRewardClaim({
         if (next.ok && typeof window !== "undefined") {
           window.localStorage.removeItem(PENDING_KEY);
         }
+        if (next.ok) {
+          router.refresh();
+        }
         if (next.ok && urlPromo === "qvc_weekend_pro_12mo_v1" && urlQuickCheckId) {
           const params = new URLSearchParams(searchParamsString);
           params.delete("promo");
@@ -91,6 +101,12 @@ export default function QuickVenueCheckRewardClaim({
           const suffix = params.toString();
           router.replace(suffix ? `/account?${suffix}` : "/account");
         }
+      })
+      .catch((err) => {
+        if (!alive) return;
+        const message =
+          err instanceof Error ? err.message : "Unable to claim reward";
+        setResult({ ok: false, error: message });
       })
       .finally(() => {
         if (!alive) return;
@@ -102,9 +118,15 @@ export default function QuickVenueCheckRewardClaim({
     };
   }, [effectivePending, loading, result, router, searchParamsString, urlBrowserHash, urlPromo, urlQuickCheckId]);
 
+  if (dismissed) return null;
   if (!effectivePending) return null;
-  if (loading) return null;
-  if (!result) return null;
+  if (!result) {
+    return (
+      <p style={{ margin: "0 0 14px 0", padding: "10px 12px", borderRadius: 10, background: "#f8fafc", border: "1px solid #cbd5e1", color: "#334155" }}>
+        Claiming Weekend Pro reward…
+      </p>
+    );
+  }
 
   if (!result.ok) {
     return (
@@ -115,9 +137,11 @@ export default function QuickVenueCheckRewardClaim({
   }
 
   if (!result.granted) {
+    const end = result.trial_ends_at ? new Date(result.trial_ends_at) : null;
+    const endLabel = end && !Number.isNaN(end.getTime()) ? end.toLocaleDateString() : null;
     return (
       <p style={{ margin: "0 0 14px 0", padding: "10px 12px", borderRadius: 10, background: "#ecfeff", border: "1px solid #22d3ee" }}>
-        Weekend Pro reward already applied.
+        Weekend Pro reward already applied{endLabel ? ` (until ${endLabel})` : ""}.
       </p>
     );
   }

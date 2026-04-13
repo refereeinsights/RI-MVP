@@ -4,6 +4,7 @@ import type { OwlsEyeDemoScores } from "@/lib/owlsEyeScores";
 import OwlsEyeDemoScoresPanel from "@/components/OwlsEyeDemoScoresPanel";
 import OwlsEyeWeekendGuideAccordion from "@/components/OwlsEyeWeekendGuideAccordion";
 import MobileMapLink from "@/components/venues/MobileMapLink";
+import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheckButton";
 
 export type NearbyPlace = {
   name: string;
@@ -274,16 +275,14 @@ export default function OwlsEyeVenueCard({
             ) : (
               <div className="detailVenuePremiumLock">
                 <p style={{ margin: 0 }}>
-                  Upgrade to unlock full {BRAND_OWL} planning details and one-tap directions.
+                  Unlock Weekend Pro for free — submit a quick venue check (about 10 seconds).
                 </p>
                 {tier === "explorer" ? (
                   <p style={{ margin: 0 }}>
-                    <Link href="/login">Log in</Link> or <Link href="/signup">sign up</Link>.
+                    Already have an account? <Link href="/login">Sign in</Link>. New here? <Link href="/signup">Create a free account</Link>.
                   </p>
                 ) : null}
-                <Link className="secondaryLink" href="/pricing">
-                  Upgrade
-                </Link>
+                <StartQuickVenueCheckButton className="secondaryLink">Start quick venue check</StartQuickVenueCheckButton>
               </div>
             )}
           </div>
