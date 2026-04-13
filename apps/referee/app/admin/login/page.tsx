@@ -21,6 +21,15 @@ export default function AdminLoginPage() {
       });
 
       if (error) {
+        const raw = `${(error as any)?.code ?? ""} ${(error as any)?.message ?? ""}`.toLowerCase();
+        if (raw.includes("email not confirmed") || raw.includes("email_not_confirmed")) {
+          const nextEmail = email.trim();
+          const params = new URLSearchParams();
+          params.set("returnTo", "/admin");
+          if (nextEmail) params.set("email", nextEmail);
+          window.location.href = `/verify-email?${params.toString()}`;
+          return;
+        }
         setErr(error.message);
         return;
       }
