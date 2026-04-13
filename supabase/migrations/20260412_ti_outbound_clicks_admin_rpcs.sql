@@ -21,7 +21,7 @@ begin
     stable
     security definer
     set search_path = public
-    as $$
+    as $body$
       select
         lower(trim(t.sport)) as sport,
         count(*)::bigint as click_count
@@ -32,7 +32,7 @@ begin
         and (p_state is null or upper(trim(t.state)) = upper(trim(p_state)))
       group by 1
       order by click_count desc, sport asc;
-    $$;
+    $body$;
   $fn$;
 
   execute $fn$
@@ -63,7 +63,7 @@ begin
     stable
     security definer
     set search_path = public
-    as $$
+    as $body$
       with agg as (
         select
           c.tournament_id,
@@ -104,7 +104,7 @@ begin
       order by j.click_count desc, j.last_clicked_at desc nulls last, j.tournament_name asc
       limit least(greatest(coalesce(p_limit, 50), 1), 200)
       offset greatest(coalesce(p_offset, 0), 0);
-    $$;
+    $body$;
   $fn$;
 
   execute $fn$

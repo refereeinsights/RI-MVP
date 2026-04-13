@@ -19,6 +19,7 @@
 - TI conversion surfaces: replace tournament/venue premium-upgrade messaging with “Unlock Weekend Pro for free” CTAs that jump into the existing Quick Venue Check flow (no “coming soon” or pricing upgrade prompts): `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`, `apps/ti-web/app/account/page.tsx`.
 - TI Quick Venue Check: support `#quick-venue-check` deep links + a global `ti:qvc:open` event so “Start quick venue check” buttons reliably open the component: `apps/ti-web/components/venues/QuickVenueCheck.tsx`, `apps/ti-web/components/venues/StartQuickVenueCheckButton.tsx`, `apps/ti-web/app/tournaments/[slug]/page.tsx`.
 - TI header auth UX: keep the account icon ring + menu in sync with real Supabase auth state (updates immediately on sign-out to show red ring + sign-in/create-account menu): `apps/ti-web/components/AccountIconMenu.tsx`, `apps/ti-web/components/AccountIconMenu.module.css`.
+- TI event-code signup + QVC upgrade prompt: preserve `/join?code=...` through signup email confirmation redirects for new users, and keep the “Unlock Weekend Pro for free” account prompt visible for 7-day event-code trial users (while still hiding it for full Weekend Pro users): `apps/ti-web/app/signup/page.tsx`, `apps/ti-web/app/account/page.tsx`.
 
 ## 2026-04-11
 

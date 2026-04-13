@@ -24,6 +24,7 @@ type TiUserRow = {
   reviewer_handle: string | null;
   zip_code: string | null;
   sports_interests: string[];
+  signup_source?: string | null;
   qvc_pending_quick_check_id?: string | null;
   qvc_pending_browser_hash?: string | null;
 };
@@ -76,6 +77,13 @@ function prettyDate(value: string | null | undefined) {
   return d.toLocaleDateString();
 }
 
+function isEventCodeTrialUser(profile: TiUserRow | null | undefined) {
+  if (!profile) return false;
+  const signupSource = (profile.signup_source ?? "").trim().toLowerCase();
+  const subscriptionStatus = (profile.subscription_status ?? "").trim().toLowerCase();
+  return signupSource === "event_code" && subscriptionStatus === "trialing" && !profile.current_period_end;
+}
+
 function buildAccountPath(kind: "notice" | "error", message: string) {
   const params = new URLSearchParams();
   params.set(kind, message);
@@ -99,7 +107,7 @@ export default async function AccountPage({
   const { data: profile } = await supabase
     .from("ti_users" as any)
     .select(
-      "id,created_at,plan,subscription_status,current_period_end,trial_ends_at,first_seen_at,display_name,username,reviewer_handle,zip_code,sports_interests,qvc_pending_quick_check_id,qvc_pending_browser_hash"
+      "id,created_at,plan,subscription_status,current_period_end,trial_ends_at,first_seen_at,display_name,username,reviewer_handle,zip_code,sports_interests,signup_source,qvc_pending_quick_check_id,qvc_pending_browser_hash"
     )
     .eq("id", user.id)
     .maybeSingle<TiUserRow>();
@@ -122,6 +130,7 @@ export default async function AccountPage({
 
   const tier = getTier(user, profile ?? null);
   const effectivePlan = profile ? prettyPlan(profile.plan) : "Insider";
+  const showQvcUpgradePrompt = tier !== "weekend_pro" || isEventCodeTrialUser(profile ?? null);
 
   const accountEmail = (user.email ?? "").trim().toLowerCase();
   const { data: emailSuppression } = accountEmail
@@ -347,7 +356,7 @@ export default async function AccountPage({
         </div>
       </section>
 
-      {tier !== "weekend_pro" ? (
+      {showQvcUpgradePrompt ? (
         <section className={styles.sectionCard}>
           <h2 className={styles.sectionTitle}>Unlock Weekend Pro for free</h2>
           <p className={styles.mutedText}>

@@ -73,8 +73,12 @@ export default function SignupPage() {
       )}${qvcBrowserHash ? `&browser_hash=${encodeURIComponent(qvcBrowserHash)}` : ""}`;
       return `${origin}/auth/confirm?next=${encodeURIComponent(next)}`;
     }
+    if (code) {
+      const next = `/join?code=${encodeURIComponent(code)}`;
+      return `${origin}/auth/confirm?next=${encodeURIComponent(next)}`;
+    }
     return `${origin}/auth/confirm?next=${encodeURIComponent(returnTo)}`;
-  }, [qvcActive, promo, qvcQuickCheckId, qvcBrowserHash, returnTo]);
+  }, [qvcActive, promo, qvcQuickCheckId, qvcBrowserHash, code, returnTo]);
 
   function toggleSportInterest(value: string) {
     setSportsInterests((current) =>
