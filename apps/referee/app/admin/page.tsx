@@ -330,6 +330,7 @@ export default async function AdminPage({
     missingUrlCountRes,
     missingDateCountRes,
     missingDirectorEmailCountRes,
+    outboundOfficialClickCountRes,
     validationCounts,
   ] = await Promise.all([
     supabaseAdmin
@@ -382,6 +383,18 @@ export default async function AdminPage({
       .eq("status", "published")
       .eq("is_canonical", true)
       .or("tournament_director_email.is.null,tournament_director_email.eq."),
+    (async () => {
+      const res = await supabaseAdmin
+        .from("ti_outbound_clicks" as any)
+        .select("id", { count: "exact", head: true });
+      if (res.error) {
+        console.warn("Failed to load ti_outbound_clicks total count", {
+          message: res.error.message,
+        });
+        return { count: 0 };
+      }
+      return { count: res.count ?? 0 };
+    })(),
     getSportValidationCounts(),
   ]);
 
@@ -3873,6 +3886,12 @@ export default async function AdminPage({
           value={missingDirectorEmailCountRes.count ?? 0}
           tone="warn"
           href="/admin?tab=tournament-listings&missing=director_email"
+        />
+        <SummaryTileLink
+          label="Official URL clicks"
+          value={outboundOfficialClickCountRes.count ?? 0}
+          tone="info"
+          href="/admin/ti/outbound"
         />
         <SummaryTile label="Validated (rule)" value={validationCounts.rule_confirmed ?? 0} tone="success" />
         <SummaryTile label="Needs review" value={validationCounts.needs_review ?? 0} tone="info" />
