@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "quick_check_id required." }, { status: 400 });
   }
 
-  const { data: quickCheck } = await supabaseAdmin
+  const quickCheckLookup = await supabaseAdmin
     .from("venue_quick_checks" as any)
     .select("id,venue_id,browser_hash,user_id,created_at")
     .eq("id", quickCheckId)
@@ -68,6 +68,54 @@ export async function POST(request: Request) {
       user_id: string | null;
       created_at: string | null;
     }>();
+
+  if (quickCheckLookup.error) {
+    return NextResponse.json(
+      { ok: false, error: `Quick check lookup failed: ${quickCheckLookup.error.message}` },
+      { status: 500 }
+    );
+  }
+
+  let quickCheck = quickCheckLookup.data ?? null;
+
+  // Fallback: if the stored quick_check_id is missing/stale, try to recover by browser_hash.
+  // This keeps the flow resilient when email confirmation happens in a different browser/tab.
+  if (!quickCheck?.id && browserHash) {
+    const fallbackLookup = await supabaseAdmin
+      .from("venue_quick_checks" as any)
+      .select("id,venue_id,browser_hash,user_id,created_at")
+      .eq("browser_hash", browserHash)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{
+        id: string;
+        venue_id: string;
+        browser_hash: string | null;
+        user_id: string | null;
+        created_at: string | null;
+      }>();
+
+    if (fallbackLookup.error) {
+      return NextResponse.json(
+        { ok: false, error: `Quick check lookup failed: ${fallbackLookup.error.message}` },
+        { status: 500 }
+      );
+    }
+
+    if (fallbackLookup.data?.id) {
+      quickCheck = fallbackLookup.data;
+      quickCheckId = quickCheck.id;
+      await supabaseAdmin
+        .from("ti_users" as any)
+        .update({
+          qvc_pending_quick_check_id: quickCheck.id,
+          qvc_pending_browser_hash: browserHash || null,
+          qvc_pending_set_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+    }
+  }
 
   if (!quickCheck?.id) {
     return NextResponse.json({ ok: false, error: "Quick check not found." }, { status: 404 });
