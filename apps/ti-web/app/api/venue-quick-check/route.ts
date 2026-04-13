@@ -88,13 +88,7 @@ export async function POST(request: Request) {
       parkingConvenienceScore = PARKING_MAP[distance];
     }
 
-    let bringFieldChairs: boolean | null = null;
-    if (body.bring_field_chairs !== undefined) {
-      if (typeof body.bring_field_chairs !== "boolean") {
-        return NextResponse.json({ ok: false, error: "Invalid bring_field_chairs" }, { status: 400 });
-      }
-      bringFieldChairs = body.bring_field_chairs;
-    }
+    const bringFieldChairs = validateOptionalBoolean(body.bring_field_chairs);
 
     let restroomType: string | null = null;
     if (body.restroom_type) {
