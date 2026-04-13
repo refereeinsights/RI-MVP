@@ -24,6 +24,8 @@ type TiUserRow = {
   reviewer_handle: string | null;
   zip_code: string | null;
   sports_interests: string[];
+  qvc_pending_quick_check_id?: string | null;
+  qvc_pending_browser_hash?: string | null;
 };
 
 type SavedTournamentJoinRow = {
@@ -96,7 +98,9 @@ export default async function AccountPage({
 
   const { data: profile } = await supabase
     .from("ti_users" as any)
-    .select("id,created_at,plan,subscription_status,current_period_end,trial_ends_at,first_seen_at,display_name,username,reviewer_handle,zip_code,sports_interests")
+    .select(
+      "id,created_at,plan,subscription_status,current_period_end,trial_ends_at,first_seen_at,display_name,username,reviewer_handle,zip_code,sports_interests,qvc_pending_quick_check_id,qvc_pending_browser_hash"
+    )
     .eq("id", user.id)
     .maybeSingle<TiUserRow>();
   const metadataProfile = extractProfileFromMetadata(
@@ -161,7 +165,16 @@ export default async function AccountPage({
 
   return (
     <main className={styles.accountPage}>
-      <QuickVenueCheckRewardClaim />
+      <QuickVenueCheckRewardClaim
+        initialPending={
+          profile?.qvc_pending_quick_check_id
+            ? {
+                quick_check_id: profile.qvc_pending_quick_check_id,
+                browser_hash: profile?.qvc_pending_browser_hash ?? "",
+              }
+            : null
+        }
+      />
       <header className={styles.headerCard}>
         <div className={styles.headerTop}>
           <h1 className={styles.pageTitle}>Welcome back</h1>

@@ -9,7 +9,13 @@ type ClaimResult =
 
 const PENDING_KEY = "ti_qvc_weekendpro_pending_v1";
 
-export default function QuickVenueCheckRewardClaim() {
+type PendingPayload = { quick_check_id: string; browser_hash?: string };
+
+export default function QuickVenueCheckRewardClaim({
+  initialPending,
+}: {
+  initialPending?: PendingPayload | null;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [result, setResult] = useState<ClaimResult | null>(null);
@@ -35,7 +41,17 @@ export default function QuickVenueCheckRewardClaim() {
     }
   }, []);
 
-  const effectivePending = pending ?? (urlQuickCheckId ? { quick_check_id: urlQuickCheckId, browser_hash: urlBrowserHash } : null);
+  const normalizedInitialPending = useMemo(() => {
+    const quickCheckId = typeof initialPending?.quick_check_id === "string" ? initialPending.quick_check_id.trim() : "";
+    const browserHash = typeof initialPending?.browser_hash === "string" ? initialPending.browser_hash.trim() : "";
+    if (!quickCheckId) return null;
+    return { quick_check_id: quickCheckId, browser_hash: browserHash };
+  }, [initialPending?.browser_hash, initialPending?.quick_check_id]);
+
+  const effectivePending =
+    normalizedInitialPending ??
+    pending ??
+    (urlQuickCheckId ? { quick_check_id: urlQuickCheckId, browser_hash: urlBrowserHash } : null);
 
   useEffect(() => {
     if (!effectivePending) return;
