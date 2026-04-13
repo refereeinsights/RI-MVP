@@ -2869,8 +2869,34 @@ export default async function TiAdminPage({
         <h2 style={{ marginTop: 0 }}>Auth Troubleshooting</h2>
         <p style={{ marginTop: 0, color: "#475569", fontSize: 13 }}>
           Uses <code>auth.users</code> + <code>ti_users</code> + <code>profiles</code> for signup/login troubleshooting.
-          Search by email or auth user id above.
+          Search by email or auth user id.
         </p>
+        <form
+          method="get"
+          action="/admin/ti"
+          style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "0 0 10px 0" }}
+        >
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Email or auth user id"
+            style={{
+              padding: "8px 10px",
+              borderRadius: 10,
+              border: "1px solid #d1d5db",
+              minWidth: 260,
+              fontSize: 14,
+            }}
+          />
+          <button type="submit" className="cta secondary" style={{ padding: "8px 12px" }}>
+            Search
+          </button>
+          {q ? (
+            <a href="/admin/ti" style={{ fontSize: 13, fontWeight: 800, color: "#111", textDecoration: "none" }}>
+              Clear
+            </a>
+          ) : null}
+        </form>
         {!q ? (
           <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Enter an email/id in search to run auth troubleshooting.</p>
         ) : authTroubleshoot.error ? (
