@@ -75,6 +75,8 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
   ]);
 
   const totalClicks = totalClicksRes.error ? 0 : totalClicksRes.count ?? 0;
+  const rpcSchemaHint =
+    "Hint: apply `supabase/migrations/20260412_ti_outbound_clicks_admin_rpcs.sql` and reload the PostgREST schema cache.";
 
   const sportCounts: SportCountRow[] = sportCountsRes.error
     ? []
@@ -137,6 +139,7 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
           {sportCountsRes.error ? (
             <span style={{ fontSize: 13, color: "#b91c1c" }}>
               Failed to load sport counts: {sportCountsRes.error.message}
+              {sportCountsRes.error.message.includes("Could not find the function") ? ` (${rpcSchemaHint})` : ""}
             </span>
           ) : null}
           {sportCounts.map((row) => {
@@ -282,6 +285,7 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
         {topTournamentsRes.error ? (
           <div style={{ color: "#b91c1c", fontSize: 13 }}>
             Failed to load top tournaments: {topTournamentsRes.error.message}
+            {topTournamentsRes.error.message.includes("Could not find the function") ? ` (${rpcSchemaHint})` : ""}
           </div>
         ) : null}
 
@@ -384,4 +388,3 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
     </div>
   );
 }
-
