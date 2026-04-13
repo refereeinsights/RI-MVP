@@ -4,9 +4,13 @@ import { FormEvent, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 type ResendVerificationFormProps = {
   initialEmail?: string;
+  returnTo?: string;
 };
 
-export default function ResendVerificationForm({ initialEmail = "" }: ResendVerificationFormProps) {
+export default function ResendVerificationForm({
+  initialEmail = "",
+  returnTo = "/account",
+}: ResendVerificationFormProps) {
   const [email, setEmail] = useState(initialEmail);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -42,8 +46,10 @@ export default function ResendVerificationForm({ initialEmail = "" }: ResendVeri
       return tiProdOrigin;
     };
 
-    return `${pickSafeOrigin()}/auth/confirm`;
-  }, []);
+    const origin = pickSafeOrigin();
+    const next = returnTo.startsWith("/") ? returnTo : "/account";
+    return `${origin}/auth/confirm?next=${encodeURIComponent(next)}`;
+  }, [returnTo]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

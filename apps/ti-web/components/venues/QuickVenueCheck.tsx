@@ -96,6 +96,7 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
   const [venueNotes, setVenueNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [submittedQuickCheckId, setSubmittedQuickCheckId] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(true);
   const openedOnce = useMemo(() => ({ sent: false }), []);
@@ -203,6 +204,7 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
       }
       const quickCheckId = typeof json.quick_check_id === "string" ? json.quick_check_id : "";
       if (quickCheckId && typeof window !== "undefined") {
+        setSubmittedQuickCheckId(quickCheckId);
         try {
           window.localStorage.setItem(
             pendingRewardKey,
@@ -280,8 +282,13 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
   }
 
   if (done) {
-    const signupHref = `/signup`;
-    const loginHref = `/login?returnTo=${encodeURIComponent("/account")}`;
+    const promo = "qvc_weekend_pro_12mo_v1";
+    const quickCheckParam = submittedQuickCheckId ? `&quick_check_id=${encodeURIComponent(submittedQuickCheckId)}` : "";
+    const hashParam = browserHash ? `&browser_hash=${encodeURIComponent(browserHash)}` : "";
+    const promoParams = `promo=${encodeURIComponent(promo)}${quickCheckParam}${hashParam}`;
+    const signupHref = `/signup?returnTo=${encodeURIComponent("/account")}&${promoParams}`;
+    const loginReturnTo = `/account?${promoParams}`;
+    const loginHref = `/login?returnTo=${encodeURIComponent(loginReturnTo)}`;
 
     function dismissPrompt() {
       setPromptDismissed(true);

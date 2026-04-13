@@ -22,6 +22,10 @@ export default function SignupPage() {
   const [message, setMessage] = useState("");
   const code = (searchParams.get("code") || "").trim();
   const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/account");
+  const promo = (searchParams.get("promo") || "").trim();
+  const qvcQuickCheckId = (searchParams.get("quick_check_id") || "").trim();
+  const qvcBrowserHash = (searchParams.get("browser_hash") || "").trim();
+  const qvcActive = promo === "qvc_weekend_pro_12mo_v1" && Boolean(qvcQuickCheckId);
 
   useEffect(() => {
     if (status !== "ok") return;
@@ -62,8 +66,15 @@ export default function SignupPage() {
       return tiProdOrigin;
     };
 
-    return `${pickSafeOrigin()}/auth/confirm`;
-  }, []);
+    const origin = pickSafeOrigin();
+    if (qvcActive) {
+      const next = `/account?promo=${encodeURIComponent(promo)}&quick_check_id=${encodeURIComponent(
+        qvcQuickCheckId
+      )}${qvcBrowserHash ? `&browser_hash=${encodeURIComponent(qvcBrowserHash)}` : ""}`;
+      return `${origin}/auth/confirm?next=${encodeURIComponent(next)}`;
+    }
+    return `${origin}/auth/confirm`;
+  }, [qvcActive, promo, qvcQuickCheckId, qvcBrowserHash]);
 
   function toggleSportInterest(value: string) {
     setSportsInterests((current) =>
@@ -134,6 +145,12 @@ export default function SignupPage() {
           username: profile.username,
           handle: profile.username,
           sports_interests: profile.sportsInterests,
+          ...(qvcActive
+            ? {
+                qvc_pending_quick_check_id: qvcQuickCheckId,
+                qvc_pending_browser_hash: qvcBrowserHash || null,
+              }
+            : {}),
         },
       },
     });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type ClaimResult =
   | { ok: true; granted: boolean; trial_ends_at?: string | null }
@@ -9,8 +10,15 @@ type ClaimResult =
 const PENDING_KEY = "ti_qvc_weekendpro_pending_v1";
 
 export default function QuickVenueCheckRewardClaim() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [result, setResult] = useState<ClaimResult | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const searchParamsString = searchParams.toString();
+  const urlQuickCheckId = (searchParams.get("quick_check_id") || "").trim();
+  const urlBrowserHash = (searchParams.get("browser_hash") || "").trim();
+  const urlPromo = (searchParams.get("promo") || "").trim();
 
   const pending = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -27,8 +35,10 @@ export default function QuickVenueCheckRewardClaim() {
     }
   }, []);
 
+  const effectivePending = pending ?? (urlQuickCheckId ? { quick_check_id: urlQuickCheckId, browser_hash: urlBrowserHash } : null);
+
   useEffect(() => {
-    if (!pending) return;
+    if (!effectivePending) return;
     if (loading || result) return;
 
     let alive = true;
@@ -36,7 +46,7 @@ export default function QuickVenueCheckRewardClaim() {
     fetch("/api/venue-quick-check/claim", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(pending),
+      body: JSON.stringify(effectivePending),
     })
       .then(async (res) => {
         const json = (await res.json().catch(() => null)) as any;
@@ -52,6 +62,14 @@ export default function QuickVenueCheckRewardClaim() {
         if (next.ok && typeof window !== "undefined") {
           window.localStorage.removeItem(PENDING_KEY);
         }
+        if (next.ok && urlPromo === "qvc_weekend_pro_12mo_v1" && urlQuickCheckId) {
+          const params = new URLSearchParams(searchParamsString);
+          params.delete("promo");
+          params.delete("quick_check_id");
+          params.delete("browser_hash");
+          const suffix = params.toString();
+          router.replace(suffix ? `/account?${suffix}` : "/account");
+        }
       })
       .finally(() => {
         if (!alive) return;
@@ -61,9 +79,9 @@ export default function QuickVenueCheckRewardClaim() {
     return () => {
       alive = false;
     };
-  }, [pending, loading, result]);
+  }, [effectivePending, loading, result, router, searchParamsString, urlBrowserHash, urlPromo, urlQuickCheckId]);
 
-  if (!pending) return null;
+  if (!effectivePending) return null;
   if (loading) return null;
   if (!result) return null;
 
@@ -91,4 +109,3 @@ export default function QuickVenueCheckRewardClaim() {
     </p>
   );
 }
-

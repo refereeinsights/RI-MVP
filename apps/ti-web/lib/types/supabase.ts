@@ -26,6 +26,9 @@ export interface Database {
           sports_interests: string[];
           terms_accepted_at: string | null;
           marketing_opt_in: boolean;
+          qvc_pending_quick_check_id: string | null;
+          qvc_pending_browser_hash: string | null;
+          qvc_pending_set_at: string | null;
           updated_at: string;
         };
         Insert: {
@@ -51,6 +54,9 @@ export interface Database {
           sports_interests?: string[];
           terms_accepted_at?: string | null;
           marketing_opt_in?: boolean;
+          qvc_pending_quick_check_id?: string | null;
+          qvc_pending_browser_hash?: string | null;
+          qvc_pending_set_at?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -75,6 +81,9 @@ export interface Database {
           sports_interests?: string[];
           terms_accepted_at?: string | null;
           marketing_opt_in?: boolean;
+          qvc_pending_quick_check_id?: string | null;
+          qvc_pending_browser_hash?: string | null;
+          qvc_pending_set_at?: string | null;
           updated_at?: string;
         };
       };

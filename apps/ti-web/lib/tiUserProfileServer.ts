@@ -8,6 +8,9 @@ import { extractProfileFromMetadata } from "@/lib/tiProfile";
 type ExistingTiUserRow = {
   id: string;
   first_seen_at: string | null;
+  qvc_pending_quick_check_id?: string | null;
+  qvc_pending_browser_hash?: string | null;
+  qvc_pending_set_at?: string | null;
 };
 
 export type TiProfileSyncResult = {
@@ -41,7 +44,7 @@ function buildTiUserPayload(
 async function loadExistingTiUser(userId: string) {
   const { data: existingRaw, error: existingError } = await (supabaseAdmin
     .from("ti_users" as any) as any)
-    .select("id,first_seen_at")
+    .select("id,first_seen_at,qvc_pending_quick_check_id,qvc_pending_browser_hash,qvc_pending_set_at")
     .eq("id", userId)
     .maybeSingle();
 
@@ -144,6 +147,20 @@ export async function syncTiUserProfileFromAuthUser(user: User): Promise<TiProfi
   }
 
   const username = usernameConflict ? null : normalized.username;
+  const pendingQuickCheckIdRaw =
+    typeof metadata.qvc_pending_quick_check_id === "string" ? metadata.qvc_pending_quick_check_id.trim() : "";
+  const pendingBrowserHashRaw =
+    typeof metadata.qvc_pending_browser_hash === "string" ? metadata.qvc_pending_browser_hash.trim().slice(0, 128) : "";
+  const shouldSetPending =
+    Boolean(pendingQuickCheckIdRaw) && !existing?.qvc_pending_quick_check_id;
+  const pendingPayload = shouldSetPending
+    ? {
+        qvc_pending_quick_check_id: pendingQuickCheckIdRaw,
+        qvc_pending_browser_hash: pendingBrowserHashRaw || null,
+        qvc_pending_set_at: new Date().toISOString(),
+      }
+    : {};
+
   const payload =
     username && normalized.zipCode && normalized.sportsInterests.length > 0
       ? buildTiUserPayload(user.id, user.email ?? null, existing, {
@@ -163,11 +180,13 @@ export async function syncTiUserProfileFromAuthUser(user: User): Promise<TiProfi
           ...(username ? { username, reviewer_handle: username } : {}),
         };
 
+  const finalPayload = { ...payload, ...pendingPayload };
+
   let writeError: { message: string; code?: string } | null = null;
 
   if (existing?.id) {
     const { error } = await (supabaseAdmin.from("ti_users" as any) as any)
-      .update(payload)
+      .update(finalPayload)
       .eq("id", user.id);
     writeError = error;
   } else {
@@ -175,7 +194,7 @@ export async function syncTiUserProfileFromAuthUser(user: User): Promise<TiProfi
       id: user.id,
       plan: "insider",
       subscription_status: "none",
-      ...payload,
+      ...finalPayload,
     });
     writeError = error;
   }

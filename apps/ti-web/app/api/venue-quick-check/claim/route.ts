@@ -41,8 +41,17 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  const quickCheckId = typeof body?.quick_check_id === "string" ? body.quick_check_id.trim() : "";
+  let quickCheckId = typeof body?.quick_check_id === "string" ? body.quick_check_id.trim() : "";
   const browserHash = typeof body?.browser_hash === "string" ? body.browser_hash.trim().slice(0, 128) : "";
+
+  if (!quickCheckId) {
+    const { data: pending } = await supabaseAdmin
+      .from("ti_users" as any)
+      .select("qvc_pending_quick_check_id")
+      .eq("id", user.id)
+      .maybeSingle<{ qvc_pending_quick_check_id: string | null }>();
+    quickCheckId = (pending?.qvc_pending_quick_check_id ?? "").trim();
+  }
 
   if (!quickCheckId) {
     return NextResponse.json({ ok: false, error: "quick_check_id required." }, { status: 400 });
@@ -81,6 +90,25 @@ export async function POST(request: Request) {
       .is("user_id", null);
   }
 
+  // Persist a durable "pending reward" marker when the profile row exists already.
+  // (If it doesn't, we'll still create/update the row after grant below.)
+  const { data: hasProfile } = await supabaseAdmin
+    .from("ti_users" as any)
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle<{ id: string }>();
+  if (hasProfile?.id) {
+    await supabaseAdmin
+      .from("ti_users" as any)
+      .update({
+        qvc_pending_quick_check_id: quickCheck.id,
+        qvc_pending_browser_hash: browserHash || null,
+        qvc_pending_set_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+  }
+
   const { data: promoInsert } = await supabaseAdmin
     .from("ti_promo_grants" as any)
     .insert({
@@ -93,6 +121,15 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (!promoInsert?.id) {
+    await supabaseAdmin
+      .from("ti_users" as any)
+      .update({
+        qvc_pending_quick_check_id: null,
+        qvc_pending_browser_hash: null,
+        qvc_pending_set_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
     return NextResponse.json({ ok: true, granted: false });
   }
 
@@ -127,10 +164,12 @@ export async function POST(request: Request) {
     last_seen_at: now.toISOString(),
     updated_at: now.toISOString(),
     first_seen_at: now.toISOString(),
+    qvc_pending_quick_check_id: null,
+    qvc_pending_browser_hash: null,
+    qvc_pending_set_at: null,
   };
 
   await supabaseAdmin.from("ti_users" as any).upsert(updatePayload, { onConflict: "id" });
 
   return NextResponse.json({ ok: true, granted: true, trial_ends_at: newEnd.toISOString() });
 }
-
