@@ -332,6 +332,20 @@ export function cleanCsvRows(rows: CsvRow[]) {
   };
 
   for (const row of rows) {
+    const rawNameCell = pick(row, ["name", "tournament_name", "tournament"]).toLowerCase();
+    const rawSportCell = pick(row, ["sport", "tournament_sport"]).toLowerCase();
+    const rawSourceUrlCell = pick(row, ["source_url", "official_website_url", "tournament_url", "url", "website"]).toLowerCase();
+
+    // Some CSV exports repeat the header row between chunks; drop those rows before validation.
+    if (
+      rawNameCell === "name" &&
+      rawSportCell === "sport" &&
+      (rawSourceUrlCell === "source_url" || !rawSourceUrlCell)
+    ) {
+      dropped.push({ row, reason: "duplicate header row" });
+      continue;
+    }
+
     const name = pick(row, ["name", "tournament_name", "tournament"]);
     if (!name) {
       dropped.push({ row, reason: "missing name" });
@@ -623,10 +637,19 @@ function venueKey(v: VenueCandidate) {
   return `${name}|${address}|${city}|${state}|${zip}`;
 }
 
+function looksLikeStreetAddress(value: string | null): boolean {
+  const text = String(value ?? "").trim().toLowerCase();
+  if (!text) return false;
+  if (/\d/.test(text)) return true;
+  return /\b(st|street|rd|road|ave|avenue|blvd|boulevard|dr|drive|ln|lane|ct|court|way|pkwy|parkway|hwy|highway)\b/.test(
+    text
+  );
+}
+
 function extractVenueCandidate(record: TournamentRow): VenueCandidate | null {
   const raw = (record.raw ?? null) as Record<string, unknown> | null;
 
-  const name =
+  let name =
     normalizeVenueField(raw?.venue ?? raw?.venue_name ?? raw?.venueName) ??
     normalizeVenueField(record.venue);
   const address =
@@ -655,6 +678,13 @@ function extractVenueCandidate(record: TournamentRow): VenueCandidate | null {
   const hasVenueInfo = Boolean(name || address);
   const hasLocation = Boolean(city || state);
   if (!hasVenueInfo || !hasLocation) return null;
+
+  // `venues.name` is required. If venue name is missing, only fall back to a street-like
+  // address (skip vague values like "Orlando FL" to avoid junk venues and insert failures).
+  if (!name) {
+    if (!looksLikeStreetAddress(address)) return null;
+    name = address;
+  }
 
   return {
     name,

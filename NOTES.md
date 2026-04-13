@@ -12,6 +12,7 @@
 
 ## 2026-04-13
 
+- RI tournament upload cleaner/import: handle repeated CSV header rows embedded mid-file (drop as `duplicate header row` instead of surfacing `unsupported sport "sport"`), and harden venue-link candidate extraction to skip vague city/state-only addresses when `venue` is blank (reduces venue-link insert errors): `apps/referee/lib/tournaments/importUtils.ts`.
 - TI Quick Venue Check reward (debugging): add visible “claiming/pending” banners on `/account`, and make the claim endpoint log detailed failure reasons to the dev server console (so 500s aren’t silent): `apps/ti-web/app/account/QuickVenueCheckRewardClaim.tsx`, `apps/ti-web/app/account/page.tsx`, `apps/ti-web/app/api/venue-quick-check/claim/route.ts`.
 - TI Quick Venue Check reward (compat): when the Supabase DB hasn’t applied the `venue_quick_checks.user_id` migration yet, return an explicit actionable error telling which migration to apply instead of a generic 500 (`20260412_qvc_review_fields_and_weekend_pro_reward.sql`): `apps/ti-web/app/api/venue-quick-check/claim/route.ts`.
 - TI Quick Venue Check reward (correctness): handle duplicate promo grants (`23505`) by reconciling `ti_users` to Weekend Pro based on the original `ti_promo_grants.granted_at` window (without granting an extra year): `apps/ti-web/app/api/venue-quick-check/claim/route.ts`.
