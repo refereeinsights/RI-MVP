@@ -401,6 +401,13 @@ function getTiPublicBaseUrl() {
   return "https://www.tournamentinsights.com";
 }
 
+function getTiAuthRedirectBaseUrl() {
+  const configured = (process.env.TI_AUTH_REDIRECT_BASE_URL ?? "").trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  if (process.env.NODE_ENV !== "production") return "http://localhost:3001";
+  return getTiPublicBaseUrl();
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -1278,6 +1285,26 @@ async function backfillTiUserFromAuthAction(formData: FormData) {
   const { error } = await (supabaseAdmin.from("ti_users" as any) as any).upsert(payload, { onConflict: "id" });
   if (error) redirect(buildPathWithNotice(`Backfill TI user failed: ${error.message}`, q));
   redirect(buildPathWithNotice("TI user backfilled from auth.users.", q));
+}
+
+async function resendTiConfirmEmailAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const q = String(formData.get("q") ?? "").trim();
+  if (!email) redirect(buildPathWithNotice("Missing email.", q));
+
+  const tiBaseUrl = getTiAuthRedirectBaseUrl();
+  const emailRedirectTo = `${tiBaseUrl}/auth/confirm?next=${encodeURIComponent("/account")}`;
+
+  const { error } = await supabaseAdmin.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo },
+  });
+
+  if (error) redirect(buildPathWithNotice(`Resend TI confirmation email failed: ${error.message}`, q));
+  redirect(buildPathWithNotice(`Sent TI confirmation email to ${email}.`, q));
 }
 
 async function deleteTiUserAction(formData: FormData) {
@@ -2934,19 +2961,27 @@ export default async function TiAdminPage({
                     <div><div style={{ color: "#64748b" }}>TI row</div><div>{row.has_ti_user ? `yes (${row.ti_plan ?? "free"} · ${row.ti_status ?? "active"})` : "missing"}</div></div>
                     <div><div style={{ color: "#64748b" }}>Profile role</div><div>{row.profile_role ?? "—"}</div></div>
                   </div>
-                  {!row.has_ti_user ? (
-                    <form action={backfillTiUserFromAuthAction} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <input type="hidden" name="user_id" value={row.id} />
-                      <input type="hidden" name="email" value={row.email ?? ""} />
-                      <input type="hidden" name="q" value={q} />
-                      <button type="submit">Backfill TI user from auth</button>
-                    </form>
-                  ) : null}
-                </div>
-              </details>
-            ))}
-          </div>
-        )}
+	                  {!row.has_ti_user ? (
+	                    <form action={backfillTiUserFromAuthAction} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+	                      <input type="hidden" name="user_id" value={row.id} />
+	                      <input type="hidden" name="email" value={row.email ?? ""} />
+	                      <input type="hidden" name="q" value={q} />
+	                      <button type="submit">Backfill TI user from auth</button>
+	                    </form>
+	                  ) : null}
+	                  {row.email && !row.email_confirmed_at ? (
+	                    <form action={resendTiConfirmEmailAction} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+	                      <input type="hidden" name="email" value={row.email} />
+	                      <input type="hidden" name="q" value={q} />
+	                      <button type="submit">Send TI confirm email</button>
+	                      <span style={{ fontSize: 12, color: "#64748b" }}>Redirects to {getTiAuthRedirectBaseUrl()}/auth/confirm</span>
+	                    </form>
+	                  ) : null}
+	                </div>
+	              </details>
+	            ))}
+	          </div>
+	        )}
       </section>
 
       <section style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
