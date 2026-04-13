@@ -18,6 +18,7 @@
 - TI Quick Venue Check reward (UX): auto-dismiss the claim banner after success/already-applied, and show an “until” date for already-applied results: `apps/ti-web/app/account/QuickVenueCheckRewardClaim.tsx`.
 - TI conversion surfaces: replace tournament/venue premium-upgrade messaging with “Unlock Weekend Pro for free” CTAs that jump into the existing Quick Venue Check flow (no “coming soon” or pricing upgrade prompts): `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`, `apps/ti-web/app/account/page.tsx`.
 - TI Quick Venue Check: support `#quick-venue-check` deep links + a global `ti:qvc:open` event so “Start quick venue check” buttons reliably open the component: `apps/ti-web/components/venues/QuickVenueCheck.tsx`, `apps/ti-web/components/venues/StartQuickVenueCheckButton.tsx`, `apps/ti-web/app/tournaments/[slug]/page.tsx`.
+- TI header auth UX: keep the account icon ring + menu in sync with real Supabase auth state (updates immediately on sign-out to show red ring + sign-in/create-account menu): `apps/ti-web/components/AccountIconMenu.tsx`, `apps/ti-web/components/AccountIconMenu.module.css`.
 
 ## 2026-04-11
 
