@@ -28,65 +28,46 @@ function plusOneYear(base: Date) {
 }
 
 export async function POST(request: Request) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const supabase = createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) {
-    return NextResponse.json({ ok: false, error: "Authentication required." }, { status: 401 });
-  }
-  if (!user.email_confirmed_at) {
-    return NextResponse.json({ ok: false, error: "Email verification required." }, { status: 403 });
-  }
+    if (!user) {
+      return NextResponse.json({ ok: false, error: "Authentication required." }, { status: 401 });
+    }
+    if (!user.email_confirmed_at) {
+      return NextResponse.json({ ok: false, error: "Email verification required." }, { status: 403 });
+    }
 
-  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  let quickCheckId = typeof body?.quick_check_id === "string" ? body.quick_check_id.trim() : "";
-  const browserHash = typeof body?.browser_hash === "string" ? body.browser_hash.trim().slice(0, 128) : "";
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    let quickCheckId = typeof body?.quick_check_id === "string" ? body.quick_check_id.trim() : "";
+    const browserHash = typeof body?.browser_hash === "string" ? body.browser_hash.trim().slice(0, 128) : "";
 
-  if (!quickCheckId) {
-    const { data: pending } = await supabaseAdmin
-      .from("ti_users" as any)
-      .select("qvc_pending_quick_check_id")
-      .eq("id", user.id)
-      .maybeSingle<{ qvc_pending_quick_check_id: string | null }>();
-    quickCheckId = (pending?.qvc_pending_quick_check_id ?? "").trim();
-  }
+    if (!quickCheckId) {
+      const pendingLookup = await supabaseAdmin
+        .from("ti_users" as any)
+        .select("qvc_pending_quick_check_id")
+        .eq("id", user.id)
+        .maybeSingle<{ qvc_pending_quick_check_id: string | null }>();
+      if (pendingLookup.error) {
+        return NextResponse.json(
+          { ok: false, error: `Pending lookup failed: ${pendingLookup.error.message}` },
+          { status: 500 }
+        );
+      }
+      quickCheckId = (pendingLookup.data?.qvc_pending_quick_check_id ?? "").trim();
+    }
 
-  if (!quickCheckId) {
-    return NextResponse.json({ ok: false, error: "quick_check_id required." }, { status: 400 });
-  }
+    if (!quickCheckId) {
+      return NextResponse.json({ ok: false, error: "quick_check_id required." }, { status: 400 });
+    }
 
-  const quickCheckLookup = await supabaseAdmin
-    .from("venue_quick_checks" as any)
-    .select("id,venue_id,browser_hash,user_id,created_at")
-    .eq("id", quickCheckId)
-    .maybeSingle<{
-      id: string;
-      venue_id: string;
-      browser_hash: string | null;
-      user_id: string | null;
-      created_at: string | null;
-    }>();
-
-  if (quickCheckLookup.error) {
-    return NextResponse.json(
-      { ok: false, error: `Quick check lookup failed: ${quickCheckLookup.error.message}` },
-      { status: 500 }
-    );
-  }
-
-  let quickCheck = quickCheckLookup.data ?? null;
-
-  // Fallback: if the stored quick_check_id is missing/stale, try to recover by browser_hash.
-  // This keeps the flow resilient when email confirmation happens in a different browser/tab.
-  if (!quickCheck?.id && browserHash) {
-    const fallbackLookup = await supabaseAdmin
+    const quickCheckLookup = await supabaseAdmin
       .from("venue_quick_checks" as any)
       .select("id,venue_id,browser_hash,user_id,created_at")
-      .eq("browser_hash", browserHash)
-      .order("created_at", { ascending: false })
-      .limit(1)
+      .eq("id", quickCheckId)
       .maybeSingle<{
         id: string;
         venue_id: string;
@@ -95,17 +76,96 @@ export async function POST(request: Request) {
         created_at: string | null;
       }>();
 
-    if (fallbackLookup.error) {
+    if (quickCheckLookup.error) {
       return NextResponse.json(
-        { ok: false, error: `Quick check lookup failed: ${fallbackLookup.error.message}` },
+        { ok: false, error: `Quick check lookup failed: ${quickCheckLookup.error.message}` },
         { status: 500 }
       );
     }
 
-    if (fallbackLookup.data?.id) {
-      quickCheck = fallbackLookup.data;
-      quickCheckId = quickCheck.id;
-      await supabaseAdmin
+    let quickCheck = quickCheckLookup.data ?? null;
+
+    // Fallback: if the stored quick_check_id is missing/stale, try to recover by browser_hash.
+    // This keeps the flow resilient when email confirmation happens in a different browser/tab.
+    if (!quickCheck?.id && browserHash) {
+      const fallbackLookup = await supabaseAdmin
+        .from("venue_quick_checks" as any)
+        .select("id,venue_id,browser_hash,user_id,created_at")
+        .eq("browser_hash", browserHash)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<{
+          id: string;
+          venue_id: string;
+          browser_hash: string | null;
+          user_id: string | null;
+          created_at: string | null;
+        }>();
+
+      if (fallbackLookup.error) {
+        return NextResponse.json(
+          { ok: false, error: `Quick check lookup failed: ${fallbackLookup.error.message}` },
+          { status: 500 }
+        );
+      }
+
+      if (fallbackLookup.data?.id) {
+        quickCheck = fallbackLookup.data;
+        quickCheckId = quickCheck.id;
+        const pendingUpdate = await supabaseAdmin
+          .from("ti_users" as any)
+          .update({
+            qvc_pending_quick_check_id: quickCheck.id,
+            qvc_pending_browser_hash: browserHash || null,
+            qvc_pending_set_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", user.id);
+        if (pendingUpdate.error) {
+          return NextResponse.json(
+            { ok: false, error: `Pending update failed: ${pendingUpdate.error.message}` },
+            { status: 500 }
+          );
+        }
+      }
+    }
+
+    if (!quickCheck?.id) {
+      return NextResponse.json({ ok: false, error: "Quick check not found." }, { status: 404 });
+    }
+
+    if (quickCheck.user_id && quickCheck.user_id !== user.id) {
+      return NextResponse.json({ ok: false, error: "Quick check already claimed." }, { status: 409 });
+    }
+
+    const expectedHash = (quickCheck.browser_hash ?? "").trim();
+    if (expectedHash && browserHash && expectedHash !== browserHash) {
+      return NextResponse.json({ ok: false, error: "Browser mismatch." }, { status: 403 });
+    }
+
+    if (!quickCheck.user_id) {
+      const claimUpdate = await supabaseAdmin
+        .from("venue_quick_checks" as any)
+        .update({ user_id: user.id })
+        .eq("id", quickCheck.id)
+        .is("user_id", null);
+      if (claimUpdate.error) {
+        return NextResponse.json({ ok: false, error: `Claim update failed: ${claimUpdate.error.message}` }, { status: 500 });
+      }
+    }
+
+  // Persist a durable "pending reward" marker when the profile row exists already.
+  // (If it doesn't, we'll still create/update the row after grant below.)
+    const hasProfileLookup = await supabaseAdmin
+      .from("ti_users" as any)
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle<{ id: string }>();
+    if (hasProfileLookup.error) {
+      return NextResponse.json({ ok: false, error: `Profile lookup failed: ${hasProfileLookup.error.message}` }, { status: 500 });
+    }
+    if (hasProfileLookup.data?.id) {
+      const profilePendingUpdate = await supabaseAdmin
         .from("ti_users" as any)
         .update({
           qvc_pending_quick_check_id: quickCheck.id,
@@ -114,48 +174,10 @@ export async function POST(request: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", user.id);
+      if (profilePendingUpdate.error) {
+        return NextResponse.json({ ok: false, error: `Profile update failed: ${profilePendingUpdate.error.message}` }, { status: 500 });
+      }
     }
-  }
-
-  if (!quickCheck?.id) {
-    return NextResponse.json({ ok: false, error: "Quick check not found." }, { status: 404 });
-  }
-
-  if (quickCheck.user_id && quickCheck.user_id !== user.id) {
-    return NextResponse.json({ ok: false, error: "Quick check already claimed." }, { status: 409 });
-  }
-
-  const expectedHash = (quickCheck.browser_hash ?? "").trim();
-  if (expectedHash && browserHash && expectedHash !== browserHash) {
-    return NextResponse.json({ ok: false, error: "Browser mismatch." }, { status: 403 });
-  }
-
-  if (!quickCheck.user_id) {
-    await supabaseAdmin
-      .from("venue_quick_checks" as any)
-      .update({ user_id: user.id })
-      .eq("id", quickCheck.id)
-      .is("user_id", null);
-  }
-
-  // Persist a durable "pending reward" marker when the profile row exists already.
-  // (If it doesn't, we'll still create/update the row after grant below.)
-  const { data: hasProfile } = await supabaseAdmin
-    .from("ti_users" as any)
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle<{ id: string }>();
-  if (hasProfile?.id) {
-    await supabaseAdmin
-      .from("ti_users" as any)
-      .update({
-        qvc_pending_quick_check_id: quickCheck.id,
-        qvc_pending_browser_hash: browserHash || null,
-        qvc_pending_set_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
-  }
 
   const promoInsert = await supabaseAdmin
     .from("ti_promo_grants" as any)
@@ -251,4 +273,10 @@ export async function POST(request: Request) {
   await supabaseAdmin.from("ti_users" as any).upsert(updatePayload, { onConflict: "id" });
 
   return NextResponse.json({ ok: true, granted: true, trial_ends_at: newEnd.toISOString() });
+  } catch (err: any) {
+    return NextResponse.json(
+      { ok: false, error: err?.message ?? "Server error" },
+      { status: 500 }
+    );
+  }
 }

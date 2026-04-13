@@ -67,7 +67,12 @@ export default function QuickVenueCheckRewardClaim({
       .then(async (res) => {
         const json = (await res.json().catch(() => null)) as any;
         if (!res.ok || !json?.ok) {
-          const message = String(json?.error ?? "Unable to claim reward");
+          const textFallback = !json ? await res.text().catch(() => "") : "";
+          const message = String(
+            json?.error ??
+              (textFallback ? textFallback.slice(0, 220) : "") ??
+              "Unable to claim reward"
+          );
           return { ok: false as const, error: message };
         }
         return { ok: true as const, granted: Boolean(json.granted), trial_ends_at: json.trial_ends_at ?? null };
