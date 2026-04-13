@@ -1,8 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { EmailSendKind } from "../../../shared/email/emailSuppression";
+import { sendResendEmail } from "../../../shared/email/resendApi";
 import { sendEmailWithPreflight } from "../../../shared/email/sendWithPreflight";
-
-const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
 type EmailRecipient = string | string[];
 
@@ -47,14 +46,9 @@ export async function sendEmail(payload: EmailPayload) {
   }
 
   const { from, replyTo } = resolveFromAndReplyTo(payload);
-
-  const response = await fetch(RESEND_ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  return sendResendEmail({
+    apiKey,
+    payload: {
       from,
       to,
       subject: payload.subject,
@@ -62,15 +56,8 @@ export async function sendEmail(payload: EmailPayload) {
       text: payload.text ?? "",
       reply_to: replyTo,
       headers: payload.headers ?? undefined,
-    }),
+    },
   });
-
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => "");
-    throw new Error(errorBody || `Failed to send email (${response.status}).`);
-  }
-
-  return response.json().catch(() => ({}));
 }
 
 export async function sendEmailVerified(

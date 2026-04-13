@@ -12,6 +12,7 @@
 
 ## 2026-04-13
 
+- Email reliability: added shared Resend `429/5xx` retry handling with `Retry-After` support + exponential backoff/jitter, and wired both RI and TI email senders to use it (helps admin blasts and director outreach avoid hard-failing on transient provider rate limits): `shared/email/resendApi.ts`, `apps/referee/lib/email.ts`, `apps/ti-web/lib/email.ts`.
 - RI tournament upload cleaner/import: handle repeated CSV header rows embedded mid-file (drop as `duplicate header row` instead of surfacing `unsupported sport "sport"`), and harden venue-link candidate extraction to skip vague city/state-only addresses when `venue` is blank (reduces venue-link insert errors): `apps/referee/lib/tournaments/importUtils.ts`.
 - TI Quick Venue Check reward (debugging): add visible “claiming/pending” banners on `/account`, and make the claim endpoint log detailed failure reasons to the dev server console (so 500s aren’t silent): `apps/ti-web/app/account/QuickVenueCheckRewardClaim.tsx`, `apps/ti-web/app/account/page.tsx`, `apps/ti-web/app/api/venue-quick-check/claim/route.ts`.
 - TI Quick Venue Check reward (compat): when the Supabase DB hasn’t applied the `venue_quick_checks.user_id` migration yet, return an explicit actionable error telling which migration to apply instead of a generic 500 (`20260412_qvc_review_fields_and_weekend_pro_reward.sql`): `apps/ti-web/app/api/venue-quick-check/claim/route.ts`.
@@ -21,6 +22,7 @@
 - TI Quick Venue Check: support `#quick-venue-check` deep links + a global `ti:qvc:open` event so “Start quick venue check” buttons reliably open the component: `apps/ti-web/components/venues/QuickVenueCheck.tsx`, `apps/ti-web/components/venues/StartQuickVenueCheckButton.tsx`, `apps/ti-web/app/tournaments/[slug]/page.tsx`.
 - TI header auth UX: keep the account icon ring + menu in sync with real Supabase auth state (updates immediately on sign-out to show red ring + sign-in/create-account menu): `apps/ti-web/components/AccountIconMenu.tsx`, `apps/ti-web/components/AccountIconMenu.module.css`.
 - TI event-code signup + QVC upgrade prompt: preserve `/join?code=...` through signup email confirmation redirects for new users, and keep the “Unlock Weekend Pro for free” account prompt visible for 7-day event-code trial users (while still hiding it for full Weekend Pro users): `apps/ti-web/app/signup/page.tsx`, `apps/ti-web/app/account/page.tsx`.
+- RI admin blast throttle: reduce send parallelism and add an inter-batch delay to stay below Resend’s `5 req/sec` limit and avoid `429` spikes during bulk sends: `apps/referee/app/admin/ti/page.tsx`.
 
 ## 2026-04-11
 

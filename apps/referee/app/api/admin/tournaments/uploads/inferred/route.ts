@@ -111,8 +111,19 @@ export async function POST(request: Request) {
     limit_per_tournament: limit,
     dry_run: dryRun,
   });
-  if (rpcErr) return NextResponse.json({ error: rpcErr.message }, { status: 500 });
+  if (rpcErr) {
+    const message = String(rpcErr.message ?? "");
+    if (message.includes("tournament_venues_venue_id_fkey")) {
+      return NextResponse.json(
+        {
+          error:
+            "Inference references stale venue IDs (missing rows in `venues`). Apply migration `20260413_inferred_draft_candidates_filter_missing_venues.sql` and retry.",
+        },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true, dry_run: dryRun, rows: rows ?? [] });
 }
-

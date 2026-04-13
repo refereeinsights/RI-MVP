@@ -905,7 +905,8 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
   const errors: Array<{ email: string; message: string }> = [];
 
   try {
-    const concurrency = 5;
+    const concurrency = 2;
+    const interBatchDelayMs = 500;
     for (let i = 0; i < allowedRecipients.length; i += concurrency) {
       const group = allowedRecipients.slice(i, i + concurrency);
       const results = await Promise.all(
@@ -1015,6 +1016,9 @@ async function sendTiUserBulkEmailAction(formData: FormData) {
           sentEmails.push(r.email);
         }
         else errors.push({ email: r.email, message: r.message });
+      }
+      if (i + concurrency < allowedRecipients.length) {
+        await new Promise((resolve) => setTimeout(resolve, interBatchDelayMs));
       }
     }
   } catch (err) {

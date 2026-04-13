@@ -1,8 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { EmailSendKind } from "../../../shared/email/emailSuppression";
+import { sendResendEmail } from "../../../shared/email/resendApi";
 import { sendEmailWithPreflight } from "../../../shared/email/sendWithPreflight";
-
-const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
 type EmailRecipient = string | string[];
 
@@ -52,14 +51,9 @@ export async function sendEmail(payload: EmailPayload) {
   }
 
   const { from, replyTo } = resolveFromAndReplyTo(payload);
-
-  const res = await fetch(RESEND_ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  return sendResendEmail({
+    apiKey,
+    payload: {
       from,
       to,
       subject: payload.subject,
@@ -67,27 +61,8 @@ export async function sendEmail(payload: EmailPayload) {
       text: payload.text ?? "",
       reply_to: replyTo,
       headers: payload.headers ?? undefined,
-    }),
+    },
   });
-
-  if (!res.ok) {
-    const errorBody = await res.text().catch(() => "");
-    console.error("Failed to send email", res.status, errorBody);
-    let message = errorBody.trim();
-    try {
-      const parsed = JSON.parse(errorBody);
-      if (parsed && typeof parsed === "object" && "message" in parsed) {
-        const parsedMessage = String((parsed as any).message ?? "").trim();
-        if (parsedMessage) message = parsedMessage;
-      }
-    } catch {
-      // ignore parse failures
-    }
-    const safeMessage = message ? message.slice(0, 300) : "Unknown error";
-    throw new Error(`Resend API error (${res.status}): ${safeMessage}`);
-  }
-
-  return res.json().catch(() => ({}));
 }
 
 export async function sendEmailVerified(
