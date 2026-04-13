@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { TiTier } from "@/lib/entitlements";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import styles from "./AccountIconMenu.module.css";
 
 type AccountIconMenuProps = {
@@ -23,7 +24,10 @@ export default function AccountIconMenu({ tier, isAuthed, needsEmailVerify }: Ac
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname() ?? "/";
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const [authedOverride, setAuthedOverride] = useState<boolean | null>(null);
+  const [needsVerifyOverride, setNeedsVerifyOverride] = useState<boolean | null>(null);
 
   const returnTo = useMemo(() => {
     const query = searchParams?.toString();
@@ -32,6 +36,57 @@ export default function AccountIconMenu({ tier, isAuthed, needsEmailVerify }: Ac
   const encodedReturnTo = encodeURIComponent(returnTo);
   const signOutReturnTo = pathname.startsWith("/account") || pathname.startsWith("/verify-email") ? "/" : returnTo;
   const encodedSignOutReturnTo = encodeURIComponent(signOutReturnTo);
+
+  const effectiveIsAuthed = authedOverride ?? isAuthed;
+  const effectiveNeedsVerify = effectiveIsAuthed ? (needsVerifyOverride ?? needsEmailVerify) : false;
+
+  useEffect(() => {
+    let alive = true;
+    const supabase = getSupabaseBrowserClient();
+
+    const sync = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!alive) return;
+        setAuthedOverride(Boolean(user));
+        setNeedsVerifyOverride(Boolean(user && !user.email_confirmed_at));
+      } catch {
+        if (!alive) return;
+        setAuthedOverride(false);
+        setNeedsVerifyOverride(false);
+      }
+    };
+
+    sync();
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!alive) return;
+      const user = session?.user ?? null;
+      setAuthedOverride(Boolean(user));
+      setNeedsVerifyOverride(Boolean(user && !user.email_confirmed_at));
+    });
+
+    return () => {
+      alive = false;
+      sub?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  async function handleSignOut() {
+    setOpen(false);
+    setAuthedOverride(false);
+    setNeedsVerifyOverride(false);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      await supabase.auth.signOut();
+    } finally {
+      router.refresh();
+      if (signOutReturnTo && signOutReturnTo !== returnTo) {
+        router.push(signOutReturnTo);
+      }
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -56,7 +111,7 @@ export default function AccountIconMenu({ tier, isAuthed, needsEmailVerify }: Ac
       <button
         type="button"
         className={styles.button}
-        style={{ ["--ring-color" as string]: ringColor(tier, isAuthed, needsEmailVerify) }}
+        style={{ ["--ring-color" as string]: ringColor(tier, effectiveIsAuthed, effectiveNeedsVerify) }}
         aria-label="Account menu"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -66,7 +121,7 @@ export default function AccountIconMenu({ tier, isAuthed, needsEmailVerify }: Ac
       </button>
       {open ? (
         <div className={styles.menu} role="menu" aria-label="Account menu options">
-          {!isAuthed ? (
+          {!effectiveIsAuthed ? (
             <>
               <Link className={styles.item} role="menuitem" href={`/login?returnTo=${encodedReturnTo}`} onClick={() => setOpen(false)}>
                 Sign in
@@ -75,15 +130,15 @@ export default function AccountIconMenu({ tier, isAuthed, needsEmailVerify }: Ac
                 Create free account
               </Link>
             </>
-          ) : needsEmailVerify ? (
+          ) : effectiveNeedsVerify ? (
             <>
               <Link className={styles.item} role="menuitem" href={`/verify-email?returnTo=${encodedReturnTo}`} onClick={() => setOpen(false)}>
                 Verify email
               </Link>
               <div className={styles.divider} />
-              <Link className={styles.item} role="menuitem" href={`/logout?returnTo=${encodedSignOutReturnTo}`} onClick={() => setOpen(false)}>
+              <button className={styles.item} role="menuitem" type="button" onClick={handleSignOut}>
                 Sign out
-              </Link>
+              </button>
             </>
           ) : (
             <>
@@ -91,9 +146,9 @@ export default function AccountIconMenu({ tier, isAuthed, needsEmailVerify }: Ac
                 Account
               </Link>
               <div className={styles.divider} />
-              <Link className={styles.item} role="menuitem" href={`/logout?returnTo=${encodedSignOutReturnTo}`} onClick={() => setOpen(false)}>
+              <button className={styles.item} role="menuitem" type="button" onClick={handleSignOut}>
                 Sign out
-              </Link>
+              </button>
             </>
           )}
         </div>
