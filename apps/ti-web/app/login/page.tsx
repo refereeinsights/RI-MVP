@@ -29,6 +29,14 @@ export default function LoginPage() {
       password,
     });
     if (error) {
+      const raw = `${(error as any)?.code ?? ""} ${(error as any)?.message ?? ""}`.toLowerCase();
+      if (raw.includes("email not confirmed") || raw.includes("email_not_confirmed")) {
+        router.replace(
+          `/verify-email?returnTo=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(email.trim())}`
+        );
+        router.refresh();
+        return;
+      }
       setStatus("error");
       setMessage(error.message);
       return;

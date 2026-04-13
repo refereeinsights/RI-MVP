@@ -8,13 +8,14 @@ import VerifyCodeExchange from "./VerifyCodeExchange";
 export default async function VerifyEmailPage({
   searchParams,
 }: {
-  searchParams?: { returnTo?: string };
+  searchParams?: { returnTo?: string; email?: string };
 }) {
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   const returnTo = sanitizeReturnTo(searchParams?.returnTo ?? null, "/account");
+  const email = String(searchParams?.email ?? "").trim();
 
   if (user?.email_confirmed_at) {
     redirect(returnTo);
@@ -27,7 +28,7 @@ export default async function VerifyEmailPage({
         Email verification is required to unlock Insider access. Once your email is verified, you can use your account and manage your tier from Account.
       </p>
       <VerifyCodeExchange returnTo={returnTo} />
-      <ResendVerificationForm initialEmail={user?.email ?? ""} returnTo={returnTo} />
+      <ResendVerificationForm initialEmail={user?.email ?? email} returnTo={returnTo} />
       <div style={{ fontSize: 13 }}>
         Already verified? <Link href={`/login?returnTo=${encodeURIComponent(returnTo)}`}>Log in</Link>
       </div>
