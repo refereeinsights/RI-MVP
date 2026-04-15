@@ -244,6 +244,26 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
         } catch {
           // ignore storage failures
         }
+
+        // Best-effort: if the user is already signed in + verified, this will immediately apply Weekend Pro.
+        // For logged-out users, it will 401 and we ignore it (they can claim after signup/verify).
+        fetch("/api/venue-quick-check/claim", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quick_check_id: quickCheckId, browser_hash: browserHash }),
+        })
+          .then(async (claimRes) => {
+            const claimJson = (await claimRes.json().catch(() => null)) as any;
+            if (!claimRes.ok || !claimJson?.ok) return;
+            try {
+              window.localStorage.removeItem(pendingRewardKey);
+            } catch {
+              // ignore storage failures
+            }
+          })
+          .catch(() => {
+            // ignore claim failures; account page will retry when needed
+          });
       }
       sendTiAnalytics("Venue Quick Check Submitted", {
         venueUuid: resolvedVenueId,

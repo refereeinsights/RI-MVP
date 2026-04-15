@@ -4,6 +4,17 @@ import { parse, serialize } from "cookie";
 
 let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = null;
 
+function cookieDomainForHost(hostname: string) {
+  const host = (hostname || "").trim().toLowerCase();
+  if (!host) return undefined;
+  if (host === "localhost") return undefined;
+  if (host.endsWith(".vercel.app")) return undefined;
+  if (host === "tournamentinsights.com" || host.endsWith(".tournamentinsights.com")) {
+    return ".tournamentinsights.com";
+  }
+  return undefined;
+}
+
 export function getSupabaseBrowserClient() {
   if (browserClient) return browserClient;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -13,6 +24,7 @@ export function getSupabaseBrowserClient() {
   }
 
   const secure = typeof window !== "undefined" && window.location.protocol === "https:";
+  const cookieDomain = typeof window !== "undefined" ? cookieDomainForHost(window.location.hostname) : undefined;
   browserClient = createBrowserClient<Database>(url, anonKey, {
     cookies: {
       // Keep cookies small to avoid mobile Safari/Chrome dropping chunks (which can cause "random logouts").
@@ -28,6 +40,7 @@ export function getSupabaseBrowserClient() {
           document.cookie = serialize(name, value, {
             ...options,
             path: "/",
+            domain: cookieDomain,
             sameSite: options?.sameSite ?? "lax",
             secure,
           });

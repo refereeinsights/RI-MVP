@@ -12,6 +12,12 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-04-15
+- TI Weekend Pro unlock: regular venue reviews now also trigger the same 12-month Weekend Pro grant used by Quick Venue Check (one-time via `public.ti_promo_grants`; reconciles duplicate grants without extending the window): `apps/ti-web/app/api/venue-reviews/route.ts`.
+- TI Supabase auth stability: fix “new tab logs me out” by setting Supabase auth cookies with `Domain=.tournamentinsights.com` (shared across `tournamentinsights.com` and `www.tournamentinsights.com`) for browser + middleware + key auth routes: `apps/ti-web/lib/supabaseClient.ts`, `apps/ti-web/middleware.ts`, `apps/ti-web/app/auth/confirm/route.ts`, `apps/ti-web/app/logout/route.ts`, `apps/ti-web/app/admin/sso/route.ts`, `apps/ti-web/app/api/account/{profile,change-email,email-preferences}/route.ts`.
+- TI Weekend Pro claim UX hardening: fix a React effect that could leave the `/account` “Claiming Weekend Pro reward…” banner stuck, suppress the banner once the user is already Weekend Pro (clears stale localStorage), and avoid showing raw backend error codes (friendly message + retry): `apps/ti-web/app/account/QuickVenueCheckRewardClaim.tsx`, `apps/ti-web/app/account/page.tsx`.
+- TI Quick Venue Check: after submit, attempt a best-effort immediate claim (signed-in + verified users upgrade immediately, logged-out users still claim after signup/verify): `apps/ti-web/components/venues/QuickVenueCheck.tsx`.
+
 ## 2026-04-08
 - RI: Built NSA (National Softball Association) softball tournament sweeper
   - File: `apps/referee/src/server/sweeps/nsaSoftballTournaments.ts`

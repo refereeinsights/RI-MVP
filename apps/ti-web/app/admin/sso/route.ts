@@ -7,6 +7,17 @@ import type { Database } from "@/lib/types/supabase";
 
 export const runtime = "nodejs";
 
+function cookieDomainForHost(hostname: string) {
+  const host = (hostname || "").trim().toLowerCase();
+  if (!host) return undefined;
+  if (host === "localhost") return undefined;
+  if (host.endsWith(".vercel.app")) return undefined;
+  if (host === "tournamentinsights.com" || host.endsWith(".tournamentinsights.com")) {
+    return ".tournamentinsights.com";
+  }
+  return undefined;
+}
+
 function getConfiguredAdminEmails() {
   const raw = process.env.TI_ADMIN_EMAILS || process.env.RI_ADMIN_EMAIL || "";
   return raw
@@ -59,6 +70,8 @@ export async function GET(req: NextRequest) {
   // Verify OTP server-side so we don't bounce through Supabase's action_link (which can
   // fall back to the project's Site URL and leak tokens into URL fragments).
   const successRedirect = NextResponse.redirect(new URL(returnTo, req.url), 303);
+  const secure = req.nextUrl.protocol === "https:";
+  const cookieDomain = cookieDomainForHost(req.nextUrl.hostname);
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -69,7 +82,13 @@ export async function GET(req: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            successRedirect.cookies.set(name, value, { ...options, path: "/" });
+            successRedirect.cookies.set(name, value, {
+              ...options,
+              path: "/",
+              domain: cookieDomain,
+              secure,
+              sameSite: options?.sameSite ?? "lax",
+            });
           });
         },
       },

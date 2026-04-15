@@ -22,6 +22,17 @@ function sanitizeNext(value: string | null, fallback: string): string {
   return value;
 }
 
+function cookieDomainForHost(hostname: string) {
+  const host = (hostname || "").trim().toLowerCase();
+  if (!host) return undefined;
+  if (host === "localhost") return undefined;
+  if (host.endsWith(".vercel.app")) return undefined;
+  if (host === "tournamentinsights.com" || host.endsWith(".tournamentinsights.com")) {
+    return ".tournamentinsights.com";
+  }
+  return undefined;
+}
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const tokenHash = url.searchParams.get("token_hash");
@@ -36,6 +47,8 @@ export async function GET(req: NextRequest) {
   const nextPath = sanitizeNext(nextParam, defaultNext);
 
   const successRedirect = NextResponse.redirect(new URL(nextPath, req.url), 303);
+  const secure = req.nextUrl.protocol === "https:";
+  const cookieDomain = cookieDomainForHost(req.nextUrl.hostname);
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -46,7 +59,13 @@ export async function GET(req: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            successRedirect.cookies.set(name, value, { ...options, path: "/" });
+            successRedirect.cookies.set(name, value, {
+              ...options,
+              path: "/",
+              domain: cookieDomain,
+              secure,
+              sameSite: options?.sameSite ?? "lax",
+            });
           });
         },
       },

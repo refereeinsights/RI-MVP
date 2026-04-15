@@ -3,6 +3,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/types/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
+function cookieDomainForHost(hostname: string) {
+  const host = (hostname || "").trim().toLowerCase();
+  if (!host) return undefined;
+  if (host === "localhost") return undefined;
+  if (host.endsWith(".vercel.app")) return undefined;
+  if (host === "tournamentinsights.com" || host.endsWith(".tournamentinsights.com")) {
+    return ".tournamentinsights.com";
+  }
+  return undefined;
+}
+
 function buildAccountPath(kind: "notice" | "error", message: string) {
   const params = new URLSearchParams();
   params.set(kind, message);
@@ -15,6 +26,8 @@ function redirectToAccount(req: NextRequest, kind: "notice" | "error", message: 
 
 export async function POST(req: NextRequest) {
   const response = NextResponse.json({ ok: true });
+  const secure = req.nextUrl.protocol === "https:";
+  const cookieDomain = cookieDomainForHost(req.nextUrl.hostname);
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -25,7 +38,13 @@ export async function POST(req: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, { ...options, path: "/" });
+            response.cookies.set(name, value, {
+              ...options,
+              path: "/",
+              domain: cookieDomain,
+              secure,
+              sameSite: options?.sameSite ?? "lax",
+            });
           });
         },
       },
@@ -78,4 +97,3 @@ export async function POST(req: NextRequest) {
 
   return redirectToAccount(req, "notice", "Email preferences updated.");
 }
-

@@ -1,6 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+function cookieDomainForHost(hostname: string) {
+  const host = (hostname || "").trim().toLowerCase();
+  if (!host) return undefined;
+  if (host === "localhost") return undefined;
+  if (host.endsWith(".vercel.app")) return undefined;
+  if (host === "tournamentinsights.com" || host.endsWith(".tournamentinsights.com")) {
+    return ".tournamentinsights.com";
+  }
+  return undefined;
+}
+
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   if (pathname === "/auth/confirm" || pathname === "/auth/error") {
@@ -8,6 +19,7 @@ export async function middleware(req: NextRequest) {
   }
 
   let res = NextResponse.next();
+  const cookieDomain = cookieDomainForHost(req.nextUrl.hostname);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,6 +36,7 @@ export async function middleware(req: NextRequest) {
             res.cookies.set(name, value, {
               ...options,
               path: "/",
+              domain: cookieDomain,
               secure,
               sameSite: options?.sameSite ?? "lax",
             });

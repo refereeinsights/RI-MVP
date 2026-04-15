@@ -175,6 +175,7 @@ export default async function AccountPage({
   return (
     <main className={styles.accountPage}>
       <QuickVenueCheckRewardClaim
+        isWeekendPro={tier === "weekend_pro"}
         initialPending={
           profile?.qvc_pending_quick_check_id
             ? {
