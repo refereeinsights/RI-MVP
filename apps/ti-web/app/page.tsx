@@ -142,13 +142,6 @@ export default async function Home({ searchParams }: { searchParams?: { sport?: 
               Explore the map
             </TrackedLink>
             <HomepageSportFilter value={sportParam || "all"} options={sportOptions} showLabel={false} variant="compact" />
-            <TrackedLink
-              href="/tournaments"
-              className="ti-home-secondaryLink"
-              event={{ name: "homepage_cta_clicked", properties: { cta: "browse_tournaments" } }}
-            >
-              Browse tournaments
-            </TrackedLink>
           </div>
 
           <div className="ti-home-trustStrip" aria-label="Trust highlights">

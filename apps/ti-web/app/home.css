@@ -108,28 +108,6 @@
   border: 1px solid rgba(15, 107, 74, 0.22);
 }
 
-.ti-home-secondaryLink {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  flex: 0 0 100%;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #0f172a;
-  opacity: 0.75;
-  text-decoration: underline;
-  text-decoration-color: rgba(15, 23, 42, 0.22);
-  text-underline-offset: 4px;
-}
-
-.ti-home-secondaryLink:hover {
-  opacity: 1;
-  text-decoration-color: rgba(15, 23, 42, 0.35);
-}
-
 .ti-home-mapCard {
   border-radius: 16px;
   border: 1px solid rgba(15, 23, 42, 0.12);
@@ -241,7 +219,7 @@
   text-underline-offset: 3px;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 980px), (hover: none) and (pointer: coarse) {
   .ti-home-hero {
     grid-template-columns: 1fr;
   }
@@ -254,9 +232,10 @@
     align-items: stretch;
     gap: 10px;
   }
-  .ti-home-secondaryLink {
+  .ti-home-actions form,
+  .ti-home-actions label,
+  .ti-home-actions select {
     width: 100%;
-    justify-content: center;
   }
   .ti-home-cards {
     grid-template-columns: 1fr;
