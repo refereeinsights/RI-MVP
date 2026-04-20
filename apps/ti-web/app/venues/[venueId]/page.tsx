@@ -570,6 +570,7 @@ export default async function VenueDetailsPage({
     : [];
 
   let nearbyCounts = { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
+  let publicHotels: NearbyPlace[] = [];
   let premiumNearby:
     | { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; sporting_goods: NearbyPlace[]; captured_at: string | null }
     | null = null;
@@ -686,6 +687,8 @@ export default async function VenueDetailsPage({
       sporting_goods: sportingGoodsRows.length,
     };
 
+    publicHotels = [...partnerPlaces.hotels, ...hotelRows.map(toPlace)];
+
     if (canViewPremiumDetails) {
       premiumNearby = {
         food: [...partnerPlaces.food, ...foodRows.map(toPlace)],
@@ -702,6 +705,7 @@ export default async function VenueDetailsPage({
       hotels: partnerPlaces.hotels.length,
       sporting_goods: 0,
     };
+    publicHotels = [...partnerPlaces.hotels];
     if (canViewPremiumDetails) {
       premiumNearby = {
         food: partnerPlaces.food,
@@ -891,9 +895,11 @@ export default async function VenueDetailsPage({
                 }}
                 hasOwlsEye={hasOwlsEye}
                 canViewPremiumDetails={canViewPremiumDetails}
+                selectedTournamentId={selectedTournament?.id ?? null}
                 nearbyCounts={nearbyCounts}
                 airportSummary={airportSummary}
                 premiumNearby={premiumNearby}
+                publicHotels={publicHotels}
                 tier={tier}
                 showAllDetails={canViewPremiumDetails}
                 mapLinks={mapLinks}

@@ -21,6 +21,16 @@ type SportCountRow = {
   click_count: number | null;
 };
 
+type TopVenueRow = {
+  venue_id: string;
+  venue_name: string | null;
+  city: string | null;
+  state: string | null;
+  click_count: number | null;
+  last_clicked_at: string | null;
+  total_count: number | null;
+};
+
 type TopTournamentRow = {
   tournament_id: string;
   tournament_slug: string | null;
@@ -60,8 +70,24 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
   const stateFilter = (US_STATES as readonly string[]).includes(stateRaw) ? stateRaw : "";
   const sportFilter = (SPORT_OPTIONS as readonly string[]).includes(sportRaw) ? sportRaw : "";
 
-  const [totalClicksRes, sportCountsRes, topTournamentsRes] = await Promise.all([
-    supabaseAdmin.from("ti_outbound_clicks" as any).select("id", { count: "exact", head: true }),
+  const officialTotalClicksRes = await supabaseAdmin
+    .from("ti_outbound_clicks" as any)
+    .select("id", { count: "exact", head: true })
+    .eq("destination_type", "tournament_official");
+  const officialTotalClicksCode = (officialTotalClicksRes as any)?.error?.code;
+  const officialTotalClicksFallbackRes =
+    officialTotalClicksRes.error && (officialTotalClicksCode === "42703" || officialTotalClicksCode === "PGRST204")
+      ? await supabaseAdmin.from("ti_outbound_clicks" as any).select("id", { count: "exact", head: true })
+      : null;
+  const officialTotalClicksFinalRes = officialTotalClicksFallbackRes ?? officialTotalClicksRes;
+
+  const hotelTotalClicksRes = await supabaseAdmin
+    .from("ti_outbound_clicks" as any)
+    .select("id", { count: "exact", head: true })
+    .eq("destination_type", "hotels");
+  const hotelTotalClicksCode = (hotelTotalClicksRes as any)?.error?.code;
+
+  const [sportCountsRes, topTournamentsRes, topVenuesRes] = await Promise.all([
     (supabaseAdmin as any).rpc("list_ti_outbound_clicks_sport_counts_v1", {
       p_state: null,
     }),
@@ -72,11 +98,20 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
       p_state: stateFilter || null,
       p_sport: sportFilter || null,
     }),
+    (supabaseAdmin as any).rpc("list_ti_outbound_clicks_hotels_top_venues_v1", {
+      p_limit: 25,
+      p_offset: 0,
+      p_q: q || null,
+      p_state: stateFilter || null,
+    }),
   ]);
 
-  const totalClicks = totalClicksRes.error ? 0 : totalClicksRes.count ?? 0;
+  const officialTotalClicks = officialTotalClicksFinalRes.error ? 0 : officialTotalClicksFinalRes.count ?? 0;
+  const hotelTotalClicks = hotelTotalClicksRes.error ? 0 : hotelTotalClicksRes.count ?? 0;
   const rpcSchemaHint =
     "Hint: apply `supabase/migrations/20260412_ti_outbound_clicks_admin_rpcs.sql` and reload the PostgREST schema cache.";
+  const hotelsRpcSchemaHint =
+    "Hint: apply `supabase/migrations/20260420_ti_outbound_clicks_hotels.sql` + `supabase/migrations/20260420_ti_outbound_clicks_hotels_admin_rpcs.sql` and reload the PostgREST schema cache.";
 
   const sportCounts: SportCountRow[] = sportCountsRes.error
     ? []
@@ -88,7 +123,10 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
   const totalTopCount = Number(topRows[0]?.total_count ?? 0) || 0;
   const totalPages = totalTopCount > 0 ? Math.ceil(totalTopCount / limit) : 1;
 
-  const title = "Outbound Tracking (Official URL clicks)";
+  const venueRows: TopVenueRow[] = topVenuesRes.error ? [] : ((topVenuesRes.data ?? []) as TopVenueRow[]);
+  const totalVenueCount = Number(venueRows[0]?.total_count ?? 0) || 0;
+
+  const title = "Outbound Tracking";
 
   return (
     <div style={{ padding: 20, maxWidth: 1100, margin: "0 auto" }}>
@@ -122,10 +160,29 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
           <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800, color: "#6b7280" }}>
             Total official URL clicks
           </div>
-          <div style={{ fontSize: 34, fontWeight: 950, lineHeight: 1.1 }}>{totalClicks}</div>
-          {totalClicksRes.error ? (
+          <div style={{ fontSize: 34, fontWeight: 950, lineHeight: 1.1 }}>{officialTotalClicks}</div>
+          {officialTotalClicksFinalRes.error ? (
             <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
-              Failed to load total clicks: {totalClicksRes.error.message}
+              Failed to load total clicks: {officialTotalClicksFinalRes.error.message}
+            </div>
+          ) : null}
+        </div>
+        <div
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: 14,
+            padding: 14,
+            background: "#fff",
+          }}
+        >
+          <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800, color: "#6b7280" }}>
+            Total hotel clicks (Booking)
+          </div>
+          <div style={{ fontSize: 34, fontWeight: 950, lineHeight: 1.1 }}>{hotelTotalClicks}</div>
+          {hotelTotalClicksRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load hotel clicks: {hotelTotalClicksRes.error.message}
+              {hotelTotalClicksRes.error.message.includes("column") ? ` (${hotelsRpcSchemaHint})` : ""}
             </div>
           ) : null}
         </div>
@@ -379,6 +436,72 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
               Next
             </a>
           </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: 14,
+          background: "#fff",
+          padding: 14,
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 900, color: "#6b7280", marginBottom: 10 }}>
+          Top venues (Hotels / Booking)
+        </div>
+
+        {topVenuesRes.error ? (
+          <div style={{ color: "#b91c1c", fontSize: 13 }}>
+            Failed to load top venues: {topVenuesRes.error.message}
+            {topVenuesRes.error.message.includes("Could not find the function") ? ` (${hotelsRpcSchemaHint})` : ""}
+          </div>
+        ) : null}
+
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Venue</th>
+                <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>City</th>
+                <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>State</th>
+                <th style={{ textAlign: "right", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Clicks</th>
+                <th style={{ textAlign: "right", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>
+                  Last clicked
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {venueRows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13 }}>
+                    No rows.
+                  </td>
+                </tr>
+              ) : (
+                venueRows.map((row) => (
+                  <tr key={row.venue_id} style={{ borderTop: "1px solid #f3f4f6" }}>
+                    <td style={{ padding: "10px 8px", fontWeight: 900, color: "#111", minWidth: 260 }}>
+                      {row.venue_name ?? row.venue_id}
+                    </td>
+                    <td style={{ padding: "10px 8px", color: "#111", fontWeight: 800 }}>{row.city ?? ""}</td>
+                    <td style={{ padding: "10px 8px", color: "#111", fontWeight: 800 }}>{row.state ?? ""}</td>
+                    <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 950 }}>
+                      {Number(row.click_count ?? 0) || 0}
+                    </td>
+                    <td style={{ padding: "10px 8px", textAlign: "right", color: "#6b7280", fontWeight: 800 }}>
+                      {row.last_clicked_at ? new Date(row.last_clicked_at).toLocaleDateString() : ""}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ marginTop: 10, fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
+          Showing {venueRows.length} of {totalVenueCount}
         </div>
       </div>
 

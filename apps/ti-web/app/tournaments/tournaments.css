@@ -1171,6 +1171,17 @@
   background: #f5f7f8;
 }
 
+.detailLinksRow .hotelBookingCta {
+  background: #0f6b4a;
+  color: #fff;
+  border: 1px solid rgba(0,0,0,0.12);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.14);
+}
+
+.detailLinksRow .hotelBookingCta:hover {
+  background: #0d5c40;
+}
+
 .detailCard {
   margin-top: 12px;
   background: rgba(255,255,255,0.16);
