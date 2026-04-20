@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
+import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
 import styles from "./VenueCard.module.css";
 
 type MapLinks = {
@@ -69,6 +70,8 @@ export default function VenueCard({
   const canReviewVenue = tier !== "explorer";
   const reviewHref = `/venues/reviews?venueId=${encodeURIComponent(venueId)}`;
   const detailsHref = `/venues/${venueSeoSlug || venueId}`;
+  const hotelsHref = buildHotelsHref({ venueId });
+  const showBooking = canShowBookingCta({ zip });
 
   return (
     <article className={`card ${sportCardClass} ${styles.card}`}>
@@ -170,6 +173,14 @@ export default function VenueCard({
           </span>
         )}
       </div>
+
+      {showBooking ? (
+        <div className={styles.bookingRow}>
+          <a href={hotelsHref} target="_blank" rel="noopener noreferrer sponsored" className={`secondaryLink ${styles.bookingLink}`}>
+            🏨 Check hotel availability
+          </a>
+        </div>
+      ) : null}
     </article>
   );
 }

@@ -12,6 +12,16 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-04-20
+- RI venues geo audit: added a lightweight script to report venue `latitude/longitude` coverage and sample missing-geo rows: `scripts/ops/audit_venues_geo.mjs`, `scripts/ops/audit_venues_geo.ts`.
+- TI hotels visibility: moved the existing “Hotels near this venue” list out of premium-only UI so names/distances render for all users while keeping non-sponsor “Directions” gated (sponsor links remain clickable): `apps/ti-web/app/venues/[venueId]/page.tsx`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`.
+- TI Booking.com (Awin) hotel redirects: added `/go/hotels` server-side redirect with Booking URL build → Awin `cread.php` wrap → best-effort click logging → 302 with `no-store` headers (local dev can fall back to direct Booking if Awin env vars are missing): `apps/ti-web/app/go/hotels/route.ts`.
+- TI outbound click logging (hotels): extended `public.ti_outbound_clicks` so venue-level hotel clicks can be logged (nullable tournament fields, added `destination_type`, `partner`, `source_surface`, `venue_id`, constraints, and indexes): `supabase/migrations/20260420_ti_outbound_clicks_hotels.sql`.
+- TI admin reporting (RI): added “Hotels (Booking)” totals + top-venues table (RPC-backed) to `/admin/ti/outbound`: `supabase/migrations/20260420_ti_outbound_clicks_hotels_admin_rpcs.sql`, `apps/referee/app/admin/ti/outbound/page.tsx`.
+- TI Booking CTA UX: “Check hotel availability” CTA with urgency microcopy and non-blocking analytics beacon (`venue_hotels_cta_clicked`): `apps/ti-web/components/venues/HotelBookingCta.tsx`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`, `apps/ti-web/app/tournaments/tournaments.css`.
+- TI Booking visibility broadened beyond Owl’s Eye: show the Booking CTA for any venue card surface with a valid 5-digit US ZIP (keeps existing tracking/redirect flow via `/go/hotels`): `apps/ti-web/components/venues/VenueCard.tsx`, `apps/ti-web/components/venues/VenueCard.module.css`.
+- TI Booking search-string helper: centralized Booking `ss` computation and updated `/go/hotels` to use Booking’s preferred order (`City+State+ZIP` → `City+State` → `ZIP` last resort), while continuing to avoid region labels like “Front Range”: `apps/ti-web/lib/booking/venueBooking.ts`, `apps/ti-web/app/go/hotels/route.ts`, `apps/ti-web/lib/booking/venueBooking.test.ts`.
+
 ## 2026-04-15
 - TI Weekend Pro unlock: regular venue reviews now also trigger the same 12-month Weekend Pro grant used by Quick Venue Check (one-time via `public.ti_promo_grants`; reconciles duplicate grants without extending the window): `apps/ti-web/app/api/venue-reviews/route.ts`.
 - TI Supabase auth stability: fix “new tab logs me out” by setting Supabase auth cookies with `Domain=.tournamentinsights.com` (shared across `tournamentinsights.com` and `www.tournamentinsights.com`) for browser + middleware + key auth routes: `apps/ti-web/lib/supabaseClient.ts`, `apps/ti-web/middleware.ts`, `apps/ti-web/app/auth/confirm/route.ts`, `apps/ti-web/app/logout/route.ts`, `apps/ti-web/app/admin/sso/route.ts`, `apps/ti-web/app/api/account/{profile,change-email,email-preferences}/route.ts`.

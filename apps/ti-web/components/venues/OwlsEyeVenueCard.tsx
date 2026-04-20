@@ -6,6 +6,7 @@ import OwlsEyeWeekendGuideAccordion from "@/components/OwlsEyeWeekendGuideAccord
 import MobileMapLink from "@/components/venues/MobileMapLink";
 import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheckButton";
 import HotelBookingCta from "@/components/venues/HotelBookingCta";
+import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
 
 export type NearbyPlace = {
   name: string;
@@ -80,11 +81,7 @@ export default function OwlsEyeVenueCard({
 }: OwlsEyeVenueCardProps) {
   const locationLine = [venue.city, venue.state, venue.zip].filter(Boolean).join(", ");
   const hotels = (publicHotels ?? []).filter(Boolean);
-  const bookingHref = (() => {
-    const qp = new URLSearchParams({ venueId: venue.id });
-    if (selectedTournamentId) qp.set("tournamentId", selectedTournamentId);
-    return `/go/hotels?${qp.toString()}`;
-  })();
+  const bookingHref = buildHotelsHref({ venueId: venue.id, tournamentId: selectedTournamentId ?? null });
   const nearestMajorAirport = airportSummary?.nearest_major_airport ?? null;
   const nearestAirport = airportSummary?.nearest_airport ?? null;
   const primaryAirport = nearestMajorAirport ?? nearestAirport;
@@ -143,6 +140,15 @@ export default function OwlsEyeVenueCard({
           ) : null}
         </div>
 
+        {canShowBookingCta({ zip: venue.zip }) ? (
+          <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+            <HotelBookingCta href={bookingHref} venueId={venue.id} tournamentId={selectedTournamentId ?? null} />
+            <div className="detailVenueNearbyPreview__teaser" style={{ marginTop: -4, textAlign: "center" }}>
+              Book early—tournament weekends fill fast
+            </div>
+          </div>
+        ) : null}
+
         {hasOwlsEye ? (
           <div className="detailVenueNearbyPreview">
             <div className="detailVenueNearbyPreview__title">Nearby Options ({BRAND_OWL})</div>
@@ -154,16 +160,16 @@ export default function OwlsEyeVenueCard({
 	                  <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
 	                  <div>⚽ {nearbyCounts.sporting_goods} gear nearby</div>
 	                </div>
-                    {hotels.length ? (
-                      <div style={{ display: "grid", gap: 6 }}>
-                        <div style={{ fontWeight: 800 }}>Hotels near this venue</div>
-                        <div className="premiumNearbyGroup__list">
-	                        {hotels.slice(0, 5).map((item, idx) => {
-                          const miles =
-                            typeof item.distance_meters === "number" && Number.isFinite(item.distance_meters)
-                              ? `${(item.distance_meters / 1609.344).toFixed(1)} mi`
-                              : "Distance unavailable";
-                          const sponsorLink = item.is_sponsor && item.sponsor_click_url ? item.sponsor_click_url : null;
+                  {hotels.length ? (
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <div style={{ fontWeight: 800 }}>Hotels near this venue</div>
+                      <div className="premiumNearbyGroup__list">
+                        {hotels.slice(0, 5).map((item, idx) => {
+	                          const miles =
+	                            typeof item.distance_meters === "number" && Number.isFinite(item.distance_meters)
+	                              ? `${(item.distance_meters / 1609.344).toFixed(1)} mi`
+	                              : "Distance unavailable";
+	                          const sponsorLink = item.is_sponsor && item.sponsor_click_url ? item.sponsor_click_url : null;
                           const mapsLink = !sponsorLink && canViewPremiumDetails ? item.maps_url : null;
                           const ctaHref = sponsorLink ?? mapsLink;
                           const ctaLabel = sponsorLink ? "View" : mapsLink ? "Directions" : "Directions (Premium)";
@@ -194,10 +200,6 @@ export default function OwlsEyeVenueCard({
                           );
                         })}
                       </div>
-                        <HotelBookingCta href={bookingHref} venueId={venue.id} tournamentId={selectedTournamentId ?? null} />
-                        <div className="detailVenueNearbyPreview__teaser" style={{ marginTop: -4, textAlign: "center" }}>
-                          Book early—tournament weekends fill fast
-                        </div>
                     </div>
                   ) : null}
                 {primaryAirport ? (
@@ -293,11 +295,11 @@ export default function OwlsEyeVenueCard({
                       <div style={{ display: "grid", gap: 6, marginTop: 4 }}>
                         <div style={{ fontWeight: 800 }}>Hotels near this venue</div>
                         <div className="premiumNearbyGroup__list">
-	                          {hotels.slice(0, 3).map((item, idx) => {
-                            const miles =
-                              typeof item.distance_meters === "number" && Number.isFinite(item.distance_meters)
-                                ? `${(item.distance_meters / 1609.344).toFixed(1)} mi`
-                                : "Distance unavailable";
+                          {hotels.slice(0, 3).map((item, idx) => {
+	                            const miles =
+	                              typeof item.distance_meters === "number" && Number.isFinite(item.distance_meters)
+	                                ? `${(item.distance_meters / 1609.344).toFixed(1)} mi`
+	                                : "Distance unavailable";
                             const sponsorLink = item.is_sponsor && item.sponsor_click_url ? item.sponsor_click_url : null;
                             const mapsLink = !sponsorLink && canViewPremiumDetails ? item.maps_url : null;
                             const ctaHref = sponsorLink ?? mapsLink;
@@ -329,10 +331,6 @@ export default function OwlsEyeVenueCard({
                             );
                           })}
                         </div>
-                          <HotelBookingCta href={bookingHref} venueId={venue.id} tournamentId={selectedTournamentId ?? null} />
-                          <div className="detailVenueNearbyPreview__teaser" style={{ marginTop: -4, textAlign: "center" }}>
-                            Book early—tournament weekends fill fast
-                          </div>
                         {!canViewPremiumDetails ? (
                           <div className="detailVenueNearbyPreview__teaser" style={{ marginTop: -2 }}>
                             Directions are Premium — unlock Weekend Pro to open maps.

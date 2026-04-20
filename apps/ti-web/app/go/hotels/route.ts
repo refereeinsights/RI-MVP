@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { buildBookingSearchString, isValidZip5 } from "@/lib/booking/venueBooking";
 
 export const runtime = "nodejs";
 
@@ -105,48 +106,6 @@ function wrapAwin(bookingUrl: string) {
   return { ok: true as const, url: wrapped };
 }
 
-function looksLikeGenericRegionCity(value: string) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return false;
-  const normalized = raw.toLowerCase();
-  const tokens = ["front range", "metro", "region", "area", "county"];
-  return tokens.some((t) => normalized.includes(t));
-}
-
-function extractCityFromVenueName(name: string) {
-  const raw = String(name ?? "").trim();
-  if (!raw) return null;
-  const parts = raw.split(/[^a-zA-Z]+/g).filter(Boolean);
-  const stop = new Set([
-    "the",
-    "a",
-    "an",
-    "youth",
-    "sports",
-    "sport",
-    "complex",
-    "park",
-    "fields",
-    "field",
-    "center",
-    "centre",
-    "club",
-    "academy",
-    "high",
-    "school",
-    "middle",
-    "elementary",
-    "community",
-  ]);
-  for (const p of parts) {
-    const lower = p.toLowerCase();
-    if (p.length < 3) continue;
-    if (stop.has(lower)) continue;
-    return p;
-  }
-  return null;
-}
-
 export async function GET(request: Request) {
   const reqUrl = new URL(request.url);
   const venueId = String(reqUrl.searchParams.get("venueId") ?? "").trim();
@@ -168,9 +127,9 @@ export async function GET(request: Request) {
 
   const { data: venue } = await supabaseAdmin
     .from("venues" as any)
-    .select("id,name,city,state")
+    .select("id,name,city,state,zip")
     .eq("id", venueId)
-    .maybeSingle<{ id: string; name: string | null; city: string | null; state: string | null }>();
+    .maybeSingle<{ id: string; name: string | null; city: string | null; state: string | null; zip: string | null }>();
 
   const requestedTournamentId = tournamentId && isUuid(tournamentId) ? tournamentId : null;
   const { data: tournament } = requestedTournamentId
@@ -185,22 +144,17 @@ export async function GET(request: Request) {
     const override = ssOverride.trim();
     if (override) return override;
 
-    const city = (venue?.city ?? "").trim();
-    const state = (venue?.state ?? "").trim();
+    const computed = buildBookingSearchString({
+      venueName: venue?.name ?? null,
+      city: venue?.city ?? null,
+      state: venue?.state ?? null,
+      zip: venue?.zip ?? null,
+    });
+    if (computed) return computed;
 
-    const cityIsGenericRegion = looksLikeGenericRegionCity(city);
-    const name = (venue?.name ?? "").trim();
-    const normalizedCity = cityIsGenericRegion ? extractCityFromVenueName(name) : null;
-
-    // Preferred order:
-    // a) normalized city + state
-    // b) venue city + state
-    // c) venue name
-    // d) United States
-    if (normalizedCity && state) return `${normalizedCity}, ${state}`;
-    if (!cityIsGenericRegion && city && state) return `${city}, ${state}`;
-
-    if (name) return name;
+    // Backstop: if data is incomplete, use ZIP-only when possible, else a broad default.
+    const zip = (venue?.zip ?? "").trim();
+    if (isValidZip5(zip)) return zip;
     return "United States";
   })();
 
