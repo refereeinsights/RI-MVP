@@ -82,6 +82,7 @@ export default function OwlsEyeVenueCard({
   const locationLine = [venue.city, venue.state, venue.zip].filter(Boolean).join(", ");
   const hotels = (publicHotels ?? []).filter(Boolean);
   const bookingHref = buildHotelsHref({ venueId: venue.id, tournamentId: selectedTournamentId ?? null });
+  const showBooking = canShowBookingCta({ zip: venue.zip });
   const nearestMajorAirport = airportSummary?.nearest_major_airport ?? null;
   const nearestAirport = airportSummary?.nearest_airport ?? null;
   const primaryAirport = nearestMajorAirport ?? nearestAirport;
@@ -140,7 +141,7 @@ export default function OwlsEyeVenueCard({
           ) : null}
         </div>
 
-        {canShowBookingCta({ zip: venue.zip }) ? (
+        {showBooking && !hasOwlsEye ? (
           <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
             <HotelBookingCta href={bookingHref} venueId={venue.id} tournamentId={selectedTournamentId ?? null} />
             <div className="detailVenueNearbyPreview__teaser" style={{ marginTop: -4, textAlign: "center" }}>
@@ -152,6 +153,14 @@ export default function OwlsEyeVenueCard({
         {hasOwlsEye ? (
           <div className="detailVenueNearbyPreview">
             <div className="detailVenueNearbyPreview__title">Nearby Options ({BRAND_OWL})</div>
+            {showBooking ? (
+              <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+                <HotelBookingCta href={bookingHref} venueId={venue.id} tournamentId={selectedTournamentId ?? null} />
+                <div className="detailVenueNearbyPreview__teaser" style={{ marginTop: -4, textAlign: "center" }}>
+                  Book early—tournament weekends fill fast
+                </div>
+              </div>
+            ) : null}
             {showAllDetails ? (
               <>
 	                <div className="detailVenueNearbyPreview__counts">

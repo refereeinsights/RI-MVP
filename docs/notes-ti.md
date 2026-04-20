@@ -20,6 +20,7 @@ Maintenance rules:
 - Booking CTA UX: “Check hotel availability” CTA with urgency microcopy and non-blocking analytics beacon (`venue_hotels_cta_clicked`): `apps/ti-web/components/venues/HotelBookingCta.tsx`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`, `apps/ti-web/app/tournaments/tournaments.css`.
 - Booking visibility broadened beyond Owl’s Eye: show the Booking CTA for any venue card surface with a valid 5-digit US ZIP (keeps existing tracking/redirect flow via `/go/hotels`): `apps/ti-web/components/venues/VenueCard.tsx`, `apps/ti-web/components/venues/VenueCard.module.css`.
 - Booking search-string helper: centralized Booking `ss` computation and updated `/go/hotels` to use Booking’s preferred order (`City+State+ZIP` → `City+State` → `ZIP` last resort), while continuing to avoid region labels like “Front Range”: `apps/ti-web/lib/booking/venueBooking.ts`, `apps/ti-web/app/go/hotels/route.ts`, `apps/ti-web/lib/booking/venueBooking.test.ts`.
+- Venue page CTA placement: when Owl’s Eye is present, render the Booking CTA above the hotel list (within the Nearby Options card) without using Owl’s Eye as a visibility gate; non-Owl’s Eye venues still show the CTA above the Nearby Options section when ZIP is valid: `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`.
 
 ## 2026-04-15
 - Weekend Pro unlock: regular venue reviews now also trigger the same 12-month Weekend Pro grant used by Quick Venue Check (one-time via `public.ti_promo_grants`; reconciles duplicate grants without extending the window): `apps/ti-web/app/api/venue-reviews/route.ts`.
