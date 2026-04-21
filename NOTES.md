@@ -13,6 +13,13 @@
 - TI venue page CTA placement: when Owl’s Eye is present, render the Booking CTA above the hotel list (within the Nearby Options card) without using Owl’s Eye as a visibility gate; non-Owl’s Eye venues still show the CTA above the Nearby Options section when ZIP is valid: `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`.
 - RI admin outbound report: added “Hotels (Booking)” totals + a top-venues table (RPC-backed) to `/admin/ti/outbound`: `supabase/migrations/20260420_ti_outbound_clicks_hotels_admin_rpcs.sql`, `apps/referee/app/admin/ti/outbound/page.tsx`.
 
+## 2026-04-21
+
+- TI mobile centering: adjusted `.pitchWrap` to be full-bleed inside the TI shell using symmetric negative margins (avoids `100vw`/`calc(50% - 50vw)` iOS Safari drift): `apps/ti-web/app/tournaments/tournaments.css`. (Committed locally as `489055e`.)
+- Ops: added `scripts/ops/backfill_venue_zip_codes.ts` to backfill `public.venues.zip` (ZIP5) by (a) normalizing ZIP+4 to ZIP5 and (b) extracting ZIP5 from `venues.address` (optional geocoding later). Switched writes to per-row UPDATEs to avoid accidental inserts on upsert.
+- Data: ran “ZIP backfill pass 1” (no geocoding) and updated 353 venue ZIPs in Supabase based on existing data only.
+- Ops: added `scripts/ops/export_venues_urls_csv.ts` to export `venue_id,name,venue_url` for all venues to a CSV file (written to `~/Downloads/` by default).
+
 ## 2026-04-15
 
 - Weekend Pro unlock: regular venue reviews now also trigger the same 12-month Weekend Pro grant used by Quick Venue Check (one-time via `public.ti_promo_grants`; reconciles duplicate grants without extending the window): `apps/ti-web/app/api/venue-reviews/route.ts`.
