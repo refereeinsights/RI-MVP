@@ -1680,7 +1680,7 @@
 }
 .detailPanel {
   position: relative;
-  margin: 0.75rem;
+  margin: 0.75rem 0;
   padding: 1.25rem;
   padding-top: 5.25rem;
   border-radius: 16px;
@@ -1695,7 +1695,7 @@
   .detailPanel {
     padding: 1rem;
     padding-top: 4.4rem;
-    margin: 0.5rem;
+    margin: 0.5rem 0;
   }
 }
 
