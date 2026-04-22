@@ -1214,7 +1214,11 @@ export default async function VenueFieldMapsQueuePage({
         </div>
       </form>
 
-      <form style={{ marginTop: 16, display: "grid", gap: 8, gridTemplateColumns: "2fr 1fr auto auto" }} action="GET">
+      <form
+        method="get"
+        action={basePath}
+        style={{ marginTop: 16, display: "grid", gap: 8, gridTemplateColumns: "2fr 1fr auto auto" }}
+      >
         <input name="q" placeholder="Search venue / city / url" defaultValue={q} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }} />
         <select name="status" defaultValue={status} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
           <option value="pending">pending</option>
