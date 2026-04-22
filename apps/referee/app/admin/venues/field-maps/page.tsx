@@ -45,6 +45,26 @@ type QueueRow = {
 type SearchEngine = "brave" | "google";
 type DiscoverMode = "broad" | "strict";
 
+function inferDiscoverIndicator(notes: string | null) {
+  const text = (notes ?? "").trim();
+  if (!text) return null;
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const lastDiscover = [...lines].reverse().find((l) => l.startsWith("[discover:"));
+  if (!lastDiscover) return null;
+
+  // examples:
+  // [discover:brave] no match (brave_http_429) for "..."
+  // [discover:brave] no match for "..."
+  // [discover:brave] picked (55) https://...
+  const match = lastDiscover.match(/^\[discover:([a-z]+)\]\s+(no match|picked)/i);
+  if (!match) return null;
+  const engine = match[1].toLowerCase();
+  const kind = match[2].toLowerCase();
+  if (kind === "no match") return { engine, label: `no ${engine} match`, tone: "warn" as const };
+  if (kind === "picked") return { engine, label: `${engine} match`, tone: "ok" as const };
+  return null;
+}
+
 function redirectWithNotice(base: string, notice: string): never {
   const joiner = base.includes("?") ? "&" : "?";
   redirect(`${base}${joiner}notice=${encodeURIComponent(notice)}`);
@@ -1340,6 +1360,7 @@ export default async function VenueFieldMapsQueuePage({
                   const mapLink = suggestedMap || currentMap;
                   const sport = (row as any).suggested_field_map_sport ?? null;
                   const setPrimary = Boolean((row as any).suggested_field_map_set_primary);
+                  const discoverIndicator = inferDiscoverIndicator(row.notes ?? null);
 
                   return (
                     <tr key={row.venue_id} style={{ borderBottom: "1px solid #f3f4f6" }}>
@@ -1362,6 +1383,18 @@ export default async function VenueFieldMapsQueuePage({
                         ) : null}
                         {row.override_good_venue_url ? (
                           <div style={{ marginTop: 4, fontSize: 12, color: "#b45309", fontWeight: 900 }}>override good URL</div>
+                        ) : null}
+                        {discoverIndicator ? (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              fontSize: 12,
+                              fontWeight: 900,
+                              color: discoverIndicator.tone === "ok" ? "#0a7a2f" : "#b45309",
+                            }}
+                          >
+                            {discoverIndicator.label}
+                          </div>
                         ) : null}
                       </td>
                       <td style={{ padding: 10, verticalAlign: "top", minWidth: 320 }}>
