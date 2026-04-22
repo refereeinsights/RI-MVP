@@ -223,16 +223,43 @@ export default async function VenueFieldMapsQueuePage({
     if (!ids.length) return redirectWithNotice(adminBase, "Select at least one venue.");
 
     if (action === "approve_maps") {
+      const { data: rowsRaw, error: rowsErr } = await supabaseAdmin
+        .from("venue_url_review_queue" as any)
+        .select("venue_id,suggested_field_map_url")
+        .in("venue_id", ids);
+      if (rowsErr) {
+        console.error("field-maps bulk approve failed (load rows)", rowsErr);
+        return redirectWithNotice(adminBase, "Bulk approve failed.");
+      }
+
+      const rows = (rowsRaw ?? []) as any[];
+      const eligibleIds = rows
+        .filter((r) => Boolean(String(r.suggested_field_map_url ?? "").trim()))
+        .map((r) => String(r.venue_id));
+
+      const skipped = ids.length - eligibleIds.length;
+      if (!eligibleIds.length) {
+        return redirectWithNotice(adminBase, "Nothing to approve: selected rows have no suggested map URL yet.");
+      }
+
       const { error } = await supabaseAdmin
         .from("venue_url_review_queue" as any)
-        .update({ approve_field_map_url: true, status: "approved", reviewed_by: admin.id, last_reviewed_at: new Date().toISOString() })
-        .in("venue_id", ids);
+        .update({
+          approve_field_map_url: true,
+          status: "approved",
+          reviewed_by: admin.id,
+          last_reviewed_at: new Date().toISOString(),
+        })
+        .in("venue_id", eligibleIds);
       if (error) {
         console.error("field-maps bulk approve failed", error);
         return redirectWithNotice(adminBase, "Bulk approve failed.");
       }
       revalidatePath(basePath);
-      return redirectWithNotice(adminBase, `Approved field maps for ${ids.length} venue(s).`);
+      return redirectWithNotice(
+        adminBase,
+        skipped ? `Approved ${eligibleIds.length} venue(s). Skipped ${skipped} with no suggested map URL.` : `Approved ${eligibleIds.length} venue(s).`
+      );
     }
 
     if (action === "delete_queue_rows") {
@@ -685,6 +712,9 @@ export default async function VenueFieldMapsQueuePage({
           >
             Approve selected maps
           </button>
+          <span style={{ alignSelf: "center", fontSize: 12, color: "#6b7280" }}>
+            Approve/apply only works once `suggested_field_map_url` is filled in (use `Edit`).
+          </span>
           <button
             formNoValidate
             name="bulk_action"
