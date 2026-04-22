@@ -30,28 +30,16 @@ type QueueRow = {
   override_good_venue_url: boolean | null;
   notes: string | null;
   updated_at: string | null;
-  venues:
-    | {
-      id: string;
-      name: string | null;
-      city: string | null;
-      state: string | null;
-      zip: string | null;
-      venue_url: string | null;
-      field_map_url: string | null;
-      venue_url_quality: string | null;
-    }
-    | Array<{
-        id: string;
-        name: string | null;
-        city: string | null;
-        state: string | null;
-        zip: string | null;
-        venue_url: string | null;
-        field_map_url: string | null;
-        venue_url_quality: string | null;
-      }>
-    | null;
+  venues: {
+    id: string;
+    name: string | null;
+    city: string | null;
+    state: string | null;
+    zip: string | null;
+    venue_url: string | null;
+    field_map_url: string | null;
+    venue_url_quality: string | null;
+  } | null;
 };
 
 type SearchEngine = "brave" | "google";
@@ -1165,7 +1153,38 @@ export default async function VenueFieldMapsQueuePage({
     console.error("field-maps: query failed", error);
   }
 
-  const rows = (rowsRaw ?? []) as unknown as QueueRow[];
+  // PostgREST embed shapes vary (object vs array) depending on relationship hints.
+  // Normalize to a single `venues` object and then backfill any missing embeds.
+  const normalizedRows = ((rowsRaw ?? []) as any[]).map((r) => {
+    const embedded = (r as any).venues;
+    const venue = Array.isArray(embedded) ? embedded[0] ?? null : embedded ?? null;
+    return { ...(r as any), venues: venue };
+  });
+
+  const missingVenueIds = normalizedRows
+    .filter((r) => !(r as any).venues)
+    .map((r) => String((r as any).venue_id))
+    .filter(Boolean);
+
+  if (missingVenueIds.length) {
+    const { data: venuesRaw, error: venuesErr } = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,name,city,state,zip,venue_url,field_map_url,venue_url_quality")
+      .in("id", missingVenueIds.slice(0, 5000));
+    if (venuesErr) {
+      console.error("field-maps: failed to backfill venues embeds", venuesErr);
+    } else {
+      const byId = new Map<string, any>();
+      for (const v of (venuesRaw ?? []) as any[]) byId.set(String((v as any).id), v);
+      for (const r of normalizedRows) {
+        if ((r as any).venues) continue;
+        const v = byId.get(String((r as any).venue_id)) ?? null;
+        if (v) (r as any).venues = v;
+      }
+    }
+  }
+
+  const rows = normalizedRows as unknown as QueueRow[];
   const schemaMissing = Boolean(error) && ((error as any)?.code === "PGRST205" || String((error as any)?.message || "").includes("schema cache"));
 
   const StatusLink = ({ value, label }: { value: QueueStatus | "all"; label: string }) => {
@@ -1452,7 +1471,7 @@ export default async function VenueFieldMapsQueuePage({
                 </tr>
               ) : (
                 rows.map((row) => {
-                  const venue = Array.isArray(row.venues) ? row.venues[0] ?? null : row.venues;
+                  const venue = row.venues;
                   const title = venue?.name ?? row.venue_id;
                   const meta = [venue?.city, venue?.state, venue?.zip].filter(Boolean).join(", ");
                   const currentMap = row.current_field_map_url ?? venue?.field_map_url ?? null;
