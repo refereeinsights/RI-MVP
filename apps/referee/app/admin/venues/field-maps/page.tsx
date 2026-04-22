@@ -370,6 +370,29 @@ export default async function VenueFieldMapsQueuePage({
 
   const coverage = await computeVenueFieldMapCoverage();
 
+  async function computeQueueStatusCounts() {
+    try {
+      const { data: rows, error: statusErr } = await fetchAllPaged(async (from, to) => {
+        return await supabaseAdmin.from("venue_url_review_queue" as any).select("status").range(from, to);
+      }, 2000);
+      if (statusErr) throw statusErr;
+
+      const counts: Record<string, number> = {};
+      for (const r of (rows ?? []) as any[]) {
+        const s = String((r as any).status ?? "");
+        if (!s) continue;
+        counts[s] = (counts[s] ?? 0) + 1;
+      }
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+      return { counts, total };
+    } catch (e) {
+      console.error("field-maps: queue status counts failed", e);
+      return { counts: {} as Record<string, number>, total: null as number | null };
+    }
+  }
+
+  const queueStatusCounts = await computeQueueStatusCounts();
+
   const schemaHelp = {
     title: "Field map queue schema not deployed yet",
     body: [
@@ -1438,6 +1461,11 @@ export default async function VenueFieldMapsQueuePage({
 
   const StatusLink = ({ value, label }: { value: QueueStatus | "all"; label: string }) => {
     const active = value === status;
+    const count =
+      value === "all"
+        ? queueStatusCounts.total
+        : (queueStatusCounts.counts[String(value)] ?? null);
+    const labelWithCount = count === null ? label : `${label} (${count})`;
     return (
       <Link
         href={buildHref({ status: value === "pending" ? null : value })}
@@ -1452,7 +1480,7 @@ export default async function VenueFieldMapsQueuePage({
           textDecoration: "none",
         }}
       >
-        {label}
+        {labelWithCount}
       </Link>
     );
   };

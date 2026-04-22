@@ -37,6 +37,7 @@
 - RI admin: fixed `/admin/venues/field-maps` “Seed queue” 500 caused by capturing non-serializable helpers inside a server action; seed now redirects to a simple URL string after inserting: `apps/referee/app/admin/venues/field-maps/page.tsx`.
 - RI admin: seed now inserts only truly new queue rows and reports `(already queued)` counts so `pending` doesn’t look empty when everything was already seeded: `apps/referee/app/admin/venues/field-maps/page.tsx`.
 - RI admin: field maps “Seed queue” now paginates through tournament-linked venues until it finds up to the requested number of *new* queue rows (instead of stopping when the most recent venues are already queued): `apps/referee/app/admin/venues/field-maps/page.tsx`.
+- RI admin: field maps status filter chips now include queue counts (e.g. `Pending (123)`) to guide review focus: `apps/referee/app/admin/venues/field-maps/page.tsx`.
 - RI admin: field maps queue keeps operation results visible while scrolling by rendering the Notice/schema banner as a sticky top bar: `apps/referee/app/admin/venues/field-maps/page.tsx`.
 - RI admin: field maps queue now marks venues with an inline `no brave match` badge when bulk discovery finds no candidate (keeps rows in the queue for manual follow-up): `apps/referee/app/admin/venues/field-maps/page.tsx`.
 
