@@ -43,6 +43,7 @@ type QueueRow = {
 };
 
 type SearchEngine = "brave" | "google";
+type DiscoverMode = "broad" | "strict";
 
 function redirectWithNotice(base: string, notice: string): never {
   const joiner = base.includes("?") ? "&" : "?";
@@ -152,6 +153,25 @@ function scoreMapCandidate(input: { url: string; title?: string | null; snippet?
   return { score, kind: isPdf || isImage ? ("artifact" as const) : ("page" as const) };
 }
 
+function isStrictEligible(candidate: { url: string; title?: string | null; snippet?: string | null }) {
+  const url = candidate.url.toLowerCase();
+  const title = (candidate.title ?? "").toLowerCase();
+  const snippet = (candidate.snippet ?? "").toLowerCase();
+  const blob = `${url} ${title} ${snippet}`;
+  const isPdfOrImage = url.includes(".pdf") || /\.(png|jpg|jpeg|webp)(\\?|$)/i.test(url);
+  const keyword =
+    blob.includes("field map") ||
+    blob.includes("facility map") ||
+    blob.includes("complex map") ||
+    blob.includes("court map") ||
+    blob.includes("gym map") ||
+    blob.includes("parking map") ||
+    blob.includes("field layout") ||
+    blob.includes("court layout") ||
+    blob.includes("site map");
+  return isPdfOrImage || keyword;
+}
+
 function inferMapTypeFromUrl(raw: string) {
   const s = raw.toLowerCase();
   if (s.includes("parking")) return "parking_map";
@@ -246,6 +266,7 @@ export default async function VenueFieldMapsQueuePage({
 
   const basePath = "/admin/venues/field-maps";
   const engine = ((searchParams as any)?.engine ?? "brave") as SearchEngine;
+  const discoverMode = ((searchParams as any)?.discover_mode ?? "broad") as DiscoverMode;
 
   const schemaHelp = {
     title: "Field map queue schema not deployed yet",
@@ -265,14 +286,174 @@ export default async function VenueFieldMapsQueuePage({
     const nextLimit = overrides.limit ?? String(limit);
     const nextOffset = overrides.offset ?? String(offset);
     const nextEngine = overrides.engine ?? engine;
+    const nextDiscoverMode = overrides.discover_mode ?? discoverMode;
 
     if (nextQ) params.set("q", nextQ);
     if (nextStatus && nextStatus !== "pending") params.set("status", nextStatus);
     if (nextLimit && nextLimit !== "25") params.set("limit", nextLimit);
     if (nextOffset && nextOffset !== "0") params.set("offset", nextOffset);
     if (nextEngine && nextEngine !== "brave") params.set("engine", nextEngine);
+    if (nextDiscoverMode && nextDiscoverMode !== "broad") params.set("discover_mode", nextDiscoverMode);
     return `${basePath}${params.toString() ? `?${params.toString()}` : ""}`;
   };
+
+  async function quickPasteAction(formData: FormData) {
+    "use server";
+    const admin = await requireAdmin();
+    const redirectTo = String(formData.get("redirect_to") || basePath);
+    const venueId = String(formData.get("venue_id") || "").trim();
+    const mode = String(formData.get("mode") || "");
+    const mapUrl = String(formData.get("map_url") || "").trim();
+    const sport = String(formData.get("sport") || "").trim() || null;
+    const setPrimary = formData.get("set_primary") === "on";
+
+    if (!venueId) return redirectWithNotice(redirectTo, "Venue id missing.");
+    if (!mapUrl) return redirectWithNotice(redirectTo, "Paste a map URL first.");
+
+    // Ensure queue row exists + snapshot current venue values.
+    const { data: venue, error: venueErr } = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,venue_url,field_map_url")
+      .eq("id", venueId)
+      .maybeSingle();
+    if (venueErr || !venue) {
+      console.error("field-maps quick paste: venue load failed", { venueId, venueErr });
+      return redirectWithNotice(redirectTo, "Venue not found.");
+    }
+
+    const mapType = inferMapTypeFromUrl(mapUrl);
+    const confidence = inferConfidence({ url: mapUrl, title: null, snippet: null });
+    const nextNotes = `[manual_paste] ${mapUrl}${sport ? ` (sport=${sport})` : ""}${setPrimary ? " (primary)" : ""}`;
+
+    const { error: upsertErr } = await supabaseAdmin
+      .from("venue_url_review_queue" as any)
+      .upsert(
+        {
+          venue_id: venueId,
+          status: mode === "approve" || mode === "apply" ? "approved" : "pending",
+          current_venue_url: (venue as any).venue_url ?? null,
+          current_field_map_url: (venue as any).field_map_url ?? null,
+          suggested_field_map_url: mapUrl,
+          suggested_field_map_source: "manual_paste",
+          suggested_field_map_confidence: confidence,
+          suggested_field_map_type: mapType,
+          suggested_field_map_sport: sport,
+          suggested_field_map_set_primary: setPrimary,
+          approve_field_map_url: mode === "approve" || mode === "apply",
+          reviewed_by: admin.id,
+          last_reviewed_at: new Date().toISOString(),
+          notes: nextNotes,
+        },
+        { onConflict: "venue_id" }
+      );
+
+    if (upsertErr) {
+      console.error("field-maps quick paste: queue upsert failed", { venueId, upsertErr });
+      return redirectWithNotice(redirectTo, "Failed to save queue row.");
+    }
+
+    if (mode !== "apply") {
+      revalidatePath(basePath);
+      return redirectWithNotice(redirectTo, "Saved + approved (ready to apply).");
+    }
+
+    // Apply immediately: insert into venue_field_maps and optionally set primary.
+    const mapHash = hashUrlSha256Hex(mapUrl);
+    let appliedMapId: number | null = null;
+    if (mapHash) {
+      const { data: existingRaw, error: existingErr } = await supabaseAdmin
+        .from("venue_field_maps" as any)
+        .select("id")
+        .eq("venue_id", venueId)
+        .eq("map_hash", mapHash)
+        .maybeSingle();
+      if (existingErr) {
+        console.error("field-maps quick apply: existing map lookup failed", { venueId, existingErr });
+      } else if ((existingRaw as any)?.id) {
+        appliedMapId = Number((existingRaw as any).id);
+      }
+    }
+
+    if (!appliedMapId) {
+      const { data: inserted, error: insErr } = await supabaseAdmin
+        .from("venue_field_maps" as any)
+        .insert({
+          venue_id: venueId,
+          map_url: mapUrl,
+          map_hash: mapHash,
+          map_source: "manual_paste",
+          map_confidence: confidence,
+          map_type: mapType,
+          sport,
+          is_primary: false,
+        })
+        .select("id")
+        .maybeSingle();
+      if (insErr || !inserted) {
+        console.error("field-maps quick apply: insert failed", { venueId, insErr });
+        return redirectWithNotice(redirectTo, "Apply failed: could not insert map.");
+      }
+      appliedMapId = Number((inserted as any).id);
+      await supabaseAdmin.from("venue_field_maps_audit_log" as any).insert({
+        venue_id: venueId,
+        event_type: "insert",
+        map_id: appliedMapId,
+        map_url: mapUrl,
+        actor: admin.id,
+        reason: "manual quick apply from admin queue",
+      });
+    }
+
+    if (setPrimary) {
+      await supabaseAdmin.from("venue_field_maps" as any).update({ is_primary: false }).eq("venue_id", venueId).eq("is_primary", true);
+      await supabaseAdmin.from("venue_field_maps" as any).update({ is_primary: true }).eq("id", appliedMapId);
+      await supabaseAdmin.from("venue_field_maps_audit_log" as any).insert({
+        venue_id: venueId,
+        event_type: "set_primary",
+        map_id: appliedMapId,
+        map_url: mapUrl,
+        actor: admin.id,
+        reason: "manual quick apply from admin queue",
+      });
+
+      // Cache back onto venues for legacy surfaces.
+      const prevFieldMapUrl = (venue as any).field_map_url ?? null;
+      const { error: venueUpdateErr } = await supabaseAdmin
+        .from("venues" as any)
+        .update({
+          field_map_url: mapUrl,
+          field_map_source: "manual_paste",
+          field_map_confidence: confidence,
+          field_map_type: mapType,
+          field_map_hash: mapHash,
+          field_map_last_checked_at: new Date().toISOString(),
+        })
+        .eq("id", venueId);
+      if (venueUpdateErr) {
+        console.error("field-maps quick apply: venue cache update failed", { venueId, venueUpdateErr });
+      } else {
+        await supabaseAdmin.from("venue_url_audit_log" as any).insert({
+          venue_id: venueId,
+          event_type: "apply",
+          previous_venue_url: (venue as any).venue_url ?? null,
+          new_venue_url: null,
+          previous_field_map_url: prevFieldMapUrl,
+          new_field_map_url: mapUrl,
+          actor: admin.id,
+          reason: "manual quick apply primary map from admin queue",
+        });
+      }
+    }
+
+    await supabaseAdmin
+      .from("venue_url_review_queue" as any)
+      .update({ status: "applied", applied_field_map_id: appliedMapId })
+      .eq("venue_id", venueId);
+
+    revalidatePath(basePath);
+    revalidatePath("/admin/venues");
+    return redirectWithNotice(redirectTo, setPrimary ? "Applied (primary set)." : "Applied (map added).");
+  }
 
   async function seedQueueAction(formData: FormData) {
     "use server";
@@ -362,6 +543,7 @@ export default async function VenueFieldMapsQueuePage({
     const ids = (formData.getAll("selected") as string[]).map((v) => v.trim()).filter(Boolean);
     if (!ids.length) return redirectWithNotice(adminBase, "Select at least one venue.");
     const chosenEngine = (String(formData.get("engine") || "brave") as SearchEngine) || "brave";
+    const chosenDiscoverMode = (String(formData.get("discover_mode") || "broad") as DiscoverMode) || "broad";
 
     if (action === "approve_maps") {
       const { data: rowsRaw, error: rowsErr } = await supabaseAdmin
@@ -478,6 +660,7 @@ export default async function VenueFieldMapsQueuePage({
             continue;
           }
           for (const r of searchRes.results) {
+            if (chosenDiscoverMode === "strict" && !isStrictEligible(r)) continue;
             const scored = scoreMapCandidate(r);
             if (scored.score <= 0) continue;
             if (!best || scored.score > best.score) {
@@ -534,7 +717,7 @@ export default async function VenueFieldMapsQueuePage({
       revalidatePath(basePath);
       return redirectWithNotice(
         adminBase,
-        `Discover complete (${chosenEngine}). updated=${updated}, skipped=${skipped}, no_match=${noMatch}, errored=${errored}.`
+        `Discover complete (${chosenEngine}/${chosenDiscoverMode}). updated=${updated}, skipped=${skipped}, no_match=${noMatch}, errored=${errored}.`
       );
     }
 
@@ -965,6 +1148,10 @@ export default async function VenueFieldMapsQueuePage({
           <option value="brave">Brave search</option>
           <option value="google">Google CSE</option>
         </select>
+        <select name="discover_mode" defaultValue={discoverMode} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
+          <option value="broad">Discover: broad</option>
+          <option value="strict">Discover: strict</option>
+        </select>
         <label style={{ display: "inline-flex", gap: 6, alignItems: "center", color: "#374151", fontSize: 12 }}>
           Limit
           <input name="limit" type="number" min={1} max={200} defaultValue={limit} style={{ width: 80, padding: "6px 8px", borderRadius: 10, border: "1px solid #e5e7eb" }} />
@@ -977,6 +1164,7 @@ export default async function VenueFieldMapsQueuePage({
       <form action={bulkQueueAction} style={{ marginTop: 18 }}>
         <input type="hidden" name="redirect_to" value={buildHref({})} />
         <input type="hidden" name="engine" value={engine} />
+        <input type="hidden" name="discover_mode" value={discoverMode} />
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
           <button
             formNoValidate
@@ -1126,6 +1314,65 @@ export default async function VenueFieldMapsQueuePage({
                         ) : (
                           <div style={{ color: "#6b7280" }}>—</div>
                         )}
+                        <div style={{ marginTop: 10, padding: 10, borderRadius: 12, border: "1px dashed #e5e7eb", background: "#fcfcfd" }}>
+                          <div style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>Quick paste</div>
+                          <form action={quickPasteAction} style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                            <input type="hidden" name="redirect_to" value={buildHref({})} />
+                            <input type="hidden" name="venue_id" value={row.venue_id} />
+                            <input
+                              name="map_url"
+                              placeholder="Paste map URL…"
+                              defaultValue=""
+                              style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}
+                            />
+                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                              <input
+                                name="sport"
+                                placeholder="sport (optional)"
+                                style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb", width: 160 }}
+                              />
+                              <label style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 12, color: "#0a7a2f", fontWeight: 900 }}>
+                                <input type="checkbox" name="set_primary" />
+                                Set primary
+                              </label>
+                            </div>
+                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                              <button
+                                type="submit"
+                                name="mode"
+                                value="approve"
+                                style={{
+                                  padding: "8px 10px",
+                                  borderRadius: 10,
+                                  border: "1px solid #0a7a2f",
+                                  background: "#fff",
+                                  color: "#0a7a2f",
+                                  fontWeight: 900,
+                                }}
+                              >
+                                Paste + approve
+                              </button>
+                              <button
+                                type="submit"
+                                name="mode"
+                                value="apply"
+                                style={{
+                                  padding: "8px 10px",
+                                  borderRadius: 10,
+                                  border: "1px solid #1d4ed8",
+                                  background: "#fff",
+                                  color: "#1d4ed8",
+                                  fontWeight: 900,
+                                }}
+                              >
+                                Paste + apply
+                              </button>
+                            </div>
+                          </form>
+                          <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
+                            Multiple maps are stored in `venue_field_maps` (use sport to differentiate). “Set primary” caches to `venues.field_map_url`.
+                          </div>
+                        </div>
                         <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
                           {sport ? (
                             <span style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>sport: {sport}</span>
