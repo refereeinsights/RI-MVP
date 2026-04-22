@@ -280,6 +280,12 @@ function clampInt(value: string | null, fallback: number, min: number, max: numb
   return Math.max(min, Math.min(max, n));
 }
 
+function isLikelySchoolVenueName(name: string | null | undefined) {
+  const s = String(name ?? "").toLowerCase();
+  if (!s) return false;
+  return s.includes("middle school") || s.includes("elementary");
+}
+
 export default async function VenueFieldMapsQueuePage({
   searchParams,
 }: {
@@ -554,7 +560,7 @@ export default async function VenueFieldMapsQueuePage({
 
     const { data: venues, error: venuesErr } = await supabaseAdmin
       .from("venues" as any)
-      .select("id, venue_url, field_map_url, venue_url_quality")
+      .select("id, name, venue_url, field_map_url, venue_url_quality")
       .in("id", venueIds);
 
     if (venuesErr) {
@@ -566,6 +572,7 @@ export default async function VenueFieldMapsQueuePage({
     }
 
     const seedRows = (venues ?? [])
+      .filter((v: any) => !isLikelySchoolVenueName((v as any).name))
       .filter((v: any) => !v.field_map_url || !v.venue_url || !v.venue_url_quality)
       .slice(0, seedLimit)
       .map((v: any) => ({
@@ -591,6 +598,118 @@ export default async function VenueFieldMapsQueuePage({
 
     revalidatePath(basePath);
     return redirectWithNotice(adminBase, `Seeded ${seedRows.length} venue(s) into the review queue.`);
+  }
+
+  async function autoSkipSchoolVenuesAction(formData: FormData) {
+    "use server";
+    const admin = await requireAdmin();
+    const adminBase = String(formData.get("redirect_to") || basePath);
+    const skipLimit = clampInt(String(formData.get("skip_limit") ?? ""), 1500, 1, 5000);
+    const now = new Date().toISOString();
+
+    const { data: venuesRaw, error: venuesErr } = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,name,venue_url,field_map_url")
+      .or("name.ilike.%middle school%,name.ilike.%elementary%")
+      .limit(skipLimit);
+
+    if (venuesErr) {
+      console.error("field-maps auto-skip schools: venues query failed", venuesErr);
+      return redirectWithNotice(adminBase, "Auto-skip failed: could not load venues.");
+    }
+
+    const candidates = (venuesRaw ?? []).filter((v: any) => isLikelySchoolVenueName((v as any).name));
+    if (!candidates.length) return redirectWithNotice(adminBase, "No middle school / elementary venues found (within limit).");
+
+    const candidateIds = candidates.map((v: any) => String((v as any).id));
+
+    const { data: existingMapsRaw, error: existingMapsErr } = await supabaseAdmin
+      .from("venue_field_maps" as any)
+      .select("venue_id")
+      .in("venue_id", candidateIds)
+      .limit(10_000);
+    if (existingMapsErr) {
+      console.error("field-maps auto-skip schools: map lookup failed", existingMapsErr);
+      return redirectWithNotice(adminBase, "Auto-skip failed: could not verify existing maps.");
+    }
+
+    const hasMap = new Set((existingMapsRaw ?? []).map((r: any) => String((r as any).venue_id)));
+    const eligible = candidates.filter((v: any) => !(v as any).field_map_url && !hasMap.has(String((v as any).id)));
+    if (!eligible.length) return redirectWithNotice(adminBase, "Nothing to skip: all matching venues already have maps.");
+
+    const eligibleIds = eligible.map((v: any) => String((v as any).id));
+    const { data: queueRowsRaw, error: queueRowsErr } = await supabaseAdmin
+      .from("venue_url_review_queue" as any)
+      .select("venue_id,status,suggested_field_map_url,notes")
+      .in("venue_id", eligibleIds);
+    if (queueRowsErr) {
+      console.error("field-maps auto-skip schools: queue lookup failed", queueRowsErr);
+      return redirectWithNotice(adminBase, "Auto-skip failed: could not load queue rows.");
+    }
+
+    const queueById = new Map<string, any>();
+    for (const r of (queueRowsRaw ?? []) as any[]) queueById.set(String((r as any).venue_id), r);
+
+    const insertRows: any[] = [];
+    const updateIds: string[] = [];
+    let protectedCount = 0;
+
+    for (const v of eligible) {
+      const id = String((v as any).id);
+      const existing = queueById.get(id) ?? null;
+      if (!existing) {
+        insertRows.push({
+          venue_id: id,
+          status: "skipped",
+          current_venue_url: (v as any).venue_url ?? null,
+          current_field_map_url: (v as any).field_map_url ?? null,
+          notes: `[${now}] auto-skip: venue name contains middle school/elementary (policy)`,
+          reviewed_by: admin.id,
+          last_reviewed_at: now,
+        });
+        continue;
+      }
+      const status = String((existing as any).status ?? "");
+      const hasSuggestion = Boolean(String((existing as any).suggested_field_map_url ?? "").trim());
+      if (status === "applied" || status === "approved" || hasSuggestion) {
+        protectedCount += 1;
+        continue;
+      }
+      updateIds.push(id);
+    }
+
+    let inserted = 0;
+    if (insertRows.length) {
+      const { error: insErr } = await supabaseAdmin
+        .from("venue_url_review_queue" as any)
+        .upsert(insertRows, { onConflict: "venue_id", ignoreDuplicates: true } as any);
+      if (insErr) {
+        console.error("field-maps auto-skip schools: insert failed", insErr);
+        return redirectWithNotice(adminBase, "Auto-skip failed: insert error.");
+      }
+      inserted = insertRows.length;
+    }
+
+    let updated = 0;
+    if (updateIds.length) {
+      for (const id of updateIds) {
+        const existing = queueById.get(id);
+        const priorNotes = String((existing as any)?.notes ?? "").trim();
+        const nextNotes = [priorNotes, `[${now}] auto-skip: venue name contains middle school/elementary (policy)`].filter(Boolean).join("\n");
+        const { error: updErr } = await supabaseAdmin
+          .from("venue_url_review_queue" as any)
+          .update({ status: "skipped", notes: nextNotes, reviewed_by: admin.id, last_reviewed_at: now })
+          .eq("venue_id", id);
+        if (updErr) {
+          console.error("field-maps auto-skip schools: update failed", { id, updErr });
+          continue;
+        }
+        updated += 1;
+      }
+    }
+
+    revalidatePath(basePath);
+    return redirectWithNotice(adminBase, `Auto-skip schools complete. inserted=${inserted}, updated=${updated}, protected=${protectedCount}.`);
   }
 
   async function bulkQueueAction(formData: FormData) {
@@ -1324,6 +1443,45 @@ export default async function VenueFieldMapsQueuePage({
           </label>
           <span style={{ fontSize: 12, color: "#6b7280" }}>
             Inserts into `venue_url_review_queue` with `ON CONFLICT DO NOTHING` (won&apos;t reset existing review state).
+          </span>
+        </div>
+      </form>
+
+      <form
+        action={autoSkipSchoolVenuesAction}
+        style={{ marginTop: 12, border: "1px solid #fee2e2", borderRadius: 14, padding: 14, background: "#fff7f7" }}
+      >
+        <input type="hidden" name="redirect_to" value={buildHref({})} />
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            type="submit"
+            disabled={schemaMissing}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "none",
+              background: "#b00020",
+              color: "#fff",
+              fontWeight: 900,
+              opacity: schemaMissing ? 0.5 : 1,
+              cursor: schemaMissing ? "not-allowed" : "pointer",
+            }}
+          >
+            Auto-skip Middle/Elementary venues
+          </button>
+          <label style={{ fontSize: 12, color: "#374151", display: "inline-flex", gap: 6, alignItems: "center" }}>
+            Limit
+            <input
+              name="skip_limit"
+              type="number"
+              min={1}
+              max={5000}
+              defaultValue={1500}
+              style={{ width: 90, padding: "6px 8px", borderRadius: 10, border: "1px solid #d1d5db" }}
+            />
+          </label>
+          <span style={{ fontSize: 12, color: "#6b7280" }}>
+            Marks queue rows as `skipped` (does not delete venues). Skips venues that already have maps.
           </span>
         </div>
       </form>
