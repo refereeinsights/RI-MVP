@@ -332,17 +332,14 @@ export default async function VenueFieldMapsQueuePage({
     return `${basePath}${params.toString() ? `?${params.toString()}` : ""}`;
   };
 
-  async function quickPasteAction(formData: FormData) {
+  async function quickPasteImpl(formData: FormData, mode: "approve" | "apply") {
     "use server";
     const admin = await requireAdmin();
     const redirectTo = String(formData.get("redirect_to") || basePath);
-    const quickAction = String(formData.get("quick_action") || "");
-    const [modeRaw, venueIdRaw] = quickAction.split(":");
-    const venueId = String(venueIdRaw || "").trim();
-    const mode = String(modeRaw || "");
-    const mapUrl = String(formData.get(`quick_map_url_${venueId}`) || "").trim();
-    const sport = String(formData.get(`quick_sport_${venueId}`) || "").trim() || null;
-    const setPrimary = formData.get(`quick_set_primary_${venueId}`) === "on";
+    const venueId = String(formData.get("venue_id") || "").trim();
+    const mapUrl = String(formData.get("map_url") || "").trim();
+    const sport = String(formData.get("sport") || "").trim() || null;
+    const setPrimary = formData.get("set_primary") === "on";
 
     if (!venueId) return redirectWithNotice(redirectTo, "Venue id missing.");
     if (!mapUrl) return redirectWithNotice(redirectTo, "Paste a map URL first.");
@@ -358,16 +355,30 @@ export default async function VenueFieldMapsQueuePage({
       return redirectWithNotice(redirectTo, "Venue not found.");
     }
 
+    const { data: existingQueue, error: existingQueueErr } = await supabaseAdmin
+      .from("venue_url_review_queue" as any)
+      .select("notes")
+      .eq("venue_id", venueId)
+      .maybeSingle();
+    if (existingQueueErr) {
+      console.warn("field-maps quick paste: existing queue lookup failed", { venueId, existingQueueErr });
+    }
+
     const mapType = inferMapTypeFromUrl(mapUrl);
     const confidence = inferConfidence({ url: mapUrl, title: null, snippet: null });
-    const nextNotes = `[manual_paste] ${mapUrl}${sport ? ` (sport=${sport})` : ""}${setPrimary ? " (primary)" : ""}`;
+    const nextNotes = [
+      String((existingQueue as any)?.notes ?? "").trim(),
+      `[${new Date().toISOString()}] [manual_paste] ${mapUrl}${sport ? ` (sport=${sport})` : ""}${setPrimary ? " (primary)" : ""}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     const { error: upsertErr } = await supabaseAdmin
       .from("venue_url_review_queue" as any)
       .upsert(
         {
           venue_id: venueId,
-          status: mode === "approve" || mode === "apply" ? "approved" : "pending",
+          status: "approved",
           current_venue_url: (venue as any).venue_url ?? null,
           current_field_map_url: (venue as any).field_map_url ?? null,
           suggested_field_map_url: mapUrl,
@@ -376,7 +387,7 @@ export default async function VenueFieldMapsQueuePage({
           suggested_field_map_type: mapType,
           suggested_field_map_sport: sport,
           suggested_field_map_set_primary: setPrimary,
-          approve_field_map_url: mode === "approve" || mode === "apply",
+          approve_field_map_url: true,
           reviewed_by: admin.id,
           last_reviewed_at: new Date().toISOString(),
           notes: nextNotes,
@@ -490,6 +501,16 @@ export default async function VenueFieldMapsQueuePage({
     revalidatePath(basePath);
     revalidatePath("/admin/venues");
     return redirectWithNotice(redirectTo, setPrimary ? "Applied (primary set)." : "Applied (map added).");
+  }
+
+  async function quickPasteApproveAction(formData: FormData) {
+    "use server";
+    return quickPasteImpl(formData, "approve");
+  }
+
+  async function quickPasteApplyAction(formData: FormData) {
+    "use server";
+    return quickPasteImpl(formData, "apply");
   }
 
   async function seedQueueAction(formData: FormData) {
@@ -1285,7 +1306,7 @@ export default async function VenueFieldMapsQueuePage({
         </button>
       </form>
 
-      <form action={bulkQueueAction} style={{ marginTop: 18 }}>
+      <form id="field-maps-bulk-form" action={bulkQueueAction} style={{ marginTop: 18 }}>
         <input type="hidden" name="redirect_to" value={buildHref({})} />
         <input type="hidden" name="engine" value={engine} />
         <input type="hidden" name="discover_mode" value={discoverMode} />
@@ -1372,9 +1393,10 @@ export default async function VenueFieldMapsQueuePage({
             Remove from queue
           </button>
         </div>
+      </form>
 
-        <div style={{ overflowX: "auto", border: "1px solid #e5e7eb", borderRadius: 14 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+      <div style={{ overflowX: "auto", border: "1px solid #e5e7eb", borderRadius: 14 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
                 <th style={{ padding: 10, textAlign: "left" }}>Select</th>
@@ -1407,7 +1429,7 @@ export default async function VenueFieldMapsQueuePage({
                   return (
                     <tr key={row.venue_id} style={{ borderBottom: "1px solid #f3f4f6" }}>
                       <td style={{ padding: 10, verticalAlign: "top" }}>
-                        <input type="checkbox" name="selected" value={row.venue_id} />
+                        <input form="field-maps-bulk-form" type="checkbox" name="selected" value={row.venue_id} />
                       </td>
                       <td style={{ padding: 10, verticalAlign: "top", minWidth: 220 }}>
                         <div style={{ fontWeight: 900 }}>{title}</div>
@@ -1468,29 +1490,38 @@ export default async function VenueFieldMapsQueuePage({
                         )}
                         <div style={{ marginTop: 10, padding: 10, borderRadius: 12, border: "1px dashed #e5e7eb", background: "#fcfcfd" }}>
                           <div style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>Quick paste</div>
+                          <form action={quickPasteApproveAction} style={{ marginTop: 8, display: "grid", gap: 10 }}>
+                            <input type="hidden" name="redirect_to" value={buildHref({})} />
+                            <input type="hidden" name="venue_id" value={row.venue_id} />
                             <input
-                              name={`quick_map_url_${row.venue_id}`}
+                              name="map_url"
                               placeholder="Paste map URL…"
                               defaultValue=""
                               style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}
                             />
                             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                               <input
-                                name={`quick_sport_${row.venue_id}`}
+                                name="sport"
                                 placeholder="sport (optional)"
                                 style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb", width: 160 }}
                               />
-                              <label style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 12, color: "#0a7a2f", fontWeight: 900 }}>
-                                <input type="checkbox" name={`quick_set_primary_${row.venue_id}`} />
+                              <label
+                                style={{
+                                  display: "inline-flex",
+                                  gap: 8,
+                                  alignItems: "center",
+                                  fontSize: 12,
+                                  color: "#0a7a2f",
+                                  fontWeight: 900,
+                                }}
+                              >
+                                <input type="checkbox" name="set_primary" />
                                 Set primary
                               </label>
                             </div>
                             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                               <button
                                 formNoValidate
-                                formAction={quickPasteAction}
-                                name="quick_action"
-                                value={`approve:${row.venue_id}`}
                                 style={{
                                   padding: "8px 10px",
                                   borderRadius: 10,
@@ -1504,9 +1535,7 @@ export default async function VenueFieldMapsQueuePage({
                               </button>
                               <button
                                 formNoValidate
-                                formAction={quickPasteAction}
-                                name="quick_action"
-                                value={`apply:${row.venue_id}`}
+                                formAction={quickPasteApplyAction}
                                 style={{
                                   padding: "8px 10px",
                                   borderRadius: 10,
@@ -1519,6 +1548,7 @@ export default async function VenueFieldMapsQueuePage({
                                 Paste + apply
                               </button>
                             </div>
+                          </form>
                           <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
                             Multiple maps are stored in `venue_field_maps` (use sport to differentiate). “Set primary” caches to `venues.field_map_url`.
                           </div>
@@ -1572,9 +1602,8 @@ export default async function VenueFieldMapsQueuePage({
                 })
               )}
             </tbody>
-          </table>
-        </div>
-      </form>
+        </table>
+      </div>
 
       <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div style={{ color: "#6b7280", fontSize: 12 }}>
