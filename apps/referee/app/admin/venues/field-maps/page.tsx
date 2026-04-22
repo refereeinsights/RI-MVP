@@ -117,11 +117,15 @@ function safeUrlHost(raw: string) {
   }
 }
 
-function scoreMapCandidate(input: { url: string; title?: string | null; snippet?: string | null }) {
+function scoreMapCandidate(
+  input: { url: string; title?: string | null; snippet?: string | null },
+  opts?: { preferredHost?: string | null }
+) {
   const url = input.url.trim();
   const host = safeUrlHost(url) ?? "";
   const title = (input.title ?? "").toLowerCase();
   const snippet = (input.snippet ?? "").toLowerCase();
+  const preferredHost = (opts?.preferredHost ?? null)?.toLowerCase() ?? null;
   const path = (() => {
     try {
       return new URL(url).pathname.toLowerCase();
@@ -162,6 +166,17 @@ function scoreMapCandidate(input: { url: string; title?: string | null; snippet?
   if (isImage) score += 20;
   if (looksLikeMap) score += 20;
   if (hasSportsTokens) score += 10;
+
+  // Strong signals for common map endpoints.
+  if (/(facility[-_ ]?maps?|site[-_ ]?map|sitemap|field[-_ ]?map|complex[-_ ]?map|campus[-_ ]?map|parking[-_ ]?map)/i.test(blob)) {
+    score += 10;
+  }
+
+  // Prefer results hosted on the venue's own domain when we have it.
+  if (preferredHost) {
+    if (host === preferredHost) score += 18;
+    else if (host.endsWith(`.${preferredHost}`) || preferredHost.endsWith(`.${host}`)) score += 10;
+  }
 
   if (/\bpark(s)?\b|\brecreation\b|\bparks\b|\bschools\b|\bathletics\b|\bdistrict\b|\bcity\b|\bcounty\b/.test(host)) score += 6;
   if (host.endsWith(".gov")) score += 8;
@@ -662,42 +677,65 @@ export default async function VenueFieldMapsQueuePage({
         const city = String(v.city ?? "").trim();
         const st = String(v.state ?? "").trim();
         const zip = String(v.zip ?? "").trim();
+        const venueUrl = String(v.venue_url ?? "").trim();
+        const venueHost = venueUrl ? safeUrlHost(venueUrl) : null;
 
-        const baseTerms = [name, city, st].filter(Boolean).join(" ");
+        const baseTerms = [name, city, st].filter(Boolean).join(" ").trim() || name;
         const queries = [
-          `${baseTerms} field map pdf`,
-          `${baseTerms} facility map pdf`,
+          `${baseTerms} facility maps`,
+          `${baseTerms} facility map`,
+          `${baseTerms} field map`,
+          `${baseTerms} site map`,
           `${baseTerms} complex map`,
-          zip ? `${name} ${zip} field map pdf` : null,
-        ].filter(Boolean) as string[];
+          `${baseTerms} campus map`,
+          `${baseTerms} court map`,
+          `${baseTerms} parking map`,
+          `${baseTerms} map pdf`,
+          `${baseTerms} map jpg`,
+          zip ? `${name} ${zip} facility map` : null,
+          zip ? `${name} ${zip} site map` : null,
+          venueHost ? `site:${venueHost} facility map` : null,
+          venueHost ? `site:${venueHost} facility maps` : null,
+          venueHost ? `site:${venueHost} site map` : null,
+          venueHost ? `site:${venueHost} map pdf` : null,
+          venueHost ? `site:${venueHost} map` : null,
+        ]
+          .filter(Boolean)
+          // de-dupe while preserving order
+          .filter((q, idx, arr) => arr.indexOf(q) === idx) as string[];
 
         let best: { url: string; title?: string | null; snippet?: string | null; score: number } | null = null;
         let lastErr: string | null = null;
+        let bestQuery: string | null = null;
 
-        for (const q of queries.slice(0, 3)) {
+        // Try more queries; stop early only if confidence is truly high.
+        for (const q of queries.slice(0, 8)) {
           const searchRes =
-            chosenEngine === "google" ? await googleCseSearch({ q, count: 6 }) : await braveSearch({ q, count: 6 });
+            chosenEngine === "google" ? await googleCseSearch({ q, count: 10 }) : await braveSearch({ q, count: 10 });
           if (searchRes.error) {
             lastErr = searchRes.error;
             continue;
           }
           for (const r of searchRes.results) {
             if (chosenDiscoverMode === "strict" && !isStrictEligible(r)) continue;
-            const scored = scoreMapCandidate(r);
+            const scored = scoreMapCandidate(r, { preferredHost: venueHost });
             if (scored.score <= 0) continue;
             if (!best || scored.score > best.score) {
               best = { url: r.url, title: r.title, snippet: r.snippet, score: scored.score };
+              bestQuery = q;
             }
           }
-          if (best && best.score >= 55) break; // stop early on high-confidence hit
+          if (best && best.score >= 70) break; // stop early on very high-confidence hit
           await sleep(1100); // throttle: ~<= 1 req/sec globally per action execution
         }
 
         if (!best) {
           noMatch += 1;
+          const shownQueries = queries.slice(0, 5).join(" | ");
           const nextNotes = [
             String((queueRaw as any).notes ?? "").trim(),
             `[discover:${chosenEngine}] no match${lastErr ? ` (${lastErr})` : ""} for "${baseTerms}"`,
+            shownQueries ? `[discover:${chosenEngine}] queries: ${shownQueries}` : null,
           ]
             .filter(Boolean)
             .join("\n");
@@ -709,7 +747,7 @@ export default async function VenueFieldMapsQueuePage({
         const type = inferMapTypeFromUrl(best.url);
         const nextNotes = [
           String((queueRaw as any).notes ?? "").trim(),
-          `[discover:${chosenEngine}] picked (${best.score}) ${best.url}`,
+          `[discover:${chosenEngine}] picked (${best.score}) ${best.url}${bestQuery ? ` (q: ${bestQuery})` : ""}`,
         ]
           .filter(Boolean)
           .join("\n");
