@@ -29,6 +29,7 @@
 - Supabase: added `public.venue_field_maps` so a venue can store multiple map artifacts (e.g. soccer vs basketball) with an optional single primary map per venue, plus a small audit log for inserts/deletes/primary changes: `supabase/migrations/20260422_ti_venue_field_maps_multi.sql`.
 - RI admin venues: added a “Field maps” button on `/admin/venues` that links to the new queue UI: `apps/referee/app/admin/venues/page.tsx`.
 - RI admin: `/admin/venues/field-maps` now applies approved map URLs into `public.venue_field_maps` (multi-map) and can optionally set/cache a primary map back onto `public.venues.field_map_url` for legacy surfaces: `apps/referee/app/admin/venues/field-maps/page.tsx`, `apps/referee/app/admin/venues/field-maps/[venue_id]/page.tsx`.
+- RI admin: field maps queue upgrades — bulk discovery supports Broad vs Strict mode, each row supports quick paste+approve/apply, and queue management is clearer with `Mark not found (skip)` + `Remove from queue` (venues are never deleted by queue actions): `apps/referee/app/admin/venues/field-maps/page.tsx`, `apps/referee/app/admin/venues/field-maps/[venue_id]/page.tsx`.
 
 ## 2026-04-15
 
