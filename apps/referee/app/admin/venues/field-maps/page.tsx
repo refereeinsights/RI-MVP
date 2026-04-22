@@ -301,11 +301,13 @@ export default async function VenueFieldMapsQueuePage({
     "use server";
     const admin = await requireAdmin();
     const redirectTo = String(formData.get("redirect_to") || basePath);
-    const venueId = String(formData.get("venue_id") || "").trim();
-    const mode = String(formData.get("mode") || "");
-    const mapUrl = String(formData.get("map_url") || "").trim();
-    const sport = String(formData.get("sport") || "").trim() || null;
-    const setPrimary = formData.get("set_primary") === "on";
+    const quickAction = String(formData.get("quick_action") || "");
+    const [modeRaw, venueIdRaw] = quickAction.split(":");
+    const venueId = String(venueIdRaw || "").trim();
+    const mode = String(modeRaw || "");
+    const mapUrl = String(formData.get(`quick_map_url_${venueId}`) || "").trim();
+    const sport = String(formData.get(`quick_sport_${venueId}`) || "").trim() || null;
+    const setPrimary = formData.get(`quick_set_primary_${venueId}`) === "on";
 
     if (!venueId) return redirectWithNotice(redirectTo, "Venue id missing.");
     if (!mapUrl) return redirectWithNotice(redirectTo, "Paste a map URL first.");
@@ -1366,31 +1368,29 @@ export default async function VenueFieldMapsQueuePage({
                         )}
                         <div style={{ marginTop: 10, padding: 10, borderRadius: 12, border: "1px dashed #e5e7eb", background: "#fcfcfd" }}>
                           <div style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>Quick paste</div>
-                          <form action={quickPasteAction} style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                            <input type="hidden" name="redirect_to" value={buildHref({})} />
-                            <input type="hidden" name="venue_id" value={row.venue_id} />
                             <input
-                              name="map_url"
+                              name={`quick_map_url_${row.venue_id}`}
                               placeholder="Paste map URL…"
                               defaultValue=""
                               style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}
                             />
                             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                               <input
-                                name="sport"
+                                name={`quick_sport_${row.venue_id}`}
                                 placeholder="sport (optional)"
                                 style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb", width: 160 }}
                               />
                               <label style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 12, color: "#0a7a2f", fontWeight: 900 }}>
-                                <input type="checkbox" name="set_primary" />
+                                <input type="checkbox" name={`quick_set_primary_${row.venue_id}`} />
                                 Set primary
                               </label>
                             </div>
                             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                               <button
-                                type="submit"
-                                name="mode"
-                                value="approve"
+                                formNoValidate
+                                formAction={quickPasteAction}
+                                name="quick_action"
+                                value={`approve:${row.venue_id}`}
                                 style={{
                                   padding: "8px 10px",
                                   borderRadius: 10,
@@ -1403,9 +1403,10 @@ export default async function VenueFieldMapsQueuePage({
                                 Paste + approve
                               </button>
                               <button
-                                type="submit"
-                                name="mode"
-                                value="apply"
+                                formNoValidate
+                                formAction={quickPasteAction}
+                                name="quick_action"
+                                value={`apply:${row.venue_id}`}
                                 style={{
                                   padding: "8px 10px",
                                   borderRadius: 10,
@@ -1418,7 +1419,6 @@ export default async function VenueFieldMapsQueuePage({
                                 Paste + apply
                               </button>
                             </div>
-                          </form>
                           <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
                             Multiple maps are stored in `venue_field_maps` (use sport to differentiate). “Set primary” caches to `venues.field_map_url`.
                           </div>
