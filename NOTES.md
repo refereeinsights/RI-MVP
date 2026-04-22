@@ -26,8 +26,9 @@
 ## 2026-04-22
 
 - Supabase: added venue field-map enrichment columns on `public.venues` plus an audit-safe, queue-based review table (`public.venue_url_review_queue`) and append-only audit log (`public.venue_url_audit_log`): `supabase/migrations/20260422_ti_venue_url_cleanup_field_maps_queue.sql`.
+- Supabase: added `public.venue_field_maps` so a venue can store multiple map artifacts (e.g. soccer vs basketball) with an optional single primary map per venue, plus a small audit log for inserts/deletes/primary changes: `supabase/migrations/20260422_ti_venue_field_maps_multi.sql`.
 - RI admin venues: added a “Field maps” button on `/admin/venues` that links to the new queue UI: `apps/referee/app/admin/venues/page.tsx`.
-- RI admin: implemented `/admin/venues/field-maps` queue tool with throttled seeding (tournament-linked), bulk approve/apply/delete, “Open map” links, and per-row edit pages: `apps/referee/app/admin/venues/field-maps/page.tsx`, `apps/referee/app/admin/venues/field-maps/[venue_id]/page.tsx`.
+- RI admin: `/admin/venues/field-maps` now applies approved map URLs into `public.venue_field_maps` (multi-map) and can optionally set/cache a primary map back onto `public.venues.field_map_url` for legacy surfaces: `apps/referee/app/admin/venues/field-maps/page.tsx`, `apps/referee/app/admin/venues/field-maps/[venue_id]/page.tsx`.
 
 ## 2026-04-15
 

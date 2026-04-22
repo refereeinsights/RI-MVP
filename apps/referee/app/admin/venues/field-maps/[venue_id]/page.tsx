@@ -68,7 +68,7 @@ export default async function VenueFieldMapEditPage({
   const { data: queueRaw } = await supabaseAdmin
     .from("venue_url_review_queue" as any)
     .select(
-      "venue_id,status,bad_venue_url_reason,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,approve_venue_url,approve_field_map_url,override_good_venue_url,decision_summary,notes,reviewed_by,last_reviewed_at,updated_at"
+      "venue_id,status,bad_venue_url_reason,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,suggested_field_map_sport,suggested_field_map_set_primary,applied_field_map_id,approve_venue_url,approve_field_map_url,override_good_venue_url,decision_summary,notes,reviewed_by,last_reviewed_at,updated_at"
     )
     .eq("venue_id", venueId)
     .maybeSingle();
@@ -84,6 +84,9 @@ export default async function VenueFieldMapEditPage({
     suggested_field_map_source: string | null;
     suggested_field_map_confidence: string | null;
     suggested_field_map_type: string | null;
+    suggested_field_map_sport?: string | null;
+    suggested_field_map_set_primary?: boolean | null;
+    applied_field_map_id?: number | null;
     approve_venue_url: boolean | null;
     approve_field_map_url: boolean | null;
     override_good_venue_url: boolean | null;
@@ -143,6 +146,8 @@ export default async function VenueFieldMapEditPage({
     const suggestedFieldMapSource = cleanText(formData.get("suggested_field_map_source"));
     const suggestedFieldMapConfidence = cleanText(formData.get("suggested_field_map_confidence"));
     const suggestedFieldMapType = cleanText(formData.get("suggested_field_map_type"));
+    const suggestedFieldMapSport = cleanText(formData.get("suggested_field_map_sport"));
+    const suggestedFieldMapSetPrimary = cleanBool(formData.get("suggested_field_map_set_primary"));
 
     const suggestedVenueUrl = cleanText(formData.get("suggested_venue_url"));
     const approveVenueUrl = cleanBool(formData.get("approve_venue_url"));
@@ -159,6 +164,8 @@ export default async function VenueFieldMapEditPage({
       suggested_field_map_source: suggestedFieldMapSource,
       suggested_field_map_confidence: suggestedFieldMapConfidence,
       suggested_field_map_type: suggestedFieldMapType,
+      suggested_field_map_sport: suggestedFieldMapSport,
+      suggested_field_map_set_primary: suggestedFieldMapSetPrimary,
       suggested_venue_url: suggestedVenueUrl,
       approve_venue_url: approveVenueUrl,
       approve_field_map_url: approveFieldMapUrl,
@@ -203,6 +210,54 @@ export default async function VenueFieldMapEditPage({
   const openMap = suggestedMap || currentMap;
 
   const queueMissing = queueRaw && (queueRaw as any)?.code === "PGRST205";
+
+  const { data: existingMapsRaw, error: existingMapsErr } = await supabaseAdmin
+    .from("venue_field_maps" as any)
+    .select("id,map_url,sport,map_type,map_confidence,map_source,is_primary,updated_at")
+    .eq("venue_id", venueId)
+    .order("is_primary", { ascending: false })
+    .order("updated_at", { ascending: false })
+    .limit(25);
+  const existingMapsMissing =
+    Boolean(existingMapsErr) && ((existingMapsErr as any)?.code === "PGRST205" || String((existingMapsErr as any)?.message || "").includes("schema cache"));
+  const existingMaps = existingMapsMissing ? [] : ((existingMapsRaw ?? []) as any[]);
+
+  async function deleteMapAction(formData: FormData) {
+    "use server";
+    const adminUser = await requireAdmin();
+    const mapId = String(formData.get("map_id") || "").trim();
+    if (!mapId) return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Map id missing.");
+
+    const { data: mapRow } = await supabaseAdmin
+      .from("venue_field_maps" as any)
+      .select("id,venue_id,map_url,is_primary")
+      .eq("id", mapId)
+      .maybeSingle();
+
+    if (!mapRow || String((mapRow as any).venue_id) !== venueId) {
+      return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Map not found for this venue.");
+    }
+
+    const { error: delErr } = await supabaseAdmin.from("venue_field_maps" as any).delete().eq("id", mapId);
+    if (delErr) {
+      console.error("field-maps edit: delete map failed", { venueId, mapId, delErr });
+      return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Delete map failed.");
+    }
+
+    const { error: auditErr } = await supabaseAdmin.from("venue_field_maps_audit_log" as any).insert({
+      venue_id: venueId,
+      event_type: "delete",
+      map_id: Number(mapId),
+      map_url: (mapRow as any).map_url ?? null,
+      actor: adminUser.id,
+      reason: "deleted from admin field maps UI",
+    });
+    if (auditErr) console.error("field-maps edit: audit delete failed", { venueId, auditErr });
+
+    revalidatePath(`/admin/venues/field-maps/${venueId}`);
+    revalidatePath("/admin/venues/field-maps");
+    return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Map deleted.");
+  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -308,8 +363,58 @@ export default async function VenueFieldMapEditPage({
           </div>
         </form>
       ) : (
-        <form action={updateQueueAction} style={{ marginTop: 16, border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fff" }}>
-          <input type="hidden" name="redirect_to" value={redirectTo} />
+        <div style={{ marginTop: 16 }}>
+          <div style={{ marginBottom: 14, border: "1px solid #e5e7eb", borderRadius: 14, padding: 12, background: "#fafafa" }}>
+            <div style={{ fontWeight: 900, color: "#111827" }}>Existing maps</div>
+            {existingMapsMissing ? (
+              <div style={{ marginTop: 6, color: "#7c2d12", fontSize: 13 }}>
+                {schemaHelp.title}. {schemaHelp.body}
+              </div>
+            ) : existingMaps.length === 0 ? (
+              <div style={{ marginTop: 6, color: "#6b7280", fontSize: 13 }}>No `venue_field_maps` rows yet for this venue.</div>
+            ) : (
+              <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                {existingMaps.map((m) => (
+                  <div key={String(m.id)} style={{ padding: 10, borderRadius: 12, border: "1px solid #e5e7eb", background: "#fff" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontWeight: 900 }}>
+                          {m.is_primary ? "Primary" : "Map"} • {(m.sport ?? "—") as string} • {(m.map_type ?? "—") as string}
+                        </div>
+                        <div style={{ marginTop: 4 }}>
+                          <a href={m.map_url} target="_blank" rel="noreferrer" style={{ color: "#2563eb", wordBreak: "break-word" }}>
+                            {m.map_url}
+                          </a>
+                        </div>
+                        <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>
+                          conf={(m.map_confidence ?? "—") as string} • src={(m.map_source ?? "—") as string}
+                        </div>
+                      </div>
+                      <form action={deleteMapAction}>
+                        <input type="hidden" name="map_id" value={String(m.id)} />
+                        <button
+                          type="submit"
+                          style={{
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #b00020",
+                            background: "#fff",
+                            color: "#b00020",
+                            fontWeight: 900,
+                          }}
+                        >
+                          Delete map
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <form action={updateQueueAction} style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fff" }}>
+            <input type="hidden" name="redirect_to" value={redirectTo} />
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>Status</label>
@@ -338,6 +443,15 @@ export default async function VenueFieldMapEditPage({
                 <input name="suggested_field_map_source" defaultValue={queue.suggested_field_map_source ?? ""} placeholder="parks_dept / venue_site / organizer" style={{ width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }} />
               </div>
               <div>
+                <label style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>Sport (optional)</label>
+                <input
+                  name="suggested_field_map_sport"
+                  defaultValue={(queue as any).suggested_field_map_sport ?? ""}
+                  placeholder="soccer / basketball"
+                  style={{ width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}
+                />
+              </div>
+              <div>
                 <label style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>Confidence</label>
                 <select name="suggested_field_map_confidence" defaultValue={queue.suggested_field_map_confidence ?? ""} style={{ width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
                   <option value="">—</option>
@@ -346,7 +460,7 @@ export default async function VenueFieldMapEditPage({
                   <option value="low">low</option>
                 </select>
               </div>
-              <div>
+              <div style={{ gridColumn: "1 / -1" }}>
                 <label style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>Type</label>
                 <select name="suggested_field_map_type" defaultValue={queue.suggested_field_map_type ?? ""} style={{ width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
                   <option value="">—</option>
@@ -368,6 +482,14 @@ export default async function VenueFieldMapEditPage({
           </div>
 
           <div style={{ marginTop: 14, display: "flex", gap: 14, flexWrap: "wrap" }}>
+            <label style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 13, fontWeight: 900, color: "#0a7a2f" }}>
+              <input
+                type="checkbox"
+                name="suggested_field_map_set_primary"
+                defaultChecked={Boolean((queue as any).suggested_field_map_set_primary)}
+              />
+              Set as primary map
+            </label>
             <label style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 13, fontWeight: 900, color: "#111827" }}>
               <input type="checkbox" name="approve_field_map_url" defaultChecked={Boolean(queue.approve_field_map_url)} />
               Approve field map URL
@@ -412,7 +534,8 @@ export default async function VenueFieldMapEditPage({
             Snapshot: venue_url={queue.current_venue_url ? "set" : "—"} • field_map_url={queue.current_field_map_url ? "set" : "—"} • last reviewed{" "}
             {queue.last_reviewed_at ? new Date(queue.last_reviewed_at).toLocaleString() : "—"}
           </div>
-        </form>
+          </form>
+        </div>
       )}
     </div>
   );

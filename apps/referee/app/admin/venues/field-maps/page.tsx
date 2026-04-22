@@ -22,6 +22,9 @@ type QueueRow = {
   suggested_field_map_source: string | null;
   suggested_field_map_confidence: string | null;
   suggested_field_map_type: string | null;
+  suggested_field_map_sport?: string | null;
+  suggested_field_map_set_primary?: boolean | null;
+  applied_field_map_id?: number | null;
   approve_venue_url: boolean | null;
   approve_field_map_url: boolean | null;
   override_good_venue_url: boolean | null;
@@ -108,7 +111,13 @@ export default async function VenueFieldMapsQueuePage({
 
   const schemaHelp = {
     title: "Field map queue schema not deployed yet",
-    body: `Apply the Supabase migration \`supabase/migrations/20260422_ti_venue_url_cleanup_field_maps_queue.sql\`, then reload PostgREST's schema cache (Supabase SQL editor: \`NOTIFY pgrst, 'reload schema';\`).`,
+    body: [
+      "Apply these Supabase migrations:",
+      "- `supabase/migrations/20260422_ti_venue_url_cleanup_field_maps_queue.sql`",
+      "- `supabase/migrations/20260422_ti_venue_field_maps_multi.sql`",
+      "",
+      "Then reload PostgREST's schema cache (Supabase SQL editor): `NOTIFY pgrst, 'reload schema';`",
+    ].join("\n"),
   };
 
   const buildHref = (overrides: Record<string, string | null | undefined>) => {
@@ -137,6 +146,14 @@ export default async function VenueFieldMapsQueuePage({
     if (probeErr) {
       console.error("field-maps seed: queue table probe failed", probeErr);
       return redirectWithNotice(adminBase, schemaHelp.body);
+    }
+
+    // Best-effort probe for multi-map storage. If missing, seeding still works but maps can't be applied to the table.
+    const { error: mapsProbeErr } = await supabaseAdmin
+      .from("venue_field_maps" as any)
+      .select("id", { count: "exact", head: true } as any);
+    if (mapsProbeErr) {
+      console.warn("field-maps seed: venue_field_maps probe failed (ok pre-migration)", mapsProbeErr);
     }
 
     // Tier 1: only venues linked to tournaments and missing field maps / venue url or missing quality.
@@ -229,6 +246,14 @@ export default async function VenueFieldMapsQueuePage({
     }
 
     if (action === "apply_selected") {
+      const { error: mapsProbeErr } = await supabaseAdmin
+        .from("venue_field_maps" as any)
+        .select("id", { count: "exact", head: true } as any);
+      if (mapsProbeErr) {
+        console.error("field-maps apply: venue_field_maps probe failed", mapsProbeErr);
+        return redirectWithNotice(adminBase, schemaHelp.body);
+      }
+
       let applied = 0;
       let stale = 0;
       let skipped = 0;
@@ -296,6 +321,8 @@ export default async function VenueFieldMapsQueuePage({
 
         const suggestedVenueUrl = (queue.suggested_venue_url ?? "").trim() || null;
         const suggestedFieldMapUrl = (queue.suggested_field_map_url ?? "").trim() || null;
+        const suggestedFieldMapSport = (queue.suggested_field_map_sport ?? "").trim() || null;
+        const suggestedSetPrimary = Boolean(queue.suggested_field_map_set_primary);
 
         const shouldApplyVenueUrl =
           approveVenueUrl &&
@@ -313,6 +340,7 @@ export default async function VenueFieldMapsQueuePage({
         };
         let newVenueUrl: string | null = null;
         let newFieldMapUrl: string | null = null;
+        let appliedFieldMapIdForQueue: number | null = null;
 
         if (shouldApplyVenueUrl) {
           newVenueUrl = suggestedVenueUrl;
@@ -321,13 +349,99 @@ export default async function VenueFieldMapsQueuePage({
         }
 
         if (shouldApplyFieldMapUrl) {
-          newFieldMapUrl = suggestedFieldMapUrl;
-          nextVenueUpdates.field_map_url = suggestedFieldMapUrl;
-          nextVenueUpdates.field_map_source = (queue.suggested_field_map_source ?? null) as string | null;
-          nextVenueUpdates.field_map_confidence = (queue.suggested_field_map_confidence ?? null) as string | null;
-          nextVenueUpdates.field_map_type = (queue.suggested_field_map_type ?? null) as string | null;
-          nextVenueUpdates.field_map_hash = suggestedFieldMapUrl ? hashUrlSha256Hex(suggestedFieldMapUrl) : null;
-          nextVenueUpdates.field_map_last_checked_at = new Date().toISOString();
+          // Only set newFieldMapUrl if we actually update the cached `venues.field_map_url` (primary).
+          newFieldMapUrl = suggestedSetPrimary ? suggestedFieldMapUrl : null;
+
+          const mapHash = suggestedFieldMapUrl ? hashUrlSha256Hex(suggestedFieldMapUrl) : null;
+          const { data: existingMapsRaw, error: existingMapsErr } = await supabaseAdmin
+            .from("venue_field_maps" as any)
+            .select("id,is_primary,map_hash")
+            .eq("venue_id", venueId)
+            .limit(50);
+
+          if (existingMapsErr) {
+            console.error("field-maps apply: failed to load existing maps", { venueId, existingMapsErr });
+            errored += 1;
+            continue;
+          }
+
+          const existingMaps = ((existingMapsRaw ?? []) as any[]).map((m) => ({
+            id: Number(m.id),
+            is_primary: Boolean(m.is_primary),
+            map_hash: (m.map_hash ?? null) as string | null,
+          }));
+
+          const alreadyExists =
+            mapHash && existingMaps.some((m) => (m.map_hash ?? null) === mapHash);
+
+          let appliedMapId: number | null = null;
+          if (!alreadyExists) {
+            const { data: inserted, error: insertErr } = await supabaseAdmin
+              .from("venue_field_maps" as any)
+              .insert({
+                venue_id: venueId,
+                map_url: suggestedFieldMapUrl,
+                map_hash: mapHash,
+                map_source: queue.suggested_field_map_source ?? null,
+                map_confidence: queue.suggested_field_map_confidence ?? null,
+                map_type: queue.suggested_field_map_type ?? null,
+                sport: suggestedFieldMapSport,
+                is_primary: false,
+              })
+              .select("id")
+              .maybeSingle();
+
+            if (insertErr || !inserted) {
+              console.error("field-maps apply: insert failed", { venueId, insertErr });
+              errored += 1;
+              continue;
+            }
+            appliedMapId = Number((inserted as any).id);
+            appliedFieldMapIdForQueue = appliedMapId;
+
+            const { error: mapsAuditErr } = await supabaseAdmin.from("venue_field_maps_audit_log" as any).insert({
+              venue_id: venueId,
+              event_type: "insert",
+              map_id: appliedMapId,
+              map_url: suggestedFieldMapUrl,
+              actor: admin.id,
+              reason: "applied from venue_url_review_queue",
+            });
+            if (mapsAuditErr) {
+              console.error("field-maps apply: map audit insert failed", { venueId, mapsAuditErr });
+            }
+          }
+
+          if (suggestedSetPrimary) {
+            // Unset any existing primary, then set the new map primary.
+            await supabaseAdmin.from("venue_field_maps" as any).update({ is_primary: false }).eq("venue_id", venueId).eq("is_primary", true);
+            if (appliedMapId) {
+              await supabaseAdmin.from("venue_field_maps" as any).update({ is_primary: true }).eq("id", appliedMapId);
+            }
+
+            // Cache the primary map back onto venues for legacy surfaces.
+            nextVenueUpdates.field_map_url = suggestedFieldMapUrl;
+            nextVenueUpdates.field_map_source = (queue.suggested_field_map_source ?? null) as string | null;
+            nextVenueUpdates.field_map_confidence = (queue.suggested_field_map_confidence ?? null) as string | null;
+            nextVenueUpdates.field_map_type = (queue.suggested_field_map_type ?? null) as string | null;
+            nextVenueUpdates.field_map_hash = suggestedFieldMapUrl ? hashUrlSha256Hex(suggestedFieldMapUrl) : null;
+            nextVenueUpdates.field_map_last_checked_at = new Date().toISOString();
+
+            const { error: mapsAuditErr } = await supabaseAdmin.from("venue_field_maps_audit_log" as any).insert({
+              venue_id: venueId,
+              event_type: "set_primary",
+              map_id: appliedMapId,
+              map_url: suggestedFieldMapUrl,
+              actor: admin.id,
+              reason: "set primary from venue_url_review_queue",
+            });
+            if (mapsAuditErr) {
+              console.error("field-maps apply: primary audit insert failed", { venueId, mapsAuditErr });
+            }
+          }
+
+          // Persist the inserted map id onto the queue row for traceability.
+          if (appliedMapId) appliedFieldMapIdForQueue = appliedMapId;
         }
 
         const { error: venueUpdateErr } = await supabaseAdmin.from("venues" as any).update(nextVenueUpdates).eq("id", venueId);
@@ -359,6 +473,7 @@ export default async function VenueFieldMapsQueuePage({
             status: "applied",
             previous_venue_url: liveVenueUrl,
             previous_field_map_url: liveFieldMapUrl,
+            applied_field_map_id: appliedFieldMapIdForQueue,
             reviewed_by: admin.id,
             last_reviewed_at: new Date().toISOString(),
           })
@@ -385,7 +500,7 @@ export default async function VenueFieldMapsQueuePage({
   let query = supabaseAdmin
     .from("venue_url_review_queue" as any)
     .select(
-      "venue_id,status,bad_venue_url_reason,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,approve_venue_url,approve_field_map_url,override_good_venue_url,notes,updated_at,venues:venues(id,name,city,state,zip,venue_url,field_map_url,venue_url_quality)"
+      "venue_id,status,bad_venue_url_reason,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,suggested_field_map_sport,suggested_field_map_set_primary,applied_field_map_id,approve_venue_url,approve_field_map_url,override_good_venue_url,notes,updated_at,venues:venues(id,name,city,state,zip,venue_url,field_map_url,venue_url_quality)"
     )
     .order("updated_at", { ascending: false })
     .range(offset, offset + limit - 1);
@@ -629,6 +744,8 @@ export default async function VenueFieldMapsQueuePage({
                   const currentMap = row.current_field_map_url ?? venue?.field_map_url ?? null;
                   const suggestedMap = row.suggested_field_map_url ?? null;
                   const mapLink = suggestedMap || currentMap;
+                  const sport = (row as any).suggested_field_map_sport ?? null;
+                  const setPrimary = Boolean((row as any).suggested_field_map_set_primary);
 
                   return (
                     <tr key={row.venue_id} style={{ borderBottom: "1px solid #f3f4f6" }}>
@@ -681,6 +798,12 @@ export default async function VenueFieldMapsQueuePage({
                           <div style={{ color: "#6b7280" }}>—</div>
                         )}
                         <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          {sport ? (
+                            <span style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>sport: {sport}</span>
+                          ) : null}
+                          {setPrimary ? (
+                            <span style={{ fontSize: 12, fontWeight: 900, color: "#0a7a2f" }}>primary</span>
+                          ) : null}
                           {row.suggested_field_map_confidence ? (
                             <span style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>
                               conf: {row.suggested_field_map_confidence}
