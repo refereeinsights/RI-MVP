@@ -227,7 +227,7 @@ function inferConfidence(candidate: { url: string; title?: string | null; snippe
 }
 
 async function braveSearch(params: { q: string; count: number }) {
-  const token = process.env.BRAVE_SEARCH_API_KEY?.trim();
+  const token = (process.env.BRAVE_SEARCH_KEY ?? process.env.BRAVE_SEARCH_API_KEY ?? "").trim();
   if (!token) return { error: "missing_brave_key", results: [] as any[] };
 
   const url = new URL("https://api.search.brave.com/res/v1/web/search");
@@ -1400,7 +1400,7 @@ export default async function VenueFieldMapsQueuePage({
             Discover maps (bulk)
           </button>
           <span style={{ alignSelf: "center", fontSize: 12, color: "#6b7280" }}>
-            Uses {engine === "google" ? "`GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_CX`" : "`BRAVE_SEARCH_API_KEY`"}; runs sequentially with throttling.
+            Uses {engine === "google" ? "`GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_CX`" : "`BRAVE_SEARCH_KEY`"}; runs sequentially with throttling.
           </span>
           <button
             formNoValidate
