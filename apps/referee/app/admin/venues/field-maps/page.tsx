@@ -106,6 +106,11 @@ export default async function VenueFieldMapsQueuePage({
 
   const basePath = "/admin/venues/field-maps";
 
+  const schemaHelp = {
+    title: "Field map queue schema not deployed yet",
+    body: `Apply the Supabase migration \`supabase/migrations/20260422_ti_venue_url_cleanup_field_maps_queue.sql\`, then reload PostgREST's schema cache (Supabase SQL editor: \`NOTIFY pgrst, 'reload schema';\`).`,
+  };
+
   const buildHref = (overrides: Record<string, string | null | undefined>) => {
     const params = new URLSearchParams();
     const nextQ = overrides.q ?? q;
@@ -124,6 +129,15 @@ export default async function VenueFieldMapsQueuePage({
     "use server";
     const adminBase = String(formData.get("redirect_to") || basePath);
     const seedLimit = clampInt(String(formData.get("seed_limit") ?? ""), 200, 1, 2000);
+
+    // Fail fast with an actionable message when the migration hasn't been applied yet.
+    const { error: probeErr } = await supabaseAdmin
+      .from("venue_url_review_queue" as any)
+      .select("venue_id", { count: "exact", head: true } as any);
+    if (probeErr) {
+      console.error("field-maps seed: queue table probe failed", probeErr);
+      return redirectWithNotice(adminBase, schemaHelp.body);
+    }
 
     // Tier 1: only venues linked to tournaments and missing field maps / venue url or missing quality.
     // Keep it throttled: limit inserts by the newest linked tournaments.
@@ -149,6 +163,9 @@ export default async function VenueFieldMapsQueuePage({
 
     if (venuesErr) {
       console.error("field-maps seed: failed to load venues", venuesErr);
+      if ((venuesErr as any)?.code === "42703" || String((venuesErr as any)?.message || "").includes("field_map_url")) {
+        return redirectWithNotice(adminBase, schemaHelp.body);
+      }
       return redirectWithNotice(adminBase, "Seed failed: could not load venues.");
     }
 
@@ -170,6 +187,9 @@ export default async function VenueFieldMapsQueuePage({
 
     if (insErr) {
       console.error("field-maps seed: upsert failed", insErr);
+      if ((insErr as any)?.code === "PGRST205") {
+        return redirectWithNotice(adminBase, schemaHelp.body);
+      }
       return redirectWithNotice(adminBase, "Seed failed: insert error.");
     }
 
@@ -393,6 +413,7 @@ export default async function VenueFieldMapsQueuePage({
   }
 
   const rows = (rowsRaw ?? []) as unknown as QueueRow[];
+  const schemaMissing = Boolean(error) && ((error as any)?.code === "PGRST205" || String((error as any)?.message || "").includes("schema cache"));
 
   const StatusLink = ({ value, label }: { value: QueueStatus | "all"; label: string }) => {
     const active = value === status;
@@ -430,6 +451,21 @@ export default async function VenueFieldMapsQueuePage({
               <strong>Notice:</strong> {notice}
             </p>
           ) : null}
+          {schemaMissing ? (
+            <div
+              style={{
+                marginTop: 10,
+                padding: "12px 14px",
+                borderRadius: 14,
+                background: "#fff7ed",
+                border: "1px solid #fdba74",
+                color: "#7c2d12",
+              }}
+            >
+              <div style={{ fontWeight: 900 }}>{schemaHelp.title}</div>
+              <div style={{ marginTop: 6, fontSize: 13, whiteSpace: "pre-wrap" }}>{schemaHelp.body}</div>
+            </div>
+          ) : null}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Link
@@ -464,6 +500,7 @@ export default async function VenueFieldMapsQueuePage({
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <button
             type="submit"
+            disabled={schemaMissing}
             style={{
               padding: "10px 12px",
               borderRadius: 10,
@@ -471,6 +508,8 @@ export default async function VenueFieldMapsQueuePage({
               background: "#fff",
               color: "#0f766e",
               fontWeight: 900,
+              opacity: schemaMissing ? 0.5 : 1,
+              cursor: schemaMissing ? "not-allowed" : "pointer",
             }}
           >
             Seed queue (tournament-linked)

@@ -38,6 +38,11 @@ export default async function VenueFieldMapEditPage({
   const backHref = "/admin/venues/field-maps";
   const redirectTo = `${backHref}?status=all`;
 
+  const schemaHelp = {
+    title: "Field map queue schema not deployed yet",
+    body: `Apply the Supabase migration \`supabase/migrations/20260422_ti_venue_url_cleanup_field_maps_queue.sql\`, then reload PostgREST's schema cache (Supabase SQL editor: \`NOTIFY pgrst, 'reload schema';\`).`,
+  };
+
   const { data: venue, error: venueErr } = await supabaseAdmin
     .from("venues" as any)
     .select("id,name,city,state,zip,venue_url,venue_url_quality,field_map_url")
@@ -197,6 +202,8 @@ export default async function VenueFieldMapEditPage({
   const suggestedMap = queue?.suggested_field_map_url ?? null;
   const openMap = suggestedMap || currentMap;
 
+  const queueMissing = queueRaw && (queueRaw as any)?.code === "PGRST205";
+
   return (
     <div style={{ padding: 24 }}>
       <AdminNav />
@@ -211,6 +218,21 @@ export default async function VenueFieldMapEditPage({
             <p style={{ margin: "10px 0 0 0", padding: "10px 12px", borderRadius: 12, background: "#ecfeff", border: "1px solid #67e8f9" }}>
               <strong>Notice:</strong> {notice}
             </p>
+          ) : null}
+          {queueMissing ? (
+            <div
+              style={{
+                marginTop: 10,
+                padding: "12px 14px",
+                borderRadius: 14,
+                background: "#fff7ed",
+                border: "1px solid #fdba74",
+                color: "#7c2d12",
+              }}
+            >
+              <div style={{ fontWeight: 900 }}>{schemaHelp.title}</div>
+              <div style={{ marginTop: 6, fontSize: 13, whiteSpace: "pre-wrap" }}>{schemaHelp.body}</div>
+            </div>
           ) : null}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
