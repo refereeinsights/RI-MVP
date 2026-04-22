@@ -42,9 +42,15 @@ type QueueRow = {
   } | null;
 };
 
+type SearchEngine = "brave" | "google";
+
 function redirectWithNotice(base: string, notice: string): never {
   const joiner = base.includes("?") ? "&" : "?";
   redirect(`${base}${joiner}notice=${encodeURIComponent(notice)}`);
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function normalizeUrlForHash(raw: string) {
@@ -82,6 +88,137 @@ function hashUrlSha256Hex(raw: string) {
   return crypto.createHash("sha256").update(normalized).digest("hex");
 }
 
+function safeUrlHost(raw: string) {
+  try {
+    return new URL(raw).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function scoreMapCandidate(input: { url: string; title?: string | null; snippet?: string | null }) {
+  const url = input.url.trim();
+  const host = safeUrlHost(url) ?? "";
+  const title = (input.title ?? "").toLowerCase();
+  const snippet = (input.snippet ?? "").toLowerCase();
+  const path = (() => {
+    try {
+      return new URL(url).pathname.toLowerCase();
+    } catch {
+      return url.toLowerCase();
+    }
+  })();
+
+  const blob = `${title} ${snippet} ${path}`;
+
+  // Reject obvious non-venue content.
+  const blockedHosts = [
+    "tournamentinsights.com",
+    "www.tournamentinsights.com",
+    "google.com",
+    "www.google.com",
+    "maps.google.com",
+    "maps.app.goo.gl",
+    "goo.gl",
+    "maps.apple.com",
+    "waze.com",
+    "www.waze.com",
+  ];
+  if (blockedHosts.includes(host)) return { score: -999, kind: "blocked" as const };
+  if (blob.includes("/venues/") && host.includes("tournamentinsights")) return { score: -999, kind: "blocked" as const };
+
+  let score = 0;
+
+  const isPdf = path.endsWith(".pdf") || url.toLowerCase().includes(".pdf");
+  const isImage = /\.(png|jpg|jpeg|webp)$/i.test(path);
+  const looksLikeMap =
+    /field\s*map|facility\s*map|complex\s*map|campus\s*map|court\s*map|gym\s*map|parking\s*map|field\s*layout|court\s*layout|site\s*map/i.test(
+      blob
+    ) || /map(\.|\/|_|-)/i.test(path);
+  const hasSportsTokens = /field|fields|court|courts|gym|complex|facility|parking|layout|site/i.test(blob);
+
+  if (isPdf) score += 35;
+  if (isImage) score += 20;
+  if (looksLikeMap) score += 20;
+  if (hasSportsTokens) score += 10;
+
+  if (/\bpark(s)?\b|\brecreation\b|\bparks\b|\bschools\b|\bathletics\b|\bdistrict\b|\bcity\b|\bcounty\b/.test(host)) score += 6;
+  if (host.endsWith(".gov")) score += 8;
+  if (host.endsWith(".edu")) score += 8;
+
+  // Penalize likely generic directories.
+  if (/(yelp|facebook|tripadvisor|opentable|wikipedia)\./i.test(host)) score -= 18;
+
+  return { score, kind: isPdf || isImage ? ("artifact" as const) : ("page" as const) };
+}
+
+function inferMapTypeFromUrl(raw: string) {
+  const s = raw.toLowerCase();
+  if (s.includes("parking")) return "parking_map";
+  if (s.includes("court") || s.includes("gym")) return "indoor_court_map";
+  if (s.includes("field") && (s.includes("number") || s.includes("field-") || s.includes("fields"))) return "field_numbering";
+  if (s.includes("campus")) return "campus_map";
+  if (s.includes("complex") || s.includes("layout") || s.includes("facility")) return "complex_layout";
+  if (s.includes("map")) return "general_facility_map";
+  return "unknown";
+}
+
+function inferConfidence(candidate: { url: string; title?: string | null; snippet?: string | null }) {
+  const scored = scoreMapCandidate(candidate);
+  if (scored.score >= 55) return "high";
+  if (scored.score >= 35) return "medium";
+  if (scored.score >= 20) return "low";
+  return null;
+}
+
+async function braveSearch(params: { q: string; count: number }) {
+  const token = process.env.BRAVE_SEARCH_API_KEY?.trim();
+  if (!token) return { error: "missing_brave_key", results: [] as any[] };
+
+  const url = new URL("https://api.search.brave.com/res/v1/web/search");
+  url.searchParams.set("q", params.q);
+  url.searchParams.set("count", String(Math.max(1, Math.min(10, params.count))));
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      "X-Subscription-Token": token,
+    },
+    cache: "no-store",
+  });
+
+  if (!res.ok) return { error: `brave_http_${res.status}`, results: [] as any[] };
+  const json: any = await res.json();
+  const results = (json?.web?.results ?? []).map((r: any) => ({
+    url: r.url as string,
+    title: (r.title ?? null) as string | null,
+    snippet: (r.description ?? null) as string | null,
+  }));
+  return { error: null as string | null, results };
+}
+
+async function googleCseSearch(params: { q: string; count: number }) {
+  const key = process.env.GOOGLE_CSE_API_KEY?.trim();
+  const cx = process.env.GOOGLE_CSE_CX?.trim();
+  if (!key || !cx) return { error: "missing_google_cse_key", results: [] as any[] };
+
+  const url = new URL("https://www.googleapis.com/customsearch/v1");
+  url.searchParams.set("key", key);
+  url.searchParams.set("cx", cx);
+  url.searchParams.set("q", params.q);
+  url.searchParams.set("num", String(Math.max(1, Math.min(10, params.count))));
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) return { error: `google_http_${res.status}`, results: [] as any[] };
+  const json: any = await res.json();
+  const results = (json?.items ?? []).map((r: any) => ({
+    url: r.link as string,
+    title: (r.title ?? null) as string | null,
+    snippet: (r.snippet ?? null) as string | null,
+  }));
+  return { error: null as string | null, results };
+}
+
 function clampInt(value: string | null, fallback: number, min: number, max: number) {
   const n = Number.parseInt(String(value ?? ""), 10);
   if (!Number.isFinite(n)) return fallback;
@@ -108,6 +245,7 @@ export default async function VenueFieldMapsQueuePage({
   const notice = (searchParams?.notice ?? "").trim();
 
   const basePath = "/admin/venues/field-maps";
+  const engine = ((searchParams as any)?.engine ?? "brave") as SearchEngine;
 
   const schemaHelp = {
     title: "Field map queue schema not deployed yet",
@@ -126,11 +264,13 @@ export default async function VenueFieldMapsQueuePage({
     const nextStatus = overrides.status ?? status;
     const nextLimit = overrides.limit ?? String(limit);
     const nextOffset = overrides.offset ?? String(offset);
+    const nextEngine = overrides.engine ?? engine;
 
     if (nextQ) params.set("q", nextQ);
     if (nextStatus && nextStatus !== "pending") params.set("status", nextStatus);
     if (nextLimit && nextLimit !== "25") params.set("limit", nextLimit);
     if (nextOffset && nextOffset !== "0") params.set("offset", nextOffset);
+    if (nextEngine && nextEngine !== "brave") params.set("engine", nextEngine);
     return `${basePath}${params.toString() ? `?${params.toString()}` : ""}`;
   };
 
@@ -221,6 +361,7 @@ export default async function VenueFieldMapsQueuePage({
     const action = String(formData.get("bulk_action") || "");
     const ids = (formData.getAll("selected") as string[]).map((v) => v.trim()).filter(Boolean);
     if (!ids.length) return redirectWithNotice(adminBase, "Select at least one venue.");
+    const chosenEngine = (String(formData.get("engine") || "brave") as SearchEngine) || "brave";
 
     if (action === "approve_maps") {
       const { data: rowsRaw, error: rowsErr } = await supabaseAdmin
@@ -259,6 +400,141 @@ export default async function VenueFieldMapsQueuePage({
       return redirectWithNotice(
         adminBase,
         skipped ? `Approved ${eligibleIds.length} venue(s). Skipped ${skipped} with no suggested map URL.` : `Approved ${eligibleIds.length} venue(s).`
+      );
+    }
+
+    if (action === "discover_maps") {
+      const { error: mapsProbeErr } = await supabaseAdmin
+        .from("venue_field_maps" as any)
+        .select("id", { count: "exact", head: true } as any);
+      if (mapsProbeErr) {
+        console.error("field-maps discover: venue_field_maps probe failed", mapsProbeErr);
+        return redirectWithNotice(adminBase, schemaHelp.body);
+      }
+
+      const { data: venueRowsRaw, error: venueRowsErr } = await supabaseAdmin
+        .from("venues" as any)
+        .select("id,name,city,state,zip,venue_url")
+        .in("id", ids);
+
+      if (venueRowsErr) {
+        console.error("field-maps discover: failed to load venues", venueRowsErr);
+        return redirectWithNotice(adminBase, "Discover failed: could not load venues.");
+      }
+
+      const venueById = new Map<string, any>();
+      for (const v of (venueRowsRaw ?? []) as any[]) venueById.set(String(v.id), v);
+
+      let updated = 0;
+      let skipped = 0;
+      let noMatch = 0;
+      let errored = 0;
+
+      for (const venueId of ids) {
+        const v = venueById.get(venueId);
+        if (!v) {
+          errored += 1;
+          continue;
+        }
+
+        const { data: queueRaw, error: queueErr } = await supabaseAdmin
+          .from("venue_url_review_queue" as any)
+          .select("venue_id,suggested_field_map_url,notes,status")
+          .eq("venue_id", venueId)
+          .maybeSingle();
+
+        if (queueErr || !queueRaw) {
+          console.error("field-maps discover: queue load failed", { venueId, queueErr });
+          errored += 1;
+          continue;
+        }
+
+        if (String((queueRaw as any).suggested_field_map_url ?? "").trim()) {
+          skipped += 1;
+          continue;
+        }
+
+        const name = String(v.name ?? "").trim();
+        const city = String(v.city ?? "").trim();
+        const st = String(v.state ?? "").trim();
+        const zip = String(v.zip ?? "").trim();
+
+        const baseTerms = [name, city, st].filter(Boolean).join(" ");
+        const queries = [
+          `${baseTerms} field map pdf`,
+          `${baseTerms} facility map pdf`,
+          `${baseTerms} complex map`,
+          zip ? `${name} ${zip} field map pdf` : null,
+        ].filter(Boolean) as string[];
+
+        let best: { url: string; title?: string | null; snippet?: string | null; score: number } | null = null;
+        let lastErr: string | null = null;
+
+        for (const q of queries.slice(0, 3)) {
+          const searchRes =
+            chosenEngine === "google" ? await googleCseSearch({ q, count: 6 }) : await braveSearch({ q, count: 6 });
+          if (searchRes.error) {
+            lastErr = searchRes.error;
+            continue;
+          }
+          for (const r of searchRes.results) {
+            const scored = scoreMapCandidate(r);
+            if (scored.score <= 0) continue;
+            if (!best || scored.score > best.score) {
+              best = { url: r.url, title: r.title, snippet: r.snippet, score: scored.score };
+            }
+          }
+          if (best && best.score >= 55) break; // stop early on high-confidence hit
+          await sleep(1100); // throttle: ~<= 1 req/sec globally per action execution
+        }
+
+        if (!best) {
+          noMatch += 1;
+          const nextNotes = [
+            String((queueRaw as any).notes ?? "").trim(),
+            `[discover:${chosenEngine}] no match${lastErr ? ` (${lastErr})` : ""} for "${baseTerms}"`,
+          ]
+            .filter(Boolean)
+            .join("\n");
+          await supabaseAdmin.from("venue_url_review_queue" as any).update({ notes: nextNotes }).eq("venue_id", venueId);
+          continue;
+        }
+
+        const confidence = inferConfidence(best);
+        const type = inferMapTypeFromUrl(best.url);
+        const nextNotes = [
+          String((queueRaw as any).notes ?? "").trim(),
+          `[discover:${chosenEngine}] picked (${best.score}) ${best.url}`,
+        ]
+          .filter(Boolean)
+          .join("\n");
+
+        const { error: updErr } = await supabaseAdmin
+          .from("venue_url_review_queue" as any)
+          .update({
+            suggested_field_map_url: best.url,
+            suggested_field_map_source: `discover_${chosenEngine}`,
+            suggested_field_map_confidence: confidence,
+            suggested_field_map_type: type,
+            status: (queueRaw as any).status === "pending" ? "suggested" : (queueRaw as any).status,
+            notes: nextNotes,
+          })
+          .eq("venue_id", venueId);
+
+        if (updErr) {
+          console.error("field-maps discover: update failed", { venueId, updErr });
+          errored += 1;
+          continue;
+        }
+
+        updated += 1;
+        await sleep(300); // small pacing between venues
+      }
+
+      revalidatePath(basePath);
+      return redirectWithNotice(
+        adminBase,
+        `Discover complete (${chosenEngine}). updated=${updated}, skipped=${skipped}, no_match=${noMatch}, errored=${errored}.`
       );
     }
 
@@ -685,6 +961,10 @@ export default async function VenueFieldMapsQueuePage({
           <option value="error">error</option>
           <option value="all">all</option>
         </select>
+        <select name="engine" defaultValue={engine} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
+          <option value="brave">Brave search</option>
+          <option value="google">Google CSE</option>
+        </select>
         <label style={{ display: "inline-flex", gap: 6, alignItems: "center", color: "#374151", fontSize: 12 }}>
           Limit
           <input name="limit" type="number" min={1} max={200} defaultValue={limit} style={{ width: 80, padding: "6px 8px", borderRadius: 10, border: "1px solid #e5e7eb" }} />
@@ -696,6 +976,7 @@ export default async function VenueFieldMapsQueuePage({
 
       <form action={bulkQueueAction} style={{ marginTop: 18 }}>
         <input type="hidden" name="redirect_to" value={buildHref({})} />
+        <input type="hidden" name="engine" value={engine} />
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
           <button
             formNoValidate
@@ -714,6 +995,24 @@ export default async function VenueFieldMapsQueuePage({
           </button>
           <span style={{ alignSelf: "center", fontSize: 12, color: "#6b7280" }}>
             Approve/apply only works once `suggested_field_map_url` is filled in (use `Edit`).
+          </span>
+          <button
+            formNoValidate
+            name="bulk_action"
+            value="discover_maps"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #0f766e",
+              background: "#fff",
+              color: "#0f766e",
+              fontWeight: 900,
+            }}
+          >
+            Discover maps (bulk)
+          </button>
+          <span style={{ alignSelf: "center", fontSize: 12, color: "#6b7280" }}>
+            Uses {engine === "google" ? "`GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_CX`" : "`BRAVE_SEARCH_API_KEY`"}; runs sequentially with throttling.
           </span>
           <button
             formNoValidate
