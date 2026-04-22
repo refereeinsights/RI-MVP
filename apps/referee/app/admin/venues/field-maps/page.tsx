@@ -606,69 +606,105 @@ export default async function VenueFieldMapsQueuePage({
     }
 
     // Tier 1: only venues linked to tournaments and missing field maps / venue url or missing quality.
-    // Keep it throttled: limit inserts by the newest linked tournaments.
-    // Note: uses ON CONFLICT DO NOTHING to avoid resetting existing review state.
-    const { data: linkRows, error: linkErr } = await supabaseAdmin
-      .from("tournament_venues" as any)
-      .select("venue_id, created_at")
-      .order("created_at", { ascending: false })
-      .limit(seedLimit);
+    // Keep it throttled, but also keep scanning until we find `seedLimit` *new* rows (not already queued).
+    const pageSize = 500;
+    const insertRows: any[] = [];
+    let alreadyQueued = 0;
+    let scannedLinks = 0;
+    const seenVenueIds = new Set<string>();
 
-    if (linkErr) {
-      console.error("field-maps seed: failed to load tournament_venues", linkErr);
-      return redirectWithNotice(adminBase, "Seed failed: could not load tournament_venues.");
-    }
+    for (let page = 0; page < 50 && insertRows.length < seedLimit; page += 1) {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
 
-    const venueIds = Array.from(new Set((linkRows ?? []).map((r: any) => String(r.venue_id)).filter(Boolean)));
-    if (!venueIds.length) return redirectWithNotice(adminBase, "No venues found to seed.");
+      const { data: linkRows, error: linkErr } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("venue_id, created_at")
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
-    const { data: venues, error: venuesErr } = await supabaseAdmin
-      .from("venues" as any)
-      .select("id, name, venue_url, field_map_url, venue_url_quality")
-      .in("id", venueIds);
-
-    if (venuesErr) {
-      console.error("field-maps seed: failed to load venues", venuesErr);
-      if ((venuesErr as any)?.code === "42703" || String((venuesErr as any)?.message || "").includes("field_map_url")) {
-        return redirectWithNotice(adminBase, schemaHelp.body);
+      if (linkErr) {
+        console.error("field-maps seed: failed to load tournament_venues", linkErr);
+        return redirectWithNotice(adminBase, "Seed failed: could not load tournament_venues.");
       }
-      return redirectWithNotice(adminBase, "Seed failed: could not load venues.");
+
+      const pageVenueIds = Array.from(
+        new Set((linkRows ?? []).map((r: any) => String(r.venue_id)).filter(Boolean))
+      ).filter((id) => !seenVenueIds.has(id));
+
+      scannedLinks += (linkRows ?? []).length;
+      for (const id of pageVenueIds) seenVenueIds.add(id);
+
+      if (!pageVenueIds.length) {
+        if ((linkRows ?? []).length < pageSize) break;
+        continue;
+      }
+
+      const { data: venues, error: venuesErr } = await supabaseAdmin
+        .from("venues" as any)
+        .select("id, name, venue_url, field_map_url, venue_url_quality")
+        .in("id", pageVenueIds);
+
+      if (venuesErr) {
+        console.error("field-maps seed: failed to load venues", venuesErr);
+        if ((venuesErr as any)?.code === "42703" || String((venuesErr as any)?.message || "").includes("field_map_url")) {
+          return redirectWithNotice(adminBase, schemaHelp.body);
+        }
+        return redirectWithNotice(adminBase, "Seed failed: could not load venues.");
+      }
+
+      const candidates = (venues ?? [])
+        .filter((v: any) => !isLikelySchoolVenueName((v as any).name))
+        .filter((v: any) => !v.field_map_url || !v.venue_url || !v.venue_url_quality)
+        .map((v: any) => String(v.id))
+        .filter(Boolean);
+
+      if (!candidates.length) {
+        if ((linkRows ?? []).length < pageSize) break;
+        continue;
+      }
+
+      const { data: existingQueueRaw, error: existingQueueErr } = await supabaseAdmin
+        .from("venue_url_review_queue" as any)
+        .select("venue_id")
+        .in("venue_id", candidates);
+
+      if (existingQueueErr) {
+        console.error("field-maps seed: existing queue lookup failed", existingQueueErr);
+        return redirectWithNotice(adminBase, "Seed failed: could not check existing queue rows.");
+      }
+
+      const existingIds = new Set((existingQueueRaw ?? []).map((r: any) => String(r.venue_id)).filter(Boolean));
+      alreadyQueued += existingIds.size;
+
+      const newIds = candidates.filter((id) => !existingIds.has(id));
+      if (!newIds.length) {
+        if ((linkRows ?? []).length < pageSize) break;
+        continue;
+      }
+
+      const venueById = new Map<string, any>();
+      for (const v of (venues ?? []) as any[]) venueById.set(String(v.id), v);
+
+      for (const id of newIds) {
+        if (insertRows.length >= seedLimit) break;
+        const v = venueById.get(id);
+        insertRows.push({
+          venue_id: id,
+          status: "pending",
+          current_venue_url: v?.venue_url ?? null,
+          current_field_map_url: v?.field_map_url ?? null,
+        });
+      }
+
+      if ((linkRows ?? []).length < pageSize) break;
     }
-
-    const seedRows = (venues ?? [])
-      .filter((v: any) => !isLikelySchoolVenueName((v as any).name))
-      .filter((v: any) => !v.field_map_url || !v.venue_url || !v.venue_url_quality)
-      .slice(0, seedLimit)
-      .map((v: any) => ({
-        venue_id: v.id,
-        status: "pending",
-        current_venue_url: v.venue_url ?? null,
-        current_field_map_url: v.field_map_url ?? null,
-      }));
-
-    if (!seedRows.length) return redirectWithNotice(adminBase, "Nothing to seed (already covered).");
-
-    const seedIds = seedRows.map((r: any) => String(r.venue_id)).filter(Boolean);
-    const { data: existingQueueRaw, error: existingQueueErr } = await supabaseAdmin
-      .from("venue_url_review_queue" as any)
-      .select("venue_id")
-      .in("venue_id", seedIds);
-
-    if (existingQueueErr) {
-      console.error("field-maps seed: existing queue lookup failed", existingQueueErr);
-      return redirectWithNotice(adminBase, "Seed failed: could not check existing queue rows.");
-    }
-
-    const existingIds = new Set((existingQueueRaw ?? []).map((r: any) => String(r.venue_id)).filter(Boolean));
-    const insertRows = seedRows.filter((r: any) => !existingIds.has(String(r.venue_id)));
-    const alreadyQueued = seedRows.length - insertRows.length;
 
     if (!insertRows.length) {
-      // Nothing new inserted, but force the UI back to the pending/default view so it’s clear.
       return redirectWithNotice(
         successRedirectBase,
         alreadyQueued
-          ? `Nothing new to seed (all ${alreadyQueued} already in the queue). Try status=all to find them.`
+          ? `Nothing new to seed (all candidates already queued). Try status=all to find them.`
           : "Nothing new to seed."
       );
     }
