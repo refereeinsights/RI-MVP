@@ -135,10 +135,10 @@ export default async function VenueFieldMapEditPage({
       const { error } = await supabaseAdmin.from("venue_url_review_queue" as any).delete().eq("venue_id", venueId);
       if (error) {
         console.error("field-maps edit: delete failed", { venueId, error });
-        return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Delete failed.");
+        return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Remove from queue failed.");
       }
       revalidatePath(backHref);
-      return redirectWithNotice(backHref, "Queue row deleted.");
+      return redirectWithNotice(backHref, "Removed from queue (venue not deleted).");
     }
 
     const nextStatus = cleanText(formData.get("status")) as QueueStatus | null;
@@ -526,7 +526,7 @@ export default async function VenueFieldMapEditPage({
               Save + approve venue URL
             </button>
             <button type="submit" name="mode" value="delete" style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #b00020", background: "#fff", color: "#b00020", fontWeight: 900 }}>
-              Delete queue row
+              Remove from queue
             </button>
           </div>
 

@@ -728,7 +728,42 @@ export default async function VenueFieldMapsQueuePage({
         return redirectWithNotice(adminBase, "Bulk delete failed.");
       }
       revalidatePath(basePath);
-      return redirectWithNotice(adminBase, `Deleted ${ids.length} queue row(s).`);
+      return redirectWithNotice(adminBase, `Removed ${ids.length} row(s) from the queue (venues not deleted).`);
+    }
+
+    if (action === "mark_not_found") {
+      const now = new Date().toISOString();
+      const { data: rowsRaw, error: rowsErr } = await supabaseAdmin
+        .from("venue_url_review_queue" as any)
+        .select("venue_id,notes,status")
+        .in("venue_id", ids);
+      if (rowsErr) {
+        console.error("field-maps bulk not-found failed (load rows)", rowsErr);
+        return redirectWithNotice(adminBase, "Mark not found failed.");
+      }
+
+      let updated = 0;
+      for (const row of (rowsRaw ?? []) as any[]) {
+        const venueId = String(row.venue_id);
+        const priorNotes = String(row.notes ?? "").trim();
+        const nextNotes = [priorNotes, `[${now}] not found: no field map located (manual skip)`].filter(Boolean).join("\n");
+        const { error } = await supabaseAdmin
+          .from("venue_url_review_queue" as any)
+          .update({
+            status: "skipped",
+            notes: nextNotes,
+            last_reviewed_at: now,
+          })
+          .eq("venue_id", venueId);
+        if (error) {
+          console.error("field-maps bulk not-found update failed", { venueId, error });
+          continue;
+        }
+        updated += 1;
+      }
+
+      revalidatePath(basePath);
+      return redirectWithNotice(adminBase, `Marked ${updated} row(s) as skipped (venues not deleted).`);
     }
 
     if (action === "apply_selected") {
@@ -1220,6 +1255,21 @@ export default async function VenueFieldMapsQueuePage({
           <button
             formNoValidate
             name="bulk_action"
+            value="mark_not_found"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #6b7280",
+              background: "#fff",
+              color: "#374151",
+              fontWeight: 900,
+            }}
+          >
+            Mark not found (skip)
+          </button>
+          <button
+            formNoValidate
+            name="bulk_action"
             value="delete_queue_rows"
             style={{
               padding: "10px 12px",
@@ -1230,7 +1280,7 @@ export default async function VenueFieldMapsQueuePage({
               fontWeight: 900,
             }}
           >
-            Delete selected
+            Remove from queue
           </button>
         </div>
 
