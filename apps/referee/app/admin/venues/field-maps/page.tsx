@@ -609,7 +609,8 @@ export default async function VenueFieldMapsQueuePage({
     // Keep it throttled, but also keep scanning until we find `seedLimit` *new* rows (not already queued).
     const pageSize = 500;
     const insertRows: any[] = [];
-    let alreadyQueued = 0;
+    let alreadyQueued = 0; // excludes skipped (we treat skipped as "dispositioned", but still "in queue" for conflict purposes)
+    let alreadySkipped = 0;
     let scannedLinks = 0;
     const seenVenueIds = new Set<string>();
 
@@ -666,7 +667,7 @@ export default async function VenueFieldMapsQueuePage({
 
       const { data: existingQueueRaw, error: existingQueueErr } = await supabaseAdmin
         .from("venue_url_review_queue" as any)
-        .select("venue_id")
+        .select("venue_id,status")
         .in("venue_id", candidates);
 
       if (existingQueueErr) {
@@ -674,8 +675,11 @@ export default async function VenueFieldMapsQueuePage({
         return redirectWithNotice(adminBase, "Seed failed: could not check existing queue rows.");
       }
 
-      const existingIds = new Set((existingQueueRaw ?? []).map((r: any) => String(r.venue_id)).filter(Boolean));
-      alreadyQueued += existingIds.size;
+      const existingRows = (existingQueueRaw ?? []) as any[];
+      const existingIds = new Set(existingRows.map((r) => String(r.venue_id)).filter(Boolean));
+      const skippedCount = existingRows.filter((r) => String(r.status ?? "") === "skipped").length;
+      alreadySkipped += skippedCount;
+      alreadyQueued += Math.max(0, existingIds.size - skippedCount);
 
       const newIds = candidates.filter((id) => !existingIds.has(id));
       if (!newIds.length) {
@@ -703,8 +707,8 @@ export default async function VenueFieldMapsQueuePage({
     if (!insertRows.length) {
       return redirectWithNotice(
         successRedirectBase,
-        alreadyQueued
-          ? `Nothing new to seed (all candidates already queued). Try status=all to find them.`
+        alreadyQueued || alreadySkipped
+          ? `Nothing new to seed (all candidates already in the queue). already_queued=${alreadyQueued}${alreadySkipped ? `, skipped=${alreadySkipped}` : ""}.`
           : "Nothing new to seed."
       );
     }
@@ -722,7 +726,7 @@ export default async function VenueFieldMapsQueuePage({
     revalidatePath(basePath);
     return redirectWithNotice(
       successRedirectBase,
-      `Seeded ${insertRows.length} new venue(s) into the review queue.${alreadyQueued ? ` (${alreadyQueued} already queued)` : ""}`
+      `Seeded ${insertRows.length} new venue(s) into the review queue.${alreadyQueued || alreadySkipped ? ` (already_queued=${alreadyQueued}${alreadySkipped ? `, skipped=${alreadySkipped}` : ""})` : ""}`
     );
   }
 
