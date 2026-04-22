@@ -19,6 +19,9 @@
 - Ops: added `scripts/ops/backfill_venue_zip_codes.ts` to backfill `public.venues.zip` (ZIP5) by (a) normalizing ZIP+4 to ZIP5 and (b) extracting ZIP5 from `venues.address` (optional geocoding later). Switched writes to per-row UPDATEs to avoid accidental inserts on upsert.
 - Data: ran “ZIP backfill pass 1” (no geocoding) and updated 353 venue ZIPs in Supabase based on existing data only.
 - Ops: added `scripts/ops/export_venues_urls_csv.ts` to export `venue_id,name,venue_url` for all venues to a CSV file (written to `~/Downloads/` by default).
+- Data: nulled 731 bad `venues.venue_url` values that incorrectly pointed to TI’s own directory (`https://www.tournamentinsights.com/venues`): `scripts/ops/null_bad_venue_urls.ts`.
+- Ops: added `scripts/ops/export_venues_core_csv.ts` to export `venue_id,name,city,state,zip,venue_url` for all venues: `~/Downloads/venues_core.csv`.
+- RI admin: added a nav button to the TI outbound clicks dashboard (`/admin/ti/outbound`): `apps/referee/components/admin/AdminNav.tsx`. (Committed locally as `f07afab`.)
 
 ## 2026-04-15
 
