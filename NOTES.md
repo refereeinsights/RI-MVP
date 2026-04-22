@@ -32,6 +32,7 @@
 - RI admin: field maps queue upgrades — bulk discovery supports Broad vs Strict mode, each row supports quick paste+approve/apply, and queue management is clearer with `Mark not found (skip)` + `Remove from queue` (venues are never deleted by queue actions): `apps/referee/app/admin/venues/field-maps/page.tsx`, `apps/referee/app/admin/venues/field-maps/[venue_id]/page.tsx`.
 - RI admin: fixed a React hydration error on the field maps queue by removing nested `<form>` tags (quick paste now uses per-button `formAction` inside the bulk form): `apps/referee/app/admin/venues/field-maps/page.tsx`.
 - RI admin: field maps queue keeps operation results visible while scrolling by rendering the Notice/schema banner as a sticky top bar: `apps/referee/app/admin/venues/field-maps/page.tsx`.
+- RI admin: field maps queue now marks venues with an inline `no brave match` badge when bulk discovery finds no candidate (keeps rows in the queue for manual follow-up): `apps/referee/app/admin/venues/field-maps/page.tsx`.
 
 ## 2026-04-15
 
