@@ -1099,32 +1099,56 @@ export default async function VenueFieldMapsQueuePage({
     return redirectWithNotice(adminBase, "Unknown bulk action.");
   }
 
-  let query = supabaseAdmin
-    .from("venue_url_review_queue" as any)
-    .select(
-      "venue_id,status,bad_venue_url_reason,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,suggested_field_map_sport,suggested_field_map_set_primary,applied_field_map_id,approve_venue_url,approve_field_map_url,override_good_venue_url,notes,updated_at,venues:venues(id,name,city,state,zip,venue_url,field_map_url,venue_url_quality)"
-    )
-    .order("updated_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+  const selectClause =
+    "venue_id,status,bad_venue_url_reason,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,suggested_field_map_sport,suggested_field_map_set_primary,applied_field_map_id,approve_venue_url,approve_field_map_url,override_good_venue_url,notes,updated_at,venues:venues(id,name,city,state,zip,venue_url,field_map_url,venue_url_quality)";
 
-  if (status !== "all") query = query.eq("status", status);
+  const buildBaseQuery = () => {
+    let qb = supabaseAdmin
+      .from("venue_url_review_queue" as any)
+      .select(selectClause)
+      .order("updated_at", { ascending: false });
+    if (status !== "all") qb = qb.eq("status", status);
+    return qb;
+  };
 
-  if (q) {
-    // Basic search across joined venue fields + URLs.
+  let rowsRaw: any[] | null = null;
+  let error: any = null;
+
+  if (!q) {
+    const { data, error: err } = await buildBaseQuery().range(offset, offset + limit - 1);
+    rowsRaw = (data ?? []) as any[];
+    error = err;
+  } else {
+    // PostgREST can't OR across multiple tables. To keep search useful, we run:
+    // - one query searching queue URL fields
+    // - one query searching the joined venues fields (referencedTable='venues')
+    // then union + sort in memory (offset is ignored in search mode).
     const safe = q.replace(/%/g, "\\%").replace(/_/g, "\\_");
-    query = query.or(
-      [
-        `venues.name.ilike.%${safe}%`,
-        `venues.city.ilike.%${safe}%`,
-        `venues.state.ilike.%${safe}%`,
-        `venues.zip.ilike.%${safe}%`,
-        `current_venue_url.ilike.%${safe}%`,
-        `suggested_field_map_url.ilike.%${safe}%`,
-      ].join(",")
-    );
+
+    const queueFilters = [`current_venue_url.ilike.%${safe}%`, `suggested_field_map_url.ilike.%${safe}%`].join(",");
+    const venueFilters = [`name.ilike.%${safe}%`, `city.ilike.%${safe}%`, `state.ilike.%${safe}%`, `zip.ilike.%${safe}%`].join(",");
+
+    const [queueRes, venueRes] = await Promise.all([
+      buildBaseQuery().or(queueFilters).limit(limit),
+      buildBaseQuery().or(venueFilters, { referencedTable: "venues" }).limit(limit),
+    ]);
+
+    if (queueRes.error) {
+      console.error("field-maps: query failed (queue search)", queueRes.error);
+      error = queueRes.error;
+    }
+    if (venueRes.error) {
+      console.error("field-maps: query failed (venue search)", venueRes.error);
+      error = venueRes.error;
+    }
+
+    const merged = new Map<string, any>();
+    for (const r of ((queueRes.data ?? []) as any[]).concat((venueRes.data ?? []) as any[])) {
+      merged.set(String(r.venue_id), r);
+    }
+    rowsRaw = Array.from(merged.values()).sort((a, b) => String(b.updated_at ?? "").localeCompare(String(a.updated_at ?? "")));
   }
 
-  const { data: rowsRaw, error } = await query;
   if (error) {
     console.error("field-maps: query failed", error);
   }
