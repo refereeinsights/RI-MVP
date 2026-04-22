@@ -583,6 +583,9 @@ export default async function VenueFieldMapsQueuePage({
   async function seedQueueAction(formData: FormData) {
     "use server";
     const adminBase = String(formData.get("redirect_to") || basePath);
+    // Intentionally redirect back to the default (pending) view after seeding so the user sees results.
+    // Avoid capturing non-serializable helpers (e.g. buildHref) inside server actions.
+    const successRedirectBase = `${basePath}?offset=0`;
     const seedLimit = clampInt(String(formData.get("seed_limit") ?? ""), 200, 1, 2000);
 
     // Fail fast with an actionable message when the migration hasn't been applied yet.
@@ -663,7 +666,7 @@ export default async function VenueFieldMapsQueuePage({
     if (!insertRows.length) {
       // Nothing new inserted, but force the UI back to the pending/default view so it’s clear.
       return redirectWithNotice(
-        buildHref({ q: "", status: "pending", offset: "0" }),
+        successRedirectBase,
         alreadyQueued
           ? `Nothing new to seed (all ${alreadyQueued} already in the queue). Try status=all to find them.`
           : "Nothing new to seed."
@@ -682,7 +685,7 @@ export default async function VenueFieldMapsQueuePage({
 
     revalidatePath(basePath);
     return redirectWithNotice(
-      buildHref({ q: "", status: "pending", offset: "0" }),
+      successRedirectBase,
       `Seeded ${insertRows.length} new venue(s) into the review queue.${alreadyQueued ? ` (${alreadyQueued} already queued)` : ""}`
     );
   }
