@@ -200,6 +200,9 @@ export async function AdminNav() {
         <Link href="/admin/ti" style={tiAdminLinkStyle}>
           TI Admin
         </Link>
+        <Link href="/admin/ti/outbound" style={linkStyle}>
+          TI Outbound
+        </Link>
       </nav>
       {buildShort ? (
         <div
