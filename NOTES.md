@@ -23,6 +23,12 @@
 - Ops: added `scripts/ops/export_venues_core_csv.ts` to export `venue_id,name,city,state,zip,venue_url` for all venues: `~/Downloads/venues_core.csv`.
 - RI admin: added a nav button to the TI outbound clicks dashboard (`/admin/ti/outbound`): `apps/referee/components/admin/AdminNav.tsx`. (Committed locally as `f07afab`.)
 
+## 2026-04-22
+
+- Supabase: added venue field-map enrichment columns on `public.venues` plus an audit-safe, queue-based review table (`public.venue_url_review_queue`) and append-only audit log (`public.venue_url_audit_log`): `supabase/migrations/20260422_ti_venue_url_cleanup_field_maps_queue.sql`.
+- RI admin venues: added a “Field maps” button on `/admin/venues` that links to the new queue UI: `apps/referee/app/admin/venues/page.tsx`.
+- RI admin: implemented `/admin/venues/field-maps` queue tool with throttled seeding (tournament-linked), bulk approve/apply/delete, “Open map” links, and per-row edit pages: `apps/referee/app/admin/venues/field-maps/page.tsx`, `apps/referee/app/admin/venues/field-maps/[venue_id]/page.tsx`.
+
 ## 2026-04-15
 
 - Weekend Pro unlock: regular venue reviews now also trigger the same 12-month Weekend Pro grant used by Quick Venue Check (one-time via `public.ti_promo_grants`; reconciles duplicate grants without extending the window): `apps/ti-web/app/api/venue-reviews/route.ts`.

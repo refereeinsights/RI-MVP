@@ -1060,6 +1060,20 @@ export default async function AdminVenuesPage({ searchParams }: PageProps) {
               >
                 Venue sweep
               </Link>
+              <Link
+                href="/admin/venues/field-maps"
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "#fff",
+                  color: "#0f172a",
+                  fontWeight: 800,
+                  textDecoration: "none",
+                  border: "1px solid #cbd5e1",
+                }}
+              >
+                Field maps
+              </Link>
 		          <Link
 		            href="/admin/venues/link-quality"
 		            style={{
