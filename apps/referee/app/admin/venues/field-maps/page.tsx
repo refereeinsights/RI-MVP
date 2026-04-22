@@ -309,6 +309,67 @@ export default async function VenueFieldMapsQueuePage({
   const engine = ((searchParams as any)?.engine ?? "brave") as SearchEngine;
   const discoverMode = ((searchParams as any)?.discover_mode ?? "broad") as DiscoverMode;
 
+  async function fetchAllPaged<T = any>(fetchPage: (from: number, to: number) => Promise<any>, pageSize = 1000) {
+    const all: T[] = [];
+    for (let from = 0; from < 100_000_000; from += pageSize) {
+      const to = from + pageSize - 1;
+      const { data, error } = (await fetchPage(from, to)) as { data: T[] | null; error: any };
+      if (error) return { data: all, error };
+      const page = data ?? [];
+      all.push(...page);
+      if (page.length < pageSize) break;
+    }
+    return { data: all, error: null };
+  }
+
+  async function computeVenueFieldMapCoverage() {
+    // Any failure here should not block the queue UI.
+    try {
+      const { data: mapVenueRows, error: mapVenueErr } = await fetchAllPaged(async (from, to) => {
+        return await supabaseAdmin.from("venue_field_maps" as any).select("venue_id").range(from, to);
+      });
+      if (mapVenueErr) throw mapVenueErr;
+      const venueIdsWithMultiMaps = new Set((mapVenueRows ?? []).map((r) => String((r as any).venue_id)).filter(Boolean));
+
+      const { data: skippedRows, error: skippedErr } = await fetchAllPaged(async (from, to) => {
+        return await supabaseAdmin.from("venue_url_review_queue" as any).select("venue_id").eq("status", "skipped").range(from, to);
+      });
+      if (skippedErr) throw skippedErr;
+      const explicitlySkipped = new Set((skippedRows ?? []).map((r) => String((r as any).venue_id)).filter(Boolean));
+
+      let total = 0;
+      let withMaps = 0;
+      let withoutMapsNotSkipped = 0;
+
+      const { error: venuesScanErr } = await fetchAllPaged(async (from, to) => {
+        return await supabaseAdmin.from("venues" as any).select("id,name,field_map_url").range(from, to);
+      }).then(({ data, error }) => {
+        if (error) return { error };
+        for (const v of (data ?? []) as any[]) {
+          const id = String(v.id);
+          total += 1;
+          const hasMap = Boolean(String(v.field_map_url ?? "").trim()) || venueIdsWithMultiMaps.has(id);
+          if (hasMap) {
+            withMaps += 1;
+            continue;
+          }
+
+          const isExcluded = explicitlySkipped.has(id) || isLikelySchoolVenueName(v.name);
+          if (!isExcluded) withoutMapsNotSkipped += 1;
+        }
+        return { error: null };
+      });
+      if (venuesScanErr) throw venuesScanErr;
+
+      return { total, withMaps, withoutMapsNotSkipped };
+    } catch (e) {
+      console.error("field-maps: coverage stats failed", e);
+      return null as null | { total: number; withMaps: number; withoutMapsNotSkipped: number };
+    }
+  }
+
+  const coverage = await computeVenueFieldMapCoverage();
+
   const schemaHelp = {
     title: "Field map queue schema not deployed yet",
     body: [
@@ -1409,6 +1470,21 @@ export default async function VenueFieldMapsQueuePage({
         <StatusLink value="applied" label="Applied" />
         <StatusLink value="error" label="Error" />
         <StatusLink value="all" label="All" />
+      </div>
+
+      <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {[
+          { label: "Total venues", value: coverage ? String(coverage.total) : "—" },
+          { label: "Venues with field maps", value: coverage ? String(coverage.withMaps) : "—" },
+          { label: "Venues without field maps", value: coverage ? String(coverage.withoutMapsNotSkipped) : "—", sub: "(excludes skipped)" },
+        ].map((b) => (
+          <div key={b.label} style={{ border: "1px solid #e5e7eb", background: "#fff", borderRadius: 14, padding: "10px 12px", minWidth: 220 }}>
+            <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 900 }}>
+              {b.label} {b.sub ? <span style={{ fontWeight: 800, color: "#9ca3af" }}>{b.sub}</span> : null}
+            </div>
+            <div style={{ marginTop: 2, fontSize: 22, fontWeight: 950, color: "#111827" }}>{b.value}</div>
+          </div>
+        ))}
       </div>
 
       <form action={seedQueueAction} style={{ marginTop: 16, border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fafafa" }}>

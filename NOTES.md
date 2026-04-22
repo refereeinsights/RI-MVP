@@ -33,6 +33,7 @@
 - RI admin: field maps queue quick paste now uses a dedicated per-row `<form>` (not nested inside the bulk action form), with explicit server actions for “Paste + approve/apply” so status reliably flips to `approved`/`applied` and approved items disappear from the `pending` filter view: `apps/referee/app/admin/venues/field-maps/page.tsx`.
 - RI admin: fixed field maps queue search (`q=...`) to avoid PostgREST parse errors by running separate search filters for queue fields vs joined `venues` fields and unioning results (PostgREST cannot `or` across tables): `apps/referee/app/admin/venues/field-maps/page.tsx`.
 - RI admin: field maps queue now supports a one-click “Auto-skip Middle/Elementary venues” action and also excludes those venues from tournament-linked seeding to reduce low-signal discovery work: `apps/referee/app/admin/venues/field-maps/page.tsx`.
+- RI admin: `/admin/venues/field-maps` now shows coverage badges (total venues, venues with field maps, venues without field maps excluding skipped) to track progress: `apps/referee/app/admin/venues/field-maps/page.tsx`.
 - RI admin: field maps queue keeps operation results visible while scrolling by rendering the Notice/schema banner as a sticky top bar: `apps/referee/app/admin/venues/field-maps/page.tsx`.
 - RI admin: field maps queue now marks venues with an inline `no brave match` badge when bulk discovery finds no candidate (keeps rows in the queue for manual follow-up): `apps/referee/app/admin/venues/field-maps/page.tsx`.
 
