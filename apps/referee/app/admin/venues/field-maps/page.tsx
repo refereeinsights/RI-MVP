@@ -1078,32 +1078,57 @@ export default async function VenueFieldMapsQueuePage({
     <div style={{ padding: 24 }}>
       <AdminNav />
 
+      {(notice || schemaMissing) ? (
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 50,
+            marginTop: 10,
+            marginBottom: 12,
+            paddingTop: 10,
+            paddingBottom: 10,
+            background: "rgba(255,255,255,0.92)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            borderRadius: 14,
+            boxShadow: "0 10px 24px rgba(0,0,0,0.06)",
+            border: "1px solid #e5e7eb",
+          }}
+          aria-live="polite"
+        >
+          {notice ? (
+            <div style={{ padding: "0 12px" }}>
+              <div style={{ padding: "10px 12px", borderRadius: 12, background: "#ecfeff", border: "1px solid #67e8f9" }}>
+                <strong>Notice:</strong> {notice}
+              </div>
+            </div>
+          ) : null}
+          {schemaMissing ? (
+            <div style={{ padding: "0 12px", marginTop: notice ? 10 : 0 }}>
+              <div
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 14,
+                  background: "#fff7ed",
+                  border: "1px solid #fdba74",
+                  color: "#7c2d12",
+                }}
+              >
+                <div style={{ fontWeight: 900 }}>{schemaHelp.title}</div>
+                <div style={{ marginTop: 6, fontSize: 13, whiteSpace: "pre-wrap" }}>{schemaHelp.body}</div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ margin: 0 }}>Venue field maps</h1>
           <p style={{ margin: "6px 0 0 0", color: "#4b5563" }}>
             Queue-based review for `field_map_url` (and optional `venue_url`), with bulk approve/apply.
           </p>
-          {notice ? (
-            <p style={{ margin: "10px 0 0 0", padding: "10px 12px", borderRadius: 12, background: "#ecfeff", border: "1px solid #67e8f9" }}>
-              <strong>Notice:</strong> {notice}
-            </p>
-          ) : null}
-          {schemaMissing ? (
-            <div
-              style={{
-                marginTop: 10,
-                padding: "12px 14px",
-                borderRadius: 14,
-                background: "#fff7ed",
-                border: "1px solid #fdba74",
-                color: "#7c2d12",
-              }}
-            >
-              <div style={{ fontWeight: 900 }}>{schemaHelp.title}</div>
-              <div style={{ marginTop: 6, fontSize: 13, whiteSpace: "pre-wrap" }}>{schemaHelp.body}</div>
-            </div>
-          ) : null}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Link
