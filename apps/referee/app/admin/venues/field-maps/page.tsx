@@ -645,12 +645,35 @@ export default async function VenueFieldMapsQueuePage({
 
     if (!seedRows.length) return redirectWithNotice(adminBase, "Nothing to seed (already covered).");
 
-    const { error: insErr } = await supabaseAdmin
+    const seedIds = seedRows.map((r: any) => String(r.venue_id)).filter(Boolean);
+    const { data: existingQueueRaw, error: existingQueueErr } = await supabaseAdmin
       .from("venue_url_review_queue" as any)
-      .upsert(seedRows, { onConflict: "venue_id", ignoreDuplicates: true } as any);
+      .select("venue_id")
+      .in("venue_id", seedIds);
+
+    if (existingQueueErr) {
+      console.error("field-maps seed: existing queue lookup failed", existingQueueErr);
+      return redirectWithNotice(adminBase, "Seed failed: could not check existing queue rows.");
+    }
+
+    const existingIds = new Set((existingQueueRaw ?? []).map((r: any) => String(r.venue_id)).filter(Boolean));
+    const insertRows = seedRows.filter((r: any) => !existingIds.has(String(r.venue_id)));
+    const alreadyQueued = seedRows.length - insertRows.length;
+
+    if (!insertRows.length) {
+      // Nothing new inserted, but force the UI back to the pending/default view so it’s clear.
+      return redirectWithNotice(
+        buildHref({ q: "", status: "pending", offset: "0" }),
+        alreadyQueued
+          ? `Nothing new to seed (all ${alreadyQueued} already in the queue). Try status=all to find them.`
+          : "Nothing new to seed."
+      );
+    }
+
+    const { error: insErr } = await supabaseAdmin.from("venue_url_review_queue" as any).insert(insertRows);
 
     if (insErr) {
-      console.error("field-maps seed: upsert failed", insErr);
+      console.error("field-maps seed: insert failed", insErr);
       if ((insErr as any)?.code === "PGRST205") {
         return redirectWithNotice(adminBase, schemaHelp.body);
       }
@@ -658,7 +681,10 @@ export default async function VenueFieldMapsQueuePage({
     }
 
     revalidatePath(basePath);
-    return redirectWithNotice(adminBase, `Seeded ${seedRows.length} venue(s) into the review queue.`);
+    return redirectWithNotice(
+      buildHref({ q: "", status: "pending", offset: "0" }),
+      `Seeded ${insertRows.length} new venue(s) into the review queue.${alreadyQueued ? ` (${alreadyQueued} already queued)` : ""}`
+    );
   }
 
   async function autoSkipSchoolVenuesAction(formData: FormData) {
