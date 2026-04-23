@@ -102,10 +102,8 @@ export async function renderGeneratedMapPng(
   });
 
   const title = venue.name.trim();
-  const addressLine = [venue.address, [venue.city, venue.state, venue.zip].filter(Boolean).join(", ")]
-    .map((v) => String(v ?? "").trim())
-    .filter(Boolean)
-    .join(" • ");
+  const address1 = String(venue.address ?? "").trim() || null;
+  const address2 = [venue.city, venue.state, venue.zip].filter(Boolean).join(", ").trim() || null;
 
   // Footer: keep the warning prominent, and include attribution + date (no duplication).
   const footerLine1 = "Generated map (approximate) • Not an official venue map";
@@ -153,7 +151,7 @@ export async function renderGeneratedMapPng(
             position: "absolute",
             top: 14,
             left: 14,
-            maxWidth: "70%",
+            maxWidth: 440,
             padding: "9px 11px",
             borderRadius: 14,
             background: "rgba(15,23,42,0.72)",
@@ -165,9 +163,8 @@ export async function renderGeneratedMapPng(
           }}
         >
           <div style={{ fontSize: 15, fontWeight: 950, lineHeight: 1.15 }}>{title}</div>
-          {addressLine ? (
-            <div style={{ marginTop: 4, fontSize: 11, opacity: 0.9, lineHeight: 1.2 }}>{addressLine}</div>
-          ) : null}
+          {address1 ? <div style={{ marginTop: 4, fontSize: 11, opacity: 0.92, lineHeight: 1.2 }}>{address1}</div> : null}
+          {address2 ? <div style={{ marginTop: 2, fontSize: 11, opacity: 0.88, lineHeight: 1.2 }}>{address2}</div> : null}
         </div>
 
         {/* Footer warning + attribution */}
