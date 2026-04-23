@@ -34,6 +34,7 @@ type QueueRow = {
   venues: {
     id: string;
     name: string | null;
+    address: string | null;
     city: string | null;
     state: string | null;
     zip: string | null;
@@ -1024,7 +1025,7 @@ export default async function VenueFieldMapsQueuePage({
 
       const { data: venueRowsRaw, error: venueRowsErr } = await supabaseAdmin
         .from("venues" as any)
-        .select("id,name,city,state,zip,venue_url")
+        .select("id,name,address,city,state,zip,venue_url")
         .in("id", ids);
 
       if (venueRowsErr) {
@@ -1489,7 +1490,7 @@ export default async function VenueFieldMapsQueuePage({
   }
 
   const selectClause =
-    "venue_id,status,bad_venue_url_reason,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,suggested_field_map_sport,suggested_field_map_set_primary,applied_field_map_id,approve_venue_url,approve_field_map_url,override_good_venue_url,notes,updated_at,venues:venues(id,name,city,state,zip,venue_url,field_map_url,venue_url_quality)";
+    "venue_id,status,bad_venue_url_reason,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,suggested_field_map_sport,suggested_field_map_set_primary,applied_field_map_id,approve_venue_url,approve_field_map_url,override_good_venue_url,notes,updated_at,venues:venues(id,name,address,city,state,zip,venue_url,field_map_url,venue_url_quality)";
 
   const buildBaseQuery = () => {
     let qb = supabaseAdmin
@@ -1558,7 +1559,7 @@ export default async function VenueFieldMapsQueuePage({
   if (missingVenueIds.length) {
     const { data: venuesRaw, error: venuesErr } = await supabaseAdmin
       .from("venues" as any)
-      .select("id,name,city,state,zip,venue_url,field_map_url,venue_url_quality")
+      .select("id,name,address,city,state,zip,venue_url,field_map_url,venue_url_quality")
       .in("id", missingVenueIds.slice(0, 5000));
     if (venuesErr) {
       console.error("field-maps: failed to backfill venues embeds", venuesErr);
@@ -1969,6 +1970,7 @@ export default async function VenueFieldMapsQueuePage({
                 rows.map((row) => {
                   const venue = row.venues;
                   const title = venue?.name ?? row.venue_id;
+                  const addressLine = String(venue?.address ?? "").trim();
                   const meta = [venue?.city, venue?.state, venue?.zip].filter(Boolean).join(", ");
                   const currentMap = row.current_field_map_url ?? venue?.field_map_url ?? null;
                   const suggestedMap = row.suggested_field_map_url ?? null;
@@ -1991,6 +1993,9 @@ export default async function VenueFieldMapsQueuePage({
                       </td>
                       <td style={{ padding: 10, verticalAlign: "top", minWidth: 220 }}>
                         <div style={{ fontWeight: 900 }}>{title}</div>
+                        {addressLine ? (
+                          <div style={{ marginTop: 2, color: "#6b7280" }}>{addressLine}</div>
+                        ) : null}
                         <div style={{ marginTop: 2, color: "#6b7280" }}>{meta || "—"}</div>
                         <div style={{ marginTop: 6 }}>
                           <Link href={`/admin/venues/${row.venue_id}`} style={{ color: "#2563eb", fontWeight: 800, textDecoration: "none" }}>
