@@ -56,12 +56,14 @@ function inferDiscoverIndicator(notes: string | null) {
   // examples:
   // [discover:brave] no match (brave_http_429) for "..."
   // [discover:brave] no match for "..."
+  // [discover:brave] errored (brave_http_429) for "..."
   // [discover:brave] picked (55) https://...
-  const match = lastDiscover.match(/^\[discover:([a-z]+)\]\s+(no match|picked)/i);
+  const match = lastDiscover.match(/^\[discover:([a-z]+)\]\s+(no match|picked|errored)/i);
   if (!match) return null;
   const engine = match[1].toLowerCase();
   const kind = match[2].toLowerCase();
   if (kind === "no match") return { engine, label: `no ${engine} match`, tone: "warn" as const };
+  if (kind === "errored") return { engine, label: `${engine} error`, tone: "warn" as const };
   if (kind === "picked") return { engine, label: `${engine} match`, tone: "ok" as const };
   return null;
 }
@@ -1070,23 +1072,27 @@ export default async function VenueFieldMapsQueuePage({
         const venueHost = venueUrl ? safeUrlHost(venueUrl) : null;
 
         const baseTerms = [name, city, st].filter(Boolean).join(" ").trim() || name;
+        // Query set is ordered by expected "map artifact" precision first, then broader.
+        // We intentionally avoid leading with "site map" (often triggers XML sitemap false positives).
         const queries = [
+          venueHost ? `site:${venueHost} facility maps` : null,
+          venueHost ? `site:${venueHost} field map` : null,
+          venueHost ? `site:${venueHost} complex map` : null,
+          venueHost ? `site:${venueHost} map pdf` : null,
           `${baseTerms} facility maps`,
-          `${baseTerms} facility map`,
           `${baseTerms} field map`,
-          `${baseTerms} site map`,
           `${baseTerms} complex map`,
           `${baseTerms} campus map`,
           `${baseTerms} court map`,
-          `${baseTerms} parking map`,
           `${baseTerms} map pdf`,
+          `${baseTerms} facility map pdf`,
+          `${baseTerms} field map pdf`,
           `${baseTerms} map jpg`,
           zip ? `${name} ${zip} facility map` : null,
-          zip ? `${name} ${zip} site map` : null,
-          venueHost ? `site:${venueHost} facility map` : null,
-          venueHost ? `site:${venueHost} facility maps` : null,
-          venueHost ? `site:${venueHost} site map` : null,
-          venueHost ? `site:${venueHost} map pdf` : null,
+          zip ? `${name} ${zip} map pdf` : null,
+          // Keep these late; they can be useful on some municipal sites, but are noisy.
+          `${baseTerms} facility map`,
+          `${baseTerms} site map`,
           venueHost ? `site:${venueHost} map` : null,
         ]
           .filter(Boolean)
@@ -1098,11 +1104,24 @@ export default async function VenueFieldMapsQueuePage({
         let bestQuery: string | null = null;
 
         // Try more queries; stop early only if confidence is truly high.
-        for (const q of queries.slice(0, 8)) {
-          const searchRes =
-            chosenEngine === "google" ? await googleCseSearch({ q, count: 10 }) : await braveSearch({ q, count: 10 });
+        const queriesToTry = queries.slice(0, 10);
+        for (const q of queriesToTry) {
+          let searchRes =
+            chosenEngine === "google"
+              ? await googleCseSearch({ q, count: 10 })
+              : await braveSearch({ q, count: 10 });
+
+          // If we're rate limited, pause and retry once (otherwise we'd incorrectly mark "no match").
+          if (searchRes.error === "brave_http_429") {
+            lastErr = searchRes.error;
+            await sleep(12_000);
+            searchRes = await braveSearch({ q, count: 10 });
+          }
+
           if (searchRes.error) {
             lastErr = searchRes.error;
+            // If we're still rate-limited, bail early to avoid hammering and to keep the row pending.
+            if (searchRes.error === "brave_http_429") break;
             continue;
           }
           for (const r of searchRes.results) {
@@ -1119,11 +1138,13 @@ export default async function VenueFieldMapsQueuePage({
         }
 
         if (!best) {
-          noMatch += 1;
-          const shownQueries = queries.slice(0, 5).join(" | ");
+          const shownQueries = queriesToTry.slice(0, 5).join(" | ");
+          const isRateLimited = lastErr === "brave_http_429";
+          if (isRateLimited) errored += 1;
+          else noMatch += 1;
           const nextNotes = [
             String((queueRaw as any).notes ?? "").trim(),
-            `[discover:${chosenEngine}] no match${lastErr ? ` (${lastErr})` : ""} for "${baseTerms}"`,
+            `[discover:${chosenEngine}] ${isRateLimited ? "errored" : "no match"}${lastErr ? ` (${lastErr})` : ""} for "${baseTerms}"`,
             shownQueries ? `[discover:${chosenEngine}] queries: ${shownQueries}` : null,
           ]
             .filter(Boolean)
