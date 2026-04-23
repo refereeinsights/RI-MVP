@@ -589,6 +589,12 @@ async function googleCseSearch(params: { q: string; count: number }) {
   return { error: null as string | null, results };
 }
 
+function canUseGoogleCse() {
+  const key = process.env.GOOGLE_CSE_API_KEY?.trim();
+  const cx = process.env.GOOGLE_CSE_CX?.trim();
+  return Boolean(key && cx);
+}
+
 function clampInt(value: string | null, fallback: number, min: number, max: number) {
   const n = Number.parseInt(String(value ?? ""), 10);
   if (!Number.isFinite(n)) return fallback;
@@ -1866,6 +1872,7 @@ export default async function VenueFieldMapsQueuePage({
         let best: { url: string; title?: string | null; snippet?: string | null; score: number } | null = null;
         let lastErr: string | null = null;
         let bestQuery: string | null = null;
+        let pickedEngine: SearchEngine = chosenEngine;
 
         // Try more queries; stop early only if confidence is truly high.
         const queriesToTry = queries.slice(0, 26);
@@ -1942,6 +1949,41 @@ export default async function VenueFieldMapsQueuePage({
             }
           }
 
+          // Engine fallback: Brave is cheaper but misses some PDFs (e.g. SportNGIN attachments).
+          // If Brave finds no match and Google CSE is configured, try a small, high-signal subset on Google.
+          if (!best && chosenEngine === "brave" && canUseGoogleCse()) {
+            const googleFallbackQueries = [
+              maybeAddFiletypePdf(`${baseTerms} field map pdf`),
+              maybeAddFiletypePdf(`${(baseTermsWithAddress || baseTerms).trim()} map pdf`),
+              maybeAddFiletypePdf(`"${name}" pdf`),
+              maybeAddFiletypePdf(`${baseTerms} facility map pdf`),
+              `${baseTerms} field-map`,
+            ]
+              .filter(Boolean)
+              .filter((q, idx, arr) => arr.indexOf(q) === idx)
+              .slice(0, 3);
+
+            for (const q of googleFallbackQueries) {
+              const searchRes = await googleCseSearch({ q, count: 10 });
+              if (searchRes.error) {
+                lastErr = searchRes.error;
+                continue;
+              }
+              for (const r of searchRes.results) {
+                if (chosenDiscoverMode === "strict" && !isStrictEligible(r)) continue;
+                const scored = scoreMapCandidate(r, { preferredHost: venueHost });
+                if (scored.score <= 0) continue;
+                if (!best || scored.score > best.score) {
+                  best = { url: r.url, title: r.title, snippet: r.snippet, score: scored.score };
+                  bestQuery = q;
+                  pickedEngine = "google";
+                }
+              }
+              if (best && best.score >= 70) break;
+              await sleep(700);
+            }
+          }
+
           if (best) {
             // fall through to normal update logic
           } else {
@@ -1953,6 +1995,7 @@ export default async function VenueFieldMapsQueuePage({
             String((queueRaw as any).notes ?? "").trim(),
             `[discover:${chosenEngine}] ${isRateLimited ? "errored" : "no match"}${lastErr ? ` (${lastErr})` : ""} for "${baseTerms}"`,
             shownQueries ? `[discover:${chosenEngine}] queries: ${shownQueries}` : null,
+            chosenEngine === "brave" && canUseGoogleCse() ? `[discover:google] fallback attempted` : null,
           ]
             .filter(Boolean)
             .join("\n");
@@ -1965,7 +2008,7 @@ export default async function VenueFieldMapsQueuePage({
         const type = inferMapTypeFromUrl(best.url);
         const nextNotes = [
           String((queueRaw as any).notes ?? "").trim(),
-          `[discover:${chosenEngine}] picked (${best.score}) ${best.url}${bestQuery ? ` (q: ${bestQuery})` : ""}`,
+          `[discover:${pickedEngine}] picked (${best.score}) ${best.url}${bestQuery ? ` (q: ${bestQuery})` : ""}`,
         ]
           .filter(Boolean)
           .join("\n");
@@ -1974,7 +2017,7 @@ export default async function VenueFieldMapsQueuePage({
           .from("venue_url_review_queue" as any)
           .update({
             suggested_field_map_url: best.url,
-            suggested_field_map_source: `discover_${chosenEngine}`,
+            suggested_field_map_source: `discover_${pickedEngine}`,
             suggested_field_map_confidence: confidence,
             suggested_field_map_type: type,
             status: (queueRaw as any).status === "pending" ? "suggested" : (queueRaw as any).status,
