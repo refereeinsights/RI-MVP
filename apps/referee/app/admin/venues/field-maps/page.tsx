@@ -1110,6 +1110,111 @@ export default async function VenueFieldMapsQueuePage({
     return redirectWithNotice(adminBase, `Auto-skip schools complete. inserted=${inserted}, updated=${updated}, protected=${protectedCount}.`);
   }
 
+  async function autoSkipIndoorSingleUseVenuesAction(formData: FormData) {
+    "use server";
+    const admin = await requireAdmin();
+    const adminBase = String(formData.get("redirect_to") || basePath);
+    const skipLimit = clampInt(String(formData.get("skip_indoor_limit") ?? ""), 2000, 1, 10_000);
+    const nowIso = new Date().toISOString();
+
+    // Candidates: anything explicitly indoor, or likely single-use indoor sports (basketball/volleyball/hockey),
+    // or venue name contains those tokens. We only mark rows as skipped in the queue (no deletes).
+    const { data: venuesRaw, error: venuesErr } = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,name,indoor,sport,field_map_url")
+      .or(
+        "indoor.eq.true,name.ilike.%indoor%,sport.eq.basketball,sport.eq.volleyball,sport.eq.hockey,name.ilike.%basketball%,name.ilike.%volleyball%,name.ilike.%hockey%"
+      )
+      .limit(skipLimit);
+
+    if (venuesErr) {
+      console.error("field-maps auto-skip indoor/single-use: venues query failed", venuesErr);
+      return redirectWithNotice(adminBase, "Auto-skip failed: could not load venues.");
+    }
+
+    const candidateIds = (venuesRaw ?? []).map((v: any) => String(v.id)).filter(Boolean);
+    if (!candidateIds.length) return redirectWithNotice(adminBase, "No indoor/basketball/volleyball/hockey venues found (within limit).");
+
+    // Protect venues that already have maps (either cached or in venue_field_maps).
+    const hasCached = new Set((venuesRaw ?? []).filter((v: any) => String(v.field_map_url ?? "").trim()).map((v: any) => String(v.id)));
+    const { data: existingMapsRaw, error: existingMapsErr } = await supabaseAdmin
+      .from("venue_field_maps" as any)
+      .select("venue_id")
+      .in("venue_id", candidateIds)
+      .limit(50_000);
+    if (existingMapsErr) {
+      console.error("field-maps auto-skip indoor/single-use: map lookup failed", existingMapsErr);
+      return redirectWithNotice(adminBase, "Auto-skip failed: could not verify existing maps.");
+    }
+    const hasMap = new Set((existingMapsRaw ?? []).map((r: any) => String((r as any).venue_id)));
+
+    const eligibleIds = candidateIds.filter((id) => !hasCached.has(id) && !hasMap.has(id));
+    const protectedCount = candidateIds.length - eligibleIds.length;
+    if (!eligibleIds.length) return redirectWithNotice(adminBase, "Nothing to skip: all matching venues already have maps.");
+
+    const { data: queueRowsRaw, error: queueRowsErr } = await supabaseAdmin
+      .from("venue_url_review_queue" as any)
+      .select("venue_id,status,notes")
+      .in("venue_id", eligibleIds)
+      .limit(50_000);
+    if (queueRowsErr) {
+      console.error("field-maps auto-skip indoor/single-use: queue lookup failed", queueRowsErr);
+      return redirectWithNotice(adminBase, "Auto-skip failed: could not load queue rows.");
+    }
+
+    const existingById = new Map<string, any>();
+    for (const r of (queueRowsRaw ?? []) as any[]) existingById.set(String((r as any).venue_id), r);
+
+    let updated = 0;
+    let inserted = 0;
+
+    // Update existing queue rows to skipped.
+    const updateIds = Array.from(existingById.keys()).filter((id) => {
+      const status = String(existingById.get(id)?.status ?? "");
+      return status !== "applied";
+    });
+
+    if (updateIds.length) {
+      // Append a generic note; detailed reason is usually obvious from venue name.
+      // Keep it lightweight; this is just to move them out of the field-map discovery queue.
+      for (const id of updateIds) {
+        const prior = String(existingById.get(id)?.notes ?? "").trim();
+        const nextNotes = [prior, `[auto-skip] indoor/single-use (basketball/volleyball/hockey)`].filter(Boolean).join("\n");
+        const { error } = await supabaseAdmin
+          .from("venue_url_review_queue" as any)
+          .update({
+            status: "skipped",
+            notes: nextNotes,
+            reviewed_by: admin.id,
+            last_reviewed_at: nowIso,
+          })
+          .eq("venue_id", id);
+        if (!error) updated += 1;
+      }
+    }
+
+    // For venues not yet in the queue, insert skipped rows so they don't keep re-entering via seeding.
+    const missingQueueIds = eligibleIds.filter((id) => !existingById.has(id));
+    if (missingQueueIds.length) {
+      const insertRows = missingQueueIds.map((id) => ({
+        venue_id: id,
+        status: "skipped",
+        notes: `[auto-skip] indoor/single-use (basketball/volleyball/hockey)`,
+        reviewed_by: admin.id,
+        last_reviewed_at: nowIso,
+      }));
+      const { error } = await supabaseAdmin.from("venue_url_review_queue" as any).insert(insertRows);
+      if (error) {
+        console.error("field-maps auto-skip indoor/single-use: insert failed", error);
+      } else {
+        inserted = insertRows.length;
+      }
+    }
+
+    revalidatePath(basePath);
+    return redirectWithNotice(adminBase, `Auto-skip indoor/single-use complete. inserted=${inserted}, updated=${updated}, protected=${protectedCount}.`);
+  }
+
   async function bulkQueueAction(formData: FormData) {
     "use server";
     const admin = await requireAdmin();
@@ -1153,6 +1258,22 @@ export default async function VenueFieldMapsQueuePage({
       let missingCoords = 0;
       let errored = 0;
       let alreadyApplied = 0;
+      const skipReasons: Record<string, number> = {};
+      const errorReasons: Record<string, number> = {};
+
+      const bump = (m: Record<string, number>, k: string) => {
+        m[k] = (m[k] ?? 0) + 1;
+      };
+
+      const errorKey = (raw: string) => {
+        const msg = String(raw || "").trim() || "unknown";
+        if (msg.startsWith("bad_coords:")) return msg.split(" ")[0];
+        if (msg.startsWith("suspect_png_size:")) return "suspect_png_size";
+        if (msg.startsWith("mapbox_static_http_")) return msg;
+        if (msg.startsWith("storage_upload_failed:")) return "storage_upload_failed";
+        if (msg.startsWith("missing_mapbox_access_token")) return "missing_mapbox_access_token";
+        return msg.length > 60 ? msg.slice(0, 60) : msg;
+      };
 
       for (const venueId of ids) {
         const v = venueById.get(venueId);
@@ -1176,12 +1297,14 @@ export default async function VenueFieldMapsQueuePage({
         const alreadyHasGenerated = Boolean(String((queueRaw as any).generated_map_url ?? "").trim());
         if (alreadyHasGenerated && !forceRegenerate) {
           skipped += 1;
+          bump(skipReasons, "has_generated");
           continue;
         }
 
         // If the venue already has a cached map URL, skip generation (generated maps are for missing-map venues).
         if (String((v as any).field_map_url ?? "").trim()) {
           skipped += 1;
+          bump(skipReasons, "has_cached_map");
           continue;
         }
 
@@ -1189,6 +1312,7 @@ export default async function VenueFieldMapsQueuePage({
         // (The canonical record exists in venue_field_maps; queue stores only one generated draft at a time.)
         if (forceRegenerate && (queueRaw as any).generated_map_applied_id != null) {
           alreadyApplied += 1;
+          bump(skipReasons, "already_applied");
           continue;
         }
 
@@ -1196,6 +1320,7 @@ export default async function VenueFieldMapsQueuePage({
         const lng = Number((v as any).longitude);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
           missingCoords += 1;
+          bump(skipReasons, "missing_coords");
           const priorNotes = String((queueRaw as any).notes ?? "").trim();
           const attempt = Number((queueRaw as any).generation_attempt_count ?? 0) || 0;
           const nextNotes = [priorNotes, `[generated:${generator}] skipped (missing_coords)`].filter(Boolean).join("\n");
@@ -1331,6 +1456,7 @@ export default async function VenueFieldMapsQueuePage({
           }
         } catch (e) {
           const msg = e instanceof Error ? e.message : "generation_failed";
+          bump(errorReasons, errorKey(msg));
           console.error("field-maps generate: failed", { venueId, msg });
           errored += 1;
           const priorNotes = String((queueRaw as any).notes ?? "").trim();
@@ -1350,9 +1476,19 @@ export default async function VenueFieldMapsQueuePage({
       }
 
       revalidatePath(basePath);
+      const formatTop = (m: Record<string, number>) =>
+        Object.entries(m)
+          .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+          .slice(0, 3)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(" • ");
+      const skipDetail = formatTop(skipReasons);
+      const errDetail = formatTop(errorReasons);
       return redirectWithNotice(
         adminBase,
-        `${forceRegenerate ? "Regenerate" : "Generate"} complete. updated=${updated}, skipped=${skipped}, missing_coords=${missingCoords}, already_applied=${alreadyApplied}, errored=${errored}.`
+        `${forceRegenerate ? "Regenerate" : "Generate"} complete. updated=${updated}, skipped=${skipped}, missing_coords=${missingCoords}, already_applied=${alreadyApplied}, errored=${errored}${
+          skipDetail ? `, skip_reasons: ${skipDetail}` : ""
+        }${errDetail ? `, errors: ${errDetail}` : ""}.`
       );
     }
 
@@ -2335,6 +2471,45 @@ export default async function VenueFieldMapsQueuePage({
           </label>
           <span style={{ fontSize: 12, color: "#6b7280" }}>
             Marks queue rows as `skipped` (does not delete venues). Skips venues that already have maps.
+          </span>
+        </div>
+      </form>
+
+      <form
+        action={autoSkipIndoorSingleUseVenuesAction}
+        style={{ marginTop: 12, border: "1px solid #e0e7ff", borderRadius: 14, padding: 14, background: "#eef2ff" }}
+      >
+        <input type="hidden" name="redirect_to" value={buildHref({})} />
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            type="submit"
+            disabled={schemaMissing}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #3730a3",
+              background: "#fff",
+              color: "#3730a3",
+              fontWeight: 900,
+              opacity: schemaMissing ? 0.5 : 1,
+              cursor: schemaMissing ? "not-allowed" : "pointer",
+            }}
+          >
+            Auto-skip indoor / basketball / volleyball / hockey
+          </button>
+          <label style={{ fontSize: 12, color: "#374151", display: "inline-flex", gap: 6, alignItems: "center" }}>
+            Limit
+            <input
+              name="skip_indoor_limit"
+              type="number"
+              min={1}
+              max={10000}
+              defaultValue={2000}
+              style={{ width: 90, padding: "6px 8px", borderRadius: 10, border: "1px solid #d1d5db" }}
+            />
+          </label>
+          <span style={{ fontSize: 12, color: "#6b7280" }}>
+            Marks queue rows as <code>skipped</code> (does not delete). Protects venues that already have maps.
           </span>
         </div>
       </form>

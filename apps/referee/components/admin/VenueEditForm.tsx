@@ -98,6 +98,8 @@ export default function VenueEditForm({ venue, tournaments, owlNearby = [] }: Pr
     maps_url: "",
     distance_meters: "",
   });
+  const [coordsBusy, setCoordsBusy] = useState(false);
+  const [coordsNotice, setCoordsNotice] = useState<string | null>(null);
 
   const setField = (key: string, value: any) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -224,6 +226,36 @@ export default function VenueEditForm({ venue, tournaments, owlNearby = [] }: Pr
     }
   };
 
+  const refreshCoordinates = async () => {
+    setCoordsNotice(null);
+    setCoordsBusy(true);
+    try {
+      const resp = await fetch(`/api/admin/venues/${venue.id}/refresh-coordinates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address1: form.address1 ?? "",
+          city: form.city ?? "",
+          state: form.state ?? "",
+          zip: form.zip ?? "",
+        }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json?.error || "refresh_failed");
+
+      setField("latitude", typeof json.latitude === "number" ? String(json.latitude) : json.latitude ?? "");
+      setField("longitude", typeof json.longitude === "number" ? String(json.longitude) : json.longitude ?? "");
+      if (json.normalized_address) setField("normalized_address", String(json.normalized_address));
+      if (json.timezone) setField("timezone", String(json.timezone));
+      if (json.geocode_source) setField("geocode_source", String(json.geocode_source));
+      setCoordsNotice("Coordinates updated in form. Click Save to persist.");
+    } catch (err) {
+      setCoordsNotice(err instanceof Error ? err.message : "refresh_failed");
+    } finally {
+      setCoordsBusy(false);
+    }
+  };
+
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
@@ -243,6 +275,27 @@ export default function VenueEditForm({ venue, tournaments, owlNearby = [] }: Pr
           <Input label="Normalized address" value={form.normalized_address} onChange={(v) => setField("normalized_address", v)} />
           <Input label="Geocode source" value={form.geocode_source} onChange={(v) => setField("geocode_source", v)} />
           <Input label="Timezone" value={form.timezone} onChange={(v) => setField("timezone", v)} />
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={refreshCoordinates}
+            disabled={coordsBusy}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #3730a3",
+              background: "#fff",
+              color: "#3730a3",
+              fontWeight: 900,
+              opacity: coordsBusy ? 0.6 : 1,
+              cursor: coordsBusy ? "not-allowed" : "pointer",
+            }}
+          >
+            {coordsBusy ? "Refreshing coords..." : "Refresh coords from address"}
+          </button>
+          <span style={{ fontSize: 12, color: "#6b7280" }}>Uses Google geocoding; updates the form only.</span>
+          {coordsNotice ? <span style={{ fontSize: 12, color: coordsNotice.includes("updated") ? "#0a7a2f" : "#b00020", fontWeight: 800 }}>{coordsNotice}</span> : null}
         </div>
 
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
