@@ -371,6 +371,26 @@ function safeUrlHost(raw: string) {
   }
 }
 
+function isBlockedDiscoveryHost(host: string) {
+  const h = host.toLowerCase().trim();
+  if (!h) return true;
+  const blockedHosts = [
+    "tournamentinsights.com",
+    "www.tournamentinsights.com",
+    "google.com",
+    "www.google.com",
+    "maps.google.com",
+    "maps.app.goo.gl",
+    "goo.gl",
+    "maps.apple.com",
+    "waze.com",
+    "www.waze.com",
+  ];
+  if (blockedHosts.includes(h)) return true;
+  if (/(yelp|facebook|tripadvisor|opentable|wikipedia)\./i.test(h)) return true;
+  return false;
+}
+
 function scoreMapCandidate(
   input: { url: string; title?: string | null; snippet?: string | null },
   opts?: { preferredHost?: string | null }
@@ -391,19 +411,7 @@ function scoreMapCandidate(
   const blob = `${title} ${snippet} ${path}`;
 
   // Reject obvious non-venue content.
-  const blockedHosts = [
-    "tournamentinsights.com",
-    "www.tournamentinsights.com",
-    "google.com",
-    "www.google.com",
-    "maps.google.com",
-    "maps.app.goo.gl",
-    "goo.gl",
-    "maps.apple.com",
-    "waze.com",
-    "www.waze.com",
-  ];
-  if (blockedHosts.includes(host)) return { score: -999, kind: "blocked" as const };
+  if (isBlockedDiscoveryHost(host)) return { score: -999, kind: "blocked" as const };
   if (blob.includes("/venues/") && host.includes("tournamentinsights")) return { score: -999, kind: "blocked" as const };
 
   // Reject generic XML sitemaps (common false positive when querying "site map").
@@ -426,10 +434,16 @@ function scoreMapCandidate(
   const isPdf = path.endsWith(".pdf") || url.toLowerCase().includes(".pdf");
   const isImage = /\.(png|jpg|jpeg|webp)$/i.test(path);
   const looksLikeLocationMap = /\blocation\s*(and|&)\s*map\b/i.test(blob) || /\bdirections\s*(and|&)\s*map\b/i.test(blob);
+  const looksLikeFieldMapSlug =
+    /\/field-?map(\/|$)/i.test(path) ||
+    /\/maps?\/field/i.test(path) ||
+    /\/facility-?map(\/|$)/i.test(path) ||
+    /\/complex-?map(\/|$)/i.test(path);
   const looksLikeMap =
     /field\s*map|facility\s*map|complex\s*map|campus\s*map|court\s*map|gym\s*map|park\s*map|parking\s*map|field\s*layout|court\s*layout/i.test(blob) ||
     ((/\bsite\s*map\b/i.test(blob) || /site[-_ ]?map/i.test(path)) && /field|court|gym|facility|complex|campus|layout/i.test(blob)) ||
     looksLikeLocationMap ||
+    looksLikeFieldMapSlug ||
     /map(\.|\/|_|-)/i.test(path);
   const hasSportsTokens = /field|fields|court|courts|gym|complex|facility|park|parking|layout|site/i.test(blob);
 
@@ -438,6 +452,7 @@ function scoreMapCandidate(
   if (looksLikeMap) score += 20;
   if (hasSportsTokens) score += 10;
   if (looksLikeLocationMap) score += 10;
+  if (looksLikeFieldMapSlug) score += 14;
 
   // Strong signals for common map endpoints.
   if (/(facility[-_ ]?maps?|site[-_ ]?map|field[-_ ]?map|complex[-_ ]?map|campus[-_ ]?map|park[-_ ]?map|parking[-_ ]?map)/i.test(blob)) {
@@ -471,6 +486,11 @@ function isStrictEligible(candidate: { url: string; title?: string | null; snipp
     blob.includes("location & map") ||
     blob.includes("directions and map") ||
     blob.includes("directions & map");
+  const isFieldMapSlug =
+    blob.includes("/field-map") ||
+    blob.includes("/fieldmap") ||
+    blob.includes("/facility-map") ||
+    blob.includes("/complex-map");
   const keyword =
     blob.includes("field map") ||
     blob.includes("facility map") ||
@@ -480,7 +500,7 @@ function isStrictEligible(candidate: { url: string; title?: string | null; snipp
     blob.includes("park map") ||
     blob.includes("field layout") ||
     blob.includes("court layout");
-  return isPdfOrImage || keyword || isLocationMapPage;
+  return isPdfOrImage || keyword || isLocationMapPage || isFieldMapSlug;
 }
 
 function maybeAddFiletypePdf(raw: string) {
@@ -490,6 +510,16 @@ function maybeAddFiletypePdf(raw: string) {
   if (lower.includes("filetype:pdf")) return q;
   if (/\bpdf\b/i.test(q)) return `${q} filetype:pdf`;
   return q;
+}
+
+function pickHostCandidateFromResults(results: Array<{ url: string }>) {
+  for (const r of results) {
+    const host = safeUrlHost(r.url);
+    if (!host) continue;
+    if (isBlockedDiscoveryHost(host)) continue;
+    return host;
+  }
+  return null;
 }
 
 function inferMapTypeFromUrl(raw: string) {
@@ -1798,6 +1828,7 @@ export default async function VenueFieldMapsQueuePage({
           venueHost ? `site:${venueHost} park map` : null,
           venueHost ? `site:${venueHost} map pdf` : null,
           venueHost ? `site:${venueHost} location and map` : null,
+          `${baseTerms} field-map`,
           `${baseTerms} facility maps`,
           `${baseTerms} field map`,
           `${baseTerms} complex map`,
@@ -1871,6 +1902,49 @@ export default async function VenueFieldMapsQueuePage({
         }
 
         if (!best) {
+          // Host discovery fallback: if we don't know the venue host, try one broad query to pick a likely official domain,
+          // then re-run a few high-signal site: queries on that domain.
+          if (!venueHost) {
+            const hostQuery = baseTermsWithAddress || baseTerms;
+            let hostSearchRes =
+              chosenEngine === "google"
+                ? await googleCseSearch({ q: hostQuery, count: 5 })
+                : await braveSearch({ q: hostQuery, count: 5 });
+            if (!hostSearchRes.error) {
+              const candidateHost = pickHostCandidateFromResults(hostSearchRes.results);
+              if (candidateHost) {
+                const siteQueries = [
+                  `site:${candidateHost} field map`,
+                  `site:${candidateHost} field-map`,
+                  `site:${candidateHost} facility map`,
+                  `site:${candidateHost} location and map`,
+                  `site:${candidateHost} map pdf`,
+                ];
+                for (const q of siteQueries) {
+                  const searchRes =
+                    chosenEngine === "google"
+                      ? await googleCseSearch({ q, count: 10 })
+                      : await braveSearch({ q, count: 10 });
+                  if (searchRes.error) continue;
+                  for (const r of searchRes.results) {
+                    if (chosenDiscoverMode === "strict" && !isStrictEligible(r)) continue;
+                    const scored = scoreMapCandidate(r, { preferredHost: candidateHost });
+                    if (scored.score <= 0) continue;
+                    if (!best || scored.score > best.score) {
+                      best = { url: r.url, title: r.title, snippet: r.snippet, score: scored.score };
+                      bestQuery = q;
+                    }
+                  }
+                  if (best && best.score >= 70) break;
+                  await sleep(700);
+                }
+              }
+            }
+          }
+
+          if (best) {
+            // fall through to normal update logic
+          } else {
           const shownQueries = queriesToTry.slice(0, 5).join(" | ");
           const isRateLimited = lastErr === "brave_http_429";
           if (isRateLimited) errored += 1;
@@ -1884,6 +1958,7 @@ export default async function VenueFieldMapsQueuePage({
             .join("\n");
           await supabaseAdmin.from("venue_url_review_queue" as any).update({ notes: nextNotes }).eq("venue_id", venueId);
           continue;
+          }
         }
 
         const confidence = inferConfidence(best);
