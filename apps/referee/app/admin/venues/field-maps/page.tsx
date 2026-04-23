@@ -9,6 +9,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import SelectAllOnPage from "./SelectAllOnPage";
 import { renderGeneratedMapPng, sha256Hex, uploadGeneratedMapToStorage } from "@/lib/maps/generatedFieldMaps";
 import { fetchVenuePoiHints } from "@/lib/maps/venuePoiHints";
+import { fetchVenuePitchCenter, recommendZoomFromPitchBbox } from "@/lib/maps/venuePitchCenter";
 
 export const runtime = "nodejs";
 
@@ -219,6 +220,23 @@ async function validateVenueCoordinates(params: {
     return { ok: true as const };
   } catch {
     return { ok: true as const };
+  }
+}
+
+async function maybeRecenterOnOsmPitches(params: { lat: number; lng: number; fallbackZoom: number }) {
+  const enabled = String(process.env.ENABLE_OSM_PITCH_CENTERING || "").toLowerCase() === "true";
+  if (!enabled) return { used: false as const, centerLat: params.lat, centerLng: params.lng, zoom: params.fallbackZoom, pitchCount: 0 };
+
+  try {
+    const r = await fetchVenuePitchCenter({ lat: params.lat, lon: params.lng });
+    if (!r.ok || !r.pitchCount || !r.center) {
+      return { used: false as const, centerLat: params.lat, centerLng: params.lng, zoom: params.fallbackZoom, pitchCount: r.pitchCount ?? 0 };
+    }
+    const zoom = recommendZoomFromPitchBbox({ bbox: r.bbox ?? null, fallbackZoom: params.fallbackZoom });
+    return { used: true as const, centerLat: r.center.lat, centerLng: r.center.lng, zoom, pitchCount: r.pitchCount };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "pitch_center_failed";
+    return { used: false as const, centerLat: params.lat, centerLng: params.lng, zoom: params.fallbackZoom, pitchCount: 0, error: msg as string };
   }
 }
 
@@ -1371,6 +1389,8 @@ export default async function VenueFieldMapsQueuePage({
             continue;
           }
 
+          const pitchCenter = await maybeRecenterOnOsmPitches({ lat, lng, fallbackZoom: 16 });
+
           // Optional POI hints (non-blocking): best-effort fetch/store before generating the image.
           const poiHints = await maybeFetchAndStorePoiHints({ venueId, lat, lng });
 
@@ -1383,6 +1403,10 @@ export default async function VenueFieldMapsQueuePage({
             zip: (v as any).zip ?? null,
             latitude: lat,
             longitude: lng,
+          }, {
+            zoom: pitchCenter.zoom,
+            centerLatitude: pitchCenter.centerLat,
+            centerLongitude: pitchCenter.centerLng,
           });
 
           if (bytes.length < minPngBytes) {
@@ -1422,7 +1446,7 @@ export default async function VenueFieldMapsQueuePage({
           const notePrefix = forceRegenerate ? `[generated:${generator}] regenerated` : `[generated:${generator}] created`;
           const nextNotes = [
             priorNotes,
-            `${notePrefix} ${uploaded.publicUrl} center=${lat.toFixed(6)},${lng.toFixed(6)}`,
+            `${notePrefix} ${uploaded.publicUrl} center=${pitchCenter.centerLat.toFixed(6)},${pitchCenter.centerLng.toFixed(6)}${pitchCenter.used ? ` pitches=${pitchCenter.pitchCount}` : ""}`,
             poiHints.summary,
           ]
             .filter(Boolean)

@@ -19,6 +19,8 @@ export type GenerateMapOpts = {
   zoom?: number;
   style?: string; // Mapbox style id path, e.g. "mapbox/satellite-streets-v12"
   dateOverride?: string; // YYYY-MM-DD
+  centerLatitude?: number;
+  centerLongitude?: number;
 };
 
 export function sha256Hex(bytes: Uint8Array) {
@@ -93,8 +95,8 @@ export async function renderGeneratedMapPng(
   // Use the Static Images URL directly as the <img> source.
   // In practice, next/og's renderer is more reliable with remote image URLs than large base64 data URLs.
   const baseUrl = buildMapboxStaticUrl({
-    latitude: venue.latitude,
-    longitude: venue.longitude,
+    latitude: opts?.centerLatitude ?? venue.latitude,
+    longitude: opts?.centerLongitude ?? venue.longitude,
     width,
     height,
     zoom,
