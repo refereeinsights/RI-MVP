@@ -65,10 +65,19 @@ export default async function VenueFieldMapEditPage({
     field_map_url: string | null;
   };
 
+  const { error: generatedProbeErr } = await supabaseAdmin
+    .from("venue_url_review_queue" as any)
+    .select("generated_map_url", { head: true, count: "exact" } as any);
+  const supportsGeneratedDrafts = !generatedProbeErr;
+
   const { data: queueRaw } = await supabaseAdmin
     .from("venue_url_review_queue" as any)
     .select(
-      "venue_id,status,bad_venue_url_reason,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,suggested_field_map_sport,suggested_field_map_set_primary,applied_field_map_id,approve_venue_url,approve_field_map_url,override_good_venue_url,decision_summary,notes,reviewed_by,last_reviewed_at,updated_at"
+      "venue_id,status,bad_venue_url_reason,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,suggested_field_map_sport,suggested_field_map_set_primary,applied_field_map_id," +
+        (supportsGeneratedDrafts
+          ? "generated_map_object_path,generated_map_url,generated_map_hash,generated_map_version,generated_map_source,approve_generated_map,generated_map_applied_id,generation_attempt_count,generation_error,generated_at,"
+          : "") +
+        "approve_venue_url,approve_field_map_url,override_good_venue_url,decision_summary,notes,reviewed_by,last_reviewed_at,updated_at"
     )
     .eq("venue_id", venueId)
     .maybeSingle();
@@ -87,6 +96,16 @@ export default async function VenueFieldMapEditPage({
     suggested_field_map_sport?: string | null;
     suggested_field_map_set_primary?: boolean | null;
     applied_field_map_id?: number | null;
+    generated_map_object_path?: string | null;
+    generated_map_url?: string | null;
+    generated_map_hash?: string | null;
+    generated_map_version?: string | null;
+    generated_map_source?: string | null;
+    approve_generated_map?: boolean | null;
+    generated_map_applied_id?: number | null;
+    generation_attempt_count?: number | null;
+    generation_error?: string | null;
+    generated_at?: string | null;
     approve_venue_url: boolean | null;
     approve_field_map_url: boolean | null;
     override_good_venue_url: boolean | null;
@@ -130,6 +149,7 @@ export default async function VenueFieldMapEditPage({
     "use server";
     await requireAdmin();
     const mode = String(formData.get("mode") || "");
+    const bucket = (process.env.SUPABASE_VENUE_MAPS_BUCKET ?? "venue-maps").trim();
 
     if (mode === "delete") {
       const { error } = await supabaseAdmin.from("venue_url_review_queue" as any).delete().eq("venue_id", venueId);
@@ -139,6 +159,89 @@ export default async function VenueFieldMapEditPage({
       }
       revalidatePath(backHref);
       return redirectWithNotice(backHref, "Removed from queue (venue not deleted).");
+    }
+
+    if (mode === "clear_generated_draft") {
+      if (!supportsGeneratedDrafts) {
+        return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Generated draft fields not available (migration not applied).");
+      }
+
+      const priorNotes = String(queue?.notes ?? "").trim();
+      const nextNotes = [priorNotes, `[generated] cleared draft ${new Date().toISOString()}`].filter(Boolean).join("\n");
+      const { error } = await supabaseAdmin
+        .from("venue_url_review_queue" as any)
+        .update({
+          generated_map_object_path: null,
+          generated_map_url: null,
+          generated_map_hash: null,
+          generated_map_version: null,
+          generated_map_source: null,
+          approve_generated_map: false,
+          generated_map_applied_id: null,
+          generation_error: null,
+          generated_at: null,
+          status: "manual_review",
+          notes: nextNotes,
+          reviewed_by: admin.id,
+          last_reviewed_at: new Date().toISOString(),
+        })
+        .eq("venue_id", venueId);
+      if (error) {
+        console.error("field-maps edit: clear generated draft failed", { venueId, error });
+        return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Clear generated draft failed.");
+      }
+      revalidatePath(`/admin/venues/field-maps/${venueId}`);
+      revalidatePath(backHref);
+      return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Cleared generated draft.");
+    }
+
+    if (mode === "delete_generated_object") {
+      if (!supportsGeneratedDrafts) {
+        return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Generated draft fields not available (migration not applied).");
+      }
+      const objectPath = String(queue?.generated_map_object_path ?? "").trim();
+      if (!objectPath) {
+        return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "No generated_map_object_path on this queue row.");
+      }
+      if (queue?.generated_map_applied_id != null) {
+        return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Cannot delete: generated draft already applied.");
+      }
+
+      const { error: delErr } = await supabaseAdmin.storage.from(bucket).remove([objectPath]);
+      if (delErr) {
+        console.error("field-maps edit: storage remove failed", { venueId, bucket, objectPath, delErr });
+        return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Delete storage object failed.");
+      }
+
+      const priorNotes = String(queue?.notes ?? "").trim();
+      const nextNotes = [priorNotes, `[generated] deleted storage object ${bucket}/${objectPath} ${new Date().toISOString()}`]
+        .filter(Boolean)
+        .join("\n");
+      const { error: updErr } = await supabaseAdmin
+        .from("venue_url_review_queue" as any)
+        .update({
+          generated_map_object_path: null,
+          generated_map_url: null,
+          generated_map_hash: null,
+          generated_map_version: null,
+          generated_map_source: null,
+          approve_generated_map: false,
+          generated_map_applied_id: null,
+          generation_error: null,
+          generated_at: null,
+          status: "manual_review",
+          notes: nextNotes,
+          reviewed_by: admin.id,
+          last_reviewed_at: new Date().toISOString(),
+        })
+        .eq("venue_id", venueId);
+      if (updErr) {
+        console.error("field-maps edit: queue clear after delete failed", { venueId, updErr });
+      }
+
+      revalidatePath(`/admin/venues/field-maps/${venueId}`);
+      revalidatePath(backHref);
+      return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Deleted generated draft object + cleared draft fields.");
     }
 
     const nextStatus = cleanText(formData.get("status")) as QueueStatus | null;
@@ -415,6 +518,87 @@ export default async function VenueFieldMapEditPage({
 
           <form action={updateQueueAction} style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fff" }}>
             <input type="hidden" name="redirect_to" value={redirectTo} />
+            {supportsGeneratedDrafts ? (
+              <div style={{ marginBottom: 14, padding: 12, borderRadius: 14, border: "1px solid #e5e7eb", background: "#fafafa" }}>
+                <div style={{ fontWeight: 950, color: "#111827" }}>Generated draft (PNG)</div>
+                <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>
+                  Clear the draft to re-generate, or delete the underlying Storage object if it&apos;s obviously wrong.
+                </div>
+                <div style={{ marginTop: 10, display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>generated_map_url</div>
+                    {String((queue as any).generated_map_url ?? "").trim() ? (
+                      <a
+                        href={String((queue as any).generated_map_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ display: "block", marginTop: 4, color: "#1d4ed8", wordBreak: "break-word", fontSize: 12 }}
+                      >
+                        {String((queue as any).generated_map_url)}
+                      </a>
+                    ) : (
+                      <div style={{ marginTop: 4, color: "#6b7280", fontSize: 12 }}>—</div>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>generated_map_object_path</div>
+                    {String((queue as any).generated_map_object_path ?? "").trim() ? (
+                      <div style={{ marginTop: 4, color: "#111827", fontSize: 12, wordBreak: "break-word" }}>
+                        {String((queue as any).generated_map_object_path)}
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: 4, color: "#6b7280", fontSize: 12 }}>—</div>
+                    )}
+                    {(queue as any).generated_map_applied_id != null ? (
+                      <div style={{ marginTop: 6, color: "#0a7a2f", fontSize: 12, fontWeight: 900 }}>
+                        applied_id: {String((queue as any).generated_map_applied_id)}
+                      </div>
+                    ) : null}
+                    {(queue as any).generation_error ? (
+                      <div style={{ marginTop: 6, color: "#b00020", fontSize: 12, fontWeight: 900 }}>
+                        gen error: {String((queue as any).generation_error)}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <button
+                    type="submit"
+                    name="mode"
+                    value="clear_generated_draft"
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #6b7280",
+                      background: "#fff",
+                      color: "#374151",
+                      fontWeight: 900,
+                    }}
+                  >
+                    Clear generated draft (DB)
+                  </button>
+                  <button
+                    type="submit"
+                    name="mode"
+                    value="delete_generated_object"
+                    disabled={(queue as any).generated_map_applied_id != null}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #b00020",
+                      background: "#fff",
+                      color: "#b00020",
+                      fontWeight: 900,
+                      opacity: (queue as any).generated_map_applied_id != null ? 0.5 : 1,
+                      cursor: (queue as any).generated_map_applied_id != null ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Delete draft object (Storage)
+                  </button>
+                </div>
+              </div>
+            ) : null}
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>Status</label>
