@@ -483,6 +483,15 @@ function isStrictEligible(candidate: { url: string; title?: string | null; snipp
   return isPdfOrImage || keyword || isLocationMapPage;
 }
 
+function maybeAddFiletypePdf(raw: string) {
+  const q = raw.trim();
+  if (!q) return q;
+  const lower = q.toLowerCase();
+  if (lower.includes("filetype:pdf")) return q;
+  if (/\bpdf\b/i.test(q)) return `${q} filetype:pdf`;
+  return q;
+}
+
 function inferMapTypeFromUrl(raw: string) {
   const s = raw.toLowerCase();
   if (s.includes("parking")) return "parking_map";
@@ -1802,6 +1811,11 @@ export default async function VenueFieldMapsQueuePage({
           `${baseTerms} map jpg`,
           `${baseTerms} location and map`,
           `${baseTerms} directions and map`,
+          // Fallbacks for sites that publish only PDFs but don't use "map" keywords consistently.
+          `"${name}" pdf`,
+          `"${name}" "field map"`,
+          `"${name}" "facility map"`,
+          `"${name}" "site map"`,
           baseTermsLite ? `${baseTermsLite} map pdf` : null,
           baseTermsLite ? `${baseTermsLite} park map pdf` : null,
           baseTermsWithAddress ? `${baseTermsWithAddress} map pdf` : null,
@@ -1815,14 +1829,15 @@ export default async function VenueFieldMapsQueuePage({
         ]
           .filter(Boolean)
           // de-dupe while preserving order
-          .filter((q, idx, arr) => arr.indexOf(q) === idx) as string[];
+          .filter((q, idx, arr) => arr.indexOf(q) === idx)
+          .map((q) => maybeAddFiletypePdf(q)) as string[];
 
         let best: { url: string; title?: string | null; snippet?: string | null; score: number } | null = null;
         let lastErr: string | null = null;
         let bestQuery: string | null = null;
 
         // Try more queries; stop early only if confidence is truly high.
-        const queriesToTry = queries.slice(0, 18);
+        const queriesToTry = queries.slice(0, 26);
         for (const q of queriesToTry) {
           let searchRes =
             chosenEngine === "google"
