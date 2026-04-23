@@ -6,6 +6,7 @@ import crypto from "crypto";
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import SelectAllOnPage from "./SelectAllOnPage";
 
 export const runtime = "nodejs";
 
@@ -1576,7 +1577,7 @@ export default async function VenueFieldMapsQueuePage({
   };
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: 24, width: "100%", boxSizing: "border-box" }}>
       <AdminNav />
 
       {(notice || schemaMissing) ? (
@@ -1752,10 +1753,31 @@ export default async function VenueFieldMapsQueuePage({
       <form
         method="get"
         action={basePath}
-        style={{ marginTop: 16, display: "grid", gap: 8, gridTemplateColumns: "2fr 1fr auto auto" }}
+        style={{ marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
       >
-        <input name="q" placeholder="Search venue / city / url" defaultValue={q} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }} />
-        <select name="status" defaultValue={status} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
+        <input
+          name="q"
+          placeholder="Search venue / city / url"
+          defaultValue={q}
+          style={{
+            padding: "8px 10px",
+            borderRadius: 10,
+            border: "1px solid #e5e7eb",
+            flex: "1 1 320px",
+            minWidth: 220,
+          }}
+        />
+        <select
+          name="status"
+          defaultValue={status}
+          style={{
+            padding: "8px 10px",
+            borderRadius: 10,
+            border: "1px solid #e5e7eb",
+            flex: "0 1 180px",
+            minWidth: 160,
+          }}
+        >
           <option value="pending">pending</option>
           <option value="suggested">suggested</option>
           <option value="manual_review">manual_review</option>
@@ -1765,11 +1787,31 @@ export default async function VenueFieldMapsQueuePage({
           <option value="error">error</option>
           <option value="all">all</option>
         </select>
-        <select name="engine" defaultValue={engine} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
+        <select
+          name="engine"
+          defaultValue={engine}
+          style={{
+            padding: "8px 10px",
+            borderRadius: 10,
+            border: "1px solid #e5e7eb",
+            flex: "0 1 180px",
+            minWidth: 160,
+          }}
+        >
           <option value="brave">Brave search</option>
           <option value="google">Google CSE</option>
         </select>
-        <select name="discover_mode" defaultValue={discoverMode} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
+        <select
+          name="discover_mode"
+          defaultValue={discoverMode}
+          style={{
+            padding: "8px 10px",
+            borderRadius: 10,
+            border: "1px solid #e5e7eb",
+            flex: "0 1 180px",
+            minWidth: 160,
+          }}
+        >
           <option value="broad">Discover: broad</option>
           <option value="strict">Discover: strict</option>
         </select>
@@ -1871,11 +1913,16 @@ export default async function VenueFieldMapsQueuePage({
         </div>
       </form>
 
-      <div style={{ overflowX: "auto", border: "1px solid #e5e7eb", borderRadius: 14 }}>
+      <div id="field-maps-table" style={{ overflowX: "auto", border: "1px solid #e5e7eb", borderRadius: 14 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
-                <th style={{ padding: 10, textAlign: "left" }}>Select</th>
+                <th style={{ padding: 10, textAlign: "left" }}>
+                  <div style={{ display: "inline-flex", gap: 10, alignItems: "center" }}>
+                    <SelectAllOnPage containerId="field-maps-table" />
+                    <span>Select</span>
+                  </div>
+                </th>
                 <th style={{ padding: 10, textAlign: "left" }}>Venue</th>
                 <th style={{ padding: 10, textAlign: "left" }}>Status</th>
                 <th style={{ padding: 10, textAlign: "left" }}>Current</th>
@@ -1905,7 +1952,14 @@ export default async function VenueFieldMapsQueuePage({
                   return (
                     <tr key={row.venue_id} style={{ borderBottom: "1px solid #f3f4f6" }}>
                       <td style={{ padding: 10, verticalAlign: "top" }}>
-                        <input form="field-maps-bulk-form" type="checkbox" name="selected" value={row.venue_id} />
+                        <input
+                          data-field-maps-item="1"
+                          form="field-maps-bulk-form"
+                          type="checkbox"
+                          name="selected"
+                          value={row.venue_id}
+                          aria-label={`Select ${title}`}
+                        />
                       </td>
                       <td style={{ padding: 10, verticalAlign: "top", minWidth: 220 }}>
                         <div style={{ fontWeight: 900 }}>{title}</div>
