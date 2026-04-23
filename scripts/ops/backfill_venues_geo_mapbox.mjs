@@ -236,8 +236,8 @@ async function main() {
 
   for (const v of rows) {
     scanned += 1;
-    const hasLat = Number.isFinite(Number(v.latitude));
-    const hasLng = Number.isFinite(Number(v.longitude));
+    const hasLat = v.latitude !== null && v.latitude !== undefined && Number.isFinite(Number(v.latitude));
+    const hasLng = v.longitude !== null && v.longitude !== undefined && Number.isFinite(Number(v.longitude));
     if (hasLat && hasLng) {
       skipped += 1;
       continue;
@@ -319,4 +319,3 @@ main().catch((e) => {
   console.error("[backfill_venues_geo_mapbox] fatal", e);
   process.exit(1);
 });
-
