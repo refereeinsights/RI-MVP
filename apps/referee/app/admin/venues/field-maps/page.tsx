@@ -7,6 +7,8 @@ import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import SelectAllOnPage from "./SelectAllOnPage";
+import { renderGeneratedMapPng, sha256Hex, uploadGeneratedMapToStorage } from "@/lib/maps/generatedFieldMaps";
+import { fetchVenuePoiHints } from "@/lib/maps/venuePoiHints";
 
 export const runtime = "nodejs";
 
@@ -26,6 +28,20 @@ type QueueRow = {
   suggested_field_map_sport?: string | null;
   suggested_field_map_set_primary?: boolean | null;
   applied_field_map_id?: number | null;
+  generated_map_object_path?: string | null;
+  generated_map_url?: string | null;
+  generated_map_hash?: string | null;
+  generated_map_version?: string | null;
+  generated_map_source?: string | null;
+  approve_generated_map?: boolean | null;
+  generated_map_applied_id?: number | null;
+  generation_attempt_count?: number | null;
+  generation_error?: string | null;
+  generated_at?: string | null;
+  poi_hints_json?: any | null;
+  poi_hints_source?: string | null;
+  poi_hints_fetched_at?: string | null;
+  poi_hints_error?: string | null;
   approve_venue_url: boolean | null;
   approve_field_map_url: boolean | null;
   override_good_venue_url: boolean | null;
@@ -38,6 +54,8 @@ type QueueRow = {
     city: string | null;
     state: string | null;
     zip: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
     venue_url: string | null;
     field_map_url: string | null;
     venue_url_quality: string | null;
@@ -76,6 +94,132 @@ function redirectWithNotice(base: string, notice: string): never {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function maybeFetchAndStorePoiHints(params: { venueId: string; lat: number; lng: number }) {
+  const enabled = String(process.env.ENABLE_VENUE_POI_HINTS || "").toLowerCase() === "true";
+  if (!enabled) return { ok: false, summary: null as string | null };
+
+  try {
+    const hints = await fetchVenuePoiHints({ lat: params.lat, lon: params.lng, radiusMeters: 650 });
+    const { error } = await supabaseAdmin
+      .from("venue_url_review_queue" as any)
+      .update({
+        poi_hints_json: hints as any,
+        poi_hints_source: hints.source,
+        poi_hints_fetched_at: new Date().toISOString(),
+        poi_hints_error: null,
+      })
+      .eq("venue_id", params.venueId);
+    if (error) console.warn("field-maps poi hints: store failed", { venueId: params.venueId, error });
+
+    const counts = (hints?.counts ?? {}) as Record<string, number>;
+    const top = Object.entries(counts)
+      .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+      .slice(0, 6)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(" • ");
+    const summary = top ? `[poi_hints:${hints.source}] ${top}` : `[poi_hints:${hints.source}] ok`;
+    return { ok: true, summary };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "poi_hints_failed";
+    await supabaseAdmin
+      .from("venue_url_review_queue" as any)
+      .update({
+        poi_hints_fetched_at: new Date().toISOString(),
+        poi_hints_error: msg,
+      })
+      .eq("venue_id", params.venueId);
+    return { ok: false, summary: `[poi_hints] errored (${msg})` };
+  }
+}
+
+function normalizeToken(s: string) {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function isLikelyUsStateCode(state: string | null | undefined) {
+  const s = String(state ?? "").trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(s);
+}
+
+async function validateVenueCoordinates(params: {
+  venueId: string;
+  lat: number;
+  lng: number;
+  venueCity?: string | null;
+  venueState?: string | null;
+}) {
+  const enabled = String(process.env.ENABLE_VENUE_COORD_VALIDATION || "").toLowerCase() === "true";
+  if (!enabled) return { ok: true as const };
+
+  const { lat, lng, venueCity, venueState } = params;
+
+  // Basic sanity.
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return { ok: false as const, reason: "coords_missing" as const };
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return { ok: false as const, reason: "coords_out_of_range" as const };
+  if (Math.abs(lat) < 0.0001 && Math.abs(lng) < 0.0001) return { ok: false as const, reason: "coords_zero" as const };
+
+  // If it looks like a US venue, apply a coarse US bounding box check.
+  if (isLikelyUsStateCode(venueState)) {
+    const usOk = lat >= 18 && lat <= 72 && lng >= -170 && lng <= -50;
+    if (!usOk) return { ok: false as const, reason: "coords_outside_us_bbox" as const };
+  }
+
+  // Optional reverse geocode via Mapbox to catch egregious mismatches (ocean / wrong country / wrong state).
+  const token = String(process.env.MAPBOX_ACCESS_TOKEN || "").trim();
+  if (!token) return { ok: true as const };
+
+  try {
+    const url = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json`);
+    url.searchParams.set("access_token", token);
+    url.searchParams.set("types", "place,region,country,postcode");
+    url.searchParams.set("limit", "1");
+
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    if (!res.ok) return { ok: true as const };
+    const json = (await res.json()) as any;
+    const feat = Array.isArray(json?.features) ? json.features[0] : null;
+    if (!feat) return { ok: true as const };
+
+    const placeName = String(feat.place_name ?? "").trim() || null;
+    const ctx = Array.isArray(feat.context) ? feat.context : [];
+    const region = ctx.find((c: any) => String(c.id ?? "").startsWith("region.")) ?? null;
+    const place = ctx.find((c: any) => String(c.id ?? "").startsWith("place.")) ?? null;
+
+    const inferredState =
+      String(region?.short_code ?? "")
+        .toUpperCase()
+        .split("-")
+        .pop()
+        ?.trim() || null;
+    const inferredCity = String(place?.text ?? "").trim() || null;
+
+    const expectedState = String(venueState ?? "").trim().toUpperCase() || null;
+    const expectedCity = String(venueCity ?? "").trim() || null;
+
+    // State mismatch is the strongest signal.
+    if (expectedState && inferredState && expectedState !== inferredState) {
+      return { ok: false as const, reason: "coords_state_mismatch" as const, placeName, inferredState, inferredCity };
+    }
+
+    // City mismatch is fuzzy; only enforce when both exist and don't overlap at all.
+    if (expectedCity && inferredCity) {
+      const a = normalizeToken(expectedCity);
+      const b = normalizeToken(inferredCity);
+      const overlaps = a && b && (a.includes(b) || b.includes(a));
+      if (!overlaps) {
+        return { ok: false as const, reason: "coords_city_mismatch" as const, placeName, inferredState, inferredCity };
+      }
+    }
+
+    return { ok: true as const };
+  } catch {
+    return { ok: true as const };
+  }
 }
 
 function normalizeUrlForHash(raw: string) {
@@ -417,6 +561,7 @@ export default async function VenueFieldMapsQueuePage({
       "Apply these Supabase migrations:",
       "- `supabase/migrations/20260422_ti_venue_url_cleanup_field_maps_queue.sql`",
       "- `supabase/migrations/20260422_ti_venue_field_maps_multi.sql`",
+      "- `supabase/migrations/20260423_ti_generated_field_maps_v1.sql`",
       "",
       "Then reload PostgREST's schema cache (Supabase SQL editor): `NOTIFY pgrst, 'reload schema';`",
     ].join("\n"),
@@ -975,6 +1120,290 @@ export default async function VenueFieldMapsQueuePage({
     const chosenEngine = (String(formData.get("engine") || "brave") as SearchEngine) || "brave";
     const chosenDiscoverMode = (String(formData.get("discover_mode") || "broad") as DiscoverMode) || "broad";
 
+    if (action === "generate_draft_pngs" || action === "regenerate_draft_pngs") {
+      const forceRegenerate = action === "regenerate_draft_pngs";
+      const { error: probeErr } = await supabaseAdmin
+        .from("venue_url_review_queue" as any)
+        .select("venue_id,generated_map_url", { head: true, count: "exact" } as any);
+      if (probeErr) {
+        console.error("field-maps generate: schema probe failed", probeErr);
+        return redirectWithNotice(adminBase, schemaHelp.body);
+      }
+
+      const bucket = (process.env.SUPABASE_VENUE_MAPS_BUCKET ?? "venue-maps").trim();
+      const generator = "mapbox_static_v1";
+      const version = new Date().toISOString().slice(0, 10);
+      const minPngBytes = 120_000; // heuristic: avoid storing near-blank renders (often bad coordinates/ocean tiles)
+
+      const { data: venueRowsRaw, error: venueRowsErr } = await supabaseAdmin
+        .from("venues" as any)
+        .select("id,name,address,city,state,zip,latitude,longitude,field_map_url")
+        .in("id", ids);
+
+      if (venueRowsErr) {
+        console.error("field-maps generate: failed to load venues", venueRowsErr);
+        return redirectWithNotice(adminBase, "Generate failed: could not load venues.");
+      }
+
+      const venueById = new Map<string, any>();
+      for (const v of (venueRowsRaw ?? []) as any[]) venueById.set(String(v.id), v);
+
+      let updated = 0;
+      let skipped = 0;
+      let missingCoords = 0;
+      let errored = 0;
+      let alreadyApplied = 0;
+
+      for (const venueId of ids) {
+        const v = venueById.get(venueId);
+        if (!v) {
+          errored += 1;
+          continue;
+        }
+
+        const { data: queueRaw, error: queueErr } = await supabaseAdmin
+          .from("venue_url_review_queue" as any)
+          .select("venue_id,status,notes,generated_map_url,generation_attempt_count")
+          .eq("venue_id", venueId)
+          .maybeSingle();
+
+        if (queueErr || !queueRaw) {
+          console.error("field-maps generate: queue load failed", { venueId, queueErr });
+          errored += 1;
+          continue;
+        }
+
+        const alreadyHasGenerated = Boolean(String((queueRaw as any).generated_map_url ?? "").trim());
+        if (alreadyHasGenerated && !forceRegenerate) {
+          skipped += 1;
+          continue;
+        }
+
+        // If the venue already has a cached map URL, skip generation (generated maps are for missing-map venues).
+        if (String((v as any).field_map_url ?? "").trim()) {
+          skipped += 1;
+          continue;
+        }
+
+        // If the queue already applied a generated map into venue_field_maps, don't overwrite the queue pointer.
+        // (The canonical record exists in venue_field_maps; queue stores only one generated draft at a time.)
+        if (forceRegenerate && (queueRaw as any).generated_map_applied_id != null) {
+          alreadyApplied += 1;
+          continue;
+        }
+
+        const lat = Number((v as any).latitude);
+        const lng = Number((v as any).longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          missingCoords += 1;
+          const priorNotes = String((queueRaw as any).notes ?? "").trim();
+          const attempt = Number((queueRaw as any).generation_attempt_count ?? 0) || 0;
+          const nextNotes = [priorNotes, `[generated:${generator}] skipped (missing_coords)`].filter(Boolean).join("\n");
+          await supabaseAdmin
+            .from("venue_url_review_queue" as any)
+            .update({
+              generation_attempt_count: attempt + 1,
+              generation_error: "missing_coords",
+              status: "manual_review",
+              notes: nextNotes,
+            })
+            .eq("venue_id", venueId);
+          continue;
+        }
+
+        try {
+          const coordCheck = await validateVenueCoordinates({
+            venueId,
+            lat,
+            lng,
+            venueCity: (v as any).city ?? null,
+            venueState: (v as any).state ?? null,
+          });
+          if (!coordCheck.ok) {
+            const priorNotes = String((queueRaw as any).notes ?? "").trim();
+            const attempt = Number((queueRaw as any).generation_attempt_count ?? 0) || 0;
+            const detail =
+              (coordCheck as any).placeName
+                ? ` mapbox=${String((coordCheck as any).placeName)}`
+                : "";
+            const msg = `bad_coords:${coordCheck.reason}`;
+            const nextNotes = [
+              priorNotes,
+              `[generated:${generator}] skipped (${msg}) center=${lat.toFixed(6)},${lng.toFixed(6)}${detail}`,
+            ]
+              .filter(Boolean)
+              .join("\n");
+            await supabaseAdmin
+              .from("venue_url_review_queue" as any)
+              .update({
+                generation_attempt_count: attempt + 1,
+                generation_error: msg,
+                status: "manual_review",
+                notes: nextNotes,
+              })
+              .eq("venue_id", venueId);
+            errored += 1;
+            continue;
+          }
+
+          // Optional POI hints (non-blocking): best-effort fetch/store before generating the image.
+          const poiHints = await maybeFetchAndStorePoiHints({ venueId, lat, lng });
+
+          const { bytes, dateStamp } = await renderGeneratedMapPng({
+            venue_id: venueId,
+            name: String((v as any).name ?? "").trim() || venueId,
+            address: (v as any).address ?? null,
+            city: (v as any).city ?? null,
+            state: (v as any).state ?? null,
+            zip: (v as any).zip ?? null,
+            latitude: lat,
+            longitude: lng,
+          });
+
+          if (bytes.length < minPngBytes) {
+            const priorNotes = String((queueRaw as any).notes ?? "").trim();
+            const attempt = Number((queueRaw as any).generation_attempt_count ?? 0) || 0;
+            const msg = `suspect_png_size:${bytes.length}`;
+            const nextNotes = [
+              priorNotes,
+              `[generated:${generator}] errored (${msg}) center=${lat.toFixed(6)},${lng.toFixed(6)}; verify venue coordinates`,
+            ]
+              .filter(Boolean)
+              .join("\n");
+            await supabaseAdmin
+              .from("venue_url_review_queue" as any)
+              .update({
+                generation_attempt_count: attempt + 1,
+                generation_error: msg,
+                status: "manual_review",
+                notes: nextNotes,
+              })
+              .eq("venue_id", venueId);
+            errored += 1;
+            continue;
+          }
+
+          const contentHash = sha256Hex(bytes);
+          const uploaded = await uploadGeneratedMapToStorage({
+            bytes,
+            venueId,
+            hashHex: contentHash,
+            dateStamp,
+            bucket,
+          });
+
+          const priorNotes = String((queueRaw as any).notes ?? "").trim();
+          const attempt = Number((queueRaw as any).generation_attempt_count ?? 0) || 0;
+          const notePrefix = forceRegenerate ? `[generated:${generator}] regenerated` : `[generated:${generator}] created`;
+          const nextNotes = [
+            priorNotes,
+            `${notePrefix} ${uploaded.publicUrl} center=${lat.toFixed(6)},${lng.toFixed(6)}`,
+            poiHints.summary,
+          ]
+            .filter(Boolean)
+            .join("\n");
+
+          const nextStatus = forceRegenerate ? "suggested" : (queueRaw as any).status === "pending" ? "suggested" : (queueRaw as any).status;
+
+          const { error: updErr } = await supabaseAdmin
+            .from("venue_url_review_queue" as any)
+            .update({
+              generated_map_object_path: uploaded.objectPath,
+              generated_map_url: uploaded.publicUrl,
+              generated_map_hash: contentHash,
+              generated_map_version: version,
+              generated_map_source: "generated_mapbox",
+              generated_at: new Date().toISOString(),
+              generation_attempt_count: attempt + 1,
+              generation_error: null,
+              approve_generated_map: forceRegenerate ? false : (queueRaw as any).approve_generated_map ?? false,
+              generated_map_applied_id: forceRegenerate ? null : (queueRaw as any).generated_map_applied_id ?? null,
+              status: nextStatus,
+              notes: nextNotes,
+            })
+            .eq("venue_id", venueId);
+
+          if (updErr) {
+            console.error("field-maps generate: queue update failed", { venueId, updErr });
+            errored += 1;
+          } else {
+            updated += 1;
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "generation_failed";
+          console.error("field-maps generate: failed", { venueId, msg });
+          errored += 1;
+          const priorNotes = String((queueRaw as any).notes ?? "").trim();
+          const attempt = Number((queueRaw as any).generation_attempt_count ?? 0) || 0;
+          const nextNotes = [priorNotes, `[generated:${generator}] errored (${msg})`].filter(Boolean).join("\n");
+          await supabaseAdmin
+            .from("venue_url_review_queue" as any)
+            .update({
+              generation_attempt_count: attempt + 1,
+              generation_error: msg,
+              notes: nextNotes,
+            })
+            .eq("venue_id", venueId);
+        }
+
+        await sleep(1100);
+      }
+
+      revalidatePath(basePath);
+      return redirectWithNotice(
+        adminBase,
+        `${forceRegenerate ? "Regenerate" : "Generate"} complete. updated=${updated}, skipped=${skipped}, missing_coords=${missingCoords}, already_applied=${alreadyApplied}, errored=${errored}.`
+      );
+    }
+
+    if (action === "approve_generated") {
+      const { error: probeErr } = await supabaseAdmin
+        .from("venue_url_review_queue" as any)
+        .select("venue_id,approve_generated_map", { head: true, count: "exact" } as any);
+      if (probeErr) {
+        console.error("field-maps approve generated: schema probe failed", probeErr);
+        return redirectWithNotice(adminBase, schemaHelp.body);
+      }
+
+      const { data: rowsRaw, error: rowsErr } = await supabaseAdmin
+        .from("venue_url_review_queue" as any)
+        .select("venue_id,generated_map_url")
+        .in("venue_id", ids);
+      if (rowsErr) {
+        console.error("field-maps bulk approve generated failed (load rows)", rowsErr);
+        return redirectWithNotice(adminBase, "Bulk approve generated failed.");
+      }
+
+      const rows = (rowsRaw ?? []) as any[];
+      const eligibleIds = rows
+        .filter((r) => Boolean(String(r.generated_map_url ?? "").trim()))
+        .map((r) => String(r.venue_id));
+
+      const skipped = ids.length - eligibleIds.length;
+      if (!eligibleIds.length) {
+        return redirectWithNotice(adminBase, "Nothing to approve: selected rows have no generated map URL yet.");
+      }
+
+      const { error } = await supabaseAdmin
+        .from("venue_url_review_queue" as any)
+        .update({
+          approve_generated_map: true,
+          status: "approved",
+          reviewed_by: admin.id,
+          last_reviewed_at: new Date().toISOString(),
+        })
+        .in("venue_id", eligibleIds);
+      if (error) {
+        console.error("field-maps bulk approve generated failed", error);
+        return redirectWithNotice(adminBase, "Bulk approve generated failed.");
+      }
+      revalidatePath(basePath);
+      return redirectWithNotice(
+        adminBase,
+        skipped ? `Approved ${eligibleIds.length} generated map(s). Skipped ${skipped} with no generated map URL.` : `Approved ${eligibleIds.length} generated map(s).`
+      );
+    }
+
     if (action === "approve_maps") {
       const { data: rowsRaw, error: rowsErr } = await supabaseAdmin
         .from("venue_url_review_queue" as any)
@@ -1026,7 +1455,7 @@ export default async function VenueFieldMapsQueuePage({
 
       const { data: venueRowsRaw, error: venueRowsErr } = await supabaseAdmin
         .from("venues" as any)
-        .select("id,name,address,city,state,zip,venue_url")
+        .select("id,name,address,city,state,zip,venue_url,latitude,longitude")
         .in("id", ids);
 
       if (venueRowsErr) {
@@ -1258,6 +1687,13 @@ export default async function VenueFieldMapsQueuePage({
         console.error("field-maps apply: venue_field_maps probe failed", mapsProbeErr);
         return redirectWithNotice(adminBase, schemaHelp.body);
       }
+      const { error: queueProbeErr } = await supabaseAdmin
+        .from("venue_url_review_queue" as any)
+        .select("venue_id,generated_map_url,approve_generated_map", { head: true, count: "exact" } as any);
+      if (queueProbeErr) {
+        console.error("field-maps apply: queue schema probe failed", queueProbeErr);
+        return redirectWithNotice(adminBase, schemaHelp.body);
+      }
 
       let applied = 0;
       let stale = 0;
@@ -1268,7 +1704,7 @@ export default async function VenueFieldMapsQueuePage({
         const { data: queueRaw, error: queueErr } = await supabaseAdmin
           .from("venue_url_review_queue" as any)
           .select(
-            "venue_id,status,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,approve_venue_url,approve_field_map_url,override_good_venue_url,notes"
+            "venue_id,status,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,suggested_field_map_sport,suggested_field_map_set_primary,applied_field_map_id,generated_map_url,generated_map_hash,generated_map_version,generated_map_source,approve_generated_map,generated_map_applied_id,approve_venue_url,approve_field_map_url,override_good_venue_url,notes"
           )
           .eq("venue_id", venueId)
           .maybeSingle();
@@ -1329,14 +1765,111 @@ export default async function VenueFieldMapsQueuePage({
         const suggestedFieldMapSport = (queue.suggested_field_map_sport ?? "").trim() || null;
         const suggestedSetPrimary = Boolean(queue.suggested_field_map_set_primary);
 
+        const approveGeneratedMap = Boolean((queue as any).approve_generated_map);
+        const generatedMapUrl = String((queue as any).generated_map_url ?? "").trim() || null;
+        const generatedMapHash = String((queue as any).generated_map_hash ?? "").trim() || null;
+        const generatedMapVersion = String((queue as any).generated_map_version ?? "").trim() || null;
+        const generatedAlreadyApplied = (queue as any).generated_map_applied_id != null;
+
         const shouldApplyVenueUrl =
           approveVenueUrl &&
           Boolean(suggestedVenueUrl) &&
           (String(venue.venue_url_quality ?? "").toLowerCase() !== "good" || overrideGoodVenueUrl);
         const shouldApplyFieldMapUrl = approveFieldMapUrl && Boolean(suggestedFieldMapUrl);
+        const shouldApplyGeneratedMap = approveGeneratedMap && Boolean(generatedMapUrl) && !generatedAlreadyApplied;
 
-        if (!shouldApplyVenueUrl && !shouldApplyFieldMapUrl) {
+        if (!shouldApplyVenueUrl && !shouldApplyFieldMapUrl && !shouldApplyGeneratedMap) {
           skipped += 1;
+          continue;
+        }
+
+        // Generated-only apply (no venue field_map_url cache updates in v1).
+        if (shouldApplyGeneratedMap && !shouldApplyVenueUrl && !shouldApplyFieldMapUrl) {
+          // Safety: if the venue already has a cached map URL, treat it as "official enough" and skip generated.
+          if (String(liveFieldMapUrl ?? "").trim()) {
+            skipped += 1;
+            continue;
+          }
+
+          const nowIso = new Date().toISOString();
+          const insertPayload: Record<string, any> = {
+            venue_id: venueId,
+            map_url: generatedMapUrl,
+            map_hash: generatedMapHash || null,
+            map_source: String((queue as any).generated_map_source ?? "generated_mapbox"),
+            map_confidence: null,
+            map_type: "general_facility_map",
+            sport: null,
+            notes: `Generated (approximate). generator=mapbox_static_v1 version=${generatedMapVersion || "unknown"}`,
+            is_primary: false,
+            // New columns (if migration applied)
+            map_origin: "generated_mapbox",
+            is_generated: true,
+            generator: "mapbox_static_v1",
+            generator_version: generatedMapVersion || null,
+            generated_at: (queue as any).generated_at ?? nowIso,
+            status: "active",
+            archived_at: null,
+          };
+
+          let insertedId: number | null = null;
+          const { data: inserted, error: insertErr } = await supabaseAdmin
+            .from("venue_field_maps" as any)
+            .insert(insertPayload)
+            .select("id")
+            .maybeSingle();
+
+          if (insertErr || !inserted) {
+            const minimal = {
+              venue_id: venueId,
+              map_url: generatedMapUrl,
+              map_hash: generatedMapHash || null,
+              map_source: "generated_mapbox",
+              map_type: "general_facility_map",
+              notes: `Generated (approximate). generator=mapbox_static_v1 version=${generatedMapVersion || "unknown"}`,
+              is_primary: false,
+            };
+            const { data: inserted2, error: insertErr2 } = await supabaseAdmin
+              .from("venue_field_maps" as any)
+              .insert(minimal)
+              .select("id")
+              .maybeSingle();
+            if (insertErr2 || !inserted2) {
+              console.error("field-maps apply: generated insert failed", { venueId, insertErr, insertErr2 });
+              errored += 1;
+              continue;
+            }
+            insertedId = Number((inserted2 as any).id);
+          } else {
+            insertedId = Number((inserted as any).id);
+          }
+
+          const { error: mapsAuditErr } = await supabaseAdmin.from("venue_field_maps_audit_log" as any).insert({
+            venue_id: venueId,
+            event_type: "insert_generated",
+            map_id: insertedId,
+            map_url: generatedMapUrl,
+            actor: admin.id,
+            reason: "applied generated map from venue_url_review_queue",
+          });
+          if (mapsAuditErr) {
+            console.error("field-maps apply: generated audit insert failed", { venueId, mapsAuditErr });
+          }
+
+          const { error: queueUpdateErr } = await supabaseAdmin
+            .from("venue_url_review_queue" as any)
+            .update({
+              status: "applied",
+              generated_map_applied_id: insertedId,
+              reviewed_by: admin.id,
+              last_reviewed_at: nowIso,
+            })
+            .eq("venue_id", venueId);
+          if (queueUpdateErr) {
+            console.error("field-maps apply: generated queue update failed", { venueId, queueUpdateErr });
+          }
+
+          applied += 1;
           continue;
         }
 
@@ -1502,8 +2035,15 @@ export default async function VenueFieldMapsQueuePage({
     return redirectWithNotice(adminBase, "Unknown bulk action.");
   }
 
+  const { error: poiProbeErr } = await supabaseAdmin
+    .from("venue_url_review_queue" as any)
+    .select("poi_hints_json", { head: true, count: "exact" } as any);
+  const supportsPoiHints = !poiProbeErr;
+
   const selectClause =
-    "venue_id,status,bad_venue_url_reason,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,suggested_field_map_sport,suggested_field_map_set_primary,applied_field_map_id,approve_venue_url,approve_field_map_url,override_good_venue_url,notes,updated_at,venues:venues(id,name,address,city,state,zip,venue_url,field_map_url,venue_url_quality)";
+    "venue_id,status,bad_venue_url_reason,current_venue_url,current_field_map_url,suggested_venue_url,suggested_field_map_url,suggested_field_map_source,suggested_field_map_confidence,suggested_field_map_type,suggested_field_map_sport,suggested_field_map_set_primary,applied_field_map_id,generated_map_object_path,generated_map_url,generated_map_hash,generated_map_version,generated_map_source,approve_generated_map,generated_map_applied_id,generation_attempt_count,generation_error,generated_at," +
+    (supportsPoiHints ? "poi_hints_json,poi_hints_source,poi_hints_fetched_at,poi_hints_error," : "") +
+    "approve_venue_url,approve_field_map_url,override_good_venue_url,notes,updated_at,venues:venues(id,name,address,city,state,zip,latitude,longitude,venue_url,field_map_url,venue_url_quality)";
 
   const buildBaseQuery = () => {
     let qb = supabaseAdmin
@@ -1572,7 +2112,7 @@ export default async function VenueFieldMapsQueuePage({
   if (missingVenueIds.length) {
     const { data: venuesRaw, error: venuesErr } = await supabaseAdmin
       .from("venues" as any)
-      .select("id,name,address,city,state,zip,venue_url,field_map_url,venue_url_quality")
+      .select("id,name,address,city,state,zip,venue_url,field_map_url,venue_url_quality,latitude,longitude")
       .in("id", missingVenueIds.slice(0, 5000));
     if (venuesErr) {
       console.error("field-maps: failed to backfill venues embeds", venuesErr);
@@ -1588,7 +2128,14 @@ export default async function VenueFieldMapsQueuePage({
   }
 
   const rows = normalizedRows as unknown as QueueRow[];
-  const schemaMissing = Boolean(error) && ((error as any)?.code === "PGRST205" || String((error as any)?.message || "").includes("schema cache"));
+  const errCode = String((error as any)?.code ?? "");
+  const errMsg = String((error as any)?.message ?? "");
+  const schemaMissing =
+    Boolean(error) &&
+    (errCode === "PGRST205" ||
+      errCode === "42703" ||
+      errMsg.includes("schema cache") ||
+      errMsg.includes("does not exist"));
 
   const StatusLink = ({ value, label }: { value: QueueStatus | "all"; label: string }) => {
     const active = value === status;
@@ -1874,6 +2421,54 @@ export default async function VenueFieldMapsQueuePage({
           <button
             formNoValidate
             name="bulk_action"
+            value="generate_draft_pngs"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #111827",
+              background: "#fff",
+              color: "#111827",
+              fontWeight: 900,
+            }}
+          >
+            Generate draft PNGs
+          </button>
+          <button
+            formNoValidate
+            name="bulk_action"
+            value="regenerate_draft_pngs"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #111827",
+              background: "#111827",
+              color: "#fff",
+              fontWeight: 900,
+            }}
+          >
+            Regenerate draft PNGs (force)
+          </button>
+          <span style={{ alignSelf: "center", fontSize: 12, color: "#6b7280" }}>
+            Uses `MAPBOX_ACCESS_TOKEN` + Storage bucket `SUPABASE_VENUE_MAPS_BUCKET` (default: `venue-maps`).
+          </span>
+          <button
+            formNoValidate
+            name="bulk_action"
+            value="approve_generated"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #0a7a2f",
+              background: "#fff",
+              color: "#0a7a2f",
+              fontWeight: 900,
+            }}
+          >
+            Approve generated
+          </button>
+          <button
+            formNoValidate
+            name="bulk_action"
             value="approve_maps"
             style={{
               padding: "10px 12px",
@@ -1987,7 +2582,8 @@ export default async function VenueFieldMapsQueuePage({
                   const meta = [venue?.city, venue?.state, venue?.zip].filter(Boolean).join(", ");
                   const currentMap = row.current_field_map_url ?? venue?.field_map_url ?? null;
                   const suggestedMap = row.suggested_field_map_url ?? null;
-                  const mapLink = suggestedMap || currentMap;
+                  const generatedMap = (row as any).generated_map_url ?? null;
+                  const mapLink = suggestedMap || generatedMap || currentMap;
                   const sport = (row as any).suggested_field_map_sport ?? null;
                   const setPrimary = Boolean((row as any).suggested_field_map_set_primary);
                   const discoverIndicator = inferDiscoverIndicator(row.notes ?? null);
@@ -2020,6 +2616,17 @@ export default async function VenueFieldMapsQueuePage({
                         <div style={{ fontWeight: 900 }}>{row.status}</div>
                         {row.approve_field_map_url ? (
                           <div style={{ marginTop: 4, fontSize: 12, color: "#0a7a2f", fontWeight: 900 }}>map approved</div>
+                        ) : null}
+                        {(row as any).approve_generated_map ? (
+                          <div style={{ marginTop: 4, fontSize: 12, color: "#0a7a2f", fontWeight: 900 }}>generated approved</div>
+                        ) : null}
+                        {!(row as any).approve_generated_map && (row as any).generated_map_url ? (
+                          <div style={{ marginTop: 4, fontSize: 12, color: "#111827", fontWeight: 900 }}>generated draft</div>
+                        ) : null}
+                        {(row as any).generation_error ? (
+                          <div style={{ marginTop: 4, fontSize: 12, color: "#b00020", fontWeight: 900 }}>
+                            gen error: {(row as any).generation_error}
+                          </div>
                         ) : null}
                         {row.override_good_venue_url ? (
                           <div style={{ marginTop: 4, fontSize: 12, color: "#b45309", fontWeight: 900 }}>override good URL</div>
@@ -2063,6 +2670,38 @@ export default async function VenueFieldMapsQueuePage({
                           </a>
                         ) : (
                           <div style={{ color: "#6b7280" }}>—</div>
+                        )}
+                        <div style={{ marginTop: 10, color: "#111827", fontWeight: 800, marginBottom: 4 }}>generated_map_url</div>
+                        {(row as any).generated_map_url ? (
+                          <a href={(row as any).generated_map_url} target="_blank" rel="noreferrer" style={{ color: "#1d4ed8", wordBreak: "break-word" }}>
+                            {(row as any).generated_map_url}
+                          </a>
+                        ) : (
+                          <div style={{ color: "#6b7280" }}>—</div>
+                        )}
+                        <div style={{ marginTop: 10, color: "#111827", fontWeight: 800, marginBottom: 4 }}>POI hints (optional)</div>
+                        {(row as any).poi_hints_json ? (
+                          <div style={{ fontSize: 12, color: "#374151" }}>
+                            <div>
+                              {(row as any).poi_hints_source ? <span style={{ fontWeight: 900 }}>{String((row as any).poi_hints_source)}</span> : null}
+                              {(row as any).poi_hints_fetched_at ? (
+                                <span style={{ color: "#6b7280" }}> • {new Date(String((row as any).poi_hints_fetched_at)).toLocaleString()}</span>
+                              ) : null}
+                            </div>
+                            <div style={{ marginTop: 4, color: "#111827" }}>
+                              {Object.entries(((row as any).poi_hints_json?.counts ?? {}) as Record<string, number>)
+                                .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+                                .slice(0, 6)
+                                .map(([k, v]) => `${k}=${v}`)
+                                .join(" • ") || "—"}
+                            </div>
+                          </div>
+                        ) : (row as any).poi_hints_error ? (
+                          <div style={{ fontSize: 12, color: "#b00020", fontWeight: 800 }}>
+                            {(row as any).poi_hints_error}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 12, color: "#6b7280" }}>—</div>
                         )}
                         <div style={{ marginTop: 10, padding: 10, borderRadius: 12, border: "1px dashed #e5e7eb", background: "#fcfcfd" }}>
                           <div style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>Quick paste</div>
