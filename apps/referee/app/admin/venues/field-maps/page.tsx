@@ -3014,6 +3014,9 @@ export default async function VenueFieldMapsQueuePage({
             <div>
               <span style={{ fontWeight: 900 }}>Discover</span>: prefers PDFs/images and common “field map” slugs; blocks Google/Apple/Waze map links; uses throttling and may infer an official host when <code>venues.venue_url</code> is missing.
             </div>
+            <div>
+              <span style={{ fontWeight: 900 }}>Search engines</span>: default engine is selected above. If you run <code>Brave search</code> and Google CSE is configured (<code>GOOGLE_CSE_API_KEY</code> + <code>GOOGLE_CSE_CX</code>), Discover will auto-try a small Google fallback on <code>no_match</code> to catch PDF-heavy sites (e.g. SportNGIN attachments).
+            </div>
           </div>
         </div>
       </form>
