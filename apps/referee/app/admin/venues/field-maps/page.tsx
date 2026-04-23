@@ -1468,7 +1468,9 @@ export default async function VenueFieldMapsQueuePage({
     const labelWithCount = count === null ? label : `${label} (${count})`;
     return (
       <Link
-        href={buildHref({ status: value === "pending" ? null : value })}
+        // Reset pagination when switching status so we don't land on an empty page
+        // (counts are global, but the table is paginated by offset/limit).
+        href={buildHref({ status: value === "pending" ? null : value, offset: "0" })}
         style={{
           padding: "6px 10px",
           borderRadius: 999,
