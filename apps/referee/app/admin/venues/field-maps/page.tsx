@@ -152,6 +152,13 @@ function scoreMapCandidate(
   if (blockedHosts.includes(host)) return { score: -999, kind: "blocked" as const };
   if (blob.includes("/venues/") && host.includes("tournamentinsights")) return { score: -999, kind: "blocked" as const };
 
+  // Business rule: ignore parking maps (they're usually not field/court layouts).
+  const isParkingMap =
+    /\bparking\s*map\b/i.test(blob) ||
+    /parking[-_ ]?map/i.test(blob) ||
+    (path.includes("parking") && /map/i.test(path));
+  if (isParkingMap) return { score: -999, kind: "blocked" as const };
+
   let score = 0;
 
   const isPdf = path.endsWith(".pdf") || url.toLowerCase().includes(".pdf");
@@ -200,7 +207,6 @@ function isStrictEligible(candidate: { url: string; title?: string | null; snipp
     blob.includes("complex map") ||
     blob.includes("court map") ||
     blob.includes("gym map") ||
-    blob.includes("parking map") ||
     blob.includes("field layout") ||
     blob.includes("court layout") ||
     blob.includes("site map");
@@ -601,6 +607,88 @@ export default async function VenueFieldMapsQueuePage({
   async function quickPasteApplyAction(formData: FormData) {
     "use server";
     return quickPasteImpl(formData, "apply");
+  }
+
+  async function quickApproveSuggestedAction(formData: FormData) {
+    "use server";
+    const admin = await requireAdmin();
+    const redirectTo = String(formData.get("redirect_to") || basePath);
+    const venueId = String(formData.get("venue_id") || "").trim();
+    if (!venueId) return redirectWithNotice(redirectTo, "Venue id missing.");
+
+    const { data: row, error: loadErr } = await supabaseAdmin
+      .from("venue_url_review_queue" as any)
+      .select("venue_id,suggested_field_map_url,notes,status")
+      .eq("venue_id", venueId)
+      .maybeSingle();
+    if (loadErr || !row) {
+      console.error("field-maps quick approve: load failed", { venueId, loadErr });
+      return redirectWithNotice(redirectTo, "Queue row not found.");
+    }
+
+    const suggested = String((row as any).suggested_field_map_url ?? "").trim();
+    if (!suggested) return redirectWithNotice(redirectTo, "No suggested map URL to approve.");
+
+    const now = new Date().toISOString();
+    const priorNotes = String((row as any).notes ?? "").trim();
+    const nextNotes = [priorNotes, `[${now}] approved suggested map (manual)`].filter(Boolean).join("\n");
+
+    const { error: updErr } = await supabaseAdmin
+      .from("venue_url_review_queue" as any)
+      .update({
+        status: "approved",
+        approve_field_map_url: true,
+        reviewed_by: admin.id,
+        last_reviewed_at: now,
+        notes: nextNotes,
+      })
+      .eq("venue_id", venueId);
+    if (updErr) {
+      console.error("field-maps quick approve: update failed", { venueId, updErr });
+      return redirectWithNotice(redirectTo, "Approve failed.");
+    }
+
+    revalidatePath(basePath);
+    return redirectWithNotice(redirectTo, "Approved (ready to apply).");
+  }
+
+  async function quickMarkNotFoundAction(formData: FormData) {
+    "use server";
+    const admin = await requireAdmin();
+    const redirectTo = String(formData.get("redirect_to") || basePath);
+    const venueId = String(formData.get("venue_id") || "").trim();
+    if (!venueId) return redirectWithNotice(redirectTo, "Venue id missing.");
+
+    const { data: row, error: loadErr } = await supabaseAdmin
+      .from("venue_url_review_queue" as any)
+      .select("venue_id,notes,status")
+      .eq("venue_id", venueId)
+      .maybeSingle();
+    if (loadErr || !row) {
+      console.error("field-maps quick not-found: load failed", { venueId, loadErr });
+      return redirectWithNotice(redirectTo, "Queue row not found.");
+    }
+
+    const now = new Date().toISOString();
+    const priorNotes = String((row as any).notes ?? "").trim();
+    const nextNotes = [priorNotes, `[${now}] not found: no field map located (manual skip)`].filter(Boolean).join("\n");
+
+    const { error: updErr } = await supabaseAdmin
+      .from("venue_url_review_queue" as any)
+      .update({
+        status: "skipped",
+        reviewed_by: admin.id,
+        last_reviewed_at: now,
+        notes: nextNotes,
+      })
+      .eq("venue_id", venueId);
+    if (updErr) {
+      console.error("field-maps quick not-found: update failed", { venueId, updErr });
+      return redirectWithNotice(redirectTo, "Mark not found failed.");
+    }
+
+    revalidatePath(basePath);
+    return redirectWithNotice(redirectTo, "Marked not found (skipped).");
   }
 
   async function seedQueueAction(formData: FormData) {
@@ -1934,6 +2022,34 @@ export default async function VenueFieldMapsQueuePage({
                                 }}
                               >
                                 Paste + apply
+                              </button>
+                              <button
+                                formNoValidate
+                                formAction={quickApproveSuggestedAction}
+                                style={{
+                                  padding: "8px 10px",
+                                  borderRadius: 10,
+                                  border: "1px solid #111827",
+                                  background: "#fff",
+                                  color: "#111827",
+                                  fontWeight: 900,
+                                }}
+                              >
+                                Approve
+                              </button>
+                              <button
+                                formNoValidate
+                                formAction={quickMarkNotFoundAction}
+                                style={{
+                                  padding: "8px 10px",
+                                  borderRadius: 10,
+                                  border: "1px solid #6b7280",
+                                  background: "#fff",
+                                  color: "#374151",
+                                  fontWeight: 900,
+                                }}
+                              >
+                                Not found
                               </button>
                             </div>
                           </form>
