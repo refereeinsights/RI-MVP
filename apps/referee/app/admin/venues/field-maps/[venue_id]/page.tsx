@@ -70,6 +70,11 @@ export default async function VenueFieldMapEditPage({
     .select("generated_map_url", { head: true, count: "exact" } as any);
   const supportsGeneratedDrafts = !generatedProbeErr;
 
+  const { error: bypassProbeErr } = await supabaseAdmin
+    .from("venue_url_review_queue" as any)
+    .select("bypass_coord_validation", { head: true, count: "exact" } as any);
+  const supportsCoordBypass = !bypassProbeErr;
+
   const { data: queueRaw } = await supabaseAdmin
     .from("venue_url_review_queue" as any)
     .select(
@@ -77,6 +82,7 @@ export default async function VenueFieldMapEditPage({
         (supportsGeneratedDrafts
           ? "generated_map_object_path,generated_map_url,generated_map_hash,generated_map_version,generated_map_source,approve_generated_map,generated_map_applied_id,generation_attempt_count,generation_error,generated_at,"
           : "") +
+        (supportsCoordBypass ? "bypass_coord_validation," : "") +
         "approve_venue_url,approve_field_map_url,override_good_venue_url,decision_summary,notes,reviewed_by,last_reviewed_at,updated_at"
     )
     .eq("venue_id", venueId)
@@ -106,6 +112,7 @@ export default async function VenueFieldMapEditPage({
     generation_attempt_count?: number | null;
     generation_error?: string | null;
     generated_at?: string | null;
+    bypass_coord_validation?: boolean | null;
     approve_venue_url: boolean | null;
     approve_field_map_url: boolean | null;
     override_good_venue_url: boolean | null;
@@ -242,6 +249,34 @@ export default async function VenueFieldMapEditPage({
       revalidatePath(`/admin/venues/field-maps/${venueId}`);
       revalidatePath(backHref);
       return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Deleted generated draft object + cleared draft fields.");
+    }
+
+    if (mode === "enable_coord_bypass" || mode === "disable_coord_bypass") {
+      if (!supportsCoordBypass) {
+        return redirectWithNotice(
+          `/admin/venues/field-maps/${venueId}`,
+          "Coordinate bypass field not available yet (migration not applied)."
+        );
+      }
+      const next = mode === "enable_coord_bypass";
+      const priorNotes = String(queue?.notes ?? "").trim();
+      const nextNotes = [priorNotes, `[coord_validation] bypass=${next} ${new Date().toISOString()}`].filter(Boolean).join("\n");
+      const { error } = await supabaseAdmin
+        .from("venue_url_review_queue" as any)
+        .update({
+          bypass_coord_validation: next,
+          notes: nextNotes,
+          reviewed_by: admin.id,
+          last_reviewed_at: new Date().toISOString(),
+        })
+        .eq("venue_id", venueId);
+      if (error) {
+        console.error("field-maps edit: coord bypass update failed", { venueId, error });
+        return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, "Update coord bypass failed.");
+      }
+      revalidatePath(`/admin/venues/field-maps/${venueId}`);
+      revalidatePath(backHref);
+      return redirectWithNotice(`/admin/venues/field-maps/${venueId}`, `Coordinate validation bypass ${next ? "enabled" : "disabled"}.`);
     }
 
     const nextStatus = cleanText(formData.get("status")) as QueueStatus | null;
@@ -563,6 +598,23 @@ export default async function VenueFieldMapEditPage({
                 </div>
 
                 <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {supportsCoordBypass ? (
+                    <button
+                      type="submit"
+                      name="mode"
+                      value={Boolean((queue as any).bypass_coord_validation) ? "disable_coord_bypass" : "enable_coord_bypass"}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid #111827",
+                        background: "#fff",
+                        color: "#111827",
+                        fontWeight: 900,
+                      }}
+                    >
+                      {Boolean((queue as any).bypass_coord_validation) ? "Disable coord bypass" : "Bypass coord validation"}
+                    </button>
+                  ) : null}
                   <button
                     type="submit"
                     name="mode"

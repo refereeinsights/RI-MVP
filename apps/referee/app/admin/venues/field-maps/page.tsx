@@ -147,79 +147,164 @@ function isLikelyUsStateCode(state: string | null | undefined) {
   return /^[A-Z]{2}$/.test(s);
 }
 
+function haversineDistanceMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const R = 6371e3; // meters
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const sinDLat = Math.sin(dLat / 2);
+  const sinDLng = Math.sin(dLng / 2);
+  const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLng * sinDLng;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
 async function validateVenueCoordinates(params: {
   venueId: string;
   lat: number;
   lng: number;
+  venueAddress?: string | null;
   venueCity?: string | null;
   venueState?: string | null;
+  venueZip?: string | null;
 }) {
   const enabled = String(process.env.ENABLE_VENUE_COORD_VALIDATION || "").toLowerCase() === "true";
-  if (!enabled) return { ok: true as const };
+  if (!enabled) return { severity: "ok" as const };
 
-  const { lat, lng, venueCity, venueState } = params;
+  const { lat, lng, venueAddress, venueCity, venueState, venueZip } = params;
 
   // Basic sanity.
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return { ok: false as const, reason: "coords_missing" as const };
-  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return { ok: false as const, reason: "coords_out_of_range" as const };
-  if (Math.abs(lat) < 0.0001 && Math.abs(lng) < 0.0001) return { ok: false as const, reason: "coords_zero" as const };
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return { severity: "hard" as const, reason: "coords_missing" as const };
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return { severity: "hard" as const, reason: "coords_out_of_range" as const };
+  if (Math.abs(lat) < 0.0001 && Math.abs(lng) < 0.0001) return { severity: "hard" as const, reason: "coords_zero" as const };
 
   // If it looks like a US venue, apply a coarse US bounding box check.
   if (isLikelyUsStateCode(venueState)) {
     const usOk = lat >= 18 && lat <= 72 && lng >= -170 && lng <= -50;
-    if (!usOk) return { ok: false as const, reason: "coords_outside_us_bbox" as const };
+    if (!usOk) return { severity: "hard" as const, reason: "coords_outside_us_bbox" as const };
   }
 
-  // Optional reverse geocode via Mapbox to catch egregious mismatches (ocean / wrong country / wrong state).
+  // Optional Mapbox checks. We keep these conservative to avoid false positives for large multi-field complexes.
   const token = String(process.env.MAPBOX_ACCESS_TOKEN || "").trim();
-  if (!token) return { ok: true as const };
+  if (!token) return { severity: "ok" as const };
+
+  const expectedState = String(venueState ?? "").trim().toUpperCase() || null;
+  const expectedCity = String(venueCity ?? "").trim() || null;
+
+  let reversePlaceName: string | null = null;
+  let inferredState: string | null = null;
+  let inferredCity: string | null = null;
 
   try {
-    const url = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json`);
-    url.searchParams.set("access_token", token);
-    url.searchParams.set("types", "place,region,country,postcode");
-    url.searchParams.set("limit", "1");
+    // Reverse geocode at the stored coordinates; used only as a soft signal.
+    {
+      const url = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json`);
+      url.searchParams.set("access_token", token);
+      url.searchParams.set("types", "place,region,country,postcode");
+      url.searchParams.set("limit", "1");
 
-    const res = await fetch(url.toString(), { cache: "no-store" });
-    if (!res.ok) return { ok: true as const };
-    const json = (await res.json()) as any;
-    const feat = Array.isArray(json?.features) ? json.features[0] : null;
-    if (!feat) return { ok: true as const };
+      const res = await fetch(url.toString(), { cache: "no-store" });
+      if (res.ok) {
+        const json = (await res.json()) as any;
+        const feat = Array.isArray(json?.features) ? json.features[0] : null;
+        if (feat) {
+          reversePlaceName = String(feat.place_name ?? "").trim() || null;
+          const ctx = Array.isArray(feat.context) ? feat.context : [];
+          const region = ctx.find((c: any) => String(c.id ?? "").startsWith("region.")) ?? null;
+          const place = ctx.find((c: any) => String(c.id ?? "").startsWith("place.")) ?? null;
 
-    const placeName = String(feat.place_name ?? "").trim() || null;
-    const ctx = Array.isArray(feat.context) ? feat.context : [];
-    const region = ctx.find((c: any) => String(c.id ?? "").startsWith("region.")) ?? null;
-    const place = ctx.find((c: any) => String(c.id ?? "").startsWith("place.")) ?? null;
-
-    const inferredState =
-      String(region?.short_code ?? "")
-        .toUpperCase()
-        .split("-")
-        .pop()
-        ?.trim() || null;
-    const inferredCity = String(place?.text ?? "").trim() || null;
-
-    const expectedState = String(venueState ?? "").trim().toUpperCase() || null;
-    const expectedCity = String(venueCity ?? "").trim() || null;
-
-    // State mismatch is the strongest signal.
-    if (expectedState && inferredState && expectedState !== inferredState) {
-      return { ok: false as const, reason: "coords_state_mismatch" as const, placeName, inferredState, inferredCity };
+          inferredState =
+            String(region?.short_code ?? "")
+              .toUpperCase()
+              .split("-")
+              .pop()
+              ?.trim() || null;
+          inferredCity = String(place?.text ?? "").trim() || null;
+        }
+      }
     }
 
-    // City mismatch is fuzzy; only enforce when both exist and don't overlap at all.
+    // Forward geocode the venue's address and compare to stored coords. This is the primary mismatch signal.
+    // (Still conservative: we only hard-fail on very large gaps.)
+    const qParts = [venueAddress, venueCity, expectedState, venueZip].map((v) => String(v ?? "").trim()).filter(Boolean);
+    if (qParts.length >= 2) {
+      const q = qParts.join(", ");
+      const url = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json`);
+      url.searchParams.set("access_token", token);
+      url.searchParams.set("limit", "1");
+      url.searchParams.set("autocomplete", "false");
+      url.searchParams.set("types", "address,poi,place");
+      if (isLikelyUsStateCode(expectedState)) url.searchParams.set("country", "us");
+
+      const res = await fetch(url.toString(), { cache: "no-store" });
+      if (res.ok) {
+        const json = (await res.json()) as any;
+        const feat = Array.isArray(json?.features) ? json.features[0] : null;
+        const center = Array.isArray(feat?.center) ? feat.center : null;
+        const expLng = Number(center?.[0]);
+        const expLat = Number(center?.[1]);
+        const expPlace = String(feat?.place_name ?? "").trim() || null;
+        if (Number.isFinite(expLat) && Number.isFinite(expLng)) {
+          const dist = haversineDistanceMeters({ lat, lng }, { lat: expLat, lng: expLng });
+          if (dist > 50_000) {
+            return {
+              severity: "hard" as const,
+              reason: "addr_distance_gt_50km" as const,
+              details: `distance_m=${Math.round(dist)} expected=${expLat.toFixed(6)},${expLng.toFixed(6)}${expPlace ? ` mapbox_addr=${expPlace}` : ""}${
+                reversePlaceName ? ` mapbox_rev=${reversePlaceName}` : ""
+              }`,
+              inferredState,
+              inferredCity,
+              reversePlaceName,
+            };
+          }
+          if (dist > 10_000) {
+            return {
+              severity: "soft" as const,
+              reason: "addr_distance_gt_10km" as const,
+              details: `distance_m=${Math.round(dist)} expected=${expLat.toFixed(6)},${expLng.toFixed(6)}${expPlace ? ` mapbox_addr=${expPlace}` : ""}${
+                reversePlaceName ? ` mapbox_rev=${reversePlaceName}` : ""
+              }`,
+              inferredState,
+              inferredCity,
+              reversePlaceName,
+            };
+          }
+        }
+      }
+    }
+
+    // If we couldn't forward-geocode, fall back to reverse-only soft signals.
+    if (expectedState && inferredState && expectedState !== inferredState) {
+      return {
+        severity: "soft" as const,
+        reason: "reverse_state_mismatch" as const,
+        details: `${expectedState}!=${inferredState}${reversePlaceName ? ` mapbox_rev=${reversePlaceName}` : ""}`,
+        inferredState,
+        inferredCity,
+        reversePlaceName,
+      };
+    }
     if (expectedCity && inferredCity) {
       const a = normalizeToken(expectedCity);
       const b = normalizeToken(inferredCity);
       const overlaps = a && b && (a.includes(b) || b.includes(a));
       if (!overlaps) {
-        return { ok: false as const, reason: "coords_city_mismatch" as const, placeName, inferredState, inferredCity };
+        return {
+          severity: "soft" as const,
+          reason: "reverse_city_mismatch" as const,
+          details: `${expectedCity}!=${inferredCity}${reversePlaceName ? ` mapbox_rev=${reversePlaceName}` : ""}`,
+          inferredState,
+          inferredCity,
+          reversePlaceName,
+        };
       }
     }
 
-    return { ok: true as const };
+    return { severity: "ok" as const, inferredState, inferredCity, reversePlaceName };
   } catch {
-    return { ok: true as const };
+    return { severity: "ok" as const };
   }
 }
 
@@ -228,12 +313,15 @@ async function maybeRecenterOnOsmPitches(params: { lat: number; lng: number; fal
   if (!enabled) return { used: false as const, centerLat: params.lat, centerLng: params.lng, zoom: params.fallbackZoom, pitchCount: 0 };
 
   try {
-    const r = await fetchVenuePitchCenter({ lat: params.lat, lon: params.lng });
-    if (!r.ok || !r.pitchCount || !r.center) {
-      return { used: false as const, centerLat: params.lat, centerLng: params.lng, zoom: params.fallbackZoom, pitchCount: r.pitchCount ?? 0 };
+    const radii = [1200, 2200, 4000, 8000];
+    for (const radiusMeters of radii) {
+      const r = await fetchVenuePitchCenter({ lat: params.lat, lon: params.lng, radiusMeters });
+      if (!r.ok) continue;
+      if (!r.pitchCount || !r.center) continue;
+      const zoom = recommendZoomFromPitchBbox({ bbox: r.bbox ?? null, fallbackZoom: params.fallbackZoom });
+      return { used: true as const, centerLat: r.center.lat, centerLng: r.center.lng, zoom, pitchCount: r.pitchCount };
     }
-    const zoom = recommendZoomFromPitchBbox({ bbox: r.bbox ?? null, fallbackZoom: params.fallbackZoom });
-    return { used: true as const, centerLat: r.center.lat, centerLng: r.center.lng, zoom, pitchCount: r.pitchCount };
+    return { used: false as const, centerLat: params.lat, centerLng: params.lng, zoom: params.fallbackZoom, pitchCount: 0 };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "pitch_center_failed";
     return { used: false as const, centerLat: params.lat, centerLng: params.lng, zoom: params.fallbackZoom, pitchCount: 0, error: msg as string };
@@ -1293,6 +1381,11 @@ export default async function VenueFieldMapsQueuePage({
         return msg.length > 60 ? msg.slice(0, 60) : msg;
       };
 
+      const { error: bypassProbeErr } = await supabaseAdmin
+        .from("venue_url_review_queue" as any)
+        .select("bypass_coord_validation", { head: true, count: "exact" } as any);
+      const supportsCoordBypass = !bypassProbeErr;
+
       for (const venueId of ids) {
         const v = venueById.get(venueId);
         if (!v) {
@@ -1302,7 +1395,10 @@ export default async function VenueFieldMapsQueuePage({
 
         const { data: queueRaw, error: queueErr } = await supabaseAdmin
           .from("venue_url_review_queue" as any)
-          .select("venue_id,status,notes,generated_map_url,generation_attempt_count")
+          .select(
+            "venue_id,status,notes,generated_map_url,generation_attempt_count,generation_error,approve_generated_map,generated_map_applied_id" +
+              (supportsCoordBypass ? ",bypass_coord_validation" : "")
+          )
           .eq("venue_id", venueId)
           .maybeSingle();
 
@@ -1355,24 +1451,23 @@ export default async function VenueFieldMapsQueuePage({
         }
 
         try {
+          const bypassCoordValidation = Boolean((queueRaw as any).bypass_coord_validation ?? false);
           const coordCheck = await validateVenueCoordinates({
             venueId,
             lat,
             lng,
+            venueAddress: (v as any).address ?? null,
             venueCity: (v as any).city ?? null,
             venueState: (v as any).state ?? null,
+            venueZip: (v as any).zip ?? null,
           });
-          if (!coordCheck.ok) {
+          if (coordCheck.severity === "hard" && !bypassCoordValidation) {
             const priorNotes = String((queueRaw as any).notes ?? "").trim();
             const attempt = Number((queueRaw as any).generation_attempt_count ?? 0) || 0;
-            const detail =
-              (coordCheck as any).placeName
-                ? ` mapbox=${String((coordCheck as any).placeName)}`
-                : "";
-            const msg = `bad_coords:${coordCheck.reason}`;
+            const msg = `bad_coords:${coordCheck.reason}${(coordCheck as any).details ? ` ${(coordCheck as any).details}` : ""}`;
             const nextNotes = [
               priorNotes,
-              `[generated:${generator}] skipped (${msg}) center=${lat.toFixed(6)},${lng.toFixed(6)}${detail}`,
+              `[generated:${generator}] skipped (${msg}) center=${lat.toFixed(6)},${lng.toFixed(6)}`,
             ]
               .filter(Boolean)
               .join("\n");
@@ -1393,6 +1488,13 @@ export default async function VenueFieldMapsQueuePage({
 
           // Optional POI hints (non-blocking): best-effort fetch/store before generating the image.
           const poiHints = await maybeFetchAndStorePoiHints({ venueId, lat, lng });
+
+          const coordNote =
+            coordCheck.severity === "soft"
+              ? `[coord_validation] warning (${coordCheck.reason}${(coordCheck as any).details ? ` ${(coordCheck as any).details}` : ""})`
+              : coordCheck.severity !== "ok" && bypassCoordValidation
+                ? `[coord_validation] bypassed (${coordCheck.reason}${(coordCheck as any).details ? ` ${(coordCheck as any).details}` : ""})`
+                : null;
 
           const { bytes, dateStamp } = await renderGeneratedMapPng({
             venue_id: venueId,
@@ -1447,6 +1549,7 @@ export default async function VenueFieldMapsQueuePage({
           const nextNotes = [
             priorNotes,
             `${notePrefix} ${uploaded.publicUrl} center=${pitchCenter.centerLat.toFixed(6)},${pitchCenter.centerLng.toFixed(6)}${pitchCenter.used ? ` pitches=${pitchCenter.pitchCount}` : ""}`,
+            coordNote,
             poiHints.summary,
           ]
             .filter(Boolean)

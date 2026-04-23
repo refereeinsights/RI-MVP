@@ -10,7 +10,7 @@ function clamp(n: number, min: number, max: number) {
 }
 
 function buildOverpassPitchQuery(params: { lat: number; lon: number; radiusMeters: number }) {
-  const r = Math.round(clamp(params.radiusMeters, 100, 6000));
+  const r = Math.round(clamp(params.radiusMeters, 100, 8000));
   const lat = params.lat;
   const lon = params.lon;
 
@@ -21,6 +21,8 @@ function buildOverpassPitchQuery(params: { lat: number; lon: number; radiusMeter
   nwr["leisure"="pitch"](around:${r},${lat},${lon});
   nwr["landuse"="recreation_ground"](around:${r},${lat},${lon});
   nwr["leisure"="sports_centre"](around:${r},${lat},${lon});
+  nwr["leisure"="track"](around:${r},${lat},${lon});
+  nwr["leisure"="stadium"](around:${r},${lat},${lon});
 );
 out center tags;`;
 }
@@ -96,4 +98,3 @@ export function recommendZoomFromPitchBbox(params: {
   if (!params.bbox) return params.fallbackZoom;
   return computeZoomFromBbox({ bbox: params.bbox, fallback: params.fallbackZoom });
 }
-
