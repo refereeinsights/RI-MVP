@@ -21,6 +21,7 @@ export type GenerateMapOpts = {
   dateOverride?: string; // YYYY-MM-DD
   centerLatitude?: number;
   centerLongitude?: number;
+  includeSunPathOverlay?: boolean;
 };
 
 export function sha256Hex(bytes: Uint8Array) {
@@ -91,6 +92,8 @@ export async function renderGeneratedMapPng(
   const zoom = opts?.zoom ?? 16;
   const style = opts?.style ?? "mapbox/satellite-streets-v12";
   const dateStamp = (opts?.dateOverride ?? "").trim() || formatDateYYYYMMDD(new Date());
+  const enableSunPathEnv = String(process.env.ENABLE_SUN_PATH_OVERLAY ?? "").trim().toLowerCase() === "true";
+  const hasSunPathOverlay = Boolean(opts?.includeSunPathOverlay ?? enableSunPathEnv);
 
   // Use the Static Images URL directly as the <img> source.
   // In practice, next/og's renderer is more reliable with remote image URLs than large base64 data URLs.
@@ -167,6 +170,38 @@ export async function renderGeneratedMapPng(
           <div style={{ fontSize: 15, fontWeight: 950, lineHeight: 1.15 }}>{title}</div>
           {address1 ? <div style={{ marginTop: 4, fontSize: 11, opacity: 0.92, lineHeight: 1.2 }}>{address1}</div> : null}
           {address2 ? <div style={{ marginTop: 2, fontSize: 11, opacity: 0.88, lineHeight: 1.2 }}>{address2}</div> : null}
+
+          {/* Optional: approximate sun path guidance (subtle, non-predictive) */}
+          {hasSunPathOverlay ? (
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ fontSize: 10, fontWeight: 800, opacity: 0.92 }}>Afternoon Sun</div>
+                <div style={{ fontSize: 10, fontWeight: 800, opacity: 0.92 }}>Morning Sun</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="260" height="26" viewBox="0 0 260 26">
+                  <path
+                    d="M 14 20 C 70 4, 190 4, 246 20"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.45)"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M 246 20 L 237 15 M 246 20 L 237 25"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.45)"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ fontSize: 10, opacity: 0.86 }}>Approx. Sun Path</div>
+                <div style={{ fontSize: 10, opacity: 0.86 }}>Varies by season</div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* Footer warning + attribution */}
