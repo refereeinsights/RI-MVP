@@ -425,9 +425,11 @@ function scoreMapCandidate(
 
   const isPdf = path.endsWith(".pdf") || url.toLowerCase().includes(".pdf");
   const isImage = /\.(png|jpg|jpeg|webp)$/i.test(path);
+  const looksLikeLocationMap = /\blocation\s*(and|&)\s*map\b/i.test(blob) || /\bdirections\s*(and|&)\s*map\b/i.test(blob);
   const looksLikeMap =
     /field\s*map|facility\s*map|complex\s*map|campus\s*map|court\s*map|gym\s*map|park\s*map|parking\s*map|field\s*layout|court\s*layout/i.test(blob) ||
     ((/\bsite\s*map\b/i.test(blob) || /site[-_ ]?map/i.test(path)) && /field|court|gym|facility|complex|campus|layout/i.test(blob)) ||
+    looksLikeLocationMap ||
     /map(\.|\/|_|-)/i.test(path);
   const hasSportsTokens = /field|fields|court|courts|gym|complex|facility|park|parking|layout|site/i.test(blob);
 
@@ -435,6 +437,7 @@ function scoreMapCandidate(
   if (isImage) score += 20;
   if (looksLikeMap) score += 20;
   if (hasSportsTokens) score += 10;
+  if (looksLikeLocationMap) score += 10;
 
   // Strong signals for common map endpoints.
   if (/(facility[-_ ]?maps?|site[-_ ]?map|field[-_ ]?map|complex[-_ ]?map|campus[-_ ]?map|park[-_ ]?map|parking[-_ ]?map)/i.test(blob)) {
@@ -463,6 +466,11 @@ function isStrictEligible(candidate: { url: string; title?: string | null; snipp
   const snippet = (candidate.snippet ?? "").toLowerCase();
   const blob = `${url} ${title} ${snippet}`;
   const isPdfOrImage = url.includes(".pdf") || /\.(png|jpg|jpeg|webp)(\\?|$)/i.test(url);
+  const isLocationMapPage =
+    blob.includes("location and map") ||
+    blob.includes("location & map") ||
+    blob.includes("directions and map") ||
+    blob.includes("directions & map");
   const keyword =
     blob.includes("field map") ||
     blob.includes("facility map") ||
@@ -472,7 +480,7 @@ function isStrictEligible(candidate: { url: string; title?: string | null; snipp
     blob.includes("park map") ||
     blob.includes("field layout") ||
     blob.includes("court layout");
-  return isPdfOrImage || keyword;
+  return isPdfOrImage || keyword || isLocationMapPage;
 }
 
 function inferMapTypeFromUrl(raw: string) {
@@ -1780,6 +1788,7 @@ export default async function VenueFieldMapsQueuePage({
           venueHost ? `site:${venueHost} complex map` : null,
           venueHost ? `site:${venueHost} park map` : null,
           venueHost ? `site:${venueHost} map pdf` : null,
+          venueHost ? `site:${venueHost} location and map` : null,
           `${baseTerms} facility maps`,
           `${baseTerms} field map`,
           `${baseTerms} complex map`,
@@ -1791,9 +1800,12 @@ export default async function VenueFieldMapsQueuePage({
           `${baseTerms} field map pdf`,
           `${baseTerms} park map pdf`,
           `${baseTerms} map jpg`,
+          `${baseTerms} location and map`,
+          `${baseTerms} directions and map`,
           baseTermsLite ? `${baseTermsLite} map pdf` : null,
           baseTermsLite ? `${baseTermsLite} park map pdf` : null,
           baseTermsWithAddress ? `${baseTermsWithAddress} map pdf` : null,
+          baseTermsWithAddress ? `${baseTermsWithAddress} location and map` : null,
           zip ? `${name} ${zip} facility map` : null,
           zip ? `${name} ${zip} map pdf` : null,
           // Keep these late; they can be useful on some municipal sites, but are noisy.
@@ -1810,7 +1822,7 @@ export default async function VenueFieldMapsQueuePage({
         let bestQuery: string | null = null;
 
         // Try more queries; stop early only if confidence is truly high.
-        const queriesToTry = queries.slice(0, 10);
+        const queriesToTry = queries.slice(0, 18);
         for (const q of queriesToTry) {
           let searchRes =
             chosenEngine === "google"
