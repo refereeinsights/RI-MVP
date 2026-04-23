@@ -153,6 +153,14 @@ function scoreMapCandidate(
   if (blockedHosts.includes(host)) return { score: -999, kind: "blocked" as const };
   if (blob.includes("/venues/") && host.includes("tournamentinsights")) return { score: -999, kind: "blocked" as const };
 
+  // Reject generic XML sitemaps (common false positive when querying "site map").
+  // Keep "site-map" image/PDF maps eligible; only block the canonical sitemap document patterns.
+  const isXmlSitemap =
+    /(^|\/)sitemap(_index)?\.xml$/i.test(path) ||
+    /(^|\/)wp-sitemap\.xml$/i.test(path) ||
+    /sitemap.*\.xml$/i.test(path);
+  if (isXmlSitemap) return { score: -999, kind: "blocked" as const };
+
   // Business rule: ignore parking maps (they're usually not field/court layouts).
   const isParkingMap =
     /\bparking\s*map\b/i.test(blob) ||
@@ -165,9 +173,9 @@ function scoreMapCandidate(
   const isPdf = path.endsWith(".pdf") || url.toLowerCase().includes(".pdf");
   const isImage = /\.(png|jpg|jpeg|webp)$/i.test(path);
   const looksLikeMap =
-    /field\s*map|facility\s*map|complex\s*map|campus\s*map|court\s*map|gym\s*map|parking\s*map|field\s*layout|court\s*layout|site\s*map/i.test(
-      blob
-    ) || /map(\.|\/|_|-)/i.test(path);
+    /field\s*map|facility\s*map|complex\s*map|campus\s*map|court\s*map|gym\s*map|parking\s*map|field\s*layout|court\s*layout/i.test(blob) ||
+    ((/\bsite\s*map\b/i.test(blob) || /site[-_ ]?map/i.test(path)) && /field|court|gym|facility|complex|campus|layout/i.test(blob)) ||
+    /map(\.|\/|_|-)/i.test(path);
   const hasSportsTokens = /field|fields|court|courts|gym|complex|facility|parking|layout|site/i.test(blob);
 
   if (isPdf) score += 35;
@@ -176,7 +184,7 @@ function scoreMapCandidate(
   if (hasSportsTokens) score += 10;
 
   // Strong signals for common map endpoints.
-  if (/(facility[-_ ]?maps?|site[-_ ]?map|sitemap|field[-_ ]?map|complex[-_ ]?map|campus[-_ ]?map|parking[-_ ]?map)/i.test(blob)) {
+  if (/(facility[-_ ]?maps?|site[-_ ]?map|field[-_ ]?map|complex[-_ ]?map|campus[-_ ]?map|parking[-_ ]?map)/i.test(blob)) {
     score += 10;
   }
 
@@ -209,8 +217,7 @@ function isStrictEligible(candidate: { url: string; title?: string | null; snipp
     blob.includes("court map") ||
     blob.includes("gym map") ||
     blob.includes("field layout") ||
-    blob.includes("court layout") ||
-    blob.includes("site map");
+    blob.includes("court layout");
   return isPdfOrImage || keyword;
 }
 
