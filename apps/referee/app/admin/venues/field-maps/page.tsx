@@ -1180,17 +1180,22 @@ export default async function VenueFieldMapsQueuePage({
 
     const candidateIds = candidates.map((v: any) => String((v as any).id));
 
-    const { data: existingMapsRaw, error: existingMapsErr } = await supabaseAdmin
-      .from("venue_field_maps" as any)
-      .select("venue_id")
-      .in("venue_id", candidateIds)
-      .limit(10_000);
-    if (existingMapsErr) {
-      console.error("field-maps auto-skip schools: map lookup failed", existingMapsErr);
-      return redirectWithNotice(adminBase, "Auto-skip failed: could not verify existing maps.");
+    const hasMap = new Set<string>();
+    // Supabase/PostgREST can return "Bad Request" when `.in(...)` gets too large (URL too long).
+    // Chunk to keep the request size bounded.
+    for (let i = 0; i < candidateIds.length; i += 200) {
+      const chunk = candidateIds.slice(i, i + 200);
+      const { data: existingMapsRaw, error: existingMapsErr } = await supabaseAdmin
+        .from("venue_field_maps" as any)
+        .select("venue_id")
+        .in("venue_id", chunk)
+        .limit(50_000);
+      if (existingMapsErr) {
+        console.error("field-maps auto-skip schools: map lookup failed", existingMapsErr);
+        return redirectWithNotice(adminBase, "Auto-skip failed: could not verify existing maps.");
+      }
+      for (const r of (existingMapsRaw ?? []) as any[]) hasMap.add(String((r as any).venue_id));
     }
-
-    const hasMap = new Set((existingMapsRaw ?? []).map((r: any) => String((r as any).venue_id)));
     const eligible = candidates.filter((v: any) => !(v as any).field_map_url && !hasMap.has(String((v as any).id)));
     if (!eligible.length) return redirectWithNotice(adminBase, "Nothing to skip: all matching venues already have maps.");
 
@@ -1296,16 +1301,21 @@ export default async function VenueFieldMapsQueuePage({
 
     // Protect venues that already have maps (either cached or in venue_field_maps).
     const hasCached = new Set((venuesRaw ?? []).filter((v: any) => String(v.field_map_url ?? "").trim()).map((v: any) => String(v.id)));
-    const { data: existingMapsRaw, error: existingMapsErr } = await supabaseAdmin
-      .from("venue_field_maps" as any)
-      .select("venue_id")
-      .in("venue_id", candidateIds)
-      .limit(50_000);
-    if (existingMapsErr) {
-      console.error("field-maps auto-skip indoor/single-use: map lookup failed", existingMapsErr);
-      return redirectWithNotice(adminBase, "Auto-skip failed: could not verify existing maps.");
+    const hasMap = new Set<string>();
+    // Chunk to avoid PostgREST "Bad Request" when `.in(...)` gets too large (URL too long).
+    for (let i = 0; i < candidateIds.length; i += 200) {
+      const chunk = candidateIds.slice(i, i + 200);
+      const { data: existingMapsRaw, error: existingMapsErr } = await supabaseAdmin
+        .from("venue_field_maps" as any)
+        .select("venue_id")
+        .in("venue_id", chunk)
+        .limit(50_000);
+      if (existingMapsErr) {
+        console.error("field-maps auto-skip indoor/single-use: map lookup failed", existingMapsErr);
+        return redirectWithNotice(adminBase, "Auto-skip failed: could not verify existing maps.");
+      }
+      for (const r of (existingMapsRaw ?? []) as any[]) hasMap.add(String((r as any).venue_id));
     }
-    const hasMap = new Set((existingMapsRaw ?? []).map((r: any) => String((r as any).venue_id)));
 
     const eligibleIds = candidateIds.filter((id) => !hasCached.has(id) && !hasMap.has(id));
     const protectedCount = candidateIds.length - eligibleIds.length;
