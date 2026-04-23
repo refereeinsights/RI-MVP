@@ -594,6 +594,16 @@ export default async function VenueFieldMapEditPage({
                         gen error: {String((queue as any).generation_error)}
                       </div>
                     ) : null}
+                    {String((queue as any).generation_error ?? "").startsWith("suspect_png_size:") ? (
+                      <div style={{ marginTop: 4, color: "#6b7280", fontSize: 12 }}>
+                        Tip: this usually means the base Mapbox image didn&apos;t render (bad center / blank tile). Refresh venue coordinates and regenerate.
+                      </div>
+                    ) : null}
+                    {String((queue as any).generation_error ?? "").startsWith("bad_coords:") ? (
+                      <div style={{ marginTop: 4, color: "#6b7280", fontSize: 12 }}>
+                        Tip: coord validation flagged a mismatch. Refresh coordinates (or enable bypass only if you&apos;re sure the coords are correct for a large complex).
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 

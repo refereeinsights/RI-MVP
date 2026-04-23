@@ -2952,6 +2952,27 @@ export default async function VenueFieldMapsQueuePage({
             Remove from queue
           </button>
         </div>
+
+        <div style={{ marginBottom: 14, padding: 12, borderRadius: 14, border: "1px solid #e5e7eb", background: "#fafafa" }}>
+          <div style={{ fontWeight: 950, color: "#111827" }}>Notes</div>
+          <div style={{ marginTop: 6, fontSize: 13, color: "#374151", display: "grid", gap: 6 }}>
+            <div>
+              <span style={{ fontWeight: 900 }}>Generated PNGs</span>: Mapbox Static Images with baked overlays + attribution. Treat as “Generated (approximate)”, never official.
+            </div>
+            <div>
+              <span style={{ fontWeight: 900 }}>Common gen errors</span>: <code>missing_coords</code>, <code>bad_coords:*</code> (coord validation), <code>suspect_png_size:*</code> (base map likely failed → wrong/blank center), <code>storage_upload_failed</code>.
+            </div>
+            <div>
+              <span style={{ fontWeight: 900 }}>Coord validation</span>: enable with <code>ENABLE_VENUE_COORD_VALIDATION=true</code>. Soft mismatches add a warning in notes; hard mismatches go to <code>manual_review</code>. Per-venue bypass toggle is available on the Edit page when the bypass migration is applied.
+            </div>
+            <div>
+              <span style={{ fontWeight: 900 }}>OSM pitch centering</span>: enable with <code>ENABLE_OSM_PITCH_CENTERING=true</code>. If OSM has no mapped pitches nearby, centering falls back to venue lat/lng.
+            </div>
+            <div>
+              <span style={{ fontWeight: 900 }}>Discover</span>: prefers PDFs/images and common “field map” slugs; blocks Google/Apple/Waze map links; uses throttling and may infer an official host when <code>venues.venue_url</code> is missing.
+            </div>
+          </div>
+        </div>
       </form>
 
       <div id="field-maps-table" style={{ overflowX: "auto", border: "1px solid #e5e7eb", borderRadius: 14 }}>
