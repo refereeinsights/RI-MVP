@@ -176,10 +176,10 @@ function scoreMapCandidate(
   const isPdf = path.endsWith(".pdf") || url.toLowerCase().includes(".pdf");
   const isImage = /\.(png|jpg|jpeg|webp)$/i.test(path);
   const looksLikeMap =
-    /field\s*map|facility\s*map|complex\s*map|campus\s*map|court\s*map|gym\s*map|parking\s*map|field\s*layout|court\s*layout/i.test(blob) ||
+    /field\s*map|facility\s*map|complex\s*map|campus\s*map|court\s*map|gym\s*map|park\s*map|parking\s*map|field\s*layout|court\s*layout/i.test(blob) ||
     ((/\bsite\s*map\b/i.test(blob) || /site[-_ ]?map/i.test(path)) && /field|court|gym|facility|complex|campus|layout/i.test(blob)) ||
     /map(\.|\/|_|-)/i.test(path);
-  const hasSportsTokens = /field|fields|court|courts|gym|complex|facility|parking|layout|site/i.test(blob);
+  const hasSportsTokens = /field|fields|court|courts|gym|complex|facility|park|parking|layout|site/i.test(blob);
 
   if (isPdf) score += 35;
   if (isImage) score += 20;
@@ -187,7 +187,7 @@ function scoreMapCandidate(
   if (hasSportsTokens) score += 10;
 
   // Strong signals for common map endpoints.
-  if (/(facility[-_ ]?maps?|site[-_ ]?map|field[-_ ]?map|complex[-_ ]?map|campus[-_ ]?map|parking[-_ ]?map)/i.test(blob)) {
+  if (/(facility[-_ ]?maps?|site[-_ ]?map|field[-_ ]?map|complex[-_ ]?map|campus[-_ ]?map|park[-_ ]?map|parking[-_ ]?map)/i.test(blob)) {
     score += 10;
   }
 
@@ -219,6 +219,7 @@ function isStrictEligible(candidate: { url: string; title?: string | null; snipp
     blob.includes("complex map") ||
     blob.includes("court map") ||
     blob.includes("gym map") ||
+    blob.includes("park map") ||
     blob.includes("field layout") ||
     blob.includes("court layout");
   return isPdfOrImage || keyword;
@@ -1073,22 +1074,34 @@ export default async function VenueFieldMapsQueuePage({
         const venueHost = venueUrl ? safeUrlHost(venueUrl) : null;
 
         const baseTerms = [name, city, st].filter(Boolean).join(" ").trim() || name;
+        const nameLite = name.replace(/\b(fields?|complex|sports complex|sport complex|park)\b/gi, "").replace(/\s+/g, " ").trim();
+        const baseTermsLite = [nameLite, city, st].filter(Boolean).join(" ").trim();
+        const addressRaw = String(v.address ?? "").trim();
+        const address = addressRaw ? addressRaw.replace(/\s+/g, " ") : "";
+        const baseTermsWithAddress =
+          address && city && st ? `${name} ${address} ${city} ${st}`.replace(/\s+/g, " ").trim() : "";
         // Query set is ordered by expected "map artifact" precision first, then broader.
         // We intentionally avoid leading with "site map" (often triggers XML sitemap false positives).
         const queries = [
           venueHost ? `site:${venueHost} facility maps` : null,
           venueHost ? `site:${venueHost} field map` : null,
           venueHost ? `site:${venueHost} complex map` : null,
+          venueHost ? `site:${venueHost} park map` : null,
           venueHost ? `site:${venueHost} map pdf` : null,
           `${baseTerms} facility maps`,
           `${baseTerms} field map`,
           `${baseTerms} complex map`,
           `${baseTerms} campus map`,
           `${baseTerms} court map`,
+          `${baseTerms} park map`,
           `${baseTerms} map pdf`,
           `${baseTerms} facility map pdf`,
           `${baseTerms} field map pdf`,
+          `${baseTerms} park map pdf`,
           `${baseTerms} map jpg`,
+          baseTermsLite ? `${baseTermsLite} map pdf` : null,
+          baseTermsLite ? `${baseTermsLite} park map pdf` : null,
+          baseTermsWithAddress ? `${baseTermsWithAddress} map pdf` : null,
           zip ? `${name} ${zip} facility map` : null,
           zip ? `${name} ${zip} map pdf` : null,
           // Keep these late; they can be useful on some municipal sites, but are noisy.
