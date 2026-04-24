@@ -8,7 +8,7 @@ import { sanitizeReturnTo } from "@/lib/returnTo";
 
 export default function ForgotPasswordPage() {
   const searchParams = useSearchParams();
-  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/account");
+  const returnTo = sanitizeReturnTo(searchParams?.get("returnTo") ?? null, "/account");
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
   const [email, setEmail] = useState("");
@@ -81,4 +81,3 @@ export default function ForgotPasswordPage() {
     </main>
   );
 }
-

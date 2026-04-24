@@ -13,9 +13,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = useState("");
-  const code = (searchParams.get("code") || "").trim();
-  const notice = (searchParams.get("notice") || "").trim();
-  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/account");
+  const code = (searchParams?.get("code") ?? "").trim();
+  const notice = (searchParams?.get("notice") ?? "").trim();
+  const returnTo = sanitizeReturnTo(searchParams?.get("returnTo") ?? null, "/account");
   const nextPath = code ? `/join?code=${encodeURIComponent(code)}` : returnTo;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {

@@ -20,11 +20,11 @@ export default function SignupPage() {
   const [agreed, setAgreed] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "ok" | "error">("idle");
   const [message, setMessage] = useState("");
-  const code = (searchParams.get("code") || "").trim();
-  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/account");
-  const promo = (searchParams.get("promo") || "").trim();
-  const qvcQuickCheckId = (searchParams.get("quick_check_id") || "").trim();
-  const qvcBrowserHash = (searchParams.get("browser_hash") || "").trim();
+  const code = (searchParams?.get("code") ?? "").trim();
+  const returnTo = sanitizeReturnTo(searchParams?.get("returnTo") ?? null, "/account");
+  const promo = (searchParams?.get("promo") ?? "").trim();
+  const qvcQuickCheckId = (searchParams?.get("quick_check_id") ?? "").trim();
+  const qvcBrowserHash = (searchParams?.get("browser_hash") ?? "").trim();
   const qvcActive = promo === "qvc_weekend_pro_12mo_v1" && Boolean(qvcQuickCheckId);
 
   useEffect(() => {

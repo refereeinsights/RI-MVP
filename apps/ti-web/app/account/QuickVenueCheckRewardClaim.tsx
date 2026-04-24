@@ -24,11 +24,11 @@ export default function QuickVenueCheckRewardClaim({
   const [dismissed, setDismissed] = useState(false);
   const attemptedKeyRef = useRef<string>("");
 
-  const searchParamsString = searchParams.toString();
-  const urlQuickCheckId = (searchParams.get("quick_check_id") || "").trim();
-  const urlBrowserHash = (searchParams.get("browser_hash") || "").trim();
-  const urlPromo = (searchParams.get("promo") || "").trim();
-  const debug = (searchParams.get("debug") || "").trim() === "1";
+  const searchParamsString = searchParams?.toString() ?? "";
+  const urlQuickCheckId = (searchParams?.get("quick_check_id") ?? "").trim();
+  const urlBrowserHash = (searchParams?.get("browser_hash") ?? "").trim();
+  const urlPromo = (searchParams?.get("promo") ?? "").trim();
+  const debug = (searchParams?.get("debug") ?? "").trim() === "1";
 
   function toUserFacingError(raw: string) {
     const message = (raw || "").trim();

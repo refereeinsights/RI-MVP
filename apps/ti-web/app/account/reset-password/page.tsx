@@ -9,7 +9,7 @@ import { sanitizeReturnTo } from "@/lib/returnTo";
 export default function ResetPasswordPage() {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const searchParams = useSearchParams();
-  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/account");
+  const returnTo = sanitizeReturnTo(searchParams?.get("returnTo") ?? null, "/account");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);

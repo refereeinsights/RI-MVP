@@ -166,7 +166,7 @@ export default function VenueReviewsClient() {
   );
 
   useEffect(() => {
-    const venueIdParam = (searchParams.get("venueId") ?? "").trim();
+    const venueIdParam = (searchParams?.get("venueId") ?? "").trim();
     if (!venueIdParam || selectedVenueId) return;
 
     const run = async () => {

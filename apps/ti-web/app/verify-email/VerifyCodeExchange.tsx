@@ -19,7 +19,7 @@ export default function VerifyCodeExchange({ returnTo }: VerifyCodeExchangeProps
     if (ranRef.current) return;
     ranRef.current = true;
 
-    const code = searchParams.get("code")?.trim();
+    const code = searchParams?.get("code")?.trim();
     if (!code) return;
 
     const run = async () => {
