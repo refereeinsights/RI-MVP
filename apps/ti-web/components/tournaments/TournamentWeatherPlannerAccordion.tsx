@@ -69,10 +69,12 @@ export default function TournamentWeatherPlannerAccordion({
             listStyle: "none",
             display: "grid",
             gap: 4,
+            justifyItems: "center",
+            textAlign: "center",
             outline: "none",
           }}
         >
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 10 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "center", gap: 10 }}>
             <span style={{ fontWeight: 950 }}>10-Day Weather Planner</span>
             <span style={{ fontSize: 12, opacity: 0.8, fontWeight: 800 }}>{open ? "Hide forecast" : "View 10-day forecast"}</span>
           </div>
