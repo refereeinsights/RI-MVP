@@ -1408,6 +1408,7 @@ export default async function VenueFieldMapsQueuePage({
       const generator = "mapbox_static_v1";
       const version = new Date().toISOString().slice(0, 10);
       const minPngBytes = 120_000; // heuristic: avoid storing near-blank renders (often bad coordinates/ocean tiles)
+      const sunPathEnabled = String(process.env.ENABLE_SUN_PATH_OVERLAY ?? "").trim().toLowerCase() === "true";
 
       const { data: venueRowsRaw, error: venueRowsErr } = await supabaseAdmin
         .from("venues" as any)
@@ -1572,6 +1573,7 @@ export default async function VenueFieldMapsQueuePage({
             zoom: pitchCenter.zoom,
             centerLatitude: pitchCenter.centerLat,
             centerLongitude: pitchCenter.centerLng,
+            includeSunPathOverlay: sunPathEnabled,
           });
 
           if (bytes.length < minPngBytes) {
@@ -1614,6 +1616,7 @@ export default async function VenueFieldMapsQueuePage({
             `${notePrefix} ${uploaded.publicUrl} center=${pitchCenter.centerLat.toFixed(6)},${pitchCenter.centerLng.toFixed(6)}${pitchCenter.used ? ` pitches=${pitchCenter.pitchCount}` : ""}`,
             coordNote,
             poiHints.summary,
+            sunPathEnabled ? `[sun_path] enabled` : null,
           ]
             .filter(Boolean)
             .join("\n");
