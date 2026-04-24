@@ -67,6 +67,7 @@ export default function VenueWeatherPlannerCard(props: {
   state?: string | null;
   tournamentStartDate?: string | null; // YYYY-MM-DD
   tournamentEndDate?: string | null; // YYYY-MM-DD
+  showHeader?: boolean;
 }) {
   const [data, setData] = useState<ForecastResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -120,16 +121,19 @@ export default function VenueWeatherPlannerCard(props: {
   const tournamentStart = (props.tournamentStartDate ?? "").trim();
   const tournamentEnd = (props.tournamentEndDate ?? "").trim();
   const canHighlight = tournamentStart.length === 10 && tournamentEnd.length === 10 && tournamentStart <= tournamentEnd;
+  const showHeader = props.showHeader ?? true;
 
   return (
     <div style={{ marginTop: 10, borderRadius: 14, border: "1px solid rgba(255,255,255,0.18)", padding: "10px 12px" }}>
-      <div style={{ display: "grid", gap: 4 }}>
-        <div style={{ fontWeight: 950 }}>10-Day Weather Planner</div>
-        <div style={{ fontSize: 13, opacity: 0.9 }}>Forecast for tournament families planning around this venue.</div>
-        <div style={{ fontSize: 12, opacity: 0.78, lineHeight: 1.35 }}>
-          Use the 10-day forecast to plan clothing, shade, hydration, and sideline gear for games at this venue.
+      {showHeader ? (
+        <div style={{ display: "grid", gap: 4 }}>
+          <div style={{ fontWeight: 950 }}>10-Day Weather Planner</div>
+          <div style={{ fontSize: 13, opacity: 0.9 }}>Forecast for tournament families planning around this venue.</div>
+          <div style={{ fontSize: 12, opacity: 0.78, lineHeight: 1.35 }}>
+            Use the 10-day forecast to plan clothing, shade, hydration, and sideline gear for games at this venue.
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {loading ? (
         <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9 }}>Loading forecast…</div>
@@ -203,4 +207,3 @@ export default function VenueWeatherPlannerCard(props: {
     </div>
   );
 }
-
