@@ -790,8 +790,8 @@ async function TournamentVenueDetails({
           Weather, hotels, nearby options, and venue logistics for tournament families.
         </div>
 
-        <div className="detailVenueGrid" style={{ marginTop: 10 }}>
-          <a className="detailVenueTile" href="#weather-planner">
+        <div className="detailVenueGrid detailVenueGrid--planning" style={{ marginTop: 10 }}>
+          <a className="detailVenueTile detailVenueTile--planning" href="#weather-planner">
             <span className="detailVenueTile__eyebrow">Planning</span>
             <span className="detailVenueTile__name">Weather</span>
             <span style={{ fontSize: 12, opacity: 0.85 }}>
@@ -803,7 +803,7 @@ async function TournamentVenueDetails({
           </a>
 
           <a
-            className="detailVenueTile"
+            className="detailVenueTile detailVenueTile--planning"
             href={tournamentHotelsHref ?? "#where-to-stay"}
             target={tournamentHotelsHref ? "_blank" : undefined}
             rel={tournamentHotelsHref ? "noopener noreferrer sponsored" : undefined}
@@ -814,7 +814,7 @@ async function TournamentVenueDetails({
             <span className="detailVenueTile__flag">{tournamentHotelsHref ? "Open hotel options" : "View hotel options"}</span>
           </a>
 
-          <a className="detailVenueTile" href="#where-youll-play">
+          <a className="detailVenueTile detailVenueTile--planning" href="#where-youll-play">
             <span className="detailVenueTile__eyebrow">Planning</span>
             <span className="detailVenueTile__name">Food &amp; coffee nearby</span>
             <span style={{ fontSize: 12, opacity: 0.85 }}>
@@ -824,7 +824,7 @@ async function TournamentVenueDetails({
             <span className="detailVenueTile__flag">See venue details</span>
           </a>
 
-          <a className="detailVenueTile" href="#where-youll-play">
+          <a className="detailVenueTile detailVenueTile--planning" href="#where-youll-play">
             <span className="detailVenueTile__eyebrow">Planning</span>
             <span className="detailVenueTile__name">Venue spread</span>
             <span style={{ fontSize: 12, opacity: 0.85 }}>

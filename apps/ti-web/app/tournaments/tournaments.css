@@ -1233,6 +1233,24 @@
   gap: 10px;
 }
 
+.detailVenueGrid--planning {
+  width: min(980px, 100%);
+}
+
+.detailVenueTile--planning {
+  min-height: 86px;
+  padding: 10px 11px;
+  gap: 8px;
+}
+
+.detailVenueTile--planning .detailVenueTile__name {
+  font-size: 13px;
+}
+
+.detailVenueTile--planning .detailVenueTile__flag {
+  font-size: 10.5px;
+}
+
 .detailVenueTile {
   display: flex;
   min-height: 96px;
@@ -1320,6 +1338,10 @@
 @media (min-width: 840px) {
   .detailVenueGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .detailVenueGrid--planning {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
