@@ -1,6 +1,7 @@
 ## 2026-04-24
 
 - TI analytics: added a lightweight `venue_page_viewed` event (venue index + venue detail) persisted to `public.ti_map_events` via `POST /api/analytics` so venue interest can be measured without relying on Plausible goals/events: `apps/ti-web/app/api/analytics/route.ts`, `apps/ti-web/components/analytics/VenuePageViewTracker.tsx`, `apps/ti-web/app/venues/page.tsx`, `apps/ti-web/app/venues/[venueId]/page.tsx`, `apps/ti-web/lib/tiAnalyticsEvents.ts`.
+- Supabase (tournament geo): added `tournaments.latitude/longitude` (+ `geo_source/geo_updated_at`), surfaced them in `public.tournaments_public`, and added an admin-only backfill RPC plus ops scripts for deterministic venue-based backfill and optional Mapbox geocoding: `supabase/migrations/20260424_tournaments_geo_columns.sql`, `scripts/ops/audit_tournaments_geo.mjs`, `scripts/ops/backfill_tournaments_geo_from_venues.mjs`, `scripts/ops/backfill_tournaments_geo_mapbox.mjs`.
 
 ## 2026-04-23
 
