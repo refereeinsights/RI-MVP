@@ -8,6 +8,7 @@ import VenueIndexBadge from "@/components/VenueIndexBadge";
 import OwlsEyeVenueCard, { type AirportSummary, type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
 import MobileMapLink from "@/components/venues/MobileMapLink";
 import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
+import VenuePageViewTracker from "@/components/analytics/VenuePageViewTracker";
 import {
   DEMO_STARFIRE_VENUE_ID,
   buildOwlsEyeDemoScores,
@@ -775,6 +776,15 @@ export default async function VenueDetailsPage({
 
   return (
     <main className="pitchWrap tournamentsWrap">
+      <VenuePageViewTracker
+        pageType="venue_detail"
+        venueId={data.id}
+        venueSlug={data.seo_slug ?? null}
+        sport={requestedVenueSport || selectedTournament?.sport || data.sport || null}
+        state={data.state ?? null}
+        sourceTournamentId={selectedTournament?.id ?? null}
+        sourceTournamentSlug={selectedTournament?.slug ?? null}
+      />
       <section className={`detailHero ${sportSurfaceClass}`}>
         <div className="detailHero__overlay">
           <article className="detailPanel" style={{ paddingTop: "1.25rem" }}>

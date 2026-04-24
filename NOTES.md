@@ -1,3 +1,7 @@
+## 2026-04-24
+
+- TI analytics: added a lightweight `venue_page_viewed` event (venue index + venue detail) persisted to `public.ti_map_events` via `POST /api/analytics` so venue interest can be measured without relying on Plausible goals/events: `apps/ti-web/app/api/analytics/route.ts`, `apps/ti-web/components/analytics/VenuePageViewTracker.tsx`, `apps/ti-web/app/venues/page.tsx`, `apps/ti-web/app/venues/[venueId]/page.tsx`, `apps/ti-web/lib/tiAnalyticsEvents.ts`.
+
 ## 2026-04-23
 
 - Supabase (TI generated field maps v1 scaffolding): added optional `venues.latitude/longitude` + indexes; extended canonical `venue_field_maps` with generated-map provenance (`map_origin`, `is_generated`, `generator`, `generator_version`, `generated_at`, `status`, `archived_at`) + constraints/indexes; extended `venue_url_review_queue` with generated draft fields (`generated_map_url/object_path/hash/version/source`, `approve_generated_map`, `generated_map_applied_id`, `generation_attempt_count`, `generation_error`, `generated_at`) + FK/index: `supabase/migrations/20260423_ti_generated_field_maps_v1.sql`.

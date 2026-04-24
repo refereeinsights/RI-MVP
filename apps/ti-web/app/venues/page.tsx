@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTier } from "@/lib/entitlements";
 import { TI_SPORT_LABELS } from "@/lib/tiSports";
 import { DEMO_STARFIRE_VENUE_ID } from "@/lib/owlsEyeScores";
+import VenuePageViewTracker from "@/components/analytics/VenuePageViewTracker";
 import StateMultiSelect from "../tournaments/StateMultiSelect";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
@@ -416,6 +417,7 @@ export default async function VenuesPage({
 
   return (
     <main className="pitchWrap tournamentsWrap">
+      <VenuePageViewTracker pageType="venue_index" />
       <section className="field tournamentsField">
         <div className="headerBlock brandedHeader">
           <h1 className="title" style={{ fontSize: "2rem", fontWeight: 600, letterSpacing: "-0.01em" }}>

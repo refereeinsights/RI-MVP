@@ -23,6 +23,7 @@ const MAP_EVENTS = new Set([
   "homepage_cta_clicked",
   "homepage_sport_chip_clicked",
   "tournament_detail_more_in_state_clicked",
+  "venue_page_viewed",
 ]);
 
 function asText(value: unknown) {

@@ -4,7 +4,8 @@ export type TiAnalyticsEventName =
   | "map_state_clicked"
   | "homepage_cta_clicked"
   | "homepage_sport_chip_clicked"
-  | "tournament_detail_more_in_state_clicked";
+  | "tournament_detail_more_in_state_clicked"
+  | "venue_page_viewed";
 
 export type TiAnalyticsEventPropertiesByName = {
   map_viewed: {
@@ -37,5 +38,15 @@ export type TiAnalyticsEventPropertiesByName = {
     href: string;
     link_kind: "upcoming" | "month";
     month: string | null;
+  };
+  venue_page_viewed: {
+    page_type: "venue_index" | "venue_detail";
+    href: string;
+    venue_id: string | null;
+    venue_slug: string | null;
+    sport: string | null;
+    state: string | null;
+    source_tournament_id: string | null;
+    source_tournament_slug: string | null;
   };
 };
