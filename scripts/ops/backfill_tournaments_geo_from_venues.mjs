@@ -86,10 +86,82 @@ if (!url || !key) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_
 const supabase = createClient(url, key, { auth: { persistSession: false } });
 
 async function runOnce(limit, offset) {
-  const res = await supabase.rpc("backfill_tournaments_geo_from_venues_v1", { p_limit: limit, p_offset: offset });
-  if (res.error) throw res.error;
-  const row = Array.isArray(res.data) ? res.data[0] : res.data;
-  return row ?? null;
+  const rpc = await supabase.rpc("backfill_tournaments_geo_from_venues_v1", { p_limit: limit, p_offset: offset });
+  if (!rpc.error) {
+    const row = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
+    return row ?? null;
+  }
+
+  // Fallback: apply the deterministic backfill client-side.
+  // This keeps ops unblocked if the RPC isn't deployed yet or fails due to a SQL bug.
+  const errMsg = String(rpc.error?.message ?? "");
+  console.warn(`[backfill_tournaments_geo_from_venues] rpc_failed code=${rpc.error?.code ?? "?"} msg=${errMsg}`);
+
+  const candidatesRes = await supabase
+    .from("tournaments")
+    .select("id", { count: "exact" })
+    .or("latitude.is.null,longitude.is.null")
+    .order("updated_at", { ascending: false })
+    .order("id", { ascending: true })
+    .range(offset, offset + limit - 1);
+  if (candidatesRes.error) throw candidatesRes.error;
+
+  const candidateIds = (candidatesRes.data ?? []).map((r) => r.id).filter(Boolean);
+  const scanned = candidateIds.length;
+  if (!candidateIds.length) return { scanned, updated: 0 };
+
+  const linksRes = await supabase
+    .from("tournament_venues")
+    .select("tournament_id,is_primary,created_at,venues(latitude,longitude)")
+    .in("tournament_id", candidateIds)
+    .eq("is_inferred", false);
+  if (linksRes.error) throw linksRes.error;
+
+  const bestByTournament = new Map();
+  for (const row of linksRes.data ?? []) {
+    const tournamentId = row.tournament_id;
+    const isPrimary = Boolean(row.is_primary);
+    const createdAt = row.created_at ?? null;
+    const lat = row?.venues?.latitude ?? null;
+    const lng = row?.venues?.longitude ?? null;
+    if (typeof lat !== "number" || typeof lng !== "number") continue;
+
+    const existing = bestByTournament.get(tournamentId);
+    if (!existing) {
+      bestByTournament.set(tournamentId, { lat, lng, isPrimary, createdAt });
+      continue;
+    }
+
+    const existingPrimary = Boolean(existing.isPrimary);
+    if (isPrimary && !existingPrimary) {
+      bestByTournament.set(tournamentId, { lat, lng, isPrimary, createdAt });
+      continue;
+    }
+    if (isPrimary === existingPrimary) {
+      const a = String(existing.createdAt ?? "9999-12-31T00:00:00Z");
+      const b = String(createdAt ?? "9999-12-31T00:00:00Z");
+      if (b < a) {
+        bestByTournament.set(tournamentId, { lat, lng, isPrimary, createdAt });
+      }
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+  const updates = Array.from(bestByTournament.entries()).map(([id, best]) => ({
+    id,
+    latitude: best.lat,
+    longitude: best.lng,
+    geo_source: best.isPrimary ? "primary_venue_backfill_v1" : "confirmed_venue_backfill_v1",
+    geo_updated_at: nowIso,
+  }));
+
+  if (!updates.length) return { scanned, updated: 0 };
+
+  // Upsert by primary key id. This will only update existing tournaments.
+  const upsertRes = await supabase.from("tournaments").upsert(updates, { onConflict: "id" });
+  if (upsertRes.error) throw upsertRes.error;
+
+  return { scanned, updated: updates.length };
 }
 
 async function main() {
@@ -110,4 +182,3 @@ main().catch((e) => {
   console.error("[backfill_tournaments_geo_from_venues] fatal", e);
   process.exit(1);
 });
-
