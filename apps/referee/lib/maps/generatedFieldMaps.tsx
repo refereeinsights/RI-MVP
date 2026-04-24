@@ -175,29 +175,40 @@ export async function renderGeneratedMapPng(
           {hasSunPathOverlay ? (
             <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ fontSize: 10, fontWeight: 800, opacity: 0.92 }}>Afternoon Sun</div>
-                <div style={{ fontSize: 10, fontWeight: 800, opacity: 0.92 }}>Morning Sun</div>
+                <div style={{ fontSize: 10, fontWeight: 800, opacity: 0.92 }}>Afternoon Sun ←</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="4.3" fill="rgba(255,215,0,0.9)" />
+                    <path
+                      d="M12 2.2v3.1M12 18.7v3.1M2.2 12h3.1M18.7 12h3.1M4.5 4.5l2.2 2.2M17.3 17.3l2.2 2.2M19.5 4.5l-2.2 2.2M6.7 17.3l-2.2 2.2"
+                      stroke="rgba(255,215,0,0.85)"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                  <div style={{ fontSize: 10, fontWeight: 800, opacity: 0.92 }}>Morning Sun</div>
+                </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="260" height="26" viewBox="0 0 260 26">
                   <path
-                    d="M 14 20 C 70 4, 190 4, 246 20"
+                    d="M 246 20 C 190 4, 70 4, 14 20"
                     fill="none"
-                    stroke="rgba(255,255,255,0.45)"
+                    stroke="rgba(255,215,0,0.55)"
                     stroke-width="2"
                     stroke-linecap="round"
                   />
                   <path
-                    d="M 246 20 L 237 15 M 246 20 L 237 25"
+                    d="M 14 20 L 23 15 M 14 20 L 23 25"
                     fill="none"
-                    stroke="rgba(255,255,255,0.45)"
+                    stroke="rgba(255,215,0,0.55)"
                     stroke-width="2"
                     stroke-linecap="round"
                   />
                 </svg>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ fontSize: 10, opacity: 0.86 }}>Approx. Sun Path</div>
+                <div style={{ fontSize: 10, opacity: 0.9, color: "rgba(255,215,0,0.95)" }}>Approx. Sun Path</div>
                 <div style={{ fontSize: 10, opacity: 0.86 }}>Varies by season</div>
               </div>
             </div>
