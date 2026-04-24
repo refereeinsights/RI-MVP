@@ -1681,7 +1681,7 @@ export default async function VenueFieldMapsQueuePage({
         adminBase,
         `${forceRegenerate ? "Regenerate" : "Generate"} complete. updated=${updated}, skipped=${skipped}, missing_coords=${missingCoords}, already_applied=${alreadyApplied}, errored=${errored}${
           skipDetail ? `, skip_reasons: ${skipDetail}` : ""
-        }${errDetail ? `, errors: ${errDetail}` : ""}.`
+        }${errDetail ? `, errors: ${errDetail}` : ""}, sun_path=${sunPathEnabled ? "on" : "off"}.`
       );
     }
 
