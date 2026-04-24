@@ -65,6 +65,7 @@ export default function VenueWeatherPlannerCard(props: {
   longitude?: number | null;
   city?: string | null;
   state?: string | null;
+  zip?: string | null;
   tournamentStartDate?: string | null; // YYYY-MM-DD
   tournamentEndDate?: string | null; // YYYY-MM-DD
   showHeader?: boolean;
@@ -80,11 +81,13 @@ export default function VenueWeatherPlannerCard(props: {
     } else {
       const city = String(props.city ?? "").trim();
       const state = String(props.state ?? "").trim();
+      const zip = String(props.zip ?? "").trim();
       if (city) sp.set("city", city);
       if (state) sp.set("state", state);
+      if (zip) sp.set("zip", zip);
     }
     return sp.toString();
-  }, [props.latitude, props.longitude, props.city, props.state]);
+  }, [props.latitude, props.longitude, props.city, props.state, props.zip]);
 
   useEffect(() => {
     let mounted = true;

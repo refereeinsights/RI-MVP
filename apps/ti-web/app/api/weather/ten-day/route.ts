@@ -57,8 +57,10 @@ async function fetchJsonWithTimeout(url: string, timeoutMs: number, revalidateSe
   }
 }
 
-async function geocodeLatLngFromCityState(params: { city: string; state: string }) {
-  const q = `${params.city}, ${params.state}`.trim();
+async function geocodeLatLngFromCityState(params: { city: string; state: string; zip?: string | null }) {
+  const zip = String(params.zip ?? "").trim();
+  const zip5 = /^\d{5}$/.test(zip) ? zip : "";
+  const q = `${params.city}, ${params.state}${zip5 ? ` ${zip5}` : ""}`.trim();
   const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
   url.searchParams.set("name", q);
   url.searchParams.set("count", "1");
@@ -79,6 +81,7 @@ export async function GET(req: Request) {
   const lngRaw = parseNum(searchParams.get("lng"));
   const city = String(searchParams.get("city") ?? "").trim();
   const state = String(searchParams.get("state") ?? "").trim().toUpperCase();
+  const zip = String(searchParams.get("zip") ?? "").trim();
 
   let latitude = latRaw;
   let longitude = lngRaw;
@@ -87,7 +90,7 @@ export async function GET(req: Request) {
   if (latitude === null || longitude === null) {
     if (city && state) {
       try {
-        const geo = await geocodeLatLngFromCityState({ city, state });
+        const geo = await geocodeLatLngFromCityState({ city, state, zip });
         if (geo) {
           latitude = geo.latitude;
           longitude = geo.longitude;
@@ -177,4 +180,3 @@ export async function GET(req: Request) {
     );
   }
 }
-

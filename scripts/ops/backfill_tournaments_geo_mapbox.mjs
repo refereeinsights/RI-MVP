@@ -41,6 +41,7 @@ function parseArgv(argv) {
     apply: false,
     limit: 200,
     offset: 0,
+    repeat: 1,
     throttleMs: 350,
     onlyMissingBoth: true,
     country: "us",
@@ -51,6 +52,7 @@ function parseArgv(argv) {
     else if (raw === "--dry-run") out.apply = false;
     else if (raw.startsWith("--limit=")) out.limit = Number(raw.split("=").slice(1).join("="));
     else if (raw.startsWith("--offset=")) out.offset = Number(raw.split("=").slice(1).join("="));
+    else if (raw.startsWith("--repeat=")) out.repeat = Number(raw.split("=").slice(1).join("="));
     else if (raw.startsWith("--throttle-ms=")) out.throttleMs = Number(raw.split("=").slice(1).join("="));
     else if (raw === "--only-missing-both") out.onlyMissingBoth = true;
     else if (raw === "--missing-any") out.onlyMissingBoth = false;
@@ -83,10 +85,12 @@ Requires:
   }
   if (!Number.isFinite(out.limit) || out.limit <= 0) out.limit = 200;
   if (!Number.isFinite(out.offset) || out.offset < 0) out.offset = 0;
+  if (!Number.isFinite(out.repeat) || out.repeat <= 0) out.repeat = 1;
   if (!Number.isFinite(out.throttleMs) || out.throttleMs < 0) out.throttleMs = 0;
   if (!Number.isFinite(out.maxErrors) || out.maxErrors <= 0) out.maxErrors = 25;
   out.limit = Math.min(2000, Math.max(1, Math.floor(out.limit)));
   out.offset = Math.floor(out.offset);
+  out.repeat = Math.min(500, Math.floor(out.repeat));
   out.throttleMs = Math.floor(out.throttleMs);
   out.maxErrors = Math.floor(out.maxErrors);
   return out;
@@ -203,81 +207,93 @@ async function loadBatch(args) {
 
 async function main() {
   const args = parseArgv(process.argv.slice(2));
-  const batch = await loadBatch(args);
-  console.log(`[backfill_tournaments_geo_mapbox] loaded ${batch.length} tournaments (offset=${args.offset}, limit=${args.limit})`);
+  let totalErrors = 0;
+  let totalUpdated = 0;
+  let totalSkipped = 0;
 
-  let errors = 0;
-  let updated = 0;
-  let skipped = 0;
+  for (let i = 0; i < args.repeat; i++) {
+    const offset = args.offset + i * args.limit;
+    const batch = await loadBatch({ ...args, offset });
+    console.log(
+      `[backfill_tournaments_geo_mapbox] loaded ${batch.length} tournaments (offset=${offset}, limit=${args.limit})`
+    );
+    if (!batch.length) break;
 
-  for (const t of batch) {
-    const label = `${t.slug ?? t.id} :: ${t.name ?? ""}`.trim();
-    const q = buildQueryFromTournament(t);
-    if (!q) {
-      console.log(`[skip] ${label} missing_geocode_query`);
-      skipped += 1;
-      continue;
-    }
+    for (const t of batch) {
+      const label = `${t.slug ?? t.id} :: ${t.name ?? ""}`.trim();
+      const q = buildQueryFromTournament(t);
+      if (!q) {
+        console.log(`[skip] ${label} missing_geocode_query`);
+        totalSkipped += 1;
+        continue;
+      }
 
-    let geocode = null;
-    try {
-      geocode = await mapboxForwardGeocode({ token: mapboxToken, query: q, country: args.country });
-    } catch (e) {
-      errors += 1;
-      console.warn(`[error] ${label} geocode_failed ${String(e?.message ?? e)}`);
-      if (errors >= args.maxErrors) throw new Error(`Too many errors (${errors})`);
+      let geocode = null;
+      try {
+        geocode = await mapboxForwardGeocode({ token: mapboxToken, query: q, country: args.country });
+      } catch (e) {
+        totalErrors += 1;
+        console.warn(`[error] ${label} geocode_failed ${String(e?.message ?? e)}`);
+        if (totalErrors >= args.maxErrors) throw new Error(`Too many errors (${totalErrors})`);
+        await sleep(args.throttleMs);
+        continue;
+      }
+
+      if (!geocode) {
+        console.log(`[skip] ${label} no_results`);
+        totalSkipped += 1;
+        await sleep(args.throttleMs);
+        continue;
+      }
+
+      const accept = shouldAcceptGeocode({ tournament: t, geocode });
+      if (!accept.ok) {
+        console.log(`[skip] ${label} reject=${accept.reason} -> ${geocode.lat.toFixed(6)},${geocode.lng.toFixed(6)}`);
+        totalSkipped += 1;
+        await sleep(args.throttleMs);
+        continue;
+      }
+
+      if (!args.apply) {
+        console.log(
+          `[dry_run] ${label} -> ${geocode.lat.toFixed(6)},${geocode.lng.toFixed(6)} (${geocode.place_name ?? ""})`
+        );
+        totalUpdated += 1;
+        await sleep(args.throttleMs);
+        continue;
+      }
+
+      const res = await supabase
+        .from("tournaments")
+        .update({
+          latitude: geocode.lat,
+          longitude: geocode.lng,
+          geo_source: "mapbox_forward_backfill_v1",
+          geo_updated_at: new Date().toISOString(),
+        })
+        .eq("id", t.id)
+        .or("latitude.is.null,longitude.is.null");
+      if (res.error) {
+        totalErrors += 1;
+        console.warn(`[error] ${label} update_failed ${res.error.message}`);
+        if (totalErrors >= args.maxErrors) throw new Error(`Too many errors (${totalErrors})`);
+      } else {
+        console.log(
+          `[apply] ${label} -> ${geocode.lat.toFixed(6)},${geocode.lng.toFixed(6)} (${geocode.place_name ?? ""})`
+        );
+        totalUpdated += 1;
+      }
+
       await sleep(args.throttleMs);
-      continue;
     }
 
-    if (!geocode) {
-      console.log(`[skip] ${label} no_results`);
-      skipped += 1;
-      await sleep(args.throttleMs);
-      continue;
-    }
-
-    const accept = shouldAcceptGeocode({ tournament: t, geocode });
-    if (!accept.ok) {
-      console.log(`[skip] ${label} reject=${accept.reason} -> ${geocode.lat.toFixed(6)},${geocode.lng.toFixed(6)}`);
-      skipped += 1;
-      await sleep(args.throttleMs);
-      continue;
-    }
-
-    if (!args.apply) {
-      console.log(`[dry_run] ${label} -> ${geocode.lat.toFixed(6)},${geocode.lng.toFixed(6)} (${geocode.place_name ?? ""})`);
-      updated += 1;
-      await sleep(args.throttleMs);
-      continue;
-    }
-
-    const res = await supabase
-      .from("tournaments")
-      .update({
-        latitude: geocode.lat,
-        longitude: geocode.lng,
-        geo_source: "mapbox_forward_backfill_v1",
-        geo_updated_at: new Date().toISOString(),
-      })
-      .eq("id", t.id);
-    if (res.error) {
-      errors += 1;
-      console.warn(`[error] ${label} update_failed ${res.error.message}`);
-      if (errors >= args.maxErrors) throw new Error(`Too many errors (${errors})`);
-    } else {
-      console.log(`[apply] ${label} -> ${geocode.lat.toFixed(6)},${geocode.lng.toFixed(6)} (${geocode.place_name ?? ""})`);
-      updated += 1;
-    }
-
-    await sleep(args.throttleMs);
+    if (batch.length < args.limit) break;
   }
 
-  console.log(JSON.stringify({ ok: true, updated, skipped, errors }, null, 2));
+  console.log(JSON.stringify({ ok: true, updated: totalUpdated, skipped: totalSkipped, errors: totalErrors }, null, 2));
 }
 
 main().catch((e) => {
   console.error("[backfill_tournaments_geo_mapbox] fatal", e);
   process.exit(1);
 });
-

@@ -190,6 +190,7 @@ export default function OwlsEyeVenueCard({
                       longitude={venue.longitude ?? null}
                       city={venue.city}
                       state={venue.state}
+                      zip={venue.zip ?? null}
                       tournamentStartDate={selectedTournamentStartDate ?? null}
                       tournamentEndDate={selectedTournamentEndDate ?? null}
                     />
@@ -341,6 +342,7 @@ export default function OwlsEyeVenueCard({
                         longitude={venue.longitude ?? null}
                         city={venue.city}
                         state={venue.state}
+                        zip={venue.zip ?? null}
                         tournamentStartDate={selectedTournamentStartDate ?? null}
                         tournamentEndDate={selectedTournamentEndDate ?? null}
                       />
