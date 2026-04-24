@@ -95,7 +95,15 @@ async function runOnce(limit, offset) {
   // Fallback: apply the deterministic backfill client-side.
   // This keeps ops unblocked if the RPC isn't deployed yet or fails due to a SQL bug.
   const errMsg = String(rpc.error?.message ?? "");
-  console.warn(`[backfill_tournaments_geo_from_venues] rpc_failed code=${rpc.error?.code ?? "?"} msg=${errMsg}`);
+  console.warn(
+    `[backfill_tournaments_geo_from_venues] rpc_failed code=${rpc.error?.code ?? "?"} msg=${errMsg}`
+  );
+
+  function chunkArray(list, size) {
+    const out = [];
+    for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+    return out;
+  }
 
   const candidatesRes = await supabase
     .from("tournaments")
@@ -110,38 +118,41 @@ async function runOnce(limit, offset) {
   const scanned = candidateIds.length;
   if (!candidateIds.length) return { scanned, updated: 0 };
 
-  const linksRes = await supabase
-    .from("tournament_venues")
-    .select("tournament_id,is_primary,created_at,venues(latitude,longitude)")
-    .in("tournament_id", candidateIds)
-    .eq("is_inferred", false);
-  if (linksRes.error) throw linksRes.error;
-
   const bestByTournament = new Map();
-  for (const row of linksRes.data ?? []) {
-    const tournamentId = row.tournament_id;
-    const isPrimary = Boolean(row.is_primary);
-    const createdAt = row.created_at ?? null;
-    const lat = row?.venues?.latitude ?? null;
-    const lng = row?.venues?.longitude ?? null;
-    if (typeof lat !== "number" || typeof lng !== "number") continue;
+  const idChunks = chunkArray(candidateIds, 200);
+  for (const chunk of idChunks) {
+    const linksRes = await supabase
+      .from("tournament_venues")
+      .select("tournament_id,is_primary,created_at,venues(latitude,longitude)")
+      .in("tournament_id", chunk)
+      .eq("is_inferred", false);
+    if (linksRes.error) throw linksRes.error;
 
-    const existing = bestByTournament.get(tournamentId);
-    if (!existing) {
-      bestByTournament.set(tournamentId, { lat, lng, isPrimary, createdAt });
-      continue;
-    }
+    for (const row of linksRes.data ?? []) {
+      const tournamentId = row.tournament_id;
+      const isPrimary = Boolean(row.is_primary);
+      const createdAt = row.created_at ?? null;
+      const lat = row?.venues?.latitude ?? null;
+      const lng = row?.venues?.longitude ?? null;
+      if (typeof lat !== "number" || typeof lng !== "number") continue;
 
-    const existingPrimary = Boolean(existing.isPrimary);
-    if (isPrimary && !existingPrimary) {
-      bestByTournament.set(tournamentId, { lat, lng, isPrimary, createdAt });
-      continue;
-    }
-    if (isPrimary === existingPrimary) {
-      const a = String(existing.createdAt ?? "9999-12-31T00:00:00Z");
-      const b = String(createdAt ?? "9999-12-31T00:00:00Z");
-      if (b < a) {
+      const existing = bestByTournament.get(tournamentId);
+      if (!existing) {
         bestByTournament.set(tournamentId, { lat, lng, isPrimary, createdAt });
+        continue;
+      }
+
+      const existingPrimary = Boolean(existing.isPrimary);
+      if (isPrimary && !existingPrimary) {
+        bestByTournament.set(tournamentId, { lat, lng, isPrimary, createdAt });
+        continue;
+      }
+      if (isPrimary === existingPrimary) {
+        const a = String(existing.createdAt ?? "9999-12-31T00:00:00Z");
+        const b = String(createdAt ?? "9999-12-31T00:00:00Z");
+        if (b < a) {
+          bestByTournament.set(tournamentId, { lat, lng, isPrimary, createdAt });
+        }
       }
     }
   }
@@ -157,9 +168,12 @@ async function runOnce(limit, offset) {
 
   if (!updates.length) return { scanned, updated: 0 };
 
-  // Upsert by primary key id. This will only update existing tournaments.
-  const upsertRes = await supabase.from("tournaments").upsert(updates, { onConflict: "id" });
-  if (upsertRes.error) throw upsertRes.error;
+  // Upsert by primary key id. Chunk to avoid request size limits.
+  const updateChunks = chunkArray(updates, 250);
+  for (const chunk of updateChunks) {
+    const upsertRes = await supabase.from("tournaments").upsert(chunk, { onConflict: "id" });
+    if (upsertRes.error) throw upsertRes.error;
+  }
 
   return { scanned, updated: updates.length };
 }
