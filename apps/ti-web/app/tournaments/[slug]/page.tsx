@@ -12,11 +12,14 @@ import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SaveTournamentButton from "@/components/SaveTournamentButton";
 import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
 import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheckButton";
+import TournamentWeatherPlannerAccordion from "@/components/tournaments/TournamentWeatherPlannerAccordion";
+import HotelBookingCta from "@/components/venues/HotelBookingCta";
 import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
 import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
 import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
+import { buildHotelsHref, canShowBookingCta, isValidZip5 } from "@/lib/booking/venueBooking";
 import "../tournaments.css";
 
 type TournamentDetailCoreRow = {
@@ -26,6 +29,8 @@ type TournamentDetailCoreRow = {
   city: string | null;
   state: string | null;
   zip?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   start_date: string | null;
   end_date: string | null;
   summary: string | null;
@@ -100,13 +105,6 @@ type LinkedVenue = {
   zip: string | null;
   latitude: number | null;
   longitude: number | null;
-  venue_url: string | null;
-  restroom_cleanliness_avg: number | null;
-  shade_score_avg: number | null;
-  vendor_score_avg: number | null;
-  parking_convenience_score_avg: number | null;
-  review_count: number | null;
-  reviews_last_updated_at: string | null;
 };
 
 type TournamentPartnerRow = {
@@ -536,16 +534,27 @@ async function TournamentVenueDetails({
   const { data: venueLinksRaw } = await supabaseAdmin
     .from("tournament_venues" as any)
     .select(
-      "venue_id,is_primary,created_at,venues(id,seo_slug,name,city,state)"
+      "venue_id,is_primary,created_at,venues(id,seo_slug,name,address,city,state,zip,latitude,longitude)"
     )
     .eq("tournament_id", tournament.id)
     .eq("is_inferred", false)
     .order("is_primary", { ascending: false })
     .order("created_at", { ascending: true });
 
-  const linkedVenues: LinkedVenue[] = ((venueLinksRaw as any[]) ?? [])
-    .map((row: any) => row?.venues ?? null)
-    .filter((v: any): v is LinkedVenue => Boolean(v && typeof v.id === "string"));
+  const venueLinkRows: Array<{ venue: LinkedVenue; isPrimary: boolean; createdAt: string | null; idx: number }> = (
+    (venueLinksRaw as any[]) ?? []
+  )
+    .map((row: any, idx: number) => ({
+      venue: row?.venues ?? null,
+      isPrimary: Boolean(row?.is_primary),
+      createdAt: typeof row?.created_at === "string" ? row.created_at : null,
+      idx,
+    }))
+    .filter((row: any): row is { venue: LinkedVenue; isPrimary: boolean; createdAt: string | null; idx: number } =>
+      Boolean(row?.venue && typeof row.venue.id === "string")
+    );
+
+  const linkedVenues: LinkedVenue[] = venueLinkRows.map((row) => row.venue);
 
   const linkedVenueIds = linkedVenues.map((v) => v.id).filter(Boolean);
   const linkedVenueNameById = new Map(linkedVenues.map((venue) => [venue.id, venue.name ?? "Tournament venue"]));
@@ -566,6 +575,7 @@ async function TournamentVenueDetails({
   });
 
   let hasOwlsEyeByVenueId = new Map<string, boolean>();
+  let owlsEyeCountsByVenueId = new Map<string, { food: number; coffee: number; hotels: number; sporting_goods: number }>();
 
   const runRows = await fetchLatestOwlsEyeRuns(linkedVenueIds);
   const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
@@ -597,6 +607,13 @@ async function TournamentVenueDetails({
       countsByRunId.set(runId, current);
     }
 
+    owlsEyeCountsByVenueId = new Map(
+      Array.from(latestRunByVenue.entries()).map(([venueId, run]) => {
+        const runId = (run.run_id ?? run.id) as string;
+        return [venueId, countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 }] as const;
+      })
+    );
+
     hasOwlsEyeByVenueId = new Map(
       Array.from(latestRunByVenue.entries()).map(([venueId, run]) => {
         const runId = (run.run_id ?? run.id) as string;
@@ -605,6 +622,77 @@ async function TournamentVenueDetails({
       })
     );
   }
+
+  const displayVenueRows = venueLinkRows
+    .map((row) => {
+      const counts = owlsEyeCountsByVenueId.get(row.venue.id) ?? null;
+      const hasOwl = hasOwlsEyeByVenueId.get(row.venue.id) ?? false;
+      const hasCoords = typeof row.venue.latitude === "number" && typeof row.venue.longitude === "number";
+      const hasZip = isValidZip5(row.venue.zip);
+      const hasSeoSlug = Boolean(String(row.venue.seo_slug ?? "").trim());
+
+      const score =
+        (row.isPrimary ? 1000 : 0) +
+        (hasOwl ? 100 : 0) +
+        (hasCoords ? 10 : 0) +
+        (hasZip ? 5 : 0) +
+        (hasSeoSlug ? 1 : 0);
+
+      return {
+        ...row,
+        counts,
+        hasOwl,
+        hasCoords,
+        hasZip,
+        hasSeoSlug,
+        score,
+      };
+    })
+    .sort((a, b) => (b.score - a.score) || (a.idx - b.idx));
+
+  const bestWeatherVenueRow =
+    displayVenueRows.find((v) => v.isPrimary && v.hasCoords) ??
+    displayVenueRows.find((v) => v.hasCoords) ??
+    displayVenueRows.find((v) => v.hasZip || (v.venue.city && v.venue.state)) ??
+    null;
+
+  const bestOwlVenueRow = displayVenueRows.find((v) => v.hasOwl) ?? null;
+  const bookingVenueRow = displayVenueRows.find((v) => canShowBookingCta({ zip: v.venue.zip })) ?? null;
+
+  const fallbackCity = tournament.city ?? null;
+  const fallbackState = tournament.state ?? null;
+  const fallbackZip = typeof tournament.zip === "string" ? tournament.zip : null;
+
+  const bestWeatherLocation = {
+    latitude:
+      bestWeatherVenueRow?.venue.latitude ??
+      (typeof tournament.latitude === "number" ? tournament.latitude : null) ??
+      null,
+    longitude:
+      bestWeatherVenueRow?.venue.longitude ??
+      (typeof tournament.longitude === "number" ? tournament.longitude : null) ??
+      null,
+    city: bestWeatherVenueRow?.venue.city ?? fallbackCity,
+    state: bestWeatherVenueRow?.venue.state ?? fallbackState,
+    zip:
+      (bestWeatherVenueRow?.venue.zip && isValidZip5(bestWeatherVenueRow.venue.zip) ? bestWeatherVenueRow.venue.zip : null) ??
+      fallbackZip,
+  };
+
+  const mostCommonVenueLocation = (() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    for (const row of displayVenueRows) {
+      const city = String(row.venue.city ?? "").trim();
+      const state = String(row.venue.state ?? "").trim().toUpperCase();
+      if (!city || !/^[A-Z]{2}$/.test(state)) continue;
+      const key = `${city.toLowerCase()}|${state}`;
+      const existing = counts.get(key);
+      if (existing) existing.count += 1;
+      else counts.set(key, { label: `${city}, ${state}`, count: 1 });
+    }
+    const sorted = Array.from(counts.values()).sort((a, b) => b.count - a.count);
+    return sorted[0]?.label ?? null;
+  })();
 
   const MAX_VENUES_IN_SENTENCE = 5;
   const venueItems: SemanticListItem[] = linkedVenues
@@ -648,30 +736,184 @@ async function TournamentVenueDetails({
               { type: "text", value: "." },
           ] as SemanticListPart[]);
 
-  const tournamentDetailHref = `/tournaments/${encodeURIComponent(tournament.slug ?? paramsSlug)}`;
+  const venueCount = displayVenueRows.length;
+  const whereYoullPlayLine =
+    venueCount === 1
+      ? "This tournament is scheduled at 1 venue."
+      : venueCount > 1
+        ? `This tournament uses ${venueCount} venues across the area.`
+        : "Venue details coming soon.";
+
+  const showVenueWarning = venueCount >= 10;
+
+  const planFoodCoffeeLine = (() => {
+    if (!bestOwlVenueRow) return null;
+    const counts = bestOwlVenueRow.counts;
+    if (!counts) return "Nearby options available";
+    const total = counts.food + counts.coffee + counts.hotels + counts.sporting_goods;
+    if (!total) return "Nearby options available";
+    return `☕ ${counts.coffee} coffee • 🍔 ${counts.food} food`;
+  })();
+
+  const planHotelsLine = (() => {
+    if (!bestOwlVenueRow) return null;
+    const counts = bestOwlVenueRow.counts;
+    if (!counts) return "Nearby options available";
+    if (!counts.hotels) return "Nearby options available";
+    return `🏨 ${counts.hotels} hotels nearby`;
+  })();
 
   return (
     <>
-      {linkedVenues.length > 0 ? (
-        <div className={`detailVenueGrid${linkedVenues.length === 1 ? " detailVenueGrid--single" : ""}`}>
-          {linkedVenues.map((venue) => (
-            <Link
-              key={venue.id}
-              href={`/venues/${venue.seo_slug || venue.id}?tournament=${encodeURIComponent(tournament.slug ?? paramsSlug)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`detailVenueTile ${hasOwlsEyeByVenueId.get(venue.id) ? "detailVenueTile--withOwl" : ""}`}
-            >
-              <span className="detailVenueTile__eyebrow">Venue</span>
-              <span className="detailVenueTile__name">{venue.name || "Venue TBA"}</span>
-              {hasOwlsEyeByVenueId.get(venue.id) ? (
-                <span className="detailVenueTile__flag">{BRAND_OWL}</span>
-              ) : (
-                <span className="detailVenueTile__flag">Open details</span>
-              )}
-            </Link>
-          ))}
+      <div style={{ width: "min(720px, 100%)", marginTop: 12 }}>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 950 }}>Plan This Tournament</h2>
+        <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>
+          Weather, hotels, nearby options, and venue logistics for tournament families.
         </div>
+
+        <div className="detailVenueGrid" style={{ marginTop: 10 }}>
+          <a className="detailVenueTile" href="#weather-planner">
+            <span className="detailVenueTile__eyebrow">Planning</span>
+            <span className="detailVenueTile__name">Weather</span>
+            <span style={{ fontSize: 12, opacity: 0.85 }}>
+              {bestWeatherLocation.city || bestWeatherLocation.state
+                ? `10-day forecast for ${[bestWeatherLocation.city, bestWeatherLocation.state].filter(Boolean).join(", ")}.`
+                : "Check the forecast to plan clothing, hydration, shade, and sideline gear."}
+            </span>
+            <span className="detailVenueTile__flag">View 10-day forecast</span>
+          </a>
+
+          <a className="detailVenueTile" href="#where-to-stay">
+            <span className="detailVenueTile__eyebrow">Planning</span>
+            <span className="detailVenueTile__name">Where to stay</span>
+            <span style={{ fontSize: 12, opacity: 0.85 }}>{planHotelsLine ?? "Compare hotels near the tournament venues."}</span>
+            <span className="detailVenueTile__flag">View hotel options</span>
+          </a>
+
+          <a className="detailVenueTile" href="#where-youll-play">
+            <span className="detailVenueTile__eyebrow">Planning</span>
+            <span className="detailVenueTile__name">Food &amp; coffee nearby</span>
+            <span style={{ fontSize: 12, opacity: 0.85 }}>
+              {planFoodCoffeeLine ??
+                (displayVenueRows.some((v) => v.hasOwl) ? "Nearby options available" : "Nearby options unavailable right now")}
+            </span>
+            <span className="detailVenueTile__flag">See venue details</span>
+          </a>
+
+          <a className="detailVenueTile" href="#where-youll-play">
+            <span className="detailVenueTile__eyebrow">Planning</span>
+            <span className="detailVenueTile__name">Venue spread</span>
+            <span style={{ fontSize: 12, opacity: 0.85 }}>
+              {venueCount === 0
+                ? "Venue details coming soon."
+                : venueCount === 1
+                  ? "One venue location."
+                  : mostCommonVenueLocation
+                    ? `${venueCount} venues (mostly in ${mostCommonVenueLocation}).`
+                    : `${venueCount} venues across the area.`}
+            </span>
+            <span className="detailVenueTile__flag">Where you&apos;ll play</span>
+          </a>
+        </div>
+
+        <div className="detailLinksRow" style={{ marginTop: 10 }}>
+          <a className="secondaryLink" href="#where-youll-play">
+            View full tournament plan
+          </a>
+        </div>
+      </div>
+
+      <div id="weather-planner" style={{ width: "min(720px, 100%)", scrollMarginTop: 90 }}>
+        <h2 style={{ margin: "16px 0 0", fontSize: 16, fontWeight: 950 }}>10-Day Weather Planner</h2>
+        <TournamentWeatherPlannerAccordion
+          latitude={bestWeatherLocation.latitude}
+          longitude={bestWeatherLocation.longitude}
+          city={bestWeatherLocation.city}
+          state={bestWeatherLocation.state}
+          zip={bestWeatherLocation.zip}
+          tournamentStartDate={tournament.start_date}
+          tournamentEndDate={tournament.end_date}
+        />
+      </div>
+
+      <div id="where-youll-play" style={{ width: "min(720px, 100%)", scrollMarginTop: 90 }}>
+        <h2 style={{ margin: "18px 0 0", fontSize: 16, fontWeight: 950 }}>Where You&apos;ll Play</h2>
+        <div style={{ marginTop: 6, fontSize: 13, opacity: 0.92 }}>{whereYoullPlayLine}</div>
+        {mostCommonVenueLocation ? (
+          <div style={{ marginTop: 4, fontSize: 12, opacity: 0.82 }}>Most venues are in {mostCommonVenueLocation}.</div>
+        ) : null}
+        {showVenueWarning ? (
+          <div style={{ marginTop: 6, fontSize: 12, opacity: 0.82 }}>
+            Large multi-venue tournament — check your assigned field location before booking hotels.
+          </div>
+        ) : null}
+      </div>
+
+      {displayVenueRows.length > 0 ? (
+        <>
+          <div className={`detailVenueGrid${displayVenueRows.length === 1 ? " detailVenueGrid--single" : ""}`}>
+            {displayVenueRows.slice(0, 6).map((row) => {
+              const venue = row.venue;
+              const location = [venue.city, venue.state].filter(Boolean).join(", ") || "Location TBA";
+              const counts = row.counts;
+              const countsLine =
+                row.hasOwl && counts
+                  ? [`☕ ${counts.coffee}`, `🍔 ${counts.food}`, counts.hotels ? `🏨 ${counts.hotels}` : null].filter(Boolean).join(" • ")
+                  : null;
+
+              return (
+                <Link
+                  key={venue.id}
+                  href={`/venues/${venue.seo_slug || venue.id}?tournament=${encodeURIComponent(tournament.slug ?? paramsSlug)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`detailVenueTile ${row.hasOwl ? "detailVenueTile--withOwl" : ""}`}
+                >
+                  <span className="detailVenueTile__eyebrow">Venue</span>
+                  <span className="detailVenueTile__name">{venue.name || "Venue TBA"}</span>
+                  <span style={{ fontSize: 12, opacity: 0.85 }}>{location}</span>
+                  {countsLine ? <span style={{ fontSize: 12, opacity: 0.82 }}>{countsLine}</span> : null}
+                  <span className="detailVenueTile__flag">{row.hasOwl ? `${BRAND_OWL} View venue` : "View venue"}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {displayVenueRows.length > 6 ? (
+            <details className="detailVenueCollapse" style={{ width: "min(720px, 100%)" }}>
+              <summary>{`Show all ${displayVenueRows.length} venues`}</summary>
+              <div className="detailVenueCollapse__body">
+                <div className="detailVenueGrid">
+                  {displayVenueRows.slice(6).map((row) => {
+                    const venue = row.venue;
+                    const location = [venue.city, venue.state].filter(Boolean).join(", ") || "Location TBA";
+                    const counts = row.counts;
+                    const countsLine =
+                      row.hasOwl && counts
+                        ? [`☕ ${counts.coffee}`, `🍔 ${counts.food}`, counts.hotels ? `🏨 ${counts.hotels}` : null].filter(Boolean).join(" • ")
+                        : null;
+
+                    return (
+                      <Link
+                        key={venue.id}
+                        href={`/venues/${venue.seo_slug || venue.id}?tournament=${encodeURIComponent(tournament.slug ?? paramsSlug)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`detailVenueTile ${row.hasOwl ? "detailVenueTile--withOwl" : ""}`}
+                      >
+                        <span className="detailVenueTile__eyebrow">Venue</span>
+                        <span className="detailVenueTile__name">{venue.name || "Venue TBA"}</span>
+                        <span style={{ fontSize: 12, opacity: 0.85 }}>{location}</span>
+                        {countsLine ? <span style={{ fontSize: 12, opacity: 0.82 }}>{countsLine}</span> : null}
+                        <span className="detailVenueTile__flag">{row.hasOwl ? `${BRAND_OWL} View venue` : "View venue"}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </details>
+          ) : null}
+        </>
       ) : null}
 
       {linkedVenues.length > 0 ? (
@@ -710,6 +952,25 @@ async function TournamentVenueDetails({
           </div>
         </div>
       ) : null}
+
+      <div id="where-to-stay" style={{ width: "min(720px, 100%)", marginTop: 16, scrollMarginTop: 90 }}>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 950 }}>Where to Stay for This Tournament</h2>
+        <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9 }}>
+          Compare hotels near the tournament venues and choose the best area for your team.
+        </div>
+        {bookingVenueRow ? (
+          <div style={{ marginTop: 10 }}>
+            <HotelBookingCta
+              href={buildHotelsHref({ venueId: bookingVenueRow.venue.id, tournamentId: tournament.id })}
+              venueId={bookingVenueRow.venue.id}
+              tournamentId={tournament.id}
+              label="View hotel options"
+            />
+          </div>
+        ) : (
+          <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9 }}>Hotel options unavailable right now.</div>
+        )}
+      </div>
 
       {tournament.summary ? <p className="detailSummary">{tournament.summary}</p> : null}
 
@@ -1009,7 +1270,9 @@ export default async function TournamentDetailPage({
 }) {
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
-    .select("id,slug,name,city,state,zip,start_date,end_date,summary,source_url,official_website_url,sport,level,tournament_staff_verified,venue,address")
+    .select(
+      "id,slug,name,city,state,zip,latitude,longitude,start_date,end_date,summary,source_url,official_website_url,sport,level,tournament_staff_verified,venue,address"
+    )
     .eq("slug", params.slug)
     .maybeSingle<TournamentDetailCoreRow>();
 
