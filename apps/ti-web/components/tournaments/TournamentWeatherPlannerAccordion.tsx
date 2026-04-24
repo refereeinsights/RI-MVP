@@ -1,9 +1,10 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import VenueWeatherPlannerCard from "@/components/venues/VenueWeatherPlannerCard";
 
 export default function TournamentWeatherPlannerAccordion({
+  anchorId = "weather-planner",
   latitude,
   longitude,
   city,
@@ -12,6 +13,7 @@ export default function TournamentWeatherPlannerAccordion({
   tournamentStartDate,
   tournamentEndDate,
 }: {
+  anchorId?: string;
   latitude?: number | null;
   longitude?: number | null;
   city?: string | null;
@@ -34,8 +36,19 @@ export default function TournamentWeatherPlannerAccordion({
       ? `10-day forecast for ${locationLabel}.`
       : "Check the forecast to plan clothing, hydration, shade, and sideline gear for this tournament.";
 
+  useEffect(() => {
+    const onHash = () => {
+      const hash = String(window.location.hash ?? "");
+      const id = hash.startsWith("#") ? hash.slice(1) : hash;
+      if (id && id === anchorId) setOpen(true);
+    };
+    onHash();
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, [anchorId]);
+
   return (
-    <div style={{ marginTop: 12 }}>
+    <div style={{ marginTop: 12, width: "min(720px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
       <details
         open={open}
         onToggle={(e) => {
@@ -46,6 +59,7 @@ export default function TournamentWeatherPlannerAccordion({
           border: "1px solid rgba(255,255,255,0.25)",
           background: "rgba(255,255,255,0.12)",
           padding: "10px 12px",
+          textAlign: "left",
         }}
       >
         <summary
@@ -83,4 +97,3 @@ export default function TournamentWeatherPlannerAccordion({
     </div>
   );
 }
-

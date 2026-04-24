@@ -658,6 +658,8 @@ async function TournamentVenueDetails({
 
   const bestOwlVenueRow = displayVenueRows.find((v) => v.hasOwl) ?? null;
   const bookingVenueRow = displayVenueRows.find((v) => canShowBookingCta({ zip: v.venue.zip })) ?? null;
+  const hotelClickVenueId =
+    bookingVenueRow?.venue.id ?? bestWeatherVenueRow?.venue.id ?? displayVenueRows[0]?.venue.id ?? null;
 
   const fallbackCity = tournament.city ?? null;
   const fallbackState = tournament.state ?? null;
@@ -763,9 +765,26 @@ async function TournamentVenueDetails({
     return `🏨 ${counts.hotels} hotels nearby`;
   })();
 
+  const tournamentHotelsSearchString = (() => {
+    const city = String(bestWeatherLocation.city ?? "").trim();
+    const state = String(bestWeatherLocation.state ?? "").trim().toUpperCase();
+    const zip = String(bestWeatherLocation.zip ?? "").trim();
+    const zipOk = isValidZip5(zip);
+    const stateOk = /^[A-Z]{2}$/.test(state);
+    if (city && stateOk && zipOk) return `${city}, ${state} ${zip}`;
+    if (city && stateOk) return `${city}, ${state}`;
+    if (zipOk) return zip;
+    return null;
+  })();
+
+  const tournamentHotelsHref =
+    hotelClickVenueId && tournamentHotelsSearchString
+      ? buildHotelsHrefWithSearch({ venueId: hotelClickVenueId, tournamentId: tournament.id, ss: tournamentHotelsSearchString })
+      : null;
+
   return (
     <>
-      <div style={{ width: "min(720px, 100%)", marginTop: 12 }}>
+      <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 950 }}>Plan This Tournament</h2>
         <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>
           Weather, hotels, nearby options, and venue logistics for tournament families.
@@ -783,11 +802,16 @@ async function TournamentVenueDetails({
             <span className="detailVenueTile__flag">View 10-day forecast</span>
           </a>
 
-          <a className="detailVenueTile" href="#where-to-stay">
+          <a
+            className="detailVenueTile"
+            href={tournamentHotelsHref ?? "#where-to-stay"}
+            target={tournamentHotelsHref ? "_blank" : undefined}
+            rel={tournamentHotelsHref ? "noopener noreferrer sponsored" : undefined}
+          >
             <span className="detailVenueTile__eyebrow">Planning</span>
             <span className="detailVenueTile__name">Where to stay</span>
             <span style={{ fontSize: 12, opacity: 0.85 }}>{planHotelsLine ?? "Compare hotels near the tournament venues."}</span>
-            <span className="detailVenueTile__flag">View hotel options</span>
+            <span className="detailVenueTile__flag">{tournamentHotelsHref ? "Open hotel options" : "View hotel options"}</span>
           </a>
 
           <a className="detailVenueTile" href="#where-youll-play">
@@ -823,7 +847,10 @@ async function TournamentVenueDetails({
         </div>
       </div>
 
-      <div id="weather-planner" style={{ width: "min(720px, 100%)", scrollMarginTop: 90 }}>
+      <div
+        id="weather-planner"
+        style={{ width: "min(720px, 100%)", scrollMarginTop: 90, marginLeft: "auto", marginRight: "auto" }}
+      >
         <h2 style={{ margin: "16px 0 0", fontSize: 16, fontWeight: 950 }}>10-Day Weather Planner</h2>
         <TournamentWeatherPlannerAccordion
           latitude={bestWeatherLocation.latitude}
@@ -836,7 +863,10 @@ async function TournamentVenueDetails({
         />
       </div>
 
-      <div id="where-youll-play" style={{ width: "min(720px, 100%)", scrollMarginTop: 90 }}>
+      <div
+        id="where-youll-play"
+        style={{ width: "min(720px, 100%)", scrollMarginTop: 90, marginLeft: "auto", marginRight: "auto" }}
+      >
         <h2 style={{ margin: "18px 0 0", fontSize: 16, fontWeight: 950 }}>Where You&apos;ll Play</h2>
         <div style={{ marginTop: 6, fontSize: 13, opacity: 0.92 }}>{whereYoullPlayLine}</div>
         {mostCommonVenueLocation ? (
@@ -851,7 +881,10 @@ async function TournamentVenueDetails({
 
       {displayVenueRows.length > 0 ? (
         <>
-          <div className={`detailVenueGrid${displayVenueRows.length === 1 ? " detailVenueGrid--single" : ""}`}>
+          <div
+            className={`detailVenueGrid${displayVenueRows.length === 1 ? " detailVenueGrid--single" : ""}`}
+            style={{ marginLeft: "auto", marginRight: "auto" }}
+          >
             {displayVenueRows.slice(0, 6).map((row) => {
               const venue = row.venue;
               const location = [venue.city, venue.state].filter(Boolean).join(", ") || "Location TBA";
@@ -880,7 +913,10 @@ async function TournamentVenueDetails({
           </div>
 
           {displayVenueRows.length > 6 ? (
-            <details className="detailVenueCollapse" style={{ width: "min(720px, 100%)" }}>
+            <details
+              className="detailVenueCollapse"
+              style={{ width: "min(720px, 100%)", marginLeft: "auto", marginRight: "auto" }}
+            >
               <summary>{`Show all ${displayVenueRows.length} venues`}</summary>
               <div className="detailVenueCollapse__body">
                 <div className="detailVenueGrid">
@@ -917,7 +953,16 @@ async function TournamentVenueDetails({
       ) : null}
 
       {linkedVenues.length > 0 ? (
-        <div id="quick-venue-check" style={{ marginTop: 12, scrollMarginTop: 90 }}>
+        <div
+          id="quick-venue-check"
+          style={{
+            marginTop: 12,
+            scrollMarginTop: 90,
+            width: "min(720px, 100%)",
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
           <QuickVenueCheck
             venueId={linkedVenues.length === 1 ? linkedVenues[0].id : undefined}
             venueOptions={linkedVenues.map((v) => ({ id: v.id, name: v.name }))}
@@ -927,7 +972,7 @@ async function TournamentVenueDetails({
           />
         </div>
       ) : venueInfo ? (
-        <div className="detailCard">
+        <div className="detailCard" style={{ marginLeft: "auto", marginRight: "auto" }}>
           <div className="detailCard__title">Venue</div>
           <div className="detailCard__body">
             <div className="detailVenueRow">
@@ -953,16 +998,25 @@ async function TournamentVenueDetails({
         </div>
       ) : null}
 
-      <div id="where-to-stay" style={{ width: "min(720px, 100%)", marginTop: 16, scrollMarginTop: 90 }}>
+      <div
+        id="where-to-stay"
+        style={{
+          width: "min(720px, 100%)",
+          marginTop: 16,
+          scrollMarginTop: 90,
+          marginLeft: "auto",
+          marginRight: "auto",
+        }}
+      >
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 950 }}>Where to Stay for This Tournament</h2>
         <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9 }}>
           Compare hotels near the tournament venues and choose the best area for your team.
         </div>
-        {bookingVenueRow ? (
+        {tournamentHotelsHref && hotelClickVenueId ? (
           <div style={{ marginTop: 10 }}>
             <HotelBookingCta
-              href={buildHotelsHref({ venueId: bookingVenueRow.venue.id, tournamentId: tournament.id })}
-              venueId={bookingVenueRow.venue.id}
+              href={tournamentHotelsHref}
+              venueId={hotelClickVenueId}
               tournamentId={tournament.id}
               label="View hotel options"
             />
@@ -1149,6 +1203,14 @@ function buildMapLinks(query: string) {
 
 function buildCanonicalUrl(slug: string) {
   return `${SITE_ORIGIN}/tournaments/${slug}`;
+}
+
+function buildHotelsHrefWithSearch(args: { venueId: string; tournamentId?: string | null; ss?: string | null }): string {
+  const qp = new URLSearchParams({ venueId: args.venueId });
+  if (args.tournamentId) qp.set("tournamentId", args.tournamentId);
+  const ss = String(args.ss ?? "").trim();
+  if (ss) qp.set("ss", ss);
+  return `/go/hotels?${qp.toString()}`;
 }
 
 function formatPartnerCategory(value: string | null) {
