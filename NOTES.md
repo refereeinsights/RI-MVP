@@ -6,6 +6,7 @@
 - TI weather: extended the 10-day weather endpoint + planner to accept `zip` (in addition to city/state) for tighter geocoding fallbacks when lat/lng are missing: `apps/ti-web/app/api/weather/ten-day/route.ts`, `apps/ti-web/components/venues/VenueWeatherPlannerCard.tsx`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`.
 - Ops: added `--repeat` batching to Mapbox tournament geo backfill so large runs can be executed in a single command: `scripts/ops/backfill_tournaments_geo_mapbox.mjs`.
 - Ops: fixed Mapbox + venue-based tournament geo backfills to paginate using a stable `id` ordering (avoids skipping rows if `updated_at` changes during updates): `scripts/ops/backfill_tournaments_geo_mapbox.mjs`, `scripts/ops/backfill_tournaments_geo_from_venues.mjs`.
+- Ops: improved Mapbox tournament geocode query building to ignore placeholder/non-street `tournaments.address` and fall back to city/state/zip-only queries (reduces no-result geocodes): `scripts/ops/backfill_tournaments_geo_mapbox.mjs`.
 
 ## 2026-04-23
 

@@ -112,14 +112,29 @@ function buildQueryFromTournament(t) {
   const state = String(t.state ?? "").trim();
   const zip = String(t.zip ?? "").trim();
 
-  const parts = [address, city, state, zip].filter(Boolean);
+  const hasDigit = (value) => /\d/.test(String(value ?? ""));
+  const looksLikePlaceholderAddress = (value) => {
+    const v = String(value ?? "").trim().toLowerCase();
+    if (!v) return true;
+    if (v.length <= 8) return false;
+    const tokens = ["tbd", "to be determined", "venue tba", "unknown", "high", "medium", "low", "state finals", "showcase"];
+    return tokens.some((t) => v.includes(t));
+  };
+
+  const safeAddress = address && hasDigit(address) && !looksLikePlaceholderAddress(address) ? address : "";
+  const safeVenue = venue && hasDigit(venue) && !looksLikePlaceholderAddress(venue) ? venue : "";
+
+  const parts = [safeAddress, city, state, zip].filter(Boolean);
   if (parts.length >= 2) return parts.join(", ");
 
-  const parts2 = [venue, city, state, zip].filter(Boolean);
+  const parts2 = [safeVenue, city, state, zip].filter(Boolean);
   if (parts2.length >= 2) return parts2.join(", ");
 
-  const parts3 = [t.name, city, state, zip].filter(Boolean);
+  const parts3 = [city, state, zip].filter(Boolean);
   if (parts3.length >= 2) return parts3.join(", ");
+
+  const parts4 = [t.name, city, state, zip].filter(Boolean);
+  if (parts4.length >= 2) return parts4.join(", ");
 
   return null;
 }
