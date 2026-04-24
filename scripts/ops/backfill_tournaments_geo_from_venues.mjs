@@ -109,7 +109,6 @@ async function runOnce(limit, offset) {
     .from("tournaments")
     .select("id", { count: "exact" })
     .or("latitude.is.null,longitude.is.null")
-    .order("updated_at", { ascending: false })
     .order("id", { ascending: true })
     .range(offset, offset + limit - 1);
   if (candidatesRes.error) throw candidatesRes.error;

@@ -194,7 +194,8 @@ async function loadBatch(args) {
   const query = supabase
     .from("tournaments")
     .select("id,slug,name,venue,address,city,state,zip,latitude,longitude,geo_source,updated_at")
-    .order("updated_at", { ascending: false })
+    // Use a stable ordering so pagination doesn't skip rows while we update geo fields.
+    .order("id", { ascending: true })
     .range(args.offset, args.offset + args.limit - 1);
 
   if (args.onlyMissingBoth) query.is("latitude", null).is("longitude", null);

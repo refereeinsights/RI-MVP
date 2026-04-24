@@ -5,6 +5,7 @@
 - Ops: hardened tournament geo backfill script to fall back to a client-side deterministic backfill if the RPC is missing or errors, so backfills can still run safely: `scripts/ops/backfill_tournaments_geo_from_venues.mjs`.
 - TI weather: extended the 10-day weather endpoint + planner to accept `zip` (in addition to city/state) for tighter geocoding fallbacks when lat/lng are missing: `apps/ti-web/app/api/weather/ten-day/route.ts`, `apps/ti-web/components/venues/VenueWeatherPlannerCard.tsx`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`.
 - Ops: added `--repeat` batching to Mapbox tournament geo backfill so large runs can be executed in a single command: `scripts/ops/backfill_tournaments_geo_mapbox.mjs`.
+- Ops: fixed Mapbox + venue-based tournament geo backfills to paginate using a stable `id` ordering (avoids skipping rows if `updated_at` changes during updates): `scripts/ops/backfill_tournaments_geo_mapbox.mjs`, `scripts/ops/backfill_tournaments_geo_from_venues.mjs`.
 
 ## 2026-04-23
 
