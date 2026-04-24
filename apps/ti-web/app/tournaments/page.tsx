@@ -117,6 +117,12 @@ function getSportCardClass(sport: string | null) {
   return map[normalized] ?? "bg-sport-default";
 }
 
+function looksLikeLeagueListing(name: string) {
+  const value = String(name ?? "").trim();
+  if (!value) return false;
+  return /\bleague\b/i.test(value);
+}
+
 function getSummarySportClass(sport: string) {
   return `summary-sport-${sport.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 }
@@ -131,6 +137,7 @@ export default async function TournamentsPage({
     sports?: string | string[];
     includePast?: string;
     aysoOnly?: string;
+    includeLeagues?: string;
     zip?: string;
     radius?: string;
   };
@@ -144,6 +151,7 @@ export default async function TournamentsPage({
   const sportsParam = searchParams?.sports;
   const includePastParam = searchParams?.includePast;
   const aysoOnlyParam = searchParams?.aysoOnly;
+  const includeLeaguesParam = (searchParams?.includeLeagues ?? "").trim();
   const zipParam = (searchParams?.zip ?? "").trim();
   const radiusParam = (searchParams?.radius ?? "").trim();
   const includePast = Array.isArray(includePastParam)
@@ -152,6 +160,7 @@ export default async function TournamentsPage({
   const aysoOnly = Array.isArray(aysoOnlyParam)
     ? aysoOnlyParam.includes("true")
     : (aysoOnlyParam ?? "").toLowerCase() === "true";
+  const includeLeagues = ["1", "true", "yes"].includes(includeLeaguesParam.toLowerCase());
   const sportsSelectedRaw = Array.isArray(sportsParam)
     ? sportsParam
     : sportsParam
@@ -282,6 +291,10 @@ export default async function TournamentsPage({
 
   const tournamentsClean = (tournamentsData ?? [])
     .filter((t): t is Tournament => Boolean(t?.id && t?.name && t?.slug))
+    .filter((t) => {
+      if (includeLeagues) return true;
+      return !looksLikeLeagueListing(t.name);
+    })
     .filter((t) => {
       if (!aysoOnly) return true; // default: include AYSO + non-AYSO
       return (t.tournament_association ?? "").trim().toUpperCase() === "AYSO";
