@@ -143,6 +143,8 @@ type VenueRow = {
   city: string | null;
   state: string | null;
   zip: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   notes: string | null;
   venue_url: string | null;
   sport: string | null;
@@ -409,6 +411,18 @@ export default async function VenueDetailsPage({
     // TODO(ti-db): if these optional venue intelligence columns are unavailable, keep rendering "—" fallbacks.
     !venueInsightsExtra.error || extraCode === "42703" || extraCode === "PGRST204"
       ? venueInsightsExtra.data
+      : null;
+
+  // Optional geo columns (weather/planning helpers). Keep the page resilient if the columns aren't in this DB yet.
+  const venueGeo = await supabaseAdmin
+    .from("venues" as any)
+    .select("latitude,longitude")
+    .eq("id", data.id)
+    .maybeSingle<{ latitude: number | null; longitude: number | null }>();
+  const geoCode = (venueGeo as any)?.error?.code;
+  const resolvedGeo =
+    !venueGeo.error || geoCode === "42703" || geoCode === "PGRST204"
+      ? venueGeo.data
       : null;
   const isDemoVenue = data.id === DEMO_STARFIRE_VENUE_ID;
 
@@ -892,10 +906,14 @@ export default async function VenueDetailsPage({
                   state: data.state,
                   zip: data.zip,
                   venue_url: data.venue_url,
+                  latitude: resolvedGeo?.latitude ?? null,
+                  longitude: resolvedGeo?.longitude ?? null,
                 }}
                 hasOwlsEye={hasOwlsEye}
                 canViewPremiumDetails={canViewPremiumDetails}
                 selectedTournamentId={selectedTournament?.id ?? null}
+                selectedTournamentStartDate={selectedTournament?.start_date ?? null}
+                selectedTournamentEndDate={selectedTournament?.end_date ?? null}
                 nearbyCounts={nearbyCounts}
                 airportSummary={airportSummary}
                 premiumNearby={premiumNearby}

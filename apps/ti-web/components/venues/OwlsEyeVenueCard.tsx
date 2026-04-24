@@ -6,6 +6,7 @@ import OwlsEyeWeekendGuideAccordion from "@/components/OwlsEyeWeekendGuideAccord
 import MobileMapLink from "@/components/venues/MobileMapLink";
 import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheckButton";
 import HotelBookingCta from "@/components/venues/HotelBookingCta";
+import VenueWeatherPlannerCard from "@/components/venues/VenueWeatherPlannerCard";
 import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
 
 export type NearbyPlace = {
@@ -40,12 +41,16 @@ type OwlsEyeVenueCardProps = {
     state: string | null;
     zip: string | null;
     venue_url: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
   };
   hasOwlsEye: boolean;
   canViewPremiumDetails: boolean;
   nearbyCounts: { food: number; coffee: number; hotels: number; sporting_goods: number };
   publicHotels?: NearbyPlace[] | null;
   selectedTournamentId?: string | null;
+  selectedTournamentStartDate?: string | null;
+  selectedTournamentEndDate?: string | null;
   airportSummary?: {
     nearest_airport?: AirportSummary | null;
     nearest_major_airport?: AirportSummary | null;
@@ -69,6 +74,8 @@ export default function OwlsEyeVenueCard({
   nearbyCounts,
   publicHotels,
   selectedTournamentId,
+  selectedTournamentStartDate,
+  selectedTournamentEndDate,
   airportSummary,
   premiumNearby,
   tier,
@@ -169,6 +176,14 @@ export default function OwlsEyeVenueCard({
 	                  <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
 	                  <div>⚽ {nearbyCounts.sporting_goods} gear nearby</div>
 	                </div>
+                  <VenueWeatherPlannerCard
+                    latitude={venue.latitude ?? null}
+                    longitude={venue.longitude ?? null}
+                    city={venue.city}
+                    state={venue.state}
+                    tournamentStartDate={selectedTournamentStartDate ?? null}
+                    tournamentEndDate={selectedTournamentEndDate ?? null}
+                  />
                   {hotels.length ? (
                     <div style={{ display: "grid", gap: 6 }}>
                       <div style={{ fontWeight: 800 }}>Hotels near this venue</div>
@@ -299,6 +314,15 @@ export default function OwlsEyeVenueCard({
                         ) : null}
                       </div>
                     ) : null}
+
+                    <VenueWeatherPlannerCard
+                      latitude={venue.latitude ?? null}
+                      longitude={venue.longitude ?? null}
+                      city={venue.city}
+                      state={venue.state}
+                      tournamentStartDate={selectedTournamentStartDate ?? null}
+                      tournamentEndDate={selectedTournamentEndDate ?? null}
+                    />
 
                     {hotels.length ? (
                       <div style={{ display: "grid", gap: 6, marginTop: 4 }}>
