@@ -166,16 +166,31 @@ async function runOnce(limit, offset) {
     geo_updated_at: nowIso,
   }));
 
-  if (!updates.length) return { scanned, updated: 0 };
-
-  // Upsert by primary key id. Chunk to avoid request size limits.
-  const updateChunks = chunkArray(updates, 250);
-  for (const chunk of updateChunks) {
-    const upsertRes = await supabase.from("tournaments").upsert(chunk, { onConflict: "id" });
-    if (upsertRes.error) throw upsertRes.error;
+  function isLikelyUsCoords(lat, lng) {
+    return lat >= 18 && lat <= 72 && lng >= -170 && lng <= -50;
   }
 
-  return { scanned, updated: updates.length };
+  const filteredUpdates = updates.filter((u) => isLikelyUsCoords(u.latitude, u.longitude));
+  if (!filteredUpdates.length) return { scanned, updated: 0 };
+
+  // Update rows individually (avoids any accidental insert semantics from upsert).
+  let updated = 0;
+  for (const u of filteredUpdates) {
+    const res = await supabase
+      .from("tournaments")
+      .update({
+        latitude: u.latitude,
+        longitude: u.longitude,
+        geo_source: u.geo_source,
+        geo_updated_at: u.geo_updated_at,
+      })
+      .eq("id", u.id)
+      .or("latitude.is.null,longitude.is.null");
+    if (res.error) throw res.error;
+    updated += 1;
+  }
+
+  return { scanned, updated };
 }
 
 async function main() {
