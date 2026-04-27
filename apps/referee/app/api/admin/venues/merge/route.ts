@@ -308,6 +308,7 @@ export async function POST(request: Request) {
   await tryUpdate("venue_quick_checks");
   await tryUpdate("venue_quick_check_events");
   await tryUpdate("tournament_partner_nearby");
+  await tryUpdate("ti_outbound_clicks");
 
   if (removeSource) {
     const { error: deleteError } = await supabaseAdmin.from("venues" as any).delete().eq("id", sourceVenueId);
