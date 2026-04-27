@@ -313,7 +313,12 @@ export default function TournamentVenueMapClient({
 
               <div className={styles.ctaRow}>
                 {hotelVenueId ? (
-                  <a className={styles.cta} href={`/go/hotels?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}>
+                  <a
+                    className={styles.cta}
+                    href={`/go/hotels?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                  >
                     View nearby hotels
                   </a>
                 ) : null}
