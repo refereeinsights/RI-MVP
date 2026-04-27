@@ -1354,6 +1354,88 @@
   width: min(360px, 100%);
 }
 
+.staticMapCard {
+  margin-top: 10px;
+  width: min(720px, 100%);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.12);
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.staticMapCard:hover,
+.staticMapCard:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.42);
+  background: rgba(255,255,255,0.18);
+  outline: none;
+}
+
+.staticMapCard__media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  background: rgba(0,0,0,0.14);
+}
+
+.staticMapCard__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.staticMapCard__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.30), rgba(0,0,0,0.10), rgba(0,0,0,0.28));
+}
+
+.staticMapCard__badgeRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.staticMapCard__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(11, 31, 20, 0.74);
+  border: 1px solid rgba(255,255,255,0.22);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.staticMapCard__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.92);
+  color: #0b1f14;
+  font-size: 12px;
+  font-weight: 900;
+  border: 1px solid rgba(0,0,0,0.12);
+  width: max-content;
+}
+
 .detailSummary {
   margin: 12px 0 0;
   font-size: 15px;

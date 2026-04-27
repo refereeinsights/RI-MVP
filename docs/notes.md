@@ -12,6 +12,9 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-04-27
+- RI Owl's Eye admin fix: `/admin/owls-eye` was showing only ~7 ready-to-run venues instead of 2,000+. Root cause: PostgREST `max_rows=1000` server cap silently truncated the `.from("venues").limit(6000)` query to 1,000 rows (alphabetical by state/city/name), of which ~876 already had runs, leaving only 7 unrun tournament-linked venues visible. Fix: replaced the initial venue query with a paginated loop over `tournament_venues` (pages of 1,000, `is_inferred=false`) to collect all ~3,940 distinct linked venue IDs, then batch-fetches venue rows in chunks of 200. All downstream filtering/sorting logic unchanged. Moved `chunkValues` helper before the new pagination block: `apps/referee/app/admin/owls-eye/page.tsx`.
+
 ## 2026-04-20
 - RI venues geo audit: added a lightweight script to report venue `latitude/longitude` coverage and sample missing-geo rows: `scripts/ops/audit_venues_geo.mjs`, `scripts/ops/audit_venues_geo.ts`.
 - TI hotels visibility: moved the existing “Hotels near this venue” list out of premium-only UI so names/distances render for all users while keeping non-sponsor “Directions” gated (sponsor links remain clickable): `apps/ti-web/app/venues/[venueId]/page.tsx`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`.

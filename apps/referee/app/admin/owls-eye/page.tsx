@@ -21,19 +21,59 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
   await requireAdmin();
   const adminToken = process.env.NEXT_PUBLIC_OWLS_EYE_ADMIN_TOKEN ?? process.env.OWLS_EYE_ADMIN_TOKEN ?? "";
   const venueId = searchParams?.venueId ?? "";
-  const { data: readyVenuesRaw } = await supabaseAdmin
-    .from("venues" as any)
-    .select("id,name,address,address1,city,state,zip,latitude,longitude")
-    .not("city", "is", null)
-    .not("state", "is", null)
-    .or("address.not.is.null,address1.not.is.null")
-    .not("name", "is", null)
-    .order("state", { ascending: true })
-    .order("city", { ascending: true })
-    .order("name", { ascending: true })
-    .limit(6000);
+  const chunkValues = <T,>(values: T[], size = 120) => {
+    const chunks: T[][] = [];
+    for (let i = 0; i < values.length; i += size) {
+      chunks.push(values.slice(i, i + size));
+    }
+    return chunks;
+  };
 
-  const allVenues = (readyVenuesRaw ?? []) as ReadyVenueRow[];
+  // Collect all distinct venue_id values from tournament_venues (non-inferred only).
+  // We paginate in pages of 1000 to work around PostgREST's max_rows=1000 server cap
+  // that was silently truncating the old .from("venues").limit(6000) query to 1000 rows.
+  const linkedVenueIdSet = new Set<string>();
+  {
+    let page = 0;
+    const pageSize = 1000;
+    while (true) {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+      const { data: tvRows } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("venue_id")
+        .eq("is_inferred", false)
+        .not("venue_id", "is", null)
+        .range(from, to);
+      const rows = (tvRows ?? []) as Array<{ venue_id: string | null }>;
+      rows.forEach((r) => { if (r.venue_id) linkedVenueIdSet.add(r.venue_id); });
+      if (rows.length < pageSize) break;
+      page++;
+    }
+  }
+
+  const linkedVenueIds = Array.from(linkedVenueIdSet);
+  const venueChunks = chunkValues(linkedVenueIds, 200);
+  const allVenueRows: ReadyVenueRow[] = [];
+  for (const chunk of venueChunks) {
+    const { data: rows } = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,name,address,address1,city,state,zip,latitude,longitude")
+      .in("id", chunk)
+      .not("city", "is", null)
+      .not("state", "is", null)
+      .not("name", "is", null);
+    allVenueRows.push(...((rows ?? []) as ReadyVenueRow[]));
+  }
+  allVenueRows.sort((a, b) => {
+    const s = (a.state ?? "").localeCompare(b.state ?? "");
+    if (s !== 0) return s;
+    const c = (a.city ?? "").localeCompare(b.city ?? "");
+    if (c !== 0) return c;
+    return (a.name ?? "").localeCompare(b.name ?? "");
+  });
+
+  const allVenues = allVenueRows;
 
   const pickStreetAddress = (venue: { address?: string | null; address1?: string | null }) => {
     const address = String(venue.address ?? "").trim();
@@ -52,13 +92,6 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
       Boolean((venue.state ?? "").trim());
     return hasAddress;
   });
-  const chunkValues = <T,>(values: T[], size = 120) => {
-    const chunks: T[][] = [];
-    for (let i = 0; i < values.length; i += size) {
-      chunks.push(values.slice(i, i + size));
-    }
-    return chunks;
-  };
 
   const venueIds = readyCandidates.map((v) => v.id).filter(Boolean);
   let runVenueIds = new Set<string>();

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400" role="img" aria-label="Venue map preview unavailable">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#052316"/>
+      <stop offset="1" stop-color="#0b3a25"/>
+    </linearGradient>
+    <linearGradient id="field" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f4d31" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#0a2f1e" stop-opacity="0.9"/>
+    </linearGradient>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="8" />
+    </filter>
+  </defs>
+
+  <rect width="800" height="400" fill="url(#bg)"/>
+  <rect x="34" y="34" width="732" height="332" rx="24" fill="url(#field)" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
+
+  <!-- subtle pitch lines -->
+  <g stroke="rgba(255,255,255,0.12)" stroke-width="2" fill="none">
+    <rect x="80" y="78" width="640" height="244" rx="10"/>
+    <line x1="400" y1="78" x2="400" y2="322"/>
+    <circle cx="400" cy="200" r="46"/>
+    <rect x="80" y="140" width="90" height="120" rx="10"/>
+    <rect x="630" y="140" width="90" height="120" rx="10"/>
+  </g>
+
+  <!-- blurred highlight -->
+  <circle cx="170" cy="110" r="44" fill="#22c55e" opacity="0.22" filter="url(#soft)"/>
+
+  <!-- pin -->
+  <g transform="translate(172 120)">
+    <path d="M0,-58c-20,0-36,16-36,36c0,31 36,74 36,74s36-43 36-74c0-20-16-36-36-36z" fill="#16a34a"/>
+    <circle cx="0" cy="-22" r="14" fill="#0b1f14"/>
+    <circle cx="-4" cy="-25" r="3" fill="#ffffff" opacity="0.75"/>
+  </g>
+
+  <!-- text -->
+  <g fill="#ffffff" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" text-anchor="middle">
+    <text x="400" y="210" font-size="22" font-weight="800">Venue map preview unavailable</text>
+    <text x="400" y="242" font-size="14" opacity="0.85">This tournament doesn’t have verified venue coordinates yet.</text>
+  </g>
+</svg>
+

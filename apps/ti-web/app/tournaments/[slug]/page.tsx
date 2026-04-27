@@ -20,6 +20,7 @@ import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import { buildHotelsHref, canShowBookingCta, isValidZip5 } from "@/lib/booking/venueBooking";
+import { TI_STATIC_MAP_BUCKET, buildSupabasePublicObjectUrl } from "@/lib/staticTournamentMaps";
 import "../tournaments.css";
 
 type TournamentDetailCoreRow = {
@@ -41,6 +42,9 @@ type TournamentDetailCoreRow = {
   tournament_staff_verified?: boolean | null;
   venue: string | null;
   address: string | null;
+  static_map_path?: string | null;
+  static_map_status?: string | null;
+  static_map_updated_at?: string | null;
 };
 
 type TournamentDetailRow = {
@@ -748,6 +752,16 @@ async function TournamentVenueDetails({
 
   const showVenueWarning = venueCount >= 10;
 
+  const mapPreviewHref = `/tournaments/${encodeURIComponent(tournament.slug ?? paramsSlug)}/map`;
+  const mapPreviewSrc =
+    (tournament.static_map_path
+      ? buildSupabasePublicObjectUrl({
+          baseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "",
+          bucket: TI_STATIC_MAP_BUCKET,
+          path: tournament.static_map_path,
+        })
+      : null) ?? "/brand/maps/no-coords-static-map.svg";
+
   const planFoodCoffeeLine = (() => {
     if (!bestOwlVenueRow) return null;
     const counts = bestOwlVenueRow.counts;
@@ -877,6 +891,24 @@ async function TournamentVenueDetails({
             Large multi-venue tournament — check your assigned field location before booking hotels.
           </div>
         ) : null}
+
+        <Link className="staticMapCard" href={mapPreviewHref} aria-label="Open interactive venue map">
+          <div className="staticMapCard__media">
+            <img
+              className="staticMapCard__img"
+              src={mapPreviewSrc}
+              alt={`Static venue map preview for ${tournament.name}`}
+              loading="lazy"
+              decoding="async"
+            />
+            <div className="staticMapCard__overlay" aria-hidden="true">
+              <div className="staticMapCard__badgeRow">
+                <span className="staticMapCard__badge">{`📍 ${venueCount || "?"} venue${venueCount === 1 ? "" : "s"}`}</span>
+              </div>
+              <span className="staticMapCard__cta">Open interactive venue map →</span>
+            </div>
+          </div>
+        </Link>
       </div>
 
       {displayVenueRows.length > 0 ? (
@@ -1333,7 +1365,7 @@ export default async function TournamentDetailPage({
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
     .select(
-      "id,slug,name,city,state,zip,latitude,longitude,start_date,end_date,summary,source_url,official_website_url,sport,level,tournament_staff_verified,venue,address"
+      "id,slug,name,city,state,zip,latitude,longitude,start_date,end_date,summary,source_url,official_website_url,sport,level,tournament_staff_verified,venue,address,static_map_path,static_map_status,static_map_updated_at"
     )
     .eq("slug", params.slug)
     .maybeSingle<TournamentDetailCoreRow>();
