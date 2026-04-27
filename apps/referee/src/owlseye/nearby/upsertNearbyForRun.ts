@@ -1,5 +1,6 @@
 import haversineMeters from "@/lib/geo/haversineMeters";
 import fetchNearbyPlaces from "@/lib/google/nearbySearch";
+import { CURRENT_OWL_CATEGORIES } from "../categories";
 
 type UpsertParams = {
   supabaseAdmin: any;
@@ -20,6 +21,8 @@ type UpsertParams = {
   radiusMeters?: number;
   limitPerCategory?: number;
   force?: boolean;
+  // When specified, only fetch these categories (targeted run). Omit to fetch all.
+  categoriesToFetch?: string[];
 };
 
 const DEFAULT_RADIUS = 16093; // ~10 miles in meters
@@ -188,11 +191,17 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     radiusMeters = DEFAULT_RADIUS,
     limitPerCategory = DEFAULT_LIMIT,
     force = false,
+    categoriesToFetch,
   } = params;
+
+  // Targeted run: only fetch specific categories and merge into existing run.
+  const isTargetedRun = Array.isArray(categoriesToFetch) && categoriesToFetch.length > 0;
+  const shouldFetch = (category: string) => !isTargetedRun || categoriesToFetch!.includes(category);
 
   if (!supabaseAdmin || !runId) return { ok: false, message: "missing_supabase_or_run" };
 
-  if (!force) {
+  // Skip early-return for targeted runs — we're adding new categories to an existing run.
+  if (!force && !isTargetedRun) {
     const { count, error: countError } = await supabaseAdmin
       .from("owls_eye_nearby_food" as any)
       .select("run_id", { count: "exact", head: true })
@@ -214,10 +223,15 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   let hotelResults: any[] = [];
   try {
     [foodResults, coffeeResults, hotelResults] = await Promise.all([
-      fetchNearbyPlaces({ ...baseOpts, type: "restaurant" }),
-      fetchNearbyPlaces({ ...baseOpts, type: "cafe" }),
-      // Hotels only: 20-mile radius and deeper fetch so filtering still returns enough real hotels.
-      fetchNearbyPlaces({ ...baseOpts, type: "lodging", radiusMeters: HOTEL_RADIUS, maxResultCount: 50 }),
+      shouldFetch("food")
+        ? fetchNearbyPlaces({ ...baseOpts, type: "restaurant" })
+        : Promise.resolve([]),
+      shouldFetch("coffee")
+        ? fetchNearbyPlaces({ ...baseOpts, type: "cafe" })
+        : Promise.resolve([]),
+      shouldFetch("hotel")
+        ? fetchNearbyPlaces({ ...baseOpts, type: "lodging", radiusMeters: HOTEL_RADIUS, maxResultCount: 50 })
+        : Promise.resolve([]),
     ]);
   } catch (err) {
     console.error("[owlseye] Nearby fetch failed", err);
@@ -275,7 +289,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
 
   const filteredHotelResults = hotelResults.filter(isHotelLike);
   let finalHotelResults = filteredHotelResults;
-  if (finalHotelResults.length < HOTEL_LIMIT) {
+  if (shouldFetch("hotel") && finalHotelResults.length < HOTEL_LIMIT) {
     const hotelTextResults = await fetchNearbyPlaces({
       ...baseOpts,
       type: "lodging",
@@ -338,7 +352,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
 
   let sportingGoodsPlaces: TextPlace[] = [];
   let bigBoxPlaces: TextPlace[] = [];
-  try {
+  if (shouldFetch("sporting_goods")) try {
     const raw = (
       await Promise.all(
         sportingGoodsQueries.map((query) =>
@@ -376,7 +390,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       bigBoxPlaces = sortByDistance(fallbackDeduped.filter(isBigBoxPlace)).slice(0, SPORTING_GOODS_LIMIT);
     }
   } catch (err) {
-    console.warn("[owlseye] Sporting goods search failed", err);
+    if (shouldFetch("sporting_goods")) console.warn("[owlseye] Sporting goods search failed", err);
   }
 
   const toRows = (items: any[], category: "food" | "coffee" | "hotel", limit = limitPerCategory) =>
@@ -421,8 +435,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     if (!row.is_sponsor && row.category === "hotel" && looksLikeResidentialListing(row.name, row.address)) continue;
     uniqueRows.push(row);
   }
-  if (force) {
-    // Forced refresh should replace stale nearby rows for the run.
+  if (force && !isTargetedRun) {
+    // Forced full refresh: replace all stale nearby rows for the run.
     const { error: clearError } = await supabaseAdmin.from("owls_eye_nearby_food" as any).delete().eq("run_id", runId);
     if (clearError) {
       console.warn("[owlseye] Could not clear existing nearby rows before forced refresh", clearError);
@@ -480,6 +494,25 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   if (error) {
     console.error("[owlseye] Nearby upsert failed", error);
     return { ok: false, message: error.message };
+  }
+
+  // Merge fetched categories into categories_fetched so targeted runs add to,
+  // rather than overwrite, the existing record.
+  try {
+    const justFetched = isTargetedRun ? [...(categoriesToFetch ?? [])] : [...CURRENT_OWL_CATEGORIES];
+    const { data: runRow } = await supabaseAdmin
+      .from("owls_eye_runs" as any)
+      .select("categories_fetched")
+      .eq("run_id", runId)
+      .maybeSingle();
+    const existing: string[] = Array.isArray(runRow?.categories_fetched) ? runRow.categories_fetched : [];
+    const merged = Array.from(new Set([...existing, ...justFetched]));
+    await supabaseAdmin
+      .from("owls_eye_runs" as any)
+      .update({ categories_fetched: merged })
+      .eq("run_id", runId);
+  } catch {
+    // best-effort — does not affect the nearby rows already written
   }
 
   return {

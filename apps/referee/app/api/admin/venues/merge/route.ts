@@ -246,6 +246,18 @@ export async function POST(request: Request) {
     // Ignore if table/column doesn't exist in this environment.
   }
 
+  // Resolve open duplicate-suspect pairs involving the source venue so the surviving
+  // venue re-enters the Owl's Eye queue after the merge.
+  try {
+    await supabaseAdmin
+      .from("owls_eye_venue_duplicate_suspects" as any)
+      .update({ status: "resolved" })
+      .eq("status", "open")
+      .or(`source_venue_id.eq.${sourceVenueId},candidate_venue_id.eq.${sourceVenueId}`);
+  } catch {
+    // Ignore if table doesn't exist in this environment.
+  }
+
   // Move other venue-linked records (best-effort; ignore missing tables).
   const tryUpdate = async (table: string) => {
     try {

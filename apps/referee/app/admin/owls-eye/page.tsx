@@ -1,6 +1,7 @@
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { CURRENT_OWL_CATEGORIES } from "@/owlseye/categories";
 import OwlsEyePanel from "./OwlsEyePanel";
 
 export const runtime = "nodejs";
@@ -95,6 +96,8 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
 
   const venueIds = readyCandidates.map((v) => v.id).filter(Boolean);
   let runVenueIds = new Set<string>();
+  let completeVenueIds = new Set<string>();
+  let latestCatsByVenue = new Map<string, string[] | null>();
   const tournamentNamesByVenue = new Map<string, string[]>();
   const tournamentSportsByVenue = new Map<string, string[]>();
   const linkedTournamentCountByVenue = new Map<string, number>();
@@ -102,17 +105,31 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
   const tournamentNameById = new Map<string, string>();
   let tournamentNameLookupError: string | null = null;
   if (venueIds.length) {
-    const runRows: Array<{ venue_id: string | null }> = [];
+    const runRows: Array<{ venue_id: string | null; categories_fetched: string[] | null }> = [];
     for (const idChunk of chunkValues(venueIds)) {
       const { data: runs } = await supabaseAdmin
         .from("owls_eye_runs" as any)
-        .select("venue_id")
-        .in("venue_id", idChunk);
-      runRows.push(...((runs ?? []) as Array<{ venue_id: string | null }>));
+        .select("venue_id,categories_fetched")
+        .in("venue_id", idChunk)
+        .order("created_at", { ascending: false });
+      runRows.push(...((runs ?? []) as Array<{ venue_id: string | null; categories_fetched: string[] | null }>));
     }
-    runVenueIds = new Set(runRows.map((row) => row.venue_id || "").filter(Boolean));
+    // Keep only the most recent run per venue.
+    latestCatsByVenue = new Map<string, string[] | null>();
+    runRows.forEach((row) => {
+      if (!row.venue_id) return;
+      if (!latestCatsByVenue.has(row.venue_id)) {
+        latestCatsByVenue.set(row.venue_id, row.categories_fetched ?? null);
+      }
+    });
+    runVenueIds = new Set(latestCatsByVenue.keys());
+    completeVenueIds = new Set(
+      Array.from(latestCatsByVenue.entries())
+        .filter(([, cats]) => Array.isArray(cats) && CURRENT_OWL_CATEGORIES.every((c) => cats.includes(c)))
+        .map(([id]) => id)
+    );
 
-    const notRunVenueIds = venueIds.filter((id) => id && !runVenueIds.has(id));
+    const notRunVenueIds = venueIds.filter((id) => id && !completeVenueIds.has(id));
     const linkRows: Array<{ venue_id: string | null; tournament_id: string | null }> = [];
     for (const idChunk of chunkValues(notRunVenueIds)) {
 	      const { data: venueLinks } = await supabaseAdmin
@@ -161,8 +178,45 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
       if (sports.length) tournamentSportsByVenue.set(venueId, sports);
     });
   }
+  // Exclude venues flagged as open duplicate-suspects to break the infinite batch cycle.
+  // Only exclude if BOTH members of the pair still exist in our candidate set — this
+  // ensures merged-away venues don't permanently block the surviving venue.
+  const suspectVenueIds = new Set<string>();
+  {
+    const allVenueIdSet = new Set(readyCandidates.map((v) => v.id));
+    try {
+      let page = 0;
+      const pageSize = 1000;
+      while (true) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+        const { data: suspectRows } = await supabaseAdmin
+          .from("owls_eye_venue_duplicate_suspects" as any)
+          .select("source_venue_id,candidate_venue_id")
+          .eq("status", "open")
+          .range(from, to);
+        const rows = (suspectRows ?? []) as Array<{
+          source_venue_id: string | null;
+          candidate_venue_id: string | null;
+        }>;
+        for (const row of rows) {
+          const src = row?.source_venue_id;
+          const cand = row?.candidate_venue_id;
+          if (src && cand && allVenueIdSet.has(src) && allVenueIdSet.has(cand)) {
+            suspectVenueIds.add(src);
+            suspectVenueIds.add(cand);
+          }
+        }
+        if (rows.length < pageSize) break;
+        page++;
+      }
+    } catch {
+      // ignore if table doesn't exist yet
+    }
+  }
+
   const nameJunkRegex = /\b(born\s*\d{4}|\d{1,2}u\b|girls?\d{1,2}u|boys?\d{1,2}u|program|coach:|size\s*\d+)\b/i;
-  const notRunCandidates = readyCandidates.filter((venue) => !runVenueIds.has(venue.id));
+  const notRunCandidates = readyCandidates.filter((venue) => !completeVenueIds.has(venue.id));
   const noLinkedTournamentCandidates = notRunCandidates.filter((venue) => {
     return (linkedTournamentCountByVenue.get(venue.id) ?? 0) === 0;
   });
@@ -185,6 +239,7 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
   };
 
   const readyNotRunAll = notRunCandidates
+    .filter((venue) => !suspectVenueIds.has(venue.id))
     .filter((venue) => {
       return (linkedTournamentCountByVenue.get(venue.id) ?? 0) > 0;
     })
@@ -239,6 +294,7 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
     linked_candidates: Array.from(linkedTournamentCountByVenue.keys()).length,
     not_run_with_no_linked_tournaments: noLinkedTournamentCandidates.length,
     not_run_with_junk_name: junkNameCandidates.length,
+    excluded_duplicate_suspects: suspectVenueIds.size,
     final_ready_after_filters: readyNotRunAll.length,
     displayed_ready_rows: readyNotRunVenues.length,
     tournament_name_lookup_error: tournamentNameLookupError,
@@ -265,6 +321,7 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
         adminToken={adminToken || undefined}
         initialVenueId={venueId || undefined}
         readyDebug={readyDebug}
+        suspectVenueCount={suspectVenueIds.size}
         readyNotRunTotal={readyNotRunAll.length}
         readyNotRunVenues={readyNotRunVenues.map((venue) => {
           const linkedTournamentNames = tournamentNamesByVenue.get(venue.id) ?? [];
@@ -281,6 +338,7 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
             tournament_count: linkedTournamentCount,
             tournament_names: linkedTournamentNames.slice(0, 8),
             tournament_sports: linkedTournamentSports.sort((a, b) => a.localeCompare(b)),
+            categories_fetched: latestCatsByVenue.get(venue.id) ?? null,
           };
         })}
       />

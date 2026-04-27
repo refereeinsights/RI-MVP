@@ -330,6 +330,10 @@ export async function POST(request: Request) {
   const publishedMapUrl = typeof body?.published_map_url === "string" ? body.published_map_url.trim() : "";
   const force = body?.force === true || body?.force === "true";
   const allowDuplicate = body?.allow_duplicate === true || body?.allow_duplicate === "true";
+  const requestedCategories: string[] | null = Array.isArray(body?.categories)
+    ? (body.categories as unknown[]).filter((c): c is string => typeof c === "string")
+    : null;
+  const isTargetedRun = requestedCategories !== null && requestedCategories.length > 0;
 
   if (!venueId || !isUuid(venueId)) {
     return NextResponse.json({ error: "invalid_venue_id" }, { status: 400 });
@@ -447,6 +451,40 @@ export async function POST(request: Request) {
       }
     }
 
+    // Targeted run: add missing categories to the most recent existing run without
+    // creating a new run or re-fetching categories that are already present.
+    if (isTargetedRun) {
+      const existingRunResp = await supabaseAdmin
+        .from("owls_eye_runs" as any)
+        .select("id,run_id")
+        .eq("venue_id", venueId)
+        .in("status", ["complete", "running"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<{ id: string; run_id?: string | null }>();
+
+      if (!existingRunResp.data) {
+        return NextResponse.json(
+          { ok: false, error: "no_existing_run", message: "No existing run found. Run a full Owl's Eye first." },
+          { status: 409 }
+        );
+      }
+
+      const existingRunId = existingRunResp.data.run_id ?? existingRunResp.data.id;
+      const supabase = getAdminSupabase();
+      const nearbyResult = await upsertNearbyForRun({
+        supabaseAdmin: supabase,
+        runId: existingRunId,
+        venueId,
+        sport,
+        venueLat: venueLat ?? 0,
+        venueLng: venueLng ?? 0,
+        categoriesToFetch: requestedCategories!,
+      });
+
+      return NextResponse.json({ ok: true, targeted: true, categories: requestedCategories, nearby_meta: nearbyResult });
+    }
+
     if (!force && !allowDuplicate) {
       const duplicateCandidates = await findDuplicateVenueCandidates({
         venueId,
@@ -455,14 +493,50 @@ export async function POST(request: Request) {
         venueLng,
       });
 
+      // Filter out candidates the operator has already reviewed: pairs marked "keep_both"
+      // in venue_duplicate_overrides, or suspects already resolved/ignored in
+      // owls_eye_venue_duplicate_suspects. Without this, previously-dismissed pairs would
+      // block the venue forever — blocking the batch every run with no way to clear it.
+      let activeDuplicateCandidates = duplicateCandidates;
       if (duplicateCandidates.length > 0) {
+        const reviewedIds = new Set<string>();
+        try {
+          const [overrideResp, suspectResp] = await Promise.all([
+            supabaseAdmin
+              .from("venue_duplicate_overrides" as any)
+              .select("venue_a_id,venue_b_id")
+              .eq("status", "keep_both")
+              .or(`venue_a_id.eq.${venueId},venue_b_id.eq.${venueId}`),
+            supabaseAdmin
+              .from("owls_eye_venue_duplicate_suspects" as any)
+              .select("source_venue_id,candidate_venue_id")
+              .neq("status", "open")
+              .or(`source_venue_id.eq.${venueId},candidate_venue_id.eq.${venueId}`),
+          ]);
+          for (const row of (overrideResp.data ?? []) as any[]) {
+            if (row.venue_a_id === venueId) reviewedIds.add(row.venue_b_id);
+            if (row.venue_b_id === venueId) reviewedIds.add(row.venue_a_id);
+          }
+          for (const row of (suspectResp.data ?? []) as any[]) {
+            const other = row.source_venue_id === venueId ? row.candidate_venue_id : row.source_venue_id;
+            if (other) reviewedIds.add(other);
+          }
+        } catch {
+          // ignore if tables don't exist
+        }
+        if (reviewedIds.size > 0) {
+          activeDuplicateCandidates = duplicateCandidates.filter((c) => !reviewedIds.has(c.venue_id));
+        }
+      }
+
+      if (activeDuplicateCandidates.length > 0) {
         // Persist suspect pairs so `/admin/venues?duplicates=1` can surface them.
         // Best-effort only (don't block the response if the table doesn't exist yet).
         try {
           const createdBy =
             adminUser && typeof adminUser === "object" && "id" in adminUser ? String((adminUser as any).id) : null;
           const now = new Date().toISOString();
-          const candidateIds = duplicateCandidates.map((c) => c.venue_id).filter(Boolean);
+          const candidateIds = activeDuplicateCandidates.map((c) => c.venue_id).filter(Boolean);
           const existingResp = await supabaseAdmin
             .from("owls_eye_venue_duplicate_suspects" as any)
             .select("candidate_venue_id,status")
@@ -476,7 +550,7 @@ export async function POST(request: Request) {
               .map((r) => [String(r.candidate_venue_id), String(r.status ?? "open")])
           );
 
-          for (const cand of duplicateCandidates) {
+          for (const cand of activeDuplicateCandidates) {
             const candidateVenueId = String(cand.venue_id ?? "").trim();
             if (!candidateVenueId) continue;
             const status = existingStatusByCandidate.get(candidateVenueId);
@@ -515,7 +589,7 @@ export async function POST(request: Request) {
             code: "DUPLICATE_VENUE_SUSPECT",
             message:
               "Possible duplicate venue(s) found. Use an existing venue ID or run anyway for this venue.",
-            candidates: duplicateCandidates,
+            candidates: activeDuplicateCandidates,
           },
           { status: 409 }
         );
