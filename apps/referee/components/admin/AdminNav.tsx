@@ -203,6 +203,9 @@ export async function AdminNav() {
         <Link href="/admin/ti/outbound" style={linkStyle}>
           TI Outbound
         </Link>
+        <Link href="/admin/ti/static-maps" style={linkStyle}>
+          TI Static Maps
+        </Link>
       </nav>
       {buildShort ? (
         <div

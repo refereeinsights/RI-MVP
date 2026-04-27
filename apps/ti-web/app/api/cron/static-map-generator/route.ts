@@ -294,6 +294,23 @@ export async function GET(req: Request) {
     }
 
     result.ms = Date.now() - startedAt.getTime();
+
+    try {
+      await supabaseAdmin.from("cron_job_results" as any).insert({
+        job_key: LOCK_KEY,
+        started_at: result.started_at,
+        scanned: result.scanned,
+        processed: result.processed,
+        updated: result.updated,
+        skipped_no_coords: result.skipped_no_coords,
+        skipped_up_to_date: result.skipped_up_to_date,
+        failures: result.failures,
+        ms: result.ms,
+      });
+    } catch {
+      // Best-effort — never fail the cron response due to logging.
+    }
+
     return NextResponse.json(result);
   } finally {
     try {
