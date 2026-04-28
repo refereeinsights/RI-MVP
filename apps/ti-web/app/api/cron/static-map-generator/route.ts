@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/trackExternalCall";
 import {
   TI_STATIC_MAP_BUCKET,
   buildMapboxStaticImageUrl,
@@ -241,7 +242,7 @@ export async function GET(req: Request) {
         // Throttle a bit to keep API usage reasonable during backfills.
         await sleep(75);
 
-        const res = await fetch(staticUrl);
+        const res = await trackExternalCall(EXTERNAL_API.mapbox, "static_map", EXTERNAL_API_SURFACE.static_map_cron, () => fetch(staticUrl));
         if (!res.ok) {
           throw new Error(`mapbox_static_failed_${res.status}`);
         }

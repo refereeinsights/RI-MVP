@@ -1,4 +1,5 @@
 import haversineMeters from "../../lib/geo/haversineMeters";
+import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/trackExternalCall";
 
 type UpsertGearParams = {
   supabaseAdmin: any;
@@ -51,7 +52,7 @@ async function searchPlacesText(args: {
   const fieldMask = "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType";
 
   try {
-    const resp = await fetch(endpoint, {
+    const resp = await trackExternalCall(EXTERNAL_API.google_places, "nearby_search_text", EXTERNAL_API_SURFACE.owls_eye_gear, () => fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -69,7 +70,7 @@ async function searchPlacesText(args: {
         maxResultCount: safeMax,
         rankPreference: "DISTANCE",
       }),
-    });
+    }));
     if (!resp.ok) return [];
     const json = (await resp.json()) as { places?: any[] };
     return (json.places ?? [])

@@ -1,3 +1,5 @@
+import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/trackExternalCall";
+
 const GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json";
 
 type GeocodeResult = {
@@ -8,7 +10,9 @@ type GeocodeResult = {
 
 export async function geocodeAddress(address: string, apiKey: string): Promise<GeocodeResult | null> {
   const url = `${GEOCODE_URL}?address=${encodeURIComponent(address)}&key=${apiKey}`;
-  const resp = await fetch(url, { method: "GET" });
+  const resp = await trackExternalCall(EXTERNAL_API.google_places, "geocode", EXTERNAL_API_SURFACE.venue_geocode, () =>
+    fetch(url, { method: "GET" })
+  );
   if (!resp.ok) {
     console.error("[geocode] request failed", resp.status, await resp.text());
     return null;

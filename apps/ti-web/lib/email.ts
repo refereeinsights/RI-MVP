@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { EmailSendKind } from "../../../shared/email/emailSuppression";
 import { sendResendEmail } from "../../../shared/email/resendApi";
 import { sendEmailWithPreflight } from "../../../shared/email/sendWithPreflight";
+import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "./trackExternalCall";
 
 type EmailRecipient = string | string[];
 
@@ -46,18 +47,20 @@ export async function sendEmail(payload: EmailPayload) {
   }
 
   const { from, replyTo } = resolveFromAndReplyTo(payload);
-  return sendResendEmail({
-    apiKey,
-    payload: {
-      from,
-      to,
-      subject: payload.subject,
-      html: payload.html,
-      text: payload.text ?? "",
-      reply_to: replyTo,
-      headers: payload.headers ?? undefined,
-    },
-  });
+  return trackExternalCall(EXTERNAL_API.resend, "send_email", EXTERNAL_API_SURFACE.email_transactional, () =>
+    sendResendEmail({
+      apiKey,
+      payload: {
+        from,
+        to,
+        subject: payload.subject,
+        html: payload.html,
+        text: payload.text ?? "",
+        reply_to: replyTo,
+        headers: payload.headers ?? undefined,
+      },
+    })
+  );
 }
 
 export async function sendEmailVerified(

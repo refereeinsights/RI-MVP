@@ -1,3 +1,5 @@
+import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "./trackExternalCall";
+
 const GOOGLE_PLACES_BASE = "https://places.googleapis.com/v1";
 const FIELD_MASK = [
   "places.id",
@@ -57,14 +59,16 @@ function extractCityStateZip(components: AddressComponent[] = []) {
 
 async function fetchPlaceById(placeId: string) {
   const key = getApiKey();
-  const response = await fetch(`${GOOGLE_PLACES_BASE}/places/${placeId}`, {
-    method: "GET",
-    headers: {
-      "X-Goog-Api-Key": key,
-      "X-Goog-FieldMask": "id,formattedAddress,addressComponents",
-    },
-    cache: "no-store",
-  });
+  const response = await trackExternalCall(EXTERNAL_API.google_places, "place_by_id", EXTERNAL_API_SURFACE.venue_places_lookup, () =>
+    fetch(`${GOOGLE_PLACES_BASE}/places/${placeId}`, {
+      method: "GET",
+      headers: {
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": "id,formattedAddress,addressComponents",
+      },
+      cache: "no-store",
+    })
+  );
 
   if (!response.ok) {
     const message = await response.text();
@@ -79,20 +83,22 @@ async function searchPlacesByText(query: string, includedType?: string) {
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  const response = await fetch(`${GOOGLE_PLACES_BASE}/places:searchText`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": key,
-      "X-Goog-FieldMask": FIELD_MASK,
-    },
-    body: JSON.stringify({
-      textQuery: trimmed,
-      languageCode: "en",
-      ...(includedType ? { includedType } : {}),
-    }),
-    cache: "no-store",
-  });
+  const response = await trackExternalCall(EXTERNAL_API.google_places, "search_text", EXTERNAL_API_SURFACE.venue_places_lookup, () =>
+    fetch(`${GOOGLE_PLACES_BASE}/places:searchText`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": FIELD_MASK,
+      },
+      body: JSON.stringify({
+        textQuery: trimmed,
+        languageCode: "en",
+        ...(includedType ? { includedType } : {}),
+      }),
+      cache: "no-store",
+    })
+  );
 
   if (!response.ok) {
     const message = await response.text();

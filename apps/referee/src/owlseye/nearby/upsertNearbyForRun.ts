@@ -1,5 +1,6 @@
 import haversineMeters from "@/lib/geo/haversineMeters";
 import fetchNearbyPlaces from "@/lib/google/nearbySearch";
+import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/trackExternalCall";
 import { CURRENT_OWL_CATEGORIES } from "../categories";
 
 type UpsertParams = {
@@ -224,13 +225,13 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   try {
     [foodResults, coffeeResults, hotelResults] = await Promise.all([
       shouldFetch("food")
-        ? fetchNearbyPlaces({ ...baseOpts, type: "restaurant" })
+        ? trackExternalCall(EXTERNAL_API.google_places, "nearby_search", EXTERNAL_API_SURFACE.owls_eye_batch, () => fetchNearbyPlaces({ ...baseOpts, type: "restaurant" }))
         : Promise.resolve([]),
       shouldFetch("coffee")
-        ? fetchNearbyPlaces({ ...baseOpts, type: "cafe" })
+        ? trackExternalCall(EXTERNAL_API.google_places, "nearby_search", EXTERNAL_API_SURFACE.owls_eye_batch, () => fetchNearbyPlaces({ ...baseOpts, type: "cafe" }))
         : Promise.resolve([]),
       shouldFetch("hotel")
-        ? fetchNearbyPlaces({ ...baseOpts, type: "lodging", radiusMeters: HOTEL_RADIUS, maxResultCount: 50 })
+        ? trackExternalCall(EXTERNAL_API.google_places, "nearby_search", EXTERNAL_API_SURFACE.owls_eye_batch, () => fetchNearbyPlaces({ ...baseOpts, type: "lodging", radiusMeters: HOTEL_RADIUS, maxResultCount: 50 }))
         : Promise.resolve([]),
     ]);
   } catch (err) {
@@ -290,13 +291,13 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   const filteredHotelResults = hotelResults.filter(isHotelLike);
   let finalHotelResults = filteredHotelResults;
   if (shouldFetch("hotel") && finalHotelResults.length < HOTEL_LIMIT) {
-    const hotelTextResults = await fetchNearbyPlaces({
+    const hotelTextResults = await trackExternalCall(EXTERNAL_API.google_places, "nearby_search_text", EXTERNAL_API_SURFACE.owls_eye_batch, () => fetchNearbyPlaces({
       ...baseOpts,
       type: "lodging",
       radiusMeters: HOTEL_RADIUS,
       maxResultCount: 20,
       forceTextSearch: true,
-    });
+    }));
     const filteredTextHotels = hotelTextResults.filter(isHotelLike);
     const merged = [...finalHotelResults, ...filteredTextHotels];
     const deduped: typeof merged = [];
