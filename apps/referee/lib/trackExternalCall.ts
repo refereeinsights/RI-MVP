@@ -33,7 +33,18 @@ function insertApiCall(
   void supabaseAdmin
     .from("external_api_calls" as any)
     .insert({ api, operation, surface, status, latency_ms: latencyMs, error })
-    .then(() => {/* fire-and-forget */});
+    .then(({ error: insertError }) => {
+      if (insertError && process.env.EXTERNAL_API_CALL_TRACKING_DEBUG === "true") {
+        // eslint-disable-next-line no-console
+        console.warn("[external_api_calls] insert failed", insertError.message);
+      }
+    })
+    .catch((err) => {
+      if (process.env.EXTERNAL_API_CALL_TRACKING_DEBUG === "true") {
+        // eslint-disable-next-line no-console
+        console.warn("[external_api_calls] insert threw", String((err as any)?.message ?? err));
+      }
+    });
 }
 
 export async function trackExternalCall<T>(
@@ -42,7 +53,10 @@ export async function trackExternalCall<T>(
   surface: string,
   fn: () => Promise<T>
 ): Promise<T> {
-  if (process.env.NODE_ENV === "development") return fn();
+  const enabled =
+    process.env.NODE_ENV !== "development" ||
+    process.env.ENABLE_EXTERNAL_API_CALL_TRACKING === "true";
+  if (!enabled) return fn();
   const t0 = Date.now();
   let status = "ok";
   let errorMsg: string | null = null;

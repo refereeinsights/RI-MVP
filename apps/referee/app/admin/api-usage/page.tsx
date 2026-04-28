@@ -15,6 +15,13 @@ type AggRow = {
   avg_latency_ms: number | null;
 };
 
+type VendorAggRow = {
+  api: string;
+  calls: number;
+  errors: number;
+  avg_latency_ms: number | null;
+};
+
 function parseDateRange(params: SearchParams): { fromIso: string; toIso: string; label: string } {
   const range = params.range ?? "7d";
   const now = new Date();
@@ -65,6 +72,21 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
     return { api, operation, surface, calls: b.calls, errors: b.errors, avg_latency_ms: avg };
   }).sort((a, b) => b.calls - a.calls);
 
+  const vendorBuckets = new Map<string, { calls: number; errors: number; latencies: number[] }>();
+  for (const r of (rows ?? []) as Array<{ api: string; status: string; latency_ms: number | null }>) {
+    if (!vendorBuckets.has(r.api)) vendorBuckets.set(r.api, { calls: 0, errors: 0, latencies: [] });
+    const b = vendorBuckets.get(r.api)!;
+    b.calls++;
+    if (r.status === "error") b.errors++;
+    if (typeof r.latency_ms === "number") b.latencies.push(r.latency_ms);
+  }
+  const vendorAgg: VendorAggRow[] = Array.from(vendorBuckets.entries())
+    .map(([api, b]) => {
+      const avg = b.latencies.length ? Math.round(b.latencies.reduce((a, v) => a + v, 0) / b.latencies.length) : null;
+      return { api, calls: b.calls, errors: b.errors, avg_latency_ms: avg };
+    })
+    .sort((a, b) => b.calls - a.calls);
+
   const totals = agg.reduce((acc, r) => ({
     calls: acc.calls + r.calls,
     errors: acc.errors + r.errors,
@@ -90,10 +112,20 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
   const headStyle: React.CSSProperties = { ...cellStyle, fontWeight: 600, background: "#f9fafb", color: "#374151", whiteSpace: "nowrap" };
   const totalsCellStyle: React.CSSProperties = { ...cellStyle, fontWeight: 700, background: "#eff6ff", color: "#1e40af" };
 
+  const trackingEnabled =
+    process.env.NODE_ENV !== "development" ||
+    process.env.ENABLE_EXTERNAL_API_CALL_TRACKING === "true";
+
   return (
     <div style={{ padding: 24, maxWidth: 1100 }}>
       <AdminNav />
       <h2 style={{ margin: "16px 0 4px", fontSize: 20, fontWeight: 700 }}>External API Usage</h2>
+
+      {!trackingEnabled && (
+        <div style={{ margin: "10px 0 18px", padding: "10px 12px", background: "#fffbeb", border: "1px solid #f59e0b", borderRadius: 8, color: "#92400e", fontSize: 13 }}>
+          Tracking is disabled in development. Set <span style={{ fontFamily: "monospace" }}>ENABLE_EXTERNAL_API_CALL_TRACKING=true</span> on the server to record calls.
+        </div>
+      )}
 
       {/* Date filter */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
@@ -129,6 +161,29 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
           </div>
         ))}
       </div>
+
+      {/* Vendor summary */}
+      {vendorAgg.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <h3 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: "#374151" }}>By vendor</h3>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {vendorAgg.map((v) => (
+              <div key={v.api} style={{ padding: "8px 12px", borderRadius: 8, background: "#fff", border: "1px solid #e5e7eb", minWidth: 180 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: API_COLORS[v.api] ?? "#111827" }}>{v.api}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>{fmtMs(v.avg_latency_ms)}</div>
+                </div>
+                <div style={{ marginTop: 4, fontSize: 12, color: "#374151" }}>
+                  {v.calls.toLocaleString()} calls •{" "}
+                  <span style={{ color: v.errors > 0 ? "#dc2626" : "#16a34a", fontWeight: v.errors > 0 ? 700 : 600 }}>
+                    {pct(v.errors, v.calls)} errors
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Usage table */}
       {agg.length === 0 ? (
