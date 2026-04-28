@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { ImageResponse } from "next/og.js";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/trackExternalCall";
 
 export type GeneratedMapVenue = {
   venue_id: string;
@@ -75,7 +76,7 @@ export async function fetchMapboxStaticPng(params: {
   style: string;
 }) {
   const url = buildMapboxStaticUrl(params);
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await trackExternalCall(EXTERNAL_API.mapbox, "static_map", EXTERNAL_API_SURFACE.venue_field_map, () => fetch(url, { cache: "no-store" }));
   if (!res.ok) {
     throw new Error(`mapbox_static_http_${res.status}`);
   }

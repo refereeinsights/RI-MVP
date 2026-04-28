@@ -1,3 +1,9 @@
+## 2026-04-28
+
+- RI Owl’s Eye (Foursquare): updated the Foursquare client to use the new Places API host (`places-api.foursquare.com/places/search`) after the legacy `/v3/places/search` endpoint began returning HTTP 410, and set a sane default `FOURSQUARE_API_VERSION` fallback (`2025-06-17`): `apps/referee/src/owlseye/nearby/foursquarePlaces.ts`, `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts`.
+- RI Owl’s Eye (Quick Eats/Hangouts): added verified Foursquare category ids (from `scripts/foursquare_category_discovery.ts`) to power category-based search for `quick_eats` + `hangouts`: `apps/referee/src/owlseye/foursquareCategories.ts`.
+- Ops: updated the discovery script to hit the new Places API, fixed an API version fallback bug (empty env value), and expanded discovery queries so results include both “quick eats” and “hangouts”-style categories: `scripts/foursquare_category_discovery.ts`.
+
 ## 2026-04-24
 
 - TI analytics: added a lightweight `venue_page_viewed` event (venue index + venue detail) persisted to `public.ti_map_events` via `POST /api/analytics` so venue interest can be measured without relying on Plausible goals/events: `apps/ti-web/app/api/analytics/route.ts`, `apps/ti-web/components/analytics/VenuePageViewTracker.tsx`, `apps/ti-web/app/venues/page.tsx`, `apps/ti-web/app/venues/[venueId]/page.tsx`, `apps/ti-web/lib/tiAnalyticsEvents.ts`.

@@ -20,6 +20,7 @@ export const EXTERNAL_API_SURFACE = {
   email_alert: "email_alert",
   email_digest: "email_digest",
   email_transactional: "email_transactional",
+  venue_field_map: "venue_field_map",
 } as const;
 export type ExternalApiSurface = (typeof EXTERNAL_API_SURFACE)[keyof typeof EXTERNAL_API_SURFACE];
 

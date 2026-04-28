@@ -332,7 +332,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
 
   const fsqKey = process.env.FSQ_API_KEY || process.env.FOURSQUARE_API_KEY || "";
   const fsqEnabled = (process.env.FOURSQUARE_ENABLED ?? "true").toLowerCase() === "true";
-  const fsqVersion = process.env.FOURSQUARE_API_VERSION ?? "2025-06-17";
+  const fsqVersion = process.env.FOURSQUARE_API_VERSION || "2025-06-17";
   const fsqDailyLimit = Math.max(0, Number(process.env.FOURSQUARE_DAILY_CALL_LIMIT ?? 500));
   const fsqMonthlyLimit = Math.max(0, Number(process.env.FOURSQUARE_MONTHLY_CALL_LIMIT ?? 35000));
 

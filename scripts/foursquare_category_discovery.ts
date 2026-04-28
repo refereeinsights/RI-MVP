@@ -33,13 +33,50 @@ type PlaceResult = {
   categories?: CategoryHit[];
 };
 
-const FSQ_API_KEY = process.env.FSQ_API_KEY ?? "";
+function readDotEnvValue(key: string): string {
+  try {
+    const candidates = [
+      path.join(process.cwd(), ".env.local"),
+      path.join(process.cwd(), "apps", "referee", ".env.local"),
+    ];
+    for (const envPath of candidates) {
+      let raw = "";
+      try {
+        raw = fs.readFileSync(envPath, "utf8");
+      } catch {
+        continue;
+      }
+      const lines = raw.split(/\r?\n/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const idx = trimmed.indexOf("=");
+        if (idx === -1) continue;
+        const k = trimmed.slice(0, idx).trim();
+        if (k !== key) continue;
+        let v = trimmed.slice(idx + 1).trim();
+        // Strip surrounding quotes if present
+        if ((v.startsWith("\"") && v.endsWith("\"")) || (v.startsWith("'") && v.endsWith("'"))) {
+          v = v.slice(1, -1);
+        }
+        return v;
+      }
+    }
+    return "";
+  } catch {
+    return "";
+  }
+}
+
+const FSQ_API_KEY = process.env.FSQ_API_KEY ?? readDotEnvValue("FSQ_API_KEY") ?? "";
 if (!FSQ_API_KEY) {
-  console.error("Missing FSQ_API_KEY env var.");
+  console.error("Missing FSQ_API_KEY env var (or FSQ_API_KEY in .env.local).");
   process.exit(1);
 }
 
-const API_VERSION = process.env.FOURSQUARE_API_VERSION ?? "2025-06-17";
+// Per Foursquare Places API docs, X-Places-Api-Version is required.
+const API_VERSION =
+  process.env.FOURSQUARE_API_VERSION || readDotEnvValue("FOURSQUARE_API_VERSION") || "2025-06-17";
 const LIMIT = 25;
 
 // Default test set: urban + sports complex + rural-ish.
@@ -50,12 +87,31 @@ const LOCATIONS: TestLocation[] = [
   { label: "Rural sample (Ellensburg, WA)", lat: 46.9965, lng: -120.5478, radii: [8000, 12000] },
 ];
 
-async function fsqSearch(args: { lat: number; lng: number; radius: number }) {
+const DISCOVERY_QUERIES: Array<{ label: string; query: string }> = [
+  // Quick eats-ish
+  { label: "pizza", query: "pizza" },
+  { label: "sandwich", query: "sandwich" },
+  { label: "fast food", query: "fast food" },
+  { label: "burrito", query: "burrito" },
+  { label: "bakery", query: "bakery" },
+  // Hangouts-ish
+  { label: "brewery", query: "brewery" },
+  { label: "bowling", query: "bowling" },
+  { label: "arcade", query: "arcade" },
+  { label: "mini golf", query: "mini golf" },
+  { label: "ice cream", query: "ice cream" },
+  { label: "park", query: "park" },
+];
+
+async function fsqSearch(args: { lat: number; lng: number; radius: number; query: string }) {
+  // NOTE: Foursquare deprecated the previous /v3/places/search endpoint (HTTP 410).
+  // Use the new Places API host.
   const url = new URL("https://places-api.foursquare.com/places/search");
   url.searchParams.set("ll", `${args.lat},${args.lng}`);
   url.searchParams.set("radius", String(args.radius));
   url.searchParams.set("limit", String(LIMIT));
   url.searchParams.set("sort", "DISTANCE");
+  url.searchParams.set("query", args.query);
 
   const res = await fetch(url.toString(), {
     headers: {
@@ -70,8 +126,31 @@ async function fsqSearch(args: { lat: number; lng: number; radius: number }) {
     throw new Error(`FSQ HTTP ${res.status}: ${body.slice(0, 500)}`);
   }
 
-  const json = (await res.json()) as { results?: PlaceResult[] };
-  return json.results ?? [];
+  const json = (await res.json()) as {
+    results?: Array<{
+      fsq_place_id?: string;
+      name?: string;
+      distance?: number;
+      categories?: Array<{ fsq_category_id?: string; name?: string }>;
+    }>;
+  };
+
+  const mapped: PlaceResult[] = (json.results ?? []).map((p) => ({
+    fsq_place_id: typeof p.fsq_place_id === "string" ? p.fsq_place_id : "",
+    name: typeof p.name === "string" ? p.name : "",
+    distance: typeof p.distance === "number" ? p.distance : undefined,
+    categories: Array.isArray(p.categories)
+      ? p.categories
+          .map((c) =>
+            typeof c?.fsq_category_id === "string" && c?.name
+              ? { fsq_category_id: String(c.fsq_category_id), name: String(c.name) }
+              : null
+          )
+          .filter(Boolean)
+      : [],
+  }));
+
+  return mapped.filter((p) => p.fsq_place_id && p.name);
 }
 
 function addSample(samples: string[], value: string, max = 8) {
@@ -92,16 +171,18 @@ async function main() {
     const categoryCounts = new Map<string, { name: string; count: number; samples: string[] }>();
 
     for (const radius of loc.radii) {
-      const results = await fsqSearch({ lat: loc.lat, lng: loc.lng, radius });
-      for (const place of results) {
-        for (const cat of place.categories ?? []) {
-          if (!cat?.fsq_category_id || !cat?.name) continue;
-          if (!categoryCounts.has(cat.fsq_category_id)) {
-            categoryCounts.set(cat.fsq_category_id, { name: cat.name, count: 0, samples: [] });
+      for (const q of DISCOVERY_QUERIES) {
+        const results = await fsqSearch({ lat: loc.lat, lng: loc.lng, radius, query: q.query });
+        for (const place of results) {
+          for (const cat of place.categories ?? []) {
+            if (!cat?.fsq_category_id || !cat?.name) continue;
+            if (!categoryCounts.has(cat.fsq_category_id)) {
+              categoryCounts.set(cat.fsq_category_id, { name: cat.name, count: 0, samples: [] });
+            }
+            const row = categoryCounts.get(cat.fsq_category_id)!;
+            row.count += 1;
+            addSample(row.samples, place.name);
           }
-          const row = categoryCounts.get(cat.fsq_category_id)!;
-          row.count += 1;
-          addSample(row.samples, place.name);
         }
       }
     }
@@ -134,4 +215,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

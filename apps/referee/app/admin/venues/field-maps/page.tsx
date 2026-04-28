@@ -6,6 +6,7 @@ import crypto from "crypto";
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/trackExternalCall";
 import SelectAllOnPage from "./SelectAllOnPage";
 import { renderGeneratedMapPng, sha256Hex, uploadGeneratedMapToStorage } from "@/lib/maps/generatedFieldMaps";
 import { fetchVenuePoiHints } from "@/lib/maps/venuePoiHints";
@@ -204,7 +205,7 @@ async function validateVenueCoordinates(params: {
       url.searchParams.set("types", "place,region,country,postcode");
       url.searchParams.set("limit", "1");
 
-      const res = await fetch(url.toString(), { cache: "no-store" });
+      const res = await trackExternalCall(EXTERNAL_API.mapbox, "reverse_geocode", EXTERNAL_API_SURFACE.venue_geocode, () => fetch(url.toString(), { cache: "no-store" }));
       if (res.ok) {
         const json = (await res.json()) as any;
         const feat = Array.isArray(json?.features) ? json.features[0] : null;
@@ -237,7 +238,7 @@ async function validateVenueCoordinates(params: {
       url.searchParams.set("types", "address,poi,place");
       if (isLikelyUsStateCode(expectedState)) url.searchParams.set("country", "us");
 
-      const res = await fetch(url.toString(), { cache: "no-store" });
+      const res = await trackExternalCall(EXTERNAL_API.mapbox, "forward_geocode", EXTERNAL_API_SURFACE.venue_address_verify, () => fetch(url.toString(), { cache: "no-store" }));
       if (res.ok) {
         const json = (await res.json()) as any;
         const feat = Array.isArray(json?.features) ? json.features[0] : null;

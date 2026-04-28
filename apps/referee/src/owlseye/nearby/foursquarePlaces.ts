@@ -20,17 +20,19 @@ export async function searchFoursquarePlaces(args: {
   lng: number;
   radiusMeters: number;
   categoryIds: string[];
+  query?: string;
   limit?: number;
 }): Promise<FsqPlaceResult[]> {
   const limit = Math.max(1, Math.min(50, Math.floor(args.limit ?? 25)));
+  // NOTE: Foursquare deprecated the previous `/v3/places/search` endpoint (HTTP 410).
+  // Use the new Places API host.
   const url = new URL("https://places-api.foursquare.com/places/search");
   url.searchParams.set("ll", `${args.lat},${args.lng}`);
   url.searchParams.set("radius", String(args.radiusMeters));
   url.searchParams.set("limit", String(limit));
   url.searchParams.set("sort", "DISTANCE");
-  if (args.categoryIds.length > 0) {
-    url.searchParams.set("fsq_category_ids", args.categoryIds.join(","));
-  }
+  if (args.categoryIds.length > 0) url.searchParams.set("categories", args.categoryIds.join(","));
+  if (args.query) url.searchParams.set("query", args.query);
 
   const res = await fetch(url.toString(), {
     headers: {
@@ -49,8 +51,9 @@ export async function searchFoursquarePlaces(args: {
     results?: Array<{
       fsq_place_id?: string;
       name?: string;
-      location?: { formatted_address?: string; address?: string; locality?: string; region?: string };
-      geocodes?: { main?: { latitude?: number; longitude?: number } };
+      location?: { formatted_address?: string; address?: string; locality?: string; region?: string; postcode?: string };
+      latitude?: number;
+      longitude?: number;
       distance?: number;
       categories?: Array<{ fsq_category_id?: string; name?: string }>;
     }>;
@@ -61,8 +64,8 @@ export async function searchFoursquarePlaces(args: {
     .map((p) => {
       const fsqPlaceId = typeof p.fsq_place_id === "string" ? p.fsq_place_id : "";
       const name = typeof p.name === "string" ? p.name : "";
-      const lat = p.geocodes?.main?.latitude;
-      const lng = p.geocodes?.main?.longitude;
+      const lat = p.latitude;
+      const lng = p.longitude;
       if (!fsqPlaceId || !name || typeof lat !== "number" || typeof lng !== "number") return null;
       const address =
         typeof p.location?.formatted_address === "string"
@@ -70,7 +73,7 @@ export async function searchFoursquarePlaces(args: {
           : [p.location?.address, p.location?.locality, p.location?.region].filter(Boolean).join(", ");
       const categories: FsqPlaceCategory[] = (p.categories ?? [])
         .map((c) =>
-          c?.fsq_category_id && c?.name
+          typeof c?.fsq_category_id === "string" && c?.name
             ? { fsq_category_id: String(c.fsq_category_id), name: String(c.name) }
             : null
         )
@@ -87,4 +90,3 @@ export async function searchFoursquarePlaces(args: {
     })
     .filter(Boolean) as FsqPlaceResult[];
 }
-
