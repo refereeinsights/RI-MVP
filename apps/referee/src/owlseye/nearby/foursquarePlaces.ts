@@ -11,7 +11,25 @@ export type FsqPlaceResult = {
   lng: number;
   distance_meters?: number;
   categories: FsqPlaceCategory[];
+  // Optional closure hints (present on some provider responses). We never do extra
+  // detail calls in Owl's Eye V1+; we only filter when the provider includes these.
+  closed_bucket?: string | null;
+  closed_reason?: string | null;
+  status?: string | null;
+  is_closed?: boolean | null;
+  permanently_closed?: boolean | null;
+  temporarily_closed?: boolean | null;
 };
+
+export class FoursquareHttpError extends Error {
+  status: number;
+  bodySnippet: string;
+  constructor(status: number, bodySnippet: string) {
+    super(`FSQ HTTP ${status}: ${bodySnippet}`);
+    this.status = status;
+    this.bodySnippet = bodySnippet;
+  }
+}
 
 export async function searchFoursquarePlaces(args: {
   apiKey: string;
@@ -20,6 +38,7 @@ export async function searchFoursquarePlaces(args: {
   lng: number;
   radiusMeters: number;
   categoryIds: string[];
+  paramMode?: "fsq_category_ids" | "categories";
   query?: string;
   limit?: number;
 }): Promise<FsqPlaceResult[]> {
@@ -31,7 +50,8 @@ export async function searchFoursquarePlaces(args: {
   url.searchParams.set("radius", String(args.radiusMeters));
   url.searchParams.set("limit", String(limit));
   url.searchParams.set("sort", "DISTANCE");
-  if (args.categoryIds.length > 0) url.searchParams.set("categories", args.categoryIds.join(","));
+  const paramMode = args.paramMode ?? "categories";
+  if (args.categoryIds.length > 0) url.searchParams.set(paramMode, args.categoryIds.join(","));
   if (args.query) url.searchParams.set("query", args.query);
 
   const res = await fetch(url.toString(), {
@@ -44,7 +64,7 @@ export async function searchFoursquarePlaces(args: {
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`FSQ HTTP ${res.status}: ${body.slice(0, 240)}`);
+    throw new FoursquareHttpError(res.status, body.slice(0, 240));
   }
 
   const json = (await res.json()) as {
@@ -56,6 +76,12 @@ export async function searchFoursquarePlaces(args: {
       longitude?: number;
       distance?: number;
       categories?: Array<{ fsq_category_id?: string; name?: string }>;
+      closed_bucket?: unknown;
+      closed_reason?: unknown;
+      status?: unknown;
+      is_closed?: unknown;
+      permanently_closed?: unknown;
+      temporarily_closed?: unknown;
     }>;
   };
 
@@ -86,6 +112,12 @@ export async function searchFoursquarePlaces(args: {
         lng,
         distance_meters: typeof p.distance === "number" ? p.distance : undefined,
         categories,
+        closed_bucket: typeof p.closed_bucket === "string" ? p.closed_bucket : null,
+        closed_reason: typeof p.closed_reason === "string" ? p.closed_reason : null,
+        status: typeof p.status === "string" ? p.status : null,
+        is_closed: typeof p.is_closed === "boolean" ? p.is_closed : null,
+        permanently_closed: typeof p.permanently_closed === "boolean" ? p.permanently_closed : null,
+        temporarily_closed: typeof p.temporarily_closed === "boolean" ? p.temporarily_closed : null,
       } satisfies FsqPlaceResult;
     })
     .filter(Boolean) as FsqPlaceResult[];

@@ -3,7 +3,7 @@ import fetchNearbyPlaces from "@/lib/google/nearbySearch";
 import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/trackExternalCall";
 import { CURRENT_OWL_CATEGORIES } from "../categories";
 import { QUICK_EATS_CATEGORY_IDS, HANGOUT_CATEGORY_IDS } from "../foursquareCategories";
-import { searchFoursquarePlaces } from "./foursquarePlaces";
+import { FoursquareHttpError, searchFoursquarePlaces } from "./foursquarePlaces";
 import { tagAndFilterEnhancedPlaces, type OwlEnhancedCategory } from "./quickEatsHangouts";
 
 type UpsertParams = {
@@ -95,6 +95,7 @@ type TextPlace = {
   lat: number;
   lng: number;
   primaryType?: string;
+  business_status?: string;
 };
 
 function milesFromMeters(meters: number) {
@@ -130,7 +131,8 @@ async function searchPlacesText(args: {
 }): Promise<TextPlace[]> {
   const safeMax = Math.max(1, Math.min(20, Math.floor(args.maxResultCount ?? 20)));
   const endpoint = "https://places.googleapis.com/v1/places:searchText";
-  const fieldMask = "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType";
+  const fieldMask =
+    "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.businessStatus";
 
   try {
     const resp = await fetch(endpoint, {
@@ -169,6 +171,7 @@ async function searchPlacesText(args: {
           lat: latVal,
           lng: lngVal,
           primaryType: typeof p.primaryType === "string" ? p.primaryType : undefined,
+          business_status: typeof p.businessStatus === "string" ? p.businessStatus : undefined,
         } satisfies TextPlace;
       })
       .filter(Boolean) as TextPlace[];
@@ -271,6 +274,40 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
 
   if (!supabaseAdmin || !runId) return { ok: false, message: "missing_supabase_or_run" };
 
+  const runMeta = await (async () => {
+    try {
+      // Some environments have `run_id`; older ones may only have `id`.
+      const baseSelect = "ttl_until,categories_fetched,outputs,status";
+      let resp = await supabaseAdmin.from("owls_eye_runs" as any).select(baseSelect).eq("run_id", runId).maybeSingle();
+      if (resp.error?.code === "42703" || resp.error?.code === "PGRST204") {
+        resp = await supabaseAdmin.from("owls_eye_runs" as any).select(baseSelect).eq("id", runId).maybeSingle();
+      }
+      return resp.data as
+        | {
+            ttl_until?: string | null;
+            categories_fetched?: string[] | null;
+            outputs?: any;
+            status?: string | null;
+          }
+        | null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const isRunFresh = (() => {
+    const ttl = String(runMeta?.ttl_until ?? "").trim();
+    if (!ttl) return false;
+    const dt = new Date(ttl);
+    if (!Number.isFinite(dt.getTime())) return false;
+    return dt.getTime() > Date.now();
+  })();
+
+  const runHasCategory = (category: string) => {
+    const existing: string[] = Array.isArray(runMeta?.categories_fetched) ? (runMeta?.categories_fetched as string[]) : [];
+    return existing.includes(category);
+  };
+
   // Skip early-return for targeted runs — we're adding new categories to an existing run.
   if (!force && !isTargetedRun) {
     const { count, error: countError } = await supabaseAdmin
@@ -330,6 +367,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       hangouts: { places: [], usedGoogleFallback: false },
     };
 
+  const fsqDebugRequests: Array<Record<string, any>> = [];
+
   const fsqKey = process.env.FSQ_API_KEY || process.env.FOURSQUARE_API_KEY || "";
   const fsqEnabled = (process.env.FOURSQUARE_ENABLED ?? "true").toLowerCase() === "true";
   const fsqVersion = process.env.FOURSQUARE_API_VERSION || "2025-06-17";
@@ -351,6 +390,9 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
 
   const runEnhanced = async (category: OwlEnhancedCategory) => {
     if (!shouldFetch(category)) return;
+    // If we already have this category in a fresh, complete run, avoid re-calling providers.
+    if (!force && isRunFresh && runHasCategory(category)) return;
+
     if (!fsqEnabled || !fsqKey) {
       enhancedNearby[category].usedGoogleFallback = true;
       enhancedNearby[category].fallbackReason = !fsqEnabled ? "foursquare_disabled" : "missing_foursquare_key";
@@ -398,18 +440,43 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
         }
 
         let raw: any[] = [];
+        let paramMode: "fsq_category_ids" | "categories" =
+          category === "quick_eats" ? "fsq_category_ids" : "fsq_category_ids";
+        let hangoutsFallbackUsed = false;
         try {
-          raw = await trackExternalCall(EXTERNAL_API.foursquare, "places_search", EXTERNAL_API_SURFACE.owls_eye_batch, () =>
-            searchFoursquarePlaces({
-              apiKey: fsqKey,
-              apiVersion: fsqVersion,
-              lat: venueLat,
-              lng: venueLng,
-              radiusMeters: radius,
-              categoryIds,
-              limit,
-            })
-          );
+          const callOnce = async (mode: "fsq_category_ids" | "categories") =>
+            trackExternalCall(EXTERNAL_API.foursquare, "places_search", EXTERNAL_API_SURFACE.owls_eye_batch, () =>
+              searchFoursquarePlaces({
+                apiKey: fsqKey,
+                apiVersion: fsqVersion,
+                lat: venueLat,
+                lng: venueLng,
+                radiusMeters: radius,
+                categoryIds,
+                limit,
+                paramMode: mode,
+              })
+            );
+
+          if (category === "quick_eats") {
+            // Quick Eats: must use fsq_category_ids (fail closed).
+            raw = await callOnce("fsq_category_ids");
+            paramMode = "fsq_category_ids";
+          } else {
+            // Hangouts: prefer fsq_category_ids, but may fall back to categories on unsupported param.
+            try {
+              raw = await callOnce("fsq_category_ids");
+              paramMode = "fsq_category_ids";
+            } catch (e) {
+              if (e instanceof FoursquareHttpError && e.status === 400) {
+                raw = await callOnce("categories");
+                paramMode = "categories";
+                hangoutsFallbackUsed = true;
+              } else {
+                throw e;
+              }
+            }
+          }
         } catch (err) {
           weak = true;
           lastWeakReason = "foursquare_error";
@@ -440,6 +507,23 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
         bestTagged = dedupedQualified;
         bestRadius = radius;
 
+        fsqDebugRequests.push({
+          endpoint: "https://places-api.foursquare.com/places/search",
+          ll: `${venueLat},${venueLng}`,
+          radius,
+          limit,
+          sort: "DISTANCE",
+          param_mode: paramMode,
+          category_ids: categoryIds,
+          category,
+          result_count: raw.length,
+          qualified_count: tagged.filter((t) => t.qualified).length,
+          excluded_count: tagged.filter((t) => t.excluded).length,
+          weak: weakCheck.weak,
+          weak_reason: weakCheck.reason ?? null,
+          hangouts_fsq_category_ids_unsupported: hangoutsFallbackUsed ? true : undefined,
+        });
+
         if (!weak) break;
       }
     }
@@ -455,7 +539,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
 
     // Google fallback (1 call max per category per run), only when FSQ results are weak/unavailable.
     if (!googleFallbackEnabled || !apiKey) {
-      enhancedNearby[category].places = bestTagged.slice(0, ENHANCED_LIMIT);
+      // Fail closed: do not store weak/noisy FSQ results when fallback isn't available.
+      enhancedNearby[category].places = [];
       enhancedNearby[category].usedGoogleFallback = false;
       enhancedNearby[category].fallbackReason = lastWeakReason ?? "foursquare_low_quality";
       return;
@@ -468,7 +553,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       monthlyLimit: googleMonthlyLimit,
     });
     if (!canCallGoogle) {
-      enhancedNearby[category].places = bestTagged.slice(0, ENHANCED_LIMIT);
+      enhancedNearby[category].places = [];
       enhancedNearby[category].usedGoogleFallback = false;
       enhancedNearby[category].fallbackReason = "budget_exceeded";
       return;
@@ -827,6 +912,31 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       .eq("run_id", runId);
   } catch {
     // best-effort — does not affect the nearby rows already written
+  }
+
+  // Best-effort debug logging (admin pipeline only). Never block the run.
+  if (fsqDebugRequests.length > 0) {
+    try {
+      const baseSelect = "outputs";
+      let resp = await supabaseAdmin.from("owls_eye_runs" as any).select(baseSelect).eq("run_id", runId).maybeSingle();
+      if (resp.error?.code === "42703" || resp.error?.code === "PGRST204") {
+        resp = await supabaseAdmin.from("owls_eye_runs" as any).select(baseSelect).eq("id", runId).maybeSingle();
+      }
+      const existingOutputs = resp.data?.outputs ?? null;
+      const outputs = existingOutputs && typeof existingOutputs === "object" ? existingOutputs : {};
+      const debug = outputs.debug && typeof outputs.debug === "object" ? outputs.debug : {};
+      const prev = Array.isArray(debug.foursquare_requests) ? debug.foursquare_requests : [];
+      const merged = [...prev, ...fsqDebugRequests].slice(-50);
+      const nextOutputs = { ...outputs, debug: { ...debug, foursquare_requests: merged } };
+
+      const updatePayload: Record<string, any> = { outputs: nextOutputs };
+      let update = await supabaseAdmin.from("owls_eye_runs" as any).update(updatePayload).eq("run_id", runId);
+      if (update.error?.code === "42703" || update.error?.code === "PGRST204") {
+        update = await supabaseAdmin.from("owls_eye_runs" as any).update(updatePayload).eq("id", runId);
+      }
+    } catch {
+      // swallow
+    }
   }
 
   return {

@@ -1,5 +1,6 @@
 import haversineMeters from "@/lib/geo/haversineMeters";
 import type { FsqPlaceResult } from "./foursquarePlaces";
+import { QUICK_EATS_CATEGORY_IDS } from "../foursquareCategories";
 
 export type OwlEnhancedCategory = "quick_eats" | "hangouts";
 
@@ -106,6 +107,7 @@ export function tagAndFilterEnhancedPlaces(args: {
         address: string;
         lat: number;
         lng: number;
+        business_status?: string;
       }
   >;
   venueLat: number;
@@ -120,11 +122,29 @@ export function tagAndFilterEnhancedPlaces(args: {
       const lng = p.lng;
       if (!providerPlaceId || !name || typeof lat !== "number" || typeof lng !== "number") return null;
 
+      // Provider closure signals (best-effort; only applied when present).
+      const isClosed = (() => {
+        if ("fsq_place_id" in p) {
+          const status = String(p.status ?? "").toLowerCase();
+          const bucket = String(p.closed_bucket ?? "").toLowerCase();
+          const reason = String(p.closed_reason ?? "").toLowerCase();
+          if (p.is_closed === true) return true;
+          if (p.permanently_closed === true || p.temporarily_closed === true) return true;
+          if (status && /closed|inactive|permanent/i.test(status)) return true;
+          if (bucket && /closed|inactive|permanent/i.test(bucket)) return true;
+          if (reason && /closed|inactive|permanent/i.test(reason)) return true;
+          return false;
+        }
+        const businessStatus = String((p as any)?.business_status ?? "").toUpperCase();
+        if (businessStatus === "CLOSED_PERMANENTLY" || businessStatus === "CLOSED_TEMPORARILY") return true;
+        return false;
+      })();
+
       const h = norm(`${name} ${address}`);
       const baseEx = isExcludedBase(h);
       // Theaters are excluded by default; can be surfaced later via explicit allow logic.
       const theaterExcluded = THEATER_EXCLUDE_RE.test(h);
-      const excluded = baseEx.excluded || theaterExcluded;
+      const excluded = isClosed || baseEx.excluded || theaterExcluded;
 
       const reasonTags =
         args.category === "quick_eats" ? tagsForQuickEats(h) : tagsForHangouts(h);
@@ -136,11 +156,19 @@ export function tagAndFilterEnhancedPlaces(args: {
       const hangoutSignalsOk =
         args.category !== "hangouts" || HANGOUT_POSITIVE_RE.test(h);
 
+      const fsqCategoryGateOk = (() => {
+        if (args.category !== "quick_eats") return true;
+        if (!("fsq_place_id" in p)) return true;
+        const ids = (p.categories ?? []).map((c) => c.fsq_category_id).filter(Boolean);
+        return ids.some((id) => QUICK_EATS_CATEGORY_IDS.includes(id));
+      })();
+
       const qualified =
         !excluded &&
         reasonTags.length > 0 &&
         quickEatsSignalsOk &&
-        hangoutSignalsOk;
+        hangoutSignalsOk &&
+        fsqCategoryGateOk;
 
       const strongMatch =
         args.category === "quick_eats"
@@ -162,13 +190,18 @@ export function tagAndFilterEnhancedPlaces(args: {
         lat,
         lng,
         distance_meters: Math.round(meters),
-        reason_tags: reasonTags,
+        reason_tags: isClosed ? [...reasonTags, "closed"] : reasonTags,
         qualified,
         strong_match: strongMatch,
         excluded,
-        excluded_reason: excluded ? baseEx.reason ?? (theaterExcluded ? "theater" : "excluded") : undefined,
+        excluded_reason: excluded
+          ? isClosed
+            ? (String((p as any)?.business_status ?? "").toUpperCase() === "CLOSED_TEMPORARILY" || ("fsq_place_id" in p && p.temporarily_closed)
+                ? "temporarily_closed"
+                : "permanently_closed")
+            : baseEx.reason ?? (theaterExcluded ? "theater" : "excluded")
+          : undefined,
       } satisfies TaggedPlace;
     })
     .filter(Boolean) as TaggedPlace[];
 }
-
