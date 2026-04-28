@@ -323,6 +323,17 @@ export default function TournamentVenueMapClient({
                   </a>
                 ) : null}
 
+                {hotelVenueId ? (
+                  <a
+                    className={`${styles.cta} ${styles.ctaSecondary}`}
+                    href={`/go/vrbo?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                  >
+                    Search Vrbo rentals
+                  </a>
+                ) : null}
+
                 {selectedVenue.seo_slug ? (
                   <Link
                     className={`${styles.cta} ${styles.ctaSecondary}`}

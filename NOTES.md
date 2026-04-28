@@ -3,6 +3,7 @@
 - RI Owl’s Eye (Foursquare): updated the Foursquare client to use the new Places API host (`places-api.foursquare.com/places/search`) after the legacy `/v3/places/search` endpoint began returning HTTP 410, and set a sane default `FOURSQUARE_API_VERSION` fallback (`2025-06-17`): `apps/referee/src/owlseye/nearby/foursquarePlaces.ts`, `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts`.
 - RI Owl’s Eye (Quick Eats/Hangouts): added verified Foursquare category ids (from `scripts/foursquare_category_discovery.ts`) to power category-based search for `quick_eats` + `hangouts`: `apps/referee/src/owlseye/foursquareCategories.ts`.
 - Ops: updated the discovery script to hit the new Places API, fixed an API version fallback bug (empty env value), and expanded discovery queries so results include both “quick eats” and “hangouts”-style categories: `scripts/foursquare_category_discovery.ts`.
+- TI outbound (Vrbo): added `/go/vrbo` CJ deeplink redirect + click logging to `ti_outbound_clicks`, plus a Vrbo CTA in the tournament interactive map venue panel: `apps/ti-web/app/go/vrbo/route.ts`, `apps/ti-web/lib/vrbo.ts`, `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`.
 
 ## 2026-04-24
 
