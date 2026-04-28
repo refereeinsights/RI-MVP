@@ -6,6 +6,8 @@ export const CURRENT_OWL_CATEGORIES = [
   "coffee",
   "hotel",
   "sporting_goods",
+  "quick_eats",
+  "hangouts",
 ] as const;
 
 export type OwlCategory = (typeof CURRENT_OWL_CATEGORIES)[number];
@@ -15,7 +17,6 @@ export const OWL_CATEGORY_LABELS: Record<string, string> = {
   coffee: "Coffee",
   hotel: "Hotels",
   sporting_goods: "Sporting Goods",
-  // Add labels here when new categories are added:
-  // quick_eats: "Quick Eats",
-  // hangouts: "Hangouts",
+  quick_eats: "Quick Eats",
+  hangouts: "Family-Friendly Hangouts",
 };

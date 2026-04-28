@@ -2,6 +2,9 @@ import haversineMeters from "@/lib/geo/haversineMeters";
 import fetchNearbyPlaces from "@/lib/google/nearbySearch";
 import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/trackExternalCall";
 import { CURRENT_OWL_CATEGORIES } from "../categories";
+import { QUICK_EATS_CATEGORY_IDS, HANGOUT_CATEGORY_IDS } from "../foursquareCategories";
+import { searchFoursquarePlaces } from "./foursquarePlaces";
+import { tagAndFilterEnhancedPlaces, type OwlEnhancedCategory } from "./quickEatsHangouts";
 
 type UpsertParams = {
   supabaseAdmin: any;
@@ -33,6 +36,7 @@ const SPORTING_GOODS_MILES = 25;
 const DEFAULT_LIMIT = 8;
 const HOTEL_LIMIT = 5;
 const SPORTING_GOODS_LIMIT = 6;
+const ENHANCED_LIMIT = 8;
 const HOTEL_INCLUDE_RE = /\b(hotel|motel|inn|resort|suite|suites|lodge)\b/i;
 const HOTEL_EXCLUDE_RE =
   /\b(storage|self storage|mobile home|rv|campground|trailer|home park|apartment|apartments|condo|condominiums?|residential|residence|residences|retreat|getaway|holiday home|vacation rental|vacation rentals|private room|entire home|whole home|townhome|townhouse|single family|multi family|student housing|senior living|corporate housing|furnished rental|property management|leasing office|lease office|realty|real estate|homes for rent|villa rental)\b/i;
@@ -181,7 +185,73 @@ type NearbyResult = {
   hotelCount?: number;
   sportingGoodsCount?: number;
   bigBoxFallbackCount?: number;
+  quickEatsCount?: number;
+  hangoutsCount?: number;
 };
+
+function isoUtcStartOfDay(d = new Date()) {
+  const dd = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0));
+  return dd.toISOString();
+}
+
+function isoUtcStartOfTomorrow(d = new Date()) {
+  const dd = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0));
+  return dd.toISOString();
+}
+
+function isoUtcStartOfMonth(d = new Date()) {
+  const dd = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0));
+  return dd.toISOString();
+}
+
+function isoUtcStartOfNextMonth(d = new Date()) {
+  const dd = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1, 0, 0, 0));
+  return dd.toISOString();
+}
+
+async function countExternalCalls(args: {
+  supabaseAdmin: any;
+  api: string;
+  fromIso: string;
+  toIsoExclusive: string;
+}) {
+  try {
+    const { count } = await args.supabaseAdmin
+      .from("external_api_calls" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("api", args.api)
+      .gte("called_at", args.fromIso)
+      .lt("called_at", args.toIsoExclusive);
+    return typeof count === "number" ? count : 0;
+  } catch {
+    // If the table isn't present yet, fail open (tracking is best-effort).
+    return 0;
+  }
+}
+
+async function withinBudgets(args: {
+  supabaseAdmin: any;
+  api: string;
+  dailyLimit: number;
+  monthlyLimit: number;
+}) {
+  const now = new Date();
+  const [daily, monthly] = await Promise.all([
+    countExternalCalls({
+      supabaseAdmin: args.supabaseAdmin,
+      api: args.api,
+      fromIso: isoUtcStartOfDay(now),
+      toIsoExclusive: isoUtcStartOfTomorrow(now),
+    }),
+    countExternalCalls({
+      supabaseAdmin: args.supabaseAdmin,
+      api: args.api,
+      fromIso: isoUtcStartOfMonth(now),
+      toIsoExclusive: isoUtcStartOfNextMonth(now),
+    }),
+  ]);
+  return daily < args.dailyLimit && monthly < args.monthlyLimit;
+}
 
 export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyResult> {
   const {
@@ -213,31 +283,229 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   }
 
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-  if (!apiKey) {
-    console.warn("[owlseye] Missing GOOGLE_PLACES_API_KEY; skipping nearby fetch");
-    return { ok: false, message: "missing_api_key" };
-  }
 
   const baseOpts = { lat: venueLat, lng: venueLng, radiusMeters, apiKey };
   let foodResults: any[] = [];
   let coffeeResults: any[] = [];
   let hotelResults: any[] = [];
-  try {
-    [foodResults, coffeeResults, hotelResults] = await Promise.all([
-      shouldFetch("food")
-        ? trackExternalCall(EXTERNAL_API.google_places, "nearby_search", EXTERNAL_API_SURFACE.owls_eye_batch, () => fetchNearbyPlaces({ ...baseOpts, type: "restaurant" }))
-        : Promise.resolve([]),
-      shouldFetch("coffee")
-        ? trackExternalCall(EXTERNAL_API.google_places, "nearby_search", EXTERNAL_API_SURFACE.owls_eye_batch, () => fetchNearbyPlaces({ ...baseOpts, type: "cafe" }))
-        : Promise.resolve([]),
-      shouldFetch("hotel")
-        ? trackExternalCall(EXTERNAL_API.google_places, "nearby_search", EXTERNAL_API_SURFACE.owls_eye_batch, () => fetchNearbyPlaces({ ...baseOpts, type: "lodging", radiusMeters: HOTEL_RADIUS, maxResultCount: 50 }))
-        : Promise.resolve([]),
-    ]);
-  } catch (err) {
-    console.error("[owlseye] Nearby fetch failed", err);
-    return { ok: false, message: err instanceof Error ? err.message : "nearby_fetch_failed" };
+  const attemptedCategories = new Set<string>();
+  if (apiKey) {
+    try {
+      [foodResults, coffeeResults, hotelResults] = await Promise.all([
+        shouldFetch("food")
+          ? trackExternalCall(EXTERNAL_API.google_places, "nearby_search", EXTERNAL_API_SURFACE.owls_eye_batch, () =>
+              fetchNearbyPlaces({ ...baseOpts, type: "restaurant" })
+            )
+          : Promise.resolve([]),
+        shouldFetch("coffee")
+          ? trackExternalCall(EXTERNAL_API.google_places, "nearby_search", EXTERNAL_API_SURFACE.owls_eye_batch, () =>
+              fetchNearbyPlaces({ ...baseOpts, type: "cafe" })
+            )
+          : Promise.resolve([]),
+        shouldFetch("hotel")
+          ? trackExternalCall(EXTERNAL_API.google_places, "nearby_search", EXTERNAL_API_SURFACE.owls_eye_batch, () =>
+              fetchNearbyPlaces({
+                ...baseOpts,
+                type: "lodging",
+                radiusMeters: HOTEL_RADIUS,
+                maxResultCount: 50,
+              })
+            )
+          : Promise.resolve([]),
+      ]);
+      if (shouldFetch("food")) attemptedCategories.add("food");
+      if (shouldFetch("coffee")) attemptedCategories.add("coffee");
+      if (shouldFetch("hotel")) attemptedCategories.add("hotel");
+    } catch (err) {
+      console.error("[owlseye] Nearby fetch failed", err);
+      return { ok: false, message: err instanceof Error ? err.message : "nearby_fetch_failed" };
+    }
+  } else if (shouldFetch("food") || shouldFetch("coffee") || shouldFetch("hotel")) {
+    console.warn("[owlseye] Missing GOOGLE_PLACES_API_KEY; skipping nearby fetch");
   }
+
+  const enhancedNearby: Record<OwlEnhancedCategory, { places: ReturnType<typeof tagAndFilterEnhancedPlaces>; usedGoogleFallback: boolean; fallbackReason?: string; radius?: number }> =
+    {
+      quick_eats: { places: [], usedGoogleFallback: false },
+      hangouts: { places: [], usedGoogleFallback: false },
+    };
+
+  const fsqKey = process.env.FSQ_API_KEY || process.env.FOURSQUARE_API_KEY || "";
+  const fsqEnabled = (process.env.FOURSQUARE_ENABLED ?? "true").toLowerCase() === "true";
+  const fsqVersion = process.env.FOURSQUARE_API_VERSION ?? "2025-06-17";
+  const fsqDailyLimit = Math.max(0, Number(process.env.FOURSQUARE_DAILY_CALL_LIMIT ?? 500));
+  const fsqMonthlyLimit = Math.max(0, Number(process.env.FOURSQUARE_MONTHLY_CALL_LIMIT ?? 35000));
+
+  const googleFallbackEnabled = (process.env.GOOGLE_FALLBACK_FOR_OWLS_EYE_ENABLED ?? "true").toLowerCase() === "true";
+  const googleDailyLimit = Math.max(0, Number(process.env.GOOGLE_FALLBACK_DAILY_CALL_LIMIT ?? 100));
+  const googleMonthlyLimit = Math.max(0, Number(process.env.GOOGLE_FALLBACK_MONTHLY_CALL_LIMIT ?? 3000));
+
+  const radiiByCategory: Record<OwlEnhancedCategory, number[]> = {
+    quick_eats: [5000, 8000, 12000],
+    hangouts: [8000, 12000, 16000],
+  };
+  const thresholdByCategory: Record<OwlEnhancedCategory, number> = {
+    quick_eats: 3,
+    hangouts: 2,
+  };
+
+  const runEnhanced = async (category: OwlEnhancedCategory) => {
+    if (!shouldFetch(category)) return;
+    if (!fsqEnabled || !fsqKey) {
+      enhancedNearby[category].usedGoogleFallback = true;
+      enhancedNearby[category].fallbackReason = !fsqEnabled ? "foursquare_disabled" : "missing_foursquare_key";
+    }
+
+    const categoryIds = category === "quick_eats" ? QUICK_EATS_CATEGORY_IDS : HANGOUT_CATEGORY_IDS;
+    const limit = 25;
+
+    let bestTagged: ReturnType<typeof tagAndFilterEnhancedPlaces> = [];
+    let bestRadius: number | undefined;
+    let weak = true;
+    let lastWeakReason: string | undefined;
+
+    const isWeak = (tagged: ReturnType<typeof tagAndFilterEnhancedPlaces>, rawCount: number, isInitial: boolean) => {
+      const excludedCount = tagged.filter((t) => t.excluded).length;
+      const qualified = tagged.filter((t) => t.qualified);
+      const qualifiedCount = qualified.length;
+      const strongCount = qualified.filter((t) => t.strong_match).length;
+      const noiseRatio = rawCount > 0 ? excludedCount / rawCount : 0;
+      if (qualifiedCount < thresholdByCategory[category]) return { weak: true, reason: "too_few_qualified" };
+      if (noiseRatio > 0.5) return { weak: true, reason: "too_noisy" };
+      if (strongCount === 0) return { weak: true, reason: "no_strong_match" };
+      if (isInitial) {
+        const farAll = qualified.every((t) => t.distance_meters > 8000);
+        if (farAll) return { weak: true, reason: "too_far_initial" };
+      }
+      return { weak: false, reason: undefined };
+    };
+
+    if (fsqEnabled && fsqKey && categoryIds.length > 0) {
+      for (let idx = 0; idx < radiiByCategory[category].length; idx++) {
+        const radius = radiiByCategory[category][idx];
+        const isInitial = idx === 0;
+
+        const canCall = await withinBudgets({
+          supabaseAdmin,
+          api: EXTERNAL_API.foursquare,
+          dailyLimit: fsqDailyLimit,
+          monthlyLimit: fsqMonthlyLimit,
+        });
+        if (!canCall) {
+          weak = true;
+          lastWeakReason = "budget_exceeded";
+          break;
+        }
+
+        let raw: any[] = [];
+        try {
+          raw = await trackExternalCall(EXTERNAL_API.foursquare, "places_search", EXTERNAL_API_SURFACE.owls_eye_batch, () =>
+            searchFoursquarePlaces({
+              apiKey: fsqKey,
+              apiVersion: fsqVersion,
+              lat: venueLat,
+              lng: venueLng,
+              radiusMeters: radius,
+              categoryIds,
+              limit,
+            })
+          );
+        } catch (err) {
+          weak = true;
+          lastWeakReason = "foursquare_error";
+          break;
+        }
+
+        const tagged = tagAndFilterEnhancedPlaces({
+          category,
+          provider: "foursquare",
+          places: raw,
+          venueLat,
+          venueLng,
+        });
+
+        const qualified = tagged.filter((t) => t.qualified);
+        const dedupedQualified: typeof qualified = [];
+        const seen = new Set<string>();
+        for (const q of qualified.sort((a, b) => a.distance_meters - b.distance_meters)) {
+          if (seen.has(q.place_id)) continue;
+          seen.add(q.place_id);
+          dedupedQualified.push(q);
+        }
+
+        const weakCheck = isWeak(tagged, raw.length, isInitial);
+        weak = weakCheck.weak;
+        lastWeakReason = weakCheck.reason;
+
+        bestTagged = dedupedQualified;
+        bestRadius = radius;
+
+        if (!weak) break;
+      }
+    }
+
+    // Mark as attempted when we had category IDs and ran the logic (even if results are empty).
+    if (fsqEnabled && fsqKey && categoryIds.length > 0) attemptedCategories.add(category);
+
+    if (!weak && bestTagged.length > 0) {
+      enhancedNearby[category].places = bestTagged.slice(0, ENHANCED_LIMIT);
+      enhancedNearby[category].radius = bestRadius;
+      return;
+    }
+
+    // Google fallback (1 call max per category per run), only when FSQ results are weak/unavailable.
+    if (!googleFallbackEnabled || !apiKey) {
+      enhancedNearby[category].places = bestTagged.slice(0, ENHANCED_LIMIT);
+      enhancedNearby[category].usedGoogleFallback = false;
+      enhancedNearby[category].fallbackReason = lastWeakReason ?? "foursquare_low_quality";
+      return;
+    }
+
+    const canCallGoogle = await withinBudgets({
+      supabaseAdmin,
+      api: EXTERNAL_API.google_places,
+      dailyLimit: googleDailyLimit,
+      monthlyLimit: googleMonthlyLimit,
+    });
+    if (!canCallGoogle) {
+      enhancedNearby[category].places = bestTagged.slice(0, ENHANCED_LIMIT);
+      enhancedNearby[category].usedGoogleFallback = false;
+      enhancedNearby[category].fallbackReason = "budget_exceeded";
+      return;
+    }
+
+    const query =
+      category === "quick_eats"
+        ? "subway or sandwich shop or pizza or fast casual or burrito bowl"
+        : "brewery with food or arcade or bowling or mini golf or family friendly park";
+
+    const googleRaw = await trackExternalCall(EXTERNAL_API.google_places, "nearby_search_text", EXTERNAL_API_SURFACE.owls_eye_batch, () =>
+      searchPlacesText({
+        apiKey,
+        lat: venueLat,
+        lng: venueLng,
+        query,
+        radiusMeters: radiiByCategory[category][radiiByCategory[category].length - 1],
+        maxResultCount: 20,
+      })
+    );
+    attemptedCategories.add(category);
+    const taggedGoogle = tagAndFilterEnhancedPlaces({
+      category,
+      provider: "google",
+      places: googleRaw,
+      venueLat,
+      venueLng,
+    });
+    const qualifiedGoogle = taggedGoogle.filter((t) => t.qualified);
+    enhancedNearby[category].places = qualifiedGoogle.slice(0, ENHANCED_LIMIT);
+    enhancedNearby[category].usedGoogleFallback = true;
+    enhancedNearby[category].fallbackReason =
+      lastWeakReason === "budget_exceeded" ? "budget_exceeded" : lastWeakReason ?? "foursquare_low_quality";
+    enhancedNearby[category].radius = radiiByCategory[category][radiiByCategory[category].length - 1];
+  };
+
+  await Promise.all([runEnhanced("quick_eats"), runEnhanced("hangouts")]);
 
   const classifyCategory = (name: string, fallback: "food" | "coffee" | "hotel"): "food" | "coffee" | "hotel" => {
     const lower = (name || "").toLowerCase();
@@ -353,7 +621,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
 
   let sportingGoodsPlaces: TextPlace[] = [];
   let bigBoxPlaces: TextPlace[] = [];
-  if (shouldFetch("sporting_goods")) try {
+  if (shouldFetch("sporting_goods") && apiKey) try {
+    attemptedCategories.add("sporting_goods");
     const raw = (
       await Promise.all(
         sportingGoodsQueries.map((query) =>
@@ -404,6 +673,14 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       distance_meters: haversineMeters({ lat: venueLat, lng: venueLng }, { lat: item.lat, lng: item.lng }),
       maps_url: mapsUrl(item.place_id),
       is_sponsor: false,
+      provider: "google",
+      provider_place_id: item.place_id,
+      search_radius_meters: category === "hotel" ? HOTEL_RADIUS : radiusMeters,
+      fallback_used: false,
+      fallback_reason: null,
+      reason_tags: null,
+      place_latitude: item.lat,
+      place_longitude: item.lng,
     }));
 
   const toSportingRows = (items: TextPlace[], category: "sporting_goods" | "big_box_fallback") =>
@@ -416,7 +693,39 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       distance_meters: haversineMeters({ lat: venueLat, lng: venueLng }, { lat: item.lat, lng: item.lng }),
       maps_url: mapsUrl(item.place_id),
       is_sponsor: false,
+      provider: "google",
+      provider_place_id: item.place_id,
+      search_radius_meters: SPORTING_GOODS_RADIUS,
+      fallback_used: category === "big_box_fallback",
+      fallback_reason: category === "big_box_fallback" ? "sporting_goods_no_results" : null,
+      reason_tags: null,
+      place_latitude: item.lat,
+      place_longitude: item.lng,
     }));
+
+  const toEnhancedRows = (category: OwlEnhancedCategory) => {
+    const meta = enhancedNearby[category];
+    return (meta.places ?? []).slice(0, ENHANCED_LIMIT).map((p) => ({
+      run_id: runId,
+      place_id: p.place_id,
+      name: p.name,
+      category,
+      address: p.address ?? "",
+      distance_meters: p.distance_meters,
+      maps_url: p.place_id.startsWith("g:")
+        ? mapsUrl(p.provider_place_id)
+        : `https://foursquare.com/v/${encodeURIComponent(p.provider_place_id)}`,
+      is_sponsor: false,
+      provider: p.place_id.startsWith("g:") ? "google" : "foursquare",
+      provider_place_id: p.provider_place_id,
+      search_radius_meters: meta.radius ?? null,
+      fallback_used: meta.usedGoogleFallback && p.place_id.startsWith("g:"),
+      fallback_reason: meta.usedGoogleFallback && p.place_id.startsWith("g:") ? meta.fallbackReason ?? null : null,
+      reason_tags: p.reason_tags,
+      place_latitude: p.lat,
+      place_longitude: p.lng,
+    }));
+  };
 
   const sponsorRow = buildSponsorRow(runId);
 
@@ -427,6 +736,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     ...toRows(finalHotelResults, "hotel", HOTEL_LIMIT),
     ...toSportingRows(sportingGoodsPlaces, "sporting_goods"),
     ...toSportingRows(bigBoxPlaces, "big_box_fallback"),
+    ...(shouldFetch("quick_eats") ? toEnhancedRows("quick_eats") : []),
+    ...(shouldFetch("hangouts") ? toEnhancedRows("hangouts") : []),
   ];
   const uniqueRows: typeof rows = [];
   const seen = new Set<string>();
@@ -500,7 +811,9 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   // Merge fetched categories into categories_fetched so targeted runs add to,
   // rather than overwrite, the existing record.
   try {
-    const justFetched = isTargetedRun ? [...(categoriesToFetch ?? [])] : [...CURRENT_OWL_CATEGORIES];
+    // Only mark categories as fetched when we actually attempted to compute them.
+    // This keeps "Filter by missing" accurate when budgets/keys disable a category.
+    const justFetched = Array.from(attemptedCategories);
     const { data: runRow } = await supabaseAdmin
       .from("owls_eye_runs" as any)
       .select("categories_fetched")

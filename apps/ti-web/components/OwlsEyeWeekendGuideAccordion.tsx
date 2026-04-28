@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import type { NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
 
 type Group = {
-  label: "Coffee" | "Food" | "Hotels" | "Gear";
+  label: string;
   items: NearbyPlace[];
 };
 
@@ -57,11 +57,12 @@ function HeaderButton({
 
 export default function OwlsEyeWeekendGuideAccordion({ groups, defaultAllCollapsed = false }: Props) {
   const baseId = useId();
-  const [open, setOpen] = useState<Record<Group["label"], boolean>>({
-    Coffee: !defaultAllCollapsed,
-    Food: false,
-    Hotels: false,
-    Gear: false,
+  const [open, setOpen] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    groups.forEach((g, idx) => {
+      initial[g.label] = idx === 0 ? !defaultAllCollapsed : false;
+    });
+    return initial;
   });
 
   return (

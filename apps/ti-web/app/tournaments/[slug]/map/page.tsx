@@ -81,7 +81,12 @@ async function loadOwlsEyeCountsByVenueId(venueIds: string[]) {
     const current = countsByRunId.get(runId) ?? { coffee: 0, food: 0, hotels: 0, other: 0 };
     if (normalizedCategory === "coffee") current.coffee += 1;
     else if (normalizedCategory === "hotel" || normalizedCategory === "hotels") current.hotels += 1;
-    else if (normalizedCategory === "sporting_goods" || normalizedCategory === "big_box_fallback") current.other += 1;
+    else if (
+      normalizedCategory === "sporting_goods" ||
+      normalizedCategory === "big_box_fallback" ||
+      normalizedCategory === "quick_eats" ||
+      normalizedCategory === "hangouts"
+    ) current.other += 1;
     else current.food += 1;
     countsByRunId.set(runId, current);
   }

@@ -33,8 +33,7 @@ function insertApiCall(
         // eslint-disable-next-line no-console
         console.warn("[external_api_calls] insert failed", insertError.message);
       }
-    })
-    .catch((err) => {
+    }, (err) => {
       if (process.env.EXTERNAL_API_CALL_TRACKING_DEBUG === "true") {
         // eslint-disable-next-line no-console
         console.warn("[external_api_calls] insert threw", String((err as any)?.message ?? err));

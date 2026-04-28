@@ -15,6 +15,8 @@ export type NearbyPlace = {
   maps_url: string | null;
   is_sponsor: boolean;
   sponsor_click_url: string | null;
+  reason_tags?: string[] | null;
+  provider?: string | null;
 };
 
 export type AirportSummary = {
@@ -46,7 +48,7 @@ type OwlsEyeVenueCardProps = {
   };
   hasOwlsEye: boolean;
   canViewPremiumDetails: boolean;
-  nearbyCounts: { food: number; coffee: number; hotels: number; sporting_goods: number };
+  nearbyCounts: { food: number; coffee: number; hotels: number; sporting_goods: number; quick_eats?: number; hangouts?: number };
   publicHotels?: NearbyPlace[] | null;
   selectedTournamentId?: string | null;
   selectedTournamentStartDate?: string | null;
@@ -56,7 +58,15 @@ type OwlsEyeVenueCardProps = {
     nearest_major_airport?: AirportSummary | null;
   } | null;
   premiumNearby:
-    | { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; sporting_goods: NearbyPlace[]; captured_at: string | null }
+    | {
+        food: NearbyPlace[];
+        coffee: NearbyPlace[];
+        hotels: NearbyPlace[];
+        sporting_goods: NearbyPlace[];
+        quick_eats?: NearbyPlace[];
+        hangouts?: NearbyPlace[];
+        captured_at: string | null;
+      }
     | null;
   tier: "explorer" | "insider" | "weekend_pro";
   showAllDetails?: boolean;
@@ -173,6 +183,8 @@ export default function OwlsEyeVenueCard({
 	                <div className="detailVenueNearbyPreview__counts">
 	                  <div>☕ {nearbyCounts.coffee} coffee nearby</div>
 	                  <div>🍔 {nearbyCounts.food} food options nearby</div>
+	                  {typeof nearbyCounts.quick_eats === "number" ? <div>🥪 {nearbyCounts.quick_eats} quick eats</div> : null}
+	                  {typeof nearbyCounts.hangouts === "number" ? <div>🎯 {nearbyCounts.hangouts} hangouts</div> : null}
 	                  <div>🏨 {nearbyCounts.hotels} hotels nearby</div>
 	                  <div>⚽ {nearbyCounts.sporting_goods} gear nearby</div>
 	                </div>
@@ -427,11 +439,23 @@ export default function OwlsEyeVenueCard({
               premiumNearby ? (
                 <div className="detailVenueNearbyGuide">
                   <div className="detailVenueNearbyGuide__title">{BRAND_OWL} Weekend Guide</div>
+                  {premiumNearby.quick_eats?.length ? (
+                    <p style={{ margin: "4px 0 0", opacity: 0.92, fontSize: 13, lineHeight: 1.35 }}>
+                      <strong>Quick Eats:</strong> Fast, practical food options for short breaks between games.
+                    </p>
+                  ) : null}
+                  {premiumNearby.hangouts?.length ? (
+                    <p style={{ margin: "6px 0 0", opacity: 0.92, fontSize: 13, lineHeight: 1.35 }}>
+                      <strong>Family-Friendly Hangouts:</strong> Casual spots where families can relax between games.
+                    </p>
+                  ) : null}
                   <OwlsEyeWeekendGuideAccordion
                     defaultAllCollapsed={defaultNearbyAllCollapsed}
 	                    groups={[
 	                      { label: "Coffee", items: premiumNearby.coffee.slice(0, 10) },
 	                      { label: "Food", items: premiumNearby.food.slice(0, 10) },
+	                      ...(premiumNearby.quick_eats?.length ? [{ label: "Quick Eats", items: premiumNearby.quick_eats.slice(0, 10) }] : []),
+	                      ...(premiumNearby.hangouts?.length ? [{ label: "Hangouts", items: premiumNearby.hangouts.slice(0, 10) }] : []),
 	                      { label: "Hotels", items: premiumNearby.hotels.slice(0, 10) },
 	                      { label: "Gear", items: premiumNearby.sporting_goods.slice(0, 10) },
 	                    ]}

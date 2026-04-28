@@ -189,6 +189,9 @@ type NearbyPlaceRow = {
   maps_url: string | null;
   is_sponsor: boolean | null;
   sponsor_click_url?: string | null;
+  provider?: string | null;
+  provider_place_id?: string | null;
+  reason_tags?: string[] | null;
 };
 
 type TournamentPartnerNearbyRow = {
@@ -584,10 +587,18 @@ export default async function VenueDetailsPage({
       ) ?? []
     : [];
 
-  let nearbyCounts = { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
+  let nearbyCounts = { food: 0, coffee: 0, hotels: 0, sporting_goods: 0, quick_eats: 0, hangouts: 0 };
   let publicHotels: NearbyPlace[] = [];
   let premiumNearby:
-    | { food: NearbyPlace[]; coffee: NearbyPlace[]; hotels: NearbyPlace[]; sporting_goods: NearbyPlace[]; captured_at: string | null }
+    | {
+        food: NearbyPlace[];
+        coffee: NearbyPlace[];
+        hotels: NearbyPlace[];
+        sporting_goods: NearbyPlace[];
+        quick_eats: NearbyPlace[];
+        hangouts: NearbyPlace[];
+        captured_at: string | null;
+      }
     | null = null;
   let demoScores: OwlsEyeDemoScores | null = null;
   const airportSummary = latestRun?.outputs?.airports ?? null;
@@ -648,7 +659,7 @@ export default async function VenueDetailsPage({
   if (latestRunId) {
     const { data: nearbyRows } = await supabaseAdmin
       .from("owls_eye_nearby_food" as any)
-      .select("run_id,category,name,address,distance_meters,maps_url,is_sponsor,sponsor_click_url")
+      .select("run_id,category,name,address,distance_meters,maps_url,is_sponsor,sponsor_click_url,provider,provider_place_id,reason_tags")
       .eq("run_id", latestRunId)
       .order("is_sponsor", { ascending: false })
       .order("distance_meters", { ascending: true })
@@ -664,6 +675,8 @@ export default async function VenueDetailsPage({
       maps_url: row.maps_url,
       is_sponsor: Boolean(row.is_sponsor),
       sponsor_click_url: row.sponsor_click_url ?? null,
+      reason_tags: row.reason_tags ?? null,
+      provider: row.provider ?? null,
     });
 
     const foodRows = dedupeRows(
@@ -674,7 +687,9 @@ export default async function VenueDetailsPage({
           category !== "hotel" &&
           category !== "hotels" &&
           category !== "sporting_goods" &&
-          category !== "big_box_fallback"
+          category !== "big_box_fallback" &&
+          category !== "quick_eats" &&
+          category !== "hangouts"
         );
       }),
       partnerDedupKeys.food
@@ -694,12 +709,16 @@ export default async function VenueDetailsPage({
       const category = (row.category ?? "").toLowerCase();
       return category === "sporting_goods" || category === "big_box_fallback";
     });
+    const quickEatsRows = rows.filter((row) => (row.category ?? "").toLowerCase() === "quick_eats");
+    const hangoutRows = rows.filter((row) => (row.category ?? "").toLowerCase() === "hangouts");
 
     nearbyCounts = {
       food: partnerPlaces.food.length + foodRows.length,
       coffee: partnerPlaces.coffee.length + coffeeRows.length,
       hotels: partnerPlaces.hotels.length + hotelRows.length,
       sporting_goods: sportingGoodsRows.length,
+      quick_eats: quickEatsRows.length,
+      hangouts: hangoutRows.length,
     };
 
     publicHotels = [...partnerPlaces.hotels, ...hotelRows.map(toPlace)];
@@ -710,6 +729,8 @@ export default async function VenueDetailsPage({
         coffee: [...partnerPlaces.coffee, ...coffeeRows.map(toPlace)],
         hotels: [...partnerPlaces.hotels, ...hotelRows.map(toPlace)],
         sporting_goods: sportingGoodsRows.map(toPlace),
+        quick_eats: quickEatsRows.map(toPlace),
+        hangouts: hangoutRows.map(toPlace),
         captured_at: latestRun?.updated_at ?? latestRun?.created_at ?? null,
       };
     }
@@ -719,6 +740,8 @@ export default async function VenueDetailsPage({
       coffee: partnerPlaces.coffee.length,
       hotels: partnerPlaces.hotels.length,
       sporting_goods: 0,
+      quick_eats: 0,
+      hangouts: 0,
     };
     publicHotels = [...partnerPlaces.hotels];
     if (canViewPremiumDetails) {
@@ -727,12 +750,21 @@ export default async function VenueDetailsPage({
         coffee: partnerPlaces.coffee,
         hotels: partnerPlaces.hotels,
         sporting_goods: [],
+        quick_eats: [],
+        hangouts: [],
         captured_at: partnerRows[0]?.updated_at ?? partnerRows[0]?.created_at ?? null,
       };
     }
   }
 
-  const hasOwlsEye = nearbyCounts.food + nearbyCounts.coffee + nearbyCounts.hotels + nearbyCounts.sporting_goods > 0;
+  const hasOwlsEye =
+    nearbyCounts.food +
+      nearbyCounts.coffee +
+      nearbyCounts.hotels +
+      nearbyCounts.sporting_goods +
+      nearbyCounts.quick_eats +
+      nearbyCounts.hangouts >
+    0;
 
   let reviewChoicesQuery = supabaseAdmin
     .from("venue_reviews" as any)
