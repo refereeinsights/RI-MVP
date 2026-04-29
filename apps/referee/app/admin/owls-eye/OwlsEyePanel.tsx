@@ -53,6 +53,30 @@ type NearbyItem = {
   maps_url?: string;
 };
 
+type NearbyDebugItem = {
+  name: string;
+  address: string;
+  distance_meters: number;
+  kept: boolean;
+  reject_reason?: string;
+  reason_tags?: string[];
+  strong_match?: boolean;
+  fsq_place_id?: string;
+  fsq_categories?: Array<{ id: string; name: string }>;
+};
+
+type NearbyDebugQuery = {
+  category: string;
+  provider: "foursquare" | "google_fallback" | "google";
+  radius_meters: number;
+  category_ids?: string[];
+  result_count: number;
+  kept_count: number;
+  weak?: boolean;
+  weak_reason?: string | null;
+  items: NearbyDebugItem[];
+};
+
 type RunReport = {
   runId?: string;
   status?: string;
@@ -73,6 +97,7 @@ type RunReport = {
     foodCount?: number;
     coffeeCount?: number;
     hotelCount?: number;
+    rawDebug?: { queries: NearbyDebugQuery[] };
   };
 };
 
@@ -282,6 +307,7 @@ export default function OwlsEyePanel({
   const [batchDuplicateSuspects, setBatchDuplicateSuspects] = useState<BatchDuplicateSuspect[]>([]);
   const [nearbyTab, setNearbyTab] = useState<"food" | "coffee" | "hotels">("food");
   const [sunPathEnabled, setSunPathEnabled] = useState(true);
+  const [expandedDebugQueries, setExpandedDebugQueries] = useState<Set<number>>(new Set());
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
     () => new Set(CURRENT_OWL_CATEGORIES)
   );
@@ -1420,7 +1446,15 @@ export default function OwlsEyePanel({
             <div style={{ marginTop: 16 }}>
               <div style={{ fontWeight: 600, marginBottom: 6 }}>Run response</div>
               <pre style={{ background: "#f6f8fa", padding: 12, overflowX: "auto" }}>
-                {JSON.stringify(runReport, null, 2)}
+                {JSON.stringify(
+                  {
+                    ...runReport,
+                    nearby_meta: runReport.nearby_meta
+                      ? Object.fromEntries(Object.entries(runReport.nearby_meta).filter(([k]) => k !== "rawDebug"))
+                      : runReport.nearby_meta,
+                  },
+                  null, 2
+                )}
               </pre>
 
               {mapImageUrl && (
@@ -1571,8 +1605,142 @@ export default function OwlsEyePanel({
                   <div style={{ marginTop: 10 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#111" }}>Nearby debug</div>
                     <pre style={{ background: "#f6f8fa", padding: 10, borderRadius: 8, fontSize: 12, overflowX: "auto" }}>
-                      {JSON.stringify(runReport.nearby_meta, null, 2)}
+                      {JSON.stringify(
+                        Object.fromEntries(
+                          Object.entries(runReport.nearby_meta).filter(([k]) => k !== "rawDebug")
+                        ),
+                        null, 2
+                      )}
                     </pre>
+                  </div>
+                )}
+
+                {runReport?.nearby_meta?.rawDebug?.queries && runReport.nearby_meta.rawDebug.queries.length > 0 && (
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#111", marginBottom: 8 }}>
+                      Raw search results — all places returned from API
+                    </div>
+                    <div style={{ display: "grid", gap: 8 }}>
+                      {runReport.nearby_meta.rawDebug.queries.map((q, qi) => {
+                        const isExpanded = expandedDebugQueries.has(qi);
+                        const radiusMi = (q.radius_meters / 1609.34).toFixed(1);
+                        const providerBadgeColor = q.provider === "foursquare" ? "#f94f6d" : q.provider === "google_fallback" ? "#f59e0b" : "#1a73e8";
+                        const providerLabel = q.provider === "foursquare" ? "Foursquare" : q.provider === "google_fallback" ? "Google (fallback)" : "Google";
+                        const rejectedCount = q.result_count - q.kept_count;
+                        return (
+                          <div
+                            key={qi}
+                            style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", background: "#fff" }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExpandedDebugQueries((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(qi)) next.delete(qi);
+                                  else next.add(qi);
+                                  return next;
+                                });
+                              }}
+                              style={{
+                                width: "100%",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                padding: "8px 12px",
+                                background: "#f8fafc",
+                                border: "none",
+                                borderBottom: isExpanded ? "1px solid #e5e7eb" : "none",
+                                cursor: "pointer",
+                                textAlign: "left",
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: providerBadgeColor, padding: "2px 6px", borderRadius: 4 }}>
+                                {providerLabel}
+                              </span>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>{q.category}</span>
+                              {q.weak && (
+                                <span style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>
+                                  weak{q.weak_reason ? `: ${q.weak_reason}` : ""}
+                                </span>
+                              )}
+                              <span style={{ fontSize: 12, color: "#6b7280" }}>{radiusMi} mi radius</span>
+                              <span style={{ fontSize: 12, color: "#374151" }}>
+                                <span style={{ color: "#16a34a", fontWeight: 700 }}>{q.kept_count} kept</span>
+                                {rejectedCount > 0 && (
+                                  <span style={{ color: "#dc2626" }}> · {rejectedCount} rejected</span>
+                                )}
+                                <span style={{ color: "#6b7280" }}> / {q.result_count} total</span>
+                              </span>
+                              <span style={{ marginLeft: "auto", fontSize: 12, color: "#6b7280" }}>{isExpanded ? "▲" : "▼"}</span>
+                            </button>
+
+                            {isExpanded && (
+                              <div style={{ padding: "10px 12px" }}>
+                                {q.category_ids && q.category_ids.length > 0 && (
+                                  <div style={{ marginBottom: 8, display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                                    <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 700 }}>Category IDs:</span>
+                                    {q.category_ids.map((id) => (
+                                      <code key={id} style={{ fontSize: 10, background: "#f3f4f6", padding: "1px 5px", borderRadius: 3, color: "#374151" }}>{id}</code>
+                                    ))}
+                                  </div>
+                                )}
+                                {q.items.length === 0 ? (
+                                  <div style={{ fontSize: 12, color: "#6b7280" }}>No results returned.</div>
+                                ) : (
+                                  <div style={{ display: "grid", gap: 6 }}>
+                                    {q.items.map((item, ii) => (
+                                      <div
+                                        key={ii}
+                                        style={{
+                                          borderLeft: `3px solid ${item.kept ? "#16a34a" : "#dc2626"}`,
+                                          paddingLeft: 8,
+                                          paddingTop: 4,
+                                          paddingBottom: 4,
+                                          background: item.kept ? "#f0fdf4" : "#fef2f2",
+                                          borderRadius: "0 6px 6px 0",
+                                        }}
+                                      >
+                                        <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                                          <span style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>{item.name}</span>
+                                          <span style={{ fontSize: 11, color: "#6b7280" }}>{(item.distance_meters / 1609.34).toFixed(1)} mi</span>
+                                          {item.strong_match && (
+                                            <span style={{ fontSize: 10, color: "#fff", background: "#7c3aed", padding: "1px 5px", borderRadius: 3, fontWeight: 700 }}>strong match</span>
+                                          )}
+                                          {!item.kept && item.reject_reason && (
+                                            <span style={{ fontSize: 10, color: "#b91c1c", background: "#fee2e2", padding: "1px 5px", borderRadius: 3, fontWeight: 700 }}>{item.reject_reason}</span>
+                                          )}
+                                        </div>
+                                        {item.address && (
+                                          <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{item.address}</div>
+                                        )}
+                                        {item.fsq_categories && item.fsq_categories.length > 0 && (
+                                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 3 }}>
+                                            {item.fsq_categories.map((cat, ci) => (
+                                              <span key={ci} style={{ fontSize: 10, color: "#374151", background: "#f3f4f6", padding: "1px 5px", borderRadius: 3 }}>
+                                                {cat.name}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                        {item.reason_tags && item.reason_tags.length > 0 && (
+                                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 3 }}>
+                                            {item.reason_tags.map((tag, ti) => (
+                                              <span key={ti} style={{ fontSize: 10, color: "#065f46", background: "#d1fae5", padding: "1px 5px", borderRadius: 3 }}>{tag}</span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
                 <div style={{ marginTop: 12, fontSize: 12, color: "#4b5563", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>

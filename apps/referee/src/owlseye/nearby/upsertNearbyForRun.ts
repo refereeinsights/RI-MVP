@@ -180,6 +180,30 @@ async function searchPlacesText(args: {
   }
 }
 
+type NearbyDebugItem = {
+  name: string;
+  address: string;
+  distance_meters: number;
+  kept: boolean;
+  reject_reason?: string;
+  reason_tags?: string[];
+  strong_match?: boolean;
+  fsq_place_id?: string;
+  fsq_categories?: Array<{ id: string; name: string }>;
+};
+
+type NearbyDebugQuery = {
+  category: string;
+  provider: "foursquare" | "google_fallback" | "google";
+  radius_meters: number;
+  category_ids?: string[];
+  result_count: number;
+  kept_count: number;
+  weak?: boolean;
+  weak_reason?: string | null;
+  items: NearbyDebugItem[];
+};
+
 type NearbyResult = {
   ok: boolean;
   message?: string;
@@ -190,6 +214,7 @@ type NearbyResult = {
   bigBoxFallbackCount?: number;
   quickEatsCount?: number;
   hangoutsCount?: number;
+  rawDebug?: { queries: NearbyDebugQuery[] };
 };
 
 function isoUtcStartOfDay(d = new Date()) {
@@ -368,6 +393,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     };
 
   const fsqDebugRequests: Array<Record<string, any>> = [];
+  const nearbyDebugQueries: NearbyDebugQuery[] = [];
 
   const fsqKey = process.env.FSQ_API_KEY || process.env.FOURSQUARE_API_KEY || "";
   const fsqEnabled = (process.env.FOURSQUARE_ENABLED ?? "true").toLowerCase() === "true";
@@ -524,6 +550,34 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
           hangouts_fsq_category_ids_unsupported: hangoutsFallbackUsed ? true : undefined,
         });
 
+        nearbyDebugQueries.push({
+          category,
+          provider: "foursquare",
+          radius_meters: radius,
+          category_ids: categoryIds,
+          result_count: raw.length,
+          kept_count: tagged.filter((t) => t.qualified).length,
+          weak: weakCheck.weak,
+          weak_reason: weakCheck.reason ?? null,
+          items: tagged.map((t) => {
+            const rawFsq = (raw as any[]).find((r) => r.fsq_place_id === t.provider_place_id);
+            return {
+              name: t.name,
+              address: t.address,
+              distance_meters: t.distance_meters,
+              kept: t.qualified,
+              reject_reason: t.excluded ? t.excluded_reason : !t.qualified ? "not_qualified" : undefined,
+              reason_tags: t.reason_tags,
+              strong_match: t.strong_match,
+              fsq_place_id: t.provider_place_id,
+              fsq_categories: (rawFsq?.categories ?? []).map((c: any) => ({
+                id: String(c.fsq_category_id ?? ""),
+                name: String(c.name ?? ""),
+              })),
+            };
+          }),
+        });
+
         if (!weak) break;
       }
     }
@@ -588,6 +642,23 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     enhancedNearby[category].fallbackReason =
       lastWeakReason === "budget_exceeded" ? "budget_exceeded" : lastWeakReason ?? "foursquare_low_quality";
     enhancedNearby[category].radius = radiiByCategory[category][radiiByCategory[category].length - 1];
+
+    nearbyDebugQueries.push({
+      category,
+      provider: "google_fallback",
+      radius_meters: radiiByCategory[category][radiiByCategory[category].length - 1],
+      result_count: googleRaw.length,
+      kept_count: qualifiedGoogle.length,
+      items: taggedGoogle.map((t) => ({
+        name: t.name,
+        address: t.address,
+        distance_meters: t.distance_meters,
+        kept: t.qualified,
+        reject_reason: t.excluded ? t.excluded_reason : !t.qualified ? "not_qualified" : undefined,
+        reason_tags: t.reason_tags,
+        strong_match: t.strong_match,
+      })),
+    });
   };
 
   await Promise.all([runEnhanced("quick_eats"), runEnhanced("hangouts")]);
@@ -642,6 +713,58 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   };
 
   const filteredHotelResults = hotelResults.filter(isHotelLike);
+
+  if (shouldFetch("food") && apiKey) {
+    nearbyDebugQueries.push({
+      category: "food",
+      provider: "google",
+      radius_meters: radiusMeters,
+      result_count: foodResults.length,
+      kept_count: Math.min(foodResults.length, limitPerCategory),
+      items: foodResults.map((item: any) => ({
+        name: String(item.name ?? ""),
+        address: String(item.address ?? ""),
+        distance_meters: Math.round(haversineMeters({ lat: venueLat, lng: venueLng }, { lat: item.lat, lng: item.lng })),
+        kept: true,
+      })),
+    });
+  }
+  if (shouldFetch("coffee") && apiKey) {
+    nearbyDebugQueries.push({
+      category: "coffee",
+      provider: "google",
+      radius_meters: radiusMeters,
+      result_count: coffeeResults.length,
+      kept_count: Math.min(coffeeResults.length, limitPerCategory),
+      items: coffeeResults.map((item: any) => ({
+        name: String(item.name ?? ""),
+        address: String(item.address ?? ""),
+        distance_meters: Math.round(haversineMeters({ lat: venueLat, lng: venueLng }, { lat: item.lat, lng: item.lng })),
+        kept: true,
+      })),
+    });
+  }
+  if (shouldFetch("hotel") && apiKey) {
+    const keptPlaceIds = new Set(filteredHotelResults.map((h: any) => h.place_id));
+    nearbyDebugQueries.push({
+      category: "hotel",
+      provider: "google",
+      radius_meters: HOTEL_RADIUS,
+      result_count: hotelResults.length,
+      kept_count: filteredHotelResults.length,
+      items: hotelResults.map((item: any) => {
+        const kept = keptPlaceIds.has(item.place_id);
+        return {
+          name: String(item.name ?? ""),
+          address: String(item.address ?? ""),
+          distance_meters: Math.round(haversineMeters({ lat: venueLat, lng: venueLng }, { lat: item.lat, lng: item.lng })),
+          kept,
+          reject_reason: kept ? undefined : "hotel_filter",
+        };
+      }),
+    });
+  }
+
   let finalHotelResults = filteredHotelResults;
   if (shouldFetch("hotel") && finalHotelResults.length < HOTEL_LIMIT) {
     const hotelTextResults = await trackExternalCall(EXTERNAL_API.google_places, "nearby_search_text", EXTERNAL_API_SURFACE.owls_eye_batch, () => fetchNearbyPlaces({
@@ -748,6 +871,24 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     if (shouldFetch("sporting_goods")) console.warn("[owlseye] Sporting goods search failed", err);
   }
 
+  if (shouldFetch("sporting_goods") && apiKey) {
+    const keptItems = [...sportingGoodsPlaces, ...bigBoxPlaces];
+    nearbyDebugQueries.push({
+      category: "sporting_goods",
+      provider: "google",
+      radius_meters: SPORTING_GOODS_RADIUS,
+      result_count: keptItems.length,
+      kept_count: keptItems.length,
+      items: keptItems.map((item) => ({
+        name: item.name,
+        address: item.address ?? "",
+        distance_meters: Math.round(haversineMeters({ lat: venueLat, lng: venueLng }, { lat: item.lat, lng: item.lng })),
+        kept: true,
+        reject_reason: bigBoxPlaces.includes(item) ? "sporting_goods_fallback_big_box" : undefined,
+      })),
+    });
+  }
+
   const toRows = (items: any[], category: "food" | "coffee" | "hotel", limit = limitPerCategory) =>
     items.slice(0, limit).map((item) => ({
       run_id: runId,
@@ -849,6 +990,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       hotelCount: Math.min(finalHotelResults.length, HOTEL_LIMIT),
       sportingGoodsCount: sportingGoodsPlaces.length,
       bigBoxFallbackCount: bigBoxPlaces.length,
+      rawDebug: { queries: nearbyDebugQueries },
     };
   }
 
@@ -890,7 +1032,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
 
   if (error) {
     console.error("[owlseye] Nearby upsert failed", error);
-    return { ok: false, message: error.message };
+    return { ok: false, message: error.message, rawDebug: { queries: nearbyDebugQueries } };
   }
 
   // Merge fetched categories into categories_fetched so targeted runs add to,
@@ -947,6 +1089,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     hotelCount: Math.min(finalHotelResults.length, HOTEL_LIMIT),
     sportingGoodsCount: sportingGoodsPlaces.length,
     bigBoxFallbackCount: bigBoxPlaces.length,
+    rawDebug: { queries: nearbyDebugQueries },
   };
 }
 
