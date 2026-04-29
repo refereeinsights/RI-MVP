@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "node ../../scripts/copy-shared-svg.js",
+    "predev": "node scripts/copy-shared-svg-local.js",
     "dev": "next dev",
-    "prebuild": "node ../../scripts/copy-shared-svg.js",
+    "prebuild": "node scripts/copy-shared-svg-local.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
