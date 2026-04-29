@@ -1,6 +1,7 @@
 ## 2026-04-29
 
 - TI static maps: prevent no-coordinate tournaments from clogging the generator queue by only re-trying `static_map_status=missing` items on a slow cadence (7d), and add an admin callout with the bulk Mapbox venue geocode backfill commands: `apps/ti-web/app/api/cron/static-map-generator/route.ts`, `apps/referee/app/admin/ti/static-maps/page.tsx`.
+- TI tournament pages: add a compact “Tournament Planning Overview” block (factual, conditional copy only) above “Plan This Tournament”, plus a small helper module for deterministic planning copy and a more planning-oriented meta description (no new Supabase queries): `apps/ti-web/components/tournaments/TournamentPlanningOverview.tsx`, `apps/ti-web/lib/tournaments/tournamentPageCopy.ts`, `apps/ti-web/app/tournaments/[slug]/page.tsx`.
 
 ## 2026-04-28
 

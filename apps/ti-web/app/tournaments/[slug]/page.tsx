@@ -16,6 +16,7 @@ import TournamentWeatherPlannerAccordion from "@/components/tournaments/Tourname
 import HotelBookingCta from "@/components/venues/HotelBookingCta";
 import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
+import TournamentPlanningOverview from "@/components/tournaments/TournamentPlanningOverview";
 import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
 import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
@@ -776,6 +777,13 @@ async function TournamentVenueDetails({
         })
       : null) ?? "/brand/maps/no-coords-static-map.svg";
 
+  const primaryVenue = displayVenueRows[0]?.venue ?? null;
+  const primaryVenueName = (primaryVenue?.name ?? "").trim() || null;
+  const primaryVenueLocationLabel = [primaryVenue?.city, primaryVenue?.state].filter(Boolean).join(", ") || null;
+  const bestNearbyCounts = bestOwlVenueRow?.counts
+    ? { coffee: bestOwlVenueRow.counts.coffee, food: bestOwlVenueRow.counts.food, hotels: bestOwlVenueRow.counts.hotels }
+    : null;
+
   const planFoodCoffeeLine = (() => {
     if (!bestOwlVenueRow) return null;
     const counts = bestOwlVenueRow.counts;
@@ -812,10 +820,30 @@ async function TournamentVenueDetails({
 
   return (
     <>
+      <TournamentPlanningOverview
+        tournament={{
+          name: tournament.name,
+          sport: tournament.sport ?? null,
+          level: tournament.level ?? null,
+          start_date: tournament.start_date,
+          end_date: tournament.end_date,
+          city: tournament.city,
+          state: tournament.state,
+          official_website_url: tournament.official_website_url ?? null,
+        }}
+        venueCount={venueCount}
+        primaryVenueName={primaryVenueName}
+        primaryVenueLocationLabel={primaryVenueLocationLabel}
+        mapHref={mapPreviewHref}
+        hotelsHref={tournamentHotelsHref}
+        counts={bestNearbyCounts}
+        isDemoTournament={isDemoTournament}
+      />
+
       <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 950 }}>Plan This Tournament</h2>
         <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>
-          Weather, hotels, nearby options, and venue logistics for tournament families.
+          Use this tournament plan to check weather, compare hotels, review nearby options, and open venue details before game day.
         </div>
 
         <div className="detailVenueGrid detailVenueGrid--planning" style={{ marginTop: 10 }}>
@@ -1345,7 +1373,14 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const locationLabel = buildLocationLabel(data.city ?? null, data.state ?? null);
   const title = buildTITournamentTitle(data.name ?? "Tournament", data.city, data.state, data.sport ?? undefined);
   assertNoDoubleBrand(title);
-  const description = `Dates and location for ${data.name}${locationLabel ? ` in ${locationLabel}` : ""}. View official site and event details.`;
+  const dateLabel = formatDate(data.start_date) && formatDate(data.end_date) && formatDate(data.start_date) !== formatDate(data.end_date)
+    ? `${formatDate(data.start_date)} – ${formatDate(data.end_date)}`
+    : formatDate(data.start_date) || formatDate(data.end_date) || "";
+  const whenWhere = [
+    dateLabel ? `Dates: ${dateLabel}` : null,
+    locationLabel ? `Location: ${locationLabel}` : null,
+  ].filter(Boolean).join(" • ");
+  const description = `${whenWhere || "Tournament dates and location"} for ${data.name}. Planning links for venues, maps, and travel options when available.`;
   const canonicalPath = `/tournaments/${data.slug ?? params.slug}`;
 
   return {
