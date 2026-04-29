@@ -49,7 +49,10 @@ export async function trackExternalCall<T>(
 ): Promise<T> {
   const enabled =
     process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_EXTERNAL_API_CALL_TRACKING === "true";
+    process.env.ENABLE_EXTERNAL_API_CALL_TRACKING === "true" ||
+    // Allow internal ops/admin runs to record usage in local dev without needing extra env setup.
+    // This is safe because it only affects server-side code paths that already call trackExternalCall.
+    surface === EXTERNAL_API_SURFACE.static_map_cron;
   if (!enabled) return fn();
   const t0 = Date.now();
   let status = "ok";
