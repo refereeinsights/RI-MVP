@@ -53,57 +53,35 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
   const { fromIso, toIso, label } = parseDateRange(searchParams ?? {});
   const range = searchParams?.range ?? "7d";
 
-  const { data: rows, error } = await supabaseAdmin
-    .from("external_api_calls" as any)
-    .select("api,operation,surface,status,latency_ms")
-    .gte("called_at", fromIso)
-    .lte("called_at", toIso)
-    .limit(50000);
+  // RPC aggregates server-side — no raw-row fetch, no PostgREST max_rows=1000 cap.
+  const { data: rpcRows, error } = await (supabaseAdmin as any)
+    .rpc("api_usage_summary", { from_ts: fromIso, to_ts: toIso });
 
   const MAP_LOAD_EVENTS = ["venue_map_opened", "venue_map_loaded"] as const;
-  const { data: tiEventRows } = await supabaseAdmin
-    .from("ti_map_events" as any)
-    .select("event_name")
-    .gte("created_at", fromIso)
-    .lte("created_at", toIso)
-    .in("event_name", MAP_LOAD_EVENTS as any)
-    .limit(50000);
+  const { data: tiEventRpcRows } = await (supabaseAdmin as any)
+    .rpc("ti_map_event_summary", {
+      from_ts: fromIso,
+      to_ts: toIso,
+      event_names: [...MAP_LOAD_EVENTS],
+    });
 
-  const tiEventBuckets = new Map<string, number>();
-  for (const r of (tiEventRows ?? []) as Array<{ event_name?: string | null }>) {
-    const name = String(r.event_name ?? "").trim();
-    if (!name) continue;
-    tiEventBuckets.set(name, (tiEventBuckets.get(name) ?? 0) + 1);
-  }
-  const tiEventAgg: TiEventAggRow[] = Array.from(tiEventBuckets.entries())
-    .map(([event_name, calls]) => ({ event_name, calls }))
-    .sort((a, b) => b.calls - a.calls);
-  const tiEventCountByName = new Map(tiEventAgg.map((r) => [r.event_name, r.calls]));
+  const agg: AggRow[] = (rpcRows ?? []).map((r: any) => ({
+    api: String(r.api ?? ""),
+    operation: String(r.operation ?? ""),
+    surface: String(r.surface ?? ""),
+    calls: Number(r.calls ?? 0),
+    errors: Number(r.errors ?? 0),
+    avg_latency_ms: r.avg_latency_ms != null ? Number(r.avg_latency_ms) : null,
+  }));
 
-  // Aggregate in-process — avoids needing a DB function and keeps the query simple.
-  const buckets = new Map<string, { calls: number; errors: number; latencies: number[] }>();
-  for (const r of (rows ?? []) as Array<{ api: string; operation: string; surface: string; status: string; latency_ms: number | null }>) {
-    const key = `${r.api}||${r.operation}||${r.surface}`;
-    if (!buckets.has(key)) buckets.set(key, { calls: 0, errors: 0, latencies: [] });
-    const b = buckets.get(key)!;
-    b.calls++;
-    if (r.status === "error") b.errors++;
-    if (typeof r.latency_ms === "number") b.latencies.push(r.latency_ms);
-  }
-
-  const agg: AggRow[] = Array.from(buckets.entries()).map(([key, b]) => {
-    const [api, operation, surface] = key.split("||");
-    const avg = b.latencies.length ? Math.round(b.latencies.reduce((a, v) => a + v, 0) / b.latencies.length) : null;
-    return { api, operation, surface, calls: b.calls, errors: b.errors, avg_latency_ms: avg };
-  }).sort((a, b) => b.calls - a.calls);
-
+  // Vendor summary — derived from already-aggregated rows, trivially small.
   const vendorBuckets = new Map<string, { calls: number; errors: number; latencies: number[] }>();
-  for (const r of (rows ?? []) as Array<{ api: string; status: string; latency_ms: number | null }>) {
+  for (const r of agg) {
     if (!vendorBuckets.has(r.api)) vendorBuckets.set(r.api, { calls: 0, errors: 0, latencies: [] });
     const b = vendorBuckets.get(r.api)!;
-    b.calls++;
-    if (r.status === "error") b.errors++;
-    if (typeof r.latency_ms === "number") b.latencies.push(r.latency_ms);
+    b.calls += r.calls;
+    b.errors += r.errors;
+    if (r.avg_latency_ms != null) b.latencies.push(r.avg_latency_ms);
   }
   const vendorAgg: VendorAggRow[] = Array.from(vendorBuckets.entries())
     .map(([api, b]) => {
@@ -111,6 +89,12 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
       return { api, calls: b.calls, errors: b.errors, avg_latency_ms: avg };
     })
     .sort((a, b) => b.calls - a.calls);
+
+  const tiEventAgg: TiEventAggRow[] = (tiEventRpcRows ?? []).map((r: any) => ({
+    event_name: String(r.event_name ?? ""),
+    calls: Number(r.calls ?? 0),
+  }));
+  const tiEventCountByName = new Map(tiEventAgg.map((r) => [r.event_name, r.calls]));
 
   const totals = agg.reduce((acc, r) => ({
     calls: acc.calls + r.calls,
@@ -170,7 +154,7 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
           </a>
         ))}
         <span style={{ fontSize: 13, color: "#6b7280" }}>{label}</span>
-        {error && <span style={{ fontSize: 12, color: "#dc2626" }}>Query error: {error.message}</span>}
+        {error && <span style={{ fontSize: 12, color: "#dc2626" }}>Query error: {(error as any).message}</span>}
       </div>
 
       {/* Summary tiles */}
