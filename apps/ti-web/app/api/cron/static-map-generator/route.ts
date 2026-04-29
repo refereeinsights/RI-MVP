@@ -162,6 +162,11 @@ export async function GET(req: Request) {
     const mapStyle = (process.env.MAPBOX_STATIC_STYLE ?? "").trim() || DEFAULT_STYLE;
     const version = Number(process.env.TI_STATIC_MAP_VERSION ?? 1) || 1;
     const supabaseBaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
+    const mapPadding = (() => {
+      const raw = Number.parseInt(String(process.env.TI_STATIC_MAP_PADDING ?? "").trim() || "60", 10);
+      if (!Number.isFinite(raw)) return 60;
+      return Math.min(Math.max(raw, 0), 200);
+    })();
 
     for (const t of candidates) {
       result.processed += 1;
@@ -315,7 +320,7 @@ export async function GET(req: Request) {
           coords,
           markerColorHex: MARKER_COLOR,
           token,
-          padding: 40,
+          padding: mapPadding,
         });
         if (!staticUrl) throw new Error("failed_to_build_mapbox_url");
 

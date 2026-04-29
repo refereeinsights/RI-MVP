@@ -232,26 +232,71 @@ export default function ManualStaticMapRunPanel() {
                 <div style={{ color: "#6b7280", fontSize: 12, marginBottom: 8 }}>
                   Opens the stored static map in a new tab when available.
                 </div>
-                <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
-                  {mapItems.map((it) => (
-                    <li key={`${it.tournament_id}:${it.status}`} style={{ fontSize: 13 }}>
-                      {it.static_map_public_url ? (
-                        <a
-                          href={it.static_map_public_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: "#2563eb", fontFamily: "monospace" }}
-                        >
-                          {it.slug ?? it.tournament_id}
-                        </a>
-                      ) : (
-                        <span style={{ fontFamily: "monospace" }}>{it.slug ?? it.tournament_id}</span>
-                      )}{" "}
-                      <span style={{ color: "#6b7280" }}>({it.status})</span>
-                      {it.error ? <span style={{ color: "#dc2626" }}> — {it.error}</span> : null}
-                    </li>
-                  ))}
-                </ul>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                    <thead>
+                      <tr>
+                        {["Tournament", "Status", "Map"].map((h) => (
+                          <th
+                            key={h}
+                            style={{
+                              textAlign: "left",
+                              fontSize: 12,
+                              color: "#374151",
+                              fontWeight: 700,
+                              padding: "8px 10px",
+                              borderBottom: "1px solid #e5e7eb",
+                              background: "#f9fafb",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mapItems.map((it) => (
+                        <tr key={`${it.tournament_id}:${it.status}`}>
+                          <td style={{ padding: "8px 10px", borderBottom: "1px solid #f3f4f6" }}>
+                            <span style={{ fontFamily: "monospace", fontSize: 12 }}>
+                              {it.slug ?? it.tournament_id}
+                            </span>
+                          </td>
+                          <td style={{ padding: "8px 10px", borderBottom: "1px solid #f3f4f6", whiteSpace: "nowrap" }}>
+                            <span style={{ color: it.status === "updated" ? "#16a34a" : it.status === "error" ? "#dc2626" : "#6b7280", fontWeight: 700 }}>
+                              {it.status}
+                            </span>
+                            {it.error ? <span style={{ color: "#dc2626" }}> — {it.error}</span> : null}
+                          </td>
+                          <td style={{ padding: "8px 10px", borderBottom: "1px solid #f3f4f6", whiteSpace: "nowrap" }}>
+                            {it.static_map_public_url ? (
+                              <a
+                                href={it.static_map_public_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  display: "inline-block",
+                                  padding: "6px 10px",
+                                  borderRadius: 8,
+                                  border: "1px solid #2563eb",
+                                  color: "#2563eb",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  textDecoration: "none",
+                                }}
+                              >
+                                Open map →
+                              </a>
+                            ) : (
+                              <span style={{ color: "#9ca3af", fontSize: 12 }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </details>
           )}
