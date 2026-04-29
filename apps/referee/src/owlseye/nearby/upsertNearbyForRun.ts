@@ -2,9 +2,10 @@ import haversineMeters from "@/lib/geo/haversineMeters";
 import fetchNearbyPlaces from "@/lib/google/nearbySearch";
 import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/trackExternalCall";
 import { CURRENT_OWL_CATEGORIES } from "../categories";
-import { QUICK_EATS_CATEGORY_IDS, HANGOUT_CATEGORY_IDS } from "../foursquareCategories";
+import { COFFEE_CATEGORY_IDS, QUICK_EATS_CATEGORY_IDS, HANGOUT_CATEGORY_IDS } from "../foursquareCategories";
 import { FoursquareHttpError, searchFoursquarePlaces } from "./foursquarePlaces";
 import { tagAndFilterEnhancedPlaces, type OwlEnhancedCategory } from "./quickEatsHangouts";
+import { tagAndFilterCoffeePlaces } from "./coffeePlaces";
 
 type UpsertParams = {
   supabaseAdmin: any;
@@ -348,20 +349,14 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
 
   const baseOpts = { lat: venueLat, lng: venueLng, radiusMeters, apiKey };
   let foodResults: any[] = [];
-  let coffeeResults: any[] = [];
   let hotelResults: any[] = [];
   const attemptedCategories = new Set<string>();
   if (apiKey) {
     try {
-      [foodResults, coffeeResults, hotelResults] = await Promise.all([
+      [foodResults, hotelResults] = await Promise.all([
         shouldFetch("food")
           ? trackExternalCall(EXTERNAL_API.google_places, "nearby_search", EXTERNAL_API_SURFACE.owls_eye_batch, () =>
               fetchNearbyPlaces({ ...baseOpts, type: "restaurant" })
-            )
-          : Promise.resolve([]),
-        shouldFetch("coffee")
-          ? trackExternalCall(EXTERNAL_API.google_places, "nearby_search", EXTERNAL_API_SURFACE.owls_eye_batch, () =>
-              fetchNearbyPlaces({ ...baseOpts, type: "cafe" })
             )
           : Promise.resolve([]),
         shouldFetch("hotel")
@@ -376,7 +371,6 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
           : Promise.resolve([]),
       ]);
       if (shouldFetch("food")) attemptedCategories.add("food");
-      if (shouldFetch("coffee")) attemptedCategories.add("coffee");
       if (shouldFetch("hotel")) attemptedCategories.add("hotel");
     } catch (err) {
       console.error("[owlseye] Nearby fetch failed", err);
@@ -663,6 +657,242 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
 
   await Promise.all([runEnhanced("quick_eats"), runEnhanced("hangouts")]);
 
+  // Coffee (core category): Foursquare primary + Google fallback only when needed.
+  const coffeeRadii = [3000, 5000, 8000];
+  const coffeeThreshold = 2;
+  const runCoffee = async () => {
+    if (!shouldFetch("coffee")) return;
+    if (!force && isRunFresh && runHasCategory("coffee")) return;
+
+    const limit = 25;
+    let bestTagged: ReturnType<typeof tagAndFilterCoffeePlaces> = [];
+    let bestRadius: number | undefined;
+    let weak = true;
+    let lastWeakReason: string | undefined;
+
+    const isWeakCoffee = (tagged: ReturnType<typeof tagAndFilterCoffeePlaces>, rawCount: number) => {
+      const excludedCount = tagged.filter((t) => t.excluded).length;
+      const qualified = tagged.filter((t) => t.qualified);
+      const qualifiedCount = qualified.length;
+      const strongCount = qualified.filter((t) => t.strong_match).length;
+      const noiseRatio = rawCount > 0 ? excludedCount / rawCount : 0;
+      if (qualifiedCount < coffeeThreshold) return { weak: true, reason: "too_few_qualified" };
+      if (noiseRatio > 0.5) return { weak: true, reason: "too_noisy" };
+      if (strongCount === 0) return { weak: true, reason: "no_strong_match" };
+      return { weak: false, reason: undefined as string | undefined };
+    };
+
+    if (fsqEnabled && fsqKey && COFFEE_CATEGORY_IDS.length > 0) {
+      for (let idx = 0; idx < coffeeRadii.length; idx++) {
+        const radius = coffeeRadii[idx];
+
+        const canCall = await withinBudgets({
+          supabaseAdmin,
+          api: EXTERNAL_API.foursquare,
+          dailyLimit: fsqDailyLimit,
+          monthlyLimit: fsqMonthlyLimit,
+        });
+        if (!canCall) {
+          weak = true;
+          lastWeakReason = "budget_exceeded";
+          break;
+        }
+
+        let raw: any[] = [];
+        try {
+          raw = await trackExternalCall(EXTERNAL_API.foursquare, "places_search", EXTERNAL_API_SURFACE.owls_eye_batch, () =>
+            searchFoursquarePlaces({
+              apiKey: fsqKey,
+              apiVersion: fsqVersion,
+              lat: venueLat,
+              lng: venueLng,
+              radiusMeters: radius,
+              categoryIds: COFFEE_CATEGORY_IDS,
+              limit,
+              paramMode: "fsq_category_ids",
+            })
+          );
+        } catch (err) {
+          weak = true;
+          lastWeakReason = err instanceof FoursquareHttpError ? (err.status === 429 ? "foursquare_rate_limited" : "foursquare_error") : "foursquare_error";
+          break;
+        }
+
+        const tagged = tagAndFilterCoffeePlaces({
+          provider: "foursquare",
+          places: raw,
+          venueLat,
+          venueLng,
+        });
+
+        const qualified = tagged.filter((t) => t.qualified);
+        const dedupedQualified: typeof qualified = [];
+        const seen = new Set<string>();
+        for (const q of qualified.sort((a, b) => a.distance_meters - b.distance_meters)) {
+          if (seen.has(q.place_id)) continue;
+          seen.add(q.place_id);
+          dedupedQualified.push(q);
+        }
+
+        const weakCheck = isWeakCoffee(tagged, raw.length);
+        weak = weakCheck.weak;
+        lastWeakReason = weakCheck.reason;
+        bestTagged = dedupedQualified;
+        bestRadius = radius;
+
+        fsqDebugRequests.push({
+          endpoint: "https://places-api.foursquare.com/places/search",
+          ll: `${venueLat},${venueLng}`,
+          radius,
+          limit,
+          sort: "DISTANCE",
+          param_mode: "fsq_category_ids",
+          category_ids: COFFEE_CATEGORY_IDS,
+          category: "coffee",
+          result_count: raw.length,
+          qualified_count: tagged.filter((t) => t.qualified).length,
+          excluded_count: tagged.filter((t) => t.excluded).length,
+          weak: weakCheck.weak,
+          weak_reason: weakCheck.reason ?? null,
+        });
+
+        nearbyDebugQueries.push({
+          category: "coffee",
+          provider: "foursquare",
+          radius_meters: radius,
+          category_ids: COFFEE_CATEGORY_IDS,
+          result_count: raw.length,
+          kept_count: tagged.filter((t) => t.qualified).length,
+          weak: weakCheck.weak,
+          weak_reason: weakCheck.reason ?? null,
+          items: tagged.map((t) => {
+            const rawFsq = (raw as any[]).find((r) => r.fsq_place_id === t.provider_place_id);
+            return {
+              name: t.name,
+              address: t.address,
+              distance_meters: t.distance_meters,
+              kept: t.qualified,
+              reject_reason: t.excluded ? t.excluded_reason : !t.qualified ? "not_qualified" : undefined,
+              reason_tags: t.reason_tags,
+              strong_match: t.strong_match,
+              fsq_place_id: t.provider_place_id,
+              fsq_categories: (rawFsq?.categories ?? []).map((c: any) => ({
+                id: String(c.fsq_category_id ?? ""),
+                name: String(c.name ?? ""),
+              })),
+            };
+          }),
+        });
+
+        if (!weak) break;
+      }
+    } else if (shouldFetch("coffee")) {
+      lastWeakReason = !fsqEnabled ? "foursquare_disabled" : !fsqKey ? "missing_foursquare_key" : "missing_category_ids";
+    }
+
+    // Mark as attempted when we had category IDs and ran the logic (even if results are empty).
+    if (fsqEnabled && fsqKey && COFFEE_CATEGORY_IDS.length > 0) attemptedCategories.add("coffee");
+
+    if (!weak && bestTagged.length > 0) {
+      // Store FSQ coffee results in owls_eye_nearby_food via the shared row builder below.
+      (coffeeFinal as any) = {
+        provider: "foursquare",
+        radius: bestRadius,
+        fallbackUsed: false,
+        fallbackReason: null,
+        places: bestTagged,
+      };
+      return;
+    }
+
+    // Google fallback only when needed.
+    if (!googleFallbackEnabled || !apiKey) {
+      (coffeeFinal as any) = {
+        provider: "none",
+        radius: bestRadius ?? coffeeRadii[coffeeRadii.length - 1],
+        fallbackUsed: false,
+        fallbackReason: lastWeakReason ?? "foursquare_low_quality",
+        places: [],
+      };
+      return;
+    }
+
+    const canCallGoogle = await withinBudgets({
+      supabaseAdmin,
+      api: EXTERNAL_API.google_places,
+      dailyLimit: googleDailyLimit,
+      monthlyLimit: googleMonthlyLimit,
+    });
+    if (!canCallGoogle) {
+      (coffeeFinal as any) = {
+        provider: "none",
+        radius: bestRadius ?? coffeeRadii[coffeeRadii.length - 1],
+        fallbackUsed: false,
+        fallbackReason: "budget_exceeded",
+        places: [],
+      };
+      return;
+    }
+
+    const radius = coffeeRadii[coffeeRadii.length - 1];
+    const googleRaw = await trackExternalCall(EXTERNAL_API.google_places, "nearby_search", EXTERNAL_API_SURFACE.owls_eye_batch, () =>
+      fetchNearbyPlaces({
+        ...baseOpts,
+        type: "cafe",
+        radiusMeters: radius,
+        maxResultCount: 20,
+      })
+    );
+    attemptedCategories.add("coffee");
+
+    const taggedGoogle = tagAndFilterCoffeePlaces({
+      provider: "google",
+      places: googleRaw,
+      venueLat,
+      venueLng,
+    });
+    const qualifiedGoogle = taggedGoogle.filter((t) => t.qualified);
+
+    nearbyDebugQueries.push({
+      category: "coffee",
+      provider: "google_fallback",
+      radius_meters: radius,
+      result_count: googleRaw.length,
+      kept_count: qualifiedGoogle.length,
+      weak: true,
+      weak_reason: lastWeakReason ?? "foursquare_low_quality",
+      items: taggedGoogle.map((t) => ({
+        name: t.name,
+        address: t.address,
+        distance_meters: t.distance_meters,
+        kept: t.qualified,
+        reject_reason: t.excluded ? t.excluded_reason : !t.qualified ? "not_qualified" : undefined,
+        reason_tags: t.reason_tags,
+        strong_match: t.strong_match,
+      })),
+    });
+
+    (coffeeFinal as any) = {
+      provider: "google",
+      radius,
+      fallbackUsed: true,
+      fallbackReason: lastWeakReason ?? "foursquare_low_quality",
+      places: qualifiedGoogle,
+    };
+  };
+
+  let coffeeFinal:
+    | {
+        provider: "foursquare" | "google" | "none";
+        radius: number | undefined;
+        fallbackUsed: boolean;
+        fallbackReason: string | null;
+        places: any[];
+      }
+    | null = null;
+
+  await runCoffee();
+
   const classifyCategory = (name: string, fallback: "food" | "coffee" | "hotel"): "food" | "coffee" | "hotel" => {
     const lower = (name || "").toLowerCase();
     if (lower.includes("coffee") || lower.includes("espresso") || lower.includes("cafe") || lower.includes("café")) {
@@ -730,19 +960,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     });
   }
   if (shouldFetch("coffee") && apiKey) {
-    nearbyDebugQueries.push({
-      category: "coffee",
-      provider: "google",
-      radius_meters: radiusMeters,
-      result_count: coffeeResults.length,
-      kept_count: Math.min(coffeeResults.length, limitPerCategory),
-      items: coffeeResults.map((item: any) => ({
-        name: String(item.name ?? ""),
-        address: String(item.address ?? ""),
-        distance_meters: Math.round(haversineMeters({ lat: venueLat, lng: venueLng }, { lat: item.lat, lng: item.lng })),
-        kept: true,
-      })),
-    });
+    // Coffee is now FSQ-primary; google-only debug entries are added only on fallback.
   }
   if (shouldFetch("hotel") && apiKey) {
     const keptPlaceIds = new Set(filteredHotelResults.map((h: any) => h.place_id));
@@ -909,6 +1127,51 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       place_longitude: item.lng,
     }));
 
+  const toCoffeeRows = () => {
+    if (!shouldFetch("coffee")) return [] as any[];
+    if (!coffeeFinal || coffeeFinal.provider === "none") return [] as any[];
+    if (coffeeFinal.provider === "foursquare") {
+      return (coffeeFinal.places ?? []).slice(0, limitPerCategory).map((p: any) => ({
+        run_id: runId,
+        place_id: p.place_id,
+        name: p.name,
+        category: "coffee",
+        address: p.address ?? "",
+        distance_meters: p.distance_meters,
+        maps_url: `https://foursquare.com/v/${encodeURIComponent(p.provider_place_id)}`,
+        is_sponsor: false,
+        provider: "foursquare",
+        provider_place_id: p.provider_place_id,
+        search_radius_meters: coffeeFinal.radius ?? null,
+        fallback_used: false,
+        fallback_reason: null,
+        reason_tags: p.reason_tags ?? ["coffee"],
+        place_latitude: p.lat,
+        place_longitude: p.lng,
+      }));
+    }
+
+    // Google fallback: stored as normal google rows but with coffee category + fallback flags.
+    return (coffeeFinal.places ?? []).slice(0, limitPerCategory).map((p: any) => ({
+      run_id: runId,
+      place_id: p.place_id,
+      name: p.name,
+      category: "coffee",
+      address: p.address ?? "",
+      distance_meters: p.distance_meters,
+      maps_url: p.place_id.startsWith("g:") ? mapsUrl(p.provider_place_id) : mapsUrl(p.provider_place_id),
+      is_sponsor: false,
+      provider: "google",
+      provider_place_id: p.provider_place_id,
+      search_radius_meters: coffeeFinal.radius ?? null,
+      fallback_used: true,
+      fallback_reason: coffeeFinal.fallbackReason ?? "foursquare_low_quality",
+      reason_tags: p.reason_tags ?? ["coffee"],
+      place_latitude: p.lat,
+      place_longitude: p.lng,
+    }));
+  };
+
   const toSportingRows = (items: TextPlace[], category: "sporting_goods" | "big_box_fallback") =>
     items.slice(0, SPORTING_GOODS_LIMIT).map((item) => ({
       run_id: runId,
@@ -954,11 +1217,15 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   };
 
   const sponsorRow = buildSponsorRow(runId);
+  const coffeeKeptCount =
+    coffeeFinal && coffeeFinal.provider !== "none"
+      ? Math.min(Array.isArray(coffeeFinal.places) ? coffeeFinal.places.length : 0, limitPerCategory)
+      : 0;
 
   const rows = [
     ...(sponsorRow ? [sponsorRow] : []),
     ...toRows(foodResults, "food"),
-    ...toRows(coffeeResults, "coffee"),
+    ...toCoffeeRows(),
     ...toRows(finalHotelResults, "hotel", HOTEL_LIMIT),
     ...toSportingRows(sportingGoodsPlaces, "sporting_goods"),
     ...toSportingRows(bigBoxPlaces, "big_box_fallback"),
@@ -986,7 +1253,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       ok: true,
       message: "no_results",
       foodCount: foodResults.length,
-      coffeeCount: coffeeResults.length,
+      coffeeCount: coffeeKeptCount,
       hotelCount: Math.min(finalHotelResults.length, HOTEL_LIMIT),
       sportingGoodsCount: sportingGoodsPlaces.length,
       bigBoxFallbackCount: bigBoxPlaces.length,
@@ -1085,7 +1352,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     ok: true,
     message: "inserted",
     foodCount: Math.min(foodResults.length, limitPerCategory),
-    coffeeCount: Math.min(coffeeResults.length, limitPerCategory),
+    coffeeCount: coffeeKeptCount,
     hotelCount: Math.min(finalHotelResults.length, HOTEL_LIMIT),
     sportingGoodsCount: sportingGoodsPlaces.length,
     bigBoxFallbackCount: bigBoxPlaces.length,

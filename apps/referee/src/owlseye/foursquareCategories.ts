@@ -38,3 +38,13 @@ export const HANGOUT_CATEGORY_IDS: string[] = [
   "4bf58dd8d48988d1fd941735", // Shopping Mall
   "4bf58dd8d48988d117941735", // Beer Garden
 ];
+
+export const COFFEE_CATEGORY_IDS: string[] = [
+  // Coffee shop / cafe discovery:
+  // Use the new Places API’s `fsq_category_ids` filter (not `categories`) and
+  // keep the list narrow so coffee doesn’t drift into retail/noise.
+  //
+  // NOTE: If this category ever returns noisy results, tighten this list by
+  // re-running `scripts/foursquare_category_discovery.ts` focused on coffee.
+  "4bf58dd8d48988d1e0931735", // Coffee Shop
+];
