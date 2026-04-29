@@ -81,6 +81,8 @@ type RunReport = {
   runId?: string;
   status?: string;
   message?: string;
+  targeted?: boolean;
+  categories?: string[];
   map?: { imageUrl?: string | null; url?: string | null; north?: number | null };
   airports?: {
     nearest_airport?: AirportSummary | null;
@@ -1542,19 +1544,6 @@ export default function OwlsEyePanel({
 
           {runReport && (
             <div ref={runReportRef} style={{ marginTop: 16 }}>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>Run response</div>
-              <pre style={{ background: "#f6f8fa", padding: 12, overflowX: "auto" }}>
-                {JSON.stringify(
-                  {
-                    ...runReport,
-                    nearby_meta: runReport.nearby_meta
-                      ? Object.fromEntries(Object.entries(runReport.nearby_meta).filter(([k]) => k !== "rawDebug"))
-                      : runReport.nearby_meta,
-                  },
-                  null, 2
-                )}
-              </pre>
-
               {mapImageUrl && (
                 <div style={{ marginTop: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
@@ -1706,28 +1695,39 @@ export default function OwlsEyePanel({
                       Results by category
                     </div>
                     <div style={{ display: "grid", gap: 8 }}>
-                      {Object.entries(runReport.nearby_names)
-                        .filter(([, names]) => Array.isArray(names) && names.length > 0)
-                        .sort(([a], [b]) => a.localeCompare(b))
-                        .map(([category, names]) => (
-                          <details
-                            key={category}
-                            style={{ border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff" }}
-                          >
-                            <summary style={{ cursor: "pointer", padding: "8px 12px", fontWeight: 700, fontSize: 13 }}>
-                              {category} ({names.length})
-                            </summary>
-                            <div style={{ padding: "8px 12px" }}>
-                              <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 4 }}>
-                                {names.map((n) => (
-                                  <li key={n} style={{ fontSize: 13, color: "#111" }}>
-                                    {n}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          </details>
-                        ))}
+                      {(() => {
+                        const namesByCategory = runReport.nearby_names ?? {};
+                        const categories = new Set<string>(Object.keys(namesByCategory));
+                        (runReport.categories ?? []).forEach((c) => categories.add(String(c)));
+                        return Array.from(categories)
+                          .sort((a, b) => a.localeCompare(b))
+                          .map((category) => {
+                            const names = Array.isArray(namesByCategory[category]) ? namesByCategory[category] : [];
+                            return (
+                              <details
+                                key={category}
+                                style={{ border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff" }}
+                              >
+                                <summary style={{ cursor: "pointer", padding: "8px 12px", fontWeight: 700, fontSize: 13 }}>
+                                  {category} ({names.length})
+                                </summary>
+                                <div style={{ padding: "8px 12px" }}>
+                                  {names.length ? (
+                                    <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 4 }}>
+                                      {names.map((n) => (
+                                        <li key={n} style={{ fontSize: 13, color: "#111" }}>
+                                          {n}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : (
+                                    <div style={{ fontSize: 13, color: "#6b7280" }}>No results</div>
+                                  )}
+                                </div>
+                              </details>
+                            );
+                          });
+                      })()}
                     </div>
                   </div>
                 )}
