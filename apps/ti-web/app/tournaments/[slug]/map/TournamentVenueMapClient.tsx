@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
+import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import styles from "./TournamentVenueMap.module.css";
 
 type VenueCounts = { coffee: number; food: number; hotels: number };
@@ -88,6 +89,28 @@ export default function TournamentVenueMapClient({
   const clientToken = (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim();
   const effectiveMapEnabled = mapEnabled && Boolean(clientToken);
 
+  // Track interactive map opens/loads for billing-relevant adoption.
+  const analyticsHref =
+    typeof window !== "undefined"
+      ? window.location.href
+      : `/tournaments/${encodeURIComponent(tournament.slug)}/map`;
+  const openedTrackedRef = useRef(false);
+  const loadedTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (openedTrackedRef.current) return;
+    openedTrackedRef.current = true;
+    void trackTiEvent("venue_map_opened", {
+      page_type: "venue_map",
+      tournament_id: tournament.id,
+      tournament_slug: tournament.slug,
+      sport: tournament.sport ?? null,
+      venue_count: venues.length,
+      href: typeof window !== "undefined" ? window.location.href : analyticsHref,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournament.id, tournament.slug]);
+
   useEffect(() => {
     if (!effectiveMapEnabled) return;
     if (!containerRef.current) return;
@@ -131,7 +154,20 @@ export default function TournamentVenueMapClient({
       }
 
       mapRef.current = map;
-      map.on("load", () => setMapReady(true));
+      map.on("load", () => {
+        setMapReady(true);
+        if (!loadedTrackedRef.current) {
+          loadedTrackedRef.current = true;
+          void trackTiEvent("venue_map_loaded", {
+            page_type: "venue_map",
+            tournament_id: tournament.id,
+            tournament_slug: tournament.slug,
+            sport: tournament.sport ?? null,
+            venue_count: venues.length,
+            href: typeof window !== "undefined" ? window.location.href : analyticsHref,
+          });
+        }
+      });
       map.on("error", (e: any) => {
         const msg = String(e?.error?.message ?? e?.message ?? "");
         // Only surface the first meaningful error; Mapbox can emit multiple.

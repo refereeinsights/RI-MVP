@@ -6,6 +6,8 @@ export type TiAnalyticsEventName =
   | "homepage_sport_chip_clicked"
   | "tournament_detail_more_in_state_clicked"
   | "venue_page_viewed"
+  | "venue_map_opened"
+  | "venue_map_loaded"
   | "weekend_share_clicked"
   | "weekend_page_opened";
 
@@ -50,6 +52,22 @@ export type TiAnalyticsEventPropertiesByName = {
     state: string | null;
     source_tournament_id: string | null;
     source_tournament_slug: string | null;
+  };
+  venue_map_opened: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    sport: string | null;
+    venue_count: number;
+    href: string;
+  };
+  venue_map_loaded: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    sport: string | null;
+    venue_count: number;
+    href: string;
   };
   weekend_share_clicked: {
     source_page: "tournament_detail" | "venue_map" | "venue_detail" | "weekend_page";

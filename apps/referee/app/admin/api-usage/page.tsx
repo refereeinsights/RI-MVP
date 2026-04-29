@@ -22,6 +22,11 @@ type VendorAggRow = {
   avg_latency_ms: number | null;
 };
 
+type TiEventAggRow = {
+  event_name: string;
+  calls: number;
+};
+
 function parseDateRange(params: SearchParams): { fromIso: string; toIso: string; label: string } {
   const range = params.range ?? "7d";
   const now = new Date();
@@ -54,6 +59,26 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
     .gte("called_at", fromIso)
     .lte("called_at", toIso)
     .limit(50000);
+
+  const MAP_LOAD_EVENTS = ["venue_map_opened", "venue_map_loaded"] as const;
+  const { data: tiEventRows } = await supabaseAdmin
+    .from("ti_map_events" as any)
+    .select("event_name")
+    .gte("created_at", fromIso)
+    .lte("created_at", toIso)
+    .in("event_name", MAP_LOAD_EVENTS as any)
+    .limit(50000);
+
+  const tiEventBuckets = new Map<string, number>();
+  for (const r of (tiEventRows ?? []) as Array<{ event_name?: string | null }>) {
+    const name = String(r.event_name ?? "").trim();
+    if (!name) continue;
+    tiEventBuckets.set(name, (tiEventBuckets.get(name) ?? 0) + 1);
+  }
+  const tiEventAgg: TiEventAggRow[] = Array.from(tiEventBuckets.entries())
+    .map(([event_name, calls]) => ({ event_name, calls }))
+    .sort((a, b) => b.calls - a.calls);
+  const tiEventCountByName = new Map(tiEventAgg.map((r) => [r.event_name, r.calls]));
 
   // Aggregate in-process — avoids needing a DB function and keeps the query simple.
   const buckets = new Map<string, { calls: number; errors: number; latencies: number[] }>();
@@ -184,6 +209,20 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
           </div>
         </div>
       )}
+
+      <div style={{ marginBottom: 18 }}>
+        <h3 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: "#374151" }}>Map loads (TI)</h3>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {MAP_LOAD_EVENTS.map((name) => (
+            <div key={name} style={{ padding: "8px 12px", borderRadius: 8, background: "#fff", border: "1px solid #e5e7eb", minWidth: 220 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{name}</div>
+              <div style={{ marginTop: 4, fontSize: 12, color: "#374151" }}>
+                {(tiEventCountByName.get(name) ?? 0).toLocaleString()} events
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Usage table */}
       {agg.length === 0 ? (

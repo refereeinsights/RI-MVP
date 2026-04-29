@@ -24,6 +24,8 @@ const MAP_EVENTS = new Set([
   "homepage_sport_chip_clicked",
   "tournament_detail_more_in_state_clicked",
   "venue_page_viewed",
+  "venue_map_opened",
+  "venue_map_loaded",
   "weekend_share_clicked",
   "weekend_page_opened",
 ]);
@@ -67,7 +69,9 @@ function isPrivateNetworkHost(host: string) {
 }
 
 function shouldPersistMapEvents(request: Request) {
-  // Local dev should never persist analytics into Supabase.
+  // Local dev should never persist analytics into Supabase unless explicitly enabled.
+  // This repo often points local dev at production Supabase, so we fail-closed by default.
+  if (process.env.ENABLE_TI_ANALYTICS_TRACKING === "true") return true;
   if (process.env.NODE_ENV === "development") return false;
 
   const host = asTextWithLimit(request.headers.get("x-forwarded-host") ?? request.headers.get("host"), 128);
