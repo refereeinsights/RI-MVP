@@ -59,6 +59,7 @@ export async function GET(req: Request) {
   const targetSlug = (url.searchParams.get("slug") ?? "").trim().toLowerCase();
   const targetTournamentId = (url.searchParams.get("tournamentId") ?? "").trim();
   const force = (url.searchParams.get("force") ?? "").trim() === "1";
+  const batchLimitRaw = (url.searchParams.get("batchLimit") ?? "").trim();
 
   const { data: lock, error: lockError } = await (supabaseAdmin as any).rpc("acquire_cron_job_lock", {
     p_key: LOCK_KEY,
@@ -94,8 +95,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: "missing MAPBOX_SECRET_TOKEN" }, { status: 500 });
     }
 
-    // 50 items × ~600ms avg (sleep + Mapbox + upload + DB) ≈ 30s, safely under Vercel Pro's 60s limit.
-    const BATCH_LIMIT = 50;
+    // Default batch size is tuned for Vercel's request timeout. You can raise this locally for backfills.
+    const DEFAULT_BATCH_LIMIT = 50;
+    const batchLimitParsed = Number.parseInt(batchLimitRaw || "", 10);
+    const BATCH_LIMIT =
+      Number.isFinite(batchLimitParsed) && batchLimitParsed > 0
+        ? Math.min(Math.max(batchLimitParsed, 1), 300)
+        : DEFAULT_BATCH_LIMIT;
     let rawCandidates: CandidateTournamentRow[] | null = null;
 
     if (targetTournamentId || targetSlug) {

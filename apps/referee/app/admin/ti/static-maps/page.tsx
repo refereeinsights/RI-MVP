@@ -1,6 +1,7 @@
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import ManualStaticMapRunPanel from "./ManualStaticMapRunPanel";
 
 export const runtime = "nodejs";
 
@@ -121,6 +122,8 @@ export default async function StaticMapsAdminPage() {
     <div style={{ padding: 24, maxWidth: 1100 }}>
       <AdminNav />
       <h2 style={{ margin: "16px 0 20px", fontSize: 20, fontWeight: 700 }}>TI Static Maps — Cron Dashboard</h2>
+
+      <ManualStaticMapRunPanel />
 
       {/* Status breakdown */}
       <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 10px" }}>
