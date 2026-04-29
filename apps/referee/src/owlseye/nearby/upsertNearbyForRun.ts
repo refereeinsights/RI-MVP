@@ -416,7 +416,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   const runEnhanced = async (category: OwlEnhancedCategory) => {
     if (!shouldFetch(category)) return;
     // If we already have this category in a fresh, complete run, avoid re-calling providers.
-    if (!force && isRunFresh && runHasCategory(category)) return;
+    // Targeted runs always proceed — they're explicitly requesting specific categories.
+    if (!force && !isTargetedRun && isRunFresh && runHasCategory(category)) return;
 
     if (!fsqEnabled || !fsqKey) {
       enhancedNearby[category].usedGoogleFallback = true;
@@ -693,7 +694,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   const coffeeThreshold = 2;
   const runCoffee = async () => {
     if (!shouldFetch("coffee")) return;
-    if (!force && isRunFresh && runHasCategory("coffee")) return;
+    if (!force && !isTargetedRun && isRunFresh && runHasCategory("coffee")) return;
 
     const limit = 25;
     let bestTagged: ReturnType<typeof tagAndFilterCoffeePlaces> = [];

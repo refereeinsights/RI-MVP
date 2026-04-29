@@ -50,15 +50,15 @@ const DOG_PARK_EXCLUDE_RE =
 const JOEY_EXCLUDE_RE = /\bjoey\b/i;
 
 const QUICK_EATS_POSITIVE_RE =
-  /\b(subway|jimmy john|jersey mike|firehouse|potbelly|panera|chipotle|qdoba|mod pizza|domino|pizza|pizzeria|deli|sandwich|wrap|burrito|taco|fast food|drive[- ]?thru|takeout|take-out|to go|grab and go|bakery)\b/i;
+  /\b(subway|jimmy john|jersey mike|firehouse|potbelly|panera|chipotle|qdoba|mod pizza|domino|pizza|pizzeria|deli|sandwich|wrap|burrito|taco|fast food|burger|fried chicken|bagel|hot dog|drive[- ]?thru|takeout|take-out|to go|grab and go|bakery)\b/i;
 const QUICK_EATS_NEGATIVE_RE =
   /\b(bistro|martini|taproom|brewhouse|brewery|bar)\b/i;
 
 const HANGOUT_POSITIVE_RE =
-  /\b(brewery|brewhouse|taproom|arcade|bowling|mini golf|putt|science center|museum|park|playground|mall|riverfront|family|kids|outdoor|patio|spacious)\b/i;
+  /\b(brewery|brewhouse|taproom|arcade|bowling|mini golf|putt|science center|museum|park|playground|mall|riverfront|family|kids|outdoor|patio|spacious|ice cream|beer garden)\b/i;
 
 const HANGOUT_STRONG_RE =
-  /\b(brewery|brewhouse|taproom|arcade|bowling|mini golf|science center|park|playground|mall|flatstick)\b/i;
+  /\b(brewery|brewhouse|taproom|arcade|bowling|mini golf|science center|park|playground|mall|flatstick|ice cream|beer garden)\b/i;
 
 function isExcludedBase(name: string) {
   if (HARD_EXCLUDE_RE.test(name)) return { excluded: true, reason: "hard_exclude" };
@@ -78,8 +78,12 @@ function tagsForQuickEats(h: string) {
   if (/\bfast food\b/i.test(h)) tags.push("fast_food");
   if (/\bfast casual\b/i.test(h)) tags.push("fast_casual");
   if (/\b(burrito|chipotle|qdoba)\b/i.test(h)) tags.push("burrito_bowl");
+  if (/\btaco\b/i.test(h)) tags.push("tacos");
+  if (/\bburger\b/i.test(h)) tags.push("fast_food");
+  if (/\bfried chicken\b/i.test(h)) tags.push("fast_food");
+  if (/\bhot dog\b/i.test(h)) tags.push("fast_food");
   if (/\bwrap\b/i.test(h)) tags.push("wraps");
-  if (/\bbakery\b/i.test(h)) tags.push("bakery_grab_go");
+  if (/\b(bakery|bagel)\b/i.test(h)) tags.push("bakery_grab_go");
   if (/\b(subway|jimmy john|jersey mike|firehouse|potbelly|panera|chipotle|qdoba|mod pizza)\b/i.test(h)) tags.push("chain_reliable");
   return tags;
 }
@@ -87,6 +91,7 @@ function tagsForQuickEats(h: string) {
 function tagsForHangouts(h: string) {
   const tags: string[] = [];
   if (/\b(brewery|brewhouse|taproom)\b/i.test(h)) tags.push("brewery");
+  if (/\bbeer garden\b/i.test(h)) tags.push("brewery");
   if (/\b(pizza|pizzeria)\b/i.test(h)) tags.push("pizza");
   if (/\barcade\b/i.test(h)) tags.push("arcade");
   if (/\bbowling\b/i.test(h)) tags.push("bowling");
@@ -96,6 +101,7 @@ function tagsForHangouts(h: string) {
   if (/\bplayground\b/i.test(h)) tags.push("playground");
   if (/\bmall\b/i.test(h)) tags.push("mall");
   if (/\bfamily\b/i.test(h)) tags.push("family");
+  if (/\bice cream\b/i.test(h)) tags.push("kids");
   if (/\bkids?\b/i.test(h)) tags.push("kids");
   if (/\boutdoor\b/i.test(h)) tags.push("outdoor");
   if (/\bpatio\b/i.test(h)) tags.push("patio");
@@ -148,13 +154,15 @@ export function tagAndFilterEnhancedPlaces(args: {
         return false;
       })();
 
-      const h = norm(`${name} ${address}`);
-      const reasonTagsBase = args.category === "quick_eats" ? tagsForQuickEats(h) : tagsForHangouts(h);
-
       const fsqCategoryNames = (() => {
         if (!("fsq_place_id" in p)) return [] as string[];
         return (p.categories ?? []).map((c) => String(c?.name ?? "")).filter(Boolean);
       })();
+
+      // Include FSQ category names so brand names (e.g. "Jack in the Box", "McDonald's")
+      // match via their category ("Fast Food Restaurant") rather than requiring keyword in name.
+      const h = norm(`${name} ${address} ${fsqCategoryNames.join(" ")}`);
+      const reasonTagsBase = args.category === "quick_eats" ? tagsForQuickEats(h) : tagsForHangouts(h);
 
       const breweryMatch =
         args.category === "hangouts" &&
@@ -210,7 +218,7 @@ export function tagAndFilterEnhancedPlaces(args: {
 
       const strongMatch =
         args.category === "quick_eats"
-          ? ["sandwich", "deli", "fast_food", "pizza", "burrito_bowl", "fast_casual"].some((t) =>
+          ? ["sandwich", "deli", "fast_food", "pizza", "burrito_bowl", "fast_casual", "tacos"].some((t) =>
               reasonTags.includes(t)
             )
           : breweryMatch || HANGOUT_STRONG_RE.test(h) || reasonTags.includes("known_keeper");
