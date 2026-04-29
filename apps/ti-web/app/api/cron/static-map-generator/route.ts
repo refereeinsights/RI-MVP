@@ -144,8 +144,22 @@ export async function GET(req: Request) {
         )
         .eq("status", "published")
         .eq("is_canonical", true)
+        // Keep the batch focused on work we can actually do.
+        // - `missing` with no usable venue coords is intentionally retried on a slow cadence (refreshCutoff).
+        // - `error` / `queued` should be retried promptly.
+        // - `processing` rows are safe to include; the claim/lease check prevents double-processing.
         .or(
-          `static_map_status.neq.ready,static_map_path.is.null,static_map_updated_at.is.null,static_map_updated_at.lt.${refreshCutoff}`
+          [
+            "static_map_status.eq.error",
+            "static_map_status.eq.queued",
+            "static_map_status.eq.processing",
+            // Never attempted / unknown freshness
+            `and(static_map_status.neq.ready,static_map_path.is.null,static_map_updated_at.is.null)`,
+            // Regular refresh cadence for anything non-ready
+            `and(static_map_status.neq.ready,static_map_path.is.null,static_map_updated_at.lt.${refreshCutoff})`,
+            // For `missing` we also re-check on the same slow cadence (covers the common "no coords" case).
+            `and(static_map_status.eq.missing,static_map_updated_at.lt.${refreshCutoff})`,
+          ].join(",")
         )
         .order("updated_at", { ascending: false })
         .limit(BATCH_LIMIT);

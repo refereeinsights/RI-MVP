@@ -6,6 +6,7 @@ import ManualStaticMapRunPanel from "./ManualStaticMapRunPanel";
 export const runtime = "nodejs";
 
 const JOB_KEY = "ti_static_map_generator_v1";
+const NO_COORDS_BACKOFF_DAYS = 7;
 
 type RunRow = {
   id: number;
@@ -124,6 +125,48 @@ export default async function StaticMapsAdminPage() {
       <h2 style={{ margin: "16px 0 20px", fontSize: 20, fontWeight: 700 }}>TI Static Maps — Cron Dashboard</h2>
 
       <ManualStaticMapRunPanel />
+
+      <div
+        style={{
+          marginBottom: 18,
+          padding: 12,
+          border: "1px solid #e5e7eb",
+          borderRadius: 10,
+          background: "#fff",
+          color: "#374151",
+          fontSize: 13,
+          lineHeight: 1.35,
+        }}
+      >
+        <div style={{ fontWeight: 800, marginBottom: 4 }}>Missing venue coordinates</div>
+        <div style={{ color: "#6b7280" }}>
+          If a tournament’s linked venues have no usable latitude/longitude, the TI static map generator marks the tournament as{" "}
+          <span style={{ fontFamily: "monospace" }}>static_map_status=missing</span> and skips re-trying for ~{NO_COORDS_BACKOFF_DAYS} days (so no-coord
+          tournaments don’t clog the queue). To fix in bulk, backfill venue coordinates using the existing Mapbox ops script:
+        </div>
+        <pre
+          style={{
+            margin: "10px 0 0",
+            padding: 10,
+            background: "#0b1020",
+            color: "#e5e7eb",
+            borderRadius: 8,
+            fontSize: 12,
+            overflowX: "auto",
+          }}
+        >
+          {`# Dry-run first (recommended)
+node scripts/ops/backfill_venues_geo_mapbox.mjs --dry-run --only-missing-both --limit=200
+
+# Apply (writes venue latitude/longitude)
+node scripts/ops/backfill_venues_geo_mapbox.mjs --apply --only-missing-both --limit=200 --throttle-ms=350`}
+        </pre>
+        <div style={{ marginTop: 8, color: "#6b7280", fontSize: 12 }}>
+          Requires <span style={{ fontFamily: "monospace" }}>NEXT_PUBLIC_SUPABASE_URL</span>,{" "}
+          <span style={{ fontFamily: "monospace" }}>SUPABASE_SERVICE_ROLE_KEY</span>, and{" "}
+          <span style={{ fontFamily: "monospace" }}>MAPBOX_ACCESS_TOKEN</span> in your environment.
+        </div>
+      </div>
 
       {/* Status breakdown */}
       <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 10px" }}>

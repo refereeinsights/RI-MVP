@@ -1,3 +1,7 @@
+## 2026-04-29
+
+- TI static maps: prevent no-coordinate tournaments from clogging the generator queue by only re-trying `static_map_status=missing` items on a slow cadence (7d), and add an admin callout with the bulk Mapbox venue geocode backfill commands: `apps/ti-web/app/api/cron/static-map-generator/route.ts`, `apps/referee/app/admin/ti/static-maps/page.tsx`.
+
 ## 2026-04-28
 
 - RI Owl’s Eye (Foursquare): updated the Foursquare client to use the new Places API host (`places-api.foursquare.com/places/search`) after the legacy `/v3/places/search` endpoint began returning HTTP 410, and set a sane default `FOURSQUARE_API_VERSION` fallback (`2025-06-17`): `apps/referee/src/owlseye/nearby/foursquarePlaces.ts`, `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts`.
