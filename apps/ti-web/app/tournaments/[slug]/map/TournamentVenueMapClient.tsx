@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import ShareWeekendButton from "@/components/ShareWeekendButton";
 import styles from "./TournamentVenueMap.module.css";
 
 type VenueCounts = { coffee: number; food: number; hotels: number };
@@ -332,6 +333,18 @@ export default function TournamentVenueMapClient({
                   >
                     Search Vrbo rentals
                   </a>
+                ) : null}
+
+                {selectedVenue ? (
+                  <ShareWeekendButton
+                    tournamentSlug={tournament.slug}
+                    tournamentName={tournament.name}
+                    venueLabel={selectedVenue.name ? `${selectedVenue.name}${venueLocation(selectedVenue) ? ` (${venueLocation(selectedVenue)})` : ""}` : null}
+                    venue={selectedVenue.seo_slug ?? selectedVenue.id}
+                    sourcePage="venue_map"
+                    buttonLabel="Share this plan"
+                    className={`${styles.cta} ${styles.ctaSecondary}`}
+                  />
                 ) : null}
 
                 {selectedVenue.seo_slug ? (

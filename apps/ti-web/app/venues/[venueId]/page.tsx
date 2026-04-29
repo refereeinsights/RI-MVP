@@ -9,6 +9,7 @@ import OwlsEyeVenueCard, { type AirportSummary, type NearbyPlace } from "@/compo
 import MobileMapLink from "@/components/venues/MobileMapLink";
 import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
 import VenuePageViewTracker from "@/components/analytics/VenuePageViewTracker";
+import ShareWeekendButton from "@/components/ShareWeekendButton";
 import {
   DEMO_STARFIRE_VENUE_ID,
   buildOwlsEyeDemoScores,
@@ -829,6 +830,20 @@ export default async function VenueDetailsPage({
               <p className="dates" style={{ margin: 0 }}>
                 {addressLabel || "Address TBA"}
               </p>
+
+              {selectedTournament?.slug ? (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <ShareWeekendButton
+                    tournamentSlug={selectedTournament.slug}
+                    tournamentName={selectedTournament.name ?? "Tournament"}
+                    venueLabel={[data.name, data.city, data.state].filter(Boolean).join(", ")}
+                    venue={data.seo_slug || data.id}
+                    sourcePage="venue_detail"
+                    buttonLabel="Share This Weekend"
+                    className="secondaryLink"
+                  />
+                </div>
+              ) : null}
 
               {canViewPremiumDetails || tier !== "explorer" ? (
                 <div style={{ display: "grid", gap: 10 }}>

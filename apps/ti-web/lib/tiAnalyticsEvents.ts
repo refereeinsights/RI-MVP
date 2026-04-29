@@ -5,7 +5,9 @@ export type TiAnalyticsEventName =
   | "homepage_cta_clicked"
   | "homepage_sport_chip_clicked"
   | "tournament_detail_more_in_state_clicked"
-  | "venue_page_viewed";
+  | "venue_page_viewed"
+  | "weekend_share_clicked"
+  | "weekend_page_opened";
 
 export type TiAnalyticsEventPropertiesByName = {
   map_viewed: {
@@ -48,5 +50,19 @@ export type TiAnalyticsEventPropertiesByName = {
     state: string | null;
     source_tournament_id: string | null;
     source_tournament_slug: string | null;
+  };
+  weekend_share_clicked: {
+    source_page: "tournament_detail" | "venue_map" | "venue_detail" | "weekend_page";
+    channel: "copy" | "native" | "sms" | "email" | "unknown";
+    tournament_slug: string;
+    venue: string | null; // slug preferred; uuid when no slug exists
+    share_url: string;
+  };
+  weekend_page_opened: {
+    tournament_slug: string;
+    venue: string | null;
+    source: "share" | "unknown";
+    utm_source: string | null;
+    utm_medium: string | null;
   };
 };

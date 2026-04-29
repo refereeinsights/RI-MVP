@@ -15,6 +15,7 @@ import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheck
 import TournamentWeatherPlannerAccordion from "@/components/tournaments/TournamentWeatherPlannerAccordion";
 import HotelBookingCta from "@/components/venues/HotelBookingCta";
 import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
+import ShareWeekendButton from "@/components/ShareWeekendButton";
 import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
 import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
@@ -507,6 +508,19 @@ async function TournamentUserActions({
           <a className="secondaryLink" href={`/go/tournament/${resolvedSlug}`} target="_blank" rel="noopener noreferrer">
             Official site
           </a>
+        </div>
+      ) : null}
+
+      {tournament.slug ? (
+        <div className="detailLinksRow" style={{ marginTop: 10 }}>
+          <ShareWeekendButton
+            tournamentSlug={tournament.slug}
+            tournamentName={tournament.name}
+            venue={null}
+            sourcePage="tournament_detail"
+            buttonLabel="Share This Weekend"
+            className="secondaryLink"
+          />
         </div>
       ) : null}
     </>
