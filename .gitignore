@@ -38,3 +38,5 @@ supabase/.temp/
 
 # Supabase temp (any app)
 **/supabase/.temp/
+.vercel
+scripts/output/
