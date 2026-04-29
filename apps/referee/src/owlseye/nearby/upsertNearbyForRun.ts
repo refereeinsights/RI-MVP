@@ -505,6 +505,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
         } catch (err) {
           weak = true;
           lastWeakReason = "foursquare_error";
+          // eslint-disable-next-line no-console
+          console.warn("[owlseye] FSQ call failed", { category, radius: radiiByCategory[category][0], error: String((err as any)?.message ?? err) });
           break;
         }
 
@@ -613,6 +615,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     // Google fallback (1 call max per category per run), only when FSQ results are weak/unavailable.
     if (!googleFallbackEnabled || !apiKey) {
       // Fail closed: do not store weak/noisy FSQ results when fallback isn't available.
+      // eslint-disable-next-line no-console
+      console.warn("[owlseye] Google fallback skipped", { category, reason: !googleFallbackEnabled ? "disabled" : "missing_GOOGLE_PLACES_API_KEY" });
       enhancedNearby[category].places = [];
       enhancedNearby[category].usedGoogleFallback = false;
       enhancedNearby[category].fallbackReason = lastWeakReason ?? "foursquare_low_quality";
@@ -626,6 +630,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       monthlyLimit: googleMonthlyLimit,
     });
     if (!canCallGoogle) {
+      // eslint-disable-next-line no-console
+      console.warn("[owlseye] Google fallback skipped — budget exceeded", { category });
       enhancedNearby[category].places = [];
       enhancedNearby[category].usedGoogleFallback = false;
       enhancedNearby[category].fallbackReason = "budget_exceeded";
