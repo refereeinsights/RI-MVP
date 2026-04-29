@@ -6,7 +6,7 @@ import ShareWeekendButton from "@/components/ShareWeekendButton";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import styles from "./TournamentVenueMap.module.css";
 
-type VenueCounts = { coffee: number; food: number; hotels: number };
+type VenueCounts = { coffee: number; food: number; hotels: number; quick_eats: number; hangouts: number };
 
 export type MapVenue = {
   id: string;
@@ -260,6 +260,13 @@ export default function TournamentVenueMapClient({
     if (v.counts.hotels) parts.push(`🏨 ${v.counts.hotels}`);
     return parts.join(" • ");
   };
+  const enhancedCounts = (v: MapVenue) => {
+    if (!v.hasOwl || !v.counts) return null;
+    const parts: string[] = [];
+    if (v.counts.quick_eats) parts.push(`🌮 ${v.counts.quick_eats} quick eats`);
+    if (v.counts.hangouts) parts.push(`🎳 ${v.counts.hangouts} hangouts`);
+    return parts.length ? parts.join(" • ") : null;
+  };
 
   const primaryVenue = venues[0] ?? null;
   const hotelVenueId = selectedVenue?.id ?? primaryVenue?.id ?? null;
@@ -305,6 +312,7 @@ export default function TournamentVenueMapClient({
                         <div className={styles.venueName}>{v.name || "Venue TBA"}</div>
                         <div className={styles.venueMeta}>{venueLocation(v)}</div>
                         {countsLine(v) ? <div className={styles.venueCounts}>{countsLine(v)}</div> : null}
+                        {enhancedCounts(v) ? <div className={styles.venueCounts}>{enhancedCounts(v)}</div> : null}
                       </div>
                     </button>
                   );
@@ -345,6 +353,11 @@ export default function TournamentVenueMapClient({
                   <div className={styles.venueCounts} style={{ marginTop: 8 }}>
                     {`☕ ${selectedVenue.counts.coffee} coffee • 🍔 ${selectedVenue.counts.food} food • 🏨 ${selectedVenue.counts.hotels} hotels`}
                   </div>
+                  {enhancedCounts(selectedVenue) ? (
+                    <div className={styles.venueCounts}>
+                      {enhancedCounts(selectedVenue)}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 

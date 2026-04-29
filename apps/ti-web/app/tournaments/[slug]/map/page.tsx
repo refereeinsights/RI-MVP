@@ -52,7 +52,7 @@ async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
 
 async function loadOwlsEyeCountsByVenueId(venueIds: string[]) {
   const hasOwlsEyeByVenueId = new Map<string, boolean>();
-  const countsByVenueId = new Map<string, { coffee: number; food: number; hotels: number }>();
+  const countsByVenueId = new Map<string, { coffee: number; food: number; hotels: number; quick_eats: number; hangouts: number }>();
 
   const runRows = await fetchLatestOwlsEyeRuns(venueIds);
   const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
@@ -73,29 +73,25 @@ async function loadOwlsEyeCountsByVenueId(venueIds: string[]) {
     .select("run_id,category")
     .in("run_id", runIds);
 
-  const countsByRunId = new Map<string, { coffee: number; food: number; hotels: number; other: number }>();
+  const countsByRunId = new Map<string, { coffee: number; food: number; hotels: number; quick_eats: number; hangouts: number }>();
   for (const row of ((nearbyRows as Array<{ run_id: string; category: string | null }> | null) ?? [])) {
     const runId = row.run_id;
     if (!runId) continue;
     const normalizedCategory = (row.category ?? "food").toLowerCase();
-    const current = countsByRunId.get(runId) ?? { coffee: 0, food: 0, hotels: 0, other: 0 };
+    const current = countsByRunId.get(runId) ?? { coffee: 0, food: 0, hotels: 0, quick_eats: 0, hangouts: 0 };
     if (normalizedCategory === "coffee") current.coffee += 1;
     else if (normalizedCategory === "hotel" || normalizedCategory === "hotels") current.hotels += 1;
-    else if (
-      normalizedCategory === "sporting_goods" ||
-      normalizedCategory === "big_box_fallback" ||
-      normalizedCategory === "quick_eats" ||
-      normalizedCategory === "hangouts"
-    ) current.other += 1;
-    else current.food += 1;
+    else if (normalizedCategory === "quick_eats") current.quick_eats += 1;
+    else if (normalizedCategory === "hangouts") current.hangouts += 1;
+    else if (normalizedCategory !== "sporting_goods" && normalizedCategory !== "big_box_fallback") current.food += 1;
     countsByRunId.set(runId, current);
   }
 
   for (const [venueId, run] of latestRunByVenue.entries()) {
     const runId = (run.run_id ?? run.id) as string;
-    const counts = countsByRunId.get(runId) ?? { coffee: 0, food: 0, hotels: 0, other: 0 };
-    countsByVenueId.set(venueId, { coffee: counts.coffee, food: counts.food, hotels: counts.hotels });
-    hasOwlsEyeByVenueId.set(venueId, counts.coffee + counts.food + counts.hotels + counts.other > 0);
+    const counts = countsByRunId.get(runId) ?? { coffee: 0, food: 0, hotels: 0, quick_eats: 0, hangouts: 0 };
+    countsByVenueId.set(venueId, { coffee: counts.coffee, food: counts.food, hotels: counts.hotels, quick_eats: counts.quick_eats, hangouts: counts.hangouts });
+    hasOwlsEyeByVenueId.set(venueId, counts.coffee + counts.food + counts.hotels + counts.quick_eats + counts.hangouts > 0);
   }
 
   return { hasOwlsEyeByVenueId, countsByVenueId };
