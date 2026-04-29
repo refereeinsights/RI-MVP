@@ -149,6 +149,31 @@ type OwlsEyePanelProps = {
   backfillTotal?: number;
 };
 
+function formatRadiusMiles(meters: number) {
+  const mi = meters / 1609.34;
+  return `${mi.toFixed(mi >= 10 ? 0 : 1)}mi`;
+}
+
+function summarizeNoResultsReason(params: { category: string; queries: NearbyDebugQuery[] }) {
+  const relevant = (params.queries ?? []).filter((q) => q.category === params.category);
+  if (!relevant.length) return null;
+
+  const radii = Array.from(new Set(relevant.map((q) => q.radius_meters))).sort((a, b) => a - b);
+  const last = relevant[relevant.length - 1];
+  const rejected = relevant.reduce((acc, q) => acc + Math.max(0, q.result_count - q.kept_count), 0);
+  const total = relevant.reduce((acc, q) => acc + q.result_count, 0);
+  const kept = relevant.reduce((acc, q) => acc + q.kept_count, 0);
+
+  return {
+    radii,
+    last_provider: last.provider,
+    last_weak_reason: last.weak_reason ?? (last.weak ? "weak" : null),
+    total,
+    kept,
+    rejected,
+  };
+}
+
 function getNearbyTotals(report: RunReport | null | undefined) {
   if (!report) return null;
   const meta = report.nearby_meta;
@@ -1703,6 +1728,12 @@ export default function OwlsEyePanel({
                           .sort((a, b) => a.localeCompare(b))
                           .map((category) => {
                             const names = Array.isArray(namesByCategory[category]) ? namesByCategory[category] : [];
+                            const noResultsSummary = names.length
+                              ? null
+                              : summarizeNoResultsReason({
+                                  category,
+                                  queries: runReport.nearby_meta?.rawDebug?.queries ?? [],
+                                });
                             return (
                               <details
                                 key={category}
@@ -1721,7 +1752,43 @@ export default function OwlsEyePanel({
                                       ))}
                                     </ul>
                                   ) : (
-                                    <div style={{ fontSize: 13, color: "#6b7280" }}>No results</div>
+                                    <div style={{ display: "grid", gap: 6 }}>
+                                      <div style={{ fontSize: 13, color: "#6b7280" }}>No results</div>
+                                      {noResultsSummary && (
+                                        <div style={{ fontSize: 12, color: "#374151" }}>
+                                          <div>
+                                            Tried radii:{" "}
+                                            <span style={{ fontFamily: "monospace" }}>
+                                              {noResultsSummary.radii.map((r) => formatRadiusMiles(r)).join(" → ")}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            Kept/total:{" "}
+                                            <span style={{ fontFamily: "monospace" }}>
+                                              {noResultsSummary.kept}/{noResultsSummary.total}
+                                            </span>
+                                            {noResultsSummary.rejected ? (
+                                              <>
+                                                {" "}
+                                                (rejected{" "}
+                                                <span style={{ fontFamily: "monospace" }}>{noResultsSummary.rejected}</span>)
+                                              </>
+                                            ) : null}
+                                          </div>
+                                          {noResultsSummary.last_weak_reason ? (
+                                            <div>
+                                              Weak reason:{" "}
+                                              <span style={{ fontFamily: "monospace" }}>
+                                                {String(noResultsSummary.last_weak_reason)}
+                                              </span>
+                                            </div>
+                                          ) : null}
+                                          <div style={{ color: "#6b7280", marginTop: 4 }}>
+                                            If this venue is rural (e.g. Alaska), consider increasing the max radius for this category.
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
                               </details>
