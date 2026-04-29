@@ -87,6 +87,12 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
     .eq("destination_type", "hotels");
   const hotelTotalClicksCode = (hotelTotalClicksRes as any)?.error?.code;
 
+  const vrboTotalClicksRes = await supabaseAdmin
+    .from("ti_outbound_clicks" as any)
+    .select("id", { count: "exact", head: true })
+    .eq("destination_type", "vrbo");
+  const vrboTotalClicks = vrboTotalClicksRes.error ? 0 : vrboTotalClicksRes.count ?? 0;
+
   const [sportCountsRes, topTournamentsRes, topVenuesRes] = await Promise.all([
     (supabaseAdmin as any).rpc("list_ti_outbound_clicks_sport_counts_v1", {
       p_state: null,
@@ -183,6 +189,24 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
             <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
               Failed to load hotel clicks: {hotelTotalClicksRes.error.message}
               {hotelTotalClicksRes.error.message.includes("column") ? ` (${hotelsRpcSchemaHint})` : ""}
+            </div>
+          ) : null}
+        </div>
+        <div
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: 14,
+            padding: 14,
+            background: "#fff",
+          }}
+        >
+          <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800, color: "#6b7280" }}>
+            Total VRBO clicks
+          </div>
+          <div style={{ fontSize: 34, fontWeight: 950, lineHeight: 1.1 }}>{vrboTotalClicks}</div>
+          {vrboTotalClicksRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load VRBO clicks: {vrboTotalClicksRes.error.message}
             </div>
           ) : null}
         </div>
