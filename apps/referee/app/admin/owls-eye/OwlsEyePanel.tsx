@@ -586,6 +586,7 @@ export default function OwlsEyePanel({
             setDuplicateCandidates([]);
             setDuplicateSourceVenueId(null);
             setRunReport(nextReport);
+            setTimeout(() => runReportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
             return;
           }
         }
@@ -653,13 +654,18 @@ export default function OwlsEyePanel({
       const venue = targets[index];
       const sportValue = inferSportFromVenue(venue);
       const missingForVenue = getMissingCategories(venue).filter((c) => activeMissingCategories.has(c));
+      // Only use a targeted (partial) run if the venue already has some categories fetched.
+      // For venues with no prior run, always do a full run — the route requires an existing
+      // run record to attach targeted categories to, so sending categories for a new venue
+      // would return 409 no_existing_run.
+      const hasPartialRun = Array.isArray(venue.categories_fetched) && venue.categories_fetched.length > 0;
       setBatchMessage(`Running ${index + 1}/${targets.length}: ${venue.name || venue.venue_id}`);
       try {
         const { resp, json } = await runVenueRequest({
           venueId: venue.venue_id,
           sportValue,
           allowDuplicate: false,
-          ...(missingForVenue.length > 0 && missingForVenue.length < CURRENT_OWL_CATEGORIES.length
+          ...(hasPartialRun && missingForVenue.length > 0
             ? { categories: missingForVenue }
             : {}),
         });
