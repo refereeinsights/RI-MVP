@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import OwlsEyeBrandingOverlay from "@/components/admin/OwlsEyeBrandingOverlay";
 import { tiVenueMapUrl } from "@/lib/ti/publicUrls";
@@ -308,6 +308,7 @@ export default function OwlsEyePanel({
   const [nearbyTab, setNearbyTab] = useState<"food" | "coffee" | "hotels">("food");
   const [sunPathEnabled, setSunPathEnabled] = useState(true);
   const [expandedDebugQueries, setExpandedDebugQueries] = useState<Set<number>>(new Set());
+  const runReportRef = useRef<HTMLDivElement>(null);
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
     () => new Set(CURRENT_OWL_CATEGORIES)
   );
@@ -613,6 +614,7 @@ export default function OwlsEyePanel({
       setDuplicateCandidates([]);
       setDuplicateSourceVenueId(null);
       setRunReport(nextReport);
+      setTimeout(() => runReportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     } catch (err) {
       setRunStatus("error");
       setRunMessage(err instanceof Error ? err.message : "Unknown error");
@@ -680,6 +682,7 @@ export default function OwlsEyePanel({
         successCount += 1;
         const nextReport = (json?.report ?? json) as RunReport;
         setRunReport(nextReport);
+        setTimeout(() => runReportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
         setReadyRows((prev) => prev.filter((row) => row.venue_id !== venue.venue_id));
         setRemainingReadyCount((prev) => Math.max(0, prev - 1));
       } catch {
@@ -1443,7 +1446,7 @@ export default function OwlsEyePanel({
           </div>
 
           {runReport && (
-            <div style={{ marginTop: 16 }}>
+            <div ref={runReportRef} style={{ marginTop: 16 }}>
               <div style={{ fontWeight: 600, marginBottom: 6 }}>Run response</div>
               <pre style={{ background: "#f6f8fa", padding: 12, overflowX: "auto" }}>
                 {JSON.stringify(
