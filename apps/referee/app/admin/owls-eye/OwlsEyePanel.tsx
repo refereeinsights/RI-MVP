@@ -626,7 +626,7 @@ export default function OwlsEyePanel({
 
   const runBatch = async () => {
     const limit = Math.max(1, Math.min(100, Number.isFinite(batchLimit) ? Math.floor(batchLimit) : 10));
-    const targets = readyRows.slice(0, limit);
+    const targets = filteredReadyRows.slice(0, limit);
     if (targets.length === 0) {
       setBatchMessage("No ready venues pending first run.");
       return;
@@ -1039,7 +1039,7 @@ export default function OwlsEyePanel({
                 style={{ width: 80 }}
               />
             </label>
-            <button onClick={runBatch} disabled={batchRunning || readyRows.length === 0}>
+            <button onClick={runBatch} disabled={batchRunning || filteredReadyRows.length === 0}>
               {batchRunning ? "Running batch..." : `Run next ${Math.max(1, Math.min(100, batchLimit || 10))}`}
             </button>
             {batchMessage ? <div style={{ fontSize: 12, color: "#374151" }}>{batchMessage}</div> : null}
