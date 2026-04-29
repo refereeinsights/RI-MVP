@@ -524,7 +524,16 @@ export async function POST(request: Request) {
           }
         : null;
 
-      return NextResponse.json({ ok: true, targeted: true, categories: requestedCategories, nearby_meta: nearbyResult, nearby });
+      const nearby_names = buildNearbyNamesByCategory(nearbyRows ?? []);
+
+      return NextResponse.json({
+        ok: true,
+        targeted: true,
+        categories: requestedCategories,
+        nearby_meta: nearbyResult,
+        nearby,
+        nearby_names,
+      });
     }
 
     if (!force && !allowDuplicate) {
@@ -686,6 +695,7 @@ export async function POST(request: Request) {
     let nearby: any = null;
     let nearbyMeta: any = null;
     let airports: any = null;
+    let nearby_names: Record<string, string[]> | null = null;
     try {
       // ensure nearby exists (force refresh for immediate response)
       const supabase = getAdminSupabase();
@@ -760,6 +770,7 @@ export async function POST(request: Request) {
             })),
         };
       }
+      nearby_names = buildNearbyNamesByCategory(data ?? []);
 
       if (airports) {
         const outputs = { airports, nearby_meta: nearbyMeta ?? undefined };
@@ -778,7 +789,10 @@ export async function POST(request: Request) {
       console.error("[owlseye] Nearby fetch in run route failed", err);
     }
 
-    return NextResponse.json({ ok: true, report: { ...result, nearby, nearby_meta: nearbyMeta, airports } });
+    return NextResponse.json({
+      ok: true,
+      report: { ...result, nearby, nearby_meta: nearbyMeta, airports, nearby_names: nearby_names ?? undefined },
+    });
   } catch (err) {
     const message =
       err instanceof Error
@@ -795,4 +809,18 @@ export async function POST(request: Request) {
     console.error("[owlseye] run POST failed", err);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
+}
+
+function buildNearbyNamesByCategory(rows: any[]): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const r of rows ?? []) {
+    const rawCategory = r?.category;
+    const category = (rawCategory == null || rawCategory === "" ? "food" : String(rawCategory)).trim();
+    const name = String(r?.name ?? "").trim();
+    if (!name) continue;
+    const list = (out[category] ??= []);
+    if (list.length >= 50) continue;
+    if (!list.includes(name)) list.push(name);
+  }
+  return out;
 }

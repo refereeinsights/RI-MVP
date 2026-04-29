@@ -91,6 +91,7 @@ type RunReport = {
     coffee?: NearbyItem[];
     hotels?: NearbyItem[];
   };
+  nearby_names?: Record<string, string[]>;
   nearby_meta?: {
     ok?: boolean;
     message?: string;
@@ -1698,6 +1699,38 @@ export default function OwlsEyePanel({
                     ? renderNearbyList(runReport.nearby?.coffee, "coffee")
                     : renderNearbyList(runReport.nearby?.hotels, "hotels")}
                 </div>
+
+                {runReport?.nearby_names && Object.keys(runReport.nearby_names).length > 0 && (
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#111", marginBottom: 6 }}>
+                      Results by category
+                    </div>
+                    <div style={{ display: "grid", gap: 8 }}>
+                      {Object.entries(runReport.nearby_names)
+                        .filter(([, names]) => Array.isArray(names) && names.length > 0)
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([category, names]) => (
+                          <details
+                            key={category}
+                            style={{ border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff" }}
+                          >
+                            <summary style={{ cursor: "pointer", padding: "8px 12px", fontWeight: 700, fontSize: 13 }}>
+                              {category} ({names.length})
+                            </summary>
+                            <div style={{ padding: "8px 12px" }}>
+                              <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 4 }}>
+                                {names.map((n) => (
+                                  <li key={n} style={{ fontSize: 13, color: "#111" }}>
+                                    {n}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </details>
+                        ))}
+                    </div>
+                  </div>
+                )}
                 {runReport?.nearby_meta && (
                   <div style={{ marginTop: 10 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#111" }}>Nearby debug</div>
