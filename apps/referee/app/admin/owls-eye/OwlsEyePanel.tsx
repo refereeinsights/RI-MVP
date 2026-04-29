@@ -309,7 +309,10 @@ export default function OwlsEyePanel({
   const [sunPathEnabled, setSunPathEnabled] = useState(true);
   const [expandedDebugQueries, setExpandedDebugQueries] = useState<Set<number>>(new Set());
   const runReportRef = useRef<HTMLDivElement>(null);
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
+  const [pendingMissingCategories, setPendingMissingCategories] = useState<Set<string>>(
+    () => new Set(CURRENT_OWL_CATEGORIES)
+  );
+  const [activeMissingCategories, setActiveMissingCategories] = useState<Set<string>>(
     () => new Set(CURRENT_OWL_CATEGORIES)
   );
 
@@ -332,7 +335,7 @@ export default function OwlsEyePanel({
   }, [readyNotRunTotal, readyNotRunVenues]);
   const filteredReadyRows = readyRows.filter((venue) => {
     const missing = getMissingCategories(venue);
-    return missing.some((cat) => selectedCategories.has(cat));
+    return missing.some((cat) => activeMissingCategories.has(cat));
   });
   const readyDisplayedCount = filteredReadyRows.length;
   const readyTotalCount = remainingReadyCount;
@@ -649,7 +652,7 @@ export default function OwlsEyePanel({
     for (let index = 0; index < targets.length; index += 1) {
       const venue = targets[index];
       const sportValue = inferSportFromVenue(venue);
-      const missingForVenue = getMissingCategories(venue).filter((c) => selectedCategories.has(c));
+      const missingForVenue = getMissingCategories(venue).filter((c) => activeMissingCategories.has(c));
       setBatchMessage(`Running ${index + 1}/${targets.length}: ${venue.name || venue.venue_id}`);
       try {
         const { resp, json } = await runVenueRequest({
@@ -681,6 +684,13 @@ export default function OwlsEyePanel({
 
         successCount += 1;
         const nextReport = (json?.report ?? json) as RunReport;
+        const totals = getNearbyTotals(nextReport);
+        setRunStatus("success");
+        setRunMessage(
+          totals
+            ? `Owl's Eye run completed. food=${totals.food}, coffee=${totals.coffee}, hotels=${totals.hotels}`
+            : "Owl's Eye run completed."
+        );
         setRunReport(nextReport);
         setTimeout(() => runReportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
         setReadyRows((prev) => prev.filter((row) => row.venue_id !== venue.venue_id));
@@ -897,45 +907,81 @@ export default function OwlsEyePanel({
           <p style={{ color: "#555", marginTop: 0 }}>
             Venues missing one or more Owl&apos;s Eye categories. Use checkboxes to filter by category and target runs.
           </p>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>Filter by missing:</span>
-            {CURRENT_OWL_CATEGORIES.map((cat) => (
-              <label key={cat} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={selectedCategories.has(cat)}
-                  onChange={(e) => {
-                    setSelectedCategories((prev) => {
-                      const next = new Set(prev);
-                      if (e.target.checked) next.add(cat);
-                      else next.delete(cat);
-                      return next;
-                    });
-                  }}
-                />
-                {OWL_CATEGORY_LABELS[cat] ?? cat}
-              </label>
-            ))}
-          </div>
-          {readyDebug ? (
-            <div
-              style={{
-                marginBottom: 10,
-                padding: 10,
-                borderRadius: 8,
-                border: "1px solid #d1d5db",
-                background: "#f8fafc",
-                fontSize: 12,
-                color: "#111827",
-                overflowX: "auto",
-              }}
-            >
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>Debug summary</div>
-              <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                {JSON.stringify(readyDebug, null, 2)}
-              </pre>
-            </div>
-          ) : null}
+          {(() => {
+            const setsEqual = (a: Set<string>, b: Set<string>) => {
+              if (a.size !== b.size) return false;
+              for (const value of a) if (!b.has(value)) return false;
+              return true;
+            };
+            const filterDirty = !setsEqual(pendingMissingCategories, activeMissingCategories);
+            return (
+              <>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>Filter by missing:</span>
+                  {CURRENT_OWL_CATEGORIES.map((cat) => (
+                    <label key={cat} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={pendingMissingCategories.has(cat)}
+                        onChange={(e) => {
+                          setPendingMissingCategories((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(cat);
+                            else next.delete(cat);
+                            return next;
+                          });
+                        }}
+                      />
+                      {OWL_CATEGORY_LABELS[cat] ?? cat}
+                    </label>
+                  ))}
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveMissingCategories(new Set(pendingMissingCategories))}
+                      disabled={!filterDirty}
+                      style={{ padding: "6px 10px", fontWeight: 700 }}
+                    >
+                      Filter
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = new Set(CURRENT_OWL_CATEGORIES);
+                        setPendingMissingCategories(next);
+                        setActiveMissingCategories(next);
+                      }}
+                      style={{ padding: "6px 10px" }}
+                    >
+                      Reset
+                    </button>
+                    {filterDirty ? (
+                      <span style={{ fontSize: 12, color: "#92400e" }}>Pending changes — click Filter to apply</span>
+                    ) : null}
+                  </div>
+                </div>
+                {readyDebug ? (
+                  <details
+                    style={{
+                      marginBottom: 10,
+                      padding: 10,
+                      borderRadius: 8,
+                      border: "1px solid #d1d5db",
+                      background: "#f8fafc",
+                      fontSize: 12,
+                      color: "#111827",
+                      overflowX: "auto",
+                    }}
+                  >
+                    <summary style={{ fontWeight: 700, cursor: "pointer" }}>Debug summary</summary>
+                    <pre style={{ margin: "10px 0 0", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                      {JSON.stringify(readyDebug, null, 2)}
+                    </pre>
+                  </details>
+                ) : null}
+              </>
+            );
+          })()}
           <div style={{ display: "grid", gap: 6, maxWidth: 540, marginBottom: 10 }}>
             <label>
               <div style={{ fontSize: 13, fontWeight: 700 }}>Merge target venue ID (optional)</div>
@@ -1074,7 +1120,7 @@ export default function OwlsEyePanel({
               {filteredReadyRows.map((venue) => {
                 const locationParts = [venue.city, venue.state, venue.zip].filter(Boolean).join(", ");
                 const missingCats = getMissingCategories(venue);
-                const targetCats = missingCats.filter((c) => selectedCategories.has(c));
+                const targetCats = missingCats.filter((c) => activeMissingCategories.has(c));
                 const isTargeted = targetCats.length > 0 && targetCats.length < CURRENT_OWL_CATEGORIES.length;
                 return (
                   <div
@@ -1102,10 +1148,10 @@ export default function OwlsEyePanel({
                               fontSize: 11,
                               padding: "2px 6px",
                               borderRadius: 4,
-                              background: selectedCategories.has(cat) ? "#fef3c7" : "#f3f4f6",
-                              color: selectedCategories.has(cat) ? "#92400e" : "#6b7280",
+                              background: activeMissingCategories.has(cat) ? "#fef3c7" : "#f3f4f6",
+                              color: activeMissingCategories.has(cat) ? "#92400e" : "#6b7280",
                               fontWeight: 600,
-                              border: selectedCategories.has(cat) ? "1px solid #fde68a" : "1px solid #e5e7eb",
+                              border: activeMissingCategories.has(cat) ? "1px solid #fde68a" : "1px solid #e5e7eb",
                             }}
                           >
                             {OWL_CATEGORY_LABELS[cat] ?? cat}
@@ -1146,6 +1192,18 @@ export default function OwlsEyePanel({
                               categories: targetCats,
                             });
                             if (resp.ok && json?.ok !== false) {
+                              const nextReport = (json?.report ?? json) as RunReport;
+                              const totals = getNearbyTotals(nextReport);
+                              setVenueId(venue.venue_id);
+                              setSport(sportValue);
+                              setRunStatus("success");
+                              setRunMessage(
+                                totals
+                                  ? `Owl's Eye run completed. food=${totals.food}, coffee=${totals.coffee}, hotels=${totals.hotels}`
+                                  : "Owl's Eye run completed."
+                              );
+                              setRunReport(nextReport);
+                              setTimeout(() => runReportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
                               setReadyRows((prev) => prev.filter((r) => r.venue_id !== venue.venue_id));
                               setRemainingReadyCount((prev) => Math.max(0, prev - 1));
                             }
