@@ -5,6 +5,7 @@ import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/tra
 import {
   TI_STATIC_MAP_BUCKET,
   buildMapboxStaticImageUrl,
+  buildSupabasePublicObjectUrl,
   buildStaticMapStoragePath,
   computeStaticMapSourceHash,
   selectStaticMapMarkerCandidates,
@@ -42,6 +43,7 @@ function getMapboxSecretToken() {
 
 type CandidateTournamentRow = {
   id: string;
+  slug: string | null;
   static_map_path: string | null;
   static_map_source_hash: string | null;
   static_map_version: number | null;
@@ -83,11 +85,22 @@ export async function GET(req: Request) {
     processed: 0,
     claimed: 0,
     skipped_lease_held: 0,
+    skipped_claim_filter_miss: 0,
+    claim_errors: 0,
+    claim_error_sample: null as string | null,
     updated: 0,
     skipped_no_coords: 0,
     skipped_up_to_date: 0,
     failures: 0,
     rate_limited: false,
+    items: [] as Array<{
+      tournament_id: string;
+      slug: string | null;
+      status: "updated" | "up_to_date" | "no_coords" | "error" | "rate_limited" | "lease_held" | "claim_miss" | "claim_error";
+      static_map_path?: string | null;
+      static_map_public_url?: string | null;
+      error?: string | null;
+    }>,
     ms: 0,
   };
 
@@ -109,7 +122,7 @@ export async function GET(req: Request) {
     if (targetTournamentId || targetSlug) {
       const q = (supabaseAdmin.from("tournaments" as any) as any)
         .select(
-          "id,static_map_path,static_map_source_hash,static_map_version,static_map_status,static_map_updated_at,static_map_processing_started_at"
+          "id,slug,static_map_path,static_map_source_hash,static_map_version,static_map_status,static_map_updated_at,static_map_processing_started_at"
         )
         .eq("status", "published")
         .eq("is_canonical", true)
@@ -127,7 +140,7 @@ export async function GET(req: Request) {
       const { data: batch, error: candidateError } = await (supabaseAdmin
         .from("tournaments" as any) as any)
         .select(
-          "id,static_map_path,static_map_source_hash,static_map_version,static_map_status,static_map_updated_at,static_map_processing_started_at"
+          "id,slug,static_map_path,static_map_source_hash,static_map_version,static_map_status,static_map_updated_at,static_map_processing_started_at"
         )
         .eq("status", "published")
         .eq("is_canonical", true)
@@ -148,12 +161,33 @@ export async function GET(req: Request) {
 
     const mapStyle = (process.env.MAPBOX_STATIC_STYLE ?? "").trim() || DEFAULT_STYLE;
     const version = Number(process.env.TI_STATIC_MAP_VERSION ?? 1) || 1;
+    const supabaseBaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
 
     for (const t of candidates) {
       result.processed += 1;
 
-      if (!force && t.static_map_processing_started_at && t.static_map_processing_started_at > leaseCutoff) {
+      const processingStartedAt = (t.static_map_processing_started_at ?? "").trim();
+      if (!force && processingStartedAt) {
+        const startedMs = Date.parse(processingStartedAt);
+        const cutoffMs = Date.parse(leaseCutoff);
+        if (Number.isFinite(startedMs) && Number.isFinite(cutoffMs) && startedMs > cutoffMs) {
+          result.skipped_lease_held += 1;
+          result.items.push({
+            tournament_id: t.id,
+            slug: t.slug ?? null,
+            status: "lease_held",
+          });
+          continue;
+        }
+      }
+
+      if (!force && processingStartedAt && processingStartedAt > leaseCutoff) {
         result.skipped_lease_held += 1;
+        result.items.push({
+          tournament_id: t.id,
+          slug: t.slug ?? null,
+          status: "lease_held",
+        });
         continue;
       }
 
@@ -171,7 +205,24 @@ export async function GET(req: Request) {
         ? await claimQuery.maybeSingle()
         : await claimQuery.or(`static_map_processing_started_at.is.null,static_map_processing_started_at.lt.${leaseCutoff}`).maybeSingle();
 
-      if (claimError || !claimed) {
+      if (claimError) {
+        result.claim_errors += 1;
+        if (!result.claim_error_sample) result.claim_error_sample = claimError.message;
+        result.items.push({
+          tournament_id: t.id,
+          slug: t.slug ?? null,
+          status: "claim_error",
+          error: claimError.message,
+        });
+        continue;
+      }
+      if (!claimed) {
+        result.skipped_claim_filter_miss += 1;
+        result.items.push({
+          tournament_id: t.id,
+          slug: t.slug ?? null,
+          status: "claim_miss",
+        });
         continue;
       }
       result.claimed += 1;
@@ -213,6 +264,11 @@ export async function GET(req: Request) {
               static_map_processing_started_at: null,
             })
             .eq("id", t.id);
+          result.items.push({
+            tournament_id: t.id,
+            slug: t.slug ?? null,
+            status: "no_coords",
+          });
           continue;
         }
 
@@ -240,6 +296,15 @@ export async function GET(req: Request) {
               static_map_version: t.static_map_version ?? version,
             })
             .eq("id", t.id);
+          result.items.push({
+            tournament_id: t.id,
+            slug: t.slug ?? null,
+            status: "up_to_date",
+            static_map_path: existingPath,
+            static_map_public_url: existingPath
+              ? buildSupabasePublicObjectUrl({ baseUrl: supabaseBaseUrl, bucket: TI_STATIC_MAP_BUCKET, path: existingPath })
+              : null,
+          });
           continue;
         }
 
@@ -295,6 +360,13 @@ export async function GET(req: Request) {
           .eq("id", t.id);
 
         result.updated += 1;
+        result.items.push({
+          tournament_id: t.id,
+          slug: t.slug ?? null,
+          status: "updated",
+          static_map_path: path,
+          static_map_public_url: buildSupabasePublicObjectUrl({ baseUrl: supabaseBaseUrl, bucket: TI_STATIC_MAP_BUCKET, path }),
+        });
       } catch (err) {
         const message = String((err as any)?.message ?? err ?? "unknown_error").slice(0, 240);
         const isRateLimit = message.includes("429") || /rate.?limit/i.test(message);
@@ -307,6 +379,12 @@ export async function GET(req: Request) {
               static_map_processing_started_at: null,
             })
             .eq("id", t.id);
+          result.items.push({
+            tournament_id: t.id,
+            slug: t.slug ?? null,
+            status: "rate_limited",
+            error: message,
+          });
           break;
         }
         result.failures += 1;
@@ -318,6 +396,12 @@ export async function GET(req: Request) {
             static_map_processing_started_at: null,
           })
           .eq("id", t.id);
+        result.items.push({
+          tournament_id: t.id,
+          slug: t.slug ?? null,
+          status: "error",
+          error: message,
+        });
       }
     }
 

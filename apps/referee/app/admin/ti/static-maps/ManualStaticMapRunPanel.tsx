@@ -24,6 +24,19 @@ export default function ManualStaticMapRunPanel() {
 
   const canRun = useMemo(() => true, []);
 
+  const mapItems = useMemo(() => {
+    const body = (resp && resp.ok ? (resp.body as any) : null) as any;
+    const items = Array.isArray(body?.items) ? body.items : [];
+    return items as Array<{
+      tournament_id: string;
+      slug: string | null;
+      status: string;
+      static_map_public_url?: string | null;
+      static_map_path?: string | null;
+      error?: string | null;
+    }>;
+  }, [resp]);
+
   async function run() {
     if (!canRun) return;
     setLoading(true);
@@ -209,6 +222,39 @@ export default function ManualStaticMapRunPanel() {
               {formatJson(resp)}
             </pre>
           </details>
+
+          {mapItems.length > 0 && (
+            <details style={{ marginTop: 10, border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff" }}>
+              <summary style={{ padding: "10px 12px", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+                Map links ({mapItems.length})
+              </summary>
+              <div style={{ padding: "10px 12px" }}>
+                <div style={{ color: "#6b7280", fontSize: 12, marginBottom: 8 }}>
+                  Opens the stored static map in a new tab when available.
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
+                  {mapItems.map((it) => (
+                    <li key={`${it.tournament_id}:${it.status}`} style={{ fontSize: 13 }}>
+                      {it.static_map_public_url ? (
+                        <a
+                          href={it.static_map_public_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: "#2563eb", fontFamily: "monospace" }}
+                        >
+                          {it.slug ?? it.tournament_id}
+                        </a>
+                      ) : (
+                        <span style={{ fontFamily: "monospace" }}>{it.slug ?? it.tournament_id}</span>
+                      )}{" "}
+                      <span style={{ color: "#6b7280" }}>({it.status})</span>
+                      {it.error ? <span style={{ color: "#dc2626" }}> — {it.error}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </details>
+          )}
         </div>
       )}
     </div>
