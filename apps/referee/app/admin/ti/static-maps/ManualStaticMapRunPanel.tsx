@@ -165,12 +165,17 @@ export default function ManualStaticMapRunPanel() {
             {"ms" in resp && resp.ms !== undefined && (
               <span style={{ color: "#6b7280" }}>{resp.ms}ms</span>
             )}
-            {"ti_url" in resp && resp.ti_url && (
-              <span style={{ color: "#6b7280" }}>
-                <span style={{ fontFamily: "monospace" }}>{resp.ti_url}</span>
-              </span>
-            )}
-          </div>
+          {"ti_url" in resp && resp.ti_url && (
+            <span style={{ color: "#6b7280" }}>
+              <span style={{ fontFamily: "monospace" }}>{resp.ti_url}</span>
+            </span>
+          )}
+          {resp.ok && typeof resp.body === "object" && resp.body && (resp.body as any).processed !== undefined && (
+            <span style={{ color: "#6b7280" }}>
+              processed {(resp.body as any).processed} • claimed {(resp.body as any).claimed ?? "—"} • updated {(resp.body as any).updated ?? "—"} • lease-held {(resp.body as any).skipped_lease_held ?? "—"}
+            </span>
+          )}
+        </div>
 
           {"error" in resp && resp.error && (
             <div

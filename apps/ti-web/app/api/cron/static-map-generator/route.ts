@@ -81,6 +81,8 @@ export async function GET(req: Request) {
     started_at: startedAt.toISOString(),
     scanned: 0,
     processed: 0,
+    claimed: 0,
+    skipped_lease_held: 0,
     updated: 0,
     skipped_no_coords: 0,
     skipped_up_to_date: 0,
@@ -150,6 +152,11 @@ export async function GET(req: Request) {
     for (const t of candidates) {
       result.processed += 1;
 
+      if (!force && t.static_map_processing_started_at && t.static_map_processing_started_at > leaseCutoff) {
+        result.skipped_lease_held += 1;
+        continue;
+      }
+
       // Lease/claim the work item.
       const claimQuery = (supabaseAdmin.from("tournaments" as any) as any)
         .update({
@@ -167,6 +174,7 @@ export async function GET(req: Request) {
       if (claimError || !claimed) {
         continue;
       }
+      result.claimed += 1;
 
       try {
         const { data: venueLinksRaw, error: venueError } = await supabaseAdmin
@@ -321,6 +329,8 @@ export async function GET(req: Request) {
         started_at: result.started_at,
         scanned: result.scanned,
         processed: result.processed,
+        claimed: result.claimed,
+        skipped_lease_held: result.skipped_lease_held,
         updated: result.updated,
         skipped_no_coords: result.skipped_no_coords,
         skipped_up_to_date: result.skipped_up_to_date,
