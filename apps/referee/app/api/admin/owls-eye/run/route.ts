@@ -482,7 +482,49 @@ export async function POST(request: Request) {
         categoriesToFetch: requestedCategories!,
       });
 
-      return NextResponse.json({ ok: true, targeted: true, categories: requestedCategories, nearby_meta: nearbyResult });
+      const { data: nearbyRows } = await supabase
+        .from("owls_eye_nearby_food" as any)
+        .select("*")
+        .eq("run_id", existingRunId)
+        .order("is_sponsor", { ascending: false })
+        .order("distance_meters", { ascending: true })
+        .order("name", { ascending: true });
+      const nearby = nearbyRows
+        ? {
+            food: nearbyRows
+              .filter((f: any) => (f.category ?? "food") === "food")
+              .map((f: any) => ({
+                name: f.name,
+                distance_meters: f.distance_meters ?? null,
+                address: f.address ?? "",
+                is_sponsor: Boolean(f.is_sponsor),
+                sponsor_click_url: f.sponsor_click_url ?? undefined,
+                maps_url: f.maps_url ?? undefined,
+              })),
+            coffee: nearbyRows
+              .filter((f: any) => f.category === "coffee")
+              .map((f: any) => ({
+                name: f.name,
+                distance_meters: f.distance_meters ?? null,
+                address: f.address ?? "",
+                is_sponsor: Boolean(f.is_sponsor),
+                sponsor_click_url: f.sponsor_click_url ?? undefined,
+                maps_url: f.maps_url ?? undefined,
+              })),
+            hotels: nearbyRows
+              .filter((f: any) => f.category === "hotel")
+              .map((f: any) => ({
+                name: f.name,
+                distance_meters: f.distance_meters ?? null,
+                address: f.address ?? "",
+                is_sponsor: Boolean(f.is_sponsor),
+                sponsor_click_url: f.sponsor_click_url ?? undefined,
+                maps_url: f.maps_url ?? undefined,
+              })),
+          }
+        : null;
+
+      return NextResponse.json({ ok: true, targeted: true, categories: requestedCategories, nearby_meta: nearbyResult, nearby });
     }
 
     if (!force && !allowDuplicate) {
