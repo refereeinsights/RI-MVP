@@ -18,10 +18,11 @@ type ReadyVenueRow = {
   longitude: number | null;
 };
 
-export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?: { venueId?: string } }) {
+export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?: { venueId?: string; queue?: string } }) {
   await requireAdmin();
   const adminToken = process.env.NEXT_PUBLIC_OWLS_EYE_ADMIN_TOKEN ?? process.env.OWLS_EYE_ADMIN_TOKEN ?? "";
   const venueId = searchParams?.venueId ?? "";
+  const currentQueue = (searchParams?.queue === "initial" || searchParams?.queue === "backfill") ? searchParams.queue : "all";
   const chunkValues = <T,>(values: T[], size = 120) => {
     const chunks: T[][] = [];
     for (let i = 0; i < values.length; i += size) {
@@ -275,7 +276,20 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
 
       return (a.name ?? "").toLowerCase().localeCompare((b.name ?? "").toLowerCase());
     });
-  const readyNotRunVenues = readyNotRunAll.slice(0, 120);
+  const initialRunAll = readyNotRunAll.filter((v) => {
+    const cats = latestCatsByVenue.get(v.id);
+    return !cats || cats.length === 0;
+  });
+  const backfillAll = readyNotRunAll.filter((v) => {
+    const cats = latestCatsByVenue.get(v.id);
+    return Array.isArray(cats) && cats.length > 0;
+  });
+  const queuedVenues =
+    currentQueue === "initial" ? initialRunAll
+    : currentQueue === "backfill" ? backfillAll
+    : readyNotRunAll;
+
+  const readyNotRunVenues = queuedVenues.slice(0, 120);
   readyNotRunVenues.forEach((venue) => {
     const tournamentIds = tournamentIdsByVenue.get(venue.id) ?? new Set<string>();
     const names: string[] = [];
@@ -296,6 +310,9 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
     not_run_with_junk_name: junkNameCandidates.length,
     excluded_duplicate_suspects: suspectVenueIds.size,
     final_ready_after_filters: readyNotRunAll.length,
+    queue_initial_total: initialRunAll.length,
+    queue_backfill_total: backfillAll.length,
+    current_queue: currentQueue,
     displayed_ready_rows: readyNotRunVenues.length,
     tournament_name_lookup_error: tournamentNameLookupError,
     query_note: "Venues are pre-filtered server-side for non-null city/state and non-null address/address1 before applying run/link filters.",
@@ -322,7 +339,10 @@ export default async function OwlsEyeAdminPage({ searchParams }: { searchParams?
         initialVenueId={venueId || undefined}
         readyDebug={readyDebug}
         suspectVenueCount={suspectVenueIds.size}
-        readyNotRunTotal={readyNotRunAll.length}
+        currentQueue={currentQueue}
+        initialTotal={initialRunAll.length}
+        backfillTotal={backfillAll.length}
+        readyNotRunTotal={queuedVenues.length}
         readyNotRunVenues={readyNotRunVenues.map((venue) => {
           const linkedTournamentNames = tournamentNamesByVenue.get(venue.id) ?? [];
           const linkedTournamentSports = tournamentSportsByVenue.get(venue.id) ?? [];

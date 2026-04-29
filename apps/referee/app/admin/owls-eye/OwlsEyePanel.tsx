@@ -141,6 +141,9 @@ type OwlsEyePanelProps = {
   readyDebug?: Record<string, unknown> | null;
   readyNotRunTotal?: number;
   suspectVenueCount?: number;
+  currentQueue?: "initial" | "backfill" | "all";
+  initialTotal?: number;
+  backfillTotal?: number;
 };
 
 function getNearbyTotals(report: RunReport | null | undefined) {
@@ -275,6 +278,9 @@ export default function OwlsEyePanel({
   readyDebug = null,
   readyNotRunTotal,
   suspectVenueCount = 0,
+  currentQueue = "all",
+  initialTotal = 0,
+  backfillTotal = 0,
 }: OwlsEyePanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -913,6 +919,30 @@ export default function OwlsEyePanel({
           <p style={{ color: "#555", marginTop: 0 }}>
             Venues missing one or more Owl&apos;s Eye categories. Use checkboxes to filter by category and target runs.
           </p>
+          <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+            {([
+              { q: "all", label: `All (${initialTotal + backfillTotal})` },
+              { q: "initial", label: `New — initial run (${initialTotal})` },
+              { q: "backfill", label: `Backfill — partial (${backfillTotal})` },
+            ] as const).map(({ q, label }) => (
+              <a
+                key={q}
+                href={`/admin/owls-eye?queue=${q}`}
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: currentQueue === q ? 700 : 400,
+                  textDecoration: "none",
+                  background: currentQueue === q ? "#1e40af" : "#f3f4f6",
+                  color: currentQueue === q ? "#fff" : "#374151",
+                  border: `1px solid ${currentQueue === q ? "#1e40af" : "#e5e7eb"}`,
+                }}
+              >
+                {label}
+              </a>
+            ))}
+          </div>
           {(() => {
             const setsEqual = (a: Set<string>, b: Set<string>) => {
               if (a.size !== b.size) return false;
