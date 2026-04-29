@@ -4,7 +4,7 @@ import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/tra
 import { CURRENT_OWL_CATEGORIES } from "../categories";
 import { COFFEE_CATEGORY_IDS, QUICK_EATS_CATEGORY_IDS, HANGOUT_CATEGORY_IDS } from "../foursquareCategories";
 import { FoursquareHttpError, searchFoursquarePlaces } from "./foursquarePlaces";
-import { tagAndFilterEnhancedPlaces, type OwlEnhancedCategory } from "./quickEatsHangouts";
+import { hangoutsRankTier, tagAndFilterEnhancedPlaces, type OwlEnhancedCategory } from "./quickEatsHangouts";
 import { tagAndFilterCoffeePlaces } from "./coffeePlaces";
 
 type UpsertParams = {
@@ -388,6 +388,11 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
 
   const fsqDebugRequests: Array<Record<string, any>> = [];
   const nearbyDebugQueries: NearbyDebugQuery[] = [];
+  const hangoutsStats = {
+    excluded_dog_parks: 0,
+    brewery_matches: 0,
+    brewery_promoted_to_top: false,
+  };
 
   const fsqKey = process.env.FSQ_API_KEY || process.env.FOURSQUARE_API_KEY || "";
   const fsqEnabled = (process.env.FOURSQUARE_ENABLED ?? "true").toLowerCase() === "true";
@@ -520,12 +525,32 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
           dedupedQualified.push(q);
         }
 
+        const rankedQualified = (() => {
+          if (category !== "hangouts") return dedupedQualified;
+          const sorted = [...dedupedQualified].sort((a, b) => {
+            const tierA = hangoutsRankTier(a);
+            const tierB = hangoutsRankTier(b);
+            if (tierA !== tierB) return tierA - tierB;
+            return a.distance_meters - b.distance_meters;
+          });
+          return sorted;
+        })();
+
         const weakCheck = isWeak(tagged, raw.length, isInitial);
         weak = weakCheck.weak;
         lastWeakReason = weakCheck.reason;
 
-        bestTagged = dedupedQualified;
+        bestTagged = rankedQualified;
         bestRadius = radius;
+
+        if (category === "hangouts") {
+          hangoutsStats.excluded_dog_parks += tagged.filter((t) => t.excluded_reason === "dog_park").length;
+          const breweryCount = tagged.filter((t) => t.qualified && t.reason_tags?.includes("brewery")).length;
+          hangoutsStats.brewery_matches += breweryCount;
+          if (!hangoutsStats.brewery_promoted_to_top && breweryCount > 0 && rankedQualified[0]?.reason_tags?.includes("brewery")) {
+            hangoutsStats.brewery_promoted_to_top = true;
+          }
+        }
 
         fsqDebugRequests.push({
           endpoint: "https://places-api.foursquare.com/places/search",
@@ -1324,7 +1349,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   }
 
   // Best-effort debug logging (admin pipeline only). Never block the run.
-  if (fsqDebugRequests.length > 0) {
+  // Store provider request summaries + small hangouts stats to help tuning.
+  if (fsqDebugRequests.length > 0 || attemptedCategories.has("hangouts")) {
     try {
       const baseSelect = "outputs";
       let resp = await supabaseAdmin.from("owls_eye_runs" as any).select(baseSelect).eq("run_id", runId).maybeSingle();
@@ -1336,7 +1362,14 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       const debug = outputs.debug && typeof outputs.debug === "object" ? outputs.debug : {};
       const prev = Array.isArray(debug.foursquare_requests) ? debug.foursquare_requests : [];
       const merged = [...prev, ...fsqDebugRequests].slice(-50);
-      const nextOutputs = { ...outputs, debug: { ...debug, foursquare_requests: merged } };
+      const nextOutputs = {
+        ...outputs,
+        debug: {
+          ...debug,
+          foursquare_requests: merged,
+          hangouts_stats: attemptedCategories.has("hangouts") ? hangoutsStats : debug.hangouts_stats,
+        },
+      };
 
       const updatePayload: Record<string, any> = { outputs: nextOutputs };
       let update = await supabaseAdmin.from("owls_eye_runs" as any).update(updatePayload).eq("run_id", runId);

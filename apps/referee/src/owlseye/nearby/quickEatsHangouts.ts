@@ -32,12 +32,19 @@ function norm(input: string) {
 // Hard excludes: always noise for our use-cases.
 const HARD_EXCLUDE_RE =
   /\b(nordstrom|lush|lego store|department store|boutique|law office|attorney|courthouse|city hall|government|storage|self storage|u-haul|office)\b/i;
-const NIGHTLIFE_EXCLUDE_RE =
-  /\b(speakeasy|nightclub|strip club|hookah|cocktail|wine bar|tasting room|lounge)\b/i;
+// Nightlife excludes:
+// - "Hard": always excluded, even if the place is otherwise a hangout.
+// - "Soft": excluded unless the place is clearly a brewery/taproom/brewpub.
+const NIGHTLIFE_HARD_EXCLUDE_RE =
+  /\b(speakeasy|nightclub|strip club|hookah|cocktail|wine bar)\b/i;
+const NIGHTLIFE_SOFT_EXCLUDE_RE =
+  /\b(tasting room|lounge)\b/i;
 const FINE_DINING_EXCLUDE_RE =
   /\b(steakhouse|fine dining|prix fixe|tasting menu|omakase)\b/i;
 const THEATER_EXCLUDE_RE = /\b(amc|cinema|movie theater|theatre|concert hall)\b/i;
 const GROCERY_EXCLUDE_RE = /\b(grocery|convenience|7-eleven|7 eleven|gas station)\b/i;
+const DOG_PARK_EXCLUDE_RE =
+  /\b(dog park|off leash|off-leash|offleash|dog run|pet park|pet exercise)\b/i;
 
 // "JOEY-style" upscale chain exclusion signal — keep intentionally narrow and tunable.
 const JOEY_EXCLUDE_RE = /\bjoey\b/i;
@@ -55,7 +62,8 @@ const HANGOUT_STRONG_RE =
 
 function isExcludedBase(name: string) {
   if (HARD_EXCLUDE_RE.test(name)) return { excluded: true, reason: "hard_exclude" };
-  if (NIGHTLIFE_EXCLUDE_RE.test(name)) return { excluded: true, reason: "nightlife" };
+  if (NIGHTLIFE_HARD_EXCLUDE_RE.test(name)) return { excluded: true, reason: "nightlife_hard" };
+  if (NIGHTLIFE_SOFT_EXCLUDE_RE.test(name)) return { excluded: true, reason: "nightlife_soft" };
   if (FINE_DINING_EXCLUDE_RE.test(name)) return { excluded: true, reason: "fine_dining" };
   if (GROCERY_EXCLUDE_RE.test(name)) return { excluded: true, reason: "grocery" };
   if (JOEY_EXCLUDE_RE.test(name)) return { excluded: true, reason: "joey_style" };
@@ -141,13 +149,39 @@ export function tagAndFilterEnhancedPlaces(args: {
       })();
 
       const h = norm(`${name} ${address}`);
+      const reasonTagsBase = args.category === "quick_eats" ? tagsForQuickEats(h) : tagsForHangouts(h);
+
+      const fsqCategoryNames = (() => {
+        if (!("fsq_place_id" in p)) return [] as string[];
+        return (p.categories ?? []).map((c) => String(c?.name ?? "")).filter(Boolean);
+      })();
+
+      const breweryMatch =
+        args.category === "hangouts" &&
+        (reasonTagsBase.includes("brewery") ||
+          /\b(brewery|brewhouse|taproom|brewpub|brew pub)\b/i.test(h) ||
+          fsqCategoryNames.some((n) => /\b(brewery|brewhouse|taproom|brewpub|brew pub)\b/i.test(n)));
+
+      const dogParkMatch =
+        args.category === "hangouts" &&
+        (DOG_PARK_EXCLUDE_RE.test(h) ||
+          fsqCategoryNames.some((n) => DOG_PARK_EXCLUDE_RE.test(norm(n))));
+
       const baseEx = isExcludedBase(h);
+      // Brewery override: do not exclude brewery matches due to "soft nightlife" keywords (tasting room/lounge).
+      const baseExcluded =
+        baseEx.excluded && !(breweryMatch && baseEx.reason === "nightlife_soft");
+
       // Theaters are excluded by default; can be surfaced later via explicit allow logic.
       const theaterExcluded = THEATER_EXCLUDE_RE.test(h);
-      const excluded = isClosed || baseEx.excluded || theaterExcluded;
+      const excluded = isClosed || dogParkMatch || baseExcluded || theaterExcluded;
 
       const reasonTags =
-        args.category === "quick_eats" ? tagsForQuickEats(h) : tagsForHangouts(h);
+        args.category === "hangouts"
+          ? breweryMatch
+            ? Array.from(new Set([...reasonTagsBase, "hangout_primary"]))
+            : reasonTagsBase
+          : reasonTagsBase;
 
       const quickEatsSignalsOk =
         args.category !== "quick_eats" ||
@@ -163,19 +197,23 @@ export function tagAndFilterEnhancedPlaces(args: {
         return ids.some((id) => QUICK_EATS_CATEGORY_IDS.includes(id));
       })();
 
+      const breweryQualifiedOverride =
+        args.category === "hangouts" && breweryMatch && !excluded && !NIGHTLIFE_HARD_EXCLUDE_RE.test(h);
+
       const qualified =
-        !excluded &&
-        reasonTags.length > 0 &&
-        quickEatsSignalsOk &&
-        hangoutSignalsOk &&
-        fsqCategoryGateOk;
+        breweryQualifiedOverride ||
+        (!excluded &&
+          reasonTags.length > 0 &&
+          quickEatsSignalsOk &&
+          hangoutSignalsOk &&
+          fsqCategoryGateOk);
 
       const strongMatch =
         args.category === "quick_eats"
           ? ["sandwich", "deli", "fast_food", "pizza", "burrito_bowl", "fast_casual"].some((t) =>
               reasonTags.includes(t)
             )
-          : HANGOUT_STRONG_RE.test(h) || reasonTags.includes("known_keeper");
+          : breweryMatch || HANGOUT_STRONG_RE.test(h) || reasonTags.includes("known_keeper");
 
       const meters = haversineMeters(
         { lat: args.venueLat, lng: args.venueLng },
@@ -199,9 +237,22 @@ export function tagAndFilterEnhancedPlaces(args: {
             ? (String((p as any)?.business_status ?? "").toUpperCase() === "CLOSED_TEMPORARILY" || ("fsq_place_id" in p && p.temporarily_closed)
                 ? "temporarily_closed"
                 : "permanently_closed")
+            : dogParkMatch
+            ? "dog_park"
             : baseEx.reason ?? (theaterExcluded ? "theater" : "excluded")
           : undefined,
       } satisfies TaggedPlace;
     })
     .filter(Boolean) as TaggedPlace[];
+}
+
+export function hangoutsRankTier(place: TaggedPlace) {
+  const tags = new Set(place.reason_tags ?? []);
+  if (tags.has("brewery")) return 1;
+  if (tags.has("pizza") || tags.has("known_keeper")) return 2;
+  if (tags.has("arcade") || tags.has("bowling") || tags.has("mini_golf")) return 3;
+  if (tags.has("science")) return 4;
+  if (tags.has("park") || tags.has("playground")) return 5;
+  if (tags.has("mall")) return 6;
+  return 7;
 }
