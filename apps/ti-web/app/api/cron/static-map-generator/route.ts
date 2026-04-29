@@ -84,6 +84,7 @@ export async function GET(req: Request) {
     skipped_no_coords: 0,
     skipped_up_to_date: 0,
     failures: 0,
+    rate_limited: false,
     ms: 0,
   };
 
@@ -93,8 +94,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: "missing MAPBOX_SECRET_TOKEN" }, { status: 500 });
     }
 
-    // Keep the batch small to minimize API spend and function runtime.
-    const BATCH_LIMIT = 200;
+    // 50 items × ~600ms avg (sleep + Mapbox + upload + DB) ≈ 30s, safely under Vercel Pro's 60s limit.
+    const BATCH_LIMIT = 50;
     let rawCandidates: CandidateTournamentRow[] | null = null;
 
     if (targetTournamentId || targetSlug) {
@@ -281,8 +282,20 @@ export async function GET(req: Request) {
 
         result.updated += 1;
       } catch (err) {
-        result.failures += 1;
         const message = String((err as any)?.message ?? err ?? "unknown_error").slice(0, 240);
+        const isRateLimit = message.includes("429") || /rate.?limit/i.test(message);
+        if (isRateLimit) {
+          result.rate_limited = true;
+          await (supabaseAdmin.from("tournaments" as any) as any)
+            .update({
+              static_map_status: "missing",
+              static_map_error: null,
+              static_map_processing_started_at: null,
+            })
+            .eq("id", t.id);
+          break;
+        }
+        result.failures += 1;
         await (supabaseAdmin.from("tournaments" as any) as any)
           .update({
             static_map_status: "error",
