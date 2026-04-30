@@ -6,10 +6,24 @@ import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { sanitizeReturnTo } from "@/lib/returnTo";
 
+function stripInjectedRecoveryParamsFromReturnTo(raw: string | null) {
+  const value = (raw || "").trim();
+  if (!value) return null;
+  const tokenIdx = value.indexOf("token_hash=");
+  if (tokenIdx === -1) return value;
+  const qIdx = value.lastIndexOf("?", tokenIdx);
+  if (qIdx === -1) return value;
+  const stripped = value.slice(0, qIdx);
+  return stripped || "/";
+}
+
 export default function ResetPasswordPage() {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const searchParams = useSearchParams();
-  const returnTo = sanitizeReturnTo(searchParams?.get("returnTo") ?? null, "/account");
+  const returnTo = sanitizeReturnTo(
+    stripInjectedRecoveryParamsFromReturnTo(searchParams?.get("returnTo") ?? null),
+    "/account"
+  );
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -29,8 +43,27 @@ export default function ResetPasswordPage() {
           const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
 
           // Newer Supabase recovery links may send a token_hash (often prefixed with `pkce_`).
-          const tokenHash = (query.get("token_hash") || "").trim();
-          const type = (query.get("type") || "").trim();
+          const injectedReturnTo = stripInjectedRecoveryParamsFromReturnTo(query.get("returnTo"));
+          const rawReturnTo = (query.get("returnTo") || "").trim();
+          const tokenHashFromReturnTo = (() => {
+            const idx = rawReturnTo.indexOf("token_hash=");
+            if (idx === -1) return "";
+            const qIdx = rawReturnTo.lastIndexOf("?", idx);
+            const rawQuery = qIdx === -1 ? rawReturnTo.slice(idx) : rawReturnTo.slice(qIdx + 1);
+            const params = new URLSearchParams(rawQuery);
+            return (params.get("token_hash") || "").trim();
+          })();
+          const typeFromReturnTo = (() => {
+            const idx = rawReturnTo.indexOf("token_hash=");
+            if (idx === -1) return "";
+            const qIdx = rawReturnTo.lastIndexOf("?", idx);
+            const rawQuery = qIdx === -1 ? rawReturnTo.slice(idx) : rawReturnTo.slice(qIdx + 1);
+            const params = new URLSearchParams(rawQuery);
+            return (params.get("type") || "").trim();
+          })();
+
+          const tokenHash = ((query.get("token_hash") || "").trim() || tokenHashFromReturnTo).trim();
+          const type = ((query.get("type") || "").trim() || typeFromReturnTo).trim();
           if (tokenHash && type === "recovery") {
             const { data, error: verifyError } = await supabase.auth.verifyOtp({
               type: "recovery",
@@ -51,6 +84,9 @@ export default function ResetPasswordPage() {
             // Remove sensitive recovery params from the URL after we establish a session.
             query.delete("token_hash");
             query.delete("type");
+            if (rawReturnTo && rawReturnTo.includes("token_hash=")) {
+              query.set("returnTo", injectedReturnTo || "/");
+            }
             url.hash = "";
             window.history.replaceState({}, "", url.toString());
           }
