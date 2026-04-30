@@ -30,6 +30,7 @@ export default function ResetPasswordPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,6 +153,7 @@ export default function ResetPasswordPage() {
       }
       setPassword("");
       setConfirm("");
+      setDone(true);
       setMessage("Password updated. You can now log in with your new password.");
     } catch {
       setError("Unable to update password right now.");
@@ -170,43 +172,64 @@ export default function ResetPasswordPage() {
       {error ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{error}</div> : null}
       {message ? <div style={{ fontSize: 13, color: "#065f46" }}>{message}</div> : null}
 
-      <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
-        <input
-          type="password"
-          placeholder="New password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          minLength={8}
-          required
-          autoComplete="new-password"
-          style={{ padding: 10, border: "1px solid #cbd5e1", borderRadius: 8 }}
-        />
-        <input
-          type="password"
-          placeholder="Confirm new password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          minLength={8}
-          required
-          autoComplete="new-password"
-          style={{ padding: 10, border: "1px solid #cbd5e1", borderRadius: 8 }}
-        />
-        <button
-          type="submit"
-          disabled={loading || !sessionReady}
+      {done ? (
+        <Link
+          href={`/login?returnTo=${encodeURIComponent(returnTo)}`}
           style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
             padding: "10px 12px",
             borderRadius: 8,
             border: "1px solid #0f172a",
             background: "#0f172a",
             color: "#fff",
             fontWeight: 700,
-            opacity: loading || !sessionReady ? 0.7 : 1,
+            textDecoration: "none",
+            width: "fit-content",
           }}
         >
-          {loading ? "Updating..." : "Update password"}
-        </button>
-      </form>
+          Log in
+        </Link>
+      ) : (
+        <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
+          <input
+            type="password"
+            placeholder="New password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={8}
+            required
+            autoComplete="new-password"
+            style={{ padding: 10, border: "1px solid #cbd5e1", borderRadius: 8 }}
+          />
+          <input
+            type="password"
+            placeholder="Confirm new password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            minLength={8}
+            required
+            autoComplete="new-password"
+            style={{ padding: 10, border: "1px solid #cbd5e1", borderRadius: 8 }}
+          />
+          <button
+            type="submit"
+            disabled={loading || !sessionReady}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1px solid #0f172a",
+              background: "#0f172a",
+              color: "#fff",
+              fontWeight: 700,
+              opacity: loading || !sessionReady ? 0.7 : 1,
+            }}
+          >
+            {loading ? "Updating..." : "Update password"}
+          </button>
+        </form>
+      )}
 
       <div style={{ fontSize: 13 }}>
         <Link href={`/login?returnTo=${encodeURIComponent(returnTo)}`}>Back to login</Link>
