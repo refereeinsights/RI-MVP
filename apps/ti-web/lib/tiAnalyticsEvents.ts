@@ -18,6 +18,8 @@ export type TiAnalyticsEventName =
   | "weekend_share_clicked"
   | "weekend_page_opened";
 
+type OwlsEyeMapCategory = "coffee" | "food" | "hotels" | "quick_eats" | "hangouts" | "sporting_goods";
+
 export type TiAnalyticsEventPropertiesByName = {
   map_viewed: {
     page_type: "heatmap" | "homepage";
@@ -95,7 +97,7 @@ export type TiAnalyticsEventPropertiesByName = {
     tournament_id: string;
     tournament_slug: string;
     venue_id: string;
-    category: "coffee" | "food" | "hotels" | "quick_eats" | "hangouts";
+    category: OwlsEyeMapCategory;
     tier: "explorer" | "insider" | "weekend_pro" | "unknown";
   };
   owls_eye_category_pins_enabled: {
@@ -103,7 +105,7 @@ export type TiAnalyticsEventPropertiesByName = {
     tournament_id: string;
     tournament_slug: string;
     venue_id: string;
-    category: "coffee" | "food" | "hotels" | "quick_eats" | "hangouts";
+    category: OwlsEyeMapCategory;
     enabled: boolean;
     tier: "explorer" | "insider" | "weekend_pro" | "unknown";
   };
@@ -112,7 +114,7 @@ export type TiAnalyticsEventPropertiesByName = {
     tournament_id: string;
     tournament_slug: string;
     venue_id: string;
-    category: "coffee" | "food" | "hotels" | "quick_eats" | "hangouts";
+    category: OwlsEyeMapCategory;
     has_coords: boolean;
     tier: "explorer" | "insider" | "weekend_pro" | "unknown";
   };
@@ -121,7 +123,7 @@ export type TiAnalyticsEventPropertiesByName = {
     tournament_id: string;
     tournament_slug: string;
     venue_id: string;
-    category: "coffee" | "food" | "hotels" | "quick_eats" | "hangouts";
+    category: OwlsEyeMapCategory;
     tier: "explorer" | "insider" | "weekend_pro" | "unknown";
   };
   venue_map_hotels_clicked: {

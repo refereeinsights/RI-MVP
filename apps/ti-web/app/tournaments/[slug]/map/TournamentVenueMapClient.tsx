@@ -4,10 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
+import { getTier } from "@/lib/entitlements";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { DEMO_STARFIRE_VENUE_ID } from "@/lib/owlsEyeScores";
+import { isPremiumPreviewTournamentSlug } from "@/lib/premiumPreview";
 import styles from "./TournamentVenueMap.module.css";
 
 type VenueCounts = { coffee: number; food: number; hotels: number; quick_eats: number; hangouts: number };
-type OwlCategory = "coffee" | "food" | "hotels" | "quick_eats" | "hangouts";
+type OwlCategory = "coffee" | "food" | "hotels" | "quick_eats" | "hangouts" | "sporting_goods";
 type TiTier = "explorer" | "insider" | "weekend_pro" | "unknown";
 
 type OwlPlace = {
@@ -28,7 +32,14 @@ type OwlGroup = {
 };
 
 type OwlPremiumResponse =
-  | { ok: true; venueId: string; tournamentSlug: string | null; tier: TiTier; runId: string | null; groups: Partial<Record<OwlCategory, OwlGroup>> }
+  | {
+      ok: true;
+      venueId: string;
+      tournamentSlug: string | null;
+      tier: TiTier;
+      runId: string | null;
+      groups: Partial<Record<OwlCategory, OwlGroup>>;
+    }
   | { ok: false; error: string; tier?: TiTier };
 
 export type MapVenue = {
@@ -110,6 +121,7 @@ export default function TournamentVenueMapClient({
   const [owlPremiumError, setOwlPremiumError] = useState<string | null>(null);
   const [activePinCategories, setActivePinCategories] = useState<OwlCategory[]>([]);
   const [selectedPlaceKey, setSelectedPlaceKey] = useState<string | null>(null);
+  const [entitlementTier, setEntitlementTier] = useState<TiTier>("unknown");
   const validCoords = useMemo(
     () =>
       venues
@@ -339,6 +351,42 @@ export default function TournamentVenueMapClient({
     }
   }, [selectedPlaceKey]);
 
+  useEffect(() => {
+    // Best-effort entitlement hint for button labeling (server still enforces access).
+    // Keep it resilient if profile reads fail or RLS differs by env.
+    let cancelled = false;
+    setEntitlementTier("unknown");
+
+    (async () => {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (cancelled) return;
+        if (!user || !user.email_confirmed_at) {
+          setEntitlementTier("explorer");
+          return;
+        }
+
+        const { data: profile } = await (supabase.from("ti_users" as any) as any)
+          .select("plan,subscription_status,current_period_end,trial_ends_at")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+        setEntitlementTier(getTier(user, (profile ?? null) as any) as TiTier);
+      } catch {
+        if (!cancelled) setEntitlementTier("unknown");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedVenueId]);
+
   const venueLocation = (v: MapVenue) => [v.city, v.state].filter(Boolean).join(", ") || "Location TBA";
   const countsLine = (v: MapVenue) => {
     if (!v.hasOwl || !v.counts) return null;
@@ -370,7 +418,8 @@ export default function TournamentVenueMapClient({
     if (cat === "hotels") return "🏨";
     // Match the existing venue-map Owl’s Eye iconography.
     if (cat === "quick_eats") return "🌮";
-    return "🎳";
+    if (cat === "hangouts") return "🎳";
+    return "⚽";
   };
 
   const labelForCategory = (cat: OwlCategory) => {
@@ -378,7 +427,8 @@ export default function TournamentVenueMapClient({
     if (cat === "food") return "Food nearby";
     if (cat === "hotels") return "Hotels nearby";
     if (cat === "quick_eats") return "Quick eats nearby";
-    return "Hangouts nearby";
+    if (cat === "hangouts") return "Hangouts nearby";
+    return "Sporting goods nearby";
   };
 
   const fetchPremiumNearby = async (venueId: string): Promise<OwlPremiumResponse> => {
@@ -501,6 +551,30 @@ export default function TournamentVenueMapClient({
   const openPremiumPanel = async () => {
     const v = selectedVenue;
     if (!v) return;
+
+    const isDemoVenue = v.id === DEMO_STARFIRE_VENUE_ID;
+    const hasPreviewTournament = isPremiumPreviewTournamentSlug(tournament.slug);
+    const canViewPremiumDetails = entitlementTier === "weekend_pro" || isDemoVenue || hasPreviewTournament;
+
+    if (!canViewPremiumDetails) {
+      setOwlPanelMode("unlock");
+      void trackTiEvent("owls_eye_unlock_prompt_shown", {
+        page_type: "venue_map",
+        tournament_id: tournament.id,
+        tournament_slug: tournament.slug,
+        venue_id: v.id,
+        tier: entitlementTier,
+      });
+      setOwlPremiumError(
+        entitlementTier === "explorer"
+          ? "Create a free account to unlock Weekend Pro."
+          : entitlementTier === "insider"
+            ? "Upgrade to Weekend Pro to view full nearby lists."
+            : "Weekend Pro required to view full nearby lists."
+      );
+      return;
+    }
+
     const result = (await ensurePremiumLoadedForSelectedVenue()) ?? owlPremiumByVenueId[v.id] ?? null;
     const tier: TiTier = (result && "tier" in result && result.tier ? result.tier : "unknown") as TiTier;
 
@@ -703,62 +777,72 @@ export default function TournamentVenueMapClient({
                       {enhancedCounts(selectedVenue)}
                     </div>
                   ) : null}
+                  <div style={{ fontSize: 12, opacity: 0.86, marginTop: 8 }}>
+                    Tap to see coffee, food, hotels, and more on the map.
+                  </div>
+                </div>
+              ) : null}
+
+              <div className={styles.primaryOwlCtaRow}>
+                <button
+                  type="button"
+                  className={styles.primaryOwlCta}
+                  onClick={() => void openPremiumPanel()}
+                  disabled={owlPremiumLoadingVenueId === selectedVenue.id}
+                >
+                  {owlPremiumLoadingVenueId === selectedVenue.id
+                    ? "Loading Owl’s Eye…"
+                    : entitlementTier === "weekend_pro" ||
+                        selectedVenue.id === DEMO_STARFIRE_VENUE_ID ||
+                        isPremiumPreviewTournamentSlug(tournament.slug)
+                      ? "View full Owl’s Eye map →"
+                      : "Unlock full Owl’s Eye →"}
+                </button>
+              </div>
+
+              {hotelVenueId ? (
+                <div className={styles.stayBlock}>
+                  <div className={styles.stayTitle}>Stay near this venue</div>
+                  <div className={styles.staySub}>Compare hotels and rentals closest to where you’ll play.</div>
+                  <div className={styles.ctaRow}>
+                    <a
+                      className={styles.cta}
+                      href={`/go/hotels?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
+                      target="_blank"
+                      rel="noopener noreferrer sponsored"
+                      onClick={() => {
+                        void trackTiEvent("venue_map_hotels_clicked", {
+                          page_type: "venue_map",
+                          tournament_id: tournament.id,
+                          tournament_slug: tournament.slug,
+                          venue_id: hotelVenueId,
+                        });
+                      }}
+                    >
+                      View nearby hotels
+                    </a>
+                    <a
+                      className={`${styles.cta} ${styles.ctaSecondary}`}
+                      href={`/go/vrbo?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
+                      target="_blank"
+                      rel="noopener noreferrer sponsored"
+                    >
+                      Search Vrbo rentals
+                    </a>
+                  </div>
                 </div>
               ) : null}
 
               <div className={styles.ctaRow}>
-                {hotelVenueId ? (
-                  <a
-                    className={styles.cta}
-                    href={`/go/hotels?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
-                    target="_blank"
-                    rel="noopener noreferrer sponsored"
-                    onClick={() => {
-                      void trackTiEvent("venue_map_hotels_clicked", {
-                        page_type: "venue_map",
-                        tournament_id: tournament.id,
-                        tournament_slug: tournament.slug,
-                        venue_id: hotelVenueId,
-                      });
-                    }}
-                  >
-                    View nearby hotels
-                  </a>
-                ) : null}
-
-                {hotelVenueId ? (
-                  <a
-                    className={`${styles.cta} ${styles.ctaSecondary}`}
-                    href={`/go/vrbo?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
-                    target="_blank"
-                    rel="noopener noreferrer sponsored"
-                  >
-                    Search Vrbo rentals
-                  </a>
-                ) : null}
-
-                {selectedVenue ? (
-                  <ShareWeekendButton
-                    tournamentSlug={tournament.slug}
-                    tournamentName={tournament.name}
-                    venueLabel={selectedVenue.name ? `${selectedVenue.name}${venueLocation(selectedVenue) ? ` (${venueLocation(selectedVenue)})` : ""}` : null}
-                    venue={selectedVenue.seo_slug ?? selectedVenue.id}
-                    sourcePage="venue_map"
-                    buttonLabel="Share this plan"
-                    className={`${styles.cta} ${styles.ctaSecondary}`}
-                  />
-                ) : null}
-
-                {selectedVenue ? (
-                  <button
-                    type="button"
-                    className={`${styles.cta} ${styles.ctaSecondary}`}
-                    onClick={() => void openPremiumPanel()}
-                    disabled={owlPremiumLoadingVenueId === selectedVenue.id}
-                  >
-                    {owlPremiumLoadingVenueId === selectedVenue.id ? "Loading Owl’s Eye…" : "View full Owl’s Eye"}
-                  </button>
-                ) : null}
+                <ShareWeekendButton
+                  tournamentSlug={tournament.slug}
+                  tournamentName={tournament.name}
+                  venueLabel={selectedVenue.name ? `${selectedVenue.name}${venueLocation(selectedVenue) ? ` (${venueLocation(selectedVenue)})` : ""}` : null}
+                  venue={selectedVenue.seo_slug ?? selectedVenue.id}
+                  sourcePage="venue_map"
+                  buttonLabel="Share this plan"
+                  className={`${styles.cta} ${styles.ctaSecondary}`}
+                />
 
                 {selectedVenue.seo_slug ? (
                   <Link
@@ -778,7 +862,7 @@ export default function TournamentVenueMapClient({
                     if (!payload || !payload.ok) return null;
                     const tier: TiTier = payload.tier ?? "unknown";
                   const groups = payload.groups ?? {};
-                  const ordered: OwlCategory[] = ["coffee", "food", "hotels", "quick_eats", "hangouts"];
+                  const ordered: OwlCategory[] = ["coffee", "food", "hotels", "quick_eats", "hangouts", "sporting_goods"];
                   const visible = ordered.filter((c) => (groups[c]?.count ?? 0) > 0);
                   if (visible.length === 0) {
                     return (

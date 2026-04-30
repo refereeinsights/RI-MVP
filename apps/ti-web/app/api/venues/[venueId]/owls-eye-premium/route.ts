@@ -23,25 +23,30 @@ type PlaceRow = {
   place_longitude: number | null;
 };
 
-function normalizeCategory(value: string | null | undefined): "coffee" | "food" | "hotels" | "quick_eats" | "hangouts" | "ignored" {
+function normalizeCategory(
+  value: string | null | undefined
+): "coffee" | "food" | "hotels" | "quick_eats" | "hangouts" | "sporting_goods" | "ignored" {
   const raw = (value ?? "").trim().toLowerCase();
   if (!raw) return "food";
   if (raw === "coffee") return "coffee";
   if (raw === "quick_eats") return "quick_eats";
   if (raw === "hangouts") return "hangouts";
   if (raw === "hotel" || raw === "hotels") return "hotels";
-  if (raw === "sporting_goods" || raw === "big_box_fallback") return "ignored";
+  if (raw === "sporting_goods" || raw === "big_box_fallback") return "sporting_goods";
   return "food";
 }
 
-function parseRequestedCategories(param: string | null): Array<"coffee" | "food" | "hotels" | "quick_eats" | "hangouts"> {
+function parseRequestedCategories(
+  param: string | null
+): Array<"coffee" | "food" | "hotels" | "quick_eats" | "hangouts" | "sporting_goods"> {
   const raw = (param ?? "").trim();
-  const fallback: Array<"coffee" | "food" | "hotels" | "quick_eats" | "hangouts"> = [
+  const fallback: Array<"coffee" | "food" | "hotels" | "quick_eats" | "hangouts" | "sporting_goods"> = [
     "coffee",
     "food",
     "hotels",
     "quick_eats",
     "hangouts",
+    "sporting_goods",
   ];
   if (!raw) return fallback;
   const allowed = new Set(fallback);
@@ -51,6 +56,7 @@ function parseRequestedCategories(param: string | null): Array<"coffee" | "food"
     .filter(Boolean)
     .map((v) => {
       if (v === "hotel" || v === "hotels") return "hotels";
+      if (v === "gear" || v === "sporting_goods" || v === "big_box_fallback") return "sporting_goods";
       return v as any;
     })
     .filter((v) => allowed.has(v));

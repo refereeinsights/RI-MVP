@@ -292,6 +292,59 @@
   border: 1px solid rgba(255,255,255,0.16);
 }
 
+.primaryOwlCtaRow {
+  margin-top: 10px;
+  display: grid;
+}
+
+.primaryOwlCta {
+  width: 100%;
+  appearance: none;
+  border: 1px solid rgba(0,0,0,0.14);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #16a34a;
+  color: rgba(255,255,255,0.98);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.primaryOwlCta:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.primaryOwlCta:hover,
+.primaryOwlCta:focus-visible {
+  outline: none;
+  background: #22c55e;
+}
+
+.stayBlock {
+  margin-top: 12px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.stayTitle {
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.92;
+}
+
+.staySub {
+  font-size: 12px;
+  opacity: 0.86;
+  line-height: 1.25;
+  margin-top: -2px;
+}
+
 .owlPanel {
   margin-top: 10px;
   border-top: 1px solid rgba(255,255,255,0.12);
