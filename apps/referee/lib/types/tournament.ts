@@ -57,6 +57,12 @@ export interface TournamentRow {
   source_url: string;
   source_domain: string;
 
+  // --- Contacts ---
+  tournament_director?: string | null;
+  tournament_director_email?: string | null;
+  referee_contact?: string | null;
+  referee_contact_email?: string | null;
+
   // --- Traceability ---
   raw?: unknown;
 }

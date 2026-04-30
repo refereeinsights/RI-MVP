@@ -114,24 +114,35 @@ export async function GET(request: Request) {
   const checkinRaw = String(reqUrl.searchParams.get("checkin") ?? "").trim();
   const checkoutRaw = String(reqUrl.searchParams.get("checkout") ?? "").trim();
 
-  if (!venueId || !isUuid(venueId)) {
-    return new NextResponse("Missing or invalid venueId", { status: 400 });
-  }
-
   const host = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "").trim();
   const localDev = isLocalDevelopment(host);
+  const referer = request.headers.get("referer");
+  const userAgent = request.headers.get("user-agent");
+
+  const venueIdValid = Boolean(venueId && isUuid(venueId));
+
+  // Anti-abuse guardrail: allow generic mode only when invoked from /weekend-planner (or local dev).
+  const source = String(reqUrl.searchParams.get("source") ?? "").trim();
+  const sourcePath = sourcePathFromReferer(referer);
+  const genericAllowed = localDev || source === "weekend_planner" || (sourcePath ?? "").startsWith("/weekend-planner");
+
+  if (!venueIdValid && !genericAllowed) {
+    return new NextResponse("Missing or invalid venueId", { status: 400 });
+  }
 
   const hasCheckin = isValidIsoDate(checkinRaw);
   const hasCheckout = isValidIsoDate(checkoutRaw);
   const hasDateOverride = hasCheckin && hasCheckout;
 
-  const { data: venue } = await supabaseAdmin
-    .from("venues" as any)
-    .select("id,name,city,state,zip")
-    .eq("id", venueId)
-    .maybeSingle<{ id: string; name: string | null; city: string | null; state: string | null; zip: string | null }>();
+  const { data: venue } = venueIdValid
+    ? await supabaseAdmin
+        .from("venues" as any)
+        .select("id,name,city,state,zip")
+        .eq("id", venueId)
+        .maybeSingle<{ id: string; name: string | null; city: string | null; state: string | null; zip: string | null }>()
+    : { data: null as { id: string; name: string | null; city: string | null; state: string | null; zip: string | null } | null };
 
-  const requestedTournamentId = tournamentId && isUuid(tournamentId) ? tournamentId : null;
+  const requestedTournamentId = venueIdValid && tournamentId && isUuid(tournamentId) ? tournamentId : null;
   const { data: tournament } = requestedTournamentId
     ? await supabaseAdmin
         .from("tournaments_public" as any)
@@ -143,6 +154,8 @@ export async function GET(request: Request) {
   const ss = (() => {
     const override = ssOverride.trim();
     if (override) return override;
+
+    if (!venueIdValid) return null;
 
     const computed = buildBookingSearchString({
       venueName: venue?.name ?? null,
@@ -157,6 +170,12 @@ export async function GET(request: Request) {
     if (isValidZip5(zip)) return zip;
     return "United States";
   })();
+
+  if (!ss) {
+    return new NextResponse("Missing ss (destination). Use /weekend-planner to run a generic hotel search.", {
+      status: 400,
+    });
+  }
 
   const dates = (() => {
     const today = todayUtcIso();
@@ -211,22 +230,20 @@ export async function GET(request: Request) {
     console.warn("[go/hotels] missing Awin config, using direct booking URL");
   }
 
-  const referer = request.headers.get("referer");
-  const userAgent = request.headers.get("user-agent");
   const local = isLocalHost(host);
   const bot = looksLikeBot(userAgent);
   const redirectTarget = wrapped.ok ? wrapped.url : bookingUrl;
 
   if (!local && !bot) {
-    const sourcePath = sourcePathFromReferer(referer);
     try {
+      const sourceSurface = venueIdValid ? "venue_page" : "weekend_planner";
       await supabaseAdmin.from("ti_outbound_clicks" as any).insert({
         destination_type: "hotels",
         partner: "booking",
-        source_surface: "venue_page",
-        venue_id: venueId,
-        tournament_id: tournament?.id ?? null,
-        tournament_slug: tournament?.slug ?? null,
+        source_surface: sourceSurface,
+        venue_id: venueIdValid ? venueId : null,
+        tournament_id: venueIdValid ? tournament?.id ?? null : null,
+        tournament_slug: venueIdValid ? tournament?.slug ?? null : null,
         target_url: bookingUrl,
         redirect_url: redirectTarget,
         source_path: sourcePath,

@@ -456,6 +456,10 @@ export function csvRowsToTournamentRows(
       start_date: normalize(row.start_date) || null,
       end_date: normalize(row.end_date) || null,
       summary: row.summary || null,
+      tournament_director: normalize(row.tournament_director) || null,
+      tournament_director_email: normalize(row.tournament_director_email) || null,
+      referee_contact: normalize(row.referee_contact) || null,
+      referee_contact_email: normalize(row.referee_contact_email) || null,
       status: opts.status,
       source: opts.source,
       source_event_id: row.slug,
@@ -616,6 +620,9 @@ type VenueCandidate = {
   state: string | null;
   zip: string | null;
   sport: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  geocode_source: string | null;
 };
 
 function normalizeVenueField(value: unknown): string | null {
@@ -686,6 +693,12 @@ function extractVenueCandidate(record: TournamentRow): VenueCandidate | null {
     name = address;
   }
 
+  const rawLat = Number(raw?.latitude ?? raw?.lat ?? NaN);
+  const rawLng = Number(raw?.longitude ?? raw?.lng ?? raw?.lon ?? NaN);
+  const latitude = Number.isFinite(rawLat) && rawLat !== 0 ? rawLat : null;
+  const longitude = Number.isFinite(rawLng) && rawLng !== 0 ? rawLng : null;
+  const geocode_source = normalizeVenueField(raw?.geocode_source) ?? null;
+
   return {
     name,
     address,
@@ -693,6 +706,9 @@ function extractVenueCandidate(record: TournamentRow): VenueCandidate | null {
     state,
     zip,
     sport: normalizeVenueField(record.sport),
+    latitude,
+    longitude,
+    geocode_source,
   };
 }
 
@@ -738,6 +754,9 @@ async function upsertVenueAndLinkTournament(params: {
         state: venue.state,
         zip: venue.zip,
         sport: venue.sport,
+        ...(venue.latitude != null ? { latitude: venue.latitude } : {}),
+        ...(venue.longitude != null ? { longitude: venue.longitude } : {}),
+        ...(venue.geocode_source != null ? { geocode_source: venue.geocode_source } : {}),
       };
       const insertRes = await (supabase.from("venues") as any).insert(insertPayload).select("id").single();
       if (insertRes.error) {

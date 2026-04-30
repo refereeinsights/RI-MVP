@@ -6,6 +6,11 @@
 - Ops: harden Owl’s Eye place geocoding queries by sanitizing “directions-y” address prefixes (e.g. `@ ...`, `Located next to ...`) and retrying once with a simplified query when Mapbox returns 422, while counting retries toward `mapbox_calls` so budgets reflect reality: `scripts/ops/backfill_owlseye_place_coords_mapbox.mjs`.
 - Ops: backfill script now treats `--categories=hotels` as inclusive of legacy `owls_eye_nearby_food.category='hotel'` rows (so “0 scanned” doesn’t happen just due to the singular vs plural category value): `scripts/ops/backfill_owlseye_place_coords_mapbox.mjs`.
 
+## 2026-04-30
+
+- TI travel: add a share-safe “Weekend Planner” page (`/weekend-planner`) that lets users run generic hotel and vacation-rental searches (destination + optional dates) without requiring a venue/tournament, reusing existing TI styling and routing “Add Tournament” to the existing intake flow: `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`.
+- TI outbound: update `/go/hotels` and `/go/vrbo` to support a SAFE generic mode (no venueId) gated to `source=weekend_planner` or `/weekend-planner` referers (anti-abuse), while preserving existing venue-based behavior + attribution; generic mode logs `source_surface='weekend_planner'` to `ti_outbound_clicks` and never blocks redirects on logging failures: `apps/ti-web/app/go/hotels/route.ts`, `apps/ti-web/app/go/vrbo/route.ts`.
+
 ## 2026-04-28
 
 - RI Owl’s Eye (Foursquare): updated the Foursquare client to use the new Places API host (`places-api.foursquare.com/places/search`) after the legacy `/v3/places/search` endpoint began returning HTTP 410, and set a sane default `FOURSQUARE_API_VERSION` fallback (`2025-06-17`): `apps/referee/src/owlseye/nearby/foursquarePlaces.ts`, `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts`.

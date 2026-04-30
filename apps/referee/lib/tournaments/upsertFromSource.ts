@@ -52,6 +52,10 @@ export async function upsertTournamentFromSource(row: TournamentRow) {
         updated_at: now,
         source_url: row.source_url,
         source_domain: row.source_domain,
+        ...(row.tournament_director != null ? { tournament_director: row.tournament_director } : {}),
+        ...(row.tournament_director_email != null ? { tournament_director_email: row.tournament_director_email } : {}),
+        ...(row.referee_contact != null ? { referee_contact: row.referee_contact } : {}),
+        ...(row.referee_contact_email != null ? { referee_contact_email: row.referee_contact_email } : {}),
       },
       { onConflict: "slug" }
     )

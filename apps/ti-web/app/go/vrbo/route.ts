@@ -88,28 +88,42 @@ export async function GET(request: Request) {
   const reqUrl = new URL(request.url);
   const venueId = String(reqUrl.searchParams.get("venueId") ?? "").trim();
   const tournamentId = String(reqUrl.searchParams.get("tournamentId") ?? "").trim();
-
-  if (!venueId || !isUuid(venueId)) {
-    return new NextResponse("Missing or invalid venueId", { status: 400 });
-  }
+  const destinationParam = String(reqUrl.searchParams.get("destination") ?? "").trim();
+  const checkinRaw = String(reqUrl.searchParams.get("checkin") ?? "").trim();
+  const checkoutRaw = String(reqUrl.searchParams.get("checkout") ?? "").trim();
 
   const host = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "").trim();
   const localDev = isLocalDevelopment(host);
+  const referer = request.headers.get("referer");
+  const userAgent = request.headers.get("user-agent");
 
-  const { data: venue } = await supabaseAdmin
-    .from("venues" as any)
-    .select("id,name,city,state,latitude,longitude")
-    .eq("id", venueId)
-    .maybeSingle<{
-      id: string;
-      name: string | null;
-      city: string | null;
-      state: string | null;
-      latitude: number | null;
-      longitude: number | null;
-    }>();
+  const venueIdValid = Boolean(venueId && isUuid(venueId));
 
-  const requestedTournamentId = tournamentId && isUuid(tournamentId) ? tournamentId : null;
+  // Anti-abuse guardrail: allow generic mode only when invoked from /weekend-planner (or local dev).
+  const source = String(reqUrl.searchParams.get("source") ?? "").trim();
+  const sourcePath = sourcePathFromReferer(referer);
+  const genericAllowed = localDev || source === "weekend_planner" || (sourcePath ?? "").startsWith("/weekend-planner");
+
+  if (!venueIdValid && !genericAllowed) {
+    return new NextResponse("Missing or invalid venueId", { status: 400 });
+  }
+
+  const { data: venue } = venueIdValid
+    ? await supabaseAdmin
+        .from("venues" as any)
+        .select("id,name,city,state,latitude,longitude")
+        .eq("id", venueId)
+        .maybeSingle<{
+          id: string;
+          name: string | null;
+          city: string | null;
+          state: string | null;
+          latitude: number | null;
+          longitude: number | null;
+        }>()
+    : { data: null as any };
+
+  const requestedTournamentId = venueIdValid && tournamentId && isUuid(tournamentId) ? tournamentId : null;
   const { data: tournament } = requestedTournamentId
     ? await supabaseAdmin
         .from("tournaments_public" as any)
@@ -125,15 +139,30 @@ export async function GET(request: Request) {
         }>()
     : { data: null as any };
 
-  const destination = buildDestination({
-    venueCity: venue?.city ?? null,
-    venueState: venue?.state ?? null,
-    tournamentCity: tournament?.city ?? null,
-    tournamentState: tournament?.state ?? null,
-  });
+  const destination = venueIdValid
+    ? buildDestination({
+        venueCity: venue?.city ?? null,
+        venueState: venue?.state ?? null,
+        tournamentCity: tournament?.city ?? null,
+        tournamentState: tournament?.state ?? null,
+      })
+    : (() => {
+        const cleaned = destinationParam.replace(/\s+/g, " ").trim();
+        return cleaned || null;
+      })();
 
   const dates = (() => {
     const today = todayUtcIso();
+
+    if (!venueIdValid) {
+      if (!isValidIsoDate(checkinRaw) || !isValidIsoDate(checkoutRaw)) return null;
+      const checkin = checkinRaw;
+      if (compareIso(checkin, today) < 0) return null;
+      let checkout = checkoutRaw;
+      if (compareIso(checkout, checkin) <= 0) checkout = addDaysIso(checkin, 1);
+      return { checkin, checkout };
+    }
+
     const start = tournament?.start_date ?? null;
     const end = tournament?.end_date ?? null;
     if (!isValidIsoDate(start) || !isValidIsoDate(end)) return null;
@@ -149,8 +178,8 @@ export async function GET(request: Request) {
   const vrboUrl = destination
     ? buildVrboSearchUrl({
         destination,
-        latitude: venue?.latitude ?? null,
-        longitude: venue?.longitude ?? null,
+        latitude: venueIdValid ? venue?.latitude ?? null : null,
+        longitude: venueIdValid ? venue?.longitude ?? null : null,
         checkin: dates?.checkin ?? null,
         checkout: dates?.checkout ?? null,
         adults: 2,
@@ -166,22 +195,20 @@ export async function GET(request: Request) {
     console.warn("[go/vrbo] missing CJ config, using direct vrbo URL");
   }
 
-  const referer = request.headers.get("referer");
-  const userAgent = request.headers.get("user-agent");
   const local = isLocalHost(host);
   const bot = looksLikeBot(userAgent);
   const redirectTarget = wrapped.ok ? wrapped.url : vrboUrl;
 
   if (!local && !bot) {
-    const sourcePath = sourcePathFromReferer(referer);
     try {
+      const sourceSurface = venueIdValid ? "venue_map" : "weekend_planner";
       await supabaseAdmin.from("ti_outbound_clicks" as any).insert({
         destination_type: "vrbo",
         partner: "cj",
-        source_surface: "venue_map",
-        venue_id: venueId,
-        tournament_id: tournament?.id ?? null,
-        tournament_slug: tournament?.slug ?? null,
+        source_surface: sourceSurface,
+        venue_id: venueIdValid ? venueId : null,
+        tournament_id: venueIdValid ? tournament?.id ?? null : null,
+        tournament_slug: venueIdValid ? tournament?.slug ?? null : null,
         target_url: vrboUrl,
         redirect_url: redirectTarget,
         source_path: sourcePath,
@@ -204,4 +231,3 @@ export async function GET(request: Request) {
     },
   });
 }
-
