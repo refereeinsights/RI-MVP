@@ -208,6 +208,16 @@ export default function TournamentVenueMapClient({
       });
 
       map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+      map.on("click", () => {
+        try {
+          popupRef.current?.remove?.();
+        } catch {
+          // ignore
+        } finally {
+          popupRef.current = null;
+          setSelectedPlaceKey(null);
+        }
+      });
 
       const markerById = markersRef.current;
       markerById.clear();
@@ -432,7 +442,8 @@ export default function TournamentVenueMapClient({
       </div>
     `.trim();
 
-    const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, anchor: "top", offset: 12, maxWidth: "280px" });
+    // closeOnClick=false to prevent marker clicks from immediately closing the popup in some browsers.
+    const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: false, anchor: "top", offset: 12, maxWidth: "280px" });
     popup.addClassName(styles.placePopup);
     popup.setLngLat([lng, lat]).setHTML(html).addTo(map);
     popupRef.current = popup;
@@ -547,7 +558,9 @@ export default function TournamentVenueMapClient({
       inner.textContent = emojiForCategory(category);
 
       btn.appendChild(inner);
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
         if (typeof item.place_longitude === "number" && typeof item.place_latitude === "number") {
           try {
             map.flyTo({ center: [item.place_longitude, item.place_latitude], zoom: Math.max(map.getZoom?.() ?? 12, 12), speed: 1.2 });
