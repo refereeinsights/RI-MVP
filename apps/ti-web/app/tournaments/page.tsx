@@ -720,6 +720,38 @@ export default async function TournamentsPage({
                 </div>
               </div>
             </article>
+
+            <article className="card card-grass">
+              <div className="cardHeader">
+                <div>
+                  <div className="cardTitle" style={{ fontSize: 18 }}>
+                    Don’t see your tournament?
+                  </div>
+                  <div className="cardMeta">
+                    Plan your tournament weekend by city while we keep expanding our tournament coverage.
+                  </div>
+                </div>
+              </div>
+              <div className="cardFooter" style={{ padding: "0 1.15rem 1.15rem" }}>
+                <Link
+                  href={(() => {
+                    const params = new URLSearchParams();
+                    if (stateSelections.length === 1) params.set("state", stateSelections[0]);
+                    const cityStateMatch = (q ?? "").match(/^\s*([^,]+)\s*,\s*([A-Za-z]{2})\s*$/);
+                    if (cityStateMatch) {
+                      params.set("city", cityStateMatch[1].trim());
+                      params.set("state", cityStateMatch[2].trim().toUpperCase());
+                    }
+                    // Note: sport is not currently a planner input; keep it as a harmless hint for future use.
+                    if (sportsSelected.length === 1) params.set("sport", sportsSelected[0]);
+                    return `/weekend-planner${params.toString() ? `?${params.toString()}` : ""}`;
+                  })()}
+                  className="primaryLink"
+                >
+                  Plan by city
+                </Link>
+              </div>
+            </article>
           </div>
         ) : (
           <div className="grid">

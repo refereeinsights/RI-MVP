@@ -536,6 +536,21 @@ export default function ListYourTournamentForm({
             Share the essential tournament and venue details directors want families, teams, and officials to find in one
             clean place. Start with one venue and add more if the event uses multiple sites.
           </p>
+          <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
+            <Link
+              href="/weekend-planner"
+              className={styles.secondaryLink}
+              onClick={() =>
+                void sendTiAnalytics("weekend_planner_cta_clicked", {
+                  source_page: "/list-your-tournament",
+                  source_context: "missing_tournament",
+                  ts: Date.now(),
+                })
+              }
+            >
+              Just need to plan the trip? Open weekend planner
+            </Link>
+          </div>
           {status === "success" ? <p className={styles.statusSuccess}>{message}</p> : null}
           {status === "error" && message ? <p className={styles.statusError}>{message}</p> : null}
         </section>

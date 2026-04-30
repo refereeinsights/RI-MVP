@@ -1,10 +1,41 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { sendTiAnalytics } from "@/lib/analytics";
+import styles from "./WeekendPlanner.module.css";
 
 const DESTINATION_STORAGE_KEY = "ti_weekend_planner_destination";
+const CANONICAL_WEEKEND_PLANNER_URL = "https://www.tournamentinsights.com/weekend-planner";
+
+function isValidIsoDate(value: string | null) {
+  const raw = String(value ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+  const [y, m, d] = raw.split("-").map((n) => Number(n));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return false;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (!Number.isFinite(dt.getTime())) return false;
+  return dt.toISOString().slice(0, 10) === raw;
+}
+
+function todayUtcIso() {
+  const now = new Date();
+  const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return todayUtc.toISOString().slice(0, 10);
+}
+
+function addDaysIso(iso: string, days: number) {
+  const [y, m, d] = iso.split("-").map((n) => Number(n));
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
+function compareIso(a: string, b: string) {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
 
 function safeGetStoredDestination() {
   try {
@@ -22,20 +53,46 @@ function safeSetStoredDestination(value: string) {
   }
 }
 
-function canonicalPlannerUrl() {
-  if (typeof window === "undefined") return "https://www.tournamentinsights.com/weekend-planner";
-  return `${window.location.origin}/weekend-planner`;
-}
-
 export default function WeekendPlannerClient() {
   const [destination, setDestination] = useState("");
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">("idle");
-
-  const shareUrl = useMemo(() => canonicalPlannerUrl(), []);
+  const [shareUrl, setShareUrl] = useState(CANONICAL_WEEKEND_PLANNER_URL);
+  const [canNativeShare, setCanNativeShare] = useState(false);
+  const [prefillCheckin, setPrefillCheckin] = useState<string>("");
+  const [prefillCheckout, setPrefillCheckout] = useState<string>("");
 
   useEffect(() => {
     const stored = safeGetStoredDestination();
-    if (stored) setDestination(stored);
+    const params = new URLSearchParams(window.location.search);
+    const city = String(params.get("city") ?? "").trim();
+    const state = String(params.get("state") ?? "").trim();
+    const derivedDestination = (() => {
+      if (city && state) return `${city}, ${state}`;
+      if (state) return state;
+      return city || "";
+    })();
+
+    const initialDestination = derivedDestination || stored;
+    if (initialDestination) setDestination(initialDestination);
+
+    // Optional date prefill (do not auto-submit).
+    const checkin = String(params.get("checkin") ?? "").trim();
+    const checkout = String(params.get("checkout") ?? "").trim();
+    const today = todayUtcIso();
+    if (isValidIsoDate(checkin) && compareIso(checkin, today) >= 0) {
+      setPrefillCheckin(checkin);
+      if (isValidIsoDate(checkout)) {
+        setPrefillCheckout(compareIso(checkout, checkin) <= 0 ? addDaysIso(checkin, 1) : checkout);
+      }
+    }
+
+    // Avoid hydration mismatches by only enabling native share + origin-specific URL after mount.
+    try {
+      setShareUrl(`${window.location.origin}/weekend-planner`);
+    } catch {
+      // Ignore.
+    }
+    setCanNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
   }, []);
 
   function handleDestinationChange(value: string) {
@@ -76,189 +133,190 @@ export default function WeekendPlannerClient() {
 
   return (
     <>
-      <div className="cards" style={{ marginTop: 18 }}>
-        <article className="card card-grass">
-          <div className="cardHeader">
-            <div>
-              <div className="cardTitle" style={{ fontSize: 18 }}>
-                Search Hotels
-              </div>
-              <div className="cardMeta">Find hotels near your tournament or destination.</div>
-            </div>
+      <div className={styles.mainGrid}>
+        <article className={styles.panelCard}>
+          <div className={styles.panelHeader}>
+            <h2 className={styles.panelTitle}>Search Hotels</h2>
+            <p className={styles.panelSub}>Find hotels near your tournament or destination.</p>
           </div>
-          <div style={{ padding: "0 1.15rem 1.15rem" }}>
+          <div className={styles.cardBody}>
             <form
               method="get"
               action="/go/hotels"
-              onSubmit={() => track("weekend_planner_hotels_clicked", { destination_present: Boolean(destination.trim()) })}
+              onSubmit={() =>
+                track("weekend_planner_hotels_clicked", { destination_present: Boolean(destination.trim()) })
+              }
             >
-              <div className="filters" style={{ gridTemplateColumns: "1fr 180px 180px", margin: 0 }}>
+              <div className={styles.formGrid}>
                 <div>
-                  <label className="label" htmlFor="wp-destination-hotels">
+                  <label className={`label ${styles.labelDark}`} htmlFor="wp-destination-hotels">
                     Destination (required)
                   </label>
                   <input
                     id="wp-destination-hotels"
                     name="ss"
-                    className="input"
-                    placeholder='Spokane, WA or 98101'
+                    className={`input ${styles.inputDark}`}
+                    placeholder="Spokane, WA or 98101"
                     value={destination}
                     onChange={(e) => handleDestinationChange(e.target.value)}
                     required
                   />
                 </div>
-                <div>
-                  <label className="label" htmlFor="wp-checkin-hotels">
-                    Check-in
-                  </label>
-                  <input id="wp-checkin-hotels" name="checkin" className="input" placeholder="YYYY-MM-DD" />
-                </div>
-                <div>
-                  <label className="label" htmlFor="wp-checkout-hotels">
-                    Check-out
-                  </label>
-                  <input id="wp-checkout-hotels" name="checkout" className="input" placeholder="YYYY-MM-DD" />
+                <div className={styles.datesRow}>
+                  <div>
+                    <label className={`label ${styles.labelDark}`} htmlFor="wp-checkin-hotels">
+                      Check-in
+                    </label>
+                    <input
+                      id="wp-checkin-hotels"
+                      name="checkin"
+                      className={`input ${styles.inputDark}`}
+                      placeholder="YYYY-MM-DD"
+                      defaultValue={prefillCheckin || undefined}
+                    />
+                  </div>
+                  <div>
+                    <label className={`label ${styles.labelDark}`} htmlFor="wp-checkout-hotels">
+                      Check-out
+                    </label>
+                    <input
+                      id="wp-checkout-hotels"
+                      name="checkout"
+                      className={`input ${styles.inputDark}`}
+                      placeholder="YYYY-MM-DD"
+                      defaultValue={prefillCheckout || undefined}
+                    />
+                  </div>
                 </div>
               </div>
               <input type="hidden" name="source" value="weekend_planner" />
-              <div className="cardFooter" style={{ padding: "0.95rem 0 0" }}>
-                <button type="submit" className="primaryLink">
+              <div style={{ paddingTop: "0.95rem" }}>
+                <button type="submit" className={styles.ctaFull}>
                   Search Booking.com
                 </button>
-                <div className="secondaryLink" aria-hidden="true" style={{ cursor: "default" }}>
-                  &nbsp;
-                </div>
               </div>
             </form>
           </div>
         </article>
 
-        <article className="card card-grass">
-          <div className="cardHeader">
-            <div>
-              <div className="cardTitle" style={{ fontSize: 18 }}>
-                Search Vacation Rentals
-              </div>
-              <div className="cardMeta">Find Vrbo rentals for families and team travel.</div>
-            </div>
+        <article className={styles.panelCard}>
+          <div className={styles.panelHeader}>
+            <h2 className={styles.panelTitle}>Search Vacation Rentals</h2>
+            <p className={styles.panelSub}>Find Vrbo rentals for families and team travel.</p>
           </div>
-          <div style={{ padding: "0 1.15rem 1.15rem" }}>
+          <div className={styles.cardBody}>
             <form
               method="get"
               action="/go/vrbo"
-              onSubmit={() => track("weekend_planner_vrbo_clicked", { destination_present: Boolean(destination.trim()) })}
+              onSubmit={() =>
+                track("weekend_planner_vrbo_clicked", { destination_present: Boolean(destination.trim()) })
+              }
             >
-              <div className="filters" style={{ gridTemplateColumns: "1fr 180px 180px", margin: 0 }}>
+              <div className={styles.formGrid}>
                 <div>
-                  <label className="label" htmlFor="wp-destination-vrbo">
+                  <label className={`label ${styles.labelDark}`} htmlFor="wp-destination-vrbo">
                     Destination (required)
                   </label>
                   <input
                     id="wp-destination-vrbo"
                     name="destination"
-                    className="input"
-                    placeholder='Spokane, WA or 98101'
+                    className={`input ${styles.inputDark}`}
+                    placeholder="Spokane, WA or 98101"
                     value={destination}
                     onChange={(e) => handleDestinationChange(e.target.value)}
                     required
                   />
                 </div>
-                <div>
-                  <label className="label" htmlFor="wp-checkin-vrbo">
-                    Check-in
-                  </label>
-                  <input id="wp-checkin-vrbo" name="checkin" className="input" placeholder="YYYY-MM-DD" />
-                </div>
-                <div>
-                  <label className="label" htmlFor="wp-checkout-vrbo">
-                    Check-out
-                  </label>
-                  <input id="wp-checkout-vrbo" name="checkout" className="input" placeholder="YYYY-MM-DD" />
+                <div className={styles.datesRow}>
+                  <div>
+                    <label className={`label ${styles.labelDark}`} htmlFor="wp-checkin-vrbo">
+                      Check-in
+                    </label>
+                    <input
+                      id="wp-checkin-vrbo"
+                      name="checkin"
+                      className={`input ${styles.inputDark}`}
+                      placeholder="YYYY-MM-DD"
+                      defaultValue={prefillCheckin || undefined}
+                    />
+                  </div>
+                  <div>
+                    <label className={`label ${styles.labelDark}`} htmlFor="wp-checkout-vrbo">
+                      Check-out
+                    </label>
+                    <input
+                      id="wp-checkout-vrbo"
+                      name="checkout"
+                      className={`input ${styles.inputDark}`}
+                      placeholder="YYYY-MM-DD"
+                      defaultValue={prefillCheckout || undefined}
+                    />
+                  </div>
                 </div>
               </div>
               <input type="hidden" name="source" value="weekend_planner" />
-              <div className="cardFooter" style={{ padding: "0.95rem 0 0" }}>
-                <button type="submit" className="primaryLink">
+              <div style={{ paddingTop: "0.95rem" }}>
+                <button type="submit" className={styles.ctaFull}>
                   Search Vrbo
                 </button>
-                <div className="secondaryLink" aria-hidden="true" style={{ cursor: "default" }}>
-                  &nbsp;
-                </div>
               </div>
             </form>
           </div>
         </article>
 
-        <article className="card card-grass">
-          <div className="cardHeader">
-            <div>
-              <div className="cardTitle" style={{ fontSize: 18 }}>
-                Find Your Tournament
-              </div>
-              <div className="cardMeta">Browse tournaments, venues, and planning tools.</div>
-            </div>
+        <article className={styles.panelCard}>
+          <div className={styles.panelHeader}>
+            <h2 className={styles.panelTitle}>Find Your Tournament</h2>
+            <p className={styles.panelSub}>Browse tournaments, venues, and planning tools.</p>
           </div>
-          <div className="cardFooter" style={{ padding: "0 1.15rem 1.15rem" }}>
-            <Link href="/tournaments" className="primaryLink">
-              Browse Tournaments
-            </Link>
-            <div className="secondaryLink" aria-hidden="true" style={{ cursor: "default" }}>
-              &nbsp;
+          <div className={styles.cardBody}>
+            <div className={styles.smallHelper}>Already know your event? Search the tournament directory.</div>
+            <div style={{ paddingTop: "0.95rem" }}>
+              <Link href="/tournaments" className={styles.ctaFull}>
+                Browse Tournaments
+              </Link>
             </div>
           </div>
         </article>
       </div>
 
-      <div className="cards" style={{ marginTop: 18 }}>
-        <article className="card card-grass">
-          <div className="cardHeader">
-            <div>
-              <div className="cardTitle" style={{ fontSize: 18 }}>
-                Don’t see your tournament?
-              </div>
-              <div className="cardMeta">Tell us where you’re playing and we’ll add it.</div>
-            </div>
+      <div className={styles.secondaryStack}>
+        <article className={styles.panelCard}>
+          <div className={styles.panelHeader}>
+            <h2 className={styles.panelTitle}>Don’t see your tournament?</h2>
+            <p className={styles.panelSub}>Tell us where you’re playing and we’ll add it.</p>
           </div>
-          <div className="cardFooter" style={{ padding: "0 1.15rem 1.15rem" }}>
-            <Link
-              href="/list-your-tournament?source=weekend_planner"
-              className="primaryLink"
-              onClick={() => track("weekend_planner_add_tournament_clicked")}
-            >
-              Add Tournament
-            </Link>
-            <div className="secondaryLink" aria-hidden="true" style={{ cursor: "default" }}>
-              &nbsp;
+          <div className={styles.cardBody}>
+            <div style={{ paddingTop: "0.95rem" }}>
+              <Link
+                href="/list-your-tournament?source=weekend_planner"
+                className={styles.ctaFull}
+                onClick={() => track("weekend_planner_add_tournament_clicked")}
+              >
+                Add Tournament
+              </Link>
             </div>
           </div>
         </article>
-      </div>
 
-      <div className="cards" style={{ marginTop: 18 }}>
-        <article className="card card-grass">
-          <div className="cardHeader">
-            <div>
-              <div className="cardTitle" style={{ fontSize: 18 }}>
-                Share this planner
-              </div>
-              <div className="cardMeta">Send one link with hotel and rental search tools for tournament weekends.</div>
-            </div>
+        <article className={styles.panelCard}>
+          <div className={styles.panelHeader}>
+            <h2 className={styles.panelTitle}>Share this planner</h2>
+            <p className={styles.panelSub}>Send one link with hotel and rental search tools for tournament weekends.</p>
           </div>
-          <div style={{ padding: "0 1.15rem 1.15rem" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 10 }}>
-              <input className="input" value={shareUrl} readOnly aria-label="Weekend planner URL" />
-              <button type="button" className="primaryLink" onClick={copyShareUrl}>
-                {shareStatus === "copied" ? "Copied" : "Copy link"}
-              </button>
-              {typeof navigator !== "undefined" && typeof navigator.share === "function" ? (
-                <button type="button" className="secondaryLink" onClick={nativeShare}>
-                  Share
+          <div className={styles.cardBody}>
+            <div className={styles.shareRow}>
+              <input className={`input ${styles.inputDark}`} value={shareUrl} readOnly aria-label="Weekend planner URL" />
+              <div className={styles.shareActions}>
+                <button type="button" className={styles.ctaFull} onClick={copyShareUrl}>
+                  {shareStatus === "copied" ? "Copied" : "Copy link"}
                 </button>
-              ) : (
-                <span className="secondaryLink" aria-hidden="true" style={{ cursor: "default" }}>
-                  &nbsp;
-                </span>
-              )}
+                {canNativeShare ? (
+                  <button type="button" className={`${styles.ctaFull} ${styles.ctaSecondary}`} onClick={nativeShare}>
+                    Share
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
         </article>
@@ -266,4 +324,3 @@ export default function WeekendPlannerClient() {
     </>
   );
 }
-

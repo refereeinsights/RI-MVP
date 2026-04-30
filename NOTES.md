@@ -10,6 +10,9 @@
 
 - TI travel: add a share-safe “Weekend Planner” page (`/weekend-planner`) that lets users run generic hotel and vacation-rental searches (destination + optional dates) without requiring a venue/tournament, reusing existing TI styling and routing “Add Tournament” to the existing intake flow: `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`.
 - TI outbound: update `/go/hotels` and `/go/vrbo` to support a SAFE generic mode (no venueId) gated to `source=weekend_planner` or `/weekend-planner` referers (anti-abuse), while preserving existing venue-based behavior + attribution; generic mode logs `source_surface='weekend_planner'` to `ti_outbound_clicks` and never blocks redirects on logging failures: `apps/ti-web/app/go/hotels/route.ts`, `apps/ti-web/app/go/vrbo/route.ts`.
+- TI weekend planner styling: restyle `/weekend-planner` to match the interactive venue map detail panel (dark green cards, white text, map-style CTAs) and remove the directory filter-strip scaffold look: `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlanner.module.css`.
+- TI weekend planner promotion (V1, non-cannibalizing): add a “Plan by city” CTA only in the tournament directory no-results state, and add a secondary “Open weekend planner” link on `/list-your-tournament` (no changes to venue-specific hotel/Vrbo CTAs): `apps/ti-web/app/tournaments/page.tsx`, `apps/ti-web/app/list-your-tournament/ListYourTournamentForm.tsx`.
+- TI weekend planner prefill: support optional `city/state/checkin/checkout` query params to prefill the planner destination/date fields (best-effort; no auto-submit) and update planner metadata to a planning-focused title/description: `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`, `apps/ti-web/app/weekend-planner/page.tsx`.
 
 ## 2026-04-28
 
