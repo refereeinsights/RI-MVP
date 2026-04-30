@@ -393,6 +393,43 @@ export default function TournamentVenueMapClient({
     return { ok: false, error: String(json.error ?? "unknown"), tier: (json.tier as TiTier | undefined) ?? "unknown" };
   };
 
+  const buildSafeDirectionsUrl = (item: OwlPlace) => {
+    const raw = String(item.maps_url ?? "").trim();
+    if (raw) {
+      try {
+        const parsed = new URL(raw);
+        const host = parsed.hostname.toLowerCase();
+        // Avoid provider-owned URLs that can prompt for login (e.g. Foursquare app links).
+        if (host.endsWith("foursquare.com") || host.endsWith("app.foursquare.com")) {
+          // fall through to Google Maps builder below
+        } else {
+          return raw;
+        }
+      } catch {
+        // fall through
+      }
+    }
+
+    const name = String(item.name ?? "").trim();
+    const address = String(item.address ?? "").trim();
+    const lat = item.place_latitude;
+    const lng = item.place_longitude;
+
+    const query =
+      typeof lat === "number" &&
+      typeof lng === "number" &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lng)
+        ? `${lat},${lng}`
+        : [name, address].filter(Boolean).join(" ");
+
+    if (!query) return null;
+    const url = new URL("https://www.google.com/maps/search/");
+    url.searchParams.set("api", "1");
+    url.searchParams.set("query", query);
+    return url.toString();
+  };
+
   const escapeHtml = (value: string) =>
     value
       .replaceAll("&", "&amp;")
@@ -429,7 +466,7 @@ export default function TournamentVenueMapClient({
     const address = escapeHtml((item.address ?? "").trim());
     const distance = formatDistance(item.distance_meters);
     const distanceHtml = distance ? escapeHtml(distance) : "";
-    const mapsUrl = (item.maps_url ?? "").trim();
+    const mapsUrl = buildSafeDirectionsUrl(item);
     const linkHtml = mapsUrl
       ? `<a class="${styles.popupLink}" href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer">Directions</a>`
       : "";
@@ -854,10 +891,13 @@ export default function TournamentVenueMapClient({
                                       >
                                         Show
                                       </button>
-                                      {item.maps_url ? (
+                                      {(() => {
+                                        const href = buildSafeDirectionsUrl(item);
+                                        if (!href) return null;
+                                        return (
                                         <a
                                           className={styles.owlActionLink}
-                                          href={item.maps_url}
+                                          href={href}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           onClick={() => {
@@ -873,7 +913,8 @@ export default function TournamentVenueMapClient({
                                         >
                                           Directions
                                         </a>
-                                      ) : null}
+                                        );
+                                      })()}
                                     </div>
                                   </div>
                                 );

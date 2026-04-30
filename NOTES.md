@@ -18,6 +18,7 @@
 - TI map pins: Owl’s Eye place pins now use the same quick-eats/hangouts icons as the venue map panel and open an in-map popup with a Directions link (cached `maps_url` only; no Mapbox search/geocode calls): `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`, `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMap.module.css`.
 - TI auth: allow logging in with “email or username” by resolving usernames via `ti_users` server-side then using Supabase password auth (cookies set server-side; generic errors to reduce enumeration risk): `apps/ti-web/app/api/auth/login/route.ts`, `apps/ti-web/app/login/page.tsx`.
 - TI map UX: fix Owl’s Eye place pin clicks to reliably show the in-map popup (prevent immediate close-on-click, and close popups on background map clicks): `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`.
+- TI map directions: avoid Foursquare app/login redirects by rewriting “Directions” links to Google Maps when a cached `maps_url` points at `*.foursquare.com` (no extra API calls): `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`.
 
 ## 2026-04-28
 
