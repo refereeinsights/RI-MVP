@@ -2733,7 +2733,23 @@ export default async function TiAdminPage({
                   >
                     <input type="hidden" name="id" value={row.id} />
                     <input type="hidden" name="q" value={q} />
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>Profile settings</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                      <div style={{ fontWeight: 700, fontSize: 13 }}>Profile settings</div>
+                      <button
+                        type="submit"
+                        style={{
+                          background: "#16a34a",
+                          border: "1px solid #15803d",
+                          color: "#fff",
+                          borderRadius: 9,
+                          padding: "6px 10px",
+                          fontWeight: 800,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Save
+                      </button>
+                    </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
                       <label style={{ display: "grid", gap: 4, fontSize: 12, color: "#334155" }}>
                         Full name
@@ -2795,8 +2811,30 @@ export default async function TiAdminPage({
                         ))}
                       </div>
                     </fieldset>
-                    <div>
-                      <button type="submit">Save profile settings</button>
+                    <div
+                      style={{
+                        position: "sticky",
+                        bottom: 0,
+                        background: "#fff",
+                        paddingTop: 10,
+                        display: "flex",
+                        justifyContent: "flex-end",
+                      }}
+                    >
+                      <button
+                        type="submit"
+                        style={{
+                          background: "#16a34a",
+                          border: "1px solid #15803d",
+                          color: "#fff",
+                          borderRadius: 9,
+                          padding: "8px 12px",
+                          fontWeight: 800,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Save profile settings
+                      </button>
                     </div>
                   </form>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 8 }}>

@@ -20,6 +20,7 @@
 - TI map UX: fix Owl’s Eye place pin clicks to reliably show the in-map popup (prevent immediate close-on-click, and close popups on background map clicks): `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`.
 - TI map directions: avoid Foursquare app/login redirects by rewriting “Directions” links to Google Maps when a cached `maps_url` points at `*.foursquare.com` (no extra API calls): `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`.
 - TI map venue panel: make Owl’s Eye the primary in-panel action (full-width green CTA above Hotels/Vrbo), keep teaser emojis as the icon system, and add a “Stay near this venue” section below the Owl’s Eye CTA without changing /go routing: `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`, `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMap.module.css`.
+- RI admin TI users: make “Save profile settings” an obvious green button (with a sticky footer save bar) so username/profile edits don’t feel “unsaved” compared to the per-field Set buttons: `apps/referee/app/admin/ti/page.tsx`.
 
 ## 2026-04-28
 
