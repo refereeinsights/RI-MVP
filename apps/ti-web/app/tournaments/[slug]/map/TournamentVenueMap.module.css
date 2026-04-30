@@ -266,6 +266,19 @@
   border: 1px solid rgba(0,0,0,0.12);
 }
 
+.popupLinkSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.92);
+  font-weight: 900;
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,0.16);
+}
+
 .ctaRow {
   display: flex;
   flex-wrap: wrap;

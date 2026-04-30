@@ -480,6 +480,19 @@ export default function TournamentVenueMapClient({
     return url.toString();
   };
 
+  const buildGoogleSearchUrl = (args: { item: OwlPlace; venue: MapVenue | null }) => {
+    const { item, venue } = args;
+    const name = String(item.name ?? "").trim();
+    const address = String(item.address ?? "").trim();
+    const venueLoc = venue ? [venue.city, venue.state].filter(Boolean).join(", ") : "";
+
+    const query = [name, address, venueLoc].filter(Boolean).join(" ");
+    if (!query) return null;
+    const url = new URL("https://www.google.com/search");
+    url.searchParams.set("q", query);
+    return url.toString();
+  };
+
   const escapeHtml = (value: string) =>
     value
       .replaceAll("&", "&amp;")
@@ -488,14 +501,14 @@ export default function TournamentVenueMapClient({
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
 
-  const openPlacePopup = (args: { venueId: string; category: OwlCategory; item: OwlPlace }) => {
+  const openPlacePopup = (args: { venue: MapVenue; category: OwlCategory; item: OwlPlace }) => {
     const map = mapRef.current;
     const mapboxgl = mapboxglRef.current;
     if (!map || !mapboxgl) return;
-    const { venueId, category, item } = args;
+    const { venue, category, item } = args;
 
     const placeId = (item.place_id ?? "").trim();
-    const key = placeId ? `${venueId}:${placeId}` : null;
+    const key = placeId ? `${venue.id}:${placeId}` : null;
     if (key) setSelectedPlaceKey(key);
 
     const lat = item.place_latitude;
@@ -517,15 +530,23 @@ export default function TournamentVenueMapClient({
     const distance = formatDistance(item.distance_meters);
     const distanceHtml = distance ? escapeHtml(distance) : "";
     const mapsUrl = buildSafeDirectionsUrl(item);
-    const linkHtml = mapsUrl
+    const searchUrl = buildGoogleSearchUrl({ item, venue });
+    const directionsHtml = mapsUrl
       ? `<a class="${styles.popupLink}" href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer">Directions</a>`
       : "";
+    const searchHtml = searchUrl
+      ? `<a class="${styles.popupLinkSecondary}" href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer">Search</a>`
+      : "";
+    const actionsHtml =
+      directionsHtml || searchHtml
+        ? `<div class="${styles.popupFooter}">${directionsHtml}${directionsHtml && searchHtml ? " " : ""}${searchHtml}</div>`
+        : "";
 
     const html = `
       <div class="${styles.popupBody}">
         <div class="${styles.popupTitle}">${emojiForCategory(category)} ${title}</div>
         ${distanceHtml || address ? `<div class="${styles.popupMeta}">${distanceHtml}${distanceHtml && address ? " • " : ""}${address}</div>` : ""}
-        ${linkHtml ? `<div class="${styles.popupFooter}">${linkHtml}</div>` : ""}
+        ${actionsHtml}
       </div>
     `.trim();
 
@@ -680,7 +701,7 @@ export default function TournamentVenueMapClient({
           }
         }
         setSelectedPlaceKey(key);
-        openPlacePopup({ venueId: v.id, category, item });
+        openPlacePopup({ venue: v, category, item });
       });
 
       const marker = new mapboxgl.Marker({ element: btn, anchor: "bottom" })
@@ -961,7 +982,7 @@ export default function TournamentVenueMapClient({
                                               // ignore
                                             }
                                           }
-                                          openPlacePopup({ venueId: selectedVenue.id, category: cat, item });
+                                          openPlacePopup({ venue: selectedVenue, category: cat, item });
                                           void trackTiEvent("owls_eye_result_selected", {
                                             page_type: "venue_map",
                                             tournament_id: tournament.id,
@@ -975,6 +996,20 @@ export default function TournamentVenueMapClient({
                                       >
                                         Show
                                       </button>
+                                      {(() => {
+                                        const href = buildGoogleSearchUrl({ item, venue: selectedVenue });
+                                        if (!href) return null;
+                                        return (
+                                          <a
+                                            className={styles.owlActionLink}
+                                            href={href}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          >
+                                            Search
+                                          </a>
+                                        );
+                                      })()}
                                       {(() => {
                                         const href = buildSafeDirectionsUrl(item);
                                         if (!href) return null;
