@@ -182,6 +182,21 @@ function categoryNormalized(value) {
   return c;
 }
 
+function expandCategoriesForDb(categorySet) {
+  // Some legacy rows use `category='hotel'` while newer UI/code tends to say `hotels`.
+  // Keep both in the DB filter so default runs don't silently scan 0 rows.
+  const out = new Set();
+  for (const c of categorySet) {
+    if (c === "hotels") {
+      out.add("hotel");
+      out.add("hotels");
+      continue;
+    }
+    out.add(c);
+  }
+  return Array.from(out);
+}
+
 async function main() {
   loadEnvLocal();
 
@@ -225,7 +240,7 @@ async function main() {
   );
 
   // Fetch candidate rows (no coords) in priority categories.
-  const catList = Array.from(categories);
+  const catList = expandCategoriesForDb(categories);
   const { data: rows, error } = await supabase
     .from("owls_eye_nearby_food")
     .select("id,run_id,place_id,provider,provider_place_id,category,name,address,maps_url,distance_meters,place_latitude,place_longitude")

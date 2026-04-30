@@ -4,6 +4,7 @@
 - TI tournament pages: add a compact “Tournament Planning Overview” block (factual, conditional copy only) above “Plan This Tournament”, plus a small helper module for deterministic planning copy and a more planning-oriented meta description (no new Supabase queries): `apps/ti-web/components/tournaments/TournamentPlanningOverview.tsx`, `apps/ti-web/lib/tournaments/tournamentPageCopy.ts`, `apps/ti-web/app/tournaments/[slug]/page.tsx`.
 - Ops: add a Mapbox-geocoding backfill script to populate missing per-place coordinates for Owl’s Eye rows (`owls_eye_nearby_food.place_latitude/place_longitude`). Runs in priority categories (`hotels`, `coffee`, `quick_eats`, `hangouts`), dedupes by provider id when available, and supports daily caps via `--max-calls`: `scripts/ops/backfill_owlseye_place_coords_mapbox.mjs`.
 - Ops: harden Owl’s Eye place geocoding queries by sanitizing “directions-y” address prefixes (e.g. `@ ...`, `Located next to ...`) and retrying once with a simplified query when Mapbox returns 422, while counting retries toward `mapbox_calls` so budgets reflect reality: `scripts/ops/backfill_owlseye_place_coords_mapbox.mjs`.
+- Ops: backfill script now treats `--categories=hotels` as inclusive of legacy `owls_eye_nearby_food.category='hotel'` rows (so “0 scanned” doesn’t happen just due to the singular vs plural category value): `scripts/ops/backfill_owlseye_place_coords_mapbox.mjs`.
 
 ## 2026-04-28
 
