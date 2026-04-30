@@ -79,13 +79,72 @@ function parseCoordsFromMapsUrl(mapsUrlRaw) {
   return null;
 }
 
-function buildMapboxQuery(row) {
-  const address = String(row.address ?? "").trim();
+function sanitizeAddressForGeocode(addressRaw) {
+  let address = String(addressRaw ?? "").replace(/\s+/g, " ").trim();
   if (!address) return null;
-  // `owls_eye_nearby_food.address` is expected to already include city/state/zip when available.
+
+  // Strip common non-address prefixes that cause Mapbox 422s (directions/notes).
+  // Examples:
+  // - "@ The Ritz off 22nd Street ..., 2201 Broadway St Suite 105, Paducah, KY 42001, USA"
+  // - "Located next to ..., 3016 US-301 STE 100, Tampa, FL 33619, USA"
+  address = address.replace(/^@\s*/g, "");
+  address = address.replace(/^located\s+next\s+to\b[^,]*,\s*/i, "");
+  address = address.replace(/^next\s+to\b[^,]*,\s*/i, "");
+  address = address.replace(/^between\b[^,]*,\s*/i, "");
+  address = address.replace(/^\bat\b[^,]*,\s*/i, "");
+  address = address.replace(/^\bin\b[^,]*,\s*/i, "");
+
+  // Remove parenthetical directions.
+  address = address.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+
+  // If we have a street number, prefer starting from it (removes lingering lead-in text).
+  const streetNumberMatch = address.match(/\b\d{1,6}\s+\S/);
+  if (streetNumberMatch?.index != null && streetNumberMatch.index > 0) {
+    address = address.slice(streetNumberMatch.index).trim();
+  }
+
+  // Collapse weird separators / duplicate punctuation.
+  address = address
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/,\s*,+/g, ", ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  if (!address) return null;
+
+  // Keep queries reasonably short to avoid provider rejecting them (422).
+  // Prefer the tail end (which usually contains the real address) if it's too long.
+  const MAX_LEN = 220;
+  if (address.length > MAX_LEN) {
+    address = address.slice(address.length - MAX_LEN).trim();
+    // If we cut mid-token, try to start from the next comma boundary.
+    const comma = address.indexOf(", ");
+    if (comma >= 0 && comma < 40) address = address.slice(comma + 2).trim();
+  }
+
+  return address || null;
+}
+
+function buildMapboxQuery(row, { simplify = false } = {}) {
+  const raw = String(row.address ?? "").trim();
+  if (!raw) return null;
+
+  let cleaned = sanitizeAddressForGeocode(raw);
+  if (!cleaned) return null;
+
+  if (simplify) {
+    // If we still have multiple comma-separated fragments (sometimes duplicated),
+    // keep only the last 3–4 segments to bias toward city/state/zip tail.
+    const parts = cleaned
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length > 4) cleaned = parts.slice(-4).join(", ");
+  }
+
+  // `owls_eye_nearby_food.address` is expected to include city/state/zip when available.
   // Keep country explicit so we don't geo-match Canada/etc for border towns.
-  const query = `${address}, United States`;
-  return query;
+  return `${cleaned}, United States`;
 }
 
 async function mapboxForwardGeocode({ query, token, proximity, country = "us" }) {
@@ -268,7 +327,7 @@ async function main() {
     if (coords) {
       parsedFromMaps += 1;
     } else {
-      const query = buildMapboxQuery(row);
+      const query = buildMapboxQuery(row, { simplify: false });
       if (!query) {
         skippedNoQuery += 1;
         fs.appendFileSync(
@@ -333,39 +392,87 @@ async function main() {
       }
 
       try {
-        coords = await mapboxForwardGeocode({ query, token, proximity, country: COUNTRY });
         mapboxCalls += 1;
+        coords = await mapboxForwardGeocode({ query, token, proximity, country: COUNTRY });
         if (coords) geocoded += 1;
       } catch (e) {
-        errors += 1;
         const msg = String(e?.message ?? e ?? "geocode_error");
-        fs.appendFileSync(
-          OUT_PATH,
-          [
-            scanned,
-            id,
-            runId,
-            category,
-            provider,
-            providerPlaceId ?? "",
-            placeId,
-            name,
-            address,
-            distanceMeters ?? "",
-            "",
-            "",
-            "",
-            "error",
-            msg.slice(0, 120),
-          ]
-            .map((v) => {
-              const s = String(v ?? "");
-              return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-            })
-            .join(",") + "\n"
-        );
-        if (THROTTLE_MS) await sleep(THROTTLE_MS);
-        continue;
+        let retried = false;
+
+        // Mapbox sometimes rejects "dirty" address strings (422). Retry once with a simplified query.
+        if (msg.includes("mapbox_geocode_failed_422")) {
+          const simplified = buildMapboxQuery(row, { simplify: true });
+          if (simplified && simplified !== query) {
+            try {
+              retried = true;
+              if (mapboxCalls >= MAX_CALLS) throw new Error("max_calls_reached");
+              mapboxCalls += 1;
+              coords = await mapboxForwardGeocode({ query: simplified, token, proximity, country: COUNTRY });
+              if (coords) geocoded += 1;
+            } catch (e2) {
+              errors += 1;
+              const msg2 = String(e2?.message ?? e2 ?? "geocode_error");
+              fs.appendFileSync(
+                OUT_PATH,
+                [
+                  scanned,
+                  id,
+                  runId,
+                  category,
+                  provider,
+                  providerPlaceId ?? "",
+                  placeId,
+                  name,
+                  address,
+                  distanceMeters ?? "",
+                  "",
+                  "",
+                  "",
+                  "error",
+                  `${msg2.slice(0, 110)}${retried ? "|retry_simplified" : ""}`,
+                ]
+                  .map((v) => {
+                    const s = String(v ?? "");
+                    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+                  })
+                  .join(",") + "\n"
+              );
+              if (THROTTLE_MS) await sleep(THROTTLE_MS);
+              continue;
+            }
+          }
+        }
+
+        if (!coords) {
+          errors += 1;
+          fs.appendFileSync(
+            OUT_PATH,
+            [
+              scanned,
+              id,
+              runId,
+              category,
+              provider,
+              providerPlaceId ?? "",
+              placeId,
+              name,
+              address,
+              distanceMeters ?? "",
+              "",
+              "",
+              "",
+              "error",
+              `${msg.slice(0, 110)}${retried ? "|retry_simplified" : ""}`,
+            ]
+              .map((v) => {
+                const s = String(v ?? "");
+                return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+              })
+              .join(",") + "\n"
+          );
+          if (THROTTLE_MS) await sleep(THROTTLE_MS);
+          continue;
+        }
       }
 
       if (THROTTLE_MS) await sleep(THROTTLE_MS);
