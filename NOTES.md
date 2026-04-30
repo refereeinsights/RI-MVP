@@ -16,6 +16,7 @@
 - TI weekend planner UX: display dates as `MM-DD-YYYY` to users (while still sending `/go/*` ISO `YYYY-MM-DD` params) and open Booking/Vrbo redirects in a new tab so users stay on TI: `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`.
 - TI map + Weekend Pro: add a server-gated “View full Owl’s Eye” panel inside the tournament venue map. Premium rows are fetched only on click via a new route that enforces TI entitlements + the existing demo/premium-preview exceptions and only returns venues linked to the current tournament; users can toggle per-category pins when coords exist (capped) without any live provider calls: `apps/ti-web/app/api/venues/[venueId]/owls-eye-premium/route.ts`, `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`, `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMap.module.css`.
 - TI map pins: Owl’s Eye place pins now use the same quick-eats/hangouts icons as the venue map panel and open an in-map popup with a Directions link (cached `maps_url` only; no Mapbox search/geocode calls): `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`, `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMap.module.css`.
+- TI auth: allow logging in with “email or username” by resolving usernames via `ti_users` server-side then using Supabase password auth (cookies set server-side; generic errors to reduce enumeration risk): `apps/ti-web/app/api/auth/login/route.ts`, `apps/ti-web/app/login/page.tsx`.
 
 ## 2026-04-28
 

@@ -3,13 +3,12 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { sanitizeReturnTo } from "@/lib/returnTo";
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -22,30 +21,32 @@ export default function LoginPage() {
     event.preventDefault();
     setStatus("saving");
     setMessage("");
-    const supabase = getSupabaseBrowserClient();
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
+    const trimmed = identifier.trim();
+    const resp = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier: trimmed, password }),
     });
-    if (error) {
-      const raw = `${(error as any)?.code ?? ""} ${(error as any)?.message ?? ""}`.toLowerCase();
-      if (raw.includes("email not confirmed") || raw.includes("email_not_confirmed")) {
+
+    const payload = (await resp.json().catch(() => null)) as
+      | { ok: true }
+      | { ok: false; needs_verify?: boolean; email?: string; error?: string }
+      | null;
+
+    if (!resp.ok || !payload || (payload as any).ok !== true) {
+      const needsVerify = Boolean(payload && (payload as any).needs_verify);
+      const email = typeof (payload as any)?.email === "string" ? String((payload as any).email) : trimmed;
+      if (needsVerify) {
         router.replace(
-          `/verify-email?returnTo=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(email.trim())}`
+          `/verify-email?returnTo=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(email)}`
         );
         router.refresh();
         return;
       }
-      setStatus("error");
-      setMessage(error.message);
-      return;
-    }
 
-    const user = data.user;
-    if (!user?.email_confirmed_at) {
-      router.replace(`/verify-email?returnTo=${encodeURIComponent(nextPath)}`);
-      router.refresh();
+      setStatus("error");
+      setMessage((payload as any)?.error || "Invalid login.");
       return;
     }
 
@@ -58,10 +59,13 @@ export default function LoginPage() {
       <h1 style={{ margin: 0 }}>Log in</h1>
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
         <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          placeholder="Email or username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
           required
           style={{ padding: 10, border: "1px solid #cbd5e1", borderRadius: 8 }}
         />
