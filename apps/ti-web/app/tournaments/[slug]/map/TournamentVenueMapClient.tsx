@@ -358,8 +358,9 @@ export default function TournamentVenueMapClient({
     if (cat === "coffee") return "☕";
     if (cat === "food") return "🍔";
     if (cat === "hotels") return "🏨";
-    if (cat === "quick_eats") return "🥨";
-    return "🌳";
+    // Match the existing venue-map Owl’s Eye iconography.
+    if (cat === "quick_eats") return "🌮";
+    return "🎳";
   };
 
   const labelForCategory = (cat: OwlCategory) => {
@@ -380,6 +381,61 @@ export default function TournamentVenueMapClient({
     }
     if (json.ok === true) return json as OwlPremiumResponse;
     return { ok: false, error: String(json.error ?? "unknown"), tier: (json.tier as TiTier | undefined) ?? "unknown" };
+  };
+
+  const escapeHtml = (value: string) =>
+    value
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  const openPlacePopup = (args: { venueId: string; category: OwlCategory; item: OwlPlace }) => {
+    const map = mapRef.current;
+    const mapboxgl = mapboxglRef.current;
+    if (!map || !mapboxgl) return;
+    const { venueId, category, item } = args;
+
+    const placeId = (item.place_id ?? "").trim();
+    const key = placeId ? `${venueId}:${placeId}` : null;
+    if (key) setSelectedPlaceKey(key);
+
+    const lat = item.place_latitude;
+    const lng = item.place_longitude;
+    if (typeof lat !== "number" || typeof lng !== "number" || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return;
+    }
+
+    try {
+      popupRef.current?.remove?.();
+    } catch {
+      // ignore
+    } finally {
+      popupRef.current = null;
+    }
+
+    const title = escapeHtml((item.name ?? "").trim() || "Nearby place");
+    const address = escapeHtml((item.address ?? "").trim());
+    const distance = formatDistance(item.distance_meters);
+    const distanceHtml = distance ? escapeHtml(distance) : "";
+    const mapsUrl = (item.maps_url ?? "").trim();
+    const linkHtml = mapsUrl
+      ? `<a class="${styles.popupLink}" href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer">Directions</a>`
+      : "";
+
+    const html = `
+      <div class="${styles.popupBody}">
+        <div class="${styles.popupTitle}">${emojiForCategory(category)} ${title}</div>
+        ${distanceHtml || address ? `<div class="${styles.popupMeta}">${distanceHtml}${distanceHtml && address ? " • " : ""}${address}</div>` : ""}
+        ${linkHtml ? `<div class="${styles.popupFooter}">${linkHtml}</div>` : ""}
+      </div>
+    `.trim();
+
+    const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, anchor: "top", offset: 12, maxWidth: "280px" });
+    popup.addClassName(styles.placePopup);
+    popup.setLngLat([lng, lat]).setHTML(html).addTo(map);
+    popupRef.current = popup;
   };
 
   const ensurePremiumLoadedForSelectedVenue = async () => {
@@ -500,6 +556,7 @@ export default function TournamentVenueMapClient({
           }
         }
         setSelectedPlaceKey(key);
+        openPlacePopup({ venueId: v.id, category, item });
       });
 
       const marker = new mapboxgl.Marker({ element: btn, anchor: "bottom" })
@@ -665,11 +722,11 @@ export default function TournamentVenueMapClient({
                 ) : null}
               </div>
 
-              {owlPanelMode === "premium" && selectedVenue ? (
-                (() => {
-                  const payload = owlPremiumByVenueId[selectedVenue.id];
-                  if (!payload || !payload.ok) return null;
-                  const tier: TiTier = payload.tier ?? "unknown";
+                {owlPanelMode === "premium" && selectedVenue ? (
+                  (() => {
+                    const payload = owlPremiumByVenueId[selectedVenue.id];
+                    if (!payload || !payload.ok) return null;
+                    const tier: TiTier = payload.tier ?? "unknown";
                   const groups = payload.groups ?? {};
                   const ordered: OwlCategory[] = ["coffee", "food", "hotels", "quick_eats", "hangouts"];
                   const visible = ordered.filter((c) => (groups[c]?.count ?? 0) > 0);
@@ -770,6 +827,7 @@ export default function TournamentVenueMapClient({
                                               // ignore
                                             }
                                           }
+                                          openPlacePopup({ venueId: selectedVenue.id, category: cat, item });
                                           void trackTiEvent("owls_eye_result_selected", {
                                             page_type: "venue_map",
                                             tournament_id: tournament.id,

@@ -214,6 +214,58 @@
   box-shadow: 0 12px 20px rgba(0,0,0,0.30);
 }
 
+.placePopup :global(.mapboxgl-popup-content) {
+  background: rgba(5, 35, 22, 0.96);
+  color: #fff;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 14px 26px rgba(0,0,0,0.35);
+  padding: 10px 12px;
+}
+
+.placePopup :global(.mapboxgl-popup-close-button) {
+  color: rgba(255,255,255,0.85);
+  font-size: 18px;
+  line-height: 1;
+  padding: 6px 8px;
+}
+
+.popupBody {
+  display: grid;
+  gap: 6px;
+}
+
+.popupTitle {
+  font-size: 12.5px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.popupMeta {
+  font-size: 12px;
+  opacity: 0.9;
+  line-height: 1.25;
+}
+
+.popupFooter {
+  padding-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.10);
+  margin-top: 2px;
+}
+
+.popupLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.92);
+  color: #0b1f14;
+  font-weight: 900;
+  text-decoration: none;
+  border: 1px solid rgba(0,0,0,0.12);
+}
+
 .ctaRow {
   display: flex;
   flex-wrap: wrap;
