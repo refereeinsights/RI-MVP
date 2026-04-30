@@ -19,6 +19,8 @@ export interface Database {
           trial_ends_at: string | null;
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;
+          last_invoice_id: string | null;
+          last_payment_intent_id: string | null;
           display_name: string | null;
           username: string | null;
           reviewer_handle: string | null;
@@ -47,6 +49,8 @@ export interface Database {
           trial_ends_at?: string | null;
           stripe_customer_id?: string | null;
           stripe_subscription_id?: string | null;
+          last_invoice_id?: string | null;
+          last_payment_intent_id?: string | null;
           display_name?: string | null;
           username?: string | null;
           reviewer_handle?: string | null;
@@ -74,6 +78,8 @@ export interface Database {
           trial_ends_at?: string | null;
           stripe_customer_id?: string | null;
           stripe_subscription_id?: string | null;
+          last_invoice_id?: string | null;
+          last_payment_intent_id?: string | null;
           display_name?: string | null;
           username?: string | null;
           reviewer_handle?: string | null;
@@ -85,6 +91,46 @@ export interface Database {
           qvc_pending_browser_hash?: string | null;
           qvc_pending_set_at?: string | null;
           updated_at?: string;
+        };
+      };
+      stripe_webhook_events: {
+        Row: {
+          id: string;
+          created_at: string;
+          stripe_event_id: string;
+          event_type: string;
+          livemode: boolean;
+          user_id: string | null;
+          customer_id: string | null;
+          subscription_id: string | null;
+          status: string;
+          error_message: string | null;
+          payload: unknown | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          stripe_event_id: string;
+          event_type: string;
+          livemode: boolean;
+          user_id?: string | null;
+          customer_id?: string | null;
+          subscription_id?: string | null;
+          status?: string;
+          error_message?: string | null;
+          payload?: unknown | null;
+        };
+        Update: {
+          created_at?: string;
+          stripe_event_id?: string;
+          event_type?: string;
+          livemode?: boolean;
+          user_id?: string | null;
+          customer_id?: string | null;
+          subscription_id?: string | null;
+          status?: string;
+          error_message?: string | null;
+          payload?: unknown | null;
         };
       };
       ti_premium_interest: {
