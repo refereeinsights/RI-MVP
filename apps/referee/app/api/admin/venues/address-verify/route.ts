@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { geocodeAddress } from "@/lib/google/geocodeAddress";
+import { geocodeAddressMapbox } from "@/lib/mapbox/geocodeAddress";
 import { timezoneFromCoordinates } from "@/lib/google/timezoneFromCoordinates";
 
 type VenueRow = {
@@ -259,6 +259,7 @@ export async function POST(request: Request) {
   }
 
   const venues = (data ?? []) as VenueRow[];
+  const mapboxToken = (process.env.MAPBOX_ACCESS_TOKEN ?? "").trim();
   const geocodeKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY || "";
 
   const updated: VerifyResultRow[] = [];
@@ -317,8 +318,10 @@ export async function POST(request: Request) {
 
     let lat = typeof venue.latitude === "number" ? venue.latitude : null;
     let lng = typeof venue.longitude === "number" ? venue.longitude : null;
-    if ((lat == null || lng == null) && geocodeKey && fullAddress) {
-      const geo = await geocodeAddress(fullAddress, geocodeKey);
+    if ((lat == null || lng == null) && mapboxToken && fullAddress) {
+      const geo = await geocodeAddressMapbox(fullAddress, mapboxToken, {
+        expectedState: nextState || null,
+      });
       if (geo) {
         if (lat == null) {
           updates.latitude = geo.lat;
@@ -334,7 +337,7 @@ export async function POST(request: Request) {
           updates.normalized_address = geo.formatted_address;
           changedFields.push("normalized_address");
         }
-        updates.geocode_source = "venue_address_verify";
+        updates.geocode_source = "mapbox";
         if (!changedFields.includes("geocode_source")) changedFields.push("geocode_source");
         geocodedCount += 1;
       }

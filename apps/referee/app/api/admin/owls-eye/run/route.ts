@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { geocodeAddress } from "@/lib/google/geocodeAddress";
+import { geocodeAddressMapbox } from "@/lib/mapbox/geocodeAddress";
 import { timezoneFromCoordinates } from "@/lib/google/timezoneFromCoordinates";
 import { runVenueScan } from "@/server/owlseye/jobs/runVenueScan";
 import { getLatestOwlReport } from "@/server/owlseye/pipeline/getLatestReport";
@@ -420,24 +420,25 @@ export async function POST(request: Request) {
     }
 
     const address = buildAddress(venue as VenueRow);
+    const mapboxToken = (process.env.MAPBOX_ACCESS_TOKEN ?? "").trim();
     const geocodeKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY || "";
     let venueLat = typeof venue.latitude === "number" && Number.isFinite(venue.latitude) ? venue.latitude : null;
     let venueLng = typeof venue.longitude === "number" && Number.isFinite(venue.longitude) ? venue.longitude : null;
     let venueTimezone = typeof venue.timezone === "string" ? venue.timezone.trim() : "";
 
-    if ((venueLat == null || venueLng == null) && geocodeKey && address) {
+    if ((venueLat == null || venueLng == null) && mapboxToken && address) {
       try {
-        const geo = await geocodeAddress(address, geocodeKey);
+        const geo = await geocodeAddressMapbox(address, mapboxToken, { expectedState: venue.state ?? null });
         if (geo && Number.isFinite(geo.lat) && Number.isFinite(geo.lng)) {
           venueLat = geo.lat;
           venueLng = geo.lng;
           const updates: Record<string, any> = {
             latitude: geo.lat,
             longitude: geo.lng,
-            geocode_source: "owls_eye_run",
+            geocode_source: "mapbox",
             updated_at: new Date().toISOString(),
           };
-          if (!venueTimezone) {
+          if (!venueTimezone && geocodeKey) {
             const tz = await timezoneFromCoordinates(geo.lat, geo.lng, geocodeKey);
             if (tz) {
               venueTimezone = tz;

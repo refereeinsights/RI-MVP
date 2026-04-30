@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { geocodeAddress } from "@/lib/google/geocodeAddress";
+import { geocodeAddressMapbox } from "@/lib/mapbox/geocodeAddress";
 import { timezoneFromCoordinates } from "@/lib/google/timezoneFromCoordinates";
 
 async function ensureAdminRequest() {
@@ -28,8 +28,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const adminUser = await ensureAdminRequest();
   if (!adminUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const mapboxToken = (process.env.MAPBOX_ACCESS_TOKEN ?? "").trim();
   const geocodeKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY || "";
-  if (!geocodeKey) return NextResponse.json({ error: "missing_google_geocode_key" }, { status: 400 });
+  if (!mapboxToken) return NextResponse.json({ error: "missing_mapbox_token" }, { status: 400 });
 
   let body: any = null;
   try {
@@ -61,10 +62,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const fullAddress = buildAddress({ address1, city, state, zip });
   if (!fullAddress) return NextResponse.json({ error: "missing_address" }, { status: 400 });
 
-  const geo = await geocodeAddress(fullAddress, geocodeKey);
+  const geo = await geocodeAddressMapbox(fullAddress, mapboxToken);
   if (!geo) return NextResponse.json({ error: "geocode_failed" }, { status: 400 });
 
-  const timezone = await timezoneFromCoordinates(geo.lat, geo.lng, geocodeKey);
+  const timezone = geocodeKey ? await timezoneFromCoordinates(geo.lat, geo.lng, geocodeKey) : null;
 
   return NextResponse.json({
     venue_id: params.id,
@@ -73,7 +74,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     longitude: geo.lng,
     normalized_address: geo.formatted_address ?? null,
     timezone,
-    geocode_source: "admin_refresh_coordinates",
+    geocode_source: "mapbox",
   });
 }
 
