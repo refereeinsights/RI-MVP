@@ -23,17 +23,52 @@ export default function ResetPasswordPage() {
     async function ensureRecoverySession() {
       setError(null);
       try {
-        const hash = typeof window !== "undefined" ? window.location.hash : "";
-        const params = new URLSearchParams(hash.replace(/^#/, ""));
-        const accessToken = params.get("access_token");
-        const refreshToken = params.get("refresh_token");
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          const query = url.searchParams;
+          const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
 
-        if (accessToken && refreshToken) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (sessionError) throw sessionError;
+          // Newer Supabase recovery links may send a token_hash (often prefixed with `pkce_`).
+          const tokenHash = (query.get("token_hash") || "").trim();
+          const type = (query.get("type") || "").trim();
+          if (tokenHash && type === "recovery") {
+            const { data, error: verifyError } = await supabase.auth.verifyOtp({
+              type: "recovery",
+              token_hash: tokenHash,
+            });
+            if (verifyError) throw verifyError;
+
+            const accessToken = data?.session?.access_token;
+            const refreshToken = data?.session?.refresh_token;
+            if (accessToken && refreshToken) {
+              const { error: sessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+              if (sessionError) throw sessionError;
+            }
+
+            // Remove sensitive recovery params from the URL after we establish a session.
+            query.delete("token_hash");
+            query.delete("type");
+            url.hash = "";
+            window.history.replaceState({}, "", url.toString());
+          }
+
+          const accessToken = hashParams.get("access_token") || query.get("access_token");
+          const refreshToken = hashParams.get("refresh_token") || query.get("refresh_token");
+          if (accessToken && refreshToken) {
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (sessionError) throw sessionError;
+
+            url.hash = "";
+            query.delete("access_token");
+            query.delete("refresh_token");
+            window.history.replaceState({}, "", url.toString());
+          }
         }
 
         const { data, error: getSessionError } = await supabase.auth.getSession();
