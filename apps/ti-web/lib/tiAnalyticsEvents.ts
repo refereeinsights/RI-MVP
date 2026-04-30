@@ -8,6 +8,13 @@ export type TiAnalyticsEventName =
   | "venue_page_viewed"
   | "venue_map_opened"
   | "venue_map_loaded"
+  | "owls_eye_full_opened"
+  | "owls_eye_unlock_prompt_shown"
+  | "owls_eye_category_expanded"
+  | "owls_eye_category_pins_enabled"
+  | "owls_eye_result_selected"
+  | "owls_eye_directions_clicked"
+  | "venue_map_hotels_clicked"
   | "weekend_share_clicked"
   | "weekend_page_opened";
 
@@ -68,6 +75,60 @@ export type TiAnalyticsEventPropertiesByName = {
     sport: string | null;
     venue_count: number;
     href: string;
+  };
+  owls_eye_full_opened: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    tier: "explorer" | "insider" | "weekend_pro" | "unknown";
+  };
+  owls_eye_unlock_prompt_shown: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    tier: "explorer" | "insider" | "weekend_pro" | "unknown";
+  };
+  owls_eye_category_expanded: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    category: "coffee" | "food" | "hotels" | "quick_eats" | "hangouts";
+    tier: "explorer" | "insider" | "weekend_pro" | "unknown";
+  };
+  owls_eye_category_pins_enabled: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    category: "coffee" | "food" | "hotels" | "quick_eats" | "hangouts";
+    enabled: boolean;
+    tier: "explorer" | "insider" | "weekend_pro" | "unknown";
+  };
+  owls_eye_result_selected: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    category: "coffee" | "food" | "hotels" | "quick_eats" | "hangouts";
+    has_coords: boolean;
+    tier: "explorer" | "insider" | "weekend_pro" | "unknown";
+  };
+  owls_eye_directions_clicked: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    category: "coffee" | "food" | "hotels" | "quick_eats" | "hangouts";
+    tier: "explorer" | "insider" | "weekend_pro" | "unknown";
+  };
+  venue_map_hotels_clicked: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
   };
   weekend_share_clicked: {
     source_page: "tournament_detail" | "venue_map" | "venue_detail" | "weekend_page";

@@ -16,6 +16,7 @@ import {
   type OwlsEyeDemoScores,
   type VenueReviewChoiceRow,
 } from "@/lib/owlsEyeScores";
+import { isPremiumPreviewTournamentSlug } from "@/lib/premiumPreview";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { isUuid } from "@/lib/venues/isUuid";
 import { getVenueCardClassFromSports } from "../sportSurface";
@@ -272,8 +273,6 @@ async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
 
 export const revalidate = 3600;
 
-const PREMIUM_PREVIEW_TOURNAMENT_SLUGS = new Set(["refereeinsights-demo-tournament"]);
-
 function renderSemanticParts(parts: SemanticListPart[]) {
   return parts.map((part, idx) => {
     if (part.type === "text") return <span key={`t-${idx}`}>{part.value}</span>;
@@ -447,7 +446,7 @@ export default async function VenueDetailsPage({
         ? linkedTournaments.find((t) => (t.slug ?? "").trim().toLowerCase() === requestedTournamentSlug) ?? null
         : null;
   const hasPremiumPreviewTournament = linkedTournaments.some((t) =>
-    PREMIUM_PREVIEW_TOURNAMENT_SLUGS.has((t.slug ?? "").trim().toLowerCase())
+    isPremiumPreviewTournamentSlug(t.slug)
   );
   const canViewPremiumDetails = isPaid || isDemoVenue || hasPremiumPreviewTournament;
 

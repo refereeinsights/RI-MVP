@@ -58,8 +58,8 @@ export default function WeekendPlannerClient() {
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">("idle");
   const [shareUrl, setShareUrl] = useState(CANONICAL_WEEKEND_PLANNER_URL);
   const [canNativeShare, setCanNativeShare] = useState(false);
-  const [prefillCheckin, setPrefillCheckin] = useState<string>("");
-  const [prefillCheckout, setPrefillCheckout] = useState<string>("");
+  const [checkinText, setCheckinText] = useState<string>("");
+  const [checkoutText, setCheckoutText] = useState<string>("");
 
   useEffect(() => {
     const stored = safeGetStoredDestination();
@@ -80,9 +80,12 @@ export default function WeekendPlannerClient() {
     const checkout = String(params.get("checkout") ?? "").trim();
     const today = todayUtcIso();
     if (isValidIsoDate(checkin) && compareIso(checkin, today) >= 0) {
-      setPrefillCheckin(checkin);
+      const [y, m, d] = checkin.split("-");
+      setCheckinText(`${m}-${d}-${y}`);
       if (isValidIsoDate(checkout)) {
-        setPrefillCheckout(compareIso(checkout, checkin) <= 0 ? addDaysIso(checkin, 1) : checkout);
+        const safeCheckout = compareIso(checkout, checkin) <= 0 ? addDaysIso(checkin, 1) : checkout;
+        const [cy, cm, cd] = safeCheckout.split("-");
+        setCheckoutText(`${cm}-${cd}-${cy}`);
       }
     }
 
@@ -94,6 +97,30 @@ export default function WeekendPlannerClient() {
     }
     setCanNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
   }, []);
+
+  function isoFromUserDate(value: string) {
+    const raw = String(value ?? "").trim();
+    if (!raw) return null;
+
+    // Accept ISO if user pasted it.
+    if (isValidIsoDate(raw)) return raw;
+
+    // Accept MM-DD-YYYY or M/D/YYYY and normalize.
+    const m = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if (!m) return null;
+    const mm = String(m[1]).padStart(2, "0");
+    const dd = String(m[2]).padStart(2, "0");
+    const yyyy = String(m[3]);
+    const iso = `${yyyy}-${mm}-${dd}`;
+    return isValidIsoDate(iso) ? iso : null;
+  }
+
+  function openGoUrlInNewTab(pathname: string, params: URLSearchParams) {
+    const url = `${pathname}?${params.toString()}`;
+    // Keep user on TI by opening partner redirect in a new tab.
+    const w = window.open(url, "_blank", "noopener,noreferrer");
+    if (w) w.opener = null;
+  }
 
   function handleDestinationChange(value: string) {
     const trimmed = value.replace(/\s+/g, " ");
@@ -143,6 +170,7 @@ export default function WeekendPlannerClient() {
             <form
               method="get"
               action="/go/hotels"
+              target="_blank"
               onSubmit={() =>
                 track("weekend_planner_hotels_clicked", { destination_present: Boolean(destination.trim()) })
               }
@@ -171,8 +199,9 @@ export default function WeekendPlannerClient() {
                       id="wp-checkin-hotels"
                       name="checkin"
                       className={`input ${styles.inputDark}`}
-                      placeholder="YYYY-MM-DD"
-                      defaultValue={prefillCheckin || undefined}
+                      placeholder="MM-DD-YYYY"
+                      value={checkinText}
+                      onChange={(e) => setCheckinText(e.target.value)}
                     />
                   </div>
                   <div>
@@ -183,15 +212,32 @@ export default function WeekendPlannerClient() {
                       id="wp-checkout-hotels"
                       name="checkout"
                       className={`input ${styles.inputDark}`}
-                      placeholder="YYYY-MM-DD"
-                      defaultValue={prefillCheckout || undefined}
+                      placeholder="MM-DD-YYYY"
+                      value={checkoutText}
+                      onChange={(e) => setCheckoutText(e.target.value)}
                     />
                   </div>
                 </div>
               </div>
               <input type="hidden" name="source" value="weekend_planner" />
               <div style={{ paddingTop: "0.95rem" }}>
-                <button type="submit" className={styles.ctaFull}>
+                <button
+                  type="submit"
+                  className={styles.ctaFull}
+                  onClick={(e) => {
+                    // Convert dates to ISO for /go/hotels, open in new tab.
+                    // Do not block if invalid; omit invalid params and let /go/* fall back.
+                    e.preventDefault();
+                    const qp = new URLSearchParams();
+                    qp.set("ss", destination.trim());
+                    qp.set("source", "weekend_planner");
+                    const checkinIso = isoFromUserDate(checkinText);
+                    const checkoutIso = isoFromUserDate(checkoutText);
+                    if (checkinIso) qp.set("checkin", checkinIso);
+                    if (checkoutIso) qp.set("checkout", checkoutIso);
+                    openGoUrlInNewTab("/go/hotels", qp);
+                  }}
+                >
                   Search Booking.com
                 </button>
               </div>
@@ -208,6 +254,7 @@ export default function WeekendPlannerClient() {
             <form
               method="get"
               action="/go/vrbo"
+              target="_blank"
               onSubmit={() =>
                 track("weekend_planner_vrbo_clicked", { destination_present: Boolean(destination.trim()) })
               }
@@ -236,8 +283,9 @@ export default function WeekendPlannerClient() {
                       id="wp-checkin-vrbo"
                       name="checkin"
                       className={`input ${styles.inputDark}`}
-                      placeholder="YYYY-MM-DD"
-                      defaultValue={prefillCheckin || undefined}
+                      placeholder="MM-DD-YYYY"
+                      value={checkinText}
+                      onChange={(e) => setCheckinText(e.target.value)}
                     />
                   </div>
                   <div>
@@ -248,15 +296,30 @@ export default function WeekendPlannerClient() {
                       id="wp-checkout-vrbo"
                       name="checkout"
                       className={`input ${styles.inputDark}`}
-                      placeholder="YYYY-MM-DD"
-                      defaultValue={prefillCheckout || undefined}
+                      placeholder="MM-DD-YYYY"
+                      value={checkoutText}
+                      onChange={(e) => setCheckoutText(e.target.value)}
                     />
                   </div>
                 </div>
               </div>
               <input type="hidden" name="source" value="weekend_planner" />
               <div style={{ paddingTop: "0.95rem" }}>
-                <button type="submit" className={styles.ctaFull}>
+                <button
+                  type="submit"
+                  className={styles.ctaFull}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const qp = new URLSearchParams();
+                    qp.set("destination", destination.trim());
+                    qp.set("source", "weekend_planner");
+                    const checkinIso = isoFromUserDate(checkinText);
+                    const checkoutIso = isoFromUserDate(checkoutText);
+                    if (checkinIso) qp.set("checkin", checkinIso);
+                    if (checkoutIso) qp.set("checkout", checkoutIso);
+                    openGoUrlInNewTab("/go/vrbo", qp);
+                  }}
+                >
                   Search Vrbo
                 </button>
               </div>

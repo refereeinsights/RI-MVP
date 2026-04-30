@@ -26,6 +26,7 @@
   flex-direction: column;
   gap: 10px;
   color: #ffffff;
+  overflow: auto;
 }
 
 .panelTitle {
@@ -182,6 +183,37 @@
   line-height: 1;
 }
 
+.placeMarkerBtn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.placeMarker {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,0.92);
+  color: #0b1f14;
+  border: 2px solid rgba(0,0,0,0.14);
+  box-shadow: 0 10px 18px rgba(0,0,0,0.25);
+  transform: translateY(-5px);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.placeMarkerSelected {
+  transform: translateY(-6px) scale(1.06);
+  border-color: rgba(34, 197, 94, 0.9);
+  box-shadow: 0 12px 20px rgba(0,0,0,0.30);
+}
+
 .ctaRow {
   display: flex;
   flex-wrap: wrap;
@@ -203,6 +235,192 @@
 }
 
 .ctaSecondary {
+  background: rgba(255,255,255,0.10);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.16);
+}
+
+.owlPanel {
+  margin-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  padding-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.owlPanelNote {
+  font-size: 12px;
+  opacity: 0.9;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.owlCategory {
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.owlCategorySummary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 10px;
+}
+
+.owlCategorySummary::-webkit-details-marker {
+  display: none;
+}
+
+.owlCategoryLeft {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.owlCategoryIcon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.owlCategoryLabel {
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.92;
+  white-space: nowrap;
+}
+
+.owlCategoryCount {
+  font-size: 12px;
+  opacity: 0.86;
+  white-space: nowrap;
+}
+
+.owlPinsBtn {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.10);
+  color: #fff;
+  border-radius: 12px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.owlPinsBtn:hover,
+.owlPinsBtn:focus-visible {
+  outline: none;
+  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.14);
+}
+
+.owlPinsBtnOn {
+  border-color: rgba(34, 197, 94, 0.55);
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.owlPinsDisabled {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.owlList {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid rgba(255,255,255,0.10);
+}
+
+.owlRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.12);
+}
+
+.owlRowMain {
+  min-width: 0;
+}
+
+.owlRowName {
+  font-size: 12.5px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.owlRowMeta {
+  font-size: 12px;
+  opacity: 0.86;
+  margin-top: 4px;
+  line-height: 1.25;
+}
+
+.owlRowActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.owlActionBtn {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.10);
+  color: #fff;
+  border-radius: 12px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.owlActionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.owlActionLink {
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(255,255,255,0.92);
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.owlUnlockRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.owlUnlockBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.92);
+  color: #0b1f14;
+  font-weight: 900;
+  text-decoration: none;
+  border: 1px solid rgba(0,0,0,0.12);
+}
+
+.owlUnlockBtnSecondary {
   background: rgba(255,255,255,0.10);
   color: #fff;
   border: 1px solid rgba(255,255,255,0.16);
