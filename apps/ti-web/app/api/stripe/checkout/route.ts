@@ -79,6 +79,12 @@ export async function POST(request: Request) {
     if (venueSlug) metadata.venue_slug = venueSlug;
     if (entryPoint) metadata.entry_point = entryPoint;
 
+    const customerParams = existing?.stripe_customer_id
+      ? { customer: existing.stripe_customer_id, customer_update: { address: "auto", name: "auto" } as const }
+      : user.email
+        ? { customer_email: user.email }
+        : {};
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
@@ -88,12 +94,7 @@ export async function POST(request: Request) {
       cancel_url: `${origin}/account?upgrade=cancelled`,
       automatic_tax: { enabled: true },
       billing_address_collection: "auto",
-      customer_update: { address: "auto", name: "auto" },
-      ...(existing?.stripe_customer_id
-        ? { customer: existing.stripe_customer_id }
-        : user.email
-          ? { customer_email: user.email }
-          : {}),
+      ...customerParams,
       metadata,
       expand: ["subscription", "subscription.latest_invoice.payment_intent"],
     });
