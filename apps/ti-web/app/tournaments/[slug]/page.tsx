@@ -17,6 +17,7 @@ import HotelBookingCta from "@/components/venues/HotelBookingCta";
 import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import TournamentPlanningOverview from "@/components/tournaments/TournamentPlanningOverview";
+import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
 import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
@@ -1191,15 +1192,12 @@ async function TournamentVenueDetails({
       <div className="detailCard premiumDetailCard">
         <div className="detailCard__title premiumDetailCard__title">
           <span aria-hidden="true">🔒</span>
-          <span>Unlock Weekend Pro for free</span>
+          <span>Upgrade to Weekend Pro</span>
         </div>
         {!canViewPremiumDetails ? (
           <div className="detailCard__body premiumDetailCard__body">
             <p className="premiumDetailCard__copy">
-              Submit a quick venue check to unlock 12 months of Weekend Pro.
-            </p>
-            <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
-              Takes about 10 seconds.
+              Plan your tournament weekend without guesswork. Weekend Pro unlocks Owl&apos;s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and directions around where games are played.
             </p>
             <p className="premiumDetailCard__copy" style={{ marginTop: 8, fontWeight: 700 }}>
               Includes:
@@ -1216,13 +1214,15 @@ async function TournamentVenueDetails({
               <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
                 Verify your email to activate your account. <Link href="/verify-email">Verify email</Link>
               </p>
-            ) : viewer.tier === "explorer" ? (
-              <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
-                Already have an account? <Link href="/login">Sign in</Link>. New here? <Link href="/signup">Create a free account</Link>.
-              </p>
             ) : null}
             <div className="detailLinksRow">
-              <StartQuickVenueCheckButton className="secondaryLink">Start quick venue check</StartQuickVenueCheckButton>
+              <UpgradeWeekendProButton
+                className="primaryLink"
+                source_page="tournament_detail"
+                source_context="tournament_upsell"
+                tournament_slug={tournament.slug}
+                cta_label="Upgrade to Weekend Pro"
+              />
             </div>
           </div>
         ) : (

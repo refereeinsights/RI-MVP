@@ -368,9 +368,9 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
         ) : shouldShowSignupPrompt ? (
           <>
             <div className={styles.prompt}>
-              <div className={styles.promptTitle}>Unlock Weekend Pro free for 12 months</div>
+              <div className={styles.promptTitle}>Create a free account</div>
               <div className={styles.promptBody}>
-                Create your free account and verify your email to unlock Weekend Pro for 12 months for submitting this venue check.
+                Create your free account to save your profile settings and access planning tools across TournamentInsights.
               </div>
             </div>
             <div className={styles.actions}>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
+import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import { getTier } from "@/lib/entitlements";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
@@ -1047,13 +1048,24 @@ export default function TournamentVenueMapClient({
                 })()
               ) : owlPanelMode === "unlock" && selectedVenue ? (
                 <div className={styles.owlPanel}>
-                  <div className={styles.owlPanelNote}>{owlPremiumError ?? "Weekend Pro required to view nearby lists."}</div>
+                  <div className={styles.owlPanelNote}>
+                    {owlPremiumError ?? "You’re viewing limited results near this venue. Upgrade to see full nearby lists and directions."}
+                  </div>
                   <div className={styles.owlUnlockRow}>
-                    <a className={styles.owlUnlockBtn} href={`/login?returnTo=${encodeURIComponent(`/tournaments/${tournament.slug}/map`)}`}>
-                      Sign in
-                    </a>
+                    <UpgradeWeekendProButton
+                      className={styles.owlUnlockBtn}
+                      source_page="venue_map"
+                      source_context="map_owlseye_locked"
+                      tournament_slug={tournament.slug}
+                      venue_slug={selectedVenue.seo_slug ?? selectedVenue.id}
+                      entry_point="map_owlseye_unlock"
+                      cta_label="Upgrade to Weekend Pro"
+                      label="Upgrade to Weekend Pro"
+                      user_tier={entitlementTier}
+                      has_affiliate_visible={false}
+                    />
                     <a className={`${styles.owlUnlockBtn} ${styles.owlUnlockBtnSecondary}`} href="/premium">
-                      Unlock Weekend Pro
+                      Learn more
                     </a>
                   </div>
                 </div>

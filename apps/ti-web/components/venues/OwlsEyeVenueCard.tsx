@@ -3,6 +3,7 @@ import { BRAND_OWL } from "@/lib/brand";
 import type { OwlsEyeDemoScores } from "@/lib/owlsEyeScores";
 import OwlsEyeDemoScoresPanel from "@/components/OwlsEyeDemoScoresPanel";
 import OwlsEyeWeekendGuideAccordion from "@/components/OwlsEyeWeekendGuideAccordion";
+import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import MobileMapLink from "@/components/venues/MobileMapLink";
 import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheckButton";
 import HotelBookingCta from "@/components/venues/HotelBookingCta";
@@ -473,15 +474,22 @@ export default function OwlsEyeVenueCard({
               )
             ) : (
               <div className="detailVenuePremiumLock">
-                <p style={{ margin: 0 }}>
-                  Unlock Weekend Pro for free — submit a quick venue check (about 10 seconds).
+                <p style={{ margin: 0, fontWeight: 900 }}>Stay close to where games are played.</p>
+                <p style={{ margin: "6px 0 0", opacity: 0.92 }}>
+                  Weekend Pro unlocks full Owl&apos;s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and mobile-friendly directions.
                 </p>
-                {tier === "explorer" ? (
-                  <p style={{ margin: 0 }}>
-                    Already have an account? <Link href="/login">Sign in</Link>. New here? <Link href="/signup">Create a free account</Link>.
-                  </p>
-                ) : null}
-                <StartQuickVenueCheckButton className="secondaryLink">Start quick venue check</StartQuickVenueCheckButton>
+                <div style={{ marginTop: 10 }}>
+                  <UpgradeWeekendProButton
+                    className="primaryLink"
+                    source_page="venue_detail"
+                    source_context="owlseye_locked"
+                    venue_slug={(venue as any)?.seo_slug ?? null}
+                    cta_label="Upgrade to Weekend Pro"
+                  />
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <StartQuickVenueCheckButton className="secondaryLink">Help improve this venue</StartQuickVenueCheckButton>
+                </div>
               </div>
             )}
           </div>

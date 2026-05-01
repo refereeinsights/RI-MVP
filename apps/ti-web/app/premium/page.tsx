@@ -1,6 +1,7 @@
 import PremiumInterestForm from "@/components/PremiumInterestForm";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
 import OwlsEyeVenueCard, { type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
+import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
@@ -9,12 +10,13 @@ import {
   type OwlsEyeDemoScores,
   type VenueReviewChoiceRow,
 } from "@/lib/owlsEyeScores";
+import { WEEKEND_PRO_FOUNDING_DISCLAIMER, WEEKEND_PRO_FOUNDING_PRICE_LINE } from "@/lib/weekendProPricing";
 import "../tournaments/tournaments.css";
 
 export const metadata = {
-  title: "Premium Access",
+  title: "Weekend Pro",
   description:
-    "Request TournamentInsights Premium access to unlock Owl’s Eye venue intel, nearby essentials, and planning-focused venue details.",
+    "Upgrade to Weekend Pro to unlock Owl’s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and mobile-friendly directions around tournament venues.",
   alternates: { canonical: "/premium" },
 };
 
@@ -292,14 +294,22 @@ export default async function PremiumPage() {
     <main className="page">
       <div className="shell">
         <section className="hero" aria-labelledby="premium-title">
-          <h1 id="premium-title">Premium Access</h1>
+          <h1 id="premium-title">Weekend Pro</h1>
           <p className="muted heroCopy" style={{ marginTop: 0 }}>
-            Unlock Owl&apos;s Eye venue intel and planning details families actually need: restrooms, shade, food,
-            parking, and nearby essentials — verified and kept fresh.
+            Plan your tournament weekend without guesswork. Weekend Pro unlocks Owl&apos;s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and mobile-friendly directions around where games are played.
           </p>
-          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
-            Premium is limited during Public Beta. Request access below.
-          </p>
+          <div style={{ display: "grid", gap: 6, justifyItems: "center", marginTop: 10 }}>
+            <div style={{ fontWeight: 900 }}>{WEEKEND_PRO_FOUNDING_PRICE_LINE}</div>
+            <div className="muted" style={{ fontSize: 13 }}>{WEEKEND_PRO_FOUNDING_DISCLAIMER}</div>
+          </div>
+          <div style={{ marginTop: 14, display: "grid", justifyItems: "center" }}>
+            <UpgradeWeekendProButton
+              className="primaryLink"
+              source_page="premium"
+              source_context="premium_hero"
+              cta_label="Upgrade to Weekend Pro"
+            />
+          </div>
         </section>
 
         <section className="bodyCard bodyCardCenteredList" aria-labelledby="premium-what-you-get">
@@ -315,9 +325,9 @@ export default async function PremiumPage() {
         <section className="bodyCard bodyCardCenteredList" aria-labelledby="premium-how">
           <h2 id="premium-how">How it works</h2>
           <ol className="list" style={{ textAlign: "left", maxWidth: 560, margin: "10px auto 0" }}>
-            <li>Request Premium Access (email).</li>
-            <li>We confirm access as we expand coverage.</li>
-            <li>Premium unlocks Owl&apos;s Eye details across venues (with demo exception).</li>
+            <li>Upgrade to Weekend Pro.</li>
+            <li>Unlock Owl&apos;s Eye™ planning details on supported venues.</li>
+            <li>Use venue-level nearby lists and directions to plan faster on travel day.</li>
           </ol>
         </section>
 
@@ -382,10 +392,10 @@ export default async function PremiumPage() {
           </div>
         </section>
 
-        <section className="bodyCard bodyCardCenteredList" aria-labelledby="premium-request">
-          <h2 id="premium-request">Request Premium Access</h2>
+        <section className="bodyCard bodyCardCenteredList" aria-labelledby="premium-updates">
+          <h2 id="premium-updates">Get product updates</h2>
           <p className="muted" style={{ marginTop: 0, marginLeft: "auto", marginRight: "auto", textAlign: "center" }}>
-            We&apos;ll email you as we expand Premium access and Owl&apos;s Eye coverage.
+            Want occasional updates as we expand venue coverage and planning features? Join the list.
           </p>
           <div style={{ display: "grid", justifyItems: "center" }}>
             <PremiumInterestForm compact />
@@ -404,15 +414,15 @@ export default async function PremiumPage() {
               </p>
             </details>
             <details>
-              <summary style={{ cursor: "pointer", fontWeight: 600 }}>What does Premium unlock?</summary>
+              <summary style={{ cursor: "pointer", fontWeight: 600 }}>What does Weekend Pro unlock?</summary>
               <p className="muted" style={{ margin: "8px 0 0" }}>
-                Owl&apos;s Eye venue details and deeper planning intel across supported venues.
+                Weekend Pro unlocks Owl&apos;s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and directions around tournament venues.
               </p>
             </details>
             <details>
-              <summary style={{ cursor: "pointer", fontWeight: 600 }}>When will I get access?</summary>
+              <summary style={{ cursor: "pointer", fontWeight: 600 }}>Can I cancel?</summary>
               <p className="muted" style={{ margin: "8px 0 0" }}>
-                Access is rolling out during Public Beta based on coverage and onboarding capacity.
+                Yes. You can manage billing or cancel through the Stripe customer portal in your account settings.
               </p>
             </details>
           </div>

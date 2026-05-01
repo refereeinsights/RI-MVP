@@ -5,6 +5,7 @@ import { US_MAP_VIEWBOX, US_STATE_LABELS, US_STATE_PATHS } from "@/app/api/admin
 import UsMapInteractions from "@/app/_components/UsMapInteractions";
 import HomepageSportFilter from "@/components/homepage/HomepageSportFilter";
 import TrackedLink from "@/components/homepage/TrackedLink";
+import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import "./home.css";
 
 export const metadata: Metadata = {
@@ -296,16 +297,19 @@ export default async function Home({ searchParams }: { searchParams?: { sport?: 
             style={{ width: 86, height: 86 }}
           />
           <h2 id="ti-home-owl" style={{ margin: 0 }}>
-            Level up your planning with Owl&apos;s Eye™
+            Plan tournament weekends without guesswork
           </h2>
           <p style={{ margin: 0, maxWidth: "62ch", color: "#475569", lineHeight: 1.6 }}>
-            Owl&apos;s Eye™ identifies tournaments with enhanced venue intelligence — verified addresses, nearby coffee/food/hotels,
-            mobile directions, and structured Insider venue insights.
+            Weekend Pro unlocks Owl&apos;s Eye™ venue intelligence — nearby hotels, rentals, coffee, food, and mobile-friendly directions around tournament venues so you stay closer to where games are played.
           </p>
           <div className="ti-home-chips" aria-label="Premium shortcuts">
-            <a className="ti-home-chip" href="/premium">
-              Learn about Premium
-            </a>
+            <UpgradeWeekendProButton
+              className="ti-home-chip"
+              source_page="homepage"
+              source_context="homepage_owlseye"
+              cta_label="Upgrade to Weekend Pro"
+              label="Upgrade to Weekend Pro"
+            />
             <a className="ti-home-chip" href="/tournaments">
               Browse tournaments
             </a>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { sendTiAnalytics } from "@/lib/analytics";
+import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import styles from "./WeekendPlanner.module.css";
 
 const DESTINATION_STORAGE_KEY = "ti_weekend_planner_destination";
@@ -359,6 +360,26 @@ export default function WeekendPlannerClient() {
                 Add Tournament
               </Link>
             </div>
+          </div>
+        </article>
+
+        <article className={styles.panelCard}>
+          <div className={styles.panelHeader}>
+            <h2 className={styles.panelTitle}>Get venue-level planning for every tournament</h2>
+            <p className={styles.panelSub}>
+              Weekend Pro adds Owl&apos;s Eye™ nearby hotels, rentals, coffee, food, and directions around tournament venues across TI.
+            </p>
+          </div>
+          <div className={styles.cardBody}>
+            <UpgradeWeekendProButton
+              className={styles.ctaFull}
+              source_page="weekend_planner"
+              source_context="weekend_planner_upsell"
+              entry_point="weekend_planner"
+              cta_label="Upgrade to Weekend Pro"
+              label="Upgrade to Weekend Pro"
+              has_affiliate_visible={false}
+            />
           </div>
         </article>
 

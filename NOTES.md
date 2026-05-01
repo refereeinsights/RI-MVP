@@ -38,6 +38,10 @@
 - TI map popups: add a secondary “Search” link (Google search for place name + address + venue city/state) alongside “Directions”, opening in a new tab without extra API calls: `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`, `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMap.module.css`.
 - RI admin TI users: make “Save profile settings” an obvious green button (with a sticky footer save bar) so username/profile edits don’t feel “unsaved” compared to the per-field Set buttons: `apps/referee/app/admin/ti/page.tsx`.
 
+## 2026-05-01
+
+- TI Weekend Pro conversion (paid): replace “free unlock / request access” messaging with paid Weekend Pro value copy and wire upgrade CTAs through a shared `UpgradeWeekendProButton` (posts to `/api/stripe/checkout`, redirects to Stripe, logs `premium_cta_clicked`); update `/premium` to a paid Weekend Pro landing page (with founding price + first-year-only disclaimer) and add a subtle Weekend Planner upsell without gating searches: `apps/ti-web/components/UpgradeWeekendProButton.tsx`, `apps/ti-web/lib/weekendProPricing.ts`, `apps/ti-web/app/api/analytics/route.ts`, `apps/ti-web/app/premium/page.tsx`, `apps/ti-web/app/page.tsx`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`, `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`, `apps/ti-web/app/account/page.tsx`, `apps/ti-web/components/venues/QuickVenueCheck.tsx`.
+
 ## 2026-04-28
 
 - RI Owl’s Eye (Foursquare): updated the Foursquare client to use the new Places API host (`places-api.foursquare.com/places/search`) after the legacy `/v3/places/search` endpoint began returning HTTP 410, and set a sane default `FOURSQUARE_API_VERSION` fallback (`2025-06-17`): `apps/referee/src/owlseye/nearby/foursquarePlaces.ts`, `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts`.

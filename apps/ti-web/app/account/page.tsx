@@ -11,6 +11,8 @@ import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SavedTournamentsSection, { type SavedTournamentItem } from "./SavedTournamentsSection";
 import QuickVenueCheckRewardClaim from "./QuickVenueCheckRewardClaim";
 import ManageBillingButton from "./ManageBillingButton";
+import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
+import { WEEKEND_PRO_FOUNDING_PRICE_LINE } from "@/lib/weekendProPricing";
 import styles from "./AccountPage.module.css";
 
 type TiUserRow = {
@@ -87,13 +89,6 @@ function prettyDate(value: string | null | undefined) {
 function isoFromEpochSeconds(value: number | null | undefined) {
   if (!value || typeof value !== "number") return null;
   return new Date(value * 1000).toISOString();
-}
-
-function isEventCodeTrialUser(profile: TiUserRow | null | undefined) {
-  if (!profile) return false;
-  const signupSource = (profile.signup_source ?? "").trim().toLowerCase();
-  const subscriptionStatus = (profile.subscription_status ?? "").trim().toLowerCase();
-  return signupSource === "event_code" && subscriptionStatus === "trialing" && !profile.current_period_end;
 }
 
 function buildAccountPath(kind: "notice" | "error", message: string) {
@@ -229,7 +224,6 @@ export default async function AccountPage({
 
   const tier = getTier(user, profile ?? null);
   const effectivePlan = profile ? prettyPlan(profile.plan) : "Insider";
-  const showQvcUpgradePrompt = tier !== "weekend_pro" || isEventCodeTrialUser(profile ?? null);
   const subscriptionStatus = normalizeSubscriptionStatus(profile?.subscription_status);
   const showTrialEnds = subscriptionStatus === "trialing" && Boolean(profile?.trial_ends_at);
 
@@ -474,19 +468,18 @@ export default async function AccountPage({
         </div>
       </section>
 
-      {showQvcUpgradePrompt ? (
+      {tier !== "weekend_pro" ? (
         <section className={styles.sectionCard}>
-          <h2 className={styles.sectionTitle}>Unlock Weekend Pro for free</h2>
+          <h2 className={styles.sectionTitle}>Weekend Pro</h2>
           <p className={styles.mutedText}>
-            Submit a quick venue check on any venue page to unlock 12 months of Weekend Pro.
+            Plan your tournament weekend without guesswork. Weekend Pro unlocks Owl&apos;s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and directions around where games are played.
+          </p>
+          <p className={styles.mutedText} style={{ fontWeight: 900 }}>
+            {WEEKEND_PRO_FOUNDING_PRICE_LINE}
           </p>
           <div className={styles.formActions} style={{ gap: 10, flexWrap: "wrap" }}>
-            <Link href="/venues" className={styles.primaryAction}>
-              Find a venue to review
-            </Link>
-            <Link href="/tournaments" className={styles.secondaryAction}>
-              Browse tournaments
-            </Link>
+            <UpgradeWeekendProButton className={styles.primaryAction} source_page="account" source_context="account_upsell" />
+            <Link href="/premium" className={styles.secondaryAction}>Learn more</Link>
           </div>
         </section>
       ) : null}

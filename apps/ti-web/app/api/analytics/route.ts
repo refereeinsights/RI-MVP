@@ -26,6 +26,7 @@ const MAP_EVENTS = new Set([
   "venue_page_viewed",
   "venue_map_opened",
   "venue_map_loaded",
+  "premium_cta_clicked",
   "weekend_share_clicked",
   "weekend_page_opened",
 ]);
