@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/types/supabase";
+import { syncTiUserProfileFromAuthUser } from "@/lib/tiUserProfileServer";
 
 type OtpType = "email" | "magiclink" | "recovery" | "email_change";
 
@@ -84,6 +85,26 @@ export async function GET(req: NextRequest) {
       new URL(`/auth/error?notice=${encodeURIComponent(failureNotice)}`, req.url),
       303
     );
+  }
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const result = await syncTiUserProfileFromAuthUser(user);
+      if (!result.ok) {
+        console.warn("[auth][confirm] profile sync failed", {
+          user_id: user.id,
+          error: result.error ?? null,
+          usernameConflict: result.usernameConflict ?? null,
+        });
+      }
+    }
+  } catch (syncErr) {
+    console.warn("[auth][confirm] profile sync exception", {
+      message: syncErr instanceof Error ? syncErr.message : String(syncErr ?? ""),
+    });
   }
 
   return successRedirect;

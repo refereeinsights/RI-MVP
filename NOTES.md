@@ -44,7 +44,7 @@
 - TI auth UX: make the login page show a prominent “Create free account” button (preserving `returnTo`) so signup isn’t buried in text: `apps/ti-web/app/login/page.tsx`.
 - TI auth UX: remove the redundant “Need an account? Sign up” line now that the login page has a clear “Create free account” button: `apps/ti-web/app/login/page.tsx`.
 - TI billing: allow logged-in but unverified users to start Stripe Checkout (verification is still recommended for receipts/support, but not a hard blocker for purchase): `apps/ti-web/app/api/stripe/checkout/route.ts`.
-- TI signup UX: after signup confirmation, redirect to `/verify-email` (preserving `returnTo`) instead of bouncing users to the homepage, reducing verification friction when following deep links: `apps/ti-web/app/signup/page.tsx`.
+- TI signup UX: keep users on the “Check your email” screen (no confusing auto-redirect while they’re still logged out) and make “Resend verification email” easy; also ensure the `/auth/confirm` handler syncs `ti_users` profile fields from Supabase auth metadata so name/username/zip/sports persist immediately after confirmation: `apps/ti-web/app/signup/page.tsx`, `apps/ti-web/app/auth/confirm/route.ts`.
 - TI tournament page polish: remove the baseball-specific tournament detail hero background image so the header matches the simpler sport surfaces (avoids the small diamond overlay appearing behind CTAs): `apps/ti-web/app/tournaments/tournaments.css`.
 
 ## 2026-04-28

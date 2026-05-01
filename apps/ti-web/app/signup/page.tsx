@@ -1,15 +1,14 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { sanitizeReturnTo } from "@/lib/returnTo";
 import { SPORT_INTEREST_OPTIONS, validateSignupProfile } from "@/lib/tiProfile";
 import { TI_SPORT_LABELS } from "@/lib/tiSports";
 
 export default function SignupPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,18 +26,9 @@ export default function SignupPage() {
   const qvcBrowserHash = (searchParams?.get("browser_hash") ?? "").trim();
   const qvcActive = promo === "qvc_weekend_pro_12mo_v1" && Boolean(qvcQuickCheckId);
 
-  useEffect(() => {
-    if (status !== "ok") return;
-    const timer = window.setTimeout(() => {
-      const next = code
-        ? `/verify-email?returnTo=${encodeURIComponent(`/join?code=${encodeURIComponent(code)}`)}&email=${encodeURIComponent(
-            email.trim()
-          )}`
-        : `/verify-email?returnTo=${encodeURIComponent(returnTo)}&email=${encodeURIComponent(email.trim())}`;
-      router.push(next);
-    }, 12_000);
-    return () => window.clearTimeout(timer);
-  }, [status, router, code, returnTo, email]);
+  // Note: When email confirmation is required, Supabase does not create a session until the user clicks
+  // the email link. Keep users on this confirmation screen rather than auto-redirecting to a page where
+  // they'll still be logged out.
 
   const emailRedirectTo = useMemo(() => {
     const tiProdOrigin = "https://www.tournamentinsights.com";
@@ -207,10 +197,10 @@ export default function SignupPage() {
           We sent a confirmation link to <strong>{email.trim()}</strong>.
         </p>
         <p style={{ margin: 0, color: "#475569", fontSize: 14 }}>
-          This page will redirect to email verification in 12 seconds.
+          After you confirm your email, you’ll be sent back to where you left off.
         </p>
         <div style={{ fontSize: 14 }}>
-          <Link href={verifyHref}>Continue</Link>
+          <Link href={verifyHref}>Resend verification email</Link>
         </div>
       </main>
     );
