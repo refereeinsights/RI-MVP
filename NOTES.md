@@ -9,6 +9,7 @@
 ## 2026-04-30
 
 - TI travel: add a share-safe “Weekend Planner” page (`/weekend-planner`) that lets users run generic hotel and vacation-rental searches (destination + optional dates) without requiring a venue/tournament, reusing existing TI styling and routing “Add Tournament” to the existing intake flow: `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`.
+- TI tournament page UX: remove the redundant “10-Day Weather Planner” header above the weather planner accordion (accordion already has its own title): `apps/ti-web/app/tournaments/[slug]/page.tsx`.
 - TI auth: make `/account/reset-password` accept Supabase `token_hash&type=recovery` links (PKCE recovery) in addition to the older `#access_token/#refresh_token` hash flow, and strip recovery tokens from the URL after establishing a session: `apps/ti-web/app/account/reset-password/page.tsx`.
 - TI auth (edge case): handle “double-`?`” recovery emails where Supabase appends `?token_hash=...&type=recovery` onto an existing TI `redirectTo` URL that already has `?returnTo=...`, causing the recovery params to land inside `returnTo`; the reset page now extracts `token_hash` from either location and cleans the URL after session creation: `apps/ti-web/app/account/reset-password/page.tsx`.
 - TI auth UX: after a successful password reset, show a clear success state with a primary “Log in” button and hide the reset form to avoid confusion: `apps/ti-web/app/account/reset-password/page.tsx`.

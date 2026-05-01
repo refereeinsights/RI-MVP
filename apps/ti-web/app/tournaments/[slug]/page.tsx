@@ -907,7 +907,6 @@ async function TournamentVenueDetails({
         id="weather-planner"
         style={{ width: "min(720px, 100%)", scrollMarginTop: 90, marginLeft: "auto", marginRight: "auto" }}
       >
-        <h2 style={{ margin: "16px 0 0", fontSize: 16, fontWeight: 950 }}>10-Day Weather Planner</h2>
         <TournamentWeatherPlannerAccordion
           latitude={bestWeatherLocation.latitude}
           longitude={bestWeatherLocation.longitude}
