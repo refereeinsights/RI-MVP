@@ -40,9 +40,6 @@ export async function POST(request: Request) {
 
     if (userErr) return NextResponse.json({ ok: false, error: "auth_failed" }, { status: 401 });
     if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-    if (!user.email_confirmed_at) {
-      return NextResponse.json({ ok: false, error: "email_unverified" }, { status: 403 });
-    }
 
     let body: CheckoutBody | null = null;
     try {
