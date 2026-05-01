@@ -30,10 +30,15 @@ export default function SignupPage() {
   useEffect(() => {
     if (status !== "ok") return;
     const timer = window.setTimeout(() => {
-      router.push("/");
+      const next = code
+        ? `/verify-email?returnTo=${encodeURIComponent(`/join?code=${encodeURIComponent(code)}`)}&email=${encodeURIComponent(
+            email.trim()
+          )}`
+        : `/verify-email?returnTo=${encodeURIComponent(returnTo)}&email=${encodeURIComponent(email.trim())}`;
+      router.push(next);
     }, 12_000);
     return () => window.clearTimeout(timer);
-  }, [status, router]);
+  }, [status, router, code, returnTo, email]);
 
   const emailRedirectTo = useMemo(() => {
     const tiProdOrigin = "https://www.tournamentinsights.com";
@@ -193,6 +198,8 @@ export default function SignupPage() {
   }
 
   if (status === "ok") {
+    const nextPath = code ? `/join?code=${encodeURIComponent(code)}` : returnTo;
+    const verifyHref = `/verify-email?returnTo=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(email.trim())}`;
     return (
       <main style={{ maxWidth: 560, margin: "2.5rem auto", padding: "0 1rem", display: "grid", gap: 14, textAlign: "center" }}>
         <h1 style={{ margin: 0, fontSize: 42, lineHeight: 1.08 }}>Check your email to confirm</h1>
@@ -200,20 +207,20 @@ export default function SignupPage() {
           We sent a confirmation link to <strong>{email.trim()}</strong>.
         </p>
         <p style={{ margin: 0, color: "#475569", fontSize: 14 }}>
-          This page will redirect to home in 12 seconds.
+          This page will redirect to email verification in 12 seconds.
         </p>
         <div style={{ fontSize: 14 }}>
-          <Link href="/">Go to home now</Link>
+          <Link href={verifyHref}>Continue</Link>
         </div>
       </main>
     );
   }
 
   return (
-    <main style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem", display: "grid", gap: 14 }}>
+      <main style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem", display: "grid", gap: 14 }}>
       <h1 style={{ margin: 0 }}>Create your account</h1>
       <p style={{ margin: 0, color: "#475569" }}>
-        Sign up for Insider access. Weekend Pro access is coming soon.
+        Create a free account to save your preferences and manage your Weekend Pro access.
       </p>
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
         <input
