@@ -74,8 +74,19 @@ export default function UpgradeWeekendProButton(props: UpgradeWeekendProButtonPr
       });
 
       if (res.status === 401) {
-        const returnTo = encodeURIComponent(buildUpgradeLoginReturnTo());
-        window.location.href = `/login?returnTo=${returnTo}`;
+        // Guest checkout: let Stripe collect email/payment first, then prompt to create/login
+        // to claim the subscription in TI.
+        const guestRes = await fetch("/api/stripe/checkout-guest", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const guestText = await guestRes.text();
+        const guestJson = guestText ? (JSON.parse(guestText) as any) : null;
+        if (!guestRes.ok || !guestJson?.ok || !guestJson?.url) {
+          throw new Error(guestJson?.error || guestJson?.message || `checkout_failed_${guestRes.status}`);
+        }
+        window.location.href = String(guestJson.url);
         return;
       }
 
