@@ -19,6 +19,8 @@ export function getStripe() {
 }
 
 export function getStripeWebhookSecret() {
+  const isProd = process.env.NODE_ENV === "production";
+  const local = (process.env.STRIPE_WEBHOOK_SECRET_LOCAL || "").trim();
+  if (!isProd && local) return local;
   return requireEnv("STRIPE_WEBHOOK_SECRET");
 }
-
