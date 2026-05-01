@@ -12,6 +12,7 @@ import {
 } from "@/lib/owlsEyeScores";
 import { WEEKEND_PRO_FOUNDING_DISCLAIMER, WEEKEND_PRO_FOUNDING_PRICE_LINE } from "@/lib/weekendProPricing";
 import "../tournaments/tournaments.css";
+import PremiumAutoCheckout from "./PremiumAutoCheckout";
 
 export const metadata = {
   title: "Weekend Pro",
@@ -128,9 +129,14 @@ async function fetchLatestOwlsEyeRuns(
   return [];
 }
 
-export default async function PremiumPage() {
+export default async function PremiumPage({
+  searchParams,
+}: {
+  searchParams?: { autocheckout?: string; from?: string };
+}) {
   const supabase = createSupabaseServerClient();
   let demoVenue: DemoVenueRow | null = null;
+  const autoCheckout = (searchParams?.autocheckout ?? "").trim() === "1";
 
   const directVenue = await supabaseAdmin
     .from("venues" as any)
@@ -295,6 +301,7 @@ export default async function PremiumPage() {
       <div className="shell">
         <section className="hero" aria-labelledby="premium-title">
           <h1 id="premium-title">Weekend Pro</h1>
+          <PremiumAutoCheckout enabled={autoCheckout} />
           <p className="muted heroCopy" style={{ marginTop: 0 }}>
             Plan your tournament weekend without guesswork. Weekend Pro unlocks Owl&apos;s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and mobile-friendly directions around where games are played.
           </p>

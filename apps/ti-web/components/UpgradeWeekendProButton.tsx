@@ -21,6 +21,14 @@ function buildReturnTo() {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
+function buildUpgradeLoginReturnTo() {
+  const from = buildReturnTo();
+  const qp = new URLSearchParams();
+  qp.set("autocheckout", "1");
+  qp.set("from", from);
+  return `/premium?${qp.toString()}`;
+}
+
 export default function UpgradeWeekendProButton(props: UpgradeWeekendProButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +74,7 @@ export default function UpgradeWeekendProButton(props: UpgradeWeekendProButtonPr
       });
 
       if (res.status === 401) {
-        const returnTo = encodeURIComponent(buildReturnTo());
+        const returnTo = encodeURIComponent(buildUpgradeLoginReturnTo());
         window.location.href = `/login?returnTo=${returnTo}`;
         return;
       }
