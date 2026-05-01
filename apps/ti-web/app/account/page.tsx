@@ -6,6 +6,7 @@ import { extractProfileFromMetadata } from "@/lib/tiProfile";
 import { TI_SPORTS, TI_SPORT_LABELS } from "@/lib/tiSports";
 import { syncTiUserProfileFromAuthUser } from "@/lib/tiUserProfileServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getStripe } from "@/lib/stripe";
 import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SavedTournamentsSection, { type SavedTournamentItem } from "./SavedTournamentsSection";
 import QuickVenueCheckRewardClaim from "./QuickVenueCheckRewardClaim";
@@ -79,6 +80,11 @@ function prettyDate(value: string | null | undefined) {
   return d.toLocaleDateString();
 }
 
+function isoFromEpochSeconds(value: number | null | undefined) {
+  if (!value || typeof value !== "number") return null;
+  return new Date(value * 1000).toISOString();
+}
+
 function isEventCodeTrialUser(profile: TiUserRow | null | undefined) {
   if (!profile) return false;
   const signupSource = (profile.signup_source ?? "").trim().toLowerCase();
@@ -92,10 +98,87 @@ function buildAccountPath(kind: "notice" | "error", message: string) {
   return `/account?${params.toString()}`;
 }
 
+async function reconcileCheckoutSessionIfNeeded(params: {
+  userId: string;
+  sessionId: string;
+}) {
+  const stripe = getStripe();
+  const session = await stripe.checkout.sessions.retrieve(params.sessionId, {
+    expand: ["subscription", "subscription.latest_invoice.payment_intent"],
+  });
+
+  if (session.mode !== "subscription") {
+    throw new Error("Unsupported checkout session mode");
+  }
+
+  const clientRef = typeof session.client_reference_id === "string" ? session.client_reference_id.trim() : "";
+  if (!clientRef || clientRef !== params.userId) {
+    throw new Error("Checkout session does not match this account");
+  }
+
+  const customerId =
+    typeof session.customer === "string"
+      ? session.customer
+      : typeof (session.customer as any)?.id === "string"
+        ? String((session.customer as any).id)
+        : null;
+
+  const subscriptionId =
+    typeof session.subscription === "string"
+      ? session.subscription
+      : typeof (session.subscription as any)?.id === "string"
+        ? String((session.subscription as any).id)
+        : null;
+
+  if (!subscriptionId) {
+    throw new Error("Checkout session missing subscription");
+  }
+
+  const subscription =
+    typeof session.subscription === "object" && session.subscription
+      ? (session.subscription as any)
+      : await stripe.subscriptions.retrieve(subscriptionId, {
+          expand: ["latest_invoice.payment_intent"],
+        });
+
+  const lastInvoiceId =
+    typeof subscription.latest_invoice === "string"
+      ? subscription.latest_invoice
+      : typeof subscription.latest_invoice?.id === "string"
+        ? String(subscription.latest_invoice.id)
+        : null;
+
+  const paymentIntentId =
+    typeof subscription.latest_invoice?.payment_intent === "string"
+      ? String(subscription.latest_invoice.payment_intent)
+      : typeof subscription.latest_invoice?.payment_intent?.id === "string"
+        ? String(subscription.latest_invoice.payment_intent.id)
+        : null;
+
+  const update: Record<string, unknown> = {
+    stripe_customer_id: customerId,
+    stripe_subscription_id: subscription.id,
+    subscription_status: subscription.status,
+    current_period_start: isoFromEpochSeconds(subscription.current_period_start),
+    current_period_end: isoFromEpochSeconds(subscription.current_period_end),
+    cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
+    last_invoice_id: lastInvoiceId,
+    last_payment_intent_id: paymentIntentId,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (subscription.status === "active") {
+    update.plan = "weekend_pro";
+  }
+
+  const { error } = await (supabaseAdmin.from("ti_users" as any) as any).update(update).eq("id", params.userId);
+  if (error) throw error;
+}
+
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams?: { notice?: string; error?: string };
+  searchParams?: { notice?: string; error?: string; upgrade?: string; session_id?: string };
 }) {
   const supabase = createSupabaseServerClient();
   const {
@@ -103,6 +186,16 @@ export default async function AccountPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
   if (!user.email_confirmed_at) redirect("/verify-email");
+
+  if (searchParams?.upgrade === "success" && searchParams?.session_id) {
+    try {
+      await reconcileCheckoutSessionIfNeeded({ userId: user.id, sessionId: searchParams.session_id });
+      redirect(buildAccountPath("notice", "Upgrade successful — welcome to Weekend Pro."));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to confirm upgrade right now.";
+      redirect(buildAccountPath("error", message));
+    }
+  }
 
   const syncResult = await syncTiUserProfileFromAuthUser(user);
 
