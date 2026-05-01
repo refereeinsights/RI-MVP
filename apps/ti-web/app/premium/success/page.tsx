@@ -26,6 +26,8 @@ export default async function PremiumSuccessPage({
     redirect("/premium?notice=unsupported_session");
   }
 
+  const checkoutEmail = String((session.customer_details as any)?.email ?? (session as any)?.customer_email ?? "").trim();
+
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
@@ -44,22 +46,21 @@ export default async function PremiumSuccessPage({
         <section className="hero" aria-labelledby="upgrade-success-title">
           <h1 id="upgrade-success-title">Payment received</h1>
           <p className="muted heroCopy" style={{ marginTop: 0 }}>
-            Next, create a free TournamentInsights account (or log in) to unlock Weekend Pro on this device and manage billing.
+            Next, create your TournamentInsights account (or log in) to unlock Weekend Pro on this device and manage billing.
           </p>
           <div style={{ display: "grid", gap: 10, justifyItems: "center", marginTop: 16 }}>
             <Link className="primaryLink" href={`/signup?returnTo=${encodeURIComponent(claimPath)}`}>
-              Create free account
+              Create your account
             </Link>
             <Link className="secondaryLink" href={`/login?returnTo=${encodeURIComponent(claimPath)}`}>
               Log in to unlock
             </Link>
           </div>
           <p className="muted" style={{ marginTop: 16, fontSize: 13, maxWidth: 720, marginLeft: "auto", marginRight: "auto" }}>
-            Use the same email you used at checkout so we can attach this subscription to your account.
+            Use the same email you used at checkout{checkoutEmail ? ` (${checkoutEmail})` : ""} so we can attach this subscription to your account.
           </p>
         </section>
       </div>
     </main>
   );
 }
-

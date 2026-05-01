@@ -95,6 +95,9 @@ export default async function PremiumClaimPage({
           expand: ["latest_invoice.payment_intent"],
         });
 
+  const stripeZip =
+    String((session.customer_details as any)?.address?.postal_code ?? "").trim() || null;
+
   const lastInvoiceId =
     typeof subscription.latest_invoice === "string"
       ? subscription.latest_invoice
@@ -125,11 +128,24 @@ export default async function PremiumClaimPage({
     update.plan = "weekend_pro";
   }
 
-  const { error } = await (supabaseAdmin.from("ti_users" as any) as any).update(update).eq("id", user.id);
+  // If the user doesn't have a ZIP yet, use Stripe's billing ZIP (if present).
+  if (stripeZip) {
+    const { data: existingZipRow } = await (supabaseAdmin.from("ti_users" as any) as any)
+      .select("zip_code")
+      .eq("id", user.id)
+      .maybeSingle();
+    const existingZip = String((existingZipRow as any)?.zip_code ?? "").trim();
+    if (!existingZip) {
+      update.zip_code = stripeZip;
+    }
+  }
+
+  const { error } = await (supabaseAdmin.from("ti_users" as any) as any)
+    .update(update)
+    .eq("id", user.id);
   if (error) {
     redirect(`/account?error=${encodeURIComponent("Unable to attach subscription. Please try again or contact support.")}`);
   }
 
   redirect(`/account?notice=${encodeURIComponent("Weekend Pro unlocked — welcome!")}`);
 }
-

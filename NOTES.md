@@ -51,6 +51,7 @@
 - TI auth UX: on the signup “Check your email” screen, add “Email me a login link” to let users continue checkout on the same device even if they confirmed the email in another browser/device (magic link routed through `/auth/confirm?next=...`): `apps/ti-web/app/api/auth/send-login-link/route.ts`, `apps/ti-web/app/signup/page.tsx`.
 - TI auth: expand `/auth/confirm` to support both `token_hash&type=...` OTP links and `code=...` links (so magic login links don’t incorrectly show `auth_link_invalid`): `apps/ti-web/app/auth/confirm/route.ts`.
 - TI billing UX (guest checkout): allow logged-out users to start Weekend Pro Stripe checkout first (Stripe collects email), then create/login to claim the subscription on `/premium/success` → `/premium/claim` (email must match checkout email; renewals handled via existing subscription/customer webhooks once attached): `apps/ti-web/app/api/stripe/checkout-guest/route.ts`, `apps/ti-web/app/premium/success/page.tsx`, `apps/ti-web/app/premium/claim/page.tsx`, `apps/ti-web/components/UpgradeWeekendProButton.tsx`.
+- TI billing UX (guest checkout polish): update success CTA copy (“Create your account”) and pre-fill missing `ti_users.zip_code` from Stripe billing ZIP during claim when available: `apps/ti-web/app/premium/success/page.tsx`, `apps/ti-web/app/premium/claim/page.tsx`.
 
 ## 2026-04-28
 
