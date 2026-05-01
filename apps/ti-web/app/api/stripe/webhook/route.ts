@@ -282,18 +282,22 @@ export async function POST(request: Request) {
           return NextResponse.json({ ok: true });
         }
 
+        // Always retrieve the subscription so period timestamps are reliably present
+        // (some webhook deliveries omit fields we need, which can overwrite good values with null).
+        const fresh = await retrieveSubscriptionExpanded(stripe, subscriptionId);
+
         const lastInvoiceId =
-          typeof subscription.latest_invoice === "string"
-            ? subscription.latest_invoice
-            : typeof (subscription.latest_invoice as any)?.id === "string"
-              ? String((subscription.latest_invoice as any).id)
+          typeof fresh.latest_invoice === "string"
+            ? fresh.latest_invoice
+            : typeof (fresh.latest_invoice as any)?.id === "string"
+              ? String((fresh.latest_invoice as any).id)
               : null;
 
         let paymentIntentId =
-          typeof (subscription.latest_invoice as any)?.payment_intent === "string"
-            ? String((subscription.latest_invoice as any).payment_intent)
-            : typeof (subscription.latest_invoice as any)?.payment_intent?.id === "string"
-              ? String((subscription.latest_invoice as any).payment_intent.id)
+          typeof (fresh.latest_invoice as any)?.payment_intent === "string"
+            ? String((fresh.latest_invoice as any).payment_intent)
+            : typeof (fresh.latest_invoice as any)?.payment_intent?.id === "string"
+              ? String((fresh.latest_invoice as any).payment_intent.id)
               : null;
 
         if (!paymentIntentId && lastInvoiceId) {
@@ -310,18 +314,22 @@ export async function POST(request: Request) {
           }
         }
 
+        const currentPeriodStart = isoFromEpochSeconds(fresh.current_period_start);
+        const currentPeriodEnd = isoFromEpochSeconds(fresh.current_period_end);
+
         const update: Record<string, unknown> = {
           stripe_subscription_id: subscriptionId,
           stripe_customer_id: customerId,
-          subscription_status: subscription.status,
-          current_period_start: isoFromEpochSeconds(subscription.current_period_start),
-          current_period_end: isoFromEpochSeconds(subscription.current_period_end),
-          cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
+          subscription_status: fresh.status,
+          cancel_at_period_end: Boolean(fresh.cancel_at_period_end),
           last_invoice_id: lastInvoiceId,
           last_payment_intent_id: paymentIntentId,
         };
 
-        if (subscription.status === "active") {
+        if (currentPeriodStart) update.current_period_start = currentPeriodStart;
+        if (currentPeriodEnd) update.current_period_end = currentPeriodEnd;
+
+        if (fresh.status === "active") {
           update.plan = "weekend_pro";
         }
 
