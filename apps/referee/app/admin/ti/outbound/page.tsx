@@ -57,6 +57,10 @@ function buildHref(basePath: string, params: Record<string, string | null | unde
   return suffix ? `${basePath}?${suffix}` : basePath;
 }
 
+function startOfUtcDay(d: Date) {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+}
+
 export default async function OutboundTrackingPage({ searchParams }: PageProps) {
   await requireAdmin();
 
@@ -69,6 +73,36 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
 
   const stateFilter = (US_STATES as readonly string[]).includes(stateRaw) ? stateRaw : "";
   const sportFilter = (SPORT_OPTIONS as readonly string[]).includes(sportRaw) ? sportRaw : "";
+
+  const now = new Date();
+  const todayStartUtc = startOfUtcDay(now);
+  const yesterdayStartUtc = new Date(todayStartUtc.getTime() - 24 * 60 * 60 * 1000);
+  const todayIso = todayStartUtc.toISOString();
+  const yesterdayIso = yesterdayStartUtc.toISOString();
+
+  const [
+    weekendProActiveRes,
+    weekendProCheckoutsTotalRes,
+    weekendProCheckoutsYesterdayRes,
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("ti_users" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("plan", "weekend_pro")
+      .eq("subscription_status", "active"),
+    supabaseAdmin
+      .from("stripe_webhook_events" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("event_type", "checkout.session.completed")
+      .eq("status", "processed"),
+    supabaseAdmin
+      .from("stripe_webhook_events" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("event_type", "checkout.session.completed")
+      .eq("status", "processed")
+      .gte("created_at", yesterdayIso)
+      .lt("created_at", todayIso),
+  ]);
 
   const officialTotalClicksRes = await supabaseAdmin
     .from("ti_outbound_clicks" as any)
@@ -114,6 +148,11 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
 
   const officialTotalClicks = officialTotalClicksFinalRes.error ? 0 : officialTotalClicksFinalRes.count ?? 0;
   const hotelTotalClicks = hotelTotalClicksRes.error ? 0 : hotelTotalClicksRes.count ?? 0;
+  const weekendProActive = weekendProActiveRes.error ? 0 : weekendProActiveRes.count ?? 0;
+  const weekendProCheckoutsTotal = weekendProCheckoutsTotalRes.error ? 0 : weekendProCheckoutsTotalRes.count ?? 0;
+  const weekendProCheckoutsYesterday = weekendProCheckoutsYesterdayRes.error
+    ? 0
+    : weekendProCheckoutsYesterdayRes.count ?? 0;
   const rpcSchemaHint =
     "Hint: apply `supabase/migrations/20260412_ti_outbound_clicks_admin_rpcs.sql` and reload the PostgREST schema cache.";
   const hotelsRpcSchemaHint =
@@ -155,6 +194,46 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
           marginBottom: 14,
         }}
       >
+        <div
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: 14,
+            padding: 14,
+            background: "#fff",
+          }}
+        >
+          <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800, color: "#6b7280" }}>
+            Active Weekend Pro users
+          </div>
+          <div style={{ fontSize: 34, fontWeight: 950, lineHeight: 1.1 }}>{weekendProActive}</div>
+          {weekendProActiveRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load active users: {weekendProActiveRes.error.message}
+            </div>
+          ) : null}
+        </div>
+        <div
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: 14,
+            padding: 14,
+            background: "#fff",
+          }}
+        >
+          <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800, color: "#6b7280" }}>
+            Weekend Pro checkouts (total)
+          </div>
+          <div style={{ fontSize: 34, fontWeight: 950, lineHeight: 1.1 }}>{weekendProCheckoutsTotal}</div>
+          <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
+            +{weekendProCheckoutsYesterday} yesterday
+          </div>
+          {weekendProCheckoutsTotalRes.error || weekendProCheckoutsYesterdayRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load checkout counts:{" "}
+              {weekendProCheckoutsTotalRes.error?.message ?? weekendProCheckoutsYesterdayRes.error?.message ?? "unknown"}
+            </div>
+          ) : null}
+        </div>
         <div
           style={{
             border: "1px solid #e5e7eb",

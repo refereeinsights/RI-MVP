@@ -144,6 +144,35 @@ function renderUsersTile(params: {
   </div>`;
 }
 
+function startOfUtcDay(d: Date) {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+}
+
+async function loadWeekendProCheckoutCounts(params: { todayStartUtcIso: string; yesterdayStartUtcIso: string }) {
+  const totalRes = await supabaseAdmin
+    .from("stripe_webhook_events" as any)
+    .select("id", { count: "exact", head: true })
+    .eq("event_type", "checkout.session.completed")
+    .eq("status", "processed");
+
+  const yesterdayRes = await supabaseAdmin
+    .from("stripe_webhook_events" as any)
+    .select("id", { count: "exact", head: true })
+    .eq("event_type", "checkout.session.completed")
+    .eq("status", "processed")
+    .gte("created_at", params.yesterdayStartUtcIso)
+    .lt("created_at", params.todayStartUtcIso);
+
+  return {
+    total: totalRes.error ? 0 : totalRes.count ?? 0,
+    yesterday: yesterdayRes.error ? 0 : yesterdayRes.count ?? 0,
+    errors: {
+      total: totalRes.error ? totalRes.error.message : null,
+      yesterday: yesterdayRes.error ? yesterdayRes.error.message : null,
+    },
+  };
+}
+
 function buildEmailHtml(params: {
   generatedAtIso: string;
   totalsBySport: Array<ReturnType<typeof loadOutreachTotals> extends Promise<infer T> ? T : never>;
@@ -155,6 +184,7 @@ function buildEmailHtml(params: {
   includeTiles: boolean;
   includeSportTiles: boolean;
   tiles?: Awaited<ReturnType<typeof loadAdminDashboardEmailTiles>> | null;
+  weekendProCheckouts?: { total: number; yesterday: number } | null;
 }) {
   const {
     generatedAtIso,
@@ -167,6 +197,7 @@ function buildEmailHtml(params: {
     includeTiles,
     includeSportTiles,
     tiles,
+    weekendProCheckouts,
   } = params;
   const dashboardUrl = `${baseUrl}/admin/outreach-dashboard`;
 
@@ -183,6 +214,8 @@ function buildEmailHtml(params: {
   const tiInsiderNew = Number(tiles?.ti_users?.insider_new_yesterday ?? 0) || 0;
   const tiWeekendTotal = Number(tiles?.ti_users?.weekend_pro_total ?? 0) || 0;
   const tiWeekendNew = Number(tiles?.ti_users?.weekend_pro_new_yesterday ?? 0) || 0;
+  const weekendProCheckoutsTotal = Number(weekendProCheckouts?.total ?? 0) || 0;
+  const weekendProCheckoutsYesterday = Number(weekendProCheckouts?.yesterday ?? 0) || 0;
 
   const bySport: PublicDirectoryBySportRow[] = (Array.isArray((tiles as any)?.public_directory?.by_sport)
     ? ((tiles as any)?.public_directory?.by_sport ?? [])
@@ -261,6 +294,7 @@ function buildEmailHtml(params: {
           ${renderTile("Missing venues", formatInt(missingVenuesTotal), formatDelta(missingVenuesNew), "warn")}
           ${renderTile("Owl's Eye venues reviewed", formatInt(owlsEyeTotal), formatDelta(owlsEyeNew), "success")}
           ${renderTile("Venue Check submissions", formatInt(venueCheckTotal), formatDelta(venueCheckNew), "success")}
+          ${renderTile("Weekend Pro checkouts", formatInt(weekendProCheckoutsTotal), formatDelta(weekendProCheckoutsYesterday), "success")}
           ${renderUsersTile({ insiderTotal: tiInsiderTotal, insiderNew: tiInsiderNew, weekendTotal: tiWeekendTotal, weekendNew: tiWeekendNew })}
         </div>
         ${sportTilesHtml}
@@ -440,8 +474,15 @@ export async function GET(req: Request) {
     const includeRiSummary = settings?.include_ri_summary ?? true;
     const includeLowestStates = settings?.include_lowest_states ?? true;
 
-    const [tiles, totalsBySport, riSummary, lowestStates] = await Promise.all([
+    const now = new Date();
+    const todayStartUtc = startOfUtcDay(now);
+    const yesterdayStartUtc = new Date(todayStartUtc.getTime() - 24 * 60 * 60 * 1000);
+    const todayIso = todayStartUtc.toISOString();
+    const yesterdayIso = yesterdayStartUtc.toISOString();
+
+    const [tiles, weekendProCheckouts, totalsBySport, riSummary, lowestStates] = await Promise.all([
       includeTiles ? loadAdminDashboardEmailTiles() : Promise.resolve(null),
+      includeTiles ? loadWeekendProCheckoutCounts({ todayStartUtcIso: todayIso, yesterdayStartUtcIso: yesterdayIso }) : Promise.resolve(null),
       includeOutreach ? Promise.all(TI_SPORTS.map((sport) => loadOutreachTotals(sport))) : Promise.resolve([]),
       includeRiSummary ? loadRiSummaryCounts() : Promise.resolve(null),
       includeLowestStates ? loadLowestStates(5) : Promise.resolve(null),
@@ -458,6 +499,7 @@ export async function GET(req: Request) {
       includeTiles,
       includeSportTiles,
       tiles,
+      weekendProCheckouts: weekendProCheckouts ? { total: weekendProCheckouts.total, yesterday: weekendProCheckouts.yesterday } : null,
     });
     const subject = `TI Admin Dashboard — ${generatedAtIso.slice(0, 10)}`;
 
@@ -476,6 +518,7 @@ export async function GET(req: Request) {
       },
       totalsBySportCount: totalsBySport.length,
       tiles: tiles ?? null,
+      weekendProCheckouts: weekendProCheckouts ?? null,
       riSummary: riSummary ?? null,
       lowestStates: lowestStates ?? null,
     };
