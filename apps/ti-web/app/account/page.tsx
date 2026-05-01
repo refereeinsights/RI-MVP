@@ -9,6 +9,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SavedTournamentsSection, { type SavedTournamentItem } from "./SavedTournamentsSection";
 import QuickVenueCheckRewardClaim from "./QuickVenueCheckRewardClaim";
+import ManageBillingButton from "./ManageBillingButton";
 import styles from "./AccountPage.module.css";
 
 type TiUserRow = {
@@ -18,6 +19,7 @@ type TiUserRow = {
   subscription_status: string | null;
   current_period_end: string | null;
   trial_ends_at: string | null;
+  stripe_customer_id?: string | null;
   first_seen_at: string | null;
   display_name: string | null;
   username: string | null;
@@ -107,7 +109,7 @@ export default async function AccountPage({
   const { data: profile } = await supabase
     .from("ti_users" as any)
     .select(
-      "id,created_at,plan,subscription_status,current_period_end,trial_ends_at,first_seen_at,display_name,username,reviewer_handle,zip_code,sports_interests,signup_source,qvc_pending_quick_check_id,qvc_pending_browser_hash"
+      "id,created_at,plan,subscription_status,current_period_end,trial_ends_at,stripe_customer_id,first_seen_at,display_name,username,reviewer_handle,zip_code,sports_interests,signup_source,qvc_pending_quick_check_id,qvc_pending_browser_hash"
     )
     .eq("id", user.id)
     .maybeSingle<TiUserRow>();
@@ -220,6 +222,22 @@ export default async function AccountPage({
       {searchParams?.error ? (
         <p className={styles.errorBanner}>{searchParams.error}</p>
       ) : null}
+
+      <section className={styles.sectionCard}>
+        <h2 className={styles.sectionTitle}>Billing</h2>
+        <p className={styles.mutedText}>
+          Manage your subscription, cancel, or update payment details securely through Stripe.
+        </p>
+        {profile?.stripe_customer_id ? (
+          <div className={styles.formActions}>
+            <ManageBillingButton />
+          </div>
+        ) : (
+          <p className={styles.mutedText}>
+            Billing portal will appear here after your first successful checkout.
+          </p>
+        )}
+      </section>
 
       <section className={styles.sectionCard}>
         <div>

@@ -251,6 +251,11 @@
   color: #334155;
 }
 
+.inlineError {
+  font-size: 0.85rem;
+  color: #b91c1c;
+}
+
 .mutedText {
   margin: 0;
   color: #475569;
