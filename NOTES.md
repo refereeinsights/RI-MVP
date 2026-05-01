@@ -49,6 +49,7 @@
 - TI tournament page polish: remove the softball-specific hero badge overlay so the “diamond” icon doesn’t appear behind CTAs on softball tournament detail pages: `apps/ti-web/app/tournaments/tournaments.css`.
 - TI upgrade UX: when a logged-out user clicks “Upgrade to Weekend Pro”, route them through `/premium?autocheckout=1` after login/signup so checkout opens automatically once they’re authenticated (reduces post-login “click upgrade again” friction): `apps/ti-web/components/UpgradeWeekendProButton.tsx`, `apps/ti-web/app/premium/PremiumAutoCheckout.tsx`, `apps/ti-web/app/premium/page.tsx`.
 - TI auth UX: on the signup “Check your email” screen, add “Email me a login link” to let users continue checkout on the same device even if they confirmed the email in another browser/device (magic link routed through `/auth/confirm?next=...`): `apps/ti-web/app/api/auth/send-login-link/route.ts`, `apps/ti-web/app/signup/page.tsx`.
+- TI auth: expand `/auth/confirm` to support both `token_hash&type=...` OTP links and `code=...` links (so magic login links don’t incorrectly show `auth_link_invalid`): `apps/ti-web/app/auth/confirm/route.ts`.
 
 ## 2026-04-28
 

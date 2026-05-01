@@ -36,15 +36,13 @@ function cookieDomainForHost(hostname: string) {
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
+  const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const typeParam = url.searchParams.get("type");
   const nextParam = url.searchParams.get("next");
 
-  if (!tokenHash || !isOtpType(typeParam)) {
-    return NextResponse.redirect(new URL("/auth/error?notice=auth_link_invalid", req.url), 303);
-  }
-
-  const defaultNext = typeParam === "recovery" ? "/account/reset-password" : "/account";
+  const defaultNext =
+    typeParam === "recovery" ? "/account/reset-password" : "/account";
   const nextPath = sanitizeNext(nextParam, defaultNext);
 
   const successRedirect = NextResponse.redirect(new URL(nextPath, req.url), 303);
@@ -73,18 +71,35 @@ export async function GET(req: NextRequest) {
     }
   );
 
-  const { error } = await supabase.auth.verifyOtp({
-    type: typeParam,
-    token_hash: tokenHash,
-  });
+  // Support both Supabase OTP links (token_hash+type) and code-based flows (code=...).
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      const failureNotice =
+        error.name === "AuthApiError" ? "auth_link_expired" : "auth_link_invalid";
+      return NextResponse.redirect(
+        new URL(`/auth/error?notice=${encodeURIComponent(failureNotice)}`, req.url),
+        303
+      );
+    }
+  } else {
+    if (!tokenHash || !isOtpType(typeParam)) {
+      return NextResponse.redirect(new URL("/auth/error?notice=auth_link_invalid", req.url), 303);
+    }
 
-  if (error) {
-    const failureNotice =
-      error.name === "AuthApiError" ? "auth_link_expired" : "auth_link_invalid";
-    return NextResponse.redirect(
-      new URL(`/auth/error?notice=${encodeURIComponent(failureNotice)}`, req.url),
-      303
-    );
+    const { error } = await supabase.auth.verifyOtp({
+      type: typeParam,
+      token_hash: tokenHash,
+    });
+
+    if (error) {
+      const failureNotice =
+        error.name === "AuthApiError" ? "auth_link_expired" : "auth_link_invalid";
+      return NextResponse.redirect(
+        new URL(`/auth/error?notice=${encodeURIComponent(failureNotice)}`, req.url),
+        303
+      );
+    }
   }
 
   try {
