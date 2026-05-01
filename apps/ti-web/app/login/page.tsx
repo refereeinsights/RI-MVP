@@ -113,9 +113,6 @@ export default function LoginPage() {
         >
           Create free account
         </Link>
-        <div style={{ fontSize: 13, textAlign: "center" }}>
-          Need an account? <Link href={signupHref}>Sign up</Link>
-        </div>
       </div>
     </main>
   );

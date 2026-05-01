@@ -42,6 +42,7 @@
 
 - TI Weekend Pro conversion (paid): replace “free unlock / request access” messaging with paid Weekend Pro value copy and wire upgrade CTAs through a shared `UpgradeWeekendProButton` (posts to `/api/stripe/checkout`, redirects to Stripe, logs `premium_cta_clicked`); update `/premium` to a paid Weekend Pro landing page (with founding price + first-year-only disclaimer) and add a subtle Weekend Planner upsell without gating searches: `apps/ti-web/components/UpgradeWeekendProButton.tsx`, `apps/ti-web/lib/weekendProPricing.ts`, `apps/ti-web/app/api/analytics/route.ts`, `apps/ti-web/app/premium/page.tsx`, `apps/ti-web/app/page.tsx`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`, `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`, `apps/ti-web/app/account/page.tsx`, `apps/ti-web/components/venues/QuickVenueCheck.tsx`.
 - TI auth UX: make the login page show a prominent “Create free account” button (preserving `returnTo`) so signup isn’t buried in text: `apps/ti-web/app/login/page.tsx`.
+- TI auth UX: remove the redundant “Need an account? Sign up” line now that the login page has a clear “Create free account” button: `apps/ti-web/app/login/page.tsx`.
 
 ## 2026-04-28
 
