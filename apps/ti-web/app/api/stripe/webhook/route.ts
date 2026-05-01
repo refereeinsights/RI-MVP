@@ -114,8 +114,35 @@ async function lookupTiUserBySubscriptionOrCustomer(params: { subscriptionId?: s
 }
 
 async function updateTiUser(userId: string, payload: Record<string, unknown>) {
-  const base: Record<string, unknown> = { id: userId, updated_at: new Date().toISOString(), ...payload };
-  const { error } = await (supabaseAdmin.from("ti_users" as any) as any).upsert(base, { onConflict: "id" });
+  const nowIso = new Date().toISOString();
+
+  const { data: existing } = await (supabaseAdmin.from("ti_users" as any) as any)
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!existing?.id) {
+    // Some flows may not have created a ti_users row yet. Insert a minimal safe row so
+    // Stripe webhooks can attach subscription references without violating NOT NULL cols.
+    const { error: insertError } = await (supabaseAdmin.from("ti_users" as any) as any).insert({
+      id: userId,
+      email: (payload.email as string | null | undefined) ?? null,
+      status: "active",
+      signup_source: "website",
+      plan: "insider",
+      subscription_status: "none",
+      cancel_at_period_end: false,
+      sports_interests: [],
+      marketing_opt_in: false,
+      first_seen_at: nowIso,
+      last_seen_at: nowIso,
+      updated_at: nowIso,
+    });
+    if (insertError) throw insertError;
+  }
+
+  const base: Record<string, unknown> = { updated_at: nowIso, ...payload };
+  const { error } = await (supabaseAdmin.from("ti_users" as any) as any).update(base).eq("id", userId);
   if (error) throw error;
 }
 
