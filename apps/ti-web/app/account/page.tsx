@@ -73,6 +73,10 @@ function prettySubscription(status: string | null | undefined, tier: "explorer" 
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+function normalizeSubscriptionStatus(status: string | null | undefined) {
+  return (status ?? "").trim().toLowerCase();
+}
+
 function prettyDate(value: string | null | undefined) {
   if (!value) return "—";
   const d = new Date(value);
@@ -226,6 +230,8 @@ export default async function AccountPage({
   const tier = getTier(user, profile ?? null);
   const effectivePlan = profile ? prettyPlan(profile.plan) : "Insider";
   const showQvcUpgradePrompt = tier !== "weekend_pro" || isEventCodeTrialUser(profile ?? null);
+  const subscriptionStatus = normalizeSubscriptionStatus(profile?.subscription_status);
+  const showTrialEnds = subscriptionStatus === "trialing" && Boolean(profile?.trial_ends_at);
 
   const accountEmail = (user.email ?? "").trim().toLowerCase();
   const { data: emailSuppression } = accountEmail
@@ -303,8 +309,8 @@ export default async function AccountPage({
           <div><strong>Subscription:</strong> {prettySubscription(profile?.subscription_status, tier)}</div>
           <div><strong>Member since:</strong> {prettyDate(profile?.first_seen_at ?? profile?.created_at ?? user.created_at)}</div>
           <div>
-            <strong>{profile?.trial_ends_at ? "Trial ends:" : "Renewal date:"}</strong>{" "}
-            {prettyDate(profile?.trial_ends_at ?? profile?.current_period_end)}
+            <strong>{showTrialEnds ? "Trial ends:" : "Renews on:"}</strong>{" "}
+            {prettyDate(showTrialEnds ? profile?.trial_ends_at : profile?.current_period_end)}
           </div>
         </div>
       </header>
