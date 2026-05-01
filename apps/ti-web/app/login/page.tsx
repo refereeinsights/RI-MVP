@@ -16,6 +16,7 @@ export default function LoginPage() {
   const notice = (searchParams?.get("notice") ?? "").trim();
   const returnTo = sanitizeReturnTo(searchParams?.get("returnTo") ?? null, "/account");
   const nextPath = code ? `/join?code=${encodeURIComponent(code)}` : returnTo;
+  const signupHref = code ? `/signup?code=${encodeURIComponent(code)}` : `/signup?returnTo=${encodeURIComponent(returnTo)}`;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -95,13 +96,26 @@ export default function LoginPage() {
       </form>
       {message ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{message}</div> : null}
       {notice ? <div style={{ fontSize: 12, color: "#64748b" }}>Notice: {notice}</div> : null}
-      <div style={{ fontSize: 13 }}>
-        Need an account?{" "}
+      <div style={{ display: "grid", gap: 10 }}>
+        <div style={{ fontSize: 13, color: "#64748b", textAlign: "center" }}>or</div>
         <Link
-          href={code ? `/signup?code=${encodeURIComponent(code)}` : `/signup?returnTo=${encodeURIComponent(returnTo)}`}
+          href={signupHref}
+          style={{
+            padding: "10px 12px",
+            borderRadius: 8,
+            border: "1px solid #16a34a",
+            background: "#ecfdf5",
+            color: "#065f46",
+            fontWeight: 800,
+            textAlign: "center",
+            textDecoration: "none",
+          }}
         >
-          Sign up
+          Create free account
         </Link>
+        <div style={{ fontSize: 13, textAlign: "center" }}>
+          Need an account? <Link href={signupHref}>Sign up</Link>
+        </div>
       </div>
     </main>
   );
