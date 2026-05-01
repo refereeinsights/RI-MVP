@@ -47,6 +47,7 @@
 - TI signup UX: keep users on the “Check your email” screen (no confusing auto-redirect while they’re still logged out) and make “Resend verification email” easy; also ensure the `/auth/confirm` handler syncs `ti_users` profile fields from Supabase auth metadata so name/username/zip/sports persist immediately after confirmation: `apps/ti-web/app/signup/page.tsx`, `apps/ti-web/app/auth/confirm/route.ts`.
 - TI tournament page polish: remove the baseball-specific tournament detail hero background image so the header matches the simpler sport surfaces (avoids the small diamond overlay appearing behind CTAs): `apps/ti-web/app/tournaments/tournaments.css`.
 - TI upgrade UX: when a logged-out user clicks “Upgrade to Weekend Pro”, route them through `/premium?autocheckout=1` after login/signup so checkout opens automatically once they’re authenticated (reduces post-login “click upgrade again” friction): `apps/ti-web/components/UpgradeWeekendProButton.tsx`, `apps/ti-web/app/premium/PremiumAutoCheckout.tsx`, `apps/ti-web/app/premium/page.tsx`.
+- TI auth UX: on the signup “Check your email” screen, add “Email me a login link” to let users continue checkout on the same device even if they confirmed the email in another browser/device (magic link routed through `/auth/confirm?next=...`): `apps/ti-web/app/api/auth/send-login-link/route.ts`, `apps/ti-web/app/signup/page.tsx`.
 
 ## 2026-04-28
 

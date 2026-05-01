@@ -19,6 +19,8 @@ export default function SignupPage() {
   const [agreed, setAgreed] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "ok" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [loginLinkStatus, setLoginLinkStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [loginLinkMessage, setLoginLinkMessage] = useState("");
   const code = (searchParams?.get("code") ?? "").trim();
   const returnTo = sanitizeReturnTo(searchParams?.get("returnTo") ?? null, "/account");
   const promo = (searchParams?.get("promo") ?? "").trim();
@@ -190,6 +192,25 @@ export default function SignupPage() {
   if (status === "ok") {
     const nextPath = code ? `/join?code=${encodeURIComponent(code)}` : returnTo;
     const verifyHref = `/verify-email?returnTo=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(email.trim())}`;
+
+    async function sendLoginLink() {
+      setLoginLinkStatus("sending");
+      setLoginLinkMessage("");
+      try {
+        const resp = await fetch("/api/auth/send-login-link", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email: email.trim(), returnTo: nextPath }),
+        });
+        if (!resp.ok) throw new Error("Unable to send a login link right now.");
+        setLoginLinkStatus("sent");
+        setLoginLinkMessage("Login link sent. Open it on this device to continue.");
+      } catch (err: any) {
+        setLoginLinkStatus("error");
+        setLoginLinkMessage(err?.message || "Unable to send a login link right now.");
+      }
+    }
+
     return (
       <main style={{ maxWidth: 560, margin: "2.5rem auto", padding: "0 1rem", display: "grid", gap: 14, textAlign: "center" }}>
         <h1 style={{ margin: 0, fontSize: 42, lineHeight: 1.08 }}>Check your email to confirm</h1>
@@ -197,10 +218,33 @@ export default function SignupPage() {
           We sent a confirmation link to <strong>{email.trim()}</strong>.
         </p>
         <p style={{ margin: 0, color: "#475569", fontSize: 14 }}>
-          After you confirm your email, you’ll be sent back to where you left off.
+          After you confirm your email, you’ll be sent back to where you left off. If you confirmed on another device, send a login link to continue on this device.
         </p>
-        <div style={{ fontSize: 14 }}>
-          <Link href={verifyHref}>Resend verification email</Link>
+        <div style={{ display: "grid", gap: 10, justifyItems: "center" }}>
+          <button
+            type="button"
+            onClick={sendLoginLink}
+            disabled={loginLinkStatus === "sending" || !email.trim()}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #0f172a",
+              background: "#0f172a",
+              color: "#fff",
+              fontWeight: 800,
+              minWidth: 260,
+            }}
+          >
+            {loginLinkStatus === "sending" ? "Sending login link…" : "Email me a login link"}
+          </button>
+          <div style={{ fontSize: 14 }}>
+            <Link href={verifyHref}>Resend verification email</Link>
+          </div>
+          {loginLinkMessage ? (
+            <div style={{ fontSize: 13, color: loginLinkStatus === "sent" ? "#065f46" : "#b91c1c", fontWeight: 700 }}>
+              {loginLinkMessage}
+            </div>
+          ) : null}
         </div>
       </main>
     );
