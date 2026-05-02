@@ -4,10 +4,36 @@ type GeocodeResult = {
   lat: number;
   lng: number;
   formatted_address?: string;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
 };
 
 function isLikelyUsStateCode(state: string | null | undefined) {
   return /^[A-Z]{2}$/.test(String(state ?? "").trim().toUpperCase());
+}
+
+function parseAddressComponentsFromFeature(feature: unknown): { city: string | null; state: string | null; zip: string | null } {
+  const ctx = Array.isArray((feature as any)?.context) ? (feature as any).context : [];
+  let city: string | null = null;
+  let state: string | null = null;
+  let zip: string | null = null;
+
+  for (const c of ctx) {
+    const id = String(c?.id ?? "");
+    if (!city && (id.startsWith("place.") || id.startsWith("locality."))) {
+      city = String(c.text ?? "").trim() || null;
+    }
+    if (!state && id.startsWith("region.")) {
+      const sc = String(c.short_code ?? "").toUpperCase().split("-").pop()?.trim() || null;
+      state = sc || String(c.text ?? "").trim() || null;
+    }
+    if (!zip && id.startsWith("postcode.")) {
+      zip = String(c.text ?? "").trim() || null;
+    }
+  }
+
+  return { city, state, zip };
 }
 
 function parseInferredStateFromFeature(feature: unknown) {
@@ -85,9 +111,14 @@ export async function geocodeAddressMapbox(
     }
   }
 
+  const { city, state, zip } = parseAddressComponentsFromFeature(feature);
+
   return {
     lat,
     lng,
     formatted_address: String((feature as any).place_name ?? "").trim() || undefined,
+    city,
+    state,
+    zip,
   };
 }

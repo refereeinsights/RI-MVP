@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { geocodeAddressMapbox } from "@/lib/mapbox/geocodeAddress";
 import { timezoneFromCoordinates } from "@/lib/google/timezoneFromCoordinates";
+import { trackExternalCall, EXTERNAL_API, EXTERNAL_API_SURFACE } from "@/lib/trackExternalCall";
 
 type VenueRow = {
   id: string;
@@ -136,13 +137,17 @@ function parseAddressBlob(rawAddress: string) {
   return null;
 }
 
-function buildFullAddress(parts: {
+// When no street address is available, fall back to venue name as a POI query.
+function buildGeocodeQuery(parts: {
+  name?: string | null;
   street?: string | null;
   city?: string | null;
   state?: string | null;
   zip?: string | null;
 }) {
-  return [parts.street, parts.city, parts.state, parts.zip].filter(Boolean).join(", ");
+  const base = parts.street || parts.name;
+  if (!base) return null;
+  return [base, parts.city, parts.state, parts.zip].filter(Boolean).join(", ");
 }
 
 async function ensureAdminRequest() {
@@ -169,19 +174,25 @@ async function lookupPlaceByVenueName(input: {
   const textQuery = [input.name, input.city, input.state].filter(Boolean).join(", ");
   if (!textQuery.trim()) return null;
 
-  const resp = await fetch("https://places.googleapis.com/v1/places:searchText", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": input.apiKey,
-      "X-Goog-FieldMask":
-        "places.displayName,places.websiteUri,places.formattedAddress,places.location,places.addressComponents",
-    },
-    body: JSON.stringify({
-      textQuery,
-      maxResultCount: 1,
-    }),
-  });
+  const resp = await trackExternalCall(
+    EXTERNAL_API.google_places,
+    "search_text",
+    EXTERNAL_API_SURFACE.venue_places_lookup,
+    () =>
+      fetch("https://places.googleapis.com/v1/places:searchText", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": input.apiKey,
+          "X-Goog-FieldMask":
+            "places.displayName,places.websiteUri,places.formattedAddress,places.location,places.addressComponents",
+        },
+        body: JSON.stringify({
+          textQuery,
+          maxResultCount: 1,
+        }),
+      })
+  );
 
   if (!resp.ok) return null;
   const json = (await resp.json()) as {
@@ -314,12 +325,19 @@ export async function POST(request: Request) {
     const nextCity = normalizeText(updates.city) || normalizeText(venue.city);
     const nextState = normalizeText(updates.state) || normalizeText(venue.state);
     const nextZip = normalizeText(updates.zip) || normalizeText(venue.zip);
-    const fullAddress = buildFullAddress({ street: nextStreet, city: nextCity, state: nextState, zip: nextZip });
+    // Fall back to venue name as a POI query when no street address is available.
+    const geocodeQuery = buildGeocodeQuery({
+      name: normalizeText(venue.name) || null,
+      street: nextStreet || null,
+      city: nextCity || null,
+      state: nextState || null,
+      zip: nextZip || null,
+    });
 
     let lat = typeof venue.latitude === "number" ? venue.latitude : null;
     let lng = typeof venue.longitude === "number" ? venue.longitude : null;
-    if ((lat == null || lng == null) && mapboxToken && fullAddress) {
-      const geo = await geocodeAddressMapbox(fullAddress, mapboxToken, {
+    if ((lat == null || lng == null) && mapboxToken && geocodeQuery) {
+      const geo = await geocodeAddressMapbox(geocodeQuery, mapboxToken, {
         expectedState: nextState || null,
       });
       if (geo) {
@@ -337,6 +355,19 @@ export async function POST(request: Request) {
           updates.normalized_address = geo.formatted_address;
           changedFields.push("normalized_address");
         }
+        // Backfill city/state/zip from Mapbox response — no extra API call needed.
+        if (!normalizeText(venue.city) && !updates.city && geo.city) {
+          updates.city = geo.city;
+          changedFields.push("city");
+        }
+        if (!normalizeText(venue.state) && !updates.state && geo.state) {
+          updates.state = geo.state;
+          changedFields.push("state");
+        }
+        if (!normalizeText(venue.zip) && !updates.zip && geo.zip) {
+          updates.zip = geo.zip;
+          changedFields.push("zip");
+        }
         updates.geocode_source = "mapbox";
         if (!changedFields.includes("geocode_source")) changedFields.push("geocode_source");
         geocodedCount += 1;
@@ -352,41 +383,19 @@ export async function POST(request: Request) {
       }
     }
 
+    // Google Places: only called when a venue website URL is still missing.
+    // Address/coord backfill is now handled by Mapbox above.
     if (!normalizeText(venue.venue_url) && geocodeKey && normalizeText(venue.name)) {
       const place = await lookupPlaceByVenueName({
         name: normalizeText(venue.name),
-        city: nextCity || null,
-        state: nextState || null,
+        city: (normalizeText(updates.city) || nextCity) || null,
+        state: (normalizeText(updates.state) || nextState) || null,
         apiKey: geocodeKey,
       });
-      if (place) {
-        if (place.venue_url) {
-          updates.venue_url = place.venue_url;
-          websiteCount += 1;
-          changedFields.push("venue_url");
-        }
-        if (!normalizeText(venue.city) && place.city && !updates.city) {
-          updates.city = place.city;
-          changedFields.push("city");
-        }
-        if (!normalizeText(venue.state) && place.state && !updates.state) {
-          updates.state = place.state;
-          changedFields.push("state");
-        }
-        if (!normalizeText(venue.zip) && place.zip && !updates.zip) {
-          updates.zip = place.zip;
-          changedFields.push("zip");
-        }
-        if ((lat == null || lng == null) && place.latitude != null && place.longitude != null) {
-          if (lat == null && !updates.latitude) {
-            updates.latitude = place.latitude;
-            changedFields.push("latitude");
-          }
-          if (lng == null && !updates.longitude) {
-            updates.longitude = place.longitude;
-            changedFields.push("longitude");
-          }
-        }
+      if (place?.venue_url) {
+        updates.venue_url = place.venue_url;
+        websiteCount += 1;
+        changedFields.push("venue_url");
       }
     }
 

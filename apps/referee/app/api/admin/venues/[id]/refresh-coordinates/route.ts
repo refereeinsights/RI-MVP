@@ -19,8 +19,11 @@ function cleanString(val: any) {
   return typeof val === "string" ? val.trim() || null : null;
 }
 
-function buildAddress(parts: { address1?: string | null; city?: string | null; state?: string | null; zip?: string | null }) {
-  const bits = [parts.address1, parts.city, parts.state, parts.zip].map((v) => cleanString(v)).filter(Boolean);
+// Falls back to venue name as a POI query when no street address is present.
+function buildGeocodeQuery(parts: { name?: string | null; address1?: string | null; city?: string | null; state?: string | null; zip?: string | null }) {
+  const base = cleanString(parts.address1) ?? cleanString(parts.name);
+  if (!base) return null;
+  const bits = [base, parts.city, parts.state, parts.zip].map((v) => cleanString(v)).filter(Boolean);
   return bits.length ? bits.join(", ") : null;
 }
 
@@ -45,34 +48,39 @@ export async function POST(request: Request, { params }: { params: { id: string 
   let state = cleanString(body?.state ?? null);
   let zip = cleanString(body?.zip ?? null);
 
+  let venueName: string | null = null;
   if (!address1 || !city || !state) {
     const { data: venue, error } = await supabaseAdmin
       .from("venues" as any)
-      .select("id,address1,address,city,state,zip")
+      .select("id,name,address1,address,city,state,zip")
       .eq("id", params.id)
       .maybeSingle();
     if (error || !venue) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
+    venueName = cleanString((venue as any).name ?? null);
     address1 = address1 ?? cleanString((venue as any).address1 ?? (venue as any).address ?? null);
     city = city ?? cleanString((venue as any).city ?? null);
     state = state ?? cleanString((venue as any).state ?? null);
     zip = zip ?? cleanString((venue as any).zip ?? null);
   }
 
-  const fullAddress = buildAddress({ address1, city, state, zip });
-  if (!fullAddress) return NextResponse.json({ error: "missing_address" }, { status: 400 });
+  const geocodeQuery = buildGeocodeQuery({ name: venueName, address1, city, state, zip });
+  if (!geocodeQuery) return NextResponse.json({ error: "missing_address" }, { status: 400 });
 
-  const geo = await geocodeAddressMapbox(fullAddress, mapboxToken);
+  const geo = await geocodeAddressMapbox(geocodeQuery, mapboxToken, { expectedState: state });
   if (!geo) return NextResponse.json({ error: "geocode_failed" }, { status: 400 });
 
   const timezone = geocodeKey ? await timezoneFromCoordinates(geo.lat, geo.lng, geocodeKey) : null;
 
   return NextResponse.json({
     venue_id: params.id,
-    input_address: fullAddress,
+    input_address: geocodeQuery,
     latitude: geo.lat,
     longitude: geo.lng,
     normalized_address: geo.formatted_address ?? null,
+    city: geo.city ?? null,
+    state: geo.state ?? null,
+    zip: geo.zip ?? null,
     timezone,
     geocode_source: "mapbox",
   });
