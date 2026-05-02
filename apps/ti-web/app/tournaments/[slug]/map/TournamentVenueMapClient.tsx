@@ -161,6 +161,7 @@ export default function TournamentVenueMapClient({
     if (!containerRef.current) return;
     if (!validCoords.length) return;
     let cancelled = false;
+    let resizeObserver: ResizeObserver | null = null;
     setMapError(null);
     setMapReady(false);
 
@@ -200,8 +201,36 @@ export default function TournamentVenueMapClient({
       }
 
       mapRef.current = map;
+      // In App Router navigations and panel/layout transitions, the map container can start at a
+      // zero size and then expand. Mapbox GL needs explicit resize calls to render reliably.
+      try {
+        if (typeof ResizeObserver !== "undefined" && containerRef.current) {
+          resizeObserver = new ResizeObserver(() => {
+            try {
+              map.resize?.();
+            } catch {
+              // ignore
+            }
+          });
+          resizeObserver.observe(containerRef.current);
+        }
+      } catch {
+        // ignore
+      }
       map.on("load", () => {
         setMapReady(true);
+        // One extra resize after load helps avoid a blank/gray map on first render.
+        try {
+          requestAnimationFrame(() => {
+            try {
+              map.resize?.();
+            } catch {
+              // ignore
+            }
+          });
+        } catch {
+          // ignore
+        }
         if (!loadedTrackedRef.current) {
           loadedTrackedRef.current = true;
           void trackTiEvent("venue_map_loaded", {
@@ -283,6 +312,13 @@ export default function TournamentVenueMapClient({
     return () => {
       cancelled = true;
       try {
+        resizeObserver?.disconnect?.();
+      } catch {
+        // ignore
+      } finally {
+        resizeObserver = null;
+      }
+      try {
         mapboxglRef.current = null;
         mapRef.current?.remove?.();
       } catch {
@@ -292,6 +328,24 @@ export default function TournamentVenueMapClient({
       }
     };
   }, [effectiveMapEnabled, validCoords.length, venues, clientToken]);
+
+  useEffect(() => {
+    if (!effectiveMapEnabled) return;
+    const map = mapRef.current;
+    if (!map) return;
+    // Ensure the map reflows when the left panel switches between list/detail.
+    try {
+      requestAnimationFrame(() => {
+        try {
+          map.resize?.();
+        } catch {
+          // ignore
+        }
+      });
+    } catch {
+      // ignore
+    }
+  }, [effectiveMapEnabled, detailMode]);
 
   useEffect(() => {
     // Reset premium panel + pins when switching venues.
