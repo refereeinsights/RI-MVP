@@ -675,10 +675,10 @@ export default function TournamentVenueMapClient({
         tier: entitlementTier,
       });
       setOwlPremiumError(
-        entitlementTier === "explorer"
-          ? "Create a free account to unlock Weekend Pro."
-          : entitlementTier === "insider"
-            ? "Upgrade to Weekend Pro to view full nearby lists."
+        entitlementTier === "insider"
+          ? "Upgrade to Weekend Pro to view full nearby lists."
+          : entitlementTier === "explorer"
+            ? null
             : "Weekend Pro required to view full nearby lists."
       );
       return;
@@ -711,10 +711,10 @@ export default function TournamentVenueMapClient({
       tier,
     });
     setOwlPremiumError(
-      tier === "explorer"
-        ? "Create a free account to unlock Weekend Pro."
-        : tier === "insider"
-          ? "Upgrade to Weekend Pro to view full nearby lists."
+      tier === "insider"
+        ? "Upgrade to Weekend Pro to view full nearby lists."
+        : tier === "explorer"
+          ? null
           : "Weekend Pro required to view full nearby lists."
     );
   };
