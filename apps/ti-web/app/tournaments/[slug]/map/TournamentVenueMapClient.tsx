@@ -161,6 +161,7 @@ export default function TournamentVenueMapClient({
     if (!validCoords.length) return;
     let cancelled = false;
     let resizeObserver: ResizeObserver | null = null;
+    let initTimer: number | null = null;
     setMapError(null);
     setMapReady(false);
 
@@ -170,6 +171,24 @@ export default function TournamentVenueMapClient({
         setMapError("Missing NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN");
         return;
       }
+
+      // Defer initialization until the map container has a real size. If Mapbox boots
+      // when the container is 0x0 (common during App Router/layout transitions),
+      // it may never start rendering or requesting tiles until a hard refresh.
+      const waitForNonZeroContainer = async () => {
+        const startedAt = Date.now();
+        while (!cancelled) {
+          const el = containerRef.current;
+          if (!el) return false;
+          const rect = el.getBoundingClientRect();
+          if (rect.width >= 50 && rect.height >= 50) return true;
+          if (Date.now() - startedAt > 2500) return false;
+          await new Promise<void>((resolve) => {
+            initTimer = window.setTimeout(() => resolve(), 50);
+          });
+        }
+        return false;
+      };
 
       let mod: any;
       try {
@@ -186,6 +205,14 @@ export default function TournamentVenueMapClient({
       const styleUrl = (process.env.NEXT_PUBLIC_MAPBOX_STYLE_URL ?? "").trim() || "mapbox://styles/mapbox/streets-v12";
       const fallbackStyleUrl = "mapbox://styles/mapbox/streets-v12";
       let attemptedFallbackStyle = false;
+
+      const okToInit = await waitForNonZeroContainer();
+      if (cancelled) return;
+      if (!okToInit) {
+        setMapError("Map container was not visible/sized. Try a refresh; if this persists, check for layout/CSS preventing the map from getting a height.");
+        setMapReady(true);
+        return;
+      }
 
       let map: any;
       try {
@@ -398,6 +425,14 @@ export default function TournamentVenueMapClient({
 
     return () => {
       cancelled = true;
+      if (initTimer) {
+        try {
+          window.clearTimeout(initTimer);
+        } catch {
+          // ignore
+        }
+        initTimer = null;
+      }
       try {
         resizeObserver?.disconnect?.();
       } catch {
