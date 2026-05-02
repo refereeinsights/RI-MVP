@@ -933,20 +933,31 @@ export default function TournamentVenueMapClient({
               ) : null}
 
               <div className={styles.primaryOwlCtaRow}>
-                <button
-                  type="button"
-                  className={styles.primaryOwlCta}
-                  onClick={() => void openPremiumPanel()}
-                  disabled={owlPremiumLoadingVenueId === selectedVenue.id}
-                >
-                  {owlPremiumLoadingVenueId === selectedVenue.id
-                    ? "Loading Owl’s Eye…"
-                    : entitlementTier === "weekend_pro" ||
-                        selectedVenue.id === DEMO_STARFIRE_VENUE_ID ||
-                        isPremiumPreviewTournamentSlug(tournament.slug)
-                      ? "View full Owl’s Eye map →"
-                      : "Unlock full Owl’s Eye →"}
-                </button>
+                {entitlementTier === "weekend_pro" ||
+                selectedVenue.id === DEMO_STARFIRE_VENUE_ID ||
+                isPremiumPreviewTournamentSlug(tournament.slug) ? (
+                  <button
+                    type="button"
+                    className={styles.primaryOwlCta}
+                    onClick={() => void openPremiumPanel()}
+                    disabled={owlPremiumLoadingVenueId === selectedVenue.id}
+                  >
+                    {owlPremiumLoadingVenueId === selectedVenue.id ? "Loading Owl’s Eye…" : "View full Owl’s Eye map →"}
+                  </button>
+                ) : (
+                  <WeekendProUpgradeModalTrigger
+                    className={styles.primaryOwlCta}
+                    source_page="venue_map"
+                    source_context="map_primary_owlseye_unlock"
+                    tournament_slug={tournament.slug}
+                    venue_slug={selectedVenue.seo_slug ?? selectedVenue.id}
+                    entry_point="map_primary_owlseye_unlock_modal"
+                    cta_label="Upgrade to Weekend Pro"
+                    label="Unlock full Owl’s Eye →"
+                    user_tier={entitlementTier}
+                    has_affiliate_visible={false}
+                  />
+                )}
               </div>
 
               {hotelVenueId ? (
