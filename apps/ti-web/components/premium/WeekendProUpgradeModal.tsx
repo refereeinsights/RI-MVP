@@ -153,7 +153,24 @@ export default function WeekendProUpgradeModal(props: WeekendProUpgradeModalProp
 
           <div style={{ display: "grid", gap: 10, marginTop: 4 }}>
             <UpgradeWeekendProButton
-              className="primaryLink"
+              className=""
+              buttonStyle={{
+                width: "100%",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                padding: "12px 14px",
+                borderRadius: 12,
+                minHeight: 44,
+                fontSize: 15,
+                fontWeight: 900,
+                cursor: "pointer",
+                background: "#16a34a",
+                color: "#ffffff",
+                border: "1px solid rgba(0,0,0,0.12)",
+                boxShadow: "0 10px 20px rgba(0,0,0,0.18)",
+              }}
               source_page={props.source_page}
               source_context={props.source_context}
               tournament_slug={props.tournament_slug ?? null}
@@ -189,4 +206,3 @@ export default function WeekendProUpgradeModal(props: WeekendProUpgradeModalProp
     </div>
   );
 }
-

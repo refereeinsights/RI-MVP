@@ -5,6 +5,7 @@ import { sendTiAnalytics } from "@/lib/analytics";
 
 type UpgradeWeekendProButtonProps = {
   className?: string;
+  buttonStyle?: React.CSSProperties;
   label?: string;
   source_page?: string;
   source_context?: string;
@@ -111,6 +112,7 @@ export default function UpgradeWeekendProButton(props: UpgradeWeekendProButtonPr
         onClick={onClick}
         disabled={loading}
         className={props.className}
+        style={props.buttonStyle}
       >
         {loading ? "Opening checkout..." : label}
       </button>
