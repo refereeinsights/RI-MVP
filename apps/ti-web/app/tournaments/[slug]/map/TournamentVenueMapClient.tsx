@@ -129,6 +129,10 @@ export default function TournamentVenueMapClient({
         .map((v) => ({ id: v.id, lat: v.latitude as number, lng: v.longitude as number })),
     [venues]
   );
+  const validCoordsKey = useMemo(
+    () => validCoords.map((v) => `${v.id}:${v.lat.toFixed(5)},${v.lng.toFixed(5)}`).join("|"),
+    [validCoords]
+  );
 
   const clientToken = (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim();
   const effectiveMapEnabled = mapEnabled && Boolean(clientToken);
@@ -449,7 +453,10 @@ export default function TournamentVenueMapClient({
         mapRef.current = null;
       }
     };
-  }, [effectiveMapEnabled, validCoords.length, venues, clientToken]);
+    // We intentionally do NOT depend on `venues` (array identity changes) to avoid cancelling
+    // the async map initialization mid-flight on initial renders / fast refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveMapEnabled, validCoordsKey]);
 
   useEffect(() => {
     if (!effectiveMapEnabled) return;
