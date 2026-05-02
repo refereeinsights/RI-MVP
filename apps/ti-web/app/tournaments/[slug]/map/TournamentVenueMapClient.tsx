@@ -1279,7 +1279,9 @@ export default function TournamentVenueMapClient({
             </div>
           ) : (
             <>
-              <div className={styles.mapInner} ref={containerRef} />
+              <div className={styles.mapInner}>
+                <div className={styles.mapCanvas} ref={containerRef} />
+              </div>
               {mapError ? (
                 <div className={styles.mapFallback}>
                   <div style={{ fontWeight: 900 }}>Map failed to load.</div>
