@@ -1752,7 +1752,7 @@
 .detailHero.bg-sport-softball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
-    url("/textures/baseball-field.svg");
+    url("/textures/softball-field.svg");
   background-size: cover;
   background-position: center;
 }
@@ -2440,7 +2440,7 @@
 .schoolsPage .card.bg-sport-baseball {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
-    url("/textures/baseball-field.svg");
+    url("/textures/softball-field.svg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
