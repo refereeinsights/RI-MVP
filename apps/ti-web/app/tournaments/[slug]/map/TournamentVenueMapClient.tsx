@@ -208,7 +208,14 @@ export default function TournamentVenueMapClient({
         if (typeof ResizeObserver !== "undefined" && containerRef.current) {
           resizeObserver = new ResizeObserver(() => {
             try {
-              map.resize?.();
+              requestAnimationFrame(() => {
+                try {
+                  map.resize?.();
+                  map.triggerRepaint?.();
+                } catch {
+                  // ignore
+                }
+              });
             } catch {
               // ignore
             }
@@ -219,15 +226,48 @@ export default function TournamentVenueMapClient({
         // ignore
       }
       map.on("load", () => {
-        setMapReady(true);
-        // One extra resize after load helps avoid a blank/gray map on first render.
+        // "load" can fire before the first visible render if the container starts at 0x0.
+        // Only hide the loading overlay after the first render, with a safe timeout fallback.
         try {
-          requestAnimationFrame(() => {
+          let didRender = false;
+          map.once?.("render", () => {
+            didRender = true;
+            setMapReady(true);
+          });
+          window.setTimeout(() => {
+            if (!didRender) setMapReady(true);
+          }, 2000);
+        } catch {
+          setMapReady(true);
+        }
+        // A couple resizes after load help avoid a blank/gray map on first render.
+        try {
+          const doResize = () => {
             try {
               map.resize?.();
+              map.triggerRepaint?.();
             } catch {
               // ignore
             }
+          };
+          requestAnimationFrame(doResize);
+          window.setTimeout(doResize, 250);
+          window.setTimeout(doResize, 1000);
+        } catch {
+          // ignore
+        }
+
+        // Fit bounds after the style is loaded to ensure tiles render consistently on first load.
+        try {
+          const bounds = new mapboxgl.LngLatBounds();
+          for (const v of validCoords) bounds.extend([v.lng, v.lat]);
+          const isDesktop = window.matchMedia("(min-width: 900px)").matches;
+          map.fitBounds(bounds, {
+            padding: isDesktop
+              ? { top: 80, bottom: 80, left: 460, right: 40 }
+              : { top: 80, bottom: 80, left: 40, right: 40 },
+            duration: 0,
+            maxZoom: 12,
           });
         } catch {
           // ignore
@@ -299,15 +339,6 @@ export default function TournamentVenueMapClient({
         const marker = new mapboxgl.Marker({ element: btn, anchor: "bottom" }).setLngLat([v.lng, v.lat]).addTo(map);
         markerById.set(v.id, marker);
       }
-
-      const bounds = new mapboxgl.LngLatBounds();
-      for (const v of validCoords) bounds.extend([v.lng, v.lat]);
-      const isDesktop = window.matchMedia("(min-width: 900px)").matches;
-      map.fitBounds(bounds, {
-        padding: isDesktop ? { top: 80, bottom: 80, left: 460, right: 40 } : { top: 80, bottom: 80, left: 40, right: 40 },
-        duration: 0,
-        maxZoom: 12,
-      });
     })();
 
     return () => {
@@ -339,6 +370,7 @@ export default function TournamentVenueMapClient({
       requestAnimationFrame(() => {
         try {
           map.resize?.();
+          map.triggerRepaint?.();
         } catch {
           // ignore
         }
