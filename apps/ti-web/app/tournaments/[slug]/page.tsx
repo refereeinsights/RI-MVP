@@ -1246,8 +1246,8 @@ async function TournamentVenueDetails({
 
       <div className="detailCard premiumDetailCard">
         <div className="detailCard__title premiumDetailCard__title">
-          <span aria-hidden="true">🔒</span>
-          <span>Upgrade to Weekend Pro</span>
+          <span aria-hidden="true">{canViewPremiumDetails ? "✅" : "🔒"}</span>
+          <span>{canViewPremiumDetails ? "Weekend Pro" : "Upgrade to Weekend Pro"}</span>
         </div>
         {!canViewPremiumDetails ? (
           <div className="detailCard__body premiumDetailCard__body">
