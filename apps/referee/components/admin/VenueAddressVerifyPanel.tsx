@@ -10,6 +10,8 @@ type VerifyRow = {
 
 type CategoryStat = { complete: number; existing: number; error: number; skipped: number };
 
+type GeocodeSample = { query: string | null; expectedState: string | null; outcome: string };
+
 type VerifyResponse = {
   tool: "venue_address_verify";
   dryRun: boolean;
@@ -23,6 +25,7 @@ type VerifyResponse = {
     website: CategoryStat;
   };
   rows: VerifyRow[];
+  _debug?: { geocodeSamples: GeocodeSample[] };
 };
 
 export default function VenueAddressVerifyPanel() {
@@ -153,6 +156,17 @@ export default function VenueAddressVerifyPanel() {
           ) : (
             <div style={{ fontSize: 12, color: "#6b7280" }}>No row-level changes returned.</div>
           )}
+
+          {result._debug?.geocodeSamples && result._debug.geocodeSamples.length > 0 ? (
+            <div style={{ border: "1px solid #fef08a", borderRadius: 8, padding: "8px 10px", background: "#fefce8" }}>
+              <div style={{ fontWeight: 700, fontSize: 11, marginBottom: 4, color: "#854d0e" }}>Debug — geocode samples (first 5 attempts)</div>
+              {result._debug.geocodeSamples.map((s, i) => (
+                <div key={i} style={{ fontSize: 11, fontFamily: "monospace", marginBottom: 2, color: s.outcome === "error" ? "#b91c1c" : "#374151" }}>
+                  [{s.outcome}] {s.query ?? "(null)"}{s.expectedState ? ` · state=${s.expectedState}` : ""}
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

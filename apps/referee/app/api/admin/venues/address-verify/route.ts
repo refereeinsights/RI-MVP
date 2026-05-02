@@ -112,26 +112,27 @@ function parseAddressBlob(rawAddress: string) {
     .trim();
   if (!raw) return null;
 
-  const commaPattern = /^(.*?),\s*([^,]+),\s*([A-Za-z]{2}|[A-Za-z .]+)\s+(\d{5}(?:-\d{4})?)$/;
+  // Zip is optional — many venue addresses omit it.
+  const commaPattern = /^(.*?),\s*([^,]+),\s*([A-Za-z]{2}|[A-Za-z .]+)(?:\s+(\d{5}(?:-\d{4})?))?$/;
   const commaMatch = raw.match(commaPattern);
   if (commaMatch) {
     const street = commaMatch[1]?.trim() ?? "";
     const city = toTitleCase(commaMatch[2]?.trim() ?? "");
     const state = normalizeState(commaMatch[3] ?? "");
-    const zip = (commaMatch[4] ?? "").trim();
-    if (street && city && state && zip) {
+    const zip = (commaMatch[4] ?? "").trim() || null;
+    if (street && city && state) {
       return { street, city, state, zip };
     }
   }
 
-  const noCommaPattern = /^(.*?)\s+([A-Za-z][A-Za-z .'-]+)\s+([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)$/;
+  const noCommaPattern = /^(.*?)\s+([A-Za-z][A-Za-z .'-]+)\s+([A-Za-z]{2})(?:\s+(\d{5}(?:-\d{4})?))?$/;
   const noCommaMatch = raw.match(noCommaPattern);
   if (noCommaMatch) {
     const street = noCommaMatch[1]?.trim() ?? "";
     const city = toTitleCase(noCommaMatch[2]?.trim() ?? "");
     const state = normalizeState(noCommaMatch[3] ?? "");
-    const zip = (noCommaMatch[4] ?? "").trim();
-    if (street && city && state && zip) {
+    const zip = (noCommaMatch[4] ?? "").trim() || null;
+    if (street && city && state) {
       return { street, city, state, zip };
     }
   }
@@ -282,6 +283,7 @@ export async function POST(request: Request) {
   const geocodeStats: CategoryStat = { complete: 0, existing: 0, error: 0, skipped: 0 };
   const timezoneStats: CategoryStat = { complete: 0, existing: 0, error: 0, skipped: 0 };
   const websiteStats: CategoryStat = { complete: 0, existing: 0, error: 0, skipped: 0 };
+  const geocodeSamples: Array<{ query: string | null; expectedState: string | null; outcome: string }> = [];
 
   for (const venue of venues) {
     const currentAddress1 = normalizeText(venue.address1);
@@ -315,7 +317,7 @@ export async function POST(request: Request) {
         updates.state = parsed.state;
         changedFields.push("state");
       }
-      if (zipMissing) {
+      if (zipMissing && parsed.zip) {
         updates.zip = parsed.zip;
         changedFields.push("zip");
       }
@@ -351,11 +353,13 @@ export async function POST(request: Request) {
     if (lat != null && lng != null) {
       geocodeStats.existing += 1;
     } else if (!mapboxToken || !geocodeQuery) {
+      if (geocodeSamples.length < 5) geocodeSamples.push({ query: geocodeQuery, expectedState: nextState || null, outcome: "skipped" });
       geocodeStats.skipped += 1;
     } else {
       const geo = await geocodeAddressMapbox(geocodeQuery, mapboxToken, {
         expectedState: nextState || null,
       });
+      if (geocodeSamples.length < 5) geocodeSamples.push({ query: geocodeQuery, expectedState: nextState || null, outcome: geo ? "complete" : "error" });
       if (geo) {
         if (lat == null) {
           updates.latitude = geo.lat;
@@ -462,5 +466,6 @@ export async function POST(request: Request) {
       website: websiteStats,
     },
     rows: updated.slice(0, 30),
+    _debug: { geocodeSamples },
   });
 }
