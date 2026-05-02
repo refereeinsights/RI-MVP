@@ -54,6 +54,7 @@
 - TI billing UX (guest checkout): allow logged-out users to start Weekend Pro Stripe checkout first (Stripe collects email), then create/login to claim the subscription on `/premium/success` → `/premium/claim` (email must match checkout email; renewals handled via existing subscription/customer webhooks once attached): `apps/ti-web/app/api/stripe/checkout-guest/route.ts`, `apps/ti-web/app/premium/success/page.tsx`, `apps/ti-web/app/premium/claim/page.tsx`, `apps/ti-web/components/UpgradeWeekendProButton.tsx`.
 - TI billing UX (guest checkout polish): update success CTA copy (“Create your account”) and pre-fill missing `ti_users.zip_code` from Stripe billing ZIP during claim when available: `apps/ti-web/app/premium/success/page.tsx`, `apps/ti-web/app/premium/claim/page.tsx`.
 - TI billing UX (guest checkout polish): prefill the signup form with Stripe checkout email/name/ZIP when available (still requires user to pick username + interests): `apps/ti-web/app/premium/success/page.tsx`, `apps/ti-web/app/signup/page.tsx`.
+- TI auth UX: prefill `/login` with `?email=` when provided (used by guest-checkout success page) to reduce “accidentally ends up on signup” confusion after confirming in another browser: `apps/ti-web/app/login/page.tsx`, `apps/ti-web/app/premium/success/page.tsx`.
 
 ## 2026-04-28
 

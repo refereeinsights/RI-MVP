@@ -8,7 +8,8 @@ import { sanitizeReturnTo } from "@/lib/returnTo";
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [identifier, setIdentifier] = useState("");
+  const prefillIdentifier = (searchParams?.get("email") ?? "").trim();
+  const [identifier, setIdentifier] = useState(prefillIdentifier);
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = useState("");

@@ -59,8 +59,11 @@ export default async function PremiumSuccessPage({
             >
               Create your account
             </Link>
-            <Link className="secondaryLink" href={`/login?returnTo=${encodeURIComponent(claimPath)}`}>
-              Log in to unlock
+            <Link
+              className="secondaryLink"
+              href={`/login?returnTo=${encodeURIComponent(claimPath)}${checkoutEmail ? `&email=${encodeURIComponent(checkoutEmail)}` : ""}`}
+            >
+              {checkoutEmail ? `Log in (${checkoutEmail})` : "Log in to unlock"}
             </Link>
           </div>
           <p className="muted" style={{ marginTop: 16, fontSize: 13, maxWidth: 720, marginLeft: "auto", marginRight: "auto" }}>
