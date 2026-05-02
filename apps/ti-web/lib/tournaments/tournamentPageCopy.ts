@@ -9,7 +9,7 @@ type TournamentCopyInput = {
   official_website_url?: string | null;
 };
 
-type NearbyCounts = { coffee: number; food: number; hotels: number };
+type NearbyCounts = { coffee: number; food: number; hotels: number; quick_eats: number; hangouts: number; sporting_goods: number };
 
 function formatDateLabel(startIso: string | null, endIso: string | null) {
   const fmt = (iso: string) => {
@@ -103,12 +103,18 @@ export function buildTravelPlanningCopy(args: { counts: NearbyCounts | null; ven
   const coffee = Number.isFinite(counts.coffee) ? Math.max(0, Math.floor(counts.coffee)) : 0;
   const food = Number.isFinite(counts.food) ? Math.max(0, Math.floor(counts.food)) : 0;
   const hotels = Number.isFinite(counts.hotels) ? Math.max(0, Math.floor(counts.hotels)) : 0;
-  if (coffee + food + hotels <= 0) return null;
+  const quickEats = Number.isFinite(counts.quick_eats) ? Math.max(0, Math.floor(counts.quick_eats)) : 0;
+  const hangouts = Number.isFinite(counts.hangouts) ? Math.max(0, Math.floor(counts.hangouts)) : 0;
+  const gear = Number.isFinite(counts.sporting_goods) ? Math.max(0, Math.floor(counts.sporting_goods)) : 0;
+  if (coffee + food + hotels + quickEats + hangouts + gear <= 0) return null;
 
   const parts: string[] = [];
   if (coffee > 0) parts.push(`${coffee} coffee option${coffee === 1 ? "" : "s"}`);
   if (food > 0) parts.push(`${food} food option${food === 1 ? "" : "s"}`);
   if (hotels > 0) parts.push(`${hotels} hotel${hotels === 1 ? "" : "s"}`);
+  if (quickEats > 0) parts.push(`${quickEats} quick eat${quickEats === 1 ? "" : "s"}`);
+  if (hangouts > 0) parts.push(`${hangouts} hangout${hangouts === 1 ? "" : "s"}`);
+  if (gear > 0) parts.push(`${gear} sporting goods option${gear === 1 ? "" : "s"}`);
   const list = parts.length === 1 ? parts[0] : parts.length === 2 ? `${parts[0]} and ${parts[1]}` : `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`;
 
   const venueCount = Number.isFinite(args.venueCount) ? Math.max(0, Math.floor(args.venueCount)) : 0;
@@ -134,4 +140,3 @@ export function buildTournamentFaqs(_args: {
   // V1: prepared for future use; do not render or emit JSON-LD yet.
   return [] as Array<{ question: string; answer: string }>;
 }
-

@@ -6,7 +6,7 @@ import {
   buildVenuePlanningCopy,
 } from "@/lib/tournaments/tournamentPageCopy";
 
-type NearbyCounts = { coffee: number; food: number; hotels: number };
+type NearbyCounts = { coffee: number; food: number; hotels: number; quick_eats: number; hangouts: number; sporting_goods: number };
 
 export default function TournamentPlanningOverview(props: {
   tournament: {
@@ -77,4 +77,3 @@ export default function TournamentPlanningOverview(props: {
     </section>
   );
 }
-

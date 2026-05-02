@@ -13,7 +13,6 @@ import SaveTournamentButton from "@/components/SaveTournamentButton";
 import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
 import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheckButton";
 import TournamentWeatherPlannerAccordion from "@/components/tournaments/TournamentWeatherPlannerAccordion";
-import HotelBookingCta from "@/components/venues/HotelBookingCta";
 import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import TournamentPlanningOverview from "@/components/tournaments/TournamentPlanningOverview";
@@ -24,6 +23,7 @@ import { saveClaimedTournamentEdits } from "./actions";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import { buildHotelsHref, canShowBookingCta, isValidZip5 } from "@/lib/booking/venueBooking";
 import { TI_STATIC_MAP_BUCKET, buildSupabasePublicObjectUrl } from "@/lib/staticTournamentMaps";
+import { sendTiAnalytics } from "@/lib/analytics";
 import "../tournaments.css";
 
 type TournamentDetailCoreRow = {
@@ -595,7 +595,10 @@ async function TournamentVenueDetails({
   });
 
   let hasOwlsEyeByVenueId = new Map<string, boolean>();
-  let owlsEyeCountsByVenueId = new Map<string, { food: number; coffee: number; hotels: number; sporting_goods: number }>();
+  let owlsEyeCountsByVenueId = new Map<
+    string,
+    { food: number; coffee: number; hotels: number; sporting_goods: number; quick_eats: number; hangouts: number }
+  >();
 
   const runRows = await fetchLatestOwlsEyeRuns(linkedVenueIds);
   const latestRunByVenue = new Map<string, OwlsEyeRunRow>();
@@ -614,14 +617,19 @@ async function TournamentVenueDetails({
       .select("run_id,category")
       .in("run_id", runIds);
 
-    const countsByRunId = new Map<string, { food: number; coffee: number; hotels: number; sporting_goods: number }>();
+    const countsByRunId = new Map<
+      string,
+      { food: number; coffee: number; hotels: number; sporting_goods: number; quick_eats: number; hangouts: number }
+    >();
     for (const row of ((nearbyRows as Array<{ run_id: string; category: string | null }> | null) ?? [])) {
       const runId = row.run_id;
       if (!runId) continue;
       const normalizedCategory = (row.category ?? "food").toLowerCase();
-      const current = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
+      const current = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0, quick_eats: 0, hangouts: 0 };
       if (normalizedCategory === "coffee") current.coffee += 1;
       else if (normalizedCategory === "hotel" || normalizedCategory === "hotels") current.hotels += 1;
+      else if (normalizedCategory === "quick_eats") current.quick_eats += 1;
+      else if (normalizedCategory === "hangouts") current.hangouts += 1;
       else if (normalizedCategory === "sporting_goods" || normalizedCategory === "big_box_fallback") current.sporting_goods += 1;
       else current.food += 1;
       countsByRunId.set(runId, current);
@@ -630,15 +638,15 @@ async function TournamentVenueDetails({
     owlsEyeCountsByVenueId = new Map(
       Array.from(latestRunByVenue.entries()).map(([venueId, run]) => {
         const runId = (run.run_id ?? run.id) as string;
-        return [venueId, countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 }] as const;
+        return [venueId, countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0, quick_eats: 0, hangouts: 0 }] as const;
       })
     );
 
     hasOwlsEyeByVenueId = new Map(
       Array.from(latestRunByVenue.entries()).map(([venueId, run]) => {
         const runId = (run.run_id ?? run.id) as string;
-        const counts = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0 };
-        return [venueId, counts.food + counts.coffee + counts.hotels + counts.sporting_goods > 0] as const;
+        const counts = countsByRunId.get(runId) ?? { food: 0, coffee: 0, hotels: 0, sporting_goods: 0, quick_eats: 0, hangouts: 0 };
+        return [venueId, counts.food + counts.coffee + counts.hotels + counts.quick_eats + counts.hangouts + counts.sporting_goods > 0] as const;
       })
     );
   }
@@ -782,16 +790,50 @@ async function TournamentVenueDetails({
   const primaryVenueName = (primaryVenue?.name ?? "").trim() || null;
   const primaryVenueLocationLabel = [primaryVenue?.city, primaryVenue?.state].filter(Boolean).join(", ") || null;
   const bestNearbyCounts = bestOwlVenueRow?.counts
-    ? { coffee: bestOwlVenueRow.counts.coffee, food: bestOwlVenueRow.counts.food, hotels: bestOwlVenueRow.counts.hotels }
+    ? {
+        coffee: bestOwlVenueRow.counts.coffee,
+        food: bestOwlVenueRow.counts.food,
+        hotels: bestOwlVenueRow.counts.hotels,
+        quick_eats: bestOwlVenueRow.counts.quick_eats,
+        hangouts: bestOwlVenueRow.counts.hangouts,
+        sporting_goods: bestOwlVenueRow.counts.sporting_goods,
+      }
     : null;
+
+  const formatOwlCountsLine = (counts: {
+    coffee: number;
+    food: number;
+    hotels: number;
+    quick_eats: number;
+    hangouts: number;
+    sporting_goods: number;
+  }) => {
+    const parts: Array<string | null> = [
+      `☕ ${counts.coffee}`,
+      `🍔 ${counts.food}`,
+      counts.hotels ? `🏨 ${counts.hotels}` : null,
+      counts.quick_eats ? `🌮 ${counts.quick_eats}` : null,
+      counts.hangouts ? `🎳 ${counts.hangouts}` : null,
+      counts.sporting_goods ? `⚽ ${counts.sporting_goods}` : null,
+    ];
+    return parts.filter(Boolean).join(" • ");
+  };
 
   const planFoodCoffeeLine = (() => {
     if (!bestOwlVenueRow) return null;
     const counts = bestOwlVenueRow.counts;
     if (!counts) return "Nearby options available";
-    const total = counts.food + counts.coffee + counts.hotels + counts.sporting_goods;
+    const total = counts.food + counts.coffee + counts.hotels + counts.quick_eats + counts.hangouts + counts.sporting_goods;
     if (!total) return "Nearby options available";
-    return `☕ ${counts.coffee} coffee • 🍔 ${counts.food} food`;
+    const parts: Array<string | null> = [
+      `☕ ${counts.coffee}`,
+      `🍔 ${counts.food}`,
+      counts.hotels ? `🏨 ${counts.hotels}` : null,
+      counts.quick_eats ? `🌮 ${counts.quick_eats}` : null,
+      counts.hangouts ? `🎳 ${counts.hangouts}` : null,
+      counts.sporting_goods ? `⚽ ${counts.sporting_goods}` : null,
+    ];
+    return parts.filter(Boolean).join(" • ");
   })();
 
   const planHotelsLine = (() => {
@@ -965,7 +1007,7 @@ async function TournamentVenueDetails({
               const counts = row.counts;
               const countsLine =
                 row.hasOwl && counts
-                  ? [`☕ ${counts.coffee}`, `🍔 ${counts.food}`, counts.hotels ? `🏨 ${counts.hotels}` : null].filter(Boolean).join(" • ")
+                  ? formatOwlCountsLine(counts)
                   : null;
 
               return (
@@ -1000,7 +1042,7 @@ async function TournamentVenueDetails({
                     const counts = row.counts;
                     const countsLine =
                       row.hasOwl && counts
-                        ? [`☕ ${counts.coffee}`, `🍔 ${counts.food}`, counts.hotels ? `🏨 ${counts.hotels}` : null].filter(Boolean).join(" • ")
+                        ? formatOwlCountsLine(counts)
                         : null;
 
                     return (
@@ -1088,12 +1130,33 @@ async function TournamentVenueDetails({
         </div>
         {tournamentHotelsHref && hotelClickVenueId ? (
           <div style={{ marginTop: 10 }}>
-            <HotelBookingCta
-              href={tournamentHotelsHref}
-              venueId={hotelClickVenueId}
-              tournamentId={tournament.id}
-              label="View hotel options"
-            />
+            <div className="detailLinksRow" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" as any }}>
+              <a
+                className="secondaryLink hotelBookingCta"
+                href={tournamentHotelsHref}
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                style={{ minWidth: 260 }}
+                onClick={() => {
+                  void sendTiAnalytics("venue_hotels_cta_clicked", {
+                    venue_id: hotelClickVenueId,
+                    tournament_id: tournament.id,
+                    href: tournamentHotelsHref,
+                  });
+                }}
+              >
+                🏨 View hotel options
+              </a>
+              <a
+                className="secondaryLink hotelBookingCta"
+                href={`/go/vrbo?venueId=${encodeURIComponent(hotelClickVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                style={{ minWidth: 260 }}
+              >
+                🏡 Search Vrbo rentals
+              </a>
+            </div>
           </div>
         ) : (
           <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9 }}>Hotel options unavailable right now.</div>
