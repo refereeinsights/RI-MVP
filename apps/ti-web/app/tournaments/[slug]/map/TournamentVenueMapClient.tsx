@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
+import WeekendProUpgradeModalTrigger from "@/components/premium/WeekendProUpgradeModalTrigger";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import { getTier } from "@/lib/entitlements";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
@@ -1106,13 +1107,13 @@ export default function TournamentVenueMapClient({
                     {owlPremiumError ?? "You’re viewing limited results near this venue. Upgrade to see full nearby lists and directions."}
                   </div>
                   <div className={styles.owlUnlockRow}>
-                    <UpgradeWeekendProButton
+                    <WeekendProUpgradeModalTrigger
                       className={styles.owlUnlockBtn}
                       source_page="venue_map"
                       source_context="map_owlseye_locked"
                       tournament_slug={tournament.slug}
                       venue_slug={selectedVenue.seo_slug ?? selectedVenue.id}
-                      entry_point="map_owlseye_unlock"
+                      entry_point="map_owlseye_unlock_modal"
                       cta_label="Upgrade to Weekend Pro"
                       label="Upgrade to Weekend Pro"
                       user_tier={entitlementTier}

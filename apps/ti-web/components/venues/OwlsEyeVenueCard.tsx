@@ -4,6 +4,7 @@ import type { OwlsEyeDemoScores } from "@/lib/owlsEyeScores";
 import OwlsEyeDemoScoresPanel from "@/components/OwlsEyeDemoScoresPanel";
 import OwlsEyeWeekendGuideAccordion from "@/components/OwlsEyeWeekendGuideAccordion";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
+import WeekendProUpgradeModalTrigger from "@/components/premium/WeekendProUpgradeModalTrigger";
 import MobileMapLink from "@/components/venues/MobileMapLink";
 import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheckButton";
 import HotelBookingCta from "@/components/venues/HotelBookingCta";
@@ -479,12 +480,15 @@ export default function OwlsEyeVenueCard({
                   Weekend Pro unlocks full Owl&apos;s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and mobile-friendly directions.
                 </p>
                 <div style={{ marginTop: 10 }}>
-                  <UpgradeWeekendProButton
+                  <WeekendProUpgradeModalTrigger
                     className="primaryLink"
                     source_page="venue_detail"
                     source_context="owlseye_locked"
                     venue_slug={(venue as any)?.seo_slug ?? null}
+                    entry_point="venue_owlseye_unlock_modal"
                     cta_label="Upgrade to Weekend Pro"
+                    label="Upgrade to Weekend Pro"
+                    has_affiliate_visible={false}
                   />
                 </div>
                 <div style={{ marginTop: 8 }}>

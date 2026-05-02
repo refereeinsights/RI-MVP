@@ -2,6 +2,7 @@ import PremiumInterestForm from "@/components/PremiumInterestForm";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
 import OwlsEyeVenueCard, { type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
+import WeekendProLaunchImage from "@/components/premium/WeekendProLaunchImage";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
@@ -305,6 +306,7 @@ export default async function PremiumPage({
           <p className="muted heroCopy" style={{ marginTop: 0 }}>
             Plan your tournament weekend without guesswork. Weekend Pro unlocks Owl&apos;s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and mobile-friendly directions around where games are played.
           </p>
+          <WeekendProLaunchImage />
           <div style={{ display: "grid", gap: 6, justifyItems: "center", marginTop: 10 }}>
             <div style={{ fontWeight: 900 }}>{WEEKEND_PRO_FOUNDING_PRICE_LINE}</div>
             <div className="muted" style={{ fontSize: 13 }}>{WEEKEND_PRO_FOUNDING_DISCLAIMER}</div>
