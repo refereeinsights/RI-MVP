@@ -250,6 +250,8 @@ export async function POST(request: Request) {
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, Math.floor(limitRaw))) : 100;
   const dryRun = payload?.dryRun === true || payload?.dryRun === "true";
   const onlyIncomplete = payload?.onlyIncomplete === true || payload?.onlyIncomplete === "true";
+  const fillTimezone = payload?.fillTimezone === true || payload?.fillTimezone === "true";
+  const fillWebsite = payload?.fillWebsite === true || payload?.fillWebsite === "true";
 
   let query = supabaseAdmin
     .from("venues" as any)
@@ -374,7 +376,7 @@ export async function POST(request: Request) {
       }
     }
 
-    if (!normalizeText(venue.timezone) && geocodeKey && lat != null && lng != null) {
+    if (fillTimezone && !normalizeText(venue.timezone) && geocodeKey && lat != null && lng != null) {
       const tz = await timezoneFromCoordinates(lat, lng, geocodeKey);
       if (tz) {
         updates.timezone = tz;
@@ -383,9 +385,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Google Places: only called when a venue website URL is still missing.
-    // Address/coord backfill is now handled by Mapbox above.
-    if (!normalizeText(venue.venue_url) && geocodeKey && normalizeText(venue.name)) {
+    // Google Places: only called when explicitly requested and venue website URL is still missing.
+    if (fillWebsite && !normalizeText(venue.venue_url) && geocodeKey && normalizeText(venue.name)) {
       const place = await lookupPlaceByVenueName({
         name: normalizeText(venue.name),
         city: (normalizeText(updates.city) || nextCity) || null,

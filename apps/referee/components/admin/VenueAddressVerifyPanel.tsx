@@ -25,6 +25,8 @@ export default function VenueAddressVerifyPanel() {
   const [limit, setLimit] = useState(100);
   const [dryRun, setDryRun] = useState(false);
   const [onlyIncomplete, setOnlyIncomplete] = useState(true);
+  const [fillTimezone, setFillTimezone] = useState(false);
+  const [fillWebsite, setFillWebsite] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<VerifyResponse | null>(null);
@@ -40,6 +42,8 @@ export default function VenueAddressVerifyPanel() {
           limit,
           dryRun,
           onlyIncomplete,
+          fillTimezone,
+          fillWebsite,
         }),
       });
 
@@ -59,7 +63,7 @@ export default function VenueAddressVerifyPanel() {
     <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12, background: "#fff", marginBottom: 16 }}>
       <div style={{ fontWeight: 800, marginBottom: 6 }}>Venue Address Verify</div>
       <div style={{ fontSize: 13, color: "#4b5563", marginBottom: 10 }}>
-        Parses full addresses, backfills city/state/zip, geocodes missing coordinates, derives timezone, and fills venue URL when found.
+        Parses full addresses, backfills city/state/zip, and geocodes missing coordinates (Mapbox). Timezone (Google) and website URL (Google Places) are opt-in.
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
@@ -81,6 +85,14 @@ export default function VenueAddressVerifyPanel() {
             onChange={(e) => setOnlyIncomplete(e.target.checked)}
           />
           Only incomplete rows
+        </label>
+        <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
+          <input type="checkbox" checked={fillTimezone} onChange={(e) => setFillTimezone(e.target.checked)} />
+          Fill timezone (Google)
+        </label>
+        <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
+          <input type="checkbox" checked={fillWebsite} onChange={(e) => setFillWebsite(e.target.checked)} />
+          Fill website URL (Google Places)
         </label>
         <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
           <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
