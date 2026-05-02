@@ -7,6 +7,8 @@ import { SPORT_OPTIONS, US_STATES } from "@/server/admin/discoverToQueue";
 
 export const runtime = "nodejs";
 
+const INTERNAL_EMAIL_SUBSTRINGS = ["tournamentinsights", "rdtest1970"] as const;
+
 type PageProps = {
   searchParams?: {
     q?: string;
@@ -80,28 +82,51 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
   const todayIso = todayStartUtc.toISOString();
   const yesterdayIso = yesterdayStartUtc.toISOString();
 
+  const internalUsersRes = await supabaseAdmin
+    .from("ti_users" as any)
+    .select("id,email")
+    .or(INTERNAL_EMAIL_SUBSTRINGS.map((s) => `email.ilike.%${s}%`).join(","));
+  const internalUserIds = (internalUsersRes.error ? [] : (internalUsersRes.data ?? [])).map((r: any) => r.id).filter(Boolean);
+
+  const notInternalUsers = (query: any) => {
+    let q = query;
+    for (const s of INTERNAL_EMAIL_SUBSTRINGS) q = q.not("email", "ilike", `%${s}%`);
+    return q;
+  };
+
+  const notInternalWebhookUsers = (query: any) => {
+    if (!internalUserIds.length) return query;
+    return query.not("user_id", "in", `(${internalUserIds.join(",")})`);
+  };
+
   const [
     weekendProActiveRes,
     weekendProCheckoutsTotalRes,
     weekendProCheckoutsYesterdayRes,
   ] = await Promise.all([
-    supabaseAdmin
+    notInternalUsers(
+      supabaseAdmin
       .from("ti_users" as any)
       .select("id", { count: "exact", head: true })
       .eq("plan", "weekend_pro")
       .eq("subscription_status", "active"),
-    supabaseAdmin
+    ),
+    notInternalWebhookUsers(
+      supabaseAdmin
       .from("stripe_webhook_events" as any)
       .select("id", { count: "exact", head: true })
       .eq("event_type", "checkout.session.completed")
-      .eq("status", "processed"),
-    supabaseAdmin
+      .eq("status", "processed")
+    ),
+    notInternalWebhookUsers(
+      supabaseAdmin
       .from("stripe_webhook_events" as any)
       .select("id", { count: "exact", head: true })
       .eq("event_type", "checkout.session.completed")
       .eq("status", "processed")
       .gte("created_at", yesterdayIso)
       .lt("created_at", todayIso),
+    ),
   ]);
 
   const officialTotalClicksRes = await supabaseAdmin

@@ -148,20 +148,83 @@ function startOfUtcDay(d: Date) {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
 }
 
-async function loadWeekendProCheckoutCounts(params: { todayStartUtcIso: string; yesterdayStartUtcIso: string }) {
-  const totalRes = await supabaseAdmin
+const INTERNAL_EMAIL_SUBSTRINGS = ["tournamentinsights", "rdtest1970"] as const;
+
+async function loadInternalTiUserIds(): Promise<string[]> {
+  const res = await supabaseAdmin
+    .from("ti_users" as any)
+    .select("id,email")
+    .or(INTERNAL_EMAIL_SUBSTRINGS.map((s) => `email.ilike.%${s}%`).join(","));
+  if (res.error) return [];
+  return (res.data ?? []).map((r: any) => r.id).filter(Boolean);
+}
+
+async function loadTiUserCountsExcludingInternal(params: { todayStartUtcIso: string; yesterdayStartUtcIso: string }) {
+  const internalIds = await loadInternalTiUserIds();
+  const exclude = (query: any) => {
+    if (!internalIds.length) return query;
+    return query.not("id", "in", `(${internalIds.join(",")})`);
+  };
+
+  const [insiderTotalRes, insiderNewRes, weekendTotalRes, weekendNewRes] = await Promise.all([
+    exclude(supabaseAdmin.from("ti_users" as any).select("id", { count: "exact", head: true }).eq("plan", "insider")),
+    exclude(
+      supabaseAdmin
+        .from("ti_users" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("plan", "insider")
+        .gte("created_at", params.yesterdayStartUtcIso)
+        .lt("created_at", params.todayStartUtcIso)
+    ),
+    exclude(supabaseAdmin.from("ti_users" as any).select("id", { count: "exact", head: true }).eq("plan", "weekend_pro")),
+    exclude(
+      supabaseAdmin
+        .from("ti_users" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("plan", "weekend_pro")
+        .gte("created_at", params.yesterdayStartUtcIso)
+        .lt("created_at", params.todayStartUtcIso)
+    ),
+  ]);
+
+  return {
+    internalIds,
+    counts: {
+      insider_total: insiderTotalRes.error ? 0 : insiderTotalRes.count ?? 0,
+      insider_new_yesterday: insiderNewRes.error ? 0 : insiderNewRes.count ?? 0,
+      weekend_pro_total: weekendTotalRes.error ? 0 : weekendTotalRes.count ?? 0,
+      weekend_pro_new_yesterday: weekendNewRes.error ? 0 : weekendNewRes.count ?? 0,
+    },
+  };
+}
+
+async function loadWeekendProCheckoutCounts(params: {
+  todayStartUtcIso: string;
+  yesterdayStartUtcIso: string;
+  internalUserIds: string[];
+}) {
+  const exclude = (query: any) => {
+    if (!params.internalUserIds.length) return query;
+    return query.not("user_id", "in", `(${params.internalUserIds.join(",")})`);
+  };
+
+  const totalRes = await exclude(
+    supabaseAdmin
     .from("stripe_webhook_events" as any)
     .select("id", { count: "exact", head: true })
     .eq("event_type", "checkout.session.completed")
-    .eq("status", "processed");
+    .eq("status", "processed")
+  );
 
-  const yesterdayRes = await supabaseAdmin
+  const yesterdayRes = await exclude(
+    supabaseAdmin
     .from("stripe_webhook_events" as any)
     .select("id", { count: "exact", head: true })
     .eq("event_type", "checkout.session.completed")
     .eq("status", "processed")
     .gte("created_at", params.yesterdayStartUtcIso)
-    .lt("created_at", params.todayStartUtcIso);
+    .lt("created_at", params.todayStartUtcIso)
+  );
 
   return {
     total: totalRes.error ? 0 : totalRes.count ?? 0,
@@ -480,13 +543,34 @@ export async function GET(req: Request) {
     const todayIso = todayStartUtc.toISOString();
     const yesterdayIso = yesterdayStartUtc.toISOString();
 
-    const [tiles, weekendProCheckouts, totalsBySport, riSummary, lowestStates] = await Promise.all([
+    const [tiles, tiUserCounts, totalsBySport, riSummary, lowestStates] = await Promise.all([
       includeTiles ? loadAdminDashboardEmailTiles() : Promise.resolve(null),
-      includeTiles ? loadWeekendProCheckoutCounts({ todayStartUtcIso: todayIso, yesterdayStartUtcIso: yesterdayIso }) : Promise.resolve(null),
+      includeTiles ? loadTiUserCountsExcludingInternal({ todayStartUtcIso: todayIso, yesterdayStartUtcIso: yesterdayIso }) : Promise.resolve(null),
       includeOutreach ? Promise.all(TI_SPORTS.map((sport) => loadOutreachTotals(sport))) : Promise.resolve([]),
       includeRiSummary ? loadRiSummaryCounts() : Promise.resolve(null),
       includeLowestStates ? loadLowestStates(5) : Promise.resolve(null),
     ]);
+    const weekendProCheckouts = includeTiles
+      ? await loadWeekendProCheckoutCounts({
+          todayStartUtcIso: todayIso,
+          yesterdayStartUtcIso: yesterdayIso,
+          internalUserIds: tiUserCounts?.internalIds ?? [],
+        })
+      : null;
+
+    const tilesWithFilteredUsers =
+      includeTiles && tiles && tiUserCounts
+        ? ({
+            ...(tiles as any),
+            ti_users: {
+              ...(tiles as any).ti_users,
+              insider_total: tiUserCounts.counts.insider_total,
+              insider_new_yesterday: tiUserCounts.counts.insider_new_yesterday,
+              weekend_pro_total: tiUserCounts.counts.weekend_pro_total,
+              weekend_pro_new_yesterday: tiUserCounts.counts.weekend_pro_new_yesterday,
+            },
+          } as any)
+        : tiles;
     const generatedAtIso = new Date().toISOString();
     const html = buildEmailHtml({
       generatedAtIso,
@@ -498,7 +582,7 @@ export async function GET(req: Request) {
       lowestStates,
       includeTiles,
       includeSportTiles,
-      tiles,
+      tiles: tilesWithFilteredUsers,
       weekendProCheckouts: weekendProCheckouts ? { total: weekendProCheckouts.total, yesterday: weekendProCheckouts.yesterday } : null,
     });
     const subject = `TI Admin Dashboard — ${generatedAtIso.slice(0, 10)}`;
