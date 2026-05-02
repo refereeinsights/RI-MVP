@@ -23,7 +23,6 @@ import { saveClaimedTournamentEdits } from "./actions";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import { buildHotelsHref, canShowBookingCta, isValidZip5 } from "@/lib/booking/venueBooking";
 import { TI_STATIC_MAP_BUCKET, buildSupabasePublicObjectUrl } from "@/lib/staticTournamentMaps";
-import { sendTiAnalytics } from "@/lib/analytics";
 import "../tournaments.css";
 
 type TournamentDetailCoreRow = {
@@ -1137,13 +1136,6 @@ async function TournamentVenueDetails({
                 target="_blank"
                 rel="noopener noreferrer sponsored"
                 style={{ minWidth: 260 }}
-                onClick={() => {
-                  void sendTiAnalytics("venue_hotels_cta_clicked", {
-                    venue_id: hotelClickVenueId,
-                    tournament_id: tournament.id,
-                    href: tournamentHotelsHref,
-                  });
-                }}
               >
                 🏨 View hotel options
               </a>
