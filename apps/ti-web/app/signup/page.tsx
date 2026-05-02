@@ -2,13 +2,14 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { sanitizeReturnTo } from "@/lib/returnTo";
 import { SPORT_INTEREST_OPTIONS, validateSignupProfile } from "@/lib/tiProfile";
 import { TI_SPORT_LABELS } from "@/lib/tiSports";
 
 export default function SignupPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const prefillEmail = (searchParams?.get("email") ?? "").trim();
   const prefillZip = (searchParams?.get("zip") ?? "").trim();
@@ -86,6 +87,28 @@ export default function SignupPage() {
     () => (code ? `/join?code=${encodeURIComponent(code)}` : returnTo),
     [code, returnTo]
   );
+
+  useEffect(() => {
+    // If the user is already signed in, don't show the signup form.
+    // This avoids confusing "create account" prompts when a session cookie already exists.
+    let cancelled = false;
+    async function check() {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const { data } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (data?.session) {
+          router.replace(nextPath);
+        }
+      } catch {
+        // Ignore and allow signup flow to render.
+      }
+    }
+    void check();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, nextPath]);
 
   useEffect(() => {
     if (status !== "ok") return;
@@ -353,7 +376,7 @@ export default function SignupPage() {
       <main style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem", display: "grid", gap: 14 }}>
       <h1 style={{ margin: 0 }}>Create your account</h1>
       <p style={{ margin: 0, color: "#475569" }}>
-        Create a free account to save your preferences and manage your Weekend Pro access.
+        Create an account to save your preferences and manage your Weekend Pro access.
       </p>
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
         <input
