@@ -27,6 +27,8 @@ export default async function PremiumSuccessPage({
   }
 
   const checkoutEmail = String((session.customer_details as any)?.email ?? (session as any)?.customer_email ?? "").trim();
+  const checkoutZip = String((session.customer_details as any)?.address?.postal_code ?? "").trim();
+  const checkoutName = String((session.customer_details as any)?.name ?? "").trim();
 
   const supabase = createSupabaseServerClient();
   const {
@@ -49,7 +51,12 @@ export default async function PremiumSuccessPage({
             Next, create your TournamentInsights account (or log in) to unlock Weekend Pro on this device and manage billing.
           </p>
           <div style={{ display: "grid", gap: 10, justifyItems: "center", marginTop: 16 }}>
-            <Link className="primaryLink" href={`/signup?returnTo=${encodeURIComponent(claimPath)}`}>
+            <Link
+              className="primaryLink"
+              href={`/signup?returnTo=${encodeURIComponent(claimPath)}${
+                checkoutEmail ? `&email=${encodeURIComponent(checkoutEmail)}` : ""
+              }${checkoutZip ? `&zip=${encodeURIComponent(checkoutZip)}` : ""}${checkoutName ? `&name=${encodeURIComponent(checkoutName)}` : ""}`}
+            >
               Create your account
             </Link>
             <Link className="secondaryLink" href={`/login?returnTo=${encodeURIComponent(claimPath)}`}>

@@ -53,6 +53,7 @@
 - TI auth: expand `/auth/confirm` to support both `token_hash&type=...` OTP links and `code=...` links (so magic login links don’t incorrectly show `auth_link_invalid`): `apps/ti-web/app/auth/confirm/route.ts`.
 - TI billing UX (guest checkout): allow logged-out users to start Weekend Pro Stripe checkout first (Stripe collects email), then create/login to claim the subscription on `/premium/success` → `/premium/claim` (email must match checkout email; renewals handled via existing subscription/customer webhooks once attached): `apps/ti-web/app/api/stripe/checkout-guest/route.ts`, `apps/ti-web/app/premium/success/page.tsx`, `apps/ti-web/app/premium/claim/page.tsx`, `apps/ti-web/components/UpgradeWeekendProButton.tsx`.
 - TI billing UX (guest checkout polish): update success CTA copy (“Create your account”) and pre-fill missing `ti_users.zip_code` from Stripe billing ZIP during claim when available: `apps/ti-web/app/premium/success/page.tsx`, `apps/ti-web/app/premium/claim/page.tsx`.
+- TI billing UX (guest checkout polish): prefill the signup form with Stripe checkout email/name/ZIP when available (still requires user to pick username + interests): `apps/ti-web/app/premium/success/page.tsx`, `apps/ti-web/app/signup/page.tsx`.
 
 ## 2026-04-28
 

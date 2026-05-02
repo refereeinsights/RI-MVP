@@ -10,10 +10,13 @@ import { TI_SPORT_LABELS } from "@/lib/tiSports";
 
 export default function SignupPage() {
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  const prefillEmail = (searchParams?.get("email") ?? "").trim();
+  const prefillZip = (searchParams?.get("zip") ?? "").trim();
+  const prefillName = (searchParams?.get("name") ?? "").trim();
+  const [email, setEmail] = useState(prefillEmail);
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [zip, setZip] = useState("");
+  const [name, setName] = useState(prefillName);
+  const [zip, setZip] = useState(prefillZip);
   const [username, setUsername] = useState("");
   const [sportsInterests, setSportsInterests] = useState<string[]>([]);
   const [agreed, setAgreed] = useState(false);
