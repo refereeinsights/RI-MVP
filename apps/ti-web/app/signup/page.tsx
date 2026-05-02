@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
@@ -24,6 +24,8 @@ export default function SignupPage() {
   const [message, setMessage] = useState("");
   const [loginLinkStatus, setLoginLinkStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [loginLinkMessage, setLoginLinkMessage] = useState("");
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [pollMessage, setPollMessage] = useState("");
   const code = (searchParams?.get("code") ?? "").trim();
   const returnTo = sanitizeReturnTo(searchParams?.get("returnTo") ?? null, "/account");
   const promo = (searchParams?.get("promo") ?? "").trim();
@@ -79,6 +81,60 @@ export default function SignupPage() {
     }
     return `${origin}/auth/confirm?next=${encodeURIComponent(returnTo)}`;
   }, [qvcActive, promo, qvcQuickCheckId, qvcBrowserHash, code, returnTo]);
+
+  const nextPath = useMemo(
+    () => (code ? `/join?code=${encodeURIComponent(code)}` : returnTo),
+    [code, returnTo]
+  );
+
+  useEffect(() => {
+    if (status !== "ok") return;
+    setIsConfirmed(false);
+
+    let cancelled = false;
+    let confirmed = false;
+    let attempts = 0;
+    const maxAttempts = 12; // ~2 minutes at 10s interval
+    let intervalId: number | null = null;
+
+    async function pollOnce() {
+      const currentEmail = email.trim();
+      if (!currentEmail) return;
+      if (confirmed) return;
+      attempts += 1;
+      try {
+        const resp = await fetch(`/api/auth/check-email-confirmed?email=${encodeURIComponent(currentEmail)}`, {
+          method: "GET",
+          cache: "no-store",
+        });
+        const payload = (await resp.json().catch(() => null)) as { ok?: boolean; confirmed?: boolean } | null;
+        if (cancelled) return;
+        if (payload?.confirmed) {
+          confirmed = true;
+          setIsConfirmed(true);
+          setPollMessage("Email confirmed. You can log in on this device.");
+          if (intervalId) window.clearInterval(intervalId);
+        } else if (attempts >= maxAttempts) {
+          setPollMessage("");
+          if (intervalId) window.clearInterval(intervalId);
+        }
+      } catch {
+        // Keep polling quietly; don't spam errors.
+      }
+    }
+
+    setPollMessage("Waiting for confirmation…");
+    void pollOnce();
+    intervalId = window.setInterval(() => {
+      if (attempts >= maxAttempts || confirmed) return;
+      void pollOnce();
+    }, 10_000);
+
+    return () => {
+      cancelled = true;
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, [email, status]);
 
   function toggleSportInterest(value: string) {
     setSportsInterests((current) =>
@@ -193,7 +249,6 @@ export default function SignupPage() {
   }
 
   if (status === "ok") {
-    const nextPath = code ? `/join?code=${encodeURIComponent(code)}` : returnTo;
     const verifyHref = `/verify-email?returnTo=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(email.trim())}`;
 
     async function sendLoginLink() {
@@ -214,6 +269,8 @@ export default function SignupPage() {
       }
     }
 
+    const loginHref = `/login?returnTo=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(email.trim())}`;
+
     return (
       <main style={{ maxWidth: 560, margin: "2.5rem auto", padding: "0 1rem", display: "grid", gap: 14, textAlign: "center" }}>
         <h1 style={{ margin: 0, fontSize: 42, lineHeight: 1.08 }}>Check your email to confirm</h1>
@@ -223,7 +280,46 @@ export default function SignupPage() {
         <p style={{ margin: 0, color: "#475569", fontSize: 14 }}>
           After you confirm your email, you’ll be sent back to where you left off. If you confirmed on another device, send a login link to continue on this device.
         </p>
+        {pollMessage ? (
+          <p style={{ margin: 0, color: isConfirmed ? "#065f46" : "#475569", fontSize: 13, fontWeight: 700 }}>
+            {pollMessage}
+          </p>
+        ) : null}
         <div style={{ display: "grid", gap: 10, justifyItems: "center" }}>
+          <Link
+            href={nextPath}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #cbd5e1",
+              background: "#fff",
+              color: "#0f172a",
+              fontWeight: 800,
+              minWidth: 260,
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            Continue browsing
+          </Link>
+          {isConfirmed ? (
+            <Link
+              href={loginHref}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #0f172a",
+                background: "#0f172a",
+                color: "#fff",
+                fontWeight: 800,
+                minWidth: 260,
+                textDecoration: "none",
+                display: "inline-block",
+              }}
+            >
+              Log in now
+            </Link>
+          ) : null}
           <button
             type="button"
             onClick={sendLoginLink}
