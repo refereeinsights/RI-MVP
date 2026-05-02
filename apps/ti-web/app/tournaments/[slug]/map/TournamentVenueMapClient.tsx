@@ -89,7 +89,6 @@ export default function TournamentVenueMapClient({
       "football",
       "baseball",
       "softball",
-      "volleyball",
       "lacrosse",
       "wrestling",
       "hockey",
@@ -106,7 +105,6 @@ export default function TournamentVenueMapClient({
       "football",
       "baseball",
       "softball",
-      "volleyball",
       "lacrosse",
       "wrestling",
       "hockey",
@@ -228,54 +226,6 @@ export default function TournamentVenueMapClient({
         // ignore
       }
       map.on("load", () => {
-        // Only clear the loading overlay once tiles are actually ready; otherwise the user
-        // just sees a blank/gray map area. Fall back after a timeout so we don't block forever.
-        try {
-          let done = false;
-          const markReadyIfTiles = () => {
-            if (done) return;
-            try {
-              if (map.isStyleLoaded?.() && map.areTilesLoaded?.()) {
-                done = true;
-                setMapReady(true);
-              }
-            } catch {
-              // ignore
-            }
-          };
-          map.on?.("idle", markReadyIfTiles);
-          const interval = window.setInterval(markReadyIfTiles, 250);
-          window.setTimeout(() => {
-            try {
-              map.off?.("idle", markReadyIfTiles);
-            } catch {
-              // ignore
-            }
-            window.clearInterval(interval);
-            if (!done) {
-              // If tiles still aren't ready, try swapping to the known-good public style once.
-              // This helps in dev when a custom style is restricted or unavailable.
-              if (!attemptedFallbackStyle && styleUrl !== fallbackStyleUrl) {
-                attemptedFallbackStyle = true;
-                try {
-                  map.setStyle?.(fallbackStyleUrl);
-                } catch {
-                  // ignore
-                }
-                // Give the fallback style a moment to load; keep the loading overlay visible.
-                window.setTimeout(markReadyIfTiles, 500);
-                window.setTimeout(markReadyIfTiles, 1500);
-                return;
-              }
-
-              // If we still can't load tiles, show a helpful message instead of a blank map.
-              setMapError((prev) => prev ?? "Map is taking longer than expected to load. Check Mapbox token/style URL restrictions for this origin.");
-              setMapReady(true);
-            }
-          }, 5000);
-        } catch {
-          setMapReady(true);
-        }
         // A couple resizes after load help avoid a blank/gray map on first render.
         try {
           const doResize = () => {
@@ -293,20 +243,85 @@ export default function TournamentVenueMapClient({
           // ignore
         }
 
-        // Fit bounds after the style is loaded to ensure tiles render consistently on first load.
+        // Fit bounds first so the tile-ready check is based on the final viewport.
+        // (Otherwise areTilesLoaded() can briefly be true before the new tile requests are queued.)
+        const fitToBounds = () => {
+          try {
+            const bounds = new mapboxgl.LngLatBounds();
+            for (const v of validCoords) bounds.extend([v.lng, v.lat]);
+            const isDesktop = window.matchMedia("(min-width: 900px)").matches;
+            map.fitBounds(bounds, {
+              padding: isDesktop
+                ? { top: 80, bottom: 80, left: 460, right: 40 }
+                : { top: 80, bottom: 80, left: 40, right: 40 },
+              duration: 0,
+              maxZoom: 12,
+            });
+          } catch {
+            // ignore
+          }
+        };
         try {
-          const bounds = new mapboxgl.LngLatBounds();
-          for (const v of validCoords) bounds.extend([v.lng, v.lat]);
-          const isDesktop = window.matchMedia("(min-width: 900px)").matches;
-          map.fitBounds(bounds, {
-            padding: isDesktop
-              ? { top: 80, bottom: 80, left: 460, right: 40 }
-              : { top: 80, bottom: 80, left: 40, right: 40 },
-            duration: 0,
-            maxZoom: 12,
-          });
+          requestAnimationFrame(fitToBounds);
         } catch {
-          // ignore
+          fitToBounds();
+        }
+
+        // Only clear the loading overlay once tiles are actually ready; otherwise the user
+        // just sees a blank/gray map area. Fall back after a timeout so we don't block forever.
+        try {
+          let done = false;
+          let consecutiveReady = 0;
+          const markReadyIfTiles = () => {
+            if (done) return;
+            try {
+              const ready = Boolean(map.isStyleLoaded?.() && map.areTilesLoaded?.());
+              consecutiveReady = ready ? consecutiveReady + 1 : 0;
+              if (consecutiveReady < 3) return;
+              done = true;
+              // Give the browser/GPU a frame to paint after tiles report ready.
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  setMapReady(true);
+                });
+              });
+            } catch {
+              // ignore
+            }
+          };
+          map.on?.("idle", markReadyIfTiles);
+          const interval = window.setInterval(markReadyIfTiles, 200);
+          window.setTimeout(() => {
+            try {
+              map.off?.("idle", markReadyIfTiles);
+            } catch {
+              // ignore
+            }
+            window.clearInterval(interval);
+            if (!done) {
+              // If tiles still aren't ready, try swapping to the known-good public style once.
+              // This helps in dev when a custom style is restricted or unavailable.
+              if (!attemptedFallbackStyle && styleUrl !== fallbackStyleUrl) {
+                attemptedFallbackStyle = true;
+                consecutiveReady = 0;
+                try {
+                  map.setStyle?.(fallbackStyleUrl);
+                } catch {
+                  // ignore
+                }
+                // Give the fallback style a moment to load; keep the loading overlay visible.
+                window.setTimeout(markReadyIfTiles, 700);
+                window.setTimeout(markReadyIfTiles, 1700);
+                return;
+              }
+
+              // If we still can't load tiles, show a helpful message instead of a blank map.
+              setMapError((prev) => prev ?? "Map is taking longer than expected to load. Check Mapbox token/style URL restrictions for this origin.");
+              setMapReady(true);
+            }
+          }, 6500);
+        } catch {
+          setMapReady(true);
         }
         if (!loadedTrackedRef.current) {
           loadedTrackedRef.current = true;
