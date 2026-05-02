@@ -143,12 +143,22 @@
 .mapInner {
   position: absolute;
   inset: 0;
+  z-index: 1;
 }
 
 .mapFallback {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   padding: 14px;
   font-size: 13px;
   opacity: 0.92;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  background: rgba(0,0,0,0.18);
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
 }
 
 .markerBtn {
