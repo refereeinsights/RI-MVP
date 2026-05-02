@@ -28,6 +28,8 @@ type VerifyResultRow = {
   changed_fields: string[];
 };
 
+type CategoryStat = { complete: number; existing: number; error: number; skipped: number };
+
 const STATE_ABBR_BY_NAME: Record<string, string> = {
   alabama: "AL",
   alaska: "AK",
@@ -276,10 +278,10 @@ export async function POST(request: Request) {
   const geocodeKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY || "";
 
   const updated: VerifyResultRow[] = [];
-  let parsedAddressCount = 0;
-  let geocodedCount = 0;
-  let timezoneCount = 0;
-  let websiteCount = 0;
+  const addressStats: CategoryStat = { complete: 0, existing: 0, error: 0, skipped: 0 };
+  const geocodeStats: CategoryStat = { complete: 0, existing: 0, error: 0, skipped: 0 };
+  const timezoneStats: CategoryStat = { complete: 0, existing: 0, error: 0, skipped: 0 };
+  const websiteStats: CategoryStat = { complete: 0, existing: 0, error: 0, skipped: 0 };
 
   for (const venue of venues) {
     const currentAddress1 = normalizeText(venue.address1);
@@ -318,9 +320,17 @@ export async function POST(request: Request) {
         changedFields.push("zip");
       }
 
-      if (changedFields.some((f) => f === "address1" || f === "city" || f === "state" || f === "zip")) {
-        parsedAddressCount += 1;
-      }
+    }
+
+    // Address stats
+    if (!currentStreet) {
+      addressStats.skipped += 1;
+    } else if (!parsed) {
+      addressStats.error += 1;
+    } else if (changedFields.some((f) => f === "address1" || f === "city" || f === "state" || f === "zip")) {
+      addressStats.complete += 1;
+    } else {
+      addressStats.existing += 1;
     }
 
     const nextStreet = normalizeText(updates.address1) || currentStreet;
@@ -338,7 +348,11 @@ export async function POST(request: Request) {
 
     let lat = typeof venue.latitude === "number" ? venue.latitude : null;
     let lng = typeof venue.longitude === "number" ? venue.longitude : null;
-    if ((lat == null || lng == null) && mapboxToken && geocodeQuery) {
+    if (lat != null && lng != null) {
+      geocodeStats.existing += 1;
+    } else if (!mapboxToken || !geocodeQuery) {
+      geocodeStats.skipped += 1;
+    } else {
       const geo = await geocodeAddressMapbox(geocodeQuery, mapboxToken, {
         expectedState: nextState || null,
       });
@@ -372,21 +386,36 @@ export async function POST(request: Request) {
         }
         updates.geocode_source = "mapbox";
         if (!changedFields.includes("geocode_source")) changedFields.push("geocode_source");
-        geocodedCount += 1;
+        geocodeStats.complete += 1;
+      } else {
+        geocodeStats.error += 1;
       }
     }
 
-    if (fillTimezone && !normalizeText(venue.timezone) && geocodeKey && lat != null && lng != null) {
+    if (!fillTimezone) {
+      timezoneStats.skipped += 1;
+    } else if (normalizeText(venue.timezone)) {
+      timezoneStats.existing += 1;
+    } else if (!geocodeKey || lat == null || lng == null) {
+      timezoneStats.skipped += 1;
+    } else {
       const tz = await timezoneFromCoordinates(lat, lng, geocodeKey);
       if (tz) {
         updates.timezone = tz;
-        timezoneCount += 1;
+        timezoneStats.complete += 1;
         changedFields.push("timezone");
+      } else {
+        timezoneStats.error += 1;
       }
     }
 
-    // Google Places: only called when explicitly requested and venue website URL is still missing.
-    if (fillWebsite && !normalizeText(venue.venue_url) && geocodeKey && normalizeText(venue.name)) {
+    if (!fillWebsite) {
+      websiteStats.skipped += 1;
+    } else if (normalizeText(venue.venue_url)) {
+      websiteStats.existing += 1;
+    } else if (!geocodeKey || !normalizeText(venue.name)) {
+      websiteStats.skipped += 1;
+    } else {
       const place = await lookupPlaceByVenueName({
         name: normalizeText(venue.name),
         city: (normalizeText(updates.city) || nextCity) || null,
@@ -395,8 +424,10 @@ export async function POST(request: Request) {
       });
       if (place?.venue_url) {
         updates.venue_url = place.venue_url;
-        websiteCount += 1;
+        websiteStats.complete += 1;
         changedFields.push("venue_url");
+      } else {
+        websiteStats.error += 1;
       }
     }
 
@@ -424,10 +455,12 @@ export async function POST(request: Request) {
     limit,
     scanned: venues.length,
     updated: updated.length,
-    parsed_address_rows: parsedAddressCount,
-    geocoded_rows: geocodedCount,
-    timezone_rows: timezoneCount,
-    website_rows: websiteCount,
+    stats: {
+      address: addressStats,
+      geocode: geocodeStats,
+      timezone: timezoneStats,
+      website: websiteStats,
+    },
     rows: updated.slice(0, 30),
   });
 }

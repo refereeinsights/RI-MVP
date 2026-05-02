@@ -8,16 +8,20 @@ type VerifyRow = {
   changed_fields: string[];
 };
 
+type CategoryStat = { complete: number; existing: number; error: number; skipped: number };
+
 type VerifyResponse = {
   tool: "venue_address_verify";
   dryRun: boolean;
   limit: number;
   scanned: number;
   updated: number;
-  parsed_address_rows: number;
-  geocoded_rows: number;
-  timezone_rows: number;
-  website_rows: number;
+  stats: {
+    address: CategoryStat;
+    geocode: CategoryStat;
+    timezone: CategoryStat;
+    website: CategoryStat;
+  };
   rows: VerifyRow[];
 };
 
@@ -116,8 +120,27 @@ export default function VenueAddressVerifyPanel() {
             Scanned {result.scanned} • Updated {result.updated}
             {result.dryRun ? " (dry run)" : ""}
           </div>
-          <div style={{ fontSize: 12, color: "#4b5563" }}>
-            Parsed address rows: {result.parsed_address_rows} • Geocoded: {result.geocoded_rows} • Timezone: {result.timezone_rows} • Website: {result.website_rows}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            {(
+              [
+                { label: "Address", note: "Mapbox", stat: result.stats.address },
+                { label: "Geocoding", note: "Mapbox", stat: result.stats.geocode },
+                { label: "Timezone", note: "Google", stat: result.stats.timezone },
+                { label: "Website URL", note: "Google Places", stat: result.stats.website },
+              ] as const
+            ).map(({ label, note, stat }) => (
+              <div key={label} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: "8px 10px" }}>
+                <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 5 }}>
+                  {label} <span style={{ color: "#9ca3af", fontWeight: 400 }}>({note})</span>
+                </div>
+                <div style={{ fontSize: 12, display: "grid", gap: 2 }}>
+                  <span style={{ color: stat.complete > 0 ? "#166534" : "#6b7280" }}>complete: {stat.complete}</span>
+                  <span style={{ color: "#374151" }}>existing: {stat.existing}</span>
+                  <span style={{ color: stat.error > 0 ? "#b91c1c" : "#6b7280" }}>error: {stat.error}</span>
+                  <span style={{ color: "#9ca3af" }}>skipped: {stat.skipped}</span>
+                </div>
+              </div>
+            ))}
           </div>
           {result.rows.length > 0 ? (
             <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
