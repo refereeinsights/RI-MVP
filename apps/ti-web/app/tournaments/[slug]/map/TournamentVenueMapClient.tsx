@@ -186,6 +186,8 @@ export default function TournamentVenueMapClient({
       mapboxglRef.current = mapboxgl;
 
       const styleUrl = (process.env.NEXT_PUBLIC_MAPBOX_STYLE_URL ?? "").trim() || "mapbox://styles/mapbox/streets-v12";
+      const fallbackStyleUrl = "mapbox://styles/mapbox/streets-v12";
+      let attemptedFallbackStyle = false;
 
       let map: any;
       try {
@@ -226,17 +228,51 @@ export default function TournamentVenueMapClient({
         // ignore
       }
       map.on("load", () => {
-        // "load" can fire before the first visible render if the container starts at 0x0.
-        // Only hide the loading overlay after the first render, with a safe timeout fallback.
+        // Only clear the loading overlay once tiles are actually ready; otherwise the user
+        // just sees a blank/gray map area. Fall back after a timeout so we don't block forever.
         try {
-          let didRender = false;
-          map.once?.("render", () => {
-            didRender = true;
-            setMapReady(true);
-          });
+          let done = false;
+          const markReadyIfTiles = () => {
+            if (done) return;
+            try {
+              if (map.isStyleLoaded?.() && map.areTilesLoaded?.()) {
+                done = true;
+                setMapReady(true);
+              }
+            } catch {
+              // ignore
+            }
+          };
+          map.on?.("idle", markReadyIfTiles);
+          const interval = window.setInterval(markReadyIfTiles, 250);
           window.setTimeout(() => {
-            if (!didRender) setMapReady(true);
-          }, 2000);
+            try {
+              map.off?.("idle", markReadyIfTiles);
+            } catch {
+              // ignore
+            }
+            window.clearInterval(interval);
+            if (!done) {
+              // If tiles still aren't ready, try swapping to the known-good public style once.
+              // This helps in dev when a custom style is restricted or unavailable.
+              if (!attemptedFallbackStyle && styleUrl !== fallbackStyleUrl) {
+                attemptedFallbackStyle = true;
+                try {
+                  map.setStyle?.(fallbackStyleUrl);
+                } catch {
+                  // ignore
+                }
+                // Give the fallback style a moment to load; keep the loading overlay visible.
+                window.setTimeout(markReadyIfTiles, 500);
+                window.setTimeout(markReadyIfTiles, 1500);
+                return;
+              }
+
+              // If we still can't load tiles, show a helpful message instead of a blank map.
+              setMapError((prev) => prev ?? "Map is taking longer than expected to load. Check Mapbox token/style URL restrictions for this origin.");
+              setMapReady(true);
+            }
+          }, 5000);
         } catch {
           setMapReady(true);
         }
@@ -285,9 +321,13 @@ export default function TournamentVenueMapClient({
         }
       });
       map.on("error", (e: any) => {
-        const msg = String(e?.error?.message ?? e?.message ?? "");
+        const err = e?.error ?? e;
+        const msg = String(err?.message ?? "");
+        const status = typeof err?.status === "number" ? ` (status ${err.status})` : "";
+        const url = err?.url ? ` ${String(err.url)}` : "";
+        const derived = (msg || status || url ? `${msg}${status}${url}` : "").trim();
         // Only surface the first meaningful error; Mapbox can emit multiple.
-        if (msg) setMapError((prev) => prev ?? msg.slice(0, 220));
+        if (derived) setMapError((prev) => prev ?? derived.slice(0, 260));
       });
 
       map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
