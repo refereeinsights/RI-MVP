@@ -362,9 +362,19 @@ export default function SignupPage() {
               onChange={(e) => setAgreed(e.target.checked)}
             />
             <label htmlFor="signup-consent" style={{ fontSize: 13 }}>
-              I agree to the <Link href="/terms">Terms of Service</Link> and{" "}
-              <Link href="/privacy">Privacy Policy</Link>.
+              I agree to the{" "}
+              <Link href="/terms" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>
+                Privacy Policy
+              </Link>
+              .
             </label>
+          </div>
+          <div style={{ fontSize: 12, color: "#64748b", marginLeft: 28 }}>
+            Tip: open the Terms and Privacy Policy links to review them before signing up.
           </div>
           <div style={{ fontSize: 12, color: "#555" }}>
             By creating an account, you agree to follow the TournamentInsights{" "}

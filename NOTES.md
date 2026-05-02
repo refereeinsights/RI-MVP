@@ -56,6 +56,7 @@
 - TI billing UX (guest checkout polish): update success CTA copy (“Create your account”) and pre-fill missing `ti_users.zip_code` from Stripe billing ZIP during claim when available: `apps/ti-web/app/premium/success/page.tsx`, `apps/ti-web/app/premium/claim/page.tsx`.
 - TI billing UX (guest checkout polish): prefill the signup form with Stripe checkout email/name/ZIP when available (still requires user to pick username + interests): `apps/ti-web/app/premium/success/page.tsx`, `apps/ti-web/app/signup/page.tsx`.
 - TI auth UX: prefill `/login` with `?email=` when provided (used by guest-checkout success page) to reduce “accidentally ends up on signup” confusion after confirming in another browser: `apps/ti-web/app/login/page.tsx`, `apps/ti-web/app/premium/success/page.tsx`.
+- TI signup UX: make Terms of Service + Privacy Policy links clearly clickable (underlined, open in new tab) with a small helper tip under the consent checkbox: `apps/ti-web/app/signup/page.tsx`.
 
 ## 2026-04-28
 
