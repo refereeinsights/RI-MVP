@@ -100,12 +100,14 @@ export default function WeekendProUpgradeModal(props: WeekendProUpgradeModalProp
             alt="Weekend Pro"
             style={{
               width: "100%",
-              height: 220,
-              objectFit: "cover",
+              height: "auto",
+              maxHeight: 260,
+              objectFit: "contain",
               objectPosition: "center",
               display: "block",
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
+              background: "#07180f",
             }}
             onError={() => setImageOk(false)}
           />
