@@ -958,7 +958,7 @@ export default function TournamentVenueMapClient({
                 ) : null}
               </div>
 
-              <div className={styles.venueThumb} style={{ width: "100%", height: 160 }}>
+              <div className={styles.detailThumb}>
                 <img
                   className={styles.venueThumbImg}
                   src={detailImgSrc}
@@ -970,11 +970,11 @@ export default function TournamentVenueMapClient({
               </div>
 
               {selectedVenue.hasOwl && selectedVenue.counts ? (
-                <div style={{ marginTop: 2 }}>
-                  <div style={{ fontSize: 12, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.85 }}>
+                <div className={styles.owlPreview}>
+                  <div className={styles.owlPreviewTitle}>
                     Weekend Guide (Owl&apos;s Eye)
                   </div>
-                  <div style={{ fontSize: 12, opacity: 0.88, marginTop: 4 }}>A quick look at what’s nearby.</div>
+                  <div className={styles.owlPreviewSub}>A quick look at what’s nearby.</div>
                   <div className={styles.venueCounts} style={{ marginTop: 8 }}>
                     {`☕ ${selectedVenue.counts.coffee} coffee • 🍔 ${selectedVenue.counts.food} food • 🏨 ${selectedVenue.counts.hotels} hotels`}
                   </div>
@@ -983,11 +983,14 @@ export default function TournamentVenueMapClient({
                       {enhancedCounts(selectedVenue)}
                     </div>
                   ) : null}
-                  <div style={{ fontSize: 12, opacity: 0.86, marginTop: 8 }}>
-                    Tap to see coffee, food, hotels, and more on the map.
+                  <div className={styles.owlPreviewValue}>
+                    Closest hotels, quick food, and local favorites mapped to your fields
                   </div>
+                  <div className={styles.owlPreviewHint}>Tap to see coffee, food, hotels, and more on the map.</div>
                 </div>
               ) : null}
+
+              <div className={styles.owlCtaNudge}>Most teams stay within 10–15 minutes of this venue.</div>
 
               <div className={styles.primaryOwlCtaRow}>
                 {entitlementTier === "weekend_pro" ||
@@ -1010,7 +1013,7 @@ export default function TournamentVenueMapClient({
                     venue_slug={selectedVenue.seo_slug ?? selectedVenue.id}
                     entry_point="map_primary_owlseye_unlock_modal"
                     cta_label="Upgrade to Weekend Pro"
-                    label="Unlock full Owl’s Eye →"
+                    label="See the closest options →"
                     user_tier={entitlementTier}
                     has_affiliate_visible={false}
                   />
@@ -1023,7 +1026,7 @@ export default function TournamentVenueMapClient({
                   <div className={styles.staySub}>Compare hotels and rentals closest to where you’ll play.</div>
                   <div className={styles.ctaRow}>
                     <a
-                      className={styles.cta}
+                      className={styles.affiliateCta}
                       href={`/go/hotels?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
                       target="_blank"
                       rel="noopener noreferrer sponsored"
@@ -1039,7 +1042,7 @@ export default function TournamentVenueMapClient({
                       View nearby hotels
                     </a>
                     <a
-                      className={`${styles.cta} ${styles.ctaSecondary}`}
+                      className={styles.affiliateCta}
                       href={`/go/vrbo?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
                       target="_blank"
                       rel="noopener noreferrer sponsored"
@@ -1265,7 +1268,6 @@ export default function TournamentVenueMapClient({
                   </div>
                 </div>
               ) : null}
-              <div style={{ fontSize: 12, opacity: 0.86, marginTop: 2 }}>Most teams stay within 10–15 minutes of this venue.</div>
             </>
           ) : (
             <div className={styles.mapFallback}>Select a venue to see details.</div>
