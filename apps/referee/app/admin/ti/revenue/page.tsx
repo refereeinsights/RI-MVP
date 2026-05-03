@@ -1,0 +1,367 @@
+import Link from "next/link";
+
+import AdminNav from "@/components/admin/AdminNav";
+import { requireAdmin } from "@/lib/admin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+
+export const runtime = "nodejs";
+
+const INTERNAL_EMAIL_SUBSTRINGS = ["tournamentinsights", "rdtest1970"] as const;
+
+type PageProps = {
+  searchParams?: {
+    advertiser?: string;
+  };
+};
+
+type AffiliateMetricRow = {
+  day: string | null;
+  network: string | null;
+  advertiser_id: string | null;
+  advertiser_name: string | null;
+  status: string | null;
+  currency: string | null;
+  tx_count: number | null;
+  gross_sales: number | null;
+  commission: number | null;
+};
+
+function startOfUtcDay(d: Date) {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+}
+
+function money(n: number) {
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
+function buildHref(basePath: string, params: Record<string, string | null | undefined>) {
+  const qs = new URLSearchParams();
+  for (const [key, val] of Object.entries(params)) {
+    if (val === null || val === undefined || val === "") continue;
+    qs.set(key, val);
+  }
+  const suffix = qs.toString();
+  return suffix ? `${basePath}?${suffix}` : basePath;
+}
+
+function sumAffiliate(rows: AffiliateMetricRow[], args: { network: "awin" | "cj"; status: "cleared" | "pending" }) {
+  let txCount = 0;
+  let gross = 0;
+  let commission = 0;
+  for (const r of rows) {
+    if ((r.network ?? "") !== args.network) continue;
+    if ((r.status ?? "") !== args.status) continue;
+    txCount += Number(r.tx_count ?? 0) || 0;
+    gross += Number(r.gross_sales ?? 0) || 0;
+    commission += Number(r.commission ?? 0) || 0;
+  }
+  return { txCount, gross, commission };
+}
+
+export default async function TiRevenuePage({ searchParams }: PageProps) {
+  await requireAdmin();
+
+  const advertiserFilter = (searchParams?.advertiser ?? "").trim();
+
+  const now = new Date();
+  const todayStartUtc = startOfUtcDay(now);
+  const yesterdayStartUtc = new Date(todayStartUtc.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayIso = yesterdayStartUtc.toISOString().slice(0, 10); // YYYY-MM-DD
+
+  const internalUsersRes = await supabaseAdmin
+    .from("ti_users" as any)
+    .select("id,email")
+    .or(INTERNAL_EMAIL_SUBSTRINGS.map((s) => `email.ilike.%${s}%`).join(","));
+  const internalUserIds = (internalUsersRes.error ? [] : (internalUsersRes.data ?? [])).map((r: any) => r.id).filter(Boolean);
+
+  const notInternalUsers = (query: any) => {
+    let q = query;
+    for (const s of INTERNAL_EMAIL_SUBSTRINGS) q = q.not("email", "ilike", `%${s}%`);
+    return q;
+  };
+
+  const notInternalWebhookUsers = (query: any) => {
+    if (!internalUserIds.length) return query;
+    return query.not("user_id", "in", `(${internalUserIds.join(",")})`);
+  };
+
+  const [weekendProActiveRes, weekendProPastDueRes, weekendProCheckoutsYesterdayRes, affiliateYesterdayRes, affiliateTotalRes] =
+    await Promise.all([
+      notInternalUsers(
+        supabaseAdmin
+          .from("ti_users" as any)
+          .select("id", { count: "exact", head: true })
+          .eq("plan", "weekend_pro")
+          .eq("subscription_status", "active")
+      ),
+      notInternalUsers(
+        supabaseAdmin
+          .from("ti_users" as any)
+          .select("id", { count: "exact", head: true })
+          .eq("plan", "weekend_pro")
+          .eq("subscription_status", "past_due")
+      ),
+      notInternalWebhookUsers(
+        supabaseAdmin
+          .from("stripe_webhook_events" as any)
+          .select("id", { count: "exact", head: true })
+          .eq("event_type", "checkout.session.completed")
+          .eq("status", "processed")
+          .gte("created_at", yesterdayStartUtc.toISOString())
+          .lt("created_at", todayStartUtc.toISOString())
+      ),
+      (() => {
+        let q = supabaseAdmin
+          .from("ti_affiliate_daily_metrics" as any)
+          .select("day,network,advertiser_id,advertiser_name,status,currency,tx_count,gross_sales,commission")
+          .eq("day", yesterdayIso);
+        if (advertiserFilter) q = q.eq("advertiser_id", advertiserFilter);
+        return q;
+      })(),
+      (() => {
+        let q = supabaseAdmin
+          .from("ti_affiliate_daily_metrics" as any)
+          .select("day,network,advertiser_id,advertiser_name,status,currency,tx_count,gross_sales,commission");
+        if (advertiserFilter) q = q.eq("advertiser_id", advertiserFilter);
+        return q;
+      })(),
+    ]);
+
+  const weekendProActive = weekendProActiveRes.error ? 0 : weekendProActiveRes.count ?? 0;
+  const weekendProPastDue = weekendProPastDueRes.error ? 0 : weekendProPastDueRes.count ?? 0;
+  const weekendProCheckoutsYesterday = weekendProCheckoutsYesterdayRes.error ? 0 : weekendProCheckoutsYesterdayRes.count ?? 0;
+
+  const affiliateYesterdayRows: AffiliateMetricRow[] = affiliateYesterdayRes.error
+    ? []
+    : ((affiliateYesterdayRes.data ?? []) as AffiliateMetricRow[]);
+  const affiliateTotalRows: AffiliateMetricRow[] = affiliateTotalRes.error
+    ? []
+    : ((affiliateTotalRes.data ?? []) as AffiliateMetricRow[]);
+
+  const awinYesterdayCleared = sumAffiliate(affiliateYesterdayRows, { network: "awin", status: "cleared" });
+  const awinYesterdayPending = sumAffiliate(affiliateYesterdayRows, { network: "awin", status: "pending" });
+  const cjYesterdayCleared = sumAffiliate(affiliateYesterdayRows, { network: "cj", status: "cleared" });
+  const cjYesterdayPending = sumAffiliate(affiliateYesterdayRows, { network: "cj", status: "pending" });
+
+  const awinTotalCleared = sumAffiliate(affiliateTotalRows, { network: "awin", status: "cleared" });
+  const awinTotalPending = sumAffiliate(affiliateTotalRows, { network: "awin", status: "pending" });
+  const cjTotalCleared = sumAffiliate(affiliateTotalRows, { network: "cj", status: "cleared" });
+  const cjTotalPending = sumAffiliate(affiliateTotalRows, { network: "cj", status: "pending" });
+
+  const distinctAdvertisers = Array.from(
+    new Map<string, string>(
+      affiliateTotalRows
+        .map((r): [string, string] => [String(r.advertiser_id ?? "").trim(), String(r.advertiser_name ?? "").trim()])
+        .filter(([id]) => id)
+    ).entries()
+  ).map(([id, name]) => ({ id, name }));
+
+  distinctAdvertisers.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+
+  const tileStyle: React.CSSProperties = {
+    border: "1px solid #e5e7eb",
+    borderRadius: 14,
+    padding: 14,
+    background: "#fff",
+  };
+
+  const tileLabelStyle: React.CSSProperties = { fontSize: 12, textTransform: "uppercase", fontWeight: 800, color: "#6b7280" };
+  const tileValueStyle: React.CSSProperties = { fontSize: 30, fontWeight: 950, lineHeight: 1.1, marginTop: 4 };
+  const tileMetaStyle: React.CSSProperties = { marginTop: 6, fontSize: 12, color: "#6b7280", fontWeight: 800 };
+
+  const title = "TI Revenue";
+  const affiliateSchemaHint =
+    "No affiliate metrics found yet. Run the RI cron `/api/cron/ti-affiliate-sync` and ensure the Supabase migration `20260503_ti_affiliate_daily_metrics.sql` is applied.";
+
+  return (
+    <div style={{ padding: 20, maxWidth: 1100, margin: "0 auto" }}>
+      <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 10 }}>{title}</h1>
+      <div style={{ marginBottom: 12 }}>
+        <AdminNav />
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <Link href="/admin" className="cta secondary" style={{ padding: "8px 12px" }}>
+          ← Back to Admin
+        </Link>
+        <Link href="/admin/ti/outbound" className="cta secondary" style={{ padding: "8px 12px" }}>
+          TI Outbound →
+        </Link>
+        <Link href="/admin/ti/static-maps" className="cta secondary" style={{ padding: "8px 12px" }}>
+          TI Static maps →
+        </Link>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+        <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          Advertiser
+        </div>
+        <Link
+          href="/admin/ti/revenue"
+          style={{
+            padding: "6px 10px",
+            borderRadius: 10,
+            border: "1px solid #e5e7eb",
+            background: advertiserFilter ? "#f3f4f6" : "#111827",
+            color: advertiserFilter ? "#111827" : "#fff",
+            fontWeight: 900,
+            textDecoration: "none",
+            fontSize: 13,
+          }}
+        >
+          All
+        </Link>
+        {distinctAdvertisers.slice(0, 12).map((a) => {
+          const selected = a.id === advertiserFilter;
+          return (
+            <Link
+              key={`adv-${a.id}`}
+              href={buildHref("/admin/ti/revenue", { advertiser: a.id })}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+                background: selected ? "#111827" : "#f3f4f6",
+                color: selected ? "#fff" : "#111827",
+                fontWeight: 900,
+                textDecoration: "none",
+                fontSize: 13,
+              }}
+              title={a.id}
+            >
+              {a.name || a.id}
+            </Link>
+          );
+        })}
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+          gap: 12,
+          marginBottom: 14,
+        }}
+      >
+        <div style={tileStyle}>
+          <div style={tileLabelStyle}>Weekend Pro active</div>
+          <div style={tileValueStyle}>{weekendProActive}</div>
+          {weekendProActiveRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load active users: {weekendProActiveRes.error.message}
+            </div>
+          ) : null}
+        </div>
+
+        <div style={tileStyle}>
+          <div style={tileLabelStyle}>Weekend Pro past due</div>
+          <div style={tileValueStyle}>{weekendProPastDue}</div>
+          {weekendProPastDueRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load past due users: {weekendProPastDueRes.error.message}
+            </div>
+          ) : null}
+        </div>
+
+        <div style={tileStyle}>
+          <div style={tileLabelStyle}>Weekend Pro checkouts</div>
+          <div style={tileValueStyle}>{weekendProCheckoutsYesterday}</div>
+          <div style={tileMetaStyle}>Yesterday (UTC)</div>
+          {weekendProCheckoutsYesterdayRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load checkout counts: {weekendProCheckoutsYesterdayRes.error.message}
+            </div>
+          ) : null}
+        </div>
+
+        <div style={tileStyle}>
+          <div style={tileLabelStyle}>Awin gross</div>
+          <div style={tileValueStyle}>{money(awinYesterdayCleared.gross)}</div>
+          <div style={tileMetaStyle}>
+            Cleared yesterday • comm {money(awinYesterdayCleared.commission)} • {awinYesterdayCleared.txCount} tx
+          </div>
+          {affiliateYesterdayRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load affiliate metrics: {affiliateYesterdayRes.error.message}
+            </div>
+          ) : affiliateYesterdayRows.length === 0 ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>{affiliateSchemaHint}</div>
+          ) : null}
+        </div>
+
+        <div style={tileStyle}>
+          <div style={tileLabelStyle}>CJ gross</div>
+          <div style={tileValueStyle}>{money(cjYesterdayCleared.gross)}</div>
+          <div style={tileMetaStyle}>
+            Cleared yesterday • comm {money(cjYesterdayCleared.commission)} • {cjYesterdayCleared.txCount} tx
+          </div>
+          {affiliateYesterdayRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load affiliate metrics: {affiliateYesterdayRes.error.message}
+            </div>
+          ) : affiliateYesterdayRows.length === 0 ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>{affiliateSchemaHint}</div>
+          ) : null}
+        </div>
+
+        <div style={tileStyle}>
+          <div style={tileLabelStyle}>Awin pending</div>
+          <div style={tileValueStyle}>{money(awinYesterdayPending.gross)}</div>
+          <div style={tileMetaStyle}>
+            Pending yesterday • comm {money(awinYesterdayPending.commission)} • {awinYesterdayPending.txCount} tx
+          </div>
+        </div>
+
+        <div style={tileStyle}>
+          <div style={tileLabelStyle}>CJ pending</div>
+          <div style={tileValueStyle}>{money(cjYesterdayPending.gross)}</div>
+          <div style={tileMetaStyle}>
+            Pending yesterday • comm {money(cjYesterdayPending.commission)} • {cjYesterdayPending.txCount} tx
+          </div>
+        </div>
+      </div>
+
+      <details open style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, marginBottom: 12 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 950, fontSize: 14 }}>Totals (all-time in table)</summary>
+        <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 900 }}>Awin</div>
+          <div style={{ fontSize: 13, color: "#374151" }}>
+            Cleared: {money(awinTotalCleared.gross)} gross • {money(awinTotalCleared.commission)} commission • {awinTotalCleared.txCount} tx
+          </div>
+          <div style={{ fontSize: 13, color: "#374151" }}>
+            Pending: {money(awinTotalPending.gross)} gross • {money(awinTotalPending.commission)} commission • {awinTotalPending.txCount} tx
+          </div>
+
+          <div style={{ marginTop: 8, fontSize: 13, fontWeight: 900 }}>CJ</div>
+          <div style={{ fontSize: 13, color: "#374151" }}>
+            Cleared: {money(cjTotalCleared.gross)} gross • {money(cjTotalCleared.commission)} commission • {cjTotalCleared.txCount} tx
+          </div>
+          <div style={{ fontSize: 13, color: "#374151" }}>
+            Pending: {money(cjTotalPending.gross)} gross • {money(cjTotalPending.commission)} commission • {cjTotalPending.txCount} tx
+          </div>
+
+          {affiliateTotalRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load affiliate totals: {affiliateTotalRes.error.message}
+            </div>
+          ) : null}
+        </div>
+      </details>
+
+      <details style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 14 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 950, fontSize: 14 }}>Status mapping</summary>
+        <div style={{ marginTop: 10, fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
+          <div>
+            <b>Stripe</b>: active/past_due comes from <code>ti_users.subscription_status</code>.
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <b>Awin</b>: uses API status buckets directly (cleared = approved).
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <b>CJ</b>: this v1 rollup treats <code>action-status=cleared</code> as approved and <code>locked</code> as pending.
+          </div>
+        </div>
+      </details>
+    </div>
+  );
+}
