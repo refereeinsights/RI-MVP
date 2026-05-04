@@ -1006,36 +1006,6 @@ export default function TournamentVenueMapClient({
                 </div>
               ) : null}
 
-              <div className={styles.owlCtaNudge}>Most teams stay within 10–15 minutes of this venue.</div>
-
-              <div className={styles.primaryOwlCtaRow}>
-                {entitlementTier === "weekend_pro" ||
-                selectedVenue.id === DEMO_STARFIRE_VENUE_ID ||
-                isPremiumPreviewTournamentSlug(tournament.slug) ? (
-                  <button
-                    type="button"
-                    className={styles.primaryOwlCta}
-                    onClick={() => void openPremiumPanel()}
-                    disabled={owlPremiumLoadingVenueId === selectedVenue.id}
-                  >
-                    {owlPremiumLoadingVenueId === selectedVenue.id ? "Loading Owl’s Eye…" : "View full Owl’s Eye map →"}
-                  </button>
-                ) : (
-                  <WeekendProUpgradeModalTrigger
-                    className={styles.primaryOwlCta}
-                    source_page="venue_map"
-                    source_context="map_primary_owlseye_unlock"
-                    tournament_slug={tournament.slug}
-                    venue_slug={selectedVenue.seo_slug ?? selectedVenue.id}
-                    entry_point="map_primary_owlseye_unlock_modal"
-                    cta_label="Upgrade to Weekend Pro"
-                    label="See the closest options →"
-                    user_tier={entitlementTier}
-                    has_affiliate_visible={false}
-                  />
-                )}
-              </div>
-
               {hotelVenueId ? (
                 <div className={styles.stayBlock}>
                   <div className={styles.stayTitle}>Stay near this venue</div>
@@ -1068,6 +1038,36 @@ export default function TournamentVenueMapClient({
                   </div>
                 </div>
               ) : null}
+
+              <div className={styles.owlCtaNudge}>Most teams stay within 10–15 minutes of this venue.</div>
+
+              <div className={styles.primaryOwlCtaRow}>
+                {entitlementTier === "weekend_pro" ||
+                selectedVenue.id === DEMO_STARFIRE_VENUE_ID ||
+                isPremiumPreviewTournamentSlug(tournament.slug) ? (
+                  <button
+                    type="button"
+                    className={styles.primaryOwlCta}
+                    onClick={() => void openPremiumPanel()}
+                    disabled={owlPremiumLoadingVenueId === selectedVenue.id}
+                  >
+                    {owlPremiumLoadingVenueId === selectedVenue.id ? "Loading Owl’s Eye…" : "View full Owl’s Eye map →"}
+                  </button>
+                ) : (
+                  <WeekendProUpgradeModalTrigger
+                    className={styles.primaryOwlCta}
+                    source_page="venue_map"
+                    source_context="map_primary_owlseye_unlock"
+                    tournament_slug={tournament.slug}
+                    venue_slug={selectedVenue.seo_slug ?? selectedVenue.id}
+                    entry_point="map_primary_owlseye_unlock_modal"
+                    cta_label="Upgrade to Weekend Pro"
+                    label="See the closest options →"
+                    user_tier={entitlementTier}
+                    has_affiliate_visible={false}
+                  />
+                )}
+              </div>
 
               <div className={styles.ctaRow}>
                 <ShareWeekendButton
@@ -1212,6 +1212,28 @@ export default function TournamentVenueMapClient({
                                         Show
                                       </button>
                                       {(() => {
+                                        if (cat === "hotels") {
+                                          const venueId = selectedVenue.id;
+                                          const baseHref = `/go/hotels?venueId=${encodeURIComponent(venueId)}&tournamentId=${encodeURIComponent(tournament.id)}`;
+                                          const raw = String(item.name ?? "").trim();
+                                          const collapsed = raw.replace(/\s+/g, " ");
+                                          const safeName = collapsed.length > 120 ? collapsed.slice(0, 120) : collapsed;
+                                          const city = String(selectedVenue.city ?? "").trim();
+                                          const state = String(selectedVenue.state ?? "").trim();
+                                          const ss = [safeName, city, state].filter(Boolean).join(", ");
+                                          const href = ss ? `${baseHref}&ss=${encodeURIComponent(ss)}` : baseHref;
+                                          return (
+                                            <a
+                                              className={styles.owlActionLink}
+                                              href={href}
+                                              target="_blank"
+                                              rel="noopener noreferrer sponsored"
+                                            >
+                                              Check rates
+                                            </a>
+                                          );
+                                        }
+
                                         const href = buildGoogleSearchUrl({ item, venue: selectedVenue });
                                         if (!href) return null;
                                         return (
@@ -1266,18 +1288,6 @@ export default function TournamentVenueMapClient({
                     {owlPremiumError ?? "You’re viewing limited results near this venue. Upgrade to see full nearby lists and directions."}
                   </div>
                   <div className={styles.owlUnlockRow}>
-                    <WeekendProUpgradeModalTrigger
-                      className={styles.owlUnlockBtn}
-                      source_page="venue_map"
-                      source_context="map_owlseye_locked"
-                      tournament_slug={tournament.slug}
-                      venue_slug={selectedVenue.seo_slug ?? selectedVenue.id}
-                      entry_point="map_owlseye_unlock_modal"
-                      cta_label="Upgrade to Weekend Pro"
-                      label="Upgrade to Weekend Pro"
-                      user_tier={entitlementTier}
-                      has_affiliate_visible={false}
-                    />
                     <a className={`${styles.owlUnlockBtn} ${styles.owlUnlockBtnSecondary}`} href="/premium">
                       Learn more
                     </a>

@@ -117,11 +117,11 @@ export default function WeekendProUpgradeModal(props: WeekendProUpgradeModalProp
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div>
               <div style={{ fontSize: 18, fontWeight: 950, lineHeight: 1.15 }}>
-                Stay close to where games are played
+                Unlock the full weekend plan
               </div>
               <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9, lineHeight: 1.35 }}>
-                You’re viewing limited results for this venue. Weekend Pro shows nearby hotels, rentals, coffee, and
-                food around the fields so you can plan your weekend faster.
+                You’re viewing limited results for this venue. Unlock the full plan to see hotels, rentals, food, coffee,
+                quick eats, hangouts, and local options around the fields.
               </div>
             </div>
             <button
