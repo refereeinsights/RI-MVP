@@ -181,29 +181,96 @@ async function syncAwin(params: { day: Date; dayIso: string }) {
 async function syncCj(params: { dayIso: string }) {
   const token = requireEnv("CJ_ACCESS_TOKEN");
   const publisherCid = (process.env.TI_CJ_PUBLISHER_CID || "7934896").trim();
+  const websiteIds = (process.env.TI_CJ_WEBSITE_IDS || "").trim(); // optional, comma-separated
 
   // CJ commission detail v3 API commonly uses these query params. We treat "cleared" as approved.
   // Endpoint docs: commission-detail.api.cj.com
   const base = new URL("https://commission-detail.api.cj.com/v3/commissions");
-  base.searchParams.set("publisher-cid", publisherCid);
+  // CJ requires a requestor CID (the account making the request). For publishers this is your publisher CID.
+  base.searchParams.set("requestor-cid", publisherCid);
+  // CJ Commission Detail expects "cids" (company IDs). For publishers this is your publisher CID.
+  base.searchParams.set("cids", publisherCid);
+  // Some CJ setups require website/property IDs; allow optional configuration.
+  if (websiteIds) base.searchParams.set("website-ids", websiteIds);
   base.searchParams.set("date-type", "event");
   base.searchParams.set("start-date", params.dayIso);
-  base.searchParams.set("end-date", params.dayIso);
-  base.searchParams.set("records-per-page", "1000");
+  // CJ requires an interval of 1–31 days. Use [start-date, end-date) by setting end-date to the next day.
+  const endDate = new Date(`${params.dayIso}T00:00:00Z`);
+  endDate.setUTCDate(endDate.getUTCDate() + 1);
+  base.searchParams.set("end-date", endDate.toISOString().slice(0, 10));
+
+  function parseCjXml(xml: string) {
+    // CJ commission detail APIs may return XML. We only need advertiser id + amounts for rollups.
+    // Parse conservatively without external dependencies.
+    const commissions: any[] = [];
+
+    const blocks = xml.match(/<commission\b[\s\S]*?<\/commission>/gi) ?? [];
+    for (const block of blocks) {
+      const get = (tagNames: string[]) => {
+        for (const t of tagNames) {
+          const re = new RegExp(`<${t}\\b[^>]*>([\\s\\S]*?)<\\/${t}>`, "i");
+          const m = block.match(re);
+          if (m && m[1] != null) return String(m[1]).trim();
+        }
+        return "";
+      };
+
+      const advertiserId = get(["aid", "advertiser-id", "advertiserId", "advertiser-cid", "advertiserCid"]);
+      const advertiserName = get(["advertiser-name", "advertiserName", "advertiser"]);
+
+      const saleRaw = get(["sale-amount", "saleAmount", "sale_amount"]);
+      const commRaw = get(["commission-amount", "commissionAmount", "commission_amount"]);
+
+      const currency =
+        (() => {
+          const m =
+            block.match(/<sale-amount\b[^>]*currency="([^"]+)"/i) ??
+            block.match(/<commission-amount\b[^>]*currency="([^"]+)"/i);
+          return m ? String(m[1]).trim() : "USD";
+        })() || "USD";
+
+      commissions.push({
+        advertiserId,
+        advertiserName,
+        currency,
+        saleAmount: asMoney(saleRaw),
+        commissionAmount: asMoney(commRaw),
+      });
+    }
+
+    return commissions;
+  }
 
   async function fetchStatus(actionStatus: string) {
     const url = new URL(base.toString());
     url.searchParams.set("action-status", actionStatus);
+    // CJ APIs are inconsistent about auth + response formats. Try JSON first; fall back to XML on 406.
     const res = await fetchJson(url.toString(), {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
       },
     });
+
+    if (res.resp.status === 406) {
+      const xmlRes = await fetchJson(url.toString(), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/xml",
+        },
+      });
+      if (!xmlRes.resp.ok) {
+        const msg = xmlRes.json?.message || xmlRes.text || `cj_commissions_${xmlRes.resp.status}`;
+        throw new Error(`CJ commissions failed (${actionStatus}): ${String(msg).slice(0, 200)}`);
+      }
+      return parseCjXml(xmlRes.text || "");
+    }
+
     if (!res.resp.ok) {
       const msg = res.json?.message || res.text || `cj_commissions_${res.resp.status}`;
       throw new Error(`CJ commissions failed (${actionStatus}): ${String(msg).slice(0, 200)}`);
     }
+
     // The v3 API returns a wrapper object; tolerate arrays too.
     const rows = Array.isArray(res.json)
       ? (res.json as any[])
@@ -215,9 +282,14 @@ async function syncCj(params: { dayIso: string }) {
     return rows;
   }
 
-  const [clearedRows, lockedRows] = await Promise.all([
-    fetchStatus("cleared"),
+  // CJ does not support "cleared" as an action-status. The closest equivalent to "approved/cleared"
+  // in the commission detail lifecycle is typically "closed".
+  // Pending-like statuses commonly include: new, extended, locked.
+  const [closedRows, lockedRows, newRows, extendedRows] = await Promise.all([
+    fetchStatus("closed"),
     fetchStatus("locked").catch(() => []),
+    fetchStatus("new").catch(() => []),
+    fetchStatus("extended").catch(() => []),
   ]);
 
   const buckets: Record<string, DailyMetricUpsert> = {};
@@ -248,8 +320,10 @@ async function syncCj(params: { dayIso: string }) {
     buckets[k]!.commission += commission;
   };
 
-  for (const row of clearedRows) add("cleared", row);
+  for (const row of closedRows) add("cleared", row);
   for (const row of lockedRows) add("pending", row);
+  for (const row of newRows) add("pending", row);
+  for (const row of extendedRows) add("pending", row);
 
   await upsertMetrics(Object.values(buckets));
 }
@@ -285,4 +359,3 @@ export async function GET(req: Request) {
     );
   }
 }
-
