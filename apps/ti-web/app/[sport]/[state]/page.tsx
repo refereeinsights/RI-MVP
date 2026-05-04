@@ -14,6 +14,7 @@ import { buildTIHubTitle, assertNoDoubleBrand } from "@/lib/seo/buildTITitle";
 import { validateTournamentSport } from "@/lib/validation/validateTournamentSport";
 import MetroMarketChips from "@/app/tournaments/_components/MetroMarketChips";
 import SeoMetroHubChips from "./_components/SeoMetroHubChips";
+import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
 import "../../tournaments/tournaments.css";
 
 // Keep SEO hub pages fresh without hammering Supabase.
@@ -31,6 +32,7 @@ type TournamentRow = {
   end_date: string | null;
   official_website_url: string | null;
   source_url: string | null;
+  tournament_venues?: Array<{ count?: number | null }> | null;
 };
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
@@ -136,7 +138,9 @@ export default async function SportStateHubPage({
 
   const base = supabaseAdmin
     .from("tournaments_public" as any)
-    .select("id,slug,name,sport,state,city,level,start_date,end_date,official_website_url,source_url", { count: "exact" })
+    .select("id,slug,name,sport,state,city,level,start_date,end_date,official_website_url,source_url,tournament_venues(count)", {
+      count: "exact",
+    })
     .eq("sport", sportKey)
     .eq("state", stateCode)
     .or(`start_date.gte.${today},end_date.gte.${today}`)
@@ -286,7 +290,13 @@ export default async function SportStateHubPage({
                   const end = formatDate(t.end_date);
                   const dateLabel = start && end && start !== end ? `${start} – ${end}` : start || end || "Dates TBA";
                   const locationLabel = [t.city, t.state].filter(Boolean).join(", ");
-                  const officialUrl = t.official_website_url || t.source_url;
+                  const venueCount = (() => {
+                    const rows = (t.tournament_venues ?? []) as Array<{ count?: number | null }>;
+                    const first = rows && rows.length ? rows[0] : null;
+                    return Number(first?.count ?? 0) || 0;
+                  })();
+                  const hasVenuesForMap = Boolean(t.slug) && venueCount > 0;
+                  const mapHref = `/tournaments/${t.slug}/map`;
 
                   return (
                     <article key={t.id} className={`card ${getSportCardClass(t.sport)}`}>
@@ -298,17 +308,22 @@ export default async function SportStateHubPage({
                       </p>
                       <p className="dates">{dateLabel}</p>
                       <div className="cardFooter">
-                        {officialUrl ? (
-                          <a href={`/go/tournament/${t.slug}`} target="_blank" rel="noopener noreferrer" className="secondaryLink">
-                            <span>Official site</span>
-                          </a>
-                        ) : (
-                          <div className="secondaryLink" aria-disabled="true" style={{ cursor: "default" }}>
-                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 }}>
-                              <span>Official site</span>
-                              <span className="tbdText">TBD</span>
+                        {hasVenuesForMap ? (
+                          <div style={{ display: "grid", gap: 6 }}>
+                            <div style={{ fontSize: 12, fontWeight: 900, opacity: 0.85, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                              Stay near your fields
                             </div>
+                            <TournamentMapCta
+                              href={mapHref}
+                              label="See the closest options →"
+                              sourceContext="directory_card"
+                              tournamentSlug={t.slug}
+                              sport={t.sport ?? null}
+                              variant="link"
+                            />
                           </div>
+                        ) : (
+                          <div />
                         )}
                         <Link href={`/tournaments/${t.slug}`} className="primaryLink">View details</Link>
                       </div>

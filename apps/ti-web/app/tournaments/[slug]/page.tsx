@@ -16,6 +16,7 @@ import TournamentWeatherPlannerAccordion from "@/components/tournaments/Tourname
 import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import TournamentPlanningOverview from "@/components/tournaments/TournamentPlanningOverview";
+import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
 import { canEditTournament } from "@/lib/tournamentClaim";
@@ -880,12 +881,27 @@ async function TournamentVenueDetails({
         hotelsHref={tournamentHotelsHref}
         counts={bestNearbyCounts}
         isDemoTournament={isDemoTournament}
+        tournamentSlug={tournament.slug}
       />
 
       <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 950 }}>Plan This Tournament</h2>
         <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>
           Use this tournament plan to check weather, compare hotels, review nearby options, and open venue details before game day.
+        </div>
+
+        <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)" }}>
+          <div style={{ fontWeight: 950 }}>Plan your entire weekend in one place</div>
+          <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>See hotels, food, coffee, and venues together on one map.</div>
+          <div style={{ marginTop: 10 }}>
+            <TournamentMapCta
+              href={mapPreviewHref}
+              label="Open full weekend plan →"
+              sourceContext="tournament_page:plan_section"
+              tournamentSlug={tournament.slug}
+              sport={tournament.sport ?? null}
+            />
+          </div>
         </div>
 
         <div className="detailVenueGrid detailVenueGrid--planning" style={{ marginTop: 10 }}>
@@ -960,11 +976,41 @@ async function TournamentVenueDetails({
         />
       </div>
 
+      <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
+        <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)" }}>
+          <div style={{ fontWeight: 950 }}>Still planning your stay?</div>
+          <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>See nearby hotels, food, and coffee mapped to your fields.</div>
+          <div style={{ marginTop: 10 }}>
+            <TournamentMapCta
+              href={mapPreviewHref}
+              label="See the closest options →"
+              sourceContext="tournament_page:mid_reentry"
+              tournamentSlug={tournament.slug}
+              sport={tournament.sport ?? null}
+            />
+          </div>
+        </div>
+      </div>
+
       <div
         id="where-youll-play"
         style={{ width: "min(720px, 100%)", scrollMarginTop: 90, marginLeft: "auto", marginRight: "auto" }}
       >
         <h2 style={{ margin: "18px 0 0", fontSize: 16, fontWeight: 950 }}>Where You&apos;ll Play</h2>
+        <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)" }}>
+          <div style={{ fontWeight: 950 }}>Plan where to stay based on your fields</div>
+          <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>Most teams stay within 10–15 minutes of their venue.</div>
+          <div style={{ marginTop: 8 }}>
+            <TournamentMapCta
+              href={mapPreviewHref}
+              label="See the closest options →"
+              sourceContext="tournament_page:where_youll_play"
+              tournamentSlug={tournament.slug}
+              sport={tournament.sport ?? null}
+              variant="link"
+            />
+          </div>
+        </div>
         <div style={{ marginTop: 6, fontSize: 13, opacity: 0.92 }}>{whereYoullPlayLine}</div>
         {mostCommonVenueLocation ? (
           <div style={{ marginTop: 4, fontSize: 12, opacity: 0.82 }}>Most venues are in {mostCommonVenueLocation}.</div>
@@ -1123,9 +1169,16 @@ async function TournamentVenueDetails({
           marginRight: "auto",
         }}
       >
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 950 }}>Where to Stay for This Tournament</h2>
-        <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9 }}>
-          Compare hotels near the tournament venues and choose the best area for your team.
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 950 }}>Stay close to where games are played</h2>
+        <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9 }}>Most teams stay within 10–15 minutes of their fields.</div>
+        <div style={{ marginTop: 10 }}>
+          <TournamentMapCta
+            href={mapPreviewHref}
+            label="See the closest options →"
+            sourceContext="tournament_page:where_to_stay"
+            tournamentSlug={tournament.slug}
+            sport={tournament.sport ?? null}
+          />
         </div>
         {tournamentHotelsHref && hotelClickVenueId ? (
           <div style={{ marginTop: 10 }}>

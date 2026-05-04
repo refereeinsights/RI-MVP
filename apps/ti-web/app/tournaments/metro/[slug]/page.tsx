@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { TI_SPORT_LABELS } from "@/lib/tiSports";
+import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
 import StateMultiSelect from "../../StateMultiSelect";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
@@ -426,6 +427,7 @@ export default async function MetroMarketTournamentsPage({
   }, {});
 
   const hasOwlsEyeByTournament = new Map<string, boolean>();
+  const venueIdsByTournament = new Map<string, string[]>();
   if (tournaments.length > 0) {
     const tournamentIds = tournaments.map((t) => t.id);
     const { data: linkRows } = await supabaseAdmin
@@ -435,13 +437,12 @@ export default async function MetroMarketTournamentsPage({
       .eq("is_inferred", false);
 
     const links = (linkRows as TournamentVenueLink[] | null) ?? [];
-    const linksByTournament = new Map<string, string[]>();
     const venueIds = new Set<string>();
     for (const row of links) {
       if (!row?.tournament_id || !row?.venue_id) continue;
-      const list = linksByTournament.get(row.tournament_id) ?? [];
+      const list = venueIdsByTournament.get(row.tournament_id) ?? [];
       list.push(row.venue_id);
-      linksByTournament.set(row.tournament_id, list);
+      venueIdsByTournament.set(row.tournament_id, list);
       venueIds.add(row.venue_id);
     }
 
@@ -463,7 +464,7 @@ export default async function MetroMarketTournamentsPage({
           runs.filter((run) => nearbyRunIds.has((run.run_id ?? run.id) as string)).map((run) => run.venue_id)
         );
         for (const tournamentId of tournamentIds) {
-          const venueList = linksByTournament.get(tournamentId) ?? [];
+          const venueList = venueIdsByTournament.get(tournamentId) ?? [];
           hasOwlsEyeByTournament.set(tournamentId, venueList.some((venueId) => venuesWithNearby.has(venueId)));
         }
       }
@@ -770,7 +771,9 @@ export default async function MetroMarketTournamentsPage({
               const isDemoTournament = t.slug === DEMO_TOURNAMENT_SLUG;
               const showOwlsEyeBadge = isDemoTournament || Boolean(hasOwlsEyeByTournament.get(t.id));
               const showStaffVerified = Boolean(t.tournament_staff_verified) || isDemoTournament;
-              const hasOfficialSite = Boolean(t.official_website_url) && !isDemoTournament;
+              const venueCount = (venueIdsByTournament.get(t.id) ?? []).length;
+              const hasVenuesForMap = Boolean(t.slug) && venueCount > 0;
+              const mapHref = `/tournaments/${t.slug}/map`;
 
               return (
                 <article key={t.id} className={`card ${getSportCardClass(t.sport)}`}>
@@ -785,22 +788,22 @@ export default async function MetroMarketTournamentsPage({
                   <p className="dates">{dateLabel}</p>
 
                   <div className="cardFooter">
-                    {hasOfficialSite ? (
-                      <a
-                        href={`/go/tournament/${t.slug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="secondaryLink"
-                      >
-                        <span>Official site</span>
-                      </a>
-                    ) : (
-                      <div className="secondaryLink" aria-disabled="true" style={{ cursor: "default" }}>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 }}>
-                          <span>Official site</span>
-                          <span className="tbdText">TBD</span>
+                    {hasVenuesForMap ? (
+                      <div style={{ display: "grid", gap: 6 }}>
+                        <div style={{ fontSize: 12, fontWeight: 900, opacity: 0.85, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          Stay near your fields
                         </div>
+                        <TournamentMapCta
+                          href={mapHref}
+                          label="See the closest options →"
+                          sourceContext="directory_card"
+                          tournamentSlug={t.slug}
+                          sport={t.sport ?? null}
+                          variant="link"
+                        />
                       </div>
+                    ) : (
+                      <div />
                     )}
                     <Link href={`/tournaments/${t.slug}`} className="primaryLink">
                       View details

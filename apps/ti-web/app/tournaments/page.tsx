@@ -6,6 +6,7 @@ import StateMultiSelect from "./StateMultiSelect";
 import MetroMarketChips from "./_components/MetroMarketChips";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
+import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
 import "./tournaments.css";
 
 type Tournament = {
@@ -25,6 +26,7 @@ type Tournament = {
   tournament_staff_verified?: boolean | null;
   is_demo?: boolean | null;
   distance_miles?: number | null;
+  tournament_venues?: Array<{ count?: number | null }> | null;
 };
 type TournamentVenueLink = {
   tournament_id: string;
@@ -231,7 +233,7 @@ export default async function TournamentsPage({
         let query = supabaseAdmin
           .from("tournaments_public" as any)
           .select(
-            "id,name,slug,sport,tournament_association,state,city,zip,start_date,end_date,official_website_url,source_url,level,tournament_staff_verified,is_demo"
+            "id,name,slug,sport,tournament_association,state,city,zip,start_date,end_date,official_website_url,source_url,level,tournament_staff_verified,is_demo,tournament_venues(count)"
           )
           .order("start_date", { ascending: true })
           .range(offset, offset + pageSize - 1);
@@ -768,7 +770,13 @@ export default async function TournamentsPage({
               const isDemoTournament = t.slug === DEMO_TOURNAMENT_SLUG;
               const showOwlsEyeBadge = isDemoTournament || Boolean(hasOwlsEyeByTournament.get(t.id));
               const showStaffVerified = Boolean(t.tournament_staff_verified) || isDemoTournament;
-              const hasOfficialSite = Boolean(t.official_website_url) && !isDemoTournament;
+              const venueCount = (() => {
+                const rows = (t.tournament_venues ?? []) as Array<{ count?: number | null }>;
+                const first = rows && rows.length ? rows[0] : null;
+                return Number(first?.count ?? 0) || 0;
+              })();
+              const hasVenuesForMap = Boolean(t.slug) && (radiusActive ? true : venueCount > 0);
+              const mapHref = `/tournaments/${t.slug}/map`;
 
               return (
                 <article key={t.id} className={`card ${getSportCardClass(t.sport)}`}>
@@ -784,22 +792,22 @@ export default async function TournamentsPage({
                   <p className="dates">{dateLabel}</p>
 
                   <div className="cardFooter">
-                    {hasOfficialSite ? (
-                      <a
-                        href={`/go/tournament/${t.slug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="secondaryLink"
-                      >
-                        <span>Official site</span>
-                      </a>
-                    ) : (
-                      <div className="secondaryLink" aria-disabled="true" style={{ cursor: "default" }}>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 }}>
-                          <span>Official site</span>
-                          <span className="tbdText">TBD</span>
+                    {hasVenuesForMap ? (
+                      <div style={{ display: "grid", gap: 6 }}>
+                        <div style={{ fontSize: 12, fontWeight: 900, opacity: 0.85, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          Stay near your fields
                         </div>
+                        <TournamentMapCta
+                          href={mapHref}
+                          label="See the closest options →"
+                          sourceContext="directory_card"
+                          tournamentSlug={t.slug}
+                          sport={t.sport ?? null}
+                          variant="link"
+                        />
                       </div>
+                    ) : (
+                      <div />
                     )}
                     <Link href={`/tournaments/${t.slug}`} className="primaryLink">
                       View details

@@ -11,6 +11,7 @@ export type SportHubTournament = {
   start_date: string | null;
   end_date: string | null;
   official_website_url: string | null;
+  tournament_venues?: Array<{ count?: number | null }> | null;
 };
 
 export const SPORT_HUB_PAGE_SIZE = 50;
@@ -29,7 +30,7 @@ export async function getSportHubTournaments(
 
   const { data, error } = await supabaseAdmin
     .from("tournaments_public" as any)
-    .select("id,name,slug,sport,state,city,start_date,end_date,official_website_url")
+    .select("id,name,slug,sport,state,city,start_date,end_date,official_website_url,tournament_venues(count)")
     .eq("sport", sport)
     .or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`)
     .order("is_demo", { ascending: false })

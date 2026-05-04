@@ -1779,7 +1779,8 @@
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.35)),
     url("/textures/ti_volleyball_hero_bg_1200x1000.png");
   background-size: cover, cover;
-  background-position: center, center;
+  /* Push the net line lower so it doesn't slice through the planning tiles. */
+  background-position: center, center 78%;
   background-repeat: no-repeat, no-repeat;
 }
 .detailPanel {

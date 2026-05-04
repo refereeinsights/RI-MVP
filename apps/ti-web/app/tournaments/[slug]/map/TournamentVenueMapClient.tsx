@@ -196,9 +196,23 @@ export default function TournamentVenueMapClient({
 
       let mod: any;
       try {
-        mod = await import("mapbox-gl");
+        const importMapbox = async () => await import("mapbox-gl");
+        try {
+          mod = await importMapbox();
+        } catch (err) {
+          // In dev, chunk URLs can go stale right after a server restart / HMR rebuild.
+          // A short retry often resolves "Loading chunk ... failed" without requiring a hard refresh.
+          await new Promise<void>((r) => setTimeout(r, 150));
+          mod = await importMapbox();
+        }
       } catch (err) {
-        setMapError(`Failed to load map library: ${String((err as any)?.message ?? err ?? "unknown")}`);
+        const msg = String((err as any)?.message ?? err ?? "unknown");
+        const isChunkLoad = /Loading chunk|ChunkLoadError|_next\/undefined/i.test(msg);
+        setMapError(
+          isChunkLoad
+            ? `Failed to load map library (chunk load). If you just restarted the dev server, do a hard refresh and try again. (${msg})`
+            : `Failed to load map library: ${msg}`
+        );
         return;
       }
       if (cancelled) return;

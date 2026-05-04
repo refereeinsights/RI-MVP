@@ -5,6 +5,7 @@ import {
   buildVerificationCopy,
   buildVenuePlanningCopy,
 } from "@/lib/tournaments/tournamentPageCopy";
+import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
 
 type NearbyCounts = { coffee: number; food: number; hotels: number; quick_eats: number; hangouts: number; sporting_goods: number };
 
@@ -26,6 +27,7 @@ export default function TournamentPlanningOverview(props: {
   hotelsHref: string | null;
   counts: NearbyCounts | null;
   isDemoTournament: boolean;
+  tournamentSlug?: string | null;
 }) {
   const overview = buildTournamentOverviewCopy({
     tournament: props.tournament,
@@ -59,6 +61,20 @@ export default function TournamentPlanningOverview(props: {
             {p}
           </p>
         ))}
+
+        <div style={{ marginTop: 2, display: "grid", gap: 6 }}>
+          <div style={{ fontWeight: 950 }}>Stay close to your fields</div>
+          <div style={{ opacity: 0.9 }}>Most teams stay within 10–15 minutes of their venue.</div>
+          <div>
+            <TournamentMapCta
+              href={props.mapHref}
+              label="See the closest options →"
+              sourceContext="tournament_page:overview_cta"
+              tournamentSlug={props.tournamentSlug ?? null}
+              sport={props.tournament.sport ?? null}
+            />
+          </div>
+        </div>
 
         <div className="detailLinksRow" style={{ marginTop: 2, gap: 12, flexWrap: "wrap" as any }}>
           <Link className="secondaryLink" href={props.mapHref}>
