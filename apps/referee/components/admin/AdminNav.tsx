@@ -206,6 +206,9 @@ export async function AdminNav() {
         <Link href="/admin/ti/revenue" style={linkStyle}>
           TI Revenue
         </Link>
+        <Link href="/admin/ti/clicks" style={linkStyle}>
+          TI Clicks
+        </Link>
         <Link href="/admin/ti/static-maps" style={linkStyle}>
           TI Static Maps
         </Link>
