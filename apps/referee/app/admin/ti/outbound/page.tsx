@@ -408,163 +408,180 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
           marginBottom: 16,
         }}
       >
-        <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 900, color: "#6b7280", marginBottom: 10 }}>
-          Top tournaments
-        </div>
+        <details>
+          <summary
+            style={{
+              cursor: "pointer",
+              listStyle: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              marginBottom: 10,
+            }}
+          >
+            <span style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 900, color: "#6b7280" }}>
+              Top tournaments
+            </span>
+            <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 900 }}>
+              {topRows.length} / {totalTopCount}
+            </span>
+          </summary>
 
-        <form method="get" style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "end", marginBottom: 12 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 900, color: "#374151" }}>Search</label>
-            <input
-              name="q"
-              defaultValue={q}
-              placeholder="Tournament name"
-              style={{
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid #d1d5db",
-                minWidth: 260,
-              }}
-            />
-          </div>
+          <form method="get" style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "end", marginBottom: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 900, color: "#374151" }}>Search</label>
+              <input
+                name="q"
+                defaultValue={q}
+                placeholder="Tournament name"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #d1d5db",
+                  minWidth: 260,
+                }}
+              />
+            </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 900, color: "#374151" }}>State</label>
-            <select
-              name="state"
-              defaultValue={stateFilter}
-              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #d1d5db" }}
-            >
-              <option value="">All</option>
-              {Array.from(US_STATES).map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 900, color: "#374151" }}>State</label>
+              <select
+                name="state"
+                defaultValue={stateFilter}
+                style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #d1d5db" }}
+              >
+                <option value="">All</option>
+                {Array.from(US_STATES).map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 900, color: "#374151" }}>Sport</label>
-            <select
-              name="sport"
-              defaultValue={sportFilter}
-              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #d1d5db" }}
-            >
-              <option value="">All</option>
-              {Array.from(SPORT_OPTIONS).map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 900, color: "#374151" }}>Sport</label>
+              <select
+                name="sport"
+                defaultValue={sportFilter}
+                style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #d1d5db" }}
+              >
+                <option value="">All</option>
+                {Array.from(SPORT_OPTIONS).map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <input type="hidden" name="page" value="1" />
+            <input type="hidden" name="page" value="1" />
 
-          <button className="cta" type="submit" style={{ padding: "10px 14px" }}>
-            Apply
-          </button>
-        </form>
+            <button className="cta" type="submit" style={{ padding: "10px 14px" }}>
+              Apply
+            </button>
+          </form>
 
-        {topTournamentsRes.error ? (
-          <div style={{ color: "#b91c1c", fontSize: 13 }}>
-            Failed to load top tournaments: {topTournamentsRes.error.message}
-            {topTournamentsRes.error.message.includes("Could not find the function") ? ` (${rpcSchemaHint})` : ""}
-          </div>
-        ) : null}
+          {topTournamentsRes.error ? (
+            <div style={{ color: "#b91c1c", fontSize: 13 }}>
+              Failed to load top tournaments: {topTournamentsRes.error.message}
+              {topTournamentsRes.error.message.includes("Could not find the function") ? ` (${rpcSchemaHint})` : ""}
+            </div>
+          ) : null}
 
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Tournament</th>
-                <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>State</th>
-                <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Sport</th>
-                <th style={{ textAlign: "right", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Clicks</th>
-                <th style={{ textAlign: "right", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>
-                  Last clicked
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {topRows.length === 0 ? (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+              <thead>
                 <tr>
-                  <td colSpan={5} style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13 }}>
-                    No rows.
-                  </td>
+                  <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Tournament</th>
+                  <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>State</th>
+                  <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Sport</th>
+                  <th style={{ textAlign: "right", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Clicks</th>
+                  <th style={{ textAlign: "right", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>
+                    Last clicked
+                  </th>
                 </tr>
-              ) : (
-                topRows.map((row) => (
-                  <tr key={row.tournament_id} style={{ borderTop: "1px solid #f3f4f6" }}>
-                    <td style={{ padding: "10px 8px", fontWeight: 900, color: "#111", minWidth: 260 }}>
-                      {row.tournament_name ?? row.tournament_slug ?? row.tournament_id}
-                    </td>
-                    <td style={{ padding: "10px 8px", color: "#111", fontWeight: 800 }}>{row.state ?? ""}</td>
-                    <td style={{ padding: "10px 8px", color: "#111", fontWeight: 800 }}>{row.sport ?? ""}</td>
-                    <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 950 }}>
-                      {Number(row.click_count ?? 0) || 0}
-                    </td>
-                    <td style={{ padding: "10px 8px", textAlign: "right", color: "#6b7280", fontWeight: 800 }}>
-                      {row.last_clicked_at ? new Date(row.last_clicked_at).toLocaleDateString() : ""}
+              </thead>
+              <tbody>
+                {topRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13 }}>
+                      No rows.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  topRows.map((row) => (
+                    <tr key={row.tournament_id} style={{ borderTop: "1px solid #f3f4f6" }}>
+                      <td style={{ padding: "10px 8px", fontWeight: 900, color: "#111", minWidth: 260 }}>
+                        {row.tournament_name ?? row.tournament_slug ?? row.tournament_id}
+                      </td>
+                      <td style={{ padding: "10px 8px", color: "#111", fontWeight: 800 }}>{row.state ?? ""}</td>
+                      <td style={{ padding: "10px 8px", color: "#111", fontWeight: 800 }}>{row.sport ?? ""}</td>
+                      <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 950 }}>
+                        {Number(row.click_count ?? 0) || 0}
+                      </td>
+                      <td style={{ padding: "10px 8px", textAlign: "right", color: "#6b7280", fontWeight: 800 }}>
+                        {row.last_clicked_at ? new Date(row.last_clicked_at).toLocaleDateString() : ""}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
-          <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 800 }}>
-            Showing {topRows.length} of {totalTopCount}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <a
-              href={buildHref("/admin/ti/outbound", {
-                q,
-                state: stateFilter || null,
-                sport: sportFilter || null,
-                page: String(Math.max(1, page - 1)),
-              })}
-              style={{
-                pointerEvents: page <= 1 ? "none" : "auto",
-                opacity: page <= 1 ? 0.5 : 1,
-                padding: "8px 10px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                textDecoration: "none",
-                fontWeight: 900,
-                color: "#111",
-              }}
-            >
-              Prev
-            </a>
-            <div style={{ padding: "8px 10px", fontWeight: 900, color: "#111" }}>
-              Page {page} / {Math.max(1, totalPages)}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
+            <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 800 }}>
+              Showing {topRows.length} of {totalTopCount}
             </div>
-            <a
-              href={buildHref("/admin/ti/outbound", {
-                q,
-                state: stateFilter || null,
-                sport: sportFilter || null,
-                page: String(Math.min(totalPages, page + 1)),
-              })}
-              style={{
-                pointerEvents: page >= totalPages ? "none" : "auto",
-                opacity: page >= totalPages ? 0.5 : 1,
-                padding: "8px 10px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                textDecoration: "none",
-                fontWeight: 900,
-                color: "#111",
-              }}
-            >
-              Next
-            </a>
+            <div style={{ display: "flex", gap: 8 }}>
+              <a
+                href={buildHref("/admin/ti/outbound", {
+                  q,
+                  state: stateFilter || null,
+                  sport: sportFilter || null,
+                  page: String(Math.max(1, page - 1)),
+                })}
+                style={{
+                  pointerEvents: page <= 1 ? "none" : "auto",
+                  opacity: page <= 1 ? 0.5 : 1,
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  border: "1px solid #e5e7eb",
+                  textDecoration: "none",
+                  fontWeight: 900,
+                  color: "#111",
+                }}
+              >
+                Prev
+              </a>
+              <div style={{ padding: "8px 10px", fontWeight: 900, color: "#111" }}>
+                Page {page} / {Math.max(1, totalPages)}
+              </div>
+              <a
+                href={buildHref("/admin/ti/outbound", {
+                  q,
+                  state: stateFilter || null,
+                  sport: sportFilter || null,
+                  page: String(Math.min(totalPages, page + 1)),
+                })}
+                style={{
+                  pointerEvents: page >= totalPages ? "none" : "auto",
+                  opacity: page >= totalPages ? 0.5 : 1,
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  border: "1px solid #e5e7eb",
+                  textDecoration: "none",
+                  fontWeight: 900,
+                  color: "#111",
+                }}
+              >
+                Next
+              </a>
+            </div>
           </div>
-        </div>
+        </details>
       </div>
 
       <div
@@ -576,61 +593,78 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
           marginBottom: 16,
         }}
       >
-        <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 900, color: "#6b7280", marginBottom: 10 }}>
-          Top venues (Hotels / Booking)
-        </div>
+        <details>
+          <summary
+            style={{
+              cursor: "pointer",
+              listStyle: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              marginBottom: 10,
+            }}
+          >
+            <span style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 900, color: "#6b7280" }}>
+              Top venues (Hotels / Booking)
+            </span>
+            <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 900 }}>
+              {venueRows.length} / {totalVenueCount}
+            </span>
+          </summary>
 
-        {topVenuesRes.error ? (
-          <div style={{ color: "#b91c1c", fontSize: 13 }}>
-            Failed to load top venues: {topVenuesRes.error.message}
-            {topVenuesRes.error.message.includes("Could not find the function") ? ` (${hotelsRpcSchemaHint})` : ""}
-          </div>
-        ) : null}
+          {topVenuesRes.error ? (
+            <div style={{ color: "#b91c1c", fontSize: 13 }}>
+              Failed to load top venues: {topVenuesRes.error.message}
+              {topVenuesRes.error.message.includes("Could not find the function") ? ` (${hotelsRpcSchemaHint})` : ""}
+            </div>
+          ) : null}
 
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Venue</th>
-                <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>City</th>
-                <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>State</th>
-                <th style={{ textAlign: "right", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Clicks</th>
-                <th style={{ textAlign: "right", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>
-                  Last clicked
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {venueRows.length === 0 ? (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+              <thead>
                 <tr>
-                  <td colSpan={5} style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13 }}>
-                    No rows.
-                  </td>
+                  <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Venue</th>
+                  <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>City</th>
+                  <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>State</th>
+                  <th style={{ textAlign: "right", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Clicks</th>
+                  <th style={{ textAlign: "right", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>
+                    Last clicked
+                  </th>
                 </tr>
-              ) : (
-                venueRows.map((row) => (
-                  <tr key={row.venue_id} style={{ borderTop: "1px solid #f3f4f6" }}>
-                    <td style={{ padding: "10px 8px", fontWeight: 900, color: "#111", minWidth: 260 }}>
-                      {row.venue_name ?? row.venue_id}
-                    </td>
-                    <td style={{ padding: "10px 8px", color: "#111", fontWeight: 800 }}>{row.city ?? ""}</td>
-                    <td style={{ padding: "10px 8px", color: "#111", fontWeight: 800 }}>{row.state ?? ""}</td>
-                    <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 950 }}>
-                      {Number(row.click_count ?? 0) || 0}
-                    </td>
-                    <td style={{ padding: "10px 8px", textAlign: "right", color: "#6b7280", fontWeight: 800 }}>
-                      {row.last_clicked_at ? new Date(row.last_clicked_at).toLocaleDateString() : ""}
+              </thead>
+              <tbody>
+                {venueRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13 }}>
+                      No rows.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  venueRows.map((row) => (
+                    <tr key={row.venue_id} style={{ borderTop: "1px solid #f3f4f6" }}>
+                      <td style={{ padding: "10px 8px", fontWeight: 900, color: "#111", minWidth: 260 }}>
+                        {row.venue_name ?? row.venue_id}
+                      </td>
+                      <td style={{ padding: "10px 8px", color: "#111", fontWeight: 800 }}>{row.city ?? ""}</td>
+                      <td style={{ padding: "10px 8px", color: "#111", fontWeight: 800 }}>{row.state ?? ""}</td>
+                      <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 950 }}>
+                        {Number(row.click_count ?? 0) || 0}
+                      </td>
+                      <td style={{ padding: "10px 8px", textAlign: "right", color: "#6b7280", fontWeight: 800 }}>
+                        {row.last_clicked_at ? new Date(row.last_clicked_at).toLocaleDateString() : ""}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        <div style={{ marginTop: 10, fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
-          Showing {venueRows.length} of {totalVenueCount}
-        </div>
+          <div style={{ marginTop: 10, fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
+            Showing {venueRows.length} of {totalVenueCount}
+          </div>
+        </details>
       </div>
 
       <div style={{ fontSize: 12, color: "#6b7280" }}>

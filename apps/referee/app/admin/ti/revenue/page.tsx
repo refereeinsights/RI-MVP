@@ -123,6 +123,12 @@ export default async function TiRevenuePage({ searchParams }: PageProps) {
     stripeTotalRes,
     affiliateYesterdayRes,
     affiliateTotalRes,
+    hotelsClicksTotalRes,
+    hotelsClicksYesterdayRes,
+    vrboClicksTotalRes,
+    vrboClicksYesterdayRes,
+    organizerClicksTotalRes,
+    organizerClicksYesterdayRes,
   ] = await Promise.all([
       notInternalUsers(
         supabaseAdmin
@@ -171,11 +177,48 @@ export default async function TiRevenuePage({ searchParams }: PageProps) {
         if (advertiserFilter) q = q.eq("advertiser_id", advertiserFilter);
         return q;
       })(),
+      supabaseAdmin
+        .from("ti_outbound_clicks" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("destination_type", "hotels"),
+      supabaseAdmin
+        .from("ti_outbound_clicks" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("destination_type", "hotels")
+        .gte("created_at", yesterdayStartUtc.toISOString())
+        .lt("created_at", todayStartUtc.toISOString()),
+      supabaseAdmin
+        .from("ti_outbound_clicks" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("destination_type", "vrbo"),
+      supabaseAdmin
+        .from("ti_outbound_clicks" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("destination_type", "vrbo")
+        .gte("created_at", yesterdayStartUtc.toISOString())
+        .lt("created_at", todayStartUtc.toISOString()),
+      supabaseAdmin
+        .from("ti_outbound_clicks" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("destination_type", "tournament_official"),
+      supabaseAdmin
+        .from("ti_outbound_clicks" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("destination_type", "tournament_official")
+        .gte("created_at", yesterdayStartUtc.toISOString())
+        .lt("created_at", todayStartUtc.toISOString()),
     ]);
 
   const weekendProActive = weekendProActiveRes.error ? 0 : weekendProActiveRes.count ?? 0;
   const weekendProPastDue = weekendProPastDueRes.error ? 0 : weekendProPastDueRes.count ?? 0;
   const weekendProCheckoutsYesterday = weekendProCheckoutsYesterdayRes.error ? 0 : weekendProCheckoutsYesterdayRes.count ?? 0;
+
+  const hotelsClicksTotal = hotelsClicksTotalRes.error ? 0 : hotelsClicksTotalRes.count ?? 0;
+  const hotelsClicksYesterday = hotelsClicksYesterdayRes.error ? 0 : hotelsClicksYesterdayRes.count ?? 0;
+  const vrboClicksTotal = vrboClicksTotalRes.error ? 0 : vrboClicksTotalRes.count ?? 0;
+  const vrboClicksYesterday = vrboClicksYesterdayRes.error ? 0 : vrboClicksYesterdayRes.count ?? 0;
+  const organizerClicksTotal = organizerClicksTotalRes.error ? 0 : organizerClicksTotalRes.count ?? 0;
+  const organizerClicksYesterday = organizerClicksYesterdayRes.error ? 0 : organizerClicksYesterdayRes.count ?? 0;
 
   const stripeYesterdayRows: StripeDailyRow[] = stripeYesterdayRes.error ? [] : ((stripeYesterdayRes.data ?? []) as StripeDailyRow[]);
   const stripeTotalRows: StripeDailyRow[] = stripeTotalRes.error ? [] : ((stripeTotalRes.data ?? []) as StripeDailyRow[]);
@@ -408,6 +451,47 @@ export default async function TiRevenuePage({ searchParams }: PageProps) {
           <div style={tileMetaStyle}>
             Pending yesterday • comm {money(cjYesterdayPending.commission)} • {cjYesterdayPending.txCount} tx
           </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: 14,
+          background: "#fff",
+          padding: 14,
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+          <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 900, color: "#6b7280" }}>
+            Outbound clicks (TI)
+          </div>
+          <Link href="/admin/ti/outbound" className="cta secondary" style={{ padding: "8px 12px" }}>
+            View details →
+          </Link>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+          <div style={tileStyle}>
+            <div style={tileLabelStyle}>Hotels clicks (yesterday)</div>
+            <div style={tileValueStyle}>{hotelsClicksYesterday.toLocaleString("en-US")}</div>
+            <div style={tileMetaStyle}>Total: {hotelsClicksTotal.toLocaleString("en-US")}</div>
+          </div>
+          <div style={tileStyle}>
+            <div style={tileLabelStyle}>Vrbo clicks (yesterday)</div>
+            <div style={tileValueStyle}>{vrboClicksYesterday.toLocaleString("en-US")}</div>
+            <div style={tileMetaStyle}>Total: {vrboClicksTotal.toLocaleString("en-US")}</div>
+          </div>
+          <div style={tileStyle}>
+            <div style={tileLabelStyle}>Organizer clicks (yesterday)</div>
+            <div style={tileValueStyle}>{organizerClicksYesterday.toLocaleString("en-US")}</div>
+            <div style={tileMetaStyle}>Total: {organizerClicksTotal.toLocaleString("en-US")}</div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 10, fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
+          These are clicks to `/go/*` destinations (not direct revenue). Use them as leading indicators for bookings and Weekend Pro interest.
         </div>
       </div>
 
