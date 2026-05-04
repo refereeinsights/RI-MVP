@@ -164,6 +164,105 @@ function isFuture(value: string | null | undefined) {
   return !Number.isNaN(ts) && ts > Date.now();
 }
 
+function centsToDollars(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return value / 100;
+}
+
+function dayFromIso(iso: string | null) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0)).toISOString().slice(0, 10);
+}
+
+async function recomputeStripeDailyMetrics(params: { dayIso: string; livemode: boolean; currency: string }) {
+  const start = new Date(`${params.dayIso}T00:00:00Z`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+
+  const { data, error } = await (supabaseAdmin.from("stripe_invoice_metrics" as any) as any)
+    .select("invoice_id,invoice_total,invoice_tax,stripe_fee,refunded_amount,net,currency,livemode,paid_at")
+    .eq("livemode", params.livemode)
+    .eq("currency", params.currency)
+    .gte("paid_at", start.toISOString())
+    .lt("paid_at", end.toISOString());
+
+  if (error) throw error;
+  const rows = (data ?? []) as any[];
+
+  let invoiceCount = 0;
+  let gross = 0;
+  let tax = 0;
+  let fees = 0;
+  let refunds = 0;
+  let net = 0;
+  for (const r of rows) {
+    invoiceCount += 1;
+    gross += Number(r.invoice_total ?? 0) || 0;
+    tax += Number(r.invoice_tax ?? 0) || 0;
+    fees += Number(r.stripe_fee ?? 0) || 0;
+    refunds += Number(r.refunded_amount ?? 0) || 0;
+    net += Number(r.net ?? 0) || 0;
+  }
+
+  const { error: upsertErr } = await (supabaseAdmin.from("stripe_daily_metrics" as any) as any).upsert(
+    {
+      day: params.dayIso,
+      livemode: params.livemode,
+      currency: params.currency,
+      invoice_count: invoiceCount,
+      gross,
+      tax,
+      fees,
+      refunds,
+      net,
+    },
+    { onConflict: "day,livemode,currency" } as any
+  );
+  if (upsertErr) throw upsertErr;
+}
+
+async function upsertStripeInvoiceMetrics(row: {
+  livemode: boolean;
+  invoice_id: string;
+  customer_id: string | null;
+  subscription_id: string | null;
+  charge_id: string | null;
+  balance_transaction_id: string | null;
+  user_id: string | null;
+  currency: string;
+  paid_at: string | null;
+  invoice_total: number;
+  invoice_tax: number;
+  stripe_fee: number;
+  refunded_amount: number;
+  net: number;
+  payload?: any;
+}) {
+  const payload = {
+    livemode: row.livemode,
+    invoice_id: row.invoice_id,
+    customer_id: row.customer_id,
+    subscription_id: row.subscription_id,
+    charge_id: row.charge_id,
+    balance_transaction_id: row.balance_transaction_id,
+    user_id: row.user_id,
+    currency: row.currency,
+    paid_at: row.paid_at,
+    invoice_total: row.invoice_total,
+    invoice_tax: row.invoice_tax,
+    stripe_fee: row.stripe_fee,
+    refunded_amount: row.refunded_amount,
+    net: row.net,
+    payload: row.payload ?? null,
+  };
+
+  const { error } = await (supabaseAdmin.from("stripe_invoice_metrics" as any) as any).upsert(payload as any, {
+    onConflict: "invoice_id",
+  } as any);
+  if (error) throw error;
+}
+
 export async function POST(request: Request) {
   const stripe = getStripe();
   const sig = request.headers.get("stripe-signature") || "";
@@ -267,6 +366,107 @@ export async function POST(request: Request) {
         if (email) update.email = email;
 
         await updateTiUser(userId, update);
+        await setWebhookStatus(rowId, "processed", null);
+        return NextResponse.json({ ok: true });
+      }
+
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const livemode = Boolean((event as any).livemode);
+        const invoiceId = invoice.id;
+        const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : null;
+        const customerId = typeof invoice.customer === "string" ? invoice.customer : null;
+        const chargeId = typeof invoice.charge === "string" ? invoice.charge : null;
+        const currency = String(invoice.currency || "usd").toUpperCase();
+
+        const userRow = await lookupTiUserBySubscriptionOrCustomer({ subscriptionId, customerId });
+        const userId = userRow?.id ?? null;
+
+        const paidAtIso =
+          typeof (invoice.status_transitions as any)?.paid_at === "number"
+            ? isoFromEpochSeconds((invoice.status_transitions as any).paid_at)
+            : invoice.status === "paid"
+              ? new Date().toISOString()
+              : null;
+
+        const invoiceTotal = centsToDollars(invoice.total ?? 0);
+        const invoiceTax = centsToDollars(invoice.tax ?? 0);
+
+        let stripeFee = 0;
+        let balanceTxId: string | null = null;
+        let refundedAmount = 0;
+
+        if (chargeId) {
+          const charge = await stripe.charges.retrieve(chargeId, { expand: ["balance_transaction"] });
+          refundedAmount = centsToDollars((charge as any).amount_refunded ?? 0);
+          const bt: any = (charge as any).balance_transaction ?? null;
+          balanceTxId = typeof bt === "string" ? bt : typeof bt?.id === "string" ? bt.id : null;
+          stripeFee = centsToDollars(typeof bt?.fee === "number" ? bt.fee : 0);
+        }
+
+        const net = invoiceTotal - stripeFee - refundedAmount;
+
+        await upsertStripeInvoiceMetrics({
+          livemode,
+          invoice_id: invoiceId,
+          customer_id: customerId,
+          subscription_id: subscriptionId,
+          charge_id: chargeId,
+          balance_transaction_id: balanceTxId,
+          user_id: userId,
+          currency,
+          paid_at: paidAtIso,
+          invoice_total: invoiceTotal,
+          invoice_tax: invoiceTax,
+          stripe_fee: stripeFee,
+          refunded_amount: refundedAmount,
+          net,
+          payload: { invoice_id: invoiceId, charge_id: chargeId },
+        });
+
+        const dayIso = dayFromIso(paidAtIso);
+        if (dayIso) {
+          await recomputeStripeDailyMetrics({ dayIso, livemode, currency });
+        }
+
+        await setWebhookStatus(rowId, "processed", null);
+        return NextResponse.json({ ok: true });
+      }
+
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge;
+        const livemode = Boolean((event as any).livemode);
+        const chargeId = charge.id;
+        const refundedAmount = centsToDollars((charge as any).amount_refunded ?? 0);
+
+        // Lookup invoice row by charge_id.
+        const { data: existing } = await (supabaseAdmin.from("stripe_invoice_metrics" as any) as any)
+          .select("invoice_id,paid_at,currency,livemode,invoice_total,stripe_fee")
+          .eq("charge_id", chargeId)
+          .maybeSingle();
+
+        if (!existing?.invoice_id) {
+          await setWebhookStatus(rowId, "skipped", "no invoice_metrics for refunded charge");
+          return NextResponse.json({ ok: true });
+        }
+
+        const invoiceId = String(existing.invoice_id);
+        const currency = String(existing.currency || "USD").toUpperCase();
+        const invoiceTotal = Number(existing.invoice_total ?? 0) || 0;
+        const stripeFee = Number(existing.stripe_fee ?? 0) || 0;
+        const paidAtIso = typeof existing.paid_at === "string" ? existing.paid_at : null;
+
+        const net = invoiceTotal - stripeFee - refundedAmount;
+
+        await (supabaseAdmin.from("stripe_invoice_metrics" as any) as any)
+          .update({ refunded_amount: refundedAmount, net })
+          .eq("invoice_id", invoiceId);
+
+        const dayIso = dayFromIso(paidAtIso);
+        if (dayIso) {
+          await recomputeStripeDailyMetrics({ dayIso, livemode, currency });
+        }
+
         await setWebhookStatus(rowId, "processed", null);
         return NextResponse.json({ ok: true });
       }

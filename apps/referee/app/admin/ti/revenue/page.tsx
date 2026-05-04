@@ -26,6 +26,18 @@ type AffiliateMetricRow = {
   commission: number | null;
 };
 
+type StripeDailyRow = {
+  day: string | null;
+  livemode: boolean | null;
+  currency: string | null;
+  invoice_count: number | null;
+  gross: number | null;
+  tax: number | null;
+  fees: number | null;
+  refunds: number | null;
+  net: number | null;
+};
+
 function startOfUtcDay(d: Date) {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
 }
@@ -58,6 +70,24 @@ function sumAffiliate(rows: AffiliateMetricRow[], args: { network: "awin" | "cj"
   return { txCount, gross, commission };
 }
 
+function sumStripeDaily(rows: StripeDailyRow[]) {
+  let invoiceCount = 0;
+  let gross = 0;
+  let tax = 0;
+  let fees = 0;
+  let refunds = 0;
+  let net = 0;
+  for (const r of rows) {
+    invoiceCount += Number(r.invoice_count ?? 0) || 0;
+    gross += Number(r.gross ?? 0) || 0;
+    tax += Number(r.tax ?? 0) || 0;
+    fees += Number(r.fees ?? 0) || 0;
+    refunds += Number(r.refunds ?? 0) || 0;
+    net += Number(r.net ?? 0) || 0;
+  }
+  return { invoiceCount, gross, tax, fees, refunds, net };
+}
+
 export default async function TiRevenuePage({ searchParams }: PageProps) {
   await requireAdmin();
 
@@ -85,8 +115,15 @@ export default async function TiRevenuePage({ searchParams }: PageProps) {
     return query.not("user_id", "in", `(${internalUserIds.join(",")})`);
   };
 
-  const [weekendProActiveRes, weekendProPastDueRes, weekendProCheckoutsYesterdayRes, affiliateYesterdayRes, affiliateTotalRes] =
-    await Promise.all([
+  const [
+    weekendProActiveRes,
+    weekendProPastDueRes,
+    weekendProCheckoutsYesterdayRes,
+    stripeYesterdayRes,
+    stripeTotalRes,
+    affiliateYesterdayRes,
+    affiliateTotalRes,
+  ] = await Promise.all([
       notInternalUsers(
         supabaseAdmin
           .from("ti_users" as any)
@@ -110,6 +147,15 @@ export default async function TiRevenuePage({ searchParams }: PageProps) {
           .gte("created_at", yesterdayStartUtc.toISOString())
           .lt("created_at", todayStartUtc.toISOString())
       ),
+      supabaseAdmin
+        .from("stripe_daily_metrics" as any)
+        .select("day,livemode,currency,invoice_count,gross,tax,fees,refunds,net")
+        .eq("day", yesterdayIso)
+        .eq("currency", "USD"),
+      supabaseAdmin
+        .from("stripe_daily_metrics" as any)
+        .select("day,livemode,currency,invoice_count,gross,tax,fees,refunds,net")
+        .eq("currency", "USD"),
       (() => {
         let q = supabaseAdmin
           .from("ti_affiliate_daily_metrics" as any)
@@ -130,6 +176,20 @@ export default async function TiRevenuePage({ searchParams }: PageProps) {
   const weekendProActive = weekendProActiveRes.error ? 0 : weekendProActiveRes.count ?? 0;
   const weekendProPastDue = weekendProPastDueRes.error ? 0 : weekendProPastDueRes.count ?? 0;
   const weekendProCheckoutsYesterday = weekendProCheckoutsYesterdayRes.error ? 0 : weekendProCheckoutsYesterdayRes.count ?? 0;
+
+  const stripeYesterdayRows: StripeDailyRow[] = stripeYesterdayRes.error ? [] : ((stripeYesterdayRes.data ?? []) as StripeDailyRow[]);
+  const stripeTotalRows: StripeDailyRow[] = stripeTotalRes.error ? [] : ((stripeTotalRes.data ?? []) as StripeDailyRow[]);
+
+  const stripeYesterdayLive = stripeYesterdayRows.filter((r) => r.livemode === true);
+  const stripeYesterdayTest = stripeYesterdayRows.filter((r) => r.livemode === false);
+  const stripeYesterday = (stripeYesterdayLive.length ? stripeYesterdayLive : stripeYesterdayTest) as StripeDailyRow[];
+
+  const stripeTotalLive = stripeTotalRows.filter((r) => r.livemode === true);
+  const stripeTotalTest = stripeTotalRows.filter((r) => r.livemode === false);
+  const stripeTotal = (stripeTotalLive.length ? stripeTotalLive : stripeTotalTest) as StripeDailyRow[];
+
+  const stripeYesterdaySum = sumStripeDaily(stripeYesterday);
+  const stripeTotalSum = sumStripeDaily(stripeTotal);
 
   const affiliateYesterdayRows: AffiliateMetricRow[] = affiliateYesterdayRes.error
     ? []
@@ -170,6 +230,8 @@ export default async function TiRevenuePage({ searchParams }: PageProps) {
   const tileMetaStyle: React.CSSProperties = { marginTop: 6, fontSize: 12, color: "#6b7280", fontWeight: 800 };
 
   const title = "TI Revenue";
+  const stripeSchemaHint =
+    "No Stripe revenue rows found yet. Ensure the Supabase migration `20260504_stripe_daily_metrics.sql` is applied, and that `invoice.payment_succeeded` / `charge.refunded` webhooks are reaching TI.";
   const affiliateSchemaHint =
     "No affiliate metrics found yet. Run the RI cron `/api/cron/ti-affiliate-sync` and ensure the Supabase migration `20260503_ti_affiliate_daily_metrics.sql` is applied.";
 
@@ -275,6 +337,34 @@ export default async function TiRevenuePage({ searchParams }: PageProps) {
         </div>
 
         <div style={tileStyle}>
+          <div style={tileLabelStyle}>Stripe gross</div>
+          <div style={tileValueStyle}>{money(stripeYesterdaySum.gross)}</div>
+          <div style={tileMetaStyle}>Yesterday (UTC) • invoices {stripeYesterdaySum.invoiceCount}</div>
+          {stripeYesterdayRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load Stripe metrics: {stripeYesterdayRes.error.message}
+            </div>
+          ) : stripeYesterdayRows.length === 0 ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>{stripeSchemaHint}</div>
+          ) : null}
+        </div>
+
+        <div style={tileStyle}>
+          <div style={tileLabelStyle}>Stripe net</div>
+          <div style={tileValueStyle}>{money(stripeYesterdaySum.net)}</div>
+          <div style={tileMetaStyle}>
+            Yesterday (UTC) • tax {money(stripeYesterdaySum.tax)} • fees {money(stripeYesterdaySum.fees)} • refunds {money(stripeYesterdaySum.refunds)}
+          </div>
+          {stripeYesterdayRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load Stripe metrics: {stripeYesterdayRes.error.message}
+            </div>
+          ) : stripeYesterdayRows.length === 0 ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>{stripeSchemaHint}</div>
+          ) : null}
+        </div>
+
+        <div style={tileStyle}>
           <div style={tileLabelStyle}>Awin gross</div>
           <div style={tileValueStyle}>{money(awinYesterdayCleared.gross)}</div>
           <div style={tileMetaStyle}>
@@ -322,6 +412,43 @@ export default async function TiRevenuePage({ searchParams }: PageProps) {
       </div>
 
       <details open style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, marginBottom: 12 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 950, fontSize: 14 }}>Stripe revenue (USD)</summary>
+        <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 900 }}>
+            Yesterday (UTC){stripeYesterdayLive.length ? " • live" : stripeYesterdayTest.length ? " • test" : ""}
+          </div>
+          <div style={{ fontSize: 13, color: "#374151" }}>
+            Gross: {money(stripeYesterdaySum.gross)} • Tax: {money(stripeYesterdaySum.tax)} • Fees: {money(stripeYesterdaySum.fees)} • Refunds:{" "}
+            {money(stripeYesterdaySum.refunds)} • Net: {money(stripeYesterdaySum.net)} • Invoices: {stripeYesterdaySum.invoiceCount}
+          </div>
+
+          <div style={{ marginTop: 8, fontSize: 13, fontWeight: 900 }}>
+            Total (all-time in table){stripeTotalLive.length ? " • live" : stripeTotalTest.length ? " • test" : ""}
+          </div>
+          <div style={{ fontSize: 13, color: "#374151" }}>
+            Gross: {money(stripeTotalSum.gross)} • Tax: {money(stripeTotalSum.tax)} • Fees: {money(stripeTotalSum.fees)} • Refunds:{" "}
+            {money(stripeTotalSum.refunds)} • Net: {money(stripeTotalSum.net)} • Invoices: {stripeTotalSum.invoiceCount}
+          </div>
+
+          {stripeYesterdayRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load Stripe daily rows: {stripeYesterdayRes.error.message}
+            </div>
+          ) : stripeTotalRes.error ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+              Failed to load Stripe total rows: {stripeTotalRes.error.message}
+            </div>
+          ) : stripeTotalRows.length === 0 ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>{stripeSchemaHint}</div>
+          ) : null}
+
+          <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280", lineHeight: 1.5 }}>
+            Net = invoice total − Stripe fees − refunds. Taxes are tracked separately.
+          </div>
+        </div>
+      </details>
+
+      <details open style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, marginBottom: 12 }}>
         <summary style={{ cursor: "pointer", fontWeight: 950, fontSize: 14 }}>Totals (all-time in table)</summary>
         <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
           <div style={{ fontSize: 13, fontWeight: 900 }}>Awin</div>
@@ -353,6 +480,9 @@ export default async function TiRevenuePage({ searchParams }: PageProps) {
         <div style={{ marginTop: 10, fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
           <div>
             <b>Stripe</b>: active/past_due comes from <code>ti_users.subscription_status</code>.
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <b>Stripe revenue</b>: computed from paid invoices + related charges (fees from balance transactions; refunds from charge refunds).
           </div>
           <div style={{ marginTop: 6 }}>
             <b>Awin</b>: uses API status buckets directly (cleared = approved).
