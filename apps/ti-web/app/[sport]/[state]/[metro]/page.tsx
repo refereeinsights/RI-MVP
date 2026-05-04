@@ -374,12 +374,9 @@ export default async function SportStateMetroHubPage({
                     <div className="cardFooter">
                       {hasVenuesForMap ? (
                         <div style={{ display: "grid", gap: 6 }}>
-                          <div style={{ fontSize: 12, fontWeight: 900, opacity: 0.85, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                            Stay near your fields
-                          </div>
                           <TournamentMapCta
                             href={mapHref}
-                            label="See the closest options →"
+                            label="Stay near your fields"
                             sourceContext="directory_card"
                             tournamentSlug={t.slug}
                             sport={t.sport ?? null}
