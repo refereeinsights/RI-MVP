@@ -731,12 +731,24 @@ export default function TournamentVenueMapClient({
     const distance = formatDistance(item.distance_meters);
     const distanceHtml = distance ? escapeHtml(distance) : "";
     const mapsUrl = buildSafeDirectionsUrl(item);
-    const searchUrl = buildGoogleSearchUrl({ item, venue });
+    const searchUrl =
+      category === "hotels"
+        ? (() => {
+            const baseHref = `/go/hotels?venueId=${encodeURIComponent(venue.id)}&tournamentId=${encodeURIComponent(tournament.id)}`;
+            const raw = String(item.name ?? "").trim();
+            const collapsed = raw.replace(/\s+/g, " ");
+            const safeName = collapsed.length > 120 ? collapsed.slice(0, 120) : collapsed;
+            const city = String(venue.city ?? "").trim();
+            const state = String(venue.state ?? "").trim();
+            const ss = [safeName, city, state].filter(Boolean).join(", ");
+            return ss ? `${baseHref}&ss=${encodeURIComponent(ss)}` : baseHref;
+          })()
+        : buildGoogleSearchUrl({ item, venue });
     const directionsHtml = mapsUrl
       ? `<a class="${styles.popupLink}" href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer">Directions</a>`
       : "";
     const searchHtml = searchUrl
-      ? `<a class="${styles.popupLinkSecondary}" href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer">Search</a>`
+      ? `<a class="${styles.popupLinkSecondary}" href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer${category === "hotels" ? " sponsored" : ""}">${category === "hotels" ? "Check rates" : "Search"}</a>`
       : "";
     const actionsHtml =
       directionsHtml || searchHtml
@@ -894,13 +906,7 @@ export default function TournamentVenueMapClient({
       btn.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
-        if (typeof item.place_longitude === "number" && typeof item.place_latitude === "number") {
-          try {
-            map.flyTo({ center: [item.place_longitude, item.place_latitude], zoom: Math.max(map.getZoom?.() ?? 12, 12), speed: 1.2 });
-          } catch {
-            // ignore
-          }
-        }
+        // Do not pan/zoom on pin click (prevents the map from shifting unexpectedly after the user already targeted a pin).
         setSelectedPlaceKey(key);
         openPlacePopup({ venue: v, category, item });
       });
