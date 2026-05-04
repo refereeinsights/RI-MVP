@@ -505,11 +505,11 @@ async function TournamentUserActions({
         </div>
       )}
 
-      {tournament.official_website_url && !isDemoTournament ? (
+      {resolvedSlug ? (
         <div className="detailLinksRow">
-          <a className="secondaryLink" href={`/go/tournament/${resolvedSlug}`} target="_blank" rel="noopener noreferrer">
-            Official site
-          </a>
+          <Link className="secondaryLink" href={`/tournaments/${resolvedSlug}/map`}>
+            Open tournament map →
+          </Link>
         </div>
       ) : null}
 
@@ -1039,6 +1039,33 @@ async function TournamentVenueDetails({
           </div>
         </Link>
       </div>
+
+      {(() => {
+        const officialUrl = String(tournament.official_website_url ?? "").trim();
+        const isValidOfficialUrl = /^https?:\/\//i.test(officialUrl);
+        if (!officialUrl || !isValidOfficialUrl || isDemoTournament) return null;
+
+        return (
+          <div style={{ width: "min(720px, 100%)", marginTop: 16, marginLeft: "auto", marginRight: "auto" }}>
+            <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)" }}>
+              <div style={{ fontWeight: 950 }}>Need organizer details?</div>
+              <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>
+                Plan here first, then confirm registration, rules, and schedules with the organizer.
+              </div>
+              <div className="detailLinksRow" style={{ marginTop: 10 }}>
+                <a
+                  className="secondaryLink"
+                  href={`/go/tournament/${resolvedSlug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  More details from organizer →
+                </a>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {displayVenueRows.length > 0 ? (
         <>
