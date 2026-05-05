@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireAdmin } from "@/lib/admin";
+import { adminDeleteTournament, requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type FlagStatus = "open" | "closed_validated" | "closed_fixed" | "closed_duplicate";
@@ -47,4 +47,20 @@ export async function setTournamentQualityFlagStatus(formData: FormData) {
   if (error) throw error;
 
   revalidatePath("/admin/ti/quality");
+}
+
+export async function deleteTournamentFromQuality(formData: FormData) {
+  await requireAdmin();
+
+  const tournamentId = asText(formData.get("tournament_id"));
+  if (!tournamentId) throw new Error("Missing tournament_id");
+
+  const confirmed = asText(formData.get("confirm_delete")) === "on";
+  if (!confirmed) throw new Error("Confirm delete to proceed");
+
+  // Reuse existing safe delete path (does not delete venues; only deletes the tournament row and its dependents).
+  await adminDeleteTournament(tournamentId);
+  revalidatePath("/admin/ti/quality");
+  revalidatePath("/admin");
+  revalidatePath("/tournaments");
 }

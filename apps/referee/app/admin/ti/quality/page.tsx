@@ -4,7 +4,7 @@ import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-import { setTournamentQualityFlagStatus } from "./actions";
+import { deleteTournamentFromQuality, setTournamentQualityFlagStatus } from "./actions";
 
 export const runtime = "nodejs";
 
@@ -168,6 +168,7 @@ export default async function TiQualityPage({ searchParams }: PageProps) {
               <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Reason</th>
               <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Status</th>
               <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Resolve</th>
+              <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Delete</th>
             </tr>
           </thead>
           <tbody>
@@ -261,13 +262,33 @@ export default async function TiQualityPage({ searchParams }: PageProps) {
                       </div>
                     </form>
                   </td>
+
+                  <td style={{ padding: "10px 8px", minWidth: 260 }}>
+                    <form action={deleteTournamentFromQuality} style={{ display: "grid", gap: 8 }}>
+                      <input type="hidden" name="tournament_id" value={f.tournament_id} />
+                      <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 12, color: "#6b7280", fontWeight: 900 }}>
+                        <input type="checkbox" name="confirm_delete" />
+                        Confirm delete
+                      </label>
+                      <button
+                        type="submit"
+                        className="cta secondary"
+                        style={{ padding: "6px 10px", borderColor: "#fecaca", color: "#b91c1c", fontWeight: 950 }}
+                      >
+                        Delete tournament
+                      </button>
+                      <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
+                        Deletes the tournament row; venues remain.
+                      </div>
+                    </form>
+                  </td>
                 </tr>
               );
             })}
 
             {flags.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: "14px 8px", color: "#6b7280", fontWeight: 800 }}>
+                <td colSpan={8} style={{ padding: "14px 8px", color: "#6b7280", fontWeight: 800 }}>
                   No flags found for status: {status}
                 </td>
               </tr>
@@ -278,4 +299,3 @@ export default async function TiQualityPage({ searchParams }: PageProps) {
     </div>
   );
 }
-
