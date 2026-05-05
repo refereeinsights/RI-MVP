@@ -11,6 +11,7 @@ export const runtime = "nodejs";
 type PageProps = {
   searchParams?: {
     status?: string;
+    notice?: string;
   };
 };
 
@@ -78,6 +79,7 @@ export default async function TiQualityPage({ searchParams }: PageProps) {
   await requireAdmin();
 
   const status = asStatus(searchParams?.status);
+  const notice = (searchParams?.notice ?? "").trim();
 
   const flagsRes = await supabaseAdmin
     .from("tournament_quality_flags" as any)
@@ -124,6 +126,22 @@ export default async function TiQualityPage({ searchParams }: PageProps) {
           Clicks →
         </Link>
       </div>
+
+      {notice ? (
+        <div
+          style={{
+            border: "1px solid #fde68a",
+            background: "#fffbeb",
+            color: "#92400e",
+            fontWeight: 900,
+            borderRadius: 14,
+            padding: "10px 12px",
+            marginBottom: 12,
+          }}
+        >
+          {notice}
+        </div>
+      ) : null}
 
       <div
         style={{
@@ -172,6 +190,7 @@ export default async function TiQualityPage({ searchParams }: PageProps) {
           flexWrap: "wrap",
         }}
       >
+        <input type="hidden" name="status" value={status} />
         <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 900, textTransform: "uppercase" }}>Bulk actions</div>
         <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 12, color: "#6b7280", fontWeight: 900 }}>
           <input type="checkbox" name="confirm_delete" />
@@ -299,6 +318,7 @@ export default async function TiQualityPage({ searchParams }: PageProps) {
                         </form>
 
                         <form action={deleteTournamentFromQuality} style={{ display: "grid", gap: 8 }}>
+                          <input type="hidden" name="status" value={status} />
                           <input type="hidden" name="tournament_id" value={f.tournament_id} />
                           <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 12, color: "#6b7280", fontWeight: 900 }}>
                             <input type="checkbox" name="confirm_delete" />

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { adminDeleteTournament, requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -21,6 +22,13 @@ function asStatus(value: unknown): FlagStatus | null {
   if (v === "closed_fixed") return "closed_fixed";
   if (v === "closed_duplicate") return "closed_duplicate";
   return null;
+}
+
+function redirectToQualityWithNotice(params: { status?: string | null; notice: string }) {
+  const search = new URLSearchParams();
+  if (params.status) search.set("status", params.status);
+  search.set("notice", params.notice);
+  redirect(`/admin/ti/quality?${search.toString()}`);
 }
 
 export async function setTournamentQualityFlagStatus(formData: FormData) {
@@ -52,11 +60,12 @@ export async function setTournamentQualityFlagStatus(formData: FormData) {
 export async function deleteTournamentFromQuality(formData: FormData) {
   await requireAdmin();
 
+  const status = asText(formData.get("status"));
   const tournamentId = asText(formData.get("tournament_id"));
-  if (!tournamentId) throw new Error("Missing tournament_id");
+  if (!tournamentId) redirectToQualityWithNotice({ status, notice: "Missing tournament_id" });
 
   const confirmed = asText(formData.get("confirm_delete")) === "on";
-  if (!confirmed) throw new Error("Confirm delete to proceed");
+  if (!confirmed) redirectToQualityWithNotice({ status, notice: "Confirm delete to proceed" });
 
   // Reuse existing safe delete path (does not delete venues; only deletes the tournament row and its dependents).
   await adminDeleteTournament(tournamentId);
@@ -68,14 +77,15 @@ export async function deleteTournamentFromQuality(formData: FormData) {
 export async function bulkDeleteTournamentsFromQuality(formData: FormData) {
   await requireAdmin();
 
+  const status = asText(formData.get("status"));
   const confirmed = asText(formData.get("confirm_delete")) === "on";
-  if (!confirmed) throw new Error("Confirm delete to proceed");
+  if (!confirmed) redirectToQualityWithNotice({ status, notice: "Confirm bulk delete to proceed" });
 
   const rawIds = formData.getAll("tournament_id");
   const tournamentIds = Array.from(
     new Set(rawIds.map((v) => asText(v)).filter((v): v is string => Boolean(v))),
   );
-  if (tournamentIds.length === 0) throw new Error("Select at least one tournament");
+  if (tournamentIds.length === 0) redirectToQualityWithNotice({ status, notice: "Select at least one tournament" });
 
   for (const tournamentId of tournamentIds) {
     await adminDeleteTournament(tournamentId);
