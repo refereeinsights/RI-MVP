@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
+let TRACK = null;
+
 function parseDotenv(contents) {
   const out = {};
   for (const rawLine of contents.split("\n")) {
@@ -158,22 +160,32 @@ async function mapboxForwardGeocode({ query, token, proximity, country = "us" })
   }
   const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?${params.toString()}`;
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    const err = new Error(`mapbox_geocode_failed_${res.status}`);
-    err.details = text.slice(0, 300);
-    throw err;
-  }
-  const json = await res.json();
-  const feature = Array.isArray(json?.features) ? json.features[0] : null;
-  const center = Array.isArray(feature?.center) ? feature.center : null;
-  if (!center || center.length < 2) return null;
-  const lng = Number(center[0]);
-  const lat = Number(center[1]);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
-  return { lat, lng, source: "mapbox" };
+  const run = async () => {
+    const res = await fetch(url);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      const err = new Error(`mapbox_geocode_failed_${res.status}`);
+      err.details = text.slice(0, 300);
+      throw err;
+    }
+    const json = await res.json();
+    const feature = Array.isArray(json?.features) ? json.features[0] : null;
+    const center = Array.isArray(feature?.center) ? feature.center : null;
+    if (!center || center.length < 2) return null;
+    const lng = Number(center[0]);
+    const lat = Number(center[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+    return { lat, lng, source: "mapbox" };
+  };
+
+  if (!TRACK) return run();
+  return TRACK.trackExternalCall(
+    TRACK.EXTERNAL_API.mapbox,
+    "forward_geocode",
+    TRACK.EXTERNAL_API_SURFACE.venue_geocode,
+    run
+  );
 }
 
 function categoryNormalized(value) {
@@ -199,6 +211,14 @@ function expandCategoriesForDb(categorySet) {
 
 async function main() {
   loadEnvLocal();
+
+  // Ops scripts do not auto-load env; dynamically import after loadEnvLocal().
+  // This records Mapbox calls into `public.external_api_calls` when enabled.
+  try {
+    TRACK = await import("../../apps/referee/lib/trackExternalCall");
+  } catch {
+    TRACK = null;
+  }
 
   const APPLY = process.argv.includes("--apply");
   const DRY_RUN = process.argv.includes("--dry-run") || !APPLY;
