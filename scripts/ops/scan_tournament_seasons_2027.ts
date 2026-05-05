@@ -3,7 +3,17 @@ import path from "node:path";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { atlasSearch, getSearchProviderName, type AtlasSearchResult } from "../../apps/referee/src/server/atlas/search";
+// NOTE: Do not statically import `atlasSearch` here.
+// `atlasSearch` depends on `trackExternalCall` which imports `supabaseAdmin` at module-load time.
+// In ops scripts, env vars from `.env.local` are not automatically loaded, so a static import can
+// throw before `loadEnvLocal()` runs. We dynamically import after env is loaded in `main()`.
+
+type AtlasSearchResult = {
+  url: string;
+  title: string | null;
+  snippet: string | null;
+  domain: string | null;
+};
 
 type UpdateAction =
   | "updated"
@@ -249,6 +259,8 @@ async function main() {
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  const { atlasSearch, getSearchProviderName } = await import("../../apps/referee/src/server/atlas/search");
 
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   const cols = [
@@ -534,4 +546,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

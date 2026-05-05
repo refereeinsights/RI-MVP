@@ -1,6 +1,8 @@
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import ApiUsageDateFilters from "./ui/ApiUsageDateFilters";
+import ApiUsageAlarms from "./ui/ApiUsageAlarms";
 
 export const runtime = "nodejs";
 
@@ -27,20 +29,60 @@ type TiEventAggRow = {
   calls: number;
 };
 
+function startOfUtcDayFromIsoDate(d: string) {
+  return `${d}T00:00:00.000Z`;
+}
+
+function startOfNextUtcDayFromIsoDate(d: string) {
+  const [y, m, day] = d.split("-").map((v) => Number(v));
+  const next = new Date(Date.UTC(y, m - 1, day + 1, 0, 0, 0, 0));
+  return next.toISOString();
+}
+
+function startOfUtcDay(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+}
+
+function startOfNextUtcDay(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1, 0, 0, 0, 0));
+}
+
+function startOfUtcMonth(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0, 0));
+}
+
+function startOfUtcWeekMonday(date: Date) {
+  const d = startOfUtcDay(date);
+  const dow = (d.getUTCDay() + 6) % 7; // Monday=0
+  return new Date(d.getTime() - dow * 86400_000);
+}
+
 function parseDateRange(params: SearchParams): { fromIso: string; toIso: string; label: string } {
   const range = params.range ?? "7d";
   const now = new Date();
 
   if (params.from && params.to) {
-    return { fromIso: `${params.from}T00:00:00Z`, toIso: `${params.to}T23:59:59Z`, label: `${params.from} – ${params.to}` };
+    return {
+      fromIso: startOfUtcDayFromIsoDate(params.from),
+      toIso: startOfNextUtcDayFromIsoDate(params.to),
+      label: params.from === params.to ? params.from : `${params.from} – ${params.to}`,
+    };
   }
   if (range === "today") {
     const d = now.toISOString().slice(0, 10);
-    return { fromIso: `${d}T00:00:00Z`, toIso: `${d}T23:59:59Z`, label: "Today" };
+    return { fromIso: startOfUtcDayFromIsoDate(d), toIso: startOfNextUtcDayFromIsoDate(d), label: "Today" };
+  }
+  if (range === "mtd") {
+    const from = startOfUtcMonth(now);
+    return { fromIso: from.toISOString(), toIso: now.toISOString(), label: "MTD" };
   }
   if (range === "30d") {
     const from = new Date(now.getTime() - 30 * 86400_000);
     return { fromIso: from.toISOString(), toIso: now.toISOString(), label: "Last 30 days" };
+  }
+  if (range === "week") {
+    const from = startOfUtcWeekMonday(now);
+    return { fromIso: from.toISOString(), toIso: now.toISOString(), label: "This week" };
   }
   // default: 7d
   const from = new Date(now.getTime() - 7 * 86400_000);
@@ -51,7 +93,7 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
   await requireAdmin();
 
   const { fromIso, toIso, label } = parseDateRange(searchParams ?? {});
-  const range = searchParams?.range ?? "7d";
+  const range = searchParams?.from && searchParams?.to ? "" : (searchParams?.range ?? "7d");
 
   // RPC aggregates server-side — no raw-row fetch, no PostgREST max_rows=1000 cap.
   const { data: rpcRows, error } = await (supabaseAdmin as any)
@@ -111,10 +153,22 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
     open_meteo: "#0ea5e9",
   };
 
+  const apiOptions = [
+    "google_places",
+    "foursquare",
+    "mapbox",
+    "resend",
+    "open_meteo",
+    "brave_search",
+    "bing_search",
+    "serpapi",
+  ];
+
   const rangeLinks = [
     { label: "Today", value: "today" },
     { label: "7 days", value: "7d" },
     { label: "30 days", value: "30d" },
+    { label: "MTD", value: "mtd" },
   ];
 
   const cellStyle: React.CSSProperties = { padding: "6px 10px", borderBottom: "1px solid #e5e7eb", fontSize: 13 };
@@ -137,25 +191,7 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
       )}
 
       {/* Date filter */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
-        {rangeLinks.map((r) => (
-          <a
-            key={r.value}
-            href={`/admin/api-usage?range=${r.value}`}
-            style={{
-              padding: "4px 14px", borderRadius: 6, fontSize: 13, textDecoration: "none",
-              background: range === r.value ? "#1e40af" : "#f3f4f6",
-              color: range === r.value ? "#fff" : "#374151",
-              border: "1px solid",
-              borderColor: range === r.value ? "#1e40af" : "#e5e7eb",
-            }}
-          >
-            {r.label}
-          </a>
-        ))}
-        <span style={{ fontSize: 13, color: "#6b7280" }}>{label}</span>
-        {error && <span style={{ fontSize: 12, color: "#dc2626" }}>Query error: {(error as any).message}</span>}
-      </div>
+      <ApiUsageDateFilters rangeLinks={rangeLinks} activeRange={range} label={label} rpcError={error ? String((error as any).message ?? error) : null} />
 
       {/* Summary tiles */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
@@ -251,6 +287,8 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
           </table>
         </div>
       )}
+
+      <ApiUsageAlarms apiOptions={apiOptions} />
     </div>
   );
 }

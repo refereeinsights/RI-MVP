@@ -68,6 +68,36 @@ export async function sendEmail(payload: EmailPayload) {
   );
 }
 
+export async function sendEmailAlert(payload: EmailPayload) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("RESEND_API_KEY not configured; skipping email send.");
+    return { skipped: true };
+  }
+
+  const to = normalizeRecipients(payload.to);
+  if (to.length === 0) {
+    console.warn("sendEmailAlert called without recipients; skipping.");
+    return { skipped: true };
+  }
+
+  const { from, replyTo } = resolveFromAndReplyTo(payload);
+  return trackExternalCall(EXTERNAL_API.resend, "send_email_alert", EXTERNAL_API_SURFACE.email_alert, () =>
+    sendResendEmail({
+      apiKey,
+      payload: {
+        from,
+        to,
+        subject: payload.subject,
+        html: payload.html,
+        text: payload.text ?? "",
+        reply_to: replyTo,
+        headers: payload.headers ?? undefined,
+      },
+    })
+  );
+}
+
 export async function sendEmailVerified(
   payload: EmailPayload & {
     kind?: EmailSendKind;
