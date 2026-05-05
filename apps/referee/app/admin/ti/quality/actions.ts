@@ -64,3 +64,24 @@ export async function deleteTournamentFromQuality(formData: FormData) {
   revalidatePath("/admin");
   revalidatePath("/tournaments");
 }
+
+export async function bulkDeleteTournamentsFromQuality(formData: FormData) {
+  await requireAdmin();
+
+  const confirmed = asText(formData.get("confirm_delete")) === "on";
+  if (!confirmed) throw new Error("Confirm delete to proceed");
+
+  const rawIds = formData.getAll("tournament_id");
+  const tournamentIds = Array.from(
+    new Set(rawIds.map((v) => asText(v)).filter((v): v is string => Boolean(v))),
+  );
+  if (tournamentIds.length === 0) throw new Error("Select at least one tournament");
+
+  for (const tournamentId of tournamentIds) {
+    await adminDeleteTournament(tournamentId);
+  }
+
+  revalidatePath("/admin/ti/quality");
+  revalidatePath("/admin");
+  revalidatePath("/tournaments");
+}

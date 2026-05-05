@@ -4,7 +4,7 @@ import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-import { deleteTournamentFromQuality, setTournamentQualityFlagStatus } from "./actions";
+import { bulkDeleteTournamentsFromQuality, deleteTournamentFromQuality, setTournamentQualityFlagStatus } from "./actions";
 
 export const runtime = "nodejs";
 
@@ -153,22 +153,50 @@ export default async function TiQualityPage({ searchParams }: PageProps) {
           ))}
         </div>
         <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
-          Flags are review-only. No deletes and no date edits happen here.
+          Flags are review-only. No date edits happen here; deletes require explicit confirmation.
         </div>
       </div>
+
+      <form
+        id="bulkDeleteTournaments"
+        action={bulkDeleteTournamentsFromQuality}
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: 14,
+          background: "#fff",
+          padding: 12,
+          marginBottom: 12,
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 900, textTransform: "uppercase" }}>Bulk actions</div>
+        <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 12, color: "#6b7280", fontWeight: 900 }}>
+          <input type="checkbox" name="confirm_delete" />
+          Confirm delete
+        </label>
+        <button type="submit" className="cta secondary" style={{ padding: "6px 10px", borderColor: "#fecaca", color: "#b91c1c", fontWeight: 950 }}>
+          Delete selected tournaments
+        </button>
+        <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
+          Selected rows are deleted via the existing safe-delete helper. Venues remain.
+        </div>
+      </form>
 
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
           <thead>
             <tr>
+              <th style={{ width: 44, textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Sel</th>
               <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Tournament</th>
               <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Flag</th>
               <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Dates</th>
               <th style={{ textAlign: "right", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Δ days</th>
               <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Reason</th>
               <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Status</th>
-              <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Resolve</th>
-              <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Delete</th>
+              <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -179,6 +207,9 @@ export default async function TiQualityPage({ searchParams }: PageProps) {
 
               return (
                 <tr key={f.id} style={{ borderTop: "1px solid #f3f4f6" }}>
+                  <td style={{ padding: "10px 8px" }}>
+                    <input form="bulkDeleteTournaments" type="checkbox" name="tournament_id" value={f.tournament_id} />
+                  </td>
                   <td style={{ padding: "10px 8px", minWidth: 320 }}>
                     <div style={{ fontWeight: 950, color: "#111" }}>{t?.name ?? "Unknown tournament"}</div>
                     <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
@@ -206,12 +237,12 @@ export default async function TiQualityPage({ searchParams }: PageProps) {
 
                   <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 950 }}>{dur ?? "—"}</td>
 
-                  <td style={{ padding: "10px 8px", fontSize: 13, color: "#111", minWidth: 320 }}>
+                  <td style={{ padding: "10px 8px", fontSize: 13, color: "#111", minWidth: 260 }}>
                     <div style={{ fontWeight: 800 }}>{f.reason ?? "—"}</div>
                     <div style={{ marginTop: 6, display: "flex", gap: 10, flexWrap: "wrap" }}>
                       {t?.source_url ? (
                         <a href={t.source_url} target="_blank" rel="noopener noreferrer" className="cta secondary" style={{ padding: "6px 10px" }}>
-                          Source URL ↗
+                          Source ↗
                         </a>
                       ) : null}
                       {t?.official_website_url ? (
@@ -222,65 +253,70 @@ export default async function TiQualityPage({ searchParams }: PageProps) {
                           className="cta secondary"
                           style={{ padding: "6px 10px" }}
                         >
-                          Official URL ↗
+                          Official ↗
                         </a>
                       ) : null}
                     </div>
                   </td>
 
-                  <td style={{ padding: "10px 8px", minWidth: 160 }}>{statusPill(String(f.status ?? "open"))}</td>
+                  <td style={{ padding: "10px 8px", minWidth: 140 }}>{statusPill(String(f.status ?? "open"))}</td>
 
-                  <td style={{ padding: "10px 8px", minWidth: 360 }}>
-                    <form action={setTournamentQualityFlagStatus} style={{ display: "grid", gap: 8 }}>
-                      <input type="hidden" name="flag_id" value={f.id} />
-                      <textarea
-                        name="resolution_notes"
-                        defaultValue={f.resolution_notes ?? ""}
-                        placeholder="Resolution notes (optional)"
-                        style={{
-                          width: "100%",
-                          minHeight: 64,
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 10,
-                          padding: 8,
-                          fontSize: 13,
-                        }}
-                      />
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <button type="submit" name="status" value="closed_validated" className="cta secondary" style={{ padding: "6px 10px" }}>
-                          Close validated
-                        </button>
-                        <button type="submit" name="status" value="closed_fixed" className="cta secondary" style={{ padding: "6px 10px" }}>
-                          Close fixed
-                        </button>
-                        <button type="submit" name="status" value="closed_duplicate" className="cta secondary" style={{ padding: "6px 10px" }}>
-                          Close duplicate
-                        </button>
-                        <button type="submit" name="status" value="open" className="cta secondary" style={{ padding: "6px 10px" }}>
-                          Reopen
-                        </button>
-                      </div>
-                    </form>
-                  </td>
+                  <td style={{ padding: "10px 8px", minWidth: 280 }}>
+                    <details style={{ border: "1px solid #f3f4f6", borderRadius: 12, padding: 10, background: "#fafafa" }}>
+                      <summary style={{ cursor: "pointer", fontWeight: 950, color: "#111", listStyle: "none" }}>
+                        Review / resolve
+                      </summary>
+                      <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                        <form action={setTournamentQualityFlagStatus} style={{ display: "grid", gap: 8 }}>
+                          <input type="hidden" name="flag_id" value={f.id} />
+                          <textarea
+                            name="resolution_notes"
+                            defaultValue={f.resolution_notes ?? ""}
+                            placeholder="Resolution notes (optional)"
+                            style={{
+                              width: "100%",
+                              minHeight: 54,
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 10,
+                              padding: 8,
+                              fontSize: 13,
+                            }}
+                          />
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <button type="submit" name="status" value="closed_validated" className="cta secondary" style={{ padding: "6px 10px" }}>
+                              Close validated
+                            </button>
+                            <button type="submit" name="status" value="closed_fixed" className="cta secondary" style={{ padding: "6px 10px" }}>
+                              Close fixed
+                            </button>
+                            <button type="submit" name="status" value="closed_duplicate" className="cta secondary" style={{ padding: "6px 10px" }}>
+                              Close duplicate
+                            </button>
+                            <button type="submit" name="status" value="open" className="cta secondary" style={{ padding: "6px 10px" }}>
+                              Reopen
+                            </button>
+                          </div>
+                        </form>
 
-                  <td style={{ padding: "10px 8px", minWidth: 260 }}>
-                    <form action={deleteTournamentFromQuality} style={{ display: "grid", gap: 8 }}>
-                      <input type="hidden" name="tournament_id" value={f.tournament_id} />
-                      <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 12, color: "#6b7280", fontWeight: 900 }}>
-                        <input type="checkbox" name="confirm_delete" />
-                        Confirm delete
-                      </label>
-                      <button
-                        type="submit"
-                        className="cta secondary"
-                        style={{ padding: "6px 10px", borderColor: "#fecaca", color: "#b91c1c", fontWeight: 950 }}
-                      >
-                        Delete tournament
-                      </button>
-                      <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
-                        Deletes the tournament row; venues remain.
+                        <form action={deleteTournamentFromQuality} style={{ display: "grid", gap: 8 }}>
+                          <input type="hidden" name="tournament_id" value={f.tournament_id} />
+                          <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 12, color: "#6b7280", fontWeight: 900 }}>
+                            <input type="checkbox" name="confirm_delete" />
+                            Confirm delete
+                          </label>
+                          <button
+                            type="submit"
+                            className="cta secondary"
+                            style={{ padding: "6px 10px", borderColor: "#fecaca", color: "#b91c1c", fontWeight: 950 }}
+                          >
+                            Delete this tournament
+                          </button>
+                          <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
+                            Deletes the tournament row; venues remain.
+                          </div>
+                        </form>
                       </div>
-                    </form>
+                    </details>
                   </td>
                 </tr>
               );
