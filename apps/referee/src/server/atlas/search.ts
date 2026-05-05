@@ -1,3 +1,5 @@
+import { trackExternalCall } from "../../../lib/trackExternalCall";
+
 export type AtlasSearchResult = {
   url: string;
   title: string | null;
@@ -70,57 +72,94 @@ function domainFromUrl(url: string) {
   }
 }
 
-export async function atlasSearch(query: string, limit: number): Promise<AtlasSearchResult[]> {
+export async function atlasSearch(query: string, limit: number, surface = "atlas_search"): Promise<AtlasSearchResult[]> {
   const provider = getProvider();
   const count = clampLimit(limit);
   const debug = shouldDebugAtlas();
-  const startedAt = Date.now();
 
   if (provider === "bing") {
-    const key = process.env.BING_SEARCH_KEY;
-    if (!key) throw new Error("BING_SEARCH_KEY missing");
-    const url = new URL("https://api.bing.microsoft.com/v7.0/search");
-    url.searchParams.set("q", query);
-    url.searchParams.set("count", String(count));
-    url.searchParams.set("responseFilter", "Webpages");
-    url.searchParams.set("mkt", "en-US");
-    const resp = await fetch(url.toString(), {
-      headers: { "Ocp-Apim-Subscription-Key": key },
-    });
-    if (debug) {
-      console.info("[atlas][bing]", {
-        status: resp.status,
-        ms: Date.now() - startedAt,
-        q: summarizeQuery(query),
-        count,
+    return trackExternalCall("bing_search", "web_search", surface, async () => {
+      const startedAt = Date.now();
+      const key = process.env.BING_SEARCH_KEY;
+      if (!key) throw new Error("BING_SEARCH_KEY missing");
+      const url = new URL("https://api.bing.microsoft.com/v7.0/search");
+      url.searchParams.set("q", query);
+      url.searchParams.set("count", String(count));
+      url.searchParams.set("responseFilter", "Webpages");
+      url.searchParams.set("mkt", "en-US");
+      const resp = await fetch(url.toString(), {
+        headers: { "Ocp-Apim-Subscription-Key": key },
       });
-    }
-    if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(`Bing search failed: ${resp.status} ${text}`);
-    }
-    const json = await resp.json();
-    const rows = json?.webPages?.value ?? [];
-    return rows.map((row: any) => ({
-      url: row.url,
-      title: row.name ?? null,
-      snippet: row.snippet ?? null,
-      domain: domainFromUrl(row.url),
-    }));
+      if (debug) {
+        console.info("[atlas][bing]", {
+          status: resp.status,
+          ms: Date.now() - startedAt,
+          q: summarizeQuery(query),
+          count,
+        });
+      }
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Bing search failed: ${resp.status} ${text}`);
+      }
+      const json = await resp.json();
+      const rows = json?.webPages?.value ?? [];
+      return rows.map((row: any) => ({
+        url: row.url,
+        title: row.name ?? null,
+        snippet: row.snippet ?? null,
+        domain: domainFromUrl(row.url),
+      }));
+    });
   }
 
   if (provider === "brave") {
-    const key = process.env.BRAVE_SEARCH_KEY;
-    if (!key) throw new Error("BRAVE_SEARCH_KEY missing");
-    const url = new URL("https://api.search.brave.com/res/v1/web/search");
-    url.searchParams.set("q", query);
-    url.searchParams.set("count", String(count));
-    const resp = await braveFetchWithRetry(url.toString(), {
-      Accept: "application/json",
-      "X-Subscription-Token": key,
+    return trackExternalCall("brave_search", "web_search", surface, async () => {
+      const startedAt = Date.now();
+      const key = process.env.BRAVE_SEARCH_KEY;
+      if (!key) throw new Error("BRAVE_SEARCH_KEY missing");
+      const url = new URL("https://api.search.brave.com/res/v1/web/search");
+      url.searchParams.set("q", query);
+      url.searchParams.set("count", String(count));
+      const resp = await braveFetchWithRetry(url.toString(), {
+        Accept: "application/json",
+        "X-Subscription-Token": key,
+      });
+      if (debug) {
+        console.info("[atlas][brave]", {
+          status: resp.status,
+          ms: Date.now() - startedAt,
+          q: summarizeQuery(query),
+          count,
+        });
+      }
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Brave search failed: ${resp.status} ${text}`);
+      }
+      const json = await resp.json();
+      const rows = json?.web?.results ?? [];
+      return rows.map((row: any) => ({
+        url: row.url,
+        title: row.title ?? null,
+        snippet: row.description ?? null,
+        domain: domainFromUrl(row.url),
+      }));
     });
+  }
+
+  return trackExternalCall("serpapi", "web_search", surface, async () => {
+    const startedAt = Date.now();
+    const key = process.env.SERPAPI_API_KEY;
+    if (!key) throw new Error("SERPAPI_API_KEY missing");
+    const url = new URL("https://serpapi.com/search.json");
+    url.searchParams.set("engine", "google");
+    url.searchParams.set("q", query);
+    url.searchParams.set("num", String(count));
+    url.searchParams.set("api_key", key);
+    const resp = await fetch(url.toString());
     if (debug) {
-      console.info("[atlas][brave]", {
+      console.info("[atlas][serpapi]", {
         status: resp.status,
         ms: Date.now() - startedAt,
         q: summarizeQuery(query),
@@ -129,46 +168,17 @@ export async function atlasSearch(query: string, limit: number): Promise<AtlasSe
     }
     if (!resp.ok) {
       const text = await resp.text();
-      throw new Error(`Brave search failed: ${resp.status} ${text}`);
+      throw new Error(`SerpAPI search failed: ${resp.status} ${text}`);
     }
     const json = await resp.json();
-    const rows = json?.web?.results ?? [];
+    const rows = json?.organic_results ?? [];
     return rows.map((row: any) => ({
-      url: row.url,
+      url: row.link,
       title: row.title ?? null,
-      snippet: row.description ?? null,
-      domain: domainFromUrl(row.url),
+      snippet: row.snippet ?? null,
+      domain: domainFromUrl(row.link),
     }));
-  }
-
-  const key = process.env.SERPAPI_API_KEY;
-  if (!key) throw new Error("SERPAPI_API_KEY missing");
-  const url = new URL("https://serpapi.com/search.json");
-  url.searchParams.set("engine", "google");
-  url.searchParams.set("q", query);
-  url.searchParams.set("num", String(count));
-  url.searchParams.set("api_key", key);
-  const resp = await fetch(url.toString());
-  if (debug) {
-    console.info("[atlas][serpapi]", {
-      status: resp.status,
-      ms: Date.now() - startedAt,
-      q: summarizeQuery(query),
-      count,
-    });
-  }
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`SerpAPI search failed: ${resp.status} ${text}`);
-  }
-  const json = await resp.json();
-  const rows = json?.organic_results ?? [];
-  return rows.map((row: any) => ({
-    url: row.link,
-    title: row.title ?? null,
-    snippet: row.snippet ?? null,
-    domain: domainFromUrl(row.link),
-  }));
+  });
 }
 
 export function getSearchProviderName() {

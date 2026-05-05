@@ -6,6 +6,9 @@ export const EXTERNAL_API = {
   mapbox: "mapbox",
   resend: "resend",
   open_meteo: "open_meteo",
+  brave_search: "brave_search",
+  bing_search: "bing_search",
+  serpapi: "serpapi",
 } as const;
 export type ExternalApi = (typeof EXTERNAL_API)[keyof typeof EXTERNAL_API];
 
@@ -21,6 +24,8 @@ export const EXTERNAL_API_SURFACE = {
   email_digest: "email_digest",
   email_transactional: "email_transactional",
   venue_field_map: "venue_field_map",
+  atlas_search: "atlas_search",
+  tournament_scan: "tournament_scan",
 } as const;
 export type ExternalApiSurface = (typeof EXTERNAL_API_SURFACE)[keyof typeof EXTERNAL_API_SURFACE];
 
