@@ -48,3 +48,24 @@ export const COFFEE_CATEGORY_IDS: string[] = [
   // re-running `scripts/foursquare_category_discovery.ts` focused on coffee.
   "4bf58dd8d48988d1e0931735", // Coffee Shop
 ];
+
+// Food discovery (FSQ-primary; Google as fallback-only).
+// Priority order (requested): American, Diner, New American, Italian, Mexican.
+// Keep Restaurant as a last-resort fill category (can be noisy).
+export const FOOD_CATEGORY_IDS: string[] = [
+  "4bf58dd8d48988d14e941735", // American Restaurant
+  "4bf58dd8d48988d147941735", // Diner
+  "4bf58dd8d48988d157941735", // New American Restaurant
+  "4bf58dd8d48988d110941735", // Italian Restaurant
+  "4bf58dd8d48988d1c1941735", // Mexican Restaurant
+  "4d4b7105d754a06374d81259", // Restaurant (broad, last resort)
+];
+
+// Lodging discovery (FSQ-primary; Google as fallback-only).
+// Priority order (requested): hotel first.
+export const LODGING_CATEGORY_IDS: string[] = [
+  "4bf58dd8d48988d1fa931735", // Hotel
+  "5bae9231bedf3950379f89cb", // Inn
+  "63be6904847c3692a84b9c27", // Lodge
+  "4bf58dd8d48988d1fb931735", // Motel
+];

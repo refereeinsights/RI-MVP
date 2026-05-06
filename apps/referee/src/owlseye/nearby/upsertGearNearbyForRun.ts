@@ -1,5 +1,6 @@
 import haversineMeters from "../../lib/geo/haversineMeters";
 import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/trackExternalCall";
+import { searchOverpassSportingGoods } from "./overpassSportingGoods";
 
 type UpsertGearParams = {
   supabaseAdmin: any;
@@ -20,7 +21,6 @@ const SPORTING_CHAIN_ALLOW_RE =
 const SPORTING_TEAM_ALLOW_RE = /\b(soccer|hockey|lacrosse|baseball|softball|basketball)\b/i;
 const SPORTING_GENERIC_ALLOW_RE = /\b(sporting\s+goods|sports\s+equipment)\b/i;
 const SPORTING_PRIMARY_TYPES = new Set(["sporting_goods_store", "sports_store", "outdoor_sports_store"]);
-const BIG_BOX_ALLOW_RE = /\b(target|walmart|wal-mart|sam'?s\s*club|costco|meijer|fred\s*meyer)\b/i;
 
 type TextPlace = {
   place_id: string;
@@ -36,6 +36,13 @@ function milesFromMeters(meters: number) {
 }
 
 function mapsUrl(placeId: string) {
+  if (placeId.startsWith("osm:")) {
+    const parts = placeId.split(":"); // osm:<node|way>:<id>
+    const osmType = parts[1];
+    const osmId = parts[2] ?? "";
+    if (osmType === "way") return `https://www.openstreetmap.org/way/${encodeURIComponent(osmId)}`;
+    return `https://www.openstreetmap.org/node/${encodeURIComponent(osmId)}`;
+  }
   return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(placeId)}`;
 }
 
@@ -107,22 +114,11 @@ function isSportingGoodsPlace(item: TextPlace) {
   return SPORTING_GENERIC_ALLOW_RE.test(name);
 }
 
-function isBigBoxPlace(item: TextPlace) {
-  const name = String(item?.name ?? "").trim();
-  if (!name) return false;
-  if (SPORTING_EXCLUDE_RE.test(name)) return false;
-  return BIG_BOX_ALLOW_RE.test(name);
-}
-
 export async function upsertGearNearbyForRun(params: UpsertGearParams) {
   const { supabaseAdmin, runId, venueLat, venueLng, force = false } = params;
   if (!supabaseAdmin || !runId) return { ok: false, message: "missing_supabase_or_run" as const };
 
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-  if (!apiKey) {
-    console.warn("[owlseye] Missing GOOGLE_PLACES_API_KEY; skipping gear nearby fetch");
-    return { ok: false, message: "missing_api_key" as const };
-  }
 
   const sortByDistance = (items: TextPlace[]) =>
     [...items].sort(
@@ -144,53 +140,49 @@ export async function upsertGearNearbyForRun(params: UpsertGearParams) {
     return out;
   };
 
-  const sportingGoodsQueries = ["sporting goods store", "sports equipment store", "soccer store", "hockey shop"];
-  const bigBoxQueries = ["Target", "Walmart", "Walmart Supercenter", "Target store"];
-
   let sportingGoodsPlaces: TextPlace[] = [];
-  let bigBoxPlaces: TextPlace[] = [];
   try {
-    const raw = (
-      await Promise.all(
-        sportingGoodsQueries.map((query) =>
-          searchPlacesText({
-            apiKey,
-            lat: venueLat,
-            lng: venueLng,
-            query,
-            radiusMeters: SPORTING_GOODS_RADIUS,
-            maxResultCount: 20,
-          })
-        )
-      )
-    ).flat();
-
-    const deduped = dedupePlaces(raw);
-    sportingGoodsPlaces = sortByDistance(deduped.filter(isSportingGoodsPlace)).slice(0, SPORTING_GOODS_LIMIT);
-
-    if (sportingGoodsPlaces.length === 0) {
-      const fallbackRaw = (
-        await Promise.all(
-          bigBoxQueries.map((query) =>
-            searchPlacesText({
-              apiKey,
-              lat: venueLat,
-              lng: venueLng,
-              query,
-              radiusMeters: SPORTING_GOODS_RADIUS,
-              maxResultCount: 20,
-            })
-          )
-        )
-      ).flat();
-      const fallbackDeduped = dedupePlaces(fallbackRaw);
-      bigBoxPlaces = sortByDistance(fallbackDeduped.filter(isBigBoxPlace)).slice(0, SPORTING_GOODS_LIMIT);
-    }
+    const overpass = await searchOverpassSportingGoods({
+      lat: venueLat,
+      lng: venueLng,
+      radiusMeters: SPORTING_GOODS_RADIUS,
+      surface: EXTERNAL_API_SURFACE.owls_eye_gear,
+    });
+    const overpassPlaces: TextPlace[] = overpass
+      .map((p) => ({
+        place_id: `osm:${p.osm_type}:${p.osm_id}`,
+        name: p.name,
+        address: p.address ?? "",
+        lat: p.lat,
+        lng: p.lng,
+        primaryType: "overpass_shop",
+      }))
+      .filter((p) => !!p.name && !SPORTING_EXCLUDE_RE.test(p.name));
+    const deduped = dedupePlaces(overpassPlaces);
+    sportingGoodsPlaces = sortByDistance(deduped).slice(0, SPORTING_GOODS_LIMIT);
   } catch (err) {
     console.warn("[owlseye] Gear nearby search failed", err);
   }
 
-  const toRows = (items: TextPlace[], category: "sporting_goods" | "big_box_fallback") =>
+  // Google fallback: single call on error/zero results.
+  if (sportingGoodsPlaces.length === 0 && apiKey) {
+    try {
+      const raw = await searchPlacesText({
+        apiKey,
+        lat: venueLat,
+        lng: venueLng,
+        query: "sporting goods store",
+        radiusMeters: SPORTING_GOODS_RADIUS,
+        maxResultCount: 20,
+      });
+      const deduped = dedupePlaces(raw);
+      sportingGoodsPlaces = sortByDistance(deduped.filter(isSportingGoodsPlace)).slice(0, SPORTING_GOODS_LIMIT);
+    } catch (err) {
+      console.warn("[owlseye] Gear nearby Google fallback failed", err);
+    }
+  }
+
+  const toRows = (items: TextPlace[], category: "sporting_goods") =>
     items.slice(0, SPORTING_GOODS_LIMIT).map((item) => ({
       run_id: runId,
       place_id: item.place_id,
@@ -202,14 +194,14 @@ export async function upsertGearNearbyForRun(params: UpsertGearParams) {
       is_sponsor: false,
     }));
 
-  const rows = [...toRows(sportingGoodsPlaces, "sporting_goods"), ...toRows(bigBoxPlaces, "big_box_fallback")];
+  const rows = [...toRows(sportingGoodsPlaces, "sporting_goods")];
 
   if (rows.length === 0) {
     return {
       ok: true,
       message: "no_results" as const,
       sportingGoodsCount: sportingGoodsPlaces.length,
-      bigBoxFallbackCount: bigBoxPlaces.length,
+      bigBoxFallbackCount: 0,
     };
   }
 
@@ -236,7 +228,7 @@ export async function upsertGearNearbyForRun(params: UpsertGearParams) {
     ok: true,
     message: "inserted" as const,
     sportingGoodsCount: sportingGoodsPlaces.length,
-    bigBoxFallbackCount: bigBoxPlaces.length,
+    bigBoxFallbackCount: 0,
   };
 }
 

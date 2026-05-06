@@ -9,6 +9,8 @@ export const EXTERNAL_API = {
   brave_search: "brave_search",
   bing_search: "bing_search",
   serpapi: "serpapi",
+  overpass: "overpass",
+  timezonedb: "timezonedb",
 } as const;
 export type ExternalApi = (typeof EXTERNAL_API)[keyof typeof EXTERNAL_API];
 
