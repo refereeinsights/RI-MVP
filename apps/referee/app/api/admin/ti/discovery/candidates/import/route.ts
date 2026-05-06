@@ -26,7 +26,7 @@ function splitVenueRaw(raw: string) {
           .filter((p) => p.length >= 3);
 
   // Hard cap to avoid pathological pastes.
-  return Array.from(new Set(parts)).slice(0, 10);
+  return Array.from(new Set(parts)).slice(0, 20);
 }
 
 export async function POST(req: Request) {
