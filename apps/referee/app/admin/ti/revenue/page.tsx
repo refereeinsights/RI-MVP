@@ -439,17 +439,17 @@ export default async function TiRevenuePage({ searchParams }: PageProps) {
 
         <div style={tileStyle}>
           <div style={tileLabelStyle}>Awin pending</div>
-          <div style={tileValueStyle}>{money(awinYesterdayPending.gross)}</div>
+          <div style={tileValueStyle}>{money(awinTotalPending.gross)}</div>
           <div style={tileMetaStyle}>
-            Pending yesterday • comm {money(awinYesterdayPending.commission)} • {awinYesterdayPending.txCount} tx
+            All-time pending • comm {money(awinTotalPending.commission)} • {awinTotalPending.txCount} tx
           </div>
         </div>
 
         <div style={tileStyle}>
           <div style={tileLabelStyle}>CJ pending</div>
-          <div style={tileValueStyle}>{money(cjYesterdayPending.gross)}</div>
+          <div style={tileValueStyle}>{money(cjTotalPending.gross)}</div>
           <div style={tileMetaStyle}>
-            Pending yesterday • comm {money(cjYesterdayPending.commission)} • {cjYesterdayPending.txCount} tx
+            All-time pending • comm {money(cjTotalPending.commission)} • {cjTotalPending.txCount} tx
           </div>
         </div>
       </div>

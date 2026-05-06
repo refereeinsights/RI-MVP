@@ -12,6 +12,10 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-05-06
+- TI affiliate revenue: fixed Awin pending not showing on `/admin/ti/revenue`. Cron now accepts `?date=YYYY-MM-DD` override for manual backfill (previously hardcoded to yesterday). "Awin pending" and "CJ pending" tiles changed from yesterday-only to all-time totals. Backfill ran Apr 15–May 5. Files: `apps/referee/app/api/cron/ti-affiliate-sync/route.ts`, `apps/referee/app/admin/ti/revenue/page.tsx`.
+- TI tournament discovery workbench migration: `supabase/migrations/20260506_tournament_discovery_workbench.sql` — `discovery_searches`, `discovery_batches`, `tournament_discovery_candidates` tables with service_role-only RLS and `updated_at` triggers.
+
 ## 2026-05-05
 - RI atlasSearch tracking: `atlasSearch` (Brave/Bing/SerpAPI) now records every search call to `external_api_calls` via `trackExternalCall`. Added `brave_search`, `bing_search`, `serpapi` to `EXTERNAL_API` constants and `atlas_search`, `tournament_scan` to `EXTERNAL_API_SURFACE` constants. `atlasSearch` gains an optional `surface` parameter (default `"atlas_search"`); the 2027 season scanner will pass `"tournament_scan"`. All three provider branches are wrapped — api name matches provider, operation is `"web_search"` for all three. Latency includes throttle + retry time for Brave. No DB migration needed — `external_api_calls` table already accepts any `api` text value; `/admin/api-usage` shows the new rows automatically. Files: `apps/referee/lib/trackExternalCall.ts`, `apps/referee/src/server/atlas/search.ts`.
 

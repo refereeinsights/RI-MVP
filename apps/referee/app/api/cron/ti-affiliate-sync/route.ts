@@ -333,16 +333,28 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
+  const url = new URL(req.url);
+  const dateParam = (url.searchParams.get("date") ?? "").trim();
+
   const now = new Date();
   const todayStartUtc = startOfUtcDay(now);
-  const yesterdayStartUtc = new Date(todayStartUtc.getTime() - 24 * 60 * 60 * 1000);
-  const dayIso = yesterdayStartUtc.toISOString().slice(0, 10); // YYYY-MM-DD
+
+  let dayIso: string;
+  let dayDate: Date;
+
+  if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+    dayDate = new Date(`${dateParam}T00:00:00Z`);
+    dayIso = dateParam;
+  } else {
+    dayDate = new Date(todayStartUtc.getTime() - 24 * 60 * 60 * 1000);
+    dayIso = dayDate.toISOString().slice(0, 10);
+  }
 
   const startedAt = Date.now();
 
   try {
     await Promise.all([
-      syncAwin({ day: yesterdayStartUtc, dayIso }),
+      syncAwin({ day: dayDate, dayIso }),
       syncCj({ dayIso }),
     ]);
 

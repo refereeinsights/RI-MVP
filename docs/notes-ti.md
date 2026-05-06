@@ -13,6 +13,12 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-05-06
+- Affiliate revenue: fixed Awin pending not showing on `/admin/ti/revenue` — two root causes addressed:
+  1. Cron (`apps/referee/app/api/cron/ti-affiliate-sync/route.ts`) only ever synced "yesterday"; added `?date=YYYY-MM-DD` query param override so specific days can be backfilled manually. Backfill scope: Apr 15–May 5.
+  2. "Awin pending" and "CJ pending" tiles were scoped to yesterday-only (`awinYesterdayPending`); changed to all-time totals (`awinTotalPending`, `cjTotalPending`) since affiliate commissions accumulate across many days: `apps/referee/app/admin/ti/revenue/page.tsx`.
+- Tournament discovery workbench migration: added `supabase/migrations/20260506_tournament_discovery_workbench.sql` — creates `discovery_searches`, `discovery_batches`, and `tournament_discovery_candidates` tables (service_role-only RLS; `updated_at` triggers on all three).
+
 ## 2026-04-20
 - Hotels visibility: moved the existing “Hotels near this venue” list out of premium-only UI so names/distances render for all users while keeping non-sponsor “Directions” gated (sponsor links remain clickable): `apps/ti-web/app/venues/[venueId]/page.tsx`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`.
 - Booking.com (Awin) hotel redirects: added `/go/hotels` server-side redirect with Booking URL build → Awin `cread.php` wrap → best-effort click logging → 302 with `no-store` headers (local dev can fall back to direct Booking if Awin env vars are missing): `apps/ti-web/app/go/hotels/route.ts`.
