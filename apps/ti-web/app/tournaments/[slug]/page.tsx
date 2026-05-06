@@ -24,6 +24,7 @@ import { saveClaimedTournamentEdits } from "./actions";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import { buildHotelsHref, canShowBookingCta, isValidZip5 } from "@/lib/booking/venueBooking";
 import { TI_STATIC_MAP_BUCKET, buildSupabasePublicObjectUrl } from "@/lib/staticTournamentMaps";
+import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import "../tournaments.css";
 
 type TournamentDetailCoreRow = {
@@ -863,6 +864,46 @@ async function TournamentVenueDetails({
 
   return (
     <>
+      <div
+        style={{
+          width: "min(720px, 100%)",
+          marginTop: 12,
+          marginLeft: "auto",
+          marginRight: "auto",
+        }}
+      >
+        <div className="detailLinksRow" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" as any }}>
+          <a
+            className="secondaryLink"
+            href={buildTournamentHotelsHref({
+              source: "tournament_detail",
+              tournamentId: tournament.id,
+              city: tournament.city ?? null,
+              state: tournament.state ?? null,
+            })}
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            style={{ minWidth: 260 }}
+          >
+            Find hotels for this tournament
+          </a>
+          <a
+            className="secondaryLink"
+            href={buildTournamentVrboHref({
+              source: "tournament_detail",
+              tournamentId: tournament.id,
+              city: tournament.city ?? null,
+              state: tournament.state ?? null,
+            })}
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            style={{ minWidth: 260 }}
+          >
+            View rentals for this tournament
+          </a>
+        </div>
+      </div>
+
       <TournamentPlanningOverview
         tournament={{
           name: tournament.name,
@@ -1070,8 +1111,9 @@ async function TournamentVenueDetails({
       {displayVenueRows.length > 0 ? (
         <>
           <div
+            id="venues"
             className={`detailVenueGrid${displayVenueRows.length === 1 ? " detailVenueGrid--single" : ""}`}
-            style={{ marginLeft: "auto", marginRight: "auto" }}
+            style={{ marginLeft: "auto", marginRight: "auto", scrollMarginTop: 90 }}
           >
             {displayVenueRows.slice(0, 6).map((row) => {
               const venue = row.venue;
@@ -1083,19 +1125,42 @@ async function TournamentVenueDetails({
                   : null;
 
               return (
-                <Link
+                <div
                   key={venue.id}
-                  href={`/venues/${venue.seo_slug || venue.id}?tournament=${encodeURIComponent(tournament.slug ?? paramsSlug)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className={`detailVenueTile ${row.hasOwl ? "detailVenueTile--withOwl" : ""}`}
+                  style={{ textDecoration: "none" }}
                 >
-                  <span className="detailVenueTile__eyebrow">Venue</span>
-                  <span className="detailVenueTile__name">{venue.name || "Venue TBA"}</span>
-                  <span style={{ fontSize: 12, opacity: 0.85 }}>{location}</span>
-                  {countsLine ? <span style={{ fontSize: 12, opacity: 0.82 }}>{countsLine}</span> : null}
-                  <span className="detailVenueTile__flag">{row.hasOwl ? `${BRAND_OWL} View venue` : "View venue"}</span>
-                </Link>
+                  <Link
+                    href={`/venues/${venue.seo_slug || venue.id}?tournament=${encodeURIComponent(tournament.slug ?? paramsSlug)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: "grid", gap: 4, color: "inherit", textDecoration: "none" }}
+                  >
+                    <span className="detailVenueTile__eyebrow">Venue</span>
+                    <span className="detailVenueTile__name">{venue.name || "Venue TBA"}</span>
+                    <span style={{ fontSize: 12, opacity: 0.85 }}>{location}</span>
+                    {countsLine ? <span style={{ fontSize: 12, opacity: 0.82 }}>{countsLine}</span> : null}
+                    <span className="detailVenueTile__flag">{row.hasOwl ? `${BRAND_OWL} View venue` : "View venue"}</span>
+                  </Link>
+                  <div className="detailLinksRow" style={{ marginTop: 8, justifyContent: "flex-start", gap: 10 }}>
+                    <a
+                      className="secondaryLink"
+                      href={`/go/hotels?venueId=${encodeURIComponent(venue.id)}&tournamentId=${encodeURIComponent(tournament.id)}&source=tournament_detail`}
+                      target="_blank"
+                      rel="noopener noreferrer sponsored"
+                    >
+                      Hotels near this venue
+                    </a>
+                    <a
+                      className="secondaryLink"
+                      href={`/go/vrbo?venueId=${encodeURIComponent(venue.id)}&tournamentId=${encodeURIComponent(tournament.id)}&source=tournament_detail`}
+                      target="_blank"
+                      rel="noopener noreferrer sponsored"
+                    >
+                      Rentals near this venue
+                    </a>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -1106,36 +1171,59 @@ async function TournamentVenueDetails({
               style={{ width: "min(720px, 100%)", marginLeft: "auto", marginRight: "auto" }}
             >
               <summary>{`Show all ${displayVenueRows.length} venues`}</summary>
-              <div className="detailVenueCollapse__body">
-                <div className="detailVenueGrid">
-                  {displayVenueRows.slice(6).map((row) => {
-                    const venue = row.venue;
-                    const location = [venue.city, venue.state].filter(Boolean).join(", ") || "Location TBA";
-                    const counts = row.counts;
-                    const countsLine =
-                      row.hasOwl && counts
-                        ? formatOwlCountsLine(counts)
-                        : null;
-
-                    return (
-                      <Link
-                        key={venue.id}
-                        href={`/venues/${venue.seo_slug || venue.id}?tournament=${encodeURIComponent(tournament.slug ?? paramsSlug)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`detailVenueTile ${row.hasOwl ? "detailVenueTile--withOwl" : ""}`}
-                      >
-                        <span className="detailVenueTile__eyebrow">Venue</span>
-                        <span className="detailVenueTile__name">{venue.name || "Venue TBA"}</span>
-                        <span style={{ fontSize: 12, opacity: 0.85 }}>{location}</span>
-                        {countsLine ? <span style={{ fontSize: 12, opacity: 0.82 }}>{countsLine}</span> : null}
-                        <span className="detailVenueTile__flag">{row.hasOwl ? `${BRAND_OWL} View venue` : "View venue"}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            </details>
+	                <div className="detailVenueCollapse__body">
+	                <div className="detailVenueGrid">
+	                  {displayVenueRows.slice(6).map((row) => {
+	                    const venue = row.venue;
+	                    const location = [venue.city, venue.state].filter(Boolean).join(", ") || "Location TBA";
+	                    const counts = row.counts;
+	                    const countsLine =
+	                      row.hasOwl && counts
+	                        ? formatOwlCountsLine(counts)
+	                        : null;
+	
+	                    return (
+	                      <div
+	                        key={venue.id}
+	                        className={`detailVenueTile ${row.hasOwl ? "detailVenueTile--withOwl" : ""}`}
+	                        style={{ textDecoration: "none" }}
+	                      >
+	                        <Link
+	                          href={`/venues/${venue.seo_slug || venue.id}?tournament=${encodeURIComponent(tournament.slug ?? paramsSlug)}`}
+	                          target="_blank"
+	                          rel="noopener noreferrer"
+	                          style={{ display: "grid", gap: 4, color: "inherit", textDecoration: "none" }}
+	                        >
+	                          <span className="detailVenueTile__eyebrow">Venue</span>
+	                          <span className="detailVenueTile__name">{venue.name || "Venue TBA"}</span>
+	                          <span style={{ fontSize: 12, opacity: 0.85 }}>{location}</span>
+	                          {countsLine ? <span style={{ fontSize: 12, opacity: 0.82 }}>{countsLine}</span> : null}
+	                          <span className="detailVenueTile__flag">{row.hasOwl ? `${BRAND_OWL} View venue` : "View venue"}</span>
+	                        </Link>
+	                        <div className="detailLinksRow" style={{ marginTop: 8, justifyContent: "flex-start", gap: 10 }}>
+	                          <a
+	                            className="secondaryLink"
+	                            href={`/go/hotels?venueId=${encodeURIComponent(venue.id)}&tournamentId=${encodeURIComponent(tournament.id)}&source=tournament_detail`}
+	                            target="_blank"
+	                            rel="noopener noreferrer sponsored"
+	                          >
+	                            Hotels near this venue
+	                          </a>
+	                          <a
+	                            className="secondaryLink"
+	                            href={`/go/vrbo?venueId=${encodeURIComponent(venue.id)}&tournamentId=${encodeURIComponent(tournament.id)}&source=tournament_detail`}
+	                            target="_blank"
+	                            rel="noopener noreferrer sponsored"
+	                          >
+	                            Rentals near this venue
+	                          </a>
+	                        </div>
+	                      </div>
+	                    );
+	                  })}
+	                </div>
+	              </div>
+	            </details>
           ) : null}
         </>
       ) : null}
@@ -1558,6 +1646,29 @@ export default async function TournamentDetailPage({
   const TournamentUserActionsComponent = TournamentUserActions as any;
   const TournamentVenueDetailsComponent = TournamentVenueDetails as any;
 
+  const venueMeta = await (async () => {
+    try {
+      const { data: rows } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("venue_id,venues(city,state)")
+        .eq("tournament_id", data.id)
+        .eq("is_inferred", false);
+      const venueRows = ((rows as any[]) ?? []).filter((r) => r?.venue_id);
+      const venueCount = venueRows.length;
+      const locSet = new Set<string>();
+      for (const r of venueRows) {
+        const city = String(r?.venues?.city ?? "").trim();
+        const state = String(r?.venues?.state ?? "").trim().toUpperCase();
+        if (!city || !/^[A-Z]{2}$/.test(state)) continue;
+        locSet.add(`${city.toLowerCase()}|${state}`);
+      }
+      const locationLabel = locSet.size <= 1 ? "Single Location" : "Multiple Locations";
+      return { venueCount, locationLabel };
+    } catch {
+      return { venueCount: 0, locationLabel: null as string | null };
+    }
+  })();
+
   const locationLabel = buildLocationLabel(data.city, data.state) || "Location TBA";
   const start = formatDate(data.start_date);
   const end = formatDate(data.end_date);
@@ -1623,7 +1734,68 @@ export default async function TournamentDetailPage({
           </div>
           <div className="detailMeta">{dateLabel}</div>
           <div className="detailMeta">{locationLabel}</div>
+          {venueMeta.venueCount > 0 ? (
+            <div className="detailMeta">
+              {venueMeta.venueCount} venue{venueMeta.venueCount === 1 ? "" : "s"}
+              {venueMeta.locationLabel ? ` • ${venueMeta.locationLabel}` : ""}
+            </div>
+          ) : null}
           {metroLabel ? <div className="detailMeta">{metroLabel}</div> : null}
+
+          <div
+            className="detailLinksRow"
+            style={{
+              marginTop: 12,
+              justifyContent: "center",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <a
+              className="primaryLink"
+              href={buildTournamentHotelsHref({
+                source: "tournament_detail",
+                tournamentId: data.id,
+                city: data.city ?? null,
+                state: data.state ?? null,
+              })}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              style={{ minWidth: 200, textAlign: "center" }}
+            >
+              View Hotels
+            </a>
+            <a
+              className="secondaryLink"
+              href={buildTournamentVrboHref({
+                source: "tournament_detail",
+                tournamentId: data.id,
+                city: data.city ?? null,
+                state: data.state ?? null,
+              })}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              style={{ minWidth: 200, textAlign: "center" }}
+            >
+              View Rentals
+            </a>
+            <a className="secondaryLink" href="#venues" style={{ minWidth: 200, textAlign: "center" }}>
+              View Venues
+            </a>
+          </div>
+
+          <div style={{ marginTop: 10, maxWidth: 620, textAlign: "center" }}>
+            <div style={{ fontSize: 13, opacity: 0.9 }}>Want deeper planning insights? Unlock Weekend Pro.</div>
+            <div style={{ marginTop: 8, display: "flex", justifyContent: "center" }}>
+              <UpgradeWeekendProButton
+                className="secondaryLink"
+                source_page="tournament_detail"
+                source_context="monetization_teaser_below_ctas"
+                tournament_slug={data.slug}
+                cta_label="Unlock Weekend Pro"
+              />
+            </div>
+          </div>
 
           <div
             style={{

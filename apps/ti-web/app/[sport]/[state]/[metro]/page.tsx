@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
+import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import {
   mapStateCodeToName,
   mapStateCodeToSlug,
@@ -372,23 +373,56 @@ export default async function SportStateMetroHubPage({
                     </p>
                     <p className="dates">{dateLabel}</p>
                     <div className="cardFooter">
-                      {hasVenuesForMap ? (
-                        <div style={{ display: "grid", gap: 6 }}>
-                          <TournamentMapCta
-                            href={mapHref}
-                            label="Stay near your fields"
-                            sourceContext="directory_card"
-                            tournamentSlug={t.slug}
-                            sport={t.sport ?? null}
-                            variant="link"
-                          />
+                      <div style={{ display: "grid", gap: 8 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                          <a
+                            className="secondaryLink"
+                            href={buildTournamentHotelsHref({
+                              source: "tournament_directory",
+                              tournamentId: t.id,
+                              city: t.city ?? null,
+                              state: t.state ?? null,
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer sponsored"
+                          >
+                            View Hotels
+                          </a>
+                          <a
+                            className="secondaryLink"
+                            href={buildTournamentVrboHref({
+                              source: "tournament_directory",
+                              tournamentId: t.id,
+                              city: t.city ?? null,
+                              state: t.state ?? null,
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer sponsored"
+                          >
+                            View Rentals
+                          </a>
+                          <Link href={`/tournaments/${t.slug}#venues`} className="secondaryLink">
+                            View Venues
+                          </Link>
                         </div>
-                      ) : (
-                        <div />
-                      )}
-                      <Link href={`/tournaments/${t.slug}`} className="primaryLink">
-                        View details
-                      </Link>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                          {hasVenuesForMap ? (
+                            <TournamentMapCta
+                              href={mapHref}
+                              label="Stay near your fields"
+                              sourceContext="directory_card"
+                              tournamentSlug={t.slug}
+                              sport={t.sport ?? null}
+                              variant="link"
+                            />
+                          ) : (
+                            <div />
+                          )}
+                          <Link href={`/tournaments/${t.slug}`} className="primaryLink">
+                            View details
+                          </Link>
+                        </div>
+                      </div>
                     </div>
                   </article>
                 );

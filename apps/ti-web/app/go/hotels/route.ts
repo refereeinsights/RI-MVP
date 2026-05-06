@@ -124,7 +124,12 @@ export async function GET(request: Request) {
   // Anti-abuse guardrail: allow generic mode only when invoked from /weekend-planner (or local dev).
   const source = String(reqUrl.searchParams.get("source") ?? "").trim();
   const sourcePath = sourcePathFromReferer(referer);
-  const genericAllowed = localDev || source === "weekend_planner" || (sourcePath ?? "").startsWith("/weekend-planner");
+  const genericAllowed =
+    localDev ||
+    source === "weekend_planner" ||
+    source === "tournament_directory" ||
+    source === "tournament_detail" ||
+    (sourcePath ?? "").startsWith("/weekend-planner");
 
   if (!venueIdValid && !genericAllowed) {
     return new NextResponse("Missing or invalid venueId", { status: 400 });
@@ -142,7 +147,7 @@ export async function GET(request: Request) {
         .maybeSingle<{ id: string; name: string | null; city: string | null; state: string | null; zip: string | null }>()
     : { data: null as { id: string; name: string | null; city: string | null; state: string | null; zip: string | null } | null };
 
-  const requestedTournamentId = venueIdValid && tournamentId && isUuid(tournamentId) ? tournamentId : null;
+  const requestedTournamentId = tournamentId && isUuid(tournamentId) ? tournamentId : null;
   const { data: tournament } = requestedTournamentId
     ? await supabaseAdmin
         .from("tournaments_public" as any)
@@ -236,14 +241,21 @@ export async function GET(request: Request) {
 
   if (!local && !bot) {
     try {
-      const sourceSurface = venueIdValid ? "venue_page" : "weekend_planner";
+      const sourceSurface =
+        venueIdValid
+          ? "venue_page"
+          : source === "tournament_directory"
+          ? "tournament_directory"
+          : source === "tournament_detail"
+          ? "tournament_detail"
+          : "weekend_planner";
       await supabaseAdmin.from("ti_outbound_clicks" as any).insert({
         destination_type: "hotels",
         partner: "booking",
         source_surface: sourceSurface,
         venue_id: venueIdValid ? venueId : null,
-        tournament_id: venueIdValid ? tournament?.id ?? null : null,
-        tournament_slug: venueIdValid ? tournament?.slug ?? null : null,
+        tournament_id: tournament?.id ?? null,
+        tournament_slug: tournament?.slug ?? null,
         target_url: bookingUrl,
         redirect_url: redirectTarget,
         source_path: sourcePath,

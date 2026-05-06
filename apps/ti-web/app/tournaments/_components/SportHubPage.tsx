@@ -3,6 +3,7 @@ import { mapStateCodeToSlug, mapStateCodeToName } from "@/lib/seoHub";
 import { buildTIHubTitle, assertNoDoubleBrand } from "@/lib/seo/buildTITitle";
 import { getSportHubTournaments, SPORT_HUB_PAGE_SIZE } from "../_lib/getSportHubTournaments";
 import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
+import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import "../tournaments.css";
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
@@ -160,23 +161,56 @@ export async function SportHubPage({ sport, page }: { sport: string; page: numbe
                     </p>
                     <p className="dates">{dateLabel}</p>
                     <div className="cardFooter">
-                      {hasVenuesForMap ? (
-                        <div style={{ display: "grid", gap: 6 }}>
-                          <TournamentMapCta
-                            href={mapHref}
-                            label="Stay near your fields"
-                            sourceContext="directory_card"
-                            tournamentSlug={t.slug}
-                            sport={t.sport ?? null}
-                            variant="link"
-                          />
+                      <div style={{ display: "grid", gap: 8 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                          <a
+                            className="secondaryLink"
+                            href={buildTournamentHotelsHref({
+                              source: "tournament_directory",
+                              tournamentId: t.id,
+                              city: t.city ?? null,
+                              state: t.state ?? null,
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer sponsored"
+                          >
+                            View Hotels
+                          </a>
+                          <a
+                            className="secondaryLink"
+                            href={buildTournamentVrboHref({
+                              source: "tournament_directory",
+                              tournamentId: t.id,
+                              city: t.city ?? null,
+                              state: t.state ?? null,
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer sponsored"
+                          >
+                            View Rentals
+                          </a>
+                          <Link href={`/tournaments/${t.slug}#venues`} className="secondaryLink">
+                            View Venues
+                          </Link>
                         </div>
-                      ) : (
-                        <div />
-                      )}
-                      <Link href={`/tournaments/${t.slug}`} className="primaryLink">
-                        View details
-                      </Link>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                          {hasVenuesForMap ? (
+                            <TournamentMapCta
+                              href={mapHref}
+                              label="Stay near your fields"
+                              sourceContext="directory_card"
+                              tournamentSlug={t.slug}
+                              sport={t.sport ?? null}
+                              variant="link"
+                            />
+                          ) : (
+                            <div />
+                          )}
+                          <Link href={`/tournaments/${t.slug}`} className="primaryLink">
+                            View details
+                          </Link>
+                        </div>
+                      </div>
                     </div>
                     <div className="cardFooterBadgeRow">
                       <div className="cardFooterBadge cardFooterBadge--left" />

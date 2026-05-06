@@ -102,7 +102,12 @@ export async function GET(request: Request) {
   // Anti-abuse guardrail: allow generic mode only when invoked from /weekend-planner (or local dev).
   const source = String(reqUrl.searchParams.get("source") ?? "").trim();
   const sourcePath = sourcePathFromReferer(referer);
-  const genericAllowed = localDev || source === "weekend_planner" || (sourcePath ?? "").startsWith("/weekend-planner");
+  const genericAllowed =
+    localDev ||
+    source === "weekend_planner" ||
+    source === "tournament_directory" ||
+    source === "tournament_detail" ||
+    (sourcePath ?? "").startsWith("/weekend-planner");
 
   if (!venueIdValid && !genericAllowed) {
     return new NextResponse("Missing or invalid venueId", { status: 400 });
@@ -123,7 +128,7 @@ export async function GET(request: Request) {
         }>()
     : { data: null as any };
 
-  const requestedTournamentId = venueIdValid && tournamentId && isUuid(tournamentId) ? tournamentId : null;
+  const requestedTournamentId = tournamentId && isUuid(tournamentId) ? tournamentId : null;
   const { data: tournament } = requestedTournamentId
     ? await supabaseAdmin
         .from("tournaments_public" as any)
@@ -154,8 +159,21 @@ export async function GET(request: Request) {
   const dates = (() => {
     const today = todayUtcIso();
 
+    const start = tournament?.start_date ?? null;
+    const end = tournament?.end_date ?? null;
+    const tournamentDatesOk = isValidIsoDate(start) && isValidIsoDate(end);
+    const explicitDatesOk = isValidIsoDate(checkinRaw) && isValidIsoDate(checkoutRaw);
+
+    // When called without venueId (e.g. tournament directory cards), prefer tournament dates if available.
     if (!venueIdValid) {
-      if (!isValidIsoDate(checkinRaw) || !isValidIsoDate(checkoutRaw)) return null;
+      if (tournamentDatesOk) {
+        const checkin = start!;
+        if (compareIso(checkin, today) < 0) return null;
+        const checkoutBase = compareIso(end!, checkin) === 0 ? addDaysIso(checkin, 1) : end!;
+        const checkout = compareIso(checkoutBase, checkin) <= 0 ? addDaysIso(checkin, 1) : checkoutBase;
+        return { checkin, checkout };
+      }
+      if (!explicitDatesOk) return null;
       const checkin = checkinRaw;
       if (compareIso(checkin, today) < 0) return null;
       let checkout = checkoutRaw;
@@ -163,9 +181,7 @@ export async function GET(request: Request) {
       return { checkin, checkout };
     }
 
-    const start = tournament?.start_date ?? null;
-    const end = tournament?.end_date ?? null;
-    if (!isValidIsoDate(start) || !isValidIsoDate(end)) return null;
+    if (!tournamentDatesOk) return null;
 
     const checkin = start!;
     if (compareIso(checkin, today) < 0) return null;
@@ -201,14 +217,21 @@ export async function GET(request: Request) {
 
   if (!local && !bot) {
     try {
-      const sourceSurface = venueIdValid ? "venue_map" : "weekend_planner";
+      const sourceSurface =
+        venueIdValid
+          ? "venue_map"
+          : source === "tournament_directory"
+          ? "tournament_directory"
+          : source === "tournament_detail"
+          ? "tournament_detail"
+          : "weekend_planner";
       await supabaseAdmin.from("ti_outbound_clicks" as any).insert({
         destination_type: "vrbo",
         partner: "cj",
         source_surface: sourceSurface,
         venue_id: venueIdValid ? venueId : null,
-        tournament_id: venueIdValid ? tournament?.id ?? null : null,
-        tournament_slug: venueIdValid ? tournament?.slug ?? null : null,
+        tournament_id: tournament?.id ?? null,
+        tournament_slug: tournament?.slug ?? null,
         target_url: vrboUrl,
         redirect_url: redirectTarget,
         source_path: sourcePath,
