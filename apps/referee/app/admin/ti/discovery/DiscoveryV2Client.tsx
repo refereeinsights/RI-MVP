@@ -77,6 +77,7 @@ function buildPrompt(params: { sport: string; state: string; start: string; end:
     "- Multi-venue rule: ONE ROW PER VENUE (repeat tournament fields for each venue).",
     "- Every row MUST include venue_name, venue_city, venue_state (no placeholders).",
     "- venue_address MUST be the full street address (number + street name, e.g. \"123 Main St\") — do not use a city name or vague description.",
+    "- ALL URLs must be plain text (e.g. https://example.com) — do NOT use markdown link format [text](url) anywhere in the CSV.",
     "- Do NOT use placeholder venues like: TBD, Multiple Locations, Various Venues, Portland Area Gyms, Surrounding Area Locations.",
     "- confidence is optional (high|medium|low) if you can justify it; otherwise leave blank.",
     "",
@@ -242,151 +243,169 @@ export default function DiscoveryV2Client() {
   }, [activeRunId]);
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      {notice ? (
-        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 10, background: "#fff" }}>{notice}</div>
-      ) : null}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 16, alignItems: "start" }}>
+      {/* Left column: runner + paste */}
+      <div style={{ display: "grid", gap: 16 }}>
+        <section style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fff" }}>
+          <div style={{ fontWeight: 950, marginBottom: 8 }}>V2.5 Runner</div>
 
-      <section style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fff" }}>
-        <div style={{ fontWeight: 950, marginBottom: 8 }}>V2.5 Runner</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 10 }}>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>Sport</span>
+              <select value={sport} onChange={(e) => setSport(e.target.value)} style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }}>
+                {TI_SPORTS.map((s) => (
+                  <option key={s} value={s}>
+                    {TI_SPORT_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 10 }}>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>Sport</span>
-            <select value={sport} onChange={(e) => setSport(e.target.value)} style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }}>
-              {TI_SPORTS.map((s) => (
-                <option key={s} value={s}>
-                  {TI_SPORT_LABELS[s]}
-                </option>
-              ))}
-            </select>
-          </label>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>State</span>
+              <input value={state} onChange={(e) => setState(e.target.value.toUpperCase())} placeholder="CA" style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }} />
+            </label>
 
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>State</span>
-            <input value={state} onChange={(e) => setState(e.target.value.toUpperCase())} placeholder="CA" style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }} />
-          </label>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>From</span>
+              <input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }} />
+            </label>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>To</span>
+              <input type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }} />
+            </label>
 
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>From</span>
-            <input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }} />
-          </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>To</span>
-            <input type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }} />
-          </label>
+            <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
+              <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>Runs</span>
+              <select
+                value={activeRunId}
+                onChange={(e) => setActiveRunId(e.target.value)}
+                title={activeRunId ? runs.find((r) => r.id === activeRunId)?.id : undefined}
+                style={{
+                  padding: 8,
+                  borderRadius: 10,
+                  border: "1px solid #e5e7eb",
+                  width: "100%",
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <option value="">Select…</option>
+                {runs.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.state} {r.sport} {r.date_range_start}→{r.date_range_end} ({r.status}, {r.master_csv_row_count})
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
-            <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>Runs</span>
-            <select
-              value={activeRunId}
-              onChange={(e) => setActiveRunId(e.target.value)}
-              title={activeRunId ? runs.find((r) => r.id === activeRunId)?.id : undefined}
+            <div style={{ display: "grid", gap: 4, alignItems: "end", minWidth: 140 }}>
+              <button className="cta secondary" style={{ padding: "8px 12px" }} disabled={!canCreate} onClick={createRun}>
+                Create run
+              </button>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+            {prompts.map((p, idx) => (
+              <details key={idx} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 10 }}>
+                <summary style={{ cursor: "pointer", fontWeight: 900 }}>Chunk {idx + 1} prompt</summary>
+                <textarea
+                  readOnly
+                  value={p}
+                  style={{
+                    width: "100%",
+                    minHeight: 160,
+                    marginTop: 8,
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 12,
+                    padding: 10,
+                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                    fontSize: 12,
+                  }}
+                />
+              </details>
+            ))}
+          </div>
+        </section>
+
+        <section style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fff" }}>
+          <div style={{ fontWeight: 950, marginBottom: 8 }}>Paste Chunk CSV</div>
+          <textarea
+            value={chunkText}
+            onChange={(e) => setChunkText(e.target.value)}
+            placeholder="Paste one chunk CSV here (must include the header row)…"
+            style={{
+              width: "100%",
+              minHeight: 260,
+              border: "1px solid #e5e7eb",
+              borderRadius: 12,
+              padding: 10,
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              fontSize: 12,
+            }}
+          />
+          <div style={{ marginTop: 10, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <button className="cta secondary" style={{ padding: "8px 12px" }} disabled={!activeRunId || attachBusy} onClick={attachChunk}>
+              {attachBusy ? "Attaching…" : "Validate + attach"}
+            </button>
+            {loadingRun ? <span style={{ fontSize: 12, color: "#6b7280" }}>Loading run…</span> : null}
+          </div>
+          {notice ? (
+            <div
               style={{
-                padding: 8,
+                marginTop: 10,
+                padding: "10px 14px",
                 borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                width: "100%",
-                minWidth: 0,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                background: notice.toLowerCase().includes("error") || notice.toLowerCase().includes("fail") || notice.toLowerCase().includes("no valid") ? "#fef2f2" : "#f0fdf4",
+                border: `1px solid ${notice.toLowerCase().includes("error") || notice.toLowerCase().includes("fail") || notice.toLowerCase().includes("no valid") ? "#fca5a5" : "#86efac"}`,
+                fontSize: 13,
+                color: "#111",
+                whiteSpace: "pre-wrap",
               }}
             >
-              <option value="">Select…</option>
-              {runs.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.state} {r.sport} {r.date_range_start}→{r.date_range_end} ({r.status}, {r.master_csv_row_count})
-                </option>
-              ))}
-            </select>
-          </label>
+              {notice}
+            </div>
+          ) : null}
+        </section>
+      </div>
 
-          <div style={{ display: "grid", gap: 4, alignItems: "end", minWidth: 140 }}>
-            <button className="cta secondary" style={{ padding: "8px 12px" }} disabled={!canCreate} onClick={createRun}>
-              Create run
+      {/* Right column: Master CSV — sticky */}
+      <div style={{ position: "sticky", top: 16 }}>
+        <section style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fff" }}>
+          <div style={{ fontWeight: 950, marginBottom: 8 }}>Master CSV</div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 900, fontSize: 12, color: "#374151" }}>
+              <input type="checkbox" checked={queueDryRun} onChange={(e) => setQueueDryRun(e.target.checked)} />
+              Dry run
+            </label>
+            <button className="cta secondary" style={{ padding: "8px 12px" }} disabled={!activeRunId || queueBusy} onClick={queueToUploads}>
+              {queueBusy ? "Queuing…" : "Queue to uploads"}
             </button>
+            <a href="/admin?tab=tournament-uploads" className="cta secondary" style={{ padding: "8px 12px", textDecoration: "none" }}>
+              Open uploads →
+            </a>
           </div>
-        </div>
 
-        <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
-          {prompts.map((p, idx) => (
-            <details key={idx} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 10 }}>
-              <summary style={{ cursor: "pointer", fontWeight: 900 }}>Chunk {idx + 1} prompt</summary>
-              <textarea
-                readOnly
-                value={p}
-                style={{
-                  width: "100%",
-                  minHeight: 160,
-                  marginTop: 8,
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 12,
-                  padding: 10,
-                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                  fontSize: 12,
-                }}
-              />
-            </details>
-          ))}
-        </div>
-      </section>
-
-      <section style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fff" }}>
-        <div style={{ fontWeight: 950, marginBottom: 8 }}>Paste Chunk CSV</div>
-        <textarea
-          value={chunkText}
-          onChange={(e) => setChunkText(e.target.value)}
-          placeholder="Paste one chunk CSV here (must include the header row)…"
-          style={{
-            width: "100%",
-            minHeight: 180,
-            border: "1px solid #e5e7eb",
-            borderRadius: 12,
-            padding: 10,
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-            fontSize: 12,
-          }}
-        />
-        <div style={{ marginTop: 10, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <button className="cta secondary" style={{ padding: "8px 12px" }} disabled={!activeRunId || attachBusy} onClick={attachChunk}>
-            {attachBusy ? "Attaching…" : "Validate + attach"}
-          </button>
-          {loadingRun ? <span style={{ fontSize: 12, color: "#6b7280" }}>Loading run…</span> : null}
-        </div>
-      </section>
-
-      <section style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fff" }}>
-        <div style={{ fontWeight: 950, marginBottom: 8 }}>Master CSV</div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 900, fontSize: 12, color: "#374151" }}>
-            <input type="checkbox" checked={queueDryRun} onChange={(e) => setQueueDryRun(e.target.checked)} />
-            Dry run
-          </label>
-          <button className="cta secondary" style={{ padding: "8px 12px" }} disabled={!activeRunId || queueBusy} onClick={queueToUploads}>
-            {queueBusy ? "Queuing…" : "Queue to uploads"}
-          </button>
-          <a href="/admin?tab=tournament-uploads" className="cta secondary" style={{ padding: "8px 12px", textDecoration: "none" }}>
-            Open Tournament uploads →
-          </a>
-        </div>
-
-        <div style={{ marginTop: 10 }}>
-          <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 900, marginBottom: 6 }}>
-            Rows: {activeRun?.master_csv_row_count ?? 0} • Geocoded: {geocodedRowCount(activeRun?.master_csv ?? "")} • Status: {activeRun?.status ?? "—"}
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 900, marginBottom: 6 }}>
+              Rows: {activeRun?.master_csv_row_count ?? 0} • Geocoded: {geocodedRowCount(activeRun?.master_csv ?? "")} • Status: {activeRun?.status ?? "—"}
+            </div>
+          <pre style={{ whiteSpace: "pre-wrap", maxHeight: 400, overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, padding: 10, fontSize: 11 }}>
+              {String(activeRun?.master_csv ?? "").split("\n").slice(0, 60).join("\n")}
+              {String(activeRun?.master_csv ?? "").split("\n").length > 60 ? "\n…(truncated)" : ""}
+            </pre>
           </div>
-          <pre style={{ whiteSpace: "pre-wrap", maxHeight: 240, overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, padding: 10, fontSize: 12 }}>
-            {String(activeRun?.master_csv ?? "").split("\n").slice(0, 40).join("\n")}
-            {String(activeRun?.master_csv ?? "").split("\n").length > 40 ? "\n…(truncated)" : ""}
-          </pre>
-        </div>
 
-        {queueResult ? (
-          <pre style={{ marginTop: 10, whiteSpace: "pre-wrap", border: "1px solid #e5e7eb", borderRadius: 12, padding: 10, fontSize: 12 }}>
-            {JSON.stringify(queueResult, null, 2)}
-          </pre>
-        ) : null}
-      </section>
+          {queueResult ? (
+            <pre style={{ marginTop: 10, whiteSpace: "pre-wrap", border: "1px solid #e5e7eb", borderRadius: 12, padding: 10, fontSize: 12 }}>
+              {JSON.stringify(queueResult, null, 2)}
+            </pre>
+          ) : null}
+        </section>
+      </div>
     </div>
   );
 }
