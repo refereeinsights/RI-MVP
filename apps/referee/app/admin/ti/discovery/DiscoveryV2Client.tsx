@@ -46,6 +46,19 @@ function splitRange(startIso: string, endIso: string, parts: number) {
   return ranges;
 }
 
+function geocodedRowCount(masterCsv: string): number {
+  const lines = masterCsv.split("\n");
+  if (lines.length < 2) return 0;
+  const headers = lines[0].split(",");
+  const latIdx = headers.indexOf("venue_latitude");
+  if (latIdx === -1) return 0;
+  return lines.slice(1).filter((l) => {
+    const cols = l.split(",");
+    const v = (cols[latIdx] ?? "").trim();
+    return v !== "" && v !== "0";
+  }).length;
+}
+
 function buildPrompt(params: { sport: string; state: string; start: string; end: string }) {
   const { sport, state, start, end } = params;
   const header =
@@ -63,6 +76,7 @@ function buildPrompt(params: { sport: string; state: string; start: string; end:
     "- official_website_url is optional.",
     "- Multi-venue rule: ONE ROW PER VENUE (repeat tournament fields for each venue).",
     "- Every row MUST include venue_name, venue_city, venue_state (no placeholders).",
+    "- venue_address MUST be the full street address (number + street name, e.g. \"123 Main St\") — do not use a city name or vague description.",
     "- Do NOT use placeholder venues like: TBD, Multiple Locations, Various Venues, Portland Area Gyms, Surrounding Area Locations.",
     "- confidence is optional (high|medium|low) if you can justify it; otherwise leave blank.",
     "",
@@ -185,7 +199,8 @@ export default function DiscoveryV2Client() {
         setNotice(json.error ?? "Attach failed");
         return;
       }
-      setNotice(`Attached batch ${json.batch_id} (${json.accepted} rows). Master CSV rows: ${json.master_csv_row_count}`);
+      const geoNote = json.geocoded > 0 ? ` ${json.geocoded} geocoded.` : "";
+      setNotice(`Attached batch ${json.batch_id} (${json.accepted} rows).${geoNote} Master CSV rows: ${json.master_csv_row_count}`);
       setChunkText("");
       await loadRun(activeRunId);
       await refreshRuns();
@@ -358,7 +373,7 @@ export default function DiscoveryV2Client() {
 
         <div style={{ marginTop: 10 }}>
           <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 900, marginBottom: 6 }}>
-            Rows: {activeRun?.master_csv_row_count ?? 0} • Status: {activeRun?.status ?? "—"}
+            Rows: {activeRun?.master_csv_row_count ?? 0} • Geocoded: {geocodedRowCount(activeRun?.master_csv ?? "")} • Status: {activeRun?.status ?? "—"}
           </div>
           <pre style={{ whiteSpace: "pre-wrap", maxHeight: 240, overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, padding: 10, fontSize: 12 }}>
             {String(activeRun?.master_csv ?? "").split("\n").slice(0, 40).join("\n")}

@@ -695,8 +695,8 @@ function extractVenueCandidate(record: TournamentRow): VenueCandidate | null {
     name = address;
   }
 
-  const rawLat = Number(raw?.latitude ?? raw?.lat ?? NaN);
-  const rawLng = Number(raw?.longitude ?? raw?.lng ?? raw?.lon ?? NaN);
+  const rawLat = Number(raw?.latitude ?? raw?.lat ?? raw?.venue_latitude ?? NaN);
+  const rawLng = Number(raw?.longitude ?? raw?.lng ?? raw?.lon ?? raw?.venue_longitude ?? NaN);
   const latitude = Number.isFinite(rawLat) && rawLat !== 0 ? rawLat : null;
   const longitude = Number.isFinite(rawLng) && rawLng !== 0 ? rawLng : null;
   const geocode_source = normalizeVenueField(raw?.geocode_source) ?? null;

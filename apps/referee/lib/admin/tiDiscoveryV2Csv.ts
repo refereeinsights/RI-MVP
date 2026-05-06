@@ -29,6 +29,8 @@ export type DiscoveryV2CsvRow = {
   venue_state: string;
   venue_zip: string | null;
   venue_url: string | null;
+  venue_latitude: number | null;
+  venue_longitude: number | null;
   confidence: string | null;
   notes: string | null;
 };
@@ -57,6 +59,8 @@ export const DISCOVERY_V25_CANONICAL_HEADER = [
   "venue_state",
   "venue_zip",
   "venue_url",
+  "venue_latitude",
+  "venue_longitude",
   "confidence",
   "notes",
 ] as const;
@@ -219,6 +223,8 @@ export function parseDiscoveryV2CsvChunk(params: { csvText: string; futureOnly?:
     const venueStateRaw = pick("venue_state");
     const venueZip = pick("venue_zip");
     const venueUrlRaw = pick("venue_url");
+    const venueLatRaw = pick("venue_latitude");
+    const venueLngRaw = pick("venue_longitude");
     const confidence = pick("confidence");
     const notes = pick("notes");
 
@@ -270,6 +276,8 @@ export function parseDiscoveryV2CsvChunk(params: { csvText: string; futureOnly?:
       venue_state: venueState,
       venue_zip: venueZip || null,
       venue_url: venueUrlRaw ? tryNormalizeHttpUrl(extractFirstHttpUrl(venueUrlRaw)) : null,
+      venue_latitude: Number.isFinite(Number(venueLatRaw)) && Number(venueLatRaw) !== 0 ? Number(venueLatRaw) : null,
+      venue_longitude: Number.isFinite(Number(venueLngRaw)) && Number(venueLngRaw) !== 0 ? Number(venueLngRaw) : null,
       confidence: confidence || null,
       notes: notes || null,
     });
@@ -315,6 +323,8 @@ export function buildMasterCsv(rows: DiscoveryV2CsvRow[]) {
         esc(r.venue_state),
         esc(r.venue_zip),
         esc(r.venue_url),
+        r.venue_latitude != null ? String(r.venue_latitude) : "",
+        r.venue_longitude != null ? String(r.venue_longitude) : "",
         esc(r.confidence),
         esc(r.notes),
       ].join(",")

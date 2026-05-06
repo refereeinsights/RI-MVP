@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireAdmin } from "@/lib/admin";
+import { geocodeAddressMapbox } from "@/lib/mapbox/geocodeAddress";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildMasterCsv, parseDiscoveryV2CsvChunk, toCandidateInsert } from "@/lib/admin/tiDiscoveryV2Csv";
 
@@ -63,6 +64,33 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     row_count_accepted: parsed.rows.length,
   });
 
+  // Geocode venue addresses via Mapbox and enrich parsed rows in-place.
+  const mapboxToken = (process.env.MAPBOX_ACCESS_TOKEN ?? "").trim();
+  let geocodedCount = 0;
+  if (mapboxToken && parsed.ok) {
+    await Promise.all(
+      parsed.rows.map(async (row) => {
+        if (row.venue_latitude != null && row.venue_longitude != null) return;
+        const parts = [row.venue_address, row.venue_city, row.venue_state, row.venue_zip].filter(Boolean);
+        if (parts.length < 2) return;
+        const geo = await geocodeAddressMapbox(parts.join(", "), mapboxToken, { expectedState: row.venue_state });
+        if (!geo) return;
+        row.venue_latitude = geo.lat;
+        row.venue_longitude = geo.lng;
+        geocodedCount += 1;
+      })
+    );
+
+    // Store the enriched CSV (with coords) back to raw_paste so future master rebuilds retain coords.
+    if (geocodedCount > 0) {
+      const enriched = buildMasterCsv(parsed.rows);
+      await supabaseAdmin
+        .from("discovery_batches" as any)
+        .update({ raw_paste: enriched.csv })
+        .eq("id", batchId);
+    }
+  }
+
   // Attach the batch to the run.
   const { error: attachErr } = await supabaseAdmin.from("discovery_csv_run_batches" as any).insert({
     csv_run_id: runId,
@@ -108,6 +136,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     ok: true,
     batch_id: batchId,
     accepted: parsed.rows.length,
+    geocoded: geocodedCount,
     warnings: parsed.warnings,
     master_csv_row_count: master.rowCount,
   });
