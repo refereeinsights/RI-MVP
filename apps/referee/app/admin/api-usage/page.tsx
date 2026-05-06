@@ -95,17 +95,21 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
   const { fromIso, toIso, label } = parseDateRange(searchParams ?? {});
   const range = searchParams?.from && searchParams?.to ? "" : (searchParams?.range ?? "7d");
 
-  // RPC aggregates server-side — no raw-row fetch, no PostgREST max_rows=1000 cap.
-  const { data: rpcRows, error } = await (supabaseAdmin as any)
-    .rpc("api_usage_summary", { from_ts: fromIso, to_ts: toIso });
+  const now = new Date();
+  const mtdFromIso = startOfUtcMonth(now).toISOString();
+  const mtdToIso = now.toISOString();
 
+  // RPC aggregates server-side — no raw-row fetch, no PostgREST max_rows=1000 cap.
   const MAP_LOAD_EVENTS = ["venue_map_opened", "venue_map_loaded"] as const;
-  const { data: tiEventRpcRows } = await (supabaseAdmin as any)
-    .rpc("ti_map_event_summary", {
+  const [{ data: rpcRows, error }, { data: mtdRpcRows }, { data: tiEventRpcRows }] = await Promise.all([
+    (supabaseAdmin as any).rpc("api_usage_summary", { from_ts: fromIso, to_ts: toIso }),
+    (supabaseAdmin as any).rpc("api_usage_summary", { from_ts: mtdFromIso, to_ts: mtdToIso }),
+    (supabaseAdmin as any).rpc("ti_map_event_summary", {
       from_ts: fromIso,
       to_ts: toIso,
       event_names: [...MAP_LOAD_EVENTS],
-    });
+    }),
+  ]);
 
   const agg: AggRow[] = (rpcRows ?? []).map((r: any) => ({
     api: String(r.api ?? ""),
@@ -132,6 +136,13 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
     })
     .sort((a, b) => b.calls - a.calls);
 
+  // MTD vendor totals — used for free-tier gauges regardless of selected date range.
+  const mtdVendorTotals = new Map<string, number>();
+  for (const r of (mtdRpcRows ?? []) as any[]) {
+    const api = String(r.api ?? "");
+    mtdVendorTotals.set(api, (mtdVendorTotals.get(api) ?? 0) + Number(r.calls ?? 0));
+  }
+
   const tiEventAgg: TiEventAggRow[] = (tiEventRpcRows ?? []).map((r: any) => ({
     event_name: String(r.event_name ?? ""),
     calls: Number(r.calls ?? 0),
@@ -151,6 +162,12 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
     mapbox: "#000",
     resend: "#000",
     open_meteo: "#0ea5e9",
+    foursquare: "#f94877",
+    brave_search: "#fb542b",
+    bing_search: "#008373",
+    serpapi: "#6366f1",
+    overpass: "#3d8c3d",
+    timezonedb: "#7c3aed",
   };
 
   const apiOptions = [
@@ -162,7 +179,23 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
     "brave_search",
     "bing_search",
     "serpapi",
+    "overpass",
+    "timezonedb",
   ];
+
+  type FreeTierEntry = { cap: number | null; label: string; sublabel?: string };
+  const FREE_TIER_LIMITS: Record<string, FreeTierEntry> = {
+    google_places: { cap: null, label: "~$200 credit/mo", sublabel: "≈6,250 calls at $32/1K" },
+    foursquare:    { cap: 100_000, label: "100K/mo" },
+    mapbox:        { cap: 100_000, label: "100K/mo" },
+    resend:        { cap: 3_000, label: "3K emails/mo" },
+    open_meteo:    { cap: null, label: "Free (non-commercial)" },
+    brave_search:  { cap: 2_000, label: "2K/mo" },
+    bing_search:   { cap: 1_000, label: "1K/mo" },
+    serpapi:       { cap: 100, label: "100/mo" },
+    overpass:      { cap: null, label: "Free (public, no cap)" },
+    timezonedb:    { cap: null, label: "Free (1 req/s, no monthly cap)" },
+  };
 
   const rangeLinks = [
     { label: "Today", value: "today" },
@@ -229,6 +262,45 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
           </div>
         </div>
       )}
+
+      {/* Free tier gauges — always MTD, independent of selected date range */}
+      <div style={{ marginBottom: 18 }}>
+        <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#374151" }}>Free tier limits (MTD)</h3>
+        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>Month-to-date usage vs monthly free cap. Always current month regardless of date filter above.</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {apiOptions.map((api) => {
+            const tier = FREE_TIER_LIMITS[api];
+            if (!tier) return null;
+            const used = mtdVendorTotals.get(api) ?? 0;
+            const pctUsed = tier.cap ? Math.min(100, (used / tier.cap) * 100) : null;
+            const barColor = pctUsed == null ? "#9ca3af" : pctUsed >= 90 ? "#dc2626" : pctUsed >= 70 ? "#d97706" : "#16a34a";
+            return (
+              <div key={api} style={{ padding: "8px 12px", borderRadius: 8, background: "#fff", border: "1px solid #e5e7eb", minWidth: 200 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: API_COLORS[api] ?? "#111827" }}>{api}</div>
+                  <div style={{ fontSize: 11, color: "#6b7280" }}>{tier.label}</div>
+                </div>
+                {tier.sublabel && (
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 1 }}>{tier.sublabel}</div>
+                )}
+                <div style={{ marginTop: 6, fontSize: 12, color: "#374151" }}>
+                  {used.toLocaleString()}{tier.cap ? ` / ${tier.cap.toLocaleString()}` : " calls MTD"}
+                </div>
+                {pctUsed != null && (
+                  <div style={{ marginTop: 4 }}>
+                    <div style={{ height: 4, borderRadius: 2, background: "#e5e7eb", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pctUsed}%`, background: barColor, borderRadius: 2, transition: "width 0.3s" }} />
+                    </div>
+                    <div style={{ fontSize: 11, color: barColor, marginTop: 2, fontWeight: pctUsed >= 70 ? 700 : 400 }}>
+                      {pctUsed.toFixed(1)}% used
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       <div style={{ marginBottom: 18 }}>
         <h3 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: "#374151" }}>Map loads (TI)</h3>

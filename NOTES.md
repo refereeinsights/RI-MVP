@@ -1,3 +1,10 @@
+## 2026-05-06
+
+- RI admin / ingestion: extracted tournament CSV ingest into reusable library `apps/referee/lib/tournaments/csvIngest.ts` and updated CLI wrapper `apps/referee/scripts/ingest-csv.ts` to call it.
+- Discovery V2.5 groundwork: added service-role-only run/audit tables migration `supabase/migrations/20260506_discovery_csv_runs_v25.sql` and a queue endpoint that ingests `master_csv` as draft tournaments `apps/referee/app/api/admin/ti/discovery-v2/queue/route.ts`.
+- RI Owl's Eye cost reduction plan: audited all API calls per venue (baseline 9–13, worst-case ~25). Plan: Foursquare primary for food/lodging; OpenStreetMap Overpass (free, keyless) for sporting goods replacing 4 Google text searches; remove big box fallback; timezonedb.com free tier for timezone. Implementation prompt written; pending go-ahead.
+- RI API usage page: added `overpass`/`timezonedb` to API list and alarm dropdown; added "Free tier limits (MTD)" section with progress bars showing current-month usage vs monthly cap per API (green/amber/red at 70%/90%). File: `apps/referee/app/admin/api-usage/page.tsx`.
+
 ## 2026-04-29
 
 - TI static maps: prevent no-coordinate tournaments from clogging the generator queue by only re-trying `static_map_status=missing` items on a slow cadence (7d), and add an admin callout with the bulk Mapbox venue geocode backfill commands: `apps/ti-web/app/api/cron/static-map-generator/route.ts`, `apps/referee/app/admin/ti/static-maps/page.tsx`.
