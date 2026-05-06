@@ -11,6 +11,24 @@ function asText(v: unknown) {
   return typeof v === "string" ? v.trim() : "";
 }
 
+function splitVenueRaw(raw: string) {
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+
+  // Prefer explicit separators to avoid splitting "City, ST" fragments.
+  const primaryParts = trimmed.split(/\s*(?:\n+|;|\|)\s*/g).map((p) => p.trim()).filter(Boolean);
+  const parts =
+    primaryParts.length > 1
+      ? primaryParts
+      : trimmed
+          .split(/\s*,\s*/g)
+          .map((p) => p.trim())
+          .filter((p) => p.length >= 3);
+
+  // Hard cap to avoid pathological pastes.
+  return Array.from(new Set(parts)).slice(0, 10);
+}
+
 export async function POST(req: Request) {
   const user = await requireAdmin();
   const body = (await req.json().catch(() => null)) as { candidate_id?: string } | null;
@@ -74,6 +92,45 @@ export async function POST(req: Request) {
     .maybeSingle();
   const createdRow = created as any;
   if (insertErr || !createdRow?.id) return NextResponse.json({ ok: false, error: insertErr?.message ?? "Insert failed" }, { status: 500 });
+
+  // Multi-venue ingestion:
+  // - Parse `venue_raw` (comma/semicolon/newline) into multiple venue names.
+  // - Upsert venues using an empty-string address so unknown addresses dedupe consistently.
+  // - Link via tournament_venues; set the first linked venue as primary.
+  const venueNames = typeof candidate.venue_raw === "string" ? splitVenueRaw(candidate.venue_raw) : [];
+  if (venueNames.length) {
+    const venueIds: string[] = [];
+    for (const venueName of venueNames) {
+      const venuePayload: Record<string, any> = {
+        name: venueName,
+        address: "", // allow stable dedupe for unknown address
+        city: candidate.city ?? null,
+        state: candidate.state ?? null,
+        zip: null,
+        sport: candidate.sport ?? null,
+      };
+      const { data: venueRow, error: venueErr } = await supabaseAdmin
+        .from("venues" as any)
+        .upsert(venuePayload, { onConflict: "name,address,city,state" })
+        .select("id")
+        .maybeSingle();
+      if (venueErr) continue;
+      const venueId = (venueRow as any)?.id ? String((venueRow as any).id) : null;
+      if (venueId) venueIds.push(venueId);
+    }
+
+    for (let i = 0; i < venueIds.length; i += 1) {
+      const venueId = venueIds[i];
+      await supabaseAdmin.from("tournament_venues" as any).upsert(
+        {
+          tournament_id: createdRow.id,
+          venue_id: venueId,
+          is_primary: i === 0,
+        },
+        { onConflict: "tournament_id,venue_id" },
+      );
+    }
+  }
 
   const { error: patchErr } = await supabaseAdmin
     .from("tournament_discovery_candidates" as any)
