@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 
 import { TI_SPORT_LABELS, TI_SPORTS } from "@/lib/tiSports";
 
+import DiscoveryV2Client from "./DiscoveryV2Client";
+
 type CandidateRow = {
   id: string;
   created_at: string | null;
@@ -31,6 +33,7 @@ function asText(v: unknown) {
 }
 
 export default function DiscoveryWorkbenchClient() {
+  const [mode, setMode] = useState<"v2" | "v1">("v2");
   const [sport, setSport] = useState<string>("soccer");
   const [state, setState] = useState<string>("CA");
   const [dateStart, setDateStart] = useState<string>("");
@@ -181,6 +184,27 @@ export default function DiscoveryWorkbenchClient() {
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button
+          className={mode === "v2" ? "cta primary" : "cta secondary"}
+          style={{ padding: "8px 12px" }}
+          onClick={() => setMode("v2")}
+        >
+          V2.5 CSV Runner
+        </button>
+        <button
+          className={mode === "v1" ? "cta primary" : "cta secondary"}
+          style={{ padding: "8px 12px" }}
+          onClick={() => setMode("v1")}
+        >
+          V1 JSON Intake
+        </button>
+      </div>
+
+      {mode === "v2" ? <DiscoveryV2Client /> : null}
+
+      {mode === "v1" ? (
+        <>
       {notice ? (
         <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 10, background: "#fff" }}>{notice}</div>
       ) : null}
@@ -381,6 +405,8 @@ export default function DiscoveryWorkbenchClient() {
           </table>
         </div>
       </section>
+        </>
+      ) : null}
     </div>
   );
 }

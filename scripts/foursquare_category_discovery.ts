@@ -88,12 +88,21 @@ const LOCATIONS: TestLocation[] = [
 ];
 
 const DISCOVERY_QUERIES: Array<{ label: string; query: string }> = [
+  // Broad "food" discovery (used to validate candidate ids for FSQ-primary Food).
+  // Keep the terms simple; we want category frequency, not perfect recall.
+  { label: "restaurant", query: "restaurant" },
+  { label: "breakfast", query: "breakfast" },
+  { label: "dinner", query: "dinner" },
   // Quick eats-ish
   { label: "pizza", query: "pizza" },
   { label: "sandwich", query: "sandwich" },
   { label: "fast food", query: "fast food" },
   { label: "burrito", query: "burrito" },
   { label: "bakery", query: "bakery" },
+  // Lodging discovery (used to validate candidate ids for FSQ-primary Lodging).
+  { label: "hotel", query: "hotel" },
+  { label: "lodging", query: "lodging" },
+  { label: "motel", query: "motel" },
   // Hangouts-ish
   { label: "brewery", query: "brewery" },
   { label: "bowling", query: "bowling" },

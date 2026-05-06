@@ -23,10 +23,12 @@ export default async function TiDiscoveryPage() {
         <Link href="/admin/ti/seasons" className="cta secondary" style={{ padding: "8px 12px" }}>
           TI Seasons →
         </Link>
+        <Link href="/admin?tab=tournament-uploads" className="cta secondary" style={{ padding: "8px 12px" }}>
+          Tournament Uploads →
+        </Link>
       </div>
 
       <DiscoveryWorkbenchClient />
     </div>
   );
 }
-
