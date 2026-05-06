@@ -212,6 +212,9 @@ export async function AdminNav() {
         <Link href="/admin/ti/quality" style={linkStyle}>
           TI Quality
         </Link>
+        <Link href="/admin/ti/discovery" style={linkStyle}>
+          TI Discovery
+        </Link>
         <Link href="/admin/ti/seasons" style={linkStyle}>
           TI Seasons
         </Link>
