@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildMasterCsv, parseDiscoveryV2CsvChunk, toCandidateInsert } from "@/lib/admin/tiDiscoveryV2Csv";
+import { trackExternalCall, EXTERNAL_API, EXTERNAL_API_SURFACE } from "@/lib/trackExternalCall";
 
 export const runtime = "nodejs";
 
@@ -159,6 +160,17 @@ function looksLikePlaceholderVenue(name: string) {
   return bad.some((b) => v === b || v.includes(b));
 }
 
+function isValidZip5(value: string) {
+  return /^\d{5}$/.test(String(value ?? "").trim());
+}
+
+function looksLikeStreetAddress(value: string) {
+  const v = String(value ?? "").trim();
+  if (!v) return false;
+  if (v.length < 8) return false;
+  return /\d/.test(v);
+}
+
 function coerceCitations(value: unknown): string[] {
   const out: string[] = [];
   const pushUrl = (maybe: unknown) => {
@@ -204,11 +216,11 @@ function buildUserPrompt(input: { sport: string; stateLabel: string; stateSchema
     '      "host_org": "string or empty",',
     '      "venues": [',
     "        {",
-    '          "venue_name": "string — specific facility name, no placeholders like TBD or Multiple Locations",',
-    '          "venue_address": "string or empty — street address preferred when known",',
+    '          "venue_name": "string or empty — optional; if provided must be a specific facility name (no placeholders like TBD or Multiple Locations)",',
+    '          "venue_address": "string — REQUIRED — full street address (number + street), e.g. 123 Main St",',
     '          "venue_city": "string",',
     '          "venue_state": "2-letter state code",',
-    '          "venue_zip": "string or empty",',
+    '          "venue_zip": "string — REQUIRED — 5-digit US ZIP (e.g. 97229)",',
     '          "venue_url": "string or empty — plain https:// only"',
     "        }",
     "      ]",
@@ -220,7 +232,8 @@ function buildUserPrompt(input: { sport: string; stateLabel: string; stateSchema
     "- Only real verified tournaments (not leagues, clinics, weekly play, camps).",
     "- Dates must be YYYY-MM-DD.",
     "- One entry per tournament; multi-venue goes inside venues[].",
-    "- Every venue must be specific; reject placeholders: TBD, Multiple Locations, Various Venues, Area Gyms, Surrounding Area, Portland Area Gyms, etc.",
+    "- Every venue must have venue_address + venue_city + venue_state + venue_zip. Do not provide vague or placeholder venues.",
+    "- If venue_name is provided, it must NOT be a placeholder (TBD, Multiple Locations, Various Venues, Area Gyms, Surrounding Area, Portland Area Gyms, etc.).",
     "- All URLs must be plain https:// strings (no markdown link format).",
     "- source_url required for every tournament.",
     `- Max ${MAX_TOURNAMENTS} tournaments.`,
@@ -315,79 +328,93 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   let citations: string[] = [];
 
   try {
-    const resp = await fetch("https://api.perplexity.ai/chat/completions", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${apiKey}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "sonar-pro",
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "tournament_discovery_results",
-            schema: {
-              type: "object",
-              additionalProperties: true,
-              properties: {
-                tournaments: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    additionalProperties: true,
-                    properties: {
-                      tournament_name: { type: "string" },
-                      sport: { type: "string" },
-                      city: { type: "string" },
-                      state: { type: "string" },
-                      start_date: { type: "string" },
-                      end_date: { type: "string" },
-                      official_website_url: { type: ["string", "null"] },
-                      source_url: { type: "string" },
-                      host_org: { type: ["string", "null"] },
-                      venues: {
-                        type: "array",
-                        items: {
-                          type: "object",
-                          additionalProperties: true,
-                          properties: {
-                            venue_name: { type: "string" },
-                            venue_address: { type: ["string", "null"] },
-                            venue_city: { type: "string" },
-                            venue_state: { type: "string" },
-                            venue_zip: { type: ["string", "null"] },
-                            venue_url: { type: ["string", "null"] },
+    const resp = await trackExternalCall(
+      EXTERNAL_API.perplexity,
+      "chat_completions",
+      EXTERNAL_API_SURFACE.ti_discovery,
+      async () => {
+        const r = await fetch("https://api.perplexity.ai/chat/completions", {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${apiKey}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "sonar-pro",
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "tournament_discovery_results",
+                schema: {
+                  type: "object",
+                  additionalProperties: true,
+                  properties: {
+                    tournaments: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        additionalProperties: true,
+                        properties: {
+                          tournament_name: { type: "string" },
+                          sport: { type: "string" },
+                          city: { type: "string" },
+                          state: { type: "string" },
+                          start_date: { type: "string" },
+                          end_date: { type: "string" },
+                          official_website_url: { type: ["string", "null"] },
+                          source_url: { type: "string" },
+                          host_org: { type: ["string", "null"] },
+                          venues: {
+                            type: "array",
+                            items: {
+                              type: "object",
+                              additionalProperties: true,
+                              properties: {
+                                venue_name: { type: ["string", "null"] },
+                                venue_address: { type: "string" },
+                                venue_city: { type: "string" },
+                                venue_state: { type: "string" },
+                                venue_zip: { type: "string" },
+                                venue_url: { type: ["string", "null"] },
+                              },
+                              required: ["venue_address", "venue_city", "venue_state", "venue_zip"],
+                            },
                           },
                         },
+                        required: ["tournament_name", "sport", "city", "state", "start_date", "end_date", "source_url", "venues"],
                       },
                     },
-                    required: ["tournament_name", "sport", "city", "state", "start_date", "end_date", "source_url", "venues"],
                   },
+                  required: ["tournaments"],
                 },
               },
-              required: ["tournaments"],
             },
-          },
-        },
-        max_tokens: 8000,
-        temperature: 0.2,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-      signal: controller.signal,
-    });
-
+            max_tokens: 8000,
+            temperature: 0.2,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+          }),
+          signal: controller.signal,
+        });
+        if (!r.ok) {
+          const errBody = await r.json().catch(() => null);
+          const msg = String(errBody?.error?.message ?? errBody?.message ?? "Perplexity request failed");
+          const httpErr = new Error(msg) as any;
+          httpErr.httpStatus = r.status || 500;
+          throw httpErr;
+        }
+        return r;
+      }
+    );
     perplexityJson = await resp.json().catch(() => null);
-    if (!resp.ok) {
-      const msg = String(perplexityJson?.error?.message ?? perplexityJson?.message ?? "Perplexity request failed");
-      return NextResponse.json({ ok: false, error: msg }, { status: resp.status || 500 });
-    }
   } catch (err: any) {
     const isAbort = err?.name === "AbortError";
-    return NextResponse.json({ ok: false, error: isAbort ? "Perplexity request timed out. Try a narrower date range." : "Perplexity request failed." }, { status: isAbort ? 504 : 500 });
+    return NextResponse.json(
+      { ok: false, error: isAbort ? "Perplexity request timed out. Try a narrower date range." : err.message || "Perplexity request failed." },
+      { status: isAbort ? 504 : (err?.httpStatus ?? 500) }
+    );
   } finally {
     clearTimeout(timeout);
   }
@@ -548,8 +575,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         venue_url: String(v?.venue_url ?? "").trim(),
       }))
       .filter((v: any) => {
-        if (!v.venue_name || !v.venue_city || !isTwoLetterState(v.venue_state)) return false;
-        if (looksLikePlaceholderVenue(v.venue_name)) return false;
+        if (!v.venue_city || !isTwoLetterState(v.venue_state)) return false;
+        if (!looksLikeStreetAddress(v.venue_address)) return false;
+        if (!isValidZip5(v.venue_zip)) return false;
+        if (v.venue_name && looksLikePlaceholderVenue(v.venue_name)) return false;
         return true;
       });
 
@@ -579,10 +608,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         referee_contact: null,
         referee_contact_email: null,
         venue_name: v.venue_name,
-        venue_address: v.venue_address || null,
+        venue_address: v.venue_address,
         venue_city: v.venue_city,
         venue_state: v.venue_state,
-        venue_zip: v.venue_zip || null,
+        venue_zip: v.venue_zip,
         venue_url: venueUrl,
         venue_latitude: null,
         venue_longitude: null,

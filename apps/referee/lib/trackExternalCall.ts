@@ -11,6 +11,7 @@ export const EXTERNAL_API = {
   serpapi: "serpapi",
   overpass: "overpass",
   timezonedb: "timezonedb",
+  perplexity: "perplexity",
 } as const;
 export type ExternalApi = (typeof EXTERNAL_API)[keyof typeof EXTERNAL_API];
 
@@ -28,6 +29,7 @@ export const EXTERNAL_API_SURFACE = {
   venue_field_map: "venue_field_map",
   atlas_search: "atlas_search",
   tournament_scan: "tournament_scan",
+  ti_discovery: "ti_discovery",
 } as const;
 export type ExternalApiSurface = (typeof EXTERNAL_API_SURFACE)[keyof typeof EXTERNAL_API_SURFACE];
 

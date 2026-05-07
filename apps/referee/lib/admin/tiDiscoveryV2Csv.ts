@@ -23,6 +23,7 @@ export type DiscoveryV2CsvRow = {
   tournament_director_email: string | null;
   referee_contact: string | null;
   referee_contact_email: string | null;
+  // Optional: we can ingest/link venues by address-only.
   venue_name: string;
   venue_address: string | null;
   venue_city: string;
@@ -74,9 +75,10 @@ const REQUIRED_HEADERS = [
   "end_date",
   "official_website_url",
   "source_url",
-  "venue_name",
+  "venue_address",
   "venue_city",
   "venue_state",
+  "venue_zip",
 ] as const;
 
 function parseCsv(text: string): string[][] {
@@ -180,6 +182,19 @@ function isBadVenueValue(value: string) {
   return BAD_VENUE_TOKENS.some((token) => compact === token || compact.includes(token));
 }
 
+function isValidZip5(value: string | null | undefined) {
+  const v = String(value ?? "").trim();
+  return /^\d{5}$/.test(v);
+}
+
+function looksLikeStreetAddress(value: string | null | undefined) {
+  const v = String(value ?? "").trim();
+  if (!v) return false;
+  if (v.length < 8) return false;
+  // basic "street-ish" guardrail: require at least one digit (e.g., house number)
+  return /\d/.test(v);
+}
+
 export function parseDiscoveryV2CsvChunk(params: { csvText: string; futureOnly?: boolean }): DiscoveryV2ParseResult {
   const text = String(params.csvText ?? "");
   const futureOnly = params.futureOnly !== false;
@@ -238,13 +253,14 @@ export function parseDiscoveryV2CsvChunk(params: { csvText: string; futureOnly?:
     if (startDate > endDate) continue;
     if (futureOnly && startDate < todayUtc) continue;
 
-    if (!venueNameRaw || isBadVenueValue(venueNameRaw)) {
-      // Per user requirement: reject only this row when missing/bad venue.
-      continue;
-    }
+    // Venue requirement (v2.5 relaxed): venue_name is optional, but we REQUIRE address + city + state + zip.
+    // Per user requirement: reject only this row when missing/bad venue.
+    if (!looksLikeStreetAddress(venueAddress)) continue;
+    if (!isValidZip5(venueZip)) continue;
     const venueCity = String(venueCityRaw || "").trim();
     const venueState = normalizeStateUsps(venueStateRaw);
     if (!venueCity || !venueState) continue;
+    const venueName = !venueNameRaw || isBadVenueValue(venueNameRaw) ? "" : venueNameRaw;
 
     const official = officialRaw ? tryNormalizeHttpUrl(extractFirstHttpUrl(officialRaw)) : null;
     if (official && (!isHttpUrl(official) || isPlaceholderUrl(official))) {
@@ -252,7 +268,8 @@ export function parseDiscoveryV2CsvChunk(params: { csvText: string; futureOnly?:
     }
 
     const normalizedName = normalizeNameForDedupe(tournamentName);
-    const sig = `${normalizedName}|${state}|${startDate}|${venueNameRaw.toLowerCase().trim()}|${venueCity.toLowerCase().trim()}|${venueState}`;
+    const venueSigKey = venueName ? venueName.toLowerCase().trim() : String(venueAddress ?? "").toLowerCase().trim();
+    const sig = `${normalizedName}|${state}|${startDate}|${venueSigKey}|${venueCity.toLowerCase().trim()}|${venueState}|${String(venueZip ?? "").trim()}`;
     if (seen.has(sig)) continue;
     seen.add(sig);
 
@@ -270,7 +287,7 @@ export function parseDiscoveryV2CsvChunk(params: { csvText: string; futureOnly?:
       tournament_director_email: tournamentDirectorEmail || null,
       referee_contact: refereeContact || null,
       referee_contact_email: refereeContactEmail || null,
-      venue_name: venueNameRaw,
+      venue_name: venueName,
       venue_address: venueAddress || null,
       venue_city: venueCity,
       venue_state: venueState,
@@ -299,7 +316,11 @@ export function buildMasterCsv(rows: DiscoveryV2CsvRow[]) {
   };
 
   for (const r of rows) {
-    const sig = `${normalizeNameForDedupe(r.tournament_name)}|${r.state}|${r.start_date}|${r.venue_name.toLowerCase().trim()}|${r.venue_city.toLowerCase().trim()}|${r.venue_state}`;
+    const venueSig =
+      r.venue_name && r.venue_name.trim()
+        ? r.venue_name.toLowerCase().trim()
+        : String(r.venue_address ?? "").toLowerCase().trim();
+    const sig = `${normalizeNameForDedupe(r.tournament_name)}|${r.state}|${r.start_date}|${venueSig}|${r.venue_city.toLowerCase().trim()}|${r.venue_state}|${String(r.venue_zip ?? "").trim()}`;
     if (seen.has(sig)) continue;
     seen.add(sig);
     out.push(
