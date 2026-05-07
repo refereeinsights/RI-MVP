@@ -2439,6 +2439,7 @@ export default async function AdminPage({
     const venueLinkAttempted = result.venue_links_attempted ?? 0;
     const venueLinkCreated = result.venue_links_created ?? 0;
     const venueLinkErrors = result.venue_link_errors ?? 0;
+    const geocodedVenues = result.geocoded_venues ?? 0;
     const noticeParts: string[] = [];
     noticeParts.push(
       result.failures.length === 0
@@ -2449,6 +2450,9 @@ export default async function AdminPage({
       noticeParts.push(
         `Venue links: ${venueLinkCreated} created, ${venueLinkAttempted} attempted${venueLinkErrors ? `, ${venueLinkErrors} error(s)` : ""}.`
       );
+    }
+    if (geocodedVenues > 0) {
+      noticeParts.push(`Geocoded ${geocodedVenues} venue${geocodedVenues === 1 ? "" : "s"}.`);
     }
 
     if (dropSummary) {
