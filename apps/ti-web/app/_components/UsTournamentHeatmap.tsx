@@ -3,6 +3,8 @@ import UsMapInteractions from "@/app/_components/UsMapInteractions";
 import { colorForCount } from "@/lib/mapColor";
 
 type PageType = "homepage" | "heatmap" | "directory" | "sport_directory" | "state_hub" | "metro_hub";
+type VenuePageType = "venue_directory";
+type AnyPageType = PageType | VenuePageType;
 
 export default function UsTournamentHeatmap({
   countsByState,
@@ -16,7 +18,7 @@ export default function UsTournamentHeatmap({
   countsByState: Record<string, number>;
   max: number;
   tipId: string;
-  pageType: PageType;
+  pageType: AnyPageType;
   sport: string;
   hrefForState: (abbr: string) => string;
   defaultTip?: string;
@@ -46,7 +48,7 @@ export default function UsTournamentHeatmap({
         width="100%"
         style={{ display: "block", margin: "10px auto 0", maxWidth: "none" }}
         role="img"
-        aria-label="United States tournament counts by state"
+        aria-label={pageType === "venue_directory" ? "United States venue counts by state" : "United States tournament counts by state"}
       >
         {Object.keys(US_STATE_PATHS)
           .sort()
@@ -107,4 +109,3 @@ export default function UsTournamentHeatmap({
     </div>
   );
 }
-

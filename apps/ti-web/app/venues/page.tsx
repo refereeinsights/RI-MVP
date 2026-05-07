@@ -9,6 +9,7 @@ import StateMultiSelect from "../tournaments/StateMultiSelect";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import VenueCard from "@/components/venues/VenueCard";
+import UsTournamentHeatmap from "@/app/_components/UsTournamentHeatmap";
 import styles from "./VenuesPage.module.css";
 import { getSportCardClass, getSummarySportClass, getVenueCardClassFromSports } from "./sportSurface";
 import "../tournaments/tournaments.css";
@@ -415,6 +416,19 @@ export default async function VenuesPage({
     return params.toString();
   };
 
+  const buildVenueMapHrefForState = (abbr: string) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    params.set("state", abbr.toUpperCase());
+    if (month) params.set("month", month);
+    params.set("includePast", includePast ? "true" : "false");
+    for (const sport of sportsSelected) params.append("sports", sport);
+    return `/venues?${params.toString()}#results`;
+  };
+
+  const venueMapMax = Math.max(0, ...Object.values(stateCounts));
+  const venueMapTipId = "venue-directory-state-tip";
+
   return (
     <main className="pitchWrap tournamentsWrap">
       <VenuePageViewTracker pageType="venue_index" />
@@ -503,6 +517,21 @@ export default async function VenuesPage({
           </div>
         </form>
 
+        <div style={{ marginTop: 18 }}>
+          <UsTournamentHeatmap
+            countsByState={stateCounts}
+            max={venueMapMax}
+            tipId={venueMapTipId}
+            pageType="venue_directory"
+            sport={sportsSelected[0] ?? "all"}
+            hrefForState={buildVenueMapHrefForState}
+            defaultTip="Click a state to filter venues."
+          />
+          <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9 }}>
+            <Link href="/premium">Unlock Weekend Pro</Link> to see deeper nearby places and map insights.
+          </div>
+        </div>
+
         <div className={styles.summaryStack}>
           <div className="summaryTotalRow">
             <Link
@@ -539,6 +568,8 @@ export default async function VenuesPage({
             </div>
           </div>
         </div>
+
+        <div id="results" />
 
         {venues.length === 0 ? (
           <div className="cards">
@@ -583,6 +614,7 @@ export default async function VenuesPage({
                   parking_convenience_score_avg={venue.parking_convenience_score_avg}
                   review_count={venue.review_count}
                   reviews_last_updated_at={venue.reviews_last_updated_at}
+                  showPlanningCtas
                 />
               );
             })}

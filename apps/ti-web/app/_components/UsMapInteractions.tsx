@@ -35,7 +35,7 @@ export default function UsMapInteractions({
   defaultTip,
 }: {
   tipId: string;
-  pageType: "heatmap" | "homepage" | "directory" | "sport_directory" | "state_hub" | "metro_hub";
+  pageType: "heatmap" | "homepage" | "directory" | "sport_directory" | "state_hub" | "metro_hub" | "venue_directory";
   sport: string;
   defaultTip: string;
 }) {
@@ -55,6 +55,10 @@ export default function UsMapInteractions({
       if (!t) return;
       const abbr = t.getAttribute("data-abbr") || "";
       const count = Number(t.getAttribute("data-count") || "0");
+      if (pageType === "venue_directory") {
+        tip.textContent = `${abbr} — ${count.toLocaleString()} venues`;
+        return;
+      }
       tip.textContent = `${abbr} — ${count.toLocaleString()} upcoming tournaments`;
     };
 

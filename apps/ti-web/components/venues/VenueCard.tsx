@@ -21,6 +21,7 @@ type Props = {
   notes?: string | null;
   tier: "explorer" | "insider" | "weekend_pro";
   isDemo?: boolean;
+  showPlanningCtas?: boolean;
   sportCardClass: string;
   upcomingTournaments: {
     id: string;
@@ -51,6 +52,7 @@ export default function VenueCard({
   notes,
   tier,
   isDemo = false,
+  showPlanningCtas = false,
   sportCardClass,
   upcomingTournaments,
   venueUrl,
@@ -72,6 +74,17 @@ export default function VenueCard({
   const detailsHref = `/venues/${venueSeoSlug || venueId}`;
   const hotelsHref = buildHotelsHref({ venueId });
   const showBooking = canShowBookingCta({ zip });
+  const hasCity = Boolean((city ?? "").trim());
+  const stateUpper = String(state ?? "")
+    .trim()
+    .toUpperCase();
+  const hasState = /^[A-Z]{2}$/.test(stateUpper);
+  const showVrbo = hasState && hasCity;
+  const vrboHref = `/go/vrbo?${new URLSearchParams({
+    source: "venue_directory",
+    venueId,
+  }).toString()}`;
+  const nearbyPlacesHref = `/venues/maps/${venueSeoSlug || venueId}`;
 
   return (
     <article className={`card ${sportCardClass} ${styles.card}`}>
@@ -174,7 +187,23 @@ export default function VenueCard({
         )}
       </div>
 
-      {showBooking ? (
+      {showPlanningCtas ? (
+        <div className={styles.planningRow}>
+          {showBooking ? (
+            <a href={hotelsHref} target="_blank" rel="noopener noreferrer sponsored" className={`secondaryLink ${styles.planningLink}`}>
+              🏨 Find Hotels
+            </a>
+          ) : null}
+          {showVrbo ? (
+            <a href={vrboHref} target="_blank" rel="noopener noreferrer sponsored" className={`secondaryLink ${styles.planningLink}`}>
+              🏠 Find Rentals
+            </a>
+          ) : null}
+          <Link href={nearbyPlacesHref} className={`secondaryLink ${styles.planningLink}`}>
+            View Nearby Places
+          </Link>
+        </div>
+      ) : showBooking ? (
         <div className={styles.bookingRow}>
           <a href={hotelsHref} target="_blank" rel="noopener noreferrer sponsored" className={`secondaryLink ${styles.bookingLink}`}>
             🏨 Check hotel availability

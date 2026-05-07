@@ -145,3 +145,30 @@
   border-color: rgba(255, 255, 255, 0.92);
   background: rgba(0, 0, 0, 0.26);
 }
+
+.planningRow {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.planningLink {
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+  font-weight: 800;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.18);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+}
+
+.planningLink:hover {
+  border-color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.26);
+}
