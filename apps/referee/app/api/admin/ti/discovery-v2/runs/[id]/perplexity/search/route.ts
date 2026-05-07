@@ -35,6 +35,21 @@ function isPlainHttpsUrl(value: string) {
   return /^https:\/\/\S+$/i.test(value);
 }
 
+function bestEffortNormalizeHttpsUrl(value: string) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const match = raw.match(/https:\/\/[^\s)\],"]+/i);
+  const candidate = match?.[0] ? match[0] : raw;
+  let cleaned = candidate.trim();
+  cleaned = cleaned.replace(/[),.;\]]+$/g, "");
+  try {
+    const normalized = new URL(cleaned).toString();
+    return normalized.startsWith("https://") ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
 function truncate(value: string, max: number) {
   const s = String(value ?? "");
   return s.length > max ? s.slice(0, max) : s;
@@ -434,12 +449,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const st = String(t?.state ?? "").trim().toUpperCase() || state;
     const startDate = String(t?.start_date ?? "").trim();
     const endDate = String(t?.end_date ?? "").trim();
-    const officialWebsiteUrl = String(t?.official_website_url ?? "").trim();
-    const sourceUrl = String(t?.source_url ?? "").trim();
+    const officialWebsiteUrlRaw = String(t?.official_website_url ?? "").trim();
+    const sourceUrlRaw = String(t?.source_url ?? "").trim();
     const hostOrg = String(t?.host_org ?? "").trim();
 
+    const sourceUrl = bestEffortNormalizeHttpsUrl(sourceUrlRaw);
+
     // Tournament-level minimal sanity (CSV parser will enforce more later).
-    if (!tournamentName || !city || !isTwoLetterState(st) || !isIsoDate(startDate) || !isIsoDate(endDate) || !isPlainHttpsUrl(sourceUrl)) {
+    if (!tournamentName || !city || !isTwoLetterState(st) || !isIsoDate(startDate) || !isIsoDate(endDate) || !sourceUrl) {
       warnings.push(`tournament_skipped_invalid:${truncate(tournamentName || sourceUrl || "unknown", 80)}`);
       continue;
     }
@@ -469,6 +486,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     if (venuesFiltered.length > MAX_VENUES_PER_TOURNAMENT) trimmedVenues += venuesFiltered.length - MAX_VENUES_PER_TOURNAMENT;
 
     for (const v of venuesLimited) {
+      const officialWebsiteUrl = bestEffortNormalizeHttpsUrl(officialWebsiteUrlRaw);
+      const venueUrl = bestEffortNormalizeHttpsUrl(v.venue_url);
       rows.push({
         tournament_name: tournamentName,
         sport: tournamentSport,
@@ -476,7 +495,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         state: st,
         start_date: startDate,
         end_date: endDate,
-        official_website_url: officialWebsiteUrl && isPlainHttpsUrl(officialWebsiteUrl) ? officialWebsiteUrl : null,
+        official_website_url: officialWebsiteUrl,
         source_url: sourceUrl,
         host_org: hostOrg || null,
         tournament_director: null,
@@ -488,7 +507,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         venue_city: v.venue_city,
         venue_state: v.venue_state,
         venue_zip: v.venue_zip || null,
-        venue_url: v.venue_url && isPlainHttpsUrl(v.venue_url) ? v.venue_url : null,
+        venue_url: venueUrl,
         venue_latitude: null,
         venue_longitude: null,
         confidence: null,
