@@ -35,7 +35,7 @@ export default function UsMapInteractions({
   defaultTip,
 }: {
   tipId: string;
-  pageType: "heatmap" | "homepage";
+  pageType: "heatmap" | "homepage" | "directory" | "sport_directory" | "state_hub" | "metro_hub";
   sport: string;
   defaultTip: string;
 }) {
@@ -85,4 +85,3 @@ export default function UsMapInteractions({
 
   return null;
 }
-

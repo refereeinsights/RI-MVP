@@ -6,6 +6,7 @@ import {
   curatedSports,
   curatedStates,
   mapStateCodeToName,
+  mapStateCodeToSlug,
   mapStateSlugToCode,
   normalizeSportSlug,
   sportDisplayName,
@@ -15,6 +16,7 @@ import { validateTournamentSport } from "@/lib/validation/validateTournamentSpor
 import MetroMarketChips from "@/app/tournaments/_components/MetroMarketChips";
 import SeoMetroHubChips from "./_components/SeoMetroHubChips";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
+import UsTournamentHeatmap from "@/app/_components/UsTournamentHeatmap";
 import "../../tournaments/tournaments.css";
 
 // Keep SEO hub pages fresh without hammering Supabase.
@@ -224,6 +226,23 @@ export default async function SportStateHubPage({
     title: `Explore ${stateName} by city`,
   });
 
+  const heatmapCounts = await (async () => {
+    const { data, error } = await (supabaseAdmin.rpc("get_public_directory_tournament_counts_by_state_sport" as any, {
+      p_sport: sportKey,
+    }) as any);
+    if (error) return { counts: {} as Record<string, number>, max: 0 };
+    const rows = (Array.isArray(data) ? data : []) as Array<{ state?: unknown; count?: unknown }>;
+    const counts: Record<string, number> = {};
+    for (const row of rows) {
+      const state = String(row.state ?? "").trim().toUpperCase();
+      const count = Number(row.count ?? 0) || 0;
+      if (!state || state.length !== 2) continue;
+      counts[state] = count;
+    }
+    const max = Math.max(0, ...Object.values(counts));
+    return { counts, max };
+  })();
+
   return (
     <main className="page">
       <div className="shell">
@@ -259,7 +278,20 @@ export default async function SportStateHubPage({
           </div>
         </section>
 
+        <UsTournamentHeatmap
+          countsByState={heatmapCounts.counts}
+          max={heatmapCounts.max}
+          tipId={`ti-statehub-map-tip-${sportKey}-${stateCode}`}
+          pageType="state_hub"
+          sport={sportKey}
+          hrefForState={(abbr) => {
+            const slug = mapStateCodeToSlug(abbr) ?? abbr.toLowerCase();
+            return `/${encodeURIComponent(sportKey)}/${encodeURIComponent(slug)}#results`;
+          }}
+        />
+
         <section className="bodyCard">
+          <div id="results" />
           {tournaments.length === 0 ? (
             <div style={{ display: "grid", gap: 16 }}>
               <p className="clarity" style={{ margin: 0 }}>

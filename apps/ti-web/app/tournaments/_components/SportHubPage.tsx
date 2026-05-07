@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { mapStateCodeToSlug, mapStateCodeToName } from "@/lib/seoHub";
 import { buildTIHubTitle, assertNoDoubleBrand } from "@/lib/seo/buildTITitle";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSportHubTournaments, SPORT_HUB_PAGE_SIZE } from "../_lib/getSportHubTournaments";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
+import UsTournamentHeatmap from "@/app/_components/UsTournamentHeatmap";
 import "../tournaments.css";
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
@@ -75,6 +77,23 @@ export async function SportHubPage({ sport, page }: { sport: string; page: numbe
   const config = getSportConfig(sport);
   const { tournaments, hasMore, page: currentPage } = await getSportHubTournaments(sport, page);
 
+  const heatmapCounts = await (async () => {
+    const { data, error } = await (supabaseAdmin.rpc("get_public_directory_tournament_counts_by_state_sport" as any, {
+      p_sport: sport,
+    }) as any);
+    if (error) return { counts: {} as Record<string, number>, max: 0 };
+    const rows = (Array.isArray(data) ? data : []) as Array<{ state?: unknown; count?: unknown }>;
+    const counts: Record<string, number> = {};
+    for (const row of rows) {
+      const state = String(row.state ?? "").trim().toUpperCase();
+      const count = Number(row.count ?? 0) || 0;
+      if (!state || state.length !== 2) continue;
+      counts[state] = count;
+    }
+    const max = Math.max(0, ...Object.values(counts));
+    return { counts, max };
+  })();
+
   const basePath = `/tournaments/${sport}`;
 
   // Derive up to MAX_STATE_LINKS unique states with valid slugs from results
@@ -122,6 +141,16 @@ export async function SportHubPage({ sport, page }: { sport: string; page: numbe
             </p>
           </div>
 
+          <UsTournamentHeatmap
+            countsByState={heatmapCounts.counts}
+            max={heatmapCounts.max}
+            tipId={`ti-sporthub-map-tip-${sport}`}
+            pageType="sport_directory"
+            sport={sport}
+            hrefForState={(abbr) => `/tournaments?state=${encodeURIComponent(abbr)}&sports=${encodeURIComponent(sport)}#results`}
+          />
+
+          <div id="results">
           {tournaments.length === 0 ? (
             <div className="cards">
               <article className="card card-grass">
@@ -216,6 +245,7 @@ export async function SportHubPage({ sport, page }: { sport: string; page: numbe
               })}
             </div>
           )}
+          </div>
 
           {/* Pagination */}
           {(currentPage > 1 || hasMore) && (

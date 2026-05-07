@@ -7,6 +7,7 @@ import MetroMarketChips from "./_components/MetroMarketChips";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
+import UsTournamentHeatmap from "@/app/_components/UsTournamentHeatmap";
 import "./tournaments.css";
 
 type Tournament = {
@@ -410,6 +411,24 @@ export default async function TournamentsPage({
 
   const months = monthOptions();
 
+  const heatmapCounts = await (async () => {
+    const p_sport = sportsSelected.length === 1 ? sportsSelected[0] : null;
+    const { data, error } = await (supabaseAdmin.rpc("get_public_directory_tournament_counts_by_state_sport" as any, {
+      p_sport,
+    }) as any);
+    if (error) return { counts: {} as Record<string, number>, max: 0 };
+    const rows = (Array.isArray(data) ? data : []) as Array<{ state?: unknown; count?: unknown }>;
+    const counts: Record<string, number> = {};
+    for (const row of rows) {
+      const state = String(row.state ?? "").trim().toUpperCase();
+      const count = Number(row.count ?? 0) || 0;
+      if (!state || state.length !== 2) continue;
+      counts[state] = count;
+    }
+    const max = Math.max(0, ...Object.values(counts));
+    return { counts, max };
+  })();
+
   return (
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
@@ -656,113 +675,78 @@ export default async function TournamentsPage({
 
         {metroMarketChips}
 
-        {sportsSorted.length ? (() => {
-          const badges =
-            sportsSelected.length > 0
-              ? sportsSelected.map((sport) => ({ sport, count: filteredSportCounts[sport] ?? 0 }))
-              : sportsSorted.slice(0, 7);
-          const row1 = badges.slice(0, 3);
-          const row2 = badges.slice(3, 7);
+        <UsTournamentHeatmap
+          countsByState={heatmapCounts.counts}
+          max={heatmapCounts.max}
+          tipId="ti-directory-map-tip"
+          pageType="directory"
+          sport={sportsSelected.length === 1 ? sportsSelected[0] : "all"}
+          hrefForState={(abbr) => {
+            const params = new URLSearchParams();
+            if (q) params.set("q", q);
+            if (month) params.set("month", month);
+            params.set("includePast", includePast ? "true" : "false");
+            params.set("aysoOnly", aysoOnly ? "true" : "false");
+            params.set("state", abbr);
+            if (sportsSelected.length === 1) params.set("sports", sportsSelected[0]);
+            return `/tournaments?${params.toString()}#results`;
+          }}
+        />
 
-          const renderCard = (sport: string, count: number) => (
-            <Link
-              key={sport}
-              href={(() => {
-                const params = new URLSearchParams();
-                if (q) params.set("q", q);
-                if (!isAllStates) stateSelections.forEach((st) => params.append("state", st));
-                if (month) params.set("month", month);
-                params.set("includePast", includePast ? "true" : "false");
-                params.set("aysoOnly", aysoOnly ? "true" : "false");
-                params.set("sports", sport);
-                return `/tournaments?${params.toString()}`;
-              })()}
-              className={`card card--mini ${getSportCardClass(sport)} ${getSummarySportClass(sport)} summaryBadgeFixed`}
-            >
-              <div className="summaryCount">{count}</div>
-              <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
-              <div className="summaryIcon" aria-hidden="true">
-                {sportIcon(sport)}
-              </div>
-            </Link>
-          );
-
-          return (
-            <>
-              <div className="summaryTotalRow">
-                <article className="card card--mini bg-sport-default summary-total">
-                  <div className="summaryCount">{tournamentsSorted.length}</div>
-                  <div className="summaryLabel">TOTAL TOURNAMENTS</div>
-                  <div className="summaryIcon summaryIcon--ri" aria-hidden="true">
-                    <img src="/svg/ti/tournamentinsights_mark_transparent.svg" alt="" />
-                  </div>
-                </article>
-              </div>
-              <div className="summaryGrid summaryGrid--twoRows">
-                <div className="summaryRow summaryRow--top">
-                  {row1.map(({ sport, count }) => renderCard(sport, count))}
-                </div>
-                <div className="summaryRow summaryRow--bottom">
-                  {row2.map(({ sport, count }) => renderCard(sport, count))}
-                </div>
-              </div>
-            </>
-          );
-        })() : null}
-
-        {tournamentsSorted.length === 0 ? (
-          <div className="cards">
-            <article className="card card-grass">
-              <div className="cardHeader">
-                <div>
-                  <div className="cardTitle" style={{ fontSize: 18 }}>
-                    No tournaments match your filters
-                  </div>
-                  <div className="cardMeta">Try clearing search or selecting “Any” filters.</div>
-                </div>
-              </div>
-            </article>
-
-            <article className="card card-grass">
-              <div className="cardHeader">
-                <div>
-                  <div className="cardTitle" style={{ fontSize: 18 }}>
-                    Don’t see your tournament?
-                  </div>
-                  <div className="cardMeta">
-                    Plan your tournament weekend by city while we keep expanding our tournament coverage.
+        <div id="results">
+          {tournamentsSorted.length === 0 ? (
+            <div className="cards">
+              <article className="card card-grass">
+                <div className="cardHeader">
+                  <div>
+                    <div className="cardTitle" style={{ fontSize: 18 }}>
+                      No tournaments match your filters
+                    </div>
+                    <div className="cardMeta">Try clearing search or selecting “Any” filters.</div>
                   </div>
                 </div>
-              </div>
-              <div className="cardFooter" style={{ padding: "0 1.15rem 1.15rem" }}>
-                <Link
-                  href={(() => {
-                    const params = new URLSearchParams();
-                    if (stateSelections.length === 1) params.set("state", stateSelections[0]);
-                    const cityStateMatch = (q ?? "").match(/^\s*([^,]+)\s*,\s*([A-Za-z]{2})\s*$/);
-                    if (cityStateMatch) {
-                      params.set("city", cityStateMatch[1].trim());
-                      params.set("state", cityStateMatch[2].trim().toUpperCase());
-                    }
-                    // Note: sport is not currently a planner input; keep it as a harmless hint for future use.
-                    if (sportsSelected.length === 1) params.set("sport", sportsSelected[0]);
-                    return `/weekend-planner${params.toString() ? `?${params.toString()}` : ""}`;
-                  })()}
-                  className="primaryLink"
-                >
-                  Plan by city
-                </Link>
-              </div>
-            </article>
-          </div>
-        ) : (
-          <div className="grid">
-            {tournamentsSorted.map((t) => {
-              const start = formatDate(t.start_date);
-              const end = formatDate(t.end_date);
-              const dateLabel =
-                start && end && start !== end ? `${start} – ${end}` : start || end || "Dates TBA";
-              const locationLabel = [t.city, t.state].filter(Boolean).join(", ");
+              </article>
+
+              <article className="card card-grass">
+                <div className="cardHeader">
+                  <div>
+                    <div className="cardTitle" style={{ fontSize: 18 }}>
+                      Don’t see your tournament?
+                    </div>
+                    <div className="cardMeta">
+                      Plan your tournament weekend by city while we keep expanding our tournament coverage.
+                    </div>
+                  </div>
+                </div>
+                <div className="cardFooter" style={{ padding: "0 1.15rem 1.15rem" }}>
+                  <Link
+                    href={(() => {
+                      const params = new URLSearchParams();
+                      if (stateSelections.length === 1) params.set("state", stateSelections[0]);
+                      const cityStateMatch = (q ?? "").match(/^\s*([^,]+)\s*,\s*([A-Za-z]{2})\s*$/);
+                      if (cityStateMatch) {
+                        params.set("city", cityStateMatch[1].trim());
+                        params.set("state", cityStateMatch[2].trim().toUpperCase());
+                      }
+                      // Note: sport is not currently a planner input; keep it as a harmless hint for future use.
+                      if (sportsSelected.length === 1) params.set("sport", sportsSelected[0]);
+                      return `/weekend-planner${params.toString() ? `?${params.toString()}` : ""}`;
+                    })()}
+                    className="primaryLink"
+                  >
+                    Plan by city
+                  </Link>
+                </div>
+              </article>
+            </div>
+          ) : (
+            <div className="grid">
+              {tournamentsSorted.map((t) => {
+                const start = formatDate(t.start_date);
+                const end = formatDate(t.end_date);
+                const dateLabel =
+                  start && end && start !== end ? `${start} – ${end}` : start || end || "Dates TBA";
+                const locationLabel = [t.city, t.state].filter(Boolean).join(", ");
               const distanceLabel =
                 radiusActive && typeof t.distance_miles === "number" && Number.isFinite(t.distance_miles)
                   ? `${Math.round(t.distance_miles)} mi`
@@ -862,11 +846,12 @@ export default async function TournamentsPage({
                       ) : null}
                     </div>
                   </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
+                    </article>
+                  );
+              })}
+            </div>
+          )}
+        </div>
       </section>
     </main>
   );
