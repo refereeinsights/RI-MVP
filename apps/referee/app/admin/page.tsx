@@ -83,6 +83,7 @@ import {
   parseCsv,
 } from "@/lib/tournaments/importUtils";
 import { ensureTournamentVenueLink } from "@/lib/tournaments/ensureTournamentVenueLink";
+import { geocodeTournamentVenues } from "@/lib/tournaments/geocodeTournamentVenues";
 import { fetchPageText, extractLocationFromPageText } from "@/lib/pageScanner";
 import { updatePendingTournamentDraftFromFormData } from "@/lib/tournaments/pendingTournamentEdits";
 import { TOURNAMENT_SPORTS } from "@/lib/tournaments/sports";
@@ -2125,6 +2126,8 @@ export default async function AdminPage({
       const failures: string[] = [];
       let venuesCreated = 0;
       let venuesLinkedExisting = 0;
+      let geocodedVenues = 0;
+      const mapboxToken = (process.env.MAPBOX_ACCESS_TOKEN ?? "").trim() || null;
       for (const id of ids) {
         const venueLinkRes = await ensureTournamentVenueLink(id);
         if (venueLinkRes.error) {
@@ -2135,6 +2138,9 @@ export default async function AdminPage({
           if (venueLinkRes.venue_created) venuesCreated += 1;
           else if (venueLinkRes.venue_matched) venuesLinkedExisting += 1;
         }
+        if (mapboxToken) {
+          geocodedVenues += await geocodeTournamentVenues(id, mapboxToken);
+        }
       }
       await Promise.all(ids.map((id) => adminUpdateTournamentStatus({ tournament_id: id, status: "published" })));
       revalidatePath("/admin");
@@ -2144,11 +2150,12 @@ export default async function AdminPage({
         venuesCreated || venuesLinkedExisting
           ? ` Venues: ${venuesLinkedExisting} linked, ${venuesCreated} created.`
           : "";
+      const geocodePart = geocodedVenues > 0 ? ` Geocoded ${geocodedVenues} venue${geocodedVenues === 1 ? "" : "s"}.` : "";
       return redirectWithNotice(
         redirectTo,
         failures.length
-          ? `${ids.length} tournament(s) approved.${venuePart} Venue link failed for ${failures.length}.`
-          : `${ids.length} tournament(s) approved.${venuePart}`
+          ? `${ids.length} tournament(s) approved.${venuePart}${geocodePart} Venue link failed for ${failures.length}.`
+          : `${ids.length} tournament(s) approved.${venuePart}${geocodePart}`
       );
     } else if (action === "archive") {
       await Promise.all(ids.map((id) => adminUpdateTournamentStatus({ tournament_id: id, status: "archived" })));
@@ -2439,7 +2446,6 @@ export default async function AdminPage({
     const venueLinkAttempted = result.venue_links_attempted ?? 0;
     const venueLinkCreated = result.venue_links_created ?? 0;
     const venueLinkErrors = result.venue_link_errors ?? 0;
-    const geocodedVenues = result.geocoded_venues ?? 0;
     const noticeParts: string[] = [];
     noticeParts.push(
       result.failures.length === 0
@@ -2450,9 +2456,6 @@ export default async function AdminPage({
       noticeParts.push(
         `Venue links: ${venueLinkCreated} created, ${venueLinkAttempted} attempted${venueLinkErrors ? `, ${venueLinkErrors} error(s)` : ""}.`
       );
-    }
-    if (geocodedVenues > 0) {
-      noticeParts.push(`Geocoded ${geocodedVenues} venue${geocodedVenues === 1 ? "" : "s"}.`);
     }
 
     if (dropSummary) {

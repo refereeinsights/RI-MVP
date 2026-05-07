@@ -9,7 +9,6 @@ import type {
 } from "@/lib/types/tournament";
 import { upsertTournamentFromSource } from "@/lib/tournaments/upsertFromSource";
 import { TOURNAMENT_SPORTS } from "@/lib/tournaments/sports";
-import { geocodeAddressMapbox } from "@/lib/mapbox/geocodeAddress";
 
 export type CsvRow = Record<string, string>;
 
@@ -720,9 +719,8 @@ async function upsertVenueAndLinkTournament(params: {
   tournamentId: string;
   venue: VenueCandidate;
   setPrimary: boolean;
-  mapboxToken?: string | null;
-}): Promise<{ attempted: boolean; linked: boolean; venueId?: string; latitude?: number | null; longitude?: number | null; geocoded?: boolean; error?: string }> {
-  const { supabase, tournamentId, venue, setPrimary, mapboxToken } = params;
+}): Promise<{ attempted: boolean; linked: boolean; error?: string }> {
+  const { supabase, tournamentId, venue, setPrimary } = params;
 
   try {
     const applyNullableFilter = (query: any, field: string, value: string | null) => {
@@ -730,7 +728,7 @@ async function upsertVenueAndLinkTournament(params: {
       return query.eq(field, value);
     };
 
-    const existingVenueQuery = supabase.from("venues").select("id, latitude, longitude").limit(1);
+    const existingVenueQuery = supabase.from("venues").select("id").limit(1);
     const existingVenueRes = await applyNullableFilter(
       applyNullableFilter(
         applyNullableFilter(
@@ -750,23 +748,7 @@ async function upsertVenueAndLinkTournament(params: {
     }
 
     let venueId = (existingVenueRes.data as any)?.id as string | undefined;
-    let resolvedLat: number | null = venue.latitude;
-    let resolvedLng: number | null = venue.longitude;
-    let geocoded = false;
-
-    const geocodeVenue = async () => {
-      if (!mapboxToken) return;
-      const parts = [venue.address, venue.city, venue.state, venue.zip].filter(Boolean);
-      if (parts.length < 2) return;
-      const geo = await geocodeAddressMapbox(parts.join(", "), mapboxToken, { expectedState: venue.state ?? undefined });
-      if (!geo) return;
-      resolvedLat = geo.lat;
-      resolvedLng = geo.lng;
-      geocoded = true;
-    };
-
     if (!venueId) {
-      if (resolvedLat == null || resolvedLng == null) await geocodeVenue();
       const insertPayload: Record<string, unknown> = {
         name: venue.name,
         address: venue.address,
@@ -774,9 +756,9 @@ async function upsertVenueAndLinkTournament(params: {
         state: venue.state,
         zip: venue.zip,
         sport: venue.sport,
-        ...(resolvedLat != null ? { latitude: resolvedLat } : {}),
-        ...(resolvedLng != null ? { longitude: resolvedLng } : {}),
-        ...(geocoded ? { geocode_source: "mapbox" } : venue.geocode_source != null ? { geocode_source: venue.geocode_source } : {}),
+        ...(venue.latitude != null ? { latitude: venue.latitude } : {}),
+        ...(venue.longitude != null ? { longitude: venue.longitude } : {}),
+        ...(venue.geocode_source != null ? { geocode_source: venue.geocode_source } : {}),
       };
       const insertRes = await (supabase.from("venues") as any).insert(insertPayload).select("id").single();
       if (insertRes.error) {
@@ -784,7 +766,7 @@ async function upsertVenueAndLinkTournament(params: {
           const retryRes = await applyNullableFilter(
             applyNullableFilter(
               applyNullableFilter(
-                applyNullableFilter((supabase.from("venues") as any).select("id, latitude, longitude").limit(1), "name", venue.name),
+                applyNullableFilter((supabase.from("venues") as any).select("id").limit(1), "name", venue.name),
                 "address",
                 venue.address
               ),
@@ -798,34 +780,11 @@ async function upsertVenueAndLinkTournament(params: {
           if (!venueId) {
             return { attempted: true, linked: false, error: retryRes.error?.message || "failed_create_venue" };
           }
-          // Use coords from the existing row found on retry
-          const retryLat = Number((retryRes.data as any)?.latitude ?? NaN);
-          const retryLng = Number((retryRes.data as any)?.longitude ?? NaN);
-          if (Number.isFinite(retryLat) && Number.isFinite(retryLng)) {
-            resolvedLat = retryLat;
-            resolvedLng = retryLng;
-            geocoded = false;
-          }
         } else {
           return { attempted: true, linked: false, error: insertRes.error.message || "failed_create_venue" };
         }
       } else {
         venueId = (insertRes.data as any)?.id as string | undefined;
-      }
-    } else {
-      // Existing venue — geocode if it has no coords
-      const existingLat = Number((existingVenueRes.data as any)?.latitude ?? NaN);
-      const existingLng = Number((existingVenueRes.data as any)?.longitude ?? NaN);
-      if (Number.isFinite(existingLat) && Number.isFinite(existingLng)) {
-        resolvedLat = existingLat;
-        resolvedLng = existingLng;
-      } else {
-        await geocodeVenue();
-        if (geocoded && resolvedLat != null && resolvedLng != null) {
-          await (supabase.from("venues") as any)
-            .update({ latitude: resolvedLat, longitude: resolvedLng, geocode_source: "mapbox" })
-            .eq("id", venueId);
-        }
       }
     }
 
@@ -845,11 +804,11 @@ async function upsertVenueAndLinkTournament(params: {
         .eq("tournament_id", tournamentId)
         .eq("venue_id", venueId);
       if (primaryRes.error) {
-        return { attempted: true, linked: true, venueId, latitude: resolvedLat, longitude: resolvedLng, geocoded, error: primaryRes.error.message || "failed_set_primary" };
+        return { attempted: true, linked: true, error: primaryRes.error.message || "failed_set_primary" };
       }
     }
 
-    return { attempted: true, linked: true, venueId, latitude: resolvedLat, longitude: resolvedLng, geocoded };
+    return { attempted: true, linked: true };
   } catch (error) {
     return { attempted: true, linked: false, error: error instanceof Error ? error.message : "failed_link_venue" };
   }
@@ -863,10 +822,8 @@ export async function importTournamentRecords(records: TournamentRow[]) {
   let venue_links_attempted = 0;
   let venue_links_created = 0;
   let venue_link_errors = 0;
-  let geocoded_venues = 0;
 
   const supabase = supabaseAdmin();
-  const mapboxToken = (process.env.MAPBOX_ACCESS_TOKEN ?? "").trim() || null;
 
   const groups = new Map<
     string,
@@ -959,28 +916,13 @@ export async function importTournamentRecords(records: TournamentRow[]) {
             const venue = venues[idx];
             venue_links_attempted += 1;
             const setPrimary = !hasPrimary && idx === 0;
-            const res = await upsertVenueAndLinkTournament({ supabase, tournamentId: id, venue, setPrimary, mapboxToken });
+            const res = await upsertVenueAndLinkTournament({ supabase, tournamentId: id, venue, setPrimary });
             if (!res.linked) {
               venue_link_errors += 1;
               continue;
             }
             venue_links_created += 1;
-            if (res.geocoded) geocoded_venues += 1;
-            if (setPrimary) {
-              hasPrimary = true;
-              // Set tournament-level coords from primary venue (only if tournament has none).
-              if (res.latitude != null && res.longitude != null) {
-                await (supabase.from("tournaments") as any)
-                  .update({
-                    latitude: res.latitude,
-                    longitude: res.longitude,
-                    geo_source: "venue_import",
-                    geo_updated_at: new Date().toISOString(),
-                  })
-                  .eq("id", id)
-                  .is("latitude", null);
-              }
-            }
+            if (setPrimary) hasPrimary = true;
           }
         }
       }
@@ -989,7 +931,7 @@ export async function importTournamentRecords(records: TournamentRow[]) {
     }
   }
 
-  return { success, failures, tournamentIds, venue_links_attempted, venue_links_created, venue_link_errors, geocoded_venues };
+  return { success, failures, tournamentIds, venue_links_attempted, venue_links_created, venue_link_errors };
 }
 
 // Extract events from JSON-LD scripts (schema.org Event)
