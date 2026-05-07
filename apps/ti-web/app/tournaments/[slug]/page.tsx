@@ -1142,7 +1142,7 @@ async function TournamentVenueDetails({
                     {countsLine ? <span style={{ fontSize: 12, opacity: 0.82 }}>{countsLine}</span> : null}
                     <span className="detailVenueTile__flag">{row.hasOwl ? `${BRAND_OWL} View venue` : "View venue"}</span>
                   </Link>
-                  <div className="detailLinksRow" style={{ marginTop: 8, justifyContent: "flex-start", gap: 10 }}>
+                  <div className="detailLinksRow" style={{ marginTop: 8, justifyContent: "center", gap: 10 }}>
                     <a
                       className="secondaryLink"
                       href={`/go/hotels?venueId=${encodeURIComponent(venue.id)}&tournamentId=${encodeURIComponent(tournament.id)}&source=tournament_detail`}
@@ -1200,7 +1200,7 @@ async function TournamentVenueDetails({
 	                          {countsLine ? <span style={{ fontSize: 12, opacity: 0.82 }}>{countsLine}</span> : null}
 	                          <span className="detailVenueTile__flag">{row.hasOwl ? `${BRAND_OWL} View venue` : "View venue"}</span>
 	                        </Link>
-	                        <div className="detailLinksRow" style={{ marginTop: 8, justifyContent: "flex-start", gap: 10 }}>
+	                        <div className="detailLinksRow" style={{ marginTop: 8, justifyContent: "center", gap: 10 }}>
 	                          <a
 	                            className="secondaryLink"
 	                            href={`/go/hotels?venueId=${encodeURIComponent(venue.id)}&tournamentId=${encodeURIComponent(tournament.id)}&source=tournament_detail`}
