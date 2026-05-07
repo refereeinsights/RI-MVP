@@ -10,6 +10,7 @@ import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import VenueCard from "@/components/venues/VenueCard";
 import UsTournamentHeatmap from "@/app/_components/UsTournamentHeatmap";
+import { isValidZip5 } from "@/lib/booking/venueBooking";
 import styles from "./VenuesPage.module.css";
 import { getSportCardClass, getSummarySportClass, getVenueCardClassFromSports } from "./sportSurface";
 import "../tournaments/tournaments.css";
@@ -358,8 +359,10 @@ export default async function VenuesPage({
       };
     });
 
+  const venuesWithZip = venuesClean.filter((v) => isValidZip5(v.zip));
+
   // Keep venues even if linked tournaments are in the past; date filters only affect tournament counts.
-  const venuesBase = venuesClean.filter((v) => matchesText(v, q));
+  const venuesBase = venuesWithZip.filter((v) => matchesText(v, q));
 
   const sportsCounts = venuesBase.reduce((acc: Record<string, number>, v) => {
     v.sports.forEach((sport) => {
@@ -529,43 +532,6 @@ export default async function VenuesPage({
           />
           <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9 }}>
             <Link href="/premium">Unlock Weekend Pro</Link> to see deeper nearby places and map insights.
-          </div>
-        </div>
-
-        <div className={styles.summaryStack}>
-          <div className="summaryTotalRow">
-            <Link
-              href={`/venues?${buildParams(null)}`}
-              className={`card card--mini summary-total ${styles.summaryAllLink} ${sportsSelected.length === 0 ? styles.summaryActive : ""}`}
-            >
-              <div className="summaryCount">{venuesAllSportCleared.length}</div>
-              <div className="summaryLabel">ALL VENUES</div>
-              <div className="summaryIcon" aria-hidden="true">
-                📍
-              </div>
-            </Link>
-          </div>
-
-          <div className="summaryGrid">
-            <div className="summaryRow">
-              {sportsSorted.map(({ sport, count }) => {
-                const isOnlyActiveSport = sportsSelected.length === 1 && sportsSelected[0] === sport;
-                const href = isOnlyActiveSport ? `/venues?${buildParams(null)}` : `/venues?${buildParams(sport)}`;
-                return (
-                  <Link
-                    key={sport}
-                    href={href}
-                    className={`card card--mini summaryBadgeFixed ${getSportCardClass(sport)} ${getSummarySportClass(sport)} ${sportsSelected.includes(sport) ? styles.summaryActive : ""}`}
-                  >
-                    <div className="summaryCount">{count}</div>
-                    <div className="summaryLabel">{SPORTS_LABELS[sport] || sport}</div>
-                    <div className="summaryIcon" aria-hidden="true">
-                      {venueIcon([sport])}
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
           </div>
         </div>
 

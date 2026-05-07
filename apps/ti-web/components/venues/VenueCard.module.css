@@ -110,8 +110,9 @@
 
 .card :global(.cardFooter) {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  font-size: 0.92rem;
 }
 
 .detailsLink,

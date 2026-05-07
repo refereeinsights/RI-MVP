@@ -84,7 +84,8 @@ export default function VenueCard({
     source: "venue_directory",
     venueId,
   }).toString()}`;
-  const nearbyPlacesHref = `/venues/maps/${venueSeoSlug || venueId}`;
+  const tournamentMapHref =
+    upcomingTournaments[0]?.slug ? `/tournaments/${encodeURIComponent(upcomingTournaments[0].slug)}/map` : null;
 
   return (
     <article className={`card ${sportCardClass} ${styles.card}`}>
@@ -199,9 +200,11 @@ export default function VenueCard({
               🏠 Find Rentals
             </a>
           ) : null}
-          <Link href={nearbyPlacesHref} className={`secondaryLink ${styles.planningLink}`}>
-            View Nearby Places
-          </Link>
+          {tournamentMapHref ? (
+            <Link href={tournamentMapHref} className={`secondaryLink ${styles.planningLink}`}>
+              View Nearby Places
+            </Link>
+          ) : null}
         </div>
       ) : showBooking ? (
         <div className={styles.bookingRow}>
