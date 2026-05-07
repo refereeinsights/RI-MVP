@@ -962,6 +962,47 @@
   text-overflow: ellipsis;
 }
 
+/* Tournament listing CTA layout (directory + hub/state/metro) */
+.cardFooter--ctas {
+  display: block;
+  grid-template-columns: unset;
+  align-items: unset;
+}
+
+.cardCtaGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cardCtaGrid .cardCta--hotels {
+  grid-column: 1 / -1;
+}
+
+.cardDetailsLink {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 40px;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.92);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.35);
+  padding: 6px 4px;
+}
+
+.cardDetailsLink:hover {
+  color: rgba(255,255,255,1);
+}
+
+@media (max-width: 640px) {
+  .cardCtaGrid .cardDetailsLink {
+    grid-column: 1 / -1;
+  }
+}
+
 .listingBadgeIcon {
   display: block;
   max-height: 52px;

@@ -6,7 +6,6 @@ import StateMultiSelect from "./StateMultiSelect";
 import MetroMarketChips from "./_components/MetroMarketChips";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
-import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import "./tournaments.css";
 
@@ -792,58 +791,53 @@ export default async function TournamentsPage({
 
                   <p className="dates">{dateLabel}</p>
 
-                  <div className="cardFooter">
-                    <div style={{ display: "grid", gap: 8 }}>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-                        <a
-                          className="secondaryLink"
-                          href={buildTournamentHotelsHref({
-                            source: "tournament_directory",
-                            tournamentId: t.id,
-                            city: t.city ?? null,
-                            state: t.state ?? null,
-                          })}
-                          target="_blank"
-                          rel="noopener noreferrer sponsored"
-                        >
-                          View Hotels
-                        </a>
-                        <a
-                          className="secondaryLink"
-                          href={buildTournamentVrboHref({
-                            source: "tournament_directory",
-                            tournamentId: t.id,
-                            city: t.city ?? null,
-                            state: t.state ?? null,
-                          })}
-                          target="_blank"
-                          rel="noopener noreferrer sponsored"
-                        >
-                          View Rentals
-                        </a>
-                        <Link href={`/tournaments/${t.slug}#venues`} className="secondaryLink">
-                          View Venues
-                        </Link>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                        {hasVenuesForMap ? (
-                          <TournamentMapCta
-                            href={mapHref}
-                            label="Stay near your fields"
-                            sourceContext="directory_card"
-                            tournamentSlug={t.slug}
-                            sport={t.sport ?? null}
-                            variant="link"
-                          />
-                        ) : (
-                          <div />
-                        )}
-                        <Link href={`/tournaments/${t.slug}`} className="primaryLink">
-                          View details
-                        </Link>
-                      </div>
-                    </div>
+                  <div className="cardFooter cardFooter--ctas">
+                    {(() => {
+                      const city = String(t.city ?? "").trim();
+                      const state = String(t.state ?? "").trim().toUpperCase();
+                      const hasVrbo = Boolean(city && /^[A-Z]{2}$/.test(state));
+                      const hasVenues = venueCount > 0;
+                      return (
+                        <div className="cardCtaGrid">
+                          <a
+                            className="primaryLink cardCta--hotels"
+                            href={buildTournamentHotelsHref({
+                              source: "tournament_directory",
+                              tournamentId: t.id,
+                              city: t.city ?? null,
+                              state: t.state ?? null,
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer sponsored"
+                          >
+                            Find Hotels
+                          </a>
+                          {hasVrbo ? (
+                            <a
+                              className="secondaryLink"
+                              href={buildTournamentVrboHref({
+                                source: "tournament_directory",
+                                tournamentId: t.id,
+                                city: t.city ?? null,
+                                state: t.state ?? null,
+                              })}
+                              target="_blank"
+                              rel="noopener noreferrer sponsored"
+                            >
+                              Find Rentals
+                            </a>
+                          ) : null}
+                          {hasVenues ? (
+                            <Link href={`/tournaments/${t.slug}#venues`} className="secondaryLink">
+                              See Venues
+                            </Link>
+                          ) : null}
+                          <Link href={`/tournaments/${t.slug}`} className="cardDetailsLink">
+                            Tournament Details
+                          </Link>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="cardFooterBadgeRow">
                     <div className="cardFooterBadge cardFooterBadge--left">
