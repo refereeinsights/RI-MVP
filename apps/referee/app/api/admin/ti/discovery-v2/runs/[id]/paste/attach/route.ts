@@ -110,7 +110,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   // Rebuild master CSV by re-parsing all raw pastes in the run (preserves full per-venue columns).
   const { data: joined, error: joinErr } = await supabaseAdmin
     .from("discovery_csv_run_batches" as any)
-    .select("batch_id,discovery_batches(raw_paste)")
+    .select("batch_id,discovery_batches(provider,raw_paste,notes)")
     .eq("csv_run_id", runId);
   if (joinErr) {
     return NextResponse.json({ ok: false, batch_id: batchId, error: joinErr.message }, { status: 500 });
@@ -118,8 +118,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   const allRows: any[] = [];
   for (const r of joined ?? []) {
-    const raw = String((r as any).discovery_batches?.raw_paste ?? "");
-    const parsedBatch = parseDiscoveryV2CsvChunk({ csvText: raw, futureOnly: body.future_only !== false });
+    const provider = String((r as any).discovery_batches?.provider ?? "");
+    const rawPaste = String((r as any).discovery_batches?.raw_paste ?? "");
+    const notes = String((r as any).discovery_batches?.notes ?? "");
+    const csvText =
+      provider === "perplexity" && notes.startsWith("derived_csv\n") ? notes.slice("derived_csv\n".length) : rawPaste;
+    const parsedBatch = parseDiscoveryV2CsvChunk({ csvText, futureOnly: body.future_only !== false });
     if (parsedBatch.ok) {
       allRows.push(...parsedBatch.rows);
     }

@@ -97,6 +97,10 @@ type RunRow = {
   created_at: string;
 };
 
+function chunkKeyForRange(r: { start: string; end: string }) {
+  return `${r.start}__${r.end}`;
+}
+
 export default function DiscoveryV2Client() {
   const [sport, setSport] = useState<string>("soccer");
   const [state, setState] = useState<string>("CA");
@@ -111,6 +115,13 @@ export default function DiscoveryV2Client() {
 
   const [chunkText, setChunkText] = useState<string>("");
   const [attachBusy, setAttachBusy] = useState(false);
+
+  const [perplexityBusy, setPerplexityBusy] = useState<Record<string, boolean>>({});
+  const [perplexityResult, setPerplexityResult] = useState<
+    Record<string, { kind: "ok" | "error" | "warn"; message: string }>
+  >({});
+  const [perplexityCitations, setPerplexityCitations] = useState<Record<string, string[]>>({});
+  const [perplexityContext, setPerplexityContext] = useState<Record<string, string>>({});
 
   const [queueDryRun, setQueueDryRun] = useState(true);
   const [queueBusy, setQueueBusy] = useState(false);
@@ -129,6 +140,67 @@ export default function DiscoveryV2Client() {
     () => chunks.map((c) => buildPrompt({ sport, state, start: c.start, end: c.end })),
     [chunks, sport, state]
   );
+
+  async function runPerplexity(chunk: { start: string; end: string }) {
+    if (!activeRunId) return;
+    const key = chunkKeyForRange(chunk);
+    setPerplexityBusy((p) => ({ ...p, [key]: true }));
+    setPerplexityResult((p) => ({ ...p, [key]: { kind: "warn", message: "" } }));
+    setPerplexityCitations((p) => ({ ...p, [key]: [] }));
+
+    try {
+      const additional_context = (perplexityContext[key] ?? "").trim();
+      const res = await fetch(`/api/admin/ti/discovery-v2/runs/${activeRunId}/perplexity/search`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sport,
+          state,
+          date_start: chunk.start,
+          date_end: chunk.end,
+          future_only: true,
+          additional_context: additional_context || undefined,
+        }),
+      });
+
+      let json: any = null;
+      try {
+        json = await res.json();
+      } catch {
+        setPerplexityResult((p) => ({
+          ...p,
+          [key]: { kind: "error", message: `Perplexity failed (HTTP ${res.status}).` },
+        }));
+        return;
+      }
+
+      if (!json.ok) {
+        const msg = String(json.error ?? "Perplexity failed");
+        const batch = json.batch_id ? ` (batch ${json.batch_id})` : "";
+        setPerplexityResult((p) => ({
+          ...p,
+          [key]: { kind: "error", message: `Error${batch}: ${msg}` },
+        }));
+        return;
+      }
+
+      const citations = Array.isArray(json.perplexity_citations) ? json.perplexity_citations.map(String) : [];
+      setPerplexityCitations((p) => ({ ...p, [key]: citations }));
+
+      setPerplexityResult((p) => ({
+        ...p,
+        [key]: {
+          kind: "ok",
+          message: `Attached batch ${json.batch_id} (${json.accepted} rows). Master CSV rows: ${json.master_csv_row_count}`,
+        },
+      }));
+
+      await loadRun(activeRunId);
+      await refreshRuns();
+    } finally {
+      setPerplexityBusy((p) => ({ ...p, [key]: false }));
+    }
+  }
 
   async function refreshRuns() {
     const res = await fetch("/api/admin/ti/discovery-v2/runs");
@@ -309,9 +381,17 @@ export default function DiscoveryV2Client() {
           </div>
 
           <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
-            {prompts.map((p, idx) => (
-              <details key={idx} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 10 }}>
-                <summary style={{ cursor: "pointer", fontWeight: 900 }}>Chunk {idx + 1} prompt</summary>
+            {prompts.map((p, idx) => {
+              const chunk = chunks[idx];
+              const key = chunk ? chunkKeyForRange(chunk) : String(idx);
+              const busy = Boolean(perplexityBusy[key]);
+              const ctx = perplexityContext[key] ?? "";
+              const result = perplexityResult[key];
+              const citations = perplexityCitations[key] ?? [];
+
+              return (
+                <details key={key} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 10 }}>
+                  <summary style={{ cursor: "pointer", fontWeight: 900 }}>Chunk {idx + 1} prompt</summary>
                 <textarea
                   readOnly
                   value={p}
@@ -326,8 +406,73 @@ export default function DiscoveryV2Client() {
                     fontSize: 12,
                   }}
                 />
+                <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <button
+                      className="cta secondary"
+                      style={{ padding: "8px 12px" }}
+                      disabled={!activeRunId || busy || !chunk}
+                      onClick={() => chunk && runPerplexity(chunk)}
+                    >
+                      {busy ? "Running Perplexity…" : "Run with Perplexity"}
+                    </button>
+                    <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
+                      Billable Perplexity request. Geocoding is OFF by default to protect Mapbox free tier.
+                    </span>
+                  </div>
+
+                  <label style={{ display: "grid", gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>Additional context (optional)</span>
+                    <textarea
+                      value={ctx}
+                      onChange={(e) => {
+                        const next = e.target.value.slice(0, 300);
+                        setPerplexityContext((p) => ({ ...p, [key]: next }));
+                      }}
+                      placeholder='e.g. "USYSA only" / "Showcases and invitationals only"'
+                      rows={2}
+                      maxLength={300}
+                      style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 12, padding: 10, fontSize: 12 }}
+                    />
+                    <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 800, textAlign: "right" }}>
+                      {ctx.length} / 300
+                    </div>
+                  </label>
+
+                  {result?.message ? (
+                    <div
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 10,
+                        background: result.kind === "error" ? "#fef2f2" : result.kind === "warn" ? "#fffbeb" : "#f0fdf4",
+                        border: `1px solid ${result.kind === "error" ? "#fca5a5" : result.kind === "warn" ? "#fcd34d" : "#86efac"}`,
+                        fontSize: 13,
+                        color: "#111",
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {result.message}
+                    </div>
+                  ) : null}
+
+                  {citations.length ? (
+                    <details style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 10 }}>
+                      <summary style={{ cursor: "pointer", fontWeight: 900 }}>Sources</summary>
+                      <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12 }}>
+                        {citations.map((c) => (
+                          <li key={c}>
+                            <a href={c} target="_blank" rel="noreferrer noopener">
+                              {c}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                </div>
               </details>
-            ))}
+              );
+            })}
           </div>
         </section>
 
