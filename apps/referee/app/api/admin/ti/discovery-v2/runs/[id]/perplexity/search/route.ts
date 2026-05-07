@@ -196,47 +196,36 @@ function coerceCitations(value: unknown): string[] {
   return Array.from(new Set(out));
 }
 
+const SPORT_PLATFORMS: Record<string, string[]> = {
+  soccer:     ["GotSport/GotSoccer (gotsport.com)", "SportsEngine", "SoccerWire (soccerwire.com)", "US Club Soccer (usclubsoccer.org)", "state soccer association sites"],
+  lacrosse:   ["US Lacrosse chapter sites (uslacrosse.org)", "SportsEngine", "PlayMetrics (playmetrics.com)", "LeagueApps"],
+  softball:   ["USSSA (usssa.com)", "SportsEngine", "Perfect Game (perfectgame.org)", "USA Softball (usasoftball.com)", "Triple Crown Sports"],
+  baseball:   ["USSSA (usssa.com)", "Perfect Game (perfectgame.org)", "SportsEngine", "USA Baseball (usabaseball.com)", "Triple Crown Sports"],
+  hockey:     ["USA Hockey district sites (usahockey.com)", "SportsEngine", "district association sites (PNAHA, CAHA, MAHA, etc.)"],
+  volleyball: ["SportsEngine", "AES (aesweb.com)", "USA Volleyball region sites (usav.org)", "LeagueApps", "AAU (aausports.org)"],
+  basketball: ["SportsEngine", "LeagueApps", "AAU (aausports.org)", "USA Basketball (usab.com)"],
+  wrestling:  ["USA Wrestling state sites (themat.com)", "SportsEngine", "LeagueApps"],
+  swimming:   ["USA Swimming LSC sites (usaswimming.org)", "SportsEngine"],
+  track:      ["USATF region sites (usatf.org)", "MileSplit (milesplit.com)", "SportsEngine"],
+};
+const DEFAULT_PLATFORMS = ["SportsEngine", "LeagueApps", "sport-specific state association websites"];
+
 function buildUserPrompt(input: { sport: string; stateLabel: string; stateSchemaHint: string; dateStart: string; dateEnd: string; additionalContext?: string | null }) {
+  const platforms = (SPORT_PLATFORMS[input.sport] ?? DEFAULT_PLATFORMS).join(", ");
+
   const base = [
     `Find real upcoming youth ${input.sport} tournaments in ${input.stateLabel} from ${input.dateStart} to ${input.dateEnd}.`,
-    "Return JSON only, no other text. Use schema below.",
+    `Search first: ${platforms}.`,
+    "Return JSON only, no other text.",
     "",
-    "Schema:",
-    "{",
-    '  "tournaments": [',
-    "    {",
-    '      "tournament_name": "string — full official name",',
-    `      "sport": "${input.sport}",`,
-    '      "city": "string — tournament city",',
-    `      "state": ${input.stateSchemaHint},`,
-    '      "start_date": "YYYY-MM-DD",',
-    '      "end_date": "YYYY-MM-DD",',
-    '      "official_website_url": "string or empty — plain https:// only",',
-    '      "source_url": "string — REQUIRED — plain https:// only",',
-    '      "host_org": "string or empty",',
-    '      "venues": [',
-    "        {",
-    '          "venue_name": "string or empty — optional; if provided must be a specific facility name (no placeholders like TBD or Multiple Locations)",',
-    '          "venue_address": "string — REQUIRED — full street address (number + street), e.g. 123 Main St",',
-    '          "venue_city": "string",',
-    '          "venue_state": "2-letter state code",',
-    '          "venue_zip": "string — REQUIRED — 5-digit US ZIP (e.g. 97229)",',
-    '          "venue_url": "string or empty — plain https:// only"',
-    "        }",
-    "      ]",
-    "    }",
-    "  ]",
-    "}",
+    `Tournament fields: tournament_name, sport, city, state (${input.stateSchemaHint}), start_date (YYYY-MM-DD), end_date (YYYY-MM-DD), official_website_url, source_url (required), host_org, venues[]`,
+    "Venue fields: venue_name (no TBD/placeholders), venue_address (full street address), venue_city, venue_state (2-letter), venue_zip (5-digit), venue_url",
     "",
     "Rules:",
-    "- Only real verified tournaments (not leagues, clinics, weekly play, camps).",
-    "- Dates must be YYYY-MM-DD.",
+    `- Real confirmed tournaments only (not leagues, clinics, weekly play, camps). Max ${MAX_TOURNAMENTS}.`,
     "- One entry per tournament; multi-venue goes inside venues[].",
-    "- Every venue must have venue_address + venue_city + venue_state + venue_zip. Do not provide vague or placeholder venues.",
-    "- If venue_name is provided, it must NOT be a placeholder (TBD, Multiple Locations, Various Venues, Area Gyms, Surrounding Area, Portland Area Gyms, etc.).",
-    "- All URLs must be plain https:// strings (no markdown link format).",
-    "- source_url required for every tournament.",
-    `- Max ${MAX_TOURNAMENTS} tournaments.`,
+    "- Every venue must have venue_address + venue_city + venue_state + venue_zip — no vague or placeholder venues.",
+    "- All URLs plain https:// strings only (no markdown). source_url required per tournament.",
   ].join("\n");
 
   const extra = (input.additionalContext ?? "").trim();
@@ -318,7 +307,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!apiKey) return NextResponse.json({ ok: false, error: "Missing PERPLEXITY_API_KEY" }, { status: 500 });
 
   const systemPrompt =
-    'You are a tournament research assistant. Search the web for real upcoming youth sports tournaments matching the user\'s query. Return ONLY valid JSON — no markdown, no explanation. Output a single JSON object with key "tournaments" containing an array. Each tournament must have all required fields.';
+    "You are a sports tournament researcher. Search registration platforms (SportsEngine, PlayMetrics, LeagueApps, GotSport), state sport association websites, and tournament organization sites to find real events. Prioritize specific event pages over org home pages. Return ONLY valid JSON — no markdown, no explanation. Output a single JSON object with key \"tournaments\" containing an array.";
   const userPrompt = buildUserPrompt({ sport, stateLabel, stateSchemaHint, dateStart, dateEnd, additionalContext: additionalContextTrimmed || null });
 
   const controller = new AbortController();
