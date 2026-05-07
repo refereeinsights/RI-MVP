@@ -101,9 +101,9 @@ function coerceCitations(value: unknown): string[] {
   return Array.from(new Set(out));
 }
 
-function buildUserPrompt(input: { sport: string; state: string; dateStart: string; dateEnd: string; additionalContext?: string | null }) {
+function buildUserPrompt(input: { sport: string; stateLabel: string; stateSchemaHint: string; dateStart: string; dateEnd: string; additionalContext?: string | null }) {
   const base = [
-    `Find real upcoming youth ${input.sport} tournaments in ${input.state} from ${input.dateStart} to ${input.dateEnd}.`,
+    `Find real upcoming youth ${input.sport} tournaments in ${input.stateLabel} from ${input.dateStart} to ${input.dateEnd}.`,
     "Return JSON only, no other text. Use schema below.",
     "",
     "Schema:",
@@ -113,7 +113,7 @@ function buildUserPrompt(input: { sport: string; state: string; dateStart: strin
     '      "tournament_name": "string — full official name",',
     `      "sport": "${input.sport}",`,
     '      "city": "string — tournament city",',
-    `      "state": "${input.state}",`,
+    `      "state": ${input.stateSchemaHint},`,
     '      "start_date": "YYYY-MM-DD",',
     '      "end_date": "YYYY-MM-DD",',
     '      "official_website_url": "string or empty — plain https:// only",',
@@ -158,13 +158,25 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!body) return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
 
   const sport = String(body.sport ?? "").trim().toLowerCase();
-  const state = String(body.state ?? "").trim().toUpperCase();
+  const rawState = String(body.state ?? "").trim().toUpperCase().replace(/\s+/g, "");
+  const stateCodes = rawState.split(",").map((s) => s.trim()).filter(Boolean);
   const dateStart = String(body.date_start ?? "").trim();
   const dateEnd = String(body.date_end ?? "").trim();
   const futureOnly = body.future_only !== false;
 
   if (!sport) return NextResponse.json({ ok: false, error: "sport is required" }, { status: 400 });
-  if (!isTwoLetterState(state)) return NextResponse.json({ ok: false, error: "state must be 2-letter code" }, { status: 400 });
+  if (stateCodes.length === 0 || !stateCodes.every(isTwoLetterState)) {
+    return NextResponse.json({ ok: false, error: "state must be one or more 2-letter codes (e.g. CA or RI,CT,NH)" }, { status: 400 });
+  }
+  const state = stateCodes[0];
+  const stateLabel =
+    stateCodes.length === 1
+      ? stateCodes[0]
+      : `${stateCodes.slice(0, -1).join(", ")} and ${stateCodes[stateCodes.length - 1]}`;
+  const stateSchemaHint =
+    stateCodes.length === 1
+      ? `"${stateCodes[0]}"`
+      : `"2-letter code — one of: ${stateCodes.join(", ")}"`;
   if (!isIsoDate(dateStart) || !isIsoDate(dateEnd)) {
     return NextResponse.json({ ok: false, error: "date_start and date_end must be YYYY-MM-DD" }, { status: 400 });
   }
@@ -211,7 +223,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   const systemPrompt =
     'You are a tournament research assistant. Search the web for real upcoming youth sports tournaments matching the user\'s query. Return ONLY valid JSON — no markdown, no explanation. Output a single JSON object with key "tournaments" containing an array. Each tournament must have all required fields.';
-  const userPrompt = buildUserPrompt({ sport, state, dateStart, dateEnd, additionalContext: additionalContextTrimmed || null });
+  const userPrompt = buildUserPrompt({ sport, stateLabel, stateSchemaHint, dateStart, dateEnd, additionalContext: additionalContextTrimmed || null });
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PERPLEXITY_TIMEOUT_MS);
@@ -373,7 +385,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const tournamentName = String(t?.tournament_name ?? "").trim();
     const tournamentSport = String(t?.sport ?? sport).trim().toLowerCase() || sport;
     const city = String(t?.city ?? "").trim();
-    const st = String(t?.state ?? state).trim().toUpperCase() || state;
+    const st = String(t?.state ?? "").trim().toUpperCase() || state;
     const startDate = String(t?.start_date ?? "").trim();
     const endDate = String(t?.end_date ?? "").trim();
     const officialWebsiteUrl = String(t?.official_website_url ?? "").trim();

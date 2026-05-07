@@ -4,46 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 
 import { TI_SPORT_LABELS, TI_SPORTS } from "@/lib/tiSports";
 
-function isoToUtcDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const t = Date.parse(`${value}T00:00:00Z`);
-  return Number.isFinite(t) ? new Date(t) : null;
-}
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const QUARTER_MONTHS: [number, number, number][] = [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]];
 
-function toIsoUtc(d: Date) {
-  return d.toISOString().slice(0, 10);
+function monthFirstDay(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-01`;
 }
-
-function addDaysIso(iso: string, days: number) {
-  const d = isoToUtcDate(iso);
-  if (!d) return null;
-  d.setUTCDate(d.getUTCDate() + days);
-  return toIsoUtc(d);
+function monthLastDay(year: number, month: number): string {
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
 }
-
-function diffDaysInclusive(startIso: string, endIso: string) {
-  const a = isoToUtcDate(startIso);
-  const b = isoToUtcDate(endIso);
-  if (!a || !b) return null;
-  const ms = b.getTime() - a.getTime();
-  return Math.floor(ms / (24 * 60 * 60 * 1000));
+function currentQuarter(): number {
+  return Math.ceil((new Date().getMonth() + 1) / 3);
 }
-
-function splitRange(startIso: string, endIso: string, parts: number) {
-  const days = diffDaysInclusive(startIso, endIso);
-  if (days === null) return [];
-  const size = Math.max(1, Math.ceil((days + 1) / parts));
-  const ranges: Array<{ start: string; end: string }> = [];
-  let curStart = startIso;
-  while (curStart <= endIso) {
-    const curEnd = addDaysIso(curStart, size - 1) ?? curStart;
-    ranges.push({ start: curStart, end: curEnd <= endIso ? curEnd : endIso });
-    const nextStart = addDaysIso(curEnd <= endIso ? curEnd : endIso, 1);
-    if (!nextStart) break;
-    curStart = nextStart;
-    if (ranges.length > 12) break;
-  }
-  return ranges;
+function chunkMonthLabel(start: string): string {
+  const m = parseInt(start.slice(5, 7), 10) - 1;
+  return `${MONTHS_SHORT[m] ?? ""} ${start.slice(0, 4)}`;
 }
 
 function geocodedRowCount(masterCsv: string): number {
@@ -104,8 +79,9 @@ function chunkKeyForRange(r: { start: string; end: string }) {
 export default function DiscoveryV2Client() {
   const [sport, setSport] = useState<string>("soccer");
   const [state, setState] = useState<string>("CA");
-  const [dateStart, setDateStart] = useState<string>("");
-  const [dateEnd, setDateEnd] = useState<string>("");
+  const [dateMode, setDateMode] = useState<"month" | "quarter">("quarter");
+  const [year, setYear] = useState<string>(String(new Date().getFullYear()));
+  const [period, setPeriod] = useState<string>(String(currentQuarter()));
   const [notice, setNotice] = useState<string>("");
 
   const [runs, setRuns] = useState<RunRow[]>([]);
@@ -127,14 +103,28 @@ export default function DiscoveryV2Client() {
   const [queueBusy, setQueueBusy] = useState(false);
   const [queueResult, setQueueResult] = useState<any | null>(null);
 
-  const canCreate = Boolean(sport && state && dateStart && dateEnd);
+  const canCreate = Boolean(sport && state.trim());
+
+  const { dateStart, dateEnd } = useMemo(() => {
+    const y = Number(year);
+    if (dateMode === "month") {
+      const m = Number(period);
+      return { dateStart: monthFirstDay(y, m), dateEnd: monthLastDay(y, m) };
+    }
+    const q = Number(period) - 1;
+    const months = QUARTER_MONTHS[q] ?? QUARTER_MONTHS[0];
+    return { dateStart: monthFirstDay(y, months[0]), dateEnd: monthLastDay(y, months[2]) };
+  }, [dateMode, year, period]);
 
   const chunks = useMemo(() => {
-    if (!dateStart || !dateEnd) return [];
-    const days = diffDaysInclusive(dateStart, dateEnd);
-    const parts = days !== null && days > 120 ? 4 : 2;
-    return splitRange(dateStart, dateEnd, parts);
-  }, [dateStart, dateEnd]);
+    const y = Number(year);
+    if (dateMode === "month") {
+      return [{ start: dateStart, end: dateEnd }];
+    }
+    const q = Number(period) - 1;
+    const months = QUARTER_MONTHS[q] ?? QUARTER_MONTHS[0];
+    return months.map((m) => ({ start: monthFirstDay(y, m), end: monthLastDay(y, m) }));
+  }, [dateMode, year, period, dateStart, dateEnd]);
 
   const prompts = useMemo(
     () => chunks.map((c) => buildPrompt({ sport, state, start: c.start, end: c.end })),
@@ -321,7 +311,7 @@ export default function DiscoveryV2Client() {
         <section style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fff" }}>
           <div style={{ fontWeight: 950, marginBottom: 8 }}>V2.5 Runner</div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 10 }}>
             <label style={{ display: "grid", gap: 4 }}>
               <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>Sport</span>
               <select value={sport} onChange={(e) => setSport(e.target.value)} style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }}>
@@ -334,17 +324,50 @@ export default function DiscoveryV2Client() {
             </label>
 
             <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>State</span>
-              <input value={state} onChange={(e) => setState(e.target.value.toUpperCase())} placeholder="CA" style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }} />
+              <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>State(s)</span>
+              <input
+                value={state}
+                onChange={(e) => setState(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                placeholder="CA or RI,CT,NH"
+                title="Single state code or comma-separated (e.g. RI,CT,NH)"
+                style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }}
+              />
             </label>
 
             <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>From</span>
-              <input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }} />
+              <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>Mode</span>
+              <select
+                value={dateMode}
+                onChange={(e) => {
+                  const m = e.target.value as "month" | "quarter";
+                  setDateMode(m);
+                  setPeriod(m === "quarter" ? String(currentQuarter()) : String(new Date().getMonth() + 1));
+                }}
+                style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }}
+              >
+                <option value="month">Month</option>
+                <option value="quarter">Quarter</option>
+              </select>
             </label>
+
             <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>To</span>
-              <input type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }} />
+              <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>Year</span>
+              <select value={year} onChange={(e) => setYear(e.target.value)} style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }}>
+                {[new Date().getFullYear(), new Date().getFullYear() + 1].map((y) => (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
+              </select>
+            </label>
+
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 900, color: "#6b7280" }}>{dateMode === "month" ? "Month" : "Quarter"}</span>
+              <select value={period} onChange={(e) => setPeriod(e.target.value)} style={{ padding: 8, borderRadius: 10, border: "1px solid #e5e7eb" }}>
+                {dateMode === "month"
+                  ? MONTHS_SHORT.map((m, i) => <option key={i + 1} value={String(i + 1)}>{m}</option>)
+                  : ["Q1 Jan–Mar", "Q2 Apr–Jun", "Q3 Jul–Sep", "Q4 Oct–Dec"].map((q, i) => (
+                      <option key={i + 1} value={String(i + 1)}>{q}</option>
+                    ))}
+              </select>
             </label>
 
             <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
@@ -391,7 +414,7 @@ export default function DiscoveryV2Client() {
 
               return (
                 <details key={key} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 10 }}>
-                  <summary style={{ cursor: "pointer", fontWeight: 900 }}>Chunk {idx + 1} prompt</summary>
+                  <summary style={{ cursor: "pointer", fontWeight: 900 }}>{chunkMonthLabel(chunk?.start ?? "")} — Chunk {idx + 1}</summary>
                 <textarea
                   readOnly
                   value={p}
