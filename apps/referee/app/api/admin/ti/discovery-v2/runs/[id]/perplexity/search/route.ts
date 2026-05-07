@@ -197,13 +197,13 @@ function coerceCitations(value: unknown): string[] {
 }
 
 const SPORT_PLATFORMS: Record<string, string[]> = {
-  soccer:     ["GotSport/GotSoccer (gotsport.com)", "SportsEngine", "SoccerWire (soccerwire.com)", "US Club Soccer (usclubsoccer.org)", "state soccer association sites"],
-  lacrosse:   ["US Lacrosse chapter sites (uslacrosse.org)", "SportsEngine", "PlayMetrics (playmetrics.com)", "LeagueApps"],
-  softball:   ["USSSA (usssa.com)", "SportsEngine", "Perfect Game (perfectgame.org)", "USA Softball (usasoftball.com)", "Triple Crown Sports"],
-  baseball:   ["USSSA (usssa.com)", "Perfect Game (perfectgame.org)", "SportsEngine", "USA Baseball (usabaseball.com)", "Triple Crown Sports"],
-  hockey:     ["USA Hockey district sites (usahockey.com)", "SportsEngine", "district association sites (PNAHA, CAHA, MAHA, etc.)"],
-  volleyball: ["SportsEngine", "AES (aesweb.com)", "USA Volleyball region sites (usav.org)", "LeagueApps", "AAU (aausports.org)"],
-  basketball: ["SportsEngine", "LeagueApps", "AAU (aausports.org)", "USA Basketball (usab.com)"],
+  basketball: ["Exposure Events (basketball.exposureevents.com)", "Grassroots 365 (grassroots365.com)", "Hoop Source Basketball (hoopsourcebasketball.com)", "AAU (aausports.org)"],
+  softball:   ["Softball Connected (softballconnected.com)", "USSSA (usssa.com)", "Advanced Event Systems (advancedeventsystems.com)", "Top Tier Sports (toptiersports.net)"],
+  baseball:   ["USSSA (usssa.com)", "Perfect Game (perfectgame.org)", "Top Tier Sports (toptiersports.net)", "SportsEngine"],
+  soccer:     ["US Club Soccer (usclubsoccer.org)", "GotSport/GotSoccer (gotsport.com)", "SoccerWire (soccerwire.com)", "state soccer association sites"],
+  lacrosse:   ["Victory Event Series (victoryeventseries.com)", "US Lax Events (uslaxevents.com)", "My Lacrosse Tournaments (mylacrossetournaments.com)", "US Lacrosse chapter sites (uslacrosse.org)"],
+  hockey:     ["My Hockey Tournaments (myhockeytournaments.com)", "USA Hockey district sites (usahockey.com)", "state/district hockey association sites"],
+  volleyball: ["Advanced Event Systems (advancedeventsystems.com)", "AAU Volleyball (aausports.org)", "USA Volleyball region sites (usav.org)", "SportsEngine"],
   wrestling:  ["USA Wrestling state sites (themat.com)", "SportsEngine", "LeagueApps"],
   swimming:   ["USA Swimming LSC sites (usaswimming.org)", "SportsEngine"],
   track:      ["USATF region sites (usatf.org)", "MileSplit (milesplit.com)", "SportsEngine"],
@@ -307,7 +307,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!apiKey) return NextResponse.json({ ok: false, error: "Missing PERPLEXITY_API_KEY" }, { status: 500 });
 
   const systemPrompt =
-    "You are a sports tournament researcher. Search registration platforms (SportsEngine, PlayMetrics, LeagueApps, GotSport), state sport association websites, and tournament organization sites to find real events. Prioritize specific event pages over org home pages. Return ONLY valid JSON — no markdown, no explanation. Output a single JSON object with key \"tournaments\" containing an array.";
+    "You are a sports tournament researcher. Search sport-specific registration platforms first — for example: Exposure Events for basketball, Softball Connected and USSSA for softball, Perfect Game and USSSA for baseball, Victory Event Series and US Lax Events for lacrosse, My Hockey Tournaments for hockey, Advanced Event Systems for volleyball, US Club Soccer for soccer. Also search state sport association websites and tournament organization sites. Prioritize specific event pages over org home pages. Return ONLY valid JSON — no markdown, no explanation. Output a single JSON object with key \"tournaments\" containing an array.";
   const userPrompt = buildUserPrompt({ sport, stateLabel, stateSchemaHint, dateStart, dateEnd, additionalContext: additionalContextTrimmed || null });
 
   const controller = new AbortController();
