@@ -9,6 +9,7 @@ import type {
 } from "@/lib/types/tournament";
 import { upsertTournamentFromSource } from "@/lib/tournaments/upsertFromSource";
 import { TOURNAMENT_SPORTS } from "@/lib/tournaments/sports";
+import { findVenueMatch, type VenueMatchInput } from "@/lib/tournaments/venueNormalization";
 
 export type CsvRow = Record<string, string>;
 
@@ -728,26 +729,39 @@ async function upsertVenueAndLinkTournament(params: {
       return query.eq(field, value);
     };
 
-    const existingVenueQuery = supabase.from("venues").select("id").limit(1);
-    const existingVenueRes = await applyNullableFilter(
-      applyNullableFilter(
+    // Broad city+state fetch → fuzzy match (Tier 1: address, Tier 2: normalized name).
+    // Falls back to exact match when city or state is missing.
+    let venueId: string | undefined;
+    if (venue.city && venue.state) {
+      const { data: candidates, error: candidatesErr } = await (supabase.from("venues") as any)
+        .select("id, name, address, city, state")
+        .eq("city", venue.city)
+        .eq("state", venue.state)
+        .limit(50);
+      if (candidatesErr) {
+        return { attempted: true, linked: false, error: candidatesErr.message || "failed_lookup_venue" };
+      }
+      const match = findVenueMatch((candidates ?? []) as VenueMatchInput[], venue);
+      venueId = (match as any)?.id as string | undefined;
+    } else {
+      const existingVenueRes = await applyNullableFilter(
         applyNullableFilter(
-          applyNullableFilter(existingVenueQuery as any, "name", venue.name),
-          "address",
-          venue.address
+          applyNullableFilter(
+            applyNullableFilter((supabase.from("venues") as any).select("id").limit(1), "name", venue.name),
+            "address",
+            venue.address
+          ),
+          "city",
+          venue.city
         ),
-        "city",
-        venue.city
-      ),
-      "state",
-      venue.state
-    ).maybeSingle();
-
-    if (existingVenueRes.error) {
-      return { attempted: true, linked: false, error: existingVenueRes.error.message || "failed_lookup_venue" };
+        "state",
+        venue.state
+      ).maybeSingle();
+      if (existingVenueRes.error) {
+        return { attempted: true, linked: false, error: existingVenueRes.error.message || "failed_lookup_venue" };
+      }
+      venueId = (existingVenueRes.data as any)?.id as string | undefined;
     }
-
-    let venueId = (existingVenueRes.data as any)?.id as string | undefined;
     if (!venueId) {
       const insertPayload: Record<string, unknown> = {
         name: venue.name,

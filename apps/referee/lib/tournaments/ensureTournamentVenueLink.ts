@@ -1,6 +1,7 @@
 "use server";
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { findVenueMatch, type VenueMatchInput } from "@/lib/tournaments/venueNormalization";
 
 export async function ensureTournamentVenueLink(
   tournamentId: string
@@ -75,24 +76,38 @@ export async function ensureTournamentVenueLink(
     return query.eq(field, value);
   };
 
-  const existingVenueQuery = supabaseAdmin.from("venues" as any).select("id").limit(1);
-  const existingVenueRes = await applyNullableFilter(
-    applyNullableFilter(applyNullableFilter(applyNullableFilter(existingVenueQuery, "name", venueName), "address", venueAddress), "city", venueCity),
-    "state",
-    venueState
-  ).maybeSingle();
-  if (existingVenueRes.error) {
-    return {
-      linked: false,
-      attempted: true,
-      venue_created: false,
-      venue_matched: false,
-      error: existingVenueRes.error.message || "failed_lookup_venue",
-    };
+  // Broad city+state fetch → fuzzy match (Tier 1: address, Tier 2: normalized name).
+  // Falls back to exact match when city or state is missing.
+  let venueId: string | undefined;
+  let venueMatched = false;
+  if (venueCity && venueState) {
+    const { data: candidates, error: candidatesErr } = await (supabaseAdmin.from("venues" as any) as any)
+      .select("id, name, address, city, state")
+      .eq("city", venueCity)
+      .eq("state", venueState)
+      .limit(50);
+    if (candidatesErr) {
+      return { linked: false, attempted: true, venue_created: false, venue_matched: false, error: candidatesErr.message || "failed_lookup_venue" };
+    }
+    const match = findVenueMatch(
+      (candidates ?? []) as VenueMatchInput[],
+      { name: venueName, address: venueAddress, city: venueCity, state: venueState }
+    );
+    venueId = (match as any)?.id as string | undefined;
+    venueMatched = Boolean(venueId);
+  } else {
+    const existingVenueRes = await applyNullableFilter(
+      applyNullableFilter(applyNullableFilter(applyNullableFilter(supabaseAdmin.from("venues" as any).select("id").limit(1), "name", venueName), "address", venueAddress), "city", venueCity),
+      "state",
+      venueState
+    ).maybeSingle();
+    if (existingVenueRes.error) {
+      return { linked: false, attempted: true, venue_created: false, venue_matched: false, error: existingVenueRes.error.message || "failed_lookup_venue" };
+    }
+    venueId = (existingVenueRes.data as any)?.id as string | undefined;
+    venueMatched = Boolean(venueId);
   }
 
-  let venueId = (existingVenueRes.data as any)?.id as string | undefined;
-  let venueMatched = Boolean(venueId);
   let venueCreated = false;
   if (!venueId) {
     const insertPayload: Record<string, unknown> = {
