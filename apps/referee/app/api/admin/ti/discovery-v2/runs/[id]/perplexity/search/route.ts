@@ -31,6 +31,14 @@ function isTwoLetterState(value: string) {
   return /^[A-Z]{2}$/.test(value);
 }
 
+function bestEffortState2(value: string, fallback: string) {
+  const raw = String(value ?? "").trim().toUpperCase();
+  if (isTwoLetterState(raw)) return raw;
+  const m = raw.match(/\b([A-Z]{2})\b/);
+  if (m?.[1] && isTwoLetterState(m[1])) return m[1];
+  return fallback;
+}
+
 function isPlainHttpsUrl(value: string) {
   return /^https:\/\/\S+$/i.test(value);
 }
@@ -446,7 +454,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const tournamentName = String(t?.tournament_name ?? "").trim();
     const tournamentSport = String(t?.sport ?? sport).trim().toLowerCase() || sport;
     const city = String(t?.city ?? "").trim();
-    const st = String(t?.state ?? "").trim().toUpperCase() || state;
+    const st = bestEffortState2(String(t?.state ?? ""), state);
     const startDate = String(t?.start_date ?? "").trim();
     const endDate = String(t?.end_date ?? "").trim();
     const officialWebsiteUrlRaw = String(t?.official_website_url ?? "").trim();
@@ -467,7 +475,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         venue_name: String(v?.venue_name ?? "").trim(),
         venue_address: String(v?.venue_address ?? "").trim(),
         venue_city: String(v?.venue_city ?? "").trim(),
-        venue_state: String(v?.venue_state ?? "").trim().toUpperCase(),
+        venue_state: bestEffortState2(String(v?.venue_state ?? ""), state),
         venue_zip: String(v?.venue_zip ?? "").trim(),
         venue_url: String(v?.venue_url ?? "").trim(),
       }))
