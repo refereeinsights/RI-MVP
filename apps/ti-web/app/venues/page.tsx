@@ -11,6 +11,7 @@ import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import VenueCard from "@/components/venues/VenueCard";
 import UsTournamentHeatmap from "@/app/_components/UsTournamentHeatmap";
 import { isValidZip5 } from "@/lib/booking/venueBooking";
+import { QuickVenueCheck } from "@/components/venues/QuickVenueCheck";
 import styles from "./VenuesPage.module.css";
 import { getSportCardClass, getSummarySportClass, getVenueCardClassFromSports } from "./sportSurface";
 import "../tournaments/tournaments.css";
@@ -533,6 +534,14 @@ export default async function VenuesPage({
           <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9 }}>
             <Link href="/premium">Unlock Weekend Pro</Link> to see deeper nearby places and map insights.
           </div>
+        </div>
+
+        <div id="quick-venue-check" style={{ marginTop: 14 }}>
+          <QuickVenueCheck
+            pageType="venue"
+            signedIn={Boolean(user)}
+            venueOptions={venues.map((v) => ({ id: v.id, name: v.name }))}
+          />
         </div>
 
         <div id="results" />

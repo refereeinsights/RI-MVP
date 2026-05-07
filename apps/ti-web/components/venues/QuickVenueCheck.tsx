@@ -136,7 +136,17 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
       if (window.location.hash === "#quick-venue-check") open();
     };
 
-    const onEvent = () => open();
+    const onEvent = (e: Event) => {
+      try {
+        const venueId = (e as CustomEvent)?.detail?.venueId;
+        if (typeof venueId === "string" && venueId.trim()) {
+          setSelectedVenueId(venueId.trim());
+        }
+      } catch {
+        // ignore
+      }
+      open();
+    };
 
     window.addEventListener("hashchange", onHash);
     window.addEventListener("ti:qvc:open", onEvent as EventListener);

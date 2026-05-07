@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
 import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
+import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheckButton";
 import styles from "./VenueCard.module.css";
 
 type MapLinks = {
@@ -151,27 +152,33 @@ export default function VenueCard({
 
       <div className="cardFooter">
         <Link href={detailsHref} className={`primaryLink ${styles.detailsLink}`}>
-          Venue details
+          Details
         </Link>
 
         {canReviewVenue ? (
-          <Link href={reviewHref} className="secondaryLink">
-            Review
-          </Link>
+          showPlanningCtas ? (
+            <StartQuickVenueCheckButton className="secondaryLink" venueId={venueId}>
+              Review
+            </StartQuickVenueCheckButton>
+          ) : (
+            <Link href={reviewHref} className="secondaryLink">
+              Review
+            </Link>
+          )
         ) : null}
 
         {venueUrl ? (
           <a href={venueUrl} target="_blank" rel="noopener noreferrer" className={`secondaryLink ${styles.siteLink}`}>
-            <span>Venue site</span>
+            <span>Site</span>
           </a>
         ) : mapLinks ? (
           <a href={mapLinks.google} target="_blank" rel="noopener noreferrer" className={`secondaryLink ${styles.siteLink}`}>
-            <span>Google Maps</span>
+            <span>Maps</span>
           </a>
         ) : (
           <div className={`secondaryLink ${styles.siteLink}`} aria-disabled="true" style={{ cursor: "default" }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 }}>
-              <span>Venue site</span>
+              <span>Site</span>
               <span className="tbdText">TBD</span>
             </div>
           </div>
@@ -179,11 +186,11 @@ export default function VenueCard({
 
         {mapLinks ? (
           <a href={mapLinks.apple} target="_blank" rel="noopener noreferrer" className={`primaryLink ${styles.mapLink}`}>
-            View map
+            Map
           </a>
         ) : (
           <span className={`primaryLink ${styles.mapLink}`} aria-disabled="true" style={{ opacity: 0.55, pointerEvents: "none" }}>
-            View map
+            Map
           </span>
         )}
       </div>
@@ -201,9 +208,9 @@ export default function VenueCard({
             </a>
           ) : null}
           {tournamentMapHref ? (
-            <Link href={tournamentMapHref} className={`secondaryLink ${styles.planningLink}`}>
+            <a href={tournamentMapHref} target="_blank" rel="noopener noreferrer" className={`secondaryLink ${styles.planningLink}`}>
               View Nearby Places
-            </Link>
+            </a>
           ) : null}
         </div>
       ) : showBooking ? (

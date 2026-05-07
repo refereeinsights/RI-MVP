@@ -1752,7 +1752,7 @@ export default async function TournamentDetailPage({
             }}
           >
             <a
-              className="primaryLink"
+              className="secondaryLink hotelBookingCta"
               href={buildTournamentHotelsHref({
                 source: "tournament_detail",
                 tournamentId: data.id,

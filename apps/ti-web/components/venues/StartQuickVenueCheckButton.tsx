@@ -3,9 +3,10 @@
 type Props = {
   className?: string;
   children?: React.ReactNode;
+  venueId?: string | null;
 };
 
-export default function StartQuickVenueCheckButton({ className, children }: Props) {
+export default function StartQuickVenueCheckButton({ className, children, venueId }: Props) {
   return (
     <button
       type="button"
@@ -20,7 +21,7 @@ export default function StartQuickVenueCheckButton({ className, children }: Prop
           // ignore
         }
         try {
-          window.dispatchEvent(new CustomEvent("ti:qvc:open"));
+          window.dispatchEvent(new CustomEvent("ti:qvc:open", { detail: { venueId: venueId || null } }));
         } catch {
           // ignore
         }
@@ -34,4 +35,3 @@ export default function StartQuickVenueCheckButton({ className, children }: Prop
     </button>
   );
 }
-

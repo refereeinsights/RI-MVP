@@ -115,6 +115,16 @@
   font-size: 0.92rem;
 }
 
+.card :global(.cardFooter) a,
+.card :global(.cardFooter) button,
+.card :global(.cardFooter) span,
+.card :global(.cardFooter) div {
+  padding: 8px 10px;
+  border-radius: 999px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
 .detailsLink,
 .siteLink,
 .mapLink {
