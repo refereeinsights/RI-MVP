@@ -97,6 +97,7 @@ export default function DiscoveryV2Client() {
     Record<string, { kind: "ok" | "error" | "warn"; message: string }>
   >({});
   const [perplexityCitations, setPerplexityCitations] = useState<Record<string, string[]>>({});
+  const [perplexityDebug, setPerplexityDebug] = useState<Record<string, any>>({});
   const [perplexityContext, setPerplexityContext] = useState<Record<string, string>>({});
 
   const [queueDryRun, setQueueDryRun] = useState(true);
@@ -137,6 +138,7 @@ export default function DiscoveryV2Client() {
     setPerplexityBusy((p) => ({ ...p, [key]: true }));
     setPerplexityResult((p) => ({ ...p, [key]: { kind: "warn", message: "" } }));
     setPerplexityCitations((p) => ({ ...p, [key]: [] }));
+    setPerplexityDebug((p) => ({ ...p, [key]: null }));
 
     try {
       const additional_context = (perplexityContext[key] ?? "").trim();
@@ -167,6 +169,7 @@ export default function DiscoveryV2Client() {
       if (!json.ok) {
         const msg = String(json.error ?? "Perplexity failed");
         const batch = json.batch_id ? ` (batch ${json.batch_id})` : "";
+        if (json.debug) setPerplexityDebug((p) => ({ ...p, [key]: json.debug }));
         setPerplexityResult((p) => ({
           ...p,
           [key]: { kind: "error", message: `Error${batch}: ${msg}` },
@@ -411,6 +414,7 @@ export default function DiscoveryV2Client() {
               const ctx = perplexityContext[key] ?? "";
               const result = perplexityResult[key];
               const citations = perplexityCitations[key] ?? [];
+              const debug = perplexityDebug[key];
 
               return (
                 <details key={key} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 10 }}>
@@ -476,6 +480,15 @@ export default function DiscoveryV2Client() {
                     >
                       {result.message}
                     </div>
+                  ) : null}
+
+                  {debug ? (
+                    <details style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 10 }}>
+                      <summary style={{ cursor: "pointer", fontWeight: 900 }}>Details</summary>
+                      <pre style={{ margin: "8px 0 0", fontSize: 11, whiteSpace: "pre-wrap" }}>
+                        {JSON.stringify(debug, null, 2)}
+                      </pre>
+                    </details>
                   ) : null}
 
                   {citations.length ? (

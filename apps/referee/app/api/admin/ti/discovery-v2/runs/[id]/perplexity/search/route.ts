@@ -83,6 +83,66 @@ function extractFirstJsonObject(text: string) {
   return trimmed.slice(start, end + 1);
 }
 
+function parseDebugSnapshot(args: {
+  rawContent: string;
+  extracted: string | null;
+  parsedJson: unknown;
+  citations: string[];
+}) {
+  const topLevelType = Array.isArray(args.parsedJson)
+    ? "array"
+    : args.parsedJson === null
+    ? "null"
+    : typeof args.parsedJson;
+
+  const topLevelKeys =
+    args.parsedJson && typeof args.parsedJson === "object" && !Array.isArray(args.parsedJson)
+      ? Object.keys(args.parsedJson as any).slice(0, 25)
+      : [];
+
+  const arrayKeysFound: string[] =
+    args.parsedJson && typeof args.parsedJson === "object" && !Array.isArray(args.parsedJson)
+      ? Object.keys(args.parsedJson as any)
+          .filter((k) => Array.isArray((args.parsedJson as any)[k]))
+          .slice(0, 25)
+      : [];
+
+  const tournamentsDetected = (() => {
+    if (Array.isArray(args.parsedJson)) return args.parsedJson.length;
+    if (args.parsedJson && typeof args.parsedJson === "object") {
+      const t = (args.parsedJson as any).tournaments;
+      if (Array.isArray(t)) return t.length;
+    }
+    return 0;
+  })();
+
+  const firstTournamentKeys = (() => {
+    const getFirst = () => {
+      if (Array.isArray(args.parsedJson)) return args.parsedJson[0];
+      if (args.parsedJson && typeof args.parsedJson === "object") {
+        const t = (args.parsedJson as any).tournaments;
+        if (Array.isArray(t)) return t[0];
+      }
+      return null;
+    };
+    const first = getFirst();
+    if (!first || typeof first !== "object") return [];
+    return Object.keys(first as any).slice(0, 25);
+  })();
+
+  return {
+    content_chars: args.rawContent.length,
+    extracted_json_chars: args.extracted ? args.extracted.length : 0,
+    top_level_type: topLevelType,
+    top_level_keys: topLevelKeys,
+    array_keys_found: arrayKeysFound,
+    tournaments_detected: tournamentsDetected,
+    first_item_keys: firstTournamentKeys,
+    citations_count: args.citations.length,
+    note: "Expected a JSON object with key 'tournaments' (array).",
+  };
+}
+
 function looksLikePlaceholderVenue(name: string) {
   const v = String(name ?? "").trim().toLowerCase();
   if (!v) return true;
@@ -372,24 +432,29 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   // Parse assistant content into JSON tournaments object.
   const extracted = extractFirstJsonObject(rawContent);
   if (!extracted) {
+    const debug = parseDebugSnapshot({ rawContent, extracted: null, parsedJson: null, citations });
     await supabaseAdmin.from("discovery_batch_parse_log" as any).insert({
       batch_id: batchId,
       parse_status: "failed",
       error_summary: "No JSON object found in Perplexity response content.",
-      warnings: null,
+      warnings: debug,
       row_count_detected: 0,
       row_count_accepted: 0,
     });
-    return NextResponse.json({ ok: false, batch_id: batchId, error: "No JSON object found in Perplexity response." }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, batch_id: batchId, error: "No JSON object found in Perplexity response.", debug },
+      { status: 400 }
+    );
   }
 
   // Truncation guard (before JSON.parse).
   if (lastNonWhitespaceChar(extracted) !== "}") {
+    const debug = parseDebugSnapshot({ rawContent, extracted, parsedJson: null, citations });
     await supabaseAdmin.from("discovery_batch_parse_log" as any).insert({
       batch_id: batchId,
       parse_status: "failed",
       error_summary: "Perplexity response was truncated. Try a narrower date range or reduce the number of expected results.",
-      warnings: null,
+      warnings: debug,
       row_count_detected: 0,
       row_count_accepted: 0,
     });
@@ -398,6 +463,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         ok: false,
         batch_id: batchId,
         error: "Perplexity response was truncated. Try a narrower date range or reduce the number of expected results.",
+        debug,
       },
       { status: 400 }
     );
@@ -407,15 +473,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   try {
     parsedJson = JSON.parse(extracted);
   } catch {
+    const debug = parseDebugSnapshot({ rawContent, extracted, parsedJson: null, citations });
     await supabaseAdmin.from("discovery_batch_parse_log" as any).insert({
       batch_id: batchId,
       parse_status: "failed",
       error_summary: "Invalid JSON returned by Perplexity.",
-      warnings: null,
+      warnings: debug,
       row_count_detected: 0,
       row_count_accepted: 0,
     });
-    return NextResponse.json({ ok: false, batch_id: batchId, error: "Invalid JSON returned by Perplexity." }, { status: 400 });
+    return NextResponse.json({ ok: false, batch_id: batchId, error: "Invalid JSON returned by Perplexity.", debug }, { status: 400 });
   }
 
   // Coerce tournaments array.
@@ -431,15 +498,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   if (!Array.isArray(tournaments) || tournaments.length === 0) {
+    const debug = parseDebugSnapshot({ rawContent, extracted, parsedJson, citations });
     await supabaseAdmin.from("discovery_batch_parse_log" as any).insert({
       batch_id: batchId,
       parse_status: "failed",
       error_summary: "No tournaments array found in Perplexity JSON.",
-      warnings: null,
+      warnings: debug,
       row_count_detected: 0,
       row_count_accepted: 0,
     });
-    return NextResponse.json({ ok: false, batch_id: batchId, error: "No tournaments array found in Perplexity JSON." }, { status: 400 });
+    return NextResponse.json({ ok: false, batch_id: batchId, error: "No tournaments array found in Perplexity JSON.", debug }, { status: 400 });
   }
 
   const warnings: string[] = [];
