@@ -240,7 +240,53 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       },
       body: JSON.stringify({
         model: "sonar-pro",
-        response_format: { type: "json_object" },
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "tournament_discovery_results",
+            schema: {
+              type: "object",
+              additionalProperties: true,
+              properties: {
+                tournaments: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    additionalProperties: true,
+                    properties: {
+                      tournament_name: { type: "string" },
+                      sport: { type: "string" },
+                      city: { type: "string" },
+                      state: { type: "string" },
+                      start_date: { type: "string" },
+                      end_date: { type: "string" },
+                      official_website_url: { type: ["string", "null"] },
+                      source_url: { type: "string" },
+                      host_org: { type: ["string", "null"] },
+                      venues: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          additionalProperties: true,
+                          properties: {
+                            venue_name: { type: "string" },
+                            venue_address: { type: ["string", "null"] },
+                            venue_city: { type: "string" },
+                            venue_state: { type: "string" },
+                            venue_zip: { type: ["string", "null"] },
+                            venue_url: { type: ["string", "null"] },
+                          },
+                        },
+                      },
+                    },
+                    required: ["tournament_name", "sport", "city", "state", "start_date", "end_date", "source_url", "venues"],
+                  },
+                },
+              },
+              required: ["tournaments"],
+            },
+          },
+        },
         max_tokens: 8000,
         temperature: 0.2,
         messages: [
@@ -508,7 +554,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   // Rebuild master CSV by re-parsing all raw pastes in the run.
   const { data: joined, error: joinErr } = await supabaseAdmin
     .from("discovery_csv_run_batches" as any)
-    .select("batch_id,discovery_batches(raw_paste)")
+    .select("batch_id,discovery_batches(provider,raw_paste,notes)")
     .eq("csv_run_id", runId);
   if (joinErr) {
     return NextResponse.json({ ok: false, batch_id: batchId, error: joinErr.message }, { status: 500 });
