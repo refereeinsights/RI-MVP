@@ -993,14 +993,12 @@
   padding: 6px 4px;
 }
 
-.cardDetailsLink:hover {
-  color: rgba(255,255,255,1);
+.cardCtaGrid .cardDetailsLink {
+  grid-column: 1 / -1;
 }
 
-@media (max-width: 640px) {
-  .cardCtaGrid .cardDetailsLink {
-    grid-column: 1 / -1;
-  }
+.cardDetailsLink:hover {
+  color: rgba(255,255,255,1);
 }
 
 .listingBadgeIcon {
