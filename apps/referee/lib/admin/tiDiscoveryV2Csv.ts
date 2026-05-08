@@ -195,6 +195,14 @@ function looksLikeStreetAddress(value: string | null | undefined) {
   return /\d/.test(v);
 }
 
+function looksLikeUsefulVenueName(value: string | null | undefined) {
+  const v = String(value ?? "").trim();
+  if (!v) return false;
+  if (isBadVenueValue(v)) return false;
+  // Avoid junk short tokens.
+  return v.length >= 4;
+}
+
 export function parseDiscoveryV2CsvChunk(params: { csvText: string; futureOnly?: boolean }): DiscoveryV2ParseResult {
   const text = String(params.csvText ?? "");
   const futureOnly = params.futureOnly !== false;
@@ -255,14 +263,16 @@ export function parseDiscoveryV2CsvChunk(params: { csvText: string; futureOnly?:
 
     // Venue requirement (v2.5 relaxed): venue_name is optional, but we REQUIRE address + city + state + zip.
     // Per user requirement: reject only this row when missing/bad venue.
-    if (!looksLikeStreetAddress(venueAddress)) continue;
+    const venueName = !venueNameRaw || isBadVenueValue(venueNameRaw) ? "" : venueNameRaw;
+    const hasStreet = looksLikeStreetAddress(venueAddress);
+    const hasName = looksLikeUsefulVenueName(venueName);
+    if (!hasStreet && !hasName) continue;
     // ZIP: allow blank (can be backfilled later), but reject non-blank invalid ZIPs.
     const venueZipTrimmed = String(venueZip ?? "").trim();
     if (venueZipTrimmed && !isValidZip5(venueZipTrimmed)) continue;
     const venueCity = String(venueCityRaw || "").trim();
     const venueState = normalizeStateUsps(venueStateRaw);
     if (!venueCity || !venueState) continue;
-    const venueName = !venueNameRaw || isBadVenueValue(venueNameRaw) ? "" : venueNameRaw;
 
     const official = officialRaw ? tryNormalizeHttpUrl(extractFirstHttpUrl(officialRaw)) : null;
     if (official && (!isHttpUrl(official) || isPlaceholderUrl(official))) {

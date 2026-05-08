@@ -236,11 +236,11 @@ function buildUserPrompt(input: {
     : "";
 
   const lines = [
-    `Find real upcoming youth ${input.sport} tournaments in ${input.stateLabel} from ${input.dateStart} to ${input.dateEnd}.`,
+    `Find real upcoming youth ${input.sport} tournaments in or near ${input.stateLabel} from ${input.dateStart} to ${input.dateEnd}.`,
     platformLine,
     timingNote,
     "Return ONLY a JSON object with key \"tournaments\" (array). Each item:",
-    `  tournament_name (string), sport ("${input.sport}"), city (string), state (${input.stateSchemaHint}),`,
+    `  tournament_name (string), sport ("${input.sport}"), city (string), state ("2-letter code"),`,
     "  start_date (YYYY-MM-DD), end_date (YYYY-MM-DD),",
     "  official_website_url (plain https:// or empty), source_url (plain https:// — REQUIRED),",
     "  host_org (string or empty),",
@@ -250,6 +250,7 @@ function buildUserPrompt(input: {
     "- Real tournaments only — not leagues, clinics, camps, or weekly play.",
     "- One entry per tournament; list all venues in venues[].",
     "- venue_name must be a specific facility — no TBD / Multiple Locations / Various Venues.",
+    `- State: include tournaments primarily in ${input.stateLabel}, but you MAY include nearby border-state tournaments if they are commonly attended by ${input.stateLabel} teams (do not force the state to match the target).`,
     "- venue_city + venue_state required per venue; venue_zip and venue_address are best-effort (omit rather than guess).",
     "- All URLs plain https:// — no markdown [text](url) format.",
     `- Max ${MAX_TOURNAMENTS} tournaments.`,
@@ -533,6 +534,7 @@ export async function runPerplexityChunk(args: RunPerplexityChunkArgs) {
     const tournamentName = String(t?.tournament_name ?? "").trim();
     const tournamentSport = String(t?.sport ?? sport).trim().toLowerCase() || sport;
     const city = String(t?.city ?? "").trim();
+    // Allow tournaments outside the target state; only use target as a fallback when the model omits/garbles state.
     const st = bestEffortState2(String(t?.state ?? ""), state);
     const startDate = String(t?.start_date ?? "").trim();
     const endDate = String(t?.end_date ?? "").trim();
@@ -548,18 +550,20 @@ export async function runPerplexityChunk(args: RunPerplexityChunkArgs) {
 
     const venuesRaw = Array.isArray(t?.venues) ? t.venues : [];
     const venuesFiltered = venuesRaw
-      .map((v: any) => ({
-        venue_name: String(v?.venue_name ?? "").trim(),
-        venue_address: String(v?.venue_address ?? "").trim(),
-        venue_city: String(v?.venue_city ?? "").trim(),
-        venue_state: bestEffortState2(String(v?.venue_state ?? ""), state),
-        venue_zip: String(v?.venue_zip ?? "").trim(),
-        venue_url: String(v?.venue_url ?? "").trim(),
-      }))
+      .map((v: any) => {
+        const venue_name = String(v?.venue_name ?? "").trim();
+        const venue_address = String(v?.venue_address ?? "").trim();
+        const venue_city = String(v?.venue_city ?? "").trim() || city;
+        const venue_state = bestEffortState2(String(v?.venue_state ?? ""), st);
+        const venue_zip = String(v?.venue_zip ?? "").trim();
+        const venue_url = String(v?.venue_url ?? "").trim();
+        return { venue_name, venue_address, venue_city, venue_state, venue_zip, venue_url };
+      })
       .filter((v: any) => {
+        // City/state: fall back to tournament city/state when omitted.
         if (!v.venue_city || !isTwoLetterState(v.venue_state)) return false;
         if (v.venue_name && looksLikePlaceholderVenue(v.venue_name)) return false;
-        // Accept named venues or proper street addresses; zip is best-effort
+        // Accept named venues or proper street addresses; zip/address can be missing (to backfill later).
         if (!looksLikeStreetAddress(v.venue_address) && !v.venue_name) return false;
         return true;
       });
