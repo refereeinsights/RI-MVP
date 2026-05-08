@@ -2,6 +2,21 @@ import { buildMasterCsv, parseDiscoveryV2CsvChunk, toCandidateInsert } from "@/l
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { trackExternalCall, EXTERNAL_API, EXTERNAL_API_SURFACE } from "@/lib/trackExternalCall";
 
+// Dominant registration/tournament platforms by sport — injected into search prompts
+// so Perplexity targets the right sites before falling back to generic search.
+const SPORT_PLATFORMS: Record<string, string[]> = {
+  basketball: ["basketball.exposureevents.com", "grassroots365.com", "hoopsourcebasketball.com", "aausports.org"],
+  softball:   ["softballconnected.com", "usssa.com", "advancedeventsystems.com", "toptiersports.net"],
+  baseball:   ["usssa.com", "perfectgame.org", "toptiersports.net"],
+  soccer:     ["usclubsoccer.org", "gotsport.com", "soccerwire.com", "state soccer association sites"],
+  lacrosse:   ["victoryeventseries.com", "uslaxevents.com", "mylacrossetournaments.com"],
+  hockey:     ["myhockeytournaments.com", "usahockey.com district sites"],
+  volleyball: ["advancedeventsystems.com", "aausports.org", "usav.org region sites"],
+  wrestling:  ["themat.com state sites", "sportsengine.com"],
+  swimming:   ["usaswimming.org LSC sites"],
+  track:      ["usatf.org region sites", "milesplit.com"],
+};
+
 const MAX_CONTEXT_CHARS = 300;
 const MAX_TOURNAMENTS = 20;
 const MAX_VENUES_PER_TOURNAMENT = 20;
@@ -195,51 +210,42 @@ function buildUserPrompt(input: {
   dateEnd: string;
   additionalContext?: string | null;
 }) {
-  const base = [
+  const platforms = SPORT_PLATFORMS[input.sport.toLowerCase()] ?? [];
+  const platformLine = platforms.length
+    ? `Search these platforms first: ${platforms.join(", ")}. Also check state/regional association sites and club tournament pages.`
+    : "Check sport-specific registration platforms and state/regional association sites.";
+
+  // For dates more than 3 months out, many tournaments aren't posted yet.
+  // Guide Perplexity to surface recurring annual events from prior years.
+  const today = new Date();
+  const startMs = Date.parse(input.dateStart);
+  const monthsOut = Number.isFinite(startMs) ? (startMs - today.getTime()) / (1000 * 60 * 60 * 24 * 30) : 0;
+  const timingNote = monthsOut > 3
+    ? "Dates are more than 3 months out — many events may not yet have 2026 pages. Include well-known recurring annual tournaments even if only prior-year pages are available; use the prior-year source_url and estimate dates."
+    : "";
+
+  const lines = [
     `Find real upcoming youth ${input.sport} tournaments in ${input.stateLabel} from ${input.dateStart} to ${input.dateEnd}.`,
-    "Return JSON only, no other text. Use schema below.",
-    "",
-    "Schema:",
-    "{",
-    '  "tournaments": [',
-    "    {",
-    '      "tournament_name": "string — full official name",',
-    `      "sport": "${input.sport}",`,
-    '      "city": "string — tournament city",',
-    `      "state": ${input.stateSchemaHint},`,
-    '      "start_date": "YYYY-MM-DD",',
-    '      "end_date": "YYYY-MM-DD",',
-    '      "official_website_url": "string or empty — plain https:// only",',
-    '      "source_url": "string — REQUIRED — plain https:// only",',
-    '      "host_org": "string or empty",',
-    '      "venues": [',
-    "        {",
-    '          "venue_name": "string or empty — optional; if provided must be a specific facility name (no placeholders like TBD or Multiple Locations)",',
-    '          "venue_address": "string — REQUIRED — full street address (number + street), e.g. 123 Main St",',
-    '          "venue_city": "string",',
-    '          "venue_state": "2-letter state code",',
-    '          "venue_zip": "string — REQUIRED — 5-digit US ZIP (e.g. 97229)",',
-    '          "venue_url": "string or empty — plain https:// only"',
-    "        }",
-    "      ]",
-    "    }",
-    "  ]",
-    "}",
-    "",
+    platformLine,
+    timingNote,
+    "Return ONLY a JSON object with key \"tournaments\" (array). Each item:",
+    `  tournament_name (string), sport ("${input.sport}"), city (string), state (${input.stateSchemaHint}),`,
+    "  start_date (YYYY-MM-DD), end_date (YYYY-MM-DD),",
+    "  official_website_url (plain https:// or empty), source_url (plain https:// — REQUIRED),",
+    "  host_org (string or empty),",
+    "  venues (array, each: venue_name (specific facility name or empty), venue_address (street address if known or empty),",
+    "    venue_city, venue_state (2-letter), venue_zip (5-digit), venue_url (plain https:// or empty)).",
     "Rules:",
-    "- Only real verified tournaments (not leagues, clinics, weekly play, camps).",
-    "- Dates must be YYYY-MM-DD.",
-    "- One entry per tournament; multi-venue goes inside venues[].",
-    "- Every venue must have venue_address + venue_city + venue_state + venue_zip. Do not provide vague or placeholder venues.",
-    "- If venue_name is provided, it must NOT be a placeholder (TBD, Multiple Locations, Various Venues, Area Gyms, Surrounding Area, Portland Area Gyms, etc.).",
-    "- All URLs must be plain https:// strings (no markdown link format).",
-    "- source_url required for every tournament.",
+    "- Real tournaments only — not leagues, clinics, camps, or weekly play.",
+    "- One entry per tournament; list all venues in venues[].",
+    "- venue_name must be a specific facility — no TBD / Multiple Locations / Various Venues.",
+    "- venue_city + venue_state + venue_zip required per venue; venue_address is best-effort (omit rather than guess).",
+    "- All URLs plain https:// — no markdown [text](url) format.",
     `- Max ${MAX_TOURNAMENTS} tournaments.`,
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 
   const extra = (input.additionalContext ?? "").trim();
-  if (!extra) return base;
-  return `${base}\n\nAdditional search context: ${extra}`;
+  return extra ? `${lines}\n\nAdditional context: ${extra}` : lines;
 }
 
 export type RunPerplexityChunkArgs = {
@@ -312,7 +318,9 @@ export async function runPerplexityChunk(args: RunPerplexityChunkArgs) {
   if (!apiKey) throw new HttpError(500, "Missing PERPLEXITY_API_KEY");
 
   const systemPrompt =
-    'You are a tournament research assistant. Search the web for real upcoming youth sports tournaments matching the user\'s query. Return ONLY valid JSON — no markdown, no explanation. Output a single JSON object with key "tournaments" containing an array. Each tournament must have all required fields.';
+    'You are a tournament research assistant. Search sport-specific registration platforms, state/regional association sites, and club tournament pages to find real upcoming youth sports tournaments. ' +
+    'Make multiple targeted searches — check the platforms named in the user prompt, then search broadly for any additional events. ' +
+    'Return ONLY valid JSON — no markdown, no explanation. Output a single JSON object with key "tournaments" (array). Each tournament must include all required fields.';
   const userPrompt = buildUserPrompt({ sport, stateLabel, stateSchemaHint, dateStart, dateEnd, additionalContext: additionalContextTrimmed || null });
 
   const controller = new AbortController();
@@ -327,7 +335,7 @@ export async function runPerplexityChunk(args: RunPerplexityChunkArgs) {
         method: "POST",
         headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
         body: JSON.stringify({
-          model: "sonar-pro",
+          model: "sonar-reasoning-pro",
           response_format: {
             type: "json_schema",
             json_schema: {
