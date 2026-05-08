@@ -256,7 +256,9 @@ export function parseDiscoveryV2CsvChunk(params: { csvText: string; futureOnly?:
     // Venue requirement (v2.5 relaxed): venue_name is optional, but we REQUIRE address + city + state + zip.
     // Per user requirement: reject only this row when missing/bad venue.
     if (!looksLikeStreetAddress(venueAddress)) continue;
-    if (!isValidZip5(venueZip)) continue;
+    // ZIP: allow blank (can be backfilled later), but reject non-blank invalid ZIPs.
+    const venueZipTrimmed = String(venueZip ?? "").trim();
+    if (venueZipTrimmed && !isValidZip5(venueZipTrimmed)) continue;
     const venueCity = String(venueCityRaw || "").trim();
     const venueState = normalizeStateUsps(venueStateRaw);
     if (!venueCity || !venueState) continue;
@@ -291,7 +293,7 @@ export function parseDiscoveryV2CsvChunk(params: { csvText: string; futureOnly?:
       venue_address: venueAddress || null,
       venue_city: venueCity,
       venue_state: venueState,
-      venue_zip: venueZip || null,
+      venue_zip: venueZipTrimmed || null,
       venue_url: venueUrlRaw ? tryNormalizeHttpUrl(extractFirstHttpUrl(venueUrlRaw)) : null,
       venue_latitude: Number.isFinite(Number(venueLatRaw)) && Number(venueLatRaw) !== 0 ? Number(venueLatRaw) : null,
       venue_longitude: Number.isFinite(Number(venueLngRaw)) && Number(venueLngRaw) !== 0 ? Number(venueLngRaw) : null,

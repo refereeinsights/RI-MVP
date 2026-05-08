@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { HttpError, runPerplexityChunk } from "@/lib/admin/tiDiscoveryPerplexity";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 // Vercel serverless functions have execution time limits; keep this conservative.
 // The UI will call this once per quarter/month selection (typically 1–3 chunks).

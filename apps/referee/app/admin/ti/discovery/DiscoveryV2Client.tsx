@@ -113,6 +113,8 @@ export default function DiscoveryV2Client() {
   const [queueDryRun, setQueueDryRun] = useState(true);
   const [queueBusy, setQueueBusy] = useState(false);
   const [queueResult, setQueueResult] = useState<any | null>(null);
+  const [zipBusy, setZipBusy] = useState(false);
+  const [zipResult, setZipResult] = useState<any | null>(null);
 
   const canCreate = Boolean(sport && state.trim());
 
@@ -388,6 +390,33 @@ export default function DiscoveryV2Client() {
       await refreshRuns();
     } finally {
       setQueueBusy(false);
+    }
+  }
+
+  async function backfillZips() {
+    if (!activeRunId) return;
+    setNotice("");
+    setZipResult(null);
+    setZipBusy(true);
+    try {
+      const res = await fetch(`/api/admin/ti/discovery-v2/runs/${activeRunId}/zip-backfill`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ max: 50 }),
+      });
+      const json = (await res.json().catch(() => null)) as any;
+      setZipResult(json);
+      if (!json?.ok) {
+        setNotice(json?.error ?? `ZIP backfill failed (HTTP ${res.status}).`);
+        return;
+      }
+      setNotice(
+        `ZIP backfill: attempted ${json.attempted}, filled ${json.filled}. Remaining missing ZIP: ${json.remaining_missing_zip}.`
+      );
+      await loadRun(activeRunId);
+      await refreshRuns();
+    } finally {
+      setZipBusy(false);
     }
   }
 
@@ -712,10 +741,18 @@ export default function DiscoveryV2Client() {
             <button className="cta secondary" style={{ padding: "8px 12px" }} disabled={!activeRunId || queueBusy} onClick={queueToUploads}>
               {queueBusy ? "Queuing…" : "Queue to uploads"}
             </button>
+            <button className="cta secondary" style={{ padding: "8px 12px" }} disabled={!activeRunId || zipBusy} onClick={backfillZips}>
+              {zipBusy ? "Backfilling ZIPs…" : "Backfill ZIPs (cap 50)"}
+            </button>
             <a href="/admin?tab=tournament-uploads" className="cta secondary" style={{ padding: "8px 12px", textDecoration: "none" }}>
               Open uploads →
             </a>
           </div>
+          {zipResult && zipResult.ok === false ? (
+            <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 10, background: "#fef2f2", border: "1px solid #fca5a5", fontSize: 13 }}>
+              ZIP backfill error: {String(zipResult.error ?? "Unknown error")}
+            </div>
+          ) : null}
 
           <div style={{ marginTop: 10 }}>
             <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 900, marginBottom: 6 }}>

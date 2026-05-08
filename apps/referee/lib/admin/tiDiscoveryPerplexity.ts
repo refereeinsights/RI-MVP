@@ -21,7 +21,7 @@ const MAX_CONTEXT_CHARS = 300;
 const MAX_TOURNAMENTS = 20;
 const MAX_VENUES_PER_TOURNAMENT = 20;
 const MAX_ROWS_ACCEPTED_PER_REQUEST = 200;
-const PERPLEXITY_TIMEOUT_MS = 25_000;
+const PERPLEXITY_TIMEOUT_MS = 90_000;
 const RESPONSE_CHAR_LIMIT = 250_000;
 const RATE_LIMIT_WINDOW_MS = 30_000;
 
@@ -137,6 +137,10 @@ function parseDebugSnapshot(args: { rawContent: string; extracted: string | null
     return Object.keys(first as any).slice(0, 25);
   })();
 
+  // Extract the <think> block text (sonar-reasoning-pro wraps reasoning in <think>...</think>)
+  const thinkMatch = args.rawContent.match(/<think>([\s\S]*?)<\/think>/i);
+  const thinkPreview = thinkMatch ? thinkMatch[1].trim().slice(0, 800) : null;
+
   return {
     content_chars: args.rawContent.length,
     extracted_json_chars: args.extracted ? args.extracted.length : 0,
@@ -146,6 +150,8 @@ function parseDebugSnapshot(args: { rawContent: string; extracted: string | null
     tournaments_detected: tournamentsDetected,
     first_item_keys: firstTournamentKeys,
     citations_count: args.citations.length,
+    think_preview: thinkPreview,
+    citations: args.citations.slice(0, 10),
     note: "Expected a JSON object with key 'tournaments' (array).",
   };
 }
@@ -212,16 +218,21 @@ function buildUserPrompt(input: {
 }) {
   const platforms = SPORT_PLATFORMS[input.sport.toLowerCase()] ?? [];
   const platformLine = platforms.length
-    ? `Search these platforms first: ${platforms.join(", ")}. Also check state/regional association sites and club tournament pages.`
-    : "Check sport-specific registration platforms and state/regional association sites.";
+    ? `These platforms often list ${input.sport} tournaments (use as examples, not an exclusive list): ${platforms.join(", ")}. Search broadly — run multiple queries like "youth ${input.sport} tournament ${input.stateLabel} ${input.dateStart.slice(0, 4)}", check the state ${input.sport} association site, state referee committee site, regional hubs, and individual club tournament pages.`
+    : `Search broadly — run multiple queries like "youth ${input.sport} tournament ${input.stateLabel} ${input.dateStart.slice(0, 4)}", check sport-specific registration platforms, the state ${input.sport} association site, and individual club tournament pages.`;
 
   // For dates more than 3 months out, many tournaments aren't posted yet.
   // Guide Perplexity to surface recurring annual events from prior years.
   const today = new Date();
   const startMs = Date.parse(input.dateStart);
   const monthsOut = Number.isFinite(startMs) ? (startMs - today.getTime()) / (1000 * 60 * 60 * 24 * 30) : 0;
+  const priorYear = new Date(startMs).getFullYear() - 1;
+  const targetYear = new Date(startMs).getFullYear();
   const timingNote = monthsOut > 3
-    ? "Dates are more than 3 months out — many events may not yet have 2026 pages. Include well-known recurring annual tournaments even if only prior-year pages are available; use the prior-year source_url and estimate dates."
+    ? `Registration for ${targetYear} events is likely not open yet. ` +
+      `Search explicitly for ${priorYear} versions of the same tournaments (e.g. site:advancedeventsystems.com november ${priorYear} ${input.sport} ${input.stateLabel}). ` +
+      `Even if you find a ${targetYear} page that says "schedule coming soon" or dates not yet released, you MUST also find and include the ${priorYear} version of that same tournament — use the ${priorYear} source_url and estimate ${targetYear} dates in the same month window. ` +
+      `Do not return an empty array just because ${targetYear} pages haven't been published — prior-year recurrences are expected and required.`
     : "";
 
   const lines = [
@@ -239,7 +250,7 @@ function buildUserPrompt(input: {
     "- Real tournaments only — not leagues, clinics, camps, or weekly play.",
     "- One entry per tournament; list all venues in venues[].",
     "- venue_name must be a specific facility — no TBD / Multiple Locations / Various Venues.",
-    "- venue_city + venue_state + venue_zip required per venue; venue_address is best-effort (omit rather than guess).",
+    "- venue_city + venue_state required per venue; venue_zip and venue_address are best-effort (omit rather than guess).",
     "- All URLs plain https:// — no markdown [text](url) format.",
     `- Max ${MAX_TOURNAMENTS} tournaments.`,
   ].filter(Boolean).join("\n");
@@ -293,7 +304,8 @@ export async function runPerplexityChunk(args: RunPerplexityChunkArgs) {
   if (runErr) throw new HttpError(500, runErr.message);
   const runRow = runRowData as any;
   if (!runRow?.id) throw new HttpError(404, "Run not found");
-  if (String(runRow?.status ?? "") !== "draft") throw new HttpError(409, "Run is not attachable in current status");
+  const attachableStatuses = ["draft", "imported", "imported_partial"];
+  if (!attachableStatuses.includes(String(runRow?.status ?? ""))) throw new HttpError(409, "Run is not attachable in current status");
 
   // Rate limit: prevent repeated perplexity calls for this run within 30s (success or failure).
   if (!args.bypassRateLimit) {
@@ -320,7 +332,7 @@ export async function runPerplexityChunk(args: RunPerplexityChunkArgs) {
   const systemPrompt =
     'You are a tournament research assistant. Search sport-specific registration platforms, state/regional association sites, and club tournament pages to find real upcoming youth sports tournaments. ' +
     'Make multiple targeted searches — check the platforms named in the user prompt, then search broadly for any additional events. ' +
-    'Return ONLY valid JSON — no markdown, no explanation. Output a single JSON object with key "tournaments" (array). Each tournament must include all required fields.';
+    'Return ONLY valid JSON — no markdown, no explanation. Output a single JSON object with key "tournaments" (array). Include any tournament you find — omit a field rather than inventing it, but never omit the tournament itself.';
   const userPrompt = buildUserPrompt({ sport, stateLabel, stateSchemaHint, dateStart, dateEnd, additionalContext: additionalContextTrimmed || null });
 
   const controller = new AbortController();
@@ -366,13 +378,13 @@ export async function runPerplexityChunk(args: RunPerplexityChunkArgs) {
                             additionalProperties: true,
                             properties: {
                               venue_name: { type: ["string", "null"] },
-                              venue_address: { type: "string" },
+                              venue_address: { type: ["string", "null"] },
                               venue_city: { type: "string" },
                               venue_state: { type: "string" },
                               venue_zip: { type: "string" },
                               venue_url: { type: ["string", "null"] },
                             },
-                            required: ["venue_address", "venue_city", "venue_state", "venue_zip"],
+                            required: ["venue_city", "venue_state"],
                           },
                         },
                       },
@@ -440,7 +452,10 @@ export async function runPerplexityChunk(args: RunPerplexityChunkArgs) {
   const { error: linkErr } = await supabaseAdmin.from("discovery_csv_run_batches" as any).insert({ csv_run_id: runId, batch_id: batchId });
   if (linkErr) throw new HttpError(500, linkErr.message, { batch_id: batchId });
 
-  const extracted = extractFirstJsonObject(rawContent);
+  // sonar-reasoning-pro prepends <think>...</think> before the JSON output.
+  // Strip it first so extractFirstJsonObject doesn't anchor on a { inside the reasoning.
+  const rawContentStripped = rawContent.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  const extracted = extractFirstJsonObject(rawContentStripped);
   if (!extracted) {
     const debug = parseDebugSnapshot({ rawContent, extracted: null, parsedJson: null, citations });
     await supabaseAdmin.from("discovery_batch_parse_log" as any).insert({
@@ -543,9 +558,8 @@ export async function runPerplexityChunk(args: RunPerplexityChunkArgs) {
       }))
       .filter((v: any) => {
         if (!v.venue_city || !isTwoLetterState(v.venue_state)) return false;
-        if (!isValidZip5(v.venue_zip)) return false;
         if (v.venue_name && looksLikePlaceholderVenue(v.venue_name)) return false;
-        // Accept named venues (geocoded by name+city+state+zip) or proper street addresses
+        // Accept named venues or proper street addresses; zip is best-effort
         if (!looksLikeStreetAddress(v.venue_address) && !v.venue_name) return false;
         return true;
       });
@@ -664,4 +678,3 @@ export async function runPerplexityChunk(args: RunPerplexityChunkArgs) {
     perplexity_citations: citations,
   };
 }
-

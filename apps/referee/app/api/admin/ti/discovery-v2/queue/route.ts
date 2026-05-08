@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { ingestTournamentCsvText } from "@/lib/tournaments/csvIngest";
 import type { TournamentRow } from "@/lib/types/tournament";
+import { parseDiscoveryV2CsvChunk } from "@/lib/admin/tiDiscoveryV2Csv";
 
 export const runtime = "nodejs";
 
@@ -30,6 +31,10 @@ function isValidSport(value: string): value is TournamentRow["sport"] {
   return SPORTS.includes(value as TournamentRow["sport"]);
 }
 
+function isValidZip5(zip: string | null | undefined) {
+  return /^\d{5}$/.test(String(zip ?? "").trim());
+}
+
 export async function POST(req: Request) {
   await requireAdmin();
 
@@ -41,17 +46,17 @@ export async function POST(req: Request) {
 
   const dryRun = Boolean(body.dry_run);
 
-  // Atomic claim (draft -> queued_to_uploads)
+  // Atomic claim (draft|imported|imported_partial -> queued_to_uploads)
   const { data: claimed, error: claimErr } = await supabaseAdmin
     .from("discovery_csv_runs" as any)
     .update({ status: "queued_to_uploads", import_started_at: new Date().toISOString() })
     .eq("id", csvRunId)
-    .eq("status", "draft")
+    .in("status", ["draft", "imported", "imported_partial"])
     .select("id,sport,master_csv")
     .maybeSingle();
 
   if (claimErr) return NextResponse.json({ ok: false, error: claimErr.message }, { status: 500 });
-  if (!claimed) return NextResponse.json({ ok: false, error: "Run is not in draft state (already queued/processed?)" }, { status: 409 });
+  if (!claimed) return NextResponse.json({ ok: false, error: "Run cannot be queued in its current status." }, { status: 409 });
 
   const sportRaw = String((claimed as any).sport ?? "").trim().toLowerCase();
   const sport: TournamentRow["sport"] = isValidSport(sportRaw) ? (sportRaw as any) : "soccer";
@@ -62,6 +67,33 @@ export async function POST(req: Request) {
       .update({ status: "failed", import_finished_at: new Date().toISOString() })
       .eq("id", csvRunId);
     return NextResponse.json({ ok: false, error: "Run has no master_csv" }, { status: 400 });
+  }
+
+  // Hard guardrail: uploads ingestion requires valid ZIPs for venue-based planning features.
+  // Discovery can attach rows with blank ZIPs (to be backfilled), but queueing must fail until fixed.
+  const parsed = parseDiscoveryV2CsvChunk({ csvText: masterCsv, futureOnly: false });
+  if (parsed.ok === false) {
+    await supabaseAdmin
+      .from("discovery_csv_runs" as any)
+      .update({ status: "failed", import_finished_at: new Date().toISOString() })
+      .eq("id", csvRunId);
+    return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
+  }
+
+  const missingZip = parsed.rows.filter((r) => !isValidZip5(r.venue_zip)).length;
+  if (missingZip > 0) {
+    await supabaseAdmin
+      .from("discovery_csv_runs" as any)
+      .update({ status: "draft", import_started_at: null })
+      .eq("id", csvRunId);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `Run master CSV has ${missingZip} row(s) with missing/invalid venue_zip. Run ZIP backfill before queueing.`,
+        missing_zip_rows: missingZip,
+      },
+      { status: 400 }
+    );
   }
 
   const ingest = await ingestTournamentCsvText({
@@ -114,4 +146,3 @@ export async function POST(req: Request) {
     status: runStatus,
   });
 }
-

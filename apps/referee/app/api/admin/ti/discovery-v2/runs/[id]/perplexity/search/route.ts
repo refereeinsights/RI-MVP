@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { HttpError, runPerplexityChunk } from "@/lib/admin/tiDiscoveryPerplexity";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 type Body = {
   sport: string;
