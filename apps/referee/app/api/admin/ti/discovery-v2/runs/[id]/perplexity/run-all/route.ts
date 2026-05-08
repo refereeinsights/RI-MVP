@@ -82,8 +82,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         ...(err instanceof HttpError ? err.payload ?? {} : err?.payload ?? {}),
         status,
       });
-      // Stop on first failure; user can retry that chunk.
-      break;
+      // 400 = content error for this chunk (no tournaments, truncated, bad JSON) — continue to next chunk.
+      // Auth/run-state/server errors affect all chunks, so stop.
+      if (status !== 400) break;
     }
   }
 
