@@ -535,9 +535,10 @@ export async function runPerplexityChunk(args: RunPerplexityChunkArgs) {
       }))
       .filter((v: any) => {
         if (!v.venue_city || !isTwoLetterState(v.venue_state)) return false;
-        if (!looksLikeStreetAddress(v.venue_address)) return false;
         if (!isValidZip5(v.venue_zip)) return false;
         if (v.venue_name && looksLikePlaceholderVenue(v.venue_name)) return false;
+        // Accept named venues (geocoded by name+city+state+zip) or proper street addresses
+        if (!looksLikeStreetAddress(v.venue_address) && !v.venue_name) return false;
         return true;
       });
 
