@@ -197,6 +197,77 @@ export default function DiscoveryV2Client() {
     }
   }
 
+  async function runPerplexityAll() {
+    if (!activeRunId) return;
+    setNotice("");
+    setQueueResult(null);
+
+    // Mark all chunks busy up-front (single state updates to avoid races).
+    const keys = chunks.map((c) => chunkKeyForRange(c));
+    setPerplexityBusy((p) => Object.fromEntries([...Object.entries(p), ...keys.map((k) => [k, true])]));
+    setPerplexityResult((p) =>
+      Object.fromEntries([...Object.entries(p), ...keys.map((k) => [k, { kind: "warn" as const, message: "" }])])
+    );
+    setPerplexityCitations((p) => Object.fromEntries([...Object.entries(p), ...keys.map((k) => [k, [] as string[]])]));
+    setPerplexityDebug((p) => Object.fromEntries([...Object.entries(p), ...keys.map((k) => [k, null])]));
+
+    try {
+      const payload = {
+        sport,
+        state,
+        future_only: true,
+        chunks: chunks.map((c) => {
+          const key = chunkKeyForRange(c);
+          const ctx = (perplexityContext[key] ?? "").trim();
+          return { date_start: c.start, date_end: c.end, additional_context: ctx || undefined };
+        }),
+      };
+
+      const res = await fetch(`/api/admin/ti/discovery-v2/runs/${activeRunId}/perplexity/run-all`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      let json: any = null;
+      try {
+        json = await res.json();
+      } catch {
+        setNotice(`Run all failed (HTTP ${res.status}).`);
+        return;
+      }
+
+      const results: any[] = Array.isArray(json?.results) ? json.results : [];
+      for (const r of results) {
+        const key = chunkKeyForRange({ start: String(r.date_start), end: String(r.date_end) });
+        if (!r.ok) {
+          const batch = r.batch_id ? ` (batch ${r.batch_id})` : "";
+          if (r.debug) setPerplexityDebug((p) => ({ ...p, [key]: r.debug }));
+          setPerplexityResult((p) => ({ ...p, [key]: { kind: "error", message: `Error${batch}: ${String(r.error ?? "Perplexity failed")}` } }));
+          continue;
+        }
+
+        const citations = Array.isArray(r.perplexity_citations) ? r.perplexity_citations.map(String) : [];
+        setPerplexityCitations((p) => ({ ...p, [key]: citations }));
+        setPerplexityResult((p) => ({
+          ...p,
+          [key]: {
+            kind: "ok",
+            message: `Attached batch ${r.batch_id} (${r.accepted} rows). Master CSV rows: ${r.master_csv_row_count}`,
+          },
+        }));
+      }
+
+      const anyError = results.some((r) => r && r.ok === false);
+      setNotice(anyError ? "Run all finished with errors (see chunk details)." : "Run all complete.");
+      await loadRun(activeRunId);
+      await refreshRuns();
+    } finally {
+      const keys2 = chunks.map((c) => chunkKeyForRange(c));
+      setPerplexityBusy((p) => Object.fromEntries([...Object.entries(p), ...keys2.map((k) => [k, false])]));
+    }
+  }
+
   async function refreshRuns() {
     const res = await fetch("/api/admin/ti/discovery-v2/runs");
     const json = (await res.json()) as any;
@@ -409,6 +480,19 @@ export default function DiscoveryV2Client() {
           </div>
 
           <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <button
+                className="cta secondary"
+                style={{ padding: "8px 12px" }}
+                disabled={!activeRunId || chunks.length === 0 || Object.values(perplexityBusy).some(Boolean)}
+                onClick={runPerplexityAll}
+              >
+                Run all chunks (Perplexity)
+              </button>
+              <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
+                Runs chunks sequentially (billable). Stops on first failure.
+              </span>
+            </div>
             {prompts.map((p, idx) => {
               const chunk = chunks[idx];
               const key = chunk ? chunkKeyForRange(chunk) : String(idx);
