@@ -188,7 +188,7 @@ export async function sweepMyHockeyTournaments(params: {
       });
     }
     if (!writeDb) continue;
-    const id = await upsertTournamentFromSource(toRow(event, params.status));
+    const { id } = await upsertTournamentFromSource(toRow(event, params.status));
     importedSet.add(id);
   }
 

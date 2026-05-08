@@ -48,6 +48,8 @@ export type SoftballConnectedSweepResult = {
     pages: number;
     found: number;
     imported: number;
+    new_count: number;
+    existing_count: number;
     with_address: number;
     with_official_site: number;
     with_phone: number;
@@ -459,6 +461,8 @@ export async function sweepSoftballConnectedTournaments(params: {
 
   const sample: SoftballConnectedSweepResult["sample"] = [];
   const importedSet = new Set<string>();
+  let newCount = 0;
+  let existingCount = 0;
   let withAddress = 0;
   let withOfficialSite = 0;
   let withPhone = 0;
@@ -484,7 +488,8 @@ export async function sweepSoftballConnectedTournaments(params: {
     }
 
     if (!writeDb) continue;
-    const tournamentId = await upsertTournamentFromSource(toRow(event, details, params.status));
+    const { id: tournamentId, isNew } = await upsertTournamentFromSource(toRow(event, details, params.status));
+    if (isNew) newCount++; else existingCount++;
     await enrichTournament(tournamentId, event, details);
     importedSet.add(tournamentId);
 
@@ -539,6 +544,8 @@ export async function sweepSoftballConnectedTournaments(params: {
       pages: maxPages,
       found: events.length,
       imported: imported_ids.length,
+      new_count: newCount,
+      existing_count: existingCount,
       with_address: withAddress,
       with_official_site: withOfficialSite,
       with_phone: withPhone,

@@ -833,6 +833,8 @@ export async function importTournamentRecords(records: TournamentRow[]) {
   let success = 0;
   const failures: { record: TournamentRow; error: string }[] = [];
   const tournamentIds: string[] = [];
+  let newCount = 0;
+  let existingCount = 0;
   let venue_links_attempted = 0;
   let venue_links_created = 0;
   let venue_link_errors = 0;
@@ -904,8 +906,9 @@ export async function importTournamentRecords(records: TournamentRow[]) {
     }
 
     try {
-      const id = await upsertTournamentFromSource(record);
+      const { id, isNew } = await upsertTournamentFromSource(record);
       if (id) tournamentIds.push(id);
+      if (isNew) newCount++; else existingCount++;
       success++;
 
       if (id) {
@@ -945,7 +948,7 @@ export async function importTournamentRecords(records: TournamentRow[]) {
     }
   }
 
-  return { success, failures, tournamentIds, venue_links_attempted, venue_links_created, venue_link_errors };
+  return { success, failures, tournamentIds, newCount, existingCount, venue_links_attempted, venue_links_created, venue_link_errors };
 }
 
 // Extract events from JSON-LD scripts (schema.org Event)

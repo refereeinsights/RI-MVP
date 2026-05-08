@@ -55,6 +55,8 @@ export type ExposureBasketballSweepResult = {
     pages_fetched: number;
     found: number;
     imported: number;
+    new_count: number;
+    existing_count: number;
     venues_found: number;
     venues_created: number;
     venues_matched: number;
@@ -424,6 +426,8 @@ export async function sweepExposureBasketballEventsDirectory(params: {
         pages_fetched: 0,
         found: 0,
         imported: 0,
+        new_count: 0,
+        existing_count: 0,
         venues_found: 0,
         venues_created: 0,
         venues_matched: 0,
@@ -441,6 +445,8 @@ export async function sweepExposureBasketballEventsDirectory(params: {
         pages_fetched: 0,
         found: 0,
         imported: 0,
+        new_count: 0,
+        existing_count: 0,
         venues_found: 0,
         venues_created: 0,
         venues_matched: 0,
@@ -457,6 +463,8 @@ export async function sweepExposureBasketballEventsDirectory(params: {
         pages_fetched: 0,
         found: 0,
         imported: 0,
+        new_count: 0,
+        existing_count: 0,
         venues_found: 0,
         venues_created: 0,
         venues_matched: 0,
@@ -472,6 +480,8 @@ export async function sweepExposureBasketballEventsDirectory(params: {
     pages_fetched: 0,
     found: 0,
     imported: 0,
+    new_count: 0,
+    existing_count: 0,
     venues_found: 0,
     venues_created: 0,
     venues_matched: 0,
@@ -560,9 +570,10 @@ export async function sweepExposureBasketballEventsDirectory(params: {
       raw: ev,
     };
 
-    const tournamentId = await upsertTournamentFromSource(row);
+    const { id: tournamentId, isNew } = await upsertTournamentFromSource(row);
     importedSet.add(tournamentId);
     counts.imported += 1;
+    if (isNew) counts.new_count += 1; else counts.existing_count += 1;
 
     const officialWebsiteUrl = pickOfficialWebsiteUrl(ev, eventCanonical);
     const { error: updateErr } = await supabaseAdmin

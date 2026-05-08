@@ -340,7 +340,7 @@ export async function createTournamentFromUrl(params: {
     for (const event of events) {
       const mapped = mapGrassrootsEvent(event, sport);
       if (!mapped) continue;
-      const tournamentId = await upsertTournamentFromSource(mapped);
+      const { id: tournamentId } = await upsertTournamentFromSource(mapped);
       tournamentIds.push(tournamentId);
     }
 
@@ -389,7 +389,7 @@ export async function createTournamentFromUrl(params: {
 
     const tournamentIds: string[] = [];
     for (const event of events) {
-      const tournamentId = await upsertTournamentFromSource({
+      const { id: tournamentId } = await upsertTournamentFromSource({
         ...event,
         sport: "soccer",
         status,
@@ -432,7 +432,7 @@ export async function createTournamentFromUrl(params: {
 
     const tournamentIds: string[] = [];
     for (const event of events) {
-      const tournamentId = await upsertTournamentFromSource({
+      const { id: tournamentId } = await upsertTournamentFromSource({
         ...event,
         sport: "lacrosse",
         status,
@@ -481,7 +481,7 @@ export async function createTournamentFromUrl(params: {
 
     const tournamentIds: string[] = [];
     for (const event of events) {
-      const tournamentId = await upsertTournamentFromSource({
+      const { id: tournamentId } = await upsertTournamentFromSource({
         ...event,
         tournament_association: "AYSO",
         sport: "soccer",
@@ -531,7 +531,7 @@ export async function createTournamentFromUrl(params: {
 
     const tournamentIds: string[] = [];
     for (const event of events) {
-      const tournamentId = await upsertTournamentFromSource({
+      const { id: tournamentId } = await upsertTournamentFromSource({
         ...event,
         sport: "soccer",
         status,
@@ -581,7 +581,7 @@ export async function createTournamentFromUrl(params: {
 
     const tournamentIds: string[] = [];
     for (const event of events) {
-      const tournamentId = await upsertTournamentFromSource({
+      const { id: tournamentId } = await upsertTournamentFromSource({
         ...event,
         sport: "soccer",
         status,
@@ -631,7 +631,7 @@ export async function createTournamentFromUrl(params: {
 
     const tournamentIds: string[] = [];
     for (const event of events) {
-      const tournamentId = await upsertTournamentFromSource({
+      const { id: tournamentId } = await upsertTournamentFromSource({
         ...event,
         sport: "soccer",
         status,
@@ -681,7 +681,7 @@ export async function createTournamentFromUrl(params: {
 
     const tournamentIds: string[] = [];
     for (const event of events) {
-      const tournamentId = await upsertTournamentFromSource({
+      const { id: tournamentId } = await upsertTournamentFromSource({
         ...event,
         sport: "soccer",
         status,
@@ -731,7 +731,7 @@ export async function createTournamentFromUrl(params: {
 
     const tournamentIds: string[] = [];
     for (const event of events) {
-      const tournamentId = await upsertTournamentFromSource({
+      const { id: tournamentId } = await upsertTournamentFromSource({
         ...event,
         sport: "soccer",
         status,
@@ -1100,6 +1100,8 @@ export async function createTournamentFromUrl(params: {
       run_id: runId,
       diagnostics,
       extracted_count: sweepResult.counts.imported,
+      new_count: sweepResult.counts.new_count,
+      existing_count: sweepResult.counts.existing_count,
       details: {
         counts: sweepResult.counts,
         sample: sweepResult.sample,
@@ -1161,6 +1163,8 @@ export async function createTournamentFromUrl(params: {
       run_id: runId,
       diagnostics,
       extracted_count: sweepResult.counts.imported,
+      new_count: sweepResult.counts.new_count,
+      existing_count: sweepResult.counts.existing_count,
       details: {
         counts: sweepResult.counts,
         sample: sweepResult.sample,
@@ -1216,7 +1220,7 @@ export async function createTournamentFromUrl(params: {
     source_type: preferredSourceType || "series_site",
     sport,
   });
-  const tournamentId = await upsertTournamentFromSource(row);
+  const { id: tournamentId } = await upsertTournamentFromSource(row);
   await queueEnrichmentJobs([tournamentId]);
 
   const runId = await insertRun({

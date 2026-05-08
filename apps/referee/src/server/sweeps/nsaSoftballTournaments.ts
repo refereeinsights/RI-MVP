@@ -328,7 +328,7 @@ export async function sweepNsaSoftballTournaments(params: {
 
     if (!writeDb) continue;
 
-    const tournamentId = await upsertTournamentFromSource(row);
+    const { id: tournamentId } = await upsertTournamentFromSource(row);
     importedSet.add(tournamentId);
 
     if (facilities.length) {

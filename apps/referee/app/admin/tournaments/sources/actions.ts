@@ -260,6 +260,8 @@ export async function sweepSourceAction(stickyQueryString: string, formData: For
     const detailCounts = (res.details?.counts ?? null) as
       | { found?: number | null; with_website?: number | null; with_email?: number | null; with_phone?: number | null }
       | null;
+    const newCount = (res as any).new_count as number | null | undefined;
+    const existingCount = (res as any).existing_count as number | null | undefined;
     const payload = {
       version: 1,
       action: res.slug ?? null,
@@ -275,6 +277,8 @@ export async function sweepSourceAction(stickyQueryString: string, formData: For
       redirect_chain: res.diagnostics?.redirect_chain ?? [],
       location_header: res.diagnostics?.location_header ?? null,
       extracted_count: res.extracted_count ?? 1,
+      new_count: newCount ?? null,
+      existing_count: existingCount ?? null,
       count_found: detailCounts?.found ?? null,
       count_with_website: detailCounts?.with_website ?? null,
       count_with_email: detailCounts?.with_email ?? null,
@@ -288,6 +292,19 @@ export async function sweepSourceAction(stickyQueryString: string, formData: For
       payload,
     });
     await updateRegistrySweep(registryRow.id, "ok", JSON.stringify({ ...payload, log_id: logId }));
+
+    // Auto-mark low_yield when a tracked source returns <20% new tournaments (min 5 extracted).
+    // Sets ignore_until 90 days out so the source re-activates next season automatically.
+    const totalExtracted = res.extracted_count ?? 0;
+    if (newCount != null && totalExtracted >= 5 && newCount / totalExtracted < 0.2) {
+      const ignoreUntil = new Date();
+      ignoreUntil.setDate(ignoreUntil.getDate() + 90);
+      await supabaseAdmin
+        .from("tournament_sources" as any)
+        .update({ review_status: "low_yield", ignore_until: ignoreUntil.toISOString(), is_active: false })
+        .eq("id", registryRow.id);
+    }
+
     redirect(
       buildSourcesNoticeUrl(
         stickyQueryString,

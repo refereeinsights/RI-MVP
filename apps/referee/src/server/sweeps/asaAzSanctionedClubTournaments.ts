@@ -805,7 +805,7 @@ export async function sweepAsaAzSanctionedClubTournaments(params: {
         },
       };
 
-      const tournamentId = await upsertTournamentFromSource(row);
+      const { id: tournamentId } = await upsertTournamentFromSource(row);
       imported_ids.push(tournamentId);
 
       if (record.tournament_website_url || record.tournament_director_text) {

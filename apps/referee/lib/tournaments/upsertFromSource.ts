@@ -92,5 +92,5 @@ export async function upsertTournamentFromSource(row: TournamentRow) {
     }
   }
 
-  return tournament.id;
+  return { id: tournament.id, isNew: !existing };
 }

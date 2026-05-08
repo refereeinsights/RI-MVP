@@ -387,7 +387,7 @@ export async function sweepUsssaBaseballTournaments(params: {
         });
       }
       if (!writeDb) continue;
-      const id = await upsertTournamentFromSource(toRow(event, details, params.status));
+      const { id } = await upsertTournamentFromSource(toRow(event, details, params.status));
       importedSet.add(id);
     }
   }

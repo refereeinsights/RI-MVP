@@ -330,7 +330,7 @@ export async function sweepUsssaFastpitchTournaments(params: {
       });
     }
     if (!writeDb) continue;
-    const id = await upsertTournamentFromSource(toRow(event, details, params.status));
+    const { id } = await upsertTournamentFromSource(toRow(event, details, params.status));
     importedSet.add(id);
   }
 
