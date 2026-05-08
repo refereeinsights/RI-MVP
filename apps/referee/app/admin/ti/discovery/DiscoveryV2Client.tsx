@@ -21,6 +21,11 @@ function chunkMonthLabel(start: string): string {
   return `${MONTHS_SHORT[m] ?? ""} ${start.slice(0, 4)}`;
 }
 
+function formatElapsed(secs: number): string {
+  if (secs < 60) return `${secs}s`;
+  return `${Math.floor(secs / 60)}m ${secs % 60}s`;
+}
+
 function geocodedRowCount(masterCsv: string): number {
   const lines = masterCsv.split("\n");
   if (lines.length < 2) return 0;
@@ -103,6 +108,7 @@ export default function DiscoveryV2Client() {
   const [perplexityContext, setPerplexityContext] = useState<Record<string, string>>({});
   const [perplexityRunAllStartedAt, setPerplexityRunAllStartedAt] = useState<string>("");
   const [perplexityRunAllSummary, setPerplexityRunAllSummary] = useState<string>("");
+  const [runElapsed, setRunElapsed] = useState(0);
 
   const [queueDryRun, setQueueDryRun] = useState(true);
   const [queueBusy, setQueueBusy] = useState(false);
@@ -139,6 +145,8 @@ export default function DiscoveryV2Client() {
   async function runPerplexity(chunk: { start: string; end: string }) {
     if (!activeRunId) return;
     const key = chunkKeyForRange(chunk);
+    setPerplexityRunAllStartedAt(new Date().toISOString());
+    setPerplexityRunAllSummary("");
     setPerplexityBusy((p) => ({ ...p, [key]: true }));
     setPerplexityResult((p) => ({ ...p, [key]: { kind: "warn", message: "" } }));
     setPerplexityCitations((p) => ({ ...p, [key]: [] }));
@@ -391,6 +399,15 @@ export default function DiscoveryV2Client() {
     if (activeRunId) loadRun(activeRunId);
   }, [activeRunId]);
 
+  const anyChunkBusy = Object.values(perplexityBusy).some(Boolean);
+  useEffect(() => {
+    if (!anyChunkBusy) return;
+    const start = perplexityRunAllStartedAt ? Date.parse(perplexityRunAllStartedAt) : Date.now();
+    setRunElapsed(Math.floor((Date.now() - start) / 1000));
+    const id = setInterval(() => setRunElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [anyChunkBusy, perplexityRunAllStartedAt]);
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 16, alignItems: "start" }}>
       {/* Left column: runner + paste */}
@@ -508,15 +525,19 @@ export default function DiscoveryV2Client() {
                 );
               })()}
               <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
-                Runs chunks sequentially (billable). Stops on first failure.
+                Runs chunks sequentially (billable). Skips chunks with no results.
               </span>
             </div>
-            {Object.values(perplexityBusy).some(Boolean) ? (
-              <div style={{ fontSize: 12, color: "#111827", fontWeight: 900 }}>
-                Status: running… {perplexityRunAllSummary ? `(${perplexityRunAllSummary})` : ""}
+            {anyChunkBusy ? (
+              <div style={{ fontSize: 12, color: "#111827", fontWeight: 900, display: "flex", gap: 10, alignItems: "center" }}>
+                <span>Status: running…</span>
+                <span style={{ fontVariantNumeric: "tabular-nums", color: "#6b7280" }}>{formatElapsed(runElapsed)}</span>
+                {perplexityRunAllSummary ? <span>({perplexityRunAllSummary})</span> : null}
               </div>
             ) : perplexityRunAllSummary ? (
-              <div style={{ fontSize: 12, color: "#111827", fontWeight: 900 }}>Last run: {perplexityRunAllSummary}</div>
+              <div style={{ fontSize: 12, color: "#111827", fontWeight: 900 }}>
+                Last run: {perplexityRunAllSummary}{runElapsed > 0 ? ` — ${formatElapsed(runElapsed)}` : ""}
+              </div>
             ) : null}
             {prompts.map((p, idx) => {
               const chunk = chunks[idx];
