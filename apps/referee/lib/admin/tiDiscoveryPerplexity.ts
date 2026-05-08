@@ -208,6 +208,21 @@ function coerceCitations(value: unknown): string[] {
   return Array.from(new Set(out));
 }
 
+function urlMatchKey(value: string) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  try {
+    const u = new URL(raw);
+    const host = u.hostname.replace(/^www\./i, "").toLowerCase();
+    // Keep path only; drop query/hash since citations often vary by tracking params.
+    let path = u.pathname || "/";
+    if (path.length > 1) path = path.replace(/\/+$/g, "");
+    return `${host}${path}`.toLowerCase();
+  } catch {
+    return raw.toLowerCase();
+  }
+}
+
 function buildUserPrompt(input: {
   sport: string;
   stateLabel: string;
@@ -427,6 +442,7 @@ export async function runPerplexityChunk(args: RunPerplexityChunkArgs) {
   }
 
   citations = coerceCitations(perplexityJson?.citations);
+  const citationKeys = new Set(citations.map(urlMatchKey).filter(Boolean));
   rawContent = String(perplexityJson?.choices?.[0]?.message?.content ?? "");
   if (rawContent.length > RESPONSE_CHAR_LIMIT) throw new HttpError(400, "Perplexity response too large. Try a narrower date range.");
 
@@ -545,6 +561,12 @@ export async function runPerplexityChunk(args: RunPerplexityChunkArgs) {
     const sourceUrl = bestEffortNormalizeHttpsUrl(sourceUrlRaw);
     if (!tournamentName || !city || !isTwoLetterState(st) || !isIsoDate(startDate) || !isIsoDate(endDate) || !sourceUrl) {
       warnings.push(`tournament_skipped_invalid:${truncate(tournamentName || sourceUrl || "unknown", 80)}`);
+      continue;
+    }
+    // Hard anti-hallucination gate: Perplexity tournament source_url must be backed by Perplexity citations.
+    // This prevents the model from inventing a URL we didn't actually retrieve.
+    if (!citationKeys.has(urlMatchKey(sourceUrl))) {
+      warnings.push(`tournament_skipped_unbacked_source:${truncate(tournamentName || sourceUrl, 80)}`);
       continue;
     }
 
