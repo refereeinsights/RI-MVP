@@ -101,6 +101,8 @@ export default function DiscoveryV2Client() {
   const [perplexityCitations, setPerplexityCitations] = useState<Record<string, string[]>>({});
   const [perplexityDebug, setPerplexityDebug] = useState<Record<string, any>>({});
   const [perplexityContext, setPerplexityContext] = useState<Record<string, string>>({});
+  const [perplexityRunAllStartedAt, setPerplexityRunAllStartedAt] = useState<string>("");
+  const [perplexityRunAllSummary, setPerplexityRunAllSummary] = useState<string>("");
 
   const [queueDryRun, setQueueDryRun] = useState(true);
   const [queueBusy, setQueueBusy] = useState(false);
@@ -201,17 +203,23 @@ export default function DiscoveryV2Client() {
     if (!activeRunId) return;
     setNotice("");
     setQueueResult(null);
+    setPerplexityRunAllSummary("");
+    setPerplexityRunAllStartedAt(new Date().toISOString());
 
     // Mark all chunks busy up-front (single state updates to avoid races).
     const keys = chunks.map((c) => chunkKeyForRange(c));
     setPerplexityBusy((p) => Object.fromEntries([...Object.entries(p), ...keys.map((k) => [k, true])]));
     setPerplexityResult((p) =>
-      Object.fromEntries([...Object.entries(p), ...keys.map((k) => [k, { kind: "warn" as const, message: "" }])])
+      Object.fromEntries([
+        ...Object.entries(p),
+        ...keys.map((k) => [k, { kind: "warn" as const, message: "Queued…" }]),
+      ])
     );
     setPerplexityCitations((p) => Object.fromEntries([...Object.entries(p), ...keys.map((k) => [k, [] as string[]])]));
     setPerplexityDebug((p) => Object.fromEntries([...Object.entries(p), ...keys.map((k) => [k, null])]));
 
     try {
+      setNotice(`Running Perplexity for ${chunks.length} chunk(s)…`);
       const payload = {
         sport,
         state,
@@ -259,7 +267,10 @@ export default function DiscoveryV2Client() {
       }
 
       const anyError = results.some((r) => r && r.ok === false);
-      setNotice(anyError ? "Run all finished with errors (see chunk details)." : "Run all complete.");
+      const okCount = results.filter((r) => r && r.ok === true).length;
+      const errCount = results.filter((r) => r && r.ok === false).length;
+      setPerplexityRunAllSummary(`${okCount} succeeded, ${errCount} failed.`);
+      setNotice(anyError ? "Run all finished with errors (see chunk status)." : "Run all complete.");
       await loadRun(activeRunId);
       await refreshRuns();
     } finally {
@@ -481,18 +492,32 @@ export default function DiscoveryV2Client() {
 
           <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              {(() => {
+                const runAllDisabled = !activeRunId || chunks.length === 0 || Object.values(perplexityBusy).some(Boolean);
+                const runAllBusy = Object.values(perplexityBusy).some(Boolean);
+                const label = runAllBusy ? "Running all chunks…" : "Run all chunks (Perplexity)";
+                return (
               <button
-                className="cta secondary"
+                className={runAllDisabled ? "cta secondary" : "cta"}
                 style={{ padding: "8px 12px" }}
-                disabled={!activeRunId || chunks.length === 0 || Object.values(perplexityBusy).some(Boolean)}
+                disabled={runAllDisabled}
                 onClick={runPerplexityAll}
               >
-                Run all chunks (Perplexity)
+                {label}
               </button>
+                );
+              })()}
               <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
                 Runs chunks sequentially (billable). Stops on first failure.
               </span>
             </div>
+            {Object.values(perplexityBusy).some(Boolean) ? (
+              <div style={{ fontSize: 12, color: "#111827", fontWeight: 900 }}>
+                Status: running… {perplexityRunAllSummary ? `(${perplexityRunAllSummary})` : ""}
+              </div>
+            ) : perplexityRunAllSummary ? (
+              <div style={{ fontSize: 12, color: "#111827", fontWeight: 900 }}>Last run: {perplexityRunAllSummary}</div>
+            ) : null}
             {prompts.map((p, idx) => {
               const chunk = chunks[idx];
               const key = chunk ? chunkKeyForRange(chunk) : String(idx);
@@ -501,10 +526,25 @@ export default function DiscoveryV2Client() {
               const result = perplexityResult[key];
               const citations = perplexityCitations[key] ?? [];
               const debug = perplexityDebug[key];
+              const chunkStatus =
+                busy ? "running" : result?.kind === "ok" ? "ok" : result?.kind === "error" ? "error" : result?.message ? "queued" : "";
+              const chunkStatusLabel =
+                chunkStatus === "running"
+                  ? "running…"
+                  : chunkStatus === "ok"
+                  ? "ok"
+                  : chunkStatus === "error"
+                  ? "error"
+                  : chunkStatus === "queued"
+                  ? "queued"
+                  : "";
 
               return (
                 <details key={key} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 10 }}>
-                  <summary style={{ cursor: "pointer", fontWeight: 900 }}>{chunkMonthLabel(chunk?.start ?? "")} — Chunk {idx + 1}</summary>
+                  <summary style={{ cursor: "pointer", fontWeight: 900 }}>
+                    {chunkMonthLabel(chunk?.start ?? "")} — Chunk {idx + 1}
+                    {chunkStatusLabel ? <span style={{ marginLeft: 8, fontSize: 12, color: "#6b7280" }}>({chunkStatusLabel})</span> : null}
+                  </summary>
                 <textarea
                   readOnly
                   value={p}
