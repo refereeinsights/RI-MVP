@@ -57,8 +57,16 @@ export async function POST(req: Request) {
     .single();
 
   if (error) {
-    const msg = (error as any).code === "23505" ? "Run already exists for this search_key" : error.message;
-    return NextResponse.json({ ok: false, error: msg, code: (error as any).code ?? null }, { status: 400 });
+    if ((error as any).code === "23505") {
+      // Duplicate — return the existing run so the client can select it without a separate lookup.
+      const { data: existing } = await supabaseAdmin
+        .from("discovery_csv_runs" as any)
+        .select("id,sport,state,date_range_start,date_range_end,run_mode,status,master_csv_row_count,created_at")
+        .eq("search_key", searchKey)
+        .single();
+      if (existing) return NextResponse.json({ ok: true, run: existing, existing: true });
+    }
+    return NextResponse.json({ ok: false, error: error.message, code: (error as any).code ?? null }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true, run: data });

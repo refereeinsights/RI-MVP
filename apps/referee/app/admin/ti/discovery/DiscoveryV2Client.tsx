@@ -332,7 +332,7 @@ export default function DiscoveryV2Client() {
     await refreshRuns();
     setActiveRunId(id);
     await loadRun(id);
-    setNotice(`Created run ${id}`);
+    setNotice(json.existing ? `Loaded existing run ${id}` : `Created run ${id}`);
   }
 
   async function attachChunk() {
