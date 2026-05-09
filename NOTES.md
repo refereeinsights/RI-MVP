@@ -1,3 +1,7 @@
+## 2026-05-09
+
+- TI admin: make “Hotels clicks” / “Vrbo clicks” tiles on `/admin/ti/revenue` link to `/admin/ti/outbound?dest=...` and add a source-surface breakdown panel (yesterday + total). Added RPC `list_ti_outbound_clicks_surface_counts_v1` migration: `apps/referee/app/admin/ti/revenue/page.tsx`, `apps/referee/app/admin/ti/outbound/page.tsx`, `supabase/migrations/20260509_ti_outbound_clicks_surface_counts_admin_rpcs.sql`.
+
 ## 2026-05-06
 
 - RI admin / ingestion: extracted tournament CSV ingest into reusable library `apps/referee/lib/tournaments/csvIngest.ts` and updated CLI wrapper `apps/referee/scripts/ingest-csv.ts` to call it.

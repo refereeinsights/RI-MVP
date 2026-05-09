@@ -473,16 +473,22 @@ export default async function TiRevenuePage({ searchParams }: PageProps) {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
-          <div style={tileStyle}>
+          <Link
+            href="/admin/ti/outbound?dest=hotels"
+            style={{ ...tileStyle, textDecoration: "none", color: "inherit", display: "block" }}
+          >
             <div style={tileLabelStyle}>Hotels clicks (yesterday)</div>
             <div style={tileValueStyle}>{hotelsClicksYesterday.toLocaleString("en-US")}</div>
             <div style={tileMetaStyle}>Total: {hotelsClicksTotal.toLocaleString("en-US")}</div>
-          </div>
-          <div style={tileStyle}>
+          </Link>
+          <Link
+            href="/admin/ti/outbound?dest=vrbo"
+            style={{ ...tileStyle, textDecoration: "none", color: "inherit", display: "block" }}
+          >
             <div style={tileLabelStyle}>Vrbo clicks (yesterday)</div>
             <div style={tileValueStyle}>{vrboClicksYesterday.toLocaleString("en-US")}</div>
             <div style={tileMetaStyle}>Total: {vrboClicksTotal.toLocaleString("en-US")}</div>
-          </div>
+          </Link>
           <div style={tileStyle}>
             <div style={tileLabelStyle}>Organizer clicks (yesterday)</div>
             <div style={tileValueStyle}>{organizerClicksYesterday.toLocaleString("en-US")}</div>

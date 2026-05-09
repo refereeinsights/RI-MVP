@@ -15,6 +15,7 @@ type PageProps = {
     state?: string;
     sport?: string;
     page?: string;
+    dest?: string;
   };
 };
 
@@ -44,6 +45,11 @@ type TopTournamentRow = {
   total_count: number | null;
 };
 
+type SurfaceCountRow = {
+  source_surface: string | null;
+  click_count: number | null;
+};
+
 function toInt(value: string | undefined, fallback: number) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -69,12 +75,14 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
   const q = (searchParams?.q ?? "").trim();
   const stateRaw = (searchParams?.state ?? "").trim().toUpperCase();
   const sportRaw = (searchParams?.sport ?? "").trim().toLowerCase();
+  const destRaw = (searchParams?.dest ?? "").trim().toLowerCase();
   const page = Math.max(1, toInt((searchParams?.page ?? "").trim(), 1));
   const limit = 50;
   const offset = (page - 1) * limit;
 
   const stateFilter = (US_STATES as readonly string[]).includes(stateRaw) ? stateRaw : "";
   const sportFilter = (SPORT_OPTIONS as readonly string[]).includes(sportRaw) ? sportRaw : "";
+  const destFilter = destRaw === "hotels" || destRaw === "vrbo" || destRaw === "tournament_official" ? destRaw : "";
 
   const now = new Date();
   const todayStartUtc = startOfUtcDay(now);
@@ -152,7 +160,7 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
     .eq("destination_type", "vrbo");
   const vrboTotalClicks = vrboTotalClicksRes.error ? 0 : vrboTotalClicksRes.count ?? 0;
 
-  const [sportCountsRes, topTournamentsRes, topVenuesRes] = await Promise.all([
+  const [sportCountsRes, topTournamentsRes, topVenuesRes, surfaceYesterdayRes, surfaceTotalRes] = await Promise.all([
     (supabaseAdmin as any).rpc("list_ti_outbound_clicks_sport_counts_v1", {
       p_state: null,
     }),
@@ -169,6 +177,20 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
       p_q: q || null,
       p_state: stateFilter || null,
     }),
+    destFilter
+      ? (supabaseAdmin as any).rpc("list_ti_outbound_clicks_surface_counts_v1", {
+          p_destination_type: destFilter,
+          p_since: yesterdayIso,
+          p_until: todayIso,
+        })
+      : Promise.resolve({ data: [], error: null }),
+    destFilter
+      ? (supabaseAdmin as any).rpc("list_ti_outbound_clicks_surface_counts_v1", {
+          p_destination_type: destFilter,
+          p_since: null,
+          p_until: null,
+        })
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   const officialTotalClicks = officialTotalClicksFinalRes.error ? 0 : officialTotalClicksFinalRes.count ?? 0;
@@ -186,6 +208,13 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
   const sportCounts: SportCountRow[] = sportCountsRes.error
     ? []
     : ((sportCountsRes.data ?? []) as SportCountRow[]);
+
+  const surfaceYesterdayRows: SurfaceCountRow[] = (surfaceYesterdayRes as any)?.error
+    ? []
+    : (((surfaceYesterdayRes as any)?.data ?? []) as SurfaceCountRow[]);
+  const surfaceTotalRows: SurfaceCountRow[] = (surfaceTotalRes as any)?.error
+    ? []
+    : (((surfaceTotalRes as any)?.data ?? []) as SurfaceCountRow[]);
 
   const topRows: TopTournamentRow[] = topTournamentsRes.error
     ? []
@@ -315,6 +344,61 @@ export default async function OutboundTrackingPage({ searchParams }: PageProps) 
           ) : null}
         </div>
       </div>
+
+      {destFilter ? (
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fff", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+            <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 900, color: "#6b7280" }}>
+              Source surface • {destFilter}
+            </div>
+            <a
+              href="/admin/ti/outbound"
+              style={{ fontSize: 12, fontWeight: 900, color: "#111", textDecoration: "none" }}
+              title="Clear destination filter"
+            >
+              Clear →
+            </a>
+          </div>
+
+          {(surfaceYesterdayRes as any)?.error || (surfaceTotalRes as any)?.error ? (
+            <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 800 }}>
+              Failed to load surface breakdown. Apply `supabase/migrations/20260509_ti_outbound_clicks_surface_counts_admin_rpcs.sql` and refresh PostgREST schema cache.
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+              <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 12 }}>
+                <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 900, color: "#6b7280" }}>Yesterday (UTC)</div>
+                <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                  {(surfaceYesterdayRows.length ? surfaceYesterdayRows : [{ source_surface: "unknown", click_count: 0 }]).map((r, idx) => (
+                    <div
+                      key={`${(r.source_surface ?? "unknown") || "unknown"}-${idx}`}
+                      style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}
+                    >
+                      <div style={{ fontWeight: 900, color: "#111827" }}>{(r.source_surface ?? "unknown") || "unknown"}</div>
+                      <div style={{ fontWeight: 950 }}>{Number(r.click_count ?? 0).toLocaleString("en-US")}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 12 }}>
+                <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 900, color: "#6b7280" }}>Total</div>
+                <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                  {(surfaceTotalRows.length ? surfaceTotalRows : [{ source_surface: "unknown", click_count: 0 }]).map((r, idx) => (
+                    <div
+                      key={`${(r.source_surface ?? "unknown") || "unknown"}-${idx}`}
+                      style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}
+                    >
+                      <div style={{ fontWeight: 900, color: "#111827" }}>{(r.source_surface ?? "unknown") || "unknown"}</div>
+                      <div style={{ fontWeight: 950 }}>{Number(r.click_count ?? 0).toLocaleString("en-US")}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 900, color: "#6b7280", marginBottom: 8 }}>
