@@ -11,6 +11,7 @@ import TournamentVenueMatcher from "@/components/admin/TournamentVenueMatcher";
 import TournamentVenueLinker from "@/components/admin/TournamentVenueLinker";
 import TournamentPartnerNearbyEditor from "@/components/admin/TournamentPartnerNearbyEditor";
 import UploadsVenueInferencePanel from "@/components/admin/UploadsVenueInferencePanel";
+import UploadsVenueExtractButton from "@/components/admin/UploadsVenueExtractButton";
 import {
   buildTournamentFuzzyNameStateSeasonFingerprint,
   buildTournamentNameStateSeasonFingerprint,
@@ -6601,6 +6602,7 @@ export default async function AdminPage({
 	                          ) : (
 	                            <div style={{ fontWeight: 700 }}>{t.name}</div>
 	                          )}
+                            <UploadsVenueExtractButton tournamentId={t.id} />
 	                          <div style={{ color: "#666" }}>Slug: {t.slug}</div>
 	                          <div style={{ color: "#666" }}>
 	                            Sport: {t.sport} {t.level ? `• ${t.level}` : ""}
