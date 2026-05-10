@@ -8,6 +8,11 @@ export type TiAnalyticsEventName =
   | "venue_page_viewed"
   | "venue_map_opened"
   | "venue_map_loaded"
+  | "venue_select"
+  | "directions_click"
+  | "hotels_click"
+  | "venue_view_click"
+  | "nearest_airport_click"
   | "owls_eye_full_opened"
   | "owls_eye_unlock_prompt_shown"
   | "owls_eye_category_expanded"
@@ -77,6 +82,55 @@ export type TiAnalyticsEventPropertiesByName = {
     sport: string | null;
     venue_count: number;
     href: string;
+  };
+  venue_select: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    venue_name: string | null;
+    source: "venue_card" | "venue_marker" | "selected_venue_panel";
+    hasCoordinates: boolean;
+    hasOwlEyeData: boolean;
+  };
+  directions_click: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    venue_name: string | null;
+    source: "venue_card" | "selected_venue_panel";
+    provider: "apple" | "google" | "waze" | "copy";
+    hasCoordinates: boolean;
+    hasOwlEyeData: boolean;
+  };
+  hotels_click: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    venue_name: string | null;
+    source: "venue_card" | "selected_venue_panel";
+  };
+  venue_view_click: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    venue_name: string | null;
+    source: "venue_card" | "selected_venue_panel";
+  };
+  nearest_airport_click: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    venue_name: string | null;
+    source: "selected_venue_panel";
+    provider: "apple" | "google" | "waze" | "copy";
+    airport_id: string;
+    airport_name: string;
+    airport_iata: string | null;
   };
   owls_eye_full_opened: {
     page_type: "venue_map";

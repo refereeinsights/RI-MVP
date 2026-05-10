@@ -10,6 +10,7 @@ import { getTier } from "@/lib/entitlements";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { DEMO_STARFIRE_VENUE_ID } from "@/lib/owlsEyeScores";
 import { isPremiumPreviewTournamentSlug } from "@/lib/premiumPreview";
+import NavigationChooser, { type NavProvider } from "./NavigationChooser";
 import styles from "./TournamentVenueMap.module.css";
 
 type VenueCounts = { coffee: number; food: number; hotels: number; quick_eats: number; hangouts: number };
@@ -54,6 +55,32 @@ export type MapVenue = {
   longitude: number | null;
   hasOwl: boolean;
   counts: VenueCounts | null;
+};
+
+type NavSheetState = {
+  open: boolean;
+  title: string;
+  destinationLabel: string;
+  providerHrefs: Partial<Record<NavProvider, string>>;
+  copyText: string | null;
+  onProviderClick?: (provider: NavProvider) => void;
+};
+
+type NearestAirport = {
+  id: string;
+  name: string;
+  municipality: string | null;
+  iso_region: string | null;
+  iso_country: string;
+  iata_code: string | null;
+  ident: string;
+  latitude_deg: number;
+  longitude_deg: number;
+  distance_miles: number;
+  is_major: boolean;
+  is_commercial: boolean;
+  scheduled_service: boolean;
+  major_rank: number | null;
 };
 
 export default function TournamentVenueMapClient({
@@ -107,6 +134,15 @@ export default function TournamentVenueMapClient({
   const [activePinCategories, setActivePinCategories] = useState<OwlCategory[]>([]);
   const [selectedPlaceKey, setSelectedPlaceKey] = useState<string | null>(null);
   const [entitlementTier, setEntitlementTier] = useState<TiTier>("unknown");
+  const [navSheet, setNavSheet] = useState<NavSheetState>(() => ({
+    open: false,
+    title: "",
+    destinationLabel: "",
+    providerHrefs: {},
+    copyText: null,
+  }));
+  const [nearestAirportByVenueId, setNearestAirportByVenueId] = useState<Record<string, NearestAirport | null>>({});
+  const [nearestAirportLoadingVenueId, setNearestAirportLoadingVenueId] = useState<string | null>(null);
   const validCoords = useMemo(
     () =>
       venues
@@ -572,6 +608,15 @@ export default function TournamentVenueMapClient({
   }, [selectedVenueId]);
 
   const venueLocation = (v: MapVenue) => [v.city, v.state].filter(Boolean).join(", ") || "Location TBA";
+  const venueDestinationLabel = (v: MapVenue) => {
+    const name = String(v.name ?? "").trim();
+    const loc = [v.city, v.state].filter(Boolean).join(", ");
+    return [name || "Tournament venue", loc].filter(Boolean).join(" • ") || "Tournament venue";
+  };
+  const safeVenueCopyText = (v: MapVenue) => {
+    const parts = [v.name, v.city, v.state].filter(Boolean).map((s) => String(s).trim()).filter(Boolean);
+    return parts.length ? parts.join(", ") : null;
+  };
   const countsLine = (v: MapVenue) => {
     if (!v.hasOwl || !v.counts) return null;
     const parts = [`☕ ${v.counts.coffee}`, `🍔 ${v.counts.food}`];
@@ -588,6 +633,83 @@ export default function TournamentVenueMapClient({
 
   const primaryVenue = venues[0] ?? null;
   const hotelVenueId = selectedVenue?.id ?? primaryVenue?.id ?? null;
+
+  const buildNavProviderHrefsForLatLng = (lat: number, lng: number) => ({
+    google: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lng}`)}`,
+    apple: `https://maps.apple.com/?daddr=${encodeURIComponent(`${lat},${lng}`)}`,
+    waze: `https://waze.com/ul?ll=${encodeURIComponent(`${lat},${lng}`)}&navigate=yes`,
+  });
+
+  const buildNavProviderHrefsForQuery = (query: string) => ({
+    google: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}`,
+    apple: `https://maps.apple.com/?daddr=${encodeURIComponent(query)}`,
+    waze: `https://waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes`,
+  });
+
+  const openNavChooserForVenue = (v: MapVenue, source: "venue_card" | "selected_venue_panel") => {
+    const hasCoords = typeof v.latitude === "number" && typeof v.longitude === "number";
+    const providerHrefs = hasCoords
+      ? buildNavProviderHrefsForLatLng(v.latitude as number, v.longitude as number)
+      : buildNavProviderHrefsForQuery(safeVenueCopyText(v) ?? [tournament.name, tournament.slug].filter(Boolean).join(" "));
+
+    const destinationLabel = venueDestinationLabel(v);
+    const copyText = safeVenueCopyText(v);
+
+    setNavSheet({
+      open: true,
+      title: "Directions",
+      destinationLabel,
+      providerHrefs,
+      copyText,
+      onProviderClick: (provider) => {
+        void trackTiEvent("directions_click", {
+          page_type: "venue_map",
+          tournament_id: tournament.id,
+          tournament_slug: tournament.slug,
+          venue_id: v.id,
+          venue_name: v.name ?? null,
+          source,
+          provider,
+          hasCoordinates: hasCoords,
+          hasOwlEyeData: Boolean(v.hasOwl),
+        });
+      },
+    });
+  };
+
+  const openNavChooserForAirport = (airport: NearestAirport, venue: MapVenue, source: "selected_venue_panel") => {
+    const providerHrefs = buildNavProviderHrefsForLatLng(airport.latitude_deg, airport.longitude_deg);
+    const labelParts = [
+      airport.name,
+      airport.iata_code || airport.ident ? `(${airport.iata_code || airport.ident})` : "",
+      airport.municipality,
+      airport.iso_region,
+    ]
+      .map((s) => String(s ?? "").trim())
+      .filter(Boolean);
+
+    setNavSheet({
+      open: true,
+      title: "Nearest airport",
+      destinationLabel: labelParts.join(" • "),
+      providerHrefs,
+      copyText: labelParts.join(", "),
+      onProviderClick: (provider) => {
+        void trackTiEvent("nearest_airport_click", {
+          page_type: "venue_map",
+          tournament_id: tournament.id,
+          tournament_slug: tournament.slug,
+          venue_id: venue.id,
+          venue_name: venue.name ?? null,
+          source,
+          provider,
+          airport_id: airport.id,
+          airport_name: airport.name,
+          airport_iata: airport.iata_code ?? null,
+        });
+      },
+    });
+  };
 
   const formatDistance = (meters: number | null) => {
     if (typeof meters !== "number" || !Number.isFinite(meters)) return null;
@@ -901,6 +1023,33 @@ export default function TournamentVenueMapClient({
     }
   };
 
+  const loadNearestAirport = async (v: MapVenue) => {
+    if (!v?.id) return null;
+    if (typeof v.latitude !== "number" || typeof v.longitude !== "number") return null;
+    if (nearestAirportLoadingVenueId === v.id) return null;
+    if (Object.prototype.hasOwnProperty.call(nearestAirportByVenueId, v.id)) {
+      return nearestAirportByVenueId[v.id] ?? null;
+    }
+
+    setNearestAirportLoadingVenueId(v.id);
+    try {
+      const url = new URL("/api/airports/nearest", window.location.origin);
+      url.searchParams.set("lat", String(v.latitude));
+      url.searchParams.set("lng", String(v.longitude));
+      if (v.state) url.searchParams.set("state", String(v.state));
+      const resp = await fetch(url.toString(), { method: "GET" });
+      const json = (await resp.json().catch(() => null)) as any;
+      const airport = json?.ok ? (json.airport as NearestAirport) : null;
+      setNearestAirportByVenueId((prev) => ({ ...prev, [v.id]: airport }));
+      return airport;
+    } catch {
+      setNearestAirportByVenueId((prev) => ({ ...prev, [v.id]: null }));
+      return null;
+    } finally {
+      setNearestAirportLoadingVenueId((cur) => (cur === v.id ? null : cur));
+    }
+  };
+
   return (
     <div className={styles.wrap}>
       <div className={styles.grid}>
@@ -918,33 +1067,92 @@ export default function TournamentVenueMapClient({
                 {venues.map((v) => {
                   const selected = v.id === selectedVenueId;
                   return (
-                    <button
-                      key={v.id}
-                      type="button"
-                      className={`${styles.venueRow} ${selected ? styles.venueRowSelected : ""}`}
-                      onClick={() => {
-                        setSelectedVenueId(v.id);
-                        setDetailMode(true);
-                      }}
-                      role="listitem"
-                    >
-                      <div className={styles.venueThumb} aria-hidden="true">
-                        <img
-                          className={styles.venueThumbImg}
-                          src={thumbSrc}
-                          alt=""
-                          onError={() => {
-                            if (thumbSrc !== "/brand/headers/ti-venue-thumb.webp") setThumbSrc("/brand/headers/ti-venue-thumb.webp");
+                    <div key={v.id} className={styles.venueRowWrap} role="listitem">
+                      <button
+                        type="button"
+                        className={`${styles.venueRow} ${selected ? styles.venueRowSelected : ""}`}
+                        onClick={() => {
+                          setSelectedVenueId(v.id);
+                          setDetailMode(true);
+                          void trackTiEvent("venue_select", {
+                            page_type: "venue_map",
+                            tournament_id: tournament.id,
+                            tournament_slug: tournament.slug,
+                            venue_id: v.id,
+                            venue_name: v.name ?? null,
+                            source: "venue_card",
+                            hasCoordinates: typeof v.latitude === "number" && typeof v.longitude === "number",
+                            hasOwlEyeData: Boolean(v.hasOwl),
+                          });
+                        }}
+                      >
+                        <div className={styles.venueThumb} aria-hidden="true">
+                          <img
+                            className={styles.venueThumbImg}
+                            src={thumbSrc}
+                            alt=""
+                            onError={() => {
+                              if (thumbSrc !== "/brand/headers/ti-venue-thumb.webp") setThumbSrc("/brand/headers/ti-venue-thumb.webp");
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <div className={styles.venueName}>{v.name || "Venue TBA"}</div>
+                          <div className={styles.venueMeta}>{venueLocation(v)}</div>
+                          {countsLine(v) ? <div className={styles.venueCounts}>{countsLine(v)}</div> : null}
+                          {enhancedCounts(v) ? <div className={styles.venueCounts}>{enhancedCounts(v)}</div> : null}
+                        </div>
+                      </button>
+
+                      <div className={styles.venueRowActions}>
+                        <button
+                          type="button"
+                          className={styles.venueActionBtn}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            openNavChooserForVenue(v, "venue_card");
                           }}
-                        />
+                        >
+                          Directions
+                        </button>
+                        <a
+                          className={styles.venueActionBtn}
+                          href={`/go/hotels?venueId=${encodeURIComponent(v.id)}&tournamentId=${encodeURIComponent(tournament.id)}`}
+                          target="_blank"
+                          rel="noopener noreferrer sponsored"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void trackTiEvent("hotels_click", {
+                              page_type: "venue_map",
+                              tournament_id: tournament.id,
+                              tournament_slug: tournament.slug,
+                              venue_id: v.id,
+                              venue_name: v.name ?? null,
+                              source: "venue_card",
+                            });
+                          }}
+                        >
+                          Hotels
+                        </a>
+                        <Link
+                          className={styles.venueActionBtn}
+                          href={v.seo_slug ? `/venues/${encodeURIComponent(v.seo_slug)}` : `/venues/${encodeURIComponent(v.id)}`}
+                          onClick={() => {
+                            void trackTiEvent("venue_view_click", {
+                              page_type: "venue_map",
+                              tournament_id: tournament.id,
+                              tournament_slug: tournament.slug,
+                              venue_id: v.id,
+                              venue_name: v.name ?? null,
+                              source: "venue_card",
+                            });
+                          }}
+                        >
+                          View
+                        </Link>
                       </div>
-                      <div>
-                        <div className={styles.venueName}>{v.name || "Venue TBA"}</div>
-                        <div className={styles.venueMeta}>{venueLocation(v)}</div>
-                        {countsLine(v) ? <div className={styles.venueCounts}>{countsLine(v)}</div> : null}
-                        {enhancedCounts(v) ? <div className={styles.venueCounts}>{enhancedCounts(v)}</div> : null}
-                      </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -962,6 +1170,37 @@ export default function TournamentVenueMapClient({
                   </button>
                 ) : null}
               </div>
+
+              {typeof selectedVenue.latitude === "number" && typeof selectedVenue.longitude === "number" ? (
+                <div className={styles.airportRow}>
+                  <button
+                    type="button"
+                    className={styles.airportBtn}
+                    disabled={nearestAirportLoadingVenueId === selectedVenue.id}
+                    onClick={async () => {
+                      const cached = Object.prototype.hasOwnProperty.call(nearestAirportByVenueId, selectedVenue.id)
+                        ? nearestAirportByVenueId[selectedVenue.id]
+                        : undefined;
+                      const airport = cached ?? (await loadNearestAirport(selectedVenue));
+                      if (airport) openNavChooserForAirport(airport, selectedVenue, "selected_venue_panel");
+                    }}
+                    aria-label="Navigate to nearest airport"
+                    title="Nearest airport"
+                  >
+                    ✈️
+                    <span className={styles.airportBtnLabel}>
+                      {nearestAirportLoadingVenueId === selectedVenue.id
+                        ? "Nearest airport…"
+                        : nearestAirportByVenueId[selectedVenue.id]?.iata_code || "Airport"}
+                    </span>
+                  </button>
+                  {nearestAirportByVenueId[selectedVenue.id]?.distance_miles ? (
+                    <span className={styles.airportMeta}>
+                      {nearestAirportByVenueId[selectedVenue.id]!.distance_miles} mi
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
 
               {selectedVenue.hasOwl && selectedVenue.counts ? (
                 <div className={styles.owlPreview}>
@@ -989,6 +1228,13 @@ export default function TournamentVenueMapClient({
                   <div className={styles.stayTitle}>Stay near this venue</div>
                   <div className={styles.staySub}>Compare hotels and rentals closest to where you’ll play.</div>
                   <div className={styles.ctaRow}>
+                    <button
+                      type="button"
+                      className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
+                      onClick={() => openNavChooserForVenue(selectedVenue, "selected_venue_panel")}
+                    >
+                      Directions
+                    </button>
                     <a
                       className={styles.affiliateCta}
                       href={`/go/hotels?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
@@ -1013,6 +1259,26 @@ export default function TournamentVenueMapClient({
                     >
                       Search Vrbo rentals
                     </a>
+                    <Link
+                      className={styles.affiliateCta}
+                      href={
+                        selectedVenue.seo_slug
+                          ? `/venues/${encodeURIComponent(selectedVenue.seo_slug)}`
+                          : `/venues/${encodeURIComponent(selectedVenue.id)}`
+                      }
+                      onClick={() => {
+                        void trackTiEvent("venue_view_click", {
+                          page_type: "venue_map",
+                          tournament_id: tournament.id,
+                          tournament_slug: tournament.slug,
+                          venue_id: selectedVenue.id,
+                          venue_name: selectedVenue.name ?? null,
+                          source: "selected_venue_panel",
+                        });
+                      }}
+                    >
+                      View venue
+                    </Link>
                   </div>
                 </div>
               ) : null}
@@ -1303,6 +1569,16 @@ export default function TournamentVenueMapClient({
           )}
         </div>
       </div>
+
+      <NavigationChooser
+        open={navSheet.open}
+        title={navSheet.title}
+        destinationLabel={navSheet.destinationLabel}
+        providerHrefs={navSheet.providerHrefs}
+        copyText={navSheet.copyText}
+        onProviderClick={navSheet.onProviderClick}
+        onClose={() => setNavSheet((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

@@ -59,6 +59,92 @@
   text-align: left;
 }
 
+.venueRowWrap {
+  display: grid;
+  gap: 8px;
+}
+
+.venueRowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.venueActionBtn {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.10);
+  color: #fff;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-weight: 900;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.venueActionBtn:hover,
+.venueActionBtn:focus-visible {
+  outline: none;
+  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.14);
+}
+
+.affiliateCtaPrimary {
+  background: #047857;
+  border-color: rgba(0,0,0,0.10);
+  color: #fff;
+}
+
+.affiliateCtaPrimary:hover,
+.affiliateCtaPrimary:focus-visible {
+  background: #066b50;
+}
+
+.airportRow {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.airportBtn {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.10);
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-weight: 900;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.airportBtn:hover,
+.airportBtn:focus-visible {
+  outline: none;
+  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.14);
+}
+
+.airportBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.airportBtnLabel {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.airportMeta {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
 .venueRow:hover,
 .venueRow:focus-visible {
   outline: none;
@@ -245,6 +331,106 @@
   margin: 0;
   background: transparent;
   cursor: pointer;
+}
+
+.navSheetBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.48);
+  display: grid;
+  align-items: end;
+}
+
+.navSheetDismiss {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: transparent;
+}
+
+.navSheet {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  border-radius: 18px 18px 0 0;
+  background: rgba(5, 35, 22, 0.98);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.16);
+  box-shadow: 0 -20px 50px rgba(0,0,0,0.35);
+  padding: 14px 14px 18px;
+}
+
+.navSheetHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.navSheetTitle {
+  font-weight: 900;
+  font-size: 14px;
+}
+
+.navSheetSub {
+  margin-top: 2px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.navSheetCloseBtn {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.10);
+  color: #fff;
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.navSheetCloseBtn:hover,
+.navSheetCloseBtn:focus-visible {
+  outline: none;
+  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.14);
+}
+
+.navSheetActions {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.navSheetActionBtn {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.10);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.navSheetActionBtn:hover,
+.navSheetActionBtn:focus-visible {
+  outline: none;
+  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.14);
+}
+
+.navSheetActionBtn[aria-disabled="true"],
+.navSheetActionBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .placeMarker {
