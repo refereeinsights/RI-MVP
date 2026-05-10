@@ -8,6 +8,7 @@ import { WEEKEND_PRO_FOUNDING_DISCLAIMER, WEEKEND_PRO_FOUNDING_PRICE_LINE } from
 type WeekendProUpgradeModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onContinueLimited?: () => void;
   source_page?: string;
   source_context?: string;
   tournament_slug?: string | null;
@@ -185,7 +186,15 @@ export default function WeekendProUpgradeModal(props: WeekendProUpgradeModalProp
             />
             <button
               type="button"
-              onClick={() => props.onOpenChange(false)}
+              onClick={() => {
+                try {
+                  props.onContinueLimited?.();
+                } catch {
+                  // ignore
+                } finally {
+                  props.onOpenChange(false);
+                }
+              }}
               style={{
                 width: "100%",
                 padding: "10px 12px",

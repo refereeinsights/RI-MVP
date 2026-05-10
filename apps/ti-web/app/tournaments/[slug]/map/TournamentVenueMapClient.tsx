@@ -20,6 +20,7 @@ type TiTier = "explorer" | "insider" | "weekend_pro" | "unknown";
 type OwlPlace = {
   place_id: string | null;
   name: string | null;
+  category: string | null;
   address: string | null;
   distance_meters: number | null;
   maps_url: string | null;
@@ -105,6 +106,7 @@ export default function TournamentVenueMapClient({
   const mapboxglRef = useRef<any>(null);
   const markersRef = useRef<Map<string, any>>(new Map());
   const placeMarkersRef = useRef<Map<string, { marker: any; category: OwlCategory }>>(new Map());
+  const previewMarkersRef = useRef<Map<string, { marker: any; category: OwlCategory }>>(new Map());
   const popupRef = useRef<any>(null);
   const venuesByIdRef = useRef<Map<string, MapVenue>>(new Map());
   const openVenueNavChooserRef = useRef<((venue: MapVenue, source: "venue_marker") => void) | null>(null);
@@ -139,6 +141,10 @@ export default function TournamentVenueMapClient({
   const [owlPremiumError, setOwlPremiumError] = useState<string | null>(null);
   const [activePinCategories, setActivePinCategories] = useState<OwlCategory[]>([]);
   const [selectedPlaceKey, setSelectedPlaceKey] = useState<string | null>(null);
+  const [owlEyePreviewMode, setOwlEyePreviewMode] = useState<boolean>(false);
+  const [owlPreviewByVenueId, setOwlPreviewByVenueId] = useState<Record<string, { loaded: boolean; items: OwlPlace[] } | null>>({});
+  const [owlPreviewLoadingVenueId, setOwlPreviewLoadingVenueId] = useState<string | null>(null);
+  const [selectedPreviewKey, setSelectedPreviewKey] = useState<string | null>(null);
   const [entitlementTier, setEntitlementTier] = useState<TiTier>("unknown");
   const [navSheet, setNavSheet] = useState<NavSheetState>(() => ({
     open: false,
@@ -602,6 +608,15 @@ export default function TournamentVenueMapClient({
     setOwlPremiumLoadingVenueId(null);
     setActivePinCategories([]);
     setSelectedPlaceKey(null);
+    setSelectedPreviewKey(null);
+    for (const value of previewMarkersRef.current.values()) {
+      try {
+        value.marker?.remove?.();
+      } catch {
+        // ignore
+      }
+    }
+    previewMarkersRef.current.clear();
     for (const value of placeMarkersRef.current.values()) {
       try {
         value.marker?.remove?.();
@@ -618,6 +633,202 @@ export default function TournamentVenueMapClient({
       popupRef.current = null;
     }
   }, [selectedVenueId]);
+
+  const normalizeCategoryForPreview = (raw: string | null | undefined): OwlCategory | null => {
+    const v = String(raw ?? "").trim().toLowerCase();
+    if (!v) return null;
+    if (v === "coffee") return "coffee";
+    if (v === "quick_eats") return "quick_eats";
+    if (v === "hangouts") return "hangouts";
+    if (v === "hotel" || v === "hotels") return "hotels";
+    if (v === "food") return "food";
+    return null;
+  };
+
+  const fetchLimitedPreviewPlaces = async (venueId: string) => {
+    if (owlPreviewLoadingVenueId === venueId) return null;
+    setOwlPreviewLoadingVenueId(venueId);
+    try {
+      const url = new URL(`/api/venues/${encodeURIComponent(venueId)}/owls-eye-places`, window.location.origin);
+      // Request only the categories we might use in limited preview.
+      url.searchParams.set("categories", ["hotel", "hotels", "quick_eats", "hangouts", "coffee", "food"].join(","));
+      const resp = await fetch(url.toString(), { method: "GET" });
+      const json = (await resp.json().catch(() => null)) as any;
+      const places = (json?.places as OwlPlace[] | undefined) ?? [];
+      if (!Array.isArray(places)) {
+        setOwlPreviewByVenueId((prev) => ({ ...prev, [venueId]: { loaded: true, items: [] } }));
+        return [];
+      }
+      setOwlPreviewByVenueId((prev) => ({ ...prev, [venueId]: { loaded: true, items: places } }));
+      return places;
+    } catch {
+      setOwlPreviewByVenueId((prev) => ({ ...prev, [venueId]: { loaded: true, items: [] } }));
+      return [];
+    } finally {
+      setOwlPreviewLoadingVenueId((cur) => (cur === venueId ? null : cur));
+    }
+  };
+
+  const pickPreviewPins = (venue: MapVenue, items: OwlPlace[]) => {
+    const groups = new Map<OwlCategory, OwlPlace[]>();
+    for (const item of items) {
+      const cat = normalizeCategoryForPreview((item as any)?.category);
+      if (!cat) continue;
+      const hasCoordsItem = typeof item.place_latitude === "number" && typeof item.place_longitude === "number";
+      if (!hasCoordsItem) continue;
+      const list = groups.get(cat) ?? [];
+      list.push(item);
+      groups.set(cat, list);
+    }
+
+    const sortByDistance = (a: OwlPlace, b: OwlPlace) => {
+      const da = typeof a.distance_meters === "number" ? a.distance_meters : Number.POSITIVE_INFINITY;
+      const db = typeof b.distance_meters === "number" ? b.distance_meters : Number.POSITIVE_INFINITY;
+      if (da !== db) return da - db;
+      return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+    };
+    for (const [cat, list] of groups.entries()) {
+      list.sort(sortByDistance);
+      groups.set(cat, list);
+    }
+
+    const hangoutKeyword = /\b(brewery|breweries|taproom|tap room|brewpub|brew pub)\b/i;
+    const pickHangout = () => {
+      const list = groups.get("hangouts") ?? [];
+      if (!list.length) return null;
+      const matching = list.filter((i) => hangoutKeyword.test(String(i.name ?? "")));
+      return (matching.length ? matching : list)[0] ?? null;
+    };
+
+    const picks: Array<{ category: OwlCategory; item: OwlPlace }> = [];
+    const tryAdd = (category: OwlCategory, item: OwlPlace | null) => {
+      if (!item) return;
+      picks.push({ category, item });
+    };
+
+    tryAdd("hotels", (groups.get("hotels") ?? [])[0] ?? null);
+    tryAdd("quick_eats", (groups.get("quick_eats") ?? [])[0] ?? null);
+    tryAdd("hangouts", pickHangout());
+    tryAdd("coffee", (groups.get("coffee") ?? [])[0] ?? null);
+
+    // Fill open slots with food as fallback, max 4 total.
+    if (picks.length < 4) {
+      const food = (groups.get("food") ?? [])[0] ?? null;
+      if (food) picks.push({ category: "food", item: food });
+    }
+
+    const capped = picks.slice(0, 4);
+    return capped.map((p) => ({
+      ...p,
+      key: `${venue.id}:${String((p.item as any)?.place_id ?? "").trim() || p.item.name || p.category}`,
+    }));
+  };
+
+  const pickPreviewListItems = (venue: MapVenue, items: OwlPlace[]) => {
+    const groups = new Map<OwlCategory, OwlPlace[]>();
+    for (const item of items) {
+      const cat = normalizeCategoryForPreview((item as any)?.category);
+      if (!cat) continue;
+      const list = groups.get(cat) ?? [];
+      list.push(item);
+      groups.set(cat, list);
+    }
+
+    const sortByDistance = (a: OwlPlace, b: OwlPlace) => {
+      const da = typeof a.distance_meters === "number" ? a.distance_meters : Number.POSITIVE_INFINITY;
+      const db = typeof b.distance_meters === "number" ? b.distance_meters : Number.POSITIVE_INFINITY;
+      if (da !== db) return da - db;
+      return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+    };
+    for (const [cat, list] of groups.entries()) {
+      list.sort(sortByDistance);
+      groups.set(cat, list);
+    }
+
+    const hangoutKeyword = /\b(brewery|breweries|taproom|tap room|brewpub|brew pub)\b/i;
+    const pickHangout = () => {
+      const list = groups.get("hangouts") ?? [];
+      if (!list.length) return null;
+      const matching = list.filter((i) => hangoutKeyword.test(String(i.name ?? "")));
+      return (matching.length ? matching : list)[0] ?? null;
+    };
+
+    const picks: Array<{ category: OwlCategory; item: OwlPlace }> = [];
+    const tryAdd = (category: OwlCategory, item: OwlPlace | null) => {
+      if (!item) return;
+      picks.push({ category, item });
+    };
+
+    tryAdd("hotels", (groups.get("hotels") ?? [])[0] ?? null);
+    tryAdd("quick_eats", (groups.get("quick_eats") ?? [])[0] ?? null);
+    tryAdd("hangouts", pickHangout());
+    tryAdd("coffee", (groups.get("coffee") ?? [])[0] ?? null);
+
+    if (picks.length < 4) {
+      const food = (groups.get("food") ?? [])[0] ?? null;
+      if (food) picks.push({ category: "food", item: food });
+    }
+
+    const capped = picks.slice(0, 4);
+    return capped.map((p) => ({
+      ...p,
+      key: `${venue.id}:${String((p.item as any)?.place_id ?? "").trim() || p.item.name || p.category}`,
+    }));
+  };
+
+  const renderPreviewPins = (venue: MapVenue, pins: Array<{ key: string; category: OwlCategory; item: OwlPlace }>) => {
+    const mapboxgl = mapboxglRef.current;
+    const map = mapRef.current;
+    if (!mapboxgl || !map) return;
+
+    for (const value of previewMarkersRef.current.values()) {
+      try {
+        value.marker?.remove?.();
+      } catch {
+        // ignore
+      }
+    }
+    previewMarkersRef.current.clear();
+
+    for (const pin of pins) {
+      const item = pin.item;
+      const lat = item.place_latitude;
+      const lng = item.place_longitude;
+      if (typeof lat !== "number" || typeof lng !== "number") continue;
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = styles.placeMarkerBtn;
+      btn.setAttribute("aria-label", item.name ? `Preview ${item.name}` : "Preview nearby place");
+
+      const inner = document.createElement("div");
+      inner.className = `${styles.placeMarker} ${styles.placeMarkerPreview}`;
+      inner.textContent = emojiForCategory(pin.category);
+
+      btn.appendChild(inner);
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        setSelectedPreviewKey(pin.key);
+        void trackTiEvent("owls_eye_preview_pin_click", {
+          page_type: "venue_map",
+          tournament_id: tournament.id,
+          tournament_slug: tournament.slug,
+          venue_id: venue.id,
+          category: pin.category,
+          has_coords: true,
+        });
+        try {
+          map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom?.() ?? 12, 12), speed: 1.2 });
+        } catch {
+          // ignore
+        }
+      });
+
+      const marker = new mapboxgl.Marker({ element: btn, anchor: "bottom" }).setLngLat([lng, lat]).addTo(map);
+      previewMarkersRef.current.set(pin.key, { marker, category: pin.category });
+    }
+  };
 
   useEffect(() => {
     if (!effectiveMapEnabled) return;
@@ -689,6 +900,64 @@ export default function TournamentVenueMapClient({
       cancelled = true;
     };
   }, [selectedVenueId]);
+
+  const previewPins = useMemo(() => {
+    if (!owlEyePreviewMode || !selectedVenue) return [];
+    const cached = owlPreviewByVenueId[selectedVenue.id];
+    const items = cached?.items ?? [];
+    return pickPreviewPins(selectedVenue, items);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owlEyePreviewMode, selectedVenueId, owlPreviewByVenueId]);
+
+  useEffect(() => {
+    if (!owlEyePreviewMode) return;
+    if (!selectedVenue) return;
+    // Do not run preview mode for users who can already view full Owl’s Eye.
+    if (entitlementTier === "weekend_pro" || selectedVenue.id === DEMO_STARFIRE_VENUE_ID || isPremiumPreviewTournamentSlug(tournament.slug)) {
+      setOwlEyePreviewMode(false);
+      return;
+    }
+
+    const cached = owlPreviewByVenueId[selectedVenue.id];
+    const hasLoaded = Boolean(cached?.loaded);
+
+    (async () => {
+      if (!hasLoaded) {
+        void trackTiEvent("owls_eye_preview_shown", {
+          page_type: "venue_map",
+          tournament_id: tournament.id,
+          tournament_slug: tournament.slug,
+          venue_id: selectedVenue.id,
+        });
+        await fetchLimitedPreviewPlaces(selectedVenue.id);
+      }
+    })().catch(() => {
+      // ignore
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owlEyePreviewMode, selectedVenueId, entitlementTier]);
+
+  useEffect(() => {
+    if (!owlEyePreviewMode) return;
+    if (!selectedVenue) return;
+    if (!effectiveMapEnabled) return;
+    if (!mapReady) return;
+    renderPreviewPins(selectedVenue, previewPins);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owlEyePreviewMode, selectedVenueId, effectiveMapEnabled, mapReady, previewPins]);
+
+  useEffect(() => {
+    if (owlEyePreviewMode) return;
+    setSelectedPreviewKey(null);
+    for (const value of previewMarkersRef.current.values()) {
+      try {
+        value.marker?.remove?.();
+      } catch {
+        // ignore
+      }
+    }
+    previewMarkersRef.current.clear();
+  }, [owlEyePreviewMode]);
 
   const venueLocation = (v: MapVenue) => [v.city, v.state].filter(Boolean).join(", ") || "Location TBA";
   const venueDestinationLabel = (v: MapVenue) => {
@@ -791,6 +1060,43 @@ export default function TournamentVenueMapClient({
           airport_id: airport.id,
           airport_name: airport.name,
           airport_iata: airport.iata_code ?? null,
+        });
+      },
+    });
+  };
+
+  const openNavChooserForPreviewPlace = (args: {
+    venue: MapVenue;
+    category: OwlCategory;
+    item: OwlPlace;
+    source: "preview_card" | "map_preview_pin";
+  }) => {
+    const { venue, category, item, source } = args;
+    const hasCoords = typeof item.place_latitude === "number" && typeof item.place_longitude === "number";
+    if (!hasCoords) return;
+
+    const providerHrefs = buildNavProviderHrefsForLatLng(item.place_latitude as number, item.place_longitude as number);
+    const destinationLabel = [item.name || "Nearby place", venueDestinationLabel(venue)].filter(Boolean).join(" • ");
+    const copyText = String(item.name ?? "").trim() || null;
+    const placeId = String(item.place_id ?? "").trim() || null;
+
+    setNavSheet({
+      open: true,
+      title: "Directions",
+      destinationLabel,
+      providerHrefs,
+      copyText,
+      onProviderClick: (provider) => {
+        void trackTiEvent("owls_eye_preview_directions_click", {
+          page_type: "venue_map",
+          tournament_id: tournament.id,
+          tournament_slug: tournament.slug,
+          venue_id: venue.id,
+          category,
+          place_id: placeId,
+          source,
+          provider,
+          has_coords: true,
         });
       },
     });
@@ -1135,6 +1441,24 @@ export default function TournamentVenueMapClient({
     }
   };
 
+  const handleContinueLimitedResults = async () => {
+    const v = selectedVenue;
+    if (!v) return;
+    setOwlEyePreviewMode(true);
+    setOwlPanelMode("teaser");
+    setOwlPremiumError(null);
+    void trackTiEvent("owls_eye_limited_continue", {
+      page_type: "venue_map",
+      tournament_id: tournament.id,
+      tournament_slug: tournament.slug,
+      venue_id: v.id,
+    });
+    const cached = owlPreviewByVenueId[v.id];
+    if (!cached?.loaded) {
+      await fetchLimitedPreviewPlaces(v.id);
+    }
+  };
+
   return (
     <div className={styles.wrap}>
       <div className={styles.grid}>
@@ -1287,6 +1611,46 @@ export default function TournamentVenueMapClient({
                 </div>
               ) : null}
 
+              {owlEyePreviewMode ? (
+                <div className={styles.owlPreviewBanner} role="status" aria-live="polite">
+                  <div className={styles.owlPreviewBannerCopy}>
+                    Showing a limited preview near this venue. Upgrade to see all nearby options.
+                  </div>
+                  <div className={styles.owlPreviewBannerActions}>
+                    <WeekendProUpgradeModalTrigger
+                      className={styles.owlPreviewBannerBtn}
+                      source_page="venue_map"
+                      source_context="limited_preview_banner"
+                      tournament_slug={tournament.slug}
+                      venue_slug={selectedVenue.seo_slug ?? selectedVenue.id}
+                      entry_point="limited_preview_banner_modal"
+                      cta_label="Upgrade to Weekend Pro"
+                      label="Unlock full plan"
+                      user_tier={entitlementTier}
+                      has_affiliate_visible={false}
+                      onContinueLimited={() => void handleContinueLimitedResults()}
+                      onOpen={() => {
+                        void trackTiEvent("owls_eye_preview_upgrade_click", {
+                          page_type: "venue_map",
+                          tournament_id: tournament.id,
+                          tournament_slug: tournament.slug,
+                          venue_id: selectedVenue.id,
+                          source: "limited_banner",
+                        });
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className={styles.owlPreviewBannerDismiss}
+                      onClick={() => setOwlEyePreviewMode(false)}
+                      aria-label="Dismiss preview notice"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               {selectedVenue.hasOwl && selectedVenue.counts ? (
                 <div className={styles.owlPreview}>
                   <div className={styles.owlPreviewTitle}>
@@ -1306,6 +1670,131 @@ export default function TournamentVenueMapClient({
                   </div>
                   <div className={styles.owlPreviewHint}>Tap to see coffee, food, hotels, and more on the map.</div>
                 </div>
+              ) : null}
+
+              {owlEyePreviewMode ? (
+                (() => {
+                  const cached = owlPreviewByVenueId[selectedVenue.id];
+                  const items = cached?.items ?? [];
+                  const listItems = pickPreviewListItems(selectedVenue, items);
+                  const loading = owlPreviewLoadingVenueId === selectedVenue.id && !cached?.loaded;
+
+                  if (loading) {
+                    return <div className={styles.owlPreviewPanelNote}>Loading limited preview…</div>;
+                  }
+
+                  if (!listItems.length) {
+                    return (
+                      <div className={styles.owlPreviewPanelNote}>
+                        No preview places are available for this venue yet. Upgrade to see the full nearby plan.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className={styles.owlPreviewPanel}>
+                      <div className={styles.owlPreviewPanelTitle}>Preview results</div>
+                      <div className={styles.owlPreviewPanelSub}>
+                        A small sample near this venue — Weekend Pro unlocks the full set.
+                      </div>
+                      <div className={styles.owlPreviewList}>
+                        {listItems.map(({ key, category, item }) => {
+                          const isHotel = category === "hotels";
+                          const hasCoordsItem =
+                            typeof item.place_latitude === "number" && typeof item.place_longitude === "number";
+                          const distance = formatDistance(item.distance_meters);
+
+                          const venueId = selectedVenue.id;
+                          const baseHotelsHref = `/go/hotels?venueId=${encodeURIComponent(venueId)}&tournamentId=${encodeURIComponent(tournament.id)}`;
+                          const raw = String(item.name ?? "").trim();
+                          const collapsed = raw.replace(/\\s+/g, " ");
+                          const safeName = collapsed.length > 120 ? collapsed.slice(0, 120) : collapsed;
+                          const city = String(selectedVenue.city ?? "").trim();
+                          const state = String(selectedVenue.state ?? "").trim();
+                          const ss = [safeName, city, state].filter(Boolean).join(", ");
+                          const hotelHref = ss ? `${baseHotelsHref}&ss=${encodeURIComponent(ss)}` : baseHotelsHref;
+
+                          return (
+                            <div key={key} className={styles.owlPreviewItem}>
+                              <div className={styles.owlPreviewBadge}>Preview result</div>
+                              <div className={styles.owlPreviewItemTitle}>
+                                {emojiForCategory(category)} {item.name ?? "Nearby place"}
+                              </div>
+                              <div className={styles.owlPreviewItemMeta}>
+                                <span className={styles.owlPreviewItemCat}>{labelForCategory(category)}</span>
+                                {distance ? <span> • {distance}</span> : null}
+                              </div>
+                              <div className={styles.owlPreviewItemActions}>
+                                {isHotel ? (
+                                  <a
+                                    className={styles.owlPreviewActionBtn}
+                                    href={hotelHref}
+                                    target="_blank"
+                                    rel="noopener noreferrer sponsored"
+                                    onClick={() => {
+                                      void trackTiEvent("owls_eye_preview_hotel_booking_click", {
+                                        page_type: "venue_map",
+                                        tournament_id: tournament.id,
+                                        tournament_slug: tournament.slug,
+                                        venue_id: selectedVenue.id,
+                                        place_id: item.place_id ?? null,
+                                      });
+                                    }}
+                                  >
+                                    Check availability
+                                  </a>
+                                ) : null}
+
+                                <button
+                                  type="button"
+                                  className={styles.owlPreviewActionBtn}
+                                  disabled={!hasCoordsItem}
+                                  onClick={() => {
+                                    setSelectedPreviewKey(key);
+                                    openNavChooserForPreviewPlace({
+                                      venue: selectedVenue,
+                                      category,
+                                      item,
+                                      source: "preview_card",
+                                    });
+                                  }}
+                                >
+                                  Get directions
+                                </button>
+
+                                <WeekendProUpgradeModalTrigger
+                                  className={`${styles.owlPreviewActionBtn} ${styles.owlPreviewActionBtnSecondary}`}
+                                  source_page="venue_map"
+                                  source_context="limited_preview_card_upgrade"
+                                  tournament_slug={tournament.slug}
+                                  venue_slug={selectedVenue.seo_slug ?? selectedVenue.id}
+                                  entry_point="limited_preview_card_upgrade_modal"
+                                  cta_label="Upgrade to Weekend Pro"
+                                  label="Unlock full plan"
+                                  user_tier={entitlementTier}
+                                  has_affiliate_visible={false}
+                                  onContinueLimited={() => void handleContinueLimitedResults()}
+                                  onOpen={() => {
+                                    void trackTiEvent("owls_eye_preview_upgrade_click", {
+                                      page_type: "venue_map",
+                                      tournament_id: tournament.id,
+                                      tournament_slug: tournament.slug,
+                                      venue_id: selectedVenue.id,
+                                      source: "preview_card",
+                                    });
+                                  }}
+                                />
+                              </div>
+                              <div className={styles.owlPreviewItemLocked}>
+                                Unlock Weekend Pro to see all nearby {category === "hotels" ? "hotels" : category.replaceAll("_", " ")} options.
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()
               ) : null}
 
               {hotelVenueId ? (
@@ -1394,6 +1883,7 @@ export default function TournamentVenueMapClient({
                     label="See the closest options →"
                     user_tier={entitlementTier}
                     has_affiliate_visible={false}
+                    onContinueLimited={() => void handleContinueLimitedResults()}
                   />
                 )}
               </div>

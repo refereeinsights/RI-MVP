@@ -869,6 +869,171 @@
   border: 1px solid rgba(255,255,255,0.16);
 }
 
+.owlPreviewBanner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.08);
+}
+
+.owlPreviewBannerCopy {
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.25;
+  opacity: 0.94;
+}
+
+.owlPreviewBannerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.owlPreviewBannerBtn {
+  appearance: none;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: rgba(255,255,255,0.92);
+  color: #0b1f14;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 950;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.owlPreviewBannerDismiss {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.10);
+  color: #fff;
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.owlPreviewPanelNote {
+  font-size: 12px;
+  opacity: 0.9;
+  padding: 10px 2px 2px;
+  font-weight: 800;
+}
+
+.owlPreviewPanel {
+  margin-top: 2px;
+  display: grid;
+  gap: 8px;
+}
+
+.owlPreviewPanelTitle {
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.88;
+}
+
+.owlPreviewPanelSub {
+  font-size: 12px;
+  opacity: 0.88;
+  margin-top: -4px;
+}
+
+.owlPreviewList {
+  display: grid;
+  gap: 10px;
+}
+
+.owlPreviewItem {
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.owlPreviewBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.14);
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.owlPreviewItemTitle {
+  font-weight: 950;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.owlPreviewItemMeta {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.owlPreviewItemCat {
+  font-weight: 900;
+}
+
+.owlPreviewItemActions {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.owlPreviewActionBtn {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.10);
+  color: #fff;
+  border-radius: 12px;
+  padding: 9px 10px;
+  font-size: 12px;
+  font-weight: 950;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.owlPreviewActionBtn:hover,
+.owlPreviewActionBtn:focus-visible {
+  outline: none;
+  border-color: rgba(255,255,255,0.26);
+  background: rgba(255,255,255,0.14);
+}
+
+.owlPreviewActionBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.owlPreviewActionBtnSecondary {
+  background: rgba(255,255,255,0.06);
+}
+
+.owlPreviewItemLocked {
+  font-size: 12px;
+  opacity: 0.86;
+  font-weight: 800;
+}
+
+.placeMarkerPreview {
+  opacity: 0.75;
+  transform: scale(0.94);
+}
+
 @media (min-width: 900px) {
   .grid {
     grid-template-columns: 420px 1fr;

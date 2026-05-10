@@ -13,6 +13,12 @@ export type TiAnalyticsEventName =
   | "hotels_click"
   | "venue_view_click"
   | "nearest_airport_click"
+  | "owls_eye_limited_continue"
+  | "owls_eye_preview_shown"
+  | "owls_eye_preview_pin_click"
+  | "owls_eye_preview_directions_click"
+  | "owls_eye_preview_upgrade_click"
+  | "owls_eye_preview_hotel_booking_click"
   | "owls_eye_full_opened"
   | "owls_eye_unlock_prompt_shown"
   | "owls_eye_category_expanded"
@@ -131,6 +137,51 @@ export type TiAnalyticsEventPropertiesByName = {
     airport_id: string;
     airport_name: string;
     airport_iata: string | null;
+  };
+  owls_eye_limited_continue: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+  };
+  owls_eye_preview_shown: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+  };
+  owls_eye_preview_pin_click: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    category: OwlsEyeMapCategory;
+    has_coords: boolean;
+  };
+  owls_eye_preview_directions_click: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    category: OwlsEyeMapCategory;
+    place_id: string | null;
+    source: "preview_card" | "map_preview_pin";
+    provider: "apple" | "google" | "waze" | "copy";
+    has_coords: boolean;
+  };
+  owls_eye_preview_upgrade_click: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    source: "preview_card" | "limited_banner";
+  };
+  owls_eye_preview_hotel_booking_click: {
+    page_type: "venue_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    place_id: string | null;
   };
   owls_eye_full_opened: {
     page_type: "venue_map";

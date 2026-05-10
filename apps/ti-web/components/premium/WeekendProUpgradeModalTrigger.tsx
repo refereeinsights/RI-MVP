@@ -6,6 +6,8 @@ import WeekendProUpgradeModal from "@/components/premium/WeekendProUpgradeModal"
 type Props = {
   className?: string;
   label?: string;
+  onContinueLimited?: () => void;
+  onOpen?: () => void;
   source_page?: string;
   source_context?: string;
   tournament_slug?: string | null;
@@ -53,6 +55,11 @@ export default function WeekendProUpgradeModalTrigger(props: Props) {
         className={props.className}
         onClick={() => {
           openedByClickRef.current = true;
+          try {
+            props.onOpen?.();
+          } catch {
+            // ignore
+          }
           setOpen(true);
         }}
       >
@@ -64,9 +71,9 @@ export default function WeekendProUpgradeModalTrigger(props: Props) {
           setOpen(next);
           if (!next) openedByClickRef.current = false;
         }}
+        onContinueLimited={props.onContinueLimited}
         {...modalProps}
       />
     </>
   );
 }
-
