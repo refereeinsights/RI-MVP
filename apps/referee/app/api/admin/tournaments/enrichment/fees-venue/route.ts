@@ -951,7 +951,12 @@ async function fetchHtml(url: string): Promise<string | null> {
       method: "GET",
       redirect: "follow",
       cache: "no-cache",
-      headers: { "user-agent": "RI-FeesVenue-Scraper/2.0" },
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "en-US,en;q=0.9",
+      },
     });
     if (!resp.ok) return null;
     const contentType = resp.headers.get("content-type") ?? "";
@@ -1444,11 +1449,17 @@ export async function POST(request: Request) {
   }
 
   for (const t of selected) {
-    const url = (t as any).official_website_url || (t as any).source_url;
-    if (!url) {
+    const rawUrl = (t as any).official_website_url || (t as any).source_url;
+    if (!rawUrl) {
       skipped_no_url += 1;
       continue;
     }
+    // GotSport registration pages require login; rewrite to the public event page.
+    // system.gotsport.com/event_regs/ID → www.gotsport.com/events/ID
+    const url = rawUrl.replace(
+      /^https?:\/\/system\.gotsport\.com\/event_regs\/(\d+)/i,
+      "https://www.gotsport.com/events/$1"
+    );
     attempted += 1;
     attemptedTournamentIds.push(t.id);
     const seedHost = (() => {

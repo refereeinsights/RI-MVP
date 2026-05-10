@@ -13,6 +13,13 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-05-10 (3)
+
+### Deep scan: browser user-agent + GotSport URL rewrite
+- **Browser user-agent**: replaced `"RI-FeesVenue-Scraper/2.0"` with a realistic Chrome UA in `fetchHtml`. Many tournament platforms (GotSport, SportsEngine, etc.) block obvious bot agents or redirect to login; a browser UA gets through to actual page content.
+- **GotSport URL rewrite**: `system.gotsport.com/event_regs/ID` (auth-gated registration page) is rewritten to `www.gotsport.com/events/ID` (public event page) before crawling. Source URLs in the DB often point to the registration endpoint which returns 0 pages; the public event page has location/venue info without requiring login.
+- File: `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`
+
 ## 2026-05-10 (2)
 
 ### /book-travel — new canonical travel booking URL
