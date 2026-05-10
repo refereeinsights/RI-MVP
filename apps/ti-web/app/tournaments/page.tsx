@@ -446,134 +446,20 @@ export default async function TournamentsPage({
               lineHeight: 1.5,
             }}
           >
-            Browse upcoming tournaments by sport, state, and month. This directory focuses on logistics and basic details
-            — no ratings or referee reviews.
+            Browse upcoming tournaments by sport, state, and month, then use the map to plan hotels and Team Stays by venue location.
           </p>
-          {radiusActive ? (
-            <p className="subtitle" style={{ marginTop: 6, maxWidth: 720, fontSize: 13, lineHeight: 1.4 }}>
-              Showing tournaments within <strong>{radiusMiles} miles</strong> of ZIP <strong>{zip}</strong>
-              {zipError ? ` (ZIP lookup issue: ${zipError})` : ""}.
-            </p>
-          ) : zipRequested && zipError ? (
-            <p className="subtitle" style={{ marginTop: 6, maxWidth: 720, fontSize: 13, lineHeight: 1.4 }}>
-              ZIP radius filter unavailable for <strong>{zip}</strong>: {zipError}
-            </p>
-          ) : null}
-          <nav
-            aria-label="Browse tournament sport hubs"
-            style={{
-              marginTop: 12,
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 12,
-              fontSize: 14,
-            }}
-          >
-            <Link href="/tournaments/metro/dc-metro" style={{ textDecoration: "underline", color: "inherit" }}>
-              DC Metro
-            </Link>
-            <Link href="/tournaments/metro/new-england" style={{ textDecoration: "underline", color: "inherit" }}>
-              New England
-            </Link>
-            <Link href="/tournaments/metro/southern-california" style={{ textDecoration: "underline", color: "inherit" }}>
-              Southern California
-            </Link>
-            <Link href="/tournaments/metro/northern-california" style={{ textDecoration: "underline", color: "inherit" }}>
-              Northern California
-            </Link>
-            <Link href="/tournaments/metro/texas-triangle" style={{ textDecoration: "underline", color: "inherit" }}>
-              Texas Triangle
-            </Link>
-            <Link href="/tournaments/metro/great-lakes" style={{ textDecoration: "underline", color: "inherit" }}>
-              Great Lakes
-            </Link>
-            <Link href="/tournaments/metro/southeast" style={{ textDecoration: "underline", color: "inherit" }}>
-              Southeast
-            </Link>
-            <Link href="/tournaments/metro/mountain-west" style={{ textDecoration: "underline", color: "inherit" }}>
-              Mountain West
-            </Link>
-            <Link href="/tournaments/metro/pacific-northwest" style={{ textDecoration: "underline", color: "inherit" }}>
-              Pacific Northwest
-            </Link>
-            <Link href="/tournaments/soccer" style={{ textDecoration: "underline", color: "inherit" }}>
-              Soccer
-            </Link>
-            <Link href="/tournaments/baseball" style={{ textDecoration: "underline", color: "inherit" }}>
-              Baseball
-            </Link>
-            <Link href="/tournaments/softball" style={{ textDecoration: "underline", color: "inherit" }}>
-              Softball
-            </Link>
-            <Link href="/tournaments/basketball" style={{ textDecoration: "underline", color: "inherit" }}>
-              Basketball
-            </Link>
-            <Link href="/tournaments/lacrosse" style={{ textDecoration: "underline", color: "inherit" }}>
-              Lacrosse
-            </Link>
-            <Link href="/tournaments/hockey" style={{ textDecoration: "underline", color: "inherit" }}>
-              Hockey
-            </Link>
-            <Link href="/tournaments/ayso" style={{ textDecoration: "underline", color: "inherit" }}>
-              AYSO
-            </Link>
-          </nav>
-          <div
-            className="subtitle"
-            style={{
-              marginTop: 12,
-              maxWidth: 860,
-              fontSize: 14,
-              lineHeight: 1.6,
-              color: "#1f2937",
-            }}
-          >
-            <p style={{ marginTop: 0 }}>
-              Tournament Insights is building a public directory so teams and families can evaluate events before
-              committing. Listings are compiled from public sources and organizer submissions; we show what we have and
-              invite corrections. No ratings or crowd reviews are shown—just the dates, location, sport, and official
-              links you need to plan.
-            </p>
-            <p style={{ marginBottom: 0 }}>
-              If you see an issue, flag it and we’ll verify with the organizer. This is a logistics-first directory:
-              simple, factual, and focused on helping you make faster decisions.
-            </p>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              gap: 10,
-              flexWrap: "wrap",
-              marginTop: 10,
-              marginBottom: 12,
-            }}
-          >
-            <a
-              href={tournamentsIssueMailto}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                textDecoration: "none",
-                color: "#0b1f14",
-                background: "rgba(0,0,0,0.04)",
-                border: "1px solid rgba(0,0,0,0.12)",
-                borderRadius: 999,
-                padding: "6px 12px",
-                fontWeight: 700,
-                fontSize: 13,
-                minHeight: 40,
-              }}
-            >
-              Report an issue
-            </a>
-            <span style={{ fontSize: 12, color: "#0b1f14" }}>
-              Flag incorrect info or request an update from organizers.
-            </span>
-          </div>
         </div>
+
+        {radiusActive ? (
+          <p className="subtitle" style={{ marginTop: 10, maxWidth: 720, fontSize: 13, lineHeight: 1.4 }}>
+            Showing tournaments within <strong>{radiusMiles} miles</strong> of ZIP <strong>{zip}</strong>
+            {zipError ? ` (ZIP lookup issue: ${zipError})` : ""}.
+          </p>
+        ) : zipRequested && zipError ? (
+          <p className="subtitle" style={{ marginTop: 10, maxWidth: 720, fontSize: 13, lineHeight: 1.4 }}>
+            ZIP radius filter unavailable for <strong>{zip}</strong>: {zipError}
+          </p>
+        ) : null}
 
         <form className="filters" method="GET" action="/tournaments">
           <div>
@@ -856,6 +742,124 @@ export default async function TournamentsPage({
             </div>
           )}
         </div>
+
+        <section
+          className="subtitle"
+          style={{
+            marginTop: 16,
+            maxWidth: 900,
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: "#1f2937",
+          }}
+        >
+          <nav
+            aria-label="Browse tournament sport hubs"
+            style={{
+              marginTop: 0,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 12,
+              fontSize: 14,
+            }}
+          >
+            <Link href="/tournaments/metro/dc-metro" style={{ textDecoration: "underline", color: "inherit" }}>
+              DC Metro
+            </Link>
+            <Link href="/tournaments/metro/new-england" style={{ textDecoration: "underline", color: "inherit" }}>
+              New England
+            </Link>
+            <Link href="/tournaments/metro/southern-california" style={{ textDecoration: "underline", color: "inherit" }}>
+              Southern California
+            </Link>
+            <Link href="/tournaments/metro/northern-california" style={{ textDecoration: "underline", color: "inherit" }}>
+              Northern California
+            </Link>
+            <Link href="/tournaments/metro/texas-triangle" style={{ textDecoration: "underline", color: "inherit" }}>
+              Texas Triangle
+            </Link>
+            <Link href="/tournaments/metro/great-lakes" style={{ textDecoration: "underline", color: "inherit" }}>
+              Great Lakes
+            </Link>
+            <Link href="/tournaments/metro/southeast" style={{ textDecoration: "underline", color: "inherit" }}>
+              Southeast
+            </Link>
+            <Link href="/tournaments/metro/mountain-west" style={{ textDecoration: "underline", color: "inherit" }}>
+              Mountain West
+            </Link>
+            <Link href="/tournaments/metro/pacific-northwest" style={{ textDecoration: "underline", color: "inherit" }}>
+              Pacific Northwest
+            </Link>
+            <Link href="/tournaments/soccer" style={{ textDecoration: "underline", color: "inherit" }}>
+              Soccer
+            </Link>
+            <Link href="/tournaments/baseball" style={{ textDecoration: "underline", color: "inherit" }}>
+              Baseball
+            </Link>
+            <Link href="/tournaments/softball" style={{ textDecoration: "underline", color: "inherit" }}>
+              Softball
+            </Link>
+            <Link href="/tournaments/basketball" style={{ textDecoration: "underline", color: "inherit" }}>
+              Basketball
+            </Link>
+            <Link href="/tournaments/lacrosse" style={{ textDecoration: "underline", color: "inherit" }}>
+              Lacrosse
+            </Link>
+            <Link href="/tournaments/hockey" style={{ textDecoration: "underline", color: "inherit" }}>
+              Hockey
+            </Link>
+            <Link href="/tournaments/ayso" style={{ textDecoration: "underline", color: "inherit" }}>
+              AYSO
+            </Link>
+          </nav>
+
+          <div style={{ marginTop: 12 }}>
+            <p style={{ marginTop: 0 }}>
+              Tournament Insights is building a public directory so teams and families can evaluate events before
+              committing. Listings are compiled from public sources and organizer submissions; we show what we have and
+              invite corrections. No ratings or crowd reviews are shown—just the dates, location, sport, and official
+              links you need to plan.
+            </p>
+            <p style={{ marginBottom: 0 }}>
+              If you see an issue, flag it and we’ll verify with the organizer. This is a logistics-first directory:
+              simple, factual, and focused on helping you make faster decisions.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-start",
+              gap: 10,
+              flexWrap: "wrap",
+              marginTop: 10,
+            }}
+          >
+            <a
+              href={tournamentsIssueMailto}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                textDecoration: "none",
+                color: "#0b1f14",
+                background: "rgba(0,0,0,0.04)",
+                border: "1px solid rgba(0,0,0,0.12)",
+                borderRadius: 999,
+                padding: "6px 12px",
+                fontWeight: 700,
+                fontSize: 13,
+                minHeight: 40,
+              }}
+            >
+              Report an issue
+            </a>
+            <span style={{ fontSize: 12, color: "#0b1f14" }}>
+              Flag incorrect info or request an update from organizers.
+            </span>
+          </div>
+        </section>
       </section>
     </main>
   );

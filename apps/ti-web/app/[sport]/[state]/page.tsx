@@ -263,22 +263,6 @@ export default async function SportStateHubPage({
         {metroMarketChips}
         {seoMetroHubChips}
 
-        <section
-          className="bodyCard"
-          style={{
-            background: "linear-gradient(135deg, rgba(6, 25, 147, 0.06), rgba(25, 115, 209, 0.06))",
-            border: "1px solid rgba(25, 115, 209, 0.25)",
-            borderRadius: 14,
-            boxShadow: "0 12px 26px rgba(0,0,0,0.06)",
-          }}
-        >
-          <div style={{ maxWidth: "72ch", margin: "0 auto", textAlign: "center", display: "grid", gap: 12 }}>
-            <div><strong>Upcoming tournaments:</strong> {totalCount}</div>
-            <div><strong>Next tournament date:</strong> {nextUpcoming ? formatDate(nextUpcoming) : "TBA"}</div>
-            <div><strong>Cities represented:</strong> {cityCount}</div>
-          </div>
-        </section>
-
         <UsTournamentHeatmap
           countsByState={heatmapCounts.counts}
           max={heatmapCounts.max}
@@ -405,6 +389,22 @@ export default async function SportStateHubPage({
               ) : null}
             </>
           )}
+        </section>
+
+        <section
+          className="bodyCard"
+          style={{
+            background: "linear-gradient(135deg, rgba(6, 25, 147, 0.06), rgba(25, 115, 209, 0.06))",
+            border: "1px solid rgba(25, 115, 209, 0.25)",
+            borderRadius: 14,
+            boxShadow: "0 12px 26px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div style={{ maxWidth: "72ch", margin: "0 auto", textAlign: "center", display: "grid", gap: 12 }}>
+            <div><strong>Upcoming tournaments:</strong> {totalCount}</div>
+            <div><strong>Next tournament date:</strong> {nextUpcoming ? formatDate(nextUpcoming) : "TBA"}</div>
+            <div><strong>Cities represented:</strong> {cityCount}</div>
+          </div>
         </section>
 
         <section className="bodyCard bodyCardCenteredList">

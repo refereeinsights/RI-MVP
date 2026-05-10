@@ -508,114 +508,8 @@ export default async function MetroMarketTournamentsPage({
               lineHeight: 1.5,
             }}
           >
-            {seo?.states?.length
-              ? `Browse upcoming tournaments in ${seo.label} (${seo.states.join(", ")}).`
-              : "Browse upcoming tournaments by sport, state, and month."}{" "}
-            This directory focuses on logistics and basic details — no ratings or referee reviews.
+            Browse upcoming tournaments, then use the map to plan hotels and Team Stays by venue location.
           </p>
-          {seo?.intro ? (
-            <div
-              className="subtitle"
-              style={{
-                marginTop: 10,
-                maxWidth: 860,
-                fontSize: 14,
-                lineHeight: 1.6,
-                color: "#1f2937",
-              }}
-            >
-              <p style={{ marginTop: 0, marginBottom: 0 }}>{seo.intro}</p>
-            </div>
-          ) : null}
-          <nav
-            aria-label="Browse tournament sport hubs"
-            style={{
-              marginTop: 12,
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 12,
-              fontSize: 14,
-            }}
-          >
-            <Link href="/tournaments" style={{ textDecoration: "underline", color: "inherit" }}>
-              All tournaments
-            </Link>
-            <Link href="/tournaments/soccer" style={{ textDecoration: "underline", color: "inherit" }}>
-              Soccer
-            </Link>
-            <Link href="/tournaments/baseball" style={{ textDecoration: "underline", color: "inherit" }}>
-              Baseball
-            </Link>
-            <Link href="/tournaments/softball" style={{ textDecoration: "underline", color: "inherit" }}>
-              Softball
-            </Link>
-            <Link href="/tournaments/basketball" style={{ textDecoration: "underline", color: "inherit" }}>
-              Basketball
-            </Link>
-            <Link href="/tournaments/lacrosse" style={{ textDecoration: "underline", color: "inherit" }}>
-              Lacrosse
-            </Link>
-            <Link href="/tournaments/hockey" style={{ textDecoration: "underline", color: "inherit" }}>
-              Hockey
-            </Link>
-            <Link href="/tournaments/ayso" style={{ textDecoration: "underline", color: "inherit" }}>
-              AYSO
-            </Link>
-          </nav>
-          <div
-            className="subtitle"
-            style={{
-              marginTop: 12,
-              maxWidth: 860,
-              fontSize: 14,
-              lineHeight: 1.6,
-              color: "#1f2937",
-            }}
-          >
-            <p style={{ marginTop: 0 }}>
-              Tournament Insights is building a public directory so teams and families can evaluate events before
-              committing. Listings are compiled from public sources and organizer submissions; we show what we have and
-              invite corrections. No ratings or crowd reviews are shown—just the dates, location, sport, and official
-              links you need to plan.
-            </p>
-            <p style={{ marginBottom: 0 }}>
-              If you see an issue, flag it and we’ll verify with the organizer. This is a logistics-first directory:
-              simple, factual, and focused on helping you make faster decisions.
-            </p>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              gap: 12,
-              marginTop: 10,
-              marginBottom: 12,
-            }}
-          >
-            <a
-              href={tournamentsIssueMailto}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                textDecoration: "none",
-                color: "#0b1f14",
-                background: "rgba(0,0,0,0.04)",
-                border: "1px solid rgba(0,0,0,0.12)",
-                borderRadius: 999,
-                padding: "6px 12px",
-                fontWeight: 700,
-                fontSize: 13,
-                minHeight: 40,
-              }}
-            >
-              Report an issue
-            </a>
-            <span style={{ fontSize: 12, color: "#0b1f14" }}>
-              Flag incorrect info or request an update from organizers.
-            </span>
-          </div>
         </div>
 
         <form className="filters" method="GET" action={actionPath}>
@@ -834,6 +728,102 @@ export default async function MetroMarketTournamentsPage({
             })}
           </div>
         )}
+
+        <section
+          className="subtitle"
+          style={{
+            marginTop: 16,
+            maxWidth: 900,
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: "#1f2937",
+          }}
+        >
+          {seo?.intro ? <p style={{ marginTop: 0 }}>{seo.intro}</p> : null}
+
+          <nav
+            aria-label="Browse tournament sport hubs"
+            style={{
+              marginTop: 10,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 12,
+              fontSize: 14,
+            }}
+          >
+            <Link href="/tournaments" style={{ textDecoration: "underline", color: "inherit" }}>
+              All tournaments
+            </Link>
+            <Link href="/tournaments/soccer" style={{ textDecoration: "underline", color: "inherit" }}>
+              Soccer
+            </Link>
+            <Link href="/tournaments/baseball" style={{ textDecoration: "underline", color: "inherit" }}>
+              Baseball
+            </Link>
+            <Link href="/tournaments/softball" style={{ textDecoration: "underline", color: "inherit" }}>
+              Softball
+            </Link>
+            <Link href="/tournaments/basketball" style={{ textDecoration: "underline", color: "inherit" }}>
+              Basketball
+            </Link>
+            <Link href="/tournaments/lacrosse" style={{ textDecoration: "underline", color: "inherit" }}>
+              Lacrosse
+            </Link>
+            <Link href="/tournaments/hockey" style={{ textDecoration: "underline", color: "inherit" }}>
+              Hockey
+            </Link>
+            <Link href="/tournaments/ayso" style={{ textDecoration: "underline", color: "inherit" }}>
+              AYSO
+            </Link>
+          </nav>
+
+          <div style={{ marginTop: 12 }}>
+            <p style={{ marginTop: 0 }}>
+              Tournament Insights is building a public directory so teams and families can evaluate events before
+              committing. Listings are compiled from public sources and organizer submissions; we show what we have and
+              invite corrections. No ratings or crowd reviews are shown—just the dates, location, sport, and official
+              links you need to plan.
+            </p>
+            <p style={{ marginBottom: 0 }}>
+              If you see an issue, flag it and we’ll verify with the organizer. This is a logistics-first directory:
+              simple, factual, and focused on helping you make faster decisions.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-start",
+              gap: 10,
+              flexWrap: "wrap",
+              marginTop: 10,
+            }}
+          >
+            <a
+              href={tournamentsIssueMailto}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                textDecoration: "none",
+                color: "#0b1f14",
+                background: "rgba(0,0,0,0.04)",
+                border: "1px solid rgba(0,0,0,0.12)",
+                borderRadius: 999,
+                padding: "6px 12px",
+                fontWeight: 700,
+                fontSize: 13,
+                minHeight: 40,
+              }}
+            >
+              Report an issue
+            </a>
+            <span style={{ fontSize: 12, color: "#0b1f14" }}>
+              Flag incorrect info or request an update from organizers.
+            </span>
+          </div>
+        </section>
 
         {seo?.faq?.length ? (
           <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid rgba(0,0,0,0.12)" }}>

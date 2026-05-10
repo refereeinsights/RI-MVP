@@ -138,7 +138,7 @@ export async function SportHubPage({ sport, page }: { sport: string; page: numbe
               className="subtitle"
               style={{ marginTop: 8, maxWidth: 720, fontSize: 14, lineHeight: 1.6 }}
             >
-              {config.intro}
+              Browse upcoming tournaments, then use the map to plan hotels and Team Stays by venue location.
             </p>
           </div>
 
@@ -251,6 +251,19 @@ export async function SportHubPage({ sport, page }: { sport: string; page: numbe
             </div>
           )}
           </div>
+
+          <section
+            className="subtitle"
+            style={{
+              marginTop: 16,
+              maxWidth: 900,
+              fontSize: 14,
+              lineHeight: 1.6,
+              color: "#1f2937",
+            }}
+          >
+            <p style={{ marginTop: 0, marginBottom: 0 }}>{config.intro}</p>
+          </section>
 
           {/* Pagination */}
           {(currentPage > 1 || hasMore) && (
