@@ -1546,13 +1546,17 @@ export default function TournamentVenueMapClient({
 
     if (scrollSnapshot && typeof window !== "undefined") {
       try {
-        requestAnimationFrame(() => {
+        const restore = () => {
           try {
             window.scrollTo(scrollSnapshot.x, scrollSnapshot.y);
           } catch {
             // ignore
           }
-        });
+        };
+        requestAnimationFrame(restore);
+        window.setTimeout(restore, 0);
+        window.setTimeout(restore, 50);
+        window.setTimeout(restore, 200);
       } catch {
         // ignore
       }
