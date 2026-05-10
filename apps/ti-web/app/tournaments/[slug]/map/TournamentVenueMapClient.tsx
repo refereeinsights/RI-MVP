@@ -98,23 +98,6 @@ export default function TournamentVenueMapClient({
     const sportKey = allowed.has(raw) ? raw : "generic";
     return `/brand/headers/ti-venue-thumb-${sportKey}.webp`;
   });
-  const [detailImgSrc, setDetailImgSrc] = useState<string>(() => {
-    const raw = String(tournament.sport ?? "").trim().toLowerCase();
-    const allowed = new Set([
-      "soccer",
-      "basketball",
-      "football",
-      "baseball",
-      "softball",
-      "volleyball",
-      "lacrosse",
-      "wrestling",
-      "hockey",
-      "futsal",
-    ]);
-    const sportKey = allowed.has(raw) ? raw : "generic";
-    return `/brand/headers/ti-map-hero-${sportKey}.webp`;
-  });
 
   const selectedVenue = useMemo(() => venues.find((v) => v.id === selectedVenueId) ?? null, [venues, selectedVenueId]);
   const [owlPanelMode, setOwlPanelMode] = useState<"teaser" | "premium" | "unlock">("teaser");
@@ -978,17 +961,6 @@ export default function TournamentVenueMapClient({
                     Back
                   </button>
                 ) : null}
-              </div>
-
-              <div className={styles.detailThumb}>
-                <img
-                  className={styles.venueThumbImg}
-                  src={detailImgSrc}
-                  alt=""
-                  onError={() => {
-                    if (detailImgSrc !== "/brand/headers/ti-map-hero.webp") setDetailImgSrc("/brand/headers/ti-map-hero.webp");
-                  }}
-                />
               </div>
 
               {selectedVenue.hasOwl && selectedVenue.counts ? (
