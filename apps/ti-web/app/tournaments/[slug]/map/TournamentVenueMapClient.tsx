@@ -823,6 +823,8 @@ export default function TournamentVenueMapClient({
         } catch {
           // ignore
         }
+        // Match the Weekend Pro pin interaction: show the on-map popup with actions.
+        openPlacePopup({ venue, category: pin.category, item });
       });
 
       const marker = new mapboxgl.Marker({ element: btn, anchor: "bottom" }).setLngLat([lng, lat]).addTo(map);
