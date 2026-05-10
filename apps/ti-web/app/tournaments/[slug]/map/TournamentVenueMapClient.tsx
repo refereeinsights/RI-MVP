@@ -325,13 +325,18 @@ export default function TournamentVenueMapClient({
         // (Otherwise areTilesLoaded() can briefly be true before the new tile requests are queued.)
         const fitToBounds = () => {
           try {
+            if (validCoords.length === 1) {
+              const only = validCoords[0];
+              map.easeTo({ center: [only.lng, only.lat], zoom: 12, duration: 0 });
+              return;
+            }
+
             const bounds = new mapboxgl.LngLatBounds();
             for (const v of validCoords) bounds.extend([v.lng, v.lat]);
             const isDesktop = window.matchMedia("(min-width: 900px)").matches;
             map.fitBounds(bounds, {
-              padding: isDesktop
-                ? { top: 80, bottom: 80, left: 460, right: 40 }
-                : { top: 80, bottom: 80, left: 40, right: 40 },
+              // Panel is a separate column (not an overlay), so keep padding symmetric.
+              padding: isDesktop ? { top: 80, bottom: 80, left: 80, right: 80 } : { top: 70, bottom: 70, left: 50, right: 50 },
               duration: 0,
               maxZoom: 12,
             });
