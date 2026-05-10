@@ -19,6 +19,8 @@ import TournamentPlanningOverview from "@/components/tournaments/TournamentPlann
 import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
 import VenueMapTeaserCard from "@/app/tournaments/_components/VenueMapTeaserCard";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
+import TournamentMapTeaser from "@/components/tournaments/TournamentMapTeaser";
+import TournamentDetailStickyMapCta from "@/components/tournaments/TournamentDetailStickyMapCta";
 import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
 import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
@@ -768,6 +770,8 @@ async function TournamentVenueDetails({
           ] as SemanticListPart[]);
 
   const venueCount = displayVenueRows.length;
+  const isSingleVenue = venueCount === 1;
+  const mapPrimaryLabel = isSingleVenue ? "Open Venue Map" : "Open Tournament Map";
   const whereYoullPlayLine =
     venueCount === 1
       ? "This tournament is scheduled at 1 venue."
@@ -854,8 +858,33 @@ async function TournamentVenueDetails({
       ? buildHotelsHrefWithSearch({ venueId: hotelClickVenueId, tournamentId: tournament.id, ss: tournamentHotelsSearchString })
       : null;
 
+  const headerHotelsHref = buildTournamentHotelsHref({
+    source: "tournament_detail",
+    tournamentId: tournament.id,
+    city: tournament.city ?? null,
+    state: tournament.state ?? null,
+  });
+  const headerRentalsHref = buildTournamentVrboHref({
+    source: "tournament_detail",
+    tournamentId: tournament.id,
+    city: tournament.city ?? null,
+    state: tournament.state ?? null,
+  });
+
   return (
     <>
+      <TournamentDetailStickyMapCta mapHref={mapPreviewHref} mapLabel={mapPrimaryLabel} hotelsHref={headerHotelsHref} />
+
+      <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
+        <TournamentMapTeaser
+          mapHref={mapPreviewHref}
+          hotelsHref={headerHotelsHref}
+          rentalsHref={headerRentalsHref}
+          venueCount={venueCount}
+          primaryVenueName={primaryVenueName}
+        />
+      </div>
+
       <div
         style={{
           width: "min(720px, 100%)",
@@ -865,33 +894,19 @@ async function TournamentVenueDetails({
         }}
       >
         <div className="detailLinksRow" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" as any }}>
-          <a
-            className="secondaryLink"
-            href={buildTournamentHotelsHref({
-              source: "tournament_detail",
-              tournamentId: tournament.id,
-              city: tournament.city ?? null,
-              state: tournament.state ?? null,
-            })}
-            target="_blank"
-            rel="noopener noreferrer sponsored"
-            style={{ minWidth: 260 }}
-          >
-            Find hotels for this tournament
+          <TournamentMapCta
+            href={mapPreviewHref}
+            label={mapPrimaryLabel}
+            sourceContext="tournament_detail:header_row"
+            tournamentSlug={tournament.slug}
+            sport={tournament.sport ?? null}
+            variant="link"
+          />
+          <a className="secondaryLink" href={headerHotelsHref} target="_blank" rel="noopener noreferrer sponsored" style={{ minWidth: 260 }}>
+            Find Hotels Nearby
           </a>
-          <a
-            className="secondaryLink"
-            href={buildTournamentVrboHref({
-              source: "tournament_detail",
-              tournamentId: tournament.id,
-              city: tournament.city ?? null,
-              state: tournament.state ?? null,
-            })}
-            target="_blank"
-            rel="noopener noreferrer sponsored"
-            style={{ minWidth: 260 }}
-          >
-            View rentals for this tournament
+          <a className="secondaryLink" href={headerRentalsHref} target="_blank" rel="noopener noreferrer sponsored" style={{ minWidth: 260 }}>
+            Team Stays
           </a>
         </div>
       </div>
@@ -929,7 +944,7 @@ async function TournamentVenueDetails({
           <div style={{ marginTop: 10 }}>
             <TournamentMapCta
               href={mapPreviewHref}
-              label="Open full weekend plan →"
+              label={mapPrimaryLabel + " →"}
               sourceContext="tournament_page:plan_section"
               tournamentSlug={tournament.slug}
               sport={tournament.sport ?? null}
@@ -1036,7 +1051,7 @@ async function TournamentVenueDetails({
           <div style={{ marginTop: 8 }}>
             <TournamentMapCta
               href={mapPreviewHref}
-              label="See the closest options →"
+              label={mapPrimaryLabel + " →"}
               sourceContext="tournament_page:where_youll_play"
               tournamentSlug={tournament.slug}
               sport={tournament.sport ?? null}
@@ -1664,7 +1679,22 @@ export default async function TournamentDetailPage({
   const resolvedSlug = (data.slug ?? params.slug ?? "").toLowerCase();
   const isDemoTournament = resolvedSlug === DEMO_TOURNAMENT_SLUG;
   const showStaffVerified = Boolean(data.tournament_staff_verified) || isDemoTournament;
-  const metroLabel = getMetroMarketLabel(data.state ?? null);
+	  const metroLabel = getMetroMarketLabel(data.state ?? null);
+	  const headerIsSingleVenue = venueMeta.venueCount === 1;
+	  const headerMapLabel = headerIsSingleVenue ? "Open Venue Map" : "Open Tournament Map";
+	  const headerMapHref = `/tournaments/${encodeURIComponent(data.slug ?? params.slug)}/map`;
+	  const headerHotelsHref = buildTournamentHotelsHref({
+	    source: "tournament_detail",
+	    tournamentId: data.id,
+	    city: data.city ?? null,
+	    state: data.state ?? null,
+	  });
+	  const headerRentalsHref = buildTournamentVrboHref({
+	    source: "tournament_detail",
+	    tournamentId: data.id,
+	    city: data.city ?? null,
+	    state: data.state ?? null,
+	  });
 
   const canonicalUrl = buildCanonicalUrl(data.slug ?? params.slug);
   const structuredData = {
@@ -1724,47 +1754,35 @@ export default async function TournamentDetailPage({
           ) : null}
           {metroLabel ? <div className="detailMeta">{metroLabel}</div> : null}
 
-          <div
-            className="detailLinksRow"
+	          <div
+	            className="detailLinksRow"
             style={{
               marginTop: 12,
               justifyContent: "center",
               gap: 10,
               flexWrap: "wrap",
             }}
-          >
-            <a
-              className="secondaryLink hotelBookingCta"
-              href={buildTournamentHotelsHref({
-                source: "tournament_detail",
-                tournamentId: data.id,
-                city: data.city ?? null,
-                state: data.state ?? null,
-              })}
-              target="_blank"
-              rel="noopener noreferrer sponsored"
-              style={{ minWidth: 200, textAlign: "center" }}
-            >
-              View Hotels
-            </a>
-            <a
-              className="secondaryLink"
-              href={buildTournamentVrboHref({
-                source: "tournament_detail",
-                tournamentId: data.id,
-                city: data.city ?? null,
-                state: data.state ?? null,
-              })}
-              target="_blank"
-              rel="noopener noreferrer sponsored"
-              style={{ minWidth: 200, textAlign: "center" }}
-            >
-              View Rentals
-            </a>
-            <a className="secondaryLink" href="#venues" style={{ minWidth: 200, textAlign: "center" }}>
-              View Venues
-            </a>
-          </div>
+	          >
+	            <TournamentMapCta
+	              href={headerMapHref}
+	              label={headerMapLabel}
+	              sourceContext="tournament_detail:hero_header"
+	              tournamentSlug={data.slug}
+	              sport={data.sport ?? null}
+	              variant="link"
+	            />
+	            <a className="secondaryLink" href={headerHotelsHref} target="_blank" rel="noopener noreferrer sponsored" style={{ minWidth: 200, textAlign: "center" }}>
+	              Find Hotels Nearby
+	            </a>
+	            <a className="secondaryLink" href={headerRentalsHref} target="_blank" rel="noopener noreferrer sponsored" style={{ minWidth: 200, textAlign: "center" }}>
+	              Team Stays
+	            </a>
+	          </div>
+	          <div className="detailLinksRow" style={{ marginTop: 8 }}>
+	            <a className="secondaryLink detailLinkSmall" href="#venues">
+	              See venues list
+	            </a>
+	          </div>
 
           <div style={{ marginTop: 10, maxWidth: 620, textAlign: "center" }}>
             <div style={{ fontSize: 13, opacity: 0.9 }}>Want deeper planning insights? Unlock Weekend Pro.</div>
