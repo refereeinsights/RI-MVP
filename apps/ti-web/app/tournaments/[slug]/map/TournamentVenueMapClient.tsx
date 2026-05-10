@@ -1523,6 +1523,19 @@ export default function TournamentVenueMapClient({
   const handleContinueLimitedResults = async () => {
     const v = selectedVenue;
     if (!v) return;
+
+    // Preserve the current camera so dismissing the modal / enabling preview mode never feels like the map "jumps".
+    const map = mapRef.current;
+    const cameraSnapshot =
+      map && typeof map.getCenter === "function"
+        ? {
+            center: map.getCenter(),
+            zoom: map.getZoom?.(),
+            bearing: map.getBearing?.(),
+            pitch: map.getPitch?.(),
+          }
+        : null;
+
     setOwlEyePreviewMode(true);
     setOwlPanelMode("teaser");
     setOwlPremiumError(null);
@@ -1535,6 +1548,25 @@ export default function TournamentVenueMapClient({
     const cached = owlPreviewByVenueId[v.id];
     if (!cached?.loaded) {
       await fetchLimitedPreviewPlaces(v.id);
+    }
+
+    if (cameraSnapshot && map) {
+      try {
+        requestAnimationFrame(() => {
+          try {
+            map.jumpTo({
+              center: cameraSnapshot.center,
+              zoom: cameraSnapshot.zoom,
+              bearing: cameraSnapshot.bearing,
+              pitch: cameraSnapshot.pitch,
+            });
+          } catch {
+            // ignore
+          }
+        });
+      } catch {
+        // ignore
+      }
     }
   };
 
