@@ -8,6 +8,7 @@ import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import UsTournamentHeatmap from "@/app/_components/UsTournamentHeatmap";
+import VenueMapPreviewStrip from "@/app/tournaments/_components/VenueMapPreviewStrip";
 import "./tournaments.css";
 
 type Tournament = {
@@ -759,7 +760,7 @@ export default async function TournamentsPage({
                 const first = rows && rows.length ? rows[0] : null;
                 return Number(first?.count ?? 0) || 0;
               })();
-              const hasVenuesForMap = Boolean(t.slug) && (radiusActive ? true : venueCount > 0);
+              const showVenueMapPreview = venueCount > 0;
               const mapHref = `/tournaments/${t.slug}/map`;
 
               return (
@@ -775,12 +776,15 @@ export default async function TournamentsPage({
 
                   <p className="dates">{dateLabel}</p>
 
+                  {showVenueMapPreview ? (
+                    <VenueMapPreviewStrip tournamentName={t.name ?? "Tournament"} venueCount={venueCount} href={mapHref} />
+                  ) : null}
+
                   <div className="cardFooter cardFooter--ctas">
                     {(() => {
                       const city = String(t.city ?? "").trim();
                       const state = String(t.state ?? "").trim().toUpperCase();
                       const hasVrbo = Boolean(city && /^[A-Z]{2}$/.test(state));
-                      const hasVenues = venueCount > 0;
                       return (
                         <div className="cardCtaGrid">
                           <a
@@ -808,10 +812,10 @@ export default async function TournamentsPage({
                               target="_blank"
                               rel="noopener noreferrer sponsored"
                             >
-                              Find Rentals
+                              Team Stays
                             </a>
                           ) : null}
-                          {hasVenues ? (
+                          {!showVenueMapPreview && venueCount > 0 ? (
                             <Link href={`/tournaments/${t.slug}#venues`} className="secondaryLink">
                               See Venues
                             </Link>

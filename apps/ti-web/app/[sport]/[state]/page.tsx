@@ -17,6 +17,7 @@ import MetroMarketChips from "@/app/tournaments/_components/MetroMarketChips";
 import SeoMetroHubChips from "./_components/SeoMetroHubChips";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import UsTournamentHeatmap from "@/app/_components/UsTournamentHeatmap";
+import VenueMapPreviewStrip from "@/app/tournaments/_components/VenueMapPreviewStrip";
 import "../../tournaments/tournaments.css";
 
 // Keep SEO hub pages fresh without hammering Supabase.
@@ -327,6 +328,8 @@ export default async function SportStateHubPage({
                     const first = rows && rows.length ? rows[0] : null;
                     return Number(first?.count ?? 0) || 0;
                   })();
+                  const showVenueMapPreview = venueCount > 0;
+                  const mapHref = `/tournaments/${t.slug}/map`;
                   return (
                     <article key={t.id} className={`card ${getSportCardClass(t.sport)}`}>
                       <h2>{t.name}</h2>
@@ -336,12 +339,14 @@ export default async function SportStateHubPage({
                         {t.level ? ` • ${t.level}` : ""}
                       </p>
                       <p className="dates">{dateLabel}</p>
+                      {showVenueMapPreview ? (
+                        <VenueMapPreviewStrip tournamentName={t.name ?? "Tournament"} venueCount={venueCount} href={mapHref} />
+                      ) : null}
                       <div className="cardFooter cardFooter--ctas">
                         {(() => {
                           const city = String(t.city ?? "").trim();
                           const state = String(t.state ?? "").trim().toUpperCase();
                           const hasVrbo = Boolean(city && /^[A-Z]{2}$/.test(state));
-                          const hasVenues = venueCount > 0;
                           return (
                             <div className="cardCtaGrid">
                               <a
@@ -369,10 +374,10 @@ export default async function SportStateHubPage({
                                   target="_blank"
                                   rel="noopener noreferrer sponsored"
                                 >
-                                  Find Rentals
+                                  Team Stays
                                 </a>
                               ) : null}
-                              {hasVenues ? (
+                              {!showVenueMapPreview && venueCount > 0 ? (
                                 <Link href={`/tournaments/${t.slug}#venues`} className="secondaryLink">
                                   See Venues
                                 </Link>

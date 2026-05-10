@@ -1001,6 +1001,75 @@
   color: rgba(255,255,255,1);
 }
 
+/* Tournament card: lightweight venue map preview strip */
+.venueMapPreviewStrip {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.20);
+  background:
+    radial-gradient(circle at 18% 30%, rgba(255,255,255,0.10), transparent 55%),
+    radial-gradient(circle at 70% 65%, rgba(255,255,255,0.08), transparent 60%),
+    linear-gradient(135deg, rgba(0,0,0,0.22), rgba(0,0,0,0.10));
+  text-decoration: none;
+  color: rgba(255,255,255,0.96);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
+.venueMapPreviewStrip:hover {
+  border-color: rgba(255,255,255,0.32);
+}
+
+.venueMapPreviewStrip:active {
+  transform: translateY(1px);
+}
+
+.venueMapPreviewStrip__visual {
+  position: relative;
+  width: 64px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background:
+    linear-gradient(0deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04)),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 10px, transparent 10px, transparent 20px);
+  overflow: hidden;
+}
+
+.venueMapDot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.30);
+}
+
+.venueMapDot--one { left: 12px; top: 10px; opacity: 0.95; }
+.venueMapDot--two { left: 28px; top: 18px; opacity: 0.90; }
+.venueMapDot--three { left: 42px; top: 12px; opacity: 0.85; }
+.venueMapDot--four { left: 20px; top: 26px; opacity: 0.80; }
+
+.venueMapPreviewStrip__title {
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 1.15;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.35);
+}
+
+.venueMapPreviewStrip__subtitle {
+  margin-top: 2px;
+  font-weight: 800;
+  font-size: 12px;
+  color: rgba(255,255,255,0.82);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.35);
+}
+
 .ti-exploreByState {
   margin-top: 14px;
   background: #ffffff;

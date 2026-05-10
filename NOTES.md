@@ -2,6 +2,7 @@
 
 - TI admin: make “Hotels clicks” / “Vrbo clicks” tiles on `/admin/ti/revenue` link to `/admin/ti/outbound?dest=...` and add a source-surface breakdown panel (yesterday + total). Added RPC `list_ti_outbound_clicks_surface_counts_v1` migration: `apps/referee/app/admin/ti/revenue/page.tsx`, `apps/referee/app/admin/ti/outbound/page.tsx`, `supabase/migrations/20260509_ti_outbound_clicks_surface_counts_admin_rpcs.sql`.
 - RI admin uploads: add a manual “Extract venues” helper on draft tournaments that fetches the tournament/source page HTML and extracts likely venue address candidates for copy/paste review (no DB writes). Files: `apps/referee/components/admin/UploadsVenueExtractButton.tsx`, `apps/referee/app/api/admin/tournaments/uploads/venue-extract/route.ts`, `apps/referee/lib/pageScanner.ts`, `apps/referee/app/admin/page.tsx`.
+- TI tournament cards: rename “Find Rentals” → “Team Stays” and add a lightweight clickable VenueMapPreview strip (no live map) linking to `/tournaments/[slug]/map`. The preview replaces the “See Venues” button when `tournament_venues(count) > 0`: `apps/ti-web/app/tournaments/page.tsx`, `apps/ti-web/app/tournaments/_components/SportHubPage.tsx`, `apps/ti-web/app/[sport]/[state]/page.tsx`, `apps/ti-web/app/[sport]/[state]/[metro]/page.tsx`, `apps/ti-web/app/tournaments/_components/VenueMapPreviewStrip.tsx`, `apps/ti-web/app/tournaments/tournaments.css`.
 
 ## 2026-05-06
 
