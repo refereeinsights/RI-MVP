@@ -17,13 +17,13 @@ import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import TournamentPlanningOverview from "@/components/tournaments/TournamentPlanningOverview";
 import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
+import VenueMapTeaserCard from "@/app/tournaments/_components/VenueMapTeaserCard";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
 import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import { buildHotelsHref, canShowBookingCta, isValidZip5 } from "@/lib/booking/venueBooking";
-import { TI_STATIC_MAP_BUCKET, buildSupabasePublicObjectUrl } from "@/lib/staticTournamentMaps";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import "../tournaments.css";
 
@@ -778,14 +778,6 @@ async function TournamentVenueDetails({
   const showVenueWarning = venueCount >= 10;
 
   const mapPreviewHref = `/tournaments/${encodeURIComponent(tournament.slug ?? paramsSlug)}/map`;
-  const mapPreviewSrc =
-    (tournament.static_map_path
-      ? buildSupabasePublicObjectUrl({
-          baseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "",
-          bucket: TI_STATIC_MAP_BUCKET,
-          path: tournament.static_map_path,
-        })
-      : null) ?? "/brand/maps/no-coords-static-map.svg";
 
   const primaryVenue = displayVenueRows[0]?.venue ?? null;
   const primaryVenueName = (primaryVenue?.name ?? "").trim() || null;
@@ -1062,23 +1054,13 @@ async function TournamentVenueDetails({
           </div>
         ) : null}
 
-        <Link className="staticMapCard" href={mapPreviewHref} aria-label="Open interactive venue map">
-          <div className="staticMapCard__media">
-            <img
-              className="staticMapCard__img"
-              src={mapPreviewSrc}
-              alt={`Static venue map preview for ${tournament.name}`}
-              loading="lazy"
-              decoding="async"
-            />
-            <div className="staticMapCard__overlay" aria-hidden="true">
-              <div className="staticMapCard__badgeRow">
-                <span className="staticMapCard__badge">{`📍 ${venueCount || "?"} venue${venueCount === 1 ? "" : "s"}`}</span>
-              </div>
-              <span className="staticMapCard__cta">Open interactive venue map →</span>
-            </div>
-          </div>
-        </Link>
+        <VenueMapTeaserCard
+          tournamentName={tournament.name ?? "Tournament"}
+          slug={tournament.slug ?? paramsSlug}
+          venueCount={venueCount}
+          city={tournament.city ?? null}
+          state={tournament.state ?? null}
+        />
       </div>
 
       {(() => {
