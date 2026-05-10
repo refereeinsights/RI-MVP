@@ -1524,16 +1524,10 @@ export default function TournamentVenueMapClient({
     const v = selectedVenue;
     if (!v) return;
 
-    // Preserve the current camera so dismissing the modal / enabling preview mode never feels like the map "jumps".
-    const map = mapRef.current;
-    const cameraSnapshot =
-      map && typeof map.getCenter === "function"
-        ? {
-            center: map.getCenter(),
-            zoom: map.getZoom?.(),
-            bearing: map.getBearing?.(),
-            pitch: map.getPitch?.(),
-          }
+    // Preserve scroll position so dismissing the modal doesn't jump the page (common on mobile when focus returns).
+    const scrollSnapshot =
+      typeof window !== "undefined"
+        ? { x: window.scrollX, y: window.scrollY }
         : null;
 
     setOwlEyePreviewMode(true);
@@ -1550,16 +1544,11 @@ export default function TournamentVenueMapClient({
       await fetchLimitedPreviewPlaces(v.id);
     }
 
-    if (cameraSnapshot && map) {
+    if (scrollSnapshot && typeof window !== "undefined") {
       try {
         requestAnimationFrame(() => {
           try {
-            map.jumpTo({
-              center: cameraSnapshot.center,
-              zoom: cameraSnapshot.zoom,
-              bearing: cameraSnapshot.bearing,
-              pitch: cameraSnapshot.pitch,
-            });
+            window.scrollTo(scrollSnapshot.x, scrollSnapshot.y);
           } catch {
             // ignore
           }
