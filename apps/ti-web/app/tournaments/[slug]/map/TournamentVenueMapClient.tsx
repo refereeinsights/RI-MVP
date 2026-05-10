@@ -950,6 +950,41 @@ export default function TournamentVenueMapClient({
   }, [owlEyePreviewMode, selectedVenueId, effectiveMapEnabled, mapReady, previewPins]);
 
   useEffect(() => {
+    if (!owlEyePreviewMode) return;
+    const v = selectedVenue;
+    if (!v) return;
+    if (typeof v.latitude !== "number" || typeof v.longitude !== "number") return;
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Safari can change viewport/scrollbars when dismissing a fixed modal, which triggers a map resize and
+    // makes markers feel like they "jump" off-screen. After enabling preview mode, re-center on the
+    // selected venue so the primary pin stays in view.
+    const recenter = () => {
+      try {
+        map.resize?.();
+      } catch {
+        // ignore
+      }
+      try {
+        map.jumpTo({ center: [v.longitude, v.latitude] });
+      } catch {
+        // ignore
+      }
+    };
+
+    try {
+      requestAnimationFrame(recenter);
+      window.setTimeout(recenter, 0);
+      window.setTimeout(recenter, 80);
+      window.setTimeout(recenter, 200);
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owlEyePreviewMode]);
+
+  useEffect(() => {
     if (owlEyePreviewMode) return;
     setSelectedPreviewKey(null);
     for (const value of previewMarkersRef.current.values()) {
