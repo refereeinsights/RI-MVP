@@ -35,18 +35,19 @@ export default function UsTournamentHeatmap({
   return (
     <div className="ti-exploreByState">
       <div className="ti-exploreByStateHeader">
-        <div className="ti-exploreByStateTitle">Explore by State</div>
+        <div className="ti-exploreByStateTitleRow">
+          <span className="ti-exploreByStateTitle">Explore by State</span>
+          <span id={tipId} className="ti-exploreByStateTipInline" suppressHydrationWarning>
+            {resolvedTip}
+          </span>
+        </div>
         <div className="ti-exploreByStateMeta">Max {Math.max(0, safeMax).toLocaleString("en-US")}</div>
-      </div>
-
-      <div id={tipId} className="ti-exploreByStateTip" suppressHydrationWarning>
-        {resolvedTip}
       </div>
 
       <svg
         viewBox={`0 0 ${US_MAP_VIEWBOX.width} ${US_MAP_VIEWBOX.height}`}
         width="100%"
-        style={{ display: "block", margin: "10px auto 0", maxWidth: "none" }}
+        style={{ display: "block", margin: "8px auto 0", maxWidth: "none" }}
         role="img"
         aria-label={pageType === "venue_directory" ? "United States venue counts by state" : "United States tournament counts by state"}
       >

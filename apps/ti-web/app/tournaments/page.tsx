@@ -529,7 +529,16 @@ export default async function TournamentsPage({
             </AutoSubmitSelect>
           </div>
 
-          <div className="sportsRow">
+          <div className="actionsRow">
+            <button type="submit" className="smallBtn">
+              Apply
+            </button>
+            <a className="smallBtn" href="/tournaments">
+              Reset
+            </a>
+          </div>
+
+          <div className="sportsRow" aria-label="Sports filters">
             {sportsSorted.map(({ sport, count }) => (
               <label key={sport} className="sportToggle">
                 <AutoSubmitCheckbox type="checkbox" name="sports" value={sport} defaultChecked={sportsSelected.includes(sport)} />
@@ -548,15 +557,6 @@ export default async function TournamentsPage({
               <input type="checkbox" name="aysoOnly" value="true" defaultChecked={aysoOnly} />
               <span>AYSO only</span>
             </label>
-          </div>
-
-          <div className="actionsRow">
-            <button type="submit" className="smallBtn">
-              Apply
-            </button>
-            <a className="smallBtn" href="/tournaments">
-              Reset
-            </a>
           </div>
         </form>
 

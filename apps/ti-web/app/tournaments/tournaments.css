@@ -185,12 +185,14 @@
   box-shadow: 0 12px 30px rgba(0,0,0,0.05);
   position: relative;
   z-index: 3;
+  padding: 0.75rem;
+  gap: 0.6rem;
 }
 
 @media (min-width: 901px) {
   .tournamentsField .filters {
     /* Search | State | ZIP + radius (wider so ZIP can show 5 digits) */
-    grid-template-columns: minmax(240px, 420px) 150px minmax(260px, 320px);
+    grid-template-columns: minmax(240px, 420px) 150px minmax(260px, 320px) 140px auto;
   }
 }
 
@@ -340,20 +342,20 @@
   border-color: #0d1a10;
   color: #0d1a10;
   background: #fff;
+  padding: 0.55rem 0.75rem;
 }
 
 .actionsRow {
   display: flex;
-  gap: 0.6rem;
+  gap: 0.5rem;
   align-items: center;
-  justify-content: center;
-  grid-column: 1 / -1;
+  justify-content: flex-start;
+  white-space: nowrap;
 }
 @media (max-width: 640px) {
   .actionsRow {
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 }
 
@@ -361,10 +363,19 @@
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.6rem;
-  margin-top: 0.4rem;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.sportsRow::after {
+  content: "";
+  flex: 0 0 6px;
 }
 
 
@@ -1142,6 +1153,19 @@
   flex-wrap: wrap;
 }
 
+.ti-exploreByStateTitleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ti-exploreByStateTipInline {
+  font-size: 13px;
+  color: rgba(15, 23, 42, 0.72);
+  line-height: 1.2;
+}
+
 .ti-exploreByStateTitle {
   font-size: 14px;
   font-weight: 900;
@@ -1159,6 +1183,12 @@
   font-size: 13px;
   color: #0f172a;
   min-height: 18px;
+}
+
+@media (max-width: 640px) {
+  .ti-exploreByStateTipInline {
+    width: 100%;
+  }
 }
 
 .listingBadgeIcon {
