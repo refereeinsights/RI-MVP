@@ -1830,14 +1830,16 @@ export default function TournamentVenueMapClient({
                     );
                   }
 
-                  return (
-                    <div className={styles.owlPreviewPanel}>
-                      <div className={styles.owlPreviewPanelTitle}>Preview results</div>
-                      <div className={styles.owlPreviewPanelSub}>
-                        A small sample near this venue — Weekend Pro unlocks the full set.
-                      </div>
-                      <div className={styles.owlPreviewList}>
-                        {listItems.map(({ key, category, item }) => {
+	                  return (
+	                    <details className={styles.owlPreviewPanel}>
+	                      <summary className={styles.owlPreviewPanelSummary}>
+	                        Preview results <span className={styles.owlPreviewPanelCount}>({listItems.length})</span>
+	                      </summary>
+	                      <div className={styles.owlPreviewPanelSub}>
+	                        A small sample near this venue — Weekend Pro unlocks the full set.
+	                      </div>
+	                      <div className={styles.owlPreviewList}>
+	                        {listItems.map(({ key, category, item }) => {
                           const isHotel = category === "hotels";
                           const hasCoordsItem =
                             typeof item.place_latitude === "number" && typeof item.place_longitude === "number";
@@ -1929,10 +1931,10 @@ export default function TournamentVenueMapClient({
                               </div>
                             </div>
                           );
-                        })}
-                      </div>
-                    </div>
-                  );
+	                        })}
+	                      </div>
+	                    </details>
+	                  );
                 })()
               ) : null}
 
@@ -1940,7 +1942,7 @@ export default function TournamentVenueMapClient({
                 <div className={styles.stayBlock}>
                   <div className={styles.stayTitle}>Stay near this venue</div>
                   <div className={styles.staySub}>Compare hotels and rentals closest to where you’ll play.</div>
-                  <div className={styles.ctaRow}>
+	                  <div className={`${styles.ctaRow} ${styles.stayCtaRow}`}>
                     <button
                       type="button"
                       className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
@@ -1970,8 +1972,8 @@ export default function TournamentVenueMapClient({
                       target="_blank"
                       rel="noopener noreferrer sponsored"
                     >
-                      Search Vrbo rentals
-                    </a>
+	                      Team Stays nearby
+	                    </a>
                     <Link
                       className={styles.affiliateCta}
                       href={
