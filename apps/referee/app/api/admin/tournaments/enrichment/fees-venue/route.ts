@@ -121,6 +121,43 @@ function normalizeSpace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+// Strip trailing noise from raw address strings and extract the innermost clean address
+// when the input is a paragraph blob containing an embedded street address.
+function cleanAddressText(raw: string): string {
+  let text = normalizeSpace(raw);
+  if (!text) return text;
+
+  // Strip trailing noise suffixes
+  text = text
+    .replace(/,?\s*United States(?: of America)?\s*$/i, "")
+    .replace(/\s*\+\s*Google Maps?\s*$/i, "")
+    .replace(/\s*(?:Open in|View|Get)\s+(?:Map|Maps|Directions|Google Maps?|Apple Maps?)\s*$/i, "")
+    .trim();
+
+  // Truncate at the first zip code boundary so footer text after the zip is dropped
+  const zipEnd = text.match(/^(.*?\b\d{5}(?:-\d{4})?)\b/);
+  if (zipEnd?.[1]) text = normalizeSpace(zipEnd[1]);
+
+  // For long blobs (likely extracted table rows), find the innermost clean street address.
+  // Requires house number + 1-4 street-name words + suffix + city, ST [zip].
+  if (text.length > 60) {
+    const sfx = "St(?:reet)?|Ave(?:nue)?|Rd|Road|Dr(?:ive)?|Ln|Lane|Blvd|Boulevard|Ct|Court|Way|Pkwy|Parkway|Pl(?:ace)?|Cir(?:cle)?|Ter(?:race)?|Hwy|Highway";
+    const inner = new RegExp(
+      `\\b(\\d{1,5}\\s+(?:[A-Za-z0-9.'#\\-]{1,20}\\s+){1,4}(?:${sfx})\\b[.,]?\\s*[A-Za-z .]{2,40},\\s*[A-Z]{2}(?:\\s+\\d{5}(?:-\\d{4})?)?)`,
+      "gi"
+    );
+    const hits = Array.from(text.matchAll(inner));
+    if (hits.length) {
+      // Prefer the shortest match — least likely to have absorbed surrounding blob text
+      const best = hits.reduce((a, b) => ((b[1] ?? "").length < (a[1] ?? "").length ? b : a));
+      const candidate = normalizeSpace(best[1] ?? "");
+      if (candidate && looksLikeStreetAddress(candidate)) return candidate;
+    }
+  }
+
+  return normalizeSpace(text);
+}
+
 function isJunkVenueName(name: string | null | undefined): boolean {
   const raw = normalizeSpace(String(name ?? ""));
   if (!raw) return true;
@@ -269,11 +306,25 @@ function extractVenuePageAddresses(
 }
 
 function cleanVenueName(raw: string): string | null {
-  const text = normalizeSpace(raw)
+  let text = normalizeSpace(raw)
     .replace(/\b(address|location|directions?)\b[:\-]*/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
   if (!text) return null;
+
+  // Deduplicate repeated segments separated by bullet/pipe: "Gavin Park • Gavin Park" → "Gavin Park"
+  const segments = text.split(/\s*[•·|]\s*/).map((s) => s.trim()).filter(Boolean);
+  if (segments.length > 1) {
+    const seen = new Set<string>();
+    const unique = segments.filter((s) => {
+      const key = s.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    text = unique.join(" • ");
+  }
+
   if (text.length < 3 || text.length > 120) return null;
   if (/^\d/.test(text)) return null;
   return text;
@@ -547,77 +598,90 @@ function extractVenueMapCardsFromPage(args: {
   return results;
 }
 
+// Resolve a full street address for a known venue name using Mapbox forward geocoding.
+// Replaces the previous DuckDuckGo scrape approach — faster, no web scraping, structured result.
 async function searchFullAddressForVenue(args: {
   venueName: string;
   city: string | null;
   state: string | null;
-  maxResults?: number;
 }): Promise<string | null> {
+  const token = process.env.MAPBOX_ACCESS_TOKEN ?? process.env.MAPBOX_SECRET_TOKEN ?? "";
+  if (!token) return null;
+
   const venueName = normalizeSpace(args.venueName);
   const city = normalizeSpace(args.city ?? "");
   const state = normalizeSpace(args.state ?? "").toUpperCase();
   if (!venueName || !state) return null;
 
-  const maxResults = Math.max(1, Math.min(args.maxResults ?? 3, 5));
-  const geo = [city, state].filter(Boolean).join(" ");
+  const q = [venueName, city, state].filter(Boolean).join(", ");
+  const url = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json`);
+  url.searchParams.set("access_token", token);
+  url.searchParams.set("limit", "3");
+  url.searchParams.set("autocomplete", "false");
+  url.searchParams.set("types", "poi,address");
+  url.searchParams.set("country", "us");
 
-  const queries = [
-    `"${venueName}" ${geo} address`,
-    `"${venueName}" ${geo}`,
-    `${venueName} ${geo} address`,
-  ];
-
-  const visited = new Set<string>();
-  for (const q of queries) {
-    const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(q)}`;
-    let html: string | null = null;
-    try {
-      const resp = await fetch(searchUrl, {
-        method: "GET",
-        cache: "no-cache",
-        redirect: "follow",
-        headers: {
-          "user-agent": "RI-FeesVenue-Scraper/2.2",
-          accept: "text/html,application/xhtml+xml",
-        },
-      });
-      if (!resp.ok) continue;
-      const contentType = resp.headers.get("content-type") ?? "";
-      if (!/text\/html/i.test(contentType)) continue;
-      html = await resp.text();
-    } catch {
-      continue;
+  try {
+    const resp = await fetch(url.toString(), { cache: "no-store" });
+    if (!resp.ok) return null;
+    const data = (await resp.json()) as { features?: unknown[] };
+    const features = Array.isArray(data?.features) ? data.features : [];
+    for (const feat of features) {
+      const placeName = normalizeSpace(String((feat as any).place_name ?? ""));
+      if (!placeName) continue;
+      // Strip the trailing ", United States" that Mapbox appends
+      const cleaned = cleanAddressText(placeName);
+      const addrState = extractStateFromFullAddress(cleaned);
+      if (addrState && state && addrState !== state) continue;
+      if (looksLikeStreetAddress(cleaned)) return cleaned;
     }
-    if (!html) continue;
-    const $ = cheerio.load(html);
-    const hrefs = $("a.result__a, a[href]")
-      .toArray()
-      .map((el) => ($(el).attr("href") || "").trim())
-      .filter(Boolean)
-      .map((href) => decodeSearchRedirect(href))
-      .filter((href): href is string => !!href);
-
-    let checked = 0;
-    for (const href of hrefs) {
-      if (checked >= maxResults) break;
-      if (visited.has(href)) continue;
-      visited.add(href);
-      checked += 1;
-
-      const pageHtml = await fetchHtml(href);
-      if (!pageHtml) continue;
-      const pageText = cheerio.load(pageHtml).text().replace(/\s+/g, " ");
-      const addresses = extractAddresses(pageText);
-      for (const addr of addresses) {
-        const addrState = extractStateFromFullAddress(addr);
-        if (addrState && addrState !== state) continue;
-        if (city && !normalizeLower(addr).includes(normalizeLower(city))) continue;
-        return addr;
-      }
-    }
+  } catch {
+    // ignore — network/parse errors fall through to null
   }
 
   return null;
+}
+
+// For address-only candidates (no venue name), query Mapbox to retrieve the POI name at that address.
+// Only runs during single-tournament deep scans to avoid bulk API cost.
+async function enrichAddressWithMapboxPOI(address: string, expectedState: string | null): Promise<string | null> {
+  const token = process.env.MAPBOX_ACCESS_TOKEN ?? process.env.MAPBOX_SECRET_TOKEN ?? "";
+  if (!token) return null;
+
+  const q = normalizeSpace(address);
+  if (!q) return null;
+
+  const url = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json`);
+  url.searchParams.set("access_token", token);
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("autocomplete", "false");
+  url.searchParams.set("types", "poi,address");
+  url.searchParams.set("country", "us");
+
+  try {
+    const resp = await fetch(url.toString(), { cache: "no-store" });
+    if (!resp.ok) return null;
+    const data = (await resp.json()) as { features?: unknown[] };
+    const feat = Array.isArray(data?.features) ? data.features[0] : null;
+    if (!feat) return null;
+
+    const placeTypes: string[] = Array.isArray((feat as any).place_type) ? (feat as any).place_type : [];
+    if (!placeTypes.includes("poi")) return null;
+
+    // Validate state if provided
+    if (expectedState) {
+      const ctx: any[] = Array.isArray((feat as any).context) ? (feat as any).context : [];
+      const region = ctx.find((c: any) => String(c.id ?? "").startsWith("region."));
+      const inferredState = String(region?.short_code ?? "").toUpperCase().split("-").pop()?.trim() ?? null;
+      if (inferredState && inferredState !== expectedState.toUpperCase()) return null;
+    }
+
+    const name = normalizeSpace(String((feat as any).text ?? ""));
+    if (!name || isJunkVenueName(name)) return null;
+    return name;
+  } catch {
+    return null;
+  }
 }
 
 function decodeMapHint(urlRaw: string): string | null {
@@ -1460,7 +1524,7 @@ export async function POST(request: Request) {
         foundByKey.add("player_parking");
       }
 
-      extractAddresses(text).forEach((addr) => inferredAddressPool.push(addr));
+      extractAddresses(text).forEach((addr) => inferredAddressPool.push(cleanAddressText(addr)));
       detectVenuePageUrl(page.url, $) && venueUrlCandidates.add(detectVenuePageUrl(page.url, $)!);
 
       const venueUrl = extractVenueUrl($);
@@ -1471,16 +1535,16 @@ export async function POST(request: Request) {
         new URL(page.url).pathname
       );
       if (venuePathMatch || isLikelyVenueContentPage($)) {
-        extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(addr));
+        extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(cleanAddressText(addr)));
         extractVenueEntriesFromPage($, locality).forEach((entry) =>
-          venueEntriesPool.push({ ...entry, source_url: page.url, venue_url: null, reason: "page_text_address" })
+          venueEntriesPool.push({ ...entry, address_text: cleanAddressText(entry.address_text), source_url: page.url, venue_url: null, reason: "page_text_address" })
         );
         extractMapLinkedVenueEntries($).forEach((entry) =>
-          venueEntriesPool.push({ ...entry, source_url: page.url, venue_url: null, reason: "map_link" })
+          venueEntriesPool.push({ ...entry, address_text: cleanAddressText(entry.address_text), source_url: page.url, venue_url: null, reason: "map_link" })
         );
         // Many sites expose venue location via schema.org JSON-LD even when the rendered page is thin.
         extractJsonLdVenueEntriesFromPage($).forEach((entry) =>
-          venueEntriesPool.push({ venue_name: entry.venue_name, address_text: entry.address_text, source_url: page.url, venue_url: entry.venue_url, reason: "jsonld_location" })
+          venueEntriesPool.push({ venue_name: entry.venue_name, address_text: cleanAddressText(entry.address_text), source_url: page.url, venue_url: entry.venue_url, reason: "jsonld_location" })
         );
       }
 
@@ -1537,7 +1601,6 @@ export async function POST(request: Request) {
                 venueName: card.venue_name,
                 city: card.city,
                 state: tournamentState,
-                maxResults: 3,
               });
               if (!full) continue;
               venueEntriesPool.push({
@@ -1584,14 +1647,14 @@ export async function POST(request: Request) {
       crawledUrls.add(forcedUrl);
       const $ = cheerio.load(forcedHtml);
       const text = $.text().replace(/\s+/g, " ");
-      extractAddresses(text).forEach((addr) => inferredAddressPool.push(addr));
+      extractAddresses(text).forEach((addr) => inferredAddressPool.push(cleanAddressText(addr)));
       const locality = inferLocality(inferredAddressPool);
-      extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(addr));
+      extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(cleanAddressText(addr)));
       extractVenueEntriesFromPage($, locality).forEach((entry) =>
-        venueEntriesPool.push({ ...entry, source_url: forcedUrl, venue_url: null, reason: "page_text_address" })
+        venueEntriesPool.push({ ...entry, address_text: cleanAddressText(entry.address_text), source_url: forcedUrl, venue_url: null, reason: "page_text_address" })
       );
       extractMapLinkedVenueEntries($).forEach((entry) =>
-        venueEntriesPool.push({ ...entry, source_url: forcedUrl, venue_url: null, reason: "map_link" })
+        venueEntriesPool.push({ ...entry, address_text: cleanAddressText(entry.address_text), source_url: forcedUrl, venue_url: null, reason: "map_link" })
       );
     }
 
@@ -1613,14 +1676,14 @@ export async function POST(request: Request) {
 
         const $ = cheerio.load(fallbackHtml);
         const text = $.text().replace(/\s+/g, " ");
-        extractAddresses(text).forEach((addr) => inferredAddressPool.push(addr));
+        extractAddresses(text).forEach((addr) => inferredAddressPool.push(cleanAddressText(addr)));
         const locality = inferLocality(inferredAddressPool);
-        extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(addr));
+        extractVenuePageAddresses($, locality).forEach((addr) => venuePageAddressPool.push(cleanAddressText(addr)));
         extractVenueEntriesFromPage($, locality).forEach((entry) =>
-          venueEntriesPool.push({ ...entry, source_url: fallbackUrl, venue_url: null, reason: "page_text_address" })
+          venueEntriesPool.push({ ...entry, address_text: cleanAddressText(entry.address_text), source_url: fallbackUrl, venue_url: null, reason: "page_text_address" })
         );
         extractMapLinkedVenueEntries($).forEach((entry) =>
-          venueEntriesPool.push({ ...entry, source_url: fallbackUrl, venue_url: null, reason: "map_link" })
+          venueEntriesPool.push({ ...entry, address_text: cleanAddressText(entry.address_text), source_url: fallbackUrl, venue_url: null, reason: "map_link" })
         );
       }
     }
@@ -1647,6 +1710,18 @@ export async function POST(request: Request) {
     }
     if (venueEntriesPool.length) {
       const entryDedup = new Set<string>();
+      const tournamentState = normalizeSpace((t as any).state ?? "").toUpperCase() || null;
+
+      // In single-tournament scans, enrich address-only entries with a Mapbox POI name lookup.
+      // Skipped in bulk mode to avoid per-entry API cost at scale.
+      if (tournamentIdParam) {
+        for (const entry of venueEntriesPool) {
+          if (entry.venue_name || !looksLikeStreetAddress(entry.address_text)) continue;
+          const poiName = await enrichAddressWithMapboxPOI(entry.address_text, tournamentState);
+          if (poiName) entry.venue_name = poiName;
+        }
+      }
+
       const ranked = venueEntriesPool
         .map((entry) => {
           const candidateVenueUrl = entry.venue_url ?? Array.from(venueUrlCandidates)[0] ?? null;
@@ -1656,7 +1731,9 @@ export async function POST(request: Request) {
         .sort((a, b) => b.score - a.score)
         .slice(0, 20);
 
-      const minScoreToInsert = focusMissingVenues ? 5 : 5;
+      // Bulk mode requires score ≥ 7 (street address + zip + venue name) to filter noise.
+      // Single-tournament scans keep the lower threshold since Mapbox enrichment has already run.
+      const minScoreToInsert = tournamentIdParam ? 5 : 7;
       for (const { entry, candidateVenueUrl, score, confidence } of ranked) {
         if (!looksLikeStreetAddress(entry.address_text)) {
           droppedLowQualityVenueEntries += 1;
@@ -1678,10 +1755,10 @@ export async function POST(request: Request) {
           const tournamentLocality = tournamentLocalityById.get(String(t.id ?? ""));
           const parsedAddress = parseAddressParts(entry.address_text);
           const parsedState = parsedAddress.state ?? extractStateFromFullAddress(entry.address_text);
-          const tournamentState = normalizeSpace(tournamentLocality?.state ?? "") || null;
+          const tournamentStateVal = normalizeSpace(tournamentLocality?.state ?? "") || null;
           // If we have a state in the extracted address and it doesn't match the tournament state,
           // skip to avoid "sticky" footer/contact addresses bleeding across states.
-          if (parsedState && tournamentState && parsedState.toUpperCase() !== tournamentState.toUpperCase()) {
+          if (parsedState && tournamentStateVal && parsedState.toUpperCase() !== tournamentStateVal.toUpperCase()) {
             continue;
           }
           const addrKey = buildAddressKey({

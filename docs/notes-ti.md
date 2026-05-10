@@ -13,6 +13,22 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-05-10
+
+### Venue cleanup (data)
+- Deleted 269 non-venue records from the `venues` table (junk entries like "TBD", "Multiple X Venues", "Rules", "Format:", bare city-state strings, and Oregon/Wyoming/Montana geocode-bleed ingest bugs).
+- 39 were orphaned (no tournament_venues links) — deleted directly.
+- 230 had tournament_venues links — hotel outbound clicks for those venues cleared first (constraint `ti_outbound_clicks_destination_type_hotels_requires_venue_id` blocks SET NULL on delete), then venues deleted via cascade.
+- Affected tournaments (283 with sole-venue junk link) now surface in `/admin/tournaments/missing-venues` (Published backlog) for venue re-assignment via deep scan + enrichment queue.
+
+### Deep scan quality improvements
+- **`cleanAddressText`**: new helper that strips trailing noise (`United States`, `+ Google Map`, `Open in Maps`) and extracts the innermost clean street address from paragraph blobs. The extraction regex limits street-name tokens to 1-4 words before the suffix, preventing greedy matches that absorbed surrounding table-row text (e.g. "Sat 16 Bethlehem Soccer Tournament ... 426 Wemple Rd" → "426 Wemple Rd, Glenmont, NY 12077"). Applied at all push sites for `inferredAddressPool`, `venuePageAddressPool`, and `venueEntriesPool`.
+- **`cleanVenueName` dedup**: splits on `•`/`|`, deduplicates segments case-insensitively ("Gavin Park • Gavin Park" → "Gavin Park").
+- **`searchFullAddressForVenue` → Mapbox**: replaced the DuckDuckGo scrape loop (which contributed ~5s/tournament to bulk scan timeouts) with a single Mapbox forward-geocode call (`/geocoding/v5/mapbox.places`). Uses existing `MAPBOX_ACCESS_TOKEN`.
+- **`enrichAddressWithMapboxPOI`**: new function — on single-tournament deep scans, address-only candidates (no venue name) are passed to Mapbox to retrieve the POI name at that address (e.g. "10 Lewis Drive, Wilton, NY" → "Gavin Park"). Only runs in single-tournament mode to avoid bulk API cost.
+- **Bulk min score raised**: `minScoreToInsert` changed from 5 to 7 for bulk scans (requires street address + zip + venue name), keeping 5 for single-tournament scans where Mapbox POI enrichment has already run.
+- File: `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`
+
 ## 2026-05-06
 - Affiliate revenue: fixed Awin pending not showing on `/admin/ti/revenue` — two root causes addressed:
   1. Cron (`apps/referee/app/api/cron/ti-affiliate-sync/route.ts`) only ever synced "yesterday"; added `?date=YYYY-MM-DD` query param override so specific days can be backfilled manually. Backfill scope: Apr 15–May 5.
