@@ -818,13 +818,9 @@ export default function TournamentVenueMapClient({
           category: pin.category,
           has_coords: true,
         });
-        try {
-          map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom?.() ?? 12, 12), speed: 1.2 });
-        } catch {
-          // ignore
-        }
+        // Do not pan/zoom on pin click (prevents the map from shifting unexpectedly after the user already targeted a pin).
         // Match the Weekend Pro pin interaction: show the on-map popup with actions.
-        openPlacePopup({ venue, category: pin.category, item });
+        openPlacePopup({ venue, category: pin.category, item, tier: entitlementTier, isPreview: true });
       });
 
       const marker = new mapboxgl.Marker({ element: btn, anchor: "bottom" }).setLngLat([lng, lat]).addTo(map);
@@ -1200,11 +1196,11 @@ export default function TournamentVenueMapClient({
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
 
-  const openPlacePopup = (args: { venue: MapVenue; category: OwlCategory; item: OwlPlace }) => {
+  const openPlacePopup = (args: { venue: MapVenue; category: OwlCategory; item: OwlPlace; tier: TiTier; isPreview?: boolean }) => {
     const map = mapRef.current;
     const mapboxgl = mapboxglRef.current;
     if (!map || !mapboxgl) return;
-    const { venue, category, item } = args;
+    const { venue, category, item, tier, isPreview } = args;
 
     const placeId = (item.place_id ?? "").trim();
     const key = placeId ? `${venue.id}:${placeId}` : null;
@@ -1224,11 +1220,12 @@ export default function TournamentVenueMapClient({
       popupRef.current = null;
     }
 
-    const title = escapeHtml((item.name ?? "").trim() || "Nearby place");
-    const address = escapeHtml((item.address ?? "").trim());
+    const titleText = (item.name ?? "").trim() || "Nearby place";
+    const title = escapeHtml(titleText);
+    const addressText = (item.address ?? "").trim();
+    const address = escapeHtml(addressText);
     const distance = formatDistance(item.distance_meters);
     const distanceHtml = distance ? escapeHtml(distance) : "";
-    const mapsUrl = buildSafeDirectionsUrl(item);
     const searchUrl =
       category === "hotels"
         ? (() => {
@@ -1242,29 +1239,104 @@ export default function TournamentVenueMapClient({
             return ss ? `${baseHref}&ss=${encodeURIComponent(ss)}` : baseHref;
           })()
         : buildGoogleSearchUrl({ item, venue });
-    const directionsHtml = mapsUrl
-      ? `<a class="${styles.popupLink}" href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer">Directions</a>`
-      : "";
     const searchHtml = searchUrl
       ? `<a class="${styles.popupLinkSecondary}" href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer${category === "hotels" ? " sponsored" : ""}">${category === "hotels" ? "Check rates" : "Search"}</a>`
       : "";
-    const actionsHtml =
-      directionsHtml || searchHtml
-        ? `<div class="${styles.popupFooter}">${directionsHtml}${directionsHtml && searchHtml ? " " : ""}${searchHtml}</div>`
-        : "";
-
-    const html = `
-      <div class="${styles.popupBody}">
-        <div class="${styles.popupTitle}">${emojiForCategory(category)} ${title}</div>
-        ${distanceHtml || address ? `<div class="${styles.popupMeta}">${distanceHtml}${distanceHtml && address ? " • " : ""}${address}</div>` : ""}
-        ${actionsHtml}
-      </div>
-    `.trim();
+    const destinationLabel = [titleText, [venue.city, venue.state].filter(Boolean).join(", ")].filter(Boolean).join(" • ");
+    const copyText = [titleText, addressText, [venue.city, venue.state].filter(Boolean).join(", ")].filter(Boolean).join(", ") || null;
 
     // closeOnClick=false to prevent marker clicks from immediately closing the popup in some browsers.
-    const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: false, anchor: "top", offset: 12, maxWidth: "280px" });
+    const popup = new mapboxgl.Popup({
+      closeButton: true,
+      closeOnClick: false,
+      anchor: "top",
+      offset: 12,
+      maxWidth: "280px",
+      focusAfterOpen: false,
+    });
     popup.addClassName(styles.placePopup);
-    popup.setLngLat([lng, lat]).setHTML(html).addTo(map);
+
+    const root = document.createElement("div");
+    root.className = styles.popupBody;
+
+    const titleEl = document.createElement("div");
+    titleEl.className = styles.popupTitle;
+    titleEl.textContent = `${emojiForCategory(category)} ${titleText}`;
+    root.appendChild(titleEl);
+
+    if (distanceHtml || address) {
+      const metaEl = document.createElement("div");
+      metaEl.className = styles.popupMeta;
+      metaEl.textContent = [distance, addressText].filter(Boolean).join(distance && addressText ? " • " : "");
+      root.appendChild(metaEl);
+    }
+
+    const footer = document.createElement("div");
+    footer.className = styles.popupFooter;
+
+    const directionsBtn = document.createElement("button");
+    directionsBtn.type = "button";
+    directionsBtn.className = styles.popupLink;
+    directionsBtn.textContent = "Directions";
+    directionsBtn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      setNavSheet({
+        open: true,
+        title: "Directions",
+        destinationLabel,
+        providerHrefs: buildNavProviderHrefsForLatLng(lat, lng),
+        copyText,
+        onProviderClick: (provider) => {
+          if (isPreview) {
+            void trackTiEvent("owls_eye_preview_directions_click", {
+              page_type: "venue_map",
+              tournament_id: tournament.id,
+              tournament_slug: tournament.slug,
+              venue_id: venue.id,
+              category,
+              place_id: (item.place_id ?? "").trim() || null,
+              source: "map_preview_pin",
+              provider,
+              has_coords: true,
+            });
+            return;
+          }
+
+          void trackTiEvent("owls_eye_directions_clicked", {
+            page_type: "venue_map",
+            tournament_id: tournament.id,
+            tournament_slug: tournament.slug,
+            venue_id: venue.id,
+            category,
+            tier,
+          });
+        },
+      });
+      try {
+        popupRef.current?.remove?.();
+      } catch {
+        // ignore
+      } finally {
+        popupRef.current = null;
+      }
+    });
+
+    footer.appendChild(directionsBtn);
+
+    if (searchUrl) {
+      const searchLink = document.createElement("a");
+      searchLink.className = styles.popupLinkSecondary;
+      searchLink.href = searchUrl;
+      searchLink.target = "_blank";
+      searchLink.rel = `noopener noreferrer${category === "hotels" ? " sponsored" : ""}`;
+      searchLink.textContent = category === "hotels" ? "Check rates" : "Search";
+      footer.appendChild(searchLink);
+    }
+
+    root.appendChild(footer);
+
+    popup.setLngLat([lng, lat]).setDOMContent(root).addTo(map);
     popupRef.current = popup;
   };
 
@@ -1406,7 +1478,7 @@ export default function TournamentVenueMapClient({
         ev.stopPropagation();
         // Do not pan/zoom on pin click (prevents the map from shifting unexpectedly after the user already targeted a pin).
         setSelectedPlaceKey(key);
-        openPlacePopup({ venue: v, category, item });
+        openPlacePopup({ venue: v, category, item, tier: cached.tier ?? "unknown" });
       });
 
       const marker = new mapboxgl.Marker({ element: btn, anchor: "bottom" })
@@ -2018,7 +2090,7 @@ export default function TournamentVenueMapClient({
                                               // ignore
                                             }
                                           }
-                                          openPlacePopup({ venue: selectedVenue, category: cat, item });
+                                          openPlacePopup({ venue: selectedVenue, category: cat, item, tier, isPreview: false });
                                           void trackTiEvent("owls_eye_result_selected", {
                                             page_type: "venue_map",
                                             tournament_id: tournament.id,
