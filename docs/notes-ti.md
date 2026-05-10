@@ -13,6 +13,18 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-05-10 (2)
+
+### /book-travel — new canonical travel booking URL
+- Created `/book-travel` as the canonical URL for the travel booking surface (hotels + Vrbo). `/weekend-planner` remains live and renders the same experience; TODO redirect once the calendar-based Weekend Planner product launches.
+- Both routes render `WeekendPlannerClient` from `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx` (no duplicate copy).
+- Global nav: replaced "How it works" with "Book Travel" (`/book-travel`); moved "How it works" to the footer nav alongside Terms/Privacy/Disclaimer. Nav stays at 4 items.
+- Copy updates throughout client: card titles ("Hotels", "Vacation Rentals"), card descriptions, CTAs ("Search hotels on Booking.com", "Search Vrbo rentals"), tournament bridge ("Planning around a listed tournament?"), missing event section renamed to "Don't see your event?" with two CTAs (scroll-to-destination + "Add event"), upsell heading updated, share block renamed ("Planning with a team or family?" / "Copy travel link").
+- Share URL: `CANONICAL_BOOK_TRAVEL_URL` + `useEffect` both point to `/book-travel` (canonical shared from both routes).
+- Analytics: all `weekend_planner_*` event names renamed to `book_travel_*`; `source` property changed from `"weekend_planner"` to `"book_travel"`; hidden form `source` fields updated on both hotel and Vrbo forms; `UpgradeWeekendProButton` props (`source_page`, `source_context`, `entry_point`) updated to `"book_travel"`.
+- New analytics events added to `tiAnalyticsEvents.ts`: `book_travel_hotels_clicked`, `book_travel_vrbo_clicked`, `book_travel_shared`, `book_travel_search_by_city_clicked`, `book_travel_add_event_clicked`, `book_travel_tournament_directory_clicked`, `book_travel_weekend_pro_upsell_clicked`.
+- Metadata: both `/book-travel` and `/weekend-planner` point canonical to `/book-travel`; title/description avoid "Weekend Planner" branding.
+
 ## 2026-05-10
 
 ### Venue cleanup (data)

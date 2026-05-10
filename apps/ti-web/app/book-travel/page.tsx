@@ -1,8 +1,8 @@
-// TODO: redirect /weekend-planner → /book-travel once the calendar-based Weekend Planner product
-// is ready to claim this route.
+// /weekend-planner renders the same experience and will redirect here once the calendar-based
+// Weekend Planner product is ready to claim that route.
 import "../tournaments/tournaments.css";
-import WeekendPlannerClient from "./WeekendPlannerClient";
-import styles from "./WeekendPlanner.module.css";
+import WeekendPlannerClient from "../weekend-planner/WeekendPlannerClient";
+import styles from "../weekend-planner/WeekendPlanner.module.css";
 
 export const revalidate = 3600;
 
@@ -15,7 +15,7 @@ export async function generateMetadata() {
   };
 }
 
-export default function WeekendPlannerPage() {
+export default function BookTravelPage() {
   return (
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">

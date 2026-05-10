@@ -27,7 +27,15 @@ export type TiAnalyticsEventName =
   | "owls_eye_directions_clicked"
   | "venue_map_hotels_clicked"
   | "weekend_share_clicked"
-  | "weekend_page_opened";
+  | "weekend_page_opened"
+  | "book_travel_viewed"
+  | "book_travel_hotels_clicked"
+  | "book_travel_vrbo_clicked"
+  | "book_travel_shared"
+  | "book_travel_search_by_city_clicked"
+  | "book_travel_add_event_clicked"
+  | "book_travel_tournament_directory_clicked"
+  | "book_travel_weekend_pro_upsell_clicked";
 
 type OwlsEyeMapCategory = "coffee" | "food" | "hotels" | "quick_eats" | "hangouts" | "sporting_goods";
 
@@ -251,4 +259,21 @@ export type TiAnalyticsEventPropertiesByName = {
     utm_source: string | null;
     utm_medium: string | null;
   };
+  book_travel_viewed: Record<string, never>;
+  book_travel_hotels_clicked: {
+    destination_present: boolean;
+    has_dates: boolean;
+  };
+  book_travel_vrbo_clicked: {
+    destination_present: boolean;
+    has_dates: boolean;
+  };
+  book_travel_shared: {
+    channel: "copy" | "native";
+    share_url: string;
+  };
+  book_travel_search_by_city_clicked: Record<string, never>;
+  book_travel_add_event_clicked: Record<string, never>;
+  book_travel_tournament_directory_clicked: Record<string, never>;
+  book_travel_weekend_pro_upsell_clicked: Record<string, never>;
 };

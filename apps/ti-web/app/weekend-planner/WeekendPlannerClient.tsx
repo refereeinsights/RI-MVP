@@ -7,7 +7,7 @@ import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import styles from "./WeekendPlanner.module.css";
 
 const DESTINATION_STORAGE_KEY = "ti_weekend_planner_destination";
-const CANONICAL_WEEKEND_PLANNER_URL = "https://www.tournamentinsights.com/weekend-planner";
+const CANONICAL_BOOK_TRAVEL_URL = "https://www.tournamentinsights.com/book-travel";
 
 function isValidIsoDate(value: string | null) {
   const raw = String(value ?? "").trim();
@@ -57,7 +57,7 @@ function safeSetStoredDestination(value: string) {
 export default function WeekendPlannerClient() {
   const [destination, setDestination] = useState("");
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">("idle");
-  const [shareUrl, setShareUrl] = useState(CANONICAL_WEEKEND_PLANNER_URL);
+  const [shareUrl, setShareUrl] = useState(CANONICAL_BOOK_TRAVEL_URL);
   const [canNativeShare, setCanNativeShare] = useState(false);
   const [checkinText, setCheckinText] = useState<string>("");
   const [checkoutText, setCheckoutText] = useState<string>("");
@@ -92,7 +92,7 @@ export default function WeekendPlannerClient() {
 
     // Avoid hydration mismatches by only enabling native share + origin-specific URL after mount.
     try {
-      setShareUrl(`${window.location.origin}/weekend-planner`);
+      setShareUrl(`${window.location.origin}/book-travel`);
     } catch {
       // Ignore.
     }
@@ -130,14 +130,22 @@ export default function WeekendPlannerClient() {
   }
 
   function track(event: string, properties: Record<string, unknown> = {}) {
-    void sendTiAnalytics(event, { ...properties, source: "weekend_planner", ts: Date.now() });
+    void sendTiAnalytics(event, { ...properties, source: "book_travel", ts: Date.now() });
+  }
+
+  function focusDestination() {
+    const el = document.getElementById("wp-destination-hotels");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.focus();
+    }
   }
 
   async function copyShareUrl() {
     try {
       await navigator.clipboard.writeText(shareUrl);
       setShareStatus("copied");
-      track("weekend_planner_share_clicked", { channel: "copy" });
+      track("book_travel_shared", { channel: "copy", share_url: shareUrl });
       window.setTimeout(() => setShareStatus("idle"), 1200);
     } catch {
       setShareStatus("error");
@@ -149,11 +157,11 @@ export default function WeekendPlannerClient() {
     if (typeof navigator === "undefined" || typeof navigator.share !== "function") return;
     try {
       await navigator.share({
-        title: "Tournament Weekend Planner",
-        text: "Planning tournament travel? This page has hotels and rentals for sports weekends.",
+        title: "Book Travel for Your Tournament or Event",
+        text: "Planning tournament travel? Find hotels and vacation rentals near any venue or event location.",
         url: shareUrl,
       });
-      track("weekend_planner_share_clicked", { channel: "native" });
+      track("book_travel_shared", { channel: "native", share_url: shareUrl });
     } catch {
       // User cancelled / unsupported.
     }
@@ -164,8 +172,10 @@ export default function WeekendPlannerClient() {
       <div className={styles.mainGrid}>
         <article className={styles.panelCard}>
           <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Search Hotels</h2>
-            <p className={styles.panelSub}>Find hotels near your tournament or destination.</p>
+            <h2 className={styles.panelTitle}>Hotels</h2>
+            <p className={styles.panelSub}>
+              Best for short stays, flexible check-in, breakfast, and quick tournament weekends.
+            </p>
           </div>
           <div className={styles.cardBody}>
             <form
@@ -173,7 +183,10 @@ export default function WeekendPlannerClient() {
               action="/go/hotels"
               target="_blank"
               onSubmit={() =>
-                track("weekend_planner_hotels_clicked", { destination_present: Boolean(destination.trim()) })
+                track("book_travel_hotels_clicked", {
+                  destination_present: Boolean(destination.trim()),
+                  has_dates: Boolean(checkinText),
+                })
               }
             >
               <div className={styles.formGrid}>
@@ -220,18 +233,16 @@ export default function WeekendPlannerClient() {
                   </div>
                 </div>
               </div>
-              <input type="hidden" name="source" value="weekend_planner" />
+              <input type="hidden" name="source" value="book_travel" />
               <div style={{ paddingTop: "0.95rem" }}>
                 <button
                   type="submit"
                   className={styles.ctaFull}
                   onClick={(e) => {
-                    // Convert dates to ISO for /go/hotels, open in new tab.
-                    // Do not block if invalid; omit invalid params and let /go/* fall back.
                     e.preventDefault();
                     const qp = new URLSearchParams();
                     qp.set("ss", destination.trim());
-                    qp.set("source", "weekend_planner");
+                    qp.set("source", "book_travel");
                     const checkinIso = isoFromUserDate(checkinText);
                     const checkoutIso = isoFromUserDate(checkoutText);
                     if (checkinIso) qp.set("checkin", checkinIso);
@@ -239,7 +250,7 @@ export default function WeekendPlannerClient() {
                     openGoUrlInNewTab("/go/hotels", qp);
                   }}
                 >
-                  Search Booking.com
+                  Search hotels on Booking.com
                 </button>
               </div>
             </form>
@@ -248,8 +259,10 @@ export default function WeekendPlannerClient() {
 
         <article className={styles.panelCard}>
           <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Search Vacation Rentals</h2>
-            <p className={styles.panelSub}>Find Vrbo rentals for families and team travel.</p>
+            <h2 className={styles.panelTitle}>Vacation Rentals</h2>
+            <p className={styles.panelSub}>
+              Best for families, teams, kitchens, laundry, and longer event weekends.
+            </p>
           </div>
           <div className={styles.cardBody}>
             <form
@@ -257,7 +270,10 @@ export default function WeekendPlannerClient() {
               action="/go/vrbo"
               target="_blank"
               onSubmit={() =>
-                track("weekend_planner_vrbo_clicked", { destination_present: Boolean(destination.trim()) })
+                track("book_travel_vrbo_clicked", {
+                  destination_present: Boolean(destination.trim()),
+                  has_dates: Boolean(checkinText),
+                })
               }
             >
               <div className={styles.formGrid}>
@@ -304,7 +320,7 @@ export default function WeekendPlannerClient() {
                   </div>
                 </div>
               </div>
-              <input type="hidden" name="source" value="weekend_planner" />
+              <input type="hidden" name="source" value="book_travel" />
               <div style={{ paddingTop: "0.95rem" }}>
                 <button
                   type="submit"
@@ -313,7 +329,7 @@ export default function WeekendPlannerClient() {
                     e.preventDefault();
                     const qp = new URLSearchParams();
                     qp.set("destination", destination.trim());
-                    qp.set("source", "weekend_planner");
+                    qp.set("source", "book_travel");
                     const checkinIso = isoFromUserDate(checkinText);
                     const checkoutIso = isoFromUserDate(checkoutText);
                     if (checkinIso) qp.set("checkin", checkinIso);
@@ -321,7 +337,7 @@ export default function WeekendPlannerClient() {
                     openGoUrlInNewTab("/go/vrbo", qp);
                   }}
                 >
-                  Search Vrbo
+                  Search Vrbo rentals
                 </button>
               </div>
             </form>
@@ -330,14 +346,19 @@ export default function WeekendPlannerClient() {
 
         <article className={styles.panelCard}>
           <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Find Your Tournament</h2>
-            <p className={styles.panelSub}>Browse tournaments, venues, and planning tools.</p>
+            <h2 className={styles.panelTitle}>Planning around a listed tournament?</h2>
+            <p className={styles.panelSub}>
+              Get better venue-level recommendations when your tournament is in TournamentInsights.
+            </p>
           </div>
           <div className={styles.cardBody}>
-            <div className={styles.smallHelper}>Already know your event? Search the tournament directory.</div>
             <div style={{ paddingTop: "0.95rem" }}>
-              <Link href="/tournaments" className={styles.ctaFull}>
-                Browse Tournaments
+              <Link
+                href="/tournaments"
+                className={styles.ctaFull}
+                onClick={() => track("book_travel_tournament_directory_clicked")}
+              >
+                Browse tournaments
               </Link>
             </div>
           </div>
@@ -347,17 +368,29 @@ export default function WeekendPlannerClient() {
       <div className={styles.secondaryStack}>
         <article className={styles.panelCard}>
           <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Don’t see your tournament?</h2>
-            <p className={styles.panelSub}>Tell us where you’re playing and we’ll add it.</p>
+            <h2 className={styles.panelTitle}>Don&apos;t see your event?</h2>
+            <p className={styles.panelSub}>
+              You can still book travel by city, venue, or address — or submit the event so we can add venue-level planning.
+            </p>
           </div>
           <div className={styles.cardBody}>
-            <div style={{ paddingTop: "0.95rem" }}>
-              <Link
-                href="/list-your-tournament?source=weekend_planner"
+            <div style={{ paddingTop: "0.95rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              <button
+                type="button"
                 className={styles.ctaFull}
-                onClick={() => track("weekend_planner_add_tournament_clicked")}
+                onClick={() => {
+                  focusDestination();
+                  track("book_travel_search_by_city_clicked");
+                }}
               >
-                Add Tournament
+                Search by city or venue
+              </button>
+              <Link
+                href="/list-your-tournament?source=book_travel"
+                className={`${styles.ctaFull} ${styles.ctaSecondary}`}
+                onClick={() => track("book_travel_add_event_clicked")}
+              >
+                Add event
               </Link>
             </div>
           </div>
@@ -365,17 +398,17 @@ export default function WeekendPlannerClient() {
 
         <article className={styles.panelCard}>
           <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Get venue-level planning for every tournament</h2>
+            <h2 className={styles.panelTitle}>Want better recommendations than a city search?</h2>
             <p className={styles.panelSub}>
-              Weekend Pro adds Owl&apos;s Eye™ nearby hotels, rentals, coffee, food, and directions around tournament venues across TI.
+              Weekend Pro unlocks Owl&apos;s Eye™ venue-level hotels, rentals, food, coffee, and directions for tournament weekends.
             </p>
           </div>
           <div className={styles.cardBody}>
             <UpgradeWeekendProButton
               className={styles.ctaFull}
-              source_page="weekend_planner"
-              source_context="weekend_planner_upsell"
-              entry_point="weekend_planner"
+              source_page="book_travel"
+              source_context="book_travel_upsell"
+              entry_point="book_travel"
               cta_label="Upgrade to Weekend Pro"
               label="Upgrade to Weekend Pro"
               has_affiliate_visible={false}
@@ -385,15 +418,17 @@ export default function WeekendPlannerClient() {
 
         <article className={styles.panelCard}>
           <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Share this planner</h2>
-            <p className={styles.panelSub}>Send one link with hotel and rental search tools for tournament weekends.</p>
+            <h2 className={styles.panelTitle}>Planning with a team or family?</h2>
+            <p className={styles.panelSub}>
+              Share this travel page with your group so everyone can search from the same starting point.
+            </p>
           </div>
           <div className={styles.cardBody}>
             <div className={styles.shareRow}>
-              <input className={`input ${styles.inputDark}`} value={shareUrl} readOnly aria-label="Weekend planner URL" />
+              <input className={`input ${styles.inputDark}`} value={shareUrl} readOnly aria-label="Book travel page URL" />
               <div className={styles.shareActions}>
                 <button type="button" className={styles.ctaFull} onClick={copyShareUrl}>
-                  {shareStatus === "copied" ? "Copied" : "Copy link"}
+                  {shareStatus === "copied" ? "Copied" : "Copy travel link"}
                 </button>
                 {canNativeShare ? (
                   <button type="button" className={`${styles.ctaFull} ${styles.ctaSecondary}`} onClick={nativeShare}>
