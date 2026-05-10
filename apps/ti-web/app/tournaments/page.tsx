@@ -786,7 +786,7 @@ export default async function TournamentsPage({
                       const state = String(t.state ?? "").trim().toUpperCase();
                       const hasVrbo = Boolean(city && /^[A-Z]{2}$/.test(state));
                       return (
-                        <div className="cardCtaGrid">
+                        <div className={`cardCtaGrid${hasVrbo ? " cardCtaGrid--twoUp" : ""}`}>
                           <a
                             className="primaryLink cardCta--hotels"
                             href={buildTournamentHotelsHref({
