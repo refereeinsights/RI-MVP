@@ -10,20 +10,27 @@ export default function VenueMapPreviewStrip({ tournamentName, venueCount, href 
   if (!Number.isFinite(venueCount) || venueCount <= 0) return null;
 
   const title = venueCount === 1 ? "1 venue mapped" : `${venueCount} venues mapped`;
+  const visibleVenuePins = Math.min(Math.max(Math.floor(venueCount), 1), 3);
 
   return (
-    <Link href={href} className="venueMapPreviewStrip" aria-label={`View venue map for ${tournamentName}`}>
+    <Link
+      href={href}
+      className="venueMapPreviewStrip"
+      aria-label={`Open venue map for ${tournamentName}`}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
       <div className="venueMapPreviewStrip__visual" aria-hidden="true">
-        <span className="venueMapDot venueMapDot--one" />
-        <span className="venueMapDot venueMapDot--two" />
-        <span className="venueMapDot venueMapDot--three" />
-        <span className="venueMapDot venueMapDot--four" />
+        {Array.from({ length: visibleVenuePins }).map((_, idx) => (
+          <span key={`venue-${idx}`} className={`venueMapPin venueMapPin--venue venueMapPin--venue${idx + 1}`} />
+        ))}
+        <span className="venueMapPin venueMapPin--hotel" aria-hidden="true" />
+        <span className="venueMapPin venueMapPin--food" aria-hidden="true" />
       </div>
       <div className="venueMapPreviewStrip__copy">
         <div className="venueMapPreviewStrip__title">{title}</div>
-        <div className="venueMapPreviewStrip__subtitle">Plan hotels by location</div>
+        <div className="venueMapPreviewStrip__subtitle">Open venue map →</div>
       </div>
     </Link>
   );
 }
-

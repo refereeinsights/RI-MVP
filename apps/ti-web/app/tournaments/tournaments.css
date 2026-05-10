@@ -1015,18 +1015,18 @@
   min-height: 58px;
   padding: 12px 14px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.34);
+  border: 1px solid rgba(255,255,255,0.40);
   background:
-    radial-gradient(circle at 18% 30%, rgba(255,255,255,0.14), transparent 55%),
-    radial-gradient(circle at 70% 65%, rgba(255,255,255,0.10), transparent 60%),
-    linear-gradient(135deg, rgba(0,0,0,0.34), rgba(0,0,0,0.18));
+    radial-gradient(circle at 22% 24%, rgba(255,255,255,0.14), transparent 55%),
+    radial-gradient(circle at 78% 72%, rgba(255,255,255,0.10), transparent 60%),
+    linear-gradient(135deg, rgba(0,0,0,0.40), rgba(0,0,0,0.16));
   text-decoration: none;
   color: rgba(255,255,255,0.98);
   box-shadow: 0 14px 28px rgba(0,0,0,0.24);
 }
 
 .venueMapPreviewStrip:hover {
-  border-color: rgba(255,255,255,0.44);
+  border-color: rgba(255,255,255,0.55);
 }
 
 .venueMapPreviewStrip:active {
@@ -1038,26 +1038,78 @@
   width: 64px;
   height: 40px;
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.26);
+  border: 1px solid rgba(255,255,255,0.30);
   background:
+    radial-gradient(circle at 25% 35%, rgba(16,185,129,0.22), transparent 60%),
+    radial-gradient(circle at 75% 70%, rgba(255,255,255,0.12), transparent 60%),
     linear-gradient(0deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06)),
     repeating-linear-gradient(135deg, rgba(255,255,255,0.08) 0px, rgba(255,255,255,0.08) 10px, transparent 10px, transparent 20px);
   overflow: hidden;
 }
 
-.venueMapDot {
+.venueMapPreviewStrip__visual::after {
+  content: "";
   position: absolute;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.92);
+  inset: 0;
+  background:
+    linear-gradient(30deg, transparent 48%, rgba(255,255,255,0.20) 49%, rgba(255,255,255,0.20) 51%, transparent 52%),
+    linear-gradient(120deg, transparent 48%, rgba(255,255,255,0.14) 49%, rgba(255,255,255,0.14) 51%, transparent 52%);
+  background-size: 70px 70px, 90px 90px;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.venueMapPin {
+  position: absolute;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px 999px 999px 2px;
+  transform: rotate(-45deg);
   box-shadow: 0 6px 12px rgba(0,0,0,0.30);
 }
 
-.venueMapDot--one { left: 12px; top: 10px; opacity: 0.95; }
-.venueMapDot--two { left: 28px; top: 18px; opacity: 0.90; }
-.venueMapDot--three { left: 42px; top: 12px; opacity: 0.85; }
-.venueMapDot--four { left: 20px; top: 26px; opacity: 0.80; }
+.venueMapPin::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.92);
+}
+
+.venueMapPin--venue {
+  background: rgba(16,185,129,0.98);
+}
+
+.venueMapPin--venue1 { left: 12px; top: 8px; }
+.venueMapPin--venue2 { left: 30px; top: 18px; opacity: 0.92; }
+.venueMapPin--venue3 { left: 44px; top: 10px; opacity: 0.88; }
+
+.venueMapPin--hotel {
+  width: 10px;
+  height: 10px;
+  left: 16px;
+  top: 24px;
+  opacity: 0.70;
+  background: rgba(255,255,255,0.55);
+}
+
+.venueMapPin--hotel::after {
+  inset: 3px;
+}
+
+.venueMapPin--food {
+  width: 10px;
+  height: 10px;
+  left: 40px;
+  top: 26px;
+  opacity: 0.70;
+  background: rgba(245,158,11,0.70);
+}
+
+.venueMapPin--food::after {
+  inset: 3px;
+}
 
 .venueMapPreviewStrip__title {
   font-weight: 900;
@@ -1070,7 +1122,7 @@
   margin-top: 2px;
   font-weight: 800;
   font-size: 12px;
-  color: rgba(255,255,255,0.82);
+  color: rgba(255,255,255,0.92);
   text-shadow: 0 2px 10px rgba(0,0,0,0.35);
 }
 
