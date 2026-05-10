@@ -470,6 +470,48 @@
   padding: 6px 8px;
 }
 
+.venuePopup {
+  display: grid;
+  gap: 6px;
+  min-width: 190px;
+}
+
+.venuePopupTitle {
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.venuePopupMeta {
+  font-size: 12px;
+  opacity: 0.88;
+}
+
+.venuePopupActions {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.venuePopupBtn {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.10);
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-weight: 900;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.venuePopupBtn:hover,
+.venuePopupBtn:focus-visible {
+  outline: none;
+  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.14);
+}
+
 .popupBody {
   display: grid;
   gap: 6px;

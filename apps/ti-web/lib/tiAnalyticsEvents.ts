@@ -99,7 +99,7 @@ export type TiAnalyticsEventPropertiesByName = {
     tournament_slug: string;
     venue_id: string;
     venue_name: string | null;
-    source: "venue_card" | "selected_venue_panel";
+    source: "venue_card" | "selected_venue_panel" | "venue_marker";
     provider: "apple" | "google" | "waze" | "copy";
     hasCoordinates: boolean;
     hasOwlEyeData: boolean;

@@ -106,6 +106,8 @@ export default function TournamentVenueMapClient({
   const markersRef = useRef<Map<string, any>>(new Map());
   const placeMarkersRef = useRef<Map<string, { marker: any; category: OwlCategory }>>(new Map());
   const popupRef = useRef<any>(null);
+  const venuesByIdRef = useRef<Map<string, MapVenue>>(new Map());
+  const openVenueNavChooserRef = useRef<((venue: MapVenue, source: "venue_marker") => void) | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState<boolean>(false);
   const [thumbSrc, setThumbSrc] = useState<string>(() => {
@@ -127,6 +129,10 @@ export default function TournamentVenueMapClient({
   });
 
   const selectedVenue = useMemo(() => venues.find((v) => v.id === selectedVenueId) ?? null, [venues, selectedVenueId]);
+
+  useEffect(() => {
+    venuesByIdRef.current = new Map(venues.map((v) => [v.id, v]));
+  }, [venues]);
   const [owlPanelMode, setOwlPanelMode] = useState<"teaser" | "premium" | "unlock">("teaser");
   const [owlPremiumByVenueId, setOwlPremiumByVenueId] = useState<Record<string, OwlPremiumResponse | null>>({});
   const [owlPremiumLoadingVenueId, setOwlPremiumLoadingVenueId] = useState<string | null>(null);
@@ -452,9 +458,86 @@ export default function TournamentVenueMapClient({
 
         btn.appendChild(inner);
 
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+
           setSelectedVenueId(v.id);
           setDetailMode(true);
+
+          const venue = venuesByIdRef.current.get(v.id) ?? null;
+          if (venue) {
+            void trackTiEvent("venue_select", {
+              page_type: "venue_map",
+              tournament_id: tournament.id,
+              tournament_slug: tournament.slug,
+              venue_id: venue.id,
+              venue_name: venue.name ?? null,
+              source: "venue_marker",
+              hasCoordinates: typeof venue.latitude === "number" && typeof venue.longitude === "number",
+              hasOwlEyeData: Boolean(venue.hasOwl),
+            });
+          }
+
+          // Show a small popup so users can open the navigation chooser directly from the map.
+          try {
+            popupRef.current?.remove?.();
+          } catch {
+            // ignore
+          } finally {
+            popupRef.current = null;
+            setSelectedPlaceKey(null);
+          }
+
+          if (!venue) return;
+          const openChooser = openVenueNavChooserRef.current;
+          if (!openChooser) return;
+
+          const popupRoot = document.createElement("div");
+          popupRoot.className = styles.venuePopup;
+
+          const title = document.createElement("div");
+          title.className = styles.venuePopupTitle;
+          title.textContent = venue.name?.trim() || "Tournament venue";
+
+          const meta = document.createElement("div");
+          meta.className = styles.venuePopupMeta;
+          meta.textContent = [venue.city, venue.state].filter(Boolean).join(", ") || "Location TBA";
+
+          const actions = document.createElement("div");
+          actions.className = styles.venuePopupActions;
+
+          const directionsBtn = document.createElement("button");
+          directionsBtn.type = "button";
+          directionsBtn.className = styles.venuePopupBtn;
+          directionsBtn.textContent = "Directions";
+          directionsBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openChooser(venue, "venue_marker");
+            try {
+              popupRef.current?.remove?.();
+            } catch {
+              // ignore
+            } finally {
+              popupRef.current = null;
+            }
+          });
+
+          actions.appendChild(directionsBtn);
+          popupRoot.appendChild(title);
+          popupRoot.appendChild(meta);
+          popupRoot.appendChild(actions);
+
+          try {
+            // closeOnClick=false to prevent marker clicks from immediately closing the popup in some browsers.
+            const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: false, anchor: "top", offset: 12, maxWidth: "280px" });
+            popup.addClassName(styles.placePopup);
+            popup.setLngLat([v.lng, v.lat]).setDOMContent(popupRoot).addTo(map);
+            popupRef.current = popup;
+          } catch {
+            // ignore
+          }
         });
 
         const marker = new mapboxgl.Marker({ element: btn, anchor: "bottom" }).setLngLat([v.lng, v.lat]).addTo(map);
@@ -646,7 +729,7 @@ export default function TournamentVenueMapClient({
     waze: `https://waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes`,
   });
 
-  const openNavChooserForVenue = (v: MapVenue, source: "venue_card" | "selected_venue_panel") => {
+  const openNavChooserForVenue = (v: MapVenue, source: "venue_card" | "selected_venue_panel" | "venue_marker") => {
     const hasCoords = typeof v.latitude === "number" && typeof v.longitude === "number";
     const providerHrefs = hasCoords
       ? buildNavProviderHrefsForLatLng(v.latitude as number, v.longitude as number)
@@ -676,6 +759,8 @@ export default function TournamentVenueMapClient({
       },
     });
   };
+
+  openVenueNavChooserRef.current = (venue, source) => openNavChooserForVenue(venue, source);
 
   const openNavChooserForAirport = (airport: NearestAirport, venue: MapVenue, source: "selected_venue_panel") => {
     const providerHrefs = buildNavProviderHrefsForLatLng(airport.latitude_deg, airport.longitude_deg);
