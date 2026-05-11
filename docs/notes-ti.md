@@ -28,6 +28,13 @@ Maintenance rules:
 - Model choice: `sonar` (cheaper than `sonar-reasoning-pro`; focused single-tournament query doesn't need multi-step reasoning). Do NOT add `response_format` to the request body — `sonar` only accepts `text`, `json_schema`, or `regex`; `json_object` throws a validation error.
 - Files: `apps/referee/app/api/admin/tournaments/enrichment/venue-perplexity/route.ts`, `apps/referee/app/admin/tournaments/missing-venues/PerplexityVenueButton.tsx`, `apps/referee/app/admin/tournaments/missing-venues/page.tsx`, `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`
 
+### Missing-venues page: inline inferred venue promote/reject
+- Each tournament row in the actions column now shows any `tournament_venues` rows with `is_inferred=true` directly inline.
+- Each inferred link shows venue name (purple) + **Promote** (green) and **Reject** (grey) buttons — no need to navigate to the uploads tab inference panel.
+- Promote calls `POST /api/admin/tournaments/enrichment/inferred/promote`; Reject calls `POST /api/admin/tournaments/enrichment/inferred/reject` with `remove_link=true`.
+- New component: `apps/referee/app/admin/tournaments/missing-venues/PromoteInferredButton.tsx`
+- Page fetches inferred links in the same `Promise.all` as candidates/batches (`.eq("is_inferred", true)` on `tournament_venues`).
+
 ### Missing-venues page: Edit and Delete buttons per tournament
 - Edit button (blue "Edit ↗") under each tournament UUID opens `/admin?tab=tournament-listings&q={slug}` in a new tab.
 - Delete button (red "Delete") calls existing `POST /api/admin/tournaments/delete` with a confirm dialog; hides the row on success. Venue records are preserved.

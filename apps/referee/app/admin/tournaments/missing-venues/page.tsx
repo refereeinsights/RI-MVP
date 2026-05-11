@@ -8,6 +8,7 @@ import DeepScanButton from "./DeepScanButton";
 import BulkDeepScanButton from "./BulkDeepScanButton";
 import USClubSoccerUrlButton from "./USClubSoccerUrlButton";
 import PerplexityVenueButton from "./PerplexityVenueButton";
+import PromoteInferredButton from "./PromoteInferredButton";
 
 export const runtime = "nodejs";
 
@@ -57,6 +58,13 @@ type PerplexityBatch = {
   id: string;
   created_at: string | null;
   notes: string | null;
+};
+
+type InferredVenueLink = {
+  tournament_id: string | null;
+  venue_id: string | null;
+  inference_method: string | null;
+  venues: { id: string | null; name: string | null } | null;
 };
 
 const VENUE_REASON_CODES = new Set([
@@ -206,7 +214,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   const totalPages = count ? Math.max(1, Math.ceil(count / pageSize)) : 1;
   const tournamentIds = rows.map((r) => r.id);
 
-  const [attrCandidatesResp, venueCandidatesResp, perplexityBatchesResp] = await Promise.all([
+  const [attrCandidatesResp, venueCandidatesResp, perplexityBatchesResp, inferredLinksResp] = await Promise.all([
     tournamentIds.length
       ? supabaseAdmin
           .from("tournament_attribute_candidates" as any)
@@ -236,7 +244,23 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
           )
           .limit(5000)
       : Promise.resolve({ data: [] as any[] } as any),
+    tournamentIds.length
+      ? supabaseAdmin
+          .from("tournament_venues" as any)
+          .select("tournament_id,venue_id,inference_method,venues(id,name)")
+          .eq("is_inferred", true)
+          .in("tournament_id", tournamentIds)
+          .limit(1000)
+      : Promise.resolve({ data: [] as any[] } as any),
   ]);
+
+  const inferredByTournament = new Map<string, InferredVenueLink[]>();
+  for (const row of ((inferredLinksResp.data ?? []) as InferredVenueLink[]).filter((r) => r.tournament_id && r.venue_id)) {
+    const tid = String(row.tournament_id);
+    const arr = inferredByTournament.get(tid) ?? [];
+    arr.push(row);
+    inferredByTournament.set(tid, arr);
+  }
 
   const bestAttrByTournament = new Map<string, { address?: AttrCandidate; venue_url?: AttrCandidate }>();
   for (const row of ((attrCandidatesResp.data ?? []) as AttrCandidate[]).filter((r) => r.tournament_id && r.attribute_key)) {
@@ -435,6 +459,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                 const venueUrlCandidate = (bestAttr as any).venue_url as AttrCandidate | undefined;
                 const venueStats = venueStatsByTournament.get(t.id) ?? null;
                 const perplexityBatch = perplexityBatchByTournament.get(t.id) ?? null;
+                const inferredLinks = inferredByTournament.get(t.id) ?? [];
 
                 const venuesSearch = new URLSearchParams();
                 venuesSearch.set("q", [t.name ?? "", t.city ?? "", t.state ?? ""].filter(Boolean).join(" "));
@@ -612,6 +637,19 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                         >
                           Search venues
                         </a>
+                        {inferredLinks.length > 0 ? (
+                          <div style={{ display: "grid", gap: 6, borderTop: "1px solid #e5e7eb", paddingTop: 8 }}>
+                            {inferredLinks.map((link) => (
+                              <PromoteInferredButton
+                                key={String(link.venue_id)}
+                                tournamentId={t.id}
+                                venueId={String(link.venue_id)}
+                                venueName={link.venues?.name ?? String(link.venue_id)}
+                                inferenceMethod={link.inference_method}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
