@@ -12,7 +12,7 @@ export default function DisclaimerPage() {
   return (
     <LegalPage
       title={`${BRAND_TI} Review & Content Disclaimer`}
-      lastUpdated="December 16, 2025"
+      lastUpdated="May 11, 2026"
       markdown={disclaimerContent}
     />
   );

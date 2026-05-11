@@ -3,6 +3,7 @@
 import "../tournaments/tournaments.css";
 import WeekendPlannerClient from "../weekend-planner/WeekendPlannerClient";
 import styles from "../weekend-planner/WeekendPlanner.module.css";
+import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 
 export const revalidate = 3600;
 
@@ -31,9 +32,9 @@ export default function BookTravelPage() {
 
         <WeekendPlannerClient />
 
-        <p className={styles.disclosure}>
-          TournamentInsights may earn a commission when you book through travel links, at no extra cost to you.
-        </p>
+        <div className={styles.disclosure}>
+          <AffiliateDisclosure />
+        </div>
       </section>
     </main>
   );

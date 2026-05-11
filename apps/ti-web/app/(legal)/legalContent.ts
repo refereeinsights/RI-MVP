@@ -66,18 +66,25 @@ We use service providers to run ${BRAND_TI}, including:
 - Email delivery: Resend
 - Payments: If we enable payments, Stripe may process payment-related data.
 
-## 4. Sharing and Disclosure
+## 4. Affiliate Links and Tracking
+${BRAND_TI} may participate in affiliate advertising programs. When users click affiliate links, third-party affiliate networks or merchants may use cookies, pixels, referral links, or similar tracking technologies to attribute purchases or other qualifying actions to ${BRAND_TI}.
+
+These third parties may collect information such as click activity, referral source, device/browser information, purchase attribution, and transaction-related details. ${BRAND_TI} does not control third-party merchant or affiliate network tracking after a user leaves our site.
+
+Users should review the privacy policies of the applicable merchant and affiliate network for more information about their data practices.
+
+## 5. Sharing and Disclosure
 We do not sell personal data to third parties. We may share information with trusted service providers (such as hosting and analytics) who support the platform and are bound to protect your data.
 We may also disclose information when required by law or to enforce our policies.
 
-## 5. Data Retention
+## 6. Data Retention
 We retain data while your account is active and as needed to operate the platform, comply with legal obligations, and enforce our policies.
 You may request deletion of your account data in accordance with applicable laws.
 
-## 6. Your Rights
+## 7. Your Rights
 You may request access, correction, or deletion of account data, subject to applicable law and required retention obligations.
 
-## 7. Contact
+## 8. Contact
 If you have questions about this policy or your data, please email: support@tournamentinsights.com.
 `;
 
@@ -117,4 +124,11 @@ Dates, locations, fees, and logistics can change without notice. Always confirm 
 ${BRAND_OWL} venue insights are informational only and may be generated from public data sources and internal analysis workflows.
 Conditions can change quickly, and ${BRAND_TI} does not guarantee completeness, availability, or current accuracy of ${BRAND_OWL} outputs.
 Users should verify critical planning and travel details directly with official venue, organizer, and map/provider sources before making travel decisions.
+
+## 5. Product, Gear, and AI-Assisted Content
+${BRAND_TI} may publish gear, apparel, travel, venue, or tournament-planning content that is created or assisted by internal research workflows, public sources, and AI-assisted tools.
+
+This content is provided for general informational purposes only. Product availability, pricing, sizing, shipping options, pickup availability, and merchant policies can change at any time. Users should verify all product details, order options, and policies directly with the merchant before purchasing.
+
+${BRAND_TI} does not guarantee that any product, store, or merchant offer is available, suitable, or the best option for a user’s needs.
 `;

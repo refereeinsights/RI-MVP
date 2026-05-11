@@ -1544,6 +1544,11 @@
   margin-top: 2px;
 }
 
+.tournamentMapTeaser__disclosure {
+  margin-top: 6px;
+  opacity: 0.78;
+}
+
 .tournamentStickyCta {
   position: fixed;
   left: 0;

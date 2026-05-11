@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
+import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 
 type Props = {
   mapHref: string;
@@ -67,6 +68,7 @@ export default function TournamentMapTeaser({
           Team Stays
         </Link>
       </div>
+      <AffiliateDisclosure className="tournamentMapTeaser__disclosure" />
     </div>
   );
 }
