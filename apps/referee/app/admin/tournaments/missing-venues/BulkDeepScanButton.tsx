@@ -29,7 +29,7 @@ export default function BulkDeepScanButton({
     try {
       const statusQuery = tournamentStatus ? `&status=${encodeURIComponent(tournamentStatus)}` : "";
       const res = await fetch(
-        `/api/admin/tournaments/enrichment/fees-venue?mode=missing_venues&limit=${encodeURIComponent(
+        `/api/admin/tournaments/enrichment/fees-venue?mode=missing_venues&venue_only=1&limit=${encodeURIComponent(
           String(limit)
         )}&skip_pending=0${statusQuery}`,
         { method: "POST" }
