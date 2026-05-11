@@ -12,7 +12,7 @@ export default function DeepScanButton({ tournamentId }: { tournamentId: string 
     setStatus("Running deep scan...");
     try {
       const res = await fetch(
-        `/api/admin/tournaments/enrichment/fees-venue?mode=missing_venues&limit=1&skip_pending=0&tournament_id=${encodeURIComponent(
+        `/api/admin/tournaments/enrichment/fees-venue?mode=missing_venues&venue_only=1&limit=1&skip_pending=0&tournament_id=${encodeURIComponent(
           tournamentId
         )}`,
         { method: "POST" }

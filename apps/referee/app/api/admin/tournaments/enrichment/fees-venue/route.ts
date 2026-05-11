@@ -1117,7 +1117,8 @@ async function searchVenuePagesFallback(args: {
 async function fetchTournamentPages(
   seedUrl: string,
   maxPages = 6,
-  seededUrls: string[] = []
+  seededUrls: string[] = [],
+  venueOnly = false
 ): Promise<Array<{ url: string; html: string }>> {
   const pages: Array<{ url: string; html: string }> = [];
   const queue: string[] = [seedUrl, ...seededUrls.filter((u) => u && u !== seedUrl)];
@@ -1134,17 +1135,18 @@ async function fetchTournamentPages(
     if (pages.length >= maxPages) break;
 
     const $ = cheerio.load(html);
-    // "1-hop" venue intelligence: if we land on a page that has a dedicated Fields/Locations/Venues link,
-    // prioritize crawling it immediately (without relying on general internal-link ranking).
     const venueSeeds = extractVenueKeywordLinks($, nextUrl);
     for (const href of venueSeeds) {
       if (queue.length + pages.length >= maxPages * 8) break;
       if (!seen.has(href) && !queue.includes(href)) queue.unshift(href);
     }
-    const ranked = rankInternalLinks($, nextUrl);
-    for (const href of ranked) {
-      if (queue.length + pages.length >= maxPages * 8) break;
-      if (!seen.has(href) && !queue.includes(href)) queue.push(href);
+    // venueOnly: skip general internal-link crawl — only follow venue keyword links above.
+    if (!venueOnly) {
+      const ranked = rankInternalLinks($, nextUrl);
+      for (const href of ranked) {
+        if (queue.length + pages.length >= maxPages * 8) break;
+        if (!seen.has(href) && !queue.includes(href)) queue.push(href);
+      }
     }
   }
 
@@ -1166,6 +1168,7 @@ export async function POST(request: Request) {
   const { searchParams } = new URL(request.url);
   const mode = (searchParams.get("mode") ?? "").trim().toLowerCase();
   const focusMissingVenues = mode === "missing_venues";
+  const venueOnly = searchParams.get("venue_only") === "1";
   const statusParamRaw = (searchParams.get("status") ?? "").trim().toLowerCase();
   const statusParam = statusParamRaw === "draft" ? "draft" : "published";
   const requireCanonical = statusParam === "published";
@@ -1476,14 +1479,19 @@ export async function POST(request: Request) {
     if (homepageHtml) {
       const $home = cheerio.load(homepageHtml);
       homepageKeywordUrls = extractVenueKeywordLinks($home, url);
-      if (focusMissingVenues) {
+      if (focusMissingVenues && !venueOnly) {
         tournamentSpecificUrls = extractTournamentSpecificLinks($home, url, (t as any).name ?? null, 6);
       }
     }
+    // venueOnly: seed only from venue keyword links, cap at 4 pages (homepage + up to 3 subpages).
+    const seedUrls = venueOnly
+      ? Array.from(new Set([...homepageKeywordUrls, ...prefetchedSeedUrls]))
+      : Array.from(new Set([...tournamentSpecificUrls, ...prefetchedSeedUrls, ...homepageKeywordUrls]));
     const pages = await fetchTournamentPages(
       url,
-      focusMissingVenues ? 12 : 6,
-      Array.from(new Set([...tournamentSpecificUrls, ...prefetchedSeedUrls, ...homepageKeywordUrls]))
+      venueOnly ? 4 : focusMissingVenues ? 12 : 6,
+      seedUrls,
+      venueOnly
     );
     pagesFetched += pages.length;
     if (!pages.length) continue;
@@ -1504,35 +1512,37 @@ export async function POST(request: Request) {
     const $ = cheerio.load(page.html);
       const text = $.text().replace(/\s+/g, " ");
 
-      const fee = extractFee(text);
-      if (fee && !foundByKey.has("team_fee")) {
-        candidates.push({ tournament_id: t.id, attribute_key: "team_fee", attribute_value: fee, source_url: page.url });
-        found.push("team_fee");
-        foundByKey.add("team_fee");
-      }
+      if (!venueOnly) {
+        const fee = extractFee(text);
+        if (fee && !foundByKey.has("team_fee")) {
+          candidates.push({ tournament_id: t.id, attribute_key: "team_fee", attribute_value: fee, source_url: page.url });
+          found.push("team_fee");
+          foundByKey.add("team_fee");
+        }
 
-      const games = extractGames(text);
-      if (games && !foundByKey.has("games_guaranteed")) {
-        candidates.push({
-          tournament_id: t.id,
-          attribute_key: "games_guaranteed",
-          attribute_value: games,
-          source_url: page.url,
-        });
-        found.push("games_guaranteed");
-        foundByKey.add("games_guaranteed");
-      }
+        const games = extractGames(text);
+        if (games && !foundByKey.has("games_guaranteed")) {
+          candidates.push({
+            tournament_id: t.id,
+            attribute_key: "games_guaranteed",
+            attribute_value: games,
+            source_url: page.url,
+          });
+          found.push("games_guaranteed");
+          foundByKey.add("games_guaranteed");
+        }
 
-      const playerParking = extractPlayerParking(text);
-      if (playerParking && !foundByKey.has("player_parking")) {
-        candidates.push({
-          tournament_id: t.id,
-          attribute_key: "player_parking",
-          attribute_value: playerParking,
-          source_url: page.url,
-        });
-        found.push("player_parking");
-        foundByKey.add("player_parking");
+        const playerParking = extractPlayerParking(text);
+        if (playerParking && !foundByKey.has("player_parking")) {
+          candidates.push({
+            tournament_id: t.id,
+            attribute_key: "player_parking",
+            attribute_value: playerParking,
+            source_url: page.url,
+          });
+          found.push("player_parking");
+          foundByKey.add("player_parking");
+        }
       }
 
       extractAddresses(text).forEach((addr) => inferredAddressPool.push(cleanAddressText(addr)));
