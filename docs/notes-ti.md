@@ -13,6 +13,21 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-05-11
+
+### Perplexity venue search for missing-venue tournaments
+- New API endpoint: `POST /api/admin/tournaments/enrichment/venue-perplexity`
+  - Input: `{ tournament_id }`. Looks up tournament (name, city, state, sport, dates), calls Perplexity `sonar` with a focused prompt asking for all venues as an array.
+  - Returns `venues[]` (multiple venues supported — tournaments often use 2–4 complexes).
+  - Each candidate written to `tournament_venue_candidates` with `evidence_text: "reason=perplexity_search; ..."` and `confidence: 0.75`.
+  - Raw Perplexity response stored in `discovery_batches` (provider=perplexity, model=sonar, notes=`venue_search:<tournament_id>`) for audit.
+  - Uses `EXTERNAL_API_SURFACE.tournament_enrichment` for call tracking.
+- New client component: `PerplexityVenueButton.tsx` — purple button in the missing-venues actions column, below "Deep scan". Shows inserted count and venue names on success.
+- Candidates feed into the **existing enrichment approval flow** (`/admin/tournaments/enrichment`). No new approval UI needed.
+- `VENUE_REASON_CODES` updated in both `missing-venues/page.tsx` and `EnrichmentClient.tsx` to include `"perplexity_search"` (shown as "perplexity search" badge in the enrichment UI).
+- Model choice: `sonar` (cheaper than `sonar-reasoning-pro`; focused single-tournament query doesn't need multi-step reasoning). `response_format: json_object` for broad model compatibility.
+- Files: `apps/referee/app/api/admin/tournaments/enrichment/venue-perplexity/route.ts`, `apps/referee/app/admin/tournaments/missing-venues/PerplexityVenueButton.tsx`, `apps/referee/app/admin/tournaments/missing-venues/page.tsx`, `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`
+
 ## 2026-05-10 (3)
 
 ### Deep scan: browser user-agent + GotSport URL rewrite

@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import DeepScanButton from "./DeepScanButton";
 import BulkDeepScanButton from "./BulkDeepScanButton";
 import USClubSoccerUrlButton from "./USClubSoccerUrlButton";
+import PerplexityVenueButton from "./PerplexityVenueButton";
 
 export const runtime = "nodejs";
 
@@ -56,6 +57,7 @@ const VENUE_REASON_CODES = new Set([
   "page_text_address",
   "map_link",
   "provider_perfectgame_locations",
+  "perplexity_search",
   "unknown",
 ]);
 
@@ -402,6 +404,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                     <td style={{ padding: "10px 12px" }}>
                       <div style={{ display: "grid", gap: 10 }}>
                         <DeepScanButton tournamentId={t.id} />
+                        <PerplexityVenueButton tournamentId={t.id} />
                         <a
                           href={`/admin/venues?${venuesSearch.toString()}`}
                           style={{ fontSize: 12, color: "#1d4ed8", textDecoration: "none" }}

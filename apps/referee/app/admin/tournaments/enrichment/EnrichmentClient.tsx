@@ -166,6 +166,7 @@ const VENUE_REASON_CODES = new Set([
   "page_text_address",
   "map_link",
   "provider_perfectgame_locations",
+  "perplexity_search",
   "unknown",
 ]);
 
