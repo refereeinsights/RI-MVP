@@ -19,6 +19,7 @@ type SearchParams = {
   state?: string;
   status?: string;
   zip?: string;
+  sort?: string;
 };
 
 type TournamentRow = {
@@ -155,6 +156,8 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   const zip = zipRaw.replace(/\D+/g, "").slice(0, 5);
   const tournamentStatusRaw = (searchParams?.status ?? "published").trim().toLowerCase();
   const tournamentStatus = tournamentStatusRaw === "draft" ? "draft" : "published";
+  const sortRaw = (searchParams?.sort ?? "").trim().toLowerCase();
+  const sort = sortRaw === "unchecked_first" ? "unchecked_first" : null;
 
   const pageSize = 50;
   const offset = (page - 1) * pageSize;
@@ -165,6 +168,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
     p_q: q || null,
     p_zip: zip || null,
     p_status: tournamentStatus,
+    p_sort: sort,
   });
 
   if (missingRes.error) {
@@ -206,6 +210,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
       p_q: q || null,
       p_zip: zip || null,
       p_status: tournamentStatus,
+      p_sort: sort,
     });
     if (!countRes.error) {
       const countRows = (countRes.data ?? []) as TournamentRow[];
@@ -347,6 +352,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   if (state) paramsBase.set("state", state);
   if (zip) paramsBase.set("zip", zip);
   if (tournamentStatus !== "published") paramsBase.set("status", tournamentStatus);
+  if (sort) paramsBase.set("sort", sort);
   const exportHref = `/api/admin/tournaments/missing-venues/export${paramsBase.toString() ? `?${paramsBase.toString()}` : ""}`;
 
   return (
@@ -426,6 +432,15 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
           <option value="published">Published backlog</option>
           <option value="draft">Draft uploads</option>
         </select>
+        <label style={{ alignSelf: "center", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#374151", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            name="sort"
+            value="unchecked_first"
+            defaultChecked={sort === "unchecked_first"}
+          />
+          Unchecked first
+        </label>
         <button type="submit" style={{ padding: "8px 12px" }}>
           Filter
         </button>
@@ -436,8 +451,6 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
           {count ?? 0} total • page {Math.min(page, totalPages)} / {totalPages}
         </span>
       </form>
-
-      <MissingVenueBulkInferencePanel />
 
       <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", background: "#fff" }}>
         <div style={{ overflowX: "auto" }}>
@@ -662,6 +675,8 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
           </table>
         </div>
       </div>
+
+      <MissingVenueBulkInferencePanel />
 
       <div style={{ display: "flex", gap: 10, justifyContent: "space-between", marginTop: 14, flexWrap: "wrap" }}>
         <Link
