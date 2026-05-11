@@ -508,18 +508,10 @@ async function TournamentUserActions({
         </div>
       )}
 
-      {resolvedSlug ? (
-        <div className="detailLinksRow">
-          <Link className="secondaryLink" href={`/tournaments/${resolvedSlug}/map`}>
-            Open tournament map →
-          </Link>
-        </div>
-      ) : null}
-
-      {tournament.slug ? (
-        <div className="detailLinksRow" style={{ marginTop: 10 }}>
-          <ShareWeekendButton
-            tournamentSlug={tournament.slug}
+	      {tournament.slug ? (
+	        <div className="detailLinksRow" style={{ marginTop: 10 }}>
+	          <ShareWeekendButton
+	            tournamentSlug={tournament.slug}
             tournamentName={tournament.name}
             venue={null}
             sourcePage="tournament_detail"
@@ -887,36 +879,10 @@ async function TournamentVenueDetails({
         />
       </div>
 
-      <div
-        style={{
-          width: "min(720px, 100%)",
-          marginTop: 12,
-          marginLeft: "auto",
-          marginRight: "auto",
-        }}
-      >
-        <div className="detailLinksRow" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" as any }}>
-          <TournamentMapCta
-            href={mapPreviewHref}
-            label={mapPrimaryLabel}
-            sourceContext="tournament_detail:header_row"
-            tournamentSlug={tournament.slug}
-            sport={tournament.sport ?? null}
-            variant="link"
-          />
-          <a className="secondaryLink" href={headerHotelsHref} target="_blank" rel="noopener noreferrer sponsored" style={{ minWidth: 260 }}>
-            Find Hotels Nearby
-          </a>
-          <a className="secondaryLink" href={headerRentalsHref} target="_blank" rel="noopener noreferrer sponsored" style={{ minWidth: 260 }}>
-            Team Stays
-          </a>
-        </div>
-      </div>
-
-      <TournamentPlanningOverview
-        tournament={{
-          name: tournament.name,
-          sport: tournament.sport ?? null,
+	      <TournamentPlanningOverview
+	        tournament={{
+	          name: tournament.name,
+	          sport: tournament.sport ?? null,
           level: tournament.level ?? null,
           start_date: tournament.start_date,
           end_date: tournament.end_date,
@@ -1711,38 +1677,14 @@ export default async function TournamentDetailPage({
           </div>
           <div className="detailMeta">{dateLabel}</div>
           <div className="detailMeta">{locationLabel}</div>
-          {venueMeta.venueCount > 0 ? (
-            <div className="detailMeta">
-              {venueMeta.venueCount} venue{venueMeta.venueCount === 1 ? "" : "s"}
-              {venueMeta.locationLabel ? ` • ${venueMeta.locationLabel}` : ""}
-            </div>
-          ) : null}
-          {metroLabel ? <div className="detailMeta">{metroLabel}</div> : null}
+	          {venueMeta.venueCount > 0 ? (
+	            <div className="detailMeta">
+	              {venueMeta.venueCount} venue{venueMeta.venueCount === 1 ? "" : "s"}
+	              {venueMeta.locationLabel ? ` • ${venueMeta.locationLabel}` : ""}
+	            </div>
+	          ) : null}
+	          {metroLabel ? <div className="detailMeta">{metroLabel}</div> : null}
 
-	          <div
-	            className="detailLinksRow"
-            style={{
-              marginTop: 12,
-              justifyContent: "center",
-              gap: 10,
-              flexWrap: "wrap",
-            }}
-	          >
-	            <TournamentMapCta
-	              href={headerMapHref}
-	              label={headerMapLabel}
-	              sourceContext="tournament_detail:hero_header"
-	              tournamentSlug={data.slug}
-	              sport={data.sport ?? null}
-	              variant="link"
-	            />
-	            <a className="secondaryLink" href={headerHotelsHref} target="_blank" rel="noopener noreferrer sponsored" style={{ minWidth: 200, textAlign: "center" }}>
-	              Find Hotels Nearby
-	            </a>
-	            <a className="secondaryLink" href={headerRentalsHref} target="_blank" rel="noopener noreferrer sponsored" style={{ minWidth: 200, textAlign: "center" }}>
-	              Team Stays
-	            </a>
-	          </div>
 	          <div style={{ marginTop: 10, maxWidth: 620, textAlign: "center" }}>
 	            <div style={{ fontSize: 13, opacity: 0.9 }}>Want deeper planning insights? Unlock Weekend Pro.</div>
 	            <div style={{ marginTop: 8, display: "flex", justifyContent: "center" }}>
