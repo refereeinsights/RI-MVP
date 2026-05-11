@@ -10,6 +10,7 @@ import USClubSoccerUrlButton from "./USClubSoccerUrlButton";
 import PerplexityVenueButton from "./PerplexityVenueButton";
 import PromoteInferredButton from "./PromoteInferredButton";
 import MissingVenueBulkInferencePanel from "./MissingVenueBulkInferencePanel";
+import BulkPerplexitySelected from "./BulkPerplexitySelected";
 
 export const runtime = "nodejs";
 
@@ -379,6 +380,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           {tournamentStatus === "published" ? <USClubSoccerUrlButton limit={400} /> : null}
           <BulkDeepScanButton initialLimit={50} total={count} tournamentStatus={tournamentStatus} />
+          <BulkPerplexitySelected />
           <a
             href={exportHref}
             style={{
@@ -454,10 +456,13 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
       </form>
 
       <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", background: "#fff" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <thead>
               <tr style={{ textAlign: "left", background: "#f8fafc" }}>
+                <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b", width: 44 }} title="Select for bulk actions">
+                  ✓
+                </th>
                 <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>Tournament</th>
                 <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>Location</th>
                 <th style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>URL</th>
@@ -477,6 +482,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                 const venueStats = venueStatsByTournament.get(t.id) ?? null;
                 const perplexityBatch = perplexityBatchByTournament.get(t.id) ?? null;
                 const inferredLinks = inferredByTournament.get(t.id) ?? [];
+                const hasPerplexityRun = Boolean(perplexityBatch) || Boolean(venueStats?.perplexityCount);
 
                 const venuesSearch = new URLSearchParams();
                 venuesSearch.set("q", [t.name ?? "", t.city ?? "", t.state ?? ""].filter(Boolean).join(" "));
@@ -485,6 +491,15 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
 
                 return (
                   <tr key={t.id} id={`tournament-row-${t.id}`} style={{ borderTop: "1px solid #e5e7eb", verticalAlign: "top" }}>
+                    <td style={{ padding: "10px 12px" }}>
+                      <input
+                        type="checkbox"
+                        data-mv-select="1"
+                        data-tournament-id={t.id}
+                        data-perplexity-ran={hasPerplexityRun ? "1" : "0"}
+                        aria-label={`Select ${title}`}
+                      />
+                    </td>
                     <td style={{ padding: "10px 12px" }}>
                       <div style={{ display: "grid", gap: 4 }}>
                         <div style={{ fontWeight: 900 }}>
@@ -548,16 +563,22 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                         </div>
                       </div>
                     </td>
-                    <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
+                    <td style={{ padding: "10px 12px" }}>
                       <div>{loc}</div>
                       <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
                         {[t.sport, t.start_date ? new Date(t.start_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null].filter(Boolean).join(" • ")}
                       </div>
                     </td>
-                    <td style={{ padding: "10px 12px", maxWidth: 360 }}>
+                    <td style={{ padding: "10px 12px", maxWidth: 360, overflow: "hidden" }}>
                       {url ? (
-                        <a href={url} target="_blank" rel="noreferrer" style={{ color: "#1d4ed8", textDecoration: "none" }}>
-                          {trunc(url, 60)}
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: "#1d4ed8", textDecoration: "none", wordBreak: "break-all" }}
+                          title={url}
+                        >
+                          {trunc(url, 54)}
                         </a>
                       ) : (
                         <span style={{ color: "#64748b" }}>—</span>
