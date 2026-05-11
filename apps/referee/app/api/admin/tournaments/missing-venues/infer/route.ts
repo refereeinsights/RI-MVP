@@ -104,7 +104,16 @@ export async function POST(request: Request) {
   const dryRun = typeof body?.dry_run === "boolean" ? body.dry_run : true;
 
   const { data: rows, error: rpcErr } = await runRpc(limit, dryRun);
-  if (rpcErr) return NextResponse.json({ error: rpcErr.message }, { status: 500 });
+  if (rpcErr) {
+    const msg = String(rpcErr.message ?? "");
+    if (msg.includes("tournament_venues_venue_id_fkey")) {
+      return NextResponse.json(
+        { error: "Inference references stale venue IDs. Re-apply migration 20260511_venue_inference_for_published.sql (adds venues join to filter deleted venue IDs) and retry." },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true, dry_run: dryRun, rows: rows ?? [] });
 }

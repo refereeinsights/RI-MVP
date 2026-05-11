@@ -57,6 +57,8 @@ as $$
       on c.state = m.state
      and c.city_norm = m.city_norm
      and c.sport = m.sport
+    join public.venues v
+      on v.id = c.venue_id
     left join public.tournament_venue_inference_feedback f
       on f.tournament_id = m.tournament_id
      and f.venue_id = c.venue_id
