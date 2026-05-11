@@ -33,10 +33,13 @@ export default function UploadsVenueExtractButton({ tournamentId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [sourceUrlUsed, setSourceUrlUsed] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [acceptingKey, setAcceptingKey] = useState<string | null>(null);
+  const [acceptMessage, setAcceptMessage] = useState<string | null>(null);
 
   const run = async () => {
     setBusy(true);
     setError(null);
+    setAcceptMessage(null);
     try {
       const resp = await fetch(
         `/api/admin/tournaments/uploads/venue-extract?tournament_id=${encodeURIComponent(tournamentId)}`,
@@ -57,11 +60,38 @@ export default function UploadsVenueExtractButton({ tournamentId }: Props) {
     }
   };
 
-  const copy = async (text: string) => {
+  const keyFor = (c: Candidate) =>
+    [
+      c.venue_name ?? "",
+      c.venue_address ?? "",
+      c.venue_city ?? "",
+      c.venue_state ?? "",
+      c.venue_zip ?? "",
+    ]
+      .join("|")
+      .trim();
+
+  const accept = async (candidate: Candidate) => {
+    const key = keyFor(candidate);
+    if (!key || acceptingKey) return;
+    setAcceptingKey(key);
+    setAcceptMessage(null);
+    setError(null);
     try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // ignore
+      const resp = await fetch("/api/admin/tournaments/uploads/venue-accept", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ tournament_id: tournamentId, candidate }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json?.ok) throw new Error(json?.error || `HTTP_${resp.status}`);
+      setCandidates((prev) => prev.filter((c) => keyFor(c) !== key));
+      setAcceptMessage("Venue linked.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "accept_failed");
+    } finally {
+      setAcceptingKey(null);
     }
   };
 
@@ -104,6 +134,7 @@ export default function UploadsVenueExtractButton({ tournamentId }: Props) {
         ) : null}
 
         {error ? <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 900 }}>Error: {error}</div> : null}
+        {acceptMessage ? <div style={{ fontSize: 12, color: "#065f46", fontWeight: 900 }}>{acceptMessage}</div> : null}
 
         {!error && candidates.length === 0 ? (
           <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 800 }}>No venue addresses found.</div>
@@ -131,20 +162,21 @@ export default function UploadsVenueExtractButton({ tournamentId }: Props) {
                   </span>
                   <button
                     type="button"
-                    onClick={() => void copy(line)}
+                    onClick={() => void accept(c)}
+                    disabled={acceptingKey === keyFor(c)}
                     style={{
                       padding: "6px 10px",
                       borderRadius: 10,
-                      border: "1px solid #d1d5db",
-                      background: "#fff",
-                      color: "#111827",
+                      border: "1px solid #0f3d2e",
+                      background: acceptingKey === keyFor(c) ? "#f3f4f6" : "#fff",
+                      color: "#0f3d2e",
                       fontWeight: 900,
                       fontSize: 12,
-                      cursor: "pointer",
+                      cursor: acceptingKey === keyFor(c) ? "not-allowed" : "pointer",
                     }}
-                    title="Copy this candidate summary to clipboard"
+                    title="Create or link a venue and attach it to this tournament"
                   >
-                    Copy
+                    {acceptingKey === keyFor(c) ? "Accepting…" : "Accept venue"}
                   </button>
                 </div>
               </div>
@@ -165,4 +197,3 @@ export default function UploadsVenueExtractButton({ tournamentId }: Props) {
     </details>
   );
 }
-
