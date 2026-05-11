@@ -158,7 +158,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   const tournamentStatusRaw = (searchParams?.status ?? "published").trim().toLowerCase();
   const tournamentStatus = tournamentStatusRaw === "draft" ? "draft" : "published";
   const sortRaw = (searchParams?.sort ?? "").trim().toLowerCase();
-  const sort = sortRaw === "unchecked_first" ? "unchecked_first" : null;
+  const sort = sortRaw === "off" ? null : "unchecked_first";
 
   const pageSize = 50;
   const offset = (page - 1) * pageSize;
@@ -437,10 +437,10 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
           <input
             type="checkbox"
             name="sort"
-            value="unchecked_first"
-            defaultChecked={sort === "unchecked_first"}
+            value="off"
+            defaultChecked={sort === null}
           />
-          Unchecked first
+          Show already-scanned
         </label>
         <button type="submit" style={{ padding: "8px 12px" }}>
           Filter

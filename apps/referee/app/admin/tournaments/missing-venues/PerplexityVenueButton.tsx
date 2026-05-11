@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function PerplexityVenueButton({ tournamentId }: { tournamentId: string }) {
   const [status, setStatus] = useState<string>("");
   const [running, setRunning] = useState(false);
+  const router = useRouter();
 
   const run = async () => {
     if (running) return;
@@ -33,6 +35,7 @@ export default function PerplexityVenueButton({ tournamentId }: { tournamentId: 
           `Found ${inserted} venue${inserted !== 1 ? "s" : ""}${names.length ? `: ${names.join(", ")}` : ""}`
         );
       }
+      router.refresh();
     } catch (err: any) {
       setStatus(`Error: ${err?.message || "request failed"}`);
     } finally {

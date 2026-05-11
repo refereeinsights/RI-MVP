@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function DeepScanButton({ tournamentId }: { tournamentId: string }) {
   const [status, setStatus] = useState<string>("");
   const [running, setRunning] = useState(false);
+  const router = useRouter();
 
   const run = async () => {
     if (running) return;
@@ -28,6 +30,7 @@ export default function DeepScanButton({ tournamentId }: { tournamentId: string 
       const hint =
         summary.length && summary[0]?.found?.length ? `Found: ${summary[0].found.join(", ")}` : "Scan complete";
       setStatus(`Inserted ${inserted} candidate(s) • ${pages} page(s). ${hint}`);
+      router.refresh();
     } catch (err: any) {
       setStatus(`Error: ${err?.message || "request failed"}`);
     } finally {

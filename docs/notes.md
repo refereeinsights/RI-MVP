@@ -12,6 +12,9 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-05-11 (continued)
+- RI Missing venues — auto-sort scanned tournaments to end: `DeepScanButton` and `PerplexityVenueButton` now call `router.refresh()` after a successful scan, triggering a server-component re-render. This updates the "Deep scan: X cands" / "Perplexity: ran" status indicators on the row and re-runs the `unchecked_first` sort, moving the newly scanned tournament to the end of the list automatically. `unchecked_first` is now the default sort (was opt-in via checkbox); the checkbox flipped to "Show already-scanned" (value=`off`) to opt back in to mixed ordering. Files: `DeepScanButton.tsx`, `PerplexityVenueButton.tsx`, `page.tsx`.
+
 ## 2026-05-11
 - RI Missing venues — bulk deep scan venue-only focus: `BulkDeepScanButton.tsx` now passes `venue_only=1` to the `fees-venue` enrichment route, matching the behavior of the per-tournament `DeepScanButton`. Both bulk and individual deep scans now follow venue-keyword subpages only (max 4 pages), skip `rankInternalLinks`, and skip fee/games/parking extraction. Bulk scans no longer spend time on non-venue enrichment.
 - RI Missing venues — unchecked-first sort: added `p_sort` param (value `unchecked_first`) to `list_missing_venue_link_tournaments_v2` RPC. When set, tournaments with no `discovery_batches` entry and no `tournament_venue_candidates` rows sort before already-worked ones. UI adds an "Unchecked first" checkbox to the filter form; sort is preserved in pagination links. Migration: `supabase/migrations/20260511_missing_venues_unchecked_first_sort.sql`.
