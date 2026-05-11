@@ -51,6 +51,12 @@ type VenueCandidate = {
   created_at: string | null;
 };
 
+type PerplexityBatch = {
+  id: string;
+  created_at: string | null;
+  notes: string | null;
+};
+
 const VENUE_REASON_CODES = new Set([
   "jsonld_location",
   "anchor_full_address",
@@ -156,7 +162,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   const totalPages = count ? Math.max(1, Math.ceil(count / pageSize)) : 1;
   const tournamentIds = rows.map((r) => r.id);
 
-  const [attrCandidatesResp, venueCandidatesResp] = await Promise.all([
+  const [attrCandidatesResp, venueCandidatesResp, perplexityBatchesResp] = await Promise.all([
     tournamentIds.length
       ? supabaseAdmin
           .from("tournament_attribute_candidates" as any)
@@ -174,6 +180,16 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
           .is("accepted_at", null)
           .is("rejected_at", null)
           .in("tournament_id", tournamentIds)
+          .limit(5000)
+      : Promise.resolve({ data: [] as any[] } as any),
+    tournamentIds.length
+      ? supabaseAdmin
+          .from("discovery_batches" as any)
+          .select("id,created_at,notes")
+          .in(
+            "notes",
+            tournamentIds.map((id) => `venue_search:${id}`)
+          )
           .limit(5000)
       : Promise.resolve({ data: [] as any[] } as any),
   ]);
@@ -200,6 +216,63 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
     const nextScore = row.confidence ?? 0;
     if (!existing || nextScore > existingScore) bestVenueByTournament.set(tid, row);
   }
+
+  const venueStatsByTournament = new Map<
+    string,
+    {
+      deepScanCount: number;
+      perplexityCount: number;
+      lastDeepScanAt: string | null;
+      lastPerplexityCandidateAt: string | null;
+    }
+  >();
+  for (const row of ((venueCandidatesResp.data ?? []) as VenueCandidate[]).filter((r) => r.tournament_id)) {
+    const tid = String(row.tournament_id);
+    const evidenceReason = reasonFromEvidence(row.evidence_text);
+    const isPerplexity = evidenceReason === "perplexity_search";
+    const createdAt = row.created_at ? String(row.created_at) : null;
+
+    const current = venueStatsByTournament.get(tid) ?? {
+      deepScanCount: 0,
+      perplexityCount: 0,
+      lastDeepScanAt: null as string | null,
+      lastPerplexityCandidateAt: null as string | null,
+    };
+    if (isPerplexity) {
+      current.perplexityCount += 1;
+      if (!current.lastPerplexityCandidateAt || (createdAt && createdAt > current.lastPerplexityCandidateAt)) {
+        current.lastPerplexityCandidateAt = createdAt;
+      }
+    } else {
+      current.deepScanCount += 1;
+      if (!current.lastDeepScanAt || (createdAt && createdAt > current.lastDeepScanAt)) {
+        current.lastDeepScanAt = createdAt;
+      }
+    }
+    venueStatsByTournament.set(tid, current);
+  }
+
+  const perplexityBatchByTournament = new Map<string, PerplexityBatch>();
+  for (const row of ((perplexityBatchesResp.data ?? []) as PerplexityBatch[]).filter((r) => r?.id && r?.notes)) {
+    const notes = String(row.notes ?? "");
+    if (!notes.startsWith("venue_search:")) continue;
+    const tid = notes.slice("venue_search:".length).trim();
+    if (!tid) continue;
+
+    const existing = perplexityBatchByTournament.get(tid);
+    const existingAt = existing?.created_at ? String(existing.created_at) : "";
+    const nextAt = row.created_at ? String(row.created_at) : "";
+    if (!existing || (nextAt && nextAt > existingAt)) perplexityBatchByTournament.set(tid, row);
+  }
+
+  function shortWhen(value: string | null | undefined): string | null {
+    const v = String(value ?? "").trim();
+    if (!v) return null;
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
   const paramsBase = new URLSearchParams();
   if (q) paramsBase.set("q", q);
   if (state) paramsBase.set("state", state);
@@ -316,12 +389,16 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                 const bestVenue = bestVenueByTournament.get(t.id) ?? null;
                 const addressCandidate = (bestAttr as any).address as AttrCandidate | undefined;
                 const venueUrlCandidate = (bestAttr as any).venue_url as AttrCandidate | undefined;
+                const venueStats = venueStatsByTournament.get(t.id) ?? null;
+                const perplexityBatch = perplexityBatchByTournament.get(t.id) ?? null;
 
                 const venuesSearch = new URLSearchParams();
                 venuesSearch.set("q", [t.name ?? "", t.city ?? "", t.state ?? ""].filter(Boolean).join(" "));
 
+                const editHref = `/admin?tab=tournament-listings&q=${encodeURIComponent(t.slug ?? t.name ?? t.id)}#tournament-listings`;
+
                 return (
-                  <tr key={t.id} style={{ borderTop: "1px solid #e5e7eb", verticalAlign: "top" }}>
+                  <tr key={t.id} id={`tournament-row-${t.id}`} style={{ borderTop: "1px solid #e5e7eb", verticalAlign: "top" }}>
                     <td style={{ padding: "10px 12px" }}>
                       <div style={{ display: "grid", gap: 4 }}>
                         <div style={{ fontWeight: 900 }}>
@@ -334,6 +411,26 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                           )}
                         </div>
                         <div style={{ fontSize: 12, color: "#64748b" }}>{t.id}</div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                          <a
+                            href={editHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              padding: "2px 8px",
+                              borderRadius: 6,
+                              border: "1px solid #2563eb",
+                              background: "#fff",
+                              color: "#2563eb",
+                              fontWeight: 700,
+                              fontSize: 11,
+                              textDecoration: "none",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Edit ↗
+                          </a>
+                        </div>
                       </div>
                     </td>
                     <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{loc}</td>
@@ -403,6 +500,37 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                     </td>
                     <td style={{ padding: "10px 12px" }}>
                       <div style={{ display: "grid", gap: 10 }}>
+                        <div style={{ fontSize: 12, color: "#475569", display: "grid", gap: 2 }}>
+                          <div>
+                            <strong>Deep scan:</strong>{" "}
+                            {venueStats?.deepScanCount ? (
+                              <>
+                                {venueStats.deepScanCount} cand{venueStats.deepScanCount === 1 ? "" : "s"}
+                                {venueStats.lastDeepScanAt ? ` • ${shortWhen(venueStats.lastDeepScanAt)}` : ""}
+                              </>
+                            ) : (
+                              "—"
+                            )}
+                          </div>
+                          <div>
+                            <strong>Perplexity:</strong>{" "}
+                            {perplexityBatch ? (
+                              <>
+                                ran{perplexityBatch.created_at ? ` • ${shortWhen(perplexityBatch.created_at)}` : ""}
+                                {" • "}
+                                {venueStats?.perplexityCount ? (
+                                  <>
+                                    {venueStats.perplexityCount} cand{venueStats.perplexityCount === 1 ? "" : "s"}
+                                  </>
+                                ) : (
+                                  "0 cand"
+                                )}
+                              </>
+                            ) : (
+                              "—"
+                            )}
+                          </div>
+                        </div>
                         <DeepScanButton tournamentId={t.id} />
                         <PerplexityVenueButton tournamentId={t.id} />
                         <a
