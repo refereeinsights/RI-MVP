@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import AdminNav from "@/components/admin/AdminNav";
-import { requireAdmin } from "@/lib/admin";
+import { adminDeleteTournament, requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import DeepScanButton from "./DeepScanButton";
 import BulkDeepScanButton from "./BulkDeepScanButton";
@@ -90,6 +92,48 @@ function trunc(value: string | null, max = 80) {
   const v = value.trim();
   if (v.length <= max) return v;
   return `${v.slice(0, max - 1)}…`;
+}
+
+function asText(value: unknown) {
+  if (typeof value !== "string") return null;
+  const v = value.trim();
+  return v ? v : null;
+}
+
+function redirectToMissingVenues(formData: FormData, notice?: string) {
+  const search = new URLSearchParams();
+  const page = asText(formData.get("page"));
+  const q = asText(formData.get("q"));
+  const state = asText(formData.get("state"));
+  const zip = asText(formData.get("zip"));
+  const status = asText(formData.get("status"));
+
+  if (page) search.set("page", page);
+  if (q) search.set("q", q);
+  if (state) search.set("state", state);
+  if (zip) search.set("zip", zip);
+  if (status) search.set("status", status);
+  if (notice) search.set("notice", notice);
+
+  redirect(`/admin/tournaments/missing-venues${search.toString() ? `?${search.toString()}` : ""}`);
+}
+
+async function deleteTournamentAction(formData: FormData) {
+  "use server";
+  await requireAdmin();
+
+  const tournamentId = asText(formData.get("tournament_id"));
+  if (!tournamentId) redirectToMissingVenues(formData, "Missing tournament id");
+
+  const confirmed = asText(formData.get("confirm_delete")) === "on";
+  if (!confirmed) redirectToMissingVenues(formData, "Confirm delete to proceed");
+
+  await adminDeleteTournament(tournamentId);
+
+  revalidatePath("/admin/tournaments/missing-venues");
+  revalidatePath("/admin");
+  revalidatePath("/tournaments");
+  redirectToMissingVenues(formData, "Tournament deleted");
 }
 
 export default async function MissingVenuesPage({ searchParams }: { searchParams?: SearchParams }) {
@@ -430,6 +474,35 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                           >
                             Edit ↗
                           </a>
+                          <form action={deleteTournamentAction} style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+                            <input type="hidden" name="tournament_id" value={t.id} />
+                            <input type="hidden" name="page" value={String(page)} />
+                            <input type="hidden" name="q" value={q} />
+                            <input type="hidden" name="state" value={state} />
+                            <input type="hidden" name="zip" value={zipRaw} />
+                            <input type="hidden" name="status" value={tournamentStatus} />
+                            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 800 }}>
+                              <input type="checkbox" name="confirm_delete" />
+                              Confirm delete
+                            </label>
+                            <button
+                              type="submit"
+                              style={{
+                                padding: "2px 8px",
+                                borderRadius: 6,
+                                border: "1px solid #b00020",
+                                background: "#fff",
+                                color: "#b00020",
+                                fontWeight: 900,
+                                fontSize: 11,
+                                textDecoration: "none",
+                                whiteSpace: "nowrap",
+                                cursor: "pointer",
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </form>
                         </div>
                       </div>
                     </td>
