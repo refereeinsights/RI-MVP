@@ -28,6 +28,7 @@ type TournamentRow = {
   slug: string | null;
   city: string | null;
   state: string | null;
+  sport: string | null;
   start_date: string | null;
   official_website_url: string | null;
   source_url: string | null;
@@ -547,7 +548,12 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                         </div>
                       </div>
                     </td>
-                    <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{loc}</td>
+                    <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
+                      <div>{loc}</div>
+                      <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+                        {[t.sport, t.start_date ? new Date(t.start_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null].filter(Boolean).join(" • ")}
+                      </div>
+                    </td>
                     <td style={{ padding: "10px 12px", maxWidth: 360 }}>
                       {url ? (
                         <a href={url} target="_blank" rel="noreferrer" style={{ color: "#1d4ed8", textDecoration: "none" }}>
