@@ -132,7 +132,6 @@ export async function POST(request: Request) {
           headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
           body: JSON.stringify({
             model: "sonar",
-            response_format: { type: "json_object" },
             max_tokens: 2000,
             temperature: 0.1,
             messages: [

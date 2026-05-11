@@ -25,8 +25,17 @@ Maintenance rules:
 - New client component: `PerplexityVenueButton.tsx` — purple button in the missing-venues actions column, below "Deep scan". Shows inserted count and venue names on success.
 - Candidates feed into the **existing enrichment approval flow** (`/admin/tournaments/enrichment`). No new approval UI needed.
 - `VENUE_REASON_CODES` updated in both `missing-venues/page.tsx` and `EnrichmentClient.tsx` to include `"perplexity_search"` (shown as "perplexity search" badge in the enrichment UI).
-- Model choice: `sonar` (cheaper than `sonar-reasoning-pro`; focused single-tournament query doesn't need multi-step reasoning). `response_format: json_object` for broad model compatibility.
+- Model choice: `sonar` (cheaper than `sonar-reasoning-pro`; focused single-tournament query doesn't need multi-step reasoning). Do NOT add `response_format` to the request body — `sonar` only accepts `text`, `json_schema`, or `regex`; `json_object` throws a validation error.
 - Files: `apps/referee/app/api/admin/tournaments/enrichment/venue-perplexity/route.ts`, `apps/referee/app/admin/tournaments/missing-venues/PerplexityVenueButton.tsx`, `apps/referee/app/admin/tournaments/missing-venues/page.tsx`, `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`
+
+### Missing-venues page: Edit and Delete buttons per tournament
+- Edit button (blue "Edit ↗") under each tournament UUID opens `/admin?tab=tournament-listings&q={slug}` in a new tab.
+- Delete button (red "Delete") calls existing `POST /api/admin/tournaments/delete` with a confirm dialog; hides the row on success. Venue records are preserved.
+- New component: `apps/referee/app/admin/tournaments/missing-venues/DeleteTournamentButton.tsx`
+
+### Venue data fixes
+- Venue `4f71d845` ("Fort Myers FL") updated to "5 Plex – Lee County Player Development Complex", 4301 Edison Ave, Fort Myers, FL 33916. Was a city/state placeholder linked to 30 Perfect Game baseball tournaments.
+- Manual venue candidates inserted for Richard Moss-Solomon Legacy Cup: North Fields (1185 Centennial Boulevard, Port Charlotte, FL 33953) and South Fields (670 Cooper St, Punta Gorda, FL 33950), sourced from ccsfsoccer.com/tournaments/.
 
 ## 2026-05-10 (3)
 
