@@ -41,6 +41,23 @@ function normalizeLower(value: unknown): string {
     .replace(/\s+/g, " ");
 }
 
+const ALLOWED_VENUE_SPORTS = new Set([
+  "soccer",
+  "baseball",
+  "softball",
+  "lacrosse",
+  "basketball",
+  "hockey",
+  "volleyball",
+  "futsal",
+]);
+
+function normalizeVenueSport(value: unknown): string | null {
+  const v = normalizeLower(value);
+  if (!v) return null;
+  return ALLOWED_VENUE_SPORTS.has(v) ? v : null;
+}
+
 function normalizeAddressForBlocklist(value: unknown): string {
   return String(value ?? "")
     .trim()
@@ -109,7 +126,7 @@ async function getOrCreateVenueFromCandidate(args: {
   const city = cleanText(parsed?.city ?? args.tournament_city);
   const state = cleanText(parsed?.state ?? args.tournament_state)?.toUpperCase() ?? null;
   const zip = cleanText(parsed?.zip ?? args.tournament_zip);
-  const sport = cleanText(args.tournament_sport);
+  const sport = normalizeVenueSport(args.tournament_sport);
 
   const address_fingerprint = buildVenueAddressFingerprint({
     address: streetAddress,
