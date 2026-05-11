@@ -28,6 +28,18 @@ Maintenance rules:
 - Model choice: `sonar` (cheaper than `sonar-reasoning-pro`; focused single-tournament query doesn't need multi-step reasoning). Do NOT add `response_format` to the request body — `sonar` only accepts `text`, `json_schema`, or `regex`; `json_object` throws a validation error.
 - Files: `apps/referee/app/api/admin/tournaments/enrichment/venue-perplexity/route.ts`, `apps/referee/app/admin/tournaments/missing-venues/PerplexityVenueButton.tsx`, `apps/referee/app/admin/tournaments/missing-venues/page.tsx`, `apps/referee/app/admin/tournaments/enrichment/EnrichmentClient.tsx`
 
+### Missing-venues page: bulk venue inference panel for published tournaments
+- New panel `MissingVenueBulkInferencePanel` at top of `/admin/tournaments/missing-venues` (both tabs).
+- Mirrors the uploads-tab inference panel but targets **published** tournaments via new RPCs.
+- Flow: Preview → shows candidates with confidence scores → Dry run → Apply (write) → writes `tournament_venues` rows with `is_inferred=true` → then promote/reject inline per venue.
+- Per-tournament: Select all + Promote selected (bulk), or individual Promote/Reject per row.
+- Promote calls `/api/admin/tournaments/enrichment/inferred/promote`; Reject calls inferred/reject — same endpoints as the uploads panel.
+- New API route: `GET/POST /api/admin/tournaments/missing-venues/infer` — calls `apply_inferred_venue_candidates_for_published`.
+- New DB functions (migration `20260511_venue_inference_for_published.sql`):
+  - `get_inferred_venue_candidates_for_published(limit_per_tournament)` — same scoring as draft version (`city_state_sport_cluster_v2`, threshold 0.45, min 3 distinct tournaments) but filters `status='published'`.
+  - `apply_inferred_venue_candidates_for_published(limit_per_tournament, dry_run)` — upserts inferred links, dry-run safe.
+- **Must apply migration before panel will work.** Run in Supabase SQL editor or via `supabase db push`.
+
 ### Missing-venues page: inline inferred venue promote/reject
 - Each tournament row in the actions column now shows any `tournament_venues` rows with `is_inferred=true` directly inline.
 - Each inferred link shows venue name (purple) + **Promote** (green) and **Reject** (grey) buttons — no need to navigate to the uploads tab inference panel.

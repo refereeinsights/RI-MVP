@@ -9,6 +9,7 @@ import BulkDeepScanButton from "./BulkDeepScanButton";
 import USClubSoccerUrlButton from "./USClubSoccerUrlButton";
 import PerplexityVenueButton from "./PerplexityVenueButton";
 import PromoteInferredButton from "./PromoteInferredButton";
+import MissingVenueBulkInferencePanel from "./MissingVenueBulkInferencePanel";
 
 export const runtime = "nodejs";
 
@@ -435,6 +436,8 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
           {count ?? 0} total • page {Math.min(page, totalPages)} / {totalPages}
         </span>
       </form>
+
+      <MissingVenueBulkInferencePanel />
 
       <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", background: "#fff" }}>
         <div style={{ overflowX: "auto" }}>
