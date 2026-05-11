@@ -8,28 +8,48 @@ type Props = {
   rentalsHref: string;
   venueCount: number;
   primaryVenueName?: string | null;
+  city?: string | null;
+  state?: string | null;
 };
 
-export default function TournamentMapTeaser({ mapHref, hotelsHref, rentalsHref, venueCount, primaryVenueName }: Props) {
+export default function TournamentMapTeaser({
+  mapHref,
+  hotelsHref,
+  rentalsHref,
+  venueCount,
+  primaryVenueName,
+  city,
+  state,
+}: Props) {
   if (!Number.isFinite(venueCount) || venueCount <= 0) return null;
 
   const isSingleVenue = venueCount === 1;
-  const heading = isSingleVenue ? "Open the venue map" : "Open the tournament map";
-  const body = isSingleVenue
-    ? "Get directions and compare nearby hotels and Team Stays by location."
-    : "Compare venues and plan hotels and Team Stays by location.";
+  const title = "Plan around the fields";
+  const body = "See venue locations, directions, hotels, Team Stays, and nearby options.";
 
   const primaryLabel = isSingleVenue ? "Open Venue Map" : "Open Tournament Map";
 
-  const detailHeading =
-    isSingleVenue && primaryVenueName ? (
-      <div className="tournamentMapTeaser__detailHeading">See {primaryVenueName} on the map</div>
-    ) : null;
+  const locationLabel = [city, state].filter(Boolean).join(", ");
+  const contextLine =
+    venueCount > 0 && locationLabel
+      ? `${venueCount} venue${venueCount === 1 ? "" : "s"} near ${locationLabel}`
+      : "View venues and nearby options";
 
   return (
     <div id="tournament-map-teaser" className="tournamentMapTeaser">
-      {detailHeading}
-      <div className="tournamentMapTeaser__heading">{heading}</div>
+      <div className="tournamentMapTeaser__visual" aria-hidden="true">
+        <span className="tournamentMapTeaser__pin tournamentMapTeaser__pin--one" />
+        <span className="tournamentMapTeaser__pin tournamentMapTeaser__pin--two" />
+        <span className="tournamentMapTeaser__pin tournamentMapTeaser__pin--three" />
+        <div className="tournamentMapTeaser__venueBadge">{venueCount === 1 ? "1 venue" : `${venueCount} venues`}</div>
+      </div>
+      <div className="tournamentMapTeaser__titleRow">
+        <div className="tournamentMapTeaser__title">{title}</div>
+        {isSingleVenue && primaryVenueName ? (
+          <div className="tournamentMapTeaser__hint">Venue: {primaryVenueName}</div>
+        ) : null}
+      </div>
+      <div className="tournamentMapTeaser__context">{contextLine}</div>
       <div className="tournamentMapTeaser__body">{body}</div>
       <div className="tournamentMapTeaser__primary">
         <TournamentMapCta
@@ -41,13 +61,12 @@ export default function TournamentMapTeaser({ mapHref, hotelsHref, rentalsHref, 
       </div>
       <div className="tournamentMapTeaser__secondaryRow">
         <Link className="secondaryLink detailLinkSmall" href={hotelsHref} target="_blank" rel="noopener noreferrer sponsored">
-          Hotels nearby
+          Hotels near fields
         </Link>
         <Link className="secondaryLink detailLinkSmall" href={rentalsHref} target="_blank" rel="noopener noreferrer sponsored">
-          Team Stays nearby
+          Team Stays
         </Link>
       </div>
     </div>
   );
 }
-

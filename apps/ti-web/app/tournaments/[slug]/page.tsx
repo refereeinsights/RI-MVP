@@ -882,6 +882,8 @@ async function TournamentVenueDetails({
           rentalsHref={headerRentalsHref}
           venueCount={venueCount}
           primaryVenueName={primaryVenueName}
+          city={tournament.city ?? null}
+          state={tournament.state ?? null}
         />
       </div>
 
