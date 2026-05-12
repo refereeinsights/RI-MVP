@@ -13,6 +13,18 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-05-12
+
+### /book-travel CRO / SEO / affiliate audit
+- Full audit complete: `docs/audits/book-travel-cro-seo-affiliate-audit.md`
+- **Top finding (high):** `book_travel_*` analytics events are typed in `tiAnalyticsEvents.ts` and fired client-side (`WeekendPlannerClient.tsx`) but `/api/analytics` does not persist them — they only reach console. We are blind to page-level funnel behavior; only late-funnel `ti_outbound_clicks` (server) is captured.
+- **SEO (medium):** Title/H1/meta copy is generic "Book travel for your event" — no "youth sports tournament travel" anchoring. Likely attracts generic travel intent rather than tournament-specific queries.
+- **CRO (medium):** Dates are optional; handoff to Booking.com / Vrbo without dates likely converts poorly. No `has_dates` signal in analytics to measure this.
+- **Internal funnel (medium):** "Browse tournaments" CTA exists but no clear "next best action" copy for users who only know city/state.
+- **Compliance (low):** `AffiliateDisclosure` renders below the planner UI — consider moving closer to outbound CTAs.
+- Affiliate handoff mechanics reviewed: Booking.com (Awin) and Vrbo (CJ) wiring is correct; do not change partner IDs. Logging to `ti_outbound_clicks` is working on both `/go/hotels` and `/go/vrbo`.
+- Minimal fix plan (in audit): (1) persist `book_travel_*` events, (2) fire `book_travel_viewed` on load, (3) add `has_dates`/`has_destination`/`travel_type` properties, (4) tighten title/H1/meta, (5) add FAQ block, (6) add 6 sport directory links, (7) move disclosure nearer CTAs.
+
 ## 2026-05-11
 
 ### Perplexity venue search for missing-venue tournaments

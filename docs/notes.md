@@ -12,6 +12,21 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-05-12
+
+- RI Missing venues — bulk triage deletions: investigated root causes across all 236 missing-venue tournaments. Identified and deleted 15 hopeless records from the database:
+  - 5 Wyoming basketball tournaments (wyomingbasketballtournaments.com — completely dead domain, HTTP 000)
+  - 2 USSSA Florida events with malformed/generic source URLs (`event-detail?summer-nationals`, `event-detail` with no slug — no retrievable event data)
+  - 8 Facebook Oregon youth basketball events sharing a single unscrapable Facebook group URL (`facebook.com/groups/oregonyouthbasketball/`) — no website, no geocodable venue, permanently unscrapable
+  - Note: kept the "Oregon Trail Classic" (Bend OR, centraloregonbaseball.com) — different event, legitimate website.
+- RI Missing venues — set `skip_venue_discovery=true` on 4 unsolvable multi-location/bad-data records:
+  - IWLCA Southwest Cup ×2 (duplicate entries; city="Southwest Region"/"NA" — multi-state, no single venue)
+  - USJN N. Chicagoland Summer Tournament (vague city name, generic listing source URL)
+  - PNAHA High School State Tournament 2026 (city="Puget Sound area" — not a geocodable location)
+- Missing venue count: 236 → 218 after deletions + skip flags.
+- Root cause patterns identified across the 236: (1) name collision with famous brand/team confuses Perplexity, (2) source URL is a generic listing/category page (GotSoccer pagination, Exposure Events category, 406mtsports /tournaments), (3) website is dead or JS-redirect only (parked GoDaddy), (4) bot protection (Cloudflare 403), (5) Facebook-only source (permanently unscrapable), (6) Perplexity only returns our own TI/RI pages as citations (no external indexed content).
+- TI /book-travel — CRO/SEO/affiliate audit complete: see `docs/audits/book-travel-cro-seo-affiliate-audit.md`. Top findings: (1) `book_travel_*` analytics events are typed/fired client-side but not persisted to Supabase by `/api/analytics`; (2) SEO intent is too broad — needs "youth sports tournament travel" anchoring; (3) dates are optional and likely suppress partner conversion when missing; (4) internal funnel CTAs need clearer "next best action" framing.
+
 ## 2026-05-11 (continued 2)
 - RI Missing venues — bulk deep scan candidate filter fix: the bulk scan was using stale denormalized columns (`venue IS NULL AND address IS NULL` on the `tournaments` table) to find its candidate pool. Those columns are no longer kept in sync with the normalized `tournament_venues` join table, so all candidates were immediately skipped by the `linkedTournamentIds` check — producing "Skipped linked: 780, attempted: 0". Fixed by removing the stale column filter from all four candidate query branches in `fees-venue/route.ts`; the `linkedTournamentIds` post-fetch (which checks `tournament_venues.is_inferred=false`) is now the sole correct filter, matching the same logic the missing-venues page RPC uses. File: `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`.
 
