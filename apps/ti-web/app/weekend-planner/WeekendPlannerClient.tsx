@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { sendTiAnalytics } from "@/lib/analytics";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
@@ -55,6 +55,7 @@ function safeSetStoredDestination(value: string) {
 }
 
 export default function WeekendPlannerClient() {
+  const viewedFiredRef = useRef(false);
   const [destination, setDestination] = useState("");
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">("idle");
   const [shareUrl, setShareUrl] = useState(CANONICAL_BOOK_TRAVEL_URL);
@@ -97,6 +98,39 @@ export default function WeekendPlannerClient() {
       // Ignore.
     }
     setCanNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+
+    // Fire one page-view event for /book-travel (best-effort).
+    // Avoid duplicate firing in strict-mode replays by guarding with a ref.
+    if (!viewedFiredRef.current) {
+      viewedFiredRef.current = true;
+      const pagePath = (() => {
+        try {
+          return String(window.location.pathname || "").trim() || "/book-travel";
+        } catch {
+          return "/book-travel";
+        }
+      })();
+      const referrerPath = (() => {
+        try {
+          const raw = String(document.referrer || "").trim();
+          if (!raw) return null;
+          const u = new URL(raw);
+          if (u.origin !== window.location.origin) return null;
+          const out = `${u.pathname || ""}${u.search || ""}`.trim();
+          return out || null;
+        } catch {
+          return null;
+        }
+      })();
+
+      void sendTiAnalytics("book_travel_viewed", {
+        page_path: pagePath,
+        source_page: "book_travel",
+        referrer_path: referrerPath,
+        has_destination: Boolean(initialDestination.trim()),
+        has_dates: Boolean(checkin && checkout),
+      });
+    }
   }, []);
 
   function isoFromUserDate(value: string) {
@@ -130,7 +164,34 @@ export default function WeekendPlannerClient() {
   }
 
   function track(event: string, properties: Record<string, unknown> = {}) {
-    void sendTiAnalytics(event, { ...properties, source: "book_travel", ts: Date.now() });
+    const pagePath = (() => {
+      try {
+        return String(window.location.pathname || "").trim() || "/book-travel";
+      } catch {
+        return "/book-travel";
+      }
+    })();
+    const referrerPath = (() => {
+      try {
+        const raw = String(document.referrer || "").trim();
+        if (!raw) return null;
+        const u = new URL(raw);
+        if (u.origin !== window.location.origin) return null;
+        const out = `${u.pathname || ""}${u.search || ""}`.trim();
+        return out || null;
+      } catch {
+        return null;
+      }
+    })();
+
+    void sendTiAnalytics(event, {
+      ...properties,
+      source: "book_travel",
+      source_page: "book_travel",
+      page_path: pagePath,
+      referrer_path: referrerPath,
+      ts: Date.now(),
+    });
   }
 
   function focusDestination() {
@@ -145,7 +206,7 @@ export default function WeekendPlannerClient() {
     try {
       await navigator.clipboard.writeText(shareUrl);
       setShareStatus("copied");
-      track("book_travel_shared", { channel: "copy", share_url: shareUrl });
+      track("book_travel_shared", { travel_type: "share", cta_location: "share_block", channel: "copy", share_url: shareUrl });
       window.setTimeout(() => setShareStatus("idle"), 1200);
     } catch {
       setShareStatus("error");
@@ -161,7 +222,7 @@ export default function WeekendPlannerClient() {
         text: "Planning tournament travel? Find hotels and vacation rentals near any venue or event location.",
         url: shareUrl,
       });
-      track("book_travel_shared", { channel: "native", share_url: shareUrl });
+      track("book_travel_shared", { travel_type: "share", cta_location: "share_block", channel: "native", share_url: shareUrl });
     } catch {
       // User cancelled / unsupported.
     }
@@ -184,8 +245,13 @@ export default function WeekendPlannerClient() {
               target="_blank"
               onSubmit={() =>
                 track("book_travel_hotels_clicked", {
-                  destination_present: Boolean(destination.trim()),
-                  has_dates: Boolean(checkinText),
+                  travel_type: "hotel",
+                  cta_location: "hotels_card",
+                  destination: destination.trim() || null,
+                  has_destination: Boolean(destination.trim()),
+                  check_in: isoFromUserDate(checkinText),
+                  check_out: isoFromUserDate(checkoutText),
+                  has_dates: Boolean(isoFromUserDate(checkinText) && isoFromUserDate(checkoutText)),
                 })
               }
             >
@@ -203,6 +269,7 @@ export default function WeekendPlannerClient() {
                     onChange={(e) => handleDestinationChange(e.target.value)}
                     required
                   />
+                  <div className={styles.fieldHelper}>Search by city, venue name, field complex, gym, or address.</div>
                 </div>
                 <div className={styles.datesRow}>
                   <div>
@@ -232,6 +299,7 @@ export default function WeekendPlannerClient() {
                     />
                   </div>
                 </div>
+                <div className={styles.fieldHelper}>Tip: adding dates helps show more accurate availability and pricing.</div>
               </div>
               <input type="hidden" name="source" value="book_travel" />
               <div style={{ paddingTop: "0.95rem" }}>
@@ -271,8 +339,13 @@ export default function WeekendPlannerClient() {
               target="_blank"
               onSubmit={() =>
                 track("book_travel_vrbo_clicked", {
-                  destination_present: Boolean(destination.trim()),
-                  has_dates: Boolean(checkinText),
+                  travel_type: "rental",
+                  cta_location: "rentals_card",
+                  destination: destination.trim() || null,
+                  has_destination: Boolean(destination.trim()),
+                  check_in: isoFromUserDate(checkinText),
+                  check_out: isoFromUserDate(checkoutText),
+                  has_dates: Boolean(isoFromUserDate(checkinText) && isoFromUserDate(checkoutText)),
                 })
               }
             >
@@ -290,6 +363,7 @@ export default function WeekendPlannerClient() {
                     onChange={(e) => handleDestinationChange(e.target.value)}
                     required
                   />
+                  <div className={styles.fieldHelper}>Search by city, venue name, field complex, gym, or address.</div>
                 </div>
                 <div className={styles.datesRow}>
                   <div>
@@ -319,6 +393,7 @@ export default function WeekendPlannerClient() {
                     />
                   </div>
                 </div>
+                <div className={styles.fieldHelper}>Tip: adding dates helps show more accurate availability and pricing.</div>
               </div>
               <input type="hidden" name="source" value="book_travel" />
               <div style={{ paddingTop: "0.95rem" }}>
@@ -356,7 +431,12 @@ export default function WeekendPlannerClient() {
               <Link
                 href="/tournaments"
                 className={styles.ctaFull}
-                onClick={() => track("book_travel_tournament_directory_clicked")}
+                onClick={() =>
+                  track("book_travel_tournament_directory_clicked", {
+                    travel_type: "internal",
+                    cta_location: "browse_tournaments_card",
+                  })
+                }
               >
                 Browse tournaments
               </Link>
@@ -380,7 +460,7 @@ export default function WeekendPlannerClient() {
                 className={styles.ctaFull}
                 onClick={() => {
                   focusDestination();
-                  track("book_travel_search_by_city_clicked");
+                  track("book_travel_search_by_city_clicked", { travel_type: "internal", cta_location: "add_event_card" });
                 }}
               >
                 Search by city or venue
@@ -388,7 +468,7 @@ export default function WeekendPlannerClient() {
               <Link
                 href="/list-your-tournament?source=book_travel"
                 className={`${styles.ctaFull} ${styles.ctaSecondary}`}
-                onClick={() => track("book_travel_add_event_clicked")}
+                onClick={() => track("book_travel_add_event_clicked", { travel_type: "internal", cta_location: "add_event_card" })}
               >
                 Add event
               </Link>
@@ -404,15 +484,21 @@ export default function WeekendPlannerClient() {
             </p>
           </div>
           <div className={styles.cardBody}>
-            <UpgradeWeekendProButton
-              className={styles.ctaFull}
-              source_page="book_travel"
-              source_context="book_travel_upsell"
-              entry_point="book_travel"
-              cta_label="Upgrade to Weekend Pro"
-              label="Upgrade to Weekend Pro"
-              has_affiliate_visible={false}
-            />
+            <div
+              onClickCapture={() => {
+                track("book_travel_weekend_pro_upsell_clicked", { travel_type: "upsell", cta_location: "upsell_card" });
+              }}
+            >
+              <UpgradeWeekendProButton
+                className={styles.ctaFull}
+                source_page="book_travel"
+                source_context="book_travel_upsell"
+                entry_point="book_travel"
+                cta_label="Upgrade to Weekend Pro"
+                label="Upgrade to Weekend Pro"
+                has_affiliate_visible={false}
+              />
+            </div>
           </div>
         </article>
 

@@ -40,6 +40,17 @@ const MAP_EVENTS = new Set([
   "weekend_page_opened",
 ]);
 
+const TRAVEL_EVENTS = new Set([
+  "book_travel_viewed",
+  "book_travel_hotels_clicked",
+  "book_travel_vrbo_clicked",
+  "book_travel_shared",
+  "book_travel_search_by_city_clicked",
+  "book_travel_add_event_clicked",
+  "book_travel_tournament_directory_clicked",
+  "book_travel_weekend_pro_upsell_clicked",
+]);
+
 function asText(value: unknown) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -218,6 +229,52 @@ export async function POST(request: Request) {
         old_value: oldValue,
         new_value: newValue,
         cta,
+      });
+    } catch {
+      // Ignore persistence failures; analytics must never block UX.
+    }
+  }
+
+  // Persist Book Travel funnel events (CRO/SEO measurement). Keep the surface area small and
+  // re-use the same storage pattern as map events to avoid schema churn.
+  if (TRAVEL_EVENTS.has(payload.event)) {
+    const host = asTextWithLimit(request.headers.get("x-forwarded-host") ?? request.headers.get("host"), 128);
+    const origin = asTextWithLimit(request.headers.get("origin"), 256);
+    const referer = asTextWithLimit(request.headers.get("referer"), 512);
+
+    // Avoid polluting analytics with local testing / admin poking around.
+    if (!shouldPersistMapEvents(request)) {
+      return NextResponse.json({ ok: true, skipped: "localhost" });
+    }
+
+    const propsRaw = payload.properties ?? {};
+    const props = asObject(propsRaw) ?? {};
+
+    const pagePath = asTextWithLimit((props as any).page_path, 128);
+    const sourcePage = asTextWithLimit((props as any).source_page, 64);
+    const travelType = asTextWithLimit((props as any).travel_type, 16);
+    const ctaLocation = asTextWithLimit((props as any).cta_location, 64);
+
+    const properties = {
+      ...(props as any),
+      ua: (props as any).ua ?? userAgent ?? null,
+      host: (props as any).host ?? host ?? null,
+      origin: (props as any).origin ?? origin ?? null,
+      referer: (props as any).referer ?? referer ?? null,
+    };
+
+    try {
+      await supabaseAdmin.from("ti_map_events" as any).insert({
+        event_name: payload.event,
+        properties,
+        page_type: "book_travel",
+        sport: null,
+        state: null,
+        href: pagePath,
+        filter_name: null,
+        old_value: sourcePage,
+        new_value: travelType,
+        cta: ctaLocation,
       });
     } catch {
       // Ignore persistence failures; analytics must never block UX.

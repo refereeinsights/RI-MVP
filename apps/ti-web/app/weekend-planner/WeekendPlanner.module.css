@@ -146,3 +146,64 @@
 .labelDark {
   color: rgba(255, 255, 255, 0.86);
 }
+
+.fieldHelper {
+  margin-top: 0.35rem;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.faqBlock {
+  margin-top: 1.1rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.faqTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 950;
+  color: #0b1f14;
+}
+
+.faqItem {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(15, 61, 46, 0.12);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.faqQ {
+  font-weight: 950;
+  margin: 0;
+  color: #0b1f14;
+}
+
+.faqA {
+  margin: 6px 0 0 0;
+  color: rgba(16, 34, 19, 0.85);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.sportLinksRow {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sportLinkChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 61, 46, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  color: #0b1f14;
+  font-weight: 900;
+  text-decoration: none;
+  font-size: 12px;
+}
