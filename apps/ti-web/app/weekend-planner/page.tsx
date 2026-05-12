@@ -9,9 +9,9 @@ export const revalidate = 3600;
 
 export async function generateMetadata() {
   return {
-    title: "Book Travel for Your Event | TournamentInsights",
+    title: "Weekend Planner (Preview) | TournamentInsights",
     description:
-      "Find hotels and vacation rentals near tournaments, venues, cities, and event locations, even if the event is not listed on TournamentInsights.",
+      "Plan your tournament weekend in one place. This preview supports travel search today and will expand into schedules, venues, maps, and shareable weekend plans.",
     alternates: { canonical: "/book-travel" },
   };
 }
@@ -21,9 +21,10 @@ export default function WeekendPlannerPage() {
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
         <div className="headerBlock">
-          <h1 className="title">Book travel for your tournament or event</h1>
+          <h1 className="title">Weekend Planner (Preview)</h1>
           <p className="subtitle">
-            Find hotels and vacation rentals near any venue, city, or tournament location — even if the event is not listed on TournamentInsights.
+            This page will become the hub for schedules, venues, maps, and shareable weekend plans. For now, it supports the same hotel and rental search as{" "}
+            <a href="/book-travel">/book-travel</a>.
           </p>
           <p className={`subtitle ${styles.heroHelper}`}>
             Enter a city, venue, or event location to search nearby stays. Your event does not need to be listed on TournamentInsights.

@@ -268,6 +268,9 @@ export default async function WeekendPage({
               Search Vrbo
             </a>
           ) : null}
+          <Link className="secondaryLink" href={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}>
+            Open venue map →
+          </Link>
           <ShareWeekendButton
             tournamentSlug={tournament.slug}
             tournamentName={tournament.name}

@@ -9,6 +9,12 @@ import styles from "./WeekendPlanner.module.css";
 const DESTINATION_STORAGE_KEY = "ti_weekend_planner_destination";
 const CANONICAL_BOOK_TRAVEL_URL = "https://www.tournamentinsights.com/book-travel";
 
+function getPlannerSourcePage(pathname: string | null | undefined) {
+  const path = String(pathname ?? "").trim().toLowerCase();
+  if (path.startsWith("/weekend-planner")) return "weekend_planner";
+  return "book_travel";
+}
+
 function isValidIsoDate(value: string | null) {
   const raw = String(value ?? "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
@@ -56,6 +62,7 @@ function safeSetStoredDestination(value: string) {
 
 export default function WeekendPlannerClient() {
   const viewedFiredRef = useRef(false);
+  const sourcePageRef = useRef<"book_travel" | "weekend_planner">("book_travel");
   const [destination, setDestination] = useState("");
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">("idle");
   const [shareUrl, setShareUrl] = useState(CANONICAL_BOOK_TRAVEL_URL);
@@ -64,6 +71,7 @@ export default function WeekendPlannerClient() {
   const [checkoutText, setCheckoutText] = useState<string>("");
 
   useEffect(() => {
+    sourcePageRef.current = getPlannerSourcePage(window.location?.pathname) as "book_travel" | "weekend_planner";
     const stored = safeGetStoredDestination();
     const params = new URLSearchParams(window.location.search);
     const city = String(params.get("city") ?? "").trim();
@@ -99,7 +107,7 @@ export default function WeekendPlannerClient() {
     }
     setCanNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
 
-    // Fire one page-view event for /book-travel (best-effort).
+    // Fire one page-view event for planner routes (best-effort).
     // Avoid duplicate firing in strict-mode replays by guarding with a ref.
     if (!viewedFiredRef.current) {
       viewedFiredRef.current = true;
@@ -110,6 +118,7 @@ export default function WeekendPlannerClient() {
           return "/book-travel";
         }
       })();
+      const sourcePage = getPlannerSourcePage(pagePath);
       const referrerPath = (() => {
         try {
           const raw = String(document.referrer || "").trim();
@@ -125,7 +134,7 @@ export default function WeekendPlannerClient() {
 
       void sendTiAnalytics("book_travel_viewed", {
         page_path: pagePath,
-        source_page: "book_travel",
+        source_page: sourcePage,
         referrer_path: referrerPath,
         has_destination: Boolean(initialDestination.trim()),
         has_dates: Boolean(checkin && checkout),
@@ -171,6 +180,7 @@ export default function WeekendPlannerClient() {
         return "/book-travel";
       }
     })();
+    const sourcePage = getPlannerSourcePage(pagePath);
     const referrerPath = (() => {
       try {
         const raw = String(document.referrer || "").trim();
@@ -186,8 +196,8 @@ export default function WeekendPlannerClient() {
 
     void sendTiAnalytics(event, {
       ...properties,
-      source: "book_travel",
-      source_page: "book_travel",
+      source: sourcePage,
+      source_page: sourcePage,
       page_path: pagePath,
       referrer_path: referrerPath,
       ts: Date.now(),
@@ -310,7 +320,7 @@ export default function WeekendPlannerClient() {
                     e.preventDefault();
                     const qp = new URLSearchParams();
                     qp.set("ss", destination.trim());
-                    qp.set("source", "book_travel");
+                    qp.set("source", sourcePageRef.current);
                     const checkinIso = isoFromUserDate(checkinText);
                     const checkoutIso = isoFromUserDate(checkoutText);
                     if (checkinIso) qp.set("checkin", checkinIso);
@@ -404,7 +414,7 @@ export default function WeekendPlannerClient() {
                     e.preventDefault();
                     const qp = new URLSearchParams();
                     qp.set("destination", destination.trim());
-                    qp.set("source", "book_travel");
+                    qp.set("source", sourcePageRef.current);
                     const checkinIso = isoFromUserDate(checkinText);
                     const checkoutIso = isoFromUserDate(checkoutText);
                     if (checkinIso) qp.set("checkin", checkinIso);
@@ -440,6 +450,11 @@ export default function WeekendPlannerClient() {
               >
                 Browse tournaments
               </Link>
+              <div style={{ marginTop: "0.65rem" }}>
+                <Link href="/venues" className={`${styles.ctaFull} ${styles.ctaSecondary}`}>
+                  Search venues
+                </Link>
+              </div>
             </div>
           </div>
         </article>

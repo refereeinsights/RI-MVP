@@ -2040,6 +2040,13 @@ export default function TournamentVenueMapClient({
                   className={`${styles.cta} ${styles.ctaSecondary}`}
                 />
 
+                <Link
+                  className={`${styles.cta} ${styles.ctaSecondary}`}
+                  href={`/weekend/${encodeURIComponent(tournament.slug)}?venue=${encodeURIComponent(selectedVenue.seo_slug ?? selectedVenue.id)}`}
+                >
+                  View weekend plan →
+                </Link>
+
                 {selectedVenue.seo_slug ? (
                   <Link
                     className={`${styles.cta} ${styles.ctaSecondary}`}
