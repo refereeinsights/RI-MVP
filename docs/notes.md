@@ -12,6 +12,9 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-05-11 (continued 2)
+- RI Missing venues — bulk deep scan candidate filter fix: the bulk scan was using stale denormalized columns (`venue IS NULL AND address IS NULL` on the `tournaments` table) to find its candidate pool. Those columns are no longer kept in sync with the normalized `tournament_venues` join table, so all candidates were immediately skipped by the `linkedTournamentIds` check — producing "Skipped linked: 780, attempted: 0". Fixed by removing the stale column filter from all four candidate query branches in `fees-venue/route.ts`; the `linkedTournamentIds` post-fetch (which checks `tournament_venues.is_inferred=false`) is now the sole correct filter, matching the same logic the missing-venues page RPC uses. File: `apps/referee/app/api/admin/tournaments/enrichment/fees-venue/route.ts`.
+
 ## 2026-05-11 (continued)
 - RI Missing venues — auto-sort scanned tournaments to end: `DeepScanButton` and `PerplexityVenueButton` now call `router.refresh()` after a successful scan, triggering a server-component re-render. This updates the "Deep scan: X cands" / "Perplexity: ran" status indicators on the row and re-runs the `unchecked_first` sort, moving the newly scanned tournament to the end of the list automatically. `unchecked_first` is now the default sort (was opt-in via checkbox); the checkbox flipped to "Show already-scanned" (value=`off`) to opt back in to mixed ordering. Files: `DeepScanButton.tsx`, `PerplexityVenueButton.tsx`, `page.tsx`.
 

@@ -1196,15 +1196,13 @@ export async function POST(request: Request) {
       .or("official_website_url.not.is.null,source_url.not.is.null");
     if (requireCanonical) primaryQuery = primaryQuery.eq("is_canonical", true);
 
-    if (focusMissingVenues) {
-      // Prioritize the true "no venue data at all" backlog (aligns with /admin/tournaments/missing-venues):
-      // published+canonical (for published runs) with both venue and address unset.
-      primaryQuery = primaryQuery.is("venue", null).is("address", null);
-    } else {
+    if (!focusMissingVenues) {
       primaryQuery = primaryQuery.or(
         "team_fee.is.null,games_guaranteed.is.null,player_parking.is.null,venue.is.null,address.is.null,venue_url.is.null"
       );
     }
+    // focusMissingVenues: no stale-column filter here — confirmed venue links are checked
+    // via the tournament_venues join below (linkedTournamentIds), which is the source of truth.
 
     const primary = await primaryQuery
       .order("fees_venue_scraped_at", { ascending: true, nullsFirst: true })
@@ -1220,9 +1218,7 @@ export async function POST(request: Request) {
         .eq("enrichment_skip", false)
         .or("official_website_url.not.is.null,source_url.not.is.null");
       if (requireCanonical) retryQuery = retryQuery.eq("is_canonical", true);
-      if (focusMissingVenues) {
-        retryQuery = retryQuery.is("venue", null).is("address", null);
-      } else {
+      if (!focusMissingVenues) {
         retryQuery = retryQuery.or(
           "team_fee.is.null,games_guaranteed.is.null,player_parking.is.null,venue.is.null,address.is.null,venue_url.is.null"
         );
@@ -1242,9 +1238,6 @@ export async function POST(request: Request) {
       .eq("enrichment_skip", false)
       .or("official_website_url.not.is.null,source_url.not.is.null");
     if (requireCanonical) fallbackQuery = fallbackQuery.eq("is_canonical", true);
-    if (focusMissingVenues) {
-      fallbackQuery = fallbackQuery.is("venue", null).is("address", null);
-    }
     const fallback = await fallbackQuery.order("fees_venue_scraped_at", { ascending: true, nullsFirst: true }).limit(candidatePoolSize);
     if (!fallback.error) return fallback;
     if (isMissingCooldownColumnError(fallback.error.message)) {
@@ -1255,9 +1248,6 @@ export async function POST(request: Request) {
         .eq("enrichment_skip", false)
         .or("official_website_url.not.is.null,source_url.not.is.null");
       if (requireCanonical) fallbackNoCooldownQuery = fallbackNoCooldownQuery.eq("is_canonical", true);
-      if (focusMissingVenues) {
-        fallbackNoCooldownQuery = fallbackNoCooldownQuery.is("venue", null).is("address", null);
-      }
       return fallbackNoCooldownQuery.limit(candidatePoolSize);
     }
     return fallback;
