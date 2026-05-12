@@ -187,6 +187,9 @@ export default async function WeekendPage({
 
   const venueLabel = selectedVenue ? [selectedVenue.name, selectedVenue.city, selectedVenue.state].filter(Boolean).join(" • ") : null;
   const resolvedVenueKey = selectedVenue?.seo_slug ?? selectedVenue?.id ?? null;
+  const selectedVenueAddressLine = selectedVenue
+    ? [selectedVenue.address, [selectedVenue.city, selectedVenue.state, selectedVenue.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")
+    : null;
 
   const hotelsHref = selectedVenue?.id
     ? buildHotelsHref({ venueId: selectedVenue.id, tournamentId: tournament.id })
@@ -228,7 +231,7 @@ export default async function WeekendPage({
       <section className="bodyCard" style={{ display: "grid", gap: 14 }}>
         <div style={{ display: "grid", gap: 6 }}>
           <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>
-            Weekend Plan
+            Your tournament weekend in one link
           </div>
           <h1 style={{ margin: 0 }}>{tournament.name}</h1>
           {dateLabel ? <div style={{ color: "#334155", fontWeight: 700 }}>{dateLabel}</div> : null}
@@ -237,52 +240,82 @@ export default async function WeekendPage({
               {[tournament.sport, locationLabel].filter(Boolean).join(" • ")}
             </div>
           ) : null}
-          {venueLabel ? (
-            <div style={{ marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid #e2e8f0", background: "#f8fafc" }}>
-              <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Selected venue</div>
-              <div style={{ marginTop: 2, fontWeight: 800 }}>{venueLabel}</div>
-            </div>
-          ) : (
-            <div style={{ marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid #e2e8f0", background: "#f8fafc" }}>
-              <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Choose a venue</div>
-              <div style={{ marginTop: 2, color: "#475569", fontWeight: 700 }}>
-                For the best hotel/rental search, open the venue map and select where you’ll play.
-              </div>
-              <div style={{ marginTop: 10 }}>
-                <Link className="primaryLink" href={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}>
-                  Open venue map →
-                </Link>
-              </div>
-            </div>
-          )}
         </div>
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {hotelsHref ? (
-            <a className="primaryLink" href={`${hotelsHref}&source=weekend_share`} target="_blank" rel="noopener noreferrer sponsored">
-              Search Hotels
-            </a>
-          ) : null}
-          {vrboHref ? (
-            <a className="secondaryLink" href={vrboHref} target="_blank" rel="noopener noreferrer sponsored">
-              Search Vrbo
-            </a>
-          ) : null}
-          <Link className="secondaryLink" href={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}>
-            Open venue map →
-          </Link>
-          <ShareWeekendButton
-            tournamentSlug={tournament.slug}
-            tournamentName={tournament.name}
-            venueLabel={selectedVenue?.name ?? null}
-            venue={resolvedVenueKey}
-            sourcePage="weekend_page"
-            buttonLabel="Share This Weekend"
-            className="secondaryLink"
-          />
-          <Link className="secondaryLink" href={`/tournaments/${encodeURIComponent(tournament.slug)}`}>
-            Back to tournament →
-          </Link>
+        <div style={{ marginTop: 6, padding: "12px 12px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#f8fafc" }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Weekend snapshot</div>
+          <div style={{ marginTop: 6, display: "grid", gap: 4, color: "#475569", fontWeight: 700, fontSize: 13 }}>
+            {tournament.sport ? <div>Sport: {tournament.sport}</div> : null}
+            {dateLabel ? <div>Dates: {dateLabel}</div> : null}
+            {locationLabel ? <div>Location: {locationLabel}</div> : null}
+            {selectedVenue ? <div>Venue: {venueLabel}</div> : <div>Venue: Choose a venue on the map for the best results</div>}
+            <div>Venue map: Available</div>
+            {selectedVenue ? (
+              <div>Nearby options: {runId && nearby.length ? "Available (cached)" : "Not available yet"}</div>
+            ) : (
+              <div>Nearby options: Select a venue</div>
+            )}
+          </div>
+        </div>
+
+        {selectedVenue ? (
+          <div style={{ marginTop: 4, padding: "12px 12px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#ffffff" }}>
+            <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Selected venue</div>
+            <div style={{ marginTop: 2, fontWeight: 850, color: "#0f172a" }}>{selectedVenue.name ?? "Venue"}</div>
+            {selectedVenueAddressLine ? (
+              <div style={{ marginTop: 4, color: "#475569", fontWeight: 700, fontSize: 13 }}>{selectedVenueAddressLine}</div>
+            ) : null}
+            <div style={{ marginTop: 10 }}>
+              <Link className="secondaryLink" href={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}>
+                Change venue →
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div style={{ marginTop: 4, padding: "12px 12px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#ffffff" }}>
+            <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Choose a venue</div>
+            <div style={{ marginTop: 4, color: "#475569", fontWeight: 700, fontSize: 13 }}>
+              For the best hotel/rental search, open the venue map and select where you’ll play.
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <Link className="primaryLink" href={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}>
+                Open venue map →
+              </Link>
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "grid", gap: 10, marginTop: 2 }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            Plan your stay
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {hotelsHref ? (
+              <a className="primaryLink" href={`${hotelsHref}&source=weekend_share`} target="_blank" rel="noopener noreferrer sponsored">
+                Find hotels
+              </a>
+            ) : null}
+            {vrboHref ? (
+              <a className="secondaryLink" href={vrboHref} target="_blank" rel="noopener noreferrer sponsored">
+                Find rentals
+              </a>
+            ) : null}
+            <Link className="secondaryLink" href={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}>
+              Open venue map →
+            </Link>
+            <ShareWeekendButton
+              tournamentSlug={tournament.slug}
+              tournamentName={tournament.name}
+              venueLabel={selectedVenue?.name ?? null}
+              venue={resolvedVenueKey}
+              sourcePage="weekend_page"
+              buttonLabel="Share this plan"
+              className="secondaryLink"
+            />
+            <Link className="secondaryLink" href={`/tournaments/${encodeURIComponent(tournament.slug)}`}>
+              Back to tournament →
+            </Link>
+          </div>
         </div>
 
         {selectedVenue ? (
@@ -332,6 +365,18 @@ export default async function WeekendPage({
             })}
           </div>
         ) : null}
+
+        <div style={{ marginTop: 8, padding: "12px 12px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#f8fafc" }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Schedule planning coming next</div>
+          <div style={{ marginTop: 4, color: "#475569", fontWeight: 700, fontSize: 13 }}>
+            Soon, you’ll be able to import your team schedule and turn this page into a full weekend itinerary.
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <Link className="secondaryLink" href="/weekend-planner">
+              Preview Weekend Planner →
+            </Link>
+          </div>
+        </div>
       </section>
     </main>
   );

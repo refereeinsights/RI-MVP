@@ -2,6 +2,7 @@
 
 - TI Weekend Planner Phase 1 (no new tables): clarified `/weekend-planner` as a preview hub with canonical to `/book-travel`, and updated planner analytics payloads to tag `source_page` based on route (`book_travel` vs `weekend_planner`) while reusing existing `book_travel_*` event names: `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`.
 - TI weekend/map cross-links: added a “View weekend plan” CTA in the selected venue panel on `/tournaments/[slug]/map` and an “Open venue map” CTA on `/weekend/[slug]` for tighter navigation between map planning and shareable weekend plans: `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`, `apps/ti-web/app/weekend/[slug]/page.tsx`.
+- TI weekend page hierarchy: refreshed `/weekend/[slug]` layout to add a lightweight “Weekend snapshot”, clearer selected-venue vs choose-venue sections, streamlined “Plan your stay” actions, and a non-interactive schedule placeholder linking to `/weekend-planner` (no new tables/ingestion): `apps/ti-web/app/weekend/[slug]/page.tsx`.
 
 ## 2026-05-09
 
