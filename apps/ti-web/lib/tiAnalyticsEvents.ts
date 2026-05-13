@@ -34,6 +34,9 @@ export type TiAnalyticsEventName =
   | "weekend_share_venue_map_clicked"
   | "weekend_share_travel_clicked"
   | "weekend_share_planner_hub_clicked"
+  | "weekend_share_directions_clicked"
+  | "weekend_share_airport_directions_clicked"
+  | "weekend_share_owls_eye_directions_clicked"
   | "tournament_map_weekend_plan_clicked"
   | "tournament_map_back_to_tournament_clicked"
   | "tournament_map_add_to_planner_clicked"
@@ -320,6 +323,47 @@ export type TiAnalyticsEventPropertiesByName = {
     source_page: "weekend_share";
     cta: "planner_hub";
     href: string;
+  };
+  weekend_share_directions_clicked: {
+    page_type: "weekend_share";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    venue_name: string | null;
+    source_page: "weekend_share";
+    cta: "directions";
+    provider: "apple" | "google" | "waze" | "copy";
+    href: string | null;
+    has_coordinates: boolean;
+  };
+  weekend_share_airport_directions_clicked: {
+    page_type: "weekend_share";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    venue_name: string | null;
+    source_page: "weekend_share";
+    cta: "airport_directions";
+    airport_id: string;
+    airport_name: string;
+    airport_iata: string | null;
+    provider: "apple" | "google" | "waze" | "copy";
+    href: string | null;
+    has_coordinates: boolean;
+  };
+  weekend_share_owls_eye_directions_clicked: {
+    page_type: "weekend_share";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    venue_name: string | null;
+    source_page: "weekend_share";
+    cta: "owls_eye_directions";
+    place_id: string;
+    place_name: string;
+    provider: "apple" | "google" | "waze" | "copy";
+    href: string | null;
+    has_coordinates: boolean;
   };
   tournament_map_weekend_plan_clicked: {
     page_type: "tournament_map";

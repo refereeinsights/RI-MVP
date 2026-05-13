@@ -34,6 +34,8 @@ async function login(page: Page, credentials: Credentials, path = "/login") {
   await page.getByPlaceholder("Email").fill(credentials.email);
   await page.getByPlaceholder("Password").fill(credentials.password);
   await page.getByRole("button", { name: "Log in" }).click();
+  await page.waitForLoadState("domcontentloaded");
+  await expect(page.getByRole("button", { name: "Log in" })).not.toBeVisible({ timeout: 10_000 });
 }
 
 test.describe("TI public beta smoke: join + auth + tier gating", () => {

@@ -8,9 +8,14 @@ import { getTiTierServer } from "@/lib/entitlementsServer";
 import WeekendShareOpenTracker from "./WeekendShareOpenTracker";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import WeekendPlanningCtasClient from "./WeekendPlanningCtasClient";
+import WeekendProUpgradeModalTrigger from "@/components/premium/WeekendProUpgradeModalTrigger";
+import DirectionsChooserClient from "./DirectionsChooserClient";
+import WeekendNearestAirportClient from "./WeekendNearestAirportClient";
 
 export const runtime = "nodejs";
-export const revalidate = 900;
+// Tier-aware page: avoid caching Weekend Pro content across users.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type TournamentRow = {
   id: string;
@@ -221,6 +226,13 @@ export default async function WeekendPage({
   const selectedVenueAddressLine = selectedVenue
     ? [selectedVenue.address, [selectedVenue.city, selectedVenue.state, selectedVenue.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")
     : null;
+  const selectedVenueDirectionsQuery = selectedVenue
+    ? [selectedVenue.name, selectedVenue.address, selectedVenue.city, selectedVenue.state, selectedVenue.zip]
+        .filter(Boolean)
+        .map((s) => String(s).trim())
+        .filter(Boolean)
+        .join(", ")
+    : null;
 
   const hotelsHref = selectedVenue?.id
     ? buildHotelsHref({ venueId: selectedVenue.id, tournamentId: tournament.id })
@@ -267,6 +279,10 @@ export default async function WeekendPage({
     const qs = qp.toString();
     return encodeURIComponent(qs ? `/weekend/${encodeURIComponent(tournament.slug)}?${qs}` : `/weekend/${encodeURIComponent(tournament.slug)}`);
   })();
+
+  const googleSearchHref = selectedVenueDirectionsQuery
+    ? `https://www.google.com/search?q=${encodeURIComponent(selectedVenueDirectionsQuery)}`
+    : null;
 
   return (
     <main className="ti-shell" style={{ paddingBottom: 40 }}>
@@ -326,10 +342,44 @@ export default async function WeekendPage({
             {selectedVenueAddressLine ? (
               <div style={{ marginTop: 4, color: "#475569", fontWeight: 700, fontSize: 13 }}>{selectedVenueAddressLine}</div>
             ) : null}
-            <div style={{ marginTop: 10 }}>
+            <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {selectedVenueDirectionsQuery ? (
+                <DirectionsChooserClient
+                  label="Directions"
+                  className="primaryLink"
+                  title="Directions"
+                  destinationLabel={[selectedVenue.name, selectedVenue.city, selectedVenue.state].filter(Boolean).join(" • ") || "Tournament venue"}
+                  query={selectedVenueDirectionsQuery}
+                  coordinates={
+                    typeof selectedVenue.latitude === "number" && typeof selectedVenue.longitude === "number"
+                      ? { lat: selectedVenue.latitude, lng: selectedVenue.longitude }
+                      : null
+                  }
+                  copyText={selectedVenueAddressLine}
+                  analytics={{
+                    event: "weekend_share_directions_clicked",
+                    properties: {
+                      page_type: "weekend_share",
+                      tournament_id: tournament.id,
+                      tournament_slug: tournament.slug,
+                      venue_id: selectedVenue.id,
+                      venue_name: selectedVenue.name ?? null,
+                      source_page: "weekend_share",
+                      cta: "directions",
+                    },
+                  }}
+                />
+              ) : null}
+
               <Link className="secondaryLink" href={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}>
                 Change venue →
               </Link>
+
+              {googleSearchHref ? (
+                <a className="secondaryLink" href={googleSearchHref} target="_blank" rel="noopener noreferrer">
+                  Search Google →
+                </a>
+              ) : null}
             </div>
           </div>
         ) : (
@@ -384,9 +434,7 @@ export default async function WeekendPage({
               </div>
             ) : (
               <div style={{ border: "1px solid #e2e8f0", borderRadius: 14, padding: "10px 12px", background: "#ffffff" }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>
-                  {isUnverified ? "Confirm your email" : isAuthed ? "Weekend Pro venue intelligence" : "Unlock deeper venue planning"}
-                </div>
+                <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Nearby venue intelligence</div>
                 <div style={{ marginTop: 6, color: "#475569", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>
                   {isUnverified
                     ? "Confirm your email to unlock Insider saved planning tools. Weekend Pro unlocks deeper venue intelligence as tools roll out."
@@ -394,15 +442,28 @@ export default async function WeekendPage({
                       ? "Weekend Pro unlocks deeper Owl’s Eye venue intelligence and advanced logistics tools as they roll out."
                       : "Sign in with a verified account to save tournaments and keep planning links in one place. Weekend Pro unlocks deeper venue intelligence as tools roll out."}
                 </div>
+                <div style={{ marginTop: 10, display: "grid", gap: 6, color: "#475569", fontWeight: 750, fontSize: 13 }}>
+                  <div>Coffee nearby</div>
+                  <div>Quick eats</div>
+                  <div>Food options</div>
+                  <div>Family hangouts</div>
+                </div>
                 <div style={{ marginTop: 10 }}>
                   {isUnverified ? (
                     <span className="secondaryLink" style={{ display: "inline-block" }}>
                       Check your inbox →
                     </span>
                   ) : isAuthed ? (
-                    <Link className="secondaryLink" href="/premium">
-                      Explore Weekend Pro →
-                    </Link>
+                    <WeekendProUpgradeModalTrigger
+                      className="secondaryLink"
+                      label="Unlock venue intelligence"
+                      source_page="weekend_page"
+                      source_context="weekend_nearby_locked"
+                      tournament_slug={tournament.slug}
+                      venue_slug={selectedVenue.seo_slug ?? null}
+                      entry_point="weekend_share_nearby_locked"
+                      user_tier={tierInfo.tier}
+                    />
                   ) : (
                     <Link className="secondaryLink" href={`/signup?returnTo=${returnTo}`}>
                       Create account →
@@ -445,8 +506,35 @@ export default async function WeekendPage({
                           <li key={row.place_id}>
                             <div style={{ fontWeight: 850, color: "#0f172a" }}>{row.name}</div>
                             <div style={{ marginTop: 2, fontSize: 12, color: "#475569" }}>
-                              {[metersToMilesLabel(row.distance_meters), row.maps_url ? "Map link" : null].filter(Boolean).join(" • ")}
-                              {row.maps_url ? (
+                              {[metersToMilesLabel(row.distance_meters)].filter(Boolean).join(" • ")}
+                              {selectedVenueDirectionsQuery ? (
+                                <>
+                                  {" "}
+                                  <DirectionsChooserClient
+                                    label="Directions →"
+                                    className="secondaryLink"
+                                    title="Directions"
+                                    destinationLabel={row.name}
+                                    query={[row.name, selectedVenueAddressLine].filter(Boolean).join(", ")}
+                                    coordinates={null}
+                                    copyText={[row.name, selectedVenueAddressLine].filter(Boolean).join(", ")}
+                                    analytics={{
+                                      event: "weekend_share_owls_eye_directions_clicked",
+                                      properties: {
+                                        page_type: "weekend_share",
+                                        tournament_id: tournament.id,
+                                        tournament_slug: tournament.slug,
+                                        venue_id: selectedVenue.id,
+                                        venue_name: selectedVenue.name ?? null,
+                                        source_page: "weekend_share",
+                                        cta: "owls_eye_directions",
+                                        place_id: row.place_id,
+                                        place_name: row.name,
+                                      },
+                                    }}
+                                  />
+                                </>
+                              ) : row.maps_url ? (
                                 <>
                                   {" "}
                                   <a href={row.maps_url} target="_blank" rel="noopener noreferrer">
@@ -465,17 +553,24 @@ export default async function WeekendPage({
           </div>
         ) : null}
 
-        <div style={{ marginTop: 8, padding: "12px 12px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#f8fafc" }}>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Schedule planning coming next</div>
-          <div style={{ marginTop: 4, color: "#475569", fontWeight: 700, fontSize: 13 }}>
-            Soon, you’ll be able to import your team schedule and turn this page into a full weekend itinerary.
-          </div>
-          <div style={{ marginTop: 10 }}>
-            <Link className="secondaryLink" href="/weekend-planner">
-              Preview Weekend Planner →
-            </Link>
-          </div>
-        </div>
+        {selectedVenue ? (
+          <WeekendNearestAirportClient
+            venue={{
+              id: selectedVenue.id,
+              name: selectedVenue.name ?? null,
+              city: selectedVenue.city ?? null,
+              state: selectedVenue.state ?? null,
+              latitude: selectedVenue.latitude ?? null,
+              longitude: selectedVenue.longitude ?? null,
+            }}
+            tournament={{
+              id: tournament.id,
+              slug: tournament.slug,
+              name: tournament.name,
+            }}
+            bookTravelHref={bookTravelHref}
+          />
+        ) : null}
       </section>
     </main>
   );

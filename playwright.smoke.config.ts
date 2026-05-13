@@ -41,7 +41,9 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Smoke tests share a local dev server + a small set of seed users; run single-threaded to
+  // avoid cross-test auth/session interference.
+  workers: 1,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"]],
   use: {
     trace: "retain-on-failure",
@@ -52,7 +54,7 @@ export default defineConfig({
   projects: [
     {
       name: "ti-smoke",
-      testMatch: /ti-auth-join-gating\.spec\.ts/,
+      testMatch: /ti-.*\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         baseURL: tiBaseURL,
@@ -60,7 +62,7 @@ export default defineConfig({
     },
     {
       name: "ri-smoke",
-      testMatch: /ri-auth-join-gating\.spec\.ts/,
+      testMatch: /ri-.*\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         baseURL: riBaseURL,
