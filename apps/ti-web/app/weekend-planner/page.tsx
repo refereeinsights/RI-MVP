@@ -54,11 +54,13 @@ export default async function WeekendPlannerPage() {
 
   const isAuthed = Boolean(user);
   const tierInfo = await getTiTierServer(user ?? null);
+  const isUnverified = Boolean(isAuthed && tierInfo.unverified);
+  const canUseSavedPlanning = tierInfo.tier === "insider" || tierInfo.tier === "weekend_pro";
 
   let savedTournaments: SavedTournamentRow[] = [];
   let savedLoadFailed = false;
 
-  if (user?.id) {
+  if (user?.id && canUseSavedPlanning) {
     try {
       const ids = (await getSavedTournamentIdsForUser(user.id)).slice(0, 25);
       if (ids.length) {
@@ -151,24 +153,59 @@ export default async function WeekendPlannerPage() {
 
               <div style={{ padding: "12px 12px", borderRadius: 14, border: "1px solid rgba(15, 61, 46, 0.12)", background: "rgba(255,255,255,0.96)" }}>
                 <div style={{ fontSize: 12, fontWeight: 950, color: "#0b1f14" }}>
-                  {tierInfo.tier === "weekend_pro" ? "Weekend Pro active" : "Weekend Planner Preview"}
+                  {!isAuthed
+                    ? "Explorer access"
+                    : isUnverified
+                      ? "Confirm your email"
+                      : tierInfo.tier === "weekend_pro"
+                        ? "Weekend Pro active"
+                        : "Insider access"}
                 </div>
                 <div style={{ marginTop: 4, color: "rgba(16, 34, 19, 0.85)", fontWeight: 650, fontSize: 13, lineHeight: 1.45 }}>
-                  {tierInfo.tier === "weekend_pro"
-                    ? "Your account is set up for the premium TournamentInsights planning experience as new tools roll out."
-                    : "You can save tournaments and plan travel basics today. Weekend Pro tools will continue to expand around tournament logistics."}
+                  {!isAuthed
+                    ? "Explore Weekend Planner, search travel, browse tournaments, and open public weekend tools. Create an account to save tournaments."
+                    : isUnverified
+                      ? "Confirm your email to unlock Insider saved planning tools like saved tournaments."
+                      : tierInfo.tier === "weekend_pro"
+                        ? "You’re set up for advanced TournamentInsights weekend planning tools as they roll out."
+                        : "Save tournaments, view saved tournaments, and keep weekend planning links in one place."}
                 </div>
                 <div style={{ marginTop: 10 }}>
-                  <Link className="secondaryLink" href="/premium">
-                    Explore Weekend Pro →
-                  </Link>
+                  {!isAuthed ? (
+                    <Link className="secondaryLink" href="/signup?returnTo=%2Fweekend-planner">
+                      Create account →
+                    </Link>
+                  ) : isUnverified ? (
+                    <span className="secondaryLink" style={{ display: "inline-block" }}>
+                      Check your inbox →
+                    </span>
+                  ) : tierInfo.tier === "weekend_pro" ? (
+                    <Link className="secondaryLink" href="/premium">
+                      Explore Weekend Pro →
+                    </Link>
+                  ) : (
+                    <Link className="secondaryLink" href="/premium">
+                      Explore Weekend Pro →
+                    </Link>
+                  )}
                 </div>
               </div>
 
               {isAuthed ? (
                 <div style={{ padding: "12px 12px", borderRadius: 14, border: "1px solid rgba(15, 61, 46, 0.12)", background: "rgba(255,255,255,0.96)" }}>
                   <div style={{ fontSize: 12, fontWeight: 950, color: "#0b1f14" }}>Saved tournaments</div>
-                  {savedLoadFailed ? (
+                  {isUnverified || !canUseSavedPlanning ? (
+                    <div style={{ marginTop: 6, display: "grid", gap: 10 }}>
+                      <div style={{ color: "rgba(16, 34, 19, 0.85)", fontWeight: 650, fontSize: 13, lineHeight: 1.45 }}>
+                        Confirm your email to unlock Insider saved planning tools like saved tournaments.
+                      </div>
+                      <div>
+                        <span className="secondaryLink" style={{ display: "inline-block" }}>
+                          Check your inbox →
+                        </span>
+                      </div>
+                    </div>
+                  ) : savedLoadFailed ? (
                     <div style={{ marginTop: 6, color: "rgba(16, 34, 19, 0.85)", fontWeight: 650, fontSize: 13, lineHeight: 1.45 }}>
                       Saved tournaments are unavailable right now.
                     </div>
