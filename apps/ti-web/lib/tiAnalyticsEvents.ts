@@ -36,6 +36,10 @@ export type TiAnalyticsEventName =
   | "weekend_share_planner_hub_clicked"
   | "tournament_map_weekend_plan_clicked"
   | "tournament_map_back_to_tournament_clicked"
+  | "weekend_planner_saved_tournament_clicked"
+  | "weekend_planner_saved_weekend_plan_clicked"
+  | "weekend_planner_saved_venue_map_clicked"
+  | "weekend_planner_saved_travel_clicked"
   | "book_travel_viewed"
   | "book_travel_hotels_clicked"
   | "book_travel_vrbo_clicked"
@@ -331,6 +335,38 @@ export type TiAnalyticsEventPropertiesByName = {
     tournament_slug: string;
     source_page: "tournament_map";
     cta: "back_to_tournament";
+    href: string;
+  };
+  weekend_planner_saved_tournament_clicked: {
+    page_type: "weekend_planner";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "weekend_planner";
+    cta: "open_tournament";
+    href: string;
+  };
+  weekend_planner_saved_weekend_plan_clicked: {
+    page_type: "weekend_planner";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "weekend_planner";
+    cta: "weekend_plan";
+    href: string;
+  };
+  weekend_planner_saved_venue_map_clicked: {
+    page_type: "weekend_planner";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "weekend_planner";
+    cta: "venue_map";
+    href: string;
+  };
+  weekend_planner_saved_travel_clicked: {
+    page_type: "weekend_planner";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "weekend_planner";
+    cta: "travel";
     href: string;
   };
   book_travel_viewed: Record<string, never>;

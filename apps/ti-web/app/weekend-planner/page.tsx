@@ -8,6 +8,7 @@ import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTiTierServer } from "@/lib/entitlementsServer";
 import { getSavedTournamentIdsForUser } from "@/lib/savedTournaments";
+import SavedTournamentActionsClient from "./SavedTournamentActionsClient";
 
 export const revalidate = 3600;
 
@@ -199,17 +200,14 @@ export default async function WeekendPlannerPage() {
                               </div>
                             ) : null}
                             {hasSlug ? (
-                              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 10 }}>
-                                <Link className="secondaryLink" href={`/tournaments/${encodeURIComponent(slug)}`}>
-                                  Tournament →
-                                </Link>
-                                <Link className="secondaryLink" href={`/weekend/${encodeURIComponent(slug)}`}>
-                                  Weekend plan →
-                                </Link>
-                                <Link className="secondaryLink" href={`/tournaments/${encodeURIComponent(slug)}/map`}>
-                                  Venue map →
-                                </Link>
-                              </div>
+                              <SavedTournamentActionsClient
+                                tournamentId={t.id}
+                                tournamentSlug={slug}
+                                tournamentCity={t.city ?? null}
+                                tournamentState={t.state ?? null}
+                                tournamentStartDate={t.start_date ?? null}
+                                tournamentEndDate={t.end_date ?? null}
+                              />
                             ) : null}
                           </div>
                         );
