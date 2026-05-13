@@ -9,7 +9,7 @@ declare
   tbl text;
   seq text;
 begin
-  foreach tbl in array[
+  foreach tbl in array ARRAY[
     -- Field map / venue url workflow (admin-only)
     'venue_url_review_queue',
     'venue_url_audit_log',
@@ -65,4 +65,3 @@ begin
     end if;
   end loop;
 end $$;
-
