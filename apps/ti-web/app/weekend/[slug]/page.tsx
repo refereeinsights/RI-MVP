@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildHotelsHref } from "@/lib/booking/venueBooking";
 import { parseVenueParam } from "@/lib/weekendShare";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { getTiTierServer } from "@/lib/entitlementsServer";
 import WeekendShareOpenTracker from "./WeekendShareOpenTracker";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
 import WeekendPlanningCtasClient from "./WeekendPlanningCtasClient";
@@ -154,6 +156,15 @@ export default async function WeekendPage({
   const slug = String(params.slug ?? "").trim();
   if (!slug) notFound();
 
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const tierInfo = await getTiTierServer(user ?? null);
+  const isAuthed = Boolean(user);
+  const isUnverified = Boolean(isAuthed && tierInfo.unverified);
+  const isWeekendPro = tierInfo.tier === "weekend_pro";
+
   const { data: tournament } = await supabaseAdmin
     .from("tournaments_public" as any)
     .select("id,slug,name,sport,city,state,start_date,end_date")
@@ -228,9 +239,10 @@ export default async function WeekendPage({
   })();
 
   // Weekend Guide cached places (if we have a selected venue + a complete run).
-  const run = selectedVenue?.id ? await fetchLatestCompleteRun(selectedVenue.id) : null;
-  const runId = run ? (run.run_id ?? run.id) : null;
   const categories = ["coffee", "food", "quick_eats", "hangouts"];
+  // Guardrail: avoid fetching full Owl's Eye / nearby lists for non-Weekend Pro viewers.
+  const run = selectedVenue?.id && isWeekendPro ? await fetchLatestCompleteRun(selectedVenue.id) : null;
+  const runId = run ? (run.run_id ?? run.id) : null;
   const nearby = runId ? await fetchNearbyForRun(runId as string, categories) : [];
 
   const placesByCategory = new Map<string, NearbyRow[]>();
@@ -245,6 +257,16 @@ export default async function WeekendPage({
     String(searchParams?.utm_source ?? "").trim().toLowerCase() === "share")
     ? "share"
     : "unknown";
+
+  const returnTo = (() => {
+    const qp = new URLSearchParams();
+    if (searchParams?.venue) qp.set("venue", String(searchParams.venue));
+    if (searchParams?.source) qp.set("source", String(searchParams.source));
+    if (searchParams?.utm_source) qp.set("utm_source", String(searchParams.utm_source));
+    if (searchParams?.utm_medium) qp.set("utm_medium", String(searchParams.utm_medium));
+    const qs = qp.toString();
+    return encodeURIComponent(qs ? `/weekend/${encodeURIComponent(tournament.slug)}?${qs}` : `/weekend/${encodeURIComponent(tournament.slug)}`);
+  })();
 
   return (
     <main className="ti-shell" style={{ paddingBottom: 40 }}>
@@ -279,7 +301,10 @@ export default async function WeekendPage({
             {selectedVenue ? <div>Venue: {venueLabel}</div> : <div>Venue: Choose a venue on the map for the best results</div>}
             <div>Venue map: Available</div>
             {selectedVenue ? (
-              <div>Nearby options: {runId && nearby.length ? "Available (cached)" : "Not available yet"}</div>
+              <div>
+                Nearby options:{" "}
+                {isWeekendPro ? (runId && nearby.length ? "Available (cached)" : "Not available yet") : "Weekend Pro preview"}
+              </div>
             ) : (
               <div>Nearby options: Select a venue</div>
             )}
@@ -353,48 +378,90 @@ export default async function WeekendPage({
         {selectedVenue ? (
           <div style={{ display: "grid", gap: 12 }}>
             <h2 style={{ margin: "10px 0 0 0", fontSize: 18 }}>Weekend Guide</h2>
-            <div style={{ color: "#475569", fontWeight: 650 }}>
-              Nearby options cached by Owl’s Eye. Use these as planning ideas (not live availability).
-            </div>
+            {isWeekendPro ? (
+              <div style={{ color: "#475569", fontWeight: 650 }}>
+                Nearby options cached by Owl’s Eye. Use these as planning ideas (not live availability).
+              </div>
+            ) : (
+              <div style={{ border: "1px solid #e2e8f0", borderRadius: 14, padding: "10px 12px", background: "#ffffff" }}>
+                <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>
+                  {isUnverified ? "Confirm your email" : isAuthed ? "Weekend Pro venue intelligence" : "Unlock deeper venue planning"}
+                </div>
+                <div style={{ marginTop: 6, color: "#475569", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>
+                  {isUnverified
+                    ? "Confirm your email to unlock Insider saved planning tools. Weekend Pro unlocks deeper venue intelligence as tools roll out."
+                    : isAuthed
+                      ? "Weekend Pro unlocks deeper Owl’s Eye venue intelligence and advanced logistics tools as they roll out."
+                      : "Sign in with a verified account to save tournaments and keep planning links in one place. Weekend Pro unlocks deeper venue intelligence as tools roll out."}
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  {isUnverified ? (
+                    <span className="secondaryLink" style={{ display: "inline-block" }}>
+                      Check your inbox →
+                    </span>
+                  ) : isAuthed ? (
+                    <Link className="secondaryLink" href="/premium">
+                      Explore Weekend Pro →
+                    </Link>
+                  ) : (
+                    <Link className="secondaryLink" href={`/signup?returnTo=${returnTo}`}>
+                      Create account →
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
 
-            {categories.map((cat) => {
-              const rows = placesByCategory.get(cat) ?? [];
-              if (!rows.length) return null;
-              return (
-                <section key={cat} style={{ border: "1px solid #e2e8f0", borderRadius: 14, padding: "10px 12px", background: "#ffffff" }}>
-                  <h3 style={{ margin: 0, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                    {cat === "quick_eats"
-                      ? "Quick Eats"
-                      : cat === "hangouts"
-                        ? "Family-Friendly Hangouts"
-                        : cat === "coffee"
-                          ? "Coffee"
-                          : "Food"}
-                  </h3>
-                  {sectionIntro(cat) ? (
-                    <div style={{ marginTop: 6, color: "#475569", fontWeight: 650, fontSize: 13 }}>{sectionIntro(cat)}</div>
-                  ) : null}
-                  <ul style={{ margin: "10px 0 0 0", paddingLeft: 18, display: "grid", gap: 8 }}>
-                    {rows.slice(0, 12).map((row) => (
-                      <li key={row.place_id}>
-                        <div style={{ fontWeight: 850, color: "#0f172a" }}>{row.name}</div>
-                        <div style={{ marginTop: 2, fontSize: 12, color: "#475569" }}>
-                          {[metersToMilesLabel(row.distance_meters), row.maps_url ? "Map link" : null].filter(Boolean).join(" • ")}
-                          {row.maps_url ? (
-                            <>
-                              {" "}
-                              <a href={row.maps_url} target="_blank" rel="noopener noreferrer">
-                                Directions →
-                              </a>
-                            </>
-                          ) : null}
+            {isWeekendPro
+              ? categories.map((cat) => {
+                  const rows = placesByCategory.get(cat) ?? [];
+                  if (!rows.length) return null;
+                  return (
+                    <section
+                      key={cat}
+                      style={{
+                        border: "1px solid #e2e8f0",
+                        borderRadius: 14,
+                        padding: "10px 12px",
+                        background: "#ffffff",
+                      }}
+                    >
+                      <h3 style={{ margin: 0, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                        {cat === "quick_eats"
+                          ? "Quick Eats"
+                          : cat === "hangouts"
+                            ? "Family-Friendly Hangouts"
+                            : cat === "coffee"
+                              ? "Coffee"
+                              : "Food"}
+                      </h3>
+                      {sectionIntro(cat) ? (
+                        <div style={{ marginTop: 6, color: "#475569", fontWeight: 650, fontSize: 13 }}>
+                          {sectionIntro(cat)}
                         </div>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              );
-            })}
+                      ) : null}
+                      <ul style={{ margin: "10px 0 0 0", paddingLeft: 18, display: "grid", gap: 8 }}>
+                        {rows.slice(0, 12).map((row) => (
+                          <li key={row.place_id}>
+                            <div style={{ fontWeight: 850, color: "#0f172a" }}>{row.name}</div>
+                            <div style={{ marginTop: 2, fontSize: 12, color: "#475569" }}>
+                              {[metersToMilesLabel(row.distance_meters), row.maps_url ? "Map link" : null].filter(Boolean).join(" • ")}
+                              {row.maps_url ? (
+                                <>
+                                  {" "}
+                                  <a href={row.maps_url} target="_blank" rel="noopener noreferrer">
+                                    Directions →
+                                  </a>
+                                </>
+                              ) : null}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  );
+                })
+              : null}
           </div>
         ) : null}
 
