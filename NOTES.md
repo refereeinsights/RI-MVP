@@ -4,6 +4,10 @@
 - TI weekend/map cross-links: added a “View weekend plan” CTA in the selected venue panel on `/tournaments/[slug]/map` and an “Open venue map” CTA on `/weekend/[slug]` for tighter navigation between map planning and shareable weekend plans: `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`, `apps/ti-web/app/weekend/[slug]/page.tsx`.
 - TI weekend page hierarchy: refreshed `/weekend/[slug]` layout to add a lightweight “Weekend snapshot”, clearer selected-venue vs choose-venue sections, streamlined “Plan your stay” actions, and a non-interactive schedule placeholder linking to `/weekend-planner` (no new tables/ingestion): `apps/ti-web/app/weekend/[slug]/page.tsx`.
 
+## 2026-05-13
+
+- TI weekend planner hub (no new tables): evolved `/weekend-planner` into a lightweight hub page while keeping canonical pointed at `/book-travel`. Added primary nav actions, a server-rendered “Saved tournaments” section powered by `ti_saved_tournaments`, and a tier acknowledgement card using existing `getTiTierServer` (no gating; no calendar/schedule promises): `apps/ti-web/app/weekend-planner/page.tsx`.
+
 ## 2026-05-09
 
 - TI admin: make “Hotels clicks” / “Vrbo clicks” tiles on `/admin/ti/revenue` link to `/admin/ti/outbound?dest=...` and add a source-surface breakdown panel (yesterday + total). Added RPC `list_ti_outbound_clicks_surface_counts_v1` migration: `apps/referee/app/admin/ti/revenue/page.tsx`, `apps/referee/app/admin/ti/outbound/page.tsx`, `supabase/migrations/20260509_ti_outbound_clicks_surface_counts_admin_rpcs.sql`.
