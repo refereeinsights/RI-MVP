@@ -33,6 +33,7 @@ export default async function TiClicksPage() {
     { key: "tournament_map_cta_clicked", label: "Tournament map CTA clicked" },
     { key: "tournament_map_back_to_tournament_clicked", label: "Tournament map: back to tournament clicked" },
     { key: "tournament_map_weekend_plan_clicked", label: "Tournament map: weekend plan clicked" },
+    { key: "tournament_map_add_to_planner_clicked", label: "Tournament map: add to planner clicked" },
     { key: "venue_map_opened", label: "Venue map opened" },
     { key: "venue_map_loaded", label: "Venue map loaded" },
     { key: "venue_map_hotels_clicked", label: "Map panel hotels clicked" },

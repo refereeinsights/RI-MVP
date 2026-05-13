@@ -46,6 +46,7 @@ const MAP_EVENTS = new Set([
   "weekend_share_planner_hub_clicked",
   "tournament_map_weekend_plan_clicked",
   "tournament_map_back_to_tournament_clicked",
+  "tournament_map_add_to_planner_clicked",
   "weekend_planner_saved_tournament_clicked",
   "weekend_planner_saved_weekend_plan_clicked",
   "weekend_planner_saved_venue_map_clicked",

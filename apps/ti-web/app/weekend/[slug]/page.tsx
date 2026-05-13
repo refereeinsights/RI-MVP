@@ -181,10 +181,29 @@ export default async function WeekendPage({
             .maybeSingle<VenueRow>();
 
     selectedVenue = (venueResp.data as VenueRow | null) ?? null;
+
+    // Guardrail: only honor `?venue=` when it belongs to this tournament. Never guess.
+    if (selectedVenue?.id) {
+      const { data: link } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("venue_id")
+        .eq("tournament_id", tournament.id)
+        .eq("venue_id", selectedVenue.id)
+        .limit(1)
+        .maybeSingle();
+      if (!link?.venue_id) {
+        selectedVenue = null;
+      }
+    }
   }
 
   const dateLabel = formatDateRange(tournament.start_date, tournament.end_date);
   const locationLabel = [tournament.city, tournament.state].filter(Boolean).join(", ");
+
+  const { count: venueCount } = await supabaseAdmin
+    .from("tournament_venues" as any)
+    .select("venue_id", { count: "exact", head: true })
+    .eq("tournament_id", tournament.id);
 
   const venueLabel = selectedVenue ? [selectedVenue.name, selectedVenue.city, selectedVenue.state].filter(Boolean).join(" • ") : null;
   const resolvedVenueKey = selectedVenue?.seo_slug ?? selectedVenue?.id ?? null;
@@ -269,8 +288,16 @@ export default async function WeekendPage({
 
         {selectedVenue ? (
           <div style={{ marginTop: 4, padding: "12px 12px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#ffffff" }}>
-            <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Selected venue</div>
+            <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Planning around</div>
             <div style={{ marginTop: 2, fontWeight: 850, color: "#0f172a" }}>{selectedVenue.name ?? "Venue"}</div>
+            <div style={{ marginTop: 4, color: "#475569", fontWeight: 700, fontSize: 13 }}>
+              Use this venue as your anchor for hotels, directions, and nearby options.
+            </div>
+            {typeof venueCount === "number" && venueCount > 1 ? (
+              <div style={{ marginTop: 6, color: "#475569", fontWeight: 700, fontSize: 13 }}>
+                This tournament has multiple venues. You can change your planning venue from the map.
+              </div>
+            ) : null}
             {selectedVenueAddressLine ? (
               <div style={{ marginTop: 4, color: "#475569", fontWeight: 700, fontSize: 13 }}>{selectedVenueAddressLine}</div>
             ) : null}

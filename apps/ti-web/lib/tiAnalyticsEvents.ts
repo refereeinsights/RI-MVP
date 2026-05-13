@@ -36,6 +36,7 @@ export type TiAnalyticsEventName =
   | "weekend_share_planner_hub_clicked"
   | "tournament_map_weekend_plan_clicked"
   | "tournament_map_back_to_tournament_clicked"
+  | "tournament_map_add_to_planner_clicked"
   | "weekend_planner_saved_tournament_clicked"
   | "weekend_planner_saved_weekend_plan_clicked"
   | "weekend_planner_saved_venue_map_clicked"
@@ -335,6 +336,16 @@ export type TiAnalyticsEventPropertiesByName = {
     tournament_slug: string;
     source_page: "tournament_map";
     cta: "back_to_tournament";
+    href: string;
+  };
+  tournament_map_add_to_planner_clicked: {
+    page_type: "tournament_map";
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    venue_name: string | null;
+    source_page: "tournament_map";
+    cta: "add_to_planner";
     href: string;
   };
   weekend_planner_saved_tournament_clicked: {

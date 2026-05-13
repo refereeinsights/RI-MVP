@@ -2000,6 +2000,10 @@ export default function TournamentVenueMapClient({
 
               <div className={styles.owlCtaNudge}>Most teams stay within 10–15 minutes of this venue.</div>
 
+              <div className={styles.owlCtaNudge} style={{ marginTop: 6 }}>
+                Use this venue as your weekend planning anchor.
+              </div>
+
               <div className={styles.primaryOwlCtaRow}>
                 {entitlementTier === "weekend_pro" ||
                 selectedVenue.id === DEMO_STARFIRE_VENUE_ID ||
@@ -2030,6 +2034,26 @@ export default function TournamentVenueMapClient({
               </div>
 
               <div className={styles.ctaRow}>
+                <Link
+                  className={styles.cta}
+                  href={`/weekend/${encodeURIComponent(tournament.slug)}?venue=${encodeURIComponent(selectedVenue.id)}`}
+                  onClick={() => {
+                    const href = `/weekend/${encodeURIComponent(tournament.slug)}?venue=${encodeURIComponent(selectedVenue.id)}`;
+                    void trackTiEvent("tournament_map_add_to_planner_clicked", {
+                      page_type: "tournament_map",
+                      tournament_id: tournament.id,
+                      tournament_slug: tournament.slug,
+                      venue_id: selectedVenue.id,
+                      venue_name: selectedVenue.name ?? null,
+                      source_page: "tournament_map",
+                      cta: "add_to_planner",
+                      href,
+                    });
+                  }}
+                >
+                  Add to planner
+                </Link>
+
                 <ShareWeekendButton
                   tournamentSlug={tournament.slug}
                   tournamentName={tournament.name}
@@ -2042,9 +2066,9 @@ export default function TournamentVenueMapClient({
 
                 <Link
                   className={`${styles.cta} ${styles.ctaSecondary}`}
-                  href={`/weekend/${encodeURIComponent(tournament.slug)}?venue=${encodeURIComponent(selectedVenue.seo_slug ?? selectedVenue.id)}`}
+                  href={`/weekend/${encodeURIComponent(tournament.slug)}?venue=${encodeURIComponent(selectedVenue.id)}`}
                   onClick={() => {
-                    const href = `/weekend/${encodeURIComponent(tournament.slug)}?venue=${encodeURIComponent(selectedVenue.seo_slug ?? selectedVenue.id)}`;
+                    const href = `/weekend/${encodeURIComponent(tournament.slug)}?venue=${encodeURIComponent(selectedVenue.id)}`;
                     void trackTiEvent("tournament_map_weekend_plan_clicked", {
                       page_type: "tournament_map",
                       tournament_id: tournament.id,
@@ -2052,7 +2076,7 @@ export default function TournamentVenueMapClient({
                       source_page: "tournament_map",
                       cta: "weekend_plan",
                       href,
-                      venue: selectedVenue.seo_slug ?? selectedVenue.id,
+                      venue: selectedVenue.id,
                     });
                   }}
                 >
