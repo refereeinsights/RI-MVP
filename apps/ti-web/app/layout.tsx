@@ -79,7 +79,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   sizes="(max-width: 800px) 300px, 420px"
                 />
               </Link>
-              <div className="ti-pill">Public Beta</div>
               <nav className="ti-nav" aria-label="Main navigation">
                 <Link href="/heatmap?sport=all">Map</Link>
                 <Link href="/tournaments">Tournament Directory</Link>
