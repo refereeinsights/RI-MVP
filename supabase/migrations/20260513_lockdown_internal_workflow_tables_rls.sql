@@ -8,6 +8,7 @@ do $$
 declare
   tbl text;
   seq text;
+  has_id boolean;
 begin
   foreach tbl in array ARRAY[
     -- Field map / venue url workflow (admin-only)
@@ -59,9 +60,21 @@ begin
     execute format('grant select, insert, update, delete on table public.%I to service_role', tbl);
 
     -- If the table uses a serial/bigserial `id`, ensure service_role can use the sequence via PostgREST.
-    seq := pg_get_serial_sequence('public.' || tbl, 'id');
-    if seq is not null then
-      execute format('grant usage, select on sequence %s to service_role', seq);
+    select exists (
+      select 1
+      from pg_attribute a
+      where a.attrelid = to_regclass('public.' || tbl)
+        and a.attname = 'id'
+        and a.attnum > 0
+        and not a.attisdropped
+    )
+    into has_id;
+
+    if has_id then
+      seq := pg_get_serial_sequence('public.' || tbl, 'id');
+      if seq is not null then
+        execute format('grant usage, select on sequence %s to service_role', seq);
+      end if;
     end if;
   end loop;
 end $$;
