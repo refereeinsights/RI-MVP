@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
+import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import WeekendProUpgradeModalTrigger from "@/components/premium/WeekendProUpgradeModalTrigger";
-import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import { getTier } from "@/lib/entitlements";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { DEMO_STARFIRE_VENUE_ID } from "@/lib/owlsEyeScores";
@@ -2043,6 +2043,18 @@ export default function TournamentVenueMapClient({
                 <Link
                   className={`${styles.cta} ${styles.ctaSecondary}`}
                   href={`/weekend/${encodeURIComponent(tournament.slug)}?venue=${encodeURIComponent(selectedVenue.seo_slug ?? selectedVenue.id)}`}
+                  onClick={() => {
+                    const href = `/weekend/${encodeURIComponent(tournament.slug)}?venue=${encodeURIComponent(selectedVenue.seo_slug ?? selectedVenue.id)}`;
+                    void trackTiEvent("tournament_map_weekend_plan_clicked", {
+                      page_type: "tournament_map",
+                      tournament_id: tournament.id,
+                      tournament_slug: tournament.slug,
+                      source_page: "tournament_map",
+                      cta: "weekend_plan",
+                      href,
+                      venue: selectedVenue.seo_slug ?? selectedVenue.id,
+                    });
+                  }}
                 >
                   View weekend plan →
                 </Link>

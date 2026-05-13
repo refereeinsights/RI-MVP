@@ -5,6 +5,9 @@ export type TiAnalyticsEventName =
   | "homepage_cta_clicked"
   | "homepage_sport_chip_clicked"
   | "tournament_detail_more_in_state_clicked"
+  | "tournament_detail_weekend_plan_clicked"
+  | "tournament_detail_venue_map_clicked"
+  | "tournament_detail_travel_search_clicked"
   | "venue_page_viewed"
   | "venue_map_opened"
   | "venue_map_loaded"
@@ -28,6 +31,11 @@ export type TiAnalyticsEventName =
   | "venue_map_hotels_clicked"
   | "weekend_share_clicked"
   | "weekend_page_opened"
+  | "weekend_share_venue_map_clicked"
+  | "weekend_share_travel_clicked"
+  | "weekend_share_planner_hub_clicked"
+  | "tournament_map_weekend_plan_clicked"
+  | "tournament_map_back_to_tournament_clicked"
   | "book_travel_viewed"
   | "book_travel_hotels_clicked"
   | "book_travel_vrbo_clicked"
@@ -70,6 +78,30 @@ export type TiAnalyticsEventPropertiesByName = {
     href: string;
     link_kind: "upcoming" | "month";
     month: string | null;
+  };
+  tournament_detail_weekend_plan_clicked: {
+    page_type: "tournament_detail";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "tournament_detail";
+    cta: "weekend_plan";
+    href: string;
+  };
+  tournament_detail_venue_map_clicked: {
+    page_type: "tournament_detail";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "tournament_detail";
+    cta: "venue_map";
+    href: string;
+  };
+  tournament_detail_travel_search_clicked: {
+    page_type: "tournament_detail";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "tournament_detail";
+    cta: "travel_search";
+    href: string;
   };
   venue_page_viewed: {
     page_type: "venue_index" | "venue_detail";
@@ -258,6 +290,48 @@ export type TiAnalyticsEventPropertiesByName = {
     source: "share" | "unknown";
     utm_source: string | null;
     utm_medium: string | null;
+  };
+  weekend_share_venue_map_clicked: {
+    page_type: "weekend_share";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "weekend_share";
+    cta: "venue_map";
+    href: string;
+  };
+  weekend_share_travel_clicked: {
+    page_type: "weekend_share";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "weekend_share";
+    cta: "travel_search";
+    href: string;
+    travel_kind: "hotels" | "rentals" | "book_travel";
+  };
+  weekend_share_planner_hub_clicked: {
+    page_type: "weekend_share";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "weekend_share";
+    cta: "planner_hub";
+    href: string;
+  };
+  tournament_map_weekend_plan_clicked: {
+    page_type: "tournament_map";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "tournament_map";
+    cta: "weekend_plan";
+    href: string;
+    venue: string | null;
+  };
+  tournament_map_back_to_tournament_clicked: {
+    page_type: "tournament_map";
+    tournament_id: string;
+    tournament_slug: string;
+    source_page: "tournament_map";
+    cta: "back_to_tournament";
+    href: string;
   };
   book_travel_viewed: Record<string, never>;
   book_travel_hotels_clicked: {

@@ -5,6 +5,7 @@ import { buildHotelsHref } from "@/lib/booking/venueBooking";
 import { parseVenueParam } from "@/lib/weekendShare";
 import WeekendShareOpenTracker from "./WeekendShareOpenTracker";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
+import WeekendPlanningCtasClient from "./WeekendPlanningCtasClient";
 
 export const runtime = "nodejs";
 export const revalidate = 900;
@@ -195,9 +196,17 @@ export default async function WeekendPage({
     ? buildHotelsHref({ venueId: selectedVenue.id, tournamentId: tournament.id })
     : null;
 
-  const vrboHref = selectedVenue?.id
+  const vrboHrefBase = selectedVenue?.id
     ? `/go/vrbo?venueId=${encodeURIComponent(selectedVenue.id)}&tournamentId=${encodeURIComponent(tournament.id)}&source=weekend_share`
     : null;
+
+  const bookTravelHref = (() => {
+    const qp = new URLSearchParams();
+    if (tournament.city) qp.set("city", tournament.city);
+    if (tournament.state) qp.set("state", tournament.state);
+    const qs = qp.toString();
+    return qs ? `/book-travel?${qs}` : "/book-travel";
+  })();
 
   // Weekend Guide cached places (if we have a selected venue + a complete run).
   const run = selectedVenue?.id ? await fetchLatestCompleteRun(selectedVenue.id) : null;
@@ -289,20 +298,16 @@ export default async function WeekendPage({
           <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a", letterSpacing: "0.06em", textTransform: "uppercase" }}>
             Plan your stay
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {hotelsHref ? (
-              <a className="primaryLink" href={`${hotelsHref}&source=weekend_share`} target="_blank" rel="noopener noreferrer sponsored">
-                Find hotels
-              </a>
-            ) : null}
-            {vrboHref ? (
-              <a className="secondaryLink" href={vrboHref} target="_blank" rel="noopener noreferrer sponsored">
-                Find rentals
-              </a>
-            ) : null}
-            <Link className="secondaryLink" href={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}>
-              Open venue map →
-            </Link>
+          <WeekendPlanningCtasClient
+            tournamentId={tournament.id}
+            tournamentSlug={tournament.slug}
+            venueMapHref={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}
+            bookTravelHref={bookTravelHref}
+            hotelsHref={hotelsHref ? `${hotelsHref}&source=weekend_share` : null}
+            rentalsHref={vrboHrefBase}
+            plannerHubHref="/weekend-planner"
+          />
+          <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
             <ShareWeekendButton
               tournamentSlug={tournament.slug}
               tournamentName={tournament.name}

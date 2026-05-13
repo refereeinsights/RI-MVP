@@ -15,6 +15,7 @@ import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheck
 import TournamentWeatherPlannerAccordion from "@/components/tournaments/TournamentWeatherPlannerAccordion";
 import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
+import TournamentPlanningCtasClient from "./TournamentPlanningCtasClient";
 import TournamentPlanningOverview from "@/components/tournaments/TournamentPlanningOverview";
 import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
 import VenueMapTeaserCard from "@/app/tournaments/_components/VenueMapTeaserCard";
@@ -508,10 +509,10 @@ async function TournamentUserActions({
         </div>
       )}
 
-	      {tournament.slug ? (
-	        <div className="detailLinksRow" style={{ marginTop: 10 }}>
-	          <ShareWeekendButton
-	            tournamentSlug={tournament.slug}
+      {tournament.slug ? (
+        <div className="detailLinksRow" style={{ marginTop: 10 }}>
+          <ShareWeekendButton
+            tournamentSlug={tournament.slug}
             tournamentName={tournament.name}
             venue={null}
             sourcePage="tournament_detail"
@@ -519,6 +520,17 @@ async function TournamentUserActions({
             className="secondaryLink"
           />
         </div>
+      ) : null}
+
+      {tournament.slug ? (
+        <TournamentPlanningCtasClient
+          tournamentId={tournament.id}
+          tournamentSlug={tournament.slug}
+          city={tournament.city ?? null}
+          state={tournament.state ?? null}
+          startDate={tournament.start_date ?? null}
+          endDate={tournament.end_date ?? null}
+        />
       ) : null}
     </>
   );

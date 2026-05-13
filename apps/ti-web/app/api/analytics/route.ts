@@ -23,6 +23,9 @@ const MAP_EVENTS = new Set([
   "homepage_cta_clicked",
   "homepage_sport_chip_clicked",
   "tournament_detail_more_in_state_clicked",
+  "tournament_detail_weekend_plan_clicked",
+  "tournament_detail_venue_map_clicked",
+  "tournament_detail_travel_search_clicked",
   "tournament_map_cta_clicked",
   "venue_page_viewed",
   "venue_map_opened",
@@ -38,6 +41,11 @@ const MAP_EVENTS = new Set([
   "premium_cta_clicked",
   "weekend_share_clicked",
   "weekend_page_opened",
+  "weekend_share_venue_map_clicked",
+  "weekend_share_travel_clicked",
+  "weekend_share_planner_hub_clicked",
+  "tournament_map_weekend_plan_clicked",
+  "tournament_map_back_to_tournament_clicked",
 ]);
 
 const TRAVEL_EVENTS = new Set([

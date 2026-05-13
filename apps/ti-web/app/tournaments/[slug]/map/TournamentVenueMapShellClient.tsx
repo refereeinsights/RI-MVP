@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import TournamentVenueMapClient, { type MapVenue } from "./TournamentVenueMapClient";
 import styles from "./TournamentVenueMap.module.css";
+import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 
 export default function TournamentVenueMapShellClient({
   tournament,
@@ -30,6 +31,8 @@ export default function TournamentVenueMapShellClient({
   const heroText =
     detailMode && selectedVenueLabel ? selectedVenueLabel : "Select a venue to explore fields and nearby options.";
 
+  const backHref = `/tournaments/${encodeURIComponent(tournament.slug)}`;
+
   return (
     <>
       <section
@@ -43,7 +46,20 @@ export default function TournamentVenueMapShellClient({
         <div className={styles.heroOverlay}>
           <div className={styles.heroBottomRow}>
             <div className={styles.heroPrompt}>{heroText}</div>
-            <Link className={styles.heroBackBtn} href={`/tournaments/${encodeURIComponent(tournament.slug)}`}>
+            <Link
+              className={styles.heroBackBtn}
+              href={backHref}
+              onClick={() => {
+                void trackTiEvent("tournament_map_back_to_tournament_clicked", {
+                  page_type: "tournament_map",
+                  tournament_id: tournament.id,
+                  tournament_slug: tournament.slug,
+                  source_page: "tournament_map",
+                  cta: "back_to_tournament",
+                  href: backHref,
+                });
+              }}
+            >
               {`Back to ${tournament.name}`}
             </Link>
           </div>

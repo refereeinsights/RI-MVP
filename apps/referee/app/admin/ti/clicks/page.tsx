@@ -27,11 +27,19 @@ export default async function TiClicksPage() {
   const window30dIso = window30dStartUtc.toISOString();
 
   const events: Array<{ key: string; label: string }> = [
+    { key: "tournament_detail_venue_map_clicked", label: "Tournament detail: venue map clicked" },
+    { key: "tournament_detail_weekend_plan_clicked", label: "Tournament detail: weekend plan clicked" },
+    { key: "tournament_detail_travel_search_clicked", label: "Tournament detail: travel search clicked" },
     { key: "tournament_map_cta_clicked", label: "Tournament map CTA clicked" },
+    { key: "tournament_map_back_to_tournament_clicked", label: "Tournament map: back to tournament clicked" },
+    { key: "tournament_map_weekend_plan_clicked", label: "Tournament map: weekend plan clicked" },
     { key: "venue_map_opened", label: "Venue map opened" },
     { key: "venue_map_loaded", label: "Venue map loaded" },
     { key: "venue_map_hotels_clicked", label: "Map panel hotels clicked" },
     { key: "weekend_share_clicked", label: "Weekend share clicked" },
+    { key: "weekend_share_venue_map_clicked", label: "Weekend share: venue map clicked" },
+    { key: "weekend_share_travel_clicked", label: "Weekend share: travel clicked" },
+    { key: "weekend_share_planner_hub_clicked", label: "Weekend share: planner hub clicked" },
     { key: "premium_modal_viewed", label: "Premium modal viewed" },
     { key: "premium_cta_clicked", label: "Premium CTA clicked" },
     { key: "owls_eye_unlock_prompt_shown", label: "Owl’s Eye unlock prompt shown" },
@@ -131,4 +139,3 @@ export default async function TiClicksPage() {
     </div>
   );
 }
-
