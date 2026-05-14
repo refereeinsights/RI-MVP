@@ -9,6 +9,21 @@ import styles from "./WeekendPlanner.module.css";
 const DESTINATION_STORAGE_KEY = "ti_weekend_planner_destination";
 const CANONICAL_BOOK_TRAVEL_URL = "https://www.tournamentinsights.com/book-travel";
 
+type FanaticsGearCard = {
+  partnerLinkId: string | null;
+  title: string;
+  description: string;
+  ctaLabel: string;
+  disclosureText: string;
+  imageSrc?: string | null;
+  imageAlt?: string | null;
+  tracking: {
+    pageType: string;
+    placement: string;
+    campaign: string;
+  };
+};
+
 function getPlannerSourcePage(pathname: string | null | undefined) {
   const path = String(pathname ?? "").trim().toLowerCase();
   if (path.startsWith("/weekend-planner")) return "weekend_planner";
@@ -60,7 +75,7 @@ function safeSetStoredDestination(value: string) {
   }
 }
 
-export default function WeekendPlannerClient() {
+export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGearCard }) {
   const viewedFiredRef = useRef(false);
   const sourcePageRef = useRef<"book_travel" | "weekend_planner">("book_travel");
   const [destination, setDestination] = useState("");
@@ -237,6 +252,17 @@ export default function WeekendPlannerClient() {
       // User cancelled / unsupported.
     }
   }
+
+  const fanaticsHref = (() => {
+    const gear = props.fanaticsGear;
+    if (!gear?.partnerLinkId) return null;
+    const qp = new URLSearchParams();
+    qp.set("page_type", gear.tracking.pageType);
+    qp.set("placement", gear.tracking.placement);
+    qp.set("campaign", gear.tracking.campaign);
+    qp.set("partner", "fanatics");
+    return `/go/partner/${gear.partnerLinkId}?${qp.toString()}`;
+  })();
 
   return (
     <>
@@ -428,6 +454,48 @@ export default function WeekendPlannerClient() {
             </form>
           </div>
         </article>
+
+        {fanaticsHref && props.fanaticsGear ? (
+          <article className={styles.panelCard} data-partner="fanatics" data-placement={props.fanaticsGear.tracking.placement} data-sport="all_sports">
+            <div className={styles.panelHeader}>
+              <h2 className={styles.panelTitle}>{props.fanaticsGear.title}</h2>
+              <p className={styles.panelSub}>{props.fanaticsGear.description}</p>
+            </div>
+            <div className={styles.cardBody}>
+              {props.fanaticsGear.imageSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={props.fanaticsGear.imageSrc}
+                  alt={props.fanaticsGear.imageAlt || props.fanaticsGear.title}
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    borderRadius: 12,
+                    border: "1px solid rgba(255, 255, 255, 0.14)",
+                    marginBottom: 10,
+                    display: "block",
+                  }}
+                />
+              ) : null}
+
+              <a
+                href={fanaticsHref}
+                target="_blank"
+                rel="sponsored noopener noreferrer"
+                className={styles.ctaFull}
+                data-partner="fanatics"
+                data-sub-id-1="gear_hub"
+                data-sub-id-2="fanatics_module"
+                data-sub-id-3="all_sports"
+              >
+                {props.fanaticsGear.ctaLabel}
+              </a>
+              <div className={styles.smallHelper} style={{ marginTop: "0.65rem" }}>
+                {props.fanaticsGear.disclosureText}
+              </div>
+            </div>
+          </article>
+        ) : null}
 
         <article className={styles.panelCard}>
           <div className={styles.panelHeader}>

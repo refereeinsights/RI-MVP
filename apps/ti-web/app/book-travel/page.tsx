@@ -4,6 +4,7 @@ import "../tournaments/tournaments.css";
 import WeekendPlannerClient from "../weekend-planner/WeekendPlannerClient";
 import styles from "../weekend-planner/WeekendPlanner.module.css";
 import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
+import { getPartnerLinkForSport } from "@/lib/partners";
 
 export const revalidate = 3600;
 
@@ -16,7 +17,14 @@ export async function generateMetadata() {
   };
 }
 
-export default function BookTravelPage() {
+export default async function BookTravelPage() {
+  const fanatics = await getPartnerLinkForSport({
+    partnerKey: "fanatics",
+    sport: "all_sports",
+    pageType: "gear_hub",
+    placement: "fanatics_module",
+  });
+
   return (
     <main className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
@@ -30,7 +38,23 @@ export default function BookTravelPage() {
           </p>
         </div>
 
-        <WeekendPlannerClient />
+        <WeekendPlannerClient
+          fanaticsGear={{
+            partnerLinkId: fanatics.link?.id ?? null,
+            title: "Tournament Weekend Gear",
+            description:
+              "Shop fan gear, jerseys, hats, apparel, and tournament essentials from Fanatics before your next tournament weekend.",
+            ctaLabel: "Shop Fan Gear",
+            disclosureText: "TournamentInsights may earn a commission when you shop through our links.",
+            imageSrc: "/brand/tournament-weekend-gear-promo.svg",
+            imageAlt: "Tournament Weekend Gear",
+            tracking: {
+              pageType: "book_travel",
+              placement: "book_travel_page",
+              campaign: "fanatics_launch",
+            },
+          }}
+        />
 
         <section className={styles.faqBlock} aria-label="Book travel FAQs">
           <h2 className={styles.faqTitle}>FAQs for tournament travel</h2>
