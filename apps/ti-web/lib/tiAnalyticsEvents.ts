@@ -51,7 +51,8 @@ export type TiAnalyticsEventName =
   | "book_travel_search_by_city_clicked"
   | "book_travel_add_event_clicked"
   | "book_travel_tournament_directory_clicked"
-  | "book_travel_weekend_pro_upsell_clicked";
+  | "book_travel_weekend_pro_upsell_clicked"
+  | "partner_click_clicked";
 
 type OwlsEyeMapCategory = "coffee" | "food" | "hotels" | "quick_eats" | "hangouts" | "sporting_goods";
 
@@ -441,4 +442,15 @@ export type TiAnalyticsEventPropertiesByName = {
   book_travel_add_event_clicked: Record<string, never>;
   book_travel_tournament_directory_clicked: Record<string, never>;
   book_travel_weekend_pro_upsell_clicked: Record<string, never>;
+  partner_click_clicked: {
+    partner_key: string;
+    partner_link_id: string;
+    campaign: string | null;
+    placement: string | null;
+    page_type: string | null;
+    tournament_id: string | null;
+    venue_id: string | null;
+    user_tier: string | null;
+    href: string;
+  };
 };

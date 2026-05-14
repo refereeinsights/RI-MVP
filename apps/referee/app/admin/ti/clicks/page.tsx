@@ -48,6 +48,7 @@ export default async function TiClicksPage() {
     { key: "weekend_planner_saved_weekend_plan_clicked", label: "Weekend planner: saved weekend plan clicked" },
     { key: "weekend_planner_saved_venue_map_clicked", label: "Weekend planner: saved venue map clicked" },
     { key: "weekend_planner_saved_travel_clicked", label: "Weekend planner: saved travel clicked" },
+    { key: "partner_click_clicked", label: "Partner click: outbound clicked" },
     { key: "premium_modal_viewed", label: "Premium modal viewed" },
     { key: "premium_cta_clicked", label: "Premium CTA clicked" },
     { key: "owls_eye_unlock_prompt_shown", label: "Owl’s Eye unlock prompt shown" },

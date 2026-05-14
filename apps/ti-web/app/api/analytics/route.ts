@@ -54,6 +54,9 @@ const MAP_EVENTS = new Set([
   "weekend_planner_saved_weekend_plan_clicked",
   "weekend_planner_saved_venue_map_clicked",
   "weekend_planner_saved_travel_clicked",
+  // Convention-only allowlist: partner clicks are recorded server-side via /go/partner/[partnerLinkId].
+  // Do not add client-side /api/analytics calls for this event, or it will double-count.
+  "partner_click_clicked",
 ]);
 
 const TRAVEL_EVENTS = new Set([
