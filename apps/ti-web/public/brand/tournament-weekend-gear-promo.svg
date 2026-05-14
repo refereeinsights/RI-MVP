@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Tournament Weekend Gear promotional graphic">
+  <defs>
+    <filter id="cardShadow" x="64" y="96" width="896" height="832" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feOffset dy="10" />
+      <feGaussianBlur stdDeviation="14" result="blur" />
+      <feColorMatrix
+        in="blur"
+        type="matrix"
+        values="0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0.28 0"
+      />
+      <feBlend in="SourceGraphic" mode="normal" />
+    </filter>
+    <linearGradient id="cardGrad" x1="160" y1="180" x2="864" y2="844" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#123828"/>
+      <stop offset="1" stop-color="#0F3225"/>
+    </linearGradient>
+    <style>
+      .cream { stroke: #F6F1E6; fill: none; }
+      .text  { fill: #F6F1E6; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#0B2A1E"/>
+
+  <!-- Card -->
+  <g filter="url(#cardShadow)">
+    <rect x="128" y="144" width="768" height="736" rx="28" fill="url(#cardGrad)" stroke="rgba(246,241,230,0.12)" stroke-width="2"/>
+  </g>
+
+  <!-- Header text -->
+  <text class="text" x="512" y="250" text-anchor="middle" font-size="44" font-weight="800" letter-spacing="0.2">
+    Tournament Weekend Gear
+  </text>
+
+  <!-- Icons group (line icons, consistent stroke) -->
+  <g class="cream" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity="0.95">
+    <!-- Jersey -->
+    <g transform="translate(245,340)">
+      <path d="M78 22 L46 44 L18 30 L6 60 L32 80 V198 C32 212 44 224 58 224 H142 C156 224 168 212 168 198 V80 L194 60 L182 30 L154 44 L122 22" />
+      <path d="M78 22 C88 48 112 62 122 62 C132 62 156 48 154 44" />
+      <path d="M74 112 H126" />
+    </g>
+
+    <!-- Baseball cap -->
+    <g transform="translate(600,338)">
+      <path d="M52 132 C52 86 88 52 134 52 C180 52 216 86 216 132" />
+      <path d="M52 132 C78 156 112 170 134 170 C156 170 190 156 216 132" />
+      <path d="M216 132 C282 132 318 152 334 176 C304 190 268 196 216 196" />
+      <path d="M110 90 C124 78 144 72 160 74" opacity="0.75" />
+    </g>
+
+    <!-- Duffel bag -->
+    <g transform="translate(250,585)">
+      <path d="M48 108 C48 86 66 68 88 68 H248 C270 68 288 86 288 108 V182 C288 210 266 232 238 232 H98 C70 232 48 210 48 182 V108 Z" />
+      <path d="M112 68 V52 C112 34 126 20 144 20 H192 C210 20 224 34 224 52 V68" />
+      <path d="M96 142 H240" opacity="0.75" />
+      <path d="M72 116 V190" opacity="0.65" />
+      <path d="M264 116 V190" opacity="0.65" />
+    </g>
+
+    <!-- Water bottle -->
+    <g transform="translate(640,585)">
+      <path d="M110 22 H170" />
+      <path d="M132 22 V54" />
+      <path d="M148 22 V54" />
+      <path d="M98 70 C98 58 108 48 120 48 H180 C192 48 202 58 202 70 V210 C202 232 184 250 162 250 H138 C116 250 98 232 98 210 V70 Z" />
+      <path d="M118 128 H182" opacity="0.75" />
+    </g>
+
+    <!-- Medal -->
+    <g transform="translate(455,405)">
+      <path d="M92 34 L124 86 L156 34" />
+      <path d="M92 34 H156" />
+      <circle cx="124" cy="158" r="58" />
+      <path d="M124 134 V182" opacity="0.7" />
+      <path d="M100 158 H148" opacity="0.7" />
+    </g>
+  </g>
+
+  <!-- Subtext -->
+  <text class="text" x="512" y="820" text-anchor="middle" font-size="22" font-weight="650" opacity="0.82">
+    Fan gear, apparel &amp; essentials
+  </text>
+</svg>
+
