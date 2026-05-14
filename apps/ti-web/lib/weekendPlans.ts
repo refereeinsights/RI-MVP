@@ -5,6 +5,7 @@ export type WeekendPlanRow = {
   user_id: string;
   tournament_id: string;
   selected_venue_id: string | null;
+  notes?: string | null;
   status: "active" | "archived" | string;
   created_at?: string | null;
   updated_at?: string | null;
@@ -16,7 +17,7 @@ export async function getActivePlansForUser(params: { userId: string; limit?: nu
   const limit = Math.max(1, Math.min(100, Number(params.limit ?? 25) || 25));
 
   const { data, error } = await table
-    .select("id,user_id,tournament_id,selected_venue_id,status,created_at,updated_at")
+    .select("id,user_id,tournament_id,selected_venue_id,notes,status,created_at,updated_at")
     .eq("user_id", params.userId)
     .eq("status", "active")
     .order("created_at", { ascending: false })
@@ -30,7 +31,7 @@ export async function getWeekendPlanForTournament(params: { userId: string; tour
   const supabase = createSupabaseServerClient();
   const table = (supabase.from("ti_weekend_plans" as any) as any);
   const { data, error } = await table
-    .select("id,user_id,tournament_id,selected_venue_id,status,created_at,updated_at")
+    .select("id,user_id,tournament_id,selected_venue_id,notes,status,created_at,updated_at")
     .eq("user_id", params.userId)
     .eq("tournament_id", params.tournamentId)
     .eq("status", "active")
@@ -119,4 +120,52 @@ export async function saveWeekendPlanForTournament(params: {
   }
 
   return { ok: false as const, planId: null as any, error: insertRes.error?.message || String(insertRes.error) };
+}
+
+export async function updateWeekendPlanNotes(params: { userId: string; planId: string; notes: string | null }) {
+  const supabase = createSupabaseServerClient();
+  const table = (supabase.from("ti_weekend_plans" as any) as any);
+  const { error } = await table
+    .update({ notes: params.notes })
+    .eq("id", params.planId)
+    .eq("user_id", params.userId)
+    .eq("status", "active");
+  if (error) return { ok: false as const, error: error.message || String(error) };
+  return { ok: true as const, error: null as string | null };
+}
+
+export async function archiveWeekendPlan(params: { userId: string; planId: string }) {
+  const supabase = createSupabaseServerClient();
+  const table = (supabase.from("ti_weekend_plans" as any) as any);
+  const { error } = await table
+    .update({ status: "archived" })
+    .eq("id", params.planId)
+    .eq("user_id", params.userId)
+    .eq("status", "active");
+  if (error) return { ok: false as const, error: error.message || String(error) };
+  return { ok: true as const, error: null as string | null };
+}
+
+export async function updateWeekendPlanSelectedVenue(params: {
+  userId: string;
+  planId: string;
+  tournamentId: string;
+  selectedVenueId: string | null;
+}) {
+  const supabase = createSupabaseServerClient();
+  const table = (supabase.from("ti_weekend_plans" as any) as any);
+
+  const selectedVenueId =
+    params.selectedVenueId &&
+    (await validateSelectedVenueBelongsToTournament({ tournamentId: params.tournamentId, selectedVenueId: params.selectedVenueId }))
+      ? params.selectedVenueId
+      : null;
+
+  const { error } = await table
+    .update({ selected_venue_id: selectedVenueId })
+    .eq("id", params.planId)
+    .eq("user_id", params.userId)
+    .eq("status", "active");
+  if (error) return { ok: false as const, error: error.message || String(error) };
+  return { ok: true as const, error: null as string | null };
 }

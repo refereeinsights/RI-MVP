@@ -27,6 +27,7 @@ type WeekendPlanRow = {
   id: string;
   tournament_id: string;
   selected_venue_id: string | null;
+  notes: string | null;
   created_at: string | null;
 };
 
@@ -83,6 +84,7 @@ export default async function WeekendPlannerPage() {
           id: p.id,
           tournament_id: String(p.tournament_id),
           selected_venue_id: (p.selected_venue_id as any) ?? null,
+          notes: (p.notes as any) ?? null,
           created_at: (p.created_at as any) ?? null,
         })) as WeekendPlanRow[];
       }
@@ -328,8 +330,10 @@ export default async function WeekendPlannerPage() {
                               </div>
                             ) : null}
                             <WeekendPlanActionsClient
+                              planId={plan.id}
                               tournamentSlug={slug}
                               selectedVenueId={plan.selected_venue_id ?? null}
+                              notes={plan.notes ?? null}
                               tournamentCity={t?.city ?? null}
                               tournamentState={t?.state ?? null}
                               tournamentStartDate={t?.start_date ?? null}
