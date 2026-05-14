@@ -19,6 +19,9 @@ export const metadata: Metadata = {
   },
   description:
     "Browse youth sports tournaments by sport, state, and date. Clear listings with official links and basic venue information.",
+  other: {
+    "impact-site-verification": "68e7d760-dd35-4762-a3ee-cf23358f1d96",
+  },
   robots: {
     index: true,
     follow: true,
