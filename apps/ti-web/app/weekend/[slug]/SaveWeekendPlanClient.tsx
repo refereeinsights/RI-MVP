@@ -6,6 +6,7 @@ import { saveWeekendPlanAction, type SavePlanState } from "./actions";
 
 type Props = {
   initialSaved: boolean;
+  planExists: boolean;
   tournamentId: string;
   selectedVenueId: string | null;
   canSave: boolean;
@@ -71,11 +72,13 @@ export default function SaveWeekendPlanClient(props: Props) {
   return (
     <div style={{ marginTop: 10 }}>
       <div style={{ color: "#475569", fontWeight: 700, fontSize: 13 }}>
-        Save this tournament{props.selectedVenueId ? " and planning venue" : ""} so you can come back to it later.
+        {props.planExists
+          ? "Update your saved plan to use this venue as your planning anchor."
+          : `Save this tournament${props.selectedVenueId ? " and planning venue" : ""} so you can come back to it later.`}
       </div>
       <form action={formAction} style={{ marginTop: 8, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <button type="submit" className="primaryLink" style={{ cursor: "pointer" }}>
-          Save weekend plan
+          {props.planExists ? "Update planning anchor" : "Add to planner"}
         </button>
         {state.status === "error" ? (
           <span style={{ color: "#b91c1c", fontWeight: 800, fontSize: 12 }}>{state.error ?? "Unable to save right now."}</span>
@@ -84,4 +87,3 @@ export default function SaveWeekendPlanClient(props: Props) {
     </div>
   );
 }
-

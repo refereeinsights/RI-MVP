@@ -216,6 +216,22 @@ export default async function WeekendPage({
     }
   }
 
+  // Weekend plan state (must be loaded before derived computations that depend on selectedVenue).
+  const existingPlanRes = canSaveWeekendPlan ? await getWeekendPlanForTournament({ userId: user!.id, tournamentId: tournament.id }) : null;
+  const planExists = Boolean(existingPlanRes?.ok && existingPlanRes.plan?.id);
+  const planAnchorId = (existingPlanRes?.ok ? existingPlanRes.plan?.selected_venue_id ?? null : null) ?? null;
+
+  // If no valid `?venue=` is selected, but the plan has an anchor, use it as selectedVenue so downstream
+  // computations (directions, hotels/rentals, Owl's Eye gating, etc.) work as expected.
+  if (!selectedVenue?.id && planAnchorId) {
+    const { data: anchorVenue } = await supabaseAdmin
+      .from("venues" as any)
+      .select("id,seo_slug,name,address,city,state,zip,latitude,longitude")
+      .eq("id", planAnchorId)
+      .maybeSingle<VenueRow>();
+    selectedVenue = (anchorVenue as VenueRow | null) ?? null;
+  }
+
   const dateLabel = formatDateRange(tournament.start_date, tournament.end_date);
   const locationLabel = [tournament.city, tournament.state].filter(Boolean).join(", ");
 
@@ -253,8 +269,9 @@ export default async function WeekendPage({
     return qs ? `/book-travel?${qs}` : "/book-travel";
   })();
 
-  const existingPlanRes = canSaveWeekendPlan ? await getWeekendPlanForTournament({ userId: user!.id, tournamentId: tournament.id }) : null;
-  const initialSaved = Boolean(existingPlanRes?.ok && existingPlanRes.plan?.id);
+  const selectedVenueId = selectedVenue?.id ?? null;
+  // Saved-state should be "venue-match", not merely "plan exists".
+  const initialSaved = planExists && Boolean(selectedVenueId) && planAnchorId === selectedVenueId;
 
   // Weekend Guide cached places (if we have a selected venue + a complete run).
   const categories = ["coffee", "food", "quick_eats", "hangouts"];
@@ -390,8 +407,9 @@ export default async function WeekendPage({
 
             <SaveWeekendPlanClient
               initialSaved={initialSaved}
+              planExists={planExists}
               tournamentId={tournament.id}
-              selectedVenueId={selectedVenue?.id ?? null}
+              selectedVenueId={selectedVenueId}
               canSave={canSaveWeekendPlan}
               isAuthed={isAuthed}
               isUnverified={isUnverified}
@@ -412,6 +430,7 @@ export default async function WeekendPage({
 
             <SaveWeekendPlanClient
               initialSaved={initialSaved}
+              planExists={planExists}
               tournamentId={tournament.id}
               selectedVenueId={null}
               canSave={canSaveWeekendPlan}

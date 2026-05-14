@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTiTierServer } from "@/lib/entitlementsServer";
 import { saveWeekendPlanForTournament } from "@/lib/weekendPlans";
@@ -33,6 +34,7 @@ export async function saveWeekendPlanAction(
   const res = await saveWeekendPlanForTournament({ userId: user.id, tournamentId, selectedVenueId });
   if (!res.ok) return { status: "error", error: "Could not save your weekend plan. Please try again." };
 
+  // Keep the Weekend Planner hub in sync with anchor updates.
+  revalidatePath("/weekend-planner");
   return { status: "saved" };
 }
-
