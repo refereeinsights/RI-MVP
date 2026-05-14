@@ -38,7 +38,7 @@
   </text>
 
   <!-- Icons group (line icons, consistent stroke) -->
-  <g class="cream" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity="0.95" transform="translate(-80 -40)">
+  <g class="cream" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity="0.95" transform="translate(-60 -70)">
     <!-- Jersey -->
     <g transform="translate(245,340)">
       <path d="M78 22 L46 44 L18 30 L6 60 L32 80 V198 C32 212 44 224 58 224 H142 C156 224 168 212 168 198 V80 L194 60 L182 30 L154 44 L122 22" />
