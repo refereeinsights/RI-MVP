@@ -11,6 +11,8 @@ import WeekendPlanningCtasClient from "./WeekendPlanningCtasClient";
 import WeekendProUpgradeModalTrigger from "@/components/premium/WeekendProUpgradeModalTrigger";
 import DirectionsChooserClient from "./DirectionsChooserClient";
 import WeekendNearestAirportClient from "./WeekendNearestAirportClient";
+import SaveWeekendPlanClient from "./SaveWeekendPlanClient";
+import { getWeekendPlanForTournament } from "@/lib/weekendPlans";
 
 export const runtime = "nodejs";
 // Tier-aware page: avoid caching Weekend Pro content across users.
@@ -169,6 +171,7 @@ export default async function WeekendPage({
   const isAuthed = Boolean(user);
   const isUnverified = Boolean(isAuthed && tierInfo.unverified);
   const isWeekendPro = tierInfo.tier === "weekend_pro";
+  const canSaveWeekendPlan = Boolean(user?.id && !isUnverified && (tierInfo.tier === "insider" || tierInfo.tier === "weekend_pro"));
 
   const { data: tournament } = await supabaseAdmin
     .from("tournaments_public" as any)
@@ -249,6 +252,9 @@ export default async function WeekendPage({
     const qs = qp.toString();
     return qs ? `/book-travel?${qs}` : "/book-travel";
   })();
+
+  const existingPlanRes = canSaveWeekendPlan ? await getWeekendPlanForTournament({ userId: user!.id, tournamentId: tournament.id }) : null;
+  const initialSaved = Boolean(existingPlanRes?.ok && existingPlanRes.plan?.id);
 
   // Weekend Guide cached places (if we have a selected venue + a complete run).
   const categories = ["coffee", "food", "quick_eats", "hangouts"];
@@ -381,6 +387,16 @@ export default async function WeekendPage({
                 </a>
               ) : null}
             </div>
+
+            <SaveWeekendPlanClient
+              initialSaved={initialSaved}
+              tournamentId={tournament.id}
+              selectedVenueId={selectedVenue?.id ?? null}
+              canSave={canSaveWeekendPlan}
+              isAuthed={isAuthed}
+              isUnverified={isUnverified}
+              plannerHref="/weekend-planner"
+            />
           </div>
         ) : (
           <div style={{ marginTop: 4, padding: "12px 12px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#ffffff" }}>
@@ -393,6 +409,16 @@ export default async function WeekendPage({
                 Open venue map →
               </Link>
             </div>
+
+            <SaveWeekendPlanClient
+              initialSaved={initialSaved}
+              tournamentId={tournament.id}
+              selectedVenueId={null}
+              canSave={canSaveWeekendPlan}
+              isAuthed={isAuthed}
+              isUnverified={isUnverified}
+              plannerHref="/weekend-planner"
+            />
           </div>
         )}
 
