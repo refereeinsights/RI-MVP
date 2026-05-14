@@ -1,5 +1,3 @@
-// TODO: redirect /weekend-planner → /book-travel once the calendar-based Weekend Planner product
-// is ready to claim this route.
 import Link from "next/link";
 import "../tournaments/tournaments.css";
 import WeekendPlannerClient from "./WeekendPlannerClient";
@@ -9,6 +7,8 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTiTierServer } from "@/lib/entitlementsServer";
 import { getSavedTournamentIdsForUser } from "@/lib/savedTournaments";
 import SavedTournamentActionsClient from "./SavedTournamentActionsClient";
+import { getActivePlansForUser } from "@/lib/weekendPlans";
+import WeekendPlanActionsClient from "./WeekendPlanActionsClient";
 
 export const revalidate = 3600;
 
@@ -21,6 +21,13 @@ type SavedTournamentRow = {
   state: string | null;
   start_date: string | null;
   end_date: string | null;
+};
+
+type WeekendPlanRow = {
+  id: string;
+  tournament_id: string;
+  selected_venue_id: string | null;
+  created_at: string | null;
 };
 
 function formatDate(value: string | null) {
@@ -41,8 +48,8 @@ export async function generateMetadata() {
   return {
     title: "Weekend Planner | TournamentInsights",
     description:
-      "Save tournaments, plan travel, and organize venue logistics for sports weekends.",
-    alternates: { canonical: "/book-travel" },
+      "Save tournaments, plan travel, and organize venue logistics for your sports weekend with TournamentInsights.",
+    alternates: { canonical: "/weekend-planner" },
   };
 }
 
@@ -57,10 +64,57 @@ export default async function WeekendPlannerPage() {
   const isUnverified = Boolean(isAuthed && tierInfo.unverified);
   const canUseSavedPlanning = tierInfo.tier === "insider" || tierInfo.tier === "weekend_pro";
 
+  let activePlans: WeekendPlanRow[] = [];
+  let plansLoadFailed = false;
+  let planTournaments: SavedTournamentRow[] = [];
+  let planTournamentsLoadFailed = false;
+
   let savedTournaments: SavedTournamentRow[] = [];
   let savedLoadFailed = false;
 
   if (user?.id && canUseSavedPlanning) {
+    // Active weekend plans.
+    try {
+      const res = await getActivePlansForUser({ userId: user.id, limit: 25 });
+      if (!res.ok) {
+        plansLoadFailed = true;
+      } else {
+        activePlans = (res.plans ?? []).map((p) => ({
+          id: p.id,
+          tournament_id: String(p.tournament_id),
+          selected_venue_id: (p.selected_venue_id as any) ?? null,
+          created_at: (p.created_at as any) ?? null,
+        })) as WeekendPlanRow[];
+      }
+    } catch {
+      plansLoadFailed = true;
+    }
+
+    // Plan tournament details (use the existing `tournaments_public` pattern; do not over-query).
+    if (!plansLoadFailed && activePlans.length > 0) {
+      try {
+        const tournamentIds = Array.from(
+          new Set(activePlans.map((p) => String(p.tournament_id ?? "").trim()).filter(Boolean))
+        ).slice(0, 25);
+
+        if (tournamentIds.length > 0) {
+          const { data, error } = await supabase
+            .from("tournaments_public" as any)
+            .select("id,slug,name,sport,city,state,start_date,end_date")
+            .in("id", tournamentIds)
+            .limit(25);
+
+          if (error) {
+            planTournamentsLoadFailed = true;
+          } else {
+            planTournaments = ((data as SavedTournamentRow[] | null) ?? []).slice();
+          }
+        }
+      } catch {
+        planTournamentsLoadFailed = true;
+      }
+    }
+
     try {
       const ids = (await getSavedTournamentIdsForUser(user.id)).slice(0, 25);
       if (ids.length) {
@@ -91,8 +145,21 @@ export default async function WeekendPlannerPage() {
     }
   }
 
+  const tournamentById = new Map(planTournaments.map((t) => [t.id, t]));
+  const plansForRender = activePlans
+    .slice()
+    .sort((a, b) => {
+      const ta = tournamentById.get(a.tournament_id);
+      const tb = tournamentById.get(b.tournament_id);
+      const aDate = ta?.start_date ?? "9999-12-31";
+      const bDate = tb?.start_date ?? "9999-12-31";
+      if (aDate !== bDate) return aDate.localeCompare(bDate);
+      return (ta?.name ?? "").localeCompare(tb?.name ?? "");
+    })
+    .slice(0, 25);
+
   return (
-    <main className="pitchWrap tournamentsWrap">
+    <div className="pitchWrap tournamentsWrap">
       <section className="field tournamentsField">
         <div className="headerBlock">
           <h1 className="title">Weekend Planner</h1>
@@ -192,6 +259,89 @@ export default async function WeekendPlannerPage() {
               </div>
 
               {isAuthed ? (
+                <>
+                <div style={{ padding: "12px 12px", borderRadius: 14, border: "1px solid rgba(15, 61, 46, 0.12)", background: "rgba(255,255,255,0.96)" }}>
+                  <div style={{ fontSize: 12, fontWeight: 950, color: "#0b1f14" }}>Weekend plans</div>
+                  {isUnverified || !canUseSavedPlanning ? (
+                    <div style={{ marginTop: 6, display: "grid", gap: 10 }}>
+                      <div style={{ color: "rgba(16, 34, 19, 0.85)", fontWeight: 650, fontSize: 13, lineHeight: 1.45 }}>
+                        Confirm your email to unlock Insider saved planning tools like weekend plans.
+                      </div>
+                      <div>
+                        <span className="secondaryLink" style={{ display: "inline-block" }}>
+                          Check your inbox →
+                        </span>
+                      </div>
+                    </div>
+                  ) : plansLoadFailed || planTournamentsLoadFailed ? (
+                    <div style={{ marginTop: 6, color: "rgba(16, 34, 19, 0.85)", fontWeight: 650, fontSize: 13, lineHeight: 1.45 }}>
+                      Weekend plans are unavailable right now.
+                    </div>
+                  ) : plansForRender.length === 0 ? (
+                    <div style={{ marginTop: 6, display: "grid", gap: 10 }}>
+                      <div style={{ color: "rgba(16, 34, 19, 0.85)", fontWeight: 650, fontSize: 13, lineHeight: 1.45 }}>
+                        No weekend plans yet. Start a weekend plan from any tournament weekend page or venue map.
+                      </div>
+                      <div>
+                        <Link className="secondaryLink" href="/tournaments">
+                          Browse tournaments →
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 8, display: "grid", gap: 10 }}>
+                      {plansForRender.map((plan) => {
+                        const t = tournamentById.get(plan.tournament_id);
+                        const slug = String(t?.slug ?? "").trim();
+                        const hasSlug = Boolean(slug);
+                        const title = String(t?.name ?? "Tournament").trim();
+                        const loc = [t?.city, t?.state].filter(Boolean).join(", ");
+                        const metaParts = [t?.sport, formatDateRange(t?.start_date ?? null, t?.end_date ?? null), loc].filter(Boolean);
+
+                        if (!t || !hasSlug) {
+                          const created = plan.created_at ? new Date(plan.created_at) : null;
+                          const createdLabel = created && Number.isFinite(created.getTime()) ? created.toLocaleDateString() : null;
+                          return (
+                            <div
+                              key={plan.id}
+                              style={{ border: "1px solid rgba(15, 61, 46, 0.12)", borderRadius: 12, padding: "10px 10px", background: "#fff" }}
+                            >
+                              <div style={{ fontWeight: 950, color: "#0b1f14" }}>Tournament no longer available</div>
+                              {createdLabel ? (
+                                <div style={{ marginTop: 4, color: "rgba(16, 34, 19, 0.78)", fontWeight: 650, fontSize: 12 }}>
+                                  Plan created {createdLabel}
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={plan.id}
+                            style={{ border: "1px solid rgba(15, 61, 46, 0.12)", borderRadius: 12, padding: "10px 10px", background: "#fff" }}
+                          >
+                            <div style={{ fontWeight: 950, color: "#0b1f14" }}>{title}</div>
+                            {metaParts.length ? (
+                              <div style={{ marginTop: 4, color: "rgba(16, 34, 19, 0.78)", fontWeight: 650, fontSize: 12 }}>
+                                {metaParts.join(" • ")}
+                              </div>
+                            ) : null}
+                            <WeekendPlanActionsClient
+                              tournamentSlug={slug}
+                              selectedVenueId={plan.selected_venue_id ?? null}
+                              tournamentCity={t?.city ?? null}
+                              tournamentState={t?.state ?? null}
+                              tournamentStartDate={t?.start_date ?? null}
+                              tournamentEndDate={t?.end_date ?? null}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ padding: "12px 12px", borderRadius: 14, border: "1px solid rgba(15, 61, 46, 0.12)", background: "rgba(255,255,255,0.96)" }}>
                   <div style={{ fontSize: 12, fontWeight: 950, color: "#0b1f14" }}>Saved tournaments</div>
                   {isUnverified || !canUseSavedPlanning ? (
@@ -252,7 +402,21 @@ export default async function WeekendPlannerPage() {
                     </div>
                   )}
                 </div>
+                </>
               ) : (
+                <>
+                <div style={{ padding: "12px 12px", borderRadius: 14, border: "1px solid rgba(15, 61, 46, 0.12)", background: "rgba(255,255,255,0.96)" }}>
+                  <div style={{ fontSize: 12, fontWeight: 950, color: "#0b1f14" }}>Weekend plans</div>
+                  <div style={{ marginTop: 6, color: "rgba(16, 34, 19, 0.85)", fontWeight: 650, fontSize: 13, lineHeight: 1.45 }}>
+                    Sign in to save weekend plans and keep planning links in one place.
+                  </div>
+                  <div style={{ marginTop: 10 }}>
+                    <Link className="secondaryLink" href="/signup?returnTo=%2Fweekend-planner">
+                      Create account →
+                    </Link>
+                  </div>
+                </div>
+
                 <div style={{ padding: "12px 12px", borderRadius: 14, border: "1px solid rgba(15, 61, 46, 0.12)", background: "rgba(255,255,255,0.96)" }}>
                   <div style={{ fontSize: 12, fontWeight: 950, color: "#0b1f14" }}>Saved tournaments</div>
                   <div style={{ marginTop: 6, color: "rgba(16, 34, 19, 0.85)", fontWeight: 650, fontSize: 13, lineHeight: 1.45 }}>
@@ -264,6 +428,7 @@ export default async function WeekendPlannerPage() {
                     </Link>
                   </div>
                 </div>
+                </>
               )}
             </div>
           </div>
@@ -275,6 +440,6 @@ export default async function WeekendPlannerPage() {
           <AffiliateDisclosure />
         </div>
       </section>
-    </main>
+    </div>
   );
 }

@@ -10,6 +10,22 @@ export type WeekendPlanRow = {
   updated_at?: string | null;
 };
 
+export async function getActivePlansForUser(params: { userId: string; limit?: number }) {
+  const supabase = createSupabaseServerClient();
+  const table = (supabase.from("ti_weekend_plans" as any) as any);
+  const limit = Math.max(1, Math.min(100, Number(params.limit ?? 25) || 25));
+
+  const { data, error } = await table
+    .select("id,user_id,tournament_id,selected_venue_id,status,created_at,updated_at")
+    .eq("user_id", params.userId)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) return { ok: false as const, plans: [] as WeekendPlanRow[], error: error.message || String(error) };
+  return { ok: true as const, plans: ((data as WeekendPlanRow[] | null) ?? []) as WeekendPlanRow[], error: null as string | null };
+}
+
 export async function getWeekendPlanForTournament(params: { userId: string; tournamentId: string }) {
   const supabase = createSupabaseServerClient();
   const table = (supabase.from("ti_weekend_plans" as any) as any);
