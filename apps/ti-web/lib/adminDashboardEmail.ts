@@ -76,26 +76,41 @@ export type RiSummaryCounts = {
 export type LowestStatesRow = { state: string; count: number };
 
 export type AdminDashboardEmailTiles = {
-  window?: { today_start_utc?: string; yesterday_start_utc?: string };
+  window?: {
+    today_start_utc?: string;
+    yesterday_start_utc?: string;
+    today_date_utc?: string;
+    today_start_pt?: string;
+    yesterday_start_pt?: string;
+    today_date_pt?: string;
+  };
   tournaments_db?: { total?: number };
   canonical?: {
     total?: number;
     new_yesterday?: number;
+    new_yesterday_pt?: number;
     by_sport?: Array<{ sport: string; total: number; new_yesterday: number }>;
   };
   public_directory?: {
     total?: number;
     new_yesterday?: number;
+    new_yesterday_pt?: number;
     by_sport?: Array<{ sport: string; total: number; new_yesterday: number }>;
   };
-  missing_venues?: { total?: number; new_yesterday?: number };
-  owls_eye?: { venues_reviewed_total?: number; venues_reviewed_new_yesterday?: number };
-  venue_check?: { submissions_total?: number; submissions_new_yesterday?: number };
+  missing_venues?: { total?: number; new_yesterday?: number; new_yesterday_pt?: number };
+  owls_eye?: {
+    venues_reviewed_total?: number;
+    venues_reviewed_new_yesterday?: number;
+    venues_reviewed_new_yesterday_pt?: number;
+  };
+  venue_check?: { submissions_total?: number; submissions_new_yesterday?: number; submissions_new_yesterday_pt?: number };
   ti_users?: {
     insider_total?: number;
     insider_new_yesterday?: number;
+    insider_new_yesterday_pt?: number;
     weekend_pro_total?: number;
     weekend_pro_new_yesterday?: number;
+    weekend_pro_new_yesterday_pt?: number;
   };
 };
 

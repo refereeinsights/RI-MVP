@@ -148,6 +148,41 @@ function startOfUtcDay(d: Date) {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
 }
 
+function startOfDayInTimeZone(d: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+
+  const year = Number(parts.find((p) => p.type === "year")?.value ?? NaN);
+  const month = Number(parts.find((p) => p.type === "month")?.value ?? NaN);
+  const day = Number(parts.find((p) => p.type === "day")?.value ?? NaN);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return startOfUtcDay(d);
+  }
+
+  // Start with an initial UTC guess for local midnight, then compute the time zone offset for that local date.
+  const guessUtc = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  const offsetParts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(guessUtc);
+  const tzName = offsetParts.find((p) => p.type === "timeZoneName")?.value ?? "";
+  const m = tzName.match(/GMT([+-]\d{2}):(\d{2})/);
+  if (!m) return guessUtc;
+
+  const sign = m[1].startsWith("-") ? -1 : 1;
+  const hh = Math.abs(Number(m[1]));
+  const mm = Number(m[2]);
+  const offsetMinutes = sign * (hh * 60 + mm);
+  return new Date(guessUtc.getTime() - offsetMinutes * 60 * 1000);
+}
+
 const INTERNAL_EMAIL_SUBSTRINGS = ["tournamentinsights", "rdtest1970"] as const;
 
 async function loadInternalTiUserIds(): Promise<string[]> {
@@ -266,17 +301,26 @@ function buildEmailHtml(params: {
 
   const dbTotal = Number((tiles as any)?.tournaments_db?.total ?? 0) || 0;
   const publishedTotal = Number((tiles as any)?.public_directory?.total ?? tiles?.canonical?.total ?? 0) || 0;
-  const publishedNew = Number((tiles as any)?.public_directory?.new_yesterday ?? tiles?.canonical?.new_yesterday ?? 0) || 0;
+  const publishedNew = Number(
+    (tiles as any)?.public_directory?.new_yesterday_pt ??
+      (tiles as any)?.public_directory?.new_yesterday ??
+      (tiles as any)?.canonical?.new_yesterday_pt ??
+      tiles?.canonical?.new_yesterday ??
+      0
+  ) || 0;
   const missingVenuesTotal = Number(tiles?.missing_venues?.total ?? 0) || 0;
-  const missingVenuesNew = Number(tiles?.missing_venues?.new_yesterday ?? 0) || 0;
+  const missingVenuesNew = Number((tiles as any)?.missing_venues?.new_yesterday_pt ?? tiles?.missing_venues?.new_yesterday ?? 0) || 0;
   const owlsEyeTotal = Number(tiles?.owls_eye?.venues_reviewed_total ?? 0) || 0;
-  const owlsEyeNew = Number(tiles?.owls_eye?.venues_reviewed_new_yesterday ?? 0) || 0;
+  const owlsEyeNew =
+    Number((tiles as any)?.owls_eye?.venues_reviewed_new_yesterday_pt ?? tiles?.owls_eye?.venues_reviewed_new_yesterday ?? 0) || 0;
   const venueCheckTotal = Number(tiles?.venue_check?.submissions_total ?? 0) || 0;
-  const venueCheckNew = Number(tiles?.venue_check?.submissions_new_yesterday ?? 0) || 0;
+  const venueCheckNew =
+    Number((tiles as any)?.venue_check?.submissions_new_yesterday_pt ?? tiles?.venue_check?.submissions_new_yesterday ?? 0) || 0;
   const tiInsiderTotal = Number(tiles?.ti_users?.insider_total ?? 0) || 0;
-  const tiInsiderNew = Number(tiles?.ti_users?.insider_new_yesterday ?? 0) || 0;
+  const tiInsiderNew = Number((tiles as any)?.ti_users?.insider_new_yesterday_pt ?? tiles?.ti_users?.insider_new_yesterday ?? 0) || 0;
   const tiWeekendTotal = Number(tiles?.ti_users?.weekend_pro_total ?? 0) || 0;
-  const tiWeekendNew = Number(tiles?.ti_users?.weekend_pro_new_yesterday ?? 0) || 0;
+  const tiWeekendNew =
+    Number((tiles as any)?.ti_users?.weekend_pro_new_yesterday_pt ?? tiles?.ti_users?.weekend_pro_new_yesterday ?? 0) || 0;
   const weekendProCheckoutsTotal = Number(weekendProCheckouts?.total ?? 0) || 0;
   const weekendProCheckoutsYesterday = Number(weekendProCheckouts?.yesterday ?? 0) || 0;
 
@@ -294,7 +338,7 @@ function buildEmailHtml(params: {
             return {
               sport,
               total: Number(hit?.total ?? 0) || 0,
-              new_yesterday: Number(hit?.new_yesterday ?? 0) || 0,
+              new_yesterday: Number((hit as any)?.new_yesterday_pt ?? hit?.new_yesterday ?? 0) || 0,
             };
           }).sort((a, b) => b.total - a.total || a.sport.localeCompare(b.sport));
 
@@ -353,11 +397,11 @@ function buildEmailHtml(params: {
     includeTiles && tiles
       ? `<div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;">
           ${renderTile("Total tournaments in DB", formatInt(dbTotal), "", "info")}
-          ${renderTile("Published (public directory)", formatInt(publishedTotal), formatDelta(publishedNew), "info")}
+          ${renderTile("Published (public directory, PT yesterday)", formatInt(publishedTotal), formatDelta(publishedNew), "info")}
           ${renderTile("Missing venues", formatInt(missingVenuesTotal), formatDelta(missingVenuesNew), "warn")}
           ${renderTile("Owl's Eye venues reviewed", formatInt(owlsEyeTotal), formatDelta(owlsEyeNew), "success")}
           ${renderTile("Venue Check submissions", formatInt(venueCheckTotal), formatDelta(venueCheckNew), "success")}
-          ${renderTile("Weekend Pro checkouts", formatInt(weekendProCheckoutsTotal), formatDelta(weekendProCheckoutsYesterday), "success")}
+          ${renderTile("Weekend Pro checkouts (PT yesterday)", formatInt(weekendProCheckoutsTotal), formatDelta(weekendProCheckoutsYesterday), "success")}
           ${renderUsersTile({ insiderTotal: tiInsiderTotal, insiderNew: tiInsiderNew, weekendTotal: tiWeekendTotal, weekendNew: tiWeekendNew })}
         </div>
         ${sportTilesHtml}
@@ -538,10 +582,11 @@ export async function GET(req: Request) {
     const includeLowestStates = settings?.include_lowest_states ?? true;
 
     const now = new Date();
-    const todayStartUtc = startOfUtcDay(now);
-    const yesterdayStartUtc = new Date(todayStartUtc.getTime() - 24 * 60 * 60 * 1000);
-    const todayIso = todayStartUtc.toISOString();
-    const yesterdayIso = yesterdayStartUtc.toISOString();
+    const timeZone = "America/Los_Angeles";
+    const todayStart = startOfDayInTimeZone(now, timeZone);
+    const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+    const todayIso = todayStart.toISOString();
+    const yesterdayIso = yesterdayStart.toISOString();
 
     const [tiles, tiUserCounts, totalsBySport, riSummary, lowestStates] = await Promise.all([
       includeTiles ? loadAdminDashboardEmailTiles() : Promise.resolve(null),
