@@ -46,7 +46,7 @@ export default async function BookTravelPage() {
               "Shop fan gear, jerseys, hats, apparel, and tournament essentials from Fanatics before your next tournament weekend.",
             ctaLabel: "Shop Fan Gear",
             disclosureText: "TournamentInsights may earn a commission when you shop through our links.",
-            imageSrc: "/brand/tournament-weekend-gear-promo.svg",
+            imageSrc: "/brand/tournament-weekend-gear-promo.png",
             imageAlt: "Tournament Weekend Gear",
             tracking: {
               pageType: "book_travel",
