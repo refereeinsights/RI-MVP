@@ -35,6 +35,11 @@ async function logout(page: Page) {
 
 async function login(page: Page, credentials: Credentials, path = "/login") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
+  // Ensure we actually landed on the intended login URL (returnTo query string can get dropped if the navigation
+  // was interrupted by a redirect). If we didn't, try once more.
+  if (!page.url().includes("/login")) {
+    await page.goto(path, { waitUntil: "domcontentloaded" });
+  }
   const identifierInput = page.getByPlaceholder(/Email/i);
   const passwordInput = page.getByPlaceholder("Password");
   const loginButton = page.getByRole("button", { name: "Log in" });
@@ -50,11 +55,16 @@ async function login(page: Page, credentials: Credentials, path = "/login") {
   await passwordInput.fill(credentials.password);
   await expect.poll(async () => passwordInput.inputValue()).toBe(credentials.password);
 
-  // Press Enter on the password field (more reliable than a click when hydration timing is tight).
+  // Submit (try Enter first, then click). We consider the request optional because hydration timing can
+  // occasionally cause the submit handler not to attach immediately.
   const loginReqPromise = page
     .waitForRequest((req) => req.url().includes("/api/auth/login") && req.method() === "POST", { timeout: 15_000 })
     .catch(() => null);
-  await passwordInput.press("Enter");
+
+  await passwordInput.press("Enter").catch(() => null);
+  await page.waitForTimeout(150);
+  // If we're still idle, click the submit button as a fallback.
+  await loginButton.click({ noWaitAfter: true }).catch(() => null);
 
   // Best-effort: prefer reading the /api/auth/login response, but fall back to observing URL/message changes.
   let needsVerify = false;
