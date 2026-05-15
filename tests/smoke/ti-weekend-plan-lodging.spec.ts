@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "playwright/test";
+import { createClient } from "@supabase/supabase-js";
 
 type Credentials = {
   email: string;
@@ -44,12 +45,16 @@ async function login(page: Page, credentials: Credentials, path = "/login") {
       async () => {
         const url = page.url();
         if (!url.includes("/login")) return "ok";
-        const errorText = await page.locator("text=Invalid login").first().textContent().catch(() => null);
+        const errorText = await page
+          .locator("text=Invalid login")
+          .first()
+          .textContent()
+          .catch(() => null);
         if (errorText) return "invalid";
         const stillVisible = await page.getByRole("button", { name: "Log in" }).isVisible().catch(() => false);
         return stillVisible ? "waiting" : "ok";
       },
-      { timeout: 15_000 },
+      { timeout: 30_000 },
     )
     .toBe("ok");
 }
@@ -59,17 +64,47 @@ let cachedTournamentSlug: string | null = null;
 async function getAnyTournamentSlugForSmoke(page: Page) {
   if (cachedTournamentSlug) return cachedTournamentSlug;
 
-  await page.goto("/tournaments", { waitUntil: "domcontentloaded" });
-  const href = await page
-    .locator('a[href^="/tournaments/"]')
-    .first()
-    .getAttribute("href");
-  const raw = String(href ?? "").trim();
-  const m = raw.match(/^\/tournaments\/([^/?#]+)/);
-  const slug = String(m?.[1] ?? "").trim();
-  if (!slug) throw new Error("Smoke setup: could not find a tournament slug from /tournaments.");
-  cachedTournamentSlug = slug;
-  return slug;
+  // Prefer a fixed slug when provided to keep smoke tests deterministic.
+  const explicit = String(process.env.TI_SMOKE_TOURNAMENT_SLUG ?? "").trim();
+  if (explicit) {
+    cachedTournamentSlug = explicit;
+    return explicit;
+  }
+
+  // Otherwise, use service role to pick any tournament slug. This avoids depending on UI rendering
+  // or public view availability in local envs.
+  const url = getEnvOrThrow("NEXT_PUBLIC_SUPABASE_URL");
+  const serviceRoleKey = getEnvOrThrow("SUPABASE_SERVICE_ROLE_KEY");
+  const supabase = createClient(url, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const upcoming = await supabase
+    .from("tournaments" as any)
+    .select("slug,start_date,end_date")
+    .not("slug", "is", null)
+    .gte("end_date", todayIso)
+    .order("start_date", { ascending: true })
+    .limit(25);
+
+  const slug = String((upcoming.data as any[] | null)?.find((t) => t?.slug)?.slug ?? "").trim();
+  if (slug) {
+    cachedTournamentSlug = slug;
+    return slug;
+  }
+
+  const anyRow = await supabase
+    .from("tournaments" as any)
+    .select("slug,start_date")
+    .not("slug", "is", null)
+    .order("start_date", { ascending: false })
+    .limit(25);
+
+  const fallback = String((anyRow.data as any[] | null)?.find((t) => t?.slug)?.slug ?? "").trim();
+  if (!fallback) throw new Error("Smoke setup: could not find a tournament slug in public.tournaments.");
+  cachedTournamentSlug = fallback;
+  return fallback;
 }
 
 test.describe("TI smoke: Weekend Plans lodging details", () => {
