@@ -4,6 +4,7 @@ import WeekendPlannerClient from "./WeekendPlannerClient";
 import styles from "./WeekendPlanner.module.css";
 import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getTiTierServer } from "@/lib/entitlementsServer";
 import { getSavedTournamentIdsForUser } from "@/lib/savedTournaments";
 import SavedTournamentActionsClient from "./SavedTournamentActionsClient";
@@ -102,7 +103,7 @@ export default async function WeekendPlannerPage() {
       plansLoadFailed = true;
     }
 
-    // Plan tournament details (use the existing `tournaments_public` pattern; do not over-query).
+    // Plan tournament details: `tournaments_public` is service-role only in this codebase.
     if (!plansLoadFailed && activePlans.length > 0) {
       try {
         const tournamentIds = Array.from(
@@ -110,7 +111,7 @@ export default async function WeekendPlannerPage() {
         ).slice(0, 25);
 
         if (tournamentIds.length > 0) {
-          const { data, error } = await supabase
+          const { data, error } = await supabaseAdmin
             .from("tournaments_public" as any)
             .select("id,slug,name,sport,city,state,start_date,end_date")
             .in("id", tournamentIds)
@@ -130,9 +131,7 @@ export default async function WeekendPlannerPage() {
     try {
       const ids = (await getSavedTournamentIdsForUser(user.id)).slice(0, 25);
       if (ids.length) {
-        // NOTE: Confirm `tournaments_public` has `id` and supports `.in("id", ids)`; if not,
-        // fall back to the smallest compatible public tournament source already used in TI.
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
           .from("tournaments_public" as any)
           .select("id,slug,name,sport,city,state,start_date,end_date")
           .in("id", ids)
