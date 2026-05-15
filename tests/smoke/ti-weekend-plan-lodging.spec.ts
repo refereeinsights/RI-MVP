@@ -184,7 +184,7 @@ test.describe("TI smoke: Weekend Plans lodging details", () => {
     }
 
     // The save control should prompt sign-in for unauthenticated users.
-    await expect(page.getByText(/Sign in/i).or(page.getByRole("link", { name: /Create account/i }))).toBeVisible();
+    await expect(page.getByText(/Sign in to save/i).first()).toBeVisible();
     // Lodging block is private-to-owner and should never render for signed-out viewers.
     await expect(page.getByText("Lodging", { exact: true })).not.toBeVisible();
   });
@@ -218,6 +218,11 @@ test.describe("TI smoke: Weekend Plans lodging details", () => {
 
     await page.goto("/weekend-planner", { waitUntil: "domcontentloaded" });
     await expect(page.getByText("Weekend plans", { exact: true })).toBeVisible();
+    if (await page.getByText("Weekend plans are unavailable right now.").isVisible().catch(() => false)) {
+      throw new Error(
+        "Weekend plans unavailable: Supabase schema likely out of date for this environment. Apply latest Supabase migrations (including ti_weekend_plans lodging columns) and re-run smoke."
+      );
+    }
 
     // Open lodging editor on the first plan card.
     const addLodging = page.getByRole("button", { name: /Add lodging details|Edit lodging details/i }).first();
