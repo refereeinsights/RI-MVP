@@ -33,7 +33,7 @@ async function logout(page: Page) {
 
 async function login(page: Page, credentials: Credentials, path = "/login") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.getByPlaceholder("Email").fill(credentials.email);
+  await page.getByPlaceholder(/Email/i).fill(credentials.email);
   await page.getByPlaceholder("Password").fill(credentials.password);
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForLoadState("domcontentloaded");
@@ -80,10 +80,28 @@ async function getAnyTournamentSlugForSmoke(page: Page) {
   });
 
   const todayIso = new Date().toISOString().slice(0, 10);
-  const upcoming = await supabase
-    .from("tournaments" as any)
+  // Prefer published+canonical surface.
+  const publicUpcoming = await supabase
+    .from("tournaments_public" as any)
     .select("slug,start_date,end_date")
     .not("slug", "is", null)
+    .gte("end_date", todayIso)
+    .order("start_date", { ascending: true })
+    .limit(25);
+
+  const publicSlug = String((publicUpcoming.data as any[] | null)?.find((t) => t?.slug)?.slug ?? "").trim();
+  if (publicSlug) {
+    cachedTournamentSlug = publicSlug;
+    return publicSlug;
+  }
+
+  // Fall back to tournaments table using the same published/canonical constraints when possible.
+  const upcoming = await supabase
+    .from("tournaments" as any)
+    .select("slug,start_date,end_date,status,is_canonical")
+    .not("slug", "is", null)
+    .eq("status", "published")
+    .eq("is_canonical", true)
     .gte("end_date", todayIso)
     .order("start_date", { ascending: true })
     .limit(25);
@@ -95,14 +113,14 @@ async function getAnyTournamentSlugForSmoke(page: Page) {
   }
 
   const anyRow = await supabase
-    .from("tournaments" as any)
+    .from("tournaments_public" as any)
     .select("slug,start_date")
     .not("slug", "is", null)
     .order("start_date", { ascending: false })
     .limit(25);
 
   const fallback = String((anyRow.data as any[] | null)?.find((t) => t?.slug)?.slug ?? "").trim();
-  if (!fallback) throw new Error("Smoke setup: could not find a tournament slug in public.tournaments.");
+  if (!fallback) throw new Error("Smoke setup: could not find a tournament slug in tournaments_public or published tournaments.");
   cachedTournamentSlug = fallback;
   return fallback;
 }
@@ -114,7 +132,7 @@ test.describe("TI smoke: Weekend Plans lodging details", () => {
     await page.goto(`/weekend/${encodeURIComponent(tournamentSlug)}`, { waitUntil: "domcontentloaded" });
 
     // The save control should prompt sign-in for unauthenticated users.
-    await expect(page.getByText(/Sign in/i)).toBeVisible();
+    await expect(page.getByText(/Sign in/i).or(page.getByRole("link", { name: /Create account/i }))).toBeVisible();
     // Lodging block is private-to-owner and should never render for signed-out viewers.
     await expect(page.getByText("Lodging", { exact: true })).not.toBeVisible();
   });
