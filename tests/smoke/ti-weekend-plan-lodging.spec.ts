@@ -33,33 +33,70 @@ async function logout(page: Page) {
 
 async function login(page: Page, credentials: Credentials, path = "/login") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.getByPlaceholder(/Email/i).fill(credentials.email);
-  await page.getByPlaceholder("Password").fill(credentials.password);
-  const loginRespPromise = page.waitForResponse(
-    (resp) => resp.url().includes("/api/auth/login") && resp.request().method() === "POST",
-    { timeout: 30_000 },
-  );
-  await page.getByRole("button", { name: "Log in" }).click();
+  const identifierInput = page.getByPlaceholder(/Email/i);
+  const passwordInput = page.getByPlaceholder("Password");
+  const loginButton = page.getByRole("button", { name: "Log in" });
 
-  const loginResp = await loginRespPromise;
-  const payload = (await loginResp.json().catch(() => null)) as { ok?: boolean; needs_verify?: boolean; error?: string } | null;
-  if (!loginResp.ok() || !payload || payload.ok !== true) {
-    if (payload?.needs_verify) {
-      // App should redirect to /verify-email. Continue.
-    } else {
-      throw new Error(`Smoke login failed: ${payload?.error || `HTTP ${loginResp.status()}`}`);
+  await expect(identifierInput).toBeVisible();
+  await expect(passwordInput).toBeVisible();
+  await expect(loginButton).toBeVisible();
+
+  // Ensure the login page is hydrated before submitting.
+  // If we click too early, the browser may perform a native form submit (no /api/auth/login request).
+  await identifierInput.fill(credentials.email);
+  await expect.poll(async () => identifierInput.inputValue()).toBe(credentials.email);
+  await passwordInput.fill(credentials.password);
+  await expect.poll(async () => passwordInput.inputValue()).toBe(credentials.password);
+
+  // Press Enter on the password field (more reliable than a click when hydration timing is tight).
+  const loginReqPromise = page
+    .waitForRequest((req) => req.url().includes("/api/auth/login") && req.method() === "POST", { timeout: 15_000 })
+    .catch(() => null);
+  await passwordInput.press("Enter");
+
+  // Best-effort: prefer reading the /api/auth/login response, but fall back to observing URL/message changes.
+  let needsVerify = false;
+  try {
+    const req = await loginReqPromise;
+    const resp = await req?.response();
+    if (req && resp) {
+      const payload = (await resp.json().catch(() => null)) as { ok?: boolean; needs_verify?: boolean; error?: string } | null;
+      if (!resp.ok() || !payload || payload.ok !== true) {
+        if (payload?.needs_verify) {
+          needsVerify = true;
+        } else {
+          throw new Error(`Smoke login failed: ${payload?.error || `HTTP ${resp.status()}`}`);
+        }
+      }
     }
+  } catch {
+    // Ignore request/response timing failures and fall back to DOM/url observation below.
   }
 
-  // Wait for navigation away from /login (or /verify-email), or fail fast on invalid credentials.
-  // (Do not rely on the login button disappearing; it may remain visible during transitions.)
   const start = Date.now();
   while (Date.now() - start < 30_000) {
     const url = page.url();
     if (!url.includes("/login")) return;
-    if (url.includes("/verify-email")) return;
+    if (needsVerify || url.includes("/verify-email")) return;
+
+    const invalidVisible = await page
+      .locator("text=Invalid login.")
+      .first()
+      .isVisible()
+      .catch(() => false);
+    if (invalidVisible) {
+      throw new Error("Smoke login failed (Invalid login). Ensure TI smoke users are seeded and credentials match Supabase.");
+    }
+
+    const savingVisible = await page.getByRole("button", { name: "Logging in..." }).isVisible().catch(() => false);
+    if (!savingVisible) {
+      // Try clicking again if the submit didn't fire due to focus/overlay timing.
+      await loginButton.click().catch(() => null);
+    }
+
     await page.waitForTimeout(250);
   }
+
   throw new Error("Smoke login timed out (still on /login after 30s).");
 }
 
