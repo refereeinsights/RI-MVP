@@ -61,10 +61,15 @@ async function login(page: Page, credentials: Credentials, path = "/login") {
     .waitForRequest((req) => req.url().includes("/api/auth/login") && req.method() === "POST", { timeout: 15_000 })
     .catch(() => null);
 
+  // Try Enter first (often most reliable), but avoid double-submitting when the handler is attached.
   await passwordInput.press("Enter").catch(() => null);
-  await page.waitForTimeout(150);
-  // If we're still idle, click the submit button as a fallback.
-  await loginButton.click({ noWaitAfter: true }).catch(() => null);
+  const sawReqQuick = await Promise.race([
+    loginReqPromise.then((req) => Boolean(req)),
+    page.waitForTimeout(500).then(() => false),
+  ]);
+  if (!sawReqQuick) {
+    await loginButton.click({ noWaitAfter: true }).catch(() => null);
+  }
 
   // Best-effort: prefer reading the /api/auth/login response, but fall back to observing URL/message changes.
   let needsVerify = false;
