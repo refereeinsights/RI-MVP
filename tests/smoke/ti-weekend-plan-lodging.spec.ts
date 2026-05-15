@@ -35,8 +35,21 @@ async function login(page: Page, credentials: Credentials, path = "/login") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.getByPlaceholder(/Email/i).fill(credentials.email);
   await page.getByPlaceholder("Password").fill(credentials.password);
+  const loginRespPromise = page.waitForResponse(
+    (resp) => resp.url().includes("/api/auth/login") && resp.request().method() === "POST",
+    { timeout: 30_000 },
+  );
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForLoadState("domcontentloaded");
+
+  const loginResp = await loginRespPromise;
+  const payload = (await loginResp.json().catch(() => null)) as { ok?: boolean; needs_verify?: boolean; error?: string } | null;
+  if (!loginResp.ok() || !payload || payload.ok !== true) {
+    if (payload?.needs_verify) {
+      // App should redirect to /verify-email. Continue.
+    } else {
+      throw new Error(`Smoke login failed: ${payload?.error || `HTTP ${loginResp.status()}`}`);
+    }
+  }
 
   // Wait for navigation away from /login (or /verify-email), or fail fast on invalid credentials.
   // (Do not rely on the login button disappearing; it may remain visible during transitions.)
@@ -45,16 +58,6 @@ async function login(page: Page, credentials: Credentials, path = "/login") {
     const url = page.url();
     if (!url.includes("/login")) return;
     if (url.includes("/verify-email")) return;
-    const invalidVisible = await page
-      .locator("text=Invalid login.")
-      .first()
-      .isVisible()
-      .catch(() => false);
-    if (invalidVisible) {
-      throw new Error(
-        "Smoke login failed (Invalid login). Ensure TI smoke users are seeded and TI_SMOKE_* credentials match Supabase.",
-      );
-    }
     await page.waitForTimeout(250);
   }
   throw new Error("Smoke login timed out (still on /login after 30s).");
