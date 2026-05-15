@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "playwright/test";
+import { expect, test } from "playwright/test";
+import { loginViaApi, logout } from "./tiAuth";
 
 type Credentials = {
   email: string;
@@ -25,17 +26,8 @@ const insider: Credentials = {
 
 const joinCode = process.env.TI_SMOKE_JOIN_CODE || "VALID";
 
-async function logout(page: Page) {
-  await page.goto("/logout?returnTo=/", { waitUntil: "domcontentloaded" });
-}
-
-async function login(page: Page, credentials: Credentials, path = "/login") {
-  await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.getByPlaceholder("Email").fill(credentials.email);
-  await page.getByPlaceholder("Password").fill(credentials.password);
-  await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForLoadState("domcontentloaded");
-  await expect(page.getByRole("button", { name: "Log in" })).not.toBeVisible({ timeout: 10_000 });
+async function login(page: any, credentials: Credentials, returnTo: string) {
+  await loginViaApi(page, credentials, returnTo);
 }
 
 test.describe("TI public beta smoke: join + auth + tier gating", () => {
@@ -51,7 +43,7 @@ test.describe("TI public beta smoke: join + auth + tier gating", () => {
 
   test("logged-in Explorer is redirected to /account with notice", async ({ page }) => {
     await logout(page);
-    await login(page, explorer, "/login?returnTo=%2Fvenues%2Freviews");
+    await login(page, explorer, "/venues/reviews");
 
     await expect(page).toHaveURL(/\/account\?notice=/);
     const url = new URL(page.url());
@@ -61,7 +53,7 @@ test.describe("TI public beta smoke: join + auth + tier gating", () => {
 
   test("logged-in Insider can access /venues/reviews", async ({ page }) => {
     await logout(page);
-    await login(page, insider, "/login?returnTo=%2Fvenues%2Freviews");
+    await login(page, insider, "/venues/reviews");
 
     await expect(page).toHaveURL(/\/venues\/reviews/);
     await expect(page.getByRole("heading", { level: 1, name: "Venue Reviews" })).toBeVisible();
@@ -77,9 +69,7 @@ test.describe("TI public beta smoke: join + auth + tier gating", () => {
     await page.getByRole("link", { name: "Log in" }).click();
     await expect(page).toHaveURL(new RegExp(`/login\\?code=${encodeURIComponent(joinCode)}`));
 
-    await page.getByPlaceholder("Email").fill(insider.email);
-    await page.getByPlaceholder("Password").fill(insider.password);
-    await page.getByRole("button", { name: "Log in" }).click();
+    await loginViaApi(page, insider, `/join?code=${encodeURIComponent(joinCode)}`);
 
     await expect(page).toHaveURL(new RegExp(`/join\\?code=${encodeURIComponent(joinCode)}`));
     await expect(page.locator('input[name="code"]')).toHaveValue(joinCode);

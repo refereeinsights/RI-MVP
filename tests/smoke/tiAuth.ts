@@ -28,12 +28,16 @@ function parseSetCookie(cookieHeader: string) {
     ?.trim();
   const expires = expiresRaw ? Date.parse(expiresRaw) : NaN;
 
+  const sameSiteForPlaywright =
+    sameSite === "lax" ? "Lax" : sameSite === "strict" ? "Strict" : sameSite === "none" ? "None" : undefined;
+
   return {
     name,
     value,
     secure,
     httpOnly,
-    sameSite: sameSite === "lax" || sameSite === "strict" || sameSite === "none" ? sameSite : undefined,
+    // Playwright expects SameSite as a capitalized enum string.
+    sameSite: sameSiteForPlaywright,
     expires: Number.isFinite(expires) ? Math.floor(expires / 1000) : undefined,
   };
 }
@@ -91,4 +95,3 @@ export async function loginViaApi(page: Page, credentials: Credentials, returnTo
   // Sanity: the login page should not still be visible.
   await expect(page.getByRole("heading", { level: 1, name: "Log in" })).not.toBeVisible({ timeout: 10_000 });
 }
-
