@@ -74,6 +74,17 @@ function formatDateRange(startIso: string | null, endIso: string | null) {
   }
 }
 
+function formatIsoDateShort(iso: string | null) {
+  if (!iso) return null;
+  try {
+    const d = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return null;
+  }
+}
+
 function metersToMilesLabel(meters: number | null) {
   if (typeof meters !== "number" || !Number.isFinite(meters)) return null;
   const miles = meters / 1609.344;
@@ -273,6 +284,19 @@ export default async function WeekendPage({
   // Saved-state should be "venue-match", not merely "plan exists".
   const initialSaved = planExists && Boolean(selectedVenueId) && planAnchorId === selectedVenueId;
 
+  const planLodging = (() => {
+    const plan = existingPlanRes?.ok ? existingPlanRes.plan : null;
+    return {
+      name: (plan as any)?.lodging_name ?? null,
+      address: (plan as any)?.lodging_address ?? null,
+      checkIn: (plan as any)?.check_in_date ?? null,
+      checkOut: (plan as any)?.check_out_date ?? null,
+    } as { name: string | null; address: string | null; checkIn: string | null; checkOut: string | null };
+  })();
+  const hasPlanLodging = Boolean(
+    String(planLodging.name ?? "").trim() || String(planLodging.address ?? "").trim() || String(planLodging.checkIn ?? "").trim() || String(planLodging.checkOut ?? "").trim(),
+  );
+
   // Weekend Guide cached places (if we have a selected venue + a complete run).
   const categories = ["coffee", "food", "quick_eats", "hangouts"];
   // Guardrail: avoid fetching full Owl's Eye / nearby lists for non-Weekend Pro viewers.
@@ -415,6 +439,37 @@ export default async function WeekendPage({
               isUnverified={isUnverified}
               plannerHref="/weekend-planner"
             />
+
+            {canSaveWeekendPlan && planExists ? (
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #e2e8f0", display: "grid", gap: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Lodging</div>
+                {hasPlanLodging ? (
+                  <div style={{ color: "#475569", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>
+                    {[planLodging.name, planLodging.address].filter(Boolean).join(" • ")}
+                    {[planLodging.checkIn, planLodging.checkOut].filter(Boolean).length ? (
+                      <span>
+                        {" "}
+                        •{" "}
+                        {[planLodging.checkIn, planLodging.checkOut]
+                          .filter(Boolean)
+                          .map((d) => formatIsoDateShort(String(d)))
+                          .filter(Boolean)
+                          .join(" - ")}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div style={{ color: "#475569", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>
+                    Already booked or know where you’re staying? Add your hotel or rental details to keep this weekend plan organized.
+                  </div>
+                )}
+                <div>
+                  <Link className="secondaryLink" href="/weekend-planner">
+                    Edit in Weekend Planner →
+                  </Link>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div style={{ marginTop: 4, padding: "12px 12px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#ffffff" }}>
@@ -438,6 +493,37 @@ export default async function WeekendPage({
               isUnverified={isUnverified}
               plannerHref="/weekend-planner"
             />
+
+            {canSaveWeekendPlan && planExists ? (
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #e2e8f0", display: "grid", gap: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Lodging</div>
+                {hasPlanLodging ? (
+                  <div style={{ color: "#475569", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>
+                    {[planLodging.name, planLodging.address].filter(Boolean).join(" • ")}
+                    {[planLodging.checkIn, planLodging.checkOut].filter(Boolean).length ? (
+                      <span>
+                        {" "}
+                        •{" "}
+                        {[planLodging.checkIn, planLodging.checkOut]
+                          .filter(Boolean)
+                          .map((d) => formatIsoDateShort(String(d)))
+                          .filter(Boolean)
+                          .join(" - ")}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div style={{ color: "#475569", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>
+                    Already booked or know where you’re staying? Add your hotel or rental details to keep this weekend plan organized.
+                  </div>
+                )}
+                <div>
+                  <Link className="secondaryLink" href="/weekend-planner">
+                    Edit in Weekend Planner →
+                  </Link>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
 

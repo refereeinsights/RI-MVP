@@ -6,6 +6,11 @@ export type WeekendPlanRow = {
   tournament_id: string;
   selected_venue_id: string | null;
   notes?: string | null;
+  lodging_name?: string | null;
+  lodging_address?: string | null;
+  check_in_date?: string | null;
+  check_out_date?: string | null;
+  lodging_notes?: string | null;
   status: "active" | "archived" | string;
   created_at?: string | null;
   updated_at?: string | null;
@@ -17,7 +22,9 @@ export async function getActivePlansForUser(params: { userId: string; limit?: nu
   const limit = Math.max(1, Math.min(100, Number(params.limit ?? 25) || 25));
 
   const { data, error } = await table
-    .select("id,user_id,tournament_id,selected_venue_id,notes,status,created_at,updated_at")
+    .select(
+      "id,user_id,tournament_id,selected_venue_id,notes,lodging_name,lodging_address,check_in_date,check_out_date,lodging_notes,status,created_at,updated_at",
+    )
     .eq("user_id", params.userId)
     .eq("status", "active")
     .order("created_at", { ascending: false })
@@ -31,7 +38,9 @@ export async function getWeekendPlanForTournament(params: { userId: string; tour
   const supabase = createSupabaseServerClient();
   const table = (supabase.from("ti_weekend_plans" as any) as any);
   const { data, error } = await table
-    .select("id,user_id,tournament_id,selected_venue_id,notes,status,created_at,updated_at")
+    .select(
+      "id,user_id,tournament_id,selected_venue_id,notes,lodging_name,lodging_address,check_in_date,check_out_date,lodging_notes,status,created_at,updated_at",
+    )
     .eq("user_id", params.userId)
     .eq("tournament_id", params.tournamentId)
     .eq("status", "active")
@@ -166,6 +175,31 @@ export async function updateWeekendPlanSelectedVenue(params: {
     .eq("id", params.planId)
     .eq("user_id", params.userId)
     .eq("status", "active");
+  if (error) return { ok: false as const, error: error.message || String(error) };
+  return { ok: true as const, error: null as string | null };
+}
+
+export async function updateWeekendPlanLodging(params: {
+  userId: string;
+  planId: string;
+  lodgingName?: string | null;
+  lodgingAddress?: string | null;
+  checkInDate?: string | null;
+  checkOutDate?: string | null;
+  lodgingNotes?: string | null;
+}) {
+  const supabase = createSupabaseServerClient();
+  const table = (supabase.from("ti_weekend_plans" as any) as any);
+
+  const patch: Record<string, unknown> = {
+    lodging_name: params.lodgingName ?? null,
+    lodging_address: params.lodgingAddress ?? null,
+    check_in_date: params.checkInDate ?? null,
+    check_out_date: params.checkOutDate ?? null,
+    lodging_notes: params.lodgingNotes ?? null,
+  };
+
+  const { error } = await table.update(patch).eq("id", params.planId).eq("user_id", params.userId).eq("status", "active");
   if (error) return { ok: false as const, error: error.message || String(error) };
   return { ok: true as const, error: null as string | null };
 }

@@ -3,10 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTiTierServer } from "@/lib/entitlementsServer";
-import { archiveWeekendPlan, updateWeekendPlanNotes } from "@/lib/weekendPlans";
+import { archiveWeekendPlan, updateWeekendPlanLodging, updateWeekendPlanNotes } from "@/lib/weekendPlans";
 import type { SavePlanState } from "@/app/weekend/[slug]/actions";
 
 const MAX_NOTES_CHARS = 3000;
+const MAX_LODGING_NOTES_CHARS = 3000;
+
+function isValidIsoDate(value: string | null | undefined) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return true;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+  const [y, m, d] = raw.split("-").map((n) => Number(n));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return false;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (!Number.isFinite(dt.getTime())) return false;
+  return dt.toISOString().slice(0, 10) === raw;
+}
 
 async function requireVerifiedPlannerUser() {
   const supabase = createSupabaseServerClient();
@@ -69,3 +81,43 @@ export async function archiveWeekendPlanAction(
   return { status: "saved" };
 }
 
+export async function updateWeekendPlanLodgingAction(
+  params: { planId: string },
+  _prevState: SavePlanState,
+  formData: FormData,
+): Promise<SavePlanState> {
+  const planId = String(params.planId ?? "").trim();
+  if (!planId) return { status: "error", error: "Missing plan." };
+
+  const authRes = await requireVerifiedPlannerUser();
+  if (!authRes.ok || !authRes.userId) return { status: "error", error: authRes.error || "Not authorized." };
+
+  const lodgingName = String(formData.get("lodging_name") ?? "").trim() || null;
+  const lodgingAddress = String(formData.get("lodging_address") ?? "").trim() || null;
+  const checkInDate = String(formData.get("check_in_date") ?? "").trim() || null;
+  const checkOutDate = String(formData.get("check_out_date") ?? "").trim() || null;
+  const rawNotes = String(formData.get("lodging_notes") ?? "");
+  const lodgingNotes = rawNotes.trim() ? rawNotes.trim() : null;
+
+  if (lodgingNotes && lodgingNotes.length > MAX_LODGING_NOTES_CHARS) {
+    return { status: "error", error: `Lodging notes must be ${MAX_LODGING_NOTES_CHARS} characters or fewer.` };
+  }
+
+  if (!isValidIsoDate(checkInDate) || !isValidIsoDate(checkOutDate)) {
+    return { status: "error", error: "Check-in and check-out dates must be valid dates." };
+  }
+
+  const res = await updateWeekendPlanLodging({
+    userId: authRes.userId,
+    planId,
+    lodgingName,
+    lodgingAddress,
+    checkInDate,
+    checkOutDate,
+    lodgingNotes,
+  });
+  if (!res.ok) return { status: "error", error: "Could not save lodging details. Please try again." };
+
+  revalidatePath("/weekend-planner");
+  return { status: "saved" };
+}

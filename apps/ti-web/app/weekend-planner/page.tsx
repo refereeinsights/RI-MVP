@@ -28,6 +28,11 @@ type WeekendPlanRow = {
   tournament_id: string;
   selected_venue_id: string | null;
   notes: string | null;
+  lodging_name: string | null;
+  lodging_address: string | null;
+  check_in_date: string | null;
+  check_out_date: string | null;
+  lodging_notes: string | null;
   created_at: string | null;
 };
 
@@ -85,6 +90,11 @@ export default async function WeekendPlannerPage() {
           tournament_id: String(p.tournament_id),
           selected_venue_id: (p.selected_venue_id as any) ?? null,
           notes: (p.notes as any) ?? null,
+          lodging_name: (p.lodging_name as any) ?? null,
+          lodging_address: (p.lodging_address as any) ?? null,
+          check_in_date: (p.check_in_date as any) ?? null,
+          check_out_date: (p.check_out_date as any) ?? null,
+          lodging_notes: (p.lodging_notes as any) ?? null,
           created_at: (p.created_at as any) ?? null,
         })) as WeekendPlanRow[];
       }
@@ -299,6 +309,11 @@ export default async function WeekendPlannerPage() {
                         const title = String(t?.name ?? "Tournament").trim();
                         const loc = [t?.city, t?.state].filter(Boolean).join(", ");
                         const metaParts = [t?.sport, formatDateRange(t?.start_date ?? null, t?.end_date ?? null), loc].filter(Boolean);
+                        const lodgingParts = [
+                          String(plan.lodging_name ?? "").trim() || null,
+                          String(plan.lodging_address ?? "").trim() || null,
+                        ].filter(Boolean) as string[];
+                        const lodgingDates = [formatDate(plan.check_in_date ?? null), formatDate(plan.check_out_date ?? null)].filter(Boolean);
 
                         if (!t || !hasSlug) {
                           const created = plan.created_at ? new Date(plan.created_at) : null;
@@ -329,11 +344,26 @@ export default async function WeekendPlannerPage() {
                                 {metaParts.join(" • ")}
                               </div>
                             ) : null}
+                            <div style={{ marginTop: 6, color: "rgba(16, 34, 19, 0.82)", fontWeight: 650, fontSize: 12, lineHeight: 1.4 }}>
+                              {lodgingParts.length || lodgingDates.length ? (
+                                <>
+                                  <span style={{ fontWeight: 850 }}>Lodging:</span>{" "}
+                                  {[...lodgingParts, lodgingDates.length ? lodgingDates.join(" - ") : null].filter(Boolean).join(" • ")}
+                                </>
+                              ) : (
+                                <>No lodging added yet.</>
+                              )}
+                            </div>
                             <WeekendPlanActionsClient
                               planId={plan.id}
                               tournamentSlug={slug}
                               selectedVenueId={plan.selected_venue_id ?? null}
                               notes={plan.notes ?? null}
+                              lodgingName={plan.lodging_name ?? null}
+                              lodgingAddress={plan.lodging_address ?? null}
+                              checkInDate={plan.check_in_date ?? null}
+                              checkOutDate={plan.check_out_date ?? null}
+                              lodgingNotes={plan.lodging_notes ?? null}
                               tournamentCity={t?.city ?? null}
                               tournamentState={t?.state ?? null}
                               tournamentStartDate={t?.start_date ?? null}
