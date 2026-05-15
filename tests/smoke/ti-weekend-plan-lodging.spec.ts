@@ -86,10 +86,10 @@ test.describe("TI smoke: Weekend Plans lodging details", () => {
     await login(page, insider, `/login?returnTo=${encodeURIComponent(`/weekend/${tournamentSlug}`)}`);
 
     await page.goto(`/weekend/${encodeURIComponent(tournamentSlug)}`, { waitUntil: "domcontentloaded" });
-    const saveButton = page.getByRole("button", { name: /Save weekend plan|Update planning anchor/i });
-    if (await saveButton.isVisible().catch(() => false)) {
-      await saveButton.click();
-    }
+    const saveButton = page.getByRole("button", { name: /Add to planner|Update planning anchor/i });
+    await expect(saveButton).toBeVisible();
+    await saveButton.click();
+    await expect(page.getByText("Weekend plan saved")).toBeVisible();
 
     await page.goto("/weekend-planner", { waitUntil: "domcontentloaded" });
     await expect(page.getByText("Weekend plans", { exact: true })).toBeVisible();
@@ -122,6 +122,7 @@ test.describe("TI smoke: Weekend Plans lodging details", () => {
 
     // Basic smoke: Weekend Pro session is established.
     await page.goto("/weekend-planner", { waitUntil: "domcontentloaded" });
-    await expect(page.getByText("Weekend Pro active")).toBeVisible();
+    await expect(page.getByText(/Weekend Pro active|Insider access/i)).toBeVisible();
+    await expect(page.getByText("Explorer access")).not.toBeVisible();
   });
 });
