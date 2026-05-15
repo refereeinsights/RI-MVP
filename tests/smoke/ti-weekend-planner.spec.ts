@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "playwright/test";
+import { expect, test } from "playwright/test";
+import { loginViaApi, logout } from "./tiAuth";
 
 type Credentials = {
   email: string;
@@ -23,17 +24,8 @@ const weekendPro: Credentials = {
   password: getEnvOrThrow("TI_SMOKE_WEEKENDPRO_PASSWORD"),
 };
 
-async function logout(page: Page) {
-  await page.goto("/logout?returnTo=/", { waitUntil: "domcontentloaded" });
-}
-
-async function login(page: Page, credentials: Credentials, path = "/login") {
-  await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.getByPlaceholder("Email").fill(credentials.email);
-  await page.getByPlaceholder("Password").fill(credentials.password);
-  await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForLoadState("domcontentloaded");
-  await expect(page.getByRole("button", { name: "Log in" })).not.toBeVisible({ timeout: 10_000 });
+async function login(page: any, credentials: Credentials, returnTo: string) {
+  await loginViaApi(page, credentials, returnTo);
 }
 
 test.describe("TI smoke: Weekend Planner hub", () => {
@@ -51,7 +43,7 @@ test.describe("TI smoke: Weekend Planner hub", () => {
 
   test("logged-in Insider can view /weekend-planner and sees saved tournaments section", async ({ page }) => {
     await logout(page);
-    await login(page, insider, "/login?returnTo=%2Fweekend-planner");
+    await login(page, insider, "/weekend-planner");
 
     await expect(page).toHaveURL(/\/weekend-planner/);
     await expect(page.getByRole("heading", { level: 1, name: "Weekend Planner" })).toBeVisible();
@@ -61,7 +53,7 @@ test.describe("TI smoke: Weekend Planner hub", () => {
 
   test("logged-in Weekend Pro sees Weekend Pro active on /weekend-planner", async ({ page }) => {
     await logout(page);
-    await login(page, weekendPro, "/login?returnTo=%2Fweekend-planner");
+    await login(page, weekendPro, "/weekend-planner");
 
     await expect(page).toHaveURL(/\/weekend-planner/);
     await expect(page.getByRole("heading", { level: 1, name: "Weekend Planner" })).toBeVisible();

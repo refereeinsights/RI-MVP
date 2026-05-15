@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "playwright/test";
 import { createClient } from "@supabase/supabase-js";
+import { loginViaApi, logout } from "./tiAuth";
 
 type Credentials = {
   email: string;
@@ -27,94 +28,8 @@ const weekendPro: Credentials = {
   password: getEnvOrThrow("TI_SMOKE_WEEKENDPRO_PASSWORD"),
 };
 
-async function logout(page: Page) {
-  // Use an absolute URL to keep host stable (avoid localhost<->127.0.0.1 redirects that can confuse navigation tracking).
-  const base = String(process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3001").replace(/\/+$/, "");
-  await page.goto(`${base}/logout?returnTo=/`, { waitUntil: "domcontentloaded" });
-}
-
-async function login(page: Page, credentials: Credentials, path = "/login") {
-  await page.goto(path, { waitUntil: "domcontentloaded" });
-  // Ensure we actually landed on the intended login URL (returnTo query string can get dropped if the navigation
-  // was interrupted by a redirect). If we didn't, try once more.
-  if (!page.url().includes("/login")) {
-    await page.goto(path, { waitUntil: "domcontentloaded" });
-  }
-  const identifierInput = page.getByPlaceholder(/Email/i);
-  const passwordInput = page.getByPlaceholder("Password");
-  const loginButton = page.getByRole("button", { name: "Log in" });
-
-  await expect(identifierInput).toBeVisible();
-  await expect(passwordInput).toBeVisible();
-  await expect(loginButton).toBeVisible();
-
-  // Ensure the login page is hydrated before submitting.
-  // If we click too early, the browser may perform a native form submit (no /api/auth/login request).
-  await identifierInput.fill(credentials.email);
-  await expect.poll(async () => identifierInput.inputValue()).toBe(credentials.email);
-  await passwordInput.fill(credentials.password);
-  await expect.poll(async () => passwordInput.inputValue()).toBe(credentials.password);
-
-  // Submit (try Enter first, then click). We consider the request optional because hydration timing can
-  // occasionally cause the submit handler not to attach immediately.
-  const loginReqPromise = page
-    .waitForRequest((req) => req.url().includes("/api/auth/login") && req.method() === "POST", { timeout: 15_000 })
-    .catch(() => null);
-
-  // Try Enter first (often most reliable), but avoid double-submitting when the handler is attached.
-  await passwordInput.press("Enter").catch(() => null);
-  const sawReqQuick = await Promise.race([
-    loginReqPromise.then((req) => Boolean(req)),
-    page.waitForTimeout(500).then(() => false),
-  ]);
-  if (!sawReqQuick) {
-    await loginButton.click({ noWaitAfter: true }).catch(() => null);
-  }
-
-  // Best-effort: prefer reading the /api/auth/login response, but fall back to observing URL/message changes.
-  let needsVerify = false;
-  try {
-    const req = await loginReqPromise;
-    const resp = await req?.response();
-    if (req && resp) {
-      const payload = (await resp.json().catch(() => null)) as { ok?: boolean; needs_verify?: boolean; error?: string } | null;
-      if (!resp.ok() || !payload || payload.ok !== true) {
-        if (payload?.needs_verify) {
-          needsVerify = true;
-        } else {
-          throw new Error(`Smoke login failed: ${payload?.error || `HTTP ${resp.status()}`}`);
-        }
-      }
-    }
-  } catch {
-    // Ignore request/response timing failures and fall back to DOM/url observation below.
-  }
-
-  const start = Date.now();
-  while (Date.now() - start < 30_000) {
-    const url = page.url();
-    if (!url.includes("/login")) return;
-    if (needsVerify || url.includes("/verify-email")) return;
-
-    const invalidVisible = await page
-      .locator("text=Invalid login.")
-      .first()
-      .isVisible()
-      .catch(() => false);
-    if (invalidVisible) {
-      throw new Error("Smoke login failed (Invalid login). Ensure TI smoke users are seeded and credentials match Supabase.");
-    }
-
-    const savingVisible = await page.getByRole("button", { name: "Logging in..." }).isVisible().catch(() => false);
-    if (!savingVisible) {
-      // Try clicking again if the submit didn't fire due to focus/overlay timing.
-      await loginButton.click().catch(() => null);
-    }
-
-    await page.waitForTimeout(250);
-  }
-
-  throw new Error("Smoke login timed out (still on /login after 30s).");
+async function login(page: Page, credentials: Credentials, returnTo: string) {
+  await loginViaApi(page, credentials, returnTo);
 }
 
 let cachedTournamentSlug: string | null = null;
@@ -208,7 +123,7 @@ test.describe("TI smoke: Weekend Plans lodging details", () => {
 
   test("Explorer account cannot manage saved planning features (no lodging edit)", async ({ page }) => {
     await logout(page);
-    await login(page, explorer, "/login?returnTo=%2Fweekend-planner");
+    await login(page, explorer, "/weekend-planner");
 
     // Explorer accounts are redirected to account gating notice in this codebase.
     // We only assert they do not see Insider/Weekend Pro saved-planning controls.
@@ -221,7 +136,7 @@ test.describe("TI smoke: Weekend Plans lodging details", () => {
     test.setTimeout(120_000);
     await logout(page);
     const tournamentSlug = await getAnyTournamentSlugForSmoke(page);
-    await login(page, insider, `/login?returnTo=${encodeURIComponent(`/weekend/${tournamentSlug}`)}`);
+    await login(page, insider, `/weekend/${tournamentSlug}`);
 
     await page.goto(`/weekend/${encodeURIComponent(tournamentSlug)}`, { waitUntil: "domcontentloaded" });
     // If the account is unverified in this env, the page will show verify messaging instead of a save CTA.
@@ -270,7 +185,7 @@ test.describe("TI smoke: Weekend Plans lodging details", () => {
     test.setTimeout(120_000);
     await logout(page);
     const tournamentSlug = await getAnyTournamentSlugForSmoke(page);
-    await login(page, weekendPro, `/login?returnTo=${encodeURIComponent(`/weekend/${tournamentSlug}`)}`);
+    await login(page, weekendPro, `/weekend/${tournamentSlug}`);
     await page.goto(`/weekend/${encodeURIComponent(tournamentSlug)}`, { waitUntil: "domcontentloaded" });
 
     // Basic smoke: Weekend Pro session is established.

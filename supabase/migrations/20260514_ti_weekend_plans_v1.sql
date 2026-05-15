@@ -16,6 +16,11 @@ create table if not exists public.ti_weekend_plans (
   constraint ti_weekend_plans_status_check check (status in ('active', 'archived'))
 );
 
+-- Explicit grants: required for PostgREST / Data API access under RLS.
+-- Weekend plans are user-owned; allow authenticated users + service role only.
+grant select, insert, update, delete on table public.ti_weekend_plans to authenticated;
+grant select, insert, update, delete on table public.ti_weekend_plans to service_role;
+
 create index if not exists ti_weekend_plans_user_id_idx on public.ti_weekend_plans (user_id);
 create index if not exists ti_weekend_plans_tournament_id_idx on public.ti_weekend_plans (tournament_id);
 create index if not exists ti_weekend_plans_selected_venue_id_idx on public.ti_weekend_plans (selected_venue_id);
@@ -97,4 +102,3 @@ begin
       using (auth.uid() = user_id);
   end if;
 end $$;
-
