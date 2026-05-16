@@ -28,6 +28,7 @@ import { saveClaimedTournamentEdits } from "./actions";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import { buildHotelsHref, canShowBookingCta, isValidZip5 } from "@/lib/booking/venueBooking";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
+import { getWeekendPlanForTournament } from "@/lib/weekendPlans";
 import "../tournaments.css";
 
 type TournamentDetailCoreRow = {
@@ -255,11 +256,15 @@ async function TournamentUserActions({
   paramsSlug,
   searchParams,
   viewerContext,
+  primaryVenueIdForPlan,
+  owlPreviewCounts,
 }: {
   tournament: TournamentDetailCoreRow;
   paramsSlug: string;
   searchParams?: { claim?: string; saved?: string };
   viewerContext: Promise<ViewerContext>;
+  primaryVenueIdForPlan: string | null;
+  owlPreviewCounts: { food: number; coffee: number; quick_eats: number; hangouts: number; hotels: number } | null;
 }) {
   const viewer = await viewerContext;
   const resolvedSlug = (tournament.slug ?? paramsSlug ?? "").toLowerCase();
@@ -268,21 +273,20 @@ async function TournamentUserActions({
   const showSavedNotice = searchParams?.saved === "1";
   const hasDirectorEmailOnFile = Boolean((viewer.directorEmailOnFile ?? "").trim());
   const canEditThisTournament = canEditTournament(viewer.viewerEmail, viewer.directorEmailOnFile);
-  const primaryVenueIdForPlan = await (async () => {
+  const planHasLodging = await (async () => {
+    if (!viewer.userId) return false;
     try {
-      const { data } = await supabaseAdmin
-        .from("tournament_venues" as any)
-        .select("venue_id,is_primary,created_at")
-        .eq("tournament_id", tournament.id)
-        .eq("is_inferred", false)
-        .order("is_primary", { ascending: false })
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      const venueId = String((data as any)?.venue_id ?? "").trim();
-      return venueId || null;
+      const res = await getWeekendPlanForTournament({ userId: viewer.userId, tournamentId: tournament.id });
+      if (!res?.ok || !res.plan) return false;
+      const plan = res.plan as any;
+      return Boolean(
+        String(plan?.lodging_name ?? "").trim() ||
+          String(plan?.lodging_address ?? "").trim() ||
+          String(plan?.check_in_date ?? "").trim() ||
+          String(plan?.check_out_date ?? "").trim(),
+      );
     } catch {
-      return null;
+      return false;
     }
   })();
 
@@ -544,6 +548,8 @@ async function TournamentUserActions({
           tournamentId={tournament.id}
           tournamentSlug={tournament.slug}
           primaryVenueId={primaryVenueIdForPlan}
+          owlPreviewCounts={owlPreviewCounts}
+          planHasLodging={planHasLodging}
           city={tournament.city ?? null}
           state={tournament.state ?? null}
           startDate={tournament.start_date ?? null}
@@ -1627,6 +1633,50 @@ export default async function TournamentDetailPage({
     }
   })();
 
+  const primaryVenueIdForPlan = await (async () => {
+    try {
+      const { data: link } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("venue_id,is_primary,created_at")
+        .eq("tournament_id", data.id)
+        .eq("is_inferred", false)
+        .order("is_primary", { ascending: false })
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      const venueId = String((link as any)?.venue_id ?? "").trim();
+      return venueId || null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const owlPreviewCounts = await (async () => {
+    if (!primaryVenueIdForPlan) return null;
+    try {
+      const runRows = await fetchLatestOwlsEyeRuns([primaryVenueIdForPlan]);
+      const run =
+        runRows.find((r) => r?.venue_id === primaryVenueIdForPlan && String(r?.status ?? "").toLowerCase() === "complete") ?? null;
+      const runId = (run?.run_id ?? run?.id) as string | undefined;
+      if (!runId) return null;
+
+      const { data: nearbyRows } = await supabaseAdmin.from("owls_eye_nearby_food" as any).select("category").eq("run_id", runId);
+      const counts = { food: 0, coffee: 0, quick_eats: 0, hangouts: 0, hotels: 0 };
+      for (const row of ((nearbyRows as Array<{ category: string | null }> | null) ?? [])) {
+        const cat = String(row?.category ?? "food").toLowerCase();
+        if (cat === "coffee") counts.coffee += 1;
+        else if (cat === "quick_eats") counts.quick_eats += 1;
+        else if (cat === "hangouts") counts.hangouts += 1;
+        else if (cat === "hotel" || cat === "hotels") counts.hotels += 1;
+        else counts.food += 1;
+      }
+      if (counts.food + counts.coffee + counts.quick_eats + counts.hangouts + counts.hotels === 0) return null;
+      return counts;
+    } catch {
+      return null;
+    }
+  })();
+
   const locationLabel = buildLocationLabel(data.city, data.state) || "Location TBA";
   const start = formatDate(data.start_date);
   const end = formatDate(data.end_date);
@@ -1748,6 +1798,8 @@ export default async function TournamentDetailPage({
 	              paramsSlug={params.slug}
 	              searchParams={searchParams}
 	              viewerContext={viewerContext}
+                primaryVenueIdForPlan={primaryVenueIdForPlan}
+                owlPreviewCounts={owlPreviewCounts}
 	            />
 	          </Suspense>
 

@@ -96,7 +96,7 @@ function sectionIntro(category: string) {
   if (category === "quick_eats") return "Fast, practical food options for short breaks between games.";
   if (category === "hangouts") return "Casual spots where families can relax between games.";
   if (category === "coffee") return "Coffee options near the venue.";
-  if (category === "food") return "Nearby food options near the venue.";
+  if (category === "food") return "Nearby team meal candidates near the venue.";
   return null;
 }
 
@@ -410,6 +410,11 @@ export default async function WeekendPage({
                 Venue selected. You can switch venues below.
               </div>
             ) : null}
+            <div style={{ marginTop: 4, color: "#334155", fontWeight: 750, fontSize: 13, lineHeight: 1.45 }}>
+              {isWeekendPro
+                ? "Owl’s Eye is showing nearby food, coffee, quick eats, and hangouts for this tournament weekend."
+                : "Owl’s Eye preview covers nearby planning categories around this venue."}
+            </div>
             <div style={{ marginTop: 4, color: "#475569", fontWeight: 700, fontSize: 13 }}>
               Use this venue as your anchor for hotels, directions, and nearby options.
             </div>
@@ -608,8 +613,8 @@ export default async function WeekendPage({
                 <div style={{ marginTop: 10, display: "grid", gap: 6, color: "#475569", fontWeight: 750, fontSize: 13 }}>
                   <div>Coffee nearby</div>
                   <div>Quick eats</div>
-                  <div>Food options</div>
-                  <div>Family hangouts</div>
+                  <div>Team meals</div>
+                  <div>Parent hangouts</div>
                 </div>
                 <div style={{ marginTop: 10 }}>
                   {isUnverified ? (
@@ -654,10 +659,10 @@ export default async function WeekendPage({
                         {cat === "quick_eats"
                           ? "Quick Eats"
                           : cat === "hangouts"
-                            ? "Family-Friendly Hangouts"
+                            ? "Parent Hangouts"
                             : cat === "coffee"
                               ? "Coffee"
-                              : "Food"}
+                              : "Team Meals"}
                       </h3>
                       {sectionIntro(cat) ? (
                         <div style={{ marginTop: 6, color: "#475569", fontWeight: 650, fontSize: 13 }}>

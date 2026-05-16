@@ -2,6 +2,8 @@
 
 - TI Weekend Planner adoption: auto-select a default planning venue on `/weekend/[slug]` when none is explicitly chosen. Priority: valid `?venue=` (tournament-linked) → saved plan `selected_venue_id` → tournament primary venue (`tournament_venues.is_primary`) → first linked venue. URL selection is render-only until the user clicks “Add to planner” / “Update planning anchor”. File: `apps/ti-web/app/weekend/[slug]/page.tsx`.
 - TI tournament detail CTA: promote “Plan this tournament” as the primary CTA on `/tournaments/[slug]`, deep-linking to `/weekend/[slug]?venue=<primaryVenueId>` when a primary venue link exists (confirmed links only, ordered by `is_primary desc, created_at asc`). Files: `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx`, `apps/ti-web/app/tournaments/[slug]/page.tsx`.
+- TI tournament detail: add an “Owl’s Eye Weekend Preview” module under the primary CTA, showing only real cached category counts when available and a location-based “Find stays nearby” chip when not. File: `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx`.
+- TI weekend page: tighten the selected-venue intro with tier-aware Owl’s Eye preview copy and rename nearby sections to planning-oriented categories (“Team Meals”, “Quick Eats”, “Coffee”, “Parent Hangouts”). File: `apps/ti-web/app/weekend/[slug]/page.tsx`.
 
 ## 2026-05-12
 
