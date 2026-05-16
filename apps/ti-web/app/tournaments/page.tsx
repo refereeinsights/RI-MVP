@@ -673,8 +673,11 @@ export default async function TournamentsPage({
                       const hasVrbo = Boolean(city && /^[A-Z]{2}$/.test(state));
                       return (
                         <div className={`cardCtaGrid${hasVrbo ? " cardCtaGrid--twoUp" : ""}`}>
+                          <Link href={`/weekend/${t.slug}`} className="primaryLink cardCta--plan">
+                            Plan weekend
+                          </Link>
                           <a
-                            className="primaryLink cardCta--hotels"
+                            className="secondaryLink cardCta--hotels"
                             href={buildTournamentHotelsHref({
                               source: "tournament_directory",
                               tournamentId: t.id,

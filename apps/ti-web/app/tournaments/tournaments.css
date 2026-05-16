@@ -986,6 +986,10 @@
   gap: 10px;
 }
 
+.cardCtaGrid .cardCta--plan {
+  grid-column: 1 / -1;
+}
+
 .cardCtaGrid .cardCta--hotels {
   grid-column: 1 / -1;
 }
