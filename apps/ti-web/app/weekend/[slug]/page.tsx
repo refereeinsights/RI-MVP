@@ -194,6 +194,7 @@ export default async function WeekendPage({
 
   const venueParam = parseVenueParam(searchParams?.venue ?? null);
   let selectedVenue: VenueRow | null = null;
+  let selectedVenueSource: "url" | "plan" | "auto_primary" | "auto_first" | null = null;
 
   if (venueParam.kind !== "none" && venueParam.value) {
     const venueValue = venueParam.value;
@@ -225,6 +226,8 @@ export default async function WeekendPage({
         selectedVenue = null;
       }
     }
+
+    if (selectedVenue?.id) selectedVenueSource = "url";
   }
 
   // Weekend plan state (must be loaded before derived computations that depend on selectedVenue).
@@ -241,6 +244,26 @@ export default async function WeekendPage({
       .eq("id", planAnchorId)
       .maybeSingle<VenueRow>();
     selectedVenue = (anchorVenue as VenueRow | null) ?? null;
+    if (selectedVenue?.id) selectedVenueSource = "plan";
+  }
+
+  // Stage 1 adoption improvement: if we still don't have a selected venue, auto-select a sensible default
+  // so the planner does not render empty when venue data exists.
+  if (!selectedVenue?.id) {
+    const { data: defaultLink } = await supabaseAdmin
+      .from("tournament_venues" as any)
+      .select("venue_id,is_primary,created_at,venues(id,seo_slug,name,address,city,state,zip,latitude,longitude)")
+      .eq("tournament_id", tournament.id)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    const defaultVenue = (defaultLink as any)?.venues as VenueRow | null | undefined;
+    if (defaultVenue?.id) {
+      selectedVenue = defaultVenue;
+      selectedVenueSource = (defaultLink as any)?.is_primary ? "auto_primary" : "auto_first";
+    }
   }
 
   const dateLabel = formatDateRange(tournament.start_date, tournament.end_date);
@@ -378,6 +401,15 @@ export default async function WeekendPage({
           <div style={{ marginTop: 4, padding: "12px 12px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#ffffff" }}>
             <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Planning around</div>
             <div style={{ marginTop: 2, fontWeight: 850, color: "#0f172a" }}>{selectedVenue.name ?? "Venue"}</div>
+            {selectedVenueSource === "auto_primary" ? (
+              <div style={{ marginTop: 4, color: "#334155", fontWeight: 800, fontSize: 13 }}>
+                Primary venue selected. You can switch venues below.
+              </div>
+            ) : selectedVenueSource === "auto_first" ? (
+              <div style={{ marginTop: 4, color: "#334155", fontWeight: 800, fontSize: 13 }}>
+                Venue selected. You can switch venues below.
+              </div>
+            ) : null}
             <div style={{ marginTop: 4, color: "#475569", fontWeight: 700, fontSize: 13 }}>
               Use this venue as your anchor for hotels, directions, and nearby options.
             </div>

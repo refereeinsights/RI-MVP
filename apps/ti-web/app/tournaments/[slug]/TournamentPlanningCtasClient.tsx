@@ -16,6 +16,7 @@ function isValidIsoDate(value: string | null | undefined) {
 export default function TournamentPlanningCtasClient(props: {
   tournamentId: string;
   tournamentSlug: string;
+  primaryVenueId?: string | null;
   city: string | null;
   state: string | null;
   startDate: string | null;
@@ -25,7 +26,12 @@ export default function TournamentPlanningCtasClient(props: {
   if (!slug) return null;
 
   const mapHref = `/tournaments/${encodeURIComponent(slug)}/map`;
-  const weekendHref = `/weekend/${encodeURIComponent(slug)}`;
+  const weekendHref = (() => {
+    const base = `/weekend/${encodeURIComponent(slug)}`;
+    const primaryVenueId = String(props.primaryVenueId ?? "").trim();
+    if (!primaryVenueId) return base;
+    return `${base}?venue=${encodeURIComponent(primaryVenueId)}`;
+  })();
 
   const travelHref = (() => {
     const qp = new URLSearchParams();
@@ -46,6 +52,22 @@ export default function TournamentPlanningCtasClient(props: {
   return (
     <div className="detailLinksRow" style={{ marginTop: 10, justifyContent: "center", gap: 10, flexWrap: "wrap" as any }}>
       <Link
+        className="primaryLink"
+        href={weekendHref}
+        onClick={() => {
+          void trackTiEvent("tournament_detail_weekend_plan_clicked", {
+            page_type: "tournament_detail",
+            tournament_id: props.tournamentId,
+            tournament_slug: slug,
+            source_page: "tournament_detail",
+            cta: "weekend_plan",
+            href: weekendHref,
+          });
+        }}
+      >
+        Plan this tournament
+      </Link>
+      <Link
         className="secondaryLink"
         href={mapHref}
         onClick={() => {
@@ -60,22 +82,6 @@ export default function TournamentPlanningCtasClient(props: {
         }}
       >
         Open venue map →
-      </Link>
-      <Link
-        className="secondaryLink"
-        href={weekendHref}
-        onClick={() => {
-          void trackTiEvent("tournament_detail_weekend_plan_clicked", {
-            page_type: "tournament_detail",
-            tournament_id: props.tournamentId,
-            tournament_slug: slug,
-            source_page: "tournament_detail",
-            cta: "weekend_plan",
-            href: weekendHref,
-          });
-        }}
-      >
-        Open weekend plan →
       </Link>
       <Link
         className="secondaryLink"
@@ -96,4 +102,3 @@ export default function TournamentPlanningCtasClient(props: {
     </div>
   );
 }
-

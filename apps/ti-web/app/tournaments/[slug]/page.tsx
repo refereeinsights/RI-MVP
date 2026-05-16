@@ -268,6 +268,23 @@ async function TournamentUserActions({
   const showSavedNotice = searchParams?.saved === "1";
   const hasDirectorEmailOnFile = Boolean((viewer.directorEmailOnFile ?? "").trim());
   const canEditThisTournament = canEditTournament(viewer.viewerEmail, viewer.directorEmailOnFile);
+  const primaryVenueIdForPlan = await (async () => {
+    try {
+      const { data } = await supabaseAdmin
+        .from("tournament_venues" as any)
+        .select("venue_id,is_primary,created_at")
+        .eq("tournament_id", tournament.id)
+        .eq("is_inferred", false)
+        .order("is_primary", { ascending: false })
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      const venueId = String((data as any)?.venue_id ?? "").trim();
+      return venueId || null;
+    } catch {
+      return null;
+    }
+  })();
 
   if (showClaimNotice && viewer.userId && canEditThisTournament) {
     try {
@@ -526,6 +543,7 @@ async function TournamentUserActions({
         <TournamentPlanningCtasClient
           tournamentId={tournament.id}
           tournamentSlug={tournament.slug}
+          primaryVenueId={primaryVenueIdForPlan}
           city={tournament.city ?? null}
           state={tournament.state ?? null}
           startDate={tournament.start_date ?? null}

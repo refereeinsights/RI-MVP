@@ -1,3 +1,8 @@
+## 2026-05-16
+
+- TI Weekend Planner adoption: auto-select a default planning venue on `/weekend/[slug]` when none is explicitly chosen. Priority: valid `?venue=` (tournament-linked) → saved plan `selected_venue_id` → tournament primary venue (`tournament_venues.is_primary`) → first linked venue. URL selection is render-only until the user clicks “Add to planner” / “Update planning anchor”. File: `apps/ti-web/app/weekend/[slug]/page.tsx`.
+- TI tournament detail CTA: promote “Plan this tournament” as the primary CTA on `/tournaments/[slug]`, deep-linking to `/weekend/[slug]?venue=<primaryVenueId>` when a primary venue link exists (confirmed links only, ordered by `is_primary desc, created_at asc`). Files: `apps/ti-web/app/tournaments/[slug]/TournamentPlanningCtasClient.tsx`, `apps/ti-web/app/tournaments/[slug]/page.tsx`.
+
 ## 2026-05-12
 
 - TI Weekend Planner Phase 1 (no new tables): clarified `/weekend-planner` as a preview hub with canonical to `/book-travel`, and updated planner analytics payloads to tag `source_page` based on route (`book_travel` vs `weekend_planner`) while reusing existing `book_travel_*` event names: `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`.
