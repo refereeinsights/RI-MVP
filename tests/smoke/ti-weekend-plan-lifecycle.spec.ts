@@ -230,6 +230,7 @@ test.describe("TI smoke: Weekend Plan lifecycle", () => {
 
     // We don't assert "no plans" (the user may have other plans); we only assert this tournament no longer
     // has an active plan entry on the hub.
-    await expect(page.locator(`a[href^="/weekend/${encodeURIComponent(slug)}"]`)).toHaveCount(0);
+    const planCardAfter = page.locator(`div:has(a[href^="${slugPrefix}"]):has(button:has-text("Remove plan"))`).first();
+    await expect(planCardAfter).toHaveCount(0);
   });
 });

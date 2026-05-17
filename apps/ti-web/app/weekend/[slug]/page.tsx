@@ -621,10 +621,10 @@ export default async function WeekendPage({
                 <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Nearby venue intelligence</div>
                 <div style={{ marginTop: 6, color: "#475569", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>
                   {isUnverified
-                    ? "Confirm your email to unlock Insider saved planning tools. Weekend Pro unlocks deeper venue intelligence as tools roll out."
+                    ? "Verify your email to save this weekend plan. Weekend Pro unlocks the full Owl’s Eye view for this venue."
                     : isAuthed
-                      ? "Weekend Pro unlocks deeper Owl’s Eye venue intelligence and advanced logistics tools as they roll out."
-                      : "Sign in with a verified account to save tournaments and keep planning links in one place. Weekend Pro unlocks deeper venue intelligence as tools roll out."}
+                      ? "Upgrade to Weekend Pro for full nearby planning picks."
+                      : "Create a free Insider account to save this weekend plan. Weekend Pro unlocks the full Owl’s Eye view for this venue."}
                 </div>
                 <div style={{ marginTop: 10, display: "grid", gap: 6, color: "#475569", fontWeight: 750, fontSize: 13 }}>
                   <div>Coffee nearby</div>

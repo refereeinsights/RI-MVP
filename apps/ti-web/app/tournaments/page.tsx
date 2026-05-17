@@ -201,7 +201,10 @@ export default async function TournamentsPage({
   const radiusMiles = Number.isFinite(radiusMilesRaw) ? Math.min(Math.max(radiusMilesRaw, 1), 500) : 50;
   const zipRequested = Boolean(zip);
 
-  const pageSize = 1000;
+  // Performance guardrail: this page is the primary entry point, so keep queries bounded.
+  // We still allow broad browsing, but avoid loading "everything" in one request.
+  const pageSize = 200;
+  const maxRows = 600;
   let offset = 0;
   let tournamentsData: any[] = [];
   let error = null as any;
@@ -244,6 +247,14 @@ export default async function TournamentsPage({
           query = query.or(`is_demo.eq.true,start_date.gte.${today},end_date.gte.${today}`);
         }
 
+        if (!isAllStates && stateSelections.length > 0) {
+          query = query.in("state", stateSelections);
+        }
+
+        if (sportsSelected.length > 0) {
+          query = query.in("sport", sportsSelected);
+        }
+
         if (q) {
           query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
         }
@@ -278,6 +289,7 @@ export default async function TournamentsPage({
     tournamentsData.push(...(data ?? []));
     if (!data || data.length < pageSize) break;
     offset += pageSize;
+    if (tournamentsData.length >= maxRows) break;
   }
 
   if (error) {

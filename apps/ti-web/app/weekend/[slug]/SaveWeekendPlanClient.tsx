@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useFormState } from "react-dom";
+import { useFormState, useFormStatus } from "react-dom";
 import { saveWeekendPlanAction, type SavePlanState } from "./actions";
 
 type Props = {
@@ -17,6 +17,15 @@ type Props = {
 
 const IDLE: SavePlanState = { status: "idle" };
 const SAVED: SavePlanState = { status: "saved" };
+
+function SubmitButton(props: { isUpdate: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" className="primaryLink" style={{ cursor: pending ? "default" : "pointer", opacity: pending ? 0.75 : 1 }} disabled={pending}>
+      {pending ? "Saving..." : props.isUpdate ? "Update planning anchor" : "Add to planner"}
+    </button>
+  );
+}
 
 export default function SaveWeekendPlanClient(props: Props) {
   if (!props.isAuthed) {
@@ -77,9 +86,7 @@ export default function SaveWeekendPlanClient(props: Props) {
           : `Save this tournament${props.selectedVenueId ? " and planning venue" : ""} so you can come back to it later.`}
       </div>
       <form action={formAction} style={{ marginTop: 8, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <button type="submit" className="primaryLink" style={{ cursor: "pointer" }}>
-          {props.planExists ? "Update planning anchor" : "Add to planner"}
-        </button>
+        <SubmitButton isUpdate={props.planExists} />
         {state.status === "error" ? (
           <span style={{ color: "#b91c1c", fontWeight: 800, fontSize: 12 }}>{state.error ?? "Unable to save right now."}</span>
         ) : null}

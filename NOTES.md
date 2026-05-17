@@ -2,6 +2,9 @@
 
 - TI weekend page (Weekend Logistics polish): added a “Print weekend plan” action (browser print) alongside the existing share controls on `/weekend/[slug]`, plus minimal print styles that hide interactive UI (share/print/actions and Owl’s Eye accordion summaries) and prevent private plan details from leaking in print for signed-out viewers: `apps/ti-web/app/weekend/[slug]/page.tsx`, `apps/ti-web/components/PrintButton.tsx`, `apps/ti-web/app/globals.css`.
 - TI weekend page (Weekend Pro UX): converted the Weekend Pro “Weekend Guide” Owl’s Eye category sections into native `<details>/<summary>` accordions for faster mobile scanning (default-open: Quick eats → Food → Coffee → first available), without changing data loading or entitlement gating: `apps/ti-web/app/weekend/[slug]/page.tsx`.
+- TI copy alignment: updated Weekend Guide locked/teaser copy on `/weekend/[slug]` to stop implying Weekend Pro is required to save plans; Insider remains the save tier, Weekend Pro is positioned as unlocking full Owl’s Eye depth (copy-only change): `apps/ti-web/app/weekend/[slug]/page.tsx`.
+- TI UX: added immediate “Saving…” feedback to the `/weekend/[slug]` save CTA to avoid silent submits while the server action resolves (no entitlement changes): `apps/ti-web/app/weekend/[slug]/SaveWeekendPlanClient.tsx`.
+- TI performance: bounded `/tournaments` directory loading by applying state/sport filters at query-time and capping rows per request to avoid multi-thousand row fetches in local dev (data-fetch only): `apps/ti-web/app/tournaments/page.tsx`.
 - Validation: TI targeted smoke suite passes (weekend plan lifecycle/lodging/planner) and `npm -w ti-web run build` succeeds.
 
 ## 2026-05-16
