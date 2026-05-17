@@ -138,7 +138,7 @@ test.describe("TI smoke: Weekend Plan lifecycle", () => {
     await login(page, insider, `/weekend/${encodeURIComponent(slug)}`);
 
     // Unverified accounts can't save plans in this codebase.
-    if (await page.getByText(/Confirm your email to save weekend plans/i).isVisible().catch(() => false)) {
+    if (await page.getByText(/Verify your email to save/i).isVisible().catch(() => false)) {
       test.skip(true, "Smoke Insider user is unverified in this environment.");
     }
 

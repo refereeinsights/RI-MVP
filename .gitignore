@@ -19,6 +19,9 @@
 # macOS
 .DS_Store
 
+# Local editor/agent config
+.claude/
+
 # Env files
 .env.local
 **/.env.local

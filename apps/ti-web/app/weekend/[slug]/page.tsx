@@ -20,6 +20,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const TI_GREEN_DARK = "#0F6E56";
+const TI_GREEN_MID = "#1D9E75";
+const TI_VENUE_BG = "#f0f7f0";
+const TI_VENUE_BORDER = "#c0ddc0";
+const TI_GUIDE_BG = "#faf8f5";
+
 type TournamentRow = {
   id: string;
   slug: string | null;
@@ -389,7 +395,9 @@ export default async function WeekendPage({
         </div>
 
         <div style={{ marginTop: 6, padding: "12px 12px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#f8fafc" }}>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Weekend snapshot</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.07em", textTransform: "uppercase", color: "#0f172a" }}>
+            Weekend snapshot
+          </div>
           <div style={{ marginTop: 6, display: "grid", gap: 4, color: "#475569", fontWeight: 700, fontSize: 13 }}>
             {tournament.sport ? <div>Sport: {tournament.sport}</div> : null}
             {dateLabel ? <div>Dates: {dateLabel}</div> : null}
@@ -408,9 +416,11 @@ export default async function WeekendPage({
         </div>
 
         {selectedVenue ? (
-          <div style={{ marginTop: 4, padding: "12px 12px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#ffffff" }}>
-            <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Planning around</div>
-            <div style={{ marginTop: 2, fontWeight: 850, color: "#0f172a" }}>{selectedVenue.name ?? "Venue"}</div>
+          <div style={{ marginTop: 4, padding: "12px 12px", borderRadius: 14, border: `1px solid ${TI_VENUE_BORDER}`, background: TI_VENUE_BG }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.07em", textTransform: "uppercase", color: TI_GREEN_DARK }}>
+              Planning around
+            </div>
+            <div style={{ marginTop: 2, fontWeight: 900, color: "#0b1f14", fontSize: 16 }}>{selectedVenue.name ?? "Venue"}</div>
             {selectedVenueSource === "auto_primary" ? (
               <div style={{ marginTop: 4, color: "#334155", fontWeight: 800, fontSize: 13 }}>
                 Primary venue selected. You can switch venues below.
@@ -436,7 +446,7 @@ export default async function WeekendPage({
             {selectedVenueAddressLine ? (
               <div style={{ marginTop: 4, color: "#475569", fontWeight: 700, fontSize: 13 }}>{selectedVenueAddressLine}</div>
             ) : null}
-            <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
               {selectedVenueDirectionsQuery ? (
                 <DirectionsChooserClient
                   label="Directions"
@@ -488,8 +498,10 @@ export default async function WeekendPage({
             />
 
             {canSaveWeekendPlan && planExists ? (
-              <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #e2e8f0", display: "grid", gap: 6 }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Lodging</div>
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(15, 61, 46, 0.14)", display: "grid", gap: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.07em", textTransform: "uppercase", color: "#0b1f14" }}>
+                  Lodging
+                </div>
                 {hasPlanLodging ? (
                   <div style={{ color: "#475569", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>
                     {[planLodging.name, planLodging.address].filter(Boolean).join(" • ")}
@@ -520,7 +532,9 @@ export default async function WeekendPage({
           </div>
         ) : (
           <div style={{ marginTop: 4, padding: "12px 12px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#ffffff" }}>
-            <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Choose a venue</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.07em", textTransform: "uppercase", color: "#0f172a" }}>
+              Choose a venue
+            </div>
             <div style={{ marginTop: 4, color: "#475569", fontWeight: 700, fontSize: 13 }}>
               For the best hotel/rental search, open the venue map and select where you’ll play.
             </div>
@@ -543,7 +557,9 @@ export default async function WeekendPage({
 
             {canSaveWeekendPlan && planExists ? (
               <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #e2e8f0", display: "grid", gap: 6 }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a" }}>Lodging</div>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.07em", textTransform: "uppercase", color: "#0f172a" }}>
+                  Lodging
+                </div>
                 {hasPlanLodging ? (
                   <div style={{ color: "#475569", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>
                     {[planLodging.name, planLodging.address].filter(Boolean).join(" • ")}
@@ -577,7 +593,7 @@ export default async function WeekendPage({
         <div style={{ display: "grid", gap: 10, marginTop: 2 }}>
           <div
             className="ti-print-hide"
-            style={{ fontSize: 12, fontWeight: 900, color: "#0f172a", letterSpacing: "0.06em", textTransform: "uppercase" }}
+            style={{ fontSize: 11, fontWeight: 900, color: "#0f172a", letterSpacing: "0.07em", textTransform: "uppercase" }}
           >
             Plan your stay
           </div>
@@ -592,7 +608,7 @@ export default async function WeekendPage({
               plannerHubHref="/weekend-planner"
             />
           </div>
-          <div className="ti-print-hide" style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div className="ti-print-hide" style={{ marginTop: 10, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
             <PrintButton label="Print weekend plan" className="secondaryLink" />
             <ShareWeekendButton
               tournamentSlug={tournament.slug}
@@ -610,8 +626,8 @@ export default async function WeekendPage({
         </div>
 
         {selectedVenue ? (
-          <div style={{ display: "grid", gap: 12 }}>
-            <h2 style={{ margin: "10px 0 0 0", fontSize: 18 }}>Weekend Guide</h2>
+          <div style={{ display: "grid", gap: 12, marginTop: 6, padding: "12px 12px", borderRadius: 16, background: TI_GUIDE_BG, border: "1px solid rgba(15, 23, 42, 0.08)" }}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>Weekend Guide</h2>
             {isWeekendPro ? (
               <div style={{ color: "#475569", fontWeight: 650 }}>
                 Nearby options cached by Owl’s Eye. Use these as planning ideas (not live availability).
@@ -683,7 +699,7 @@ export default async function WeekendPage({
                     >
                       <summary style={{ listStyle: "none", cursor: "pointer" }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                          <h3 style={{ margin: 0, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>{title}</h3>
+                          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: "#0f172a" }}>{title}</h3>
                         </div>
                         {sectionIntro(cat) ? (
                           <div style={{ marginTop: 6, color: "#475569", fontWeight: 650, fontSize: 13 }}>

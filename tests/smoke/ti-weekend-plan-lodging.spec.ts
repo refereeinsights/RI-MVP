@@ -140,7 +140,7 @@ test.describe("TI smoke: Weekend Plans lodging details", () => {
 
     await page.goto(`/weekend/${encodeURIComponent(tournamentSlug)}`, { waitUntil: "domcontentloaded" });
     // If the account is unverified in this env, the page will show verify messaging instead of a save CTA.
-    if (await page.getByText(/Confirm your email to save weekend plans/i).isVisible().catch(() => false)) {
+    if (await page.getByText(/Verify your email to save/i).isVisible().catch(() => false)) {
       test.skip(true, "Smoke user is unverified in this environment.");
     }
 
@@ -162,7 +162,7 @@ test.describe("TI smoke: Weekend Plans lodging details", () => {
     if (await saveButton.isVisible().catch(() => false)) {
       // Click and then proceed even if Playwright thinks a navigation is still settling (streaming/RSC can be noisy).
       await saveButton.click({ noWaitAfter: true });
-      // If the page stays "in navigation" for a while, don't let that block the smoke assertion.
+      // Give the server action a moment; we confirm persistence on `/weekend-planner` below.
       await page.waitForTimeout(750);
     } else {
       await expect(alreadySaved).toBeVisible({ timeout: 15_000 });
@@ -175,8 +175,21 @@ test.describe("TI smoke: Weekend Plans lodging details", () => {
         "Weekend plans unavailable: Supabase schema likely out of date for this environment. Apply latest Supabase migrations (including ti_weekend_plans lodging columns) and re-run smoke."
       );
     }
-    // We should see at least one plan card now.
-    await expect(page.getByText(/Lodging:|No lodging added yet\./i).first()).toBeVisible({ timeout: 20_000 });
+    // We should see at least one plan card now (wait/poll to tolerate eventual consistency).
+    await expect
+      .poll(
+        async () => {
+          const hasPlanCard = await page.getByRole("link", { name: /Continue plan →/i }).first().isVisible().catch(() => false);
+          const hasLodgingAction = await page
+            .getByRole("button", { name: /Add lodging details|Edit lodging details/i })
+            .first()
+            .isVisible()
+            .catch(() => false);
+          return hasPlanCard || hasLodgingAction;
+        },
+        { timeout: 25_000 },
+      )
+      .toBeTruthy();
 
     // Open lodging editor on the first plan card.
     const addLodging = page.getByRole("button", { name: /Add lodging details|Edit lodging details/i }).first();
