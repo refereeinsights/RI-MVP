@@ -213,8 +213,18 @@ test.describe("TI smoke: Weekend Plan lifecycle", () => {
     await expect(page.getByText("Lifecycle Smoke Lodging")).toBeVisible();
 
     // F) Archive removes active plan.
-    await page.getByRole("button", { name: "Remove plan" }).first().click();
-    await page.getByRole("button", { name: "Confirm remove" }).click();
+    const slugPrefix = `/weekend/${encodeURIComponent(slug)}`;
+    const planCard = page.locator(`div:has(a[href^="${slugPrefix}"]):has(button:has-text("Remove plan"))`).first();
+    await expect(planCard).toBeVisible({ timeout: 20_000 });
+
+    const removeButton = planCard.getByRole("button", { name: "Remove plan" });
+    await removeButton.scrollIntoViewIfNeeded();
+    await removeButton.click();
+
+    // The remove confirmation UI is rendered inline within the same plan card.
+    const confirmRemove = planCard.getByRole("button", { name: "Confirm remove" });
+    await expect(confirmRemove).toBeVisible({ timeout: 10_000 });
+    await confirmRemove.click();
     await page.waitForTimeout(750);
     await page.reload({ waitUntil: "domcontentloaded" });
 

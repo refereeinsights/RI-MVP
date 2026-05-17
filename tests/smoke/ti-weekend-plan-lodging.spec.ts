@@ -145,11 +145,28 @@ test.describe("TI smoke: Weekend Plans lodging details", () => {
     }
 
     const saveButton = page.getByRole("button", { name: /Add to planner|Update planning anchor|Save weekend plan/i });
-    await expect(saveButton).toBeVisible({ timeout: 15_000 });
-    // Click and then proceed even if Playwright thinks a navigation is still settling (streaming/RSC can be noisy).
-    await saveButton.click({ noWaitAfter: true });
-    // If the page stays "in navigation" for a while, don't let that block the smoke assertion.
-    await page.waitForTimeout(750);
+    const alreadySaved = page.getByText(/Weekend plan saved/i);
+    await expect
+      .poll(
+        async () => {
+          const saveVisible = await saveButton.isVisible().catch(() => false);
+          const savedVisible = await alreadySaved.isVisible().catch(() => false);
+          return saveVisible || savedVisible;
+        },
+        { timeout: 15_000 },
+      )
+      .toBeTruthy();
+
+    // Some environments already have an active plan for this smoke user + tournament. In that case,
+    // the weekend page renders a "Weekend plan saved" state and does not show a save button.
+    if (await saveButton.isVisible().catch(() => false)) {
+      // Click and then proceed even if Playwright thinks a navigation is still settling (streaming/RSC can be noisy).
+      await saveButton.click({ noWaitAfter: true });
+      // If the page stays "in navigation" for a while, don't let that block the smoke assertion.
+      await page.waitForTimeout(750);
+    } else {
+      await expect(alreadySaved).toBeVisible({ timeout: 15_000 });
+    }
 
     await page.goto("/weekend-planner", { waitUntil: "domcontentloaded" });
     await expect(page.getByText("Weekend plans", { exact: true })).toBeVisible();
