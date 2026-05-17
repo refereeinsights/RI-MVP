@@ -116,7 +116,7 @@ test.describe("TI smoke: Weekend Plans lodging details", () => {
     }
 
     // The save control should prompt sign-in for unauthenticated users.
-    await expect(page.getByText(/Sign in to save/i).first()).toBeVisible();
+    await expect(page.getByText(/Create a free Insider account to save this weekend plan/i).first()).toBeVisible();
     // Lodging block is private-to-owner and should never render for signed-out viewers.
     await expect(page.getByText("Lodging", { exact: true })).not.toBeVisible();
   });
