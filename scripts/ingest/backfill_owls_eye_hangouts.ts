@@ -30,8 +30,7 @@ const VALIDATION_COUNT = 2;
 const PAGE = 500;
 const BATCH_DELAY_MS = 700;
 
-function loadLocalEnv() {
-  const envPath = path.resolve(".env.local");
+function loadEnvFile(envPath: string) {
   if (!fs.existsSync(envPath)) return;
   const lines = fs.readFileSync(envPath, "utf8").split(/\r?\n/);
   for (const line of lines) {
@@ -42,6 +41,12 @@ function loadLocalEnv() {
     const value = line.slice(idx + 1).trim();
     if (!(key in process.env)) process.env[key] = value;
   }
+}
+
+function loadLocalEnv() {
+  // Load root .env.local first, then referee app env as fallback for FSQ/Supabase keys.
+  loadEnvFile(path.resolve(".env.local"));
+  loadEnvFile(path.resolve("apps/referee/.env.local"));
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -66,9 +71,11 @@ async function main() {
   const adminToken = process.env.OWLS_EYE_ADMIN_TOKEN || "";
   const apiBase = (process.env.REFEREE_APP_URL || "http://localhost:3000").replace(/\/$/, "");
 
+  // If the token is unset, fall back to "dev". The referee app accepts any non-empty
+  // header token when its own OWLS_EYE_ADMIN_TOKEN env var is also unset (local dev).
+  const effectiveToken = adminToken || "dev";
   if (APPLY && !adminToken) {
-    console.error("OWLS_EYE_ADMIN_TOKEN is not set — API calls will be rejected.");
-    process.exit(1);
+    console.warn("[warn] OWLS_EYE_ADMIN_TOKEN not set — using 'dev' token (only works if referee app also has no token configured).");
   }
 
   const supabase = createClient(url, key, {
@@ -200,7 +207,7 @@ async function main() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-owls-eye-admin-token": adminToken,
+          "x-owls-eye-admin-token": effectiveToken,
         },
         body: JSON.stringify({
           venue_id: t.venue_id,
