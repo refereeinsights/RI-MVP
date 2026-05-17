@@ -1523,6 +1523,22 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     console.warn("[owlseye] run placeholder check failed", err);
   }
 
+  // Targeted force refresh: delete only the categories being re-fetched so stale rows
+  // don't survive alongside fresh results. Runs after confirming uniqueRows is non-empty
+  // so we never wipe existing data on a zero-result re-run.
+  if (force && isTargetedRun && categoriesToFetch && categoriesToFetch.length > 0) {
+    for (const cat of categoriesToFetch) {
+      const { error: clearError } = await (supabaseAdmin
+        .from("owls_eye_nearby_food" as any) as any)
+        .delete()
+        .eq("run_id", runId)
+        .eq("category", cat);
+      if (clearError) {
+        console.warn("[owlseye] Could not clear existing rows for targeted category refresh", { cat, clearError });
+      }
+    }
+  }
+
   const { error } = await supabaseAdmin.from("owls_eye_nearby_food" as any).upsert(uniqueRows, {
     onConflict: "run_id,place_id",
   });

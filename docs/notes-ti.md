@@ -1730,6 +1730,13 @@ Maintenance rules:
   - Files: `apps/referee/app/venues/[venueId]/page.tsx`, `apps/referee/app/tournaments/[slug]/page.tsx`, `apps/referee/lib/venues/{getVenueHref,isUuid}.ts`.
   - Venue page now resolves by `seo_slug` or UUID, redirects UUIDs to slug URLs, sets canonical to slug; public venue links prefer slug with UUID fallback.
 
+- 2026-05-17: Owl's Eye hangouts targeted re-run: clean overwrite fix + backfill script.
+  - Problem: targeted category re-run (`categories: ["hangouts"], force: true`) only upserted by `run_id,place_id` — old parks/places with non-matching place_ids survived alongside fresh results.
+  - Fix: `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts` — when `force && isTargetedRun`, delete existing rows for the requested categories from `owls_eye_nearby_food` immediately before the upsert (safe: only runs after confirming `uniqueRows.length > 0`).
+  - Script: `scripts/ingest/backfill_owls_eye_hangouts.ts` — re-runs hangouts for venues with upcoming tournaments (now → Oct 31 2026), sorted by nearest tournament date. Validates first 2 venues interactively before bulk processing. Stops automatically on FSQ budget exhaustion.
+  - Usage: `tsx scripts/ingest/backfill_owls_eye_hangouts.ts` (dry run) / `--apply` (execute). Requires OWLS_EYE_ADMIN_TOKEN + REFEREE_APP_URL in env. Referee app must be running.
+  - FSQ budget context: ~7k calls remaining this month (10k free tier, ~3k used); ~4105 venues targeted at avg 1.5 calls/venue ≈ 6150 calls. Budget guard in withinBudgets() stops automatically if cap is hit. Verify FOURSQUARE_MONTHLY_CALL_LIMIT=10000 is set in referee app env (code default is 35000).
+
 - 2026-05-17: Backfill confirmed free accounts to plan='insider'.
   - Root cause: legacy ti_users rows had plan='free'; getTier() already granted insider to all confirmed users but the plan field was misaligned, causing the daily admin email to report "Insider: 2" (only explicit plan='insider' rows) instead of the real ~45 confirmed users.
   - Migration: `supabase/migrations/20260517_backfill_confirmed_free_to_insider.sql` — promotes all confirmed free/null-plan accounts to plan='insider' (~45 rows).
