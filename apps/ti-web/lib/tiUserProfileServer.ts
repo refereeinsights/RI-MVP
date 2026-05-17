@@ -7,6 +7,7 @@ import { extractProfileFromMetadata } from "@/lib/tiProfile";
 
 type ExistingTiUserRow = {
   id: string;
+  plan?: string | null;
   first_seen_at: string | null;
   qvc_pending_quick_check_id?: string | null;
   qvc_pending_browser_hash?: string | null;
@@ -44,7 +45,7 @@ function buildTiUserPayload(
 async function loadExistingTiUser(userId: string) {
   const { data: existingRaw, error: existingError } = await (supabaseAdmin
     .from("ti_users" as any) as any)
-    .select("id,first_seen_at,qvc_pending_quick_check_id,qvc_pending_browser_hash,qvc_pending_set_at")
+    .select("id,plan,first_seen_at,qvc_pending_quick_check_id,qvc_pending_browser_hash,qvc_pending_set_at")
     .eq("id", userId)
     .maybeSingle();
 
@@ -180,7 +181,17 @@ export async function syncTiUserProfileFromAuthUser(user: User): Promise<TiProfi
           ...(username ? { username, reviewer_handle: username } : {}),
         };
 
-  const finalPayload = { ...payload, ...pendingPayload };
+  // Promote legacy free/null-plan accounts to insider when the user confirms their email.
+  const shouldPromoteToInsider =
+    Boolean(user.email_confirmed_at) &&
+    existing?.id &&
+    (!existing.plan || existing.plan === "free");
+
+  const finalPayload = {
+    ...payload,
+    ...pendingPayload,
+    ...(shouldPromoteToInsider ? { plan: "insider" } : {}),
+  };
 
   let writeError: { message: string; code?: string } | null = null;
 

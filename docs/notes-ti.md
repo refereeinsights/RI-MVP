@@ -1729,3 +1729,9 @@ Maintenance rules:
 - 2026-03-14: Venue slug routing rollout (RI).
   - Files: `apps/referee/app/venues/[venueId]/page.tsx`, `apps/referee/app/tournaments/[slug]/page.tsx`, `apps/referee/lib/venues/{getVenueHref,isUuid}.ts`.
   - Venue page now resolves by `seo_slug` or UUID, redirects UUIDs to slug URLs, sets canonical to slug; public venue links prefer slug with UUID fallback.
+
+- 2026-05-17: Backfill confirmed free accounts to plan='insider'.
+  - Root cause: legacy ti_users rows had plan='free'; getTier() already granted insider to all confirmed users but the plan field was misaligned, causing the daily admin email to report "Insider: 2" (only explicit plan='insider' rows) instead of the real ~45 confirmed users.
+  - Migration: `supabase/migrations/20260517_backfill_confirmed_free_to_insider.sql` — promotes all confirmed free/null-plan accounts to plan='insider' (~45 rows).
+  - App fix: `apps/ti-web/lib/tiUserProfileServer.ts` — `syncTiUserProfileFromAuthUser` (called at email confirmation) now promotes plan='free'/null to 'insider' in the UPDATE path so future confirmations of legacy free accounts are handled automatically.
+  - No entitlement behavior change; no schema change. Daily email "Insider" count now reflects actual confirmed user base.
