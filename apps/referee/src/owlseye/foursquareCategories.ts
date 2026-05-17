@@ -29,6 +29,7 @@ export const HANGOUT_CATEGORY_IDS: string[] = [
   // We intentionally avoid broad categories like "Restaurant" here and rely on
   // targeted activity categories + our scoring/exclusion logic.
   "50327c8591d4c4b30a586d5d", // Brewery
+  "4bf58dd8d48988d11d941735", // Sports Bar (indoor AC, team-friendly; verified via discovery script)
   "4bf58dd8d48988d1e1931735", // Arcade
   "4bf58dd8d48988d1e4931735", // Bowling Alley
   "52e81612bcbc57f1066b79eb", // Mini Golf Course

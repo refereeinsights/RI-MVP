@@ -55,10 +55,10 @@ const QUICK_EATS_NEGATIVE_RE =
   /\b(bistro|martini|taproom|brewhouse|brewery|bar)\b/i;
 
 const HANGOUT_POSITIVE_RE =
-  /\b(brewery|brewhouse|taproom|arcade|bowling|mini golf|putt|science center|museum|park|playground|mall|riverfront|family|kids|outdoor|patio|spacious|ice cream|beer garden)\b/i;
+  /\b(brewery|brewhouse|taproom|sports.?bar|pub|arcade|bowling|mini golf|putt|science center|museum|park|playground|mall|riverfront|family|kids|outdoor|patio|spacious|ice cream|beer garden)\b/i;
 
 const HANGOUT_STRONG_RE =
-  /\b(brewery|brewhouse|taproom|arcade|bowling|mini golf|science center|park|playground|mall|flatstick|ice cream|beer garden)\b/i;
+  /\b(brewery|brewhouse|taproom|sports.?bar|arcade|bowling|mini golf|science center|park|playground|mall|flatstick|ice cream|beer garden)\b/i;
 
 function isExcludedBase(name: string) {
   if (HARD_EXCLUDE_RE.test(name)) return { excluded: true, reason: "hard_exclude" };
@@ -92,6 +92,8 @@ function tagsForHangouts(h: string) {
   const tags: string[] = [];
   if (/\b(brewery|brewhouse|taproom)\b/i.test(h)) tags.push("brewery");
   if (/\bbeer garden\b/i.test(h)) tags.push("brewery");
+  if (/\bsports.?bar\b/i.test(h)) tags.push("sports_bar");
+  if (/\bpub\b/i.test(h)) tags.push("pub");
   if (/\b(pizza|pizzeria)\b/i.test(h)) tags.push("pizza");
   if (/\barcade\b/i.test(h)) tags.push("arcade");
   if (/\bbowling\b/i.test(h)) tags.push("bowling");
@@ -170,15 +172,21 @@ export function tagAndFilterEnhancedPlaces(args: {
           /\b(brewery|brewhouse|taproom|brewpub|brew pub)\b/i.test(h) ||
           fsqCategoryNames.some((n) => /\b(brewery|brewhouse|taproom|brewpub|brew pub)\b/i.test(n)));
 
+      const sportsBarMatch =
+        args.category === "hangouts" &&
+        (reasonTagsBase.includes("sports_bar") ||
+          /\bsports.?bar\b/i.test(h) ||
+          fsqCategoryNames.some((n) => /\bsports.?bar\b/i.test(n)));
+
       const dogParkMatch =
         args.category === "hangouts" &&
         (DOG_PARK_EXCLUDE_RE.test(h) ||
           fsqCategoryNames.some((n) => DOG_PARK_EXCLUDE_RE.test(norm(n))));
 
       const baseEx = isExcludedBase(h);
-      // Brewery override: do not exclude brewery matches due to "soft nightlife" keywords (tasting room/lounge).
+      // Brewery/sports-bar override: do not exclude on "soft nightlife" keywords (tasting room/lounge).
       const baseExcluded =
-        baseEx.excluded && !(breweryMatch && baseEx.reason === "nightlife_soft");
+        baseEx.excluded && !((breweryMatch || sportsBarMatch) && baseEx.reason === "nightlife_soft");
 
       // Theaters are excluded by default; can be surfaced later via explicit allow logic.
       const theaterExcluded = THEATER_EXCLUDE_RE.test(h);
@@ -186,7 +194,7 @@ export function tagAndFilterEnhancedPlaces(args: {
 
       const reasonTags =
         args.category === "hangouts"
-          ? breweryMatch
+          ? breweryMatch || sportsBarMatch
             ? Array.from(new Set([...reasonTagsBase, "hangout_primary"]))
             : reasonTagsBase
           : reasonTagsBase;
@@ -206,7 +214,7 @@ export function tagAndFilterEnhancedPlaces(args: {
       })();
 
       const breweryQualifiedOverride =
-        args.category === "hangouts" && breweryMatch && !excluded && !NIGHTLIFE_HARD_EXCLUDE_RE.test(h);
+        args.category === "hangouts" && (breweryMatch || sportsBarMatch) && !excluded && !NIGHTLIFE_HARD_EXCLUDE_RE.test(h);
 
       const qualified =
         breweryQualifiedOverride ||
@@ -257,10 +265,22 @@ export function tagAndFilterEnhancedPlaces(args: {
 export function hangoutsRankTier(place: TaggedPlace) {
   const tags = new Set(place.reason_tags ?? []);
   if (tags.has("brewery")) return 1;
-  if (tags.has("pizza") || tags.has("known_keeper")) return 2;
-  if (tags.has("arcade") || tags.has("bowling") || tags.has("mini_golf")) return 3;
+  if (tags.has("sports_bar") || tags.has("pizza") || tags.has("known_keeper")) return 2;
+  if (tags.has("arcade") || tags.has("bowling") || tags.has("mini_golf") || tags.has("pub")) return 3;
   if (tags.has("science")) return 4;
   if (tags.has("park") || tags.has("playground")) return 5;
   if (tags.has("mall")) return 6;
   return 7;
+}
+
+export function applyHangoutCaps(places: TaggedPlace[]): TaggedPlace[] {
+  let parkCount = 0;
+  return places.filter((p) => {
+    const tags = new Set(p.reason_tags ?? []);
+    if (tags.has("park") || tags.has("playground")) {
+      parkCount++;
+      return parkCount <= 1;
+    }
+    return true;
+  });
 }

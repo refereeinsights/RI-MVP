@@ -4,7 +4,7 @@ import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/tra
 import { CURRENT_OWL_CATEGORIES } from "../categories";
 import { COFFEE_CATEGORY_IDS, FOOD_CATEGORY_IDS, HANGOUT_CATEGORY_IDS, LODGING_CATEGORY_IDS, QUICK_EATS_CATEGORY_IDS } from "../foursquareCategories";
 import { FoursquareHttpError, searchFoursquarePlaces } from "./foursquarePlaces";
-import { hangoutsRankTier, tagAndFilterEnhancedPlaces, type OwlEnhancedCategory } from "./quickEatsHangouts";
+import { applyHangoutCaps, hangoutsRankTier, tagAndFilterEnhancedPlaces, type OwlEnhancedCategory } from "./quickEatsHangouts";
 import { tagAndFilterCoffeePlaces } from "./coffeePlaces";
 import { searchOverpassSportingGoods } from "./overpassSportingGoods";
 
@@ -782,7 +782,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     if (fsqEnabled && fsqKey && categoryIds.length > 0) attemptedCategories.add(category);
 
     if (!weak && bestTagged.length > 0) {
-      enhancedNearby[category].places = bestTagged.slice(0, ENHANCED_LIMIT);
+      const capped = category === "hangouts" ? applyHangoutCaps(bestTagged) : bestTagged;
+      enhancedNearby[category].places = capped.slice(0, ENHANCED_LIMIT);
       enhancedNearby[category].radius = bestRadius;
       return;
     }
