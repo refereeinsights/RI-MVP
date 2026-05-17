@@ -441,24 +441,34 @@ export default async function WeekendPlannerPage() {
                 <div style={{ padding: "12px 12px", borderRadius: 14, border: "1px solid rgba(15, 61, 46, 0.12)", background: "rgba(255,255,255,0.96)" }}>
                   <div style={{ fontSize: 12, fontWeight: 950, color: "#0b1f14" }}>Weekend plans</div>
                   <div style={{ marginTop: 6, color: "rgba(16, 34, 19, 0.85)", fontWeight: 650, fontSize: 13, lineHeight: 1.45 }}>
-                    Sign in to save weekend plans and keep planning links in one place.
+                    Create a free Insider account to save weekend plans and keep your venue, lodging, and planning links together.
                   </div>
                   <div style={{ marginTop: 10 }}>
-                    <Link className="secondaryLink" href="/signup?returnTo=%2Fweekend-planner">
-                      Create account →
-                    </Link>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <Link className="secondaryLink" href="/login?returnTo=%2Fweekend-planner">
+                        Sign in →
+                      </Link>
+                      <Link className="secondaryLink" href="/signup?returnTo=%2Fweekend-planner">
+                        Create account →
+                      </Link>
+                    </div>
                   </div>
                 </div>
 
                 <div style={{ padding: "12px 12px", borderRadius: 14, border: "1px solid rgba(15, 61, 46, 0.12)", background: "rgba(255,255,255,0.96)" }}>
                   <div style={{ fontSize: 12, fontWeight: 950, color: "#0b1f14" }}>Saved tournaments</div>
                   <div style={{ marginTop: 6, color: "rgba(16, 34, 19, 0.85)", fontWeight: 650, fontSize: 13, lineHeight: 1.45 }}>
-                    Sign in to save tournaments and keep weekend plans in one place.
+                    Sign in to view your saved tournaments and jump back into weekend planning.
                   </div>
                   <div style={{ marginTop: 10 }}>
-                    <Link className="secondaryLink" href="/signup?returnTo=%2Fweekend-planner">
-                      Sign up →
-                    </Link>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <Link className="secondaryLink" href="/login?returnTo=%2Fweekend-planner">
+                        Sign in →
+                      </Link>
+                      <Link className="secondaryLink" href="/signup?returnTo=%2Fweekend-planner">
+                        Create account →
+                      </Link>
+                    </div>
                   </div>
                 </div>
                 </>

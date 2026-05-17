@@ -20,14 +20,14 @@ export async function saveWeekendPlanAction(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user?.id) return { status: "error", error: "Sign in to save weekend plans." };
+  if (!user?.id) return { status: "error", error: "Sign in to save this weekend plan." };
 
   const tierInfo = await getTiTierServer(user);
   const isVerified = !tierInfo.unverified;
   const canSave = isVerified && (tierInfo.tier === "insider" || tierInfo.tier === "weekend_pro");
   if (!canSave) {
     return tierInfo.unverified
-      ? { status: "error", error: "Confirm your email to save weekend plans." }
+      ? { status: "error", error: "Verify your email to save this weekend plan." }
       : { status: "error", error: "Weekend plan saving is unavailable for this account." };
   }
 

@@ -32,12 +32,17 @@ export default function SaveWeekendPlanClient(props: Props) {
     return (
       <div style={{ marginTop: 10 }}>
         <div style={{ color: "#475569", fontWeight: 700, fontSize: 13 }}>
-          Sign in to save this weekend plan.
+          Create a free Insider account to save this weekend plan.
         </div>
         <div style={{ marginTop: 8 }}>
-          <Link className="secondaryLink" href={`/signup?returnTo=${encodeURIComponent(props.plannerHref)}`}>
-            Create account →
-          </Link>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Link className="secondaryLink" href={`/login?returnTo=${encodeURIComponent(props.plannerHref)}`}>
+              Sign in →
+            </Link>
+            <Link className="secondaryLink" href={`/signup?returnTo=${encodeURIComponent(props.plannerHref)}`}>
+              Create account →
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -47,7 +52,7 @@ export default function SaveWeekendPlanClient(props: Props) {
     return (
       <div style={{ marginTop: 10 }}>
         <div style={{ color: "#475569", fontWeight: 700, fontSize: 13 }}>
-          Confirm your email to save weekend plans.
+          Verify your email to save this weekend plan.
         </div>
         <div style={{ marginTop: 8 }}>
           <span className="secondaryLink" style={{ display: "inline-block" }}>

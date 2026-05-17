@@ -238,7 +238,10 @@ export default function WeekendPlanActionsClient(props: {
 
       {expanded === "notes" ? (
         <form action={notesDispatch} style={{ display: "grid", gap: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "#0b1f14" }}>Planning notes</div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 900, color: "#0b1f14" }}>Planning notes</div>
+            <div style={{ marginTop: 4, color: "rgba(16, 34, 19, 0.78)", fontWeight: 650, fontSize: 12 }}>Private notes (only visible to you).</div>
+          </div>
           <textarea
             name="notes"
             value={notesValue}
