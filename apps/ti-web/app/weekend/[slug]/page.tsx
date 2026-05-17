@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { getTiTierServer } from "@/lib/entitlementsServer";
 import WeekendShareOpenTracker from "./WeekendShareOpenTracker";
 import ShareWeekendButton from "@/components/ShareWeekendButton";
+import PrintButton from "@/components/PrintButton";
 import WeekendPlanningCtasClient from "./WeekendPlanningCtasClient";
 import WeekendProUpgradeModalTrigger from "@/components/premium/WeekendProUpgradeModalTrigger";
 import DirectionsChooserClient from "./DirectionsChooserClient";
@@ -335,6 +336,15 @@ export default async function WeekendPage({
     placesByCategory.get(cat)!.push(row);
   }
 
+  const categoriesWithRows = categories.filter((cat) => (placesByCategory.get(cat)?.length ?? 0) > 0);
+  const defaultOpenCategory = categoriesWithRows.includes("quick_eats")
+    ? "quick_eats"
+    : categoriesWithRows.includes("food")
+      ? "food"
+      : categoriesWithRows.includes("coffee")
+        ? "coffee"
+        : categoriesWithRows[0] ?? null;
+
   const shareSource = (String(searchParams?.source ?? "").trim().toLowerCase() === "share" ||
     String(searchParams?.utm_source ?? "").trim().toLowerCase() === "share")
     ? "share"
@@ -430,7 +440,7 @@ export default async function WeekendPage({
               {selectedVenueDirectionsQuery ? (
                 <DirectionsChooserClient
                   label="Directions"
-                  className="primaryLink"
+                  className="primaryLink ti-print-hide"
                   title="Directions"
                   destinationLabel={[selectedVenue.name, selectedVenue.city, selectedVenue.state].filter(Boolean).join(" • ") || "Tournament venue"}
                   query={selectedVenueDirectionsQuery}
@@ -455,12 +465,12 @@ export default async function WeekendPage({
                 />
               ) : null}
 
-              <Link className="secondaryLink" href={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}>
+              <Link className="secondaryLink ti-print-hide" href={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}>
                 Change venue →
               </Link>
 
               {googleSearchHref ? (
-                <a className="secondaryLink" href={googleSearchHref} target="_blank" rel="noopener noreferrer">
+                <a className="secondaryLink ti-print-hide" href={googleSearchHref} target="_blank" rel="noopener noreferrer">
                   Search Google →
                 </a>
               ) : null}
@@ -565,19 +575,25 @@ export default async function WeekendPage({
         )}
 
         <div style={{ display: "grid", gap: 10, marginTop: 2 }}>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "#0f172a", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+          <div
+            className="ti-print-hide"
+            style={{ fontSize: 12, fontWeight: 900, color: "#0f172a", letterSpacing: "0.06em", textTransform: "uppercase" }}
+          >
             Plan your stay
           </div>
-          <WeekendPlanningCtasClient
-            tournamentId={tournament.id}
-            tournamentSlug={tournament.slug}
-            venueMapHref={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}
-            bookTravelHref={bookTravelHref}
-            hotelsHref={hotelsHref ? `${hotelsHref}&source=weekend_share` : null}
-            rentalsHref={vrboHrefBase}
-            plannerHubHref="/weekend-planner"
-          />
-          <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div className="ti-print-hide">
+            <WeekendPlanningCtasClient
+              tournamentId={tournament.id}
+              tournamentSlug={tournament.slug}
+              venueMapHref={`/tournaments/${encodeURIComponent(tournament.slug)}/map`}
+              bookTravelHref={bookTravelHref}
+              hotelsHref={hotelsHref ? `${hotelsHref}&source=weekend_share` : null}
+              rentalsHref={vrboHrefBase}
+              plannerHubHref="/weekend-planner"
+            />
+          </div>
+          <div className="ti-print-hide" style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <PrintButton label="Print weekend plan" className="secondaryLink" />
             <ShareWeekendButton
               tournamentSlug={tournament.slug}
               tournamentName={tournament.name}
@@ -645,9 +661,19 @@ export default async function WeekendPage({
               ? categories.map((cat) => {
                   const rows = placesByCategory.get(cat) ?? [];
                   if (!rows.length) return null;
+                  const title =
+                    cat === "quick_eats"
+                      ? "Quick Eats"
+                      : cat === "hangouts"
+                        ? "Parent Hangouts"
+                        : cat === "coffee"
+                          ? "Coffee"
+                          : "Team Meals";
                   return (
-                    <section
+                    <details
                       key={cat}
+                      className="ti-owls-details"
+                      open={Boolean(defaultOpenCategory && cat === defaultOpenCategory)}
                       style={{
                         border: "1px solid #e2e8f0",
                         borderRadius: 14,
@@ -655,20 +681,17 @@ export default async function WeekendPage({
                         background: "#ffffff",
                       }}
                     >
-                      <h3 style={{ margin: 0, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        {cat === "quick_eats"
-                          ? "Quick Eats"
-                          : cat === "hangouts"
-                            ? "Parent Hangouts"
-                            : cat === "coffee"
-                              ? "Coffee"
-                              : "Team Meals"}
-                      </h3>
-                      {sectionIntro(cat) ? (
-                        <div style={{ marginTop: 6, color: "#475569", fontWeight: 650, fontSize: 13 }}>
-                          {sectionIntro(cat)}
+                      <summary style={{ listStyle: "none", cursor: "pointer" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                          <h3 style={{ margin: 0, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>{title}</h3>
                         </div>
-                      ) : null}
+                        {sectionIntro(cat) ? (
+                          <div style={{ marginTop: 6, color: "#475569", fontWeight: 650, fontSize: 13 }}>
+                            {sectionIntro(cat)}
+                          </div>
+                        ) : null}
+                      </summary>
+
                       <ul style={{ margin: "10px 0 0 0", paddingLeft: 18, display: "grid", gap: 8 }}>
                         {rows.slice(0, 12).map((row) => (
                           <li key={row.place_id}>
@@ -680,7 +703,7 @@ export default async function WeekendPage({
                                   {" "}
                                   <DirectionsChooserClient
                                     label="Directions →"
-                                    className="secondaryLink"
+                                    className="secondaryLink ti-print-hide"
                                     title="Directions"
                                     destinationLabel={row.name}
                                     query={[row.name, selectedVenueAddressLine].filter(Boolean).join(", ")}
@@ -705,7 +728,7 @@ export default async function WeekendPage({
                               ) : row.maps_url ? (
                                 <>
                                   {" "}
-                                  <a href={row.maps_url} target="_blank" rel="noopener noreferrer">
+                                  <a className="ti-print-hide" href={row.maps_url} target="_blank" rel="noopener noreferrer">
                                     Directions →
                                   </a>
                                 </>
@@ -714,7 +737,7 @@ export default async function WeekendPage({
                           </li>
                         ))}
                       </ul>
-                    </section>
+                    </details>
                   );
                 })
               : null}

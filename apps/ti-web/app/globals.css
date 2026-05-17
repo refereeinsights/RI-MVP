@@ -532,3 +532,35 @@ h1 {
     align-items: center;
   }
 }
+
+/* Print styles (Weekend Logistics) */
+@media print {
+  .ti-print-hide {
+    display: none !important;
+  }
+
+  /* Hide UI controls + nav/chrome when printing. */
+  header,
+  nav,
+  footer,
+  .ti-header,
+  .ti-nav {
+    display: none !important;
+  }
+
+  /* Keep the content readable and reduce page chrome spacing. */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Hide interactive affordances; print the opened content only. */
+  details.ti-owls-details > summary {
+    display: none !important;
+  }
+}
+
+/* Details marker cleanup (screen) */
+details.ti-owls-details > summary::-webkit-details-marker {
+  display: none;
+}

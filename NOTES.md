@@ -1,3 +1,9 @@
+## 2026-05-17
+
+- TI weekend page (Weekend Logistics polish): added a “Print weekend plan” action (browser print) alongside the existing share controls on `/weekend/[slug]`, plus minimal print styles that hide interactive UI (share/print/actions and Owl’s Eye accordion summaries) and prevent private plan details from leaking in print for signed-out viewers: `apps/ti-web/app/weekend/[slug]/page.tsx`, `apps/ti-web/components/PrintButton.tsx`, `apps/ti-web/app/globals.css`.
+- TI weekend page (Weekend Pro UX): converted the Weekend Pro “Weekend Guide” Owl’s Eye category sections into native `<details>/<summary>` accordions for faster mobile scanning (default-open: Quick eats → Food → Coffee → first available), without changing data loading or entitlement gating: `apps/ti-web/app/weekend/[slug]/page.tsx`.
+- Validation: TI targeted smoke suite passes (weekend plan lifecycle/lodging/planner) and `npm -w ti-web run build` succeeds.
+
 ## 2026-05-16
 
 - TI Weekend Planner adoption: auto-select a default planning venue on `/weekend/[slug]` when none is explicitly chosen. Priority: valid `?venue=` (tournament-linked) → saved plan `selected_venue_id` → tournament primary venue (`tournament_venues.is_primary`) → first linked venue. URL selection is render-only until the user clicks “Add to planner” / “Update planning anchor”. File: `apps/ti-web/app/weekend/[slug]/page.tsx`.
