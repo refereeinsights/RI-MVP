@@ -212,8 +212,127 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
     process.env.NODE_ENV !== "development" ||
     process.env.ENABLE_EXTERNAL_API_CALL_TRACKING === "true";
 
+  // keep these in sync with upsertNearbyForRun.ts radiiByCategory + runFsqPrimary
+  const OWL_FSQ_COSTS = [
+    { category: "food",       typical: 1, worst: 1 },
+    { category: "hotel",      typical: 1, worst: 1 },
+    { category: "coffee",     typical: 1, worst: 3 },
+    { category: "quick_eats", typical: 1, worst: 3 },
+    { category: "hangouts",   typical: 1, worst: 3 },
+  ];
+  const owlFsqTypical = OWL_FSQ_COSTS.reduce((s, r) => s + r.typical, 0);
+  const owlFsqWorst   = OWL_FSQ_COSTS.reduce((s, r) => s + r.worst,   0);
+
+  const refCellSm: React.CSSProperties  = { padding: "3px 6px", fontSize: 11, borderBottom: "1px solid #f3f4f6", color: "#374151" };
+  const refHeadSm: React.CSSProperties  = { ...refCellSm, fontWeight: 700, background: "#f9fafb", color: "#6b7280", whiteSpace: "nowrap" };
+  const refTotalSm: React.CSSProperties = { ...refCellSm, fontWeight: 700, background: "#eff6ff", color: "#1e40af" };
+
   return (
-    <div style={{ padding: 24, maxWidth: 1100 }}>
+    <>
+      <style>{`
+        @media (max-width: 1280px) {
+          .api-usage-grid    { grid-template-columns: 1fr !important; }
+          .api-usage-sidebar { display: none !important; }
+        }
+      `}</style>
+      {/* outer grid — sidebar + main content */}
+      <div className="api-usage-grid" style={{ padding: 24, maxWidth: 1360, display: "grid", gridTemplateColumns: "210px 1fr", gap: 28, alignItems: "start" }}>
+
+        {/* ── LEFT: sticky reference card ─────────────────────────────── */}
+        <div className="api-usage-sidebar" style={{ position: "sticky", top: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+
+          {/* Full Owl's Eye run — FSQ */}
+          <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ padding: "7px 10px", background: "#fef3c7", borderBottom: "1px solid #fde68a" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#92400e" }}>Owl's Eye run — FSQ</div>
+              <div style={{ fontSize: 10, color: "#b45309", marginTop: 1 }}>calls per full venue run</div>
+            </div>
+            <table style={{ borderCollapse: "collapse", width: "100%" }}>
+              <thead>
+                <tr>
+                  <th style={refHeadSm}>category</th>
+                  <th style={{ ...refHeadSm, textAlign: "right" }}>typ</th>
+                  <th style={{ ...refHeadSm, textAlign: "right" }}>worst</th>
+                </tr>
+              </thead>
+              <tbody>
+                {OWL_FSQ_COSTS.map((r) => (
+                  <tr key={r.category}>
+                    <td style={{ ...refCellSm, fontFamily: "monospace", fontSize: 10 }}>{r.category}</td>
+                    <td style={{ ...refCellSm, textAlign: "right" }}>{r.typical}</td>
+                    <td style={{ ...refCellSm, textAlign: "right" }}>{r.worst}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={refTotalSm}>total</td>
+                  <td style={{ ...refTotalSm, textAlign: "right" }}>{owlFsqTypical}</td>
+                  <td style={{ ...refTotalSm, textAlign: "right" }}>{owlFsqWorst}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div style={{ padding: "5px 8px", fontSize: 10, color: "#9ca3af", borderTop: "1px solid #f3f4f6" }}>
+              +up to 7 Google calls when FSQ weak/unavailable (separate budget)
+            </div>
+          </div>
+
+          {/* Hangouts-only backfill */}
+          <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ padding: "7px 10px", background: "#f0fdf4", borderBottom: "1px solid #bbf7d0" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#166534" }}>Hangouts backfill — FSQ</div>
+              <div style={{ fontSize: 10, color: "#15803d", marginTop: 1 }}>per-venue, hangouts category only</div>
+            </div>
+            <table style={{ borderCollapse: "collapse", width: "100%" }}>
+              <tbody>
+                {[
+                  { label: "typical", value: "1 call" },
+                  { label: "worst",   value: "3 calls" },
+                ].map((r) => (
+                  <tr key={r.label}>
+                    <td style={refCellSm}>{r.label}</td>
+                    <td style={{ ...refCellSm, textAlign: "right", fontWeight: 600 }}>{r.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ padding: "5px 8px", borderTop: "1px solid #f3f4f6" }}>
+              {[
+                { budget: 500,   lo: 166,  hi: 500  },
+                { budget: 2000,  lo: 666,  hi: 2000 },
+                { budget: 10000, lo: 3333, hi: 10000 },
+              ].map((r) => (
+                <div key={r.budget} style={{ fontSize: 10, color: "#6b7280", lineHeight: 1.6 }}>
+                  <span style={{ fontWeight: 600, color: "#374151" }}>{r.budget.toLocaleString()} mo limit</span>
+                  {" → "}{r.lo.toLocaleString()}–{r.hi.toLocaleString()} venues
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Other calls per full run */}
+          <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ padding: "7px 10px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#475569" }}>Other — per run</div>
+            </div>
+            <table style={{ borderCollapse: "collapse", width: "100%" }}>
+              <tbody>
+                {[
+                  { label: "Overpass",     value: "1 (sporting goods)" },
+                  { label: "Mapbox",       value: "0–1 (if no coords)" },
+                  { label: "TimezoneDB",   value: "0–1 (if newly geocoded)" },
+                  { label: "Airport lookup", value: "0 (static data)" },
+                ].map((r) => (
+                  <tr key={r.label}>
+                    <td style={refCellSm}>{r.label}</td>
+                    <td style={{ ...refCellSm, textAlign: "right", fontSize: 10, color: "#6b7280" }}>{r.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ── RIGHT: existing page content ────────────────────────────── */}
+        <div>
       <AdminNav />
       <h2 style={{ margin: "16px 0 4px", fontSize: 20, fontWeight: 700 }}>External API Usage</h2>
 
@@ -361,6 +480,8 @@ export default async function ApiUsagePage({ searchParams }: { searchParams?: Se
       )}
 
       <ApiUsageAlarms apiOptions={apiOptions} />
-    </div>
+        </div>{/* end right column */}
+      </div>{/* end grid */}
+    </>
   );
 }

@@ -14,6 +14,24 @@ Maintenance rules:
 
 ## 2026-05-18
 
+### Admin: API usage page — Owl's Eye call budget reference sidebar
+
+Added a sticky left-column reference card to the `/admin/api-usage` page that shows worst-case and typical Foursquare call costs for Owl's Eye runs, without requiring any additional DB queries or props — all static markup derived from constants in the component.
+
+**Layout change:** outer wrapper changed from a single `maxWidth: 1100` div to a two-column CSS grid (`210px 1fr`, max-width 1360px). Left column is `position: sticky; top: 24px` so it stays visible while scrolling the main tables. Collapses to single-column below 1280px viewport via a `<style>` media query tag; sidebar is hidden at that breakpoint.
+
+**Three reference panels:**
+
+1. *Owl's Eye run — FSQ* — per-category typical vs. worst-case call counts (food×1, hotel×1, coffee/quick_eats/hangouts up to 3 each = 5 typical / 11 worst). Footnote noting Google fallback adds up to 7 calls on a separate budget.
+
+2. *Hangouts backfill — FSQ* — per-venue 1 typical / 3 worst, with budget-to-venue conversion rows for 500 / 2K / 10K monthly limits.
+
+3. *Other per run* — Overpass (1, sporting goods), Mapbox (0–1, only if no coords), TimezoneDB (0–1, only if newly geocoded), Airport lookup (0, static data).
+
+**Maintenance note:** `OWL_FSQ_COSTS` array in the component must be kept in sync with `radiiByCategory` and `runFsqPrimary` in `upsertNearbyForRun.ts` — comment in source marks this.
+
+**File changed:** `apps/referee/app/admin/api-usage/page.tsx`
+
 ### Owl's Eye hangouts — targeted refresh pipeline bug fixes
 
 Three interrelated bugs discovered during Zions Bank Stadium QA re-run. All three had to be present simultaneously to cause the symptom (targeted force-refresh returning `ok: true, message: "inserted"` but leaving stale DB rows unchanged).
