@@ -14,6 +14,25 @@ Maintenance rules:
 
 ## 2026-05-18
 
+### Venues: fix 4 scrambled-column records (state mismatch in Owl's Eye queue)
+
+4 venues in the Owl's Eye queue showed `state` = a zip code and `city` = "CA" — every address column was shifted one position from where it should be. Also discovered via this analysis that two Oakland venues had completely wrong coordinates pointing to Fillmore, NY.
+
+**Root cause:** bad column mapping during original import — `name`=street, `address`=city, `city`=stateAbbr, `state`=zip, `zip`=URL or garbage.
+
+**Fixes applied per venue:**
+
+| Venue | address | city | state | zip | venue_url | lat/lng |
+|---|---|---|---|---|---|---|
+| 1925 Magdalena Ave | set from name | Chula Vista | CA | 91913 | — | kept (correct) |
+| Bonita Vista High School (was "751 Otay Lakes Rd") | set from name | Chula Vista | CA | 91913 | rescued from zip | kept |
+| Oakland Convention Center (was "550 10th St") | set from name | Oakland | CA | 94607 | rescued from zip | **nulled** — was Fillmore NY |
+| Laney College (was "900 Fallon St") | set from name | Oakland | CA | 94607 | rescued from zip | **nulled** — was Fillmore NY |
+
+Oakland Convention Center and Laney College will re-geocode automatically when their Owl's Eye run fires (Mapbox geocode path triggers when lat/lng is null).
+
+**Script:** `scripts/ingest/fix_venue_scrambled_fields.ts`
+
 ### Venues: fix missing city — Group 1 (parseable from address)
 
 27 venues were blocked from the Owl's Eye queue because `city` was null despite having a full street address. City was extracted from the address string and patched directly.
