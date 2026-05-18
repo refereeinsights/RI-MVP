@@ -19,6 +19,9 @@ export type FsqPlaceResult = {
   is_closed?: boolean | null;
   permanently_closed?: boolean | null;
   temporarily_closed?: boolean | null;
+  // Quality signals — included by FSQ when returned; absent = null (no extra API call).
+  rating?: number | null;
+  popularity?: number | null;
 };
 
 export class FoursquareHttpError extends Error {
@@ -82,6 +85,8 @@ export async function searchFoursquarePlaces(args: {
       is_closed?: unknown;
       permanently_closed?: unknown;
       temporarily_closed?: unknown;
+      rating?: unknown;
+      popularity?: unknown;
     }>;
   };
 
@@ -118,6 +123,8 @@ export async function searchFoursquarePlaces(args: {
         is_closed: typeof p.is_closed === "boolean" ? p.is_closed : null,
         permanently_closed: typeof p.permanently_closed === "boolean" ? p.permanently_closed : null,
         temporarily_closed: typeof p.temporarily_closed === "boolean" ? p.temporarily_closed : null,
+        rating: typeof p.rating === "number" ? p.rating : null,
+        popularity: typeof p.popularity === "number" ? p.popularity : null,
       } satisfies FsqPlaceResult;
     })
     .filter(Boolean) as FsqPlaceResult[];

@@ -4,7 +4,7 @@ import { EXTERNAL_API, EXTERNAL_API_SURFACE, trackExternalCall } from "@/lib/tra
 import { CURRENT_OWL_CATEGORIES } from "../categories";
 import { COFFEE_CATEGORY_IDS, FOOD_CATEGORY_IDS, HANGOUT_CATEGORY_IDS, LODGING_CATEGORY_IDS, QUICK_EATS_CATEGORY_IDS } from "../foursquareCategories";
 import { FoursquareHttpError, searchFoursquarePlaces } from "./foursquarePlaces";
-import { applyHangoutCaps, hangoutsRankTier, tagAndFilterEnhancedPlaces, type OwlEnhancedCategory } from "./quickEatsHangouts";
+import { applyHangoutCaps, applyHangoutRatingFilter, hangoutsRankTier, tagAndFilterEnhancedPlaces, type OwlEnhancedCategory } from "./quickEatsHangouts";
 import { tagAndFilterCoffeePlaces } from "./coffeePlaces";
 import { searchOverpassSportingGoods } from "./overpassSportingGoods";
 
@@ -563,7 +563,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     console.warn("[owlseye] Missing GOOGLE_PLACES_API_KEY; Google fallback disabled");
   }
 
-  const enhancedNearby: Record<OwlEnhancedCategory, { places: ReturnType<typeof tagAndFilterEnhancedPlaces>; usedGoogleFallback: boolean; fallbackReason?: string; radius?: number }> =
+  const enhancedNearby: Record<OwlEnhancedCategory, { places: ReturnType<typeof tagAndFilterEnhancedPlaces>; usedGoogleFallback: boolean; fallbackReason?: string; radius?: number; lowCoverage?: boolean }> =
     {
       quick_eats: { places: [], usedGoogleFallback: false },
       hangouts: { places: [], usedGoogleFallback: false },
@@ -782,8 +782,14 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
     if (fsqEnabled && fsqKey && categoryIds.length > 0) attemptedCategories.add(category);
 
     if (!weak && bestTagged.length > 0) {
-      const capped = category === "hangouts" ? applyHangoutCaps(bestTagged) : bestTagged;
-      enhancedNearby[category].places = capped.slice(0, ENHANCED_LIMIT);
+      if (category === "hangouts") {
+        const { places: rated, lowCoverage } = applyHangoutRatingFilter(bestTagged);
+        const capped = applyHangoutCaps(rated);
+        enhancedNearby[category].places = capped.slice(0, ENHANCED_LIMIT);
+        enhancedNearby[category].lowCoverage = lowCoverage;
+      } else {
+        enhancedNearby[category].places = bestTagged.slice(0, ENHANCED_LIMIT);
+      }
       enhancedNearby[category].radius = bestRadius;
       return;
     }
@@ -1590,6 +1596,7 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
           ...debug,
           foursquare_requests: merged,
           hangouts_stats: attemptedCategories.has("hangouts") ? hangoutsStats : debug.hangouts_stats,
+          hangouts_low_coverage: attemptedCategories.has("hangouts") ? (enhancedNearby.hangouts.lowCoverage ?? false) : debug.hangouts_low_coverage,
         },
       };
 

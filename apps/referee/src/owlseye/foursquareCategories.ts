@@ -29,15 +29,30 @@ export const HANGOUT_CATEGORY_IDS: string[] = [
   // We intentionally avoid broad categories like "Restaurant" here and rely on
   // targeted activity categories + our scoring/exclusion logic.
   "50327c8591d4c4b30a586d5d", // Brewery
-  "4bf58dd8d48988d11d941735", // Sports Bar (indoor AC, team-friendly; verified via discovery script)
+  "4bf58dd8d48988d11d941735", // Sports Bar (verified via discovery script; treated as risky)
   "4bf58dd8d48988d1e1931735", // Arcade
   "4bf58dd8d48988d1e4931735", // Bowling Alley
   "52e81612bcbc57f1066b79eb", // Mini Golf Course
-  "4bf58dd8d48988d1c9941735", // Ice Cream Parlor
+  "5744ccdfe4b0c0459246b4b5", // Indoor Play Area (kids play spaces)
+  "4bf58dd8d48988d182941735", // Amusement Park (e.g. family fun centers)
+  "4bf58dd8d48988d120951735", // Food Court
   "4bf58dd8d48988d163941735", // Park
   "4bf58dd8d48988d1e7941735", // Playground
   "4bf58dd8d48988d1fd941735", // Shopping Mall
   "4bf58dd8d48988d117941735", // Beer Garden
+];
+
+// FSQ category IDs that, when present exclusively with no allowed hangout category,
+// indicate an adult-only or private/residential place that should be suppressed.
+export const HANGOUT_SUPPRESSION_CATEGORY_IDS: string[] = [
+  "4bf58dd8d48988d11e941735", // Cocktail Bar
+  "4bf58dd8d48988d123941735", // Wine Bar
+  "56aa371ce4b08b9a8d57356c", // Beer Bar
+  "4bf58dd8d48988d121941735", // Lounge
+  "52e81612bcbc57f1066b7a36", // Warehouse
+  "4bf58dd8d48988d103941735", // Home (private)
+  "4e67e38e036454776db1fb3a", // Residential Building
+  "4bf58dd8d48988d10b951735", // Video Games Store
 ];
 
 export const COFFEE_CATEGORY_IDS: string[] = [
