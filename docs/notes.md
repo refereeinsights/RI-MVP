@@ -14,6 +14,22 @@ Maintenance rules:
 
 ## 2026-05-18
 
+### Venues: fix missing city — Group 1 (parseable from address)
+
+27 venues were blocked from the Owl's Eye queue because `city` was null despite having a full street address. City was extracted from the address string and patched directly.
+
+**Root cause clusters:**
+- **22 Folsom Lake Surf Soccer venues** — imported without `city`; all had CA zip 95630. Fixed to `city="Folsom"` (except Stone Creek Soccer Complex → `"Rancho Cordova"`).
+- **Capital FC (Salem OR)** — existed as two duplicate records with identical name+address. Both had `city=null`. Patched the canonical record to `city="Salem"`, then merged the duplicate: moved its Cherry City Cup tournament link and 5 `ti_outbound_clicks` rows to the canonical record before deleting it.
+- **"Venue Locations:" crawl artifacts** ×3 (Austell GA, Dallas GA, Marietta GA) — junk names from a scrape section header; city missing. City patched; names left as-is for now (still need renaming but are queue-eligible).
+- **INDOOR FACILITIES** (Itasca IL), **Soccer City Palatine** (Palatine IL), **Katy Park** (Houston TX — also had wrong zip "24927" corrected to "77080"), **Escondido Soccer Club** (Escondido CA) — all had full addresses, city missing.
+
+**Net result:** 26 venues newly eligible for the Owl's Eye queue (+ 1 skipped already-correct + 1 merged away).
+
+**Remaining work (Group 2):** ~35 venues have `city + state + lat/lng` but no street address — these need manual address lookup. See research notes from 2026-05-18 for the full list.
+
+**Script:** `scripts/ingest/fix_venue_missing_city.ts` (dry-run by default, `--apply` to commit).
+
 ### Admin: "Total venues" tile added to overview dashboard
 
 Added a new summary tile to the RI admin overview page (`/admin`) showing the total count of rows in the `venues` table. The tile sits immediately to the left of the existing "Owl's Eye venues" tile, making the enrichment coverage ratio immediately visible at a glance (e.g. "4823 total / 4158 enriched").
