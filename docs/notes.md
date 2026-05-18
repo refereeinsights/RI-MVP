@@ -14,6 +14,14 @@ Maintenance rules:
 
 ## 2026-05-18
 
+### Admin: "Total venues" tile added to overview dashboard
+
+Added a new summary tile to the RI admin overview page (`/admin`) showing the total count of rows in the `venues` table. The tile sits immediately to the left of the existing "Owl's Eye venues" tile, making the enrichment coverage ratio immediately visible at a glance (e.g. "4823 total / 4158 enriched").
+
+**Implementation:** dedicated `SELECT count(*) FROM venues` query (PostgREST `count: "exact", head: true`) — not derived from the existing `venueStatsRows` fetch which has a `.limit(5000)` cap and would silently undercount if the table grows beyond that. Shows `—` on query error. Links to `/admin/venues`.
+
+**File changed:** `apps/referee/app/admin/page.tsx`
+
 ### Admin: API usage page — Owl's Eye call budget reference sidebar
 
 Added a sticky left-column reference card to the `/admin/api-usage` page that shows worst-case and typical Foursquare call costs for Owl's Eye runs, without requiring any additional DB queries or props — all static markup derived from constants in the component.

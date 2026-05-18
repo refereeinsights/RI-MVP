@@ -1004,6 +1004,16 @@ export default async function AdminPage({
     if (!hasText(row.venue_url)) venuesMissingUrlsCount += 1;
   });
 
+  let totalVenueCount: number | null = null;
+  try {
+    const { count, error } = await supabaseAdmin
+      .from("venues" as any)
+      .select("id", { count: "exact", head: true });
+    if (!error && typeof count === "number") totalVenueCount = count;
+  } catch {
+    // leave null — tile will show "—"
+  }
+
   let owlRunVenueCount = 0;
   try {
     // Prefer a set-based COUNT query so we don't hit PostgREST max-rows caps (often 1000).
@@ -4267,6 +4277,21 @@ export default async function AdminPage({
             <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800 }}>Venues missing URLs</div>
             <div style={{ fontWeight: 900, marginTop: 2 }}>{venuesMissingUrlsCount}</div>
             <div style={{ fontSize: 12, marginTop: 3 }}>Open filtered venue list</div>
+          </a>
+          <a
+            href="/admin/venues"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #d1d5db",
+              background: "#fff",
+              textDecoration: "none",
+              color: "#374151",
+            }}
+          >
+            <div style={{ fontSize: 12, textTransform: "uppercase", fontWeight: 800 }}>Total venues</div>
+            <div style={{ fontWeight: 900, marginTop: 2 }}>{totalVenueCount ?? "—"}</div>
+            <div style={{ fontSize: 12, marginTop: 3 }}>Open venue list</div>
           </a>
           <a
             href="/admin/venues?owl=with_data"
