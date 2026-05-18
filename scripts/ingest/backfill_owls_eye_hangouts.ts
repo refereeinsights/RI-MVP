@@ -14,6 +14,8 @@
  *   - Junk name suppression covers lowercase handles, camelCase portmanteaus,
  *     and short odd-apostrophe names; overridden by strong indoor tags.
  *   - lowCoverage now based on strong indoor scarcity, not raw candidate count.
+   - 1–2 strong indoor now allows 1 tier-4–6 backfill (brewery-no-food,
+     sports_bar+food, pub+food); parks/malls still excluded below 3 strong indoor.
  *
  * Usage:
  *   tsx scripts/ingest/backfill_owls_eye_hangouts.ts           # dry run (list only)

@@ -480,6 +480,7 @@ export async function POST(request: Request) {
         sport,
         venueLat: venueLat ?? 0,
         venueLng: venueLng ?? 0,
+        force,
         categoriesToFetch: requestedCategories!,
       });
 

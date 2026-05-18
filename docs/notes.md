@@ -14,6 +14,16 @@ Maintenance rules:
 
 ## 2026-05-18
 
+### Owl's Eye hangouts — quality pass 2 (Option A lower-fit relaxation)
+
+Follow-up to the same-day quality pass 2 commit. Relaxed the thin-coverage backfill rule so sparse venues can show a second result alongside a single strong indoor option.
+
+**Change:** `applyHangoutCaps` now allows at most 1 tier-4–6 backfill (brewery-no-food, sports_bar+food, pub+food) even when only 1–2 strong indoor results exist. Parks (tier 8), malls (tier 9), and other (tier 10) remain excluded until ≥3 strong indoor present. `lowCoverage` still set to `true` when `strongIndoorCount < 3`.
+
+**Motivation:** Zions Bank Stadium (and similar sparse venues) returned only "The Pinball Room" as a strong indoor result. Under strict-only logic, the section showed 1 result. With Option A, a nearby brewery-without-food or sports bar with food can appear as a second slot without bringing back parks/malls.
+
+**File changed:** `apps/referee/src/owlseye/nearby/quickEatsHangouts.ts`
+
 ### Owl's Eye hangouts — quality pass 2
 
 Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/playground/mall padding and junk names from cached hangout results.

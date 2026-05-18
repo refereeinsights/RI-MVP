@@ -439,10 +439,12 @@ export function isStrongIndoorHangout(place: TaggedPlace): boolean {
 // Applies anti-padding caps and determines lowCoverage based on strong indoor scarcity.
 //
 // Rules:
-//   0 strong indoor  → empty output, lowCoverage=true
-//   1–2 strong indoor → only strong indoor (no lower-fit backfill), lowCoverage=true
-//   3+ strong indoor  → strong indoor + at most 1 lower-fit backfill, park/playground
-//                        cap max 1 combined, lowCoverage=false
+//   0 strong indoor   → empty output, lowCoverage=true
+//   1–2 strong indoor → strong indoor + at most 1 tier-4–6 lower-fit backfill
+//                       (brewery-no-food, sports_bar+food, pub+food only;
+//                        parks/malls/other excluded), lowCoverage=true
+//   3+ strong indoor  → strong indoor + at most 1 lower-fit backfill (any tier),
+//                       park/playground cap max 1 combined, lowCoverage=false
 export function applyHangoutCaps(places: TaggedPlace[]): {
   places: TaggedPlace[];
   lowCoverage: boolean;
@@ -454,12 +456,22 @@ export function applyHangoutCaps(places: TaggedPlace[]): {
     return { places: [], lowCoverage: true };
   }
 
+  const lowerFit = places.filter((p) => !isStrongIndoorHangout(p));
+
   if (strongIndoorCount < 3) {
-    return { places: strongIndoor, lowCoverage: true };
+    // Thin coverage: allow at most 1 backfill from tiers 4–6 only.
+    // Parks (tier 8), malls (tier 9), and other (tier 10) are excluded until
+    // strong indoor coverage reaches 3.
+    const selected: TaggedPlace[] = [];
+    for (const p of lowerFit) {
+      if (selected.length >= 1) break;
+      const tier = hangoutsRankTier(p);
+      if (tier >= 4 && tier <= 6) selected.push(p);
+    }
+    return { places: [...strongIndoor, ...selected], lowCoverage: true };
   }
 
   // 3+ strong indoor: allow at most 1 lower-fit backfill; park+playground cap max 1.
-  const lowerFit = places.filter((p) => !isStrongIndoorHangout(p));
   let parkCount = 0;
   const selectedLowerFit: TaggedPlace[] = [];
 
@@ -479,20 +491,26 @@ export function applyHangoutCaps(places: TaggedPlace[]): {
   };
 }
 
-// Filters places by FSQ rating, lowering the threshold when candidate coverage is thin.
-// lowCoverage is no longer returned here — it is determined by applyHangoutCaps based
-// on strong indoor scarcity after capping.
+// Filters strong indoor places by FSQ rating, lowering the threshold when coverage is thin.
+// Lower-fit places (parks, malls, brewery-no-food, etc.) always pass through unchanged —
+// they're handled by applyHangoutCaps which decides whether to include them based on the
+// strong indoor count. Applying the rating gate to lower-fit was causing parks (null rating
+// → always pass) to survive while rated strong indoor places got filtered, leaving
+// applyHangoutCaps with 0 strong indoor and an empty result.
 export function applyHangoutRatingFilter(places: TaggedPlace[]): TaggedPlace[] {
-  const ratedPrimary = places.filter(
+  const strongIndoor = places.filter(isStrongIndoorHangout);
+  const lowerFit = places.filter((p) => !isStrongIndoorHangout(p));
+
+  const ratedPrimary = strongIndoor.filter(
     (p) => typeof p.rating !== "number" || p.rating >= HANGOUT_PRIMARY_MIN_RATING
   );
   if (ratedPrimary.length >= HANGOUT_THIN_COVERAGE_THRESHOLD) {
-    return ratedPrimary;
+    return [...ratedPrimary, ...lowerFit];
   }
 
-  // Thin coverage: lower the threshold and retry with already-fetched candidates.
-  const ratedFallback = places.filter(
+  // Thin strong indoor coverage: lower the threshold and retry.
+  const ratedFallback = strongIndoor.filter(
     (p) => typeof p.rating !== "number" || p.rating >= HANGOUT_FALLBACK_MIN_RATING
   );
-  return ratedFallback.length > 0 ? ratedFallback : places;
+  return [...(ratedFallback.length > 0 ? ratedFallback : strongIndoor), ...lowerFit];
 }

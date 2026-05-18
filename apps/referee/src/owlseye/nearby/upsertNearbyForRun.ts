@@ -1493,6 +1493,21 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
   }
 
   if (uniqueRows.length === 0) {
+    // For forced targeted refreshes, still wipe stale rows even when new result is empty.
+    // Without this, old rows survive when the new pipeline intentionally returns nothing
+    // (e.g., all strong indoor places filtered by rating → applyHangoutCaps returns empty).
+    if (force && isTargetedRun && categoriesToFetch && categoriesToFetch.length > 0) {
+      for (const cat of categoriesToFetch) {
+        const { error: clearError } = await (supabaseAdmin
+          .from("owls_eye_nearby_food" as any) as any)
+          .delete()
+          .eq("run_id", runId)
+          .eq("category", cat);
+        if (clearError) {
+          console.warn("[owlseye] Could not clear existing rows for targeted category refresh (zero result)", { cat, clearError });
+        }
+      }
+    }
     return {
       ok: true,
       message: "no_results",
