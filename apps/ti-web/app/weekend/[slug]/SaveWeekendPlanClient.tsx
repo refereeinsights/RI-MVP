@@ -90,7 +90,7 @@ export default function SaveWeekendPlanClient(props: Props) {
           ? "Update your saved plan to use this venue as your planning anchor."
           : `Save this tournament${props.selectedVenueId ? " and planning venue" : ""} so you can come back to it later.`}
       </div>
-      <form action={formAction} style={{ marginTop: 8, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+      <form action={formAction as any} style={{ marginTop: 8, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <SubmitButton isUpdate={props.planExists} />
         {state.status === "error" ? (
           <span style={{ color: "#b91c1c", fontWeight: 800, fontSize: 12 }}>{state.error ?? "Unable to save right now."}</span>
