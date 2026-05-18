@@ -41,7 +41,6 @@ export default function ShareWeekendButton(props: {
       channel,
       tournament_slug: slug,
       venue: props.venue ?? null,
-      share_url: shareUrl,
     });
   };
 
@@ -243,4 +242,3 @@ export default function ShareWeekendButton(props: {
     </>
   );
 }
-

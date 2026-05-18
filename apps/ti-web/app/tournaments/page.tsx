@@ -4,6 +4,7 @@ import { TI_SPORT_LABELS } from "@/lib/tiSports";
 import { lookupZipLatLng } from "@/lib/lookupZipLatLng";
 import StateMultiSelect from "./StateMultiSelect";
 import MetroMarketChips from "./_components/MetroMarketChips";
+import PlanWeekendCtaClient from "./PlanWeekendCtaClient";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
@@ -685,9 +686,14 @@ export default async function TournamentsPage({
                       const hasVrbo = Boolean(city && /^[A-Z]{2}$/.test(state));
                       return (
                         <div className={`cardCtaGrid${hasVrbo ? " cardCtaGrid--twoUp" : ""}`}>
-                          <Link href={`/weekend/${t.slug}`} className="primaryLink cardCta--plan">
-                            Plan weekend
-                          </Link>
+                          <PlanWeekendCtaClient
+                            href={`/weekend/${t.slug}`}
+                            className="primaryLink cardCta--plan"
+                            tournamentId={t.id}
+                            tournamentSlug={t.slug}
+                            sport={t.sport ?? null}
+                            state={t.state ?? null}
+                          />
                           <a
                             className="secondaryLink cardCta--hotels"
                             href={buildTournamentHotelsHref({

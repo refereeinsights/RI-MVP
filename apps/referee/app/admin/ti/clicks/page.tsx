@@ -30,6 +30,7 @@ export default async function TiClicksPage() {
     { key: "tournament_detail_venue_map_clicked", label: "Tournament detail: venue map clicked" },
     { key: "tournament_detail_weekend_plan_clicked", label: "Tournament detail: weekend plan clicked" },
     { key: "tournament_detail_travel_search_clicked", label: "Tournament detail: travel search clicked" },
+    { key: "tournament_card_plan_weekend_clicked", label: "Tournament directory card: plan weekend clicked" },
     { key: "tournament_map_cta_clicked", label: "Tournament map CTA clicked" },
     { key: "tournament_map_back_to_tournament_clicked", label: "Tournament map: back to tournament clicked" },
     { key: "tournament_map_weekend_plan_clicked", label: "Tournament map: weekend plan clicked" },
