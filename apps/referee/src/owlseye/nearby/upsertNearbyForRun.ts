@@ -783,8 +783,8 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
 
     if (!weak && bestTagged.length > 0) {
       if (category === "hangouts") {
-        const { places: rated, lowCoverage } = applyHangoutRatingFilter(bestTagged);
-        const capped = applyHangoutCaps(rated);
+        const rated = applyHangoutRatingFilter(bestTagged);
+        const { places: capped, lowCoverage } = applyHangoutCaps(rated);
         enhancedNearby[category].places = capped.slice(0, ENHANCED_LIMIT);
         enhancedNearby[category].lowCoverage = lowCoverage;
       } else {
@@ -844,7 +844,14 @@ export async function upsertNearbyForRun(params: UpsertParams): Promise<NearbyRe
       venueLng,
     });
     const qualifiedGoogle = taggedGoogle.filter((t) => t.qualified);
-    enhancedNearby[category].places = qualifiedGoogle.slice(0, ENHANCED_LIMIT);
+    if (category === "hangouts") {
+      const rated = applyHangoutRatingFilter(qualifiedGoogle);
+      const { places: capped, lowCoverage } = applyHangoutCaps(rated);
+      enhancedNearby[category].places = capped.slice(0, ENHANCED_LIMIT);
+      enhancedNearby[category].lowCoverage = lowCoverage;
+    } else {
+      enhancedNearby[category].places = qualifiedGoogle.slice(0, ENHANCED_LIMIT);
+    }
     enhancedNearby[category].usedGoogleFallback = true;
     enhancedNearby[category].fallbackReason =
       lastWeakReason === "budget_exceeded" ? "budget_exceeded" : lastWeakReason ?? "foursquare_low_quality";

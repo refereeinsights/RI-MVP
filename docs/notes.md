@@ -12,6 +12,49 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-05-18
+
+### Owl's Eye hangouts — quality pass 2
+
+Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/playground/mall padding and junk names from cached hangout results.
+
+**Files changed:**
+- `apps/referee/src/owlseye/nearby/quickEatsHangouts.ts`
+- `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts`
+- `scripts/ingest/backfill_owls_eye_hangouts.ts` (comment header updated)
+
+**Changes:**
+
+1. **`isStrongIndoorHangout(place)`** — new exported helper. Returns true for: brewery+food, pizza, food_court, arcade, bowling, indoor_play, mini_golf, amusement. All other categories (park, playground, mall, brewery-no-food, sports_bar/pub without food, etc.) return false.
+
+2. **`applyHangoutCaps()` redesigned** — now returns `{places, lowCoverage}`.
+   - 0 strong indoor → `places: []`, `lowCoverage: true` (no park/mall backfill)
+   - 1–2 strong indoor → only strong indoor, `lowCoverage: true`
+   - 3+ strong indoor → strong indoor + at most 1 lower-fit backfill; park/playground cap remains max 1 combined
+
+3. **`applyHangoutRatingFilter()` simplified** — now returns `TaggedPlace[]` only; `lowCoverage` ownership moved to `applyHangoutCaps` so it reflects strong indoor scarcity rather than raw candidate count.
+
+4. **Tier renumber** (`hangoutsRankTier`):
+   - Old tier 3 was overloaded (activities + brewery-no-food + sports_bar+food all equal rank)
+   - New: Tier 3 = activities only; Tier 4 = brewery-no-food; Tier 5 = sports_bar+food; Tier 6 = pub+food; Tier 8 = park/playground; Tier 9 = mall; Tier 10 = other
+
+5. **Junk name suppression expanded** (`looksLikeHangoutJunk` now accepts `tags`):
+   - New patterns: all-lowercase handle `/^[a-z0-9_]{4,20}$/`, camelCase portmanteau `/^[A-Za-z][a-z]{2,}[A-Z][A-Za-z]{2,}$/`, short odd-apostrophe `/^[A-Za-z]{1,3}\s*'[a-z]/i`
+   - All new patterns bypassed when place has a strong indoor override tag (brewery, pizza, food_court, arcade, bowling, indoor_play, mini_golf, amusement, known_keeper) — prevents false suppression of valid businesses
+
+6. **Google fallback path** now applies the same `applyHangoutRatingFilter` → `applyHangoutCaps` pipeline before slicing to ENHANCED_LIMIT.
+
+7. **Call site updated** in `upsertNearbyForRun.ts`: `lowCoverage` now comes from `applyHangoutCaps`, not `applyHangoutRatingFilter`.
+
+**QA expectations:**
+- "bobosneh", "NadsZone", "A 'sode" → suppressed (no strong indoor tag)
+- "Hough St. Park" + pure-park results → not shown when fewer than 3 strong indoor exist
+- "Morretti's Barrington" → survives if pizza tag fires (FSQ category or name), suppressed otherwise
+- "Sundial Brewing & Blending" → survives at tier 1 if food signal present, tier 4 if not
+- "The Pinball Room" alone → returns 1 result, lowCoverage=true, no park padding
+
+**Backfill:** `npx tsx scripts/ingest/backfill_owls_eye_hangouts.ts --apply` (referee app must be running; set `FOURSQUARE_MONTHLY_CALL_LIMIT=10000`). Validates first 2 venues before continuing.
+
 ## 2026-05-12
 
 - RI Missing venues — bulk triage deletions: investigated root causes across all 236 missing-venue tournaments. Identified and deleted 15 hopeless records from the database:

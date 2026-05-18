@@ -54,6 +54,14 @@ const JUNK_RESIDENCE_RE = /\b(residence|apartment|apt|trailer)\b|\$residence/i;
 const JUNK_FICTIONAL_RE = /\b(deus ex|cybertron|human revolution|madden)\b/i;
 const JUNK_PERSON_RE = /^[A-Z][a-z]+\s[A-Z][a-z]+'s?$/;
 
+// Tags that protect a candidate from name-pattern-based junk suppression.
+// If a place has already earned one of these tags through category/name matching,
+// we do not suppress it solely because its name looks like a handle or odd string.
+const STRONG_INDOOR_OVERRIDE_TAGS = new Set([
+  "brewery", "taproom", "pizza", "food_court", "arcade",
+  "bowling", "indoor_play", "mini_golf", "amusement", "known_keeper",
+]);
+
 // Food/casual signal for brewery/taproom/sports bar/pub quality check.
 const FOOD_SIGNAL_NAME_RE =
   /\b(kitchen|grill|grille|pizza|pizzeria|eats|food|brewpub|brew pub|public house|ale house|tap house)\b/i;
@@ -81,7 +89,12 @@ function isExcludedBase(name: string) {
   return { excluded: false, reason: undefined };
 }
 
-function looksLikeHangoutJunk(name: string, fsqCategoryIds: string[]): boolean {
+function hasStrongIndoorOverrideTag(tags: string[]): boolean {
+  return tags.some((t) => STRONG_INDOOR_OVERRIDE_TAGS.has(t));
+}
+
+function looksLikeHangoutJunk(name: string, fsqCategoryIds: string[], tags: string[]): boolean {
+  // Hard junk — always suppress regardless of tags.
   if (JUNK_RESIDENCE_RE.test(name)) return true;
   if (JUNK_FICTIONAL_RE.test(name)) return true;
   if (JUNK_PERSON_RE.test(name)) return true;
@@ -90,6 +103,19 @@ function looksLikeHangoutJunk(name: string, fsqCategoryIds: string[]): boolean {
     const hasAllowedCategory = fsqCategoryIds.some((id) => HANGOUT_CATEGORY_IDS.includes(id));
     if (!hasAllowedCategory) return true;
   }
+
+  // Name-pattern suppression: only when no strong indoor override tag is present.
+  // If the place has earned a strong indoor tag (brewery, pizza, arcade, etc.) through
+  // category/name matching, do not suppress it solely due to naming style.
+  if (!hasStrongIndoorOverrideTag(tags)) {
+    // All-lowercase handle: "bobosneh", "nadszone" (before trim)
+    if (/^[a-z0-9_]{4,20}$/.test(name)) return true;
+    // CamelCase portmanteau with no spaces: "NadsZone"
+    if (/^[A-Za-z][a-z]{2,}[A-Z][A-Za-z]{2,}$/.test(name)) return true;
+    // Short odd-apostrophe prefix: "A 'sode"
+    if (/^[A-Za-z]{1,3}\s*'[a-z]/i.test(name)) return true;
+  }
+
   return false;
 }
 
@@ -246,7 +272,9 @@ export function tagAndFilterEnhancedPlaces(args: {
         (DOG_PARK_EXCLUDE_RE.test(h) ||
           fsqCategoryNames.some((n) => DOG_PARK_EXCLUDE_RE.test(norm(n))));
 
-      const isJunk = args.category === "hangouts" && looksLikeHangoutJunk(name, fsqCategoryIds);
+      // Pass reasonTagsBase so strong indoor tags (brewery, pizza, arcade, etc.) can
+      // override broad name-pattern suppression for valid businesses like "Morretti's".
+      const isJunk = args.category === "hangouts" && looksLikeHangoutJunk(name, fsqCategoryIds, reasonTagsBase);
 
       const isFsqSuppressed =
         args.category === "hangouts" && "fsq_place_id" in p && isFsqOnlySuppressed(fsqCategoryIds);
@@ -351,7 +379,7 @@ export function tagAndFilterEnhancedPlaces(args: {
     .filter(Boolean) as TaggedPlace[];
 }
 
-export function hangoutsRankTier(place: TaggedPlace) {
+export function hangoutsRankTier(place: TaggedPlace): number {
   const tags = new Set(place.reason_tags ?? []);
 
   // Tier 1: Brewery/taproom with food signal.
@@ -360,7 +388,7 @@ export function hangoutsRankTier(place: TaggedPlace) {
   // Tier 2: Pizza, Food Court.
   if (tags.has("pizza") || tags.has("food_court")) return 2;
 
-  // Tier 3: Activity places, brewery without food signal, sports bar with food signal.
+  // Tier 3: Strong indoor activities.
   if (
     tags.has("arcade") ||
     tags.has("bowling") ||
@@ -369,60 +397,102 @@ export function hangoutsRankTier(place: TaggedPlace) {
     tags.has("amusement") ||
     tags.has("known_keeper")
   ) return 3;
-  if (tags.has("brewery_no_food_signal")) return 3;
-  if (tags.has("sports_bar") && !tags.has("sports_bar_no_food")) return 3;
 
-  // Tier 4: Pub with food signal.
-  if (tags.has("pub") && !tags.has("pub_no_food")) return 4;
+  // Tier 4: Brewery/taproom without food signal.
+  if (tags.has("brewery_no_food_signal")) return 4;
 
-  // Tier 5: Science center/museum.
-  if (tags.has("science")) return 5;
+  // Tier 5: Sports Bar with food signal.
+  if (tags.has("sports_bar") && !tags.has("sports_bar_no_food")) return 5;
 
-  // Tier 6: Park/playground, sports bar or pub without food signal.
-  if (tags.has("park") || tags.has("playground")) return 6;
-  if (tags.has("sports_bar") || tags.has("pub")) return 6;
+  // Tier 6: Pub with food signal.
+  if (tags.has("pub") && !tags.has("pub_no_food")) return 6;
 
-  // Tier 7: Mall.
-  if (tags.has("mall")) return 7;
+  // Tier 7: Ice Cream (included for future use; no active FSQ category or tag path currently).
+  if (tags.has("ice_cream")) return 7;
 
-  // Tier 8: Other.
-  return 8;
+  // Tier 8: Park/Playground.
+  if (tags.has("park") || tags.has("playground")) return 8;
+
+  // Tier 9: Mall.
+  if (tags.has("mall")) return 9;
+
+  // Tier 10: Other (science, sports_bar/pub without food signal, etc.).
+  return 10;
 }
 
-export function applyHangoutCaps(places: TaggedPlace[]): TaggedPlace[] {
-  // Suppress parks/playgrounds entirely if there are 5+ strong indoor results (tiers 1–4).
-  const strongIndoorCount = places.filter((p) => hangoutsRankTier(p) <= 4).length;
-  const suppressParks = strongIndoorCount >= 5;
-
-  let parkCount = 0;
-  return places.filter((p) => {
-    const tags = new Set(p.reason_tags ?? []);
-    if (tags.has("park") || tags.has("playground")) {
-      if (suppressParks) return false;
-      parkCount++;
-      return parkCount <= 1;
-    }
-    return true;
-  });
+// Returns true for the strong indoor categories that should anchor the hangouts section.
+// Parks, playgrounds, malls, brewery-without-food, sports bars/pubs without food,
+// and other lower-fit results return false.
+export function isStrongIndoorHangout(place: TaggedPlace): boolean {
+  const tags = new Set(place.reason_tags ?? []);
+  if (tags.has("brewery") && !tags.has("brewery_no_food_signal")) return true;
+  if (tags.has("pizza")) return true;
+  if (tags.has("food_court")) return true;
+  if (tags.has("arcade")) return true;
+  if (tags.has("bowling")) return true;
+  if (tags.has("indoor_play")) return true;
+  if (tags.has("mini_golf")) return true;
+  if (tags.has("amusement")) return true;
+  return false;
 }
 
-export function applyHangoutRatingFilter(places: TaggedPlace[]): {
+// Applies anti-padding caps and determines lowCoverage based on strong indoor scarcity.
+//
+// Rules:
+//   0 strong indoor  → empty output, lowCoverage=true
+//   1–2 strong indoor → only strong indoor (no lower-fit backfill), lowCoverage=true
+//   3+ strong indoor  → strong indoor + at most 1 lower-fit backfill, park/playground
+//                        cap max 1 combined, lowCoverage=false
+export function applyHangoutCaps(places: TaggedPlace[]): {
   places: TaggedPlace[];
   lowCoverage: boolean;
 } {
+  const strongIndoor = places.filter(isStrongIndoorHangout);
+  const strongIndoorCount = strongIndoor.length;
+
+  if (strongIndoorCount === 0) {
+    return { places: [], lowCoverage: true };
+  }
+
+  if (strongIndoorCount < 3) {
+    return { places: strongIndoor, lowCoverage: true };
+  }
+
+  // 3+ strong indoor: allow at most 1 lower-fit backfill; park+playground cap max 1.
+  const lowerFit = places.filter((p) => !isStrongIndoorHangout(p));
+  let parkCount = 0;
+  const selectedLowerFit: TaggedPlace[] = [];
+
+  for (const p of lowerFit) {
+    if (selectedLowerFit.length >= 1) break;
+    const tags = new Set(p.reason_tags ?? []);
+    if (tags.has("park") || tags.has("playground")) {
+      if (parkCount >= 1) continue;
+      parkCount++;
+    }
+    selectedLowerFit.push(p);
+  }
+
+  return {
+    places: [...strongIndoor, ...selectedLowerFit],
+    lowCoverage: false,
+  };
+}
+
+// Filters places by FSQ rating, lowering the threshold when candidate coverage is thin.
+// lowCoverage is no longer returned here — it is determined by applyHangoutCaps based
+// on strong indoor scarcity after capping.
+export function applyHangoutRatingFilter(places: TaggedPlace[]): TaggedPlace[] {
   const ratedPrimary = places.filter(
     (p) => typeof p.rating !== "number" || p.rating >= HANGOUT_PRIMARY_MIN_RATING
   );
   if (ratedPrimary.length >= HANGOUT_THIN_COVERAGE_THRESHOLD) {
-    return { places: ratedPrimary, lowCoverage: false };
+    return ratedPrimary;
   }
 
   // Thin coverage: lower the threshold and retry with already-fetched candidates.
   const ratedFallback = places.filter(
     (p) => typeof p.rating !== "number" || p.rating >= HANGOUT_FALLBACK_MIN_RATING
   );
-  return {
-    places: ratedFallback.length > 0 ? ratedFallback : places,
-    lowCoverage: true,
-  };
+  return ratedFallback.length > 0 ? ratedFallback : places;
 }

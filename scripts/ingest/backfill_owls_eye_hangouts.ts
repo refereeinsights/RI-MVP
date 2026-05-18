@@ -4,6 +4,17 @@
  * Sorted by nearest tournament date so the most-urgent venues run first.
  * Pauses after the first two venues so you can inspect results before bulk processing.
  *
+ * This is the second quality-pass backfill (May 2026). Changes vs. first pass:
+ *   - Zero strong indoor results now returns empty (no park/mall padding).
+ *   - 1–2 strong indoor results returns thin + low_coverage=true (no padding).
+ *   - 3+ strong indoor results allows at most 1 lower-fit backfill.
+ *   - Parks/playgrounds require ≥3 strong indoor results to appear at all.
+ *   - Tier system renumbered: activities (arcade/bowling/etc.) now outrank
+ *     brewery-without-food and sports-bar-with-food.
+ *   - Junk name suppression covers lowercase handles, camelCase portmanteaus,
+ *     and short odd-apostrophe names; overridden by strong indoor tags.
+ *   - lowCoverage now based on strong indoor scarcity, not raw candidate count.
+ *
  * Usage:
  *   tsx scripts/ingest/backfill_owls_eye_hangouts.ts           # dry run (list only)
  *   tsx scripts/ingest/backfill_owls_eye_hangouts.ts --apply   # execute re-runs
@@ -15,6 +26,7 @@
  *   REFEREE_APP_URL        — base URL of the running referee app (default: http://localhost:3000)
  *
  * The referee app must be running (locally or prod) for --apply to work.
+ * Recommend setting FOURSQUARE_MONTHLY_CALL_LIMIT=10000 before running.
  */
 
 import { createInterface } from "node:readline/promises";
