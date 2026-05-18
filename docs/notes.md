@@ -14,6 +14,51 @@ Maintenance rules:
 
 ## 2026-05-18
 
+### Owl's Eye hangouts — targeted refresh pipeline bug fixes
+
+Three interrelated bugs discovered during Zions Bank Stadium QA re-run. All three had to be present simultaneously to cause the symptom (targeted force-refresh returning `ok: true, message: "inserted"` but leaving stale DB rows unchanged).
+
+#### Bug 1: `applyHangoutRatingFilter` was rating-gating lower-fit places
+
+**Location:** `apps/referee/src/owlseye/nearby/quickEatsHangouts.ts` — `applyHangoutRatingFilter()`
+
+**Root cause:** The function applied the FSQ rating threshold (`>= 7.0`, fallback `>= 6.0`) to ALL candidates including parks, playgrounds, and malls. Parks and playgrounds consistently have `rating: null` from Foursquare, and the null-check guard (`typeof p.rating !== "number"`) always passes null-rated places. This meant parks would reliably satisfy the `ratedPrimary.length >= HANGOUT_THIN_COVERAGE_THRESHOLD` (3) check, causing the function to return a parks-only list even when strong indoor candidates (arcade, food court, mini golf) were present but had actual FSQ ratings below 7.0.
+
+**Effect:** `applyHangoutCaps` received 0 strong indoor places → returned `{places: [], lowCoverage: true}` → `uniqueRows = []` → early return fired before any delete → old stale rows survived in DB.
+
+**Fix:** Separate strong indoor candidates from lower-fit before rating-filtering. Only apply the rating threshold to strong indoor (brewery+food, pizza, food_court, arcade, bowling, mini_golf, amusement). Lower-fit places (parks, malls, brewery-no-food, sports_bar/pub, etc.) always pass through to `applyHangoutCaps` unchanged. `applyHangoutCaps` then decides whether lower-fit results appear based on strong indoor count — that is the correct gate for lower-fit, not the rating filter.
+
+**Why this is correct:** Parks are intentionally lower-tier backfills, not primary hangout candidates. Filtering them by FSQ rating is wrong — their null ratings are a data absence, not a quality signal. The strong indoor count in `applyHangoutCaps` is the right place to decide whether lower-fit candidates appear at all.
+
+#### Bug 2: Targeted category delete skipped when result was empty
+
+**Location:** `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts` — `uniqueRows.length === 0` early return block
+
+**Root cause:** The targeted delete (which clears old rows for the refreshed categories before upserting new results) was placed after the `uniqueRows.length === 0` early return. The safety rationale was "never wipe existing data on a zero-result run." But this meant that when Bug 1 caused `applyHangoutCaps` to return an intentionally-empty result (0 strong indoor after rating filter), the early return fired before the delete, leaving stale rows in place.
+
+**Fix:** Added a targeted delete inside the `uniqueRows.length === 0` block, gated on `force && isTargetedRun`. If a forced targeted refresh genuinely produces no results, the old stale rows for that category are still cleared. This correctly handles the "venue now has no qualifying hangouts" case.
+
+#### Bug 3: Route handler not passing `force` to `upsertNearbyForRun` for targeted runs
+
+**Location:** `apps/referee/app/api/admin/owls-eye/run/route.ts` — targeted run path
+
+**Root cause:** The targeted run branch of the route handler called `upsertNearbyForRun` without the `force` parameter. Since `force` defaults to `false`, the targeted delete condition (`force && isTargetedRun`) always evaluated to `false && true = false`, so the delete never ran even when the API caller sent `force: true`.
+
+**Effect:** Even if Bugs 1 and 2 were fixed, the targeted delete would still never fire for forced re-runs triggered through the admin API or backfill script, because `force` was silently dropped at the route layer.
+
+**Fix:** Pass `force` from the parsed request body through to `upsertNearbyForRun` in the targeted run path.
+
+#### Combined symptom and QA verification
+
+All three bugs had to coincide to cause the observed behavior: (1) rating filter kept parks (so 0 strong indoor entered caps), (2) caps returned empty (so early return triggered before delete), (3) even if the result had been non-empty, the delete wouldn't have run (force not passed). Fixing any one in isolation would have left the others latent.
+
+Verified with Zions Bank Stadium (lacrosse): before fixes, targeted `force: true` re-run returned `ok: true` but DB showed 11 unchanged rows (8 parks + Pinball Room + Mountain View Village + X-Golf). After all three fixes, DB shows 3 rows: Costco Food Court (food_court, tier 2), Tee Box Riverton (mini_golf, tier 3), H2 Burgers (brewery-no-food, tier 4 — Option A backfill). `lowCoverage: true` since only 2 strong indoor present.
+
+**Files changed:**
+- `apps/referee/src/owlseye/nearby/quickEatsHangouts.ts`
+- `apps/referee/src/owlseye/nearby/upsertNearbyForRun.ts`
+- `apps/referee/app/api/admin/owls-eye/run/route.ts`
+
 ### Owl's Eye hangouts — quality pass 2 (Option A lower-fit relaxation)
 
 Follow-up to the same-day quality pass 2 commit. Relaxed the thin-coverage backfill rule so sparse venues can show a second result alongside a single strong indoor option.
