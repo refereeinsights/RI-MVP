@@ -36,6 +36,20 @@ export default function TournamentMapTeaser({
       ? `${venueCount} venue${venueCount === 1 ? "" : "s"} near ${locationLabel}`
       : "View venues and nearby options";
 
+  const hotelsLabel = (() => {
+    if (venueCount === 1) {
+      return primaryVenueName ? `Find hotels near ${primaryVenueName}` : "Find hotels near this venue";
+    }
+    return "Find hotels near tournament venues";
+  })();
+
+  const rentalsLabel = (() => {
+    if (venueCount === 1) {
+      return primaryVenueName ? `Search rentals near ${primaryVenueName}` : "Search rentals near this venue";
+    }
+    return "Search rentals near tournament venues";
+  })();
+
   return (
     <div id="tournament-map-teaser" className="tournamentMapTeaser">
       <div className="tournamentMapTeaser__visual" aria-hidden="true">
@@ -62,10 +76,10 @@ export default function TournamentMapTeaser({
       </div>
       <div className="tournamentMapTeaser__secondaryRow">
         <Link className="secondaryLink detailLinkSmall" href={hotelsHref} target="_blank" rel="noopener noreferrer sponsored">
-          Hotels near fields
+          {hotelsLabel}
         </Link>
         <Link className="secondaryLink detailLinkSmall" href={rentalsHref} target="_blank" rel="noopener noreferrer sponsored">
-          Team Stays
+          {rentalsLabel}
         </Link>
       </div>
       <AffiliateDisclosure className="tournamentMapTeaser__disclosure" />

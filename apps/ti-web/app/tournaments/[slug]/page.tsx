@@ -886,21 +886,39 @@ async function TournamentVenueDetails({
       ? buildHotelsHrefWithSearch({ venueId: hotelClickVenueId, tournamentId: tournament.id, ss: tournamentHotelsSearchString })
       : null;
 
-  const headerHotelsHref = buildTournamentHotelsHref({
-    source: "tournament_detail",
-    tournamentId: tournament.id,
-    city: tournament.city ?? null,
-    state: tournament.state ?? null,
-  });
-  const headerRentalsHref = buildTournamentVrboHref({
-    source: "tournament_detail",
-    tournamentId: tournament.id,
-    city: tournament.city ?? null,
-    state: tournament.state ?? null,
-  });
+	  const headerHotelsHref = tournamentHotelsHref
+	    ? tournamentHotelsHref
+	    : buildTournamentHotelsHref({
+	        source: "tournament_detail",
+	        tournamentId: tournament.id,
+	        city: tournament.city ?? null,
+	        state: tournament.state ?? null,
+	      });
+	  const headerRentalsHref =
+	    hotelClickVenueId != null
+	      ? `/go/vrbo?venueId=${encodeURIComponent(hotelClickVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}&source=tournament_detail`
+	      : buildTournamentVrboHref({
+	          source: "tournament_detail",
+	          tournamentId: tournament.id,
+	          city: tournament.city ?? null,
+	          state: tournament.state ?? null,
+	        });
 
-  return (
-    <>
+	  const stayHotelsLabel =
+	    venueCount === 1
+	      ? primaryVenueName
+	        ? `🏨 Find hotels near ${primaryVenueName}`
+	        : "🏨 Find hotels near this venue"
+	      : "🏨 Find hotels near tournament venues";
+	  const stayRentalsLabel =
+	    venueCount === 1
+	      ? primaryVenueName
+	        ? `🏡 Search rentals near ${primaryVenueName}`
+	        : "🏡 Search rentals near this venue"
+	      : "🏡 Search rentals near tournament venues";
+
+	  return (
+	    <>
       <TournamentDetailStickyMapCta mapHref={mapPreviewHref} mapLabel={mapPrimaryLabel} hotelsHref={null} />
 
       <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
@@ -947,33 +965,21 @@ async function TournamentVenueDetails({
 	          <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>See hotels, food, coffee, and venues together on one map.</div>
 	        </div>
 
-        <div className="detailVenueGrid detailVenueGrid--planning" style={{ marginTop: 10 }}>
-          <a className="detailVenueTile detailVenueTile--planning" href="#weather-planner">
-            <span className="detailVenueTile__eyebrow">Planning</span>
-            <span className="detailVenueTile__name">Weather</span>
+	        <div className="detailVenueGrid detailVenueGrid--planning" style={{ marginTop: 10 }}>
+	          <a className="detailVenueTile detailVenueTile--planning" href="#weather-planner">
+	            <span className="detailVenueTile__eyebrow">Planning</span>
+	            <span className="detailVenueTile__name">Weather</span>
             <span style={{ fontSize: 12, opacity: 0.85 }}>
               {bestWeatherLocation.city || bestWeatherLocation.state
                 ? `10-day forecast for ${[bestWeatherLocation.city, bestWeatherLocation.state].filter(Boolean).join(", ")}.`
                 : "Check the forecast to plan clothing, hydration, shade, and sideline gear."}
             </span>
-            <span className="detailVenueTile__flag">View 10-day forecast</span>
-          </a>
+	            <span className="detailVenueTile__flag">View 10-day forecast</span>
+	          </a>
 
-          <a
-            className="detailVenueTile detailVenueTile--planning"
-            href={tournamentHotelsHref ?? "#where-to-stay"}
-            target={tournamentHotelsHref ? "_blank" : undefined}
-            rel={tournamentHotelsHref ? "noopener noreferrer sponsored" : undefined}
-          >
-            <span className="detailVenueTile__eyebrow">Planning</span>
-            <span className="detailVenueTile__name">Where to stay</span>
-            <span style={{ fontSize: 12, opacity: 0.85 }}>{planHotelsLine ?? "Compare hotels near the tournament venues."}</span>
-            <span className="detailVenueTile__flag">{tournamentHotelsHref ? "Open hotel options" : "View hotel options"}</span>
-          </a>
-
-          <a className="detailVenueTile detailVenueTile--planning" href="#where-youll-play">
-            <span className="detailVenueTile__eyebrow">Planning</span>
-            <span className="detailVenueTile__name">Food &amp; coffee nearby</span>
+	          <a className="detailVenueTile detailVenueTile--planning" href="#where-youll-play">
+	            <span className="detailVenueTile__eyebrow">Planning</span>
+	            <span className="detailVenueTile__name">Food &amp; coffee nearby</span>
             <span style={{ fontSize: 12, opacity: 0.85 }}>
               {planFoodCoffeeLine ??
                 (displayVenueRows.some((v) => v.hasOwl) ? "Nearby options available" : "Nearby options unavailable right now")}
@@ -1248,33 +1254,33 @@ async function TournamentVenueDetails({
           marginLeft: "auto",
           marginRight: "auto",
         }}
-      >
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 950 }}>Stay close to where games are played</h2>
-        <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9 }}>Most teams stay within 10–15 minutes of their fields.</div>
-        {tournamentHotelsHref && hotelClickVenueId ? (
+	      >
+	        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 950 }}>Stay close to where games are played</h2>
+	        <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9 }}>Most teams stay within 10–15 minutes of their fields.</div>
+	        {tournamentHotelsHref && hotelClickVenueId ? (
           <div style={{ marginTop: 10 }}>
             <div className="detailLinksRow" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" as any }}>
               <a
                 className="secondaryLink hotelBookingCta"
                 href={tournamentHotelsHref}
                 target="_blank"
-                rel="noopener noreferrer sponsored"
-                style={{ minWidth: 260 }}
-              >
-                🏨 View hotel options
-              </a>
-              <a
-                className="secondaryLink hotelBookingCta"
-                href={`/go/vrbo?venueId=${encodeURIComponent(hotelClickVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
-                target="_blank"
-                rel="noopener noreferrer sponsored"
-                style={{ minWidth: 260 }}
-              >
-                🏡 Search Vrbo rentals
-              </a>
-            </div>
-          </div>
-        ) : (
+	                rel="noopener noreferrer sponsored"
+	                style={{ minWidth: 260 }}
+	              >
+	                {stayHotelsLabel}
+	              </a>
+	              <a
+	                className="secondaryLink hotelBookingCta"
+	                href={`/go/vrbo?venueId=${encodeURIComponent(hotelClickVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
+	                target="_blank"
+	                rel="noopener noreferrer sponsored"
+	                style={{ minWidth: 260 }}
+	              >
+	                {stayRentalsLabel}
+	              </a>
+	            </div>
+	          </div>
+	        ) : (
           <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9 }}>Hotel options unavailable right now.</div>
         )}
       </div>

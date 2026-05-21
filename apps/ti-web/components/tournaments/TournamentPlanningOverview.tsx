@@ -77,17 +77,9 @@ export default function TournamentPlanningOverview(props: {
         </div>
 
         <div className="detailLinksRow" style={{ marginTop: 2, gap: 12, flexWrap: "wrap" as any }}>
-          <Link className="secondaryLink" href={props.mapHref}>
-            Open venue map
-          </Link>
           <a className="secondaryLink" href="#where-youll-play">
-            View venue details
+            View full tournament plan
           </a>
-          {props.hotelsHref ? (
-            <a className="secondaryLink" href={props.hotelsHref} target="_blank" rel="noopener noreferrer sponsored">
-              View hotel options
-            </a>
-          ) : null}
         </div>
       </div>
     </section>
