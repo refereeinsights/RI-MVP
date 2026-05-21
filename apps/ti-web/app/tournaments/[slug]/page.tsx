@@ -18,7 +18,6 @@ import ShareWeekendButton from "@/components/ShareWeekendButton";
 import TournamentPlanningCtasClient from "./TournamentPlanningCtasClient";
 import TournamentPlanningOverview from "@/components/tournaments/TournamentPlanningOverview";
 import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
-import VenueMapTeaserCard from "@/app/tournaments/_components/VenueMapTeaserCard";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import TournamentMapTeaser from "@/components/tournaments/TournamentMapTeaser";
 import TournamentDetailStickyMapCta from "@/components/tournaments/TournamentDetailStickyMapCta";
@@ -902,7 +901,7 @@ async function TournamentVenueDetails({
 
   return (
     <>
-      <TournamentDetailStickyMapCta mapHref={mapPreviewHref} mapLabel={mapPrimaryLabel} hotelsHref={headerHotelsHref} />
+      <TournamentDetailStickyMapCta mapHref={mapPreviewHref} mapLabel={mapPrimaryLabel} hotelsHref={null} />
 
       <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
         <TournamentMapTeaser
@@ -998,12 +997,6 @@ async function TournamentVenueDetails({
           </a>
         </div>
 
-        <div className="detailLinksRow" style={{ marginTop: 10 }}>
-          <a className="secondaryLink" href="#where-youll-play">
-            View full tournament plan
-          </a>
-        </div>
-
       </div>
 
       <div
@@ -1051,13 +1044,6 @@ async function TournamentVenueDetails({
           </div>
         ) : null}
 
-        <VenueMapTeaserCard
-          tournamentName={tournament.name ?? "Tournament"}
-          slug={tournament.slug ?? paramsSlug}
-          venueCount={venueCount}
-          city={tournament.city ?? null}
-          state={tournament.state ?? null}
-        />
       </div>
 
       {(() => {
