@@ -799,7 +799,7 @@ async function TournamentVenueDetails({
 
   const venueCount = displayVenueRows.length;
   const isSingleVenue = venueCount === 1;
-  const mapPrimaryLabel = isSingleVenue ? "Open Venue Map" : "Open Tournament Map";
+  const mapPrimaryLabel = "View venue map";
   const whereYoullPlayLine =
     venueCount === 1
       ? "This tournament is scheduled at 1 venue."
@@ -1690,7 +1690,7 @@ export default async function TournamentDetailPage({
   const showStaffVerified = Boolean(data.tournament_staff_verified) || isDemoTournament;
 	  const metroLabel = getMetroMarketLabel(data.state ?? null);
 	  const headerIsSingleVenue = venueMeta.venueCount === 1;
-	  const headerMapLabel = headerIsSingleVenue ? "Open Venue Map" : "Open Tournament Map";
+	  const headerMapLabel = "View venue map";
 	  const headerMapHref = `/tournaments/${encodeURIComponent(data.slug ?? params.slug)}/map`;
 	  const headerHotelsHref = buildTournamentHotelsHref({
 	    source: "tournament_detail",

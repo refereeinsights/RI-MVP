@@ -26,9 +26,9 @@ export default function TournamentMapTeaser({
 
   const isSingleVenue = venueCount === 1;
   const title = "Plan around the fields";
-  const body = "See venue locations, directions, hotels, Team Stays, and nearby options.";
+  const body = "See venue locations, directions, hotels, rentals, and nearby options.";
 
-  const primaryLabel = isSingleVenue ? "Open Venue Map" : "Open Tournament Map";
+  const primaryLabel = "View venue map";
 
   const locationLabel = [city, state].filter(Boolean).join(", ");
   const contextLine =
