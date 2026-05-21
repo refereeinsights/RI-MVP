@@ -14,9 +14,6 @@ import QuickVenueCheck from "@/components/venues/QuickVenueCheck";
 import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheckButton";
 import TournamentWeatherPlannerAccordion from "@/components/tournaments/TournamentWeatherPlannerAccordion";
 import ClaimThisTournament from "@/components/tournaments/ClaimThisTournament";
-import ShareWeekendButton from "@/components/ShareWeekendButton";
-import TournamentPlanningCtasClient from "./TournamentPlanningCtasClient";
-import TournamentPlanningOverview from "@/components/tournaments/TournamentPlanningOverview";
 import TournamentMapCta from "@/components/tournaments/TournamentMapCta";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import TournamentMapTeaser from "@/components/tournaments/TournamentMapTeaser";
@@ -530,32 +527,7 @@ async function TournamentUserActions({
         </div>
       )}
 
-      {tournament.slug ? (
-        <div className="detailLinksRow" style={{ marginTop: 10 }}>
-          <ShareWeekendButton
-            tournamentSlug={tournament.slug}
-            tournamentName={tournament.name}
-            venue={null}
-            sourcePage="tournament_detail"
-            buttonLabel="Share This Weekend"
-            className="secondaryLink"
-          />
-        </div>
-      ) : null}
-
-      {tournament.slug ? (
-        <TournamentPlanningCtasClient
-          tournamentId={tournament.id}
-          tournamentSlug={tournament.slug}
-          primaryVenueId={primaryVenueIdForPlan}
-          owlPreviewCounts={owlPreviewCounts}
-          planHasLodging={planHasLodging}
-          city={tournament.city ?? null}
-          state={tournament.state ?? null}
-          startDate={tournament.start_date ?? null}
-          endDate={tournament.end_date ?? null}
-        />
-      ) : null}
+      {/* Noise cleanup: remove redundant CTA clusters; Map Teaser is the primary next step after the header. */}
     </>
   );
 }
@@ -968,89 +940,38 @@ async function TournamentVenueDetails({
     <>
       <TournamentDetailStickyMapCta mapHref={mapPreviewHref} mapLabel={mapPrimaryLabel} hotelsHref={null} />
 
-      <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
-        <TournamentMapTeaser
-          mapHref={mapPreviewHref}
-          hotelsHref={headerHotelsHref}
-          rentalsHref={headerRentalsHref}
-          venueCount={venueCount}
-          primaryVenueName={primaryVenueName}
-          city={tournament.city ?? null}
-          state={tournament.state ?? null}
-        />
-      </div>
+	      <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
+	        <TournamentMapTeaser
+	          mapHref={mapPreviewHref}
+	          hotelsHref={headerHotelsHref}
+	          rentalsHref={headerRentalsHref}
+	          venueCount={venueCount}
+	          primaryVenueName={primaryVenueName}
+	          city={tournament.city ?? null}
+	          state={tournament.state ?? null}
+	        />
+	      </div>
 
-	      <TournamentPlanningOverview
-	        tournament={{
-	          name: tournament.name,
-	          sport: tournament.sport ?? null,
-          level: tournament.level ?? null,
-          start_date: tournament.start_date,
-          end_date: tournament.end_date,
-          city: tournament.city,
-          state: tournament.state,
-          official_website_url: tournament.official_website_url ?? null,
-        }}
-        venueCount={venueCount}
-        primaryVenueName={primaryVenueName}
-        primaryVenueLocationLabel={primaryVenueLocationLabel}
-        mapHref={mapPreviewHref}
-        hotelsHref={tournamentHotelsHref}
-        counts={bestNearbyCounts}
-        isDemoTournament={isDemoTournament}
-        tournamentSlug={tournament.slug}
-      />
-
-      <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 950 }}>Plan This Tournament</h2>
-        <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>
-          Use this tournament plan to check weather, compare hotels, review nearby options, and open venue details before game day.
+      {linkedVenues.length > 0 ? (
+        <div
+          id="quick-venue-check"
+          style={{
+            marginTop: 12,
+            scrollMarginTop: 90,
+            width: "min(720px, 100%)",
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
+          <QuickVenueCheck
+            venueId={linkedVenues.length === 1 ? linkedVenues[0].id : undefined}
+            venueOptions={linkedVenues.map((v) => ({ id: v.id, name: v.name }))}
+            pageType="tournament"
+            sourceTournamentId={tournament.id}
+            sport={tournament.sport}
+          />
         </div>
-
-	        <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)" }}>
-	          <div style={{ fontWeight: 950 }}>Plan your entire weekend in one place</div>
-	          <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>See hotels, food, coffee, and venues together on one map.</div>
-	        </div>
-
-	        <div className="detailVenueGrid detailVenueGrid--planning" style={{ marginTop: 10 }}>
-	          <a className="detailVenueTile detailVenueTile--planning" href="#weather-planner">
-	            <span className="detailVenueTile__eyebrow">Planning</span>
-	            <span className="detailVenueTile__name">Weather</span>
-            <span style={{ fontSize: 12, opacity: 0.85 }}>
-              {bestWeatherLocation.city || bestWeatherLocation.state
-                ? `10-day forecast for ${[bestWeatherLocation.city, bestWeatherLocation.state].filter(Boolean).join(", ")}.`
-                : "Check the forecast to plan clothing, hydration, shade, and sideline gear."}
-            </span>
-	            <span className="detailVenueTile__flag">View 10-day forecast</span>
-	          </a>
-
-	          <a className="detailVenueTile detailVenueTile--planning" href="#where-youll-play">
-	            <span className="detailVenueTile__eyebrow">Planning</span>
-	            <span className="detailVenueTile__name">Food &amp; coffee nearby</span>
-            <span style={{ fontSize: 12, opacity: 0.85 }}>
-              {planFoodCoffeeLine ??
-                (displayVenueRows.some((v) => v.hasOwl) ? "Nearby options available" : "Nearby options unavailable right now")}
-            </span>
-            <span className="detailVenueTile__flag">See venue details</span>
-          </a>
-
-          <a className="detailVenueTile detailVenueTile--planning" href="#where-youll-play">
-            <span className="detailVenueTile__eyebrow">Planning</span>
-            <span className="detailVenueTile__name">Venue spread</span>
-            <span style={{ fontSize: 12, opacity: 0.85 }}>
-              {venueCount === 0
-                ? "Venue details coming soon."
-                : venueCount === 1
-                  ? "One venue location."
-                  : mostCommonVenueLocation
-                    ? `${venueCount} venues (mostly in ${mostCommonVenueLocation}).`
-                    : `${venueCount} venues across the area.`}
-            </span>
-            <span className="detailVenueTile__flag">Where you&apos;ll play</span>
-          </a>
-        </div>
-
-      </div>
+      ) : null}
 
       <div
         id="weather-planner"
@@ -1071,33 +992,7 @@ async function TournamentVenueDetails({
         <SoccerWorldCupFanGearCard sport={tournament.sport ?? null} tournamentId={tournament.id} />
       </div>
 
-		      <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
-		        <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)" }}>
-		          <div style={{ fontWeight: 950 }}>Still planning your stay?</div>
-		          <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>See nearby hotels, food, and coffee mapped to your fields.</div>
-		        </div>
-		      </div>
-
-      <div
-        id="where-youll-play"
-        style={{ width: "min(720px, 100%)", scrollMarginTop: 90, marginLeft: "auto", marginRight: "auto" }}
-      >
-        <h2 style={{ margin: "18px 0 0", fontSize: 16, fontWeight: 950 }}>Where You&apos;ll Play</h2>
-	        <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)" }}>
-	          <div style={{ fontWeight: 950 }}>Plan where to stay based on your fields</div>
-	          <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>Most teams stay within 10–15 minutes of their venue.</div>
-	        </div>
-        <div style={{ marginTop: 6, fontSize: 13, opacity: 0.92 }}>{whereYoullPlayLine}</div>
-        {mostCommonVenueLocation ? (
-          <div style={{ marginTop: 4, fontSize: 12, opacity: 0.82 }}>Most venues are in {mostCommonVenueLocation}.</div>
-        ) : null}
-        {showVenueWarning ? (
-          <div style={{ marginTop: 6, fontSize: 12, opacity: 0.82 }}>
-            Large multi-venue tournament — check your assigned field location before booking hotels.
-          </div>
-        ) : null}
-
-      </div>
+      {/* Noise cleanup: removed orphan “Still planning your stay?” + “Where you’ll play” blocks. */}
 
       {(() => {
         const officialUrl = String(tournament.official_website_url ?? "").trim();
@@ -1252,30 +1147,11 @@ async function TournamentVenueDetails({
         </>
       ) : null}
 
-      {linkedVenues.length > 0 ? (
-        <div
-          id="quick-venue-check"
-          style={{
-            marginTop: 12,
-            scrollMarginTop: 90,
-            width: "min(720px, 100%)",
-            marginLeft: "auto",
-            marginRight: "auto",
-          }}
-        >
-          <QuickVenueCheck
-            venueId={linkedVenues.length === 1 ? linkedVenues[0].id : undefined}
-            venueOptions={linkedVenues.map((v) => ({ id: v.id, name: v.name }))}
-            pageType="tournament"
-            sourceTournamentId={tournament.id}
-            sport={tournament.sport}
-          />
-        </div>
-      ) : venueInfo ? (
-        <div className="detailCard" style={{ marginLeft: "auto", marginRight: "auto" }}>
-          <div className="detailCard__title">Venue</div>
-          <div className="detailCard__body">
-            <div className="detailVenueRow">
+	      {linkedVenues.length === 0 && venueInfo ? (
+	        <div className="detailCard" style={{ marginLeft: "auto", marginRight: "auto" }}>
+	          <div className="detailCard__title">Venue</div>
+	          <div className="detailCard__body">
+	            <div className="detailVenueRow">
               <div className="detailVenueText">
                 <div className="detailVenueName">{tournament.venue || "Venue TBA"}</div>
                 {venueAddress ? <div className="detailVenueAddress">{venueAddress}</div> : null}
@@ -1292,7 +1168,7 @@ async function TournamentVenueDetails({
                     Waze
                   </a>
                 </div>
-              ) : null}
+	      ) : null}
             </div>
           </div>
         </div>
@@ -1776,24 +1652,10 @@ export default async function TournamentDetailPage({
 	          ) : null}
 	          {metroLabel ? <div className="detailMeta">{metroLabel}</div> : null}
 
-	          <div
-	            style={{
-	              marginTop: 10,
-	              display: "grid",
-              gap: 4,
-              justifyItems: "center",
-              textAlign: "center",
-              maxWidth: 520,
-            }}
-          >
-            <div style={{ fontWeight: 900, letterSpacing: "-0.01em" }}>Track this tournament</div>
-            <div style={{ fontSize: 13, opacity: 0.92 }}>Get email updates and quick access.</div>
-          </div>
-
-	          <Suspense fallback={<div style={{ height: 44 }} />}>
-	            <TournamentUserActionsComponent
-	              tournament={data}
-	              paramsSlug={params.slug}
+		          <Suspense fallback={<div style={{ height: 44 }} />}>
+		            <TournamentUserActionsComponent
+		              tournament={data}
+		              paramsSlug={params.slug}
 	              searchParams={searchParams}
 	              viewerContext={viewerContext}
                 primaryVenueIdForPlan={primaryVenueIdForPlan}
