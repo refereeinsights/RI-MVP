@@ -673,23 +673,30 @@ export default async function WeekendPage({
               </div>
             )}
 
-            {isWeekendPro
-              ? categories.map((cat) => {
-                  const rows = placesByCategory.get(cat) ?? [];
-                  if (!rows.length) return null;
-                  const title =
-                    cat === "quick_eats"
-                      ? "Quick Eats"
-                      : cat === "hangouts"
-                        ? "Parent Hangouts"
-                        : cat === "coffee"
-                          ? "Coffee"
-                          : "Team Meals";
-                  return (
-                    <details
-                      key={cat}
-                      className="ti-owls-details"
-                      open={Boolean(defaultOpenCategory && cat === defaultOpenCategory)}
+	            {isWeekendPro
+	              ? categories.map((cat) => {
+	                  const rows = placesByCategory.get(cat) ?? [];
+	                  const title =
+	                    cat === "quick_eats"
+	                      ? "Quick Eats"
+	                      : cat === "hangouts"
+	                        ? "Parent Hangouts"
+	                        : cat === "coffee"
+	                          ? "Coffee"
+	                          : "Team Meals";
+	                  const emptyState =
+	                    cat === "coffee"
+	                      ? "No coffee spots cached near this venue yet."
+	                      : cat === "quick_eats"
+	                        ? "No quick eats cached near this venue yet."
+	                        : cat === "hangouts"
+	                          ? "No parent hangouts cached near this venue yet."
+	                          : "No team meal spots cached near this venue yet.";
+	                  return (
+	                    <details
+	                      key={cat}
+	                      className="ti-owls-details"
+	                      open={Boolean(defaultOpenCategory && cat === defaultOpenCategory)}
                       style={{
                         border: "1px solid #e2e8f0",
                         borderRadius: 14,
@@ -706,57 +713,61 @@ export default async function WeekendPage({
                             {sectionIntro(cat)}
                           </div>
                         ) : null}
-                      </summary>
+	                      </summary>
 
-                      <ul style={{ margin: "10px 0 0 0", paddingLeft: 18, display: "grid", gap: 8 }}>
-                        {rows.slice(0, 12).map((row) => (
-                          <li key={row.place_id}>
-                            <div style={{ fontWeight: 850, color: "#0f172a" }}>{row.name}</div>
-                            <div style={{ marginTop: 2, fontSize: 12, color: "#475569" }}>
-                              {[metersToMilesLabel(row.distance_meters)].filter(Boolean).join(" • ")}
-                              {selectedVenueDirectionsQuery ? (
-                                <>
-                                  {" "}
-                                  <DirectionsChooserClient
-                                    label="Directions →"
-                                    className="secondaryLink ti-print-hide"
-                                    title="Directions"
-                                    destinationLabel={row.name}
-                                    query={[row.name, selectedVenueAddressLine].filter(Boolean).join(", ")}
-                                    coordinates={null}
-                                    copyText={[row.name, selectedVenueAddressLine].filter(Boolean).join(", ")}
-                                    analytics={{
-                                      event: "weekend_share_owls_eye_directions_clicked",
-                                      properties: {
-                                        page_type: "weekend_share",
-                                        tournament_id: tournament.id,
-                                        tournament_slug: tournament.slug,
-                                        venue_id: selectedVenue.id,
-                                        venue_name: selectedVenue.name ?? null,
-                                        source_page: "weekend_share",
-                                        cta: "owls_eye_directions",
-                                        place_id: row.place_id,
-                                        place_name: row.name,
-                                      },
-                                    }}
-                                  />
-                                </>
-                              ) : row.maps_url ? (
-                                <>
-                                  {" "}
-                                  <a className="ti-print-hide" href={row.maps_url} target="_blank" rel="noopener noreferrer">
-                                    Directions →
-                                  </a>
-                                </>
-                              ) : null}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  );
-                })
-              : null}
+	                      {rows.length ? (
+	                        <ul style={{ margin: "10px 0 0 0", paddingLeft: 18, display: "grid", gap: 8 }}>
+	                          {rows.slice(0, 12).map((row) => (
+	                            <li key={row.place_id}>
+	                              <div style={{ fontWeight: 850, color: "#0f172a" }}>{row.name}</div>
+	                              <div style={{ marginTop: 2, fontSize: 12, color: "#475569" }}>
+	                                {[metersToMilesLabel(row.distance_meters)].filter(Boolean).join(" • ")}
+	                                {selectedVenueDirectionsQuery ? (
+	                                  <>
+	                                    {" "}
+	                                    <DirectionsChooserClient
+	                                      label="Directions →"
+	                                      className="secondaryLink ti-print-hide"
+	                                      title="Directions"
+	                                      destinationLabel={row.name}
+	                                      query={[row.name, selectedVenueAddressLine].filter(Boolean).join(", ")}
+	                                      coordinates={null}
+	                                      copyText={[row.name, selectedVenueAddressLine].filter(Boolean).join(", ")}
+	                                      analytics={{
+	                                        event: "weekend_share_owls_eye_directions_clicked",
+	                                        properties: {
+	                                          page_type: "weekend_share",
+	                                          tournament_id: tournament.id,
+	                                          tournament_slug: tournament.slug,
+	                                          venue_id: selectedVenue.id,
+	                                          venue_name: selectedVenue.name ?? null,
+	                                          source_page: "weekend_share",
+	                                          cta: "owls_eye_directions",
+	                                          place_id: row.place_id,
+	                                          place_name: row.name,
+	                                        },
+	                                      }}
+	                                    />
+	                                  </>
+	                                ) : row.maps_url ? (
+	                                  <>
+	                                    {" "}
+	                                    <a className="ti-print-hide" href={row.maps_url} target="_blank" rel="noopener noreferrer">
+	                                      Directions →
+	                                    </a>
+	                                  </>
+	                                ) : null}
+	                              </div>
+	                            </li>
+	                          ))}
+	                        </ul>
+	                      ) : (
+	                        <div style={{ marginTop: 10, fontSize: 13, color: "#475569", fontWeight: 650 }}>{emptyState}</div>
+	                      )}
+	                    </details>
+	                  );
+	                })
+	              : null}
           </div>
         ) : null}
 
