@@ -22,6 +22,7 @@ import VenueMapTeaserCard from "@/app/tournaments/_components/VenueMapTeaserCard
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import TournamentMapTeaser from "@/components/tournaments/TournamentMapTeaser";
 import TournamentDetailStickyMapCta from "@/components/tournaments/TournamentDetailStickyMapCta";
+import SoccerWorldCupFanGearCard from "@/components/partners/SoccerWorldCupFanGearCard";
 import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
 import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
@@ -1002,6 +1003,8 @@ async function TournamentVenueDetails({
             View full tournament plan
           </a>
         </div>
+
+        <SoccerWorldCupFanGearCard sport={tournament.sport ?? null} tournamentId={tournament.id} />
       </div>
 
       <div
