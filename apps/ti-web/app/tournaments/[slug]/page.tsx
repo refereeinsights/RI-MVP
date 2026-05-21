@@ -886,7 +886,7 @@ async function TournamentVenueDetails({
       ? buildHotelsHrefWithSearch({ venueId: hotelClickVenueId, tournamentId: tournament.id, ss: tournamentHotelsSearchString })
       : null;
 
-	  const headerHotelsHref = tournamentHotelsHref
+  const headerHotelsHref = tournamentHotelsHref
 	    ? tournamentHotelsHref
 	    : buildTournamentHotelsHref({
 	        source: "tournament_detail",
@@ -910,15 +910,62 @@ async function TournamentVenueDetails({
 	        ? `🏨 Find hotels near ${primaryVenueName}`
 	        : "🏨 Find hotels near this venue"
 	      : "🏨 Find hotels near tournament venues";
-	  const stayRentalsLabel =
+  const stayRentalsLabel =
 	    venueCount === 1
 	      ? primaryVenueName
 	        ? `🏡 Search rentals near ${primaryVenueName}`
 	        : "🏡 Search rentals near this venue"
-	      : "🏡 Search rentals near tournament venues";
+      : "🏡 Search rentals near tournament venues";
 
-	  return (
-	    <>
+  const hasOwlInTournament = displayVenueRows.some((r) => r.hasOwl);
+
+  function renderWeekendProUpsell(variant: "owl_eye" | "fallback") {
+    return (
+      <div className="detailCard premiumDetailCard" style={{ marginTop: 14 }}>
+        <div className="detailCard__title premiumDetailCard__title">
+          <span aria-hidden="true">{canViewPremiumDetails ? "✅" : "🔒"}</span>
+          <span>{canViewPremiumDetails ? "Weekend Pro" : "Upgrade to Weekend Pro"}</span>
+        </div>
+        {!canViewPremiumDetails ? (
+          <div className="detailCard__body premiumDetailCard__body">
+            <p className="premiumDetailCard__copy">
+              {variant === "owl_eye"
+                ? "Unlock Owl’s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and directions around where games are played."
+                : "Unlock premium planning tools for tournament weekends, including venue-focused travel planning shortcuts and deeper local context."}
+            </p>
+            {viewer.needsEmailVerification ? (
+              <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
+                Verify your email to activate your account. <Link href="/verify-email">Verify email</Link>
+              </p>
+            ) : null}
+            <div className="detailLinksRow">
+              <UpgradeWeekendProButton
+                className="primaryLink"
+                source_page="tournament_detail"
+                source_context={variant === "owl_eye" ? "tournament_upsell:owl_eye" : "tournament_upsell:fallback"}
+                tournament_slug={tournament.slug}
+                cta_label="Upgrade to Weekend Pro"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="detailCard__body premiumDetailCard__body">
+            <div className="premiumDetailRow">
+              <span className="premiumDetailLabel">Weekend Pro active</span>
+              <span>
+                {variant === "owl_eye"
+                  ? "Open any venue tile above to view Owl’s Eye planning details."
+                  : "Open the venue map and venue tiles to use your premium planning tools."}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <>
       <TournamentDetailStickyMapCta mapHref={mapPreviewHref} mapLabel={mapPrimaryLabel} hotelsHref={null} />
 
       <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
@@ -1196,6 +1243,12 @@ async function TournamentVenueDetails({
 	              </div>
 	            </details>
           ) : null}
+
+          {hasOwlInTournament ? (
+            <div style={{ width: "min(720px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
+              {renderWeekendProUpsell("owl_eye")}
+            </div>
+          ) : null}
         </>
       ) : null}
 
@@ -1285,6 +1338,12 @@ async function TournamentVenueDetails({
         )}
       </div>
 
+      {!hasOwlInTournament ? (
+        <div style={{ width: "min(720px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
+          {renderWeekendProUpsell("fallback")}
+        </div>
+      ) : null}
+
       {tournament.summary ? <p className="detailSummary">{tournament.summary}</p> : null}
 
       {(() => {
@@ -1373,52 +1432,6 @@ async function TournamentVenueDetails({
         Information may change. Verify critical details directly with organizers and venues. <Link href="/terms">Terms</Link> •{" "}
         <Link href="/disclaimer">Disclaimer</Link>
       </p>
-
-      <div className="detailCard premiumDetailCard">
-        <div className="detailCard__title premiumDetailCard__title">
-          <span aria-hidden="true">{canViewPremiumDetails ? "✅" : "🔒"}</span>
-          <span>{canViewPremiumDetails ? "Weekend Pro" : "Upgrade to Weekend Pro"}</span>
-        </div>
-        {!canViewPremiumDetails ? (
-          <div className="detailCard__body premiumDetailCard__body">
-            <p className="premiumDetailCard__copy">
-              Plan your tournament weekend without guesswork. Weekend Pro unlocks Owl&apos;s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and directions around where games are played.
-            </p>
-            <p className="premiumDetailCard__copy" style={{ marginTop: 8, fontWeight: 700 }}>
-              Includes:
-            </p>
-            <div
-              className="premiumDetailCard__copy"
-              style={{ marginTop: 6, display: "grid", gap: 2, textAlign: "center" }}
-            >
-              <div>Full Owl&apos;s Eye</div>
-              <div>Compare venues</div>
-              <div>Better planning details</div>
-            </div>
-            {viewer.needsEmailVerification ? (
-              <p className="premiumDetailCard__copy" style={{ marginTop: 6 }}>
-                Verify your email to activate your account. <Link href="/verify-email">Verify email</Link>
-              </p>
-            ) : null}
-            <div className="detailLinksRow">
-              <UpgradeWeekendProButton
-                className="primaryLink"
-                source_page="tournament_detail"
-                source_context="tournament_upsell"
-                tournament_slug={tournament.slug}
-                cta_label="Upgrade to Weekend Pro"
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="detailCard__body premiumDetailCard__body">
-            <div className="premiumDetailRow">
-              <span className="premiumDetailLabel">Weekend Pro active</span>
-              <span>Open any venue tile above to view Owl&apos;s Eye planning details.</span>
-            </div>
-          </div>
-        )}
-      </div>
 
       <div style={{ marginTop: 18, fontSize: 13, lineHeight: 1.45, opacity: 0.78 }}>
         {renderSemanticParts(tournamentSemanticParts)}
@@ -1763,23 +1776,10 @@ export default async function TournamentDetailPage({
 	          ) : null}
 	          {metroLabel ? <div className="detailMeta">{metroLabel}</div> : null}
 
-	          <div style={{ marginTop: 10, maxWidth: 620, textAlign: "center" }}>
-	            <div style={{ fontSize: 13, opacity: 0.9 }}>Want deeper planning insights? Unlock Weekend Pro.</div>
-	            <div style={{ marginTop: 8, display: "flex", justifyContent: "center" }}>
-	              <UpgradeWeekendProButton
-                className="secondaryLink"
-                source_page="tournament_detail"
-                source_context="monetization_teaser_below_ctas"
-                tournament_slug={data.slug}
-                cta_label="Unlock Weekend Pro"
-              />
-            </div>
-          </div>
-
-          <div
-            style={{
-              marginTop: 10,
-              display: "grid",
+	          <div
+	            style={{
+	              marginTop: 10,
+	              display: "grid",
               gap: 4,
               justifyItems: "center",
               textAlign: "center",
