@@ -7,6 +7,7 @@ type ClaimThisTournamentProps = {
   tournamentName: string;
   hasDirectorEmailOnFile: boolean;
   viewerEmail?: string;
+  variant?: "card" | "inline";
 };
 
 export default function ClaimThisTournament({
@@ -14,6 +15,7 @@ export default function ClaimThisTournament({
   tournamentName,
   hasDirectorEmailOnFile,
   viewerEmail = "",
+  variant = "card",
 }: ClaimThisTournamentProps) {
   const [open, setOpen] = React.useState(false);
   const [email, setEmail] = React.useState(viewerEmail);
@@ -62,15 +64,19 @@ export default function ClaimThisTournament({
 
   return (
     <section
-      style={{
-        border: "1px solid rgba(255,255,255,0.18)",
-        background: "rgba(0,0,0,0.25)",
-        backdropFilter: "blur(10px)",
-        borderRadius: 16,
-        padding: 14,
-        display: "grid",
-        gap: 10,
-      }}
+      style={
+        variant === "inline"
+          ? { display: "grid", gap: 8, alignContent: "start" }
+          : {
+              border: "1px solid rgba(255,255,255,0.18)",
+              background: "rgba(0,0,0,0.25)",
+              backdropFilter: "blur(10px)",
+              borderRadius: 16,
+              padding: 14,
+              display: "grid",
+              gap: 10,
+            }
+      }
     >
       <button
         type="button"
@@ -91,13 +97,20 @@ export default function ClaimThisTournament({
           color: "#fff",
           cursor: "pointer",
           textAlign: "left",
+          fontSize: variant === "inline" ? 13 : undefined,
+          fontWeight: variant === "inline" ? 900 : undefined,
+          textDecoration: variant === "inline" ? "underline" : undefined,
         }}
         aria-expanded={open}
       >
-        <div style={{ display: "grid", gap: 2 }}>
-          <div style={{ fontWeight: 900, letterSpacing: "0.01em" }}>Are you the tournament director?</div>
-          <div style={{ fontSize: 13, opacity: 0.92 }}>Claim edit access for this event.</div>
-        </div>
+        {variant === "inline" ? (
+          <div>Claim edit access →</div>
+        ) : (
+          <div style={{ display: "grid", gap: 2 }}>
+            <div style={{ fontWeight: 900, letterSpacing: "0.01em" }}>Are you the tournament director?</div>
+            <div style={{ fontSize: 13, opacity: 0.92 }}>Claim edit access for this event.</div>
+          </div>
+        )}
         <div
           style={{
             width: 32,
@@ -108,6 +121,8 @@ export default function ClaimThisTournament({
             display: "grid",
             placeItems: "center",
             fontWeight: 900,
+            flex: "0 0 auto",
+            opacity: variant === "inline" ? 0.85 : 1,
           }}
           aria-hidden="true"
         >
@@ -116,7 +131,21 @@ export default function ClaimThisTournament({
       </button>
 
       {open ? (
-        <div style={{ display: "grid", gap: 10 }}>
+        <div
+          style={
+            variant === "inline"
+              ? {
+                  display: "grid",
+                  gap: 10,
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  background: "rgba(0,0,0,0.25)",
+                  backdropFilter: "blur(10px)",
+                  borderRadius: 16,
+                  padding: 14,
+                }
+              : { display: "grid", gap: 10 }
+          }
+        >
           {hasDirectorEmailOnFile ? (
             <>
               {status === "sent" ? (

@@ -303,13 +303,24 @@ async function TournamentUserActions({
 
   return (
     <>
-      <SaveTournamentButton
-        tournamentId={tournament.id}
-        initialSaved={viewer.initialSaved}
-        isLoggedIn={viewer.isLoggedIn}
-        isVerified={viewer.isVerified}
-        returnTo={`/tournaments/${tournament.slug ?? paramsSlug}`}
-      />
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" as any }}>
+        <SaveTournamentButton
+          tournamentId={tournament.id}
+          initialSaved={viewer.initialSaved}
+          isLoggedIn={viewer.isLoggedIn}
+          isVerified={viewer.isVerified}
+          returnTo={`/tournaments/${tournament.slug ?? paramsSlug}`}
+        />
+        {!canEditThisTournament ? (
+          <ClaimThisTournament
+            variant="inline"
+            tournamentId={tournament.id}
+            tournamentName={tournament.name}
+            hasDirectorEmailOnFile={hasDirectorEmailOnFile}
+            viewerEmail={viewer.viewerEmail}
+          />
+        ) : null}
+      </div>
 
       {showSavedNotice ? (
         <div
@@ -516,16 +527,7 @@ async function TournamentUserActions({
             </form>
           </div>
         </details>
-      ) : (
-        <div style={{ marginTop: 12 }}>
-          <ClaimThisTournament
-            tournamentId={tournament.id}
-            tournamentName={tournament.name}
-            hasDirectorEmailOnFile={hasDirectorEmailOnFile}
-            viewerEmail={viewer.viewerEmail}
-          />
-        </div>
-      )}
+      ) : null}
 
       {/* Noise cleanup: remove redundant CTA clusters; Map Teaser is the primary next step after the header. */}
     </>
