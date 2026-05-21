@@ -1004,7 +1004,6 @@ async function TournamentVenueDetails({
           </a>
         </div>
 
-        <SoccerWorldCupFanGearCard sport={tournament.sport ?? null} tournamentId={tournament.id} />
       </div>
 
       <div
@@ -1022,12 +1021,16 @@ async function TournamentVenueDetails({
         />
       </div>
 
-	      <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
-	        <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)" }}>
-	          <div style={{ fontWeight: 950 }}>Still planning your stay?</div>
-	          <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>See nearby hotels, food, and coffee mapped to your fields.</div>
-	        </div>
-	      </div>
+      <div style={{ width: "min(720px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
+        <SoccerWorldCupFanGearCard sport={tournament.sport ?? null} tournamentId={tournament.id} />
+      </div>
+
+		      <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
+		        <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)" }}>
+		          <div style={{ fontWeight: 950 }}>Still planning your stay?</div>
+		          <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>See nearby hotels, food, and coffee mapped to your fields.</div>
+		        </div>
+		      </div>
 
       <div
         id="where-youll-play"

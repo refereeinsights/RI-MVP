@@ -1,4 +1,3 @@
-import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import { getFanaticsLinkAndDisclosure } from "@/lib/partners";
 
 export default async function SoccerWorldCupFanGearCard(props: {
@@ -38,12 +37,10 @@ export default async function SoccerWorldCupFanGearCard(props: {
       data-sport="soccer"
     >
       <div style={{ fontSize: 12, fontWeight: 900, opacity: 0.85, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-        Fan gear
+        Tournament weekend extras
       </div>
-      <div style={{ marginTop: 6, fontWeight: 950, fontSize: 15 }}>Rep your favorite team this tournament weekend</div>
-      <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>
-        Shop World Cup and soccer fan gear before your next tournament.
-      </div>
+      <div style={{ marginTop: 6, fontWeight: 950, fontSize: 15 }}>Shop soccer and World Cup fan gear</div>
+      <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>Grab fan gear before tournament weekend.</div>
       <div style={{ marginTop: 10 }}>
         <a
           className="secondaryLink"
@@ -61,11 +58,9 @@ export default async function SoccerWorldCupFanGearCard(props: {
             textDecoration: "none",
           }}
         >
-          Shop Fan Gear →
+          Shop fan gear →
         </a>
       </div>
-      <AffiliateDisclosure />
     </div>
   );
 }
-
