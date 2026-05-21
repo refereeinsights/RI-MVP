@@ -39,8 +39,8 @@ export default async function SoccerWorldCupFanGearCard(props: {
       <div style={{ fontSize: 12, fontWeight: 900, opacity: 0.85, textTransform: "uppercase", letterSpacing: "0.06em" }}>
         Tournament weekend extras
       </div>
-      <div style={{ marginTop: 6, fontWeight: 950, fontSize: 15 }}>Shop soccer and World Cup fan gear</div>
-      <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>Grab fan gear before tournament weekend.</div>
+      <div style={{ marginTop: 6, fontWeight: 950, fontSize: 15 }}>Shop national team soccer gear</div>
+      <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>Gear up for the biggest international soccer summer.</div>
       <div style={{ marginTop: 10 }}>
         <a
           className="secondaryLink"
