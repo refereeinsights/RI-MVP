@@ -21,6 +21,7 @@ import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { isUuid } from "@/lib/venues/isUuid";
 import { getVenueCardClassFromSports } from "../sportSurface";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
+import { isValidLatLng } from "@/lib/staticTournamentMaps";
 import "../../tournaments/tournaments.css";
 import styles from "./VenueDetail.module.css";
 
@@ -498,6 +499,16 @@ export default async function VenueDetailsPage({
     })
     .sort((a, b) => (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31"));
 
+  const hasStaticMapPreview =
+    Boolean((process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim()) &&
+    isValidLatLng(resolvedGeo?.latitude, resolvedGeo?.longitude);
+
+  const mapContextTournamentSlug =
+    (selectedTournament?.slug ?? "").trim() ||
+    (upcomingTournaments.find((t) => (t.slug ?? "").trim())?.slug ?? "").trim() ||
+    (linkedTournaments.find((t) => (t.slug ?? "").trim())?.slug ?? "").trim() ||
+    null;
+
   const semanticLocationSentence = (() => {
     const name = data.name ?? "This venue";
     const city = (data.city ?? "").trim();
@@ -955,7 +966,7 @@ export default async function VenueDetailsPage({
               </div>
 
               <div className={styles.actionsCluster}>
-                {mapLinks ? (
+                {mapLinks && !hasStaticMapPreview ? (
                   <MobileMapLink
                     provider="apple"
                     query={addressLabel}
@@ -1005,7 +1016,7 @@ export default async function VenueDetailsPage({
                 hasOwlsEye={hasOwlsEye}
                 canViewPremiumDetails={canViewPremiumDetails}
                 selectedTournamentId={selectedTournament?.id ?? null}
-                selectedTournamentSlug={selectedTournament?.slug ?? null}
+                selectedTournamentSlug={mapContextTournamentSlug}
                 selectedTournamentStartDate={selectedTournament?.start_date ?? null}
                 selectedTournamentEndDate={selectedTournament?.end_date ?? null}
                 nearbyCounts={nearbyCounts}

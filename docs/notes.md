@@ -37,6 +37,9 @@ Maintenance rules:
 - TI venues: fix static map preview rendering at 0px width by giving the venue card URL row and text stack a definite `width: 100%` (prevents percentage-sized children from resolving against an indefinite container).
   - File: `apps/ti-web/app/tournaments/tournaments.css`.
 
+- TI venues: center the top action row and hide the redundant “View map” button when the static preview is available; clicking the preview now opens the tournament map with the venue pre-selected (best-effort chooses the selected/upcoming linked tournament).
+  - Files: `apps/ti-web/app/venues/[venueId]/VenueDetail.module.css`, `apps/ti-web/app/venues/[venueId]/page.tsx`.
+
 - TI tournaments: render the Soccer World Cup fan gear card via server lookup (prevents client-only lookup edge cases).
   - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/partners/SoccerWorldCupFanGearCard.tsx`.
 

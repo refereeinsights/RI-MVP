@@ -2,12 +2,16 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  justify-content: center;
+  align-items: center;
 }
 
 .tertiaryRow {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  justify-content: center;
+  width: 100%;
 }
 
 .upcomingMobileOnly {
