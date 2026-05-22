@@ -1,51 +1,39 @@
-# README.md
+# RI-MVP
 
-# My Next.js App
+Monorepo for:
 
-This is a Next.js application built with TypeScript. It serves as a template for creating modern web applications using React and Next.js.
+- **Referee Insights (RI)**: referee-focused tournament + school reviews, AI “whistle scores”, admin tooling (primary app).
+- **Tournament Insights (TI)**: consumer tournament discovery + tier gating (secondary app).
+- **Corp**: Tournyx marketing site.
 
-## Project Structure
+Tech: Next.js App Router + TypeScript, npm workspaces, Supabase (auth + DB), Playwright smoke tests.
 
-The project has the following structure:
+## Repo layout (high level)
 
-```
-my-next-app
-├── app
-│   ├── layout.tsx       # Layout component for the application
-│   ├── page.tsx         # Main entry point for the application
-│   └── globals.css       # Global CSS styles
-├── package.json          # NPM configuration file
-├── next.config.js        # Next.js configuration file
-├── tsconfig.json         # TypeScript configuration file
-├── next-env.d.ts         # TypeScript definitions for Next.js
-├── .gitignore            # Git ignore file
-└── README.md             # Project documentation
-```
+- `apps/referee`: RI Next.js app (UI + API routes + admin tools)
+- `apps/ti-web`: TI Next.js app
+- `apps/corp`: corporate Next.js app
+- `packages/*`: shared packages
+- `supabase/`: migrations and local Supabase config
+- `tests/`: Playwright smoke tests for TI + RI
+- `docs/`: architecture notes, prompts, QA, SEO, runbooks
 
-## Getting Started
+## Local dev (common)
 
-To get started with this project, follow these steps:
-
-1. **Clone the repository:**
-   ```
-   git clone <repository-url>
-   cd my-next-app
-   ```
-
-2. **Install dependencies:**
-   ```
+1. Install deps at repo root:
+   ```bash
    npm install
    ```
+2. Copy env template:
+   - start with `.env.local.example` → `.env.local` and fill required values
+3. Run apps:
+   - RI (default): `npm run dev` (same as `npm run dev --workspace referee-app`)
+   - TI: `PORT=3001 npm run dev --workspace ti-web`
+   - Corp: `PORT=3002 npm run dev --workspace corp-app`
 
-3. **Run the development server:**
-   ```
-   npm run dev
-   ```
-
-4. **Open your browser and navigate to:**
-   ```
-   http://localhost:3000
-   ```
+Smoke tests assume:
+- RI at `http://127.0.0.1:3000`
+- TI at `http://127.0.0.1:3001` (see `docs/qa/public-beta-smoke-test.md`)
 
 ## Scripts
 

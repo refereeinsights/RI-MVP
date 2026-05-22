@@ -1,3 +1,5 @@
+> **Note (2026-05-22):** `NOTES.md` is deprecated. Use `docs/notes.md` as the single source of truth for the repo running log (RI + TI). Please add new entries there going forward.
+
 ## 2026-05-17
 
 - TI weekend page (Weekend Logistics polish): added a “Print weekend plan” action (browser print) alongside the existing share controls on `/weekend/[slug]`, plus minimal print styles that hide interactive UI (share/print/actions and Owl’s Eye accordion summaries) and prevent private plan details from leaking in print for signed-out viewers: `apps/ti-web/app/weekend/[slug]/page.tsx`, `apps/ti-web/components/PrintButton.tsx`, `apps/ti-web/app/globals.css`.

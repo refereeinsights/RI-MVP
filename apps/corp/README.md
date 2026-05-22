@@ -1,3 +1,11 @@
-# Tournyx Corporate Site (corp)
+# Tournyx Corporate Site (`apps/corp`)
 
-Placeholder for the Tournyx corporate app. Move or create the Next.js app here when ready.
+Marketing/landing pages for Tournyx.
+
+## Local dev
+
+From repo root:
+
+```bash
+PORT=3002 npm run dev --workspace corp-app
+```

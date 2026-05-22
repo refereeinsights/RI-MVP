@@ -12,6 +12,48 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-05-22
+
+- TI venues: fix “Upcoming tournaments at this venue” list rendering to be scannable and navigable.
+  - Each tournament now renders as a distinct row with name (primary) + date range (secondary) and a minimum 48px tap target.
+  - Rows link to `/tournaments/[slug]` when a slug exists; slugless rows fall back to plain text (no chevron).
+  - Files: `apps/ti-web/app/venues/[venueId]/page.tsx`, `apps/ti-web/app/venues/[venueId]/VenueDetail.module.css`.
+
+- TI tournaments: render the Soccer World Cup fan gear card via server lookup (prevents client-only lookup edge cases).
+  - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/partners/SoccerWorldCupFanGearCard.tsx`.
+
+- TI tournament map: tighten mobile CTA hierarchy (“Stay near this venue” panel) without changing tracking.
+  - Files: `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`, `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMap.module.css`.
+
+- Repo hygiene: ignore `CLAUDE.md` (local UAT notes/credentials) in git.
+  - File: `.gitignore`.
+
+## 2026-05-21
+
+- TI UI cleanup: dedupe tournament detail CTAs and reduce above-the-fold noise (planning / stay / map entry points).
+  - Files (varies by commit): `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/tournaments/TournamentMapTeaser.tsx`, `apps/ti-web/components/tournaments/TournamentPlanningOverview.tsx`, `apps/ti-web/app/tournaments/tournaments.css`.
+
+- TI Weekend Pro: standardize placement of the Weekend Pro upsell so it renders once in a canonical spot.
+  - File: `apps/ti-web/app/tournaments/[slug]/page.tsx`.
+
+- TI venues: tighten venue page mobile layout (responsive spacing and compact single-upcoming-card behavior).
+  - Files: `apps/ti-web/app/venues/[venueId]/page.tsx`, `apps/ti-web/app/venues/[venueId]/VenueDetail.module.css`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`.
+
+- TI tournament map: shrink the branding/hero height on mobile so the map is visible sooner.
+  - File: `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMap.module.css`.
+
+- TI Weekend share: show per-category empty states for Owl’s Eye (instead of omitting categories entirely).
+  - File: `apps/ti-web/app/weekend/[slug]/page.tsx`.
+
+- TI partner: add Soccer World Cup fan gear card (+ migration for the Fanatics link).
+  - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/partners/SoccerWorldCupFanGearCard.tsx`, `supabase/migrations/20260521_ti_fanatics_world_cup_fan_gear_link.sql`.
+
+- Tests: add a targeted Playwright smoke spec to catch tournament detail CTA duplication regressions.
+  - File: `tests/smoke/ti-tournament-detail-ctas.spec.ts`.
+
+- Chore: `npm audit fix`.
+  - File: `package-lock.json`.
+
 ## 2026-05-18
 
 ### Venues: fix 4 scrambled-column records (state mismatch in Owl's Eye queue)
