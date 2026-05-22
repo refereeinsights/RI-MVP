@@ -2217,6 +2217,68 @@
   gap: 4px;
 }
 
+.detailVenueNearbyPreview__counts {
+  justify-items: start;
+  text-align: left;
+}
+
+.venueAirportLineShort {
+  display: none;
+}
+
+.venueAirportLineLong {
+  display: inline;
+}
+
+.venueMobileAccordionSummary {
+  list-style: none;
+  cursor: pointer;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.06);
+}
+
+.venueMobileAccordionSummary::-webkit-details-marker {
+  display: none;
+}
+
+.venueMobileAccordionSummary::after {
+  content: "▸";
+  opacity: 0.85;
+  transform: rotate(0deg);
+  transition: transform 150ms ease;
+  flex: none;
+}
+
+.venueMobileAccordion[open] .venueMobileAccordionSummary::after {
+  transform: rotate(90deg);
+}
+
+.venueMobileAccordionMeta {
+  margin-left: 10px;
+  font-size: 12px;
+  opacity: 0.78;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .venueAirportLineShort {
+    display: inline;
+  }
+
+  .venueAirportLineLong {
+    display: none;
+  }
+}
+
 .detailVenueNearbyPreview__teaser {
   color: rgba(248, 251, 255, 0.9);
   font-size: 14px;

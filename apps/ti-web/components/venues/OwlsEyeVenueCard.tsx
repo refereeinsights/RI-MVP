@@ -105,6 +105,17 @@ export default function OwlsEyeVenueCard({
   const nearestMajorAirport = airportSummary?.nearest_major_airport ?? null;
   const nearestAirport = airportSummary?.nearest_airport ?? null;
   const primaryAirport = nearestMajorAirport ?? nearestAirport;
+  const primaryAirportCode = primaryAirport ? (primaryAirport.iata_code || primaryAirport.ident || "").trim() : "";
+  const primaryAirportMiles =
+    primaryAirport && typeof primaryAirport.distance_miles === "number" && Number.isFinite(primaryAirport.distance_miles)
+      ? `${primaryAirport.distance_miles} mi`
+      : "";
+  const primaryAirportFullLabel = primaryAirport
+    ? `✈️ Nearest airport: ${primaryAirport.name}${primaryAirportCode ? ` (${primaryAirportCode})` : ""}${primaryAirportMiles ? ` ${primaryAirportMiles}` : ""}`
+    : "";
+  const primaryAirportShortLabel = primaryAirport
+    ? `✈️ ${primaryAirportCode || "Airport"}${primaryAirportMiles ? ` — ${primaryAirportMiles}` : ""}`
+    : "";
   const primaryAirportQuery = primaryAirport
     ? [primaryAirport.name, primaryAirport.municipality, primaryAirport.iso_region, primaryAirport.iso_country]
         .filter(Boolean)
@@ -191,12 +202,10 @@ export default function OwlsEyeVenueCard({
 	                  <div>⚽ {nearbyCounts.sporting_goods} gear nearby</div>
 	                </div>
 
-                  <details style={{ marginTop: 8 }}>
-                    <summary style={{ cursor: "pointer", fontWeight: 900, listStyle: "none" as any }}>
-                      10-Day Weather Planner
-                      <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.78, fontWeight: 700 }}>
-                        Tap to expand
-                      </span>
+                  <details className="venueMobileAccordion" style={{ marginTop: 8 }}>
+                    <summary className="venueMobileAccordionSummary">
+                      <span>10-Day Weather Planner</span>
+                      <span className="venueMobileAccordionMeta">Tap to expand</span>
                     </summary>
                     <VenueWeatherPlannerCard
                       showHeader={false}
@@ -211,12 +220,10 @@ export default function OwlsEyeVenueCard({
                   </details>
 
                   {hotels.length ? (
-                    <details style={{ marginTop: 8 }}>
-                      <summary style={{ cursor: "pointer", fontWeight: 900, listStyle: "none" as any }}>
-                        Hotels near this venue
-                        <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.78, fontWeight: 700 }}>
-                          ({hotels.length}) Tap to expand
-                        </span>
+                    <details className="venueMobileAccordion" style={{ marginTop: 8 }}>
+                      <summary className="venueMobileAccordionSummary">
+                        <span>Hotels near this venue</span>
+                        <span className="venueMobileAccordionMeta">({hotels.length}) Tap to expand</span>
                       </summary>
                       <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
                         <div className="premiumNearbyGroup__list">
@@ -332,23 +339,18 @@ export default function OwlsEyeVenueCard({
 	                        {nearbyCounts.hotels > 0 ? <div>🏨 {nearbyCounts.hotels} hotels nearby</div> : null}
 	                        {nearbyCounts.sporting_goods > 0 ? <div>⚽ {nearbyCounts.sporting_goods} gear nearby</div> : null}
 	                        {primaryAirport ? (
-	                          <div>
-                            ✈️ Nearest airport: {primaryAirport.name}{" "}
-                            {primaryAirport.iata_code || primaryAirport.ident
-                              ? `(${primaryAirport.iata_code || primaryAirport.ident})`
-                              : ""}{" "}
-                            {typeof primaryAirport.distance_miles === "number" ? `${primaryAirport.distance_miles} mi` : ""}
-                          </div>
-                        ) : null}
+	                          <div title={primaryAirportFullLabel}>
+                              <span className="venueAirportLineShort">{primaryAirportShortLabel}</span>
+                              <span className="venueAirportLineLong">{primaryAirportFullLabel}</span>
+	                          </div>
+	                        ) : null}
 	                      </div>
 	                    ) : null}
 
-                    <details style={{ marginTop: 8 }}>
-                      <summary style={{ cursor: "pointer", fontWeight: 900, listStyle: "none" as any }}>
-                        10-Day Weather Planner
-                        <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.78, fontWeight: 700 }}>
-                          Tap to expand
-                        </span>
+                    <details className="venueMobileAccordion" style={{ marginTop: 8 }}>
+                      <summary className="venueMobileAccordionSummary">
+                        <span>10-Day Weather Planner</span>
+                        <span className="venueMobileAccordionMeta">Tap to expand</span>
                       </summary>
                       <VenueWeatherPlannerCard
                         showHeader={false}
@@ -363,12 +365,10 @@ export default function OwlsEyeVenueCard({
                     </details>
 
                     {hotels.length ? (
-                      <details style={{ marginTop: 8 }}>
-                        <summary style={{ cursor: "pointer", fontWeight: 900, listStyle: "none" as any }}>
-                          Hotels near this venue
-                          <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.78, fontWeight: 700 }}>
-                            ({hotels.length}) Tap to expand
-                          </span>
+                      <details className="venueMobileAccordion" style={{ marginTop: 8 }}>
+                        <summary className="venueMobileAccordionSummary">
+                          <span>Hotels near this venue</span>
+                          <span className="venueMobileAccordionMeta">({hotels.length}) Tap to expand</span>
                         </summary>
                         <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
                           <div className="premiumNearbyGroup__list">

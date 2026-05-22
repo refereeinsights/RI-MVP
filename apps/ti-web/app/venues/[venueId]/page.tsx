@@ -22,6 +22,7 @@ import { isUuid } from "@/lib/venues/isUuid";
 import { getVenueCardClassFromSports } from "../sportSurface";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
 import "../../tournaments/tournaments.css";
+import styles from "./VenueDetail.module.css";
 
 const US_STATE_CODES = new Set(
   [
@@ -918,39 +919,40 @@ export default async function VenueDetailsPage({
                 />
               </div>
 
-              {canReviewVenue ? (
-                <div className="detailLinksRow">
-                  <Link href={reviewHref} className="secondaryLink detailLinkSmall">
-                    Review this venue
-                  </Link>
-                </div>
-              ) : (
-                <div className="detailLinksRow">
-                  <Link href={reviewLoginHref} className="secondaryLink detailLinkSmall">
-                    Sign in to review
-                  </Link>
-                </div>
-              )}
-
-              <div className="detailLinksRow">
-                <Link href="/venues" className="secondaryLink detailLinkSmall">
-                  Back to venues
-                </Link>
-                {data.venue_url ? (
-                  <a href={data.venue_url} target="_blank" rel="noopener noreferrer" className="secondaryLink detailLinkSmall">
-                    Venue site
-                  </a>
-                ) : null}
+              <div className={styles.actionsCluster}>
                 {mapLinks ? (
                   <MobileMapLink
                     provider="apple"
                     query={addressLabel}
                     fallbackHref={mapLinks.apple}
-                    className="secondaryLink detailLinkSmall"
+                    className={`secondaryLink detailLinkSmall ${styles.actionPrimary}`}
                   >
                     View map
                   </MobileMapLink>
                 ) : null}
+
+                {canReviewVenue ? (
+                  <Link href={reviewHref} className={`secondaryLink detailLinkSmall ${styles.actionSecondary}`}>
+                    Review this venue
+                  </Link>
+                ) : (
+                  <Link href={reviewLoginHref} className={`secondaryLink detailLinkSmall ${styles.actionSecondary}`}>
+                    Sign in to review
+                  </Link>
+                )}
+
+                <div className={styles.tertiaryRow}>
+                  <Link href="/venues" className="secondaryLink detailLinkSmall">
+                    Back to venues
+                  </Link>
+                  {data.venue_url ? (
+                    <a href={data.venue_url} target="_blank" rel="noopener noreferrer" className="secondaryLink detailLinkSmall">
+                      Venue site
+                    </a>
+                  ) : (
+                    <span />
+                  )}
+                </div>
               </div>
 
               <OwlsEyeVenueCard
@@ -983,33 +985,76 @@ export default async function VenueDetailsPage({
                 defaultNearbyAllCollapsed
               />
 
-              {upcomingTournaments.length > 0 ? (
-                <div style={{ display: "grid", gap: 8, marginTop: 4 }}>
-                  <p style={{ margin: 0, fontWeight: 700 }}>Upcoming tournaments at this venue</p>
-                  <div style={{ display: "grid", gap: 6 }}>
-                    {upcomingTournaments.map((t) => {
-                      if (!t.slug || !t.name) return null;
-                      const start = formatDate(t.start_date);
-                      const end = formatDate(t.end_date);
-                      const dateLabel =
-                        start && end && start !== end ? `${start} - ${end}` : start || end || "Dates TBA";
-                      return (
-                        <Link
-                          key={t.id}
-                          href={`/tournaments/${t.slug}`}
-                          className="secondaryLink"
-                          style={{ justifyContent: "space-between", width: "100%" }}
-                        >
-                          <span>{t.name}</span>
-                          <span style={{ fontSize: 12, opacity: 0.85 }}>{dateLabel}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <p style={{ margin: 0, opacity: 0.9 }}>No upcoming tournaments currently linked to this venue.</p>
-              )}
+              {(() => {
+                const upcomingValid = upcomingTournaments.filter((t) => Boolean(t.slug && t.name));
+                const upcomingCount = upcomingValid.length;
+
+                if (upcomingCount === 1) {
+                  const t = upcomingValid[0]!;
+                  const start = formatDate(t.start_date);
+                  const end = formatDate(t.end_date);
+                  const dateLabel = start && end && start !== end ? `${start} - ${end}` : start || end || "Dates TBA";
+                  const meta = [dateLabel, locationLabel].filter(Boolean).join(" · ");
+                  return (
+                    <>
+                      <div className={styles.upcomingMobileOnly} style={{ marginTop: 4 }}>
+                        <div className={styles.upcomingCard}>
+                          <div className={styles.upcomingEyebrow}>UPCOMING AT THIS VENUE</div>
+                          <Link href={`/tournaments/${t.slug}`} className="secondaryLink" style={{ width: "100%" }}>
+                            <div className={styles.upcomingTitleRow}>
+                              <span>{t.name}</span>
+                              <span aria-hidden="true">→</span>
+                            </div>
+                            <div className={styles.upcomingMeta}>{meta}</div>
+                          </Link>
+                        </div>
+                      </div>
+                      <div className={styles.upcomingDesktopOnly} style={{ display: "grid", gap: 8, marginTop: 4 }}>
+                        <p style={{ margin: 0, fontWeight: 700 }}>Upcoming tournaments at this venue</p>
+                        <div style={{ display: "grid", gap: 6 }}>
+                          <Link href={`/tournaments/${t.slug}`} className="secondaryLink" style={{ justifyContent: "space-between", width: "100%" }}>
+                            <span>{t.name}</span>
+                            <span style={{ fontSize: 12, opacity: 0.85 }}>{dateLabel}</span>
+                          </Link>
+                        </div>
+                      </div>
+                    </>
+                  );
+                }
+
+                if (upcomingCount > 1) {
+                  return (
+                    <div style={{ display: "grid", gap: 8, marginTop: 4 }}>
+                      <p style={{ margin: 0, fontWeight: 700 }}>Upcoming tournaments at this venue</p>
+                      <div style={{ display: "grid", gap: 6 }}>
+                        {upcomingValid.map((t) => {
+                          const start = formatDate(t.start_date);
+                          const end = formatDate(t.end_date);
+                          const dateLabel =
+                            start && end && start !== end ? `${start} - ${end}` : start || end || "Dates TBA";
+                          return (
+                            <Link
+                              key={t.id}
+                              href={`/tournaments/${t.slug}`}
+                              className="secondaryLink"
+                              style={{ justifyContent: "space-between", width: "100%" }}
+                            >
+                              <span>{t.name}</span>
+                              <span style={{ fontSize: 12, opacity: 0.85 }}>{dateLabel}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <p className={styles.upcomingEmptyDesktopOnly} style={{ margin: 0, opacity: 0.9 }}>
+                    No upcoming tournaments currently linked to this venue.
+                  </p>
+                );
+              })()}
 
               {data.notes && canViewPremiumDetails ? (
                 <div style={{ marginTop: 6 }}>
