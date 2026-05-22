@@ -97,7 +97,13 @@ async function loadOwlsEyeCountsByVenueId(venueIds: string[]) {
   return { hasOwlsEyeByVenueId, countsByVenueId };
 }
 
-export default async function TournamentMapPage({ params }: { params: { slug: string } }) {
+export default async function TournamentMapPage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams?: { venue?: string };
+}) {
   const { data: tournament } = await supabaseAdmin
     .from("tournaments_public" as any)
     .select("id,slug,name,sport")
@@ -179,6 +185,8 @@ export default async function TournamentMapPage({ params }: { params: { slug: st
     });
 
   const mapEnabled = Boolean((process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim());
+  const requestedVenueId = (searchParams?.venue ?? "").trim();
+  const initialSelectedVenueId = requestedVenueId && venues.some((v) => v.id === requestedVenueId) ? requestedVenueId : null;
 
   return (
     <main className="pitchWrap tournamentsWrap">
@@ -192,6 +200,7 @@ export default async function TournamentMapPage({ params }: { params: { slug: st
         venues={venues}
         sportKey={sportKey}
         mapEnabled={mapEnabled}
+        initialSelectedVenueId={initialSelectedVenueId}
       />
     </main>
   );

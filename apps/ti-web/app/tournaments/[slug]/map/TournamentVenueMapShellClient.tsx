@@ -11,14 +11,19 @@ export default function TournamentVenueMapShellClient({
   venues,
   sportKey,
   mapEnabled,
+  initialSelectedVenueId,
 }: {
   tournament: { id: string; slug: string; name: string; sport: string | null };
   venues: MapVenue[];
   sportKey: string;
   mapEnabled: boolean;
+  initialSelectedVenueId?: string | null;
 }) {
-  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(() => (venues.length === 1 ? venues[0]?.id ?? null : null));
-  const [detailMode, setDetailMode] = useState<boolean>(() => venues.length === 1);
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(() => {
+    if (initialSelectedVenueId) return initialSelectedVenueId;
+    return venues.length === 1 ? venues[0]?.id ?? null : null;
+  });
+  const [detailMode, setDetailMode] = useState<boolean>(() => Boolean(initialSelectedVenueId) || venues.length === 1);
 
   const selectedVenue = useMemo(() => venues.find((v) => v.id === selectedVenueId) ?? null, [venues, selectedVenueId]);
   const selectedVenueLabel = useMemo(() => {

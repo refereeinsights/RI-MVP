@@ -1005,6 +1005,7 @@ export default async function VenueDetailsPage({
                 hasOwlsEye={hasOwlsEye}
                 canViewPremiumDetails={canViewPremiumDetails}
                 selectedTournamentId={selectedTournament?.id ?? null}
+                selectedTournamentSlug={selectedTournament?.slug ?? null}
                 selectedTournamentStartDate={selectedTournament?.start_date ?? null}
                 selectedTournamentEndDate={selectedTournament?.end_date ?? null}
                 nearbyCounts={nearbyCounts}

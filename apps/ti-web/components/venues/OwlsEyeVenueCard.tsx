@@ -54,6 +54,7 @@ type OwlsEyeVenueCardProps = {
   nearbyCounts: { food: number; coffee: number; hotels: number; sporting_goods: number; quick_eats?: number; hangouts?: number };
   publicHotels?: NearbyPlace[] | null;
   selectedTournamentId?: string | null;
+  selectedTournamentSlug?: string | null;
   selectedTournamentStartDate?: string | null;
   selectedTournamentEndDate?: string | null;
   airportSummary?: {
@@ -87,6 +88,7 @@ export default function OwlsEyeVenueCard({
   nearbyCounts,
   publicHotels,
   selectedTournamentId,
+  selectedTournamentSlug,
   selectedTournamentStartDate,
   selectedTournamentEndDate,
   airportSummary,
@@ -117,6 +119,7 @@ export default function OwlsEyeVenueCard({
           padding: 60,
         })
       : null;
+  const mapPreviewHref = selectedTournamentSlug ? `/tournaments/${encodeURIComponent(selectedTournamentSlug)}/map?venue=${encodeURIComponent(venue.id)}` : null;
   const nearestMajorAirport = airportSummary?.nearest_major_airport ?? null;
   const nearestAirport = airportSummary?.nearest_airport ?? null;
   const primaryAirport = nearestMajorAirport ?? nearestAirport;
@@ -166,7 +169,7 @@ export default function OwlsEyeVenueCard({
                 {staticMapUrl ? (
                   <div
                     style={{
-                      width: "100%",
+                      width: "min(720px, 100%)",
                       marginTop: 10,
                       borderRadius: 14,
                       overflow: "hidden",
@@ -175,7 +178,17 @@ export default function OwlsEyeVenueCard({
                       height: "clamp(190px, 28vw, 260px)",
                     }}
                   >
-                    {mapLinks?.google ? (
+                    {mapPreviewHref ? (
+                      <Link href={mapPreviewHref} style={{ display: "block", width: "100%", height: "100%" }}>
+                        <img
+                          src={staticMapUrl}
+                          alt={venue.name ? `Map showing the location of ${venue.name}` : "Map showing the venue location"}
+                          loading="lazy"
+                          decoding="async"
+                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        />
+                      </Link>
+                    ) : mapLinks?.google ? (
                       <a
                         href={mapLinks.google}
                         target="_blank"
