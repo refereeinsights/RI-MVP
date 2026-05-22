@@ -19,6 +19,7 @@ import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import TournamentMapTeaser from "@/components/tournaments/TournamentMapTeaser";
 import TournamentDetailStickyMapCta from "@/components/tournaments/TournamentDetailStickyMapCta";
 import SoccerWorldCupFanGearCard from "@/components/partners/SoccerWorldCupFanGearCard";
+import { getFanaticsLinkAndDisclosure } from "@/lib/partners";
 import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
 import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
@@ -938,6 +939,31 @@ async function TournamentVenueDetails({
     );
   }
 
+  const fanGearCard = await (async () => {
+    const sport = String(tournament.sport ?? "").toLowerCase().trim();
+    if (sport !== "soccer") return null;
+
+    const res = await getFanaticsLinkAndDisclosure({
+      sport: "soccer",
+      pageType: "tournament_detail",
+      placement: "soccer_tournament_world_cup_fan_gear",
+    });
+    if (!res.link?.id) return null;
+
+    const qp = new URLSearchParams();
+    qp.set("campaign", "world_cup_2026");
+    qp.set("placement", "soccer_tournament_world_cup_fan_gear");
+    qp.set("page_type", "tournament_detail");
+    qp.set("tournament_id", tournament.id);
+    const href = `/go/partner/${encodeURIComponent(res.link.id)}?${qp.toString()}`;
+
+    return (
+      <div style={{ width: "min(720px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
+        <SoccerWorldCupFanGearCard href={href} />
+      </div>
+    );
+  })();
+
   return (
     <>
       <TournamentDetailStickyMapCta mapHref={mapPreviewHref} mapLabel={mapPrimaryLabel} hotelsHref={null} />
@@ -990,9 +1016,7 @@ async function TournamentVenueDetails({
         />
       </div>
 
-      <div style={{ width: "min(720px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
-        <SoccerWorldCupFanGearCard sport={tournament.sport ?? null} tournamentId={tournament.id} />
-      </div>
+      {fanGearCard}
 
       {/* Noise cleanup: removed orphan “Still planning your stay?” + “Where you’ll play” blocks. */}
 
