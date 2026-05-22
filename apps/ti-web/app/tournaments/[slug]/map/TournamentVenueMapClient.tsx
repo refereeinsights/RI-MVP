@@ -1945,13 +1945,13 @@ export default function TournamentVenueMapClient({
 	                  <div className={`${styles.ctaRow} ${styles.stayCtaRow}`}>
                     <button
                       type="button"
-                      className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
+                      className={styles.affiliateCta}
                       onClick={() => openNavChooserForVenue(selectedVenue, "selected_venue_panel")}
                     >
                       Directions
                     </button>
                     <a
-                      className={styles.affiliateCta}
+                      className={`${styles.affiliateCta} ${styles.affiliateCtaPrimary}`}
                       href={`/go/hotels?venueId=${encodeURIComponent(hotelVenueId)}&tournamentId=${encodeURIComponent(tournament.id)}`}
                       target="_blank"
                       rel="noopener noreferrer sponsored"
