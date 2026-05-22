@@ -167,19 +167,6 @@ export default function VenueCard({
           )
         ) : null}
 
-        {venueUrl ? (
-          <a href={venueUrl} target="_blank" rel="noopener noreferrer" className={`secondaryLink ${styles.siteLink}`}>
-            <span>Site</span>
-          </a>
-        ) : (
-          <div className={`secondaryLink ${styles.siteLink}`} aria-disabled="true" style={{ cursor: "default" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 }}>
-              <span>Site</span>
-              <span className="tbdText">TBD</span>
-            </div>
-          </div>
-        )}
-
         {mapLinks ? (
           <a href={mapLinks.apple} target="_blank" rel="noopener noreferrer" className={`primaryLink ${styles.mapLink}`}>
             Map

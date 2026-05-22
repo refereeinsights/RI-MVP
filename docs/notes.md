@@ -43,6 +43,9 @@ Maintenance rules:
 - TI venues directory: remove duplicate map CTAs on venue cards by dropping the extra “Maps” link when no venue site URL is present (leave a single primary “Map” action).
   - File: `apps/ti-web/components/venues/VenueCard.tsx`.
 
+- TI venues directory: remove the “Site/Site TBD” CTA entirely and center the remaining three CTAs (Details / Review / Map).
+  - Files: `apps/ti-web/components/venues/VenueCard.tsx`, `apps/ti-web/components/venues/VenueCard.module.css`.
+
 - TI tournaments: render the Soccer World Cup fan gear card via server lookup (prevents client-only lookup edge cases).
   - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/partners/SoccerWorldCupFanGearCard.tsx`.
 
