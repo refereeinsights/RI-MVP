@@ -10,6 +10,7 @@ import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheck
 import HotelBookingCta from "@/components/venues/HotelBookingCta";
 import VenueWeatherPlannerCard from "@/components/venues/VenueWeatherPlannerCard";
 import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
+import { buildMapboxStaticImageUrl, isValidLatLng } from "@/lib/staticTournamentMaps";
 
 export type NearbyPlace = {
   name: string;
@@ -102,6 +103,20 @@ export default function OwlsEyeVenueCard({
   const hotels = (publicHotels ?? []).filter(Boolean);
   const bookingHref = buildHotelsHref({ venueId: venue.id, tournamentId: selectedTournamentId ?? null });
   const showBooking = canShowBookingCta({ zip: venue.zip });
+  const hasValidCoordinates = isValidLatLng(venue.latitude, venue.longitude);
+  const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim();
+  const staticMapUrl =
+    hasValidCoordinates && mapboxToken
+      ? buildMapboxStaticImageUrl({
+          style: "mapbox/streets-v12",
+          width: 800,
+          height: 400,
+          coords: [{ lat: venue.latitude as number, lng: venue.longitude as number }],
+          markerColorHex: "00AA55",
+          token: mapboxToken,
+          padding: 60,
+        })
+      : null;
   const nearestMajorAirport = airportSummary?.nearest_major_airport ?? null;
   const nearestAirport = airportSummary?.nearest_airport ?? null;
   const primaryAirport = nearestMajorAirport ?? nearestAirport;
@@ -148,9 +163,46 @@ export default function OwlsEyeVenueCard({
                 {locationLine ? <div className="detailVenueAddress">{locationLine}</div> : null}
               </div>
               <div className="detailLinksRow detailVenueUrlRow">
-                {venue.venue_url ? (
-                  <a href={venue.venue_url} target="_blank" rel="noopener noreferrer" className="secondaryLink">
-                    Venue URL/Map
+                {staticMapUrl ? (
+                  <div
+                    style={{
+                      width: "100%",
+                      marginTop: 10,
+                      borderRadius: 14,
+                      overflow: "hidden",
+                      border: "1px solid rgba(0,0,0,0.10)",
+                      background: "#fff",
+                      height: "clamp(190px, 28vw, 260px)",
+                    }}
+                  >
+                    {mapLinks?.google ? (
+                      <a
+                        href={mapLinks.google}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: "block", width: "100%", height: "100%" }}
+                      >
+                        <img
+                          src={staticMapUrl}
+                          alt={venue.name ? `Map showing the location of ${venue.name}` : "Map showing the venue location"}
+                          loading="lazy"
+                          decoding="async"
+                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        />
+                      </a>
+                    ) : (
+                      <img
+                        src={staticMapUrl}
+                        alt={venue.name ? `Map showing the location of ${venue.name}` : "Map showing the venue location"}
+                        loading="lazy"
+                        decoding="async"
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      />
+                    )}
+                  </div>
+                ) : venue.venue_url ? (
+                  <a href={venue.venue_url} target="_blank" rel="noopener noreferrer" className="secondaryLink detailLinkSmall">
+                    Venue site
                   </a>
                 ) : null}
               </div>
@@ -158,15 +210,25 @@ export default function OwlsEyeVenueCard({
           </div>
           {mapLinks && mapQuery ? (
             <div className="detailLinksRow">
-              <MobileMapLink provider="google" query={mapQuery} fallbackHref={mapLinks.google} className="secondaryLink">
-                Google Maps
+              <MobileMapLink
+                provider="google"
+                query={mapQuery}
+                fallbackHref={mapLinks.google}
+                className="secondaryLink hotelBookingCta"
+              >
+                Get directions
               </MobileMapLink>
-              <MobileMapLink provider="apple" query={mapQuery} fallbackHref={mapLinks.apple} className="secondaryLink">
+              <MobileMapLink provider="apple" query={mapQuery} fallbackHref={mapLinks.apple} className="secondaryLink detailLinkSmall">
                 Apple Maps
               </MobileMapLink>
-              <MobileMapLink provider="waze" query={mapQuery} fallbackHref={mapLinks.waze} className="secondaryLink">
+              <MobileMapLink provider="waze" query={mapQuery} fallbackHref={mapLinks.waze} className="secondaryLink detailLinkSmall">
                 Waze
               </MobileMapLink>
+              {venue.venue_url ? (
+                <a href={venue.venue_url} target="_blank" rel="noopener noreferrer" className="secondaryLink detailLinkSmall">
+                  Venue site
+                </a>
+              ) : null}
             </div>
           ) : null}
         </div>

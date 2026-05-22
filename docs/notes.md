@@ -19,6 +19,11 @@ Maintenance rules:
   - Rows link to `/tournaments/[slug]` when a slug exists; slugless rows fall back to plain text (no chevron).
   - Files: `apps/ti-web/app/venues/[venueId]/page.tsx`, `apps/ti-web/app/venues/[venueId]/VenueDetail.module.css`.
 
+- TI venues: replace the generic `Venue URL/Map` button area in the venue card with a static Mapbox preview (when venue coordinates are valid).
+  - Uses existing helpers `isValidLatLng()` and `buildMapboxStaticImageUrl()` (no new Supabase reads).
+  - CTA hierarchy: primary “Get directions” (Google) + secondary Apple/Waze + “Venue site”.
+  - File: `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`.
+
 - TI tournaments: render the Soccer World Cup fan gear card via server lookup (prevents client-only lookup edge cases).
   - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/partners/SoccerWorldCupFanGearCard.tsx`.
 
