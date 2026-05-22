@@ -171,10 +171,6 @@ export default function VenueCard({
           <a href={venueUrl} target="_blank" rel="noopener noreferrer" className={`secondaryLink ${styles.siteLink}`}>
             <span>Site</span>
           </a>
-        ) : mapLinks ? (
-          <a href={mapLinks.google} target="_blank" rel="noopener noreferrer" className={`secondaryLink ${styles.siteLink}`}>
-            <span>Maps</span>
-          </a>
         ) : (
           <div className={`secondaryLink ${styles.siteLink}`} aria-disabled="true" style={{ cursor: "default" }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 }}>

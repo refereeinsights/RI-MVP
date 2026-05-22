@@ -40,6 +40,9 @@ Maintenance rules:
 - TI venues: center the top action row and hide the redundant “View map” button when the static preview is available; clicking the preview now opens the tournament map with the venue pre-selected (best-effort chooses the selected/upcoming linked tournament).
   - Files: `apps/ti-web/app/venues/[venueId]/VenueDetail.module.css`, `apps/ti-web/app/venues/[venueId]/page.tsx`.
 
+- TI venues directory: remove duplicate map CTAs on venue cards by dropping the extra “Maps” link when no venue site URL is present (leave a single primary “Map” action).
+  - File: `apps/ti-web/components/venues/VenueCard.tsx`.
+
 - TI tournaments: render the Soccer World Cup fan gear card via server lookup (prevents client-only lookup edge cases).
   - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/partners/SoccerWorldCupFanGearCard.tsx`.
 
