@@ -31,6 +31,9 @@ Maintenance rules:
 - TI venues: static map preview URL generation tightened (use direct Mapbox Static Images URL format for a single marker) to avoid preview load failures.
   - File: `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`.
 
+- TI venues: static map preview now uses a fixed camera zoom (heuristic 12–15) instead of `auto` to avoid over-zoomed / low-context renders for single-point venues.
+  - File: `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`.
+
 - TI tournaments: render the Soccer World Cup fan gear card via server lookup (prevents client-only lookup edge cases).
   - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/partners/SoccerWorldCupFanGearCard.tsx`.
 

@@ -107,18 +107,38 @@ export default function OwlsEyeVenueCard({
   const showBooking = canShowBookingCta({ zip: venue.zip });
   const hasValidCoordinates = isValidLatLng(venue.latitude, venue.longitude);
   const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim();
+  const zoomForVenue = (() => {
+    const name = String(venue.name ?? "").toLowerCase();
+    const hasCityState = Boolean(String(venue.city ?? "").trim()) && Boolean(String(venue.state ?? "").trim());
+    const hasZip = Boolean(String(venue.zip ?? "").trim());
+
+    // Start from a sane default for "where is this venue?"
+    let zoom = 14;
+
+    // Larger multi-field venues usually benefit from a slightly wider view.
+    if (/(sports\s*park|sport\s*park|complex|fields?|fairgrounds|tournament|athletic|regional|campus)/i.test(name)) {
+      zoom = 13;
+    }
+
+    // If we have less precise location context, keep it wider.
+    if (!hasCityState || !hasZip) {
+      zoom = Math.min(zoom, 13);
+    }
+
+    // Guardrails.
+    return Math.min(Math.max(zoom, 12), 15);
+  })();
   const staticMapUrl = (() => {
     if (!hasValidCoordinates || !mapboxToken) return null;
     const style = "mapbox/streets-v12";
     const width = 800;
     const height = 400;
-    const padding = 60;
     const lat = round6(venue.latitude as number);
     const lng = round6(venue.longitude as number);
     const marker = `pin-s+00AA55(${lng.toFixed(6)},${lat.toFixed(6)})`;
-    return `https://api.mapbox.com/styles/v1/${style}/static/${marker}/auto/${width}x${height}?padding=${encodeURIComponent(
-      String(padding)
-    )}&access_token=${encodeURIComponent(mapboxToken)}`;
+    // Use a fixed camera to avoid Mapbox's `auto` occasionally zooming too far in for single-point previews.
+    const camera = `${lng.toFixed(6)},${lat.toFixed(6)},${zoomForVenue}`;
+    return `https://api.mapbox.com/styles/v1/${style}/static/${marker}/${camera}/${width}x${height}?access_token=${encodeURIComponent(mapboxToken)}`;
   })();
   const mapPreviewHref = selectedTournamentSlug ? `/tournaments/${encodeURIComponent(selectedTournamentSlug)}/map?venue=${encodeURIComponent(venue.id)}` : null;
   const nearestMajorAirport = airportSummary?.nearest_major_airport ?? null;
