@@ -10,7 +10,7 @@ import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheck
 import HotelBookingCta from "@/components/venues/HotelBookingCta";
 import VenueWeatherPlannerCard from "@/components/venues/VenueWeatherPlannerCard";
 import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
-import { buildMapboxStaticImageUrl, isValidLatLng } from "@/lib/staticTournamentMaps";
+import { isValidLatLng, round6 } from "@/lib/staticTournamentMaps";
 
 export type NearbyPlace = {
   name: string;
@@ -107,18 +107,19 @@ export default function OwlsEyeVenueCard({
   const showBooking = canShowBookingCta({ zip: venue.zip });
   const hasValidCoordinates = isValidLatLng(venue.latitude, venue.longitude);
   const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim();
-  const staticMapUrl =
-    hasValidCoordinates && mapboxToken
-      ? buildMapboxStaticImageUrl({
-          style: "mapbox/streets-v12",
-          width: 800,
-          height: 400,
-          coords: [{ lat: venue.latitude as number, lng: venue.longitude as number }],
-          markerColorHex: "00AA55",
-          token: mapboxToken,
-          padding: 60,
-        })
-      : null;
+  const staticMapUrl = (() => {
+    if (!hasValidCoordinates || !mapboxToken) return null;
+    const style = "mapbox/streets-v12";
+    const width = 800;
+    const height = 400;
+    const padding = 60;
+    const lat = round6(venue.latitude as number);
+    const lng = round6(venue.longitude as number);
+    const marker = `pin-s+00AA55(${lng.toFixed(6)},${lat.toFixed(6)})`;
+    return `https://api.mapbox.com/styles/v1/${style}/static/${marker}/auto/${width}x${height}?padding=${encodeURIComponent(
+      String(padding)
+    )}&access_token=${encodeURIComponent(mapboxToken)}`;
+  })();
   const mapPreviewHref = selectedTournamentSlug ? `/tournaments/${encodeURIComponent(selectedTournamentSlug)}/map?venue=${encodeURIComponent(venue.id)}` : null;
   const nearestMajorAirport = airportSummary?.nearest_major_airport ?? null;
   const nearestAirport = airportSummary?.nearest_airport ?? null;
@@ -169,6 +170,7 @@ export default function OwlsEyeVenueCard({
                 {staticMapUrl ? (
                   <div
                     style={{
+                      position: "relative",
                       width: "min(720px, 100%)",
                       marginTop: 10,
                       borderRadius: 14,
@@ -178,40 +180,34 @@ export default function OwlsEyeVenueCard({
                       height: "clamp(190px, 28vw, 260px)",
                     }}
                   >
+                    <img
+                      src={staticMapUrl}
+                      alt={venue.name ? `Map showing the location of ${venue.name}` : "Map showing the venue location"}
+                      loading="lazy"
+                      decoding="async"
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
                     {mapPreviewHref ? (
-                      <Link href={mapPreviewHref} style={{ display: "block", width: "100%", height: "100%" }}>
-                        <img
-                          src={staticMapUrl}
-                          alt={venue.name ? `Map showing the location of ${venue.name}` : "Map showing the venue location"}
-                          loading="lazy"
-                          decoding="async"
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                        />
-                      </Link>
+                      <Link
+                        href={mapPreviewHref}
+                        aria-label={venue.name ? `Open venue map for ${venue.name}` : "Open venue map"}
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          display: "block",
+                          // Keep it clickable without hiding the image.
+                          background: "transparent",
+                        }}
+                      />
                     ) : mapLinks?.google ? (
                       <a
                         href={mapLinks.google}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ display: "block", width: "100%", height: "100%" }}
-                      >
-                        <img
-                          src={staticMapUrl}
-                          alt={venue.name ? `Map showing the location of ${venue.name}` : "Map showing the venue location"}
-                          loading="lazy"
-                          decoding="async"
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                        />
-                      </a>
-                    ) : (
-                      <img
-                        src={staticMapUrl}
-                        alt={venue.name ? `Map showing the location of ${venue.name}` : "Map showing the venue location"}
-                        loading="lazy"
-                        decoding="async"
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        aria-label={venue.name ? `Open ${venue.name} in Google Maps` : "Open in Google Maps"}
+                        style={{ position: "absolute", inset: 0, display: "block" }}
                       />
-                    )}
+                    ) : null}
                   </div>
                 ) : venue.venue_url ? (
                   <a href={venue.venue_url} target="_blank" rel="noopener noreferrer" className="secondaryLink detailLinkSmall">
