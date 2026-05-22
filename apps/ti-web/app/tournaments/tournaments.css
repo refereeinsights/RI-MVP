@@ -2081,6 +2081,7 @@
   display: flex;
   justify-content: center;
   margin-top: 8px;
+  width: 100%;
 }
 
 .premiumVenueBlock {
@@ -2135,6 +2136,7 @@
   color: #f8fbff;
   text-align: center;
   align-items: center;
+  width: 100%;
 }
 
 .detailVenueAddress {

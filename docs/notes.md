@@ -34,6 +34,9 @@ Maintenance rules:
 - TI venues: static map preview now uses a fixed camera zoom (heuristic 12–15) instead of `auto` to avoid over-zoomed / low-context renders for single-point venues.
   - File: `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`.
 
+- TI venues: fix static map preview rendering at 0px width by giving the venue card URL row and text stack a definite `width: 100%` (prevents percentage-sized children from resolving against an indefinite container).
+  - File: `apps/ti-web/app/tournaments/tournaments.css`.
+
 - TI tournaments: render the Soccer World Cup fan gear card via server lookup (prevents client-only lookup edge cases).
   - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/partners/SoccerWorldCupFanGearCard.tsx`.
 
