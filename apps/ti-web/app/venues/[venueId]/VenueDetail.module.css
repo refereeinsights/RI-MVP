@@ -22,6 +22,53 @@
   display: block;
 }
 
+.upcomingList {
+  display: grid;
+  gap: 12px;
+}
+
+.upcomingRowLink,
+.upcomingRowPlain {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.upcomingRowLink:hover,
+.upcomingRowLink:focus-visible {
+  background: rgba(0, 0, 0, 0.04);
+  text-decoration: none;
+}
+
+.upcomingRowTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.upcomingRowName {
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.upcomingRowChevron {
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+
+.upcomingRowDate {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.82;
+  line-height: 1.3;
+  text-align: left;
+}
+
 @media (max-width: 768px) {
   .actionsCluster {
     display: grid;

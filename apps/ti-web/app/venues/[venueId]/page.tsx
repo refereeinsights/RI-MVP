@@ -222,6 +222,41 @@ function formatDate(iso: string | null) {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+function formatDateRangeLabel(startIso: string | null, endIso: string | null) {
+  if (!startIso && !endIso) return "Dates TBA";
+  if (startIso && !endIso) return formatDate(startIso);
+  if (!startIso && endIso) return formatDate(endIso);
+
+  const start = new Date(`${startIso}T00:00:00`);
+  const end = new Date(`${endIso}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    const fallbackStart = formatDate(startIso);
+    const fallbackEnd = formatDate(endIso);
+    if (fallbackStart && fallbackEnd && fallbackStart !== fallbackEnd) return `${fallbackStart} – ${fallbackEnd}`;
+    return fallbackStart || fallbackEnd || "Dates TBA";
+  }
+
+  const sameDay = start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth() && start.getDate() === end.getDate();
+  if (sameDay) return formatDate(startIso);
+
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const sameMonth = sameYear && start.getMonth() === end.getMonth();
+
+  const fmtMonth = new Intl.DateTimeFormat(undefined, { month: "short" });
+  const fmtMonthDay = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+  const fmtMonthDayYear = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
+
+  if (sameMonth) {
+    return `${fmtMonth.format(start)} ${start.getDate()}–${end.getDate()}, ${start.getFullYear()}`;
+  }
+
+  if (sameYear) {
+    return `${fmtMonthDay.format(start)} – ${fmtMonthDay.format(end)}, ${start.getFullYear()}`;
+  }
+
+  return `${fmtMonthDayYear.format(start)} – ${fmtMonthDayYear.format(end)}`;
+}
+
 function buildMapLinks(query: string) {
   const encoded = encodeURIComponent(query);
   return {
@@ -986,36 +1021,60 @@ export default async function VenueDetailsPage({
               />
 
               {(() => {
-                const upcomingValid = upcomingTournaments.filter((t) => Boolean(t.slug && t.name));
+                const upcomingValid = upcomingTournaments.filter((t) => Boolean(t.name));
                 const upcomingCount = upcomingValid.length;
 
                 if (upcomingCount === 1) {
                   const t = upcomingValid[0]!;
-                  const start = formatDate(t.start_date);
-                  const end = formatDate(t.end_date);
-                  const dateLabel = start && end && start !== end ? `${start} - ${end}` : start || end || "Dates TBA";
+                  const dateLabel = formatDateRangeLabel(t.start_date, t.end_date);
                   const meta = [dateLabel, locationLabel].filter(Boolean).join(" · ");
+                  const href = t.slug ? `/tournaments/${t.slug}` : "";
                   return (
                     <>
                       <div className={styles.upcomingMobileOnly} style={{ marginTop: 4 }}>
                         <div className={styles.upcomingCard}>
                           <div className={styles.upcomingEyebrow}>UPCOMING AT THIS VENUE</div>
-                          <Link href={`/tournaments/${t.slug}`} className="secondaryLink" style={{ width: "100%" }}>
-                            <div className={styles.upcomingTitleRow}>
-                              <span>{t.name}</span>
-                              <span aria-hidden="true">→</span>
+                          {t.slug ? (
+                            <Link href={href} className={styles.upcomingRowLink}>
+                              <div className={styles.upcomingRowTop}>
+                                <span className={styles.upcomingRowName}>{t.name}</span>
+                                <span className={styles.upcomingRowChevron} aria-hidden="true">
+                                  ›
+                                </span>
+                              </div>
+                              <div className={styles.upcomingRowDate}>{meta}</div>
+                            </Link>
+                          ) : (
+                            <div className={styles.upcomingRowPlain}>
+                              <div className={styles.upcomingRowTop}>
+                                <span className={styles.upcomingRowName}>{t.name}</span>
+                              </div>
+                              <div className={styles.upcomingRowDate}>{meta}</div>
                             </div>
-                            <div className={styles.upcomingMeta}>{meta}</div>
-                          </Link>
+                          )}
                         </div>
                       </div>
                       <div className={styles.upcomingDesktopOnly} style={{ display: "grid", gap: 8, marginTop: 4 }}>
                         <p style={{ margin: 0, fontWeight: 700 }}>Upcoming tournaments at this venue</p>
-                        <div style={{ display: "grid", gap: 6 }}>
-                          <Link href={`/tournaments/${t.slug}`} className="secondaryLink" style={{ justifyContent: "space-between", width: "100%" }}>
-                            <span>{t.name}</span>
-                            <span style={{ fontSize: 12, opacity: 0.85 }}>{dateLabel}</span>
-                          </Link>
+                        <div className={styles.upcomingList}>
+                          {t.slug ? (
+                            <Link href={href} className={styles.upcomingRowLink}>
+                              <div className={styles.upcomingRowTop}>
+                                <span className={styles.upcomingRowName}>{t.name}</span>
+                                <span className={styles.upcomingRowChevron} aria-hidden="true">
+                                  ›
+                                </span>
+                              </div>
+                              <div className={styles.upcomingRowDate}>{dateLabel}</div>
+                            </Link>
+                          ) : (
+                            <div className={styles.upcomingRowPlain}>
+                              <div className={styles.upcomingRowTop}>
+                                <span className={styles.upcomingRowName}>{t.name}</span>
+                              </div>
+                              <div className={styles.upcomingRowDate}>{dateLabel}</div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </>
@@ -1026,22 +1085,31 @@ export default async function VenueDetailsPage({
                   return (
                     <div style={{ display: "grid", gap: 8, marginTop: 4 }}>
                       <p style={{ margin: 0, fontWeight: 700 }}>Upcoming tournaments at this venue</p>
-                      <div style={{ display: "grid", gap: 6 }}>
+                      <div className={styles.upcomingList}>
                         {upcomingValid.map((t) => {
-                          const start = formatDate(t.start_date);
-                          const end = formatDate(t.end_date);
-                          const dateLabel =
-                            start && end && start !== end ? `${start} - ${end}` : start || end || "Dates TBA";
+                          const dateLabel = formatDateRangeLabel(t.start_date, t.end_date);
+                          const href = t.slug ? `/tournaments/${t.slug}` : "";
                           return (
-                            <Link
-                              key={t.id}
-                              href={`/tournaments/${t.slug}`}
-                              className="secondaryLink"
-                              style={{ justifyContent: "space-between", width: "100%" }}
-                            >
-                              <span>{t.name}</span>
-                              <span style={{ fontSize: 12, opacity: 0.85 }}>{dateLabel}</span>
-                            </Link>
+                            <div key={t.id}>
+                              {t.slug ? (
+                                <Link href={href} className={styles.upcomingRowLink}>
+                                  <div className={styles.upcomingRowTop}>
+                                    <span className={styles.upcomingRowName}>{t.name}</span>
+                                    <span className={styles.upcomingRowChevron} aria-hidden="true">
+                                      ›
+                                    </span>
+                                  </div>
+                                  <div className={styles.upcomingRowDate}>{dateLabel}</div>
+                                </Link>
+                              ) : (
+                                <div className={styles.upcomingRowPlain}>
+                                  <div className={styles.upcomingRowTop}>
+                                    <span className={styles.upcomingRowName}>{t.name}</span>
+                                  </div>
+                                  <div className={styles.upcomingRowDate}>{dateLabel}</div>
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
                       </div>
