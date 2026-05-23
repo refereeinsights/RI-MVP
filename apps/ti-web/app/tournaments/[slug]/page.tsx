@@ -1377,7 +1377,7 @@ async function TournamentVenueDetails({
             <div className="ti-logged-out-sticky-signup__copy">Save this tournament + get venue intel</div>
             <Link
               className="ti-logged-out-sticky-signup__cta"
-              href={`/signup?returnTo=${encodeURIComponent(`/tournaments/${tournament.slug ?? paramsSlug}`)}`}
+              href={`/signup?returnTo=${encodeURIComponent(`/tournaments/${paramsSlug}`)}`}
             >
               Sign up
             </Link>

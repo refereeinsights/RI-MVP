@@ -27,6 +27,7 @@ Maintenance rules:
 - TI tournament detail (logged-out conversion): move Weekend Pro upsell above the venue map teaser, add founding price line/disclaimer, add a mobile sticky signup bar, and move “Claim edit access” out of the top action row.
   - Adds a subtle trust line under metadata for logged-out visitors.
   - Reduces perceived mobile whitespace between the map teaser area and “Tournament Weekend Extras”.
+  - Sticky signup CTA now uses `returnTo=/tournaments/[slug]` (page route param) so signup returns users to the tournament they were viewing.
   - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/app/tournaments/tournaments.css`, `apps/ti-web/components/partners/SoccerWorldCupFanGearCard.tsx`.
 
 - TI travel redirects: fix in-progress tournament date handling for lodging links so parents don’t land on default “today+14” dates during an active event.
