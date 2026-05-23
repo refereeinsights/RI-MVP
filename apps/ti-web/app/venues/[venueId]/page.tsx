@@ -509,6 +509,8 @@ export default async function VenueDetailsPage({
     (linkedTournaments.find((t) => (t.slug ?? "").trim())?.slug ?? "").trim() ||
     null;
 
+  const contextTournament = selectedTournament ?? upcomingTournaments[0] ?? null;
+
   const semanticLocationSentence = (() => {
     const name = data.name ?? "This venue";
     const city = (data.city ?? "").trim();
@@ -1015,10 +1017,10 @@ export default async function VenueDetailsPage({
                 }}
                 hasOwlsEye={hasOwlsEye}
                 canViewPremiumDetails={canViewPremiumDetails}
-                selectedTournamentId={selectedTournament?.id ?? null}
+                selectedTournamentId={contextTournament?.id ?? null}
                 selectedTournamentSlug={mapContextTournamentSlug}
-                selectedTournamentStartDate={selectedTournament?.start_date ?? null}
-                selectedTournamentEndDate={selectedTournament?.end_date ?? null}
+                selectedTournamentStartDate={contextTournament?.start_date ?? null}
+                selectedTournamentEndDate={contextTournament?.end_date ?? null}
                 nearbyCounts={nearbyCounts}
                 airportSummary={airportSummary}
                 premiumNearby={premiumNearby}

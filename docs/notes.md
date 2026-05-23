@@ -35,6 +35,9 @@ Maintenance rules:
   - Sticky signup CTA now uses `returnTo=/tournaments/[slug]` (page route param) so signup returns users to the tournament they were viewing.
   - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/app/tournaments/tournaments.css`, `apps/ti-web/components/partners/SoccerWorldCupFanGearCard.tsx`.
 
+- TI venue detail: pass a best-effort “context tournament” (selected or nearest upcoming/active) into the venue card so the “Check hotel availability” CTA includes `tournamentId` when available (better dates in `/go/hotels` without new queries).
+  - File: `apps/ti-web/app/venues/[venueId]/page.tsx`.
+
 - TI travel redirects: fix in-progress tournament date handling for lodging links so parents don’t land on default “today+14” dates during an active event.
   - Hotels (`/go/hotels`): when `start_date < today <= end_date`, use `checkin=today (UTC)` and `checkout=min(end_date+1, today+3)`; upcoming and fallback behaviors unchanged.
   - VRBO (`/go/vrbo`): use the same upcoming/in-progress policy and unify checkout semantics to `end_date + 1 day` for date-based searches (past tournaments still omit dates).
