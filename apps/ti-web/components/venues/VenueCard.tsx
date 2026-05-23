@@ -75,6 +75,7 @@ export default function VenueCard({
   const detailsHref = `/venues/${venueSeoSlug || venueId}`;
   const hotelsHref = buildHotelsHref({ venueId });
   const showBooking = canShowBookingCta({ zip });
+  const hotelsHrefWithSource = `/go/hotels?${new URLSearchParams({ venueId, source: "venue_directory" }).toString()}`;
   const hasCity = Boolean((city ?? "").trim());
   const stateUpper = String(state ?? "")
     .trim()
@@ -176,6 +177,17 @@ export default function VenueCard({
             Map
           </span>
         )}
+      </div>
+
+      <div className={styles.hotelsTextRow}>
+        <a
+          href={hotelsHrefWithSource}
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          className={styles.hotelsTextLink}
+        >
+          Find hotels →
+        </a>
       </div>
 
       {showPlanningCtas ? (

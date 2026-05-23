@@ -217,6 +217,24 @@ export default async function WeekendPlannerPage() {
             </div>
 
             <div style={{ display: "grid", gap: 10 }}>
+              {!isAuthed ? (
+                <article className={styles.panelCard}>
+                  <div className={styles.panelHeader}>
+                    <h2 className={styles.panelTitle}>Find hotels near a tournament venue</h2>
+                    <p className={styles.panelSub}>Search by venue name, city, or address.</p>
+                  </div>
+                  <div className={styles.cardBody}>
+                    <Link
+                      className={styles.ctaFull}
+                      href={`/go/hotels?${new URLSearchParams({ source: "weekend_planner" }).toString()}`}
+                      target="_blank"
+                      rel="noopener noreferrer sponsored"
+                    >
+                      Search hotels →
+                    </Link>
+                  </div>
+                </article>
+              ) : null}
               <div style={{ padding: "12px 12px", borderRadius: 14, border: "1px solid rgba(15, 61, 46, 0.12)", background: "rgba(255,255,255,0.96)" }}>
                 <div style={{ fontSize: 12, fontWeight: 950, color: "#0b1f14" }}>Plan around a tournament</div>
                 <div style={{ marginTop: 4, color: "rgba(16, 34, 19, 0.85)", fontWeight: 650, fontSize: 13, lineHeight: 1.45 }}>

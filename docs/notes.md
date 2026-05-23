@@ -38,6 +38,13 @@ Maintenance rules:
 - TI venue detail: pass a best-effort “context tournament” (selected or nearest upcoming/active) into the venue card so the “Check hotel availability” CTA includes `tournamentId` when available (better dates in `/go/hotels` without new queries).
   - File: `apps/ti-web/app/venues/[venueId]/page.tsx`.
 
+- TI monetization (pass 2): tighten Weekend Pro upsell CTA weight, add a founding offer deadline, and add new hotel CTAs on high-intent surfaces.
+  - Tournament detail: Weekend Pro upsell button now uses the same primary green CTA styling and is full-width (no checkout behavior changes).
+  - Weekend Pro pricing: founding disclaimer now includes a deadline (July 4, 2026).
+  - Weekend Planner (logged-out only): adds a generic hotel search CTA linking to `/go/hotels?source=weekend_planner`.
+  - Venue directory cards: adds a subtle “Find hotels →” link on every card linking to `/go/hotels?venueId=…&source=venue_directory`.
+  - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/lib/weekendProPricing.ts`, `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/components/venues/VenueCard.tsx`, `apps/ti-web/components/venues/VenueCard.module.css`.
+
 - TI travel redirects: fix in-progress tournament date handling for lodging links so parents don’t land on default “today+14” dates during an active event.
   - Hotels (`/go/hotels`): when `start_date < today <= end_date`, use `checkin=today (UTC)` and `checkout=min(end_date+1, today+3)`; upcoming and fallback behaviors unchanged.
   - VRBO (`/go/vrbo`): use the same upcoming/in-progress policy and unify checkout semantics to `end_date + 1 day` for date-based searches (past tournaments still omit dates).

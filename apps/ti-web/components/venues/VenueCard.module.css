@@ -183,3 +183,25 @@
   border-color: rgba(255, 255, 255, 0.92);
   background: rgba(0, 0, 0, 0.26);
 }
+
+.hotelsTextRow {
+  margin-top: 0.55rem;
+  display: flex;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.hotelsTextLink {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.95);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  opacity: 0.88;
+}
+
+.hotelsTextLink:hover {
+  opacity: 1;
+  color: #e7f2ff;
+}

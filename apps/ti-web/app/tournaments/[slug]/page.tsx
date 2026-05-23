@@ -929,9 +929,10 @@ async function TournamentVenueDetails({
                 Verify your email to activate your account. <Link href="/verify-email">Verify email</Link>
               </p>
             ) : null}
-            <div className="detailLinksRow">
+            <div className="detailLinksRow" style={{ justifyContent: "center" }}>
               <UpgradeWeekendProButton
-                className="primaryLink"
+                className="secondaryLink hotelBookingCta"
+                buttonStyle={{ width: "min(520px, 100%)" }}
                 source_page="tournament_detail"
                 source_context={variant === "owl_eye" ? "tournament_upsell:owl_eye" : "tournament_upsell:fallback"}
                 tournament_slug={tournament.slug}
