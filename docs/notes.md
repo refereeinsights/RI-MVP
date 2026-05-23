@@ -12,6 +12,13 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-05-22 (continued)
+
+- Tournaments: backfill city from first linked venue for 131 published/draft tournaments that had state but no city.
+  - Script: `scripts/ingest/fix_tournament_missing_city.ts`
+  - 9 skipped (4 no venue link, 4 venue also lacks city, 1 orphan).
+  - Tournament statuses unchanged — items remain in approval queue.
+
 ## 2026-05-23
 
 - TI travel redirects: fix in-progress tournament date handling for lodging links so parents don’t land on default “today+14” dates during an active event.
