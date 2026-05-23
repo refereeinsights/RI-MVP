@@ -14,10 +14,13 @@ Maintenance rules:
 
 ## 2026-05-22 (continued)
 
-- Tournaments: backfill city from first linked venue for 131 published/draft tournaments that had state but no city.
+- Tournaments: backfill city from first linked venue for 131 published/draft tournaments that had state but no city (null).
   - Script: `scripts/ingest/fix_tournament_missing_city.ts`
   - 9 skipped (4 no venue link, 4 venue also lacks city, 1 orphan).
   - Tournament statuses unchanged — items remain in approval queue.
+- Tournaments: backfill city for 61 tournaments where city was the literal string 'Unknown'.
+  - Script: `scripts/ingest/fix_tournament_unknown_city.ts`
+  - 46 skipped — venue also has no real city. Tournament statuses unchanged.
 
 ## 2026-05-23
 
