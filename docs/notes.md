@@ -21,6 +21,11 @@ Maintenance rules:
 - Tournaments: backfill city for 61 tournaments where city was the literal string 'Unknown'.
   - Script: `scripts/ingest/fix_tournament_unknown_city.ts`
   - 46 skipped — venue also has no real city. Tournament statuses unchanged.
+- Venues: patch city on 14 AZ/CA venues that had city='Unknown' but city was derivable from name/address.
+  - Script: `scripts/ingest/fix_venue_unknown_city_az.ts`
+  - Key fixes: 15086 W. Baden St. → Surprise AZ (unblocked 11 tournaments), Frontier Family Park combos → Mesa AZ, Grand Canyon University → Phoenix AZ, school name venues → Joseph City/Douglas/Payson/Kingman AZ.
+  - 2 state-mismatch venues fixed for data quality but flagged: Riverview Sports Park (Truckee CA) and San Clemente High School (San Clemente CA) linked to AZ-tagged tournaments — manual state review needed for Copa De Las Sierras and Swallows Cup 2026.
+- Tournaments: re-ran fix_tournament_unknown_city.ts after venue patches — resolved 32 more tournaments. Running total: 224 tournaments fixed across all three passes.
 
 ## 2026-05-23
 
