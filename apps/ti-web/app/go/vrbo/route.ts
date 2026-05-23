@@ -163,15 +163,31 @@ export async function GET(request: Request) {
     const end = tournament?.end_date ?? null;
     const tournamentDatesOk = isValidIsoDate(start) && isValidIsoDate(end);
     const explicitDatesOk = isValidIsoDate(checkinRaw) && isValidIsoDate(checkoutRaw);
+    const inProgressCheckoutCapDays = 3;
 
     // When called without venueId (e.g. tournament directory cards), prefer tournament dates if available.
     if (!venueIdValid) {
       if (tournamentDatesOk) {
-        const checkin = start!;
-        if (compareIso(checkin, today) < 0) return null;
-        const checkoutBase = compareIso(end!, checkin) === 0 ? addDaysIso(checkin, 1) : end!;
-        const checkout = compareIso(checkoutBase, checkin) <= 0 ? addDaysIso(checkin, 1) : checkoutBase;
-        return { checkin, checkout };
+        const startIso = start!;
+        const endIso = end!;
+        const isUpcoming = compareIso(startIso, today) >= 0;
+        const isInProgress = compareIso(startIso, today) < 0 && compareIso(today, endIso) <= 0;
+
+        if (isUpcoming) {
+          const checkin = startIso;
+          const checkout = addDaysIso(endIso, 1);
+          return { checkin, checkout };
+        }
+
+        if (isInProgress) {
+          const checkin = today;
+          const checkoutCandidate = addDaysIso(endIso, 1);
+          const cap = addDaysIso(checkin, inProgressCheckoutCapDays);
+          const checkout = compareIso(checkoutCandidate, cap) <= 0 ? checkoutCandidate : cap;
+          return { checkin, checkout };
+        }
+
+        return null;
       }
       if (!explicitDatesOk) return null;
       const checkin = checkinRaw;
@@ -183,12 +199,26 @@ export async function GET(request: Request) {
 
     if (!tournamentDatesOk) return null;
 
-    const checkin = start!;
-    if (compareIso(checkin, today) < 0) return null;
+    const startIso = start!;
+    const endIso = end!;
+    const isUpcoming = compareIso(startIso, today) >= 0;
+    const isInProgress = compareIso(startIso, today) < 0 && compareIso(today, endIso) <= 0;
 
-    const checkoutBase = compareIso(end!, checkin) === 0 ? addDaysIso(checkin, 1) : end!;
-    const checkout = compareIso(checkoutBase, checkin) <= 0 ? addDaysIso(checkin, 1) : checkoutBase;
-    return { checkin, checkout };
+    if (isUpcoming) {
+      const checkin = startIso;
+      const checkout = addDaysIso(endIso, 1);
+      return { checkin, checkout };
+    }
+
+    if (isInProgress) {
+      const checkin = today;
+      const checkoutCandidate = addDaysIso(endIso, 1);
+      const cap = addDaysIso(checkin, inProgressCheckoutCapDays);
+      const checkout = compareIso(checkoutCandidate, cap) <= 0 ? checkoutCandidate : cap;
+      return { checkin, checkout };
+    }
+
+    return null;
   })();
 
   const vrboUrl = destination

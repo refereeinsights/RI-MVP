@@ -208,13 +208,60 @@ export async function GET(request: Request) {
     const tStart = tournament?.start_date ?? null;
     const tEnd = tournament?.end_date ?? null;
     if (isValidIsoDate(tStart) && isValidIsoDate(tEnd)) {
-      const checkin = tStart!;
-      let checkout = addDaysIso(tEnd!, 1);
-      const validated = validateBookingSafe(checkin, checkout);
-      if (!validated.ok) {
-        return { ...computeFallbackDates(), source: "fallback" as const, rejected: { source: "tournament" as const, reason: validated.reason } };
+      const start = tStart!;
+      const end = tEnd!;
+
+      // Policy:
+      // - Upcoming: check in on start date, check out the day after end date.
+      // - In-progress: check in today, check out at end+1 (capped to a short stay window).
+      // - Past: fall back.
+      const isUpcoming = compareIso(start, today) >= 0;
+      const isInProgress = compareIso(start, today) < 0 && compareIso(today, end) <= 0;
+
+      if (isUpcoming) {
+        const checkin = start;
+        const checkout = addDaysIso(end, 1);
+        const validated = validateBookingSafe(checkin, checkout);
+        if (!validated.ok) {
+          return {
+            ...computeFallbackDates(),
+            source: "fallback" as const,
+            rejected: { source: "tournament" as const, reason: validated.reason },
+          };
+        }
+        return {
+          checkin,
+          checkout,
+          source: "tournament" as const,
+          rejected: null as null | { source: "explicit" | "tournament"; reason: string },
+        };
       }
-      return { checkin, checkout, source: "tournament" as const, rejected: null as null | { source: "explicit" | "tournament"; reason: string } };
+
+      if (isInProgress) {
+        const checkin = today;
+        const checkoutCandidate = addDaysIso(end, 1);
+        const checkout = compareIso(checkoutCandidate, addDaysIso(checkin, 3)) <= 0 ? checkoutCandidate : addDaysIso(checkin, 3);
+        const validated = validateBookingSafe(checkin, checkout);
+        if (!validated.ok) {
+          return {
+            ...computeFallbackDates(),
+            source: "fallback" as const,
+            rejected: { source: "tournament" as const, reason: validated.reason },
+          };
+        }
+        return {
+          checkin,
+          checkout,
+          source: "tournament" as const,
+          rejected: null as null | { source: "explicit" | "tournament"; reason: string },
+        };
+      }
+
+      return {
+        ...computeFallbackDates(),
+        source: "fallback" as const,
+        rejected: null as null | { source: "explicit" | "tournament"; reason: string },
+      };
     }
 
     return { ...computeFallbackDates(), source: "fallback" as const, rejected: null as null | { source: "explicit" | "tournament"; reason: string } };

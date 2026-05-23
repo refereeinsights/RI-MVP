@@ -12,6 +12,13 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-05-23
+
+- TI travel redirects: fix in-progress tournament date handling for lodging links so parents don’t land on default “today+14” dates during an active event.
+  - Hotels (`/go/hotels`): when `start_date < today <= end_date`, use `checkin=today (UTC)` and `checkout=min(end_date+1, today+3)`; upcoming and fallback behaviors unchanged.
+  - VRBO (`/go/vrbo`): use the same upcoming/in-progress policy and unify checkout semantics to `end_date + 1 day` for date-based searches (past tournaments still omit dates).
+  - Files: `apps/ti-web/app/go/hotels/route.ts`, `apps/ti-web/app/go/vrbo/route.ts`.
+
 ## 2026-05-22
 
 - TI venues: fix “Upcoming tournaments at this venue” list rendering to be scannable and navigable.
