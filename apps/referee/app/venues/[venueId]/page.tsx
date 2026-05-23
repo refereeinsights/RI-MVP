@@ -90,6 +90,12 @@ function buildMapLinks(query: string) {
   };
 }
 
+function getTiOrigin() {
+  const configured = String(process.env.NEXT_PUBLIC_TI_SITE_URL ?? "").trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  return process.env.NODE_ENV === "production" ? "https://www.tournamentinsights.com" : "http://localhost:3001";
+}
+
 async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
   if (!venueIds.length) return [] as OwlsEyeRunRow[];
 
@@ -216,6 +222,19 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
   const upcomingTournaments = linkedTournaments
     .filter((t) => Boolean((t.start_date && t.start_date >= today) || (t.end_date && t.end_date >= today)))
     .sort((a, b) => (a.start_date ?? "9999-12-31").localeCompare(b.start_date ?? "9999-12-31"));
+
+  const tiOrigin = getTiOrigin();
+  const nearestTournamentId = upcomingTournaments[0]?.id ?? null;
+  const travelHotelsHref = `${tiOrigin}/go/hotels?${new URLSearchParams({
+    venueId: data.id,
+    ...(nearestTournamentId ? { tournamentId: nearestTournamentId } : {}),
+    source: "ri_venue_detail",
+  }).toString()}`;
+  const travelRentalsHref = `${tiOrigin}/go/vrbo?${new URLSearchParams({
+    venueId: data.id,
+    ...(nearestTournamentId ? { tournamentId: nearestTournamentId } : {}),
+    source: "ri_venue_detail",
+  }).toString()}`;
 
   const semanticLocationSentence = (() => {
     const name = data.name ?? "This venue";
@@ -423,6 +442,31 @@ export default async function VenueDetailsPage({ params }: { params: { venueId: 
                 demoScores={demoScores}
                 defaultNearbyAllCollapsed
               />
+
+              <div className="detailCard" style={{ width: "min(720px, 100%)" }}>
+                <div className="detailLinksRow">
+                  <a
+                    className="secondaryLink"
+                    href={travelHotelsHref}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                  >
+                    🏨 Find hotels near this venue
+                  </a>
+                  <a
+                    className="secondaryLink"
+                    href={travelRentalsHref}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                  >
+                    🏠 Search rentals near this venue
+                  </a>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 12, opacity: 0.82, textAlign: "center" }}>
+                  This page may contain affiliate links. RefereeInsights may earn a commission if you book through these links, at
+                  no additional cost to you.
+                </div>
+              </div>
 
               {upcomingTournaments.length > 0 ? (
                 <div style={{ display: "grid", gap: 8, marginTop: 4 }}>

@@ -45,6 +45,10 @@ Maintenance rules:
   - Venue directory cards: adds a subtle “Find hotels →” link on every card linking to `/go/hotels?venueId=…&source=venue_directory`.
   - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/lib/weekendProPricing.ts`, `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/components/venues/VenueCard.tsx`, `apps/ti-web/components/venues/VenueCard.module.css`.
 
+- RI travel monetization: add “Plan your travel” CTAs on referee tournament + venue detail pages that deep-link into TI’s existing `/go/hotels` and `/go/vrbo` redirects (no new handlers, no duplicated affiliate logic).
+  - Uses `NEXT_PUBLIC_TI_SITE_URL` when configured; otherwise uses `http://localhost:3001` in dev and `https://www.tournamentinsights.com` in production.
+  - Files: `apps/referee/app/tournaments/[slug]/page.tsx`, `apps/referee/app/venues/[venueId]/page.tsx`.
+
 - TI travel redirects: fix in-progress tournament date handling for lodging links so parents don’t land on default “today+14” dates during an active event.
   - Hotels (`/go/hotels`): when `start_date < today <= end_date`, use `checkin=today (UTC)` and `checkout=min(end_date+1, today+3)`; upcoming and fallback behaviors unchanged.
   - VRBO (`/go/vrbo`): use the same upcoming/in-progress policy and unify checkout semantics to `end_date + 1 day` for date-based searches (past tournaments still omit dates).

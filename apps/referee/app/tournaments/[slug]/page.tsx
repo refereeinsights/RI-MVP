@@ -167,6 +167,12 @@ function buildCanonicalUrl(slug: string) {
   return `${SITE_ORIGIN}/tournaments/${slug}`;
 }
 
+function getTiOrigin() {
+  const configured = String(process.env.NEXT_PUBLIC_TI_SITE_URL ?? "").trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  return process.env.NODE_ENV === "production" ? "https://www.tournamentinsights.com" : "http://localhost:3001";
+}
+
 async function fetchLatestOwlsEyeRuns(venueIds: string[]) {
   if (!venueIds.length) return [] as OwlsEyeRunRow[];
 
@@ -489,6 +495,23 @@ export default async function TournamentDetailPage({
     privateDetailRows.push({ label: "Cash tournament", value: "Yes" });
   }
 
+  const tiOrigin = getTiOrigin();
+  const primaryVenue = linkedVenues[0] ?? null;
+  const travelHotelsHref = primaryVenue
+    ? `${tiOrigin}/go/hotels?${new URLSearchParams({
+        venueId: primaryVenue.id,
+        tournamentId: data.id,
+        source: "ri_tournament_detail",
+      }).toString()}`
+    : null;
+  const travelRentalsHref = primaryVenue
+    ? `${tiOrigin}/go/vrbo?${new URLSearchParams({
+        venueId: primaryVenue.id,
+        tournamentId: data.id,
+        source: "ri_tournament_detail",
+      }).toString()}`
+    : null;
+
   return (
     <main className="pitchWrap tournamentsWrap">
       <script
@@ -566,6 +589,37 @@ export default async function TournamentDetailPage({
                     )}
                   </Link>
                 ))}
+              </div>
+            </section>
+          ) : null}
+
+          {primaryVenue && travelHotelsHref && travelRentalsHref ? (
+            <section className="detailCard" aria-label="Plan your travel">
+              <h2 className="detailSectionTitle">Plan your travel</h2>
+              <p className="detailBody" style={{ marginTop: 6 }}>
+                Stay close to the venue — most refs prefer to be within 10–15 minutes of the fields.
+              </p>
+              <div className="detailLinksRow" style={{ marginTop: 10 }}>
+                <a
+                  className="secondaryLink"
+                  href={travelHotelsHref}
+                  target="_blank"
+                  rel="noopener noreferrer sponsored"
+                >
+                  🏨 Find hotels near {primaryVenue.name ?? "this venue"}
+                </a>
+                <a
+                  className="secondaryLink"
+                  href={travelRentalsHref}
+                  target="_blank"
+                  rel="noopener noreferrer sponsored"
+                >
+                  🏠 Search rentals near {primaryVenue.name ?? "this venue"}
+                </a>
+              </div>
+              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.82, textAlign: "center" }}>
+                This page may contain affiliate links. RefereeInsights may earn a commission if you book through these links, at
+                no additional cost to you.
               </div>
             </section>
           ) : null}
