@@ -2,7 +2,7 @@ export default function SoccerWorldCupFanGearCard(props: { href: string }) {
   return (
     <div
       style={{
-        marginTop: 12,
+        marginTop: 6,
         borderRadius: 16,
         background: "#0f2d1e",
         padding: "32px 28px",

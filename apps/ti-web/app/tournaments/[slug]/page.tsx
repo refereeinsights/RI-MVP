@@ -20,6 +20,7 @@ import TournamentMapTeaser from "@/components/tournaments/TournamentMapTeaser";
 import TournamentDetailStickyMapCta from "@/components/tournaments/TournamentDetailStickyMapCta";
 import SoccerWorldCupFanGearCard from "@/components/partners/SoccerWorldCupFanGearCard";
 import { getFanaticsLinkAndDisclosure } from "@/lib/partners";
+import { WEEKEND_PRO_FOUNDING_DISCLAIMER, WEEKEND_PRO_FOUNDING_PRICE_LINE } from "@/lib/weekendProPricing";
 import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
 import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
@@ -312,15 +313,6 @@ async function TournamentUserActions({
           isVerified={viewer.isVerified}
           returnTo={`/tournaments/${tournament.slug ?? paramsSlug}`}
         />
-        {!canEditThisTournament ? (
-          <ClaimThisTournament
-            variant="inline"
-            tournamentId={tournament.id}
-            tournamentName={tournament.name}
-            hasDirectorEmailOnFile={hasDirectorEmailOnFile}
-            viewerEmail={viewer.viewerEmail}
-          />
-        ) : null}
       </div>
 
       {showSavedNotice ? (
@@ -535,6 +527,19 @@ async function TournamentUserActions({
   );
 }
 
+async function TournamentHeroTrustLine({
+  viewerContext,
+  showStaffVerified,
+}: {
+  viewerContext: Promise<ViewerContext>;
+  showStaffVerified: boolean;
+}) {
+  const viewer = await viewerContext;
+  if (viewer.isLoggedIn) return null;
+  const line = showStaffVerified ? "Verified listing · TournamentInsights" : "Listing on TournamentInsights";
+  return <div className="detailMeta" style={{ fontSize: 13, opacity: 0.84 }}>{line}</div>;
+}
+
 async function TournamentVenueDetails({
   tournament,
   paramsSlug,
@@ -555,6 +560,9 @@ async function TournamentVenueDetails({
   const viewer = await viewerContext;
   const resolvedSlug = (tournament.slug ?? paramsSlug ?? "").toLowerCase();
   const isDemoTournament = resolvedSlug === DEMO_TOURNAMENT_SLUG;
+  const showLoggedOut = !viewer.isLoggedIn;
+  const hasDirectorEmailOnFile = Boolean((viewer.directorEmailOnFile ?? "").trim());
+  const canEditThisTournament = canEditTournament(viewer.viewerEmail, viewer.directorEmailOnFile);
   const canViewPremiumDetails = viewer.isPaid || isDemoTournament;
 
   const { data: venueLinksRaw } = await supabaseAdmin
@@ -893,6 +901,8 @@ async function TournamentVenueDetails({
       : "🏡 Search rentals near tournament venues";
 
   const hasOwlInTournament = displayVenueRows.some((r) => r.hasOwl);
+  const showLoggedOutUpsell = showLoggedOut && !canViewPremiumDetails;
+  const loggedOutUpsellVariant = hasOwlInTournament ? "owl_eye" : "fallback";
 
   function renderWeekendProUpsell(variant: "owl_eye" | "fallback") {
     return (
@@ -903,6 +913,12 @@ async function TournamentVenueDetails({
         </div>
         {!canViewPremiumDetails ? (
           <div className="detailCard__body premiumDetailCard__body">
+            {showLoggedOut ? (
+              <div style={{ marginTop: 4, display: "grid", gap: 2 }}>
+                <div style={{ fontSize: 13, fontWeight: 900, opacity: 0.95 }}>{WEEKEND_PRO_FOUNDING_PRICE_LINE}</div>
+                <div style={{ fontSize: 12, opacity: 0.78 }}>{WEEKEND_PRO_FOUNDING_DISCLAIMER}</div>
+              </div>
+            ) : null}
             <p className="premiumDetailCard__copy">
               {variant === "owl_eye"
                 ? "Unlock Owl’s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and directions around where games are played."
@@ -968,6 +984,12 @@ async function TournamentVenueDetails({
     <>
       <TournamentDetailStickyMapCta mapHref={mapPreviewHref} mapLabel={mapPrimaryLabel} hotelsHref={null} />
 
+      {showLoggedOutUpsell ? (
+        <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
+          {renderWeekendProUpsell(loggedOutUpsellVariant)}
+        </div>
+      ) : null}
+
 	      <div style={{ width: "min(720px, 100%)", marginTop: 12, marginLeft: "auto", marginRight: "auto" }}>
 	        <TournamentMapTeaser
 	          mapHref={mapPreviewHref}
@@ -1023,7 +1045,8 @@ async function TournamentVenueDetails({
       {(() => {
         const officialUrl = String(tournament.official_website_url ?? "").trim();
         const isValidOfficialUrl = /^https?:\/\//i.test(officialUrl);
-        if (!officialUrl || !isValidOfficialUrl || isDemoTournament) return null;
+        const showOrganizerCard = !isDemoTournament && (isValidOfficialUrl || !canEditThisTournament);
+        if (!showOrganizerCard) return null;
 
         return (
           <div style={{ width: "min(720px, 100%)", marginTop: 16, marginLeft: "auto", marginRight: "auto" }}>
@@ -1032,16 +1055,24 @@ async function TournamentVenueDetails({
               <div style={{ marginTop: 4, fontSize: 13, opacity: 0.9 }}>
                 Plan here first, then confirm registration, rules, and schedules with the organizer.
               </div>
-              <div className="detailLinksRow" style={{ marginTop: 10 }}>
-                <a
-                  className="secondaryLink"
-                  href={`/go/tournament/${resolvedSlug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  More details from organizer →
-                </a>
-              </div>
+              {isValidOfficialUrl ? (
+                <div className="detailLinksRow" style={{ marginTop: 10 }}>
+                  <a className="secondaryLink" href={`/go/tournament/${resolvedSlug}`} target="_blank" rel="noopener noreferrer">
+                    More details from organizer →
+                  </a>
+                </div>
+              ) : null}
+              {!canEditThisTournament ? (
+                <div style={{ marginTop: 10 }}>
+                  <ClaimThisTournament
+                    variant="inline"
+                    tournamentId={tournament.id}
+                    tournamentName={tournament.name}
+                    hasDirectorEmailOnFile={hasDirectorEmailOnFile}
+                    viewerEmail={viewer.viewerEmail}
+                  />
+                </div>
+              ) : null}
             </div>
           </div>
         );
@@ -1165,7 +1196,7 @@ async function TournamentVenueDetails({
 	            </details>
           ) : null}
 
-          {hasOwlInTournament ? (
+          {viewer.isLoggedIn && hasOwlInTournament ? (
             <div style={{ width: "min(720px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
               {renderWeekendProUpsell("owl_eye")}
             </div>
@@ -1240,7 +1271,7 @@ async function TournamentVenueDetails({
         )}
       </div>
 
-      {!hasOwlInTournament ? (
+      {viewer.isLoggedIn && !hasOwlInTournament ? (
         <div style={{ width: "min(720px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
           {renderWeekendProUpsell("fallback")}
         </div>
@@ -1338,6 +1369,21 @@ async function TournamentVenueDetails({
       <div style={{ marginTop: 18, fontSize: 13, lineHeight: 1.45, opacity: 0.78 }}>
         {renderSemanticParts(tournamentSemanticParts)}
       </div>
+
+      {showLoggedOut ? (
+        <>
+          <div className="ti-logged-out-sticky-signup__spacer" aria-hidden="true" />
+          <div className="ti-logged-out-sticky-signup" role="region" aria-label="Sign up to save this tournament">
+            <div className="ti-logged-out-sticky-signup__copy">Save this tournament + get venue intel</div>
+            <Link
+              className="ti-logged-out-sticky-signup__cta"
+              href={`/signup?returnTo=${encodeURIComponent(`/tournaments/${tournament.slug ?? paramsSlug}`)}`}
+            >
+              Sign up
+            </Link>
+          </div>
+        </>
+      ) : null}
     </>
   );
 }
@@ -1670,6 +1716,9 @@ export default async function TournamentDetailPage({
           </div>
           <div className="detailMeta">{dateLabel}</div>
           <div className="detailMeta">{locationLabel}</div>
+          <Suspense fallback={null}>
+            <TournamentHeroTrustLine viewerContext={viewerContext} showStaffVerified={showStaffVerified} />
+          </Suspense>
 	          {venueMeta.venueCount > 0 ? (
 	            <div className="detailMeta">
 	              {venueMeta.venueCount} venue{venueMeta.venueCount === 1 ? "" : "s"}

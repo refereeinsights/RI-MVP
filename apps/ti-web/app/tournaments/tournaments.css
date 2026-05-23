@@ -1563,6 +1563,57 @@
   pointer-events: none;
 }
 
+.ti-logged-out-sticky-signup {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: rgba(7, 19, 12, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255,255,255,0.14);
+}
+
+.ti-logged-out-sticky-signup__copy {
+  font-size: 13px;
+  font-weight: 900;
+  color: rgba(255,255,255,0.95);
+}
+
+.ti-logged-out-sticky-signup__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  min-height: 44px;
+  border-radius: 999px;
+  background: #10b981;
+  color: #052316;
+  font-weight: 950;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ti-logged-out-sticky-signup__spacer {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .ti-logged-out-sticky-signup {
+    display: flex;
+  }
+  .ti-logged-out-sticky-signup__spacer {
+    display: block;
+    height: calc(62px + env(safe-area-inset-bottom));
+  }
+}
+
 .tournamentStickyCta__inner {
   width: min(720px, 100%);
   margin: 0 auto;

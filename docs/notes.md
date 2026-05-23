@@ -21,6 +21,11 @@ Maintenance rules:
 
 ## 2026-05-23
 
+- TI tournament detail (logged-out conversion): move Weekend Pro upsell above the venue map teaser, add founding price line/disclaimer, add a mobile sticky signup bar, and move “Claim edit access” out of the top action row.
+  - Adds a subtle trust line under metadata for logged-out visitors.
+  - Reduces perceived mobile whitespace between the map teaser area and “Tournament Weekend Extras”.
+  - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/app/tournaments/tournaments.css`, `apps/ti-web/components/partners/SoccerWorldCupFanGearCard.tsx`.
+
 - TI travel redirects: fix in-progress tournament date handling for lodging links so parents don’t land on default “today+14” dates during an active event.
   - Hotels (`/go/hotels`): when `start_date < today <= end_date`, use `checkin=today (UTC)` and `checkout=min(end_date+1, today+3)`; upcoming and fallback behaviors unchanged.
   - VRBO (`/go/vrbo`): use the same upcoming/in-progress policy and unify checkout semantics to `end_date + 1 day` for date-based searches (past tournaments still omit dates).
