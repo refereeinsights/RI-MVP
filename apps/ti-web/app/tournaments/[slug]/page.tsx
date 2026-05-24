@@ -1569,6 +1569,7 @@ export default async function TournamentDetailPage({
   const viewerContext = loadViewerContext(data.id);
   const TournamentUserActionsComponent = TournamentUserActions as any;
   const TournamentVenueDetailsComponent = TournamentVenueDetails as any;
+  const TournamentHeroTrustLineComponent = TournamentHeroTrustLine as any;
 
   const venueMeta = await (async () => {
     try {
@@ -1718,7 +1719,7 @@ export default async function TournamentDetailPage({
           <div className="detailMeta">{dateLabel}</div>
           <div className="detailMeta">{locationLabel}</div>
           <Suspense fallback={null}>
-            <TournamentHeroTrustLine viewerContext={viewerContext} showStaffVerified={showStaffVerified} />
+            <TournamentHeroTrustLineComponent viewerContext={viewerContext} showStaffVerified={showStaffVerified} />
           </Suspense>
 	          {venueMeta.venueCount > 0 ? (
 	            <div className="detailMeta">

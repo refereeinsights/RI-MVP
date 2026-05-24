@@ -44,6 +44,7 @@ Maintenance rules:
   - Weekend Planner (logged-out only): adds a generic hotel search CTA linking to `/go/hotels?source=weekend_planner`.
   - Venue directory cards: adds a subtle “Find hotels →” link on every card linking to `/go/hotels?venueId=…&source=venue_directory`.
   - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/lib/weekendProPricing.ts`, `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/components/venues/VenueCard.tsx`, `apps/ti-web/components/venues/VenueCard.module.css`.
+  - Fix: `TournamentHeroTrustLine` renders via `use(viewerContext)` (avoids async JSX component type error in build).
 
 - RI travel monetization: add “Plan your travel” CTAs on referee tournament + venue detail pages that deep-link into TI’s existing `/go/hotels` and `/go/vrbo` redirects (no new handlers, no duplicated affiliate logic).
   - Uses `NEXT_PUBLIC_TI_SITE_URL` when configured; otherwise uses `http://localhost:3001` in dev and `https://www.tournamentinsights.com` in production.
