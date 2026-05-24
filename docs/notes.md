@@ -12,6 +12,19 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-05-24
+
+- TI analytics: add lightweight “denominator” events for tournament directory + tournament detail usage, and add a generic search submit event (no schema changes; uses existing `ti_map_events.properties` JSONB).
+  - Allowlist additions: `tournament_detail_page_viewed`, `tournament_directory_page_viewed`, `search_submitted`, `tier_gate_hit`.
+  - Trackers:
+    - Tournament detail: `apps/ti-web/app/tournaments/[slug]/TournamentDetailViewTrackerClient.tsx` (client-only wrapper to avoid Server Component `useEffect` misuse).
+    - Tournament directory: `apps/ti-web/app/tournaments/TournamentDirectoryAnalyticsClient.tsx` (fires page-view + attaches a submit listener to the existing GET form).
+  - Owl’s Eye gating: emits `tier_gate_hit` alongside the existing `owls_eye_unlock_prompt_shown` when users without access attempt to open premium nearby lists.
+  - Files: `apps/ti-web/app/api/analytics/route.ts`, `apps/ti-web/lib/tiAnalyticsEvents.ts`, `apps/ti-web/app/tournaments/page.tsx`, `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx`.
+- Admin clicks page: add Last 7d column + client-side sorting + optional grouping, and include new event rows.
+  - Safety tweak: “Venue Map” grouping matches only `venue_map_*` and `venue_page_viewed` (avoids over-broad `venue_*` grouping).
+  - Files: `apps/referee/app/admin/ti/clicks/page.tsx`, `apps/referee/app/admin/ti/clicks/ClicksTableClient.tsx`.
+
 ## 2026-05-22 (continued)
 
 - Tournaments: backfill city from first linked venue for 131 published/draft tournaments that had state but no city (null).

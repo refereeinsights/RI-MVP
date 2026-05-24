@@ -1402,6 +1402,14 @@ export default function TournamentVenueMapClient({
 
     if (!canViewPremiumDetails) {
       setOwlPanelMode("unlock");
+      void trackTiEvent("tier_gate_hit", {
+        feature: "owls_eye",
+        user_tier: entitlementTier,
+        page_type: "venue_map",
+        tournament_id: tournament.id,
+        tournament_slug: tournament.slug,
+        venue_id: v.id,
+      });
       void trackTiEvent("owls_eye_unlock_prompt_shown", {
         page_type: "venue_map",
         tournament_id: tournament.id,
@@ -1438,6 +1446,14 @@ export default function TournamentVenueMapClient({
     }
 
     setOwlPanelMode("unlock");
+    void trackTiEvent("tier_gate_hit", {
+      feature: "owls_eye",
+      user_tier: tier,
+      page_type: "venue_map",
+      tournament_id: tournament.id,
+      tournament_slug: tournament.slug,
+      venue_id: v.id,
+    });
     void trackTiEvent("owls_eye_unlock_prompt_shown", {
       page_type: "venue_map",
       tournament_id: tournament.id,

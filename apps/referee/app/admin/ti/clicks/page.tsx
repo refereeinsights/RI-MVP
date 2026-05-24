@@ -3,6 +3,7 @@ import Link from "next/link";
 import AdminNav from "@/components/admin/AdminNav";
 import { requireAdmin } from "@/lib/admin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import ClicksTableClient from "./ClicksTableClient";
 
 export const runtime = "nodejs";
 
@@ -20,16 +21,21 @@ export default async function TiClicksPage() {
   const now = new Date();
   const todayStartUtc = startOfUtcDay(now);
   const yesterdayStartUtc = new Date(todayStartUtc.getTime() - 24 * 60 * 60 * 1000);
+  const window7dStartUtc = new Date(todayStartUtc.getTime() - 7 * 24 * 60 * 60 * 1000);
   const window30dStartUtc = new Date(todayStartUtc.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   const yesterdayIso = yesterdayStartUtc.toISOString();
   const todayIso = todayStartUtc.toISOString();
+  const window7dIso = window7dStartUtc.toISOString();
   const window30dIso = window30dStartUtc.toISOString();
 
   const events: Array<{ key: string; label: string }> = [
+    { key: "tournament_detail_page_viewed", label: "Tournament detail: page viewed" },
     { key: "tournament_detail_venue_map_clicked", label: "Tournament detail: venue map clicked" },
     { key: "tournament_detail_weekend_plan_clicked", label: "Tournament detail: weekend plan clicked" },
     { key: "tournament_detail_travel_search_clicked", label: "Tournament detail: travel search clicked" },
+    { key: "tournament_directory_page_viewed", label: "Tournament directory: page viewed" },
+    { key: "search_submitted", label: "Search submitted" },
     { key: "tournament_card_plan_weekend_clicked", label: "Tournament directory card: plan weekend clicked" },
     { key: "tournament_map_cta_clicked", label: "Tournament map CTA clicked" },
     { key: "tournament_map_back_to_tournament_clicked", label: "Tournament map: back to tournament clicked" },
@@ -52,6 +58,7 @@ export default async function TiClicksPage() {
     { key: "partner_click_clicked", label: "Partner click: outbound clicked" },
     { key: "premium_modal_viewed", label: "Premium modal viewed" },
     { key: "premium_cta_clicked", label: "Premium CTA clicked" },
+    { key: "tier_gate_hit", label: "Tier gate hit" },
     { key: "owls_eye_unlock_prompt_shown", label: "Owl’s Eye unlock prompt shown" },
     { key: "owls_eye_full_opened", label: "Owl’s Eye full opened" },
     { key: "owls_eye_category_expanded", label: "Owl’s Eye category expanded" },
@@ -62,12 +69,18 @@ export default async function TiClicksPage() {
 
   const counts = await Promise.all(
     events.map(async (evt) => {
-      const [yesterdayRes, total30dRes] = await Promise.all([
+      const [yesterdayRes, total7dRes, total30dRes] = await Promise.all([
         supabaseAdmin
           .from("ti_map_events" as any)
           .select("id", { count: "exact", head: true })
           .eq("event_name", evt.key)
           .gte("created_at", yesterdayIso)
+          .lt("created_at", todayIso),
+        supabaseAdmin
+          .from("ti_map_events" as any)
+          .select("id", { count: "exact", head: true })
+          .eq("event_name", evt.key)
+          .gte("created_at", window7dIso)
           .lt("created_at", todayIso),
         supabaseAdmin
           .from("ti_map_events" as any)
@@ -81,6 +94,7 @@ export default async function TiClicksPage() {
         key: evt.key,
         label: evt.label,
         yesterday: toCount(yesterdayRes as any),
+        last7d: toCount(total7dRes as any),
         last30d: toCount(total30dRes as any),
       };
     })
@@ -118,7 +132,8 @@ export default async function TiClicksPage() {
       >
         <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 900, textTransform: "uppercase" }}>Window</div>
         <div style={{ marginTop: 6, fontSize: 13, color: "#111", fontWeight: 800 }}>
-          Yesterday: {yesterdayStartUtc.toISOString().slice(0, 10)} (UTC) • Last 30 days: {window30dStartUtc.toISOString().slice(0, 10)} →{" "}
+          Yesterday: {yesterdayStartUtc.toISOString().slice(0, 10)} (UTC) • Last 7 days: {window7dStartUtc.toISOString().slice(0, 10)} →{" "}
+          {todayStartUtc.toISOString().slice(0, 10)} (UTC) • Last 30 days: {window30dStartUtc.toISOString().slice(0, 10)} →{" "}
           {todayStartUtc.toISOString().slice(0, 10)} (UTC)
         </div>
         <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280", fontWeight: 800 }}>
@@ -126,26 +141,7 @@ export default async function TiClicksPage() {
         </div>
       </div>
 
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Event</th>
-              <th style={{ textAlign: "right", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Yesterday</th>
-              <th style={{ textAlign: "right", fontSize: 12, color: "#6b7280", padding: "10px 8px" }}>Last 30d</th>
-            </tr>
-          </thead>
-          <tbody>
-            {counts.map((row) => (
-              <tr key={row.key} style={{ borderTop: "1px solid #f3f4f6" }}>
-                <td style={{ padding: "10px 8px", fontWeight: 900, color: "#111", minWidth: 320 }}>{row.label}</td>
-                <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 950 }}>{row.yesterday.toLocaleString("en-US")}</td>
-                <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 950 }}>{row.last30d.toLocaleString("en-US")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ClicksTableClient rows={counts} />
     </div>
   );
 }

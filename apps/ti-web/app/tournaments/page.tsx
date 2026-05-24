@@ -5,6 +5,7 @@ import { lookupZipLatLng } from "@/lib/lookupZipLatLng";
 import StateMultiSelect from "./StateMultiSelect";
 import MetroMarketChips from "./_components/MetroMarketChips";
 import PlanWeekendCtaClient from "./PlanWeekendCtaClient";
+import TournamentDirectoryAnalyticsClient from "./TournamentDirectoryAnalyticsClient";
 import AutoSubmitCheckbox from "@/components/filters/AutoSubmitCheckbox";
 import AutoSubmitSelect from "@/components/filters/AutoSubmitSelect";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
@@ -474,7 +475,8 @@ export default async function TournamentsPage({
           </p>
         ) : null}
 
-        <form className="filters" method="GET" action="/tournaments">
+        <TournamentDirectoryAnalyticsClient formId="tournament-directory-filters" resultCount={tournamentsSorted.length} />
+        <form id="tournament-directory-filters" className="filters" method="GET" action="/tournaments">
           <div>
             <label className="label" htmlFor="q">
               Search

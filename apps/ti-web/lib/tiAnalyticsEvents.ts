@@ -8,7 +8,10 @@ export type TiAnalyticsEventName =
   | "tournament_detail_weekend_plan_clicked"
   | "tournament_detail_venue_map_clicked"
   | "tournament_detail_travel_search_clicked"
+  | "tournament_detail_page_viewed"
   | "tournament_card_plan_weekend_clicked"
+  | "tournament_directory_page_viewed"
+  | "search_submitted"
   | "venue_page_viewed"
   | "venue_map_opened"
   | "venue_map_loaded"
@@ -17,6 +20,7 @@ export type TiAnalyticsEventName =
   | "hotels_click"
   | "venue_view_click"
   | "nearest_airport_click"
+  | "tier_gate_hit"
   | "owls_eye_limited_continue"
   | "owls_eye_preview_shown"
   | "owls_eye_preview_pin_click"
@@ -113,6 +117,24 @@ export type TiAnalyticsEventPropertiesByName = {
     cta: "travel_search";
     href: string;
   };
+  tournament_detail_page_viewed: {
+    page_type: "tournament_detail";
+    tournament_id: string;
+    slug: string;
+    sport: string | null;
+    state: string | null;
+  };
+  tournament_directory_page_viewed: {
+    page_type: "tournaments_index";
+    result_count: number;
+  };
+  search_submitted: {
+    page_type: "tournaments_index";
+    sport: string | null;
+    state: string | null;
+    date_range_set: boolean;
+    result_count: number;
+  };
   tournament_card_plan_weekend_clicked: {
     page_type: "tournaments_index";
     tournament_id: string;
@@ -122,6 +144,14 @@ export type TiAnalyticsEventPropertiesByName = {
     href: string;
     sport: string | null;
     state: string | null;
+  };
+  tier_gate_hit: {
+    feature: "owls_eye" | "venue_reviews";
+    user_tier: "explorer" | "insider" | "weekend_pro" | "unknown";
+    page_type?: string;
+    tournament_id?: string;
+    tournament_slug?: string | null;
+    venue_id?: string | null;
   };
   venue_page_viewed: {
     page_type: "venue_index" | "venue_detail";

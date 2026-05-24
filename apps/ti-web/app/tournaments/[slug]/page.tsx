@@ -22,6 +22,7 @@ import SoccerWorldCupFanGearCard from "@/components/partners/SoccerWorldCupFanGe
 import { getFanaticsLinkAndDisclosure } from "@/lib/partners";
 import { WEEKEND_PRO_FOUNDING_DISCLAIMER, WEEKEND_PRO_FOUNDING_PRICE_LINE } from "@/lib/weekendProPricing";
 import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
+import TournamentDetailViewTrackerClient from "./TournamentDetailViewTrackerClient";
 import { canEditTournament } from "@/lib/tournamentClaim";
 import { saveClaimedTournamentEdits } from "./actions";
 import { formatEntityList, type SemanticListItem, type SemanticListPart } from "../../../../../shared/semantic/formatEntityList";
@@ -1711,6 +1712,7 @@ export default async function TournamentDetailPage({
           <Link href="/tournaments" className="detailBackLink">
             ← Back to directory
           </Link>
+          <TournamentDetailViewTrackerClient tournamentId={data.id} slug={params.slug} sport={data.sport} state={data.state} />
           <h1 className="detailTitle">{data.name}</h1>
           <div className="detailMeta">
             <strong>{(data.sport || "Tournament").toString()}</strong>

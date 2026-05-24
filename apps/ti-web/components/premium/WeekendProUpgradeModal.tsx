@@ -57,6 +57,7 @@ export default function WeekendProUpgradeModal(props: WeekendProUpgradeModalProp
     if (viewedForOpenRef.current) return;
     viewedForOpenRef.current = true;
     try {
+      // Fires once per modal display (each open cycle), regardless of which UI action triggered the open.
       void sendTiAnalytics("premium_modal_viewed", analyticsBody);
     } catch {
       // ignore

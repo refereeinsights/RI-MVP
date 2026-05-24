@@ -66,6 +66,7 @@ export default function UpgradeWeekendProButton(props: UpgradeWeekendProButtonPr
     setError(null);
 
     try {
+      // Fires when a user clicks an "Upgrade to Weekend Pro" CTA (may open checkout directly without showing a modal).
       void sendTiAnalytics("premium_cta_clicked", body);
 
       const res = await fetch("/api/stripe/checkout", {

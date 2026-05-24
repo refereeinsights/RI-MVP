@@ -27,6 +27,7 @@ export default function PremiumAutoCheckout({ enabled = false }: PremiumAutoChec
       setError(null);
 
       try {
+        // Fires when the Premium page is configured to auto-start checkout (not necessarily tied to a modal view).
         void sendTiAnalytics("premium_cta_clicked", {
           source: "premium",
           source_context: "autocheckout",
@@ -100,4 +101,3 @@ export default function PremiumAutoCheckout({ enabled = false }: PremiumAutoChec
     </div>
   );
 }
-
