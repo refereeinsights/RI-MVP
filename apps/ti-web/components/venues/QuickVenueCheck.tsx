@@ -338,13 +338,9 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
   }
 
   if (done) {
-    const promo = "qvc_weekend_pro_12mo_v1";
-    const quickCheckParam = submittedQuickCheckId ? `&quick_check_id=${encodeURIComponent(submittedQuickCheckId)}` : "";
-    const hashParam = browserHash ? `&browser_hash=${encodeURIComponent(browserHash)}` : "";
-    const promoParams = `promo=${encodeURIComponent(promo)}${quickCheckParam}${hashParam}`;
-    const signupHref = `/signup?returnTo=${encodeURIComponent("/account")}&${promoParams}`;
-    const loginReturnTo = `/account?${promoParams}`;
-    const loginHref = `/login?returnTo=${encodeURIComponent(loginReturnTo)}`;
+    const signupHref = `/signup?returnTo=${encodeURIComponent("/account")}`;
+    const loginHref = `/login?returnTo=${encodeURIComponent("/account")}`;
+    const upgradeHref = "/pricing";
 
     function dismissPrompt() {
       setPromptDismissed(true);
@@ -396,6 +392,9 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
                 }
               >
                 Create free account
+              </Link>
+              <Link href={upgradeHref} className={styles.secondaryAction}>
+                Upgrade to Weekend Pro
               </Link>
               <Link
                 href={loginHref}

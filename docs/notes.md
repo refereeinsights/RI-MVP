@@ -25,6 +25,14 @@ Maintenance rules:
   - Safety tweak: “Venue Map” grouping matches only `venue_map_*` and `venue_page_viewed` (avoids over-broad `venue_*` grouping).
   - Files: `apps/referee/app/admin/ti/clicks/page.tsx`, `apps/referee/app/admin/ti/clicks/ClicksTableClient.tsx`.
 
+## 2026-05-25
+
+- TI Weekend Pro promo: deprecated the free 12-month Weekend Pro grant that previously triggered from venue review submissions / quick-check reward claim.
+  - Venue reviews no longer grant Weekend Pro entitlements server-side.
+  - Quick-check reward claim endpoint now fails closed with `410` (promotion ended) to avoid granting legacy promos via old links.
+  - Quick venue check post-submit prompt no longer appends promo params to signup/login links; adds a non-blocking “Upgrade to Weekend Pro” link to `/pricing`.
+  - Files: `apps/ti-web/app/api/venue-reviews/route.ts`, `apps/ti-web/app/api/venue-quick-check/claim/route.ts`, `apps/ti-web/components/venues/QuickVenueCheck.tsx`.
+
 ## 2026-05-22 (continued)
 
 - Tournaments: backfill city from first linked venue for 131 published/draft tournaments that had state but no city (null).

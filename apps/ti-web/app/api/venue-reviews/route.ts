@@ -6,8 +6,6 @@ import { isUuid } from "@/lib/venues/isUuid";
 
 export const runtime = "nodejs";
 
-const WEEKEND_PRO_PROMO_KEY = "qvc_weekend_pro_12mo_v1";
-
 type TournamentRow = {
   id: string;
   slug: string | null;
@@ -72,26 +70,6 @@ function parseUsdToNumber(raw: unknown) {
   return Math.round(value * 100) / 100;
 }
 
-function parseDate(value: string | null) {
-  if (!value) return null;
-  const ts = new Date(value);
-  return Number.isNaN(ts.getTime()) ? null : ts;
-}
-
-function maxDate(...dates: Array<Date | null>) {
-  let best: Date | null = null;
-  for (const d of dates) {
-    if (!d) continue;
-    if (!best || d.getTime() > best.getTime()) best = d;
-  }
-  return best;
-}
-
-function plusOneYear(base: Date) {
-  const d = new Date(base.getTime());
-  d.setUTCFullYear(d.getUTCFullYear() + 1);
-  return d;
-}
 
 async function requireInsider() {
   const supabase = createSupabaseServerClient();
@@ -120,100 +98,7 @@ async function requireInsider() {
   return { ok: true as const, supabase, user, tier };
 }
 
-async function bestEffortGrantWeekendProFromReview(user: { id: string; email?: string | null; email_confirmed_at?: string | null }, tier: "explorer" | "insider" | "weekend_pro") {
-  if (tier === "weekend_pro") return;
-  if (!user.email_confirmed_at) return;
-
-  try {
-    const { data: profile } = await supabaseAdmin
-      .from("ti_users" as any)
-      .select("subscription_status,current_period_end,trial_ends_at")
-      .eq("id", user.id)
-      .maybeSingle<{ subscription_status: string | null; current_period_end: string | null; trial_ends_at: string | null }>();
-
-    const now = new Date();
-    const currentPeriodEnd = parseDate(profile?.current_period_end ?? null);
-    const trialEndsAt = parseDate(profile?.trial_ends_at ?? null);
-
-    const promoInsert = await supabaseAdmin
-      .from("ti_promo_grants" as any)
-      .insert({
-        user_id: user.id,
-        promo_key: WEEKEND_PRO_PROMO_KEY,
-        source: "venue_review",
-        source_quick_check_id: null,
-      })
-      .select("id")
-      .maybeSingle<{ id: string }>();
-
-    const promoErrorCode = promoInsert.error ? String((promoInsert.error as any)?.code ?? "") : "";
-    if (promoInsert.error && promoErrorCode !== "23505") {
-      console.error("[ti][venue-review] weekend-pro promo insert failed", { userId: user.id, code: promoErrorCode, message: promoInsert.error.message });
-      return;
-    }
-
-    const currentStatus = (profile?.subscription_status ?? "").trim().toLowerCase();
-    const isActive = currentStatus === "active";
-    const nextStatus = isActive ? "active" : "trialing";
-
-    if (promoErrorCode === "23505") {
-      const existingGrant = await supabaseAdmin
-        .from("ti_promo_grants" as any)
-        .select("granted_at")
-        .eq("user_id", user.id)
-        .eq("promo_key", WEEKEND_PRO_PROMO_KEY)
-        .maybeSingle<{ granted_at: string | null }>();
-      if (existingGrant.error) {
-        console.error("[ti][venue-review] weekend-pro promo lookup failed", { userId: user.id, error: existingGrant.error });
-        return;
-      }
-
-      const grantedAt = parseDate(existingGrant.data?.granted_at ?? null);
-      const grantedEnd = grantedAt ? plusOneYear(grantedAt) : null;
-      const desiredEnd = maxDate(grantedEnd, currentPeriodEnd, trialEndsAt, now) ?? now;
-      const isExpired = Boolean(grantedEnd && grantedEnd.getTime() <= now.getTime());
-      if (isExpired) return;
-
-      const reconcile = await supabaseAdmin
-        .from("ti_users" as any)
-        .update({
-          email: (user.email ?? "").trim().toLowerCase() || null,
-          plan: "weekend_pro",
-          subscription_status: nextStatus,
-          current_period_end: desiredEnd.toISOString(),
-          trial_ends_at: desiredEnd.toISOString(),
-          last_seen_at: now.toISOString(),
-          updated_at: now.toISOString(),
-        })
-        .eq("id", user.id);
-      if (reconcile.error) {
-        console.error("[ti][venue-review] weekend-pro profile reconcile failed", { userId: user.id, error: reconcile.error });
-      }
-      return;
-    }
-
-    const base = maxDate(now, currentPeriodEnd, trialEndsAt) ?? now;
-    const newEnd = plusOneYear(base);
-
-    const updatePayload = {
-      id: user.id,
-      email: (user.email ?? "").trim().toLowerCase() || null,
-      plan: "weekend_pro",
-      subscription_status: nextStatus,
-      current_period_end: newEnd.toISOString(),
-      trial_ends_at: newEnd.toISOString(),
-      last_seen_at: now.toISOString(),
-      updated_at: now.toISOString(),
-    };
-
-    const upsert = await supabaseAdmin.from("ti_users" as any).upsert(updatePayload, { onConflict: "id" });
-    if (upsert.error) {
-      console.error("[ti][venue-review] weekend-pro profile upsert failed", { userId: user.id, error: upsert.error });
-    }
-  } catch (err: any) {
-    console.error("[ti][venue-review] weekend-pro grant threw", { userId: user.id, message: err?.message, stack: err?.stack });
-  }
-}
+// Promo deprecated: do not grant free Weekend Pro access for review submissions.
 
 async function findTournamentByCode(codeRaw: string) {
   const code = codeRaw.trim();
@@ -501,7 +386,7 @@ export async function POST(request: Request) {
 
   // Best-effort entitlement grant after a successful review.
   // Keep this awaited so it reliably runs in serverless environments.
-  await bestEffortGrantWeekendProFromReview(auth.user, auth.tier);
+  // Promo deprecated: no longer grant free Weekend Pro from review submissions.
 
   return NextResponse.json({ ok: true, venue_id: venueId });
 }
