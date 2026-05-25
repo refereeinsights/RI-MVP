@@ -39,9 +39,10 @@ Maintenance rules:
     - Subscription branch unchanged (`mode: "subscription"` + founding coupon + subscription expand).
   - Webhook: fulfill weekend pass purchases by metadata `offer=weekend_pass_30d` before the subscription-only mode gate; grant 30 days of access by extending `trial_ends_at/current_period_end`.
   - Webhook: fix guest subscription fulfillment by falling back to `ti_users` lookup by email when `client_reference_id` is missing.
+  - DB: add `public.ti_entitlement_grants` ledger table to record paid grants (weekend pass) for attribution/ops; webhook writes a best-effort row per Stripe event.
   - UI: add a secondary “Start 30-day Founders Preview” CTA in the existing Weekend Pro upgrade modal; routing remains auth-aware (checkout route + guest fallback).
   - Env: document `STRIPE_WEEKEND_PASS_PRICE_ID` in `.env.local.example`.
-  - Files: `apps/ti-web/app/api/stripe/checkout/route.ts`, `apps/ti-web/app/api/stripe/checkout-guest/route.ts`, `apps/ti-web/app/api/stripe/webhook/route.ts`, `apps/ti-web/components/UpgradeWeekendPassButton.tsx`, `apps/ti-web/components/premium/WeekendProUpgradeModal.tsx`, `.env.local.example`.
+  - Files: `apps/ti-web/app/api/stripe/checkout/route.ts`, `apps/ti-web/app/api/stripe/checkout-guest/route.ts`, `apps/ti-web/app/api/stripe/webhook/route.ts`, `apps/ti-web/components/UpgradeWeekendPassButton.tsx`, `apps/ti-web/components/premium/WeekendProUpgradeModal.tsx`, `.env.local.example`, `supabase/migrations/20260525_ti_entitlement_grants_weekend_pass.sql`.
 
 ## 2026-05-22 (continued)
 

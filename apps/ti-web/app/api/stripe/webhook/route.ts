@@ -174,6 +174,45 @@ async function updateTiUser(userId: string, payload: Record<string, unknown>) {
   if (error) throw error;
 }
 
+async function recordEntitlementGrant(row: {
+  user_id: string;
+  offer: string;
+  access_days: number;
+  expires_at: string;
+  source: string | null;
+  livemode: boolean;
+  amount_cents: number | null;
+  currency: string | null;
+  stripe_event_id: string | null;
+  stripe_customer_id: string | null;
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  metadata?: any;
+}) {
+  try {
+    await (supabaseAdmin.from("ti_entitlement_grants" as any) as any).upsert(
+      {
+        user_id: row.user_id,
+        offer: row.offer,
+        access_days: row.access_days,
+        expires_at: row.expires_at,
+        source: row.source,
+        livemode: row.livemode,
+        amount_cents: row.amount_cents,
+        currency: row.currency,
+        stripe_event_id: row.stripe_event_id,
+        stripe_customer_id: row.stripe_customer_id,
+        stripe_checkout_session_id: row.stripe_checkout_session_id,
+        stripe_payment_intent_id: row.stripe_payment_intent_id,
+        metadata: row.metadata ?? {},
+      },
+      { onConflict: "stripe_event_id" } as any
+    );
+  } catch {
+    // Best-effort; never block webhook fulfillment on ledger writes.
+  }
+}
+
 async function retrieveSubscriptionExpanded(stripe: Stripe, subscriptionId: string) {
   return await stripe.subscriptions.retrieve(subscriptionId, {
     expand: ["latest_invoice.payment_intent"],
@@ -404,6 +443,22 @@ export async function POST(request: Request) {
             current_period_end: newEnd.toISOString(),
             cancel_at_period_end: false,
             last_payment_intent_id: paymentIntentId,
+          });
+
+          await recordEntitlementGrant({
+            user_id: resolved.id,
+            offer: "weekend_pass_30d",
+            access_days: 30,
+            expires_at: newEnd.toISOString(),
+            source: (session.metadata as any)?.source ? String((session.metadata as any).source) : null,
+            livemode: Boolean((event as any).livemode),
+            amount_cents: typeof (session as any).amount_total === "number" ? (session as any).amount_total : null,
+            currency: typeof (session as any).currency === "string" ? String((session as any).currency) : null,
+            stripe_event_id: event.id,
+            stripe_customer_id: customerId,
+            stripe_checkout_session_id: session.id,
+            stripe_payment_intent_id: paymentIntentId,
+            metadata: { offer, product_id: productId },
           });
 
           await setWebhookStatus(rowId, "processed", null);
