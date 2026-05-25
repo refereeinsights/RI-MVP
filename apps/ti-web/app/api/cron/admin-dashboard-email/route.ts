@@ -271,6 +271,55 @@ async function loadWeekendProCheckoutCounts(params: {
   };
 }
 
+async function loadWeekendPassPurchaseCounts(params: {
+  todayStartUtcIso: string;
+  yesterdayStartUtcIso: string;
+  internalUserIds: string[];
+}) {
+  const exclude = (query: any) => {
+    if (!params.internalUserIds.length) return query;
+    return query.not("user_id", "in", `(${params.internalUserIds.join(",")})`);
+  };
+
+  const base = () =>
+    exclude(
+      supabaseAdmin
+        .from("ti_entitlement_grants" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("offer", "weekend_pass_30d")
+    );
+
+  const [totalRes, yesterdayRes] = await Promise.all([
+    base(),
+    base().gte("created_at", params.yesterdayStartUtcIso).lt("created_at", params.todayStartUtcIso),
+  ]);
+
+  const relationMissing =
+    String(totalRes.error?.message ?? "")
+      .toLowerCase()
+      .includes("does not exist") ||
+    String(yesterdayRes.error?.message ?? "")
+      .toLowerCase()
+      .includes("does not exist");
+
+  if (relationMissing) {
+    return {
+      total: 0,
+      yesterday: 0,
+      errors: { total: "missing_table", yesterday: "missing_table" },
+    };
+  }
+
+  return {
+    total: totalRes.error ? 0 : totalRes.count ?? 0,
+    yesterday: yesterdayRes.error ? 0 : yesterdayRes.count ?? 0,
+    errors: {
+      total: totalRes.error ? totalRes.error.message : null,
+      yesterday: yesterdayRes.error ? yesterdayRes.error.message : null,
+    },
+  };
+}
+
 function buildEmailHtml(params: {
   generatedAtIso: string;
   totalsBySport: Array<ReturnType<typeof loadOutreachTotals> extends Promise<infer T> ? T : never>;
@@ -283,6 +332,7 @@ function buildEmailHtml(params: {
   includeSportTiles: boolean;
   tiles?: Awaited<ReturnType<typeof loadAdminDashboardEmailTiles>> | null;
   weekendProCheckouts?: { total: number; yesterday: number } | null;
+  weekendPassPurchases?: { total: number; yesterday: number } | null;
 }) {
   const {
     generatedAtIso,
@@ -296,6 +346,7 @@ function buildEmailHtml(params: {
     includeSportTiles,
     tiles,
     weekendProCheckouts,
+    weekendPassPurchases,
   } = params;
   const dashboardUrl = `${baseUrl}/admin/outreach-dashboard`;
 
@@ -323,6 +374,8 @@ function buildEmailHtml(params: {
     Number((tiles as any)?.ti_users?.weekend_pro_new_yesterday_pt ?? tiles?.ti_users?.weekend_pro_new_yesterday ?? 0) || 0;
   const weekendProCheckoutsTotal = Number(weekendProCheckouts?.total ?? 0) || 0;
   const weekendProCheckoutsYesterday = Number(weekendProCheckouts?.yesterday ?? 0) || 0;
+  const weekendPassPurchasesTotal = Number(weekendPassPurchases?.total ?? 0) || 0;
+  const weekendPassPurchasesYesterday = Number(weekendPassPurchases?.yesterday ?? 0) || 0;
 
   const bySport: PublicDirectoryBySportRow[] = (Array.isArray((tiles as any)?.public_directory?.by_sport)
     ? ((tiles as any)?.public_directory?.by_sport ?? [])
@@ -402,6 +455,12 @@ function buildEmailHtml(params: {
           ${renderTile("Owl's Eye venues reviewed", formatInt(owlsEyeTotal), formatDelta(owlsEyeNew), "success")}
           ${renderTile("Venue Check submissions", formatInt(venueCheckTotal), formatDelta(venueCheckNew), "success")}
           ${renderTile("Weekend Pro checkouts (PT yesterday)", formatInt(weekendProCheckoutsTotal), formatDelta(weekendProCheckoutsYesterday), "success")}
+          ${renderTile(
+            "Founders Preview purchases (PT yesterday)",
+            formatInt(weekendPassPurchasesTotal),
+            formatDelta(weekendPassPurchasesYesterday),
+            "success"
+          )}
           ${renderUsersTile({ insiderTotal: tiInsiderTotal, insiderNew: tiInsiderNew, weekendTotal: tiWeekendTotal, weekendNew: tiWeekendNew })}
         </div>
         ${sportTilesHtml}
@@ -602,6 +661,13 @@ export async function GET(req: Request) {
           internalUserIds: tiUserCounts?.internalIds ?? [],
         })
       : null;
+    const weekendPassPurchases = includeTiles
+      ? await loadWeekendPassPurchaseCounts({
+          todayStartUtcIso: todayIso,
+          yesterdayStartUtcIso: yesterdayIso,
+          internalUserIds: tiUserCounts?.internalIds ?? [],
+        })
+      : null;
 
     const tilesWithFilteredUsers =
       includeTiles && tiles && tiUserCounts
@@ -629,6 +695,9 @@ export async function GET(req: Request) {
       includeSportTiles,
       tiles: tilesWithFilteredUsers,
       weekendProCheckouts: weekendProCheckouts ? { total: weekendProCheckouts.total, yesterday: weekendProCheckouts.yesterday } : null,
+      weekendPassPurchases: weekendPassPurchases
+        ? { total: weekendPassPurchases.total, yesterday: weekendPassPurchases.yesterday }
+        : null,
     });
     const subject = `TI Admin Dashboard — ${generatedAtIso.slice(0, 10)}`;
 
@@ -648,6 +717,7 @@ export async function GET(req: Request) {
       totalsBySportCount: totalsBySport.length,
       tiles: tiles ?? null,
       weekendProCheckouts: weekendProCheckouts ?? null,
+      weekendPassPurchases: weekendPassPurchases ?? null,
       riSummary: riSummary ?? null,
       lowestStates: lowestStates ?? null,
     };

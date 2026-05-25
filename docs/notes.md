@@ -78,6 +78,9 @@ Maintenance rules:
   - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/lib/weekendProPricing.ts`, `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/components/venues/VenueCard.tsx`, `apps/ti-web/components/venues/VenueCard.module.css`.
   - Fix: `TournamentHeroTrustLine` renders via `use(viewerContext)` (avoids async JSX component type error in build).
 
+- TI admin dashboard email: add a “Founders Preview purchases” tile (total + yesterday delta) based on `ti_entitlement_grants.offer = weekend_pass_30d` (best-effort; reports 0 if the ledger table is not present yet).
+  - File: `apps/ti-web/app/api/cron/admin-dashboard-email/route.ts`.
+
 - RI travel monetization: add “Plan your travel” CTAs on referee tournament + venue detail pages that deep-link into TI’s existing `/go/hotels` and `/go/vrbo` redirects (no new handlers, no duplicated affiliate logic).
   - Uses `NEXT_PUBLIC_TI_SITE_URL` when configured; otherwise uses `http://localhost:3001` in dev and `https://www.tournamentinsights.com` in production.
   - Files: `apps/referee/app/tournaments/[slug]/page.tsx`, `apps/referee/app/venues/[venueId]/page.tsx`.
