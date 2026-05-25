@@ -25,6 +25,19 @@ Maintenance rules:
   - Safety tweak: “Venue Map” grouping matches only `venue_map_*` and `venue_page_viewed` (avoids over-broad `venue_*` grouping).
   - Files: `apps/referee/app/admin/ti/clicks/page.tsx`, `apps/referee/app/admin/ti/clicks/ClicksTableClient.tsx`.
 
+## 2026-05-25 (2)
+
+- Admin analytics dashboard (`/admin/ti/clicks`) — add outbound clicks tiles and full redesign.
+  - **Outbound clicks section** (separate from KPI engagement tiles): Hotels, Vrbo, Fanatics — yesterday count + 7d daily avg. Hotels/Vrbo source: `ti_outbound_clicks` (server-side, all pages). Fanatics source: `partner_click_clicked` in `ti_map_events` via `/go/partner/[id]` (currently the only active partner; label should be updated when more partners are added).
+  - "Full revenue →" link to `/admin/ti/revenue` for complete breakdown.
+  - **KPI health tiles** (6): Tournament detail views, Venue map opens, Weekend plan clicks (all sources), Travel search clicks, Owl's Eye opens, Premium CTA clicks — yesterday + 7d daily avg.
+  - **Conversion funnel**: Directory views → Detail views → Venue map opens → Weekend plan clicks → Travel search clicks. Yesterday counts + through-rate %.
+  - **Today + Trend columns** in event table. Trend fires ↑↑/↑/→/↓/↓↓ vs 7d daily avg. Anomaly detector fixed (was comparing to 7d sum, not avg).
+  - **New event groups**: Discovery, Book Travel. Added `tournament_map_cta_clicked` (was in allowlist, missing from dashboard).
+  - **Top 10 viewed tournaments** (name + date range) and **top 10 venue maps opened** (venue name + next upcoming tournament date) — last 30d. Requires migration `20260525_admin_analytics_rpcs.sql`.
+  - **Dimension snapshot**: top 5 sports by tournament views, top 5 states by venue opens — last 30d.
+  - Files: `apps/referee/app/admin/ti/clicks/page.tsx`, `apps/referee/app/admin/ti/clicks/ClicksTableClient.tsx`, `supabase/migrations/20260525_admin_analytics_rpcs.sql`.
+
 ## 2026-05-25
 
 - TI Weekend Pro promo: deprecated the free 12-month Weekend Pro grant that previously triggered from venue review submissions / quick-check reward claim.

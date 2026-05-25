@@ -146,6 +146,25 @@ export default async function TiClicksPage() {
     })
   );
 
+  // Outbound click counts from ti_outbound_clicks (server-side, all pages)
+  const [hotelsYesterdayRes, hotels7dRes, vrboYesterdayRes, vrbo7dRes] = await Promise.all([
+    supabaseAdmin.from("ti_outbound_clicks" as any).select("id", { count: "exact", head: true }).eq("destination_type", "hotels").gte("created_at", yesterdayIso).lt("created_at", todayIso),
+    supabaseAdmin.from("ti_outbound_clicks" as any).select("id", { count: "exact", head: true }).eq("destination_type", "hotels").gte("created_at", window7dIso).lt("created_at", todayIso),
+    supabaseAdmin.from("ti_outbound_clicks" as any).select("id", { count: "exact", head: true }).eq("destination_type", "vrbo").gte("created_at", yesterdayIso).lt("created_at", todayIso),
+    supabaseAdmin.from("ti_outbound_clicks" as any).select("id", { count: "exact", head: true }).eq("destination_type", "vrbo").gte("created_at", window7dIso).lt("created_at", todayIso),
+  ]);
+
+  const outbound = {
+    hotels: { yesterday: toCount(hotelsYesterdayRes as any), last7d: toCount(hotels7dRes as any) },
+    vrbo: { yesterday: toCount(vrboYesterdayRes as any), last7d: toCount(vrbo7dRes as any) },
+    // Fanatics goes through /go/partner/[id] → ti_map_events partner_click_clicked (no ti_outbound_clicks row).
+    // Currently the only active partner, so partner_click_clicked total ≈ fanatics clicks.
+    fanatics: {
+      yesterday: counts.find((r) => r.key === "partner_click_clicked")?.yesterday ?? 0,
+      last7d: counts.find((r) => r.key === "partner_click_clicked")?.last7d ?? 0,
+    },
+  };
+
   // RPC calls for top viewed (JSONB aggregations need server-side functions)
   const [topTournamentsRes, topVenuesRes, topSportsRes, topStatesRes] = await Promise.all([
     (supabaseAdmin as any).rpc("admin_top_viewed_tournaments", { since_iso: window30dIso, result_limit: 10 }),
@@ -281,6 +300,40 @@ export default async function TiClicksPage() {
           <div style={tileLabelStyle}>Premium CTA clicks</div>
           <div style={tileValueStyle}>{kpi.premiumCtaClicks.yesterday.toLocaleString("en-US")}</div>
           <div style={tileMetaStyle}>7d avg {Math.round(kpi.premiumCtaClicks.last7d / 7).toLocaleString("en-US")} / day</div>
+        </div>
+      </div>
+
+      {/* Outbound clicks */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 900, color: "#374151", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          Outbound Clicks — Yesterday
+        </div>
+        <Link href="/admin/ti/revenue" className="cta secondary" style={{ padding: "6px 10px", fontSize: 12 }}>
+          Full revenue →
+        </Link>
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gap: 12,
+          marginBottom: 20,
+        }}
+      >
+        <div style={tileStyle}>
+          <div style={tileLabelStyle}>Hotels clicks</div>
+          <div style={tileValueStyle}>{outbound.hotels.yesterday.toLocaleString("en-US")}</div>
+          <div style={tileMetaStyle}>7d avg {Math.round(outbound.hotels.last7d / 7).toLocaleString("en-US")} / day • all pages</div>
+        </div>
+        <div style={tileStyle}>
+          <div style={tileLabelStyle}>Vrbo clicks</div>
+          <div style={tileValueStyle}>{outbound.vrbo.yesterday.toLocaleString("en-US")}</div>
+          <div style={tileMetaStyle}>7d avg {Math.round(outbound.vrbo.last7d / 7).toLocaleString("en-US")} / day • all pages</div>
+        </div>
+        <div style={tileStyle}>
+          <div style={tileLabelStyle}>Fanatics clicks</div>
+          <div style={tileValueStyle}>{outbound.fanatics.yesterday.toLocaleString("en-US")}</div>
+          <div style={tileMetaStyle}>7d avg {Math.round(outbound.fanatics.last7d / 7).toLocaleString("en-US")} / day • partner_click_clicked</div>
         </div>
       </div>
 
