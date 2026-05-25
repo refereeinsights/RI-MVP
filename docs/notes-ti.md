@@ -13,6 +13,34 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-05-25
+
+### Analytics dashboard redesign — /admin/ti/clicks
+
+**Files changed:**
+- `apps/referee/app/admin/ti/clicks/page.tsx` — full rewrite
+- `apps/referee/app/admin/ti/clicks/ClicksTableClient.tsx` — Today + Trend columns, fixed anomaly detector
+- `supabase/migrations/20260525_admin_analytics_rpcs.sql` — 4 new Postgres RPC functions (**must apply before top-viewed/dimension sections render**)
+
+**What changed:**
+- **KPI health tiles** (6 tiles): Tournament detail views, Venue map opens, Weekend plan clicks (all sources), Travel search clicks, Owl's Eye opens, Premium CTA clicks — yesterday + 7d daily avg.
+- **Conversion funnel**: Directory views → Detail views → Venue map opens → Weekend plan clicks → Travel search clicks. Shows yesterday counts + through-rate % between each step.
+- **Event table — Today column**: "Today so far" count alongside Yesterday/Last 7d/Last 30d.
+- **Event table — Trend column**: ↑↑ / ↑ / → / ↓ / ↓↓ based on yesterday vs 7d daily average. Green/red coloring.
+- **Anomaly detector fix**: was comparing yesterday to the 7d SUM (never fired). Now: `r.last7d > 0 && r.yesterday > (r.last7d / 7) * 2`.
+- **New event groups**: Discovery (`map_viewed`, `homepage_cta_clicked`, `homepage_sport_chip_clicked`, `venue_page_viewed`, `weekend_page_opened`) and Book Travel (8 `book_travel_*` events — fixes blind spot from 2026-05-12 audit). Also added `tournament_map_cta_clicked` which was in the analytics allowlist but missing from the dashboard.
+- **Top 10 viewed tournaments** (last 30d): name + date range. Requires `admin_top_viewed_tournaments` RPC.
+- **Top 10 venue maps opened** (last 30d): venue name + next upcoming tournament start date. Requires `admin_top_viewed_venues` RPC.
+- **Dimension snapshot**: top 5 sports by tournament detail views, top 5 states by venue map opens — last 30d. Requires `admin_top_sports_by_views` and `admin_top_states_by_venue_opens` RPCs.
+
+**RPCs (migration `20260525_admin_analytics_rpcs.sql`):**
+- `admin_top_viewed_tournaments(since_iso, result_limit)` — aggregates JSONB `properties->>'tournament_id'`, JOINs `tournaments` for name/dates.
+- `admin_top_viewed_venues(since_iso, result_limit)` — aggregates JSONB `properties->>'venue_id'`, JOINs `venues` for name, correlated subquery for next upcoming tournament date.
+- `admin_top_sports_by_views(since_iso, result_limit)` — top sports by `tournament_detail_page_viewed` (top-level `sport` column).
+- `admin_top_states_by_venue_opens(since_iso, result_limit)` — top states by `venue_map_opened` (top-level `state` column).
+- All: `STABLE SECURITY DEFINER`. Apply via Supabase SQL editor or `supabase db push`.
+- If migration is not yet applied, the top-viewed and dimension sections render an inline error hint rather than crashing.
+
 ## 2026-05-12
 
 ### /book-travel CRO / SEO / affiliate audit
