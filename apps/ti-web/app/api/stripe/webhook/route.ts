@@ -113,6 +113,34 @@ async function lookupTiUserBySubscriptionOrCustomer(params: { subscriptionId?: s
   return null;
 }
 
+async function lookupTiUserByEmail(emailRaw: string) {
+  const email = (emailRaw || "").trim().toLowerCase();
+  if (!email) return null;
+  const { data } = await (supabaseAdmin.from("ti_users" as any) as any)
+    .select("id,trial_ends_at,current_period_end,subscription_status,plan")
+    .eq("email", email)
+    .maybeSingle();
+  const row =
+    (data as
+      | { id?: string; trial_ends_at?: string | null; current_period_end?: string | null; subscription_status?: string | null; plan?: string | null }
+      | null) ?? null;
+  return row?.id ? (row as { id: string; trial_ends_at: string | null; current_period_end: string | null; subscription_status: string | null; plan: string | null }) : null;
+}
+
+async function lookupTiUserById(userId: string) {
+  const id = (userId || "").trim();
+  if (!id) return null;
+  const { data } = await (supabaseAdmin.from("ti_users" as any) as any)
+    .select("id,trial_ends_at,current_period_end,subscription_status,plan")
+    .eq("id", id)
+    .maybeSingle();
+  const row =
+    (data as
+      | { id?: string; trial_ends_at?: string | null; current_period_end?: string | null; subscription_status?: string | null; plan?: string | null }
+      | null) ?? null;
+  return row?.id ? (row as { id: string; trial_ends_at: string | null; current_period_end: string | null; subscription_status: string | null; plan: string | null }) : null;
+}
+
 async function updateTiUser(userId: string, payload: Record<string, unknown>) {
   const nowIso = new Date().toISOString();
 
@@ -263,6 +291,26 @@ async function upsertStripeInvoiceMetrics(row: {
   if (error) throw error;
 }
 
+function asString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function safeEmailFromSession(session: Stripe.Checkout.Session) {
+  return (asString(session.customer_details?.email) || asString((session as any).customer_email) || "").trim().toLowerCase() || null;
+}
+
+function parseIso(value: string | null | undefined) {
+  if (!value) return null;
+  const ts = new Date(value);
+  return Number.isNaN(ts.getTime()) ? null : ts;
+}
+
+function addDaysUtc(base: Date, days: number) {
+  const d = new Date(base.getTime());
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
+
 export async function POST(request: Request) {
   const stripe = getStripe();
   const sig = request.headers.get("stripe-signature") || "";
@@ -297,15 +345,87 @@ export async function POST(request: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+        const offer = asString((session.metadata as any)?.offer);
+        const productId = asString((session.metadata as any)?.product_id);
+        const isWeekendPass = offer === "weekend_pass_30d" || productId === "prod_UaAMEgCjjfq52v";
+
+        // Weekend pass fulfillment must run before the subscription-only mode gate.
+        if (isWeekendPass) {
+          if (session.mode !== "payment") {
+            await setWebhookStatus(rowId, "skipped", "weekend_pass: unsupported session mode");
+            return NextResponse.json({ ok: true });
+          }
+          if (typeof session.payment_status === "string" && session.payment_status !== "paid") {
+            await setWebhookStatus(rowId, "skipped", "weekend_pass: unpaid session");
+            return NextResponse.json({ ok: true });
+          }
+
+          const userIdRaw = typeof session.client_reference_id === "string" ? session.client_reference_id.trim() : "";
+          let resolved = userIdRaw && isUuid(userIdRaw) ? await lookupTiUserById(userIdRaw) : null;
+          if (!resolved?.id) {
+            const email =
+              safeEmailFromSession(session) ||
+              asString((session.metadata as any)?.purchaser_email).toLowerCase() ||
+              null;
+            if (email) resolved = await lookupTiUserByEmail(email);
+          }
+
+          if (!resolved?.id) {
+            await setWebhookStatus(rowId, "skipped", "weekend_pass: no user resolved");
+            console.error("[stripe][weekend_pass] unfulfilled: no user resolved", {
+              event_id: event.id,
+              customer_id: typeof session.customer === "string" ? session.customer : null,
+              session_id: session.id,
+              email: safeEmailFromSession(session) || asString((session.metadata as any)?.purchaser_email) || null,
+            });
+            return NextResponse.json({ ok: true });
+          }
+
+          const now = new Date();
+          const existingTrial = parseIso(resolved.trial_ends_at);
+          const existingPeriodEnd = parseIso(resolved.current_period_end);
+          const base = new Date(Math.max(now.getTime(), existingTrial?.getTime() ?? 0, existingPeriodEnd?.getTime() ?? 0));
+          const newEnd = addDaysUtc(base, 30);
+
+          const customerId =
+            typeof session.customer === "string"
+              ? session.customer
+              : typeof (session.customer as any)?.id === "string"
+                ? String((session.customer as any).id)
+                : null;
+          const paymentIntentId = typeof (session as any).payment_intent === "string" ? String((session as any).payment_intent) : null;
+
+          await updateTiUser(resolved.id, {
+            stripe_customer_id: customerId,
+            // Do not set stripe_subscription_id for weekend pass.
+            subscription_status: "trialing",
+            plan: "weekend_pro",
+            trial_ends_at: newEnd.toISOString(),
+            current_period_end: newEnd.toISOString(),
+            cancel_at_period_end: false,
+            last_payment_intent_id: paymentIntentId,
+          });
+
+          await setWebhookStatus(rowId, "processed", null);
+          return NextResponse.json({ ok: true });
+        }
+
+        // Existing subscription-mode gate for non-pass sessions.
         if (session.mode !== "subscription") {
           await setWebhookStatus(rowId, "skipped", "unsupported checkout session mode");
           return NextResponse.json({ ok: true });
         }
 
-        const userId = typeof session.client_reference_id === "string" ? session.client_reference_id.trim() : "";
-        if (!userId || !isUuid(userId)) {
-          await setWebhookStatus(rowId, "skipped", "missing client_reference_id");
-          return NextResponse.json({ ok: true });
+        const userIdFromRef = typeof session.client_reference_id === "string" ? session.client_reference_id.trim() : "";
+        let resolvedUserId: string | null = userIdFromRef && isUuid(userIdFromRef) ? userIdFromRef : null;
+        if (!resolvedUserId) {
+          const email = safeEmailFromSession(session);
+          const byEmail = email ? await lookupTiUserByEmail(email) : null;
+          resolvedUserId = byEmail?.id ?? null;
+          if (!resolvedUserId) {
+            await setWebhookStatus(rowId, "skipped", "subscription: missing client_reference_id and no matching user for email");
+            return NextResponse.json({ ok: true });
+          }
         }
 
         const subscriptionId =
@@ -365,7 +485,7 @@ export async function POST(request: Request) {
           (session.customer_details?.email || session.customer_email || "").trim() || null;
         if (email) update.email = email;
 
-        await updateTiUser(userId, update);
+        await updateTiUser(resolvedUserId, update);
         await setWebhookStatus(rowId, "processed", null);
         return NextResponse.json({ ok: true });
       }

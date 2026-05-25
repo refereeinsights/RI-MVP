@@ -33,6 +33,16 @@ Maintenance rules:
   - Quick venue check post-submit prompt no longer appends promo params to signup/login links; adds a non-blocking “Upgrade to Weekend Pro” link to `/pricing`.
   - Files: `apps/ti-web/app/api/venue-reviews/route.ts`, `apps/ti-web/app/api/venue-quick-check/claim/route.ts`, `apps/ti-web/components/venues/QuickVenueCheck.tsx`.
 
+- Stripe: add $4.99 one-time “Founders Preview / Weekend Pass” checkout variant (`offer=weekend_pass_30d`) while preserving annual subscription checkout.
+  - Checkout routes branch on `offer`:
+    - Pass branch uses `mode: "payment"`, no founding coupon, no subscription expands, and keeps `automatic_tax` enabled.
+    - Subscription branch unchanged (`mode: "subscription"` + founding coupon + subscription expand).
+  - Webhook: fulfill weekend pass purchases by metadata `offer=weekend_pass_30d` before the subscription-only mode gate; grant 30 days of access by extending `trial_ends_at/current_period_end`.
+  - Webhook: fix guest subscription fulfillment by falling back to `ti_users` lookup by email when `client_reference_id` is missing.
+  - UI: add a secondary “Start 30-day Founders Preview” CTA in the existing Weekend Pro upgrade modal; routing remains auth-aware (checkout route + guest fallback).
+  - Env: document `STRIPE_WEEKEND_PASS_PRICE_ID` in `.env.local.example`.
+  - Files: `apps/ti-web/app/api/stripe/checkout/route.ts`, `apps/ti-web/app/api/stripe/checkout-guest/route.ts`, `apps/ti-web/app/api/stripe/webhook/route.ts`, `apps/ti-web/components/UpgradeWeekendPassButton.tsx`, `apps/ti-web/components/premium/WeekendProUpgradeModal.tsx`, `.env.local.example`.
+
 ## 2026-05-22 (continued)
 
 - Tournaments: backfill city from first linked venue for 131 published/draft tournaments that had state but no city (null).

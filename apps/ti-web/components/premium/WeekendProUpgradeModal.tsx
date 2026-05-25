@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
+import UpgradeWeekendPassButton from "@/components/UpgradeWeekendPassButton";
 import { sendTiAnalytics } from "@/lib/analytics";
 import { WEEKEND_PRO_FOUNDING_DISCLAIMER, WEEKEND_PRO_FOUNDING_PRICE_LINE } from "@/lib/weekendProPricing";
 
@@ -185,6 +186,40 @@ export default function WeekendProUpgradeModal(props: WeekendProUpgradeModalProp
               user_tier={props.user_tier}
               has_affiliate_visible={hasAffiliateVisible}
             />
+            <div style={{ marginTop: -4, display: "grid", gap: 6 }}>
+              <div style={{ fontSize: 13, fontWeight: 950, opacity: 0.95 }}>Or try a 30-day preview</div>
+              <div style={{ fontSize: 12, opacity: 0.82, lineHeight: 1.35 }}>
+                Unlock Weekend Pro for your next tournament — <strong>$4.99</strong> for 30 days.
+              </div>
+              <UpgradeWeekendPassButton
+                className=""
+                buttonStyle={{
+                  width: "100%",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  minHeight: 44,
+                  fontSize: 15,
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "#ffffff",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                }}
+                source_page={props.source_page}
+                source_context={props.source_context}
+                tournament_slug={props.tournament_slug ?? null}
+                venue_slug={props.venue_slug ?? null}
+                entry_point={props.entry_point}
+                cta_label="Start 30-day Founders Preview"
+                label="Start 30-day Founders Preview"
+                user_tier={props.user_tier}
+                has_affiliate_visible={hasAffiliateVisible}
+              />
+            </div>
             <button
               type="button"
               onClick={() => {

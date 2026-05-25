@@ -10,6 +10,7 @@ type CheckoutBody = {
   tournament_slug?: unknown;
   venue_slug?: unknown;
   entry_point?: unknown;
+  offer?: unknown;
 };
 
 function requireEnv(name: string) {
@@ -50,9 +51,8 @@ export async function POST(request: Request) {
 
     const stripe = getStripe();
 
-    const priceId = requireEnv("STRIPE_WEEKEND_PRO_PRICE_ID");
-    const couponId = requireEnv("STRIPE_WEEKEND_PRO_FOUNDING_COUPON_ID");
     const origin = safeOrigin();
+    const offer = safeMeta(body?.offer, 64);
 
     const { data: existingRaw } = await (supabaseAdmin.from("ti_users" as any) as any)
       .select("stripe_customer_id")
@@ -61,11 +61,7 @@ export async function POST(request: Request) {
 
     const existing = (existingRaw as { stripe_customer_id?: string | null } | null) ?? null;
 
-    const metadata: Record<string, string> = {
-      app: "ti",
-      product: "weekend_pro",
-      entitlement: "weekend_pro",
-    };
+    const metadata: Record<string, string> = { app: "ti" };
 
     const source = safeMeta(body?.source);
     const tournamentSlug = safeMeta(body?.tournament_slug);
@@ -81,6 +77,39 @@ export async function POST(request: Request) {
       : user.email
         ? { customer_email: user.email }
         : {};
+
+    const isWeekendPass = offer === "weekend_pass_30d";
+
+    if (isWeekendPass) {
+      const weekendPassPriceId = requireEnv("STRIPE_WEEKEND_PASS_PRICE_ID");
+      metadata.offer = "weekend_pass_30d";
+      metadata.access_days = "30";
+      metadata.product_id = "prod_UaAMEgCjjfq52v";
+      metadata.user_id = user.id;
+      metadata.source = metadata.source ?? "logged_in_checkout";
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        line_items: [{ price: weekendPassPriceId, quantity: 1 }],
+        client_reference_id: user.id,
+        success_url: `${origin}/account?upgrade=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/account?upgrade=cancelled`,
+        automatic_tax: { enabled: true },
+        billing_address_collection: "auto",
+        ...customerParams,
+        metadata,
+      });
+
+      const url = session.url || null;
+      if (!url) return NextResponse.json({ ok: false, error: "missing_session_url" }, { status: 500 });
+      return NextResponse.json({ ok: true, url });
+    }
+
+    // Default annual Weekend Pro subscription flow.
+    const priceId = requireEnv("STRIPE_WEEKEND_PRO_PRICE_ID");
+    const couponId = requireEnv("STRIPE_WEEKEND_PRO_FOUNDING_COUPON_ID");
+    metadata.product = "weekend_pro";
+    metadata.entitlement = "weekend_pro";
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
