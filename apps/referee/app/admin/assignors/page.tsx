@@ -60,7 +60,9 @@ async function fetchAssignorIdsByRadius(originZip: string, radiusMiles: number) 
     .eq("zip", originZip)
     .limit(1);
   const origin = (originRows as any)?.[0] as { latitude?: number; longitude?: number } | undefined;
-  if (!origin?.latitude || !origin?.longitude) return new Set<string>();
+  const originLat = origin?.latitude;
+  const originLon = origin?.longitude;
+  if (typeof originLat !== "number" || typeof originLon !== "number") return new Set<string>();
 
   const { data: assignorZipRows } = await supabaseAdmin
     .from("assignor_zip_codes" as any)
@@ -82,7 +84,7 @@ async function fetchAssignorIdsByRadius(originZip: string, radiusMiles: number) 
   const nearbyZips = new Set<string>();
   centroidMap.forEach((coords, zip) => {
     const distance = haversineMiles(
-      { lat: origin.latitude, lon: origin.longitude },
+      { lat: originLat, lon: originLon },
       { lat: coords.lat, lon: coords.lon }
     );
     if (distance <= radiusMiles) nearbyZips.add(zip);

@@ -135,10 +135,16 @@ async function deleteTournamentAction(formData: FormData) {
   await requireAdmin();
 
   const tournamentId = asText(formData.get("tournament_id"));
-  if (!tournamentId) redirectToMissingVenues(formData, "Missing tournament id");
+  if (!tournamentId) {
+    redirectToMissingVenues(formData, "Missing tournament id");
+    return;
+  }
 
   const confirmed = asText(formData.get("confirm_delete")) === "on";
-  if (!confirmed) redirectToMissingVenues(formData, "Confirm delete to proceed");
+  if (!confirmed) {
+    redirectToMissingVenues(formData, "Confirm delete to proceed");
+    return;
+  }
 
   await adminDeleteTournament(tournamentId);
 

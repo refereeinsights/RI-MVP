@@ -85,6 +85,10 @@ Maintenance rules:
   - Uses `NEXT_PUBLIC_TI_SITE_URL` when configured; otherwise uses `http://localhost:3001` in dev and `https://www.tournamentinsights.com` in production.
   - Files: `apps/referee/app/tournaments/[slug]/page.tsx`, `apps/referee/app/venues/[venueId]/page.tsx`.
 
+- RI build: fix `next build` failing with missing `/_document` by adding minimal `pages/_app.tsx` + `pages/_document.tsx`, and pin `strictNullChecks` back to `false` to avoid Next auto-mutating `tsconfig.json` during builds.
+  - Also fixes a few admin-only TS type edge cases surfaced by Next’s TS checks.
+  - Files: `apps/referee/pages/_app.tsx`, `apps/referee/pages/_document.tsx`, `apps/referee/tsconfig.json`, `apps/referee/app/admin/page.tsx`, `apps/referee/app/admin/owls-eye/OwlsEyePanel.tsx`, `apps/referee/app/admin/assignors/page.tsx`, `apps/referee/app/admin/api-usage/ui/ApiUsageDateFilters.tsx`, `apps/referee/app/admin/ti/quality/actions.ts`, `apps/referee/app/admin/tournaments/missing-venues/page.tsx`.
+
 - TI travel redirects: fix in-progress tournament date handling for lodging links so parents don’t land on default “today+14” dates during an active event.
   - Hotels (`/go/hotels`): when `start_date < today <= end_date`, use `checkin=today (UTC)` and `checkout=min(end_date+1, today+3)`; upcoming and fallback behaviors unchanged.
   - VRBO (`/go/vrbo`): use the same upcoming/in-progress policy and unify checkout semantics to `end_date + 1 day` for date-based searches (past tournaments still omit dates).

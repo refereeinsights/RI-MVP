@@ -15,7 +15,7 @@ export default function ApiUsageDateFilters({
   rpcError: string | null;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/admin/api-usage";
   const searchParams = useSearchParams();
   const [singleDate, setSingleDate] = useState("");
 
@@ -107,4 +107,3 @@ export default function ApiUsageDateFilters({
     </div>
   );
 }
-

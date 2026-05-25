@@ -374,7 +374,7 @@ export default function OwlsEyePanel({
   const readyDisplayedCount = filteredReadyRows.length;
   const readyTotalCount = remainingReadyCount;
 
-  const sharedHeaders = adminToken ? { "x-owls-eye-admin-token": adminToken } : {};
+  const sharedHeaders: Record<string, string> = adminToken ? { "x-owls-eye-admin-token": adminToken } : {};
 
   const inferSportFromVenue = (venue: VenueSearchResult): Sport => {
     const linkedSport =

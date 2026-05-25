@@ -641,26 +641,25 @@ export default async function AdminPage({
           .limit(1500)
           .then((res) => res.data ?? [])
       : [];
-  const duplicateGroups = new Map<
-    string,
-    {
-      name: string;
-      url: string;
-      items: Array<{
-        id: string;
-        name: string | null;
-        slug: string | null;
-        city: string | null;
-        state: string | null;
-        start_date: string | null;
-        end_date: string | null;
-        confidence: number | null;
-      }>;
-    }
-  >();
-  const duplicateByUrl = new Map<string, { url: string; items: any[] }>();
-  const duplicateByName = new Map<string, { key: string; name: string; state: string; season: string; items: any[] }>();
-  const duplicateByFuzzyName = new Map<string, { key: string; name: string; state: string; season: string; items: any[] }>();
+  type DuplicateCandidateItem = {
+    id: string;
+    name: string | null;
+    slug: string | null;
+    city: string | null;
+    state: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    confidence: number | null;
+  };
+  type DuplicateCandidateGroup = { name: string; url: string; items: DuplicateCandidateItem[] };
+
+  const duplicateGroups = new Map<string, DuplicateCandidateGroup>();
+  type DuplicateByUrlGroup = { url: string; items: DuplicateCandidateItem[] };
+  const duplicateByUrl = new Map<string, DuplicateByUrlGroup>();
+  type DuplicateByNameItem = DuplicateCandidateItem & { url: string };
+  type DuplicateByNameGroup = { key: string; name: string; state: string; season: string; items: DuplicateByNameItem[] };
+  const duplicateByName = new Map<string, DuplicateByNameGroup>();
+  const duplicateByFuzzyName = new Map<string, DuplicateByNameGroup>();
   const seasonYear = (startDate: string | null | undefined, endDate: string | null | undefined) => {
     const primary = String(startDate ?? endDate ?? "").trim();
     return primary ? primary.slice(0, 4) : "unknown";
@@ -719,7 +718,7 @@ export default async function AdminPage({
           sourceUrl: row.source_url ?? null,
         });
       if (!key) return;
-      const group = duplicateGroups.get(key) ?? { name, url, items: [] };
+      const group = duplicateGroups.get(key) ?? ({ name, url, items: [] } as DuplicateCandidateGroup);
       group.items.push({
         id: row.id,
         name: row.name ?? null,
@@ -736,7 +735,7 @@ export default async function AdminPage({
         (typeof row.url_fingerprint === "string" && row.url_fingerprint.trim()) ||
         buildTournamentUrlFingerprint(row.official_website_url ?? row.source_url ?? null);
       if (!normUrl) return;
-      const urlGroup = duplicateByUrl.get(normUrl) ?? { url, items: [] };
+      const urlGroup = duplicateByUrl.get(normUrl) ?? ({ url, items: [] } as DuplicateByUrlGroup);
       urlGroup.items.push({
         id: row.id,
         name: row.name ?? null,
@@ -759,7 +758,9 @@ export default async function AdminPage({
           endDate: row.end_date ?? null,
         });
       if (!nameKey) return;
-      const nameGroup = duplicateByName.get(nameKey) ?? { key: nameKey, name, state: row.state ?? "", season, items: [] };
+      const nameGroup =
+        duplicateByName.get(nameKey) ??
+        ({ key: nameKey, name, state: row.state ?? "", season, items: [] } as DuplicateByNameGroup);
       nameGroup.items.push({
         id: row.id,
         name: row.name ?? null,
@@ -780,7 +781,9 @@ export default async function AdminPage({
         endDate: row.end_date ?? null,
       });
       if (fuzzyKey) {
-        const fuzzyGroup = duplicateByFuzzyName.get(fuzzyKey) ?? { key: fuzzyKey, name, state: row.state ?? "", season, items: [] };
+        const fuzzyGroup =
+          duplicateByFuzzyName.get(fuzzyKey) ??
+          ({ key: fuzzyKey, name, state: row.state ?? "", season, items: [] } as DuplicateByNameGroup);
         fuzzyGroup.items.push({
           id: row.id,
           name: row.name ?? null,
@@ -2033,7 +2036,7 @@ export default async function AdminPage({
       return;
     }
 
-    let tournamentId = selectedId;
+    let tournamentId: string | null = selectedId || null;
     if (!tournamentId && lookup) {
       tournamentId = await adminFindTournamentIdBySlugOrName(lookup);
     }
@@ -2923,8 +2926,10 @@ export default async function AdminPage({
         .eq("name_state_season_fingerprint", fingerprint)
         .in("status", ["published", "stale"] as any)
         .limit(5);
-      if (!isBlank(draft.city)) query = query.eq("city", draft.city ?? null);
-      if (!isBlank(draft.state)) query = query.eq("state", draft.state ?? null);
+      const draftCity = typeof (draft as any).city === "string" ? String((draft as any).city).trim() : "";
+      const draftState = typeof (draft as any).state === "string" ? String((draft as any).state).trim() : "";
+      if (draftCity) query = query.eq("city", draftCity);
+      if (draftState) query = query.eq("state", draftState);
 
       const { data: existingData, error: exErr } = await query;
       if (exErr) return redirectWithNotice(redirectTo, `Backfill failed: ${exErr.message}`);
@@ -8194,7 +8199,7 @@ export default async function AdminPage({
                       </form>
 
                       <form action={resendConfirmationAction}>
-                        <input type="hidden" name="email" value={u.email} />
+                        <input type="hidden" name="email" value={u.email ?? ""} />
                         <input type="hidden" name="redirect_to" value={adminBasePath} />
                         <button
                           style={{

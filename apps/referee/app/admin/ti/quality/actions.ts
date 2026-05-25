@@ -62,7 +62,10 @@ export async function deleteTournamentFromQuality(formData: FormData) {
 
   const status = asText(formData.get("status"));
   const tournamentId = asText(formData.get("tournament_id"));
-  if (!tournamentId) redirectToQualityWithNotice({ status, notice: "Missing tournament_id" });
+  if (!tournamentId) {
+    redirectToQualityWithNotice({ status, notice: "Missing tournament_id" });
+    return;
+  }
 
   const confirmed = asText(formData.get("confirm_delete")) === "on";
   if (!confirmed) redirectToQualityWithNotice({ status, notice: "Confirm delete to proceed" });
@@ -85,7 +88,10 @@ export async function bulkDeleteTournamentsFromQuality(formData: FormData) {
   const tournamentIds = Array.from(
     new Set(rawIds.map((v) => asText(v)).filter((v): v is string => Boolean(v))),
   );
-  if (tournamentIds.length === 0) redirectToQualityWithNotice({ status, notice: "Select at least one tournament" });
+  if (tournamentIds.length === 0) {
+    redirectToQualityWithNotice({ status, notice: "Select at least one tournament" });
+    return;
+  }
 
   for (const tournamentId of tournamentIds) {
     await adminDeleteTournament(tournamentId);
