@@ -1,8 +1,9 @@
 import { getFanaticsLinkAndDisclosure } from "@/lib/partners";
+import { resolveFanaticsAffiliateDisclosureText } from "./fanaticsDisclosure";
 
 export default async function FanaticsGearModule(props: {
   sport?: string;
-  placement?: "tournament_page" | "venue_page" | "gear_hub" | "homepage";
+  placement?: string;
   title?: string;
   description?: string;
   tournamentId?: string;
@@ -34,6 +35,7 @@ export default async function FanaticsGearModule(props: {
   if (props.placement) qp.set("placement", String(props.placement));
 
   const href = `/go/partner/${encodeURIComponent(res.link.id)}${qp.toString() ? `?${qp.toString()}` : ""}`;
+  const disclosure = resolveFanaticsAffiliateDisclosureText(res.disclosureText);
 
   return (
     <div
@@ -63,13 +65,8 @@ export default async function FanaticsGearModule(props: {
         <a className="primaryLink" href={href} target="_blank" rel="sponsored noopener noreferrer">
           Shop Fan Gear
         </a>
-        {res.disclosureText ? (
-          <div style={{ color: "rgba(16, 34, 19, 0.75)", fontWeight: 650, fontSize: 12, lineHeight: 1.35 }}>
-            {res.disclosureText}
-          </div>
-        ) : null}
       </div>
+      <div style={{ color: "rgba(16, 34, 19, 0.72)", fontWeight: 650, fontSize: 12, lineHeight: 1.35 }}>{disclosure}</div>
     </div>
   );
 }
-

@@ -19,6 +19,7 @@ import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import TournamentMapTeaser from "@/components/tournaments/TournamentMapTeaser";
 import TournamentDetailStickyMapCta from "@/components/tournaments/TournamentDetailStickyMapCta";
 import SoccerWorldCupFanGearCard from "@/components/partners/SoccerWorldCupFanGearCard";
+import FanaticsGearModule from "@/components/partners/FanaticsGearModule";
 import { getFanaticsLinkAndDisclosure } from "@/lib/partners";
 import { WEEKEND_PRO_FOUNDING_DISCLAIMER, WEEKEND_PRO_FOUNDING_PRICE_LINE } from "@/lib/weekendProPricing";
 import MoreTournamentsInStateLinks from "../_components/MoreTournamentsInStateLinks";
@@ -977,7 +978,48 @@ async function TournamentVenueDetails({
 
     return (
       <div style={{ width: "min(720px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
-        <SoccerWorldCupFanGearCard href={href} />
+        <SoccerWorldCupFanGearCard href={href} disclosureText={res.disclosureText} />
+      </div>
+    );
+  })();
+
+  const genericFanaticsModule = await (async () => {
+    if (fanGearCard) return null; // World Cup card wins (no duplicates)
+
+    const sportRaw = String(tournament.sport ?? "").toLowerCase().trim();
+    if (sportRaw === "soccer") return null; // avoid a second soccer module in this pass
+
+    const normalize = (value: string) => {
+      if (value.includes("baseball") || value.includes("softball")) return "baseball_softball";
+      if (value.includes("basketball")) return "basketball";
+      if (value.includes("hockey")) return "hockey";
+      if (value.includes("lacrosse")) return "lacrosse";
+      return "all_sports";
+    };
+    const sportKey = normalize(sportRaw);
+
+    const copy: Record<string, { title: string; description: string }> = {
+      basketball: { title: "Shop basketball gear", description: "Find fan gear for the season." },
+      hockey: { title: "Shop hockey gear", description: "Get ready for rink weekends." },
+      lacrosse: { title: "Shop lacrosse gear", description: "Shop gear for lacrosse weekends." },
+      baseball_softball: { title: "Shop baseball & softball gear", description: "Gear up for tournament weekend." },
+      all_sports: { title: "Shop tournament gear", description: "Find fan gear for your tournament weekend." },
+    };
+    const picked = copy[sportKey] ?? copy.all_sports;
+
+    const venueId = linkedVenues.length === 1 ? linkedVenues[0].id : linkedVenues[0]?.id ?? undefined;
+
+    return (
+      <div style={{ width: "min(720px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
+        <FanaticsGearModule
+          sport={sportRaw || undefined}
+          placement="gear_module"
+          pageType="tournament_page"
+          title={picked.title}
+          description={picked.description}
+          tournamentId={tournament.id}
+          venueId={venueId}
+        />
       </div>
     );
   })();
@@ -1041,6 +1083,7 @@ async function TournamentVenueDetails({
       </div>
 
       {fanGearCard}
+      {genericFanaticsModule}
 
       {/* Noise cleanup: removed orphan “Still planning your stay?” + “Where you’ll play” blocks. */}
 

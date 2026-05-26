@@ -1,4 +1,7 @@
-export default function SoccerWorldCupFanGearCard(props: { href: string }) {
+import { resolveFanaticsAffiliateDisclosureText } from "./fanaticsDisclosure";
+
+export default function SoccerWorldCupFanGearCard(props: { href: string; disclosureText?: string | null }) {
+  const disclosure = resolveFanaticsAffiliateDisclosureText(props.disclosureText);
   return (
     <div
       style={{
@@ -84,6 +87,9 @@ export default function SoccerWorldCupFanGearCard(props: { href: string }) {
           <span title="Argentina">🇦🇷 Argentina</span>
           <span title="Mexico">🇲🇽 Mexico</span>
         </div>
+      </div>
+      <div style={{ marginTop: 14, fontSize: 12, color: "rgba(184, 212, 192, 0.92)", lineHeight: 1.35 }}>
+        {disclosure}
       </div>
     </div>
   );

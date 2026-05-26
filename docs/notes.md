@@ -17,6 +17,9 @@ Maintenance rules:
 - TI partners/Fanatics: enrich `/go/partner/[partnerLinkId]` click logging to include `outbound_url` (actual destination URL) and a standardized `source_component` field (mirrors `placement`) in `ti_map_events.properties`.
   - File: `apps/ti-web/app/go/partner/[partnerLinkId]/route.ts`.
 
+- TI tournament pages: render a sport-aware Fanatics gear module on eligible tournament detail pages (DB-driven partner_links with `all_sports` fallback), and add always-visible module-level affiliate disclosure (including the soccer World Cup card).
+  - Files: `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/components/partners/FanaticsGearModule.tsx`, `apps/ti-web/components/partners/SoccerWorldCupFanGearCard.tsx`, `apps/ti-web/components/partners/fanaticsDisclosure.ts`.
+
 - Docs: add a grounded implementation prompt for expanding the Fanatics gear module across sports and adding module-level affiliate disclosure.
   - Files: `docs/prompts/ti-fanatics-gear-module-expansion-v1.1.md`, `docs/admin-reference.md`.
 
