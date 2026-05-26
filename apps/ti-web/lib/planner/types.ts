@@ -30,6 +30,7 @@ export type PlannerEventRow = {
   notes: string | null;
   source_type: PlannerSourceType | string;
   source_id: string | null;
+  source_event_uid?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -51,4 +52,3 @@ export type PlannerEventUpdateBody = Partial<PlannerEventCreateBody> & {
   title?: string;
   event_type?: PlannerEventType;
 };
-

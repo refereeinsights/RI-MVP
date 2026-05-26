@@ -43,6 +43,24 @@ Service role usage pattern:
 
 Note: `/planner` is distinct from `/weekend-planner` (saved tournaments + lodging). Do not conflate them.
 
+## TI Planner (Stage 2 — ICS/iCal import MVP)
+### DB migrations
+- `supabase/migrations/20260526_ti_planner_stage2_sources_unique_url.sql`
+  - Unique ICS sources per user: `(user_id, source_type, source_url)` (prevents duplicate “Synced calendars” entries for the same link).
+- `supabase/migrations/20260526_ti_planner_stage2_ics_unique_uid.sql`
+  - Unique event identity per source: `(user_id, source_id, source_event_uid)` where `source_event_uid IS NOT NULL` (required for safe refresh dedupe).
+
+### APIs
+- `POST /api/planner/sources/import-ics` → `apps/ti-web/app/api/planner/sources/import-ics/route.ts`
+- `POST /api/planner/sources/[id]/refresh` → `apps/ti-web/app/api/planner/sources/[id]/refresh/route.ts`
+- `GET /api/planner/sources` → `apps/ti-web/app/api/planner/sources/route.ts`
+
+### Implementation notes
+- Server-only parsing uses `node-ical` via `apps/ti-web/lib/planner/ics-import.ts` with `ical.parseICS(icsText)` (do not use `ical.fromURL()`; SSRF protections live in our fetch path).
+- Import window: 30 days in the past → ~18 months in the future.
+- Refresh behavior: inserts new events and updates source-managed fields; does not delete missing events yet; does not overwrite `venue_id` or non-empty `notes`.
+- SSRF: URL scheme/host checks + DNS lookup + manual redirect chaining; DNS rebinding remains a known limitation with native `fetch` (acceptable for MVP; tighten later with an agent-based approach if needed).
+
 ---
 
 ## Admin Routes

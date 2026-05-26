@@ -26,7 +26,7 @@ export default async function PlannerPage() {
 
   const { data, error } = await (supabase.from("planner_events" as any) as any)
     .select(
-      "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,source_type,source_id,created_at,updated_at"
+      "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,source_type,source_id,source_event_uid,created_at,updated_at"
     )
     .eq("user_id", user.id)
     .order("starts_at", { ascending: true })
@@ -36,4 +36,3 @@ export default async function PlannerPage() {
 
   return <PlannerClient initialEvents={events} isPaid={isPaid} />;
 }
-

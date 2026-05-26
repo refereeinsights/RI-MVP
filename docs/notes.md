@@ -14,6 +14,23 @@ Maintenance rules:
 
 ## 2026-05-26
 
+- TI planner: add Stage 2 ICS/iCal import MVP (server-side fetch + parse + dedupe) to `/planner`.
+  - Dependency: `node-ical` (server-only parsing via `ical.parseICS()`; do not use `fromURL()`).
+  - Migrations:
+    - `supabase/migrations/20260526_ti_planner_stage2_sources_unique_url.sql` (unique ICS source per user/url).
+    - `supabase/migrations/20260526_ti_planner_stage2_ics_unique_uid.sql` (unique `(user_id, source_id, source_event_uid)` for idempotent refresh).
+  - API routes:
+    - `POST /api/planner/sources/import-ics` → `apps/ti-web/app/api/planner/sources/import-ics/route.ts`
+    - `POST /api/planner/sources/[id]/refresh` → `apps/ti-web/app/api/planner/sources/[id]/refresh/route.ts`
+    - `GET /api/planner/sources` → `apps/ti-web/app/api/planner/sources/route.ts`
+  - Import behavior:
+    - Validates URL scheme and blocks localhost/private IPs (best-effort; DNS rebinding remains a known limitation with native fetch).
+    - Imports only events in a 30d past → ~18mo future window; skips invalid/missing DTSTART.
+    - Dedupes within a source by `source_event_uid` (uses ICS `UID` when present, otherwise a stable hash).
+    - On refresh: updates source-managed fields only; does not overwrite `venue_id` or non-empty `notes`.
+  - UI: `apps/ti-web/app/planner/PlannerClient.tsx` adds “Import calendar link” flow and a “Synced calendars” section with refresh.
+  - Lib: `apps/ti-web/lib/planner/ics-import.ts` (fetch + parse + normalize + insert/update + refresh).
+
 - TI planner: add Weekend Planner™ (Stage 1) foundation at `/planner` (distinct from `/weekend-planner`) with user-owned Supabase tables + RLS and minimal create/edit/delete APIs.
   - Migration: `supabase/migrations/20260526_ti_planner_stage1.sql` (planner tables, grants, env-safe `public.set_updated_at()` helper + triggers, RLS policies).
   - Hardening / Stage 2 readiness: `supabase/migrations/20260526_ti_planner_stage1_stage2_ready.sql` (adds `planner_events.source_event_uid` + compound index for future ICS idempotency, plus a few expected single-column indexes).

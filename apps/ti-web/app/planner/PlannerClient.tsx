@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import type {
   PlannerEventCreateBody,
@@ -13,6 +13,17 @@ import styles from "./Planner.module.css";
 type Props = {
   initialEvents: PlannerEventRow[];
   isPaid: boolean;
+};
+
+type PlannerSourceRow = {
+  id: string;
+  source_type: string;
+  source_name: string | null;
+  team_name: string | null;
+  last_synced_at: string | null;
+  sync_status: string | null;
+  sync_error: string | null;
+  created_at: string | null;
 };
 
 const EVENT_TYPES: { value: PlannerEventType; label: string }[] = [
@@ -114,8 +125,17 @@ async function jsonFetch<T>(url: string, init: RequestInit) {
 export default function PlannerClient(props: Props) {
   const tz = useMemo(() => browserTimeZone(), []);
   const [events, setEvents] = useState<PlannerEventRow[]>(props.initialEvents ?? []);
+  const [sources, setSources] = useState<PlannerSourceRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sourcesBusy, setSourcesBusy] = useState(false);
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importSourceName, setImportSourceName] = useState("");
+  const [importTeamName, setImportTeamName] = useState("");
+  const [importResult, setImportResult] = useState<string | null>(null);
 
   const [createTitle, setCreateTitle] = useState("");
   const [createType, setCreateType] = useState<PlannerEventType>("game");
@@ -142,6 +162,27 @@ export default function PlannerClient(props: Props) {
 
   const effectiveTimeZoneForEvent = (e: PlannerEventRow) => safeTimeZone(e.timezone) || tz || "UTC";
 
+  async function loadEvents() {
+    const res = await jsonFetch<{ ok: true; events: PlannerEventRow[] }>("/api/planner/events", { method: "GET" });
+    setEvents((res.events ?? []).slice().sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at))));
+  }
+
+  async function loadSources() {
+    setSourcesBusy(true);
+    try {
+      const res = await jsonFetch<{ ok: true; sources: PlannerSourceRow[] }>("/api/planner/sources", { method: "GET" });
+      setSources(res.sources ?? []);
+    } finally {
+      setSourcesBusy(false);
+    }
+  }
+
+  // Best-effort initial load of sources (planner page is authed; no sensitive URL returned).
+  useEffect(() => {
+    void loadSources().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const grouped = useMemo(() => {
     const groups = new Map<string, PlannerEventRow[]>();
     for (const e of events) {
@@ -167,6 +208,13 @@ export default function PlannerClient(props: Props) {
     setCreateNotes("");
   }
 
+  function resetImportForm() {
+    setImportUrl("");
+    setImportSourceName("");
+    setImportTeamName("");
+    setImportResult(null);
+  }
+
   function beginEdit(e: PlannerEventRow) {
     setEditingId(e.id);
     setEditTitle(e.title ?? "");
@@ -186,6 +234,7 @@ export default function PlannerClient(props: Props) {
 
   async function onCreate() {
     setError(null);
+    setNotice(null);
     if (!createTitle.trim()) {
       setError("Title is required.");
       return;
@@ -229,6 +278,7 @@ export default function PlannerClient(props: Props) {
   async function onSaveEdit() {
     if (!editingEvent) return;
     setError(null);
+    setNotice(null);
     if (!editTitle.trim()) {
       setError("Title is required.");
       return;
@@ -276,6 +326,7 @@ export default function PlannerClient(props: Props) {
   async function onDelete(e: PlannerEventRow) {
     if (!confirm(`Delete "${e.title}"?`)) return;
     setError(null);
+    setNotice(null);
     setBusy(true);
     try {
       await jsonFetch<{ ok: true }>(`/api/planner/events/${e.id}`, { method: "DELETE" });
@@ -288,12 +339,164 @@ export default function PlannerClient(props: Props) {
     }
   }
 
+  async function onImportIcs() {
+    setError(null);
+    setNotice(null);
+    setImportResult(null);
+    const url = importUrl.trim();
+    if (!url) {
+      setError("Enter a valid iCal/ICS calendar URL.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const res = await jsonFetch<{
+        ok: true;
+        sourceId: string;
+        sourceName: string | null;
+        imported: number;
+        updated: number;
+        skipped: number;
+      }>("/api/planner/sources/import-ics", {
+        method: "POST",
+        body: JSON.stringify({
+          sourceUrl: url,
+          sourceName: importSourceName.trim() || null,
+          teamName: importTeamName.trim() || null,
+        }),
+      });
+      setImportResult(`Imported ${res.imported} · Updated ${res.updated} · Skipped ${res.skipped}`);
+      await Promise.all([loadEvents(), loadSources()]);
+    } catch (e: any) {
+      setError(e?.message || "Import failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onRefreshSource(sourceId: string) {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const res = await jsonFetch<{
+        ok: true;
+        imported: number;
+        updated: number;
+        skipped: number;
+      }>(`/api/planner/sources/${encodeURIComponent(sourceId)}/refresh`, { method: "POST" });
+      setNotice(`Schedule refreshed · +${res.imported} new · ${res.updated} updated`);
+      await Promise.all([loadEvents(), loadSources()]);
+    } catch (e: any) {
+      setError(e?.message || "Refresh failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className={styles.page}>
+      {importOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+            zIndex: 50,
+          }}
+          onClick={() => {
+            if (busy) return;
+            setImportOpen(false);
+          }}
+        >
+          <div
+            className={styles.card}
+            style={{ width: "100%", maxWidth: 520, marginTop: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.cardTitle}>Import calendar link</div>
+            <div className={styles.muted} style={{ marginBottom: 10 }}>
+              Paste an iCal/ICS calendar link from your team or tournament schedule. We’ll add the events to your weekend
+              planner.
+            </div>
+
+            {importResult ? (
+              <div className={styles.muted} style={{ color: "#166534", fontWeight: 900, marginBottom: 10 }}>
+                {importResult}
+              </div>
+            ) : null}
+
+            <div className={styles.formGrid}>
+              <div>
+                <label className={styles.label}>Calendar URL *</label>
+                <input
+                  className={styles.input}
+                  value={importUrl}
+                  onChange={(e) => setImportUrl(e.target.value)}
+                  placeholder="https://…/calendar.ics"
+                />
+              </div>
+              <div className={styles.row2}>
+                <div>
+                  <label className={styles.label}>Source name (optional)</label>
+                  <input
+                    className={styles.input}
+                    value={importSourceName}
+                    onChange={(e) => setImportSourceName(e.target.value)}
+                    placeholder="12U Tigers Calendar"
+                  />
+                </div>
+                <div>
+                  <label className={styles.label}>Team name (optional)</label>
+                  <input
+                    className={styles.input}
+                    value={importTeamName}
+                    onChange={(e) => setImportTeamName(e.target.value)}
+                    placeholder="12U Tigers"
+                  />
+                </div>
+              </div>
+              <div className={styles.actionsRow}>
+                <button className={styles.primaryBtn} onClick={onImportIcs} disabled={busy}>
+                  Import schedule
+                </button>
+                <button
+                  className={styles.secondaryBtn}
+                  onClick={() => {
+                    if (busy) return;
+                    resetImportForm();
+                    setImportOpen(false);
+                  }}
+                  disabled={busy}
+                >
+                  Cancel
+                </button>
+              </div>
+              <div className={styles.muted}>
+                Calendar import works best with public iCal links. TeamSnap, SportsEngine, and GameChanger login
+                integrations are not required for this stage.
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className={styles.headerRow}>
         <div>
           <h1 className={styles.title}>Planner</h1>
           <p className={styles.subtitle}>Add your schedule, travel, and hotel details for tournament weekend.</p>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button className={styles.secondaryBtn} onClick={() => { setImportOpen(true); setImportResult(null); }} disabled={busy}>
+            Import calendar link
+          </button>
         </div>
       </div>
 
@@ -314,6 +517,7 @@ export default function PlannerClient(props: Props) {
         <div className={styles.cardTitle}>Add event</div>
 
         {error ? <div className={styles.muted} style={{ color: "#b91c1c", fontWeight: 800 }}>{error}</div> : null}
+        {notice ? <div className={styles.muted} style={{ color: "#166534", fontWeight: 900 }}>{notice}</div> : null}
 
         <div className={styles.formGrid}>
           <div>
@@ -387,6 +591,34 @@ export default function PlannerClient(props: Props) {
       </div>
 
       <div className={styles.card}>
+        <div className={styles.cardTitle}>Synced calendars</div>
+        {sourcesBusy ? <div className={styles.muted}>Loading…</div> : null}
+        {!sourcesBusy && sources.length === 0 ? (
+          <div className={styles.muted}>No synced calendars yet.</div>
+        ) : null}
+        {!sourcesBusy && sources.length > 0 ? (
+          <div style={{ display: "grid", gap: 10 }}>
+            {sources.map((s) => (
+              <div key={s.id} className={styles.eventItem}>
+                <div className={styles.eventTitle}>{s.source_name || "Imported calendar"}</div>
+                <div className={styles.eventMeta}>
+                  {s.team_name ? `${s.team_name} · ` : ""}
+                  {s.sync_status ? `${s.sync_status}` : "unknown"}
+                  {s.last_synced_at ? ` · ${new Date(s.last_synced_at).toLocaleString()}` : ""}
+                </div>
+                {s.sync_error ? <div className={styles.eventMeta} style={{ color: "#b91c1c", fontWeight: 800 }}>{s.sync_error}</div> : null}
+                <div className={styles.eventActions}>
+                  <button className={styles.primaryBtn} onClick={() => onRefreshSource(s.id)} disabled={busy}>
+                    Refresh schedule
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div className={styles.card}>
         <div className={styles.cardTitle}>Your events</div>
 
         {events.length === 0 ? (
@@ -408,6 +640,12 @@ export default function PlannerClient(props: Props) {
                           <span className={styles.muted} style={{ fontWeight: 800 }}>
                             · {String(e.event_type || "game")}
                           </span>
+                          {String(e.source_type || "") === "ics" ? (
+                            <span className={styles.muted} style={{ fontWeight: 900 }}>
+                              {" "}
+                              · Synced from calendar
+                            </span>
+                          ) : null}
                         </div>
                         <div className={styles.eventMeta}>
                           {formatTimeRange({ startIso: e.starts_at, endIso: e.ends_at, timeZone: eTz })}
