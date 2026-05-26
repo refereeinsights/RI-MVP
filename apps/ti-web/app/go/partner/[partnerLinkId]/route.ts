@@ -133,8 +133,10 @@ export async function GET(request: Request, ctx: { params: { partnerLinkId: stri
           sub_id_1: link.sub_id_1 ?? null,
           sub_id_2: link.sub_id_2 ?? null,
           sub_id_3: link.sub_id_3 ?? null,
+          outbound_url: link.url,
           campaign: campaign ?? link.campaign ?? null,
           placement: placement ?? link.placement ?? null,
+          source_component: placement ?? link.placement ?? null,
           page_type: pageType ?? link.page_type ?? null,
           tournament_id: tournamentId,
           venue_id: venueId,
@@ -157,4 +159,3 @@ export async function GET(request: Request, ctx: { params: { partnerLinkId: stri
 
   return NextResponse.redirect(link.url, { status: 302 });
 }
-

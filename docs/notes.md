@@ -12,6 +12,11 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-05-26
+
+- TI partners/Fanatics: enrich `/go/partner/[partnerLinkId]` click logging to include `outbound_url` (actual destination URL) and a standardized `source_component` field (mirrors `placement`) in `ti_map_events.properties`.
+  - File: `apps/ti-web/app/go/partner/[partnerLinkId]/route.ts`.
+
 ## 2026-05-24
 
 - TI analytics: add lightweight “denominator” events for tournament directory + tournament detail usage, and add a generic search submit event (no schema changes; uses existing `ti_map_events.properties` JSONB).
