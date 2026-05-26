@@ -34,6 +34,17 @@ function browserTimeZone(): string | null {
   }
 }
 
+function safeTimeZone(value: string | null) {
+  const v = String(value ?? "").trim();
+  if (!v) return null;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: v }).format(new Date());
+    return v;
+  } catch {
+    return null;
+  }
+}
+
 function toDateTimeLocalValue(iso: string | null | undefined) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -45,8 +56,9 @@ function toDateTimeLocalValue(iso: string | null | undefined) {
 function dayKey(iso: string, timeZone: string | null) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "invalid";
+  const tz = safeTimeZone(timeZone) || "UTC";
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: timeZone || "UTC",
+    timeZone: tz,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -60,8 +72,9 @@ function dayKey(iso: string, timeZone: string | null) {
 function formatDayLabel(dayIso: string, timeZone: string | null) {
   // dayIso is YYYY-MM-DD, treat as UTC date anchor.
   const d = new Date(`${dayIso}T00:00:00Z`);
+  const tz = safeTimeZone(timeZone) || "UTC";
   return new Intl.DateTimeFormat(undefined, {
-    timeZone: timeZone || "UTC",
+    timeZone: tz,
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -72,7 +85,8 @@ function formatDayLabel(dayIso: string, timeZone: string | null) {
 function formatTimeRange(params: { startIso: string; endIso?: string | null; timeZone: string | null }) {
   const start = new Date(params.startIso);
   if (Number.isNaN(start.getTime())) return "";
-  const fmt = new Intl.DateTimeFormat(undefined, { timeZone: params.timeZone || "UTC", hour: "numeric", minute: "2-digit" });
+  const tz = safeTimeZone(params.timeZone) || "UTC";
+  const fmt = new Intl.DateTimeFormat(undefined, { timeZone: tz, hour: "numeric", minute: "2-digit" });
   const startText = fmt.format(start);
   if (!params.endIso) return startText;
   const end = new Date(params.endIso);
@@ -126,7 +140,7 @@ export default function PlannerClient(props: Props) {
   const [editState, setEditState] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
-  const effectiveTimeZoneForEvent = (e: PlannerEventRow) => e.timezone || tz || "UTC";
+  const effectiveTimeZoneForEvent = (e: PlannerEventRow) => safeTimeZone(e.timezone) || tz || "UTC";
 
   const grouped = useMemo(() => {
     const groups = new Map<string, PlannerEventRow[]>();

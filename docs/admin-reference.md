@@ -33,6 +33,9 @@ Service role usage pattern:
 - `supabase/migrations/20260526_ti_planner_stage1.sql`
   - Tables: `planner_events`, `planner_weekends`, `planner_event_sources`, `planner_event_venue_matches`, `planner_user_preferences`, `planner_calendar_feeds`
   - All tables are RLS user-owned; `planner_event_venue_matches` is owned via parent event (`EXISTS` policy join to `planner_events`)
+- `supabase/migrations/20260526_ti_planner_stage1_stage2_ready.sql`
+  - Adds `planner_events.source_event_uid` for Stage 2 ICS/iCal mapping
+  - Adds index `planner_events_source_uid_idx` on `(user_id, source_id, source_event_uid)` for idempotent upserts
 
 ### APIs
 - `POST /api/planner/events` → `apps/ti-web/app/api/planner/events/route.ts`
