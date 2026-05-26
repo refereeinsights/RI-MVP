@@ -23,6 +23,9 @@ Maintenance rules:
 - TI tournament pages: restyle the generic Fanatics module to mirror the visual treatment of the soccer World Cup card (dark green, centered CTA) for better readability and a clear tap target.
   - File: `apps/ti-web/components/partners/FanaticsGearModule.tsx`.
 
+- TI tournament pages: tweak Fanatics module header styling so “TOURNAMENT WEEKEND EXTRAS” uses the same green accent color as the World Cup card (avoid black-on-dark blend).
+  - File: `apps/ti-web/components/partners/FanaticsGearModule.tsx`.
+
 - Docs: add a grounded implementation prompt for expanding the Fanatics gear module across sports and adding module-level affiliate disclosure.
   - Files: `docs/prompts/ti-fanatics-gear-module-expansion-v1.1.md`, `docs/admin-reference.md`.
 

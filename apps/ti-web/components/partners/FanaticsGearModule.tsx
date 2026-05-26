@@ -53,7 +53,7 @@ export default async function FanaticsGearModule(props: {
       data-sub-id-2={res.link.sub_id_2 ?? ""}
       data-sub-id-3={res.link.sub_id_3 ?? ""}
     >
-      <div style={{ fontSize: 12, fontWeight: 950, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b1f14" }}>
+      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#7ec99a" }}>
         TOURNAMENT WEEKEND EXTRAS
       </div>
 
