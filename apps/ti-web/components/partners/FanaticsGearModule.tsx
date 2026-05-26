@@ -40,12 +40,11 @@ export default async function FanaticsGearModule(props: {
   return (
     <div
       style={{
-        border: "1px solid rgba(15, 61, 46, 0.12)",
-        borderRadius: 14,
-        background: "#fff",
-        padding: 14,
-        display: "grid",
-        gap: 10,
+        marginTop: 6,
+        borderRadius: 16,
+        background: "#0f2d1e",
+        padding: "32px 28px",
+        textAlign: "center",
       }}
       data-partner="fanatics"
       data-placement={props.placement ?? ""}
@@ -55,18 +54,37 @@ export default async function FanaticsGearModule(props: {
       data-sub-id-3={res.link.sub_id_3 ?? ""}
     >
       <div style={{ fontSize: 12, fontWeight: 950, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b1f14" }}>
-        Partner
+        TOURNAMENT WEEKEND EXTRAS
       </div>
 
-      <div style={{ fontSize: 18, fontWeight: 950, color: "#0b1f14", lineHeight: 1.2 }}>{title}</div>
-      <div style={{ color: "rgba(16, 34, 19, 0.85)", fontWeight: 650, fontSize: 13, lineHeight: 1.45 }}>{description}</div>
+      <div style={{ fontSize: 24, fontWeight: 700, color: "#ffffff", lineHeight: 1.25, marginTop: 10 }}>{title}</div>
+      <div style={{ fontSize: 15, color: "#b8d4c0", marginTop: 8 }}>{description}</div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-        <a className="primaryLink" href={href} target="_blank" rel="sponsored noopener noreferrer">
-          Shop Fan Gear
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", marginTop: 18 }}>
+        <a
+          href={href}
+          target="_blank"
+          rel="sponsored noopener noreferrer"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "10px 22px",
+            borderRadius: 8,
+            background: "#2d7a4f",
+            color: "#ffffff",
+            fontSize: 14,
+            fontWeight: 600,
+            textDecoration: "none",
+          }}
+        >
+          Shop fan gear →
         </a>
       </div>
-      <div style={{ color: "rgba(16, 34, 19, 0.72)", fontWeight: 650, fontSize: 12, lineHeight: 1.35 }}>{disclosure}</div>
+
+      <div style={{ marginTop: 14, fontSize: 12, color: "rgba(184, 212, 192, 0.92)", lineHeight: 1.35 }}>
+        {disclosure}
+      </div>
     </div>
   );
 }
