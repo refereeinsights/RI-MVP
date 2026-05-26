@@ -9,7 +9,7 @@
 - `apps/ti-web/app/admin/**` (TournamentInsights admin UI routes)
 - `apps/ti-web/lib/outreachAdmin.ts` (`requireTiOutreachAdmin()` gate for TI admin pages)
 - `apps/ti-web/lib/trackExternalCall.ts` (TI external API call tracking constants + wrapper)
-- `supabase/migrations/**` (DB schema: tables/views/RPCs used by admin and ops)
+- `supabase/migrations/**` (DB schema: tables/views/functions/RPCs used by admin and ops)
 - `scripts/ops/**` (ops scripts that mutate or audit Supabase data)
 
 This monorepo contains two Next.js App Router apps plus Supabase migrations and ops scripts:
@@ -33,36 +33,167 @@ Service role usage pattern:
 - TournamentInsights auth gate: `apps/ti-web/lib/outreachAdmin.ts` (`requireTiOutreachAdmin()`)
 
 ### RefereeInsights admin UI (Next.js App Router)
-Admin page routes are implemented as `page.tsx` under `apps/referee/app/admin/**`. Notable routes include:
+Admin page routes are implemented as `page.tsx` under `apps/referee/app/admin/**`. All call `await requireAdmin()`.
+
+**Top-level:**
 - `/admin` → `apps/referee/app/admin/page.tsx`
 - `/admin/login` → `apps/referee/app/admin/login/page.tsx`
 - `/admin/api-usage` → `apps/referee/app/admin/api-usage/page.tsx`
-- `/admin/ti` → `apps/referee/app/admin/ti/page.tsx`
-- `/admin/ti/clicks` → `apps/referee/app/admin/ti/clicks/page.tsx`
-- `/admin/ti/revenue` → `apps/referee/app/admin/ti/revenue/page.tsx`
-- `/admin/ti/outbound` → `apps/referee/app/admin/ti/outbound/page.tsx`
-- `/admin/ti/static-maps` → `apps/referee/app/admin/ti/static-maps/page.tsx`
-- `/admin/ti/seasons` → `apps/referee/app/admin/ti/seasons/page.tsx`
-- `/admin/ti/quality` → `apps/referee/app/admin/ti/quality/page.tsx`
-- `/admin/ti/discovery` → `apps/referee/app/admin/ti/discovery/page.tsx`
-- `/admin/venues` and subroutes → `apps/referee/app/admin/venues/**`
-- `/admin/tournaments` and subroutes → `apps/referee/app/admin/tournaments/**`
-- `/admin/assignors` and subroutes → `apps/referee/app/admin/assignors/**`
-- `/admin/outreach` and subroutes → `apps/referee/app/admin/outreach/**`
+- `/admin/owls-eye` → `apps/referee/app/admin/owls-eye/page.tsx` — Owl's Eye batch enrichment control panel; triggers venue enrichment runs
 
-Most RI admin pages call `await requireAdmin()` and use `supabaseAdmin` for privileged DB access.
+**TI admin (under RI app):**
+- `/admin/ti` → `apps/referee/app/admin/ti/page.tsx`
+- `/admin/ti/clicks` → `apps/referee/app/admin/ti/clicks/page.tsx` — analytics event counts, top-viewed tournaments/venues, dimension snapshots, outbound click tiles
+- `/admin/ti/revenue` → `apps/referee/app/admin/ti/revenue/page.tsx` — hotels/vrbo/partner outbound click revenue metrics
+- `/admin/ti/outbound` → `apps/referee/app/admin/ti/outbound/page.tsx` — outbound link inspection
+- `/admin/ti/static-maps` → `apps/referee/app/admin/ti/static-maps/page.tsx` — static map generation status and runner
+- `/admin/ti/seasons` → `apps/referee/app/admin/ti/seasons/page.tsx` — season scan management
+- `/admin/ti/quality` → `apps/referee/app/admin/ti/quality/page.tsx` — TI data quality checks
+- `/admin/ti/discovery` → `apps/referee/app/admin/ti/discovery/page.tsx` — tournament discovery workflow (v1)
+
+**Venues:**
+- `/admin/venues` → `apps/referee/app/admin/venues/page.tsx` — venue list/search
+- `/admin/venues/[id]` → `apps/referee/app/admin/venues/[id]/page.tsx` — venue detail/edit
+- `/admin/venues/new` → `apps/referee/app/admin/venues/new/page.tsx` — create venue
+- `/admin/venues/import` → `apps/referee/app/admin/venues/import/page.tsx` — bulk CSV import
+- `/admin/venues/field-maps` → `apps/referee/app/admin/venues/field-maps/page.tsx` — field map index
+- `/admin/venues/field-maps/[venue_id]` → `apps/referee/app/admin/venues/field-maps/[venue_id]/page.tsx` — per-venue field map editor
+- `/admin/venues/link-quality` → `apps/referee/app/admin/venues/link-quality/page.tsx` — suspicious/broken venue URL audit
+- `/admin/venues/sweep` → `apps/referee/app/admin/venues/sweep/page.tsx` — venue duplicate sweep
+
+**Tournaments:**
+- `/admin/tournaments/dashboard` → `apps/referee/app/admin/tournaments/dashboard/page.tsx` — tournament health/validation summary
+- `/admin/tournaments/enrichment` → `apps/referee/app/admin/tournaments/enrichment/page.tsx` — tournament enrichment queue and runner
+- `/admin/tournaments/missing-venues` → `apps/referee/app/admin/tournaments/missing-venues/page.tsx` — tournaments without venue links
+- `/admin/tournaments/discover-to-queue` → `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx` — feed discovery → queue workflow
+- `/admin/tournaments/sources` → `apps/referee/app/admin/tournaments/sources/page.tsx` — tournament source management
+- `/admin/tournaments/sources/discover` → `apps/referee/app/admin/tournaments/sources/discover/page.tsx` — source discovery runner
+- `/admin/tournaments/staff-verification-queue` → `apps/referee/app/admin/tournaments/staff-verification-queue/page.tsx` — staff upload review
+- `/admin/tournaments/claims` → `apps/referee/app/admin/tournaments/claims/page.tsx` — tournament claim review
+- `/admin/tournaments/validation` → `apps/referee/app/admin/tournaments/validation/page.tsx` — validation rule results
+- `/admin/tournaments/validation/rules` → `apps/referee/app/admin/tournaments/validation/rules/page.tsx` — validation rule config
+- `/admin/tournaments/tourney-export` → `apps/referee/app/admin/tournaments/tourney-export/page.tsx` — tournament data export
+
+**Assignors:**
+- `/admin/assignors` → `apps/referee/app/admin/assignors/page.tsx`
+- `/admin/assignors/[id]` → `apps/referee/app/admin/assignors/[id]/page.tsx`
+- `/admin/assignors/review` → `apps/referee/app/admin/assignors/review/page.tsx`
+- `/admin/assignors/sources` → `apps/referee/app/admin/assignors/sources/page.tsx`
+- `/admin/assignors/zip-missing` → `apps/referee/app/admin/assignors/zip-missing/page.tsx`
+
+**Outreach:**
+- `/admin/outreach` → `apps/referee/app/admin/outreach/page.tsx`
+- `/admin/outreach/create` → `apps/referee/app/admin/outreach/create/page.tsx`
 
 ### RefereeInsights admin API routes
-Admin API endpoints are implemented as `route.ts` under `apps/referee/app/api/admin/**`. Common groups:
-- API usage alarms CRUD / evaluation:
-  - `/api/admin/api-usage/alarms` → `apps/referee/app/api/admin/api-usage/alarms/route.ts`
-  - `/api/admin/api-usage/check-alarms` → `apps/referee/app/api/admin/api-usage/check-alarms/route.ts`
-- Venue admin APIs: `apps/referee/app/api/admin/venues/**`
-- Tournament admin APIs: `apps/referee/app/api/admin/tournaments/**`
-- TI discovery admin APIs: `apps/referee/app/api/admin/ti/discovery/**` and `.../discovery-v2/**`
-- Static map runner: `/api/admin/ti/static-maps/run` → `apps/referee/app/api/admin/ti/static-maps/run/route.ts`
+Admin API endpoints under `apps/referee/app/api/admin/**`. All use `supabaseAdmin` and most call `requireAdmin()`.
 
-These routes typically use `supabaseAdmin` and may call `requireAdmin()` (directly or indirectly) to enforce admin-only access.
+**API usage:**
+- `/api/admin/api-usage/alarms` → alarms CRUD
+- `/api/admin/api-usage/check-alarms` → alarm evaluator
+
+**Owl's Eye:**
+- `/api/admin/owls-eye/run` → start an Owl's Eye enrichment run
+- `/api/admin/owls-eye/run/[runId]` → run status/results
+
+**Venues:**
+- `/api/admin/venues` → venue list/search
+- `/api/admin/venues/[id]` → venue CRUD
+- `/api/admin/venues/[id]/owls-eye` → trigger per-venue Owl's Eye enrichment
+- `/api/admin/venues/[id]/owls-eye/nearby` → nearby places lookup for a venue
+- `/api/admin/venues/[id]/refresh-coordinates` → re-geocode a venue
+- `/api/admin/venues/address-verify` → address verification (external API)
+- `/api/admin/venues/bulk-delete` → bulk venue delete
+- `/api/admin/venues/copy` → copy/clone a venue record
+- `/api/admin/venues/duplicate-overrides` → manage duplicate override flags
+- `/api/admin/venues/import` → import venues from CSV
+- `/api/admin/venues/import/export` → export import batch results
+- `/api/admin/venues/merge` → merge two venue records
+- `/api/admin/venues/places` → Google Places venue lookup
+- `/api/admin/venues/scan-duplicate-candidates` → run duplicate candidate scan
+- `/api/admin/venues/search` → venue search
+- `/api/admin/venues/venue-enrichment-csv` → export venue enrichment CSV
+
+**Tournaments:**
+- `/api/admin/tournaments/search` → tournament search
+- `/api/admin/tournaments/delete` → delete a tournament
+- `/api/admin/tournaments/discover-to-queue` → push discovery results to queue
+
+---
+
+## Partner Links (Affiliate / Outbound)
+TI monetization partners (e.g. Fanatics) are configured in Supabase and routed through a tracked redirect.
+
+- DB config tables: `public.partners`, `public.partner_links` (seeded by `supabase/migrations/20260514_partner_management_v1.sql`)
+- Link selection helper: `apps/ti-web/lib/partners.ts` (`getPartnerLinkForSport`, `getFanaticsLinkAndDisclosure`)
+- Tracked redirect route: `apps/ti-web/app/go/partner/[partnerLinkId]/route.ts`
+  - Logs `partner_click_clicked` to `public.ti_map_events` (server-side, service role)
+  - Redirects to the `partner_links.url` (affiliate URL)
+
+Planning prompt:
+- `docs/prompts/ti-fanatics-gear-module-expansion-v1.1.md`
+- `/api/admin/tournaments/tourney-export` → CSV export of tournament data
+- `/api/admin/tournaments/atlas-email-discovery` → Atlas-based email discovery
+- `/api/admin/tournaments/skip-venue-discovery` → mark tournament as skip for venue discovery
+- `/api/admin/tournaments/[id]/partner-nearby` → find nearby partner venues for a tournament
+- `/api/admin/tournaments/missing-venues/export` → export missing-venue tournaments
+- `/api/admin/tournaments/missing-venues/infer` → infer venue links for missing-venue tournaments
+- `/api/admin/tournaments/sources/export` → export tournament sources
+- `/api/admin/tournaments/uploads/export` → export upload batch
+- `/api/admin/tournaments/uploads/inferred` → list inferred upload venues
+- `/api/admin/tournaments/uploads/venue-accept` → accept an upload-inferred venue
+- `/api/admin/tournaments/uploads/venue-extract` → extract venue from upload
+- `/api/admin/tournaments/enrichment/run` → run tournament enrichment
+- `/api/admin/tournaments/enrichment/queue` + `/queue-all` → queue enrichment
+- `/api/admin/tournaments/enrichment/apply` + `/delete` + `/update` + `/skip` → manage enrichment drafts
+- `/api/admin/tournaments/enrichment/search` → search within enrichment results
+- `/api/admin/tournaments/enrichment/email-discovery` → email discovery from enrichment
+- `/api/admin/tournaments/enrichment/fees-venue` → fees/venue enrichment sub-task
+- `/api/admin/tournaments/enrichment/inferred-links` → inferred link extraction
+- `/api/admin/tournaments/enrichment/inferred/promote` + `/reject` → promote/reject inferred links
+- `/api/admin/tournaments/enrichment/extract-source-urls` → extract URLs from source pages
+- `/api/admin/tournaments/enrichment/url-search` + `/url-apply` + `/url-apply-batch` → URL management
+- `/api/admin/tournaments/enrichment/url-suggestions/approve` + `/reject` → URL suggestion review
+- `/api/admin/tournaments/enrichment/us-club-soccer` + `/usssa` → org-specific enrichment runners
+- `/api/admin/tournaments/enrichment/venue-perplexity` → Perplexity-based venue lookup
+
+**Tournament venues (linking):**
+- `/api/admin/tournament-venues/link` → link a venue to a tournament
+- `/api/admin/tournament-venues/unlink` → unlink a venue
+- `/api/admin/tournament-venues/unlink-bulk` → bulk unlink
+- `/api/admin/tournament-venues/create-and-link` → create a new venue and link it
+
+**Tournament sources:**
+- `/api/admin/tournament-sources/[id]/logs` → source crawl/scan logs
+
+**TI Discovery v1:**
+- `/api/admin/ti/discovery/batches` → batch management
+- `/api/admin/ti/discovery/candidates` → candidate list
+- `/api/admin/ti/discovery/candidates/import` → import candidates
+- `/api/admin/ti/discovery/intake/save` + `/validate` → intake form
+- `/api/admin/ti/discovery/prompt` → discovery prompt runner
+- `/api/admin/ti/discovery/searches` → search history
+
+**TI Discovery v2:**
+- `/api/admin/ti/discovery-v2/queue` → queue a discovery run
+- `/api/admin/ti/discovery-v2/runs` → list runs
+- `/api/admin/ti/discovery-v2/runs/[id]` → run detail
+- `/api/admin/ti/discovery-v2/runs/[id]/perplexity/search` + `/run-all` → Perplexity sub-tasks
+- `/api/admin/ti/discovery-v2/runs/[id]/paste/attach` → paste-and-attach workflow
+- `/api/admin/ti/discovery-v2/runs/[id]/zip-backfill` → ZIP code backfill for a run
+
+**TI static maps:**
+- `/api/admin/ti/static-maps/run` → trigger static map generation
+
+**TI event codes:**
+- `/api/admin/ti/event-codes/print-label` → generate printable join-code label
+
+**Outreach:**
+- `/api/admin/outreach/queue` → outreach queue management
+- `/api/admin/outreach/priority-dismiss` → dismiss a priority outreach item
+
+**Assignors:**
+- `/api/admin/assignors/zip` → assignor ZIP code lookup
 
 ### TournamentInsights admin UI
 TI has its own `/admin/**` routes under `apps/ti-web/app/admin/**`:
@@ -73,7 +204,71 @@ TI has its own `/admin/**` routes under `apps/ti-web/app/admin/**`:
 - `/admin/outreach-previews` → `apps/ti-web/app/admin/outreach-previews/page.tsx`
 - `/admin/outreach-reply` → `apps/ti-web/app/admin/outreach-reply/page.tsx`
 
-These TI admin routes are gated by `requireTiOutreachAdmin()` (email allowlist / dev-mode gate), not by RI’s `requireAdmin()`.
+These TI admin routes are gated by `requireTiOutreachAdmin()` (email allowlist / dev-mode gate), not by RI's `requireAdmin()`.
+
+---
+
+## TI Analytics Tracking
+### Key files
+- Events table migration: `supabase/migrations/20260428_external_api_calls.sql` (no — events in `ti_map_events`)
+- Analytics RPCs: `supabase/migrations/20260525_admin_analytics_rpcs.sql`
+- Outbound clicks table: `public.ti_outbound_clicks` (destination_type, created_at columns; used by `/go/*` hotel and VRBO redirect routes)
+- Partner clicks: tracked in `public.ti_map_events` (event_name=`partner_click_clicked`, partner key in `properties->>'partner_key'`)
+- Clicks dashboard: `apps/referee/app/admin/ti/clicks/page.tsx`
+- Revenue dashboard: `apps/referee/app/admin/ti/revenue/page.tsx`
+- Analytics client table: `apps/referee/app/admin/ti/clicks/ClicksTableClient.tsx`
+
+### Storage table: `public.ti_map_events`
+The primary analytics sink for all TI user events.
+- Top-level columns: `event_name`, `sport`, `state`, `page_type`, `href`, `cta`, `filter_name`, `old_value`, `new_value`, `created_at`
+- JSONB `properties` column: stores structured event context (tournament_id, venue_id, partner_key, user_tier, etc.)
+- Note: `tournament_id` and `venue_id` live inside `properties` JSONB, not as top-level columns. Aggregations on these fields require Postgres RPCs (PostgREST cannot GROUP BY JSONB paths).
+- Dev gate: `shouldPersistMapEvents()` returns false in `NODE_ENV=development` unless `ENABLE_TI_ANALYTICS_TRACKING=true`.
+
+### Storage table: `public.ti_outbound_clicks`
+Tracks server-side outbound clicks through `/go/*` hotel and rental redirect routes.
+- Top-level column: `destination_type` (values: `'hotels'`, `'vrbo'`, `'tournament_official'`).
+- Used by the revenue dashboard to count hotels/VRBO click totals.
+- Partner clicks (Fanatics, future Scheels) go through `/go/partner/[partnerLinkId]` and write to `ti_map_events` instead, not this table.
+
+### Analytics admin RPCs (`supabase/migrations/20260525_admin_analytics_rpcs.sql`)
+Four Postgres RPCs required for JSONB-based aggregations on `ti_map_events`. Must be applied to Supabase before top-viewed and dimension sections on the clicks dashboard render data.
+
+- `admin_top_viewed_tournaments(since_iso timestamptz, result_limit int DEFAULT 10)`
+  - Returns: `(tournament_id, view_count, name, start_date, end_date)`
+  - Counts `tournament_detail_page_viewed` events, groups by `properties->>'tournament_id'`, JOINs `tournaments` for name/dates.
+
+- `admin_top_viewed_venues(since_iso timestamptz, result_limit int DEFAULT 10)`
+  - Returns: `(venue_id, view_count, name, next_tournament_start)`
+  - Counts `venue_map_opened` events, groups by `properties->>'venue_id'`, JOINs `venues` for name, subquery for next upcoming tournament start.
+
+- `admin_top_sports_by_views(since_iso timestamptz, result_limit int DEFAULT 5)`
+  - Returns: `(sport, view_count)`
+  - Counts `tournament_detail_page_viewed` events grouped by top-level `sport` column.
+
+- `admin_top_states_by_venue_opens(since_iso timestamptz, result_limit int DEFAULT 5)`
+  - Returns: `(state, open_count)`
+  - Counts `venue_map_opened` events grouped by top-level `state` column.
+
+All four are `SECURITY DEFINER`, execute granted to `service_role` only. Called via `(supabaseAdmin as any).rpc("function_name", { since_iso, result_limit })` — the `(supabaseAdmin as any)` cast pattern is required because these functions are not in the generated Supabase types.
+
+### Clicks dashboard: `/admin/ti/clicks`
+Implemented in `apps/referee/app/admin/ti/clicks/page.tsx` (server) + `ClicksTableClient.tsx` (client).
+- Queries: today, yesterday, last 7d, last 30d windows for ~48 named events.
+- Grouped display: Discovery, Tournament Detail, Tournament Map, Directory, Venue Map, Weekend Share, Weekend Planner, Conversion, Owl's Eye, Book Travel.
+- KPI health tiles (6): top funnel metrics with yesterday vs 7d-avg comparison.
+- Outbound clicks section (3 tiles): Hotels (from `ti_outbound_clicks`), Vrbo (from `ti_outbound_clicks`), Fanatics (from `partner_click_clicked` events in `ti_map_events`). Note: Fanatics tile counts ALL `partner_click_clicked` events — if additional partners are added, filter by `properties->>'partner_key' = 'fanatics'`.
+- Conversion funnel: map_viewed → tournament_detail_page_viewed → book_travel_* funnel rates.
+- Top viewed tables: calls `admin_top_viewed_tournaments` and `admin_top_viewed_venues` RPCs.
+- Dimension snapshot: calls `admin_top_sports_by_views` and `admin_top_states_by_venue_opens` RPCs.
+- Anomaly detector: highlights events where yesterday > 2× the 7d daily average.
+
+### Partner click tracking
+Partner links (Fanatics, future Scheels) are managed via:
+- `public.partners` table — partner rows (key, name, category, status, disclosure_text, is_active)
+- `public.partner_links` table — individual affiliate links (partner_id, url, destination_type, sport, page_type, placement, campaign, is_active)
+- Route: `apps/ti-web/app/go/partner/[partnerLinkId]/route.ts` — resolves link, writes `partner_click_clicked` to `ti_map_events` with full JSONB context, redirects to affiliate URL.
+- Helper: `apps/ti-web/lib/partners.ts` — `getPartnerLinkForSport()` (generic), `getFanaticsLinkAndDisclosure()` (Fanatics wrapper).
 
 ---
 
@@ -165,7 +360,7 @@ export async function trackExternalCall<T>(
   - `status` (`ok` or `error`)
   - `latency_ms`
   - `error` (truncated message) when status=`error`
-- “Fail-open” insertion: insertion is done async and does not block the caller.
+- "Fail-open" insertion: insertion is done async and does not block the caller.
 - Debug logging:
   - If insert fails and `EXTERNAL_API_CALL_TRACKING_DEBUG === "true"`, logs a warning.
 
@@ -259,14 +454,14 @@ export const EXTERNAL_API_SURFACE = {
 ```
 
 Notes:
-- Surfaces are used to attribute calls to features/routes/scripts (e.g., Owl’s Eye batch enrichment vs a venue address verify tool vs a cron job).
+- Surfaces are used to attribute calls to features/routes/scripts (e.g., Owl's Eye batch enrichment vs a venue address verify tool vs a cron job).
 
 ---
 
 ## Scripts
 ### Key files
 - Root scripts: `package.json`
-- Ops scripts: `scripts/ops/**`
+- Ops scripts: `scripts/ops/**` (70+ scripts)
 - Ingest scripts: `scripts/ingest/**`
 - Smoke seeding: `apps/ti-web/scripts/seed_smoke_test_users.ts`
 - Playwright smoke runner: `playwright.smoke.config.ts`
@@ -297,21 +492,40 @@ This repo contains many scripts; the admin/ops-relevant ones typically require s
   - `npm run ops:flag-long-tournaments`
   - Runs `node --import tsx scripts/ops/flag_long_tournaments.ts --apply`
 
-### Notable ops scripts (examples)
-These live in `scripts/ops/` and are typically run with service-role credentials:
-- `scripts/ops/flag_long_tournaments.ts`
-  - Flags suspicious tournament date ranges (often used with related quality tables/views).
-- `scripts/ops/scan_tournament_seasons_2027.ts`
-  - Seasonal scanning workflow; note this script references `trackExternalCall` behavior.
-- `scripts/ops/import_season_scan_csv.ts`
-  - Imports prior scan CSV output into DB tables without re-running external searches.
-- `scripts/ops/apply_high_confidence_draft_venues.ts`
-  - Applies high-confidence venue draft rows (writes to DB; typically run with `--limit/--offset`).
-- `scripts/ops/update_missing_director_emails_from_csv.mjs`
-  - Batch updates missing director emails from a CSV input.
+### Scripts by category
+There are 70+ scripts in `scripts/ops/`. Categories:
 
-Guidance for safe operation:
-- Prefer “dry run” modes when offered; only use `--apply` or write modes when intended.
+**Venue data quality / geocoding:**
+- `flag_long_tournaments.ts` — flags suspicious date ranges
+- `audit_venues_geo.ts` / `audit_tournaments_geo.mjs` — geo audit
+- `backfill_venues_geo_mapbox.mjs` / `backfill_tournaments_geo_mapbox.mjs` — geocode backfills
+- `backfill_venue_zip_codes.ts` — ZIP code backfill
+- `probe_venues_address1.ts` — address field probe
+
+**Venue CRUD / linking:**
+- `apply_high_confidence_draft_venues.ts` — promote draft venues to live (use `--limit/--offset`)
+- `merge_venues_and_repoint_refs.ts` / `merge_duplicate_venues_by_fingerprint.ts` — deduplication
+- `link_venue_to_tournament.ts` — single venue–tournament link
+- `ingest_venues_from_csv.mjs` / `ingest_tournaments_and_venues_from_csv.mjs` — CSV bulk ingest
+- `null_bad_venue_urls.ts` — clear bad URL fields
+
+**Owl's Eye:**
+- `backfill_owlseye_gear_nearby.ts` — backfill gear/food/hotel nearby data
+- `backfill_owlseye_place_coords_mapbox.mjs` — backfill place coordinates
+- `rebuild_owls_eye_venue_duplicate_suspects.ts` — rebuild duplicate suspect table
+- `purge_owlseye_residential_nearby_places.mjs` — remove residential false-positives
+
+**Tournament sources / discovery:**
+- `scan_tournament_seasons_2027.ts` — seasonal scanning workflow
+- `import_season_scan_csv.ts` — import prior scan CSV without re-running searches
+- `export_pending_upload_tournaments_csv.ts` — export pending uploads queue
+
+**Tournament/venue data fixes (named/targeted):**
+- `update_missing_director_emails_from_csv.mjs` — batch update director emails
+- Various `fix_*`, `update_*`, `link_*` scripts for named tournaments or organizers
+
+### Guidance for safe operation
+- Prefer "dry run" modes when offered; only use `--apply` or write modes when intended.
 - Many scripts have `--limit/--offset` for incremental runs.
 - If a script calls external APIs, verify whether `ENABLE_EXTERNAL_API_CALL_TRACKING` is enabled (for usage visibility) and ensure you understand quotas/cost.
 
@@ -331,7 +545,7 @@ Defined in `apps/referee/lib/admin.ts`:
   - If not logged in: `redirect("/admin/login")`.
   - If logged in, checks admin privilege using service role:
     - `supabaseAdmin.from("profiles").select("user_id, role").eq("user_id", user.id).maybeSingle()`
-  - If DB read fails: redirects to `/admin/login?error=server_error` (fails “softly”).
+  - If DB read fails: redirects to `/admin/login?error=server_error` (fails "softly").
   - If role is not `admin`: redirects to `/admin/login?error=not_authorized`.
   - Returns the Supabase user object when authorized.
 - Admin role source of truth:
@@ -351,21 +565,22 @@ Defined in `apps/ti-web/lib/outreachAdmin.ts`:
 
 ## Planned Features
 ### Key files
-- `NOTES.md`
+- `docs/notes.md` (primary running dev log — source of truth for forward-looking items)
 
-This section is intentionally sourced from `NOTES.md` only (no speculation). Items below are forward-looking notes present in `NOTES.md` and may already have partial scaffolding in code.
+This section is intentionally sourced from `docs/notes.md` only (no speculation). Items below are forward-looking notes present in `docs/notes.md` and may already have partial scaffolding in code.
 
-Examples currently noted in `NOTES.md`:
+Examples currently noted in `docs/notes.md`:
 - TI affiliate sync: cron scaffold + rollup table to support pulling publisher transaction totals into admin dashboards later (see `apps/referee/app/api/cron/ti-affiliate-sync/route.ts`, `supabase/migrations/20260503_ti_affiliate_daily_metrics.sql`).
-- TI saved tournaments digest enhancements: per-tournament “what changed” summary (see `docs/ti-saved-tournament-change-notifications.md` and referenced TI email job files).
-- Admin UI incremental enhancements noted as “next/later” items in various entries (review `NOTES.md` for the most current forward-looking bullets tied to specific file paths).
+- TI saved tournaments digest enhancements: per-tournament "what changed" summary (see `docs/ti-saved-tournament-change-notifications.md` and referenced TI email job files).
+- Scheels partner: planned addition as second affiliate partner alongside Fanatics. Requires partners row, partner_links rows, `getScheelsLinkAndDisclosure()` helper, tournament detail card, and clicks dashboard Fanatics tile fix (filter `properties->>'partner_key' = 'fanatics'` once a second partner is active).
+- Admin UI incremental enhancements noted as "next/later" items in various entries (review `docs/notes.md` for the most current forward-looking bullets tied to specific file paths).
 
 ---
 
 ## How to Update This Doc
 ### Key files
 - `docs/admin-reference.md`
-- `NOTES.md`
+- `docs/notes.md`
 
 - When adding a new admin UI route, update **Admin Routes** with the new path and file location, and note which tables/RPCs it uses.
 - When adding a new admin API route (`route.ts`), update **Admin Routes** and include the endpoint path and its authorization mechanism.
@@ -373,7 +588,7 @@ Examples currently noted in `NOTES.md`:
 - When adding a new call site for `trackExternalCall`, ensure the surface string is a constant and update **External API Surfaces** if needed.
 - When modifying `external_api_calls` schema or API-usage RPCs, update **API Usage Tracking** with the migration filename and new behavior.
 - When adding/changing alarm behavior, update **API Usage Tracking** and include the admin routes that create/evaluate alarms.
-- When adding or changing ops scripts, update **Scripts** with how to run them and which env vars they require.
+- When adding or changing ops scripts, update **Scripts** with the category it belongs to and any `--apply` / quota risks.
 - When changing admin authorization rules, update **Auth (requireAdmin)** and include new failure modes / redirects.
-- When adding forward-looking work, record it in `NOTES.md` and then update **Planned Features** to reflect the latest items (do not add items that are not present in `NOTES.md`).
-
+- When adding new analytics events or RPCs, update **TI Analytics Tracking** with the migration filename, RPC signature, and dashboard impact.
+- When adding forward-looking work, record it in `docs/notes.md` and then update **Planned Features** to reflect the latest items (do not add items that are not present in `docs/notes.md`).

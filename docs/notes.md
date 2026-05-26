@@ -17,6 +17,9 @@ Maintenance rules:
 - TI partners/Fanatics: enrich `/go/partner/[partnerLinkId]` click logging to include `outbound_url` (actual destination URL) and a standardized `source_component` field (mirrors `placement`) in `ti_map_events.properties`.
   - File: `apps/ti-web/app/go/partner/[partnerLinkId]/route.ts`.
 
+- Docs: add a grounded implementation prompt for expanding the Fanatics gear module across sports and adding module-level affiliate disclosure.
+  - Files: `docs/prompts/ti-fanatics-gear-module-expansion-v1.1.md`, `docs/admin-reference.md`.
+
 ## 2026-05-24
 
 - TI analytics: add lightweight “denominator” events for tournament directory + tournament detail usage, and add a generic search submit event (no schema changes; uses existing `ti_map_events.properties` JSONB).
