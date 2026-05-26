@@ -7,6 +7,7 @@
 - `apps/referee/lib/admin.ts` (`requireAdmin()` and many admin server helpers)
 - `apps/referee/lib/trackExternalCall.ts` (external API call tracking constants + wrapper)
 - `apps/ti-web/app/admin/**` (TournamentInsights admin UI routes)
+- `apps/ti-web/app/planner/**` (TournamentInsights user planner feature at `/planner` — Stage 1 manual events)
 - `apps/ti-web/lib/outreachAdmin.ts` (`requireTiOutreachAdmin()` gate for TI admin pages)
 - `apps/ti-web/lib/trackExternalCall.ts` (TI external API call tracking constants + wrapper)
 - `supabase/migrations/**` (DB schema: tables/views/functions/RPCs used by admin and ops)
@@ -21,6 +22,23 @@ This monorepo contains two Next.js App Router apps plus Supabase migrations and 
 Service role usage pattern:
 - Server-side admin features typically use `supabaseAdmin` (service role client) to bypass RLS and read/write privileged tables.
 - End-user features use a cookie-based server client (`createSupabaseServerClient()`) and are constrained by RLS.
+
+---
+
+## TI Planner (Stage 1)
+### User route
+- `/planner` → `apps/ti-web/app/planner/page.tsx` (manual planner events; authenticated-only via `/login?returnTo=/planner`)
+
+### DB migration
+- `supabase/migrations/20260526_ti_planner_stage1.sql`
+  - Tables: `planner_events`, `planner_weekends`, `planner_event_sources`, `planner_event_venue_matches`, `planner_user_preferences`, `planner_calendar_feeds`
+  - All tables are RLS user-owned; `planner_event_venue_matches` is owned via parent event (`EXISTS` policy join to `planner_events`)
+
+### APIs
+- `POST /api/planner/events` → `apps/ti-web/app/api/planner/events/route.ts`
+- `PATCH|DELETE /api/planner/events/[id]` → `apps/ti-web/app/api/planner/events/[id]/route.ts`
+
+Note: `/planner` is distinct from `/weekend-planner` (saved tournaments + lodging). Do not conflate them.
 
 ---
 

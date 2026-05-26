@@ -1,0 +1,163 @@
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 20px 16px 80px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 900;
+  margin: 0;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  color: #475569;
+  font-size: 14px;
+}
+
+.card {
+  margin-top: 18px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.cardTitle {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #166534;
+  margin: 0 0 10px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.label {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.primaryBtn {
+  background: #15803d;
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.secondaryBtn {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.dangerBtn {
+  background: #ffffff;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.muted {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.dayGroup {
+  margin-top: 16px;
+}
+
+.dayHeader {
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #0f172a;
+  margin: 0 0 10px;
+}
+
+.eventItem {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.eventTitle {
+  font-weight: 900;
+}
+
+.eventMeta {
+  color: #475569;
+  font-size: 13px;
+}
+
+.eventActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+@media (max-width: 640px) {
+  .row2 {
+    grid-template-columns: 1fr;
+  }
+}
+

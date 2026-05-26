@@ -14,6 +14,12 @@ Maintenance rules:
 
 ## 2026-05-26
 
+- TI planner: add Weekend Planner™ (Stage 1) foundation at `/planner` (distinct from `/weekend-planner`) with user-owned Supabase tables + RLS and minimal create/edit/delete APIs.
+  - Migration: `supabase/migrations/20260526_ti_planner_stage1.sql` (planner tables, grants, env-safe `public.set_updated_at()` helper + triggers, RLS policies).
+  - App/UI: `apps/ti-web/app/planner/page.tsx`, `apps/ti-web/app/planner/PlannerClient.tsx`, `apps/ti-web/app/planner/Planner.module.css`.
+  - APIs: `apps/ti-web/app/api/planner/events/route.ts`, `apps/ti-web/app/api/planner/events/[id]/route.ts`.
+  - Types: `apps/ti-web/lib/planner/types.ts`.
+
 - TI partners/Fanatics: enrich `/go/partner/[partnerLinkId]` click logging to include `outbound_url` (actual destination URL) and a standardized `source_component` field (mirrors `placement`) in `ti_map_events.properties`.
   - File: `apps/ti-web/app/go/partner/[partnerLinkId]/route.ts`.
 
