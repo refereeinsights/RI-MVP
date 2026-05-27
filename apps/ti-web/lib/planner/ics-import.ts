@@ -45,11 +45,12 @@ function clamp(value: string | null, maxLen: number) {
   return v.length > maxLen ? v.slice(0, maxLen) : v;
 }
 
-export function userSafeError(kind: "invalid_url" | "private_url" | "fetch_failed" | "not_ics" | "no_events") {
+export function userSafeError(kind: "invalid_url" | "private_url" | "fetch_failed" | "not_ics" | "no_events" | "too_large") {
   if (kind === "invalid_url") return "Enter a valid iCal/ICS calendar URL.";
   if (kind === "private_url") return "That calendar link cannot point to a private or local address.";
   if (kind === "fetch_failed") return "That calendar link could not be reached.";
   if (kind === "not_ics") return "That link does not appear to be an iCal/ICS calendar.";
+  if (kind === "too_large") return "That calendar is too large to import right now.";
   return "No upcoming events were found in that calendar.";
 }
 
@@ -68,6 +69,10 @@ function parseAndValidateUrl(raw: string) {
   const protocol = url.protocol.toLowerCase();
   if (protocol !== "http:" && protocol !== "https:") {
     return { ok: false as const, error: "Calendar links must start with http:// or https://." };
+  }
+
+  if (url.username || url.password) {
+    return { ok: false as const, error: userSafeError("invalid_url") };
   }
 
   const hostname = url.hostname.toLowerCase();
@@ -185,7 +190,7 @@ async function fetchIcsTextWithManualRedirects(inputUrl: URL) {
     const contentTypeBase = stripContentTypeParams(res.headers.get("content-type"));
     const text = await res.text().catch(() => "");
     if (!text) return { ok: false as const, error: userSafeError("fetch_failed") };
-    if (text.length > MAX_ICS_CHARS) return { ok: false as const, error: userSafeError("fetch_failed") };
+    if (text.length > MAX_ICS_CHARS) return { ok: false as const, error: userSafeError("too_large") };
 
     const hasCalendar = text.includes("BEGIN:VCALENDAR");
     const contentOk =
@@ -517,8 +522,34 @@ export async function importIcsToPlanner(params: {
       source_event_uid: e.source_event_uid,
     }));
     const res = await (supabase.from("planner_events" as any) as any).insert(inserts);
-    if (res.error) return { ok: false, status: 400, error: res.error.message };
-    imported += inserts.length;
+    if (res.error) {
+      // Handle rare race where the same UID is inserted concurrently (unique index enforced).
+      const code = String((res.error as any).code ?? "");
+      if (code === "23505") {
+        for (const e of inserts) {
+          const patch = {
+            title: e.title,
+            starts_at: e.starts_at,
+            ends_at: e.ends_at,
+            timezone: e.timezone,
+            address_text: e.address_text,
+            team_name: e.team_name,
+            source_type: "ics",
+          };
+          const u = await (supabase.from("planner_events" as any) as any)
+            .update(patch)
+            .eq("user_id", input.userId)
+            .eq("source_id", sourceId)
+            .eq("source_event_uid", e.source_event_uid);
+          if (u.error) return { ok: false, status: 500, error: "Server error" };
+          updated += 1;
+        }
+      } else {
+        return { ok: false, status: 500, error: "Server error" };
+      }
+    } else {
+      imported += inserts.length;
+    }
   }
 
   // Updates exclude notes and protected fields
@@ -538,7 +569,7 @@ export async function importIcsToPlanner(params: {
         .eq("user_id", input.userId)
         .eq("source_id", sourceId)
         .eq("source_event_uid", e.source_event_uid);
-      if (res.error) return { ok: false, status: 400, error: res.error.message };
+      if (res.error) return { ok: false, status: 500, error: "Server error" };
       updated += 1;
     }
   }
@@ -578,7 +609,7 @@ export async function refreshIcsSource(params: {
     .eq("user_id", params.userId)
     .maybeSingle();
 
-  if (error) return { ok: false, status: 400, error: error.message };
+  if (error) return { ok: false, status: 500, error: "Server error" };
   if (!data || String((data as any).source_type ?? "") !== "ics") {
     return { ok: false, status: 404, error: "not_found" };
   }
@@ -605,10 +636,8 @@ export async function refreshIcsSource(params: {
       .eq("id", params.sourceId)
       .eq("user_id", params.userId);
   } else {
-    const safeMsg =
-      result.error === "not_found"
-        ? "Not found"
-        : String(result.error || userSafeError("fetch_failed"));
+    // Avoid writing unexpected internal messages to DB; keep this user-safe for UI display.
+    const safeMsg = String(result.error || userSafeError("fetch_failed"));
     await (params.supabase.from("planner_event_sources" as any) as any)
       .update({ sync_status: "error", sync_error: safeMsg.slice(0, 200), last_synced_at: new Date().toISOString() })
       .eq("id", params.sourceId)

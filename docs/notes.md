@@ -26,6 +26,7 @@ Maintenance rules:
   - Import behavior:
     - Validates URL scheme and blocks localhost/private IPs (best-effort; DNS rebinding remains a known limitation with native fetch).
     - Imports only events in a 30d past → ~18mo future window; skips invalid/missing DTSTART.
+    - Rejects very large calendars (~2MB cap) with a user-safe error.
     - Dedupes within a source by `source_event_uid` (uses ICS `UID` when present, otherwise a stable hash).
     - On refresh: updates source-managed fields only; does not overwrite `venue_id` or non-empty `notes`.
   - UI: `apps/ti-web/app/planner/PlannerClient.tsx` adds “Import calendar link” flow and a “Synced calendars” section with refresh.

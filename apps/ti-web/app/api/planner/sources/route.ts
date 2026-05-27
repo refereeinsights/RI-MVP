@@ -18,7 +18,6 @@ export async function GET() {
     .order("created_at", { ascending: false })
     .limit(50);
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+  if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
   return NextResponse.json({ ok: true, sources: data ?? [] });
 }
-

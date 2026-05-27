@@ -59,6 +59,7 @@ Note: `/planner` is distinct from `/weekend-planner` (saved tournaments + lodgin
 - Server-only parsing uses `node-ical` via `apps/ti-web/lib/planner/ics-import.ts` with `ical.parseICS(icsText)` (do not use `ical.fromURL()`; SSRF protections live in our fetch path).
 - Import window: 30 days in the past → ~18 months in the future.
 - Refresh behavior: inserts new events and updates source-managed fields; does not delete missing events yet; does not overwrite `venue_id` or non-empty `notes`.
+- `GET /api/planner/sources` returns source metadata only (does not return `source_url`).
 - SSRF: URL scheme/host checks + DNS lookup + manual redirect chaining; DNS rebinding remains a known limitation with native `fetch` (acceptable for MVP; tighten later with an agent-based approach if needed).
 
 ---
