@@ -193,6 +193,7 @@ export default function PlannerClient(props: Props) {
   const [importSourceName, setImportSourceName] = useState("");
   const [importTeamName, setImportTeamName] = useState("");
   const [importResult, setImportResult] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const [mapPickerQuery, setMapPickerQuery] = useState<string>("");
@@ -340,6 +341,7 @@ export default function PlannerClient(props: Props) {
     setImportSourceName("");
     setImportTeamName("");
     setImportResult(null);
+    setImportError(null);
   }
 
   function beginEdit(e: PlannerEventRow) {
@@ -478,12 +480,11 @@ export default function PlannerClient(props: Props) {
   }
 
   async function onImportIcs() {
-    setError(null);
-    setNotice(null);
+    setImportError(null);
     setImportResult(null);
     const url = importUrl.trim();
     if (!url) {
-      setError("Enter a valid iCal/ICS calendar URL.");
+      setImportError("Enter a valid iCal/ICS calendar URL.");
       return;
     }
 
@@ -505,9 +506,10 @@ export default function PlannerClient(props: Props) {
         }),
       });
       setImportResult(`Imported ${res.imported} · Updated ${res.updated} · Skipped ${res.skipped}`);
+      setImportError(null);
       await Promise.all([loadEvents(), loadSources()]);
     } catch (e: any) {
-      setError(e?.message || "Import failed.");
+      setImportError(e?.message || "Import failed.");
     } finally {
       setBusy(false);
     }
@@ -705,6 +707,12 @@ export default function PlannerClient(props: Props) {
               planner.
             </div>
 
+            {importError ? (
+              <div className={styles.muted} style={{ color: "#b91c1c", fontWeight: 800, marginBottom: 10 }}>
+                {importError}
+              </div>
+            ) : null}
+
             {importResult ? (
               <div className={styles.muted} style={{ color: "#166534", fontWeight: 900, marginBottom: 10 }}>
                 {importResult}
@@ -772,7 +780,15 @@ export default function PlannerClient(props: Props) {
           <p className={styles.subtitle}>Add your schedule, travel, and hotel details for tournament weekend.</p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button className={styles.secondaryBtn} onClick={() => { setImportOpen(true); setImportResult(null); }} disabled={busy}>
+          <button
+            className={styles.secondaryBtn}
+            onClick={() => {
+              setImportOpen(true);
+              setImportResult(null);
+              setImportError(null);
+            }}
+            disabled={busy}
+          >
             Import calendar link
           </button>
         </div>

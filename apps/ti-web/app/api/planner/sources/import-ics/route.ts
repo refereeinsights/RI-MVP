@@ -6,6 +6,9 @@ export const runtime = "nodejs";
 
 type Body = {
   sourceUrl?: unknown;
+  // Back-compat: older clients may have used `url` or `source_url`.
+  url?: unknown;
+  source_url?: unknown;
   sourceName?: unknown;
   teamName?: unknown;
 };
@@ -27,7 +30,11 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as Body | null;
   if (!body) return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
 
-  const sourceUrl = asTrimmedString(body.sourceUrl) ?? "";
+  const sourceUrl =
+    asTrimmedString(body.sourceUrl) ??
+    asTrimmedString(body.url) ??
+    asTrimmedString(body.source_url) ??
+    "";
   const sourceName = asTrimmedString(body.sourceName);
   const teamName = asTrimmedString(body.teamName);
 
