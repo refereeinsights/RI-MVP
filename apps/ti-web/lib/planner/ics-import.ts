@@ -39,6 +39,21 @@ export type IcsImportResult = {
   inWindowTotal: number;
 } | { ok: false; status: number; error: string };
 
+function logSupabaseError(context: string, err: unknown) {
+  const e = err as any;
+  const code = e?.code ?? null;
+  const message = e?.message ? String(e.message) : null;
+  const details = e?.details ? String(e.details) : null;
+  const hint = e?.hint ? String(e.hint) : null;
+  // Do not log user-provided URLs or full row payloads here.
+  // We only log minimal error metadata so production logs can diagnose RLS/constraints/schema drift.
+  console.error(`[planner][ics-import] ${context}`, { code, message, details, hint });
+}
+
+function genericImportFailure() {
+  return "We couldn’t import that calendar right now. Please try again.";
+}
+
 function clamp(value: string | null, maxLen: number) {
   const v = String(value ?? "").trim();
   if (!v) return null;
@@ -489,7 +504,8 @@ export async function importIcsToPlanner(params: {
     .single();
 
   if (upsertSource.error || !upsertSource.data?.id) {
-    return { ok: false, status: 500, error: "Server error" };
+    if (upsertSource.error) logSupabaseError("upsert planner_event_sources failed", upsertSource.error);
+    return { ok: false, status: 500, error: genericImportFailure() };
   }
   const sourceId = String(upsertSource.data.id);
 
@@ -543,11 +559,15 @@ export async function importIcsToPlanner(params: {
             .eq("user_id", input.userId)
             .eq("source_id", sourceId)
             .eq("source_event_uid", e.source_event_uid);
-          if (u.error) return { ok: false, status: 500, error: "Server error" };
+          if (u.error) {
+            logSupabaseError("update planner_events after insert unique violation failed", u.error);
+            return { ok: false, status: 500, error: genericImportFailure() };
+          }
           updated += 1;
         }
       } else {
-        return { ok: false, status: 500, error: "Server error" };
+        logSupabaseError("insert planner_events failed", res.error);
+        return { ok: false, status: 500, error: genericImportFailure() };
       }
     } else {
       imported += inserts.length;
@@ -571,7 +591,10 @@ export async function importIcsToPlanner(params: {
         .eq("user_id", input.userId)
         .eq("source_id", sourceId)
         .eq("source_event_uid", e.source_event_uid);
-      if (res.error) return { ok: false, status: 500, error: "Server error" };
+      if (res.error) {
+        logSupabaseError("update planner_events failed", res.error);
+        return { ok: false, status: 500, error: genericImportFailure() };
+      }
       updated += 1;
     }
   }
@@ -611,7 +634,10 @@ export async function refreshIcsSource(params: {
     .eq("user_id", params.userId)
     .maybeSingle();
 
-  if (error) return { ok: false, status: 500, error: "Server error" };
+  if (error) {
+    logSupabaseError("select planner_event_sources for refresh failed", error);
+    return { ok: false, status: 500, error: genericImportFailure() };
+  }
   if (!data || String((data as any).source_type ?? "") !== "ics") {
     return { ok: false, status: 404, error: "not_found" };
   }
