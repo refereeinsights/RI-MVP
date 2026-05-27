@@ -140,6 +140,29 @@ function mapsSearchUrl(query: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
+function appleMapsUrl(query: string) {
+  const q = String(query ?? "").trim();
+  if (!q) return null;
+  return `https://maps.apple.com/?q=${encodeURIComponent(q)}`;
+}
+
+function wazeUrl(query: string) {
+  const q = String(query ?? "").trim();
+  if (!q) return null;
+  return `https://waze.com/ul?q=${encodeURIComponent(q)}&navigate=yes`;
+}
+
+function isLikelyMobile() {
+  if (typeof window === "undefined") return false;
+  try {
+    if (window.matchMedia?.("(pointer: coarse)").matches) return true;
+  } catch {
+    // ignore
+  }
+  const ua = String(navigator.userAgent || "").toLowerCase();
+  return ua.includes("iphone") || ua.includes("ipad") || ua.includes("ipod") || ua.includes("android");
+}
+
 async function jsonFetch<T>(url: string, init: RequestInit) {
   const res = await fetch(url, {
     ...init,
@@ -170,6 +193,9 @@ export default function PlannerClient(props: Props) {
   const [importSourceName, setImportSourceName] = useState("");
   const [importTeamName, setImportTeamName] = useState("");
   const [importResult, setImportResult] = useState<string | null>(null);
+
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
+  const [mapPickerQuery, setMapPickerQuery] = useState<string>("");
 
   const [createTitle, setCreateTitle] = useState("");
   const [createType, setCreateType] = useState<PlannerEventType>("game");
@@ -221,6 +247,20 @@ export default function PlannerClient(props: Props) {
     if (!loc) return null;
     return mapsSearchUrl(loc);
   };
+
+  function openMapForEvent(e: PlannerEventRow) {
+    const loc = locationTextForEvent(e);
+    if (!loc) return;
+
+    if (isLikelyMobile()) {
+      setMapPickerQuery(loc);
+      setMapPickerOpen(true);
+      return;
+    }
+
+    const url = mapsSearchUrl(loc);
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  }
 
   const applyVenueToCreateLocationIfEmpty = (v: VenueSearchResult) => {
     const address = String(v.address ?? "").trim();
@@ -579,6 +619,62 @@ export default function PlannerClient(props: Props) {
 
   return (
     <div className={styles.page}>
+      {mapPickerOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.5)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            padding: 12,
+            zIndex: 50,
+          }}
+          onClick={() => setMapPickerOpen(false)}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              width: "100%",
+              maxWidth: 520,
+              padding: 14,
+              border: "1px solid rgba(15,23,42,0.12)",
+              boxShadow: "0 10px 30px rgba(15,23,42,0.18)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>Open in maps</div>
+            <div className={styles.muted} style={{ marginBottom: 12 }}>
+              {mapPickerQuery}
+            </div>
+            <div className={styles.eventActions}>
+              {appleMapsUrl(mapPickerQuery) ? (
+                <a className={styles.primaryBtn} href={appleMapsUrl(mapPickerQuery) || undefined} target="_blank" rel="noreferrer">
+                  Apple Maps
+                </a>
+              ) : null}
+              {mapsSearchUrl(mapPickerQuery) ? (
+                <a className={styles.secondaryBtn} href={mapsSearchUrl(mapPickerQuery) || undefined} target="_blank" rel="noreferrer">
+                  Google Maps
+                </a>
+              ) : null}
+              {wazeUrl(mapPickerQuery) ? (
+                <a className={styles.secondaryBtn} href={wazeUrl(mapPickerQuery) || undefined} target="_blank" rel="noreferrer">
+                  Waze
+                </a>
+              ) : null}
+              <button className={styles.secondaryBtn} type="button" onClick={() => setMapPickerOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {importOpen ? (
         <div
           role="dialog"
@@ -986,9 +1082,9 @@ export default function PlannerClient(props: Props) {
                                 </button>
                               ) : null}
                               {mapsUrlForEvent(e) ? (
-                                <a className={styles.secondaryBtn} href={mapsUrlForEvent(e) || undefined} target="_blank" rel="noreferrer">
+                                <button className={styles.secondaryBtn} type="button" onClick={() => openMapForEvent(e)} disabled={busy}>
                                   Map
-                                </a>
+                                </button>
                               ) : null}
                               <button className={styles.secondaryBtn} onClick={() => beginEdit(e)} disabled={busy}>
                                 Edit
