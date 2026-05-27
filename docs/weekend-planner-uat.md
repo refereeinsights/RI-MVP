@@ -70,6 +70,23 @@ Preferred options:
 
 Do not add production API routes to serve fixtures.
 
+## Production rollout checklist (REQUIRED before running UAT)
+
+Because UAT runs against **production**, confirm these are true before running the planner ICS import/refresh tests:
+
+1) **Canonical route**: `/weekend-planner` is the canonical planner entrypoint.
+2) **Compatibility redirect**: `/planner` **redirects** to `/weekend-planner` (query params preserved where practical).
+3) **Stage 2 migrations applied in prod** (or ICS import may 500):
+   - `supabase/migrations/20260526_ti_planner_stage2_sources_unique_url.sql`
+   - `supabase/migrations/20260526_ti_planner_stage2_ics_unique_uid.sql`
+4) **Planner search surfaces applied in prod** (or venue/tournament search may return empty):
+   - `supabase/migrations/20260527_ti_planner_public_search_surfaces.sql`
+5) **Hosted fixtures reachable over HTTPS**:
+   - Initial: `https://www.tournamentinsights.com/uat-fixtures/planner/test-calendar-initial.ics`
+   - Updated: `https://www.tournamentinsights.com/uat-fixtures/planner/test-calendar-updated.ics`
+   - Invalid: `https://www.tournamentinsights.com/uat-fixtures/planner/test-calendar-invalid.ics`
+   - Not-a-calendar: `https://www.tournamentinsights.com/uat-fixtures/planner/not-a-calendar.txt`
+
 ## Cleanup (production-safe SQL templates)
 
 Cleanup must target the UAT users’ auth UUIDs only.
