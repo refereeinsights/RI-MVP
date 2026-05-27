@@ -16,6 +16,7 @@ Maintenance rules:
 
 - TI planner: Stage 2.1 local-first venue-aware polish (MVP).
   - Planner UI: event cards render gracefully with or without location; “Find venue” is available for events without a linked venue; “Map” action appears only when a usable location exists.
+  - Mobile: “Map” opens a lightweight picker (Apple Maps / Google Maps / Waze) on mobile; desktop opens Google Maps search.
   - UAT: `docs/qa/ti-planner-ics-uat.md` updated with venue linking steps.
 
 - TI planner: production-safe UAT framework for Stage 2 validation (production-only DB).
@@ -49,6 +50,10 @@ Maintenance rules:
   - UI: `apps/ti-web/app/planner/PlannerClient.tsx` adds “Import calendar link” flow and a “Synced calendars” section with refresh.
   - Lib: `apps/ti-web/lib/planner/ics-import.ts` (fetch + parse + normalize + insert/update + refresh).
   - UAT: `docs/qa/ti-planner-ics-uat.md`.
+
+- TI partners/Fanatics: fix Next.js build error caused by using an async server component as JSX.
+  - Change: call `FanaticsGearModule` as an async function and render its returned element instead of `<FanaticsGearModule />`.
+  - File: `apps/ti-web/app/tournaments/[slug]/page.tsx`.
 
 ## 2026-05-26
 
