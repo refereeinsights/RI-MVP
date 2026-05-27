@@ -168,6 +168,7 @@ export type TiAnalyticsEventPropertiesByName = {
     tournament_id: string;
     tournament_slug: string;
     sport: string | null;
+    state: string | null;
     venue_count: number;
     href: string;
   };

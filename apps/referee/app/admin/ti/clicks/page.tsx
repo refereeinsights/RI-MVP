@@ -24,10 +24,11 @@ type TopTournamentRow = {
 };
 
 type TopVenueRow = {
-  venue_id: string;
+  tournament_id: string;
   view_count: number;
   name: string | null;
-  next_tournament_start: string | null;
+  start_date: string | null;
+  end_date: string | null;
 };
 
 type TopDimensionRow = { sport?: string; state?: string; view_count?: number; open_count?: number };
@@ -432,10 +433,10 @@ export default async function TiClicksPage() {
         </div>
 
         <div style={tileStyle}>
-          <div style={tileLabelStyle}>Top 10 venue maps opened — last 30d</div>
+          <div style={tileLabelStyle}>Top 10 tournament venue maps — last 30d</div>
           {topVenuesRes.error ? (
             <div style={{ marginTop: 8, fontSize: 12, color: "#b91c1c" }}>
-              RPC error — apply migration `20260525_admin_analytics_rpcs.sql` first.
+              RPC error — apply migration `20260527_admin_venue_map_rpc_fix.sql` first.
             </div>
           ) : topVenues.length === 0 ? (
             <div style={tileMetaStyle}>No data yet</div>
@@ -443,16 +444,14 @@ export default async function TiClicksPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
               <tbody>
                 {topVenues.map((row) => (
-                  <tr key={row.venue_id} style={{ borderTop: "1px solid #f3f4f6" }}>
+                  <tr key={row.tournament_id} style={{ borderTop: "1px solid #f3f4f6" }}>
                     <td style={{ padding: "6px 0", fontSize: 13, fontWeight: 800, color: "#111" }}>
-                      {row.name ?? row.venue_id}
-                      {row.next_tournament_start ? (
+                      {row.name ?? row.tournament_id}
+                      {row.start_date ? (
                         <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", marginTop: 1 }}>
-                          Next: {row.next_tournament_start}
+                          {row.start_date}{row.end_date && row.end_date !== row.start_date ? ` – ${row.end_date}` : ""}
                         </div>
-                      ) : (
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", marginTop: 1 }}>No upcoming tournament</div>
-                      )}
+                      ) : null}
                     </td>
                     <td style={{ padding: "6px 0", textAlign: "right", fontSize: 13, fontWeight: 950, color: "#374151", whiteSpace: "nowrap" }}>
                       {Number(row.view_count).toLocaleString("en-US")} opens

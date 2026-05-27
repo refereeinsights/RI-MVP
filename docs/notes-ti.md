@@ -13,6 +13,37 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-05-27
+
+### Analytics: venue map panels fix — /admin/ti/clicks
+
+**Root cause:** Two "No data yet" panels despite real event volume (66 `venue_map_opened` in last 30d).
+
+- **"Top 10 venue maps opened" panel** — `admin_top_viewed_venues` RPC filtered `properties->>'venue_id' IS NOT NULL` on `venue_map_opened` events. But `venue_map_opened` is a page-level event (one fire per map page load); it has `tournament_id`, not `venue_id`. No rows ever matched.
+- **"Top states by venue map opens" panel** — `admin_top_states_by_venue_opens` filtered `state IS NOT NULL`. The `state` column is populated from `props.state` at insert time, but `venue_map_opened` didn't include a `state` property in its payload. Always NULL.
+
+**Fixes:**
+
+*Fix 1 — RPC (`supabase/migrations/20260527_admin_venue_map_rpc_fix.sql`):*
+- DROPs and recreates `admin_top_viewed_venues` to group by `properties->>'tournament_id'` instead of `venue_id`.
+- Return type changes: `tournament_id`, `view_count`, `name`, `start_date`, `end_date` (JOINs `tournaments`).
+- Panel retitled "Top 10 tournament venue maps — last 30d". **Must apply migration to see data.**
+
+*Fix 3 — `state` propagation (5 files):*
+- `map/page.tsx`: adds `state` to `TournamentRow` type + `.select()`, passes it in tournament prop.
+- `TournamentVenueMapShellClient.tsx` + `TournamentVenueMapClient.tsx`: adds `state: string | null` to tournament prop type.
+- `TournamentVenueMapClient.tsx`: passes `state: tournament.state ?? null` in `venue_map_opened` event payload.
+- `tiAnalyticsEvents.ts`: adds `state` to `venue_map_opened` type.
+- Historical events before this deploy won't have `state`; "Top states" panel populates from new events only.
+
+**Files changed:**
+- `supabase/migrations/20260527_admin_venue_map_rpc_fix.sql` — new migration (apply to prod)
+- `apps/referee/app/admin/ti/clicks/page.tsx` — updated `TopVenueRow` type + panel rendering
+- `apps/ti-web/app/tournaments/[slug]/map/page.tsx` — added `state` to query + prop
+- `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapShellClient.tsx` — added `state` to tournament prop type
+- `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapClient.tsx` — added `state` to prop type + event payload
+- `apps/ti-web/lib/tiAnalyticsEvents.ts` — added `state` to `venue_map_opened` type
+
 ## 2026-05-25
 
 ### Analytics dashboard redesign — /admin/ti/clicks

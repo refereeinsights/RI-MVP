@@ -13,7 +13,7 @@ export default function TournamentVenueMapShellClient({
   mapEnabled,
   initialSelectedVenueId,
 }: {
-  tournament: { id: string; slug: string; name: string; sport: string | null };
+  tournament: { id: string; slug: string; name: string; sport: string | null; state: string | null };
   venues: MapVenue[];
   sportKey: string;
   mapEnabled: boolean;

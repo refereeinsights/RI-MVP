@@ -11,6 +11,7 @@ type TournamentRow = {
   slug: string | null;
   name: string;
   sport: string | null;
+  state: string | null;
 };
 
 type OwlsEyeRunRow = {
@@ -106,7 +107,7 @@ export default async function TournamentMapPage({
 }) {
   const { data: tournament } = await supabaseAdmin
     .from("tournaments_public" as any)
-    .select("id,slug,name,sport")
+    .select("id,slug,name,sport,state")
     .eq("slug", params.slug)
     .maybeSingle<TournamentRow>();
 
@@ -196,6 +197,7 @@ export default async function TournamentMapPage({
           slug: String(tournament.slug ?? params.slug),
           name: tournament.name,
           sport: tournament.sport ?? null,
+          state: tournament.state ?? null,
         }}
         venues={venues}
         sportKey={sportKey}

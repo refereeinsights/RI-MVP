@@ -93,7 +93,7 @@ export default function TournamentVenueMapClient({
   detailMode,
   setDetailMode,
 }: {
-  tournament: { id: string; slug: string; name: string; sport: string | null };
+  tournament: { id: string; slug: string; name: string; sport: string | null; state: string | null };
   venues: MapVenue[];
   mapEnabled: boolean;
   selectedVenueId: string | null;
@@ -186,6 +186,7 @@ export default function TournamentVenueMapClient({
       tournament_id: tournament.id,
       tournament_slug: tournament.slug,
       sport: tournament.sport ?? null,
+      state: tournament.state ?? null,
       venue_count: venues.length,
       href: typeof window !== "undefined" ? window.location.href : analyticsHref,
     });
