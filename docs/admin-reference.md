@@ -7,7 +7,8 @@
 - `apps/referee/lib/admin.ts` (`requireAdmin()` and many admin server helpers)
 - `apps/referee/lib/trackExternalCall.ts` (external API call tracking constants + wrapper)
 - `apps/ti-web/app/admin/**` (TournamentInsights admin UI routes)
-- `apps/ti-web/app/planner/**` (TournamentInsights user planner feature at `/planner` — Stage 1 manual events)
+- `apps/ti-web/app/planner/**` (TournamentInsights planner UI + APIs; `/planner` is a compatibility alias)
+- `apps/ti-web/app/weekend-planner/**` (canonical Weekend Planner entrypoint at `/weekend-planner`)
 - `apps/ti-web/lib/outreachAdmin.ts` (`requireTiOutreachAdmin()` gate for TI admin pages)
 - `apps/ti-web/lib/trackExternalCall.ts` (TI external API call tracking constants + wrapper)
 - `supabase/migrations/**` (DB schema: tables/views/functions/RPCs used by admin and ops)
@@ -26,8 +27,9 @@ Service role usage pattern:
 ---
 
 ## TI Planner (Stage 1)
-### User route
-- `/planner` → `apps/ti-web/app/planner/page.tsx` (manual planner events; authenticated-only via `/login?returnTo=/planner`)
+### User routes
+- `/weekend-planner` → `apps/ti-web/app/weekend-planner/page.tsx` (canonical Weekend Planner app entrypoint; shows planner for signed-in users)
+- `/planner` → `apps/ti-web/app/planner/page.tsx` (compatibility alias; should redirect to `/weekend-planner`)
 
 ### DB migration
 - `supabase/migrations/20260526_ti_planner_stage1.sql`
@@ -41,7 +43,7 @@ Service role usage pattern:
 - `POST /api/planner/events` → `apps/ti-web/app/api/planner/events/route.ts`
 - `PATCH|DELETE /api/planner/events/[id]` → `apps/ti-web/app/api/planner/events/[id]/route.ts`
 
-Note: `/planner` is distinct from `/weekend-planner` (saved tournaments + lodging). Do not conflate them.
+Note: Route consolidation in progress — `/weekend-planner` is the canonical planner entrypoint, and `/planner` should redirect to it. The legacy `/weekend-planner` “hub” content is now signed-out/secondary utility content.
 
 ## TI Planner (Stage 2 — ICS/iCal import MVP)
 ### DB migrations

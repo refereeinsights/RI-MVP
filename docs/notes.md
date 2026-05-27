@@ -67,6 +67,10 @@ Maintenance rules:
   - Types: `apps/ti-web/lib/planner/types.ts`.
   - Harden: validate `event_type`, `venue_id` UUID, state format, end before start, and make timezone formatting resilient to invalid IANA tz strings.
 
+## 2026-05-27
+
+- TI Weekend Planner route consolidation: `/weekend-planner` is now the canonical planner entrypoint; `/planner` is a compatibility alias that should redirect to `/weekend-planner` (query params preserved where practical). Primary header nav may temporarily hide “Weekend Planner” during UAT; direct URL access must still work.
+
 - TI partners/Fanatics: enrich `/go/partner/[partnerLinkId]` click logging to include `outbound_url` (actual destination URL) and a standardized `source_component` field (mirrors `placement`) in `ti_map_events.properties`.
   - File: `apps/ti-web/app/go/partner/[partnerLinkId]/route.ts`.
 

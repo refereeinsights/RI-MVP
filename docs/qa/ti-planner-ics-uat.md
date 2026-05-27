@@ -12,7 +12,7 @@ Production-only DB note: see `docs/weekend-planner-uat.md` for UAT accounts, hos
   - Prefer one with at least 2 future events
 
 ## UAT
-1. Log in and open `/planner`.
+1. Log in and open `/weekend-planner` (canonical). `/planner` should redirect to `/weekend-planner`.
 2. Click **Import calendar link**.
 3. Empty URL:
    - Submit with empty URL → expect error: “Enter a valid iCal/ICS calendar URL.”
