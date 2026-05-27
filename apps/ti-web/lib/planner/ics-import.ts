@@ -75,9 +75,11 @@ function parseAndValidateUrl(raw: string) {
     return { ok: false as const, error: userSafeError("invalid_url") };
   }
 
-  const hostname = url.hostname.toLowerCase();
+  // Normalize hostnames like "localhost." which may appear from copy/paste or redirect quirks.
+  const hostname = url.hostname.toLowerCase().replace(/\.+$/, "");
   if (!hostname) return { ok: false as const, error: userSafeError("invalid_url") };
   if (BLOCKED_HOSTS.has(hostname)) return { ok: false as const, error: userSafeError("private_url") };
+  if (hostname.endsWith(".localhost")) return { ok: false as const, error: userSafeError("private_url") };
   if (PRIVATE_HOST_SUFFIXES.some((s) => hostname.endsWith(s))) return { ok: false as const, error: userSafeError("private_url") };
 
   // Fast-path block for obvious IP literals.

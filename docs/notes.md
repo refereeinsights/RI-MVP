@@ -31,6 +31,7 @@ Maintenance rules:
     - On refresh: updates source-managed fields only; does not overwrite `venue_id` or non-empty `notes`.
   - UI: `apps/ti-web/app/planner/PlannerClient.tsx` adds “Import calendar link” flow and a “Synced calendars” section with refresh.
   - Lib: `apps/ti-web/lib/planner/ics-import.ts` (fetch + parse + normalize + insert/update + refresh).
+  - UAT: `docs/qa/ti-planner-ics-uat.md`.
 
 - TI planner: add Weekend Planner™ (Stage 1) foundation at `/planner` (distinct from `/weekend-planner`) with user-owned Supabase tables + RLS and minimal create/edit/delete APIs.
   - Migration: `supabase/migrations/20260526_ti_planner_stage1.sql` (planner tables, grants, env-safe `public.set_updated_at()` helper + triggers, RLS policies).
