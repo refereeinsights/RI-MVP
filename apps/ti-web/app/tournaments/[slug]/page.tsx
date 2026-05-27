@@ -1009,17 +1009,21 @@ async function TournamentVenueDetails({
 
     const venueId = linkedVenues.length === 1 ? linkedVenues[0].id : linkedVenues[0]?.id ?? undefined;
 
+    const moduleEl = await FanaticsGearModule({
+      sport: sportRaw || undefined,
+      placement: "gear_module",
+      pageType: "tournament_page",
+      title: picked.title,
+      description: picked.description,
+      tournamentId: tournament.id,
+      venueId,
+    });
+
+    if (!moduleEl) return null;
+
     return (
       <div style={{ width: "min(720px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
-        <FanaticsGearModule
-          sport={sportRaw || undefined}
-          placement="gear_module"
-          pageType="tournament_page"
-          title={picked.title}
-          description={picked.description}
-          tournamentId={tournament.id}
-          venueId={venueId}
-        />
+        {moduleEl}
       </div>
     );
   })();
