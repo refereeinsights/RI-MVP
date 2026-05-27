@@ -1,5 +1,6 @@
 import Link from "next/link";
 import "../tournaments/tournaments.css";
+import PlannerClient from "../planner/PlannerClient";
 import WeekendPlannerClient from "./WeekendPlannerClient";
 import styles from "./WeekendPlanner.module.css";
 import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
@@ -10,8 +11,10 @@ import { getSavedTournamentIdsForUser } from "@/lib/savedTournaments";
 import SavedTournamentActionsClient from "./SavedTournamentActionsClient";
 import { getActivePlansForUser } from "@/lib/weekendPlans";
 import WeekendPlanActionsClient from "./WeekendPlanActionsClient";
+import type { PlannerEventRow } from "@/lib/planner/types";
 
-export const revalidate = 3600;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type SavedTournamentRow = {
   id: string;
@@ -70,6 +73,20 @@ export default async function WeekendPlannerPage() {
   const tierInfo = await getTiTierServer(user ?? null);
   const isUnverified = Boolean(isAuthed && tierInfo.unverified);
   const canUseSavedPlanning = tierInfo.tier === "insider" || tierInfo.tier === "weekend_pro";
+  const isPaid = tierInfo.tier === "weekend_pro";
+
+  let plannerEvents: PlannerEventRow[] = [];
+  if (user) {
+    const { data, error } = await (supabase.from("planner_events" as any) as any)
+      .select(
+        "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,source_type,source_id,source_event_uid,created_at,updated_at"
+      )
+      .eq("user_id", user.id)
+      .order("starts_at", { ascending: true })
+      .limit(250);
+
+    plannerEvents = (error ? [] : (data ?? [])) as PlannerEventRow[];
+  }
 
   let activePlans: WeekendPlanRow[] = [];
   let plansLoadFailed = false;
@@ -174,10 +191,36 @@ export default async function WeekendPlannerPage() {
       <section className="field tournamentsField">
         <div className="headerBlock">
           <h1 className="title">Weekend Planner</h1>
-          <p className="subtitle">
-            Save tournaments, plan travel, and organize venue logistics for your sports weekend.
-          </p>
+          <p className="subtitle">Plan the weekend. Manage the season.</p>
           <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
+            {isAuthed ? (
+              <div style={{ width: "min(980px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
+                <PlannerClient initialEvents={plannerEvents} isPaid={isPaid} />
+              </div>
+            ) : (
+              <article className={styles.panelCard}>
+                <div className={styles.panelHeader}>
+                  <h2 className={styles.panelTitle}>Your whole weekend—and season—in one place</h2>
+                  <p className={styles.panelSub}>
+                    Save games, practices, venues, travel notes, and tournament logistics in one mobile-first planner.
+                  </p>
+                </div>
+                <div className={styles.cardBody} style={{ display: "grid", gap: 10 }}>
+                  <Link className={styles.ctaFull} href="/signup?returnTo=%2Fweekend-planner">
+                    Create account
+                  </Link>
+                  <Link className="secondaryLink" href="/login?returnTo=%2Fweekend-planner">
+                    Sign in
+                  </Link>
+                </div>
+              </article>
+            )}
+
+            {isAuthed ? (
+              <div style={{ paddingTop: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 950, color: "#0b1f14", marginBottom: 6 }}>Planning tools</div>
+              </div>
+            ) : null}
             <div className={styles.mainGrid} style={{ marginTop: 0 }}>
               <article className={styles.panelCard}>
                 <div className={styles.panelHeader}>

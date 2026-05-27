@@ -1,8 +1,4 @@
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabaseServer";
-import { getTiTierServer } from "@/lib/entitlementsServer";
-import PlannerClient from "./PlannerClient";
-import type { PlannerEventRow } from "@/lib/planner/types";
 
 export const metadata = {
   title: "Planner | TournamentInsights",
@@ -11,28 +7,14 @@ export const metadata = {
 
 export const runtime = "nodejs";
 
-export default async function PlannerPage() {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export default async function PlannerPage(props: { searchParams?: Record<string, string | string[] | undefined> }) {
+  const sp = props.searchParams ?? {};
+  const view = typeof sp.view === "string" ? sp.view : null;
+  const importParam = typeof sp.import === "string" ? sp.import : null;
 
-  if (!user) {
-    redirect(`/login?returnTo=${encodeURIComponent("/planner")}`);
-  }
+  const next = new URLSearchParams();
+  if (view) next.set("view", view);
+  if (importParam) next.set("import", importParam);
 
-  const tierInfo = await getTiTierServer(user);
-  const isPaid = tierInfo.tier === "weekend_pro";
-
-  const { data, error } = await (supabase.from("planner_events" as any) as any)
-    .select(
-      "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,source_type,source_id,source_event_uid,created_at,updated_at"
-    )
-    .eq("user_id", user.id)
-    .order("starts_at", { ascending: true })
-    .limit(250);
-
-  const events: PlannerEventRow[] = (error ? [] : (data ?? [])) as PlannerEventRow[];
-
-  return <PlannerClient initialEvents={events} isPaid={isPaid} />;
+  redirect(`/weekend-planner${next.toString() ? `?${next.toString()}` : ""}`);
 }

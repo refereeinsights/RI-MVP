@@ -78,6 +78,11 @@ Note: `/planner` is distinct from `/weekend-planner` (saved tournaments + lodgin
 - Venue/tournament reads in end-user planner code must use the authenticated-only views (`venues_public`, `tournaments_search_public`) via planner search routes; do not query base tables directly under RLS.
 - Maps: show a “Map” action only when a usable location string exists; use a simple external maps search URL (no new geocoding services).
 
+## Weekend Planner routing (consolidation)
+- Canonical route for the planner app experience: `/weekend-planner`.
+- Compatibility alias: `/planner` redirects to `/weekend-planner` (preserves allowlisted query params like `view`/`import`).
+- During consolidation + UAT, the primary header nav may hide the Weekend Planner link; direct access via `/weekend-planner` remains supported.
+
 ---
 
 ## Admin Routes

@@ -14,6 +14,8 @@ Maintenance rules:
 
 ## 2026-05-27
 
+- TI planner: route consolidation — canonical planner experience moved to `/weekend-planner`; `/planner` now redirects (preserves allowlisted `view`/`import` params). Primary header nav temporarily hides “Weekend Planner” during consolidation + UAT.
+
 - TI planner: Stage 2.1 local-first venue-aware polish (MVP).
   - Planner UI: event cards render gracefully with or without location; “Find venue” is available for events without a linked venue; “Map” action appears only when a usable location exists.
   - Mobile: “Map” opens a lightweight picker (Apple Maps / Google Maps / Waze) on mobile; desktop opens Google Maps search.
