@@ -69,6 +69,8 @@ Note: `/planner` is distinct from `/weekend-planner` (saved tournaments + lodgin
 - `GET /api/planner/sources` returns source metadata only (does not return `source_url`).
 - Planner search routes are authenticated and query only the views (`venues_public`, `tournaments_search_public`), not base tables.
 - SSRF: URL scheme/host checks + DNS lookup + manual redirect chaining; DNS rebinding remains a known limitation with native `fetch` (acceptable for MVP; tighten later with an agent-based approach if needed).
+- Production-only UAT framework (no staging DB): `docs/weekend-planner-uat.md` (UAT accounts, hosted fixture strategy, cleanup SQL templates scoped by UAT user UUIDs) + Stage 2 checklist `docs/qa/ti-planner-ics-uat.md`.
+- ICS fixtures for hosting/docs live under `apps/ti-web/lib/planner/__fixtures__/`.
 
 ---
 

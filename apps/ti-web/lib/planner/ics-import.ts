@@ -311,7 +311,7 @@ function parseDateOnlyToUtcMidnight(params: { dateOnly: string; tzid: string | n
   return new Date(localMidnightGuessUtc.getTime() - offsetMinutes * 60 * 1000);
 }
 
-function normalizeIcsEvents(params: {
+export function normalizeIcsEvents(params: {
   icsText: string;
   sourceUrl: string;
   teamName: string | null;
