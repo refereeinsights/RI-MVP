@@ -17,6 +17,7 @@ Maintenance rules:
 - TI planner: production-safe UAT framework for Stage 2 validation (production-only DB).
   - Doc: `docs/weekend-planner-uat.md` (UAT accounts, naming, hosted fixture URL strategy, cleanup SQL templates scoped to UAT user UUIDs).
   - Fixtures: `apps/ti-web/lib/planner/__fixtures__/*` (initial/updated/invalid ICS + not-a-calendar text for hosting and documentation).
+  - Hosting: `apps/ti-web/public/uat-fixtures/planner/*` published as TI static files under `/uat-fixtures/planner/` for production UAT import URLs.
   - Tests: `apps/ti-web/lib/planner/ics-import.test.ts` (node:test unit coverage for ICS normalization and UID fallback; DB-write behaviors remain manual QA / mock-dependent).
 
 - TI planner: UX hardening — remove raw UUID inputs from `/planner` event forms and add authenticated venue/tournament search.

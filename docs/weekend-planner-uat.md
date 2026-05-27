@@ -58,10 +58,10 @@ Production import only accepts **HTTP/HTTPS URLs**, so UAT needs hosted fixture 
 
 Decide one controlled hosting location and record the exact URLs here before running UAT:
 
-- Initial fixture: `<REQUIRED: set hosted URL>`
-- Updated fixture: `<REQUIRED: set hosted URL>`
-- Invalid fixture: `<REQUIRED: set hosted URL>`
-- Not-a-calendar text: `<REQUIRED: set hosted URL>`
+- Initial fixture: `https://www.tournamentinsights.com/uat-fixtures/planner/test-calendar-initial.ics`
+- Updated fixture: `https://www.tournamentinsights.com/uat-fixtures/planner/test-calendar-updated.ics`
+- Invalid fixture: `https://www.tournamentinsights.com/uat-fixtures/planner/test-calendar-invalid.ics`
+- Not-a-calendar text: `https://www.tournamentinsights.com/uat-fixtures/planner/not-a-calendar.txt`
 
 Preferred options:
 - TI production site static hosting (e.g. `https://www.tournamentinsights.com/uat-fixtures/planner/...`) if available, or
@@ -147,4 +147,3 @@ commit;
 Additional production-only checks to add during UAT:
 - Cross-user isolation using UAT User B (User A data must not be visible).
 - Cleanup run only against UAT user UUIDs.
-
