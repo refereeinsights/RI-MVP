@@ -26,6 +26,23 @@ type PlannerSourceRow = {
   created_at: string | null;
 };
 
+type VenueSearchResult = {
+  id: string;
+  name: string | null;
+  city: string | null;
+  state: string | null;
+  address: string | null;
+};
+
+type TournamentSearchResult = {
+  id: string;
+  name: string | null;
+  city: string | null;
+  state: string | null;
+  start_date: string | null;
+  end_date: string | null;
+};
+
 const EVENT_TYPES: { value: PlannerEventType; label: string }[] = [
   { value: "game", label: "Game" },
   { value: "practice", label: "Practice" },
@@ -106,6 +123,17 @@ function formatTimeRange(params: { startIso: string; endIso?: string | null; tim
   return `${startText} – ${endText}`;
 }
 
+function formatDateRangeLabel(start: string | null, end: string | null) {
+  if (!start && !end) return null;
+  const s = start ? new Date(`${start}T00:00:00Z`) : null;
+  const e = end ? new Date(`${end}T00:00:00Z`) : null;
+  const fmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
+  const sText = s && !Number.isNaN(s.getTime()) ? fmt.format(s) : null;
+  const eText = e && !Number.isNaN(e.getTime()) ? fmt.format(e) : null;
+  if (sText && eText) return `${sText} – ${eText}`;
+  return sText || eText;
+}
+
 async function jsonFetch<T>(url: string, init: RequestInit) {
   const res = await fetch(url, {
     ...init,
@@ -142,6 +170,16 @@ export default function PlannerClient(props: Props) {
   const [createStartsLocal, setCreateStartsLocal] = useState("");
   const [createEndsLocal, setCreateEndsLocal] = useState("");
   const [createVenueId, setCreateVenueId] = useState("");
+  const [createVenueQuery, setCreateVenueQuery] = useState("");
+  const [createVenueResults, setCreateVenueResults] = useState<VenueSearchResult[]>([]);
+  const [createVenueSearching, setCreateVenueSearching] = useState(false);
+  const [createSelectedVenue, setCreateSelectedVenue] = useState<VenueSearchResult | null>(null);
+
+  const [createTournamentId, setCreateTournamentId] = useState("");
+  const [createTournamentQuery, setCreateTournamentQuery] = useState("");
+  const [createTournamentResults, setCreateTournamentResults] = useState<TournamentSearchResult[]>([]);
+  const [createTournamentSearching, setCreateTournamentSearching] = useState(false);
+  const [createSelectedTournament, setCreateSelectedTournament] = useState<TournamentSearchResult | null>(null);
   const [createAddress, setCreateAddress] = useState("");
   const [createCity, setCreateCity] = useState("");
   const [createState, setCreateState] = useState("");
@@ -155,6 +193,16 @@ export default function PlannerClient(props: Props) {
   const [editStartsLocal, setEditStartsLocal] = useState("");
   const [editEndsLocal, setEditEndsLocal] = useState("");
   const [editVenueId, setEditVenueId] = useState("");
+  const [editVenueQuery, setEditVenueQuery] = useState("");
+  const [editVenueResults, setEditVenueResults] = useState<VenueSearchResult[]>([]);
+  const [editVenueSearching, setEditVenueSearching] = useState(false);
+  const [editSelectedVenue, setEditSelectedVenue] = useState<VenueSearchResult | null>(null);
+
+  const [editTournamentId, setEditTournamentId] = useState("");
+  const [editTournamentQuery, setEditTournamentQuery] = useState("");
+  const [editTournamentResults, setEditTournamentResults] = useState<TournamentSearchResult[]>([]);
+  const [editTournamentSearching, setEditTournamentSearching] = useState(false);
+  const [editSelectedTournament, setEditSelectedTournament] = useState<TournamentSearchResult | null>(null);
   const [editAddress, setEditAddress] = useState("");
   const [editCity, setEditCity] = useState("");
   const [editState, setEditState] = useState("");
@@ -202,6 +250,15 @@ export default function PlannerClient(props: Props) {
     setCreateStartsLocal("");
     setCreateEndsLocal("");
     setCreateVenueId("");
+    setCreateVenueQuery("");
+    setCreateVenueResults([]);
+    setCreateVenueSearching(false);
+    setCreateSelectedVenue(null);
+    setCreateTournamentId("");
+    setCreateTournamentQuery("");
+    setCreateTournamentResults([]);
+    setCreateTournamentSearching(false);
+    setCreateSelectedTournament(null);
     setCreateAddress("");
     setCreateCity("");
     setCreateState("");
@@ -222,6 +279,15 @@ export default function PlannerClient(props: Props) {
     setEditStartsLocal(toDateTimeLocalValue(e.starts_at));
     setEditEndsLocal(toDateTimeLocalValue(e.ends_at));
     setEditVenueId(e.venue_id ?? "");
+    setEditSelectedVenue(null);
+    setEditVenueQuery("");
+    setEditVenueResults([]);
+    setEditVenueSearching(false);
+    setEditTournamentId(e.tournament_id ?? "");
+    setEditSelectedTournament(null);
+    setEditTournamentQuery("");
+    setEditTournamentResults([]);
+    setEditTournamentSearching(false);
     setEditAddress(e.address_text ?? "");
     setEditCity(e.city ?? "");
     setEditState(e.state ?? "");
@@ -253,6 +319,7 @@ export default function PlannerClient(props: Props) {
       starts_at: startsIso,
       ends_at: endsIso,
       timezone: tz,
+      tournament_id: createTournamentId.trim() || null,
       venue_id: createVenueId.trim() || null,
       address_text: createAddress.trim() || null,
       city: createCity.trim() || null,
@@ -297,6 +364,7 @@ export default function PlannerClient(props: Props) {
       starts_at: startsIso,
       ends_at: endsIso,
       timezone: tz,
+      tournament_id: editTournamentId.trim() || null,
       venue_id: editVenueId.trim() || null,
       address_text: editAddress.trim() || null,
       city: editCity.trim() || null,
@@ -394,6 +462,90 @@ export default function PlannerClient(props: Props) {
       setBusy(false);
     }
   }
+
+  // Venue search (create)
+  useEffect(() => {
+    if (createSelectedVenue) return;
+    const q = createVenueQuery.trim();
+    if (q.length < 2) {
+      setCreateVenueResults([]);
+      setCreateVenueSearching(false);
+      return;
+    }
+    setCreateVenueSearching(true);
+    const t = setTimeout(() => {
+      void jsonFetch<{ ok: true; venues: VenueSearchResult[] }>("/api/planner/search/venues?q=" + encodeURIComponent(q), {
+        method: "GET",
+      })
+        .then((res) => setCreateVenueResults(res.venues ?? []))
+        .catch(() => setCreateVenueResults([]))
+        .finally(() => setCreateVenueSearching(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [createVenueQuery, createSelectedVenue]);
+
+  // Tournament search (create)
+  useEffect(() => {
+    if (createSelectedTournament) return;
+    const q = createTournamentQuery.trim();
+    if (q.length < 2) {
+      setCreateTournamentResults([]);
+      setCreateTournamentSearching(false);
+      return;
+    }
+    setCreateTournamentSearching(true);
+    const t = setTimeout(() => {
+      void jsonFetch<{ ok: true; tournaments: TournamentSearchResult[] }>("/api/planner/search/tournaments?q=" + encodeURIComponent(q), {
+        method: "GET",
+      })
+        .then((res) => setCreateTournamentResults(res.tournaments ?? []))
+        .catch(() => setCreateTournamentResults([]))
+        .finally(() => setCreateTournamentSearching(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [createTournamentQuery, createSelectedTournament]);
+
+  // Venue search (edit)
+  useEffect(() => {
+    if (editSelectedVenue) return;
+    const q = editVenueQuery.trim();
+    if (q.length < 2) {
+      setEditVenueResults([]);
+      setEditVenueSearching(false);
+      return;
+    }
+    setEditVenueSearching(true);
+    const t = setTimeout(() => {
+      void jsonFetch<{ ok: true; venues: VenueSearchResult[] }>("/api/planner/search/venues?q=" + encodeURIComponent(q), {
+        method: "GET",
+      })
+        .then((res) => setEditVenueResults(res.venues ?? []))
+        .catch(() => setEditVenueResults([]))
+        .finally(() => setEditVenueSearching(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [editVenueQuery, editSelectedVenue]);
+
+  // Tournament search (edit)
+  useEffect(() => {
+    if (editSelectedTournament) return;
+    const q = editTournamentQuery.trim();
+    if (q.length < 2) {
+      setEditTournamentResults([]);
+      setEditTournamentSearching(false);
+      return;
+    }
+    setEditTournamentSearching(true);
+    const t = setTimeout(() => {
+      void jsonFetch<{ ok: true; tournaments: TournamentSearchResult[] }>("/api/planner/search/tournaments?q=" + encodeURIComponent(q), {
+        method: "GET",
+      })
+        .then((res) => setEditTournamentResults(res.tournaments ?? []))
+        .catch(() => setEditTournamentResults([]))
+        .finally(() => setEditTournamentSearching(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [editTournamentQuery, editSelectedTournament]);
 
   return (
     <div className={styles.page}>
@@ -538,9 +690,127 @@ export default function PlannerClient(props: Props) {
             </div>
 
             <div>
-              <label className={styles.label}>Venue ID (optional)</label>
-              <input className={styles.input} value={createVenueId} onChange={(e) => setCreateVenueId(e.target.value)} placeholder="UUID" />
+              <label className={styles.label}>Venue</label>
+              {createSelectedVenue ? (
+                <div className={styles.eventItem} style={{ padding: 10 }}>
+                  <div className={styles.eventTitle}>{createSelectedVenue.name || "Selected venue"}</div>
+                  <div className={styles.eventMeta}>
+                    {[createSelectedVenue.city, createSelectedVenue.state].filter(Boolean).join(", ")}
+                  </div>
+                  <div className={styles.eventActions}>
+                    <button
+                      className={styles.secondaryBtn}
+                      type="button"
+                      onClick={() => {
+                        setCreateSelectedVenue(null);
+                        setCreateVenueId("");
+                      }}
+                      disabled={busy}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <input
+                    className={styles.input}
+                    value={createVenueQuery}
+                    onChange={(e) => setCreateVenueQuery(e.target.value)}
+                    placeholder="Search by venue name"
+                  />
+                  {createVenueSearching ? <div className={styles.muted}>Searching…</div> : null}
+                  {!createVenueSearching && createVenueQuery.trim().length >= 2 && createVenueResults.length === 0 ? (
+                    <div className={styles.muted}>No matches found.</div>
+                  ) : null}
+                  {createVenueResults.length > 0 ? (
+                    <div style={{ border: "1px solid rgba(15,23,42,0.12)", borderRadius: 10, overflow: "hidden" }}>
+                      {createVenueResults.map((v) => (
+                        <button
+                          key={v.id}
+                          type="button"
+                          className={styles.secondaryBtn}
+                          style={{ width: "100%", justifyContent: "space-between", borderRadius: 0 }}
+                          onClick={() => {
+                            setCreateSelectedVenue(v);
+                            setCreateVenueId(v.id);
+                            setCreateVenueQuery("");
+                            setCreateVenueResults([]);
+                          }}
+                          disabled={busy}
+                        >
+                          <span>{v.name || "Unnamed venue"}</span>
+                          <span className={styles.muted}>{[v.city, v.state].filter(Boolean).join(", ")}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
+          </div>
+
+          <div>
+            <label className={styles.label}>Tournament</label>
+            {createSelectedTournament ? (
+              <div className={styles.eventItem} style={{ padding: 10 }}>
+                <div className={styles.eventTitle}>{createSelectedTournament.name || "Selected tournament"}</div>
+                <div className={styles.eventMeta}>
+                  {formatDateRangeLabel(createSelectedTournament.start_date, createSelectedTournament.end_date) || ""}
+                </div>
+                <div className={styles.eventActions}>
+                  <button
+                    className={styles.secondaryBtn}
+                    type="button"
+                    onClick={() => {
+                      setCreateSelectedTournament(null);
+                      setCreateTournamentId("");
+                    }}
+                    disabled={busy}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <input
+                  className={styles.input}
+                  value={createTournamentQuery}
+                  onChange={(e) => setCreateTournamentQuery(e.target.value)}
+                  placeholder="Search by tournament name (optional)"
+                />
+                {createTournamentSearching ? <div className={styles.muted}>Searching…</div> : null}
+                {!createTournamentSearching && createTournamentQuery.trim().length >= 2 && createTournamentResults.length === 0 ? (
+                  <div className={styles.muted}>No matches found.</div>
+                ) : null}
+                {createTournamentResults.length > 0 ? (
+                  <div style={{ border: "1px solid rgba(15,23,42,0.12)", borderRadius: 10, overflow: "hidden" }}>
+                    {createTournamentResults.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className={styles.secondaryBtn}
+                        style={{ width: "100%", justifyContent: "space-between", borderRadius: 0 }}
+                        onClick={() => {
+                          setCreateSelectedTournament(t);
+                          setCreateTournamentId(t.id);
+                          setCreateTournamentQuery("");
+                          setCreateTournamentResults([]);
+                        }}
+                        disabled={busy}
+                      >
+                        <span>{t.name || "Unnamed tournament"}</span>
+                        <span className={styles.muted}>
+                          {formatDateRangeLabel(t.start_date, t.end_date) || ""}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            )}
+            <div className={styles.muted}>Tournament is optional.</div>
           </div>
 
           <div className={styles.row2}>
@@ -556,7 +826,7 @@ export default function PlannerClient(props: Props) {
 
           <div className={styles.row2}>
             <div>
-              <label className={styles.label}>Address (optional)</label>
+              <label className={styles.label}>Address or location</label>
               <input className={styles.input} value={createAddress} onChange={(e) => setCreateAddress(e.target.value)} placeholder="123 Main St" />
             </div>
             <div className={styles.row2}>
@@ -649,7 +919,8 @@ export default function PlannerClient(props: Props) {
                         </div>
                         <div className={styles.eventMeta}>
                           {formatTimeRange({ startIso: e.starts_at, endIso: e.ends_at, timeZone: eTz })}
-                          {e.venue_id ? ` · venue ${e.venue_id}` : ""}
+                          {e.venue_id ? " · Venue selected" : ""}
+                          {e.tournament_id ? " · Tournament selected" : ""}
                         </div>
                         {e.address_text || e.city || e.state ? (
                           <div className={styles.eventMeta}>
@@ -698,9 +969,156 @@ export default function PlannerClient(props: Props) {
                                 </select>
                               </div>
                               <div>
-                                <label className={styles.label}>Venue ID (optional)</label>
-                                <input className={styles.input} value={editVenueId} onChange={(ev) => setEditVenueId(ev.target.value)} placeholder="UUID" />
+                                <label className={styles.label}>Venue</label>
+                                {editSelectedVenue ? (
+                                  <div className={styles.eventItem} style={{ padding: 10 }}>
+                                    <div className={styles.eventTitle}>{editSelectedVenue.name || "Selected venue"}</div>
+                                    <div className={styles.eventMeta}>
+                                      {[editSelectedVenue.city, editSelectedVenue.state].filter(Boolean).join(", ")}
+                                    </div>
+                                    <div className={styles.eventActions}>
+                                      <button
+                                        className={styles.secondaryBtn}
+                                        type="button"
+                                        onClick={() => {
+                                          setEditSelectedVenue(null);
+                                          setEditVenueId("");
+                                        }}
+                                        disabled={busy}
+                                      >
+                                        Clear
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : editVenueId ? (
+                                  <div className={styles.eventItem} style={{ padding: 10 }}>
+                                    <div className={styles.eventTitle}>Venue selected</div>
+                                    <div className={styles.eventMeta}>Selected venue is stored (name not loaded in MVP).</div>
+                                    <div className={styles.eventActions}>
+                                      <button
+                                        className={styles.secondaryBtn}
+                                        type="button"
+                                        onClick={() => setEditVenueId("")}
+                                        disabled={busy}
+                                      >
+                                        Clear
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <input
+                                      className={styles.input}
+                                      value={editVenueQuery}
+                                      onChange={(ev) => setEditVenueQuery(ev.target.value)}
+                                      placeholder="Search by venue name"
+                                    />
+                                    {editVenueSearching ? <div className={styles.muted}>Searching…</div> : null}
+                                    {!editVenueSearching && editVenueQuery.trim().length >= 2 && editVenueResults.length === 0 ? (
+                                      <div className={styles.muted}>No matches found.</div>
+                                    ) : null}
+                                    {editVenueResults.length > 0 ? (
+                                      <div style={{ border: "1px solid rgba(15,23,42,0.12)", borderRadius: 10, overflow: "hidden" }}>
+                                        {editVenueResults.map((v) => (
+                                          <button
+                                            key={v.id}
+                                            type="button"
+                                            className={styles.secondaryBtn}
+                                            style={{ width: "100%", justifyContent: "space-between", borderRadius: 0 }}
+                                            onClick={() => {
+                                              setEditSelectedVenue(v);
+                                              setEditVenueId(v.id);
+                                              setEditVenueQuery("");
+                                              setEditVenueResults([]);
+                                            }}
+                                            disabled={busy}
+                                          >
+                                            <span>{v.name || "Unnamed venue"}</span>
+                                            <span className={styles.muted}>{[v.city, v.state].filter(Boolean).join(", ")}</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    ) : null}
+                                  </>
+                                )}
                               </div>
+                            </div>
+                            <div>
+                              <label className={styles.label}>Tournament</label>
+                              {editSelectedTournament ? (
+                                <div className={styles.eventItem} style={{ padding: 10 }}>
+                                  <div className={styles.eventTitle}>{editSelectedTournament.name || "Selected tournament"}</div>
+                                  <div className={styles.eventMeta}>
+                                    {formatDateRangeLabel(editSelectedTournament.start_date, editSelectedTournament.end_date) || ""}
+                                  </div>
+                                  <div className={styles.eventActions}>
+                                    <button
+                                      className={styles.secondaryBtn}
+                                      type="button"
+                                      onClick={() => {
+                                        setEditSelectedTournament(null);
+                                        setEditTournamentId("");
+                                      }}
+                                      disabled={busy}
+                                    >
+                                      Clear
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : editTournamentId ? (
+                                <div className={styles.eventItem} style={{ padding: 10 }}>
+                                  <div className={styles.eventTitle}>Tournament selected</div>
+                                  <div className={styles.eventMeta}>Selected tournament is stored (name not loaded in MVP).</div>
+                                  <div className={styles.eventActions}>
+                                    <button
+                                      className={styles.secondaryBtn}
+                                      type="button"
+                                      onClick={() => setEditTournamentId("")}
+                                      disabled={busy}
+                                    >
+                                      Clear
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <input
+                                    className={styles.input}
+                                    value={editTournamentQuery}
+                                    onChange={(ev) => setEditTournamentQuery(ev.target.value)}
+                                    placeholder="Search by tournament name (optional)"
+                                  />
+                                  {editTournamentSearching ? <div className={styles.muted}>Searching…</div> : null}
+                                  {!editTournamentSearching && editTournamentQuery.trim().length >= 2 && editTournamentResults.length === 0 ? (
+                                    <div className={styles.muted}>No matches found.</div>
+                                  ) : null}
+                                  {editTournamentResults.length > 0 ? (
+                                    <div style={{ border: "1px solid rgba(15,23,42,0.12)", borderRadius: 10, overflow: "hidden" }}>
+                                      {editTournamentResults.map((t) => (
+                                        <button
+                                          key={t.id}
+                                          type="button"
+                                          className={styles.secondaryBtn}
+                                          style={{ width: "100%", justifyContent: "space-between", borderRadius: 0 }}
+                                          onClick={() => {
+                                            setEditSelectedTournament(t);
+                                            setEditTournamentId(t.id);
+                                            setEditTournamentQuery("");
+                                            setEditTournamentResults([]);
+                                          }}
+                                          disabled={busy}
+                                        >
+                                          <span>{t.name || "Unnamed tournament"}</span>
+                                          <span className={styles.muted}>
+                                            {formatDateRangeLabel(t.start_date, t.end_date) || ""}
+                                          </span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </>
+                              )}
+                              <div className={styles.muted}>Tournament is optional.</div>
                             </div>
                             <div className={styles.row2}>
                               <div>
@@ -714,7 +1132,7 @@ export default function PlannerClient(props: Props) {
                             </div>
                             <div className={styles.row2}>
                               <div>
-                                <label className={styles.label}>Address (optional)</label>
+                                <label className={styles.label}>Address or location</label>
                                 <input className={styles.input} value={editAddress} onChange={(ev) => setEditAddress(ev.target.value)} />
                               </div>
                               <div className={styles.row2}>

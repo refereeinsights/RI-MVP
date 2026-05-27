@@ -117,6 +117,15 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     patch.venue_id = venueId;
   }
 
+  if ("tournament_id" in (body as any)) {
+    const tournamentIdRaw = asString((body as any).tournament_id);
+    const tournamentId = tournamentIdRaw && isUuid(tournamentIdRaw) ? tournamentIdRaw : null;
+    if (tournamentIdRaw && !tournamentId) {
+      return NextResponse.json({ ok: false, error: "invalid_tournament_id" }, { status: 400 });
+    }
+    patch.tournament_id = tournamentId;
+  }
+
   if ("address_text" in (body as any)) patch.address_text = clamp(asString((body as any).address_text), 200);
   if ("city" in (body as any)) patch.city = clamp(asString((body as any).city), 80);
   if ("state" in (body as any)) {
@@ -137,7 +146,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     )
     .single();
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+  if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
   return NextResponse.json({ ok: true, event: data });
 }
 
@@ -158,6 +167,6 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
     .eq("id", eventId)
     .eq("user_id", user.id);
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+  if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

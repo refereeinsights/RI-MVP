@@ -30,9 +30,9 @@ Use this checklist to validate Stage 2 calendar import/refresh on a local dev se
    - In **Synced calendars**, click **Refresh schedule**.
    - Confirm it does not duplicate events; summary should show `+0 new` unless the source changed.
 9. Edit preservation:
-   - Pick one imported event, add notes and/or set `venue_id` manually.
+   - Pick one imported event, add notes and select a Venue using the Venue search field.
    - Refresh the calendar.
-   - Confirm `notes` (non-empty) and `venue_id` are not overwritten.
+   - Confirm `notes` (non-empty) and selected Venue are not overwritten.
 10. Manual events regression:
    - Create a manual event.
    - Edit it.

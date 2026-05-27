@@ -12,7 +12,14 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
-## 2026-05-26
+## 2026-05-27
+
+- TI planner: UX hardening — remove raw UUID inputs from `/planner` event forms and add authenticated venue/tournament search.
+  - Migration: `supabase/migrations/20260527_ti_planner_public_search_surfaces.sql` (adds `venues_public` and `tournaments_search_public` views for authenticated search; does not change base table RLS; not granted to anon/public).
+  - APIs: `apps/ti-web/app/api/planner/search/venues/route.ts`, `apps/ti-web/app/api/planner/search/tournaments/route.ts`.
+  - Planner UI: `apps/ti-web/app/planner/PlannerClient.tsx` (venue + tournament typeahead; removes “Venue ID (optional)” UUID inputs; event cards no longer display raw UUIDs).
+  - Planner API: add `tournament_id` write support + UUID validation on create/update routes.
+  - UAT: `docs/qa/ti-planner-ics-uat.md` updated to remove manual UUID wording.
 
 - TI planner: add Stage 2 ICS/iCal import MVP (server-side fetch + parse + dedupe) to `/planner`.
   - Dependency: `node-ical` (server-only parsing via `ical.parseICS()`; do not use `fromURL()`).
@@ -32,6 +39,8 @@ Maintenance rules:
   - UI: `apps/ti-web/app/planner/PlannerClient.tsx` adds “Import calendar link” flow and a “Synced calendars” section with refresh.
   - Lib: `apps/ti-web/lib/planner/ics-import.ts` (fetch + parse + normalize + insert/update + refresh).
   - UAT: `docs/qa/ti-planner-ics-uat.md`.
+
+## 2026-05-26
 
 - TI planner: add Weekend Planner™ (Stage 1) foundation at `/planner` (distinct from `/weekend-planner`) with user-owned Supabase tables + RLS and minimal create/edit/delete APIs.
   - Migration: `supabase/migrations/20260526_ti_planner_stage1.sql` (planner tables, grants, env-safe `public.set_updated_at()` helper + triggers, RLS policies).

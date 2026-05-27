@@ -41,6 +41,7 @@ export type PlannerEventCreateBody = {
   starts_at: string;
   ends_at?: string | null;
   timezone: string | null;
+  tournament_id?: string | null;
   venue_id?: string | null;
   address_text?: string | null;
   city?: string | null;

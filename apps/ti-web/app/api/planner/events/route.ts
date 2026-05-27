@@ -94,6 +94,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "invalid_venue_id" }, { status: 400 });
   }
 
+  const tournamentIdRaw = asString((body as any).tournament_id);
+  const tournamentId = tournamentIdRaw && isUuid(tournamentIdRaw) ? tournamentIdRaw : null;
+  if (tournamentIdRaw && !tournamentId) {
+    return NextResponse.json({ ok: false, error: "invalid_tournament_id" }, { status: 400 });
+  }
+
   const addressText = clamp(asString((body as any).address_text), 200);
   const city = clamp(asString((body as any).city), 80);
   const state = normalizeState(asString((body as any).state));
@@ -110,6 +116,7 @@ export async function POST(req: Request) {
       starts_at: startsAt,
       ends_at: endsAt,
       timezone,
+      tournament_id: tournamentId,
       venue_id: venueId,
       address_text: addressText,
       city,
@@ -122,7 +129,7 @@ export async function POST(req: Request) {
     )
     .single();
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+  if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
   return NextResponse.json({ ok: true, event: data });
 }
 
@@ -142,6 +149,6 @@ export async function GET() {
     .order("starts_at", { ascending: true })
     .limit(500);
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+  if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
   return NextResponse.json({ ok: true, events: data ?? [] });
 }

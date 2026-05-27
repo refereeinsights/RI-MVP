@@ -49,17 +49,25 @@ Note: `/planner` is distinct from `/weekend-planner` (saved tournaments + lodgin
   - Unique ICS sources per user: `(user_id, source_type, source_url)` (prevents duplicate “Synced calendars” entries for the same link).
 - `supabase/migrations/20260526_ti_planner_stage2_ics_unique_uid.sql`
   - Unique event identity per source: `(user_id, source_id, source_event_uid)` where `source_event_uid IS NOT NULL` (required for safe refresh dedupe).
+- `supabase/migrations/20260527_ti_planner_public_search_surfaces.sql`
+  - Adds authenticated-only read views for planner search:
+    - `public.venues_public`
+    - `public.tournaments_search_public`
+  - Base tables remain admin-only under RLS; views are not granted to `anon`/`public`.
 
 ### APIs
 - `POST /api/planner/sources/import-ics` → `apps/ti-web/app/api/planner/sources/import-ics/route.ts`
 - `POST /api/planner/sources/[id]/refresh` → `apps/ti-web/app/api/planner/sources/[id]/refresh/route.ts`
 - `GET /api/planner/sources` → `apps/ti-web/app/api/planner/sources/route.ts`
+- `GET /api/planner/search/venues?q=` → `apps/ti-web/app/api/planner/search/venues/route.ts`
+- `GET /api/planner/search/tournaments?q=` → `apps/ti-web/app/api/planner/search/tournaments/route.ts`
 
 ### Implementation notes
 - Server-only parsing uses `node-ical` via `apps/ti-web/lib/planner/ics-import.ts` with `ical.parseICS(icsText)` (do not use `ical.fromURL()`; SSRF protections live in our fetch path).
 - Import window: 30 days in the past → ~18 months in the future.
 - Refresh behavior: inserts new events and updates source-managed fields; does not delete missing events yet; does not overwrite `venue_id` or non-empty `notes`.
 - `GET /api/planner/sources` returns source metadata only (does not return `source_url`).
+- Planner search routes are authenticated and query only the views (`venues_public`, `tournaments_search_public`), not base tables.
 - SSRF: URL scheme/host checks + DNS lookup + manual redirect chaining; DNS rebinding remains a known limitation with native `fetch` (acceptable for MVP; tighten later with an agent-based approach if needed).
 
 ---
