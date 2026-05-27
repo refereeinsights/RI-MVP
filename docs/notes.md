@@ -14,6 +14,10 @@ Maintenance rules:
 
 ## 2026-05-27
 
+- TI planner: Stage 2.1 local-first venue-aware polish (MVP).
+  - Planner UI: event cards render gracefully with or without location; “Find venue” is available for events without a linked venue; “Map” action appears only when a usable location exists.
+  - UAT: `docs/qa/ti-planner-ics-uat.md` updated with venue linking steps.
+
 - TI planner: production-safe UAT framework for Stage 2 validation (production-only DB).
   - Doc: `docs/weekend-planner-uat.md` (UAT accounts, naming, hosted fixture URL strategy, cleanup SQL templates scoped to UAT user UUIDs).
   - Fixtures: `apps/ti-web/lib/planner/__fixtures__/*` (initial/updated/invalid ICS + not-a-calendar text for hosting and documentation).

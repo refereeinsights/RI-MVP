@@ -72,6 +72,12 @@ Note: `/planner` is distinct from `/weekend-planner` (saved tournaments + lodgin
 - Production-only UAT framework (no staging DB): `docs/weekend-planner-uat.md` (UAT accounts, hosted fixture strategy, cleanup SQL templates scoped by UAT user UUIDs) + Stage 2 checklist `docs/qa/ti-planner-ics-uat.md`.
 - ICS fixtures for hosting/docs live under `apps/ti-web/lib/planner/__fixtures__/`.
 
+## TI Planner (Stage 2.1 — Local-first venue-aware polish)
+- Events remain valid with only `title`, `starts_at`, and `event_type`; venue/tournament/location remain optional.
+- Planner UI supports optional venue linking via “Find venue” and never exposes raw UUIDs to end users.
+- Venue/tournament reads in end-user planner code must use the authenticated-only views (`venues_public`, `tournaments_search_public`) via planner search routes; do not query base tables directly under RLS.
+- Maps: show a “Map” action only when a usable location string exists; use a simple external maps search URL (no new geocoding services).
+
 ---
 
 ## Admin Routes

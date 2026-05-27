@@ -134,6 +134,12 @@ function formatDateRangeLabel(start: string | null, end: string | null) {
   return sText || eText;
 }
 
+function mapsSearchUrl(query: string) {
+  const q = String(query ?? "").trim();
+  if (!q) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+}
+
 async function jsonFetch<T>(url: string, init: RequestInit) {
   const res = await fetch(url, {
     ...init,
@@ -209,6 +215,30 @@ export default function PlannerClient(props: Props) {
   const [editNotes, setEditNotes] = useState("");
 
   const effectiveTimeZoneForEvent = (e: PlannerEventRow) => safeTimeZone(e.timezone) || tz || "UTC";
+  const locationTextForEvent = (e: PlannerEventRow) => [e.address_text, e.city, e.state].filter(Boolean).join(", ").trim();
+  const mapsUrlForEvent = (e: PlannerEventRow) => {
+    const loc = locationTextForEvent(e);
+    if (!loc) return null;
+    return mapsSearchUrl(loc);
+  };
+
+  const applyVenueToCreateLocationIfEmpty = (v: VenueSearchResult) => {
+    const address = String(v.address ?? "").trim();
+    const city = String(v.city ?? "").trim();
+    const state = String(v.state ?? "").trim();
+    if (!createAddress.trim() && address) setCreateAddress(address);
+    if (!createCity.trim() && city) setCreateCity(city);
+    if (!createState.trim() && state) setCreateState(state);
+  };
+
+  const applyVenueToEditLocationIfEmpty = (v: VenueSearchResult) => {
+    const address = String(v.address ?? "").trim();
+    const city = String(v.city ?? "").trim();
+    const state = String(v.state ?? "").trim();
+    if (!editAddress.trim() && address) setEditAddress(address);
+    if (!editCity.trim() && city) setEditCity(city);
+    if (!editState.trim() && state) setEditState(state);
+  };
 
   async function loadEvents() {
     const res = await jsonFetch<{ ok: true; events: PlannerEventRow[] }>("/api/planner/events", { method: "GET" });
@@ -691,6 +721,9 @@ export default function PlannerClient(props: Props) {
 
             <div>
               <label className={styles.label}>Venue</label>
+              <div className={styles.muted} style={{ marginTop: -6, marginBottom: 6 }}>
+                No venue needed — you can use an address or location instead.
+              </div>
               {createSelectedVenue ? (
                 <div className={styles.eventItem} style={{ padding: 10 }}>
                   <div className={styles.eventTitle}>{createSelectedVenue.name || "Selected venue"}</div>
@@ -734,6 +767,7 @@ export default function PlannerClient(props: Props) {
                           onClick={() => {
                             setCreateSelectedVenue(v);
                             setCreateVenueId(v.id);
+                            applyVenueToCreateLocationIfEmpty(v);
                             setCreateVenueQuery("");
                             setCreateVenueResults([]);
                           }}
@@ -750,13 +784,16 @@ export default function PlannerClient(props: Props) {
             </div>
           </div>
 
-          <div>
-            <label className={styles.label}>Tournament</label>
-            {createSelectedTournament ? (
-              <div className={styles.eventItem} style={{ padding: 10 }}>
-                <div className={styles.eventTitle}>{createSelectedTournament.name || "Selected tournament"}</div>
-                <div className={styles.eventMeta}>
-                  {formatDateRangeLabel(createSelectedTournament.start_date, createSelectedTournament.end_date) || ""}
+            <div>
+              <label className={styles.label}>Tournament</label>
+              <div className={styles.muted} style={{ marginTop: -6, marginBottom: 6 }}>
+                Tournament is optional.
+              </div>
+              {createSelectedTournament ? (
+                <div className={styles.eventItem} style={{ padding: 10 }}>
+                  <div className={styles.eventTitle}>{createSelectedTournament.name || "Selected tournament"}</div>
+                  <div className={styles.eventMeta}>
+                    {formatDateRangeLabel(createSelectedTournament.start_date, createSelectedTournament.end_date) || ""}
                 </div>
                 <div className={styles.eventActions}>
                   <button
@@ -922,16 +959,37 @@ export default function PlannerClient(props: Props) {
                           {e.venue_id ? " · Venue selected" : ""}
                           {e.tournament_id ? " · Tournament selected" : ""}
                         </div>
-                        {e.address_text || e.city || e.state ? (
+                        {locationTextForEvent(e) ? (
                           <div className={styles.eventMeta}>
-                            {[e.address_text, e.city, e.state].filter(Boolean).join(", ")}
+                            {locationTextForEvent(e)}
                           </div>
-                        ) : null}
+                        ) : e.venue_id ? (
+                          <div className={styles.eventMeta}>Selected venue</div>
+                        ) : (
+                          <div className={styles.eventMeta}>
+                            <span className={styles.muted}>No location added yet.</span>
+                          </div>
+                        )}
                         {e.notes ? <div className={styles.eventMeta}>{e.notes}</div> : null}
 
                         <div className={styles.eventActions}>
                           {!isEditing ? (
                             <>
+                              {!e.venue_id ? (
+                                <button
+                                  className={styles.secondaryBtn}
+                                  onClick={() => beginEdit(e)}
+                                  disabled={busy}
+                                  title="Optional: match this event to a known venue"
+                                >
+                                  Find venue
+                                </button>
+                              ) : null}
+                              {mapsUrlForEvent(e) ? (
+                                <a className={styles.secondaryBtn} href={mapsUrlForEvent(e) || undefined} target="_blank" rel="noreferrer">
+                                  Map
+                                </a>
+                              ) : null}
                               <button className={styles.secondaryBtn} onClick={() => beginEdit(e)} disabled={busy}>
                                 Edit
                               </button>
@@ -968,14 +1026,17 @@ export default function PlannerClient(props: Props) {
                                   ))}
                                 </select>
                               </div>
-                              <div>
-                                <label className={styles.label}>Venue</label>
-                                {editSelectedVenue ? (
-                                  <div className={styles.eventItem} style={{ padding: 10 }}>
-                                    <div className={styles.eventTitle}>{editSelectedVenue.name || "Selected venue"}</div>
-                                    <div className={styles.eventMeta}>
-                                      {[editSelectedVenue.city, editSelectedVenue.state].filter(Boolean).join(", ")}
-                                    </div>
+                            <div>
+                              <label className={styles.label}>Venue</label>
+                              <div className={styles.muted} style={{ marginTop: -6, marginBottom: 6 }}>
+                                No venue needed — you can use this location as entered.
+                              </div>
+                              {editSelectedVenue ? (
+                                <div className={styles.eventItem} style={{ padding: 10 }}>
+                                  <div className={styles.eventTitle}>{editSelectedVenue.name || "Selected venue"}</div>
+                                  <div className={styles.eventMeta}>
+                                    {[editSelectedVenue.city, editSelectedVenue.state].filter(Boolean).join(", ")}
+                                  </div>
                                     <div className={styles.eventActions}>
                                       <button
                                         className={styles.secondaryBtn}
@@ -1028,6 +1089,7 @@ export default function PlannerClient(props: Props) {
                                             onClick={() => {
                                               setEditSelectedVenue(v);
                                               setEditVenueId(v.id);
+                                              applyVenueToEditLocationIfEmpty(v);
                                               setEditVenueQuery("");
                                               setEditVenueResults([]);
                                             }}

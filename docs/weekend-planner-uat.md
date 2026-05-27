@@ -143,6 +143,7 @@ commit;
 ## Manual UAT checklists
 
 - Stage 2 ICS checklist: `docs/qa/ti-planner-ics-uat.md`
+- Stage 2.1 polish: verify “Find venue” works for events without a linked venue and that ICS refresh preserves user-linked `venue_id` (see the venue-linking steps in the Stage 2 checklist).
 
 Additional production-only checks to add during UAT:
 - Cross-user isolation using UAT User B (User A data must not be visible).

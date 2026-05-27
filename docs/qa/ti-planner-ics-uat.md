@@ -35,7 +35,12 @@ Production-only DB note: see `docs/weekend-planner-uat.md` for UAT accounts, hos
    - Pick one imported event, add notes and select a Venue using the Venue search field.
    - Refresh the calendar.
    - Confirm `notes` (non-empty) and selected Venue are not overwritten.
-10. Manual events regression:
+10. Venue linking (local-first):
+   - Pick an event with an address/location but no linked venue.
+   - Click **Find venue**, search for a real venue, and select it.
+   - Confirm no raw UUIDs are shown to the user.
+   - Refresh the calendar and confirm the selected venue remains linked.
+11. Manual events regression:
    - Create a manual event.
    - Edit it.
    - Delete it.
