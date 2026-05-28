@@ -33,10 +33,12 @@ export type IcsImportResult = {
   sourceName: string | null;
   imported: number;
   updated: number;
+  changed: number;
   skipped: number;
   errors: string[];
   parsedTotal: number;
   inWindowTotal: number;
+  changedEvents?: { id: string; title: string; changes: ("time" | "location" | "title" | "team" | "timezone")[] }[];
 } | { ok: false; status: number; error: string };
 
 function logSupabaseError(context: string, err: unknown) {
@@ -490,30 +492,37 @@ export async function importIcsToPlanner(params: {
   const sourceName = clamp(input.sourceName, 100);
   const teamName = clamp(input.teamName, 80);
 
-  const upsertSource = await (supabase.from("planner_event_sources" as any) as any)
-    .upsert(
-      {
-        user_id: input.userId,
-        source_type: "ics",
-        source_name: sourceName,
-        source_url: fetched.finalUrl,
-        team_name: teamName,
-        sync_status: "success",
-        sync_error: null,
-        last_synced_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,source_type,source_url" }
-    )
-    .select("id,source_name")
-    .single();
+  const sourceId = input.sourceId ? String(input.sourceId).trim() : "";
+  if (input.sourceId && !isUuid(sourceId)) return { ok: false, status: 400, error: "invalid_source_id" };
 
-  if (upsertSource.error || !upsertSource.data?.id) {
-    if (upsertSource.error) logSupabaseError("upsert planner_event_sources failed", upsertSource.error);
-    return { ok: false, status: 500, error: genericImportFailure() };
+  // Imports create/upsert the source row; refresh uses an existing source row and is updated by refreshIcsSource.
+  let finalSourceId = sourceId;
+  if (!finalSourceId) {
+    const upsertSource = await (supabase.from("planner_event_sources" as any) as any)
+      .upsert(
+        {
+          user_id: input.userId,
+          source_type: "ics",
+          source_name: sourceName,
+          source_url: fetched.finalUrl,
+          team_name: teamName,
+          sync_status: "success",
+          sync_error: null,
+          last_synced_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,source_type,source_url" }
+      )
+      .select("id,source_name")
+      .single();
+
+    if (upsertSource.error || !upsertSource.data?.id) {
+      if (upsertSource.error) logSupabaseError("upsert planner_event_sources failed", upsertSource.error);
+      return { ok: false, status: 500, error: genericImportFailure() };
+    }
+    finalSourceId = String(upsertSource.data.id);
   }
-  const sourceId = String(upsertSource.data.id);
 
-  const existingUidSet = await loadExistingUids({ supabase, userId: input.userId, sourceId });
+  const existingUidSet = await loadExistingUids({ supabase, userId: input.userId, sourceId: finalSourceId });
 
   const newEvents: NormalizedPlannerEvent[] = [];
   const existingEvents: NormalizedPlannerEvent[] = [];
@@ -526,6 +535,8 @@ export async function importIcsToPlanner(params: {
   let imported = 0;
   let updated = 0;
   let skipped = Math.max(0, parsedTotal - inWindowTotal);
+  let changed = 0;
+  const changedEvents: { id: string; title: string; changes: ("time" | "location" | "title" | "team" | "timezone")[] }[] = [];
 
   // Inserts include notes (if provided)
   if (newEvents.length) {
@@ -540,7 +551,7 @@ export async function importIcsToPlanner(params: {
       address_text: e.address_text,
       team_name: e.team_name,
       source_type: "ics",
-      source_id: sourceId,
+      source_id: finalSourceId,
       source_event_uid: e.source_event_uid,
     }));
     const res = await (supabase.from("planner_events" as any) as any).insert(inserts);
@@ -561,7 +572,7 @@ export async function importIcsToPlanner(params: {
           const u = await (supabase.from("planner_events" as any) as any)
             .update(patch)
             .eq("user_id", input.userId)
-            .eq("source_id", sourceId)
+            .eq("source_id", finalSourceId)
             .eq("source_event_uid", e.source_event_uid);
           if (u.error) {
             logSupabaseError("update planner_events after insert unique violation failed", u.error);
@@ -580,7 +591,78 @@ export async function importIcsToPlanner(params: {
 
   // Updates exclude notes and protected fields
   if (existingEvents.length) {
+    const existingByUid = new Map<
+      string,
+      {
+        id: string;
+        title: string | null;
+        starts_at: string | null;
+        ends_at: string | null;
+        timezone: string | null;
+        address_text: string | null;
+        team_name: string | null;
+      }
+    >();
+
+    if (input.mode === "refresh") {
+      const uids = existingEvents
+        .map((e) => String(e.source_event_uid || "").trim())
+        .filter(Boolean)
+        .slice(0, MAX_EVENTS_PER_SYNC);
+
+      if (uids.length) {
+        const { data, error } = await (supabase.from("planner_events" as any) as any)
+          .select("id,source_event_uid,title,starts_at,ends_at,timezone,address_text,team_name")
+          .eq("user_id", input.userId)
+          .eq("source_id", finalSourceId)
+          .in("source_event_uid", uids)
+          .limit(uids.length);
+        if (error) {
+          logSupabaseError("select planner_events for change detection failed", error);
+          return { ok: false, status: 500, error: genericImportFailure() };
+        }
+
+        for (const row of (data ?? []) as any[]) {
+          const uid = String(row?.source_event_uid || "").trim();
+          if (!uid) continue;
+          existingByUid.set(uid, {
+            id: String(row?.id || ""),
+            title: row?.title ?? null,
+            starts_at: row?.starts_at ?? null,
+            ends_at: row?.ends_at ?? null,
+            timezone: row?.timezone ?? null,
+            address_text: row?.address_text ?? null,
+            team_name: row?.team_name ?? null,
+          });
+        }
+      }
+    }
+
     for (const e of existingEvents.slice(0, MAX_EVENTS_PER_SYNC)) {
+      if (input.mode === "refresh") {
+        const uid = String(e.source_event_uid || "").trim();
+        const prev = uid ? existingByUid.get(uid) : null;
+        if (prev) {
+          const changeLabels: ("time" | "location" | "title" | "team" | "timezone")[] = [];
+          if ((prev.title ?? null) !== (e.title ?? null)) changeLabels.push("title");
+          if ((prev.starts_at ?? null) !== (e.starts_at ?? null) || (prev.ends_at ?? null) !== (e.ends_at ?? null)) changeLabels.push("time");
+          if ((prev.address_text ?? null) !== (e.address_text ?? null)) changeLabels.push("location");
+          if ((prev.team_name ?? null) !== (e.team_name ?? null)) changeLabels.push("team");
+          if ((prev.timezone ?? null) !== (e.timezone ?? null)) changeLabels.push("timezone");
+
+          if (changeLabels.length) {
+            changed += 1;
+            if (changedEvents.length < 5) {
+              changedEvents.push({
+                id: prev.id,
+                title: String(e.title || prev.title || "Event"),
+                changes: Array.from(new Set(changeLabels)),
+              });
+            }
+          }
+        }
+      }
+
       const patch = {
         title: e.title,
         starts_at: e.starts_at,
@@ -593,7 +675,7 @@ export async function importIcsToPlanner(params: {
       const res = await (supabase.from("planner_events" as any) as any)
         .update(patch)
         .eq("user_id", input.userId)
-        .eq("source_id", sourceId)
+        .eq("source_id", finalSourceId)
         .eq("source_event_uid", e.source_event_uid);
       if (res.error) {
         logSupabaseError("update planner_events failed", res.error);
@@ -607,19 +689,23 @@ export async function importIcsToPlanner(params: {
   if (input.mode === "refresh" && usableEvents.length === 0) {
     imported = 0;
     updated = 0;
+    changed = 0;
+    changedEvents.length = 0;
     skipped = parsedTotal;
   }
 
   return {
     ok: true,
-    sourceId,
+    sourceId: finalSourceId,
     sourceName,
     imported,
     updated,
+    changed,
     skipped,
     errors: [],
     parsedTotal,
     inWindowTotal,
+    ...(input.mode === "refresh" ? { changedEvents } : null),
   };
 }
 
@@ -658,10 +744,12 @@ export async function refreshIcsSource(params: {
       sourceName,
       teamName,
       mode: "refresh",
+      sourceId: params.sourceId,
     },
   });
 
   // Update source sync status regardless of event counts (success path) and on error.
+  // Only update last_synced_at on success so stale detection remains meaningful.
   if (result.ok) {
     await (params.supabase.from("planner_event_sources" as any) as any)
       .update({ sync_status: "success", sync_error: null, last_synced_at: new Date().toISOString() })
@@ -671,7 +759,7 @@ export async function refreshIcsSource(params: {
     // Avoid writing unexpected internal messages to DB; keep this user-safe for UI display.
     const safeMsg = String(result.error || userSafeError("fetch_failed"));
     await (params.supabase.from("planner_event_sources" as any) as any)
-      .update({ sync_status: "error", sync_error: safeMsg.slice(0, 200), last_synced_at: new Date().toISOString() })
+      .update({ sync_status: "error", sync_error: safeMsg.slice(0, 200) })
       .eq("id", params.sourceId)
       .eq("user_id", params.userId);
   }
@@ -680,5 +768,5 @@ export async function refreshIcsSource(params: {
     ? result
     : result.status === 404
       ? { ok: false, status: 404, error: "Source not found." }
-      : { ok: false, status: 400, error: result.error };
+      : { ok: false, status: result.status, error: result.error };
 }

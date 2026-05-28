@@ -25,8 +25,9 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     sourceName: res.sourceName,
     imported: res.imported,
     updated: res.updated,
+    changed: res.changed,
     skipped: res.skipped,
+    changedEvents: res.changedEvents ?? [],
     errors: res.errors,
   });
 }
-

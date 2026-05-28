@@ -232,6 +232,26 @@ export default function PlannerClient(props: Props) {
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
+  function formatSourceStatusLabel(s: { sync_status: string | null; last_synced_at: string | null }) {
+    const status = String(s.sync_status ?? "").toLowerCase();
+    if (!s.last_synced_at) return "Never synced";
+    if (status === "error") return "Needs attention";
+    if (status === "success") return "Synced";
+    if (status === "pending") return "Never synced";
+    return status ? status : "Synced";
+  }
+
+  function staleLabel(lastSyncedAt: string | null) {
+    if (!lastSyncedAt) return null;
+    const t = new Date(lastSyncedAt).getTime();
+    if (!Number.isFinite(t)) return null;
+    const ageMs = Date.now() - t;
+    const dayMs = 24 * 60 * 60 * 1000;
+    if (ageMs >= 7 * dayMs) return "This calendar has not refreshed in over a week.";
+    if (ageMs >= dayMs) return "Last synced over a day ago.";
+    return null;
+  }
+
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const [mapPickerQuery, setMapPickerQuery] = useState<string>("");
 
@@ -602,9 +622,14 @@ export default function PlannerClient(props: Props) {
         ok: true;
         imported: number;
         updated: number;
+        changed: number;
         skipped: number;
+        changedEvents: { id: string; title: string; changes: ("time" | "location" | "title" | "team" | "timezone")[] }[];
       }>(`/api/planner/sources/${encodeURIComponent(sourceId)}/refresh`, { method: "POST" });
-      setNotice(`Schedule refreshed · +${res.imported} new · ${res.updated} updated`);
+      const parts = [`+${res.imported} new`, `${res.updated} updated`];
+      if (res.changed) parts.push(`${res.changed} changes`);
+      if (res.skipped) parts.push(`${res.skipped} skipped`);
+      setNotice(`Schedule refreshed · ${parts.join(" · ")}`);
       await Promise.all([loadEvents(), loadSources()]);
     } catch (e: any) {
       setError(e?.message || "Refresh failed.");
@@ -815,6 +840,36 @@ export default function PlannerClient(props: Props) {
               planner.
             </div>
 
+            <details style={{ marginBottom: 10 }}>
+              <summary style={{ cursor: "pointer", fontWeight: 900 }}>Where do I find my calendar link?</summary>
+              <div className={styles.muted} style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                <div>
+                  Most team platforms provide an iCal or calendar subscription link. Paste that link here and Weekend Planner can import and refresh your schedule.
+                </div>
+                <div>
+                  <b>TeamSnap</b>: Look for the team schedule calendar subscription or export option, then copy the iCal/calendar link.
+                </div>
+                <div>
+                  <b>SportsEngine</b>: Look for the iCal feed or subscribe option on your team calendar or schedule page.
+                </div>
+                <div>
+                  <b>GameChanger</b>: Use the schedule sync or calendar export option from your team settings or schedule area.
+                </div>
+                <div>
+                  <b>GotSport</b>: Use the schedule export or calendar subscription option when available for your event or team schedule.
+                </div>
+                <div>
+                  <b>Sports Connect / Blue Sombrero / Stack Sports</b>: Use the Calendar Sync option from your team or league schedule, then copy the iCal/calendar URL.
+                </div>
+                <div>
+                  <b>Generic</b>: Any public iCal/ICS calendar URL that starts with http:// or https:// can be imported.
+                </div>
+                <div>
+                  Availability varies by platform, team, league, and permissions. Weekend Planner supports refreshable calendar feeds, not direct login integrations at this stage.
+                </div>
+              </div>
+            </details>
+
             {importError ? (
               <div className={styles.muted} style={{ color: "#b91c1c", fontWeight: 800, marginBottom: 10 }}>
                 {importError}
@@ -877,8 +932,7 @@ export default function PlannerClient(props: Props) {
                 </button>
               </div>
               <div className={styles.muted}>
-                Calendar import works best with public iCal links. TeamSnap, SportsEngine, and GameChanger login
-                integrations are not required for this stage.
+                Calendar import works best with public iCal links. If your platform only offers a private calendar, Weekend Planner may not be able to refresh it.
               </div>
             </div>
           </div>
@@ -1139,9 +1193,14 @@ export default function PlannerClient(props: Props) {
                 <div className={styles.eventTitle}>{s.source_name || "Imported calendar"}</div>
                 <div className={styles.eventMeta}>
                   {s.team_name ? `${s.team_name} · ` : ""}
-                  {s.sync_status ? `${s.sync_status}` : "unknown"}
-                  {s.last_synced_at ? ` · ${new Date(s.last_synced_at).toLocaleString()}` : ""}
+                  {formatSourceStatusLabel(s)}
+                  {s.last_synced_at ? ` · Last synced ${new Date(s.last_synced_at).toLocaleString()}` : ""}
                 </div>
+                {staleLabel(s.last_synced_at) && String(s.sync_status || "").toLowerCase() !== "error" ? (
+                  <div className={styles.eventMeta} style={{ fontWeight: 800 }}>
+                    {staleLabel(s.last_synced_at)} Refresh schedule to check for updates.
+                  </div>
+                ) : null}
                 {s.sync_error ? <div className={styles.eventMeta} style={{ color: "#b91c1c", fontWeight: 800 }}>{s.sync_error}</div> : null}
                 <div className={styles.eventActions}>
                   <button className={styles.primaryBtn} onClick={() => onRefreshSource(s.id)} disabled={busy}>

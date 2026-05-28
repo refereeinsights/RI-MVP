@@ -31,6 +31,11 @@ Maintenance rules:
   - Shared planner UI moved from `apps/ti-web/app/planner/PlannerClient.tsx` to `apps/ti-web/app/_components/planner/PlannerClient.tsx` (and CSS module moved alongside).
   - Canonical `/weekend-planner` imports the shared planner UI from the new location; `/planner` remains redirect-only.
 
+- TI planner: Stage 2.3 synced source reliability (ICS).
+  - Refresh now reports `changed` counts (source-managed field diffs) and returns a small capped `changedEvents` summary for UI.
+  - Source cards show user-safe status labels and stale warnings (24h / 7d) based on `last_synced_at`.
+  - Import modal includes platform-specific guidance (“Where do I find my calendar link?”) with a clear “no login integrations” disclaimer.
+
 ## 2026-05-27
 
 - TI planner: route consolidation — canonical planner experience moved to `/weekend-planner`; `/planner` now redirects (preserves allowlisted `view`/`import` params). Primary header nav temporarily hides “Weekend Planner” during consolidation + UAT.
