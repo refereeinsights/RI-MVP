@@ -42,6 +42,7 @@ Service role usage pattern:
 ### APIs
 - `POST /api/planner/events` → `apps/ti-web/app/api/planner/events/route.ts`
 - `PATCH|DELETE /api/planner/events/[id]` → `apps/ti-web/app/api/planner/events/[id]/route.ts`
+- `POST /api/planner/events/[id]/duplicate` → `apps/ti-web/app/api/planner/events/[id]/duplicate/route.ts`
 
 Note: Route consolidation in progress — `/weekend-planner` is the canonical planner entrypoint, and `/planner` should redirect to it. The legacy `/weekend-planner` “hub” content is now signed-out/secondary utility content.
 
@@ -89,6 +90,13 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 - During consolidation + UAT, the primary header nav may hide the Weekend Planner link; direct access via `/weekend-planner` remains supported.
 
 ---
+
+## TI Planner (Stage 2.2 — Season Planner Reliability)
+- Adds a “This Weekend” / “Season” lens toggle with season range presets and lightweight type filters (mobile-first; no month grid).
+- `GET /api/planner/events` supports optional query params for ranged queries:
+  - `from` (inclusive), `to` (exclusive), `types`, `limit`, `includePast`.
+- Adds server-side duplicate action for manual events:
+  - `POST /api/planner/events/[id]/duplicate` (copies safe fields; resets source fields to manual/null).
 
 ## Admin Routes
 ### Key files

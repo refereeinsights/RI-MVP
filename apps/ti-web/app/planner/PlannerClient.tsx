@@ -15,6 +15,10 @@ type Props = {
   isPaid: boolean;
 };
 
+type PlannerLens = "weekend" | "season";
+type SeasonRangePreset = "30d" | "6mo" | "12mo";
+type SeasonFilter = "all" | "games" | "practices" | "travel" | "other";
+
 type PlannerSourceRow = {
   id: string;
   source_type: string;
@@ -163,6 +167,34 @@ function isLikelyMobile() {
   return ua.includes("iphone") || ua.includes("ipad") || ua.includes("ipod") || ua.includes("android");
 }
 
+function startOfDayLocal(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+}
+
+function addDaysLocal(d: Date, days: number) {
+  const out = new Date(d);
+  out.setDate(out.getDate() + days);
+  return out;
+}
+
+function addMonthsLocal(d: Date, months: number) {
+  const out = new Date(d);
+  out.setMonth(out.getMonth() + months);
+  return out;
+}
+
+function computeWeekendRangeLocal(now: Date) {
+  const day = now.getDay(); // 0=Sun..6=Sat
+  const todayStart = startOfDayLocal(now);
+  let fridayStart: Date;
+  if (day === 5) fridayStart = todayStart;
+  else if (day === 6) fridayStart = addDaysLocal(todayStart, -1);
+  else if (day === 0) fridayStart = addDaysLocal(todayStart, -2);
+  else fridayStart = addDaysLocal(todayStart, (5 - day + 7) % 7);
+  const mondayStart = addDaysLocal(fridayStart, 3); // exclusive end
+  return { from: fridayStart.toISOString(), to: mondayStart.toISOString(), fridayStart, mondayStart };
+}
+
 async function jsonFetch<T>(url: string, init: RequestInit) {
   const res = await fetch(url, {
     ...init,
@@ -187,6 +219,10 @@ export default function PlannerClient(props: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sourcesBusy, setSourcesBusy] = useState(false);
+
+  const [lens, setLens] = useState<PlannerLens>("weekend");
+  const [seasonRange, setSeasonRange] = useState<SeasonRangePreset>("6mo");
+  const [seasonFilter, setSeasonFilter] = useState<SeasonFilter>("all");
 
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
@@ -282,7 +318,42 @@ export default function PlannerClient(props: Props) {
   };
 
   async function loadEvents() {
-    const res = await jsonFetch<{ ok: true; events: PlannerEventRow[] }>("/api/planner/events", { method: "GET" });
+    const now = new Date();
+    const limit = 200;
+
+    let from: string | null = null;
+    let to: string | null = null;
+    let types: string[] | null = null;
+
+    if (lens === "weekend") {
+      const range = computeWeekendRangeLocal(now);
+      from = range.from;
+      to = range.to;
+    } else {
+      const fromDate = startOfDayLocal(now);
+      const toDate =
+        seasonRange === "30d"
+          ? addDaysLocal(fromDate, 30)
+          : seasonRange === "12mo"
+            ? addMonthsLocal(fromDate, 12)
+            : addMonthsLocal(fromDate, 6);
+      from = fromDate.toISOString();
+      to = toDate.toISOString();
+
+      if (seasonFilter === "games") types = ["game"];
+      else if (seasonFilter === "practices") types = ["practice"];
+      else if (seasonFilter === "travel") types = ["travel", "hotel", "meal", "check_in"];
+      else if (seasonFilter === "other") types = ["other", "referee_assignment"];
+    }
+
+    const qs = new URLSearchParams();
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
+    if (types?.length) qs.set("types", types.join(","));
+    qs.set("limit", String(limit));
+    qs.set("includePast", "false");
+
+    const res = await jsonFetch<{ ok: true; events: PlannerEventRow[] }>(`/api/planner/events?${qs.toString()}`, { method: "GET" });
     setEvents((res.events ?? []).slice().sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at))));
   }
 
@@ -301,6 +372,12 @@ export default function PlannerClient(props: Props) {
     void loadSources().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Authoritative ranged fetch for the active lens/range/filter (replaces any SSR preload).
+  useEffect(() => {
+    void loadEvents().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lens, seasonRange, seasonFilter]);
 
   const grouped = useMemo(() => {
     const groups = new Map<string, PlannerEventRow[]>();
@@ -530,6 +607,33 @@ export default function PlannerClient(props: Props) {
       await Promise.all([loadEvents(), loadSources()]);
     } catch (e: any) {
       setError(e?.message || "Refresh failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onDuplicate(e: PlannerEventRow) {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const res = await jsonFetch<{ ok: true; event: PlannerEventRow }>(`/api/planner/events/${encodeURIComponent(e.id)}/duplicate`, {
+        method: "POST",
+      });
+      const created = res.event;
+      setEvents((prev) =>
+        prev
+          .concat(created)
+          .slice()
+          .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)))
+      );
+      beginEdit(created);
+      // Force user to pick a new date/time for the duplicate.
+      setEditStartsLocal("");
+      setEditEndsLocal("");
+      setNotice("Duplicated. Set a new date/time and save.");
+    } catch (err: any) {
+      setError(err?.message || "Failed to duplicate event.");
     } finally {
       setBusy(false);
     }
@@ -1048,8 +1152,60 @@ export default function PlannerClient(props: Props) {
       <div className={styles.card}>
         <div className={styles.cardTitle}>Your events</div>
 
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+          <button
+            className={lens === "weekend" ? styles.primaryBtn : styles.secondaryBtn}
+            type="button"
+            onClick={() => setLens("weekend")}
+            disabled={busy}
+          >
+            This Weekend
+          </button>
+          <button
+            className={lens === "season" ? styles.primaryBtn : styles.secondaryBtn}
+            type="button"
+            onClick={() => setLens("season")}
+            disabled={busy}
+          >
+            Season
+          </button>
+
+          {lens === "season" ? (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <select className={styles.select} value={seasonRange} onChange={(e) => setSeasonRange(e.target.value as SeasonRangePreset)} disabled={busy}>
+                <option value="30d">Next 30 days</option>
+                <option value="6mo">Next 6 months</option>
+                <option value="12mo">Next 12 months</option>
+              </select>
+              <select className={styles.select} value={seasonFilter} onChange={(e) => setSeasonFilter(e.target.value as SeasonFilter)} disabled={busy}>
+                <option value="all">All</option>
+                <option value="games">Games</option>
+                <option value="practices">Practices</option>
+                <option value="travel">Travel</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          ) : (
+            <div className={styles.muted}>
+              {(() => {
+                const r = computeWeekendRangeLocal(new Date());
+                const label = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+                return `Fri–Sun · ${label.format(r.fridayStart)} – ${label.format(addDaysLocal(r.fridayStart, 2))}`;
+              })()}
+            </div>
+          )}
+        </div>
+
         {events.length === 0 ? (
-          <div className={styles.muted}>No events yet. Add your first event above.</div>
+          lens === "weekend" ? (
+            <div className={styles.muted}>
+              No events this weekend. Switch to <b>Season</b> to see upcoming events.
+            </div>
+          ) : (
+            <div className={styles.muted}>
+              Build your season schedule. Add games, practices, or import a calendar link to keep your team logistics in one place.
+            </div>
+          )
         ) : (
           grouped.map((g) => {
             const groupTz = g.events[0] ? effectiveTimeZoneForEvent(g.events[0]) : tz || "UTC";
@@ -1113,6 +1269,11 @@ export default function PlannerClient(props: Props) {
                               <button className={styles.secondaryBtn} onClick={() => beginEdit(e)} disabled={busy}>
                                 Edit
                               </button>
+                              {String(e.source_type || "") === "manual" ? (
+                                <button className={styles.secondaryBtn} onClick={() => void onDuplicate(e)} disabled={busy}>
+                                  Duplicate
+                                </button>
+                              ) : null}
                               <button className={styles.dangerBtn} onClick={() => onDelete(e)} disabled={busy}>
                                 Delete
                               </button>

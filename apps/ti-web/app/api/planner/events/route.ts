@@ -26,6 +26,37 @@ function isIsoDateTime(value: string) {
   return Number.isFinite(d.getTime());
 }
 
+function asBool(value: string | null) {
+  if (!value) return null;
+  const v = value.trim().toLowerCase();
+  if (!v) return null;
+  if (v === "1" || v === "true" || v === "yes") return true;
+  if (v === "0" || v === "false" || v === "no") return false;
+  return null;
+}
+
+function asInt(value: string | null) {
+  if (!value) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.trunc(n);
+}
+
+function parseTypesParam(value: string | null) {
+  if (!value) return null;
+  const raw = value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!raw.length) return null;
+  const out: string[] = [];
+  for (const t of raw) {
+    if (!EVENT_TYPES.has(t as any)) return null;
+    out.push(t);
+  }
+  return Array.from(new Set(out));
+}
+
 function clamp(value: string | null, maxLen: number) {
   if (!value) return null;
   return value.length > maxLen ? value.slice(0, maxLen) : value;
@@ -133,7 +164,7 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, event: data });
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
@@ -141,13 +172,43 @@ export async function GET() {
 
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
-  const { data, error } = await (supabase.from("planner_events" as any) as any)
+  // Optional range/filter params for season reliability.
+  // Semantics:
+  // - `from` inclusive, `to` exclusive: starts_at >= from AND starts_at < to
+  // - `includePast=false` excludes starts_at < now even if within [from,to)
+  const sp = new URL(req.url).searchParams;
+
+  const fromRaw = sp.get("from");
+  const toRaw = sp.get("to");
+  const typesRaw = sp.get("types");
+  const limitRaw = sp.get("limit");
+  const includePastRaw = sp.get("includePast");
+
+  const from = fromRaw && isIsoDateTime(fromRaw) ? fromRaw : null;
+  const to = toRaw && isIsoDateTime(toRaw) ? toRaw : null;
+  const types = parseTypesParam(typesRaw);
+  const includePast = asBool(includePastRaw) ?? false;
+  const limit = Math.min(Math.max(asInt(limitRaw) ?? 500, 1), 500);
+
+  if ((fromRaw && !from) || (toRaw && !to)) {
+    return NextResponse.json({ ok: false, error: "invalid_range" }, { status: 400 });
+  }
+  if (typesRaw && !types) {
+    return NextResponse.json({ ok: false, error: "invalid_types" }, { status: 400 });
+  }
+
+  let q = (supabase.from("planner_events" as any) as any)
     .select(
       "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,source_type,source_id,source_event_uid,created_at,updated_at"
     )
-    .eq("user_id", user.id)
-    .order("starts_at", { ascending: true })
-    .limit(500);
+    .eq("user_id", user.id);
+
+  if (from) q = q.gte("starts_at", from);
+  if (to) q = q.lt("starts_at", to);
+  if (!includePast) q = q.gte("starts_at", new Date().toISOString());
+  if (types?.length) q = q.in("event_type", types);
+
+  const { data, error } = await q.order("starts_at", { ascending: true }).limit(limit);
 
   if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
   return NextResponse.json({ ok: true, events: data ?? [] });
