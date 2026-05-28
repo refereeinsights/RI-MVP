@@ -286,12 +286,19 @@ export async function POST(req: Request) {
   }
 
   if (suppressionRows.length) {
-    const { error: suppressError } = await (supabase.from("planner_event_suppressions" as any) as any).upsert(suppressionRows, {
-      onConflict: "user_id,source_id,source_event_uid,reason",
-      ignoreDuplicates: true,
-    });
+    const { error: suppressError } = await (supabase.from("planner_event_suppressions" as any) as any)
+      .insert(suppressionRows)
+      .select("id")
+      .limit(suppressionRows.length);
 
-    if (suppressError) warnings.push({ field: "suppression", message: "Some merged duplicates could not be hidden due to a server error." });
+    // Unique constraint: ignore duplicates. (We do not rely on PostgREST upsert/onConflict here because
+    // the backing unique index may be partial.)
+    if (suppressError) {
+      const code = String((suppressError as any).code ?? "");
+      if (code !== "23505") {
+        warnings.push({ field: "suppression", message: "Some merged duplicates could not be hidden due to a server error." });
+      }
+    }
   }
 
   return NextResponse.json({ ok: true, event: inserted, suppressed, warnings });
