@@ -220,6 +220,21 @@ Analytics events (typed in `apps/ti-web/lib/tiAnalyticsEvents.ts`):
 - `venue_details_directions_click`
 - `tournament_map_loaded_from_venue`
 
+## TI Weekend Pro — Premium routing + Founders Preview
+
+Key UX rules:
+- Most “Upgrade to Weekend Pro” CTAs should route to `/premium` (marketing/pricing) rather than starting Stripe checkout directly.
+- The primary checkout CTA on `/premium` continues to start checkout directly.
+- The 30-day Founders Preview ($4.99) reuses the existing checkout wiring (`offer = weekend_pass_30d`) — do not add new Stripe products/prices.
+
+Copy constants:
+- `apps/ti-web/lib/weekendProPricing.ts`
+  - `WEEKEND_PRO_FOUNDING_DEADLINE_COPY`
+  - `WEEKEND_PRO_FOUNDING_SHORT_COPY`
+
+Weekend Pro gating:
+- Weekend Pro subscribers should not see purchase/upgrade CTAs (they may still view `/premium` as a status/plan page if implemented).
+
 ## Partner Links (Affiliate / Outbound)
 TI monetization partners (e.g. Fanatics) are configured in Supabase and routed through a tracked redirect.
 

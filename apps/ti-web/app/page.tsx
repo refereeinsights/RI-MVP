@@ -5,7 +5,10 @@ import { US_MAP_VIEWBOX, US_STATE_LABELS, US_STATE_PATHS } from "@/app/api/admin
 import UsMapInteractions from "@/app/_components/UsMapInteractions";
 import HomepageSportFilter from "@/components/homepage/HomepageSportFilter";
 import TrackedLink from "@/components/homepage/TrackedLink";
-import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
+import Link from "next/link";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { getTiTierServer } from "@/lib/entitlementsServer";
+import { WEEKEND_PRO_FOUNDING_DEADLINE_COPY } from "@/lib/weekendProPricing";
 import "./home.css";
 
 export const metadata: Metadata = {
@@ -79,6 +82,12 @@ function colorForCount(count: number, max: number) {
 }
 
 export default async function Home({ searchParams }: { searchParams?: { sport?: string } }) {
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { tier } = await getTiTierServer(user ?? null);
+
   const sportParam = (searchParams?.sport ?? "all").trim().toLowerCase();
   const sportKey = sportParam === "all" ? null : normalizeSportSlug(sportParam);
   const sportLabel = sportKey ? sportDisplayName(sportKey) : "All sports";
@@ -303,13 +312,14 @@ export default async function Home({ searchParams }: { searchParams?: { sport?: 
             Weekend Pro unlocks Owl&apos;s Eye™ venue intelligence — nearby hotels, rentals, coffee, food, and mobile-friendly directions around tournament venues so you stay closer to where games are played.
           </p>
           <div className="ti-home-chips" aria-label="Premium shortcuts">
-            <UpgradeWeekendProButton
-              className="ti-home-chip"
-              source_page="homepage"
-              source_context="homepage_owlseye"
-              cta_label="Upgrade to Weekend Pro"
-              label="Upgrade to Weekend Pro"
-            />
+            {tier !== "weekend_pro" ? (
+              <div style={{ display: "grid", gap: 8, justifyItems: "center" }}>
+                <Link className="ti-home-chip" href="/premium">
+                  Upgrade to Weekend Pro
+                </Link>
+                <div style={{ fontSize: 13, fontWeight: 900, color: "#0f172a" }}>{WEEKEND_PRO_FOUNDING_DEADLINE_COPY}</div>
+              </div>
+            ) : null}
             <a className="ti-home-chip" href="/tournaments">
               Browse tournaments
             </a>

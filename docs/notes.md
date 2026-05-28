@@ -20,6 +20,13 @@ Maintenance rules:
   - External directions remain available as explicit secondary “Get directions” actions.
   - Tournament venue map: accepts `source` query param and tracks venue-origin loads via `tournament_map_loaded_from_venue`.
 
+- TI monetization: Subscription & Conversion sprint (Weekend Pro).
+  - Upgrade CTAs route through `/premium` (marketing/pricing) instead of starting checkout directly, except the primary `/premium` CTA.
+  - `/premium` adds a 30-day Founders Preview option ($4.99) reusing the existing checkout wiring (no new Stripe products/prices).
+  - Venue detail locked “Premium planning details” includes Upgrade → `/premium`, $4.99 preview CTA, and founding deadline copy.
+  - `/venues` directory upsell copy now includes a “See pricing →” link (hidden for Weekend Pro users).
+  - Planner upsell copy tightened to specific benefits + founding price line.
+
 ## 2026-05-27
 
 - TI planner: route consolidation — canonical planner experience moved to `/weekend-planner`; `/planner` now redirects (preserves allowlisted `view`/`import` params). Primary header nav temporarily hides “Weekend Planner” during consolidation + UAT.

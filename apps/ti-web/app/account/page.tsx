@@ -11,8 +11,7 @@ import PremiumInterestForm from "@/components/PremiumInterestForm";
 import SavedTournamentsSection, { type SavedTournamentItem } from "./SavedTournamentsSection";
 import QuickVenueCheckRewardClaim from "./QuickVenueCheckRewardClaim";
 import ManageBillingButton from "./ManageBillingButton";
-import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
-import { WEEKEND_PRO_FOUNDING_PRICE_LINE } from "@/lib/weekendProPricing";
+import { WEEKEND_PRO_FOUNDING_DEADLINE_COPY } from "@/lib/weekendProPricing";
 import styles from "./AccountPage.module.css";
 
 type TiUserRow = {
@@ -475,11 +474,12 @@ export default async function AccountPage({
             Plan your tournament weekend without guesswork. Weekend Pro unlocks Owl&apos;s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and directions around where games are played.
           </p>
           <p className={styles.mutedText} style={{ fontWeight: 900 }}>
-            {WEEKEND_PRO_FOUNDING_PRICE_LINE}
+            {WEEKEND_PRO_FOUNDING_DEADLINE_COPY}
           </p>
           <div className={styles.formActions} style={{ gap: 10, flexWrap: "wrap" }}>
-            <UpgradeWeekendProButton className={styles.primaryAction} source_page="account" source_context="account_upsell" />
-            <Link href="/premium" className={styles.secondaryAction}>Learn more</Link>
+            <Link href="/premium" className={styles.primaryAction}>
+              Upgrade to Weekend Pro
+            </Link>
           </div>
         </section>
       ) : null}

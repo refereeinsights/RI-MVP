@@ -531,9 +531,14 @@ export default async function VenuesPage({
             hrefForState={buildVenueMapHrefForState}
             defaultTip="Click a state to filter venues."
           />
-          <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9 }}>
-            <Link href="/premium">Unlock Weekend Pro</Link> to see deeper nearby places and map insights.
-          </div>
+          {tier !== "weekend_pro" ? (
+            <div style={{ marginTop: 10, fontSize: 13, opacity: 0.92 }}>
+              Unlock Weekend Pro to see deeper nearby places and map insights.{" "}
+              <Link href="/premium" className="secondaryLink" style={{ textDecoration: "underline" }}>
+                See pricing →
+              </Link>
+            </div>
+          ) : null}
         </div>
 
         <div id="quick-venue-check" style={{ marginTop: 14 }}>

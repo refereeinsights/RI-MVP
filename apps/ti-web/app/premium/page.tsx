@@ -2,6 +2,7 @@ import PremiumInterestForm from "@/components/PremiumInterestForm";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
 import OwlsEyeVenueCard, { type NearbyPlace } from "@/components/venues/OwlsEyeVenueCard";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
+import UpgradeWeekendPassButton from "@/components/UpgradeWeekendPassButton";
 import WeekendProLaunchImage from "@/components/premium/WeekendProLaunchImage";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -11,7 +12,11 @@ import {
   type OwlsEyeDemoScores,
   type VenueReviewChoiceRow,
 } from "@/lib/owlsEyeScores";
-import { WEEKEND_PRO_FOUNDING_DISCLAIMER, WEEKEND_PRO_FOUNDING_PRICE_LINE } from "@/lib/weekendProPricing";
+import {
+  WEEKEND_PRO_FOUNDING_DEADLINE_COPY,
+  WEEKEND_PRO_FOUNDING_DISCLAIMER,
+} from "@/lib/weekendProPricing";
+import { getTiTierServer } from "@/lib/entitlementsServer";
 import "../tournaments/tournaments.css";
 import PremiumAutoCheckout from "./PremiumAutoCheckout";
 
@@ -136,6 +141,10 @@ export default async function PremiumPage({
   searchParams?: { autocheckout?: string; from?: string };
 }) {
   const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { tier } = await getTiTierServer(user ?? null);
   let demoVenue: DemoVenueRow | null = null;
   const autoCheckout = (searchParams?.autocheckout ?? "").trim() === "1";
 
@@ -302,22 +311,47 @@ export default async function PremiumPage({
       <div className="shell">
         <section className="hero" aria-labelledby="premium-title">
           <h1 id="premium-title">Weekend Pro</h1>
-          <PremiumAutoCheckout enabled={autoCheckout} />
+          {tier !== "weekend_pro" ? <PremiumAutoCheckout enabled={autoCheckout} /> : null}
           <p className="muted heroCopy" style={{ marginTop: 0 }}>
             Plan your tournament weekend without guesswork. Weekend Pro unlocks Owl&apos;s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and mobile-friendly directions around where games are played.
           </p>
           <WeekendProLaunchImage />
           <div style={{ display: "grid", gap: 6, justifyItems: "center", marginTop: 10 }}>
-            <div style={{ fontWeight: 900 }}>{WEEKEND_PRO_FOUNDING_PRICE_LINE}</div>
+            <div style={{ fontWeight: 950 }}>{WEEKEND_PRO_FOUNDING_DEADLINE_COPY}</div>
             <div className="muted" style={{ fontSize: 13 }}>{WEEKEND_PRO_FOUNDING_DISCLAIMER}</div>
           </div>
           <div style={{ marginTop: 14, display: "grid", justifyItems: "center" }}>
-            <UpgradeWeekendProButton
-              className="primaryLink"
-              source_page="premium"
-              source_context="premium_hero"
-              cta_label="Upgrade to Weekend Pro"
-            />
+            {tier === "weekend_pro" ? (
+              <div style={{ fontWeight: 950, fontSize: 14, textAlign: "center", maxWidth: 420 }}>
+                You&apos;re on Weekend Pro.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 10, justifyItems: "center" }}>
+                <UpgradeWeekendProButton
+                  className="primaryLink"
+                  source_page="premium"
+                  source_context="premium_hero"
+                  cta_label="Upgrade to Weekend Pro"
+                />
+                <div style={{ display: "grid", gap: 6, justifyItems: "center", textAlign: "center" }}>
+                  <div style={{ fontSize: 13, fontWeight: 950, opacity: 0.95 }}>Or try a 30-day preview</div>
+                  <div className="muted" style={{ fontSize: 13, maxWidth: 520 }}>
+                    Unlock Weekend Pro for your next tournament — <strong>$4.99</strong> for 30 days.
+                  </div>
+                  <div style={{ width: "min(420px, 100%)" }}>
+                    <UpgradeWeekendPassButton
+                      className="secondaryLink"
+                      source_page="premium"
+                      source_context="premium_preview"
+                      entry_point="premium_preview"
+                      cta_label="Start 30-day Founders Preview"
+                      label="Start 30-day Founders Preview"
+                      has_affiliate_visible={false}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 

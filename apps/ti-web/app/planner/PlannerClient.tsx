@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
+import Link from "next/link";
+import { WEEKEND_PRO_FOUNDING_SHORT_COPY } from "@/lib/weekendProPricing";
 import type {
   PlannerEventCreateBody,
   PlannerEventRow,
@@ -910,10 +911,14 @@ export default function PlannerClient(props: Props) {
         <div className={styles.card}>
           <div className={styles.cardTitle}>Weekend Pro</div>
           <div style={{ display: "grid", gap: 8 }}>
-            <div style={{ fontWeight: 900, fontSize: 16 }}>Unlock venue intel and planning shortcuts.</div>
-            <div className={styles.muted}>Upgrade anytime. Planner stays free — Weekend Pro adds the good stuff.</div>
+            <div style={{ fontWeight: 900, fontSize: 16 }}>
+              See hotels, food, and parking near every venue. Owl&apos;s Eye™ venue intelligence for your tournament weekends.
+            </div>
+            <div className={styles.muted}>{WEEKEND_PRO_FOUNDING_SHORT_COPY}</div>
             <div style={{ maxWidth: 420 }}>
-              <UpgradeWeekendProButton entry_point="planner" />
+              <Link href="/premium" className={styles.primaryBtn} style={{ display: "inline-flex", justifyContent: "center" }}>
+                Upgrade to Weekend Pro
+              </Link>
             </div>
           </div>
         </div>

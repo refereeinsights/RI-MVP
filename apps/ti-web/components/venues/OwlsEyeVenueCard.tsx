@@ -5,6 +5,7 @@ import OwlsEyeDemoScoresPanel from "@/components/OwlsEyeDemoScoresPanel";
 import OwlsEyeWeekendGuideAccordion from "@/components/OwlsEyeWeekendGuideAccordion";
 import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
 import WeekendProUpgradeModalTrigger from "@/components/premium/WeekendProUpgradeModalTrigger";
+import UpgradeWeekendPassButton from "@/components/UpgradeWeekendPassButton";
 import MobileMapLink from "@/components/venues/MobileMapLink";
 import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheckButton";
 import HotelBookingCta from "@/components/venues/HotelBookingCta";
@@ -13,6 +14,7 @@ import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
 import { isValidLatLng, round6 } from "@/lib/staticTournamentMaps";
 import { buildPlanningMapUrl } from "@/lib/planningMapUrl";
 import VenuePlanningMapLinkClient from "@/components/venues/VenuePlanningMapLinkClient";
+import { WEEKEND_PRO_FOUNDING_DEADLINE_COPY } from "@/lib/weekendProPricing";
 
 export type NearbyPlace = {
   name: string;
@@ -603,16 +605,23 @@ export default function OwlsEyeVenueCard({
                   Weekend Pro unlocks full Owl&apos;s Eye™ venue intelligence: nearby hotels, rentals, coffee, food, and mobile-friendly directions.
                 </p>
                 <div style={{ marginTop: 10 }}>
-                  <WeekendProUpgradeModalTrigger
-                    className="primaryLink"
-                    source_page="venue_detail"
-                    source_context="owlseye_locked"
+                  <Link href="/premium" className="primaryLink">
+                    Upgrade to Weekend Pro
+                  </Link>
+                </div>
+                <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+                  <div style={{ fontSize: 13, fontWeight: 950, opacity: 0.95 }}>Or try a 30-day preview — $4.99</div>
+                  <UpgradeWeekendPassButton
+                    className="secondaryLink"
+                    source_page="venue_detail_locked_section"
+                    source_context="venue_detail_locked_section"
                     venue_slug={(venue as any)?.seo_slug ?? null}
-                    entry_point="venue_owlseye_unlock_modal"
-                    cta_label="Upgrade to Weekend Pro"
-                    label="Upgrade to Weekend Pro"
+                    entry_point="venue_detail_locked_section"
+                    cta_label="Start 30-day Founders Preview"
+                    label="Start 30-day Founders Preview"
                     has_affiliate_visible={false}
                   />
+                  <div style={{ fontSize: 13, fontWeight: 900, opacity: 0.95 }}>{WEEKEND_PRO_FOUNDING_DEADLINE_COPY}</div>
                 </div>
                 <div style={{ marginTop: 8 }}>
                   <StartQuickVenueCheckButton className="secondaryLink">Help improve this venue</StartQuickVenueCheckButton>

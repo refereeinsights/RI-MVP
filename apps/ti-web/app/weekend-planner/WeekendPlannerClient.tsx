@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { sendTiAnalytics } from "@/lib/analytics";
-import UpgradeWeekendProButton from "@/components/UpgradeWeekendProButton";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { getTier } from "@/lib/entitlements";
+import { WEEKEND_PRO_FOUNDING_DEADLINE_COPY } from "@/lib/weekendProPricing";
 import styles from "./WeekendPlanner.module.css";
 
 const DESTINATION_STORAGE_KEY = "ti_weekend_planner_destination";
@@ -78,12 +80,41 @@ function safeSetStoredDestination(value: string) {
 export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGearCard }) {
   const viewedFiredRef = useRef(false);
   const sourcePageRef = useRef<"book_travel" | "weekend_planner">("book_travel");
+  const [tier, setTier] = useState<"explorer" | "insider" | "weekend_pro" | "unknown">("unknown");
   const [destination, setDestination] = useState("");
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">("idle");
   const [shareUrl, setShareUrl] = useState(CANONICAL_BOOK_TRAVEL_URL);
   const [canNativeShare, setCanNativeShare] = useState(false);
   const [checkinText, setCheckinText] = useState<string>("");
   const [checkoutText, setCheckoutText] = useState<string>("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+          if (!cancelled) setTier("explorer");
+          return;
+        }
+        const { data: profile } = await supabase
+          .from("ti_users" as any)
+          .select("plan,subscription_status,current_period_end,trial_ends_at")
+          .eq("id", user.id)
+          .maybeSingle();
+        const resolved = getTier(user, (profile as any) ?? null);
+        if (!cancelled) setTier(resolved);
+      } catch {
+        if (!cancelled) setTier("unknown");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     sourcePageRef.current = getPlannerSourcePage(window.location?.pathname) as "book_travel" | "weekend_planner";
@@ -567,21 +598,18 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
             </p>
           </div>
           <div className={styles.cardBody}>
-            <div
-              onClickCapture={() => {
-                track("book_travel_weekend_pro_upsell_clicked", { travel_type: "upsell", cta_location: "upsell_card" });
-              }}
-            >
-              <UpgradeWeekendProButton
-                className={styles.ctaFull}
-                source_page="book_travel"
-                source_context="book_travel_upsell"
-                entry_point="book_travel"
-                cta_label="Upgrade to Weekend Pro"
-                label="Upgrade to Weekend Pro"
-                has_affiliate_visible={false}
-              />
-            </div>
+            {tier !== "weekend_pro" ? (
+              <div
+                onClickCapture={() => {
+                  track("book_travel_weekend_pro_upsell_clicked", { travel_type: "upsell", cta_location: "upsell_card" });
+                }}
+              >
+                <Link href="/premium" className={styles.ctaFull}>
+                  Upgrade to Weekend Pro
+                </Link>
+                <div style={{ marginTop: 8, fontSize: 13, fontWeight: 900, opacity: 0.95 }}>{WEEKEND_PRO_FOUNDING_DEADLINE_COPY}</div>
+              </div>
+            ) : null}
           </div>
         </article>
 
