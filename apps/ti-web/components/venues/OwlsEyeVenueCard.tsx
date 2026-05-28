@@ -11,6 +11,9 @@ import HotelBookingCta from "@/components/venues/HotelBookingCta";
 import VenueWeatherPlannerCard from "@/components/venues/VenueWeatherPlannerCard";
 import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
 import { isValidLatLng, round6 } from "@/lib/staticTournamentMaps";
+import { buildPlanningMapUrl } from "@/lib/planningMapUrl";
+import VenuePlanningMapLinkClient from "@/components/venues/VenuePlanningMapLinkClient";
+import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 
 export type NearbyPlace = {
   name: string;
@@ -140,7 +143,9 @@ export default function OwlsEyeVenueCard({
     const camera = `${lng.toFixed(6)},${lat.toFixed(6)},${zoomForVenue}`;
     return `https://api.mapbox.com/styles/v1/${style}/static/${marker}/${camera}/${width}x${height}?access_token=${encodeURIComponent(mapboxToken)}`;
   })();
-  const mapPreviewHref = selectedTournamentSlug ? `/tournaments/${encodeURIComponent(selectedTournamentSlug)}/map?venue=${encodeURIComponent(venue.id)}` : null;
+  const mapPreviewHref = selectedTournamentSlug
+    ? buildPlanningMapUrl({ tournamentSlug: selectedTournamentSlug, venueId: venue.id, source: "venue_details" })
+    : null;
   const nearestMajorAirport = airportSummary?.nearest_major_airport ?? null;
   const nearestAirport = airportSummary?.nearest_airport ?? null;
   const primaryAirport = nearestMajorAirport ?? nearestAirport;
@@ -208,25 +213,28 @@ export default function OwlsEyeVenueCard({
                       style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
                     {mapPreviewHref ? (
-                      <Link
+                      <VenuePlanningMapLinkClient
                         href={mapPreviewHref}
-                        aria-label={venue.name ? `Open venue map for ${venue.name}` : "Open venue map"}
+                        ariaLabel={venue.name ? `Open planning map for ${venue.name}` : "Open planning map"}
+                        className=""
                         style={{
                           position: "absolute",
                           inset: 0,
                           display: "block",
-                          // Keep it clickable without hiding the image.
-                          background: "transparent",
                         }}
-                      />
-                    ) : mapLinks?.google ? (
-                      <a
-                        href={mapLinks.google}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={venue.name ? `Open ${venue.name} in Google Maps` : "Open in Google Maps"}
-                        style={{ position: "absolute", inset: 0, display: "block" }}
-                      />
+                        // Full overlay.
+                        event={{
+                          name: "venue_details_plan_map_click",
+                          properties: {
+                            venue_id: venue.id,
+                            venue_name: venue.name ?? "Venue",
+                            tournament_slug: selectedTournamentSlug ?? null,
+                            source: "venue_details",
+                          },
+                        }}
+                      >
+                        <span style={{ display: "block", width: "100%", height: "100%" }} />
+                      </VenuePlanningMapLinkClient>
                     ) : null}
                   </div>
                 ) : venue.venue_url ? (
@@ -239,11 +247,35 @@ export default function OwlsEyeVenueCard({
           </div>
           {mapLinks && mapQuery ? (
             <div className="detailLinksRow">
+              {mapPreviewHref ? (
+                <VenuePlanningMapLinkClient
+                  href={mapPreviewHref}
+                  className="primaryLink hotelBookingCta"
+                  event={{
+                    name: "venue_details_plan_map_click",
+                    properties: {
+                      venue_id: venue.id,
+                      venue_name: venue.name ?? "Venue",
+                      tournament_slug: selectedTournamentSlug ?? null,
+                      source: "venue_details",
+                    },
+                  }}
+                >
+                  Plan around this venue
+                </VenuePlanningMapLinkClient>
+              ) : null}
               <MobileMapLink
                 provider="google"
                 query={mapQuery}
                 fallbackHref={mapLinks.google}
                 className="secondaryLink hotelBookingCta"
+                onClick={() => {
+                  void trackTiEvent("venue_details_directions_click", {
+                    venue_id: venue.id,
+                    venue_name: venue.name ?? "Venue",
+                    tournament_slug: selectedTournamentSlug ?? null,
+                  });
+                }}
               >
                 Get directions
               </MobileMapLink>

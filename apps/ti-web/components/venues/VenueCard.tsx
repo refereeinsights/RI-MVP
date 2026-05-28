@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import VenueIndexBadge from "@/components/VenueIndexBadge";
 import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
 import StartQuickVenueCheckButton from "@/components/venues/StartQuickVenueCheckButton";
+import { buildPlanningMapUrl } from "@/lib/planningMapUrl";
+import VenueCardCtasClient from "@/components/venues/VenueCardCtasClient";
 import styles from "./VenueCard.module.css";
 
 type MapLinks = {
@@ -86,8 +88,10 @@ export default function VenueCard({
     source: "venue_directory",
     venueId,
   }).toString()}`;
-  const tournamentMapHref =
-    upcomingTournaments[0]?.slug ? `/tournaments/${encodeURIComponent(upcomingTournaments[0].slug)}/map` : null;
+  const tournamentSlug = upcomingTournaments[0]?.slug ? String(upcomingTournaments[0].slug) : null;
+  const planTripHref = tournamentSlug
+    ? buildPlanningMapUrl({ tournamentSlug, venueId, source: "venue_directory" })
+    : null;
 
   return (
     <article className={`card ${sportCardClass} ${styles.card}`}>
@@ -152,9 +156,16 @@ export default function VenueCard({
       {notes && effectiveTier === "weekend_pro" ? <p className={styles.notes}>{notes}</p> : null}
 
       <div className="cardFooter">
-        <Link href={detailsHref} className={`primaryLink ${styles.detailsLink}`}>
-          Details
-        </Link>
+        <VenueCardCtasClient
+          venueId={venueId}
+          venueName={name}
+          viewVenueHref={detailsHref}
+          planTripHref={planTripHref}
+          tournamentSlug={tournamentSlug}
+          city={city}
+          state={state}
+          directionsHref={mapLinks?.apple ?? null}
+        />
 
         {canReviewVenue ? (
           showPlanningCtas ? (
@@ -167,16 +178,6 @@ export default function VenueCard({
             </Link>
           )
         ) : null}
-
-        {mapLinks ? (
-          <a href={mapLinks.apple} target="_blank" rel="noopener noreferrer" className={`primaryLink ${styles.mapLink}`}>
-            Map
-          </a>
-        ) : (
-          <span className={`primaryLink ${styles.mapLink}`} aria-disabled="true" style={{ opacity: 0.55, pointerEvents: "none" }}>
-            Map
-          </span>
-        )}
       </div>
 
       <div className={styles.hotelsTextRow}>
@@ -202,11 +203,7 @@ export default function VenueCard({
               🏠 Find Rentals
             </a>
           ) : null}
-          {tournamentMapHref ? (
-            <a href={tournamentMapHref} target="_blank" rel="noopener noreferrer" className={`secondaryLink ${styles.planningLink}`}>
-              View Nearby Places
-            </a>
-          ) : null}
+          {/* Planning map CTA moved to card footer (primary) so it always appears when possible. */}
         </div>
       ) : showBooking ? (
         <div className={styles.bookingRow}>

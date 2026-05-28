@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import TournamentVenueMapClient, { type MapVenue } from "./TournamentVenueMapClient";
 import styles from "./TournamentVenueMap.module.css";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
@@ -12,18 +12,36 @@ export default function TournamentVenueMapShellClient({
   sportKey,
   mapEnabled,
   initialSelectedVenueId,
+  source,
 }: {
   tournament: { id: string; slug: string; name: string; sport: string | null; state: string | null };
   venues: MapVenue[];
   sportKey: string;
   mapEnabled: boolean;
   initialSelectedVenueId?: string | null;
+  source?: string | null;
 }) {
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(() => {
     if (initialSelectedVenueId) return initialSelectedVenueId;
     return venues.length === 1 ? venues[0]?.id ?? null : null;
   });
   const [detailMode, setDetailMode] = useState<boolean>(() => Boolean(initialSelectedVenueId) || venues.length === 1);
+
+  const venueOriginTrackedRef = useRef(false);
+  useEffect(() => {
+    if (venueOriginTrackedRef.current) return;
+    const cleanedSource = String(source ?? "").trim();
+    if (!cleanedSource) return;
+    if (cleanedSource !== "venue_directory" && cleanedSource !== "venue_details") return;
+    if (!initialSelectedVenueId) return;
+    venueOriginTrackedRef.current = true;
+    void trackTiEvent("tournament_map_loaded_from_venue", {
+      tournament_id: tournament.id,
+      tournament_slug: tournament.slug,
+      venue_id: initialSelectedVenueId,
+      source: cleanedSource,
+    });
+  }, [initialSelectedVenueId, source, tournament.id, tournament.slug]);
 
   const selectedVenue = useMemo(() => venues.find((v) => v.id === selectedVenueId) ?? null, [venues, selectedVenueId]);
   const selectedVenueLabel = useMemo(() => {

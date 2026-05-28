@@ -12,6 +12,14 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-05-28
+
+- TI venues: route venue map interactions into the internal Planning Map (tournament venue map) instead of opening external maps by default.
+  - Venue Directory cards: primary CTA is now “Plan trip” (when an upcoming tournament context exists) which deep-links to `/tournaments/[slug]/map?venue=...&source=venue_directory`.
+  - Venue Details: primary CTA is now “Plan around this venue” (when a selected tournament context exists) which deep-links to `/tournaments/[slug]/map?venue=...&source=venue_details`.
+  - External directions remain available as explicit secondary “Get directions” actions.
+  - Tournament venue map: accepts `source` query param and tracks venue-origin loads via `tournament_map_loaded_from_venue`.
+
 ## 2026-05-27
 
 - TI planner: route consolidation — canonical planner experience moved to `/weekend-planner`; `/planner` now redirects (preserves allowlisted `view`/`import` params). Primary header nav temporarily hides “Weekend Planner” during consolidation + UAT.
@@ -198,6 +206,7 @@ Maintenance rules:
 
 - TI tournament map: allow deep-linking a pre-selected venue on `/tournaments/[slug]/map` via `?venue=<venue_id>`.
   - Used by the venue detail map preview click target when a `tournament` context is present.
+
   - Files: `apps/ti-web/app/tournaments/[slug]/map/page.tsx`, `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapShellClient.tsx`, `apps/ti-web/app/venues/[venueId]/page.tsx`, `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`.
 
 - TI venues: static map preview URL generation tightened (use direct Mapbox Static Images URL format for a single marker) to avoid preview load failures.

@@ -11,6 +11,7 @@ type Props = {
   fallbackHref: string;
   className?: string;
   children: ReactNode;
+  onClick?: () => void;
 };
 
 function isMobileUserAgent() {
@@ -45,7 +46,7 @@ function launchWithFallback(appHref: string, fallbackHref: string) {
   window.location.assign(appHref);
 }
 
-export default function MobileMapLink({ provider, query, fallbackHref, className, children }: Props) {
+export default function MobileMapLink({ provider, query, fallbackHref, className, children, onClick }: Props) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -61,6 +62,7 @@ export default function MobileMapLink({ provider, query, fallbackHref, className
       rel="noopener noreferrer"
       className={className}
       onClick={(event) => {
+        onClick?.();
         if (!isMobile) return;
         event.preventDefault();
         launchWithFallback(appHref, fallbackHref);

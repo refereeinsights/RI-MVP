@@ -15,10 +15,15 @@ export type TiAnalyticsEventName =
   | "venue_page_viewed"
   | "venue_map_opened"
   | "venue_map_loaded"
+  | "tournament_map_loaded_from_venue"
   | "venue_select"
   | "directions_click"
   | "hotels_click"
   | "venue_view_click"
+  | "venue_directory_plan_map_click"
+  | "venue_details_plan_map_click"
+  | "venue_details_directions_click"
+  | "venue_directory_view_venue_click"
   | "nearest_airport_click"
   | "tier_gate_hit"
   | "owls_eye_limited_continue"
@@ -180,6 +185,12 @@ export type TiAnalyticsEventPropertiesByName = {
     venue_count: number;
     href: string;
   };
+  tournament_map_loaded_from_venue: {
+    tournament_id: string;
+    tournament_slug: string;
+    venue_id: string;
+    source: "venue_directory" | "venue_details";
+  };
   venue_select: {
     page_type: "venue_map";
     tournament_id: string;
@@ -216,6 +227,33 @@ export type TiAnalyticsEventPropertiesByName = {
     venue_id: string;
     venue_name: string | null;
     source: "venue_card" | "selected_venue_panel";
+  };
+  venue_directory_plan_map_click: {
+    venue_id: string;
+    venue_name: string;
+    tournament_slug: string;
+    city?: string | null;
+    state?: string | null;
+    sport?: string | null;
+    source: "venue_directory";
+    position?: number | null;
+  };
+  venue_details_plan_map_click: {
+    venue_id: string;
+    venue_name: string;
+    tournament_slug?: string | null;
+    source: "venue_details";
+  };
+  venue_details_directions_click: {
+    venue_id: string;
+    venue_name: string;
+    tournament_slug?: string | null;
+  };
+  venue_directory_view_venue_click: {
+    venue_id: string;
+    venue_name: string;
+    tournament_slug?: string | null;
+    position?: number | null;
   };
   nearest_airport_click: {
     page_type: "venue_map";

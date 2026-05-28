@@ -103,7 +103,7 @@ export default async function TournamentMapPage({
   searchParams,
 }: {
   params: { slug: string };
-  searchParams?: { venue?: string };
+  searchParams?: { venue?: string; source?: string };
 }) {
   const { data: tournament } = await supabaseAdmin
     .from("tournaments_public" as any)
@@ -187,6 +187,7 @@ export default async function TournamentMapPage({
 
   const mapEnabled = Boolean((process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim());
   const requestedVenueId = (searchParams?.venue ?? "").trim();
+  const source = (searchParams?.source ?? "").trim() || null;
   const initialSelectedVenueId = requestedVenueId && venues.some((v) => v.id === requestedVenueId) ? requestedVenueId : null;
 
   return (
@@ -203,6 +204,7 @@ export default async function TournamentMapPage({
         sportKey={sportKey}
         mapEnabled={mapEnabled}
         initialSelectedVenueId={initialSelectedVenueId}
+        source={source}
       />
     </main>
   );

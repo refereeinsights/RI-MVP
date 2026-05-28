@@ -195,6 +195,31 @@ Admin API endpoints under `apps/referee/app/api/admin/**`. All use `supabaseAdmi
 
 ---
 
+## TI Venue → Planning Map routing
+
+TI’s internal “Planning Map” experience is the Tournament Venue Map route:
+- `/tournaments/[slug]/map`
+
+Venue surfaces deep-link into the internal map using:
+- `?venue=<venue_id>` (preselects the venue)
+- `&source=venue_directory|venue_details` (analytics attribution)
+
+Code pointers:
+- URL helper: `apps/ti-web/lib/planningMapUrl.ts` (`buildPlanningMapUrl`)
+- Tournament map reads `venue` + `source`:
+  - Server page: `apps/ti-web/app/tournaments/[slug]/map/page.tsx`
+  - Client shell tracking: `apps/ti-web/app/tournaments/[slug]/map/TournamentVenueMapShellClient.tsx`
+- Venue surfaces:
+  - Directory cards: `apps/ti-web/components/venues/VenueCard.tsx`
+  - Details card: `apps/ti-web/components/venues/OwlsEyeVenueCard.tsx`
+
+Analytics events (typed in `apps/ti-web/lib/tiAnalyticsEvents.ts`):
+- `venue_directory_plan_map_click`
+- `venue_directory_view_venue_click`
+- `venue_details_plan_map_click`
+- `venue_details_directions_click`
+- `tournament_map_loaded_from_venue`
+
 ## Partner Links (Affiliate / Outbound)
 TI monetization partners (e.g. Fanatics) are configured in Supabase and routed through a tracked redirect.
 
