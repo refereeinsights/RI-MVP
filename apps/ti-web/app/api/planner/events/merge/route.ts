@@ -248,7 +248,16 @@ export async function POST(req: Request) {
 
   if (insertError || !inserted) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
 
-  const suppressed: Array<{ event_id: string; source_id?: string | null; source_event_uid?: string | null }> = [];
+  const suppressed: Array<{
+    // Preferred identity field for clients.
+    id: string;
+    // Back-compat / explicit naming.
+    event_id: string;
+    source_id?: string | null;
+    source_event_uid?: string | null;
+    title?: string | null;
+    source_type?: string | null;
+  }> = [];
   const suppressionRows: any[] = [];
 
   let manualIncluded = false;
@@ -275,7 +284,14 @@ export async function POST(req: Request) {
       event_id: String(e.id),
       merged_into_event_id: String(inserted.id),
     });
-    suppressed.push({ event_id: String(e.id), source_id: sid, source_event_uid: uid });
+    suppressed.push({
+      id: String(e.id),
+      event_id: String(e.id),
+      source_id: sid,
+      source_event_uid: uid,
+      title: asTrimmedString(e?.title) ?? null,
+      source_type: asTrimmedString(e?.source_type) ?? null,
+    });
   }
 
   if (manualIncluded) {
