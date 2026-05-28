@@ -85,12 +85,90 @@ function safeTimeZone(value: string | null) {
   }
 }
 
-function toDateTimeLocalValue(iso: string | null | undefined) {
-  if (!iso) return "";
+function parseOffsetMinutes(value: string) {
+  const v = String(value ?? "").trim();
+  if (!v) return null;
+  if (v === "GMT" || v === "UTC") return 0;
+  const m = v.match(/GMT([+-]\d{1,2})(?::?(\d{2}))?/);
+  if (!m) return null;
+  const sign = m[1].startsWith("-") ? -1 : 1;
+  const hh = Math.abs(Number(m[1]));
+  const mm = m[2] ? Number(m[2]) : 0;
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  return sign * (hh * 60 + mm);
+}
+
+function offsetMinutesForUtcInstant(timeZone: string, utcInstant: Date) {
+  const tz = safeTimeZone(timeZone) || "UTC";
+  if (tz === "UTC") return 0;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(utcInstant);
+  const tzName = parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+  return parseOffsetMinutes(tzName);
+}
+
+function utcIsoToZonedParts(iso: string | null | undefined, timeZone: string | null) {
+  if (!iso) return { date: "", time: "" };
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
+  if (Number.isNaN(d.getTime())) return { date: "", time: "" };
+  const tz = safeTimeZone(timeZone) || "UTC";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const year = parts.find((p) => p.type === "year")?.value ?? "";
+  const month = parts.find((p) => p.type === "month")?.value ?? "";
+  const day = parts.find((p) => p.type === "day")?.value ?? "";
+  const hour = parts.find((p) => p.type === "hour")?.value ?? "";
+  const minute = parts.find((p) => p.type === "minute")?.value ?? "";
+  return { date: year && month && day ? `${year}-${month}-${day}` : "", time: hour && minute ? `${hour}:${minute}` : "" };
+}
+
+function zonedPartsToUtcIso(params: { date: string; time: string; timeZone: string | null }) {
+  const date = String(params.date ?? "").trim();
+  const time = String(params.time ?? "").trim();
+  const tz = safeTimeZone(params.timeZone) || "UTC";
+  const m = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const t = time.match(/^(\d{2}):(\d{2})$/);
+  if (!m || !t) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const hour = Number(t[1]);
+  const minute = Number(t[2]);
+  if (![year, month, day, hour, minute].every(Number.isFinite)) return null;
+  const guessUtcMs = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  const guessUtc = new Date(guessUtcMs);
+  const off1 = offsetMinutesForUtcInstant(tz, guessUtc);
+  if (off1 == null) return null;
+  let utcMs = guessUtcMs - off1 * 60_000;
+  const off2 = offsetMinutesForUtcInstant(tz, new Date(utcMs));
+  if (off2 == null) return null;
+  utcMs = guessUtcMs - off2 * 60_000;
+  return new Date(utcMs).toISOString();
+}
+
+function addMinutesToTime(value: string, minutes: number) {
+  const m = String(value ?? "").trim().match(/^(\d{2}):(\d{2})$/);
+  if (!m) return "";
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return "";
+  let total = hh * 60 + mm + minutes;
+  total = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
+  const outH = String(Math.floor(total / 60)).padStart(2, "0");
+  const outM = String(total % 60).padStart(2, "0");
+  return `${outH}:${outM}`;
 }
 
 function dayKey(iso: string, timeZone: string | null) {
@@ -347,8 +425,12 @@ export default function PlannerClient(props: Props) {
 
   const [createTitle, setCreateTitle] = useState("");
   const [createType, setCreateType] = useState<PlannerEventType>("game");
-  const [createStartsLocal, setCreateStartsLocal] = useState("");
-  const [createEndsLocal, setCreateEndsLocal] = useState("");
+  const [createStartDate, setCreateStartDate] = useState("");
+  const [createStartTime, setCreateStartTime] = useState("");
+  const [createEndDate, setCreateEndDate] = useState("");
+  const [createEndTime, setCreateEndTime] = useState("");
+  const [createEndWasAuto, setCreateEndWasAuto] = useState(true);
+  const [createTimeZone, setCreateTimeZone] = useState<string>(() => safeTimeZone(browserTimeZone()) || "UTC");
   const [createVenueId, setCreateVenueId] = useState("");
   const [createVenueQuery, setCreateVenueQuery] = useState("");
   const [createVenueResults, setCreateVenueResults] = useState<VenueSearchResult[]>([]);
@@ -370,8 +452,12 @@ export default function PlannerClient(props: Props) {
 
   const [editTitle, setEditTitle] = useState("");
   const [editType, setEditType] = useState<PlannerEventType>("game");
-  const [editStartsLocal, setEditStartsLocal] = useState("");
-  const [editEndsLocal, setEditEndsLocal] = useState("");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editEndDate, setEditEndDate] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
+  const [editEndWasAuto, setEditEndWasAuto] = useState(true);
+  const [editTimeZone, setEditTimeZone] = useState<string>(() => safeTimeZone(browserTimeZone()) || "UTC");
   const [editVenueId, setEditVenueId] = useState("");
   const [editVenueQuery, setEditVenueQuery] = useState("");
   const [editVenueResults, setEditVenueResults] = useState<VenueSearchResult[]>([]);
@@ -427,6 +513,79 @@ export default function PlannerClient(props: Props) {
     if (!editCity.trim() && city) setEditCity(city);
     if (!editState.trim() && state) setEditState(state);
   };
+
+  // Smart end defaults (create)
+  useEffect(() => {
+    if (!createStartDate || !createStartTime) return;
+    const endEmpty = !createEndDate && !createEndTime;
+    const shouldAuto = createEndWasAuto || endEmpty;
+    if (!shouldAuto) return;
+    const nextDate = createStartDate;
+    const nextTime = addMinutesToTime(createStartTime, 60);
+    if (!nextTime) return;
+    if (createEndDate !== nextDate) setCreateEndDate(nextDate);
+    if (createEndTime !== nextTime) setCreateEndTime(nextTime);
+    if (!createEndWasAuto) setCreateEndWasAuto(true);
+  }, [createStartDate, createStartTime, createEndDate, createEndTime, createEndWasAuto]);
+
+  // Smart end defaults (edit)
+  useEffect(() => {
+    if (!editingId) return;
+    if (!editStartDate || !editStartTime) return;
+    const endEmpty = !editEndDate && !editEndTime;
+    const shouldAuto = editEndWasAuto || endEmpty;
+    if (!shouldAuto) return;
+    const nextDate = editStartDate;
+    const nextTime = addMinutesToTime(editStartTime, 60);
+    if (!nextTime) return;
+    if (editEndDate !== nextDate) setEditEndDate(nextDate);
+    if (editEndTime !== nextTime) setEditEndTime(nextTime);
+    if (!editEndWasAuto) setEditEndWasAuto(true);
+  }, [editingId, editStartDate, editStartTime, editEndDate, editEndTime, editEndWasAuto]);
+
+  // Resolve timezone for manual create/edit based on selected venue/tournament (server-side).
+  useEffect(() => {
+    let cancelled = false;
+    const venueId = createVenueId.trim();
+    const tournamentId = createTournamentId.trim();
+    if (!venueId && !tournamentId) {
+      setCreateTimeZone(safeTimeZone(tz) || "UTC");
+      return;
+    }
+    const qs = venueId ? `venue_id=${encodeURIComponent(venueId)}` : `tournament_id=${encodeURIComponent(tournamentId)}`;
+    void jsonFetch<{ ok: true; timezone: string | null }>(`/api/planner/timezone?${qs}`, { method: "GET" })
+      .then((res) => {
+        if (cancelled) return;
+        setCreateTimeZone(safeTimeZone(res.timezone) || safeTimeZone(tz) || "UTC");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCreateTimeZone(safeTimeZone(tz) || "UTC");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [createVenueId, createTournamentId, tz]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!editingId) return;
+    const venueId = editVenueId.trim();
+    const tournamentId = editTournamentId.trim();
+    if (!venueId && !tournamentId) return;
+    const qs = venueId ? `venue_id=${encodeURIComponent(venueId)}` : `tournament_id=${encodeURIComponent(tournamentId)}`;
+    void jsonFetch<{ ok: true; timezone: string | null }>(`/api/planner/timezone?${qs}`, { method: "GET" })
+      .then((res) => {
+        if (cancelled) return;
+        setEditTimeZone(safeTimeZone(res.timezone) || safeTimeZone(tz) || "UTC");
+      })
+      .catch(() => {
+        if (cancelled) return;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editingId, editVenueId, editTournamentId, tz]);
 
   async function loadEvents() {
     const now = new Date();
@@ -664,8 +823,12 @@ export default function PlannerClient(props: Props) {
   function resetCreateForm() {
     setCreateTitle("");
     setCreateType("game");
-    setCreateStartsLocal("");
-    setCreateEndsLocal("");
+    setCreateStartDate("");
+    setCreateStartTime("");
+    setCreateEndDate("");
+    setCreateEndTime("");
+    setCreateEndWasAuto(true);
+    setCreateTimeZone(safeTimeZone(tz) || "UTC");
     setCreateVenueId("");
     setCreateVenueQuery("");
     setCreateVenueResults([]);
@@ -691,11 +854,18 @@ export default function PlannerClient(props: Props) {
   }
 
   function beginEdit(e: PlannerEventRow) {
+    const tzForEdit = effectiveTimeZoneForEvent(e);
+    const startParts = utcIsoToZonedParts(e.starts_at, tzForEdit);
+    const endParts = utcIsoToZonedParts(e.ends_at, tzForEdit);
     setEditingId(e.id);
     setEditTitle(e.title ?? "");
     setEditType((e.event_type as PlannerEventType) || "game");
-    setEditStartsLocal(toDateTimeLocalValue(e.starts_at));
-    setEditEndsLocal(toDateTimeLocalValue(e.ends_at));
+    setEditTimeZone(tzForEdit);
+    setEditStartDate(startParts.date);
+    setEditStartTime(startParts.time);
+    setEditEndDate(endParts.date);
+    setEditEndTime(endParts.time);
+    setEditEndWasAuto(!endParts.date && !endParts.time);
     setEditVenueId(e.venue_id ?? "");
     setEditSelectedVenue(null);
     setEditVenueQuery("");
@@ -723,20 +893,34 @@ export default function PlannerClient(props: Props) {
       setError("Title is required.");
       return;
     }
-    if (!createStartsLocal) {
+    if (!createStartDate || !createStartTime) {
       setError("Start time is required.");
       return;
     }
 
-    const startsIso = new Date(createStartsLocal).toISOString();
-    const endsIso = createEndsLocal ? new Date(createEndsLocal).toISOString() : null;
+    const startsIso = zonedPartsToUtcIso({ date: createStartDate, time: createStartTime, timeZone: createTimeZone });
+    if (!startsIso) {
+      setError("Start time is invalid.");
+      return;
+    }
+
+    const endEmpty = !createEndDate && !createEndTime;
+    if (!endEmpty && (!createEndDate || !createEndTime)) {
+      setError("End time is incomplete.");
+      return;
+    }
+    const endsIso = endEmpty ? null : zonedPartsToUtcIso({ date: createEndDate, time: createEndTime, timeZone: createTimeZone });
+    if (!endEmpty && !endsIso) {
+      setError("End time is invalid.");
+      return;
+    }
 
     const body: PlannerEventCreateBody = {
       title: createTitle.trim(),
       event_type: createType,
       starts_at: startsIso,
       ends_at: endsIso,
-      timezone: tz,
+      timezone: safeTimeZone(createTimeZone) || safeTimeZone(tz) || "UTC",
       tournament_id: createTournamentId.trim() || null,
       venue_id: createVenueId.trim() || null,
       address_text: createAddress.trim() || null,
@@ -768,20 +952,34 @@ export default function PlannerClient(props: Props) {
       setError("Title is required.");
       return;
     }
-    if (!editStartsLocal) {
+    if (!editStartDate || !editStartTime) {
       setError("Start time is required.");
       return;
     }
 
-    const startsIso = new Date(editStartsLocal).toISOString();
-    const endsIso = editEndsLocal ? new Date(editEndsLocal).toISOString() : null;
+    const startsIso = zonedPartsToUtcIso({ date: editStartDate, time: editStartTime, timeZone: editTimeZone });
+    if (!startsIso) {
+      setError("Start time is invalid.");
+      return;
+    }
+
+    const endEmpty = !editEndDate && !editEndTime;
+    if (!endEmpty && (!editEndDate || !editEndTime)) {
+      setError("End time is incomplete.");
+      return;
+    }
+    const endsIso = endEmpty ? null : zonedPartsToUtcIso({ date: editEndDate, time: editEndTime, timeZone: editTimeZone });
+    if (!endEmpty && !endsIso) {
+      setError("End time is invalid.");
+      return;
+    }
 
     const body: PlannerEventUpdateBody = {
       title: editTitle.trim(),
       event_type: editType,
       starts_at: startsIso,
       ends_at: endsIso,
-      timezone: tz,
+      timezone: safeTimeZone(editTimeZone) || safeTimeZone(tz) || "UTC",
       tournament_id: editTournamentId.trim() || null,
       venue_id: editVenueId.trim() || null,
       address_text: editAddress.trim() || null,
@@ -903,8 +1101,11 @@ export default function PlannerClient(props: Props) {
       );
       beginEdit(created);
       // Force user to pick a new date/time for the duplicate.
-      setEditStartsLocal("");
-      setEditEndsLocal("");
+      setEditStartDate("");
+      setEditStartTime("");
+      setEditEndDate("");
+      setEditEndTime("");
+      setEditEndWasAuto(true);
       setNotice("Duplicated. Set a new date/time and save.");
     } catch (err: any) {
       setError(err?.message || "Failed to duplicate event.");
@@ -1598,13 +1799,36 @@ export default function PlannerClient(props: Props) {
           <div className={styles.row2}>
             <div>
               <label className={styles.label}>Starts *</label>
-              <input className={styles.input} type="datetime-local" value={createStartsLocal} onChange={(e) => setCreateStartsLocal(e.target.value)} />
+              <div className={styles.row2}>
+                <input className={styles.input} type="date" value={createStartDate} onChange={(e) => setCreateStartDate(e.target.value)} />
+                <input className={styles.input} type="time" value={createStartTime} onChange={(e) => setCreateStartTime(e.target.value)} />
+              </div>
             </div>
             <div>
               <label className={styles.label}>Ends (optional)</label>
-              <input className={styles.input} type="datetime-local" value={createEndsLocal} onChange={(e) => setCreateEndsLocal(e.target.value)} />
+              <div className={styles.row2}>
+                <input
+                  className={styles.input}
+                  type="date"
+                  value={createEndDate}
+                  onChange={(e) => {
+                    setCreateEndWasAuto(false);
+                    setCreateEndDate(e.target.value);
+                  }}
+                />
+                <input
+                  className={styles.input}
+                  type="time"
+                  value={createEndTime}
+                  onChange={(e) => {
+                    setCreateEndWasAuto(false);
+                    setCreateEndTime(e.target.value);
+                  }}
+                />
+              </div>
             </div>
           </div>
+          <div className={styles.muted}>Timezone: {safeTimeZone(createTimeZone) || safeTimeZone(tz) || "UTC"}</div>
 
           <div className={styles.row2}>
             <div>
@@ -2045,13 +2269,36 @@ export default function PlannerClient(props: Props) {
                             <div className={styles.row2}>
                               <div>
                                 <label className={styles.label}>Starts *</label>
-                                <input className={styles.input} type="datetime-local" value={editStartsLocal} onChange={(ev) => setEditStartsLocal(ev.target.value)} />
+                                <div className={styles.row2}>
+                                  <input className={styles.input} type="date" value={editStartDate} onChange={(ev) => setEditStartDate(ev.target.value)} />
+                                  <input className={styles.input} type="time" value={editStartTime} onChange={(ev) => setEditStartTime(ev.target.value)} />
+                                </div>
                               </div>
                               <div>
                                 <label className={styles.label}>Ends (optional)</label>
-                                <input className={styles.input} type="datetime-local" value={editEndsLocal} onChange={(ev) => setEditEndsLocal(ev.target.value)} />
+                                <div className={styles.row2}>
+                                  <input
+                                    className={styles.input}
+                                    type="date"
+                                    value={editEndDate}
+                                    onChange={(ev) => {
+                                      setEditEndWasAuto(false);
+                                      setEditEndDate(ev.target.value);
+                                    }}
+                                  />
+                                  <input
+                                    className={styles.input}
+                                    type="time"
+                                    value={editEndTime}
+                                    onChange={(ev) => {
+                                      setEditEndWasAuto(false);
+                                      setEditEndTime(ev.target.value);
+                                    }}
+                                  />
+                                </div>
                               </div>
                             </div>
+                            <div className={styles.muted}>Timezone: {safeTimeZone(editTimeZone) || safeTimeZone(tz) || "UTC"}</div>
                             <div className={styles.row2}>
                               <div>
                                 <label className={styles.label}>Address or location</label>

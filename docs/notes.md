@@ -3759,3 +3759,10 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - UI: TI venue pages now support `?venue_sport=soccer` (or similar) to display sport-specific score tiles when profile aggregates exist; defaults to “All sports”.
   - Migrations: `supabase/migrations/20260408_venue_feedback_sport_profiles.sql`, `supabase/migrations/20260408_submit_venue_review_profile.sql`.
   - Files: `apps/ti-web/app/api/venue-quick-check/route.ts`, `apps/ti-web/app/api/venue-reviews/route.ts`, `apps/ti-web/components/venues/QuickVenueCheck.tsx`, `apps/ti-web/components/venues/QuickVenueCheck.module.css`, `apps/ti-web/app/venues/reviews/_components/VenueReviewsClient.tsx`, `apps/ti-web/app/venues/reviews/_components/VenueReviews.module.css`, `apps/ti-web/app/tournaments/[slug]/page.tsx`, `apps/ti-web/app/venues/[venueId]/page.tsx`.
+
+- 2026-05-28: Weekend Planner manual event entry — timezone-correct pickers + smart end defaults.
+  - Replaced manual event `datetime-local` inputs with date+time pickers and added a visible timezone label.
+  - Added tz-aware UTC serialization for manual create/edit to prevent “date shifts” (e.g. 06/04 → 06/03) when user/device timezone differs from event timezone.
+  - Added `GET /api/planner/timezone` server route to resolve IANA timezone from venue/tournament coordinates via TimeZoneDB (falls back to browser timezone when unavailable).
+  - Added smart default: end = start + 1 hour (until user overrides).
+  - Files: `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/api/planner/timezone/route.ts`, `docs/admin-reference.md`, `CLAUDE.md`.

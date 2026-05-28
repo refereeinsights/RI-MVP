@@ -74,6 +74,7 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 - `GET /api/planner/sources` → `apps/ti-web/app/api/planner/sources/route.ts`
 - `GET /api/planner/search/venues?q=` → `apps/ti-web/app/api/planner/search/venues/route.ts`
 - `GET /api/planner/search/tournaments?q=` → `apps/ti-web/app/api/planner/search/tournaments/route.ts`
+- `GET /api/planner/timezone?venue_id=...|tournament_id=...|lat=...&lng=...` → `apps/ti-web/app/api/planner/timezone/route.ts` (Stage 2.6A; server-only TimeZoneDB lookup)
 - `POST /api/planner/events/duplicates/dismiss` → `apps/ti-web/app/api/planner/events/duplicates/dismiss/route.ts`
 - `GET /api/planner/events/duplicates/dismissed` → `apps/ti-web/app/api/planner/events/duplicates/dismissed/route.ts`
 - `POST /api/planner/events/merge` → `apps/ti-web/app/api/planner/events/merge/route.ts` (Stage 2.4D; server-only; UI merge remains disabled)
@@ -91,6 +92,7 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
   - Manual originals are not suppressed in Stage 2.4D due to the current `planner_event_suppressions` constraint requiring `source_id` + `source_event_uid` for `merged_duplicate`.
 - Stage 2.4E: Planner UI wires duplicate suggestion Merge buttons to a confirmation modal that calls the merge endpoint after explicit confirmation (no one-click merge).
 - Stage 2.4F (prompt drafted): optional manual-original cleanup after merge (manual-only, explicit confirmation; reuses existing delete API; no ICS deletion).
+- Stage 2.6A: manual event create/edit uses date+time pickers and tz-aware serialization. The UI resolves timezone from venue/tournament coordinates via `GET /api/planner/timezone` (TimeZoneDB server-side; falls back to browser tz). No timezone is persisted back onto venue/tournament tables in this stage.
 - `GET /api/planner/sources` returns source metadata only (does not return `source_url`).
 - Planner search routes are authenticated and query only the views (`venues_public`, `tournaments_search_public`), not base tables.
 - SSRF: URL scheme/host checks + DNS lookup + manual redirect chaining; DNS rebinding remains a known limitation with native `fetch` (acceptable for MVP; tighten later with an agent-based approach if needed).
