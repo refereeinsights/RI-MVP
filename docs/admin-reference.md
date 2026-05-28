@@ -63,6 +63,8 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
     - `public.venues_public`
     - `public.tournaments_search_public`
   - Base tables remain admin-only under RLS; views are not granted to `anon`/`public`.
+- `supabase/migrations/20260528_ti_planner_stage2_4b_event_suppressions.sql`
+  - Stage 2.4B: adds `planner_event_suppressions` (RLS) for refresh-proof hiding of source-linked duplicates by `(user_id, source_id, source_event_uid)`.
 
 ### APIs
 - `POST /api/planner/sources/import-ics` → `apps/ti-web/app/api/planner/sources/import-ics/route.ts`
@@ -76,6 +78,7 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 - Import window: 30 days in the past → ~18 months in the future.
 - Refresh behavior: inserts new events and updates source-managed fields; does not delete missing events yet; does not overwrite `venue_id` or non-empty `notes`.
 - Stage 2.3: refresh returns a user-safe summary including `changed` count and a capped `changedEvents` list for UI display.
+- Stage 2.4B: `GET /api/planner/events` filters suppressed ICS events for `reason='merged_duplicate'` (read-time filtering; does not delete rows).
 - `GET /api/planner/sources` returns source metadata only (does not return `source_url`).
 - Planner search routes are authenticated and query only the views (`venues_public`, `tournaments_search_public`), not base tables.
 - SSRF: URL scheme/host checks + DNS lookup + manual redirect chaining; DNS rebinding remains a known limitation with native `fetch` (acceptable for MVP; tighten later with an agent-based approach if needed).

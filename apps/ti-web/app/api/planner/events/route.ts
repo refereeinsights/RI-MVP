@@ -211,5 +211,62 @@ export async function GET(req: Request) {
   const { data, error } = await q.order("starts_at", { ascending: true }).limit(limit);
 
   if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
-  return NextResponse.json({ ok: true, events: data ?? [] });
+
+  const events = (data ?? []) as any[];
+  if (!events.length) return NextResponse.json({ ok: true, events: [] });
+
+  // Stage 2.4B: hide ICS events that have been suppressed (refresh-proof identity).
+  // We only suppress for reason='merged_duplicate'. kept_separate is used later for dismissal.
+  const sourceIds = Array.from(
+    new Set(
+      events
+        .filter((e) => String(e?.source_type ?? "") === "ics")
+        .map((e) => String(e?.source_id ?? "").trim())
+        .filter(Boolean)
+    )
+  );
+  const sourceUids = Array.from(
+    new Set(
+      events
+        .filter((e) => String(e?.source_type ?? "") === "ics")
+        .map((e) => String(e?.source_event_uid ?? "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (!sourceIds.length || !sourceUids.length) {
+    return NextResponse.json({ ok: true, events });
+  }
+
+  // Query suppressions bounded to the returned events' source identities.
+  const { data: suppressions, error: suppressError } = await (supabase.from("planner_event_suppressions" as any) as any)
+    .select("source_id,source_event_uid")
+    .eq("user_id", user.id)
+    .eq("reason", "merged_duplicate")
+    .in("source_id", sourceIds)
+    .in("source_event_uid", sourceUids)
+    .limit(1000);
+
+  if (suppressError) {
+    // Fail open (show events) rather than breaking the planner on suppression read issues.
+    return NextResponse.json({ ok: true, events });
+  }
+
+  const suppressedKeys = new Set(
+    ((suppressions ?? []) as any[])
+      .map((s) => `${String(s?.source_id ?? "").trim()}:${String(s?.source_event_uid ?? "").trim()}`)
+      .filter((k) => !k.startsWith(":") && !k.endsWith(":"))
+  );
+
+  if (!suppressedKeys.size) return NextResponse.json({ ok: true, events });
+
+  const filtered = events.filter((e) => {
+    if (String(e?.source_type ?? "") !== "ics") return true;
+    const sid = String(e?.source_id ?? "").trim();
+    const uid = String(e?.source_event_uid ?? "").trim();
+    if (!sid || !uid) return true;
+    return !suppressedKeys.has(`${sid}:${uid}`);
+  });
+
+  return NextResponse.json({ ok: true, events: filtered });
 }

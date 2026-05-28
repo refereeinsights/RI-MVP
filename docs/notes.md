@@ -36,6 +36,10 @@ Maintenance rules:
   - Source cards show user-safe status labels and stale warnings (24h / 7d) based on `last_synced_at`.
   - Import modal includes platform-specific guidance (“Where do I find my calendar link?”) with a clear “no login integrations” disclaimer.
 
+- TI planner: Stage 2.4B suppression foundation (merge-ready).
+  - Added `planner_event_suppressions` (RLS) keyed by `(user_id, source_id, source_event_uid)` for refresh-proof hiding of source-linked duplicates.
+  - `GET /api/planner/events` now filters suppressed ICS events for `reason='merged_duplicate'` (kept_separate does not hide events yet).
+
 ## 2026-05-27
 
 - TI planner: route consolidation — canonical planner experience moved to `/weekend-planner`; `/planner` now redirects (preserves allowlisted `view`/`import` params). Primary header nav temporarily hides “Weekend Planner” during consolidation + UAT.
