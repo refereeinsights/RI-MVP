@@ -40,6 +40,10 @@ Maintenance rules:
   - Added `planner_event_suppressions` (RLS) keyed by `(user_id, source_id, source_event_uid)` for refresh-proof hiding of source-linked duplicates.
   - `GET /api/planner/events` now filters suppressed ICS events for `reason='merged_duplicate'` (kept_separate does not hide events yet).
 
+- TI planner: Stage 2.4C duplicate suggestions + “Keep separate” (no merge yet).
+  - Range-bounded duplicate candidate detection (client-side) surfaces “Possible duplicate” and a disabled “Merge (Recommended)” placeholder.
+  - “Keep separate” persists per-user dismissals so the same pair isn’t repeatedly suggested.
+
 ## 2026-05-27
 
 - TI planner: route consolidation — canonical planner experience moved to `/weekend-planner`; `/planner` now redirects (preserves allowlisted `view`/`import` params). Primary header nav temporarily hides “Weekend Planner” during consolidation + UAT.

@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { WEEKEND_PRO_FOUNDING_SHORT_COPY } from "@/lib/weekendProPricing";
+import {
+  computeDuplicateCandidates,
+  type PlannerDuplicateCandidate,
+  type PlannerDuplicateReason,
+} from "@/lib/planner/duplicates";
 import type {
   PlannerEventCreateBody,
   PlannerEventRow,
@@ -30,6 +35,8 @@ type PlannerSourceRow = {
   sync_error: string | null;
   created_at: string | null;
 };
+
+type DuplicateDismissedRow = { pair_key_a: string; pair_key_b: string; created_at?: string | null };
 
 type VenueSearchResult = {
   id: string;
@@ -216,6 +223,8 @@ export default function PlannerClient(props: Props) {
   const tz = useMemo(() => browserTimeZone(), []);
   const [events, setEvents] = useState<PlannerEventRow[]>(props.initialEvents ?? []);
   const [sources, setSources] = useState<PlannerSourceRow[]>([]);
+  const [dismissedPairs, setDismissedPairs] = useState<DuplicateDismissedRow[]>([]);
+  const [dismissingPairs, setDismissingPairs] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -388,9 +397,22 @@ export default function PlannerClient(props: Props) {
     }
   }
 
+  async function loadDismissedPairs() {
+    try {
+      const res = await jsonFetch<{ ok: true; dismissed: DuplicateDismissedRow[] }>("/api/planner/events/duplicates/dismissed", {
+        method: "GET",
+      });
+      setDismissedPairs(res.dismissed ?? []);
+    } catch {
+      // ignore
+      setDismissedPairs([]);
+    }
+  }
+
   // Best-effort initial load of sources (planner page is authed; no sensitive URL returned).
   useEffect(() => {
     void loadSources().catch(() => {});
+    void loadDismissedPairs().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -412,6 +434,77 @@ export default function PlannerClient(props: Props) {
     const sortedKeys = Array.from(groups.keys()).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     return sortedKeys.map((key) => ({ key, events: (groups.get(key) ?? []).slice() }));
   }, [events, tz]);
+
+  const sourcesById = useMemo(() => {
+    const m = new Map<string, PlannerSourceRow>();
+    for (const s of sources) m.set(String(s.id), s);
+    return m;
+  }, [sources]);
+
+  const duplicateCandidates = useMemo(() => {
+    return computeDuplicateCandidates({
+      events,
+      dismissedPairs: dismissedPairs ?? [],
+      timeZoneFallback: tz ?? undefined,
+    });
+  }, [events, dismissedPairs, tz]);
+
+  const dupesByEventId = useMemo(() => {
+    const m = new Map<string, PlannerDuplicateCandidate[]>();
+    for (const c of duplicateCandidates) {
+      const list = m.get(c.eventId) ?? [];
+      list.push(c);
+      m.set(c.eventId, list);
+    }
+    for (const [k, list] of m.entries()) {
+      m.set(
+        k,
+        list.slice().sort((a, b) => {
+          if (a.confidence !== b.confidence) return a.confidence === "high" ? -1 : 1;
+          return b.score - a.score;
+        })
+      );
+    }
+    return m;
+  }, [duplicateCandidates]);
+
+  function candidateLabelForSource(e: PlannerEventRow) {
+    if (String(e.source_type ?? "") === "ics") {
+      const sid = String(e.source_id ?? "").trim();
+      const s = sid ? sourcesById.get(sid) : null;
+      return s?.source_name || s?.team_name || "Imported calendar";
+    }
+    return "Manual event";
+  }
+
+  function formatDuplicateReasons(reasons: PlannerDuplicateReason[]) {
+    const unique = Array.from(new Set(reasons));
+    const label = (r: PlannerDuplicateReason) =>
+      r === "time" ? "time" : r === "title" ? "title" : r === "location" ? "location" : r === "team" ? "team" : "timezone";
+    return unique.map(label).join(", ");
+  }
+
+  async function onKeepSeparate(eventId: string, candidateEventId: string) {
+    const key = `${eventId}:${candidateEventId}`;
+    setDismissingPairs((prev) => new Set(prev).add(key));
+    setError(null);
+    try {
+      await jsonFetch<{ ok: true }>("/api/planner/events/duplicates/dismiss", {
+        method: "POST",
+        body: JSON.stringify({ event_id: eventId, candidate_event_id: candidateEventId }),
+      });
+      // Refresh dismissals list so suggestions disappear deterministically.
+      await loadDismissedPairs();
+    } catch (e: any) {
+      setError(e?.message || "Failed to keep separate.");
+    } finally {
+      setDismissingPairs((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  }
 
   function resetCreateForm() {
     setCreateTitle("");
@@ -1311,6 +1404,57 @@ export default function PlannerClient(props: Props) {
                           </div>
                         )}
                         {e.notes ? <div className={styles.eventMeta}>{e.notes}</div> : null}
+
+                        {dupesByEventId.get(e.id)?.length ? (
+                          <div className={styles.eventMeta} style={{ marginTop: 8 }}>
+                            <div style={{ fontWeight: 900 }}>Possible duplicate from another calendar</div>
+                            <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                              {dupesByEventId.get(e.id)!.slice(0, 3).map((c) => {
+                                const cand = events.find((x) => x.id === c.candidateEventId) ?? null;
+                                if (!cand) return null;
+                                const candTz = effectiveTimeZoneForEvent(cand);
+                                const dismissKey = `${e.id}:${cand.id}`;
+                                const isDismissing = dismissingPairs.has(dismissKey);
+                                const mergeLabel = c.confidence === "high" ? "Merge (Recommended)" : "Merge…";
+                                return (
+                                  <div key={`${c.eventId}:${c.candidateEventId}`} className={styles.eventItem} style={{ padding: 10 }}>
+                                    <div className={styles.eventTitle}>{cand.title}</div>
+                                    <div className={styles.eventMeta}>
+                                      {formatTimeRange({ startIso: cand.starts_at, endIso: cand.ends_at, timeZone: candTz })}
+                                      {" · "}
+                                      {candidateLabelForSource(cand)}
+                                    </div>
+                                    <div className={styles.eventMeta}>
+                                      Match signals: {formatDuplicateReasons(c.reasons)}
+                                    </div>
+                                    <div className={styles.eventActions}>
+                                      <button
+                                        className={styles.secondaryBtn}
+                                        type="button"
+                                        disabled={true}
+                                        title="Manual merge is coming next. For now, use Keep separate to dismiss this suggestion."
+                                        aria-disabled="true"
+                                      >
+                                        {mergeLabel}
+                                      </button>
+                                      <button
+                                        className={styles.secondaryBtn}
+                                        type="button"
+                                        onClick={() => void onKeepSeparate(e.id, cand.id)}
+                                        disabled={busy || isDismissing}
+                                      >
+                                        Keep separate
+                                      </button>
+                                    </div>
+                                    <div className={styles.muted} style={{ marginTop: 6 }}>
+                                      Manual merge is coming next. For now, use <b>Keep separate</b> to dismiss this suggestion.
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : null}
 
                         <div className={styles.eventActions}>
                           {!isEditing ? (

@@ -163,6 +163,20 @@ commit;
 - Stage 2.1 polish: verify “Find venue” works for events without a linked venue and that ICS refresh preserves user-linked `venue_id` (see the venue-linking steps in the Stage 2 checklist).
 - Route note: `/weekend-planner` is the canonical planner entrypoint; `/planner` should redirect to `/weekend-planner` during consolidation.
 
+## Stage 2.4C (UAT) — Duplicate suggestions + Keep separate (no merge yet)
+
+Use existing hosted fixtures as the overlap stand-in:
+- Initial fixture: `https://www.tournamentinsights.com/uat-fixtures/planner/test-calendar-initial.ics`
+- Updated fixture: `https://www.tournamentinsights.com/uat-fixtures/planner/test-calendar-updated.ics`
+
+Checklist:
+- Import both fixtures as separate sources (two synced calendars).
+- In the planner list, confirm “Possible duplicate from another calendar” suggestions appear only within the selected lens/range (Weekend vs Season).
+- High-confidence suggestions show a disabled “Merge (Recommended)” placeholder; low confidence shows disabled “Merge…”.
+- Click “Keep separate” for a suggestion; it should disappear immediately.
+- Reload `/weekend-planner`; confirm the dismissed suggestion does not reappear.
+- Confirm both events remain visible (Keep separate dismisses only; it does not hide events).
+
 Additional production-only checks to add during UAT:
 - Cross-user isolation using UAT User B (User A data must not be visible).
 - Cleanup run only against UAT user UUIDs.
