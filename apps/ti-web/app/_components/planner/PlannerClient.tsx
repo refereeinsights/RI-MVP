@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { WEEKEND_PRO_FOUNDING_SHORT_COPY } from "@/lib/weekendProPricing";
 import {
@@ -242,6 +242,85 @@ export default function PlannerClient(props: Props) {
   const [importTeamName, setImportTeamName] = useState("");
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeAnchorEventId, setMergeAnchorEventId] = useState<string | null>(null);
+  const [mergeCandidateEventId, setMergeCandidateEventId] = useState<string | null>(null);
+  const [mergeSelections, setMergeSelections] = useState<Record<string, "primary" | "candidate" | "combine">>({});
+  const [mergeBusy, setMergeBusy] = useState(false);
+  const mergeRestoreFocusRef = useRef<HTMLElement | null>(null);
+  const mergePanelRef = useRef<HTMLDivElement | null>(null);
+
+  function closeMergeModal() {
+    setMergeOpen(false);
+    setMergeBusy(false);
+    setMergeAnchorEventId(null);
+    setMergeCandidateEventId(null);
+    setMergeSelections({});
+    const el = mergeRestoreFocusRef.current;
+    mergeRestoreFocusRef.current = null;
+    try {
+      el?.focus?.();
+    } catch {
+      // ignore
+    }
+  }
+
+  function openMergeModal(args: { anchorEventId: string; candidateEventId: string }) {
+    mergeRestoreFocusRef.current = (document.activeElement as HTMLElement | null) ?? null;
+    setMergeAnchorEventId(args.anchorEventId);
+    setMergeCandidateEventId(args.candidateEventId);
+    setMergeSelections({});
+    setMergeOpen(true);
+  }
+
+  useEffect(() => {
+    if (!mergeOpen) return;
+    const t = setTimeout(() => {
+      try {
+        mergePanelRef.current?.focus?.();
+      } catch {
+        // ignore
+      }
+    }, 0);
+    return () => clearTimeout(t);
+  }, [mergeOpen]);
+
+  function mergeModalKeyDown(e: any) {
+    if (!mergeOpen) return;
+    if (e.key === "Escape") {
+      if (mergeBusy) return;
+      e.preventDefault();
+      closeMergeModal();
+      return;
+    }
+    if (e.key !== "Tab") return;
+    const panel = mergePanelRef.current;
+    if (!panel) return;
+    const focusables = Array.from(
+      panel.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((el) => {
+      const style = window.getComputedStyle(el);
+      return style.display !== "none" && style.visibility !== "hidden";
+    });
+    if (!focusables.length) return;
+    const active = document.activeElement as HTMLElement | null;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey) {
+      if (!active || active === first || !panel.contains(active)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }
 
   function formatSourceStatusLabel(s: { sync_status: string | null; last_synced_at: string | null }) {
     const status = String(s.sync_status ?? "").toLowerCase();
@@ -509,6 +588,76 @@ export default function PlannerClient(props: Props) {
         next.delete(key);
         return next;
       });
+    }
+  }
+
+  function combineNotes(primaryNotes: string | null, candidateNotes: string | null) {
+    const a = String(primaryNotes ?? "").trim();
+    const b = String(candidateNotes ?? "").trim();
+    if (!a && !b) return null;
+    if (a && !b) return a;
+    if (!a && b) return b;
+    if (a === b) return a;
+    // Preserve both note bodies; avoid duplicate identical blocks.
+    return [a, b].join("\n\n---\n\n");
+  }
+
+  async function onConfirmMerge() {
+    if (!mergeAnchorEventId || !mergeCandidateEventId) return;
+    const primary = events.find((e) => e.id === mergeAnchorEventId) ?? null;
+    const candidate = events.find((e) => e.id === mergeCandidateEventId) ?? null;
+    if (!primary || !candidate) {
+      setError("That merge target could not be found. Try refreshing.");
+      closeMergeModal();
+      return;
+    }
+
+    const selection = (key: string) => mergeSelections[key] || "primary";
+    const winners: Record<string, any> = {};
+
+    if (selection("title") === "candidate") winners.title = candidate.title ?? null;
+    if (selection("time") === "candidate") {
+      winners.starts_at = candidate.starts_at;
+      winners.ends_at = candidate.ends_at ?? null;
+    }
+    if (selection("timezone") === "candidate") winners.timezone = candidate.timezone ?? null;
+    if (selection("address_text") === "candidate") winners.address_text = candidate.address_text ?? null;
+    if (selection("city") === "candidate") winners.city = candidate.city ?? null;
+    if (selection("state") === "candidate") winners.state = candidate.state ?? null;
+    if (selection("team_name") === "candidate") winners.team_name = candidate.team_name ?? null;
+    if (selection("opponent_name") === "candidate") winners.opponent_name = candidate.opponent_name ?? null;
+    if (selection("field_label") === "candidate") winners.field_label = candidate.field_label ?? null;
+
+    const notesSel = selection("notes");
+    if (notesSel === "candidate") winners.notes = candidate.notes ?? null;
+    else if (notesSel === "combine") winners.notes = combineNotes(primary.notes ?? null, candidate.notes ?? null);
+
+    setMergeBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await jsonFetch<{
+        ok: true;
+        event: PlannerEventRow;
+        suppressed: any[];
+        warnings: Array<{ field?: string; message: string }>;
+      }>("/api/planner/events/merge", {
+        method: "POST",
+        body: JSON.stringify({
+          primary_event_id: primary.id,
+          merge_event_ids: [candidate.id],
+          field_winners: Object.keys(winners).length ? winners : undefined,
+        }),
+      });
+
+      const warningText = (res.warnings ?? []).map((w) => String(w?.message ?? "").trim()).filter(Boolean);
+      setNotice(warningText.length ? `Merged duplicate events into a new manual event. ${warningText.join(" ")}` : "Merged duplicate events into a new manual event.");
+      closeMergeModal();
+      await loadEvents();
+      await loadDismissedPairs();
+    } catch (e: any) {
+      setError(e?.message || "Merge failed.");
+      setMergeBusy(false);
     }
   }
 
@@ -850,6 +999,220 @@ export default function PlannerClient(props: Props) {
 
   return (
     <div className={styles.page}>
+      {mergeOpen ? (
+        (() => {
+          const primary = mergeAnchorEventId ? events.find((e) => e.id === mergeAnchorEventId) ?? null : null;
+          const candidate = mergeCandidateEventId ? events.find((e) => e.id === mergeCandidateEventId) ?? null : null;
+          if (!primary || !candidate) return null;
+
+          const primaryTz = effectiveTimeZoneForEvent(primary);
+          const candTz = effectiveTimeZoneForEvent(candidate);
+
+          const pick = (key: string) => mergeSelections[key] || "primary";
+          const setPick = (key: string, value: "primary" | "candidate" | "combine") =>
+            setMergeSelections((prev) => ({ ...prev, [key]: value }));
+
+          const fieldRow = (args: {
+            key: string;
+            label: string;
+            primaryValue: string;
+            candidateValue: string;
+            allowCombine?: boolean;
+          }) => {
+            const selected = pick(args.key);
+            return (
+              <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ fontWeight: 900 }}>{args.label}</div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  <button
+                    type="button"
+                    className={selected === "primary" ? styles.primaryBtn : styles.secondaryBtn}
+                    onClick={() => setPick(args.key, "primary")}
+                    disabled={mergeBusy}
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    Primary: {args.primaryValue || "—"}
+                  </button>
+                  <button
+                    type="button"
+                    className={selected === "candidate" ? styles.primaryBtn : styles.secondaryBtn}
+                    onClick={() => setPick(args.key, "candidate")}
+                    disabled={mergeBusy}
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    Duplicate: {args.candidateValue || "—"}
+                  </button>
+                  {args.allowCombine ? (
+                    <button
+                      type="button"
+                      className={selected === "combine" ? styles.primaryBtn : styles.secondaryBtn}
+                      onClick={() => setPick(args.key, "combine")}
+                      disabled={mergeBusy}
+                      style={{ justifyContent: "flex-start" }}
+                    >
+                      Combine both
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          };
+
+          const conflicts: Array<JSX.Element> = [];
+
+          const titleA = String(primary.title ?? "").trim();
+          const titleB = String(candidate.title ?? "").trim();
+          if (titleA !== titleB) {
+            conflicts.push(fieldRow({ key: "title", label: "Title", primaryValue: titleA, candidateValue: titleB }));
+          }
+
+          const timeA = formatTimeRange({ startIso: primary.starts_at, endIso: primary.ends_at, timeZone: primaryTz });
+          const timeB = formatTimeRange({ startIso: candidate.starts_at, endIso: candidate.ends_at, timeZone: candTz });
+          if (timeA !== timeB) {
+            conflicts.push(fieldRow({ key: "time", label: "Time", primaryValue: timeA, candidateValue: timeB }));
+          }
+
+          const tzA = String(primary.timezone ?? "").trim();
+          const tzB = String(candidate.timezone ?? "").trim();
+          if (tzA !== tzB) {
+            conflicts.push(fieldRow({ key: "timezone", label: "Timezone", primaryValue: tzA || "—", candidateValue: tzB || "—" }));
+          }
+
+          const addrA = String(primary.address_text ?? "").trim();
+          const addrB = String(candidate.address_text ?? "").trim();
+          if (addrA !== addrB) {
+            conflicts.push(fieldRow({ key: "address_text", label: "Address / location", primaryValue: addrA, candidateValue: addrB }));
+          }
+
+          const cityA = String(primary.city ?? "").trim();
+          const cityB = String(candidate.city ?? "").trim();
+          if (cityA !== cityB) {
+            conflicts.push(fieldRow({ key: "city", label: "City", primaryValue: cityA, candidateValue: cityB }));
+          }
+
+          const stateA = String(primary.state ?? "").trim();
+          const stateB = String(candidate.state ?? "").trim();
+          if (stateA !== stateB) {
+            conflicts.push(fieldRow({ key: "state", label: "State", primaryValue: stateA, candidateValue: stateB }));
+          }
+
+          const teamA = String(primary.team_name ?? "").trim();
+          const teamB = String(candidate.team_name ?? "").trim();
+          if (teamA !== teamB) {
+            conflicts.push(fieldRow({ key: "team_name", label: "Team", primaryValue: teamA, candidateValue: teamB }));
+          }
+
+          const oppA = String(primary.opponent_name ?? "").trim();
+          const oppB = String(candidate.opponent_name ?? "").trim();
+          if (oppA !== oppB) {
+            conflicts.push(fieldRow({ key: "opponent_name", label: "Opponent", primaryValue: oppA, candidateValue: oppB }));
+          }
+
+          const fieldA = String(primary.field_label ?? "").trim();
+          const fieldB = String(candidate.field_label ?? "").trim();
+          if (fieldA !== fieldB) {
+            conflicts.push(fieldRow({ key: "field_label", label: "Field label", primaryValue: fieldA, candidateValue: fieldB }));
+          }
+
+          const notesA = String(primary.notes ?? "").trim();
+          const notesB = String(candidate.notes ?? "").trim();
+          if (notesA !== notesB) {
+            conflicts.push(
+              fieldRow({
+                key: "notes",
+                label: "Notes",
+                primaryValue: notesA || "—",
+                candidateValue: notesB || "—",
+                allowCombine: Boolean(notesA) && Boolean(notesB),
+              })
+            );
+          }
+
+          return (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="merge-modal-title"
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(15, 23, 42, 0.6)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 16,
+                zIndex: 60,
+              }}
+              onKeyDown={mergeModalKeyDown}
+              onClick={() => {
+                if (mergeBusy) return;
+                closeMergeModal();
+              }}
+            >
+              <div
+                ref={mergePanelRef}
+                tabIndex={-1}
+                className={styles.card}
+                style={{ width: "100%", maxWidth: 720, marginTop: 0, outline: "none" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className={styles.cardTitle} id="merge-modal-title">
+                  Review duplicate merge
+                </div>
+                <div className={styles.muted} style={{ marginBottom: 10 }}>
+                  This will create a new manual event and hide eligible imported duplicates. Original imported events are not deleted.
+                </div>
+                {eventsTruncated ? (
+                  <div className={styles.muted} style={{ fontWeight: 900, marginBottom: 10 }}>
+                    This merge is based on currently loaded events only.
+                  </div>
+                ) : null}
+
+                <div style={{ display: "grid", gap: 10, marginBottom: 12 }}>
+                  <div className={styles.eventItem} style={{ padding: 10 }}>
+                    <div style={{ fontWeight: 950 }}>Primary event</div>
+                    <div className={styles.eventTitle}>{primary.title}</div>
+                    <div className={styles.eventMeta}>
+                      {formatTimeRange({ startIso: primary.starts_at, endIso: primary.ends_at, timeZone: primaryTz })} · {candidateLabelForSource(primary)}
+                    </div>
+                    {locationTextForEvent(primary) ? <div className={styles.eventMeta}>{locationTextForEvent(primary)}</div> : null}
+                  </div>
+
+                  <div className={styles.eventItem} style={{ padding: 10 }}>
+                    <div style={{ fontWeight: 950 }}>Duplicate event</div>
+                    <div className={styles.eventTitle}>{candidate.title}</div>
+                    <div className={styles.eventMeta}>
+                      {formatTimeRange({ startIso: candidate.starts_at, endIso: candidate.ends_at, timeZone: candTz })} · {candidateLabelForSource(candidate)}
+                    </div>
+                    {locationTextForEvent(candidate) ? <div className={styles.eventMeta}>{locationTextForEvent(candidate)}</div> : null}
+                  </div>
+                </div>
+
+                {conflicts.length ? (
+                  <div style={{ display: "grid", gap: 12, marginBottom: 12 }}>
+                    <div style={{ fontWeight: 950 }}>Choose field winners</div>
+                    <div style={{ display: "grid", gap: 12 }}>{conflicts}</div>
+                  </div>
+                ) : (
+                  <div className={styles.muted} style={{ marginBottom: 12 }}>
+                    No conflicts detected. Primary event values will be used by default.
+                  </div>
+                )}
+
+                <div className={styles.eventActions}>
+                  <button className={styles.secondaryBtn} type="button" onClick={closeMergeModal} disabled={mergeBusy}>
+                    Cancel
+                  </button>
+                  <button className={styles.primaryBtn} type="button" onClick={() => void onConfirmMerge()} disabled={mergeBusy}>
+                    {mergeBusy ? "Merging…" : "Create merged event"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()
+      ) : null}
+
       {mapPickerOpen ? (
         <div
           role="dialog"
@@ -1427,7 +1790,7 @@ export default function PlannerClient(props: Props) {
                                 const candTz = effectiveTimeZoneForEvent(cand);
                                 const dismissKey = `${e.id}:${cand.id}`;
                                 const isDismissing = dismissingPairs.has(dismissKey);
-                                const mergeLabel = c.confidence === "high" ? "Merge (Recommended)" : "Merge…";
+                                const mergeLabel = c.confidence === "high" ? "Merge (Recommended)" : "Review merge…";
                                 return (
                                   <div key={`${c.eventId}:${c.candidateEventId}`} className={styles.eventItem} style={{ padding: 10 }}>
                                     <div className={styles.eventTitle}>{cand.title}</div>
@@ -1443,9 +1806,8 @@ export default function PlannerClient(props: Props) {
                                       <button
                                         className={styles.secondaryBtn}
                                         type="button"
-                                        disabled={true}
-                                        title="Manual merge is coming next. For now, use Keep separate to dismiss this suggestion."
-                                        aria-disabled="true"
+                                        onClick={() => openMergeModal({ anchorEventId: e.id, candidateEventId: cand.id })}
+                                        disabled={busy}
                                       >
                                         {mergeLabel}
                                       </button>
@@ -1457,9 +1819,6 @@ export default function PlannerClient(props: Props) {
                                       >
                                         Keep separate
                                       </button>
-                                    </div>
-                                    <div className={styles.muted} style={{ marginTop: 6 }}>
-                                      Manual merge is coming next. For now, use <b>Keep separate</b> to dismiss this suggestion.
                                     </div>
                                   </div>
                                 );

@@ -177,6 +177,30 @@ Checklist:
 - Reload `/weekend-planner`; confirm the dismissed suggestion does not reappear.
 - Confirm both events remain visible (Keep separate dismisses only; it does not hide events).
 
+## Stage 2.4E (UAT) — Merge confirmation UI (no one-click merge)
+
+Prereq: Use the same overlap stand-in fixtures from Stage 2.4C.
+
+Checklist:
+- In the planner list, find a “Possible duplicate from another calendar” suggestion.
+- Click **Merge (Recommended)** or **Review merge…**.
+- Confirm a **Review duplicate merge** modal opens.
+- Modal must not display raw IDs, source URLs, or `source_event_uid`.
+- If there are conflicting fields (title/time/location/notes), confirm winner selectors appear.
+- Click **Cancel**:
+  - modal closes
+  - no events are hidden
+  - no new manual event is created
+- Re-open the modal and confirm any winner selections were cleared/reset.
+- Click **Create merged event**:
+  - merge does not happen until confirmation
+  - after success, the planner list refreshes
+  - a new **manual** event appears (canonical merged event)
+  - eligible imported originals are hidden (suppressed via `merged_duplicate`; source rows are not deleted)
+  - any API warnings are displayed safely (manual originals may remain visible)
+- Verify Keep separate still works and does not call merge.
+- If the planner shows a truncation disclosure (showing only first N events), confirm it remains visible and the modal shows the loaded-only reminder.
+
 Additional production-only checks to add during UAT:
 - Cross-user isolation using UAT User B (User A data must not be visible).
 - Cleanup run only against UAT user UUIDs.

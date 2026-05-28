@@ -46,6 +46,9 @@ Production-only DB note: see `docs/weekend-planner-uat.md` for UAT accounts, hos
    - Delete it.
    - Confirm all actions still work.
 
+## Stage 2.4E quick check (optional)
+- If duplicate suggestions are present, confirm clicking **Merge (Recommended)** / **Review merge…** opens a confirmation modal and does not merge until **Create merged event** is confirmed.
+
 ## Notes / known limitations
 - Deleted imported events may reappear on refresh (no suppression in Stage 2).
 - Refresh does not delete events missing from the feed.
