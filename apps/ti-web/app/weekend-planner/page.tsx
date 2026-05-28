@@ -1,6 +1,6 @@
 import Link from "next/link";
 import "../tournaments/tournaments.css";
-import PlannerClient from "../planner/PlannerClient";
+import PlannerClient from "../_components/planner/PlannerClient";
 import WeekendPlannerClient from "./WeekendPlannerClient";
 import styles from "./WeekendPlanner.module.css";
 import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";

@@ -27,6 +27,10 @@ Maintenance rules:
   - `/venues` directory upsell copy now includes a “See pricing →” link (hidden for Weekend Pro users).
   - Planner upsell copy tightened to specific benefits + founding price line.
 
+- TI planner: internal module cleanup — move shared planner UI out of the `/planner` route folder.
+  - Shared planner UI moved from `apps/ti-web/app/planner/PlannerClient.tsx` to `apps/ti-web/app/_components/planner/PlannerClient.tsx` (and CSS module moved alongside).
+  - Canonical `/weekend-planner` imports the shared planner UI from the new location; `/planner` remains redirect-only.
+
 ## 2026-05-27
 
 - TI planner: route consolidation — canonical planner experience moved to `/weekend-planner`; `/planner` now redirects (preserves allowlisted `view`/`import` params). Primary header nav temporarily hides “Weekend Planner” during consolidation + UAT.
@@ -45,7 +49,7 @@ Maintenance rules:
 - TI planner: UX hardening — remove raw UUID inputs from `/planner` event forms and add authenticated venue/tournament search.
   - Migration: `supabase/migrations/20260527_ti_planner_public_search_surfaces.sql` (adds `venues_public` and `tournaments_search_public` views for authenticated search; does not change base table RLS; not granted to anon/public).
   - APIs: `apps/ti-web/app/api/planner/search/venues/route.ts`, `apps/ti-web/app/api/planner/search/tournaments/route.ts`.
-  - Planner UI: `apps/ti-web/app/planner/PlannerClient.tsx` (venue + tournament typeahead; removes “Venue ID (optional)” UUID inputs; event cards no longer display raw UUIDs).
+  - Planner UI: `apps/ti-web/app/_components/planner/PlannerClient.tsx` (venue + tournament typeahead; removes “Venue ID (optional)” UUID inputs; event cards no longer display raw UUIDs; moved from `apps/ti-web/app/planner/PlannerClient.tsx`).
   - Planner API: add `tournament_id` write support + UUID validation on create/update routes.
   - UAT: `docs/qa/ti-planner-ics-uat.md` updated to remove manual UUID wording.
 
@@ -64,7 +68,7 @@ Maintenance rules:
     - Rejects very large calendars (~2MB cap) with a user-safe error.
     - Dedupes within a source by `source_event_uid` (uses ICS `UID` when present, otherwise a stable hash).
     - On refresh: updates source-managed fields only; does not overwrite `venue_id` or non-empty `notes`.
-  - UI: `apps/ti-web/app/planner/PlannerClient.tsx` adds “Import calendar link” flow and a “Synced calendars” section with refresh.
+  - UI: `apps/ti-web/app/_components/planner/PlannerClient.tsx` adds “Import calendar link” flow and a “Synced calendars” section with refresh (moved from `apps/ti-web/app/planner/PlannerClient.tsx`).
   - Lib: `apps/ti-web/lib/planner/ics-import.ts` (fetch + parse + normalize + insert/update + refresh).
   - UAT: `docs/qa/ti-planner-ics-uat.md`.
 
@@ -77,7 +81,7 @@ Maintenance rules:
 - TI planner: add Weekend Planner™ (Stage 1) foundation at `/planner` (distinct from `/weekend-planner`) with user-owned Supabase tables + RLS and minimal create/edit/delete APIs.
   - Migration: `supabase/migrations/20260526_ti_planner_stage1.sql` (planner tables, grants, env-safe `public.set_updated_at()` helper + triggers, RLS policies).
   - Hardening / Stage 2 readiness: `supabase/migrations/20260526_ti_planner_stage1_stage2_ready.sql` (adds `planner_events.source_event_uid` + compound index for future ICS idempotency, plus a few expected single-column indexes).
-  - App/UI: `apps/ti-web/app/planner/page.tsx`, `apps/ti-web/app/planner/PlannerClient.tsx`, `apps/ti-web/app/planner/Planner.module.css`.
+  - App/UI: `apps/ti-web/app/planner/page.tsx`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css` (shared UI later moved out of the route folder).
   - APIs: `apps/ti-web/app/api/planner/events/route.ts`, `apps/ti-web/app/api/planner/events/[id]/route.ts`.
   - Types: `apps/ti-web/lib/planner/types.ts`.
   - Harden: validate `event_type`, `venue_id` UUID, state format, end before start, and make timezone formatting resilient to invalid IANA tz strings.
