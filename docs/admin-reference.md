@@ -90,6 +90,7 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
   - `POST /api/planner/events/merge` creates a new canonical manual event and suppresses eligible ICS originals using `planner_event_suppressions` (`reason='merged_duplicate'`).
   - Manual originals are not suppressed in Stage 2.4D due to the current `planner_event_suppressions` constraint requiring `source_id` + `source_event_uid` for `merged_duplicate`.
 - Stage 2.4E: Planner UI wires duplicate suggestion Merge buttons to a confirmation modal that calls the merge endpoint after explicit confirmation (no one-click merge).
+- Stage 2.4F (prompt drafted): optional manual-original cleanup after merge (manual-only, explicit confirmation; reuses existing delete API; no ICS deletion).
 - `GET /api/planner/sources` returns source metadata only (does not return `source_url`).
 - Planner search routes are authenticated and query only the views (`venues_public`, `tournaments_search_public`), not base tables.
 - SSRF: URL scheme/host checks + DNS lookup + manual redirect chaining; DNS rebinding remains a known limitation with native `fetch` (acceptable for MVP; tighten later with an agent-based approach if needed).

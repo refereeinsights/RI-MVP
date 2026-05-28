@@ -47,6 +47,7 @@ Maintenance rules:
     - `GET /api/planner/events` now returns `truncated` + `limit` metadata and the planner UI discloses when duplicate suggestions only consider loaded events.
     - `POST /api/planner/events/merge` creates a new canonical manual event and suppresses eligible ICS originals using `planner_event_suppressions` (manual originals remain visible in this stage).
   - Stage 2.4E: merge confirmation UI wires Merge buttons to the merge endpoint (explicit confirmation; no one-click merge).
+  - Drafted Stage 2.4F prompt for optional manual-original cleanup after merge (manual-only, user-confirmed, bounded to just-merged IDs).
 
 ## 2026-05-27
 
