@@ -188,8 +188,10 @@ function dayKey(iso: string, timeZone: string | null) {
 }
 
 function formatDayLabel(dayIso: string, timeZone: string | null) {
-  // dayIso is YYYY-MM-DD, treat as UTC date anchor.
-  const d = new Date(`${dayIso}T00:00:00Z`);
+  // dayIso is YYYY-MM-DD.
+  // Use a midday UTC anchor to avoid shifting the visible calendar day when formatting
+  // into a negative UTC offset (e.g. America/Los_Angeles would render UTC midnight as prior-day).
+  const d = new Date(`${dayIso}T12:00:00Z`);
   const tz = safeTimeZone(timeZone) || "UTC";
   return new Intl.DateTimeFormat(undefined, {
     timeZone: tz,
