@@ -13,7 +13,6 @@ import { buildHotelsHref, canShowBookingCta } from "@/lib/booking/venueBooking";
 import { isValidLatLng, round6 } from "@/lib/staticTournamentMaps";
 import { buildPlanningMapUrl } from "@/lib/planningMapUrl";
 import VenuePlanningMapLinkClient from "@/components/venues/VenuePlanningMapLinkClient";
-import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 
 export type NearbyPlace = {
   name: string;
@@ -269,12 +268,13 @@ export default function OwlsEyeVenueCard({
                 query={mapQuery}
                 fallbackHref={mapLinks.google}
                 className="secondaryLink hotelBookingCta"
-                onClick={() => {
-                  void trackTiEvent("venue_details_directions_click", {
+                trackEvent={{
+                  name: "venue_details_directions_click",
+                  properties: {
                     venue_id: venue.id,
                     venue_name: venue.name ?? "Venue",
                     tournament_slug: selectedTournamentSlug ?? null,
-                  });
+                  },
                 }}
               >
                 Get directions

@@ -11,7 +11,25 @@ type Props = {
   fallbackHref: string;
   className?: string;
   children: ReactNode;
-  onClick?: () => void;
+  trackEvent?:
+    | {
+        name: "venue_details_directions_click";
+        properties: { venue_id: string; venue_name: string; tournament_slug?: string | null };
+      }
+    | {
+        name: "directions_click";
+        properties: {
+          page_type: "venue_map";
+          tournament_id: string;
+          tournament_slug: string;
+          venue_id: string;
+          venue_name: string | null;
+          source: "venue_card" | "selected_venue_panel" | "venue_marker";
+          provider: "apple" | "google" | "waze" | "copy";
+          hasCoordinates: boolean;
+          hasOwlEyeData: boolean;
+        };
+      };
 };
 
 function isMobileUserAgent() {
@@ -46,7 +64,7 @@ function launchWithFallback(appHref: string, fallbackHref: string) {
   window.location.assign(appHref);
 }
 
-export default function MobileMapLink({ provider, query, fallbackHref, className, children, onClick }: Props) {
+export default function MobileMapLink({ provider, query, fallbackHref, className, children, trackEvent }: Props) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -62,7 +80,13 @@ export default function MobileMapLink({ provider, query, fallbackHref, className
       rel="noopener noreferrer"
       className={className}
       onClick={(event) => {
-        onClick?.();
+        if (trackEvent) {
+          // Keep directions tracking best-effort and non-blocking.
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          import("@/lib/tiAnalyticsClient").then(({ trackTiEvent }) => {
+            void trackTiEvent(trackEvent.name as any, trackEvent.properties as any);
+          });
+        }
         if (!isMobile) return;
         event.preventDefault();
         launchWithFallback(appHref, fallbackHref);
