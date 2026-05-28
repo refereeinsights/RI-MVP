@@ -462,6 +462,10 @@ export async function importIcsToPlanner(params: {
 
   const fetched = await fetchIcsTextWithManualRedirects(validated.url);
   if (!fetched.ok) return { ok: false, status: 400, error: fetched.error };
+  if (!String(fetched.finalUrl ?? "").trim()) {
+    console.error("[planner][ics-import] unexpected empty finalUrl after fetch");
+    return { ok: false, status: 500, error: genericImportFailure() };
+  }
 
   const normalized = normalizeIcsEvents({
     icsText: fetched.text,

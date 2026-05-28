@@ -49,6 +49,8 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 ### DB migrations
 - `supabase/migrations/20260526_ti_planner_stage2_sources_unique_url.sql`
   - Unique ICS sources per user: `(user_id, source_type, source_url)` (prevents duplicate “Synced calendars” entries for the same link).
+- `supabase/migrations/20260528_ti_planner_stage2_sources_unique_url_full.sql`
+  - Fixes Postgres `ON CONFLICT` compatibility for Supabase upserts by ensuring a non-partial unique index exists on `(user_id, source_type, source_url)`.
 - `supabase/migrations/20260526_ti_planner_stage2_ics_unique_uid.sql`
   - Unique event identity per source: `(user_id, source_id, source_event_uid)` where `source_event_uid IS NOT NULL` (required for safe refresh dedupe).
 - `supabase/migrations/20260527_ti_planner_public_search_surfaces.sql`
@@ -73,6 +75,7 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 - SSRF: URL scheme/host checks + DNS lookup + manual redirect chaining; DNS rebinding remains a known limitation with native `fetch` (acceptable for MVP; tighten later with an agent-based approach if needed).
 - Production-only UAT framework (no staging DB): `docs/weekend-planner-uat.md` (UAT accounts, hosted fixture strategy, cleanup SQL templates scoped by UAT user UUIDs) + Stage 2 checklist `docs/qa/ti-planner-ics-uat.md`.
 - ICS fixtures for hosting/docs live under `apps/ti-web/lib/planner/__fixtures__/`.
+- Import UX: after a successful import, the modal shows a success summary and switches the secondary action to “Done”.
 
 ## TI Planner (Stage 2.1 — Local-first venue-aware polish)
 - Events remain valid with only `title`, `starts_at`, and `event_type`; venue/tournament/location remain optional.

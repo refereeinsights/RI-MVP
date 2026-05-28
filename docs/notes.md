@@ -70,6 +70,8 @@ Maintenance rules:
 ## 2026-05-27
 
 - TI Weekend Planner route consolidation: `/weekend-planner` is now the canonical planner entrypoint; `/planner` is a compatibility alias that should redirect to `/weekend-planner` (query params preserved where practical). Primary header nav may temporarily hide “Weekend Planner” during UAT; direct URL access must still work.
+- TI planner Stage 2: fix Supabase upsert `ON CONFLICT` compatibility for `planner_event_sources` by adding a non-partial unique index on `(user_id, source_type, source_url)` (avoids Postgres 42P10 when using `.upsert(..., { onConflict })`).
+- TI planner import UX: after a successful calendar import, the modal keeps the success summary visible and switches the secondary action to “Done” (instead of leaving users in an ambiguous “Cancel” state).
 
 - TI partners/Fanatics: enrich `/go/partner/[partnerLinkId]` click logging to include `outbound_url` (actual destination URL) and a standardized `source_component` field (mirrors `placement`) in `ti_map_events.properties`.
   - File: `apps/ti-web/app/go/partner/[partnerLinkId]/route.ts`.

@@ -678,6 +678,9 @@ export default function PlannerClient(props: Props) {
       ) : null}
 
       {importOpen ? (
+        (() => {
+          const importSucceeded = Boolean(importResult);
+          return (
         <div
           role="dialog"
           aria-modal="true"
@@ -727,6 +730,7 @@ export default function PlannerClient(props: Props) {
                   value={importUrl}
                   onChange={(e) => setImportUrl(e.target.value)}
                   placeholder="https://…/calendar.ics"
+                  disabled={busy || importSucceeded}
                 />
               </div>
               <div className={styles.row2}>
@@ -737,6 +741,7 @@ export default function PlannerClient(props: Props) {
                     value={importSourceName}
                     onChange={(e) => setImportSourceName(e.target.value)}
                     placeholder="12U Tigers Calendar"
+                    disabled={busy || importSucceeded}
                   />
                 </div>
                 <div>
@@ -746,11 +751,12 @@ export default function PlannerClient(props: Props) {
                     value={importTeamName}
                     onChange={(e) => setImportTeamName(e.target.value)}
                     placeholder="12U Tigers"
+                    disabled={busy || importSucceeded}
                   />
                 </div>
               </div>
               <div className={styles.actionsRow}>
-                <button className={styles.primaryBtn} onClick={onImportIcs} disabled={busy}>
+                <button className={styles.primaryBtn} onClick={onImportIcs} disabled={busy || importSucceeded}>
                   Import schedule
                 </button>
                 <button
@@ -762,7 +768,7 @@ export default function PlannerClient(props: Props) {
                   }}
                   disabled={busy}
                 >
-                  Cancel
+                  {importSucceeded ? "Done" : "Cancel"}
                 </button>
               </div>
               <div className={styles.muted}>
@@ -772,6 +778,8 @@ export default function PlannerClient(props: Props) {
             </div>
           </div>
         </div>
+          );
+        })()
       ) : null}
 
       <div className={styles.headerRow}>
