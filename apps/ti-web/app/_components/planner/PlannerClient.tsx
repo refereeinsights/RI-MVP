@@ -222,6 +222,8 @@ async function jsonFetch<T>(url: string, init: RequestInit) {
 export default function PlannerClient(props: Props) {
   const tz = useMemo(() => browserTimeZone(), []);
   const [events, setEvents] = useState<PlannerEventRow[]>(props.initialEvents ?? []);
+  const [eventsTruncated, setEventsTruncated] = useState(false);
+  const [eventsLimit, setEventsLimit] = useState(200);
   const [sources, setSources] = useState<PlannerSourceRow[]>([]);
   const [dismissedPairs, setDismissedPairs] = useState<DuplicateDismissedRow[]>([]);
   const [dismissingPairs, setDismissingPairs] = useState<Set<string>>(new Set());
@@ -383,7 +385,11 @@ export default function PlannerClient(props: Props) {
     qs.set("limit", String(limit));
     qs.set("includePast", "false");
 
-    const res = await jsonFetch<{ ok: true; events: PlannerEventRow[] }>(`/api/planner/events?${qs.toString()}`, { method: "GET" });
+    const res = await jsonFetch<{ ok: true; events: PlannerEventRow[]; truncated: boolean; limit: number }>(`/api/planner/events?${qs.toString()}`, {
+      method: "GET",
+    });
+    setEventsTruncated(Boolean(res.truncated));
+    setEventsLimit(Number.isFinite(Number(res.limit)) ? Number(res.limit) : limit);
     setEvents((res.events ?? []).slice().sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at))));
   }
 
@@ -1352,6 +1358,12 @@ export default function PlannerClient(props: Props) {
             </div>
           )}
         </div>
+
+        {eventsTruncated ? (
+          <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+            Showing first {eventsLimit} events in this range. Duplicate suggestions only consider loaded events.
+          </div>
+        ) : null}
 
         {events.length === 0 ? (
           lens === "weekend" ? (

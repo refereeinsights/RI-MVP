@@ -43,6 +43,9 @@ Maintenance rules:
 - TI planner: Stage 2.4C duplicate suggestions + “Keep separate” (no merge yet).
   - Range-bounded duplicate candidate detection (client-side) surfaces “Possible duplicate” and a disabled “Merge (Recommended)” placeholder.
   - “Keep separate” persists per-user dismissals so the same pair isn’t repeatedly suggested.
+  - Stage 2.4D: add truncation awareness + manual merge endpoint foundation (server-only; UI remains disabled).
+    - `GET /api/planner/events` now returns `truncated` + `limit` metadata and the planner UI discloses when duplicate suggestions only consider loaded events.
+    - `POST /api/planner/events/merge` creates a new canonical manual event and suppresses eligible ICS originals using `planner_event_suppressions` (manual originals remain visible in this stage).
 
 ## 2026-05-27
 

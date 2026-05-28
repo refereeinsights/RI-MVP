@@ -83,6 +83,11 @@ function normalizeTimeZone(value: string | null) {
   }
 }
 
+const DEFAULT_GET_LIMIT = 200;
+const MAX_GET_LIMIT = 500;
+const TRUNCATION_SCAN_CAP_ROWS = 1000;
+const TRUNCATION_PAGE_SIZE = 250;
+
 export async function POST(req: Request) {
   const supabase = createSupabaseServerClient();
   const {
@@ -171,6 +176,7 @@ export async function GET(req: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const userId = user.id;
 
   // Optional range/filter params for season reliability.
   // Semantics:
@@ -188,7 +194,7 @@ export async function GET(req: Request) {
   const to = toRaw && isIsoDateTime(toRaw) ? toRaw : null;
   const types = parseTypesParam(typesRaw);
   const includePast = asBool(includePastRaw) ?? false;
-  const limit = Math.min(Math.max(asInt(limitRaw) ?? 500, 1), 500);
+  const limit = Math.min(Math.max(asInt(limitRaw) ?? DEFAULT_GET_LIMIT, 1), MAX_GET_LIMIT);
 
   if ((fromRaw && !from) || (toRaw && !to)) {
     return NextResponse.json({ ok: false, error: "invalid_range" }, { status: 400 });
@@ -197,76 +203,104 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "invalid_types" }, { status: 400 });
   }
 
-  let q = (supabase.from("planner_events" as any) as any)
-    .select(
-      "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,source_type,source_id,source_event_uid,created_at,updated_at"
-    )
-    .eq("user_id", user.id);
+  function buildBaseQuery() {
+    let q = (supabase.from("planner_events" as any) as any)
+      .select(
+        "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,source_type,source_id,source_event_uid,created_at,updated_at"
+      )
+      .eq("user_id", userId);
 
-  if (from) q = q.gte("starts_at", from);
-  if (to) q = q.lt("starts_at", to);
-  if (!includePast) q = q.gte("starts_at", new Date().toISOString());
-  if (types?.length) q = q.in("event_type", types);
-
-  const { data, error } = await q.order("starts_at", { ascending: true }).limit(limit);
-
-  if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
-
-  const events = (data ?? []) as any[];
-  if (!events.length) return NextResponse.json({ ok: true, events: [] });
-
-  // Stage 2.4B: hide ICS events that have been suppressed (refresh-proof identity).
-  // We only suppress for reason='merged_duplicate'. kept_separate is used later for dismissal.
-  const sourceIds = Array.from(
-    new Set(
-      events
-        .filter((e) => String(e?.source_type ?? "") === "ics")
-        .map((e) => String(e?.source_id ?? "").trim())
-        .filter(Boolean)
-    )
-  );
-  const sourceUids = Array.from(
-    new Set(
-      events
-        .filter((e) => String(e?.source_type ?? "") === "ics")
-        .map((e) => String(e?.source_event_uid ?? "").trim())
-        .filter(Boolean)
-    )
-  );
-
-  if (!sourceIds.length || !sourceUids.length) {
-    return NextResponse.json({ ok: true, events });
+    if (from) q = q.gte("starts_at", from);
+    if (to) q = q.lt("starts_at", to);
+    if (!includePast) q = q.gte("starts_at", new Date().toISOString());
+    if (types?.length) q = q.in("event_type", types);
+    return q;
   }
 
-  // Query suppressions bounded to the returned events' source identities.
-  const { data: suppressions, error: suppressError } = await (supabase.from("planner_event_suppressions" as any) as any)
-    .select("source_id,source_event_uid")
-    .eq("user_id", user.id)
-    .eq("reason", "merged_duplicate")
-    .in("source_id", sourceIds)
-    .in("source_event_uid", sourceUids)
-    .limit(1000);
+  async function filterSuppressed(events: any[]) {
+    if (!events.length) return events;
 
-  if (suppressError) {
-    // Fail open (show events) rather than breaking the planner on suppression read issues.
-    return NextResponse.json({ ok: true, events });
+    const icsEvents = events.filter((e) => String(e?.source_type ?? "") === "ics");
+    const sourceIds = Array.from(new Set(icsEvents.map((e) => String(e?.source_id ?? "").trim()).filter(Boolean)));
+    const sourceUids = Array.from(new Set(icsEvents.map((e) => String(e?.source_event_uid ?? "").trim()).filter(Boolean)));
+
+    if (!sourceIds.length || !sourceUids.length) return events;
+
+    const { data: suppressions, error: suppressError } = await (supabase.from("planner_event_suppressions" as any) as any)
+      .select("source_id,source_event_uid")
+      .eq("user_id", userId)
+      .eq("reason", "merged_duplicate")
+      .in("source_id", sourceIds)
+      .in("source_event_uid", sourceUids)
+      .limit(1000);
+
+    if (suppressError) {
+      // Fail open (show events) rather than breaking the planner on suppression read issues.
+      return events;
+    }
+
+    const suppressedKeys = new Set(
+      ((suppressions ?? []) as any[])
+        .map((s) => `${String(s?.source_id ?? "").trim()}:${String(s?.source_event_uid ?? "").trim()}`)
+        .filter((k) => !k.startsWith(":") && !k.endsWith(":"))
+    );
+
+    if (!suppressedKeys.size) return events;
+
+    return events.filter((e) => {
+      if (String(e?.source_type ?? "") !== "ics") return true;
+      const sid = String(e?.source_id ?? "").trim();
+      const uid = String(e?.source_event_uid ?? "").trim();
+      if (!sid || !uid) return true;
+      return !suppressedKeys.has(`${sid}:${uid}`);
+    });
   }
 
-  const suppressedKeys = new Set(
-    ((suppressions ?? []) as any[])
-      .map((s) => `${String(s?.source_id ?? "").trim()}:${String(s?.source_event_uid ?? "").trim()}`)
-      .filter((k) => !k.startsWith(":") && !k.endsWith(":"))
-  );
+  // Truncation-aware read:
+  // - Keep the existing user-provided limit (bounded to MAX_GET_LIMIT).
+  // - Scan bounded pages until we have limit+1 *visible* (non-suppressed) events OR hit a scan cap.
+  const pageSize = Math.min(Math.max(TRUNCATION_PAGE_SIZE, limit + 1), MAX_GET_LIMIT);
+  const visible: any[] = [];
+  let scanned = 0;
+  let offset = 0;
+  let truncated = false;
 
-  if (!suppressedKeys.size) return NextResponse.json({ ok: true, events });
+  while (visible.length < limit + 1 && scanned < TRUNCATION_SCAN_CAP_ROWS) {
+    const remainingScan = TRUNCATION_SCAN_CAP_ROWS - scanned;
+    const thisPageSize = Math.min(pageSize, remainingScan);
 
-  const filtered = events.filter((e) => {
-    if (String(e?.source_type ?? "") !== "ics") return true;
-    const sid = String(e?.source_id ?? "").trim();
-    const uid = String(e?.source_event_uid ?? "").trim();
-    if (!sid || !uid) return true;
-    return !suppressedKeys.has(`${sid}:${uid}`);
-  });
+    const { data, error } = await buildBaseQuery()
+      .order("starts_at", { ascending: true })
+      .range(offset, offset + thisPageSize - 1);
 
-  return NextResponse.json({ ok: true, events: filtered });
+    if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
+
+    const page = (data ?? []) as any[];
+    scanned += page.length;
+    offset += page.length;
+
+    if (!page.length) {
+      truncated = false;
+      break;
+    }
+
+    const filtered = await filterSuppressed(page);
+    for (const e of filtered) {
+      visible.push(e);
+      if (visible.length >= limit + 1) break;
+    }
+
+    if (page.length < thisPageSize) {
+      truncated = false;
+      break;
+    }
+  }
+
+  if (visible.length > limit) truncated = true;
+  if (scanned >= TRUNCATION_SCAN_CAP_ROWS && visible.length <= limit) {
+    // Hit scan cap before proving there are no more visible events.
+    truncated = true;
+  }
+
+  return NextResponse.json({ ok: true, events: visible.slice(0, limit), truncated, limit });
 }

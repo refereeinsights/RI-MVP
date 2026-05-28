@@ -76,6 +76,7 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 - `GET /api/planner/search/tournaments?q=` → `apps/ti-web/app/api/planner/search/tournaments/route.ts`
 - `POST /api/planner/events/duplicates/dismiss` → `apps/ti-web/app/api/planner/events/duplicates/dismiss/route.ts`
 - `GET /api/planner/events/duplicates/dismissed` → `apps/ti-web/app/api/planner/events/duplicates/dismissed/route.ts`
+- `POST /api/planner/events/merge` → `apps/ti-web/app/api/planner/events/merge/route.ts` (Stage 2.4D; server-only; UI merge remains disabled)
 
 ### Implementation notes
 - Server-only parsing uses `node-ical` via `apps/ti-web/lib/planner/ics-import.ts` with `ical.parseICS(icsText)` (do not use `ical.fromURL()`; SSRF protections live in our fetch path).
@@ -84,6 +85,10 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 - Stage 2.3: refresh returns a user-safe summary including `changed` count and a capped `changedEvents` list for UI display.
 - Stage 2.4B: `GET /api/planner/events` filters suppressed ICS events for `reason='merged_duplicate'` (read-time filtering; does not delete rows).
 - Stage 2.4C: “Keep separate” persists dismissed pairs and prevents repeated duplicate prompts; it does not hide events.
+- Stage 2.4D:
+  - `GET /api/planner/events` returns truncation metadata (`truncated`, `limit`) so the UI can disclose when duplicate suggestions only consider loaded events.
+  - `POST /api/planner/events/merge` creates a new canonical manual event and suppresses eligible ICS originals using `planner_event_suppressions` (`reason='merged_duplicate'`).
+  - Manual originals are not suppressed in Stage 2.4D due to the current `planner_event_suppressions` constraint requiring `source_id` + `source_event_uid` for `merged_duplicate`.
 - `GET /api/planner/sources` returns source metadata only (does not return `source_url`).
 - Planner search routes are authenticated and query only the views (`venues_public`, `tournaments_search_public`), not base tables.
 - SSRF: URL scheme/host checks + DNS lookup + manual redirect chaining; DNS rebinding remains a known limitation with native `fetch` (acceptable for MVP; tighten later with an agent-based approach if needed).
