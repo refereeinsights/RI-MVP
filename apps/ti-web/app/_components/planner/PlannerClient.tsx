@@ -20,6 +20,7 @@ import styles from "./Planner.module.css";
 type Props = {
   initialEvents: PlannerEventRow[];
   isPaid: boolean;
+  hideHeader?: boolean;
 };
 
 type PlannerLens = "weekend" | "season";
@@ -1856,37 +1857,34 @@ export default function PlannerClient(props: Props) {
         })()
       ) : null}
 
-		      <div className={styles.headerRow}>
-		        <div>
-		          <h1 className={styles.title}>Weekend Planner</h1>
-		          <p className={styles.subtitle}>Your family’s sports schedule, calendar feeds, and tournament weekends in one place.</p>
-		        </div>
-		        <div className={styles.headerActions}>
-		          <button
-		            className={styles.primaryBtn}
-		            type="button"
-		            onClick={() => setCreateOpen(true)}
-	            disabled={busy}
-	          >
-	            Add event
-	          </button>
-	          <button
-	            className={styles.secondaryBtn}
-	            type="button"
-	            onClick={() => {
-	              setImportOpen(true);
-	              setImportResult(null);
-	              setImportError(null);
-	            }}
-	            disabled={busy}
-	          >
-	            Connect calendar
-	          </button>
-	          <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen(true)} disabled={busy}>
-	            Manage calendars
-	          </button>
-		        </div>
-		      </div>
+			      {!props.hideHeader ? (
+			        <div className={styles.headerRow}>
+			          <div>
+			            <h1 className={styles.title}>Weekend Planner</h1>
+			            <p className={styles.subtitle}>Your family’s sports schedule, calendar feeds, and tournament weekends in one place.</p>
+			          </div>
+			          <div className={styles.headerActions}>
+			            <button className={styles.primaryBtn} type="button" onClick={() => setCreateOpen(true)} disabled={busy}>
+			              Add event
+			            </button>
+			            <button
+			              className={styles.secondaryBtn}
+			              type="button"
+			              onClick={() => {
+			                setImportOpen(true);
+			                setImportResult(null);
+			                setImportError(null);
+			              }}
+			              disabled={busy}
+			            >
+			              Connect calendar
+			            </button>
+			            <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen(true)} disabled={busy}>
+			              Manage calendars
+			            </button>
+			          </div>
+			        </div>
+			      ) : null}
 
 		      <div className={styles.card}>
 		        <div className={styles.cardTitle}>Your schedule</div>
