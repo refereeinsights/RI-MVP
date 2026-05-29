@@ -166,9 +166,34 @@ export default function PlannerCalendar(props: Props) {
           } catch {
             // ignore
           }
-        } else {
+        }
+
+        try {
+          controls.setTimezone(calendarTz as any);
+        } catch {
+          // ignore
+        }
+
+        // Ensure the calendar opens to the first month that contains loaded events.
+        // This runs once per mount and avoids showing an empty current month when all events are later.
+        if (hasEvents && !initialJumpToEventMonthRef.current) {
+          initialJumpToEventMonthRef.current = true;
           try {
-            controls.setTimezone(calendarTz as any);
+            const earliest = (props.events ?? [])
+              .slice()
+              .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)) || String(a.id).localeCompare(String(b.id)))[0];
+            if (earliest?.starts_at) {
+              const zdt = Temporal.Instant.from(String(earliest.starts_at)).toZonedDateTimeISO(calendarTz);
+              const firstOfMonth = Temporal.PlainDate.from({ year: zdt.year, month: zdt.month, day: 1 });
+              // Defer one tick so the calendar controls are definitely ready.
+              setTimeout(() => {
+                try {
+                  controls.setDate(firstOfMonth as any);
+                } catch {
+                  // ignore
+                }
+              }, 0);
+            }
           } catch {
             // ignore
           }
@@ -189,24 +214,6 @@ export default function PlannerCalendar(props: Props) {
       // ignore
     }
   }, [calendarTz, controls]);
-
-  useEffect(() => {
-    if (!hasEvents) return;
-    if (initialJumpToEventMonthRef.current) return;
-    initialJumpToEventMonthRef.current = true;
-
-    try {
-      const earliest = (props.events ?? [])
-        .slice()
-        .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)) || String(a.id).localeCompare(String(b.id)))[0];
-      if (!earliest?.starts_at) return;
-      const zdt = Temporal.Instant.from(String(earliest.starts_at)).toZonedDateTimeISO(calendarTz);
-      const firstOfMonth = Temporal.PlainDate.from({ year: zdt.year, month: zdt.month, day: 1 });
-      controls.setDate(firstOfMonth as any);
-    } catch {
-      // ignore
-    }
-  }, [calendarTz, controls, hasEvents, props.events]);
 
   return (
     <div className={styles.calendarContainer}>

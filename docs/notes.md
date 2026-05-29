@@ -3806,7 +3806,7 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
 - 2026-05-29: Weekend Planner calendar polish pass (Stage 2.6D).
   - Moved **Your schedule** higher in the page so Season calendar is reachable without scrolling past setup cards.
   - Deduped loaded-scope disclosure and positioned it under the `Calendar | List` toggle (Season view).
-  - Calendar timezone UI is now a compact “🕐 {tz} · Change” affordance instead of an always-visible dropdown.
+  - Calendar timezone UI is now a compact badge + `Change` affordance instead of an always-visible dropdown.
   - Calendar auto-jumps to the first month with loaded events (avoids opening to an empty month when events exist later).
   - List view scanability: title stays centered; meta/actions left-aligned; overlap note uses a calmer amber tone; conflict summary styling softened.
   - Files: `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, `docs/admin-reference.md`, `CLAUDE.md`.
@@ -3821,4 +3821,5 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Reduced calendar view options to Month Grid + Month Agenda (simpler UX).
   - Timezone control now uses a compact globe badge + link-style Change affordance (no emoji).
   - Added a safe per-source legend (Manual / Imported calendar N) and tightened event detail panel typography + close button.
+  - Follow-up polish: calendar opens to the first month with loaded events (avoids blank current month), hides Schedule‑X date picker and desktop view dropdown, and moves the overlaps note below `Calendar | List`.
   - Files: `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, `apps/ti-web/package.json`, `package-lock.json`, `docs/admin-reference.md`.

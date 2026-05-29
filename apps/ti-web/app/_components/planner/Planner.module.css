@@ -184,6 +184,18 @@
   padding: 10px 12px;
 }
 
+.scheduleOverlapNote {
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+  font-size: 13px;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
 .calendarContainer {
   display: grid;
   gap: 10px;
@@ -290,6 +302,25 @@
   --sx-color-outline-variant: #d1d5db;
   --sx-color-background: #ffffff;
   --sx-color-on-background: #111827;
+}
+
+.sxWrapper :global(.sx__date-picker-wrapper) {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .sxWrapper :global(.sx__view-selection) {
+    display: none;
+  }
+}
+
+.sxWrapper :global(.sx__chevron-wrapper:focus) {
+  outline: none;
+}
+
+.sxWrapper :global(.sx__chevron-wrapper:focus-visible) {
+  outline: 2px solid rgba(21, 128, 61, 0.35);
+  outline-offset: 2px;
 }
 
 .calendarLegend {

@@ -1947,22 +1947,8 @@ export default function PlannerClient(props: Props) {
 		          ) : null}
 		        </div>
 
-	        {(() => {
-	          const conflictedEventCount = loadedConflictsByEventId.size;
-	          if (!conflictedEventCount) return null;
-	          return (
-	            <div className={styles.eventConflictSummary} style={{ marginBottom: 10 }}>
-	              <div style={{ fontWeight: 900 }}>Schedule overlaps</div>
-	              <div className={styles.muted}>
-	                {conflictedEventCount} event{conflictedEventCount === 1 ? "" : "s"} overlap in the loaded schedule. Review in list view.{" "}
-	                {eventsHasMore ? "Conflicts only consider loaded events." : null}
-	              </div>
-	            </div>
-	          );
-	        })()}
-
-	        {scheduleView === "upcoming" ? (
-	          eventsHasMore ? (
+		        {scheduleView === "upcoming" ? (
+		          eventsHasMore ? (
 	            <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
 	              Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events. Switch to Season and load
 	              more to check additional events.
@@ -1974,9 +1960,9 @@ export default function PlannerClient(props: Props) {
 	          ) : null
 	        ) : null}
 
-	        {scheduleView === "season" ? (
-	          <>
-	            <div className={styles.calendarToggle} style={{ marginBottom: 10 }}>
+		        {scheduleView === "season" ? (
+		          <>
+		            <div className={styles.calendarToggle} style={{ marginBottom: 10 }}>
 	              <button
 	                className={seasonDisplayMode === "calendar" ? styles.primaryBtn : styles.secondaryBtn}
 	                type="button"
@@ -1999,12 +1985,25 @@ export default function PlannerClient(props: Props) {
 	              >
 	                List
 	              </button>
-	            </div>
+		            </div>
 
-	            {eventsHasMore ? (
-	              <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
-	                Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events. Load more to check
-	                additional events.
+		            {(() => {
+		              const conflictedEventCount = loadedConflictsByEventId.size;
+		              if (!conflictedEventCount) return null;
+		              const switchCopy = seasonDisplayMode === "calendar" ? " Switch to List to review details." : "";
+		              return (
+		                <div className={styles.scheduleOverlapNote} style={{ marginBottom: 10 }}>
+		                  <span style={{ fontWeight: 900 }}>Schedule overlaps:</span>{" "}
+		                  {conflictedEventCount} event{conflictedEventCount === 1 ? "" : "s"} overlap in the loaded schedule.{switchCopy}
+		                  {eventsHasMore ? " Conflicts only consider loaded events." : null}
+		                </div>
+		              );
+		            })()}
+
+		            {eventsHasMore ? (
+		              <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+		                Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events. Load more to check
+		                additional events.
 	              </div>
 	            ) : events.length ? (
 	              <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
