@@ -49,6 +49,14 @@ Production-only DB note: see `docs/weekend-planner-uat.md` for UAT accounts, hos
 ## Stage 2.4E quick check (optional)
 - If duplicate suggestions are present, confirm clicking **Merge (Recommended)** / **Review merge…** opens a confirmation modal and does not merge until **Create merged event** is confirmed.
 
+## Stage 2.5 quick check (optional)
+- Switch to **Season** lens and confirm event loading remains bounded.
+- If **Load more events** is present:
+  - Click it and confirm events append (no duplicates) and duplicate suggestions update for the loaded set.
+- Confirm disclosure copy stays honest:
+  - While more events exist: “Duplicate suggestions only consider loaded events…”
+  - When fully loaded: “All events in this range are loaded…”
+
 ## Notes / known limitations
 - Deleted imported events may reappear on refresh (no suppression in Stage 2).
 - Refresh does not delete events missing from the feed.

@@ -93,6 +93,7 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 - Stage 2.4E: Planner UI wires duplicate suggestion Merge buttons to a confirmation modal that calls the merge endpoint after explicit confirmation (no one-click merge).
 - Stage 2.4F (prompt drafted): optional manual-original cleanup after merge (manual-only, explicit confirmation; reuses existing delete API; no ICS deletion).
 - Stage 2.6A: manual event create/edit uses date+time pickers and tz-aware serialization. The UI resolves timezone from venue/tournament coordinates via `GET /api/planner/timezone` (TimeZoneDB server-side; falls back to browser tz). No timezone is persisted back onto venue/tournament tables in this stage.
+- Stage 2.5: `GET /api/planner/events` supports bounded cursor pagination (stable order by `starts_at, id`) and returns `hasMore` + `nextCursor` so the UI can load additional season events without unbounded queries. While `hasMore=true`, duplicate suggestions are disclosed as “loaded events only”.
 - `GET /api/planner/sources` returns source metadata only (does not return `source_url`).
 - Planner search routes are authenticated and query only the views (`venues_public`, `tournaments_search_public`), not base tables.
 - SSRF: URL scheme/host checks + DNS lookup + manual redirect chaining; DNS rebinding remains a known limitation with native `fetch` (acceptable for MVP; tighten later with an agent-based approach if needed).

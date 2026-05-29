@@ -204,3 +204,25 @@ Checklist:
 Additional production-only checks to add during UAT:
 - Cross-user isolation using UAT User B (User A data must not be visible).
 - Cleanup run only against UAT user UUIDs.
+
+## Stage 2.5 (UAT) — Season pagination + loaded-only disclosure
+
+Goal: confirm Season view is bounded, supports **Load more**, and duplicate suggestions remain honest about loaded scope.
+
+Checklist:
+- Switch to **Season** lens and choose a wide range (6mo or 12mo).
+- If there are more events than the page limit:
+  - Confirm the disclosure appears:
+    - `Showing {loadedCount} loaded events in this range. Duplicate suggestions only consider loaded events. Load more to check additional events.`
+  - Confirm a **Load more events** button appears.
+- Click **Load more events**:
+  - Events append (no duplicates).
+  - Sort order remains stable (by start time).
+  - Duplicate suggestions refresh based on the newly loaded set.
+- When all events for the selected range are loaded:
+  - Confirm the disclosure switches to:
+    - `All events in this range are loaded. Duplicate suggestions consider all events in this range.`
+- Regression:
+  - Keep separate still dismisses suggestions only.
+  - Merge still requires explicit confirmation.
+  - Suppressed merged ICS originals remain hidden after refresh.

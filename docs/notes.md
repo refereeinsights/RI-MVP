@@ -3766,3 +3766,9 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Added `GET /api/planner/timezone` server route to resolve IANA timezone from venue/tournament coordinates via TimeZoneDB (falls back to browser timezone when unavailable).
   - Added smart default: end = start + 1 hour (until user overrides).
   - Files: `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/api/planner/timezone/route.ts`, `docs/admin-reference.md`, `CLAUDE.md`.
+
+- 2026-05-28: Weekend Planner season-scale reliability — bounded cursor pagination + load more.
+  - Updated `GET /api/planner/events` to support stable cursor pagination (`starts_at`, then `id`) and return `hasMore` + `nextCursor` while keeping `truncated` for back-compat.
+  - Added Season “Load more events” UI and updated disclosure copy to be honest about duplicates considering loaded events only until all events in range are loaded.
+  - Prompt: `docs/prompts/ti-planner-stage-2.5-pagination.md`.
+  - Files: `apps/ti-web/app/api/planner/events/route.ts`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `docs/admin-reference.md`, `docs/weekend-planner-uat.md`, `docs/qa/ti-planner-ics-uat.md`, `CLAUDE.md`.

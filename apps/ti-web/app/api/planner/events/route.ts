@@ -189,18 +189,28 @@ export async function GET(req: Request) {
   const typesRaw = sp.get("types");
   const limitRaw = sp.get("limit");
   const includePastRaw = sp.get("includePast");
+  const cursorStartsAtRaw = sp.get("cursor_starts_at") || sp.get("cursorStartsAt");
+  const cursorIdRaw = sp.get("cursor_id") || sp.get("cursorId");
 
   const from = fromRaw && isIsoDateTime(fromRaw) ? fromRaw : null;
   const to = toRaw && isIsoDateTime(toRaw) ? toRaw : null;
   const types = parseTypesParam(typesRaw);
   const includePast = asBool(includePastRaw) ?? false;
   const limit = Math.min(Math.max(asInt(limitRaw) ?? DEFAULT_GET_LIMIT, 1), MAX_GET_LIMIT);
+  const cursorStartsAt = cursorStartsAtRaw && isIsoDateTime(cursorStartsAtRaw) ? cursorStartsAtRaw : null;
+  const cursorId = cursorIdRaw && isUuid(cursorIdRaw) ? cursorIdRaw : null;
 
   if ((fromRaw && !from) || (toRaw && !to)) {
     return NextResponse.json({ ok: false, error: "invalid_range" }, { status: 400 });
   }
   if (typesRaw && !types) {
     return NextResponse.json({ ok: false, error: "invalid_types" }, { status: 400 });
+  }
+  if ((cursorStartsAtRaw && !cursorStartsAt) || (cursorIdRaw && !cursorId)) {
+    return NextResponse.json({ ok: false, error: "invalid_cursor" }, { status: 400 });
+  }
+  if ((cursorStartsAt && !cursorId) || (!cursorStartsAt && cursorId)) {
+    return NextResponse.json({ ok: false, error: "invalid_cursor" }, { status: 400 });
   }
 
   function buildBaseQuery() {
@@ -262,25 +272,35 @@ export async function GET(req: Request) {
   const pageSize = Math.min(Math.max(TRUNCATION_PAGE_SIZE, limit + 1), MAX_GET_LIMIT);
   const visible: any[] = [];
   let scanned = 0;
-  let offset = 0;
-  let truncated = false;
+  let rawCursorStartsAt: string | null = cursorStartsAt;
+  let rawCursorId: string | null = cursorId;
+  let rawExhausted = false;
+  let scanCapHit = false;
+
+  function applyCursor(q: any, cursorStart: string, cursorRowId: string) {
+    // starts_at > cursorStart OR (starts_at = cursorStart AND id > cursorRowId)
+    // PostgREST boolean syntax via `.or()` string.
+    // Quote cursorStart because ISO strings contain reserved characters like ':' and '.'.
+    const start = `"${cursorStart}"`;
+    return q.or(`starts_at.gt.${start},and(starts_at.eq.${start},id.gt.${cursorRowId})`);
+  }
 
   while (visible.length < limit + 1 && scanned < TRUNCATION_SCAN_CAP_ROWS) {
     const remainingScan = TRUNCATION_SCAN_CAP_ROWS - scanned;
     const thisPageSize = Math.min(pageSize, remainingScan);
 
-    const { data, error } = await buildBaseQuery()
-      .order("starts_at", { ascending: true })
-      .range(offset, offset + thisPageSize - 1);
+    let q = buildBaseQuery().order("starts_at", { ascending: true }).order("id", { ascending: true }).limit(thisPageSize);
+    if (rawCursorStartsAt && rawCursorId) q = applyCursor(q, rawCursorStartsAt, rawCursorId);
+
+    const { data, error } = await q;
 
     if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
 
     const page = (data ?? []) as any[];
     scanned += page.length;
-    offset += page.length;
 
     if (!page.length) {
-      truncated = false;
+      rawExhausted = true;
       break;
     }
 
@@ -290,17 +310,25 @@ export async function GET(req: Request) {
       if (visible.length >= limit + 1) break;
     }
 
+    const last = page[page.length - 1] as any;
+    rawCursorStartsAt = String(last?.starts_at ?? "").trim() || rawCursorStartsAt;
+    rawCursorId = String(last?.id ?? "").trim() || rawCursorId;
+
     if (page.length < thisPageSize) {
-      truncated = false;
+      rawExhausted = true;
       break;
     }
   }
 
-  if (visible.length > limit) truncated = true;
-  if (scanned >= TRUNCATION_SCAN_CAP_ROWS && visible.length <= limit) {
-    // Hit scan cap before proving there are no more visible events.
-    truncated = true;
+  if (scanned >= TRUNCATION_SCAN_CAP_ROWS && !rawExhausted) {
+    // Hit scan cap before proving there are no more raw rows in range.
+    scanCapHit = true;
   }
 
-  return NextResponse.json({ ok: true, events: visible.slice(0, limit), truncated, limit });
+  const out = visible.slice(0, limit);
+  const hasMore = visible.length > limit || scanCapHit ? true : !rawExhausted ? true : false;
+  const nextCursor = hasMore && out.length ? { starts_at: String(out[out.length - 1].starts_at), id: String(out[out.length - 1].id) } : null;
+
+  // Back-compat: keep `truncated` for existing disclosure logic; map to hasMore.
+  return NextResponse.json({ ok: true, events: out, limit, hasMore, nextCursor, truncated: hasMore });
 }

@@ -304,6 +304,10 @@ export default function PlannerClient(props: Props) {
   const [events, setEvents] = useState<PlannerEventRow[]>(props.initialEvents ?? []);
   const [eventsTruncated, setEventsTruncated] = useState(false);
   const [eventsLimit, setEventsLimit] = useState(200);
+  const [eventsHasMore, setEventsHasMore] = useState(false);
+  const [eventsNextCursor, setEventsNextCursor] = useState<{ starts_at: string; id: string } | null>(null);
+  const [eventsPagingBusy, setEventsPagingBusy] = useState(false);
+  const lastEventsQueryRef = useRef<{ from: string | null; to: string | null; types: string[] | null; limit: number } | null>(null);
   const [sources, setSources] = useState<PlannerSourceRow[]>([]);
   const [dismissedPairs, setDismissedPairs] = useState<DuplicateDismissedRow[]>([]);
   const [dismissingPairs, setDismissingPairs] = useState<Set<string>>(new Set());
@@ -590,6 +594,7 @@ export default function PlannerClient(props: Props) {
   }, [editingId, editVenueId, editTournamentId, tz]);
 
   async function loadEvents() {
+    setEventsPagingBusy(true);
     const now = new Date();
     const limit = 200;
 
@@ -625,12 +630,72 @@ export default function PlannerClient(props: Props) {
     qs.set("limit", String(limit));
     qs.set("includePast", "false");
 
-    const res = await jsonFetch<{ ok: true; events: PlannerEventRow[]; truncated: boolean; limit: number }>(`/api/planner/events?${qs.toString()}`, {
-      method: "GET",
-    });
-    setEventsTruncated(Boolean(res.truncated));
-    setEventsLimit(Number.isFinite(Number(res.limit)) ? Number(res.limit) : limit);
-    setEvents((res.events ?? []).slice().sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at))));
+    try {
+      const res = await jsonFetch<{
+        ok: true;
+        events: PlannerEventRow[];
+        truncated?: boolean;
+        limit: number;
+        hasMore?: boolean;
+        nextCursor?: { starts_at: string; id: string } | null;
+      }>(`/api/planner/events?${qs.toString()}`, { method: "GET" });
+
+      lastEventsQueryRef.current = { from, to, types, limit };
+      const hasMore = Boolean((res as any).hasMore ?? res.truncated);
+      setEventsTruncated(hasMore);
+      setEventsHasMore(hasMore);
+      setEventsNextCursor((res as any).nextCursor ?? null);
+      setEventsLimit(Number.isFinite(Number(res.limit)) ? Number(res.limit) : limit);
+      setEvents(
+        (res.events ?? [])
+          .slice()
+          .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)) || String(a.id).localeCompare(String(b.id)))
+      );
+    } finally {
+      setEventsPagingBusy(false);
+    }
+  }
+
+  async function loadMoreEvents() {
+    const q = lastEventsQueryRef.current;
+    if (!q) return;
+    if (!eventsHasMore || !eventsNextCursor) return;
+    setEventsPagingBusy(true);
+    try {
+      const qs = new URLSearchParams();
+      if (q.from) qs.set("from", q.from);
+      if (q.to) qs.set("to", q.to);
+      if (q.types?.length) qs.set("types", q.types.join(","));
+      qs.set("limit", String(q.limit));
+      qs.set("includePast", "false");
+      qs.set("cursor_starts_at", eventsNextCursor.starts_at);
+      qs.set("cursor_id", eventsNextCursor.id);
+
+      const res = await jsonFetch<{
+        ok: true;
+        events: PlannerEventRow[];
+        truncated?: boolean;
+        limit: number;
+        hasMore?: boolean;
+        nextCursor?: { starts_at: string; id: string } | null;
+      }>(`/api/planner/events?${qs.toString()}`, { method: "GET" });
+
+      const hasMore = Boolean((res as any).hasMore ?? res.truncated);
+      setEventsTruncated(hasMore);
+      setEventsHasMore(hasMore);
+      setEventsNextCursor((res as any).nextCursor ?? null);
+
+      setEvents((prev) => {
+        const byId = new Map<string, PlannerEventRow>();
+        for (const e of prev) byId.set(String(e.id), e);
+        for (const e of res.events ?? []) byId.set(String(e.id), e);
+        return Array.from(byId.values()).sort(
+          (a, b) => String(a.starts_at).localeCompare(String(b.starts_at)) || String(a.id).localeCompare(String(b.id))
+        );
+      });
+    } finally {
+      setEventsPagingBusy(false);
+    }
   }
 
   async function loadSources() {
@@ -1948,10 +2013,16 @@ export default function PlannerClient(props: Props) {
           )}
         </div>
 
-        {eventsTruncated ? (
-          <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
-            Showing first {eventsLimit} events in this range. Duplicate suggestions only consider loaded events.
-          </div>
+        {lens === "season" ? (
+          eventsHasMore ? (
+            <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+              Showing {events.length} loaded events in this range. Duplicate suggestions only consider loaded events. Load more to check additional events.
+            </div>
+          ) : events.length ? (
+            <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+              All events in this range are loaded. Duplicate suggestions consider all events in this range.
+            </div>
+          ) : null
         ) : null}
 
         {events.length === 0 ? (
@@ -1965,7 +2036,8 @@ export default function PlannerClient(props: Props) {
             </div>
           )
         ) : (
-          grouped.map((g) => {
+          <>
+            {grouped.map((g) => {
             const groupTz = g.events[0] ? effectiveTimeZoneForEvent(g.events[0]) : tz || "UTC";
             return (
               <div key={g.key} className={styles.dayGroup}>
@@ -2329,7 +2401,15 @@ export default function PlannerClient(props: Props) {
                 </div>
               </div>
             );
-          })
+          })}
+            {lens === "season" && eventsHasMore ? (
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+                <button className={styles.secondaryBtn} onClick={() => void loadMoreEvents()} disabled={eventsPagingBusy}>
+                  {eventsPagingBusy ? "Loading more events…" : "Load more events"}
+                </button>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </div>
