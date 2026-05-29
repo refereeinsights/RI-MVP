@@ -12,6 +12,15 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-05-29
+
+- TI planner: Stage 2.6B (loaded-event schedule conflict highlighting).
+  - Client-only overlap detection across currently loaded planner events (no new APIs, no unbounded queries).
+  - Back-to-back events (end == start) are not flagged; missing `ends_at` uses an advisory 60-minute fallback.
+  - Event cards show a subtle conflict treatment plus a `Schedule conflict` badge and “Overlaps with N loaded events” note.
+  - Season disclosure copy updated to state that duplicate suggestions and schedule conflicts only consider loaded events when more events exist.
+  - Prompt: `docs/prompts/ti-planner-stage-2.6b-conflicts.md`.
+
 ## 2026-05-28
 
 - TI venues: route venue map interactions into the internal Planning Map (tournament venue map) instead of opening external maps by default.

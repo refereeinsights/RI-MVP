@@ -55,6 +55,44 @@ type TournamentSearchResult = {
   end_date: string | null;
 };
 
+type LoadedConflictInfo = { conflictCount: number };
+
+function detectLoadedEventConflicts(events: PlannerEventRow[]) {
+  const byId = new Map<string, LoadedConflictInfo>();
+  const parsed: Array<{ id: string; startMs: number; endMs: number }> = [];
+
+  for (const e of events) {
+    const id = String(e.id);
+    const start = new Date(String(e.starts_at ?? ""));
+    if (Number.isNaN(start.getTime())) continue;
+    const startMs = start.getTime();
+    const rawEnd = e.ends_at ? new Date(String(e.ends_at)) : null;
+    const rawEndMs = rawEnd && !Number.isNaN(rawEnd.getTime()) ? rawEnd.getTime() : null;
+    // Advisory fallback: if ends_at is missing/invalid (or even <= starts_at), assume 60 minutes.
+    const endMs = rawEndMs && rawEndMs > startMs ? rawEndMs : startMs + 60 * 60_000;
+    parsed.push({ id, startMs, endMs });
+  }
+
+  // Stable order to support an early-break overlap scan.
+  parsed.sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs || a.id.localeCompare(b.id));
+
+  // Back-to-back events are not a conflict: strict inequality is intentional.
+  // overlap(A,B) <=> A.start < B.end && B.start < A.end
+  for (let i = 0; i < parsed.length; i++) {
+    const a = parsed[i]!;
+    for (let j = i + 1; j < parsed.length; j++) {
+      const b = parsed[j]!;
+      if (b.startMs >= a.endMs) break;
+      if (a.startMs < b.endMs && b.startMs < a.endMs) {
+        byId.set(a.id, { conflictCount: (byId.get(a.id)?.conflictCount ?? 0) + 1 });
+        byId.set(b.id, { conflictCount: (byId.get(b.id)?.conflictCount ?? 0) + 1 });
+      }
+    }
+  }
+
+  return byId;
+}
+
 const EVENT_TYPES: { value: PlannerEventType; label: string }[] = [
   { value: "game", label: "Game" },
   { value: "practice", label: "Practice" },
@@ -847,6 +885,10 @@ export default function PlannerClient(props: Props) {
     }
     return m;
   }, [duplicateCandidates]);
+
+  const loadedConflictsByEventId = useMemo(() => {
+    return detectLoadedEventConflicts(events);
+  }, [events]);
 
   function candidateLabelForSource(e: PlannerEventRow) {
     if (String(e.source_type ?? "") === "ics") {
@@ -2108,11 +2150,11 @@ export default function PlannerClient(props: Props) {
         {lens === "season" ? (
           eventsHasMore ? (
             <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
-              Showing {events.length} loaded events in this range. Duplicate suggestions only consider loaded events. Load more to check additional events.
+              Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events. Load more to check additional events.
             </div>
           ) : events.length ? (
             <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
-              All events in this range are loaded. Duplicate suggestions consider all events in this range.
+              All events in this range are loaded. Duplicate suggestions and schedule conflicts consider all events in this range.
             </div>
           ) : null
         ) : null}
@@ -2138,8 +2180,12 @@ export default function PlannerClient(props: Props) {
                   {g.events.map((e) => {
                     const eTz = effectiveTimeZoneForEvent(e);
                     const isEditing = editingId === e.id;
+                    const conflictCount = loadedConflictsByEventId.get(e.id)?.conflictCount ?? 0;
                     return (
-                      <div key={e.id} className={styles.eventItem}>
+                      <div
+                        key={e.id}
+                        className={`${styles.eventItem}${conflictCount ? ` ${styles.eventItemConflict}` : ""}`}
+                      >
                         <div className={styles.eventTitle}>
                           {e.title}{" "}
                           <span className={styles.muted} style={{ fontWeight: 800 }}>
@@ -2151,12 +2197,18 @@ export default function PlannerClient(props: Props) {
                               · Synced from calendar
                             </span>
                           ) : null}
+                          {conflictCount ? <span className={styles.eventConflictBadge}>Schedule conflict</span> : null}
                         </div>
                         <div className={styles.eventMeta}>
                           {formatTimeRange({ startIso: e.starts_at, endIso: e.ends_at, timeZone: eTz })}
                           {e.venue_id ? " · Venue selected" : ""}
                           {e.tournament_id ? " · Tournament selected" : ""}
                         </div>
+                        {conflictCount ? (
+                          <div className={styles.eventConflictNote}>
+                            Overlaps with {conflictCount} loaded {conflictCount === 1 ? "event" : "events"}.
+                          </div>
+                        ) : null}
                         {locationTextForEvent(e) ? (
                           <div className={styles.eventMeta}>
                             {locationTextForEvent(e)}

@@ -139,8 +139,31 @@
   gap: 6px;
 }
 
+.eventItemConflict {
+  border-color: #fca5a5;
+  background: #fff1f2;
+}
+
 .eventTitle {
   font-weight: 900;
+}
+
+.eventConflictBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 900;
+  margin-left: 8px;
+}
+
+.eventConflictNote {
+  color: #991b1b;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .eventMeta {
@@ -160,4 +183,3 @@
     grid-template-columns: 1fr;
   }
 }
-
