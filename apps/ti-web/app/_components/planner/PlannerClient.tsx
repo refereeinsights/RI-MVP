@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { WEEKEND_PRO_FOUNDING_SHORT_COPY } from "@/lib/weekendProPricing";
 import {
   computeDuplicateCandidates,
@@ -25,6 +26,7 @@ type PlannerLens = "weekend" | "season";
 type SeasonRangePreset = "30d" | "6mo" | "12mo";
 type SeasonFilter = "all" | "games" | "practices" | "travel" | "other";
 type ScheduleView = "upcoming" | "weekend" | "season";
+type SeasonDisplayMode = "calendar" | "list";
 
 type PlannerSourceRow = {
   id: string;
@@ -38,6 +40,24 @@ type PlannerSourceRow = {
 };
 
 type DuplicateDismissedRow = { pair_key_a: string; pair_key_b: string; created_at?: string | null };
+
+const PlannerCalendar = dynamic(() => import("./PlannerCalendar"), {
+  ssr: false,
+  loading: () => <div className={styles.muted}>Loading calendar…</div>,
+});
+
+class CalendarErrorBoundary extends Component<{ children: any }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return <div className={styles.muted}>Calendar view could not load. Use List view for now.</div>;
+    }
+    return this.props.children;
+  }
+}
 
 type VenueSearchResult = {
   id: string;
@@ -387,6 +407,11 @@ export default function PlannerClient(props: Props) {
   const [createOpen, setCreateOpen] = useState(false);
   const [calendarsOpen, setCalendarsOpen] = useState(false);
   const [dismissWeekendProForSession, setDismissWeekendProForSession] = useState(false);
+  const [seasonDisplayMode, setSeasonDisplayMode] = useState<SeasonDisplayMode>(() =>
+    (props.initialEvents ?? []).length ? "calendar" : "list"
+  );
+  const [seasonDisplayTouched, setSeasonDisplayTouched] = useState(false);
+  const [seasonCalendarTimeZone, setSeasonCalendarTimeZone] = useState(() => browserTimeZone() || "UTC");
 
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
@@ -848,8 +873,8 @@ export default function PlannerClient(props: Props) {
 	    // eslint-disable-next-line react-hooks/exhaustive-deps
 	  }, [scheduleView, seasonRange, seasonFilter]);
 
-	  const eventsForScheduleView = useMemo(() => {
-	    if (scheduleView !== "upcoming") return events;
+  const eventsForScheduleView = useMemo(() => {
+    if (scheduleView !== "upcoming") return events;
 	    const nowMs = Date.now();
 	    return (events ?? [])
 	      .filter((e) => {
@@ -860,9 +885,23 @@ export default function PlannerClient(props: Props) {
 	      .slice()
 	      .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)) || String(a.id).localeCompare(String(b.id)))
 	      .slice(0, 20);
-	  }, [events, scheduleView]);
+  }, [events, scheduleView]);
 
-	  const grouped = useMemo(() => {
+  useEffect(() => {
+    if (scheduleView !== "season") return;
+    setSeasonDisplayTouched(false);
+    setSeasonCalendarTimeZone(browserTimeZone() || "UTC");
+    setSeasonDisplayMode(events.length ? "calendar" : "list");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleView]);
+
+  useEffect(() => {
+    if (scheduleView !== "season") return;
+    if (seasonDisplayTouched) return;
+    setSeasonDisplayMode(events.length ? "calendar" : "list");
+  }, [events.length, scheduleView, seasonDisplayTouched]);
+
+  const grouped = useMemo(() => {
 	    const groups = new Map<string, PlannerEventRow[]>();
 	    for (const e of eventsForScheduleView) {
 	      const groupTz = effectiveTimeZoneForEvent(e);
@@ -873,7 +912,17 @@ export default function PlannerClient(props: Props) {
 	    }
 	    const sortedKeys = Array.from(groups.keys()).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 	    return sortedKeys.map((key) => ({ key, events: (groups.get(key) ?? []).slice() }));
-	  }, [eventsForScheduleView, tz]);
+  }, [eventsForScheduleView, tz]);
+
+  const seasonAllSourceIds = useMemo(() => {
+    return Array.from(
+      new Set(
+        (events ?? [])
+          .map((e) => String((e as any)?.source_id ?? "").trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+  }, [events]);
 
   const sourcesById = useMemo(() => {
     const m = new Map<string, PlannerSourceRow>();
@@ -2266,7 +2315,46 @@ export default function PlannerClient(props: Props) {
 	          ) : null
 	        ) : null}
 
-	        {eventsForScheduleView.length === 0 ? (
+	        {scheduleView === "season" ? (
+	          <div className={styles.calendarToggle} style={{ marginBottom: 10 }}>
+	            <button
+	              className={seasonDisplayMode === "calendar" ? styles.primaryBtn : styles.secondaryBtn}
+	              type="button"
+	              onClick={() => {
+	                setSeasonDisplayTouched(true);
+	                setSeasonDisplayMode("calendar");
+	              }}
+	              disabled={busy}
+	            >
+	              Calendar
+	            </button>
+	            <button
+	              className={seasonDisplayMode === "list" ? styles.primaryBtn : styles.secondaryBtn}
+	              type="button"
+	              onClick={() => {
+	                setSeasonDisplayTouched(true);
+	                setSeasonDisplayMode("list");
+	              }}
+	              disabled={busy}
+	            >
+	              List
+	            </button>
+	          </div>
+	        ) : null}
+
+	        {scheduleView === "season" && seasonDisplayMode === "calendar" ? (
+	          <CalendarErrorBoundary>
+	            <PlannerCalendar
+	              events={events}
+	              allSourceIds={seasonAllSourceIds}
+	              hasMore={eventsHasMore}
+	              activeTimezone={seasonCalendarTimeZone}
+	              onTimezoneChange={(z) => setSeasonCalendarTimeZone(z)}
+	            />
+	          </CalendarErrorBoundary>
+	        ) : null}
+
+	        {scheduleView === "season" && seasonDisplayMode === "calendar" ? null : eventsForScheduleView.length === 0 ? (
 	          scheduleView === "weekend" ? (
 	            <div className={styles.muted}>
 	              No events this weekend. Switch to <b>Upcoming</b> or <b>Season</b> to see more.

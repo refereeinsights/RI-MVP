@@ -3795,3 +3795,10 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - “Connected calendars” is summarized with an optional “Manage calendars” expansion for per-source refresh/status.
   - Weekend Pro upsell is now dismissible for the current session so it does not block schedule scanning.
   - Files: `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, `docs/admin-reference.md`, `CLAUDE.md`.
+
+- 2026-05-29: Weekend Planner Season calendar view (Stage 2.6D).
+  - Added a client-only Schedule‑X calendar for Season view with `Calendar | List` toggle.
+  - Season defaults to **List** when empty; defaults to Calendar when events exist.
+  - Events are color-coded by `source_id`; manual events use neutral gray; mapping is stable across load order.
+  - Added session-only timezone override for calendar display (browser tz default; UTC fallback).
+  - Files: `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/lib/planner/getSourceColor.ts`, `apps/ti-web/app/_components/planner/Planner.module.css`, `docs/admin-reference.md`, `docs/prompts/ti-planner-stage-2.6d-calendar.md`, `CLAUDE.md`.
