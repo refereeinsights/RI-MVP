@@ -3815,3 +3815,10 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Removed repetitive “planning tools” + empty-state blocks below the schedule to reduce noise for returning parents.
   - Kept the lower travel widgets (Hotels + Vacation Rentals), share link widget, and affiliate disclosure.
   - Files: `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`, `docs/admin-reference.md`.
+
+- 2026-05-29: Weekend Planner calendar visual polish (Schedule‑X shadcn theme + legend).
+  - Switched Season calendar theme from Schedule‑X default to shadcn theme and scoped TI brand color variables to the calendar wrapper.
+  - Reduced calendar view options to Month Grid + Month Agenda (simpler UX).
+  - Timezone control now uses a compact globe badge + link-style Change affordance (no emoji).
+  - Added a safe per-source legend (Manual / Imported calendar N) and tightened event detail panel typography + close button.
+  - Files: `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, `apps/ti-web/package.json`, `package-lock.json`, `docs/admin-reference.md`.

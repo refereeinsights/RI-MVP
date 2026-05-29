@@ -19,6 +19,7 @@
     "@schedule-x/events-service": "^4.6.0",
     "@schedule-x/react": "^4.1.0",
     "@schedule-x/theme-default": "^4.6.0",
+    "@schedule-x/theme-shadcn": "^4.6.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.95.3",
     "mapbox-gl": "^3.6.0",

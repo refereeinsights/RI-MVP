@@ -206,52 +206,79 @@
 
 .timezonePill {
   display: inline-flex;
-  gap: 6px;
   align-items: center;
-  color: #64748b;
-  font-size: 13px;
+  gap: 5px;
+  font-size: 12px;
+  color: #6b7280;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 9999px;
+  padding: 3px 10px 3px 8px;
+  line-height: 1.4;
 }
 
 .timezoneChangeBtn {
   background: none;
   border: none;
   padding: 0;
-  color: #0f172a;
-  font-weight: 900;
+  margin-left: 2px;
+  font-size: 12px;
+  color: #15803d;
   cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .timezoneSelect {
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 3px 8px;
   background: #ffffff;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .sxWrapper {
   width: 100%;
   height: 600px;
   max-height: 80vh;
+
+  /* Schedule‑X theme vars scoped to the calendar wrapper */
+  --sx-color-primary: #15803d;
+  --sx-color-on-primary: #ffffff;
+  --sx-color-primary-container: #dcfce7;
+  --sx-color-on-primary-container: #14532d;
+  --sx-color-surface: #ffffff;
+  --sx-color-surface-container: #f9fafb;
+  --sx-color-surface-container-high: #f3f4f6;
+  --sx-color-on-surface: #111827;
+  --sx-color-outline: #e5e7eb;
+  --sx-color-outline-variant: #d1d5db;
+  --sx-color-background: #ffffff;
+  --sx-color-on-background: #111827;
 }
 
-.sxWrapper :global(.sx__calendar-header) {
+.calendarLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 6px 2px 4px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.legendItem {
+  display: inline-flex;
   align-items: center;
+  gap: 4px;
 }
 
-.sxWrapper :global(.sx__calendar-header select) {
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-weight: 900;
-  background: #ffffff;
-}
-
-.sxWrapper :global(.sx__calendar-header) :global(.sx__calendar-header__title),
-.sxWrapper :global(.sx__calendar-header) :global(.sx__calendar-header__date) {
-  margin-left: auto;
-  margin-right: auto;
-  text-align: center;
+.legendDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  flex-shrink: 0;
 }
 
 .calendarEmptyState {
@@ -284,24 +311,53 @@
   gap: 10px;
 }
 
+.eventDetailTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.4;
+}
+
+.eventDetailBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .eventDetailClose {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-weight: 900;
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  font-size: 18px;
+  line-height: 1;
+  color: #9ca3af;
   cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.eventDetailClose:hover {
+  background: #f3f4f6;
+  color: #374151;
 }
 
 .eventDetailMeta {
-  color: #475569;
   font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
 }
 
 .eventDetailSource {
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  margin-top: 10px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  font-size: 11px;
+  color: #6b7280;
 }
 
 .eventDetailNotes {

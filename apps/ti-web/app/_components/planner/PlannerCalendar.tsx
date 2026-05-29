@@ -3,16 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScheduleXCalendar, useNextCalendarApp } from "@schedule-x/react";
 import {
-  createViewDay,
   createViewMonthAgenda,
   createViewMonthGrid,
-  createViewWeek,
-  createViewWeekAgenda,
 } from "@schedule-x/calendar";
 import { createEventsServicePlugin } from "@schedule-x/events-service";
 import { createCalendarControlsPlugin } from "@schedule-x/calendar-controls";
 import "temporal-polyfill/global";
-import "@schedule-x/theme-default/dist/index.css";
+import "@schedule-x/theme-shadcn/dist/index.css";
 import type { PlannerEventRow } from "@/lib/planner/types";
 import { getSourceColor } from "@/lib/planner/getSourceColor";
 import styles from "./Planner.module.css";
@@ -147,15 +144,12 @@ export default function PlannerCalendar(props: Props) {
   const initialViewWasSetRef = useRef(false);
   const initialJumpToEventMonthRef = useRef(false);
 
-  const views = useMemo(
-    () =>
-      [createViewMonthGrid(), createViewWeek(), createViewDay(), createViewMonthAgenda(), createViewWeekAgenda()] as any,
-    []
-  );
+  const views = useMemo(() => [createViewMonthGrid(), createViewMonthAgenda()] as any, []);
   const monthGridName = views.find((v: any) => v?.name?.includes?.("month") && v?.name?.includes?.("grid"))?.name ?? views[0]?.name;
   const monthAgendaName = views.find((v: any) => v?.name?.includes?.("month") && v?.name?.includes?.("agenda"))?.name ?? views[0]?.name;
 
   const calendar = useNextCalendarApp({
+    theme: "shadcn",
     views,
     defaultView: window.innerWidth < 768 ? monthAgendaName : monthGridName,
     timezone: calendarTz,
@@ -219,7 +213,21 @@ export default function PlannerCalendar(props: Props) {
       <div className={styles.timezoneBar}>
         <div style={{ flex: 1 }} />
         <div className={styles.timezonePill}>
-          <span>🕐</span>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
           <span>{calendarTz}</span>
           {tzPickerOpen ? (
             <select
@@ -244,6 +252,32 @@ export default function PlannerCalendar(props: Props) {
         </div>
       </div>
 
+      {hasEvents && Object.keys(sxCalendars).length > 1 ? (
+        <div className={styles.calendarLegend}>
+          {(() => {
+            const manualEntry = Object.entries(sxCalendars).find(([id]) => id === "manual") ?? null;
+            const importedEntries = Object.entries(sxCalendars)
+              .filter(([id]) => id !== "manual")
+              .sort(([a], [b]) => a.localeCompare(b));
+            const allEntries: Array<[string, (typeof sxCalendars)[string]]> = [
+              ...(manualEntry ? [manualEntry] : []),
+              ...importedEntries,
+            ];
+            let importedIndex = 0;
+            return allEntries.map(([id, cal]) => {
+              const label =
+                id === "manual" ? "Manual" : `Imported calendar${(importedIndex += 1) > 1 ? ` ${importedIndex}` : ""}`;
+              return (
+                <span key={id} className={styles.legendItem}>
+                  <span className={styles.legendDot} style={{ background: cal.lightColors.main }} aria-hidden="true" />
+                  <span>{label}</span>
+                </span>
+              );
+            });
+          })()}
+        </div>
+      ) : null}
+
       {!hasEvents ? (
         <div className={styles.calendarEmptyState}>
           <div style={{ fontWeight: 900 }}>No events to display.</div>
@@ -259,27 +293,34 @@ export default function PlannerCalendar(props: Props) {
         <div className={styles.eventDetailOverlay} role="dialog" aria-modal="true" aria-label="Event details">
           <div className={styles.eventDetailPanel}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>{String(detailEvent.title ?? "").trim() || "Untitled event"}</div>
-              <button className={styles.eventDetailClose} type="button" onClick={() => setDetail({ open: false, eventId: null })}>
-                Close
+              <div className={styles.eventDetailTitle}>{String(detailEvent.title ?? "").trim() || "Untitled event"}</div>
+              <button
+                className={styles.eventDetailClose}
+                type="button"
+                aria-label="Close"
+                onClick={() => setDetail({ open: false, eventId: null })}
+              >
+                ×
               </button>
             </div>
 
-            <div className={styles.eventDetailMeta}>
-              {formatEventTimeRange({
-                startIso: detailEvent.starts_at,
-                endIso: detailEvent.ends_at ?? new Date(new Date(detailEvent.starts_at).getTime() + 60 * 60 * 1000).toISOString(),
-                timeZone: calendarTz,
-              })}
+            <div className={styles.eventDetailBody}>
+              <div className={styles.eventDetailMeta}>
+                {formatEventTimeRange({
+                  startIso: detailEvent.starts_at,
+                  endIso: detailEvent.ends_at ?? new Date(new Date(detailEvent.starts_at).getTime() + 60 * 60 * 1000).toISOString(),
+                  timeZone: calendarTz,
+                })}
+              </div>
+
+              {(() => {
+                const parts = [detailEvent.address_text, detailEvent.city, detailEvent.state].map((v) => String(v ?? "").trim()).filter(Boolean);
+                if (!parts.length) return null;
+                return <div className={styles.eventDetailMeta}>{parts.join(", ")}</div>;
+              })()}
+
+              {detailEvent.notes ? <div className={styles.eventDetailNotes}>{detailEvent.notes}</div> : null}
             </div>
-
-            {(() => {
-              const parts = [detailEvent.address_text, detailEvent.city, detailEvent.state].map((v) => String(v ?? "").trim()).filter(Boolean);
-              if (!parts.length) return null;
-              return <div className={styles.eventDetailMeta}>{parts.join(", ")}</div>;
-            })()}
-
-            {detailEvent.notes ? <div className={styles.eventDetailNotes}>{detailEvent.notes}</div> : null}
 
             <div className={styles.eventDetailSource}>
               Source: {String(detailEvent.source_type ?? "") === "ics" ? "Calendar source" : "Manual"}
