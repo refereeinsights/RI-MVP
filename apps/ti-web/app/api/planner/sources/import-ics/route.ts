@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { importIcsToPlanner } from "@/lib/planner/ics-import";
+import { getTiTierServer } from "@/lib/entitlementsServer";
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,24 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+
+  const tierInfo = await getTiTierServer(user);
+  if (tierInfo.tier === "explorer") {
+    if (tierInfo.unverified) {
+      return NextResponse.json({ ok: false, error: "email_verification_required" }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 403 });
+  }
+
+  if (tierInfo.tier === "insider") {
+    const { count } = await (supabase.from("planner_event_sources" as any) as any)
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("source_type", "ics");
+    if (typeof count === "number" && count >= 1) {
+      return NextResponse.json({ ok: false, error: "calendar_feed_limit_reached" }, { status: 403 });
+    }
+  }
 
   const body = (await req.json().catch(() => null)) as Body | null;
   if (!body) return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });

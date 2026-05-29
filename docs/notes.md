@@ -3830,3 +3830,10 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Added a safe per-source legend (Manual / Imported calendar N) and tightened event detail panel typography + close button.
   - Follow-up polish: calendar opens to the first month with loaded events (avoids blank current month), hides Schedule‑X date picker and desktop view dropdown, and moves the overlaps note below `Calendar | List`.
   - Files: `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, `apps/ti-web/package.json`, `package-lock.json`, `docs/admin-reference.md`.
+
+- 2026-05-29: Weekend Planner entitlement alignment (Stage 2.6E SAFE v1.x).
+  - Insider users can connect **1** ICS calendar feed; additional feeds require Weekend Pro.
+  - Season visual calendar (Schedule‑X) is Weekend Pro only; Insider users keep Season List view with an inline locked card.
+  - Server enforces the 1-feed limit in `POST /api/planner/sources/import-ics` using `getTiTierServer()`; unverified users receive `email_verification_required`.
+  - No changes to duplicates, merge, cleanup, or conflict highlighting in this safe v1.x.
+  - Files: `apps/ti-web/app/api/planner/sources/import-ics/route.ts`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/weekend-planner/page.tsx`, `docs/admin-reference.md`, `CLAUDE.md`.

@@ -195,7 +195,7 @@ export default async function WeekendPlannerPage() {
 	          <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
 	            {isAuthed ? (
 	              <div style={{ width: "min(980px, 100%)", marginLeft: "auto", marginRight: "auto" }}>
-	                <PlannerClient initialEvents={plannerEvents} isPaid={isPaid} hideHeader />
+	                <PlannerClient initialEvents={plannerEvents} isPaid={isPaid} isUnverified={isUnverified} hideHeader />
 	              </div>
 	            ) : (
 	              <article className={styles.panelCard}>

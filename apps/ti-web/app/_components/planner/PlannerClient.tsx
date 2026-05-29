@@ -20,6 +20,7 @@ import styles from "./Planner.module.css";
 type Props = {
   initialEvents: PlannerEventRow[];
   isPaid: boolean;
+  isUnverified?: boolean;
   hideHeader?: boolean;
 };
 
@@ -387,6 +388,7 @@ async function jsonFetch<T>(url: string, init: RequestInit) {
 
 export default function PlannerClient(props: Props) {
   const tz = useMemo(() => browserTimeZone(), []);
+  const isUnverified = Boolean(props.isUnverified);
   const [events, setEvents] = useState<PlannerEventRow[]>(props.initialEvents ?? []);
   const [eventsTruncated, setEventsTruncated] = useState(false);
   const [eventsLimit, setEventsLimit] = useState(200);
@@ -413,6 +415,7 @@ export default function PlannerClient(props: Props) {
   );
   const [seasonDisplayTouched, setSeasonDisplayTouched] = useState(false);
   const [seasonCalendarTimeZone, setSeasonCalendarTimeZone] = useState(() => browserTimeZone() || "UTC");
+  const canUseSeasonCalendar = props.isPaid;
 
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
@@ -892,15 +895,21 @@ export default function PlannerClient(props: Props) {
     if (scheduleView !== "season") return;
     setSeasonDisplayTouched(false);
     setSeasonCalendarTimeZone(browserTimeZone() || "UTC");
-    setSeasonDisplayMode(events.length ? "calendar" : "list");
+    setSeasonDisplayMode(canUseSeasonCalendar && events.length ? "calendar" : "list");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleView]);
 
   useEffect(() => {
     if (scheduleView !== "season") return;
     if (seasonDisplayTouched) return;
-    setSeasonDisplayMode(events.length ? "calendar" : "list");
+    setSeasonDisplayMode(canUseSeasonCalendar && events.length ? "calendar" : "list");
   }, [events.length, scheduleView, seasonDisplayTouched]);
+
+  useEffect(() => {
+    if (scheduleView !== "season") return;
+    if (canUseSeasonCalendar) return;
+    setSeasonDisplayMode("list");
+  }, [canUseSeasonCalendar, scheduleView]);
 
   const grouped = useMemo(() => {
 	    const groups = new Map<string, PlannerEventRow[]>();
@@ -930,6 +939,13 @@ export default function PlannerClient(props: Props) {
     for (const s of sources) m.set(String(s.id), s);
     return m;
   }, [sources]);
+
+  const canConnectAnotherCalendar = useMemo(() => {
+    if (busy) return false;
+    if (isUnverified) return false;
+    if (props.isPaid) return true;
+    return sources.length < 1;
+  }, [busy, isUnverified, props.isPaid, sources.length]);
 
   const duplicateCandidates = useMemo(() => {
     return computeDuplicateCandidates({
@@ -1279,6 +1295,16 @@ export default function PlannerClient(props: Props) {
   async function onImportIcs() {
     setImportError(null);
     setImportResult(null);
+    if (!canConnectAnotherCalendar) {
+      setImportError(
+        isUnverified
+          ? "Verify your email to connect a team calendar."
+          : props.isPaid
+            ? "Unable to connect calendar."
+            : "You can connect 1 calendar on Insider. Upgrade to Weekend Pro to add more."
+      );
+      return;
+    }
     const url = importUrl.trim();
     if (!url) {
       setImportError("Enter a valid iCal/ICS calendar URL.");
@@ -1863,26 +1889,27 @@ export default function PlannerClient(props: Props) {
 			            <h1 className={styles.title}>Weekend Planner</h1>
 			            <p className={styles.subtitle}>Your family’s sports schedule, calendar feeds, and tournament weekends in one place.</p>
 			          </div>
-			          <div className={styles.headerActions}>
-			            <button className={styles.primaryBtn} type="button" onClick={() => setCreateOpen(true)} disabled={busy}>
-			              Add event
-			            </button>
-			            <button
-			              className={styles.secondaryBtn}
-			              type="button"
-			              onClick={() => {
-			                setImportOpen(true);
-			                setImportResult(null);
-			                setImportError(null);
-			              }}
-			              disabled={busy}
-			            >
-			              Connect calendar
-			            </button>
-			            <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen(true)} disabled={busy}>
-			              Manage calendars
-			            </button>
-			          </div>
+				          <div className={styles.headerActions}>
+				            <button className={styles.primaryBtn} type="button" onClick={() => setCreateOpen(true)} disabled={busy}>
+				              Add event
+				            </button>
+				            <button
+				              className={styles.secondaryBtn}
+				              type="button"
+				              onClick={() => {
+				                if (!canConnectAnotherCalendar) return;
+				                setImportOpen(true);
+				                setImportResult(null);
+				                setImportError(null);
+				              }}
+				              disabled={busy || !canConnectAnotherCalendar}
+				            >
+				              Connect calendar
+				            </button>
+				            <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen(true)} disabled={busy}>
+				              Manage calendars
+				            </button>
+				          </div>
 			        </div>
 			      ) : null}
 
@@ -1962,35 +1989,52 @@ export default function PlannerClient(props: Props) {
 
 		        {scheduleView === "season" ? (
 		          <>
-		            <div className={styles.calendarToggle} style={{ marginBottom: 10 }}>
-	              <button
-	                className={seasonDisplayMode === "calendar" ? styles.primaryBtn : styles.secondaryBtn}
-	                type="button"
-	                onClick={() => {
-	                  setSeasonDisplayTouched(true);
-	                  setSeasonDisplayMode("calendar");
-	                }}
-	                disabled={busy}
-	              >
-	                Calendar
-	              </button>
-	              <button
-	                className={seasonDisplayMode === "list" ? styles.primaryBtn : styles.secondaryBtn}
-	                type="button"
-	                onClick={() => {
-	                  setSeasonDisplayTouched(true);
-	                  setSeasonDisplayMode("list");
-	                }}
-	                disabled={busy}
-	              >
-	                List
-	              </button>
-		            </div>
+		            {canUseSeasonCalendar ? (
+		              <div className={styles.calendarToggle} style={{ marginBottom: 10 }}>
+		                <button
+		                  className={seasonDisplayMode === "calendar" ? styles.primaryBtn : styles.secondaryBtn}
+		                  type="button"
+		                  onClick={() => {
+		                    setSeasonDisplayTouched(true);
+		                    setSeasonDisplayMode("calendar");
+		                  }}
+		                  disabled={busy}
+		                >
+		                  Calendar
+		                </button>
+		                <button
+		                  className={seasonDisplayMode === "list" ? styles.primaryBtn : styles.secondaryBtn}
+		                  type="button"
+		                  onClick={() => {
+		                    setSeasonDisplayTouched(true);
+		                    setSeasonDisplayMode("list");
+		                  }}
+		                  disabled={busy}
+		                >
+		                  List
+		                </button>
+		              </div>
+		            ) : (
+		              <div className={styles.card} style={{ marginTop: 0, marginBottom: 10, textAlign: "center" }}>
+		                <div className={styles.cardTitle}>Weekend Pro unlocks the visual season calendar</div>
+		                <div className={styles.muted} style={{ marginBottom: 10 }}>
+		                  View your season in a color-coded calendar and connect multiple team calendars.
+		                </div>
+		                <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
+		                  <Link href="/premium" className={styles.primaryBtn} style={{ display: "inline-flex", justifyContent: "center" }}>
+		                    Unlock Weekend Pro
+		                  </Link>
+		                  <button className={styles.secondaryBtn} type="button" onClick={() => setSeasonDisplayMode("list")} disabled={busy}>
+		                    Continue with list
+		                  </button>
+		                </div>
+		              </div>
+		            )}
 
 		            {(() => {
 		              const conflictedEventCount = loadedConflictsByEventId.size;
 		              if (!conflictedEventCount) return null;
-		              const switchCopy = seasonDisplayMode === "calendar" ? " Switch to List to review details." : "";
+		              const switchCopy = canUseSeasonCalendar && seasonDisplayMode === "calendar" ? " Switch to List to review details." : "";
 		              return (
 		                <div className={styles.scheduleOverlapNote} style={{ marginBottom: 10 }}>
 		                  <span style={{ fontWeight: 900 }}>Schedule overlaps:</span>{" "}
@@ -2748,23 +2792,45 @@ export default function PlannerClient(props: Props) {
 		              ? `${sources.length} connected calendar${sources.length === 1 ? "" : "s"}.`
 		              : "No connected calendars yet."}
 		        </div>
-		        <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
-		          <button
-		            className={styles.secondaryBtn}
-		            type="button"
-		            onClick={() => {
-		              setImportOpen(true);
-		              setImportResult(null);
-		              setImportError(null);
-	            }}
-	            disabled={busy}
-		          >
-		            Connect calendar
-		          </button>
-		          <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen((v) => !v)} disabled={busy}>
-		            {calendarsOpen ? "Hide calendar details" : "Manage calendars"}
-		          </button>
-		        </div>
+			        <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
+			          <button
+			            className={styles.secondaryBtn}
+			            type="button"
+			            onClick={() => {
+			              if (!canConnectAnotherCalendar) return;
+			              setImportOpen(true);
+			              setImportResult(null);
+			              setImportError(null);
+		            }}
+		            disabled={busy || !canConnectAnotherCalendar}
+			          >
+			            Connect calendar
+			          </button>
+			          <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen((v) => !v)} disabled={busy}>
+			            {calendarsOpen ? "Hide calendar details" : "Manage calendars"}
+			          </button>
+			        </div>
+
+			        {!canConnectAnotherCalendar ? (
+			          <div className={styles.muted} style={{ marginTop: 10, textAlign: "center", fontWeight: 800 }}>
+			            {isUnverified ? (
+			              <>
+			                Verify your email to connect a team calendar.{" "}
+			                <Link href="/verify-email" className="secondaryLink">
+			                  Verify email
+			                </Link>
+			              </>
+			            ) : props.isPaid ? null : sources.length >= 1 ? (
+			              <>
+			                You can connect 1 calendar on Insider.{" "}
+			                <Link href="/premium" className="secondaryLink">
+			                  Unlock Weekend Pro
+			                </Link>{" "}
+			                to add more.
+			              </>
+			            ) : null}
+			          </div>
+			        ) : null}
 
 	        {calendarsOpen ? (
 	          <>
