@@ -1856,16 +1856,16 @@ export default function PlannerClient(props: Props) {
         })()
       ) : null}
 
-	      <div className={styles.headerRow}>
-	        <div>
-	          <h1 className={styles.title}>Weekend Planner</h1>
-	          <p className={styles.subtitle}>Your family’s sports schedule, calendar feeds, and tournament weekends in one place.</p>
-	        </div>
-	        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-	          <button
-	            className={styles.primaryBtn}
-	            type="button"
-	            onClick={() => setCreateOpen(true)}
+		      <div className={styles.headerRow}>
+		        <div>
+		          <h1 className={styles.title}>Weekend Planner</h1>
+		          <p className={styles.subtitle}>Your family’s sports schedule, calendar feeds, and tournament weekends in one place.</p>
+		        </div>
+		        <div className={styles.headerActions}>
+		          <button
+		            className={styles.primaryBtn}
+		            type="button"
+		            onClick={() => setCreateOpen(true)}
 	            disabled={busy}
 	          >
 	            Add event
