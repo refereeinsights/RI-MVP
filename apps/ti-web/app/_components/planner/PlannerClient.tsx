@@ -1956,19 +1956,19 @@ export default function PlannerClient(props: Props) {
             <textarea className={styles.textarea} value={createNotes} onChange={(e) => setCreateNotes(e.target.value)} placeholder="Parking, gate, field #, etc." />
           </div>
 
-          <div className={styles.actionsRow}>
-            <button className={styles.primaryBtn} onClick={onCreate} disabled={busy}>
-              Add event
-            </button>
-            <button className={styles.secondaryBtn} onClick={resetCreateForm} disabled={busy}>
-              Clear
-            </button>
-            <div className={styles.muted} style={{ alignSelf: "center" }}>
-              Timezone: {tz || "UTC"}
-            </div>
-          </div>
-        </div>
-      </div>
+	          <div className={styles.actionsRow}>
+	            <button className={styles.primaryBtn} onClick={onCreate} disabled={busy}>
+	              Add event
+	            </button>
+	            <button className={styles.secondaryBtn} onClick={resetCreateForm} disabled={busy}>
+	              Clear
+	            </button>
+	            <div className={styles.muted} style={{ alignSelf: "center" }}>
+	              Timezone: {safeTimeZone(createTimeZone) || safeTimeZone(tz) || "UTC"}
+	            </div>
+	          </div>
+	        </div>
+	      </div>
 
       <div className={styles.card}>
         <div className={styles.cardTitle}>Synced calendars</div>
