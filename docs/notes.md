@@ -3802,3 +3802,11 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Events are color-coded by `source_id`; manual events use neutral gray; mapping is stable across load order.
   - Added session-only timezone override for calendar display (browser tz default; UTC fallback).
   - Files: `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/lib/planner/getSourceColor.ts`, `apps/ti-web/app/_components/planner/Planner.module.css`, `docs/admin-reference.md`, `docs/prompts/ti-planner-stage-2.6d-calendar.md`, `CLAUDE.md`.
+
+- 2026-05-29: Weekend Planner calendar polish pass (Stage 2.6D).
+  - Moved **Your schedule** higher in the page so Season calendar is reachable without scrolling past setup cards.
+  - Deduped loaded-scope disclosure and positioned it under the `Calendar | List` toggle (Season view).
+  - Calendar timezone UI is now a compact “🕐 {tz} · Change” affordance instead of an always-visible dropdown.
+  - Calendar auto-jumps to the first month with loaded events (avoids opening to an empty month when events exist later).
+  - List view scanability: title stays centered; meta/actions left-aligned; overlap note uses a calmer amber tone; conflict summary styling softened.
+  - Files: `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, `docs/admin-reference.md`, `CLAUDE.md`.

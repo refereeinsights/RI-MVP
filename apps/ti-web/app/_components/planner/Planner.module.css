@@ -146,6 +146,7 @@
 
 .eventTitle {
   font-weight: 900;
+  text-align: center;
 }
 
 .eventConflictBadge {
@@ -161,14 +162,15 @@
 }
 
 .eventConflictNote {
-  color: #991b1b;
+  color: #c9933a;
   font-size: 13px;
   font-weight: 700;
+  text-align: left;
 }
 
 .eventConflictSummary {
-  border: 1px solid #fecaca;
-  background: #fff7ed;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
   border-radius: 12px;
   padding: 10px 12px;
 }
@@ -192,6 +194,23 @@
   align-items: center;
 }
 
+.timezonePill {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.timezoneChangeBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #0f172a;
+  font-weight: 900;
+  cursor: pointer;
+}
+
 .timezoneSelect {
   border: 1px solid #cbd5e1;
   border-radius: 999px;
@@ -204,6 +223,25 @@
   width: 100%;
   height: 600px;
   max-height: 80vh;
+}
+
+.sxWrapper :global(.sx__calendar-header) {
+  align-items: center;
+}
+
+.sxWrapper :global(.sx__calendar-header select) {
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 900;
+  background: #ffffff;
+}
+
+.sxWrapper :global(.sx__calendar-header) :global(.sx__calendar-header__title),
+.sxWrapper :global(.sx__calendar-header) :global(.sx__calendar-header__date) {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
 }
 
 .calendarEmptyState {
@@ -269,6 +307,7 @@
 .eventMeta {
   color: #475569;
   font-size: 13px;
+  text-align: left;
 }
 
 .eventActions {
@@ -276,6 +315,7 @@
   gap: 8px;
   flex-wrap: wrap;
   margin-top: 6px;
+  justify-content: flex-start;
 }
 
 @media (max-width: 640px) {

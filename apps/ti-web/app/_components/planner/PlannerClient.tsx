@@ -1885,354 +1885,11 @@ export default function PlannerClient(props: Props) {
 	          <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen(true)} disabled={busy}>
 	            Manage calendars
 	          </button>
-	        </div>
-	      </div>
-
-	      {!props.isPaid && !dismissWeekendProForSession ? (
-	        <div className={styles.card}>
-	          <div className={styles.cardTitle}>Weekend Pro</div>
-	          <div style={{ display: "grid", gap: 8 }}>
-	            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 10 }}>
-	              <div style={{ fontWeight: 900, fontSize: 16 }}>
-	                Unlock deeper venue intelligence for tournament weekends.
-	              </div>
-	              <button className={styles.secondaryBtn} type="button" onClick={() => setDismissWeekendProForSession(true)} disabled={busy}>
-	                Dismiss
-	              </button>
-	            </div>
-	            <div className={styles.muted}>{WEEKEND_PRO_FOUNDING_SHORT_COPY}</div>
-	            <div style={{ maxWidth: 420 }}>
-	              <Link href="/premium" className={styles.primaryBtn} style={{ display: "inline-flex", justifyContent: "center" }}>
-	                Upgrade to Weekend Pro
-	              </Link>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-	      <div className={styles.card} id="add-manual-event">
-	        <div className={styles.cardTitle}>Add manual event</div>
-
-	        {error ? <div className={styles.muted} style={{ color: "#b91c1c", fontWeight: 800 }}>{error}</div> : null}
-	        {notice ? <div className={styles.muted} style={{ color: "#166534", fontWeight: 900 }}>{notice}</div> : null}
-
-	        {!createOpen ? (
-	          <div style={{ display: "grid", gap: 10 }}>
-	            <div className={styles.muted}>
-	              Add a game, practice, travel, hotel, meal, check-in, referee assignment, or reminder that is not in your connected calendars.
-	            </div>
-	            <div className={styles.eventActions}>
-	              <button className={styles.primaryBtn} type="button" onClick={() => setCreateOpen(true)} disabled={busy}>
-	                Add event
-	              </button>
-	            </div>
-	          </div>
-	        ) : (
-	        <div className={styles.formGrid}>
-	          <div>
-	            <label className={styles.label}>Title *</label>
-	            <input className={styles.input} value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} placeholder="Game vs Tigers" />
-	          </div>
-
-          <div className={styles.row2}>
-            <div>
-              <label className={styles.label}>Type</label>
-              <select className={styles.select} value={createType} onChange={(e) => setCreateType(e.target.value as PlannerEventType)}>
-                {EVENT_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className={styles.label}>Venue</label>
-              <div className={styles.muted} style={{ marginTop: -6, marginBottom: 6 }}>
-                No venue needed — you can use an address or location instead.
-              </div>
-              {createSelectedVenue ? (
-                <div className={styles.eventItem} style={{ padding: 10 }}>
-                  <div className={styles.eventTitle}>{createSelectedVenue.name || "Selected venue"}</div>
-                  <div className={styles.eventMeta}>
-                    {[createSelectedVenue.city, createSelectedVenue.state].filter(Boolean).join(", ")}
-                  </div>
-                  <div className={styles.eventActions}>
-	                    <button
-	                      className={styles.secondaryBtn}
-	                      type="button"
-	                      onClick={() => {
-	                        clearCreateVenueSelection();
-	                      }}
-	                      disabled={busy}
-	                    >
-	                      Clear
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <input
-                    className={styles.input}
-                    value={createVenueQuery}
-                    onChange={(e) => setCreateVenueQuery(e.target.value)}
-                    placeholder="Search by venue name"
-                  />
-                  {createVenueSearching ? <div className={styles.muted}>Searching…</div> : null}
-                  {!createVenueSearching && createVenueQuery.trim().length >= 2 && createVenueResults.length === 0 ? (
-                    <div className={styles.muted}>No matches found.</div>
-                  ) : null}
-                  {createVenueResults.length > 0 ? (
-                    <div style={{ border: "1px solid rgba(15,23,42,0.12)", borderRadius: 10, overflow: "hidden" }}>
-                      {createVenueResults.map((v) => (
-                        <button
-                          key={v.id}
-                          type="button"
-                          className={styles.secondaryBtn}
-                          style={{ width: "100%", justifyContent: "space-between", borderRadius: 0 }}
-	                          onClick={() => {
-	                            setCreateSelectedVenue(v);
-	                            setCreateVenueId(v.id);
-	                            applyVenueToCreateLocationIfEmpty(v);
-	                            setCreateVenueQuery("");
-	                            setCreateVenueResults([]);
-	                          }}
-                          disabled={busy}
-                        >
-                          <span>{v.name || "Unnamed venue"}</span>
-                          <span className={styles.muted}>{[v.city, v.state].filter(Boolean).join(", ")}</span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </>
-              )}
-            </div>
-          </div>
-
-            <div>
-              <label className={styles.label}>Tournament</label>
-              <div className={styles.muted} style={{ marginTop: -6, marginBottom: 6 }}>
-                Tournament is optional.
-              </div>
-              {createSelectedTournament ? (
-                <div className={styles.eventItem} style={{ padding: 10 }}>
-                  <div className={styles.eventTitle}>{createSelectedTournament.name || "Selected tournament"}</div>
-                  <div className={styles.eventMeta}>
-                    {formatDateRangeLabel(createSelectedTournament.start_date, createSelectedTournament.end_date) || ""}
-                </div>
-                <div className={styles.eventActions}>
-                  <button
-                    className={styles.secondaryBtn}
-                    type="button"
-                    onClick={() => {
-                      setCreateSelectedTournament(null);
-                      setCreateTournamentId("");
-                    }}
-                    disabled={busy}
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <input
-                  className={styles.input}
-                  value={createTournamentQuery}
-                  onChange={(e) => setCreateTournamentQuery(e.target.value)}
-                  placeholder="Search by tournament name (optional)"
-                />
-                {createTournamentSearching ? <div className={styles.muted}>Searching…</div> : null}
-                {!createTournamentSearching && createTournamentQuery.trim().length >= 2 && createTournamentResults.length === 0 ? (
-                  <div className={styles.muted}>No matches found.</div>
-                ) : null}
-                {createTournamentResults.length > 0 ? (
-                  <div style={{ border: "1px solid rgba(15,23,42,0.12)", borderRadius: 10, overflow: "hidden" }}>
-                    {createTournamentResults.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        className={styles.secondaryBtn}
-                        style={{ width: "100%", justifyContent: "space-between", borderRadius: 0 }}
-                        onClick={() => {
-                          setCreateSelectedTournament(t);
-                          setCreateTournamentId(t.id);
-                          setCreateTournamentQuery("");
-                          setCreateTournamentResults([]);
-                        }}
-                        disabled={busy}
-                      >
-                        <span>{t.name || "Unnamed tournament"}</span>
-                        <span className={styles.muted}>
-                          {formatDateRangeLabel(t.start_date, t.end_date) || ""}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </>
-            )}
-            <div className={styles.muted}>Tournament is optional.</div>
-          </div>
-
-          <div className={styles.row2}>
-            <div>
-              <label className={styles.label}>Starts *</label>
-              <div className={styles.row2}>
-                <input className={styles.input} type="date" value={createStartDate} onChange={(e) => setCreateStartDate(e.target.value)} />
-                <input className={styles.input} type="time" value={createStartTime} onChange={(e) => setCreateStartTime(e.target.value)} />
-              </div>
-            </div>
-            <div>
-              <label className={styles.label}>Ends (optional)</label>
-              <div className={styles.row2}>
-                <input
-                  className={styles.input}
-                  type="date"
-                  value={createEndDate}
-                  onChange={(e) => {
-                    setCreateEndWasAuto(false);
-                    setCreateEndDate(e.target.value);
-                  }}
-                />
-                <input
-                  className={styles.input}
-                  type="time"
-                  value={createEndTime}
-                  onChange={(e) => {
-                    setCreateEndWasAuto(false);
-                    setCreateEndTime(e.target.value);
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-          <div className={styles.row2} style={{ alignItems: "end" }}>
-            <div>
-              <label className={styles.label}>Timezone</label>
-              <select
-                className={styles.select}
-                value={safeTimeZone(createTimeZone) || safeTimeZone(tz) || "UTC"}
-                onChange={(e) => {
-                  setCreateTimeZoneLocked(true);
-                  setCreateTimeZone(e.target.value);
-                }}
-                disabled={busy}
-              >
-                {buildTimeZoneOptions([createTimeZone, tz]).map((z) => (
-                  <option key={z} value={z}>
-                    {z}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className={styles.muted} style={{ paddingBottom: 6 }}>
-              {createVenueId || createTournamentId ? "Auto-set from venue/tournament (override if needed)." : "Defaulted to your browser timezone (override if needed)."}
-            </div>
-          </div>
-
-          <div className={styles.row2}>
-            <div>
-              <label className={styles.label}>Address or location</label>
-              <input className={styles.input} value={createAddress} onChange={(e) => setCreateAddress(e.target.value)} placeholder="123 Main St" />
-            </div>
-            <div className={styles.row2}>
-              <div>
-                <label className={styles.label}>City</label>
-                <input className={styles.input} value={createCity} onChange={(e) => setCreateCity(e.target.value)} placeholder="Temecula" />
-              </div>
-              <div>
-                <label className={styles.label}>State</label>
-                <input className={styles.input} value={createState} onChange={(e) => setCreateState(e.target.value)} placeholder="CA" />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className={styles.label}>Notes (optional)</label>
-            <textarea className={styles.textarea} value={createNotes} onChange={(e) => setCreateNotes(e.target.value)} placeholder="Parking, gate, field #, etc." />
-          </div>
-
-		          <div className={styles.actionsRow}>
-		            <button className={styles.primaryBtn} onClick={onCreate} disabled={busy}>
-		              Add event
-		            </button>
-		            <button className={styles.secondaryBtn} type="button" onClick={resetCreateForm} disabled={busy}>
-		              Clear
-		            </button>
-		            <button className={styles.secondaryBtn} type="button" onClick={() => { if (busy) return; resetCreateForm(); setCreateOpen(false); }} disabled={busy}>
-		              Cancel
-		            </button>
-		            <div className={styles.muted} style={{ alignSelf: "center" }}>
-		              Timezone: {safeTimeZone(createTimeZone) || safeTimeZone(tz) || "UTC"}
-		            </div>
-		          </div>
 		        </div>
-		        )}
-	      </div>
+		      </div>
 
-	      <div className={styles.card}>
-	        <div className={styles.cardTitle}>Connected calendars</div>
-	        <div className={styles.muted} style={{ marginBottom: 10 }}>
-	          {sourcesBusy
-	            ? "Loading calendar status…"
-	            : sources.length
-	              ? `${sources.length} connected calendar${sources.length === 1 ? "" : "s"}.`
-	              : "No connected calendars yet."}
-	        </div>
-	        <div className={styles.eventActions}>
-	          <button
-	            className={styles.secondaryBtn}
-	            type="button"
-	            onClick={() => {
-	              setImportOpen(true);
-	              setImportResult(null);
-	              setImportError(null);
-	            }}
-	            disabled={busy}
-	          >
-	            Connect calendar
-	          </button>
-	          <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen((v) => !v)} disabled={busy}>
-	            {calendarsOpen ? "Hide calendar details" : "Manage calendars"}
-	          </button>
-	        </div>
-
-	        {calendarsOpen ? (
-	          <>
-	            {sourcesBusy ? <div className={styles.muted} style={{ marginTop: 10 }}>Loading…</div> : null}
-	            {!sourcesBusy && sources.length > 0 ? (
-	              <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-	                {sources.map((s) => (
-	                  <div key={s.id} className={styles.eventItem}>
-	                    <div className={styles.eventTitle}>{s.source_name || "Imported calendar"}</div>
-	                    <div className={styles.eventMeta}>
-	                      {s.team_name ? `${s.team_name} · ` : ""}
-	                      {formatSourceStatusLabel(s)}
-	                      {s.last_synced_at ? ` · Last synced ${new Date(s.last_synced_at).toLocaleString()}` : ""}
-	                    </div>
-	                    {staleLabel(s.last_synced_at) && String(s.sync_status || "").toLowerCase() !== "error" ? (
-	                      <div className={styles.eventMeta} style={{ fontWeight: 800 }}>
-	                        {staleLabel(s.last_synced_at)} Refresh schedule to check for updates.
-	                      </div>
-	                    ) : null}
-	                    {s.sync_error ? <div className={styles.eventMeta} style={{ color: "#b91c1c", fontWeight: 800 }}>{s.sync_error}</div> : null}
-	                    <div className={styles.eventActions}>
-	                      <button className={styles.primaryBtn} onClick={() => onRefreshSource(s.id)} disabled={busy}>
-	                        Refresh schedule
-	                      </button>
-	                    </div>
-	                  </div>
-	                ))}
-	              </div>
-	            ) : null}
-	          </>
-	        ) : null}
-	      </div>
-
-	      <div className={styles.card}>
-	        <div className={styles.cardTitle}>Your schedule</div>
+		      <div className={styles.card}>
+		        <div className={styles.cardTitle}>Your schedule</div>
 
 	        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
 	          <button
@@ -2293,20 +1950,20 @@ export default function PlannerClient(props: Props) {
 	          if (!conflictedEventCount) return null;
 	          return (
 	            <div className={styles.eventConflictSummary} style={{ marginBottom: 10 }}>
-	              <div style={{ fontWeight: 900 }}>Schedule conflicts found</div>
+	              <div style={{ fontWeight: 900 }}>Schedule overlaps</div>
 	              <div className={styles.muted}>
-	                {conflictedEventCount} event{conflictedEventCount === 1 ? "" : "s"} overlap in the loaded schedule.{" "}
+	                {conflictedEventCount} event{conflictedEventCount === 1 ? "" : "s"} overlap in the loaded schedule. Review in list view.{" "}
 	                {eventsHasMore ? "Conflicts only consider loaded events." : null}
 	              </div>
 	            </div>
 	          );
 	        })()}
 
-	        {scheduleView !== "weekend" ? (
+	        {scheduleView === "upcoming" ? (
 	          eventsHasMore ? (
 	            <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
-	              Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events.{" "}
-	              {scheduleView === "upcoming" ? "Switch to Season and load more to check additional events." : "Load more to check additional events."}
+	              Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events. Switch to Season and load
+	              more to check additional events.
 	            </div>
 	          ) : events.length ? (
 	            <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
@@ -2316,30 +1973,43 @@ export default function PlannerClient(props: Props) {
 	        ) : null}
 
 	        {scheduleView === "season" ? (
-	          <div className={styles.calendarToggle} style={{ marginBottom: 10 }}>
-	            <button
-	              className={seasonDisplayMode === "calendar" ? styles.primaryBtn : styles.secondaryBtn}
-	              type="button"
-	              onClick={() => {
-	                setSeasonDisplayTouched(true);
-	                setSeasonDisplayMode("calendar");
-	              }}
-	              disabled={busy}
-	            >
-	              Calendar
-	            </button>
-	            <button
-	              className={seasonDisplayMode === "list" ? styles.primaryBtn : styles.secondaryBtn}
-	              type="button"
-	              onClick={() => {
-	                setSeasonDisplayTouched(true);
-	                setSeasonDisplayMode("list");
-	              }}
-	              disabled={busy}
-	            >
-	              List
-	            </button>
-	          </div>
+	          <>
+	            <div className={styles.calendarToggle} style={{ marginBottom: 10 }}>
+	              <button
+	                className={seasonDisplayMode === "calendar" ? styles.primaryBtn : styles.secondaryBtn}
+	                type="button"
+	                onClick={() => {
+	                  setSeasonDisplayTouched(true);
+	                  setSeasonDisplayMode("calendar");
+	                }}
+	                disabled={busy}
+	              >
+	                Calendar
+	              </button>
+	              <button
+	                className={seasonDisplayMode === "list" ? styles.primaryBtn : styles.secondaryBtn}
+	                type="button"
+	                onClick={() => {
+	                  setSeasonDisplayTouched(true);
+	                  setSeasonDisplayMode("list");
+	                }}
+	                disabled={busy}
+	              >
+	                List
+	              </button>
+	            </div>
+
+	            {eventsHasMore ? (
+	              <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+	                Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events. Load more to check
+	                additional events.
+	              </div>
+	            ) : events.length ? (
+	              <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+	                All events in this range are loaded. Duplicate suggestions and schedule conflicts consider all events in this range.
+	              </div>
+	            ) : null}
+	          </>
 	        ) : null}
 
 	        {scheduleView === "season" && seasonDisplayMode === "calendar" ? (
@@ -2766,16 +2436,364 @@ export default function PlannerClient(props: Props) {
               </div>
             );
           })}
-	            {scheduleView === "season" && eventsHasMore ? (
-	              <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-	                <button className={styles.secondaryBtn} onClick={() => void loadMoreEvents()} disabled={eventsPagingBusy}>
-	                  {eventsPagingBusy ? "Loading more events…" : "Load more events"}
-	                </button>
+		            {scheduleView === "season" && eventsHasMore ? (
+		              <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+		                <button className={styles.secondaryBtn} onClick={() => void loadMoreEvents()} disabled={eventsPagingBusy}>
+		                  {eventsPagingBusy ? "Loading more events…" : "Load more events"}
+		                </button>
+		              </div>
+		            ) : null}
+	          </>
+	        )}
+	      </div>
+
+	      {!props.isPaid && !dismissWeekendProForSession ? (
+	        <div className={styles.card}>
+	          <div className={styles.cardTitle}>Weekend Pro</div>
+	          <div style={{ display: "grid", gap: 8, textAlign: "center" }}>
+	            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 10 }}>
+	              <div style={{ fontWeight: 900, fontSize: 16, width: "100%", textAlign: "center" }}>
+	                Unlock deeper venue intelligence for tournament weekends.
+	              </div>
+	              <button className={styles.secondaryBtn} type="button" onClick={() => setDismissWeekendProForSession(true)} disabled={busy}>
+	                Dismiss
+	              </button>
+	            </div>
+	            <div className={styles.muted}>{WEEKEND_PRO_FOUNDING_SHORT_COPY}</div>
+	            <div style={{ maxWidth: 420, marginLeft: "auto", marginRight: "auto" }}>
+	              <Link href="/premium" className={styles.primaryBtn} style={{ display: "inline-flex", justifyContent: "center" }}>
+	                Upgrade to Weekend Pro
+	              </Link>
+	            </div>
+	          </div>
+	        </div>
+	      ) : null}
+
+	      <div className={styles.card} id="add-manual-event">
+	        <div className={styles.cardTitle}>Add manual event</div>
+
+	        {error ? <div className={styles.muted} style={{ color: "#b91c1c", fontWeight: 800 }}>{error}</div> : null}
+	        {notice ? <div className={styles.muted} style={{ color: "#166534", fontWeight: 900 }}>{notice}</div> : null}
+
+	        {!createOpen ? (
+	          <div style={{ display: "grid", gap: 10 }}>
+	            <div className={styles.muted}>Add games, travel, hotels, or reminders not in your connected calendars.</div>
+	            <div className={styles.eventActions}>
+	              <button className={styles.primaryBtn} type="button" onClick={() => setCreateOpen(true)} disabled={busy}>
+	                Add event
+	              </button>
+	            </div>
+	          </div>
+	        ) : (
+	          <div className={styles.formGrid}>
+	            <div>
+	              <label className={styles.label}>Title *</label>
+	              <input className={styles.input} value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} placeholder="Game vs Tigers" />
+	            </div>
+
+	            <div className={styles.row2}>
+	              <div>
+	                <label className={styles.label}>Type</label>
+	                <select className={styles.select} value={createType} onChange={(e) => setCreateType(e.target.value as PlannerEventType)}>
+	                  {EVENT_TYPES.map((t) => (
+	                    <option key={t.value} value={t.value}>
+	                      {t.label}
+	                    </option>
+	                  ))}
+	                </select>
+	              </div>
+
+	              <div>
+	                <label className={styles.label}>Venue</label>
+	                <div className={styles.muted} style={{ marginTop: -6, marginBottom: 6 }}>
+	                  No venue needed — you can use an address or location instead.
+	                </div>
+	                {createSelectedVenue ? (
+	                  <div className={styles.eventItem} style={{ padding: 10 }}>
+	                    <div className={styles.eventTitle}>{createSelectedVenue.name || "Selected venue"}</div>
+	                    <div className={styles.eventMeta}>
+	                      {[createSelectedVenue.city, createSelectedVenue.state].filter(Boolean).join(", ")}
+	                    </div>
+	                    <div className={styles.eventActions}>
+	                      <button className={styles.secondaryBtn} type="button" onClick={() => clearCreateVenueSelection()} disabled={busy}>
+	                        Clear
+	                      </button>
+	                    </div>
+	                  </div>
+	                ) : (
+	                  <>
+	                    <input
+	                      className={styles.input}
+	                      value={createVenueQuery}
+	                      onChange={(e) => setCreateVenueQuery(e.target.value)}
+	                      placeholder="Search by venue name"
+	                    />
+	                    {createVenueSearching ? <div className={styles.muted}>Searching…</div> : null}
+	                    {!createVenueSearching && createVenueQuery.trim().length >= 2 && createVenueResults.length === 0 ? (
+	                      <div className={styles.muted}>No matches found.</div>
+	                    ) : null}
+	                    {createVenueResults.length > 0 ? (
+	                      <div style={{ border: "1px solid rgba(15,23,42,0.12)", borderRadius: 10, overflow: "hidden" }}>
+	                        {createVenueResults.map((v) => (
+	                          <button
+	                            key={v.id}
+	                            type="button"
+	                            className={styles.secondaryBtn}
+	                            style={{ width: "100%", justifyContent: "space-between", borderRadius: 0 }}
+	                            onClick={() => {
+	                              setCreateSelectedVenue(v);
+	                              setCreateVenueId(v.id);
+	                              applyVenueToCreateLocationIfEmpty(v);
+	                              setCreateVenueQuery("");
+	                              setCreateVenueResults([]);
+	                            }}
+	                            disabled={busy}
+	                          >
+	                            <span>{v.name || "Unnamed venue"}</span>
+	                            <span className={styles.muted}>{[v.city, v.state].filter(Boolean).join(", ")}</span>
+	                          </button>
+	                        ))}
+	                      </div>
+	                    ) : null}
+	                  </>
+	                )}
+	              </div>
+	            </div>
+
+	            <div>
+	              <label className={styles.label}>Tournament</label>
+	              <div className={styles.muted} style={{ marginTop: -6, marginBottom: 6 }}>
+	                Tournament is optional.
+	              </div>
+	              {createSelectedTournament ? (
+	                <div className={styles.eventItem} style={{ padding: 10 }}>
+	                  <div className={styles.eventTitle}>{createSelectedTournament.name || "Selected tournament"}</div>
+	                  <div className={styles.eventMeta}>
+	                    {formatDateRangeLabel(createSelectedTournament.start_date, createSelectedTournament.end_date) || ""}
+	                  </div>
+	                  <div className={styles.eventActions}>
+		                    <button
+		                      className={styles.secondaryBtn}
+		                      type="button"
+		                      onClick={() => {
+		                        setCreateSelectedTournament(null);
+		                        setCreateTournamentId("");
+		                      }}
+		                      disabled={busy}
+		                    >
+		                      Clear
+		                    </button>
+	                  </div>
+	                </div>
+	              ) : (
+	                <>
+	                  <input
+	                    className={styles.input}
+	                    value={createTournamentQuery}
+	                    onChange={(e) => setCreateTournamentQuery(e.target.value)}
+	                    placeholder="Search by tournament name (optional)"
+	                  />
+	                  {createTournamentSearching ? <div className={styles.muted}>Searching…</div> : null}
+	                  {!createTournamentSearching && createTournamentQuery.trim().length >= 2 && createTournamentResults.length === 0 ? (
+	                    <div className={styles.muted}>No matches found.</div>
+	                  ) : null}
+	                  {createTournamentResults.length > 0 ? (
+	                    <div style={{ border: "1px solid rgba(15,23,42,0.12)", borderRadius: 10, overflow: "hidden" }}>
+	                      {createTournamentResults.map((t) => (
+	                        <button
+	                          key={t.id}
+	                          type="button"
+	                          className={styles.secondaryBtn}
+	                          style={{ width: "100%", justifyContent: "space-between", borderRadius: 0 }}
+	                          onClick={() => {
+	                            setCreateSelectedTournament(t);
+	                            setCreateTournamentId(t.id);
+		                            setCreateTournamentQuery("");
+		                            setCreateTournamentResults([]);
+		                          }}
+		                          disabled={busy}
+		                        >
+		                          <span>{t.name || "Unnamed tournament"}</span>
+		                          <span className={styles.muted}>{formatDateRangeLabel(t.start_date, t.end_date) || ""}</span>
+		                        </button>
+		                      ))}
+	                    </div>
+	                  ) : null}
+	                </>
+	              )}
+	            </div>
+
+	            <div className={styles.row2}>
+	              <div>
+	                <label className={styles.label}>Starts *</label>
+	                <div className={styles.row2}>
+	                  <input className={styles.input} type="date" value={createStartDate} onChange={(e) => setCreateStartDate(e.target.value)} />
+	                  <input className={styles.input} type="time" value={createStartTime} onChange={(e) => setCreateStartTime(e.target.value)} />
+	                </div>
+	              </div>
+	              <div>
+	                <label className={styles.label}>Ends (optional)</label>
+	                <div className={styles.row2}>
+	                  <input
+	                    className={styles.input}
+	                    type="date"
+	                    value={createEndDate}
+	                    onChange={(e) => {
+	                      setCreateEndWasAuto(false);
+	                      setCreateEndDate(e.target.value);
+	                    }}
+	                  />
+	                  <input
+	                    className={styles.input}
+	                    type="time"
+	                    value={createEndTime}
+	                    onChange={(e) => {
+	                      setCreateEndWasAuto(false);
+	                      setCreateEndTime(e.target.value);
+	                    }}
+	                  />
+	                </div>
+	              </div>
+	            </div>
+
+		            <div className={styles.row2} style={{ alignItems: "end" }}>
+		              <div>
+		                <label className={styles.label}>Timezone</label>
+		                <select
+		                  className={styles.select}
+		                  value={safeTimeZone(createTimeZone) || safeTimeZone(tz) || "UTC"}
+		                  onChange={(e) => {
+		                    setCreateTimeZoneLocked(true);
+		                    setCreateTimeZone(e.target.value);
+		                  }}
+	                  disabled={busy}
+	                >
+	                  {buildTimeZoneOptions([createTimeZone, tz]).map((z) => (
+	                    <option key={z} value={z}>
+	                      {z}
+	                    </option>
+	                  ))}
+	                </select>
+		              </div>
+		              <div className={styles.muted} style={{ paddingBottom: 6 }}>
+		                {createVenueId || createTournamentId
+		                  ? "Auto-set from venue/tournament (override if needed)."
+		                  : "Defaulted to your browser timezone (override if needed)."}
+		              </div>
+		            </div>
+
+	            <div className={styles.row2}>
+	              <div>
+	                <label className={styles.label}>Address or location</label>
+		                <input className={styles.input} value={createAddress} onChange={(e) => setCreateAddress(e.target.value)} placeholder="123 Main St" />
+	              </div>
+	              <div className={styles.row2}>
+	                <div>
+	                  <label className={styles.label}>City</label>
+		                  <input className={styles.input} value={createCity} onChange={(e) => setCreateCity(e.target.value)} placeholder="Temecula" />
+	                </div>
+	                <div>
+	                  <label className={styles.label}>State</label>
+		                  <input className={styles.input} value={createState} onChange={(e) => setCreateState(e.target.value)} placeholder="CA" />
+	                </div>
+	              </div>
+	            </div>
+
+	            <div>
+	              <label className={styles.label}>Notes (optional)</label>
+		              <textarea
+		                className={styles.textarea}
+		                value={createNotes}
+		                onChange={(e) => setCreateNotes(e.target.value)}
+		                placeholder="Parking, gate, field #, etc."
+		              />
+	            </div>
+
+	            <div className={styles.actionsRow}>
+	              <button className={styles.primaryBtn} onClick={onCreate} disabled={busy}>
+	                Add event
+	              </button>
+		              <button className={styles.secondaryBtn} type="button" onClick={resetCreateForm} disabled={busy}>
+		                Clear
+		              </button>
+		              <button
+		                className={styles.secondaryBtn}
+		                type="button"
+		                onClick={() => {
+		                  if (busy) return;
+		                  resetCreateForm();
+		                  setCreateOpen(false);
+		                }}
+		                disabled={busy}
+		              >
+		                Cancel
+		              </button>
+		              <div className={styles.muted} style={{ alignSelf: "center" }}>
+		                Timezone: {safeTimeZone(createTimeZone) || safeTimeZone(tz) || "UTC"}
+		              </div>
+	            </div>
+	          </div>
+	        )}
+	      </div>
+
+		      <div className={styles.card}>
+		        <div className={styles.cardTitle}>Connected calendars</div>
+		        <div className={styles.muted} style={{ marginBottom: 10 }}>
+		          {sourcesBusy
+		            ? "Loading calendar status…"
+		            : sources.length
+		              ? `${sources.length} connected calendar${sources.length === 1 ? "" : "s"}.`
+		              : "No connected calendars yet."}
+		        </div>
+		        <div className={styles.eventActions}>
+		          <button
+		            className={styles.secondaryBtn}
+		            type="button"
+		            onClick={() => {
+		              setImportOpen(true);
+		              setImportResult(null);
+		              setImportError(null);
+	            }}
+	            disabled={busy}
+		          >
+		            Connect calendar
+		          </button>
+		          <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen((v) => !v)} disabled={busy}>
+		            {calendarsOpen ? "Hide calendar details" : "Manage calendars"}
+		          </button>
+		        </div>
+
+	        {calendarsOpen ? (
+	          <>
+	            {sourcesBusy ? <div className={styles.muted} style={{ marginTop: 10 }}>Loading…</div> : null}
+	            {!sourcesBusy && sources.length > 0 ? (
+		              <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+		                {sources.map((s) => (
+		                  <div key={s.id} className={styles.eventItem}>
+		                    <div className={styles.eventTitle}>{s.source_name || "Imported calendar"}</div>
+		                    <div className={styles.eventMeta}>
+		                      {s.team_name ? `${s.team_name} · ` : ""}
+		                      {formatSourceStatusLabel(s)}
+		                      {s.last_synced_at ? ` · Last synced ${new Date(s.last_synced_at).toLocaleString()}` : ""}
+		                    </div>
+		                    {staleLabel(s.last_synced_at) && String(s.sync_status || "").toLowerCase() !== "error" ? (
+		                      <div className={styles.eventMeta} style={{ fontWeight: 800 }}>
+		                        {staleLabel(s.last_synced_at)} Refresh schedule to check for updates.
+		                      </div>
+		                    ) : null}
+		                    {s.sync_error ? <div className={styles.eventMeta} style={{ color: "#b91c1c", fontWeight: 800 }}>{s.sync_error}</div> : null}
+		                    <div className={styles.eventActions}>
+		                      <button className={styles.primaryBtn} onClick={() => onRefreshSource(s.id)} disabled={busy}>
+		                        Refresh schedule
+	                      </button>
+	                    </div>
+	                  </div>
+	                ))}
 	              </div>
 	            ) : null}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+	          </>
+	        ) : null}
+	      </div>
+	    </div>
+	  );
+	}

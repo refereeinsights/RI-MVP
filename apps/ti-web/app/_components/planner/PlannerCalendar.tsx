@@ -70,6 +70,7 @@ type DetailState = { open: boolean; eventId: string | null };
 export default function PlannerCalendar(props: Props) {
   const hasEvents = (props.events ?? []).length > 0;
 
+  const [tzPickerOpen, setTzPickerOpen] = useState(false);
   const [detail, setDetail] = useState<DetailState>({ open: false, eventId: null });
   const detailEvent = useMemo(() => {
     if (!detail.open || !detail.eventId) return null;
@@ -144,6 +145,7 @@ export default function PlannerCalendar(props: Props) {
   const controls = useMemo(() => createCalendarControlsPlugin(), []);
   const eventsService = useMemo(() => createEventsServicePlugin(), []);
   const initialViewWasSetRef = useRef(false);
+  const initialJumpToEventMonthRef = useRef(false);
 
   const views = useMemo(
     () =>
@@ -194,32 +196,51 @@ export default function PlannerCalendar(props: Props) {
     }
   }, [calendarTz, controls]);
 
+  useEffect(() => {
+    if (!hasEvents) return;
+    if (initialJumpToEventMonthRef.current) return;
+    initialJumpToEventMonthRef.current = true;
+
+    try {
+      const earliest = (props.events ?? [])
+        .slice()
+        .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)) || String(a.id).localeCompare(String(b.id)))[0];
+      if (!earliest?.starts_at) return;
+      const zdt = Temporal.Instant.from(String(earliest.starts_at)).toZonedDateTimeISO(calendarTz);
+      const firstOfMonth = Temporal.PlainDate.from({ year: zdt.year, month: zdt.month, day: 1 });
+      controls.setDate(firstOfMonth as any);
+    } catch {
+      // ignore
+    }
+  }, [calendarTz, controls, hasEvents, props.events]);
+
   return (
     <div className={styles.calendarContainer}>
       <div className={styles.timezoneBar}>
-        {props.hasMore ? (
-          <div className={styles.muted} style={{ fontWeight: 800 }}>
-            Showing loaded events only. Load more to add more season events to the calendar. Duplicate suggestions and schedule conflicts only consider loaded events.
-          </div>
-        ) : hasEvents ? (
-          <div className={styles.muted} style={{ fontWeight: 800 }}>
-            All events in this range are loaded. Duplicate suggestions and schedule conflicts consider all events in this range.
-          </div>
-        ) : null}
-
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <div className={styles.muted}>Timezone: {calendarTz}</div>
-          <select
-            className={styles.timezoneSelect}
-            value={calendarTz}
-            onChange={(e) => props.onTimezoneChange(e.target.value)}
-          >
-            {timeZones.map((z) => (
-              <option key={z} value={z}>
-                {z}
-              </option>
-            ))}
-          </select>
+        <div style={{ flex: 1 }} />
+        <div className={styles.timezonePill}>
+          <span>🕐</span>
+          <span>{calendarTz}</span>
+          {tzPickerOpen ? (
+            <select
+              className={styles.timezoneSelect}
+              value={calendarTz}
+              onChange={(e) => {
+                props.onTimezoneChange(e.target.value);
+                setTzPickerOpen(false);
+              }}
+            >
+              {timeZones.map((z) => (
+                <option key={z} value={z}>
+                  {z}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <button className={styles.timezoneChangeBtn} type="button" onClick={() => setTzPickerOpen(true)}>
+              Change
+            </button>
+          )}
         </div>
       </div>
 
