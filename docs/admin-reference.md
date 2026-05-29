@@ -116,6 +116,14 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 
 ---
 
+## TI SEO landing pages (tournaments)
+
+- June 2026 landing page: `/youth-sports-tournaments/june-2026`
+  - Canonical URL: `/youth-sports-tournaments/june-2026` (any alias should 301 redirect).
+  - Default scope: June 2026 (`start_date >= 2026-06-01` and `start_date < 2026-07-01`).
+  - Headline tournament count uses a count-only aggregate query (do not use bounded list length like `results.length` from `/tournaments`).
+  - Filtered variants (sports/state/q/date chips/etc.) should canonicalize back to the base June URL and use `noindex,follow` unless explicitly approved for indexing.
+
 ## TI Planner (Stage 2.2 — Season Planner Reliability)
 - Adds a “This Weekend” / “Season” lens toggle with season range presets and lightweight type filters (mobile-first; no month grid).
 - `GET /api/planner/events` supports optional query params for ranged queries:

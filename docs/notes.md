@@ -22,6 +22,11 @@ Maintenance rules:
   - Prompt: `docs/prompts/ti-planner-stage-2.6b-conflicts.md`.
 - TI planner UAT: add an ICS fixture that overlaps Initial by title/time/location but uses a different ICS `UID` (for duplicate-suggestion testing).
   - Fixture: `apps/ti-web/public/uat-fixtures/planner/test-calendar-conflict-uid.ics`.
+- TI SEO: add a dedicated June 2026 tournament landing page route.
+  - Route: `/youth-sports-tournaments/june-2026` (canonical).
+  - Defaults to June 1–30, 2026 using a half-open query window (`start_date >= 2026-06-01` and `< 2026-07-01`).
+  - Headline tournament count is computed via a count-only aggregate (not a bounded list length).
+  - Filtered variants canonicalize back to the base page and are `noindex,follow` (default All-June state remains indexable).
 
 ## 2026-05-28
 
