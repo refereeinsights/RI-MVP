@@ -24,6 +24,7 @@ type Props = {
 type PlannerLens = "weekend" | "season";
 type SeasonRangePreset = "30d" | "6mo" | "12mo";
 type SeasonFilter = "all" | "games" | "practices" | "travel" | "other";
+type ScheduleView = "upcoming" | "weekend" | "season";
 
 type PlannerSourceRow = {
   id: string;
@@ -380,9 +381,12 @@ export default function PlannerClient(props: Props) {
   const [busy, setBusy] = useState(false);
   const [sourcesBusy, setSourcesBusy] = useState(false);
 
-  const [lens, setLens] = useState<PlannerLens>("weekend");
+  const [scheduleView, setScheduleView] = useState<ScheduleView>("upcoming");
   const [seasonRange, setSeasonRange] = useState<SeasonRangePreset>("6mo");
   const [seasonFilter, setSeasonFilter] = useState<SeasonFilter>("all");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [calendarsOpen, setCalendarsOpen] = useState(false);
+  const [dismissWeekendProForSession, setDismissWeekendProForSession] = useState(false);
 
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
@@ -700,35 +704,39 @@ export default function PlannerClient(props: Props) {
     };
   }, [editingId, editVenueId, editTournamentId, tz, editTimeZoneLocked]);
 
-  async function loadEvents() {
-    setEventsPagingBusy(true);
-    const now = new Date();
-    const limit = 200;
+	  async function loadEvents() {
+	    setEventsPagingBusy(true);
+	    const now = new Date();
+	    const limit = 200;
 
-    let from: string | null = null;
-    let to: string | null = null;
-    let types: string[] | null = null;
+	    let from: string | null = null;
+	    let to: string | null = null;
+	    let types: string[] | null = null;
 
-    if (lens === "weekend") {
-      const range = computeWeekendRangeLocal(now);
-      from = range.from;
-      to = range.to;
-    } else {
-      const fromDate = startOfDayLocal(now);
-      const toDate =
-        seasonRange === "30d"
-          ? addDaysLocal(fromDate, 30)
-          : seasonRange === "12mo"
-            ? addMonthsLocal(fromDate, 12)
-            : addMonthsLocal(fromDate, 6);
-      from = fromDate.toISOString();
-      to = toDate.toISOString();
+	    const effectiveLens: PlannerLens = scheduleView === "weekend" ? "weekend" : "season";
+	    const effectiveSeasonRange: SeasonRangePreset = scheduleView === "upcoming" ? "30d" : seasonRange;
+	    const effectiveSeasonFilter: SeasonFilter = scheduleView === "upcoming" ? "all" : seasonFilter;
 
-      if (seasonFilter === "games") types = ["game"];
-      else if (seasonFilter === "practices") types = ["practice"];
-      else if (seasonFilter === "travel") types = ["travel", "hotel", "meal", "check_in"];
-      else if (seasonFilter === "other") types = ["other", "referee_assignment"];
-    }
+	    if (effectiveLens === "weekend") {
+	      const range = computeWeekendRangeLocal(now);
+	      from = range.from;
+	      to = range.to;
+	    } else {
+	      const fromDate = startOfDayLocal(now);
+	      const toDate =
+	        effectiveSeasonRange === "30d"
+	          ? addDaysLocal(fromDate, 30)
+	          : effectiveSeasonRange === "12mo"
+	            ? addMonthsLocal(fromDate, 12)
+	            : addMonthsLocal(fromDate, 6);
+	      from = fromDate.toISOString();
+	      to = toDate.toISOString();
+
+	      if (effectiveSeasonFilter === "games") types = ["game"];
+	      else if (effectiveSeasonFilter === "practices") types = ["practice"];
+	      else if (effectiveSeasonFilter === "travel") types = ["travel", "hotel", "meal", "check_in"];
+	      else if (effectiveSeasonFilter === "other") types = ["other", "referee_assignment"];
+	    }
 
     const qs = new URLSearchParams();
     if (from) qs.set("from", from);
@@ -747,7 +755,7 @@ export default function PlannerClient(props: Props) {
         nextCursor?: { starts_at: string; id: string } | null;
       }>(`/api/planner/events?${qs.toString()}`, { method: "GET" });
 
-      lastEventsQueryRef.current = { from, to, types, limit };
+	      lastEventsQueryRef.current = { from, to, types, limit };
       const hasMore = Boolean((res as any).hasMore ?? res.truncated);
       setEventsTruncated(hasMore);
       setEventsHasMore(hasMore);
@@ -834,24 +842,38 @@ export default function PlannerClient(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Authoritative ranged fetch for the active lens/range/filter (replaces any SSR preload).
-  useEffect(() => {
-    void loadEvents().catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lens, seasonRange, seasonFilter]);
+	  // Authoritative ranged fetch for the active lens/range/filter (replaces any SSR preload).
+	  useEffect(() => {
+	    void loadEvents().catch(() => {});
+	    // eslint-disable-next-line react-hooks/exhaustive-deps
+	  }, [scheduleView, seasonRange, seasonFilter]);
 
-  const grouped = useMemo(() => {
-    const groups = new Map<string, PlannerEventRow[]>();
-    for (const e of events) {
-      const groupTz = effectiveTimeZoneForEvent(e);
-      const key = dayKey(e.starts_at, groupTz);
-      const list = groups.get(key) ?? [];
-      list.push(e);
-      groups.set(key, list);
-    }
-    const sortedKeys = Array.from(groups.keys()).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-    return sortedKeys.map((key) => ({ key, events: (groups.get(key) ?? []).slice() }));
-  }, [events, tz]);
+	  const eventsForScheduleView = useMemo(() => {
+	    if (scheduleView !== "upcoming") return events;
+	    const nowMs = Date.now();
+	    return (events ?? [])
+	      .filter((e) => {
+	        const d = new Date(String(e.starts_at ?? ""));
+	        if (Number.isNaN(d.getTime())) return false;
+	        return d.getTime() >= nowMs;
+	      })
+	      .slice()
+	      .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)) || String(a.id).localeCompare(String(b.id)))
+	      .slice(0, 20);
+	  }, [events, scheduleView]);
+
+	  const grouped = useMemo(() => {
+	    const groups = new Map<string, PlannerEventRow[]>();
+	    for (const e of eventsForScheduleView) {
+	      const groupTz = effectiveTimeZoneForEvent(e);
+	      const key = dayKey(e.starts_at, groupTz);
+	      const list = groups.get(key) ?? [];
+	      list.push(e);
+	      groups.set(key, list);
+	    }
+	    const sortedKeys = Array.from(groups.keys()).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+	    return sortedKeys.map((key) => ({ key, events: (groups.get(key) ?? []).slice() }));
+	  }, [eventsForScheduleView, tz]);
 
   const sourcesById = useMemo(() => {
     const m = new Map<string, PlannerSourceRow>();
@@ -886,9 +908,9 @@ export default function PlannerClient(props: Props) {
     return m;
   }, [duplicateCandidates]);
 
-  const loadedConflictsByEventId = useMemo(() => {
-    return detectLoadedEventConflicts(events);
-  }, [events]);
+	  const loadedConflictsByEventId = useMemo(() => {
+	    return detectLoadedEventConflicts(eventsForScheduleView);
+	  }, [eventsForScheduleView]);
 
   function candidateLabelForSource(e: PlannerEventRow) {
     if (String(e.source_type ?? "") === "ics") {
@@ -1111,18 +1133,19 @@ export default function PlannerClient(props: Props) {
 
     setBusy(true);
     try {
-      const res = await jsonFetch<{ ok: true; event: PlannerEventRow }>("/api/planner/events", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-      setEvents((prev) => [...prev, res.event].sort((a, b) => a.starts_at.localeCompare(b.starts_at)));
-      resetCreateForm();
-    } catch (e: any) {
-      setError(e?.message || "Failed to create event.");
-    } finally {
-      setBusy(false);
-    }
-  }
+	      const res = await jsonFetch<{ ok: true; event: PlannerEventRow }>("/api/planner/events", {
+	        method: "POST",
+	        body: JSON.stringify(body),
+	      });
+	      setEvents((prev) => [...prev, res.event].sort((a, b) => a.starts_at.localeCompare(b.starts_at)));
+	      resetCreateForm();
+	      setCreateOpen(false);
+	    } catch (e: any) {
+	      setError(e?.message || "Failed to create event.");
+	    } finally {
+	      setBusy(false);
+	    }
+	  }
 
   async function onSaveEdit() {
     if (!editingEvent) return;
@@ -1784,54 +1807,83 @@ export default function PlannerClient(props: Props) {
         })()
       ) : null}
 
-      <div className={styles.headerRow}>
-        <div>
-          <h1 className={styles.title}>Planner</h1>
-          <p className={styles.subtitle}>Add your schedule, travel, and hotel details for tournament weekend.</p>
-        </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button
-            className={styles.secondaryBtn}
-            onClick={() => {
-              setImportOpen(true);
-              setImportResult(null);
-              setImportError(null);
-            }}
-            disabled={busy}
-          >
-            Import calendar link
-          </button>
-        </div>
-      </div>
+	      <div className={styles.headerRow}>
+	        <div>
+	          <h1 className={styles.title}>Weekend Planner</h1>
+	          <p className={styles.subtitle}>Your family’s sports schedule, calendar feeds, and tournament weekends in one place.</p>
+	        </div>
+	        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+	          <button
+	            className={styles.primaryBtn}
+	            type="button"
+	            onClick={() => setCreateOpen(true)}
+	            disabled={busy}
+	          >
+	            Add event
+	          </button>
+	          <button
+	            className={styles.secondaryBtn}
+	            type="button"
+	            onClick={() => {
+	              setImportOpen(true);
+	              setImportResult(null);
+	              setImportError(null);
+	            }}
+	            disabled={busy}
+	          >
+	            Connect calendar
+	          </button>
+	          <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen(true)} disabled={busy}>
+	            Manage calendars
+	          </button>
+	        </div>
+	      </div>
 
-      {!props.isPaid ? (
-        <div className={styles.card}>
-          <div className={styles.cardTitle}>Weekend Pro</div>
-          <div style={{ display: "grid", gap: 8 }}>
-            <div style={{ fontWeight: 900, fontSize: 16 }}>
-              See hotels, food, and parking near every venue. Owl&apos;s Eye™ venue intelligence for your tournament weekends.
-            </div>
-            <div className={styles.muted}>{WEEKEND_PRO_FOUNDING_SHORT_COPY}</div>
-            <div style={{ maxWidth: 420 }}>
-              <Link href="/premium" className={styles.primaryBtn} style={{ display: "inline-flex", justifyContent: "center" }}>
-                Upgrade to Weekend Pro
-              </Link>
+	      {!props.isPaid && !dismissWeekendProForSession ? (
+	        <div className={styles.card}>
+	          <div className={styles.cardTitle}>Weekend Pro</div>
+	          <div style={{ display: "grid", gap: 8 }}>
+	            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 10 }}>
+	              <div style={{ fontWeight: 900, fontSize: 16 }}>
+	                Unlock deeper venue intelligence for tournament weekends.
+	              </div>
+	              <button className={styles.secondaryBtn} type="button" onClick={() => setDismissWeekendProForSession(true)} disabled={busy}>
+	                Dismiss
+	              </button>
+	            </div>
+	            <div className={styles.muted}>{WEEKEND_PRO_FOUNDING_SHORT_COPY}</div>
+	            <div style={{ maxWidth: 420 }}>
+	              <Link href="/premium" className={styles.primaryBtn} style={{ display: "inline-flex", justifyContent: "center" }}>
+	                Upgrade to Weekend Pro
+	              </Link>
             </div>
           </div>
         </div>
       ) : null}
 
-      <div className={styles.card}>
-        <div className={styles.cardTitle}>Add event</div>
+	      <div className={styles.card} id="add-manual-event">
+	        <div className={styles.cardTitle}>Add manual event</div>
 
-        {error ? <div className={styles.muted} style={{ color: "#b91c1c", fontWeight: 800 }}>{error}</div> : null}
-        {notice ? <div className={styles.muted} style={{ color: "#166534", fontWeight: 900 }}>{notice}</div> : null}
+	        {error ? <div className={styles.muted} style={{ color: "#b91c1c", fontWeight: 800 }}>{error}</div> : null}
+	        {notice ? <div className={styles.muted} style={{ color: "#166534", fontWeight: 900 }}>{notice}</div> : null}
 
-        <div className={styles.formGrid}>
-          <div>
-            <label className={styles.label}>Title *</label>
-            <input className={styles.input} value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} placeholder="Game vs Tigers" />
-          </div>
+	        {!createOpen ? (
+	          <div style={{ display: "grid", gap: 10 }}>
+	            <div className={styles.muted}>
+	              Add a game, practice, travel, hotel, meal, check-in, referee assignment, or reminder that is not in your connected calendars.
+	            </div>
+	            <div className={styles.eventActions}>
+	              <button className={styles.primaryBtn} type="button" onClick={() => setCreateOpen(true)} disabled={busy}>
+	                Add event
+	              </button>
+	            </div>
+	          </div>
+	        ) : (
+	        <div className={styles.formGrid}>
+	          <div>
+	            <label className={styles.label}>Title *</label>
+	            <input className={styles.input} value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} placeholder="Game vs Tigers" />
+	          </div>
 
           <div className={styles.row2}>
             <div>
@@ -2053,123 +2105,182 @@ export default function PlannerClient(props: Props) {
             <textarea className={styles.textarea} value={createNotes} onChange={(e) => setCreateNotes(e.target.value)} placeholder="Parking, gate, field #, etc." />
           </div>
 
-	          <div className={styles.actionsRow}>
-	            <button className={styles.primaryBtn} onClick={onCreate} disabled={busy}>
-	              Add event
-	            </button>
-	            <button className={styles.secondaryBtn} onClick={resetCreateForm} disabled={busy}>
-	              Clear
-	            </button>
-	            <div className={styles.muted} style={{ alignSelf: "center" }}>
-	              Timezone: {safeTimeZone(createTimeZone) || safeTimeZone(tz) || "UTC"}
-	            </div>
-	          </div>
-	        </div>
+		          <div className={styles.actionsRow}>
+		            <button className={styles.primaryBtn} onClick={onCreate} disabled={busy}>
+		              Add event
+		            </button>
+		            <button className={styles.secondaryBtn} type="button" onClick={resetCreateForm} disabled={busy}>
+		              Clear
+		            </button>
+		            <button className={styles.secondaryBtn} type="button" onClick={() => { if (busy) return; resetCreateForm(); setCreateOpen(false); }} disabled={busy}>
+		              Cancel
+		            </button>
+		            <div className={styles.muted} style={{ alignSelf: "center" }}>
+		              Timezone: {safeTimeZone(createTimeZone) || safeTimeZone(tz) || "UTC"}
+		            </div>
+		          </div>
+		        </div>
+		        )}
 	      </div>
 
-      <div className={styles.card}>
-        <div className={styles.cardTitle}>Synced calendars</div>
-        {sourcesBusy ? <div className={styles.muted}>Loading…</div> : null}
-        {!sourcesBusy && sources.length === 0 ? (
-          <div className={styles.muted}>No synced calendars yet.</div>
-        ) : null}
-        {!sourcesBusy && sources.length > 0 ? (
-          <div style={{ display: "grid", gap: 10 }}>
-            {sources.map((s) => (
-              <div key={s.id} className={styles.eventItem}>
-                <div className={styles.eventTitle}>{s.source_name || "Imported calendar"}</div>
-                <div className={styles.eventMeta}>
-                  {s.team_name ? `${s.team_name} · ` : ""}
-                  {formatSourceStatusLabel(s)}
-                  {s.last_synced_at ? ` · Last synced ${new Date(s.last_synced_at).toLocaleString()}` : ""}
-                </div>
-                {staleLabel(s.last_synced_at) && String(s.sync_status || "").toLowerCase() !== "error" ? (
-                  <div className={styles.eventMeta} style={{ fontWeight: 800 }}>
-                    {staleLabel(s.last_synced_at)} Refresh schedule to check for updates.
-                  </div>
-                ) : null}
-                {s.sync_error ? <div className={styles.eventMeta} style={{ color: "#b91c1c", fontWeight: 800 }}>{s.sync_error}</div> : null}
-                <div className={styles.eventActions}>
-                  <button className={styles.primaryBtn} onClick={() => onRefreshSource(s.id)} disabled={busy}>
-                    Refresh schedule
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </div>
+	      <div className={styles.card}>
+	        <div className={styles.cardTitle}>Connected calendars</div>
+	        <div className={styles.muted} style={{ marginBottom: 10 }}>
+	          {sourcesBusy
+	            ? "Loading calendar status…"
+	            : sources.length
+	              ? `${sources.length} connected calendar${sources.length === 1 ? "" : "s"}.`
+	              : "No connected calendars yet."}
+	        </div>
+	        <div className={styles.eventActions}>
+	          <button
+	            className={styles.secondaryBtn}
+	            type="button"
+	            onClick={() => {
+	              setImportOpen(true);
+	              setImportResult(null);
+	              setImportError(null);
+	            }}
+	            disabled={busy}
+	          >
+	            Connect calendar
+	          </button>
+	          <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen((v) => !v)} disabled={busy}>
+	            {calendarsOpen ? "Hide calendar details" : "Manage calendars"}
+	          </button>
+	        </div>
 
-      <div className={styles.card}>
-        <div className={styles.cardTitle}>Your events</div>
+	        {calendarsOpen ? (
+	          <>
+	            {sourcesBusy ? <div className={styles.muted} style={{ marginTop: 10 }}>Loading…</div> : null}
+	            {!sourcesBusy && sources.length > 0 ? (
+	              <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+	                {sources.map((s) => (
+	                  <div key={s.id} className={styles.eventItem}>
+	                    <div className={styles.eventTitle}>{s.source_name || "Imported calendar"}</div>
+	                    <div className={styles.eventMeta}>
+	                      {s.team_name ? `${s.team_name} · ` : ""}
+	                      {formatSourceStatusLabel(s)}
+	                      {s.last_synced_at ? ` · Last synced ${new Date(s.last_synced_at).toLocaleString()}` : ""}
+	                    </div>
+	                    {staleLabel(s.last_synced_at) && String(s.sync_status || "").toLowerCase() !== "error" ? (
+	                      <div className={styles.eventMeta} style={{ fontWeight: 800 }}>
+	                        {staleLabel(s.last_synced_at)} Refresh schedule to check for updates.
+	                      </div>
+	                    ) : null}
+	                    {s.sync_error ? <div className={styles.eventMeta} style={{ color: "#b91c1c", fontWeight: 800 }}>{s.sync_error}</div> : null}
+	                    <div className={styles.eventActions}>
+	                      <button className={styles.primaryBtn} onClick={() => onRefreshSource(s.id)} disabled={busy}>
+	                        Refresh schedule
+	                      </button>
+	                    </div>
+	                  </div>
+	                ))}
+	              </div>
+	            ) : null}
+	          </>
+	        ) : null}
+	      </div>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
-          <button
-            className={lens === "weekend" ? styles.primaryBtn : styles.secondaryBtn}
-            type="button"
-            onClick={() => setLens("weekend")}
-            disabled={busy}
-          >
-            This Weekend
-          </button>
-          <button
-            className={lens === "season" ? styles.primaryBtn : styles.secondaryBtn}
-            type="button"
-            onClick={() => setLens("season")}
-            disabled={busy}
-          >
-            Season
-          </button>
+	      <div className={styles.card}>
+	        <div className={styles.cardTitle}>Your schedule</div>
 
-          {lens === "season" ? (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <select className={styles.select} value={seasonRange} onChange={(e) => setSeasonRange(e.target.value as SeasonRangePreset)} disabled={busy}>
-                <option value="30d">Next 30 days</option>
-                <option value="6mo">Next 6 months</option>
-                <option value="12mo">Next 12 months</option>
-              </select>
-              <select className={styles.select} value={seasonFilter} onChange={(e) => setSeasonFilter(e.target.value as SeasonFilter)} disabled={busy}>
-                <option value="all">All</option>
-                <option value="games">Games</option>
-                <option value="practices">Practices</option>
-                <option value="travel">Travel</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-          ) : (
-            <div className={styles.muted}>
-              {(() => {
-                const r = computeWeekendRangeLocal(new Date());
-                const label = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
-                return `Fri–Sun · ${label.format(r.fridayStart)} – ${label.format(addDaysLocal(r.fridayStart, 2))}`;
-              })()}
-            </div>
-          )}
-        </div>
+	        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+	          <button
+	            className={scheduleView === "upcoming" ? styles.primaryBtn : styles.secondaryBtn}
+	            type="button"
+	            onClick={() => setScheduleView("upcoming")}
+	            disabled={busy}
+	          >
+	            Upcoming
+	          </button>
+	          <button
+	            className={scheduleView === "weekend" ? styles.primaryBtn : styles.secondaryBtn}
+	            type="button"
+	            onClick={() => setScheduleView("weekend")}
+	            disabled={busy}
+	          >
+	            This Weekend
+	          </button>
+	          <button
+	            className={scheduleView === "season" ? styles.primaryBtn : styles.secondaryBtn}
+	            type="button"
+	            onClick={() => setScheduleView("season")}
+	            disabled={busy}
+	          >
+	            Season
+	          </button>
 
-        {lens === "season" ? (
-          eventsHasMore ? (
-            <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
-              Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events. Load more to check additional events.
-            </div>
-          ) : events.length ? (
-            <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
-              All events in this range are loaded. Duplicate suggestions and schedule conflicts consider all events in this range.
-            </div>
-          ) : null
-        ) : null}
+	          {scheduleView === "season" ? (
+	            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+	              <select className={styles.select} value={seasonRange} onChange={(e) => setSeasonRange(e.target.value as SeasonRangePreset)} disabled={busy}>
+	                <option value="30d">Next 30 days</option>
+	                <option value="6mo">Next 6 months</option>
+	                <option value="12mo">Next 12 months</option>
+	              </select>
+	              <select className={styles.select} value={seasonFilter} onChange={(e) => setSeasonFilter(e.target.value as SeasonFilter)} disabled={busy}>
+	                <option value="all">All</option>
+	                <option value="games">Games</option>
+	                <option value="practices">Practices</option>
+	                <option value="travel">Travel</option>
+	                <option value="other">Other</option>
+	              </select>
+	            </div>
+	          ) : scheduleView === "weekend" ? (
+	            <div className={styles.muted}>
+	              {(() => {
+	                const r = computeWeekendRangeLocal(new Date());
+	                const label = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+	                return `Fri–Sun · ${label.format(r.fridayStart)} – ${label.format(addDaysLocal(r.fridayStart, 2))}`;
+	              })()}
+	            </div>
+	          ) : (
+	            <div className={styles.muted}>Next 30 days · loaded events only</div>
+	          )}
+	        </div>
 
-        {events.length === 0 ? (
-          lens === "weekend" ? (
-            <div className={styles.muted}>
-              No events this weekend. Switch to <b>Season</b> to see upcoming events.
-            </div>
-          ) : (
-            <div className={styles.muted}>
-              Build your season schedule. Add games, practices, or import a calendar link to keep your team logistics in one place.
-            </div>
-          )
-        ) : (
+	        {(() => {
+	          const conflictedEventCount = loadedConflictsByEventId.size;
+	          if (!conflictedEventCount) return null;
+	          return (
+	            <div className={styles.eventConflictSummary} style={{ marginBottom: 10 }}>
+	              <div style={{ fontWeight: 900 }}>Schedule conflicts found</div>
+	              <div className={styles.muted}>
+	                {conflictedEventCount} event{conflictedEventCount === 1 ? "" : "s"} overlap in the loaded schedule.{" "}
+	                {eventsHasMore ? "Conflicts only consider loaded events." : null}
+	              </div>
+	            </div>
+	          );
+	        })()}
+
+	        {scheduleView !== "weekend" ? (
+	          eventsHasMore ? (
+	            <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+	              Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events.{" "}
+	              {scheduleView === "upcoming" ? "Switch to Season and load more to check additional events." : "Load more to check additional events."}
+	            </div>
+	          ) : events.length ? (
+	            <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+	              All events in this range are loaded. Duplicate suggestions and schedule conflicts consider all events in this range.
+	            </div>
+	          ) : null
+	        ) : null}
+
+	        {eventsForScheduleView.length === 0 ? (
+	          scheduleView === "weekend" ? (
+	            <div className={styles.muted}>
+	              No events this weekend. Switch to <b>Upcoming</b> or <b>Season</b> to see more.
+	            </div>
+	          ) : scheduleView === "upcoming" ? (
+	            <div className={styles.muted}>
+	              No upcoming events yet. Connect a team calendar or add a manual event to start planning.
+	            </div>
+	          ) : (
+	            <div className={styles.muted}>
+	              No season events yet. Connect a team calendar or add events manually to build your planner.
+	            </div>
+	          )
+	        ) : (
           <>
             {grouped.map((g) => {
             const groupTz = g.events[0] ? effectiveTimeZoneForEvent(g.events[0]) : tz || "UTC";
@@ -2567,13 +2678,13 @@ export default function PlannerClient(props: Props) {
               </div>
             );
           })}
-            {lens === "season" && eventsHasMore ? (
-              <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-                <button className={styles.secondaryBtn} onClick={() => void loadMoreEvents()} disabled={eventsPagingBusy}>
-                  {eventsPagingBusy ? "Loading more events…" : "Load more events"}
-                </button>
-              </div>
-            ) : null}
+	            {scheduleView === "season" && eventsHasMore ? (
+	              <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+	                <button className={styles.secondaryBtn} onClick={() => void loadMoreEvents()} disabled={eventsPagingBusy}>
+	                  {eventsPagingBusy ? "Loading more events…" : "Load more events"}
+	                </button>
+	              </div>
+	            ) : null}
           </>
         )}
       </div>

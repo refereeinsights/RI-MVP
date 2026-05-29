@@ -166,6 +166,13 @@
   font-weight: 700;
 }
 
+.eventConflictSummary {
+  border: 1px solid #fecaca;
+  background: #fff7ed;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
 .eventMeta {
   color: #475569;
   font-size: 13px;

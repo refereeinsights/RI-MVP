@@ -3788,3 +3788,10 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Added Season “Load more events” UI and updated disclosure copy to be honest about duplicates considering loaded events only until all events in range are loaded.
   - Prompt: `docs/prompts/ti-planner-stage-2.5-pagination.md`.
   - Files: `apps/ti-web/app/api/planner/events/route.ts`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `docs/admin-reference.md`, `docs/weekend-planner-uat.md`, `docs/qa/ti-planner-ics-uat.md`, `CLAUDE.md`.
+
+- 2026-05-29: Weekend Planner schedule-first UX pass — returning parent hierarchy (Stage 2.6C).
+  - Default schedule view is now **Upcoming** (next 30 days), with quick toggles for This Weekend + Season.
+  - “Add manual event” starts collapsed; users open it via `Add event` (header or card) to reduce above-the-fold setup UI.
+  - “Connected calendars” is summarized with an optional “Manage calendars” expansion for per-source refresh/status.
+  - Weekend Pro upsell is now dismissible for the current session so it does not block schedule scanning.
+  - Files: `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, `docs/admin-reference.md`, `CLAUDE.md`.
