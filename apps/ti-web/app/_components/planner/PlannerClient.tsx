@@ -334,6 +334,8 @@ export default function PlannerClient(props: Props) {
   const [mergeBusy, setMergeBusy] = useState(false);
   const mergeRestoreFocusRef = useRef<HTMLElement | null>(null);
   const mergePanelRef = useRef<HTMLDivElement | null>(null);
+  const lastCreateVenueLocationRef = useRef<{ address: string; city: string; state: string } | null>(null);
+  const lastEditVenueLocationRef = useRef<{ address: string; city: string; state: string } | null>(null);
 
   function closeMergeModal() {
     setMergeOpen(false);
@@ -506,6 +508,7 @@ export default function PlannerClient(props: Props) {
     const address = String(v.address ?? "").trim();
     const city = String(v.city ?? "").trim();
     const state = String(v.state ?? "").trim();
+    lastCreateVenueLocationRef.current = { address, city, state };
     if (!createAddress.trim() && address) setCreateAddress(address);
     if (!createCity.trim() && city) setCreateCity(city);
     if (!createState.trim() && state) setCreateState(state);
@@ -515,10 +518,45 @@ export default function PlannerClient(props: Props) {
     const address = String(v.address ?? "").trim();
     const city = String(v.city ?? "").trim();
     const state = String(v.state ?? "").trim();
+    lastEditVenueLocationRef.current = { address, city, state };
     if (!editAddress.trim() && address) setEditAddress(address);
     if (!editCity.trim() && city) setEditCity(city);
     if (!editState.trim() && state) setEditState(state);
   };
+
+  function clearCreateVenueSelection() {
+    setCreateSelectedVenue(null);
+    setCreateVenueId("");
+    const last = lastCreateVenueLocationRef.current;
+    // If location fields appear to have been derived from the venue selection, clear them so the
+    // user can choose a new venue without stale address/city/state sticking around.
+    if (
+      !last ||
+      (createAddress.trim() === (last.address || "") &&
+        createCity.trim() === (last.city || "") &&
+        createState.trim() === (last.state || ""))
+    ) {
+      setCreateAddress("");
+      setCreateCity("");
+      setCreateState("");
+    }
+    lastCreateVenueLocationRef.current = null;
+  }
+
+  function clearEditVenueSelection() {
+    setEditSelectedVenue(null);
+    setEditVenueId("");
+    const last = lastEditVenueLocationRef.current;
+    if (
+      !last ||
+      (editAddress.trim() === (last.address || "") && editCity.trim() === (last.city || "") && editState.trim() === (last.state || ""))
+    ) {
+      setEditAddress("");
+      setEditCity("");
+      setEditState("");
+    }
+    lastEditVenueLocationRef.current = null;
+  }
 
   // Smart end defaults (create)
   useEffect(() => {
@@ -1744,16 +1782,15 @@ export default function PlannerClient(props: Props) {
                     {[createSelectedVenue.city, createSelectedVenue.state].filter(Boolean).join(", ")}
                   </div>
                   <div className={styles.eventActions}>
-                    <button
-                      className={styles.secondaryBtn}
-                      type="button"
-                      onClick={() => {
-                        setCreateSelectedVenue(null);
-                        setCreateVenueId("");
-                      }}
-                      disabled={busy}
-                    >
-                      Clear
+	                    <button
+	                      className={styles.secondaryBtn}
+	                      type="button"
+	                      onClick={() => {
+	                        clearCreateVenueSelection();
+	                      }}
+	                      disabled={busy}
+	                    >
+	                      Clear
                     </button>
                   </div>
                 </div>
@@ -1777,13 +1814,13 @@ export default function PlannerClient(props: Props) {
                           type="button"
                           className={styles.secondaryBtn}
                           style={{ width: "100%", justifyContent: "space-between", borderRadius: 0 }}
-                          onClick={() => {
-                            setCreateSelectedVenue(v);
-                            setCreateVenueId(v.id);
-                            applyVenueToCreateLocationIfEmpty(v);
-                            setCreateVenueQuery("");
-                            setCreateVenueResults([]);
-                          }}
+	                          onClick={() => {
+	                            setCreateSelectedVenue(v);
+	                            setCreateVenueId(v.id);
+	                            applyVenueToCreateLocationIfEmpty(v);
+	                            setCreateVenueQuery("");
+	                            setCreateVenueResults([]);
+	                          }}
                           disabled={busy}
                         >
                           <span>{v.name || "Unnamed venue"}</span>
@@ -2196,16 +2233,15 @@ export default function PlannerClient(props: Props) {
                                     {[editSelectedVenue.city, editSelectedVenue.state].filter(Boolean).join(", ")}
                                   </div>
                                     <div className={styles.eventActions}>
-                                      <button
-                                        className={styles.secondaryBtn}
-                                        type="button"
-                                        onClick={() => {
-                                          setEditSelectedVenue(null);
-                                          setEditVenueId("");
-                                        }}
-                                        disabled={busy}
-                                      >
-                                        Clear
+	                                      <button
+	                                        className={styles.secondaryBtn}
+	                                        type="button"
+	                                        onClick={() => {
+	                                          clearEditVenueSelection();
+	                                        }}
+	                                        disabled={busy}
+	                                      >
+	                                        Clear
                                       </button>
                                     </div>
                                   </div>
@@ -2214,14 +2250,14 @@ export default function PlannerClient(props: Props) {
                                     <div className={styles.eventTitle}>Venue selected</div>
                                     <div className={styles.eventMeta}>Selected venue is stored (name not loaded in MVP).</div>
                                     <div className={styles.eventActions}>
-                                      <button
-                                        className={styles.secondaryBtn}
-                                        type="button"
-                                        onClick={() => setEditVenueId("")}
-                                        disabled={busy}
-                                      >
-                                        Clear
-                                      </button>
+	                                      <button
+	                                        className={styles.secondaryBtn}
+	                                        type="button"
+	                                        onClick={() => clearEditVenueSelection()}
+	                                        disabled={busy}
+	                                      >
+	                                        Clear
+	                                      </button>
                                     </div>
                                   </div>
                                 ) : (
