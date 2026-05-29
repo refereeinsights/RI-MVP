@@ -528,91 +528,9 @@ export default function WeekendPlannerClient(props: { fanaticsGear?: FanaticsGea
           </article>
         ) : null}
 
-        <article className={styles.panelCard}>
-          <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Planning around a listed tournament?</h2>
-            <p className={styles.panelSub}>
-              Get better venue-level recommendations when your tournament is in TournamentInsights.
-            </p>
-          </div>
-          <div className={styles.cardBody}>
-            <div style={{ paddingTop: "0.95rem" }}>
-              <Link
-                href="/tournaments"
-                className={styles.ctaFull}
-                onClick={() =>
-                  track("book_travel_tournament_directory_clicked", {
-                    travel_type: "internal",
-                    cta_location: "browse_tournaments_card",
-                  })
-                }
-              >
-                Browse tournaments
-              </Link>
-              <div style={{ marginTop: "0.65rem" }}>
-                <Link href="/venues" className={`${styles.ctaFull} ${styles.ctaSecondary}`}>
-                  Search venues
-                </Link>
-              </div>
-            </div>
-          </div>
-        </article>
       </div>
 
       <div className={styles.secondaryStack}>
-        <article className={styles.panelCard}>
-          <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Don&apos;t see your event?</h2>
-            <p className={styles.panelSub}>
-              You can still book travel by city, venue, or address — or submit the event so we can add venue-level planning.
-            </p>
-          </div>
-          <div className={styles.cardBody}>
-            <div style={{ paddingTop: "0.95rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-              <button
-                type="button"
-                className={styles.ctaFull}
-                onClick={() => {
-                  focusDestination();
-                  track("book_travel_search_by_city_clicked", { travel_type: "internal", cta_location: "add_event_card" });
-                }}
-              >
-                Search by city or venue
-              </button>
-              <Link
-                href="/list-your-tournament?source=book_travel"
-                className={`${styles.ctaFull} ${styles.ctaSecondary}`}
-                onClick={() => track("book_travel_add_event_clicked", { travel_type: "internal", cta_location: "add_event_card" })}
-              >
-                Add event
-              </Link>
-            </div>
-          </div>
-        </article>
-
-        <article className={styles.panelCard}>
-          <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Want better recommendations than a city search?</h2>
-            <p className={styles.panelSub}>
-              Weekend Pro unlocks Owl&apos;s Eye™ venue-level hotels, rentals, food, coffee, and directions for tournament weekends.
-            </p>
-          </div>
-          <div className={styles.cardBody}>
-            {tier !== "weekend_pro" ? (
-              <div
-                onClickCapture={() => {
-                  track("book_travel_weekend_pro_upsell_clicked", { travel_type: "upsell", cta_location: "upsell_card" });
-                }}
-              >
-                <Link href="/premium" className={styles.ctaFull}>
-                  Upgrade to Weekend Pro
-                </Link>
-                <div style={{ marginTop: 8, fontSize: 13, fontWeight: 900, opacity: 0.95 }}>{WEEKEND_PRO_FOUNDING_DEADLINE_COPY}</div>
-              </div>
-            ) : null}
-          </div>
-        </article>
-
         <article className={styles.panelCard}>
           <div className={styles.panelHeader}>
             <h2 className={styles.panelTitle}>Planning with a team or family?</h2>

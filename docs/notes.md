@@ -3810,3 +3810,8 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Calendar auto-jumps to the first month with loaded events (avoids opening to an empty month when events exist later).
   - List view scanability: title stays centered; meta/actions left-aligned; overlap note uses a calmer amber tone; conflict summary styling softened.
   - Files: `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, `docs/admin-reference.md`, `CLAUDE.md`.
+
+- 2026-05-29: Weekend Planner bottom-section cleanup.
+  - Removed repetitive “planning tools” + empty-state blocks below the schedule to reduce noise for returning parents.
+  - Kept the lower travel widgets (Hotels + Vacation Rentals), share link widget, and affiliate disclosure.
+  - Files: `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`, `docs/admin-reference.md`.
