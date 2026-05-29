@@ -2469,21 +2469,23 @@ export default function PlannerClient(props: Props) {
 	        </div>
 	      ) : null}
 
-	      <div className={styles.card} id="add-manual-event">
-	        <div className={styles.cardTitle}>Add manual event</div>
+		      <div className={styles.card} id="add-manual-event">
+		        <div className={styles.cardTitle} style={{ textAlign: "center" }}>Add manual event</div>
 
 	        {error ? <div className={styles.muted} style={{ color: "#b91c1c", fontWeight: 800 }}>{error}</div> : null}
 	        {notice ? <div className={styles.muted} style={{ color: "#166534", fontWeight: 900 }}>{notice}</div> : null}
 
-	        {!createOpen ? (
-	          <div style={{ display: "grid", gap: 10 }}>
-	            <div className={styles.muted}>Add games, travel, hotels, or reminders not in your connected calendars.</div>
-	            <div className={styles.eventActions}>
-	              <button className={styles.primaryBtn} type="button" onClick={() => setCreateOpen(true)} disabled={busy}>
-	                Add event
-	              </button>
-	            </div>
-	          </div>
+		        {!createOpen ? (
+		          <div style={{ display: "grid", gap: 10 }}>
+		            <div className={styles.muted} style={{ textAlign: "center" }}>
+		              Add games, travel, hotels, or reminders not in your connected calendars.
+		            </div>
+		            <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
+		              <button className={styles.primaryBtn} type="button" onClick={() => setCreateOpen(true)} disabled={busy}>
+		                Add event
+		              </button>
+		            </div>
+		          </div>
 	        ) : (
 	          <div className={styles.formGrid}>
 	            <div>
@@ -2737,15 +2739,15 @@ export default function PlannerClient(props: Props) {
 	      </div>
 
 		      <div className={styles.card}>
-		        <div className={styles.cardTitle}>Connected calendars</div>
-		        <div className={styles.muted} style={{ marginBottom: 10 }}>
+		        <div className={styles.cardTitle} style={{ textAlign: "center" }}>Connected calendars</div>
+		        <div className={styles.muted} style={{ marginBottom: 10, textAlign: "center" }}>
 		          {sourcesBusy
 		            ? "Loading calendar status…"
 		            : sources.length
 		              ? `${sources.length} connected calendar${sources.length === 1 ? "" : "s"}.`
 		              : "No connected calendars yet."}
 		        </div>
-		        <div className={styles.eventActions}>
+		        <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
 		          <button
 		            className={styles.secondaryBtn}
 		            type="button"
