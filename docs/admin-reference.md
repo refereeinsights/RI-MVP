@@ -101,6 +101,7 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 - Production-only UAT framework (no staging DB): `docs/weekend-planner-uat.md` (UAT accounts, hosted fixture strategy, cleanup SQL templates scoped by UAT user UUIDs) + Stage 2 checklist `docs/qa/ti-planner-ics-uat.md`.
 - ICS fixtures for hosting/docs live under `apps/ti-web/lib/planner/__fixtures__/`.
 - Import UX: after a successful import, the modal shows a success summary and switches the secondary action to “Done”.
+- UAT fixture note: `apps/ti-web/public/uat-fixtures/planner/test-calendar-conflict-uid.ics` intentionally overlaps `test-calendar-initial.ics` but uses a different ICS `UID`, to verify duplicate suggestions are not UID-dependent.
 
 ## TI Planner (Stage 2.1 — Local-first venue-aware polish)
 - Events remain valid with only `title`, `starts_at`, and `event_type`; venue/tournament/location remain optional.

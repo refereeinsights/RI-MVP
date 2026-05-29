@@ -20,6 +20,8 @@ Maintenance rules:
   - Event cards show a subtle conflict treatment plus a `Schedule conflict` badge and “Overlaps with N loaded events” note.
   - Season disclosure copy updated to state that duplicate suggestions and schedule conflicts only consider loaded events when more events exist.
   - Prompt: `docs/prompts/ti-planner-stage-2.6b-conflicts.md`.
+- TI planner UAT: add an ICS fixture that overlaps Initial by title/time/location but uses a different ICS `UID` (for duplicate-suggestion testing).
+  - Fixture: `apps/ti-web/public/uat-fixtures/planner/test-calendar-conflict-uid.ics`.
 
 ## 2026-05-28
 

@@ -1,0 +1,17 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//TournamentInsights//TI Planner UAT//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+
+BEGIN:VEVENT
+UID:uat-ti-planner-001-altuid
+DTSTAMP:20260529T000000Z
+SUMMARY:[UAT Planner] Game 1 vs North Valley
+DESCRIPTION:ALT UID fixture event. This is intentionally a different UID but should match the Initial calendar event by title/time/location.
+LOCATION:Mesa Sports Complex\, 123 Example Rd\, Mesa\, AZ
+DTSTART:20260605T161500Z
+DTEND:20260605T171500Z
+END:VEVENT
+
+END:VCALENDAR
