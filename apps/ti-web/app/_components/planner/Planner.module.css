@@ -196,6 +196,40 @@
   justify-content: center;
 }
 
+.scheduleHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.scheduleSelectRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.scheduleSelectRow .select {
+  max-width: 260px;
+}
+
+.scheduleViewButtonsRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.scheduleMetaRow {
+  text-align: center;
+}
+
 .timezoneBar {
   display: flex;
   justify-content: space-between;

@@ -1891,59 +1891,63 @@ export default function PlannerClient(props: Props) {
 		      <div className={styles.card}>
 		        <div className={styles.cardTitle}>Your schedule</div>
 
-	        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
-	          <button
-	            className={scheduleView === "upcoming" ? styles.primaryBtn : styles.secondaryBtn}
-	            type="button"
-	            onClick={() => setScheduleView("upcoming")}
-	            disabled={busy}
-	          >
-	            Upcoming
-	          </button>
-	          <button
-	            className={scheduleView === "weekend" ? styles.primaryBtn : styles.secondaryBtn}
-	            type="button"
-	            onClick={() => setScheduleView("weekend")}
-	            disabled={busy}
-	          >
-	            This Weekend
-	          </button>
-	          <button
-	            className={scheduleView === "season" ? styles.primaryBtn : styles.secondaryBtn}
-	            type="button"
-	            onClick={() => setScheduleView("season")}
-	            disabled={busy}
-	          >
-	            Season
-	          </button>
+		        <div className={styles.scheduleHeader}>
+		          {scheduleView === "season" ? (
+		            <div className={styles.scheduleSelectRow}>
+		              <select className={styles.select} value={seasonRange} onChange={(e) => setSeasonRange(e.target.value as SeasonRangePreset)} disabled={busy}>
+		                <option value="30d">Next 30 days</option>
+		                <option value="6mo">Next 6 months</option>
+		                <option value="12mo">Next 12 months</option>
+		              </select>
+		              <select className={styles.select} value={seasonFilter} onChange={(e) => setSeasonFilter(e.target.value as SeasonFilter)} disabled={busy}>
+		                <option value="all">All</option>
+		                <option value="games">Games</option>
+		                <option value="practices">Practices</option>
+		                <option value="travel">Travel</option>
+		                <option value="other">Other</option>
+		              </select>
+		            </div>
+		          ) : null}
 
-	          {scheduleView === "season" ? (
-	            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-	              <select className={styles.select} value={seasonRange} onChange={(e) => setSeasonRange(e.target.value as SeasonRangePreset)} disabled={busy}>
-	                <option value="30d">Next 30 days</option>
-	                <option value="6mo">Next 6 months</option>
-	                <option value="12mo">Next 12 months</option>
-	              </select>
-	              <select className={styles.select} value={seasonFilter} onChange={(e) => setSeasonFilter(e.target.value as SeasonFilter)} disabled={busy}>
-	                <option value="all">All</option>
-	                <option value="games">Games</option>
-	                <option value="practices">Practices</option>
-	                <option value="travel">Travel</option>
-	                <option value="other">Other</option>
-	              </select>
-	            </div>
-	          ) : scheduleView === "weekend" ? (
-	            <div className={styles.muted}>
-	              {(() => {
-	                const r = computeWeekendRangeLocal(new Date());
-	                const label = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
-	                return `Fri–Sun · ${label.format(r.fridayStart)} – ${label.format(addDaysLocal(r.fridayStart, 2))}`;
-	              })()}
-	            </div>
-	          ) : (
-	            <div className={styles.muted}>Next 30 days · loaded events only</div>
-	          )}
-	        </div>
+		          <div className={styles.scheduleViewButtonsRow}>
+		            <button
+		              className={scheduleView === "upcoming" ? styles.primaryBtn : styles.secondaryBtn}
+		              type="button"
+		              onClick={() => setScheduleView("upcoming")}
+		              disabled={busy}
+		            >
+		              Upcoming
+		            </button>
+		            <button
+		              className={scheduleView === "weekend" ? styles.primaryBtn : styles.secondaryBtn}
+		              type="button"
+		              onClick={() => setScheduleView("weekend")}
+		              disabled={busy}
+		            >
+		              This Weekend
+		            </button>
+		            <button
+		              className={scheduleView === "season" ? styles.primaryBtn : styles.secondaryBtn}
+		              type="button"
+		              onClick={() => setScheduleView("season")}
+		              disabled={busy}
+		            >
+		              Season
+		            </button>
+		          </div>
+
+		          {scheduleView === "weekend" ? (
+		            <div className={`${styles.muted} ${styles.scheduleMetaRow}`}>
+		              {(() => {
+		                const r = computeWeekendRangeLocal(new Date());
+		                const label = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+		                return `Fri–Sun · ${label.format(r.fridayStart)} – ${label.format(addDaysLocal(r.fridayStart, 2))}`;
+		              })()}
+		            </div>
+		          ) : scheduleView === "upcoming" ? (
+		            <div className={`${styles.muted} ${styles.scheduleMetaRow}`}>Next 30 days · loaded events only</div>
+		          ) : null}
+		        </div>
 
 	        {(() => {
 	          const conflictedEventCount = loadedConflictsByEventId.size;
