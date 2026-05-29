@@ -3816,6 +3816,13 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Kept the lower travel widgets (Hotels + Vacation Rentals), share link widget, and affiliate disclosure.
   - Files: `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`, `docs/admin-reference.md`.
 
+- 2026-05-29: Weekend Planner Season calendar — grid visual polish.
+  - Softened calendar grid background from stark white to near-white (`#fbfcfd`) via `--sx-color-background` CSS variable.
+  - Reduced grid line prominence by lightening `--sx-color-outline-variant` from gray-300 (`#d1d5db`) to a softer `#e9ecef`.
+  - Added a green-50 gradient (`#f0fdf4 → #f8fffe`) with a `#d1fae5` bottom border to the day-of-week header row (`.sx__month-grid-week:first-child`) to anchor the header visually and tie it to TI's brand green.
+  - All changes are pure CSS scoped to `.sxWrapper` in `Planner.module.css`; no logic or component changes.
+  - Files: `apps/ti-web/app/_components/planner/Planner.module.css`.
+
 - 2026-05-29: Weekend Planner calendar visual polish (Schedule‑X shadcn theme + legend).
   - Switched Season calendar theme from Schedule‑X default to shadcn theme and scoped TI brand color variables to the calendar wrapper.
   - Reduced calendar view options to Month Grid + Month Agenda (simpler UX).

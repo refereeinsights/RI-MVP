@@ -299,9 +299,15 @@
   --sx-color-surface-container-high: #f3f4f6;
   --sx-color-on-surface: #111827;
   --sx-color-outline: #e5e7eb;
-  --sx-color-outline-variant: #d1d5db;
-  --sx-color-background: #ffffff;
+  --sx-color-outline-variant: #e9ecef;
+  --sx-color-background: #fbfcfd;
   --sx-color-on-background: #111827;
+}
+
+/* Green-50 gradient on the day-of-week header row */
+.sxWrapper :global(.sx__month-grid-week:first-child) {
+  background: linear-gradient(to bottom, #f0fdf4, #f8fffe);
+  border-bottom: 1px solid #d1fae5;
 }
 
 .sxWrapper :global(.sx__date-picker-wrapper) {
