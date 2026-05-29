@@ -85,6 +85,32 @@ function safeTimeZone(value: string | null) {
   }
 }
 
+const COMMON_TIMEZONES = [
+  "America/Los_Angeles",
+  "America/Denver",
+  "America/Phoenix",
+  "America/Chicago",
+  "America/New_York",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "UTC",
+] as const;
+
+function buildTimeZoneOptions(preferred: Array<string | null | undefined>) {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (v: string | null | undefined) => {
+    const tz = safeTimeZone(v ?? null);
+    if (!tz) return;
+    if (seen.has(tz)) return;
+    seen.add(tz);
+    out.push(tz);
+  };
+  for (const p of preferred) push(p);
+  for (const c of COMMON_TIMEZONES) push(c);
+  return out.length ? out : ["UTC"];
+}
+
 function parseOffsetMinutes(value: string) {
   const v = String(value ?? "").trim();
   if (!v) return null;
@@ -439,6 +465,7 @@ export default function PlannerClient(props: Props) {
   const [createEndTime, setCreateEndTime] = useState("");
   const [createEndWasAuto, setCreateEndWasAuto] = useState(true);
   const [createTimeZone, setCreateTimeZone] = useState<string>(() => safeTimeZone(browserTimeZone()) || "UTC");
+  const [createTimeZoneLocked, setCreateTimeZoneLocked] = useState(false);
   const [createVenueId, setCreateVenueId] = useState("");
   const [createVenueQuery, setCreateVenueQuery] = useState("");
   const [createVenueResults, setCreateVenueResults] = useState<VenueSearchResult[]>([]);
@@ -466,6 +493,7 @@ export default function PlannerClient(props: Props) {
   const [editEndTime, setEditEndTime] = useState("");
   const [editEndWasAuto, setEditEndWasAuto] = useState(true);
   const [editTimeZone, setEditTimeZone] = useState<string>(() => safeTimeZone(browserTimeZone()) || "UTC");
+  const [editTimeZoneLocked, setEditTimeZoneLocked] = useState(false);
   const [editVenueId, setEditVenueId] = useState("");
   const [editVenueQuery, setEditVenueQuery] = useState("");
   const [editVenueResults, setEditVenueResults] = useState<VenueSearchResult[]>([]);
@@ -593,23 +621,25 @@ export default function PlannerClient(props: Props) {
     const venueId = createVenueId.trim();
     const tournamentId = createTournamentId.trim();
     if (!venueId && !tournamentId) {
-      setCreateTimeZone(safeTimeZone(tz) || "UTC");
+      if (!createTimeZoneLocked) setCreateTimeZone(safeTimeZone(tz) || "UTC");
       return;
     }
     const qs = venueId ? `venue_id=${encodeURIComponent(venueId)}` : `tournament_id=${encodeURIComponent(tournamentId)}`;
     void jsonFetch<{ ok: true; timezone: string | null }>(`/api/planner/timezone?${qs}`, { method: "GET" })
       .then((res) => {
         if (cancelled) return;
+        if (createTimeZoneLocked) return;
         setCreateTimeZone(safeTimeZone(res.timezone) || safeTimeZone(tz) || "UTC");
       })
       .catch(() => {
         if (cancelled) return;
+        if (createTimeZoneLocked) return;
         setCreateTimeZone(safeTimeZone(tz) || "UTC");
       });
     return () => {
       cancelled = true;
     };
-  }, [createVenueId, createTournamentId, tz]);
+  }, [createVenueId, createTournamentId, tz, createTimeZoneLocked]);
 
   useEffect(() => {
     let cancelled = false;
@@ -621,6 +651,7 @@ export default function PlannerClient(props: Props) {
     void jsonFetch<{ ok: true; timezone: string | null }>(`/api/planner/timezone?${qs}`, { method: "GET" })
       .then((res) => {
         if (cancelled) return;
+        if (editTimeZoneLocked) return;
         setEditTimeZone(safeTimeZone(res.timezone) || safeTimeZone(tz) || "UTC");
       })
       .catch(() => {
@@ -629,7 +660,7 @@ export default function PlannerClient(props: Props) {
     return () => {
       cancelled = true;
     };
-  }, [editingId, editVenueId, editTournamentId, tz]);
+  }, [editingId, editVenueId, editTournamentId, tz, editTimeZoneLocked]);
 
   async function loadEvents() {
     setEventsPagingBusy(true);
@@ -934,6 +965,7 @@ export default function PlannerClient(props: Props) {
     setCreateEndTime("");
     setCreateEndWasAuto(true);
     setCreateTimeZone(safeTimeZone(tz) || "UTC");
+    setCreateTimeZoneLocked(false);
     setCreateVenueId("");
     setCreateVenueQuery("");
     setCreateVenueResults([]);
@@ -966,6 +998,7 @@ export default function PlannerClient(props: Props) {
     setEditTitle(e.title ?? "");
     setEditType((e.event_type as PlannerEventType) || "game");
     setEditTimeZone(tzForEdit);
+    setEditTimeZoneLocked(false);
     setEditStartDate(startParts.date);
     setEditStartTime(startParts.time);
     setEditEndDate(endParts.date);
@@ -1932,7 +1965,29 @@ export default function PlannerClient(props: Props) {
               </div>
             </div>
           </div>
-          <div className={styles.muted}>Timezone: {safeTimeZone(createTimeZone) || safeTimeZone(tz) || "UTC"}</div>
+          <div className={styles.row2} style={{ alignItems: "end" }}>
+            <div>
+              <label className={styles.label}>Timezone</label>
+              <select
+                className={styles.select}
+                value={safeTimeZone(createTimeZone) || safeTimeZone(tz) || "UTC"}
+                onChange={(e) => {
+                  setCreateTimeZoneLocked(true);
+                  setCreateTimeZone(e.target.value);
+                }}
+                disabled={busy}
+              >
+                {buildTimeZoneOptions([createTimeZone, tz]).map((z) => (
+                  <option key={z} value={z}>
+                    {z}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className={styles.muted} style={{ paddingBottom: 6 }}>
+              {createVenueId || createTournamentId ? "Auto-set from venue/tournament (override if needed)." : "Defaulted to your browser timezone (override if needed)."}
+            </div>
+          </div>
 
           <div className={styles.row2}>
             <div>
@@ -2408,7 +2463,29 @@ export default function PlannerClient(props: Props) {
                                 </div>
                               </div>
                             </div>
-                            <div className={styles.muted}>Timezone: {safeTimeZone(editTimeZone) || safeTimeZone(tz) || "UTC"}</div>
+                            <div className={styles.row2} style={{ alignItems: "end" }}>
+                              <div>
+                                <label className={styles.label}>Timezone</label>
+                                <select
+                                  className={styles.select}
+                                  value={safeTimeZone(editTimeZone) || safeTimeZone(tz) || "UTC"}
+                                  onChange={(e) => {
+                                    setEditTimeZoneLocked(true);
+                                    setEditTimeZone(e.target.value);
+                                  }}
+                                  disabled={busy}
+                                >
+                                  {buildTimeZoneOptions([editTimeZone, tz]).map((z) => (
+                                    <option key={z} value={z}>
+                                      {z}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className={styles.muted} style={{ paddingBottom: 6 }}>
+                                {editVenueId || editTournamentId ? "Auto-set from venue/tournament (override if needed)." : "Defaulted to your browser timezone (override if needed)."}
+                              </div>
+                            </div>
                             <div className={styles.row2}>
                               <div>
                                 <label className={styles.label}>Address or location</label>
