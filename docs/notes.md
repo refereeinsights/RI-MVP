@@ -14,6 +14,10 @@ Maintenance rules:
 
 ## 2026-05-31
 
+- TI planner (calendar bug fixes): two bugs in `PlannerCalendar.tsx` found and fixed.
+  1. **Nav label off-by-one-month bug**: `onRangeUpdate` was reading `range.start` (the first day of the first visible week row) to set the month/year nav label. For months that don't start on Monday, the first visible row begins in the prior month, causing the label to show the wrong month (e.g. July 2026 starts Wednesday → first visible row = June 29 → label incorrectly showed "June 2026"). Fixed by reading `controls.getDate()` instead, which returns the canonical displayed month.
+  2. **Events not re-syncing after mount**: `eventsService` was passed as a plugin but had no `useEffect` keeping it in sync with `sxEvents` after the calendar mounted. Events were only seeded once at initialization; subsequent prop changes were silently ignored. Fixed with `useEffect(() => { eventsService.set(sxEvents) }, [sxEvents, eventsService])`.
+
 - TI planner (Stage 2.6D): Season calendar visual polish — 5 changes to `PlannerCalendar.tsx` + `Planner.module.css`:
   1. **Custom month nav bar** — SX's built-in `.sx__calendar-header` hidden; replaced with a React-controlled `calendarNavBar` row (prev/next month buttons via `controls.getDate()` / `controls.setDate()`, month/year label driven by `displayedMonth` state seeded from `onRangeUpdate` + `onRender`).
   2. **Alternating week-row gradients** — even rows get a slightly cooler weekday gradient (`#edf0f3 → #f6f8fa`) and a deeper weekend gradient (`#ddf0e7 → #e8faf0`) vs. odd rows; targets nested `.sx__month-grid-week:nth-child(even) .sx__month-grid-day:nth-child(N)` to override at cell level (row-level `background` is covered by child cells).

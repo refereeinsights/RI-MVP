@@ -161,12 +161,10 @@ export default function PlannerCalendar(props: Props) {
     calendars: sxCalendars as any,
     plugins: [eventsService as any, controls as any],
     callbacks: {
-      onRangeUpdate: (range: any) => {
+      onRangeUpdate: (_range: any) => {
         try {
-          const raw = range?.start ?? "";
-          const str = typeof raw === "string" ? raw : String(raw);
-          const d = Temporal.PlainDate.from(str.slice(0, 10));
-          setDisplayedMonth({ year: d.year, month: d.month });
+          const d = controls.getDate();
+          if (d?.year && d?.month) setDisplayedMonth({ year: d.year, month: d.month });
         } catch {
           // ignore
         }
@@ -247,6 +245,10 @@ export default function PlannerCalendar(props: Props) {
       // ignore
     }
   }, [calendarTz, controls]);
+
+  useEffect(() => {
+    try { eventsService.set(sxEvents as any); } catch { /* ignore */ }
+  }, [sxEvents, eventsService]);
 
   function goToAdjacentMonth(delta: 1 | -1) {
     try {
