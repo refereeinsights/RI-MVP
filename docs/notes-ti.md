@@ -23,6 +23,11 @@ Maintenance rules:
   - Admin click dashboard list updated: `apps/referee/app/admin/ti/clicks/page.tsx`.
   - UAT docs alignment: `CLAUDE.md`, `docs/weekend-planner-uat.md`, `docs/qa/ti-planner-ics-uat.md`.
 
+- TI planner (Stage 2.7B): post-UAT documentation snapshot.
+  - Prompt: `docs/prompts/ti-planner-stage-2.7b-post-uat-snapshot.md`.
+  - Current state: `docs/weekend-planner-current-state.md`.
+  - Cross-doc links refreshed: `docs/weekend-planner-uat.md`, `docs/qa/ti-planner-ics-uat.md`, `docs/admin-reference.md`, and `CLAUDE.md` (local, gitignored).
+
 ## 2026-05-27
 
 ### Analytics: venue map panels fix — /admin/ti/clicks

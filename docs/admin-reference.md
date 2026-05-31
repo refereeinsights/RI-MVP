@@ -127,6 +127,8 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 ## TI Planner (Stage 2.7 — UAT hardening + typed analytics)
 
 - Prompt: `docs/prompts/ti-planner-stage-2.7-uat-hardening-typed-analytics.md`
+- Post-UAT snapshot prompt: `docs/prompts/ti-planner-stage-2.7b-post-uat-snapshot.md`
+- Current state snapshot: `docs/weekend-planner-current-state.md`
 - Typed event names: `apps/ti-web/lib/tiAnalyticsEvents.ts`
 - Analytics ingestion + allowlist persistence: `apps/ti-web/app/api/analytics/route.ts`
   - Stage 2.7 planner events are allowlisted in `PLANNER_EVENTS` and persisted to `public.ti_map_events` (same storage as map/travel analytics).

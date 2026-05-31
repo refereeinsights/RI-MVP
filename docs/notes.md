@@ -32,6 +32,11 @@ Maintenance rules:
   - Admin clicks dashboard updated to include planner events: `apps/referee/app/admin/ti/clicks/page.tsx`.
   - UAT docs alignment: `docs/weekend-planner-uat.md`, `docs/qa/ti-planner-ics-uat.md`, and `CLAUDE.md`.
 
+- TI planner (Stage 2.7B): post-UAT documentation snapshot.
+  - Prompt: `docs/prompts/ti-planner-stage-2.7b-post-uat-snapshot.md`.
+  - Current state: `docs/weekend-planner-current-state.md`.
+  - Cross-doc links refreshed: `docs/weekend-planner-uat.md`, `docs/qa/ti-planner-ics-uat.md`, `docs/admin-reference.md`, and `CLAUDE.md` (local, gitignored).
+
 ## 2026-05-29
 
 - TI planner: Stage 2.6B (loaded-event schedule conflict highlighting).

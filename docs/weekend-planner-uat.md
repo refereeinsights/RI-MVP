@@ -5,6 +5,7 @@ TournamentInsights currently has a **production-only** Supabase database environ
 This is **not** a feature spec. It is a **UAT framework**: accounts, naming conventions, fixtures, hosted URLs, and cleanup.
 
 Primary automated UAT runner: `CLAUDE.md` (Claude Desktop). Keep `CLAUDE.md` and this doc aligned.
+Current product snapshot (post Stage 2.7): `docs/weekend-planner-current-state.md`.
 
 ## Rules (non-negotiable)
 

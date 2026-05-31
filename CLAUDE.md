@@ -97,6 +97,20 @@ Routes:
 - Canonical Weekend Planner app: https://www.tournamentinsights.com/weekend-planner
 - Compatibility alias: https://www.tournamentinsights.com/planner (should redirect)
 
+### Weekend Planner Current State (post Stage 2.7)
+
+Canonical snapshot: `docs/weekend-planner-current-state.md`.
+
+Must-not-regress guardrails:
+- Do not hard-gate `/weekend-planner`.
+- Use exact entitlement strings: `explorer`, `insider`, `weekend_pro`.
+- No deletion of source-linked/ICS events; merges hide eligible originals via suppression only.
+- No automatic merge; no automatic manual-original cleanup.
+- Keep separate dismisses suggestions only (never hides events).
+- Duplicate/conflict behavior must disclose loaded-event scope when incomplete.
+- Preserve timezone-safe manual event entry (no day-shift regressions).
+- Analytics (Stage 2.7): typed, privacy-safe, fail open.
+
 Nav note:
 - `/planner` should redirect to `/weekend-planner` during consolidation. If it does not, flag it.
 - The primary public header nav may temporarily hide “Weekend Planner” during consolidation/UAT; direct access by URL must still work.
