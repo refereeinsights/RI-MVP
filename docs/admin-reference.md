@@ -104,6 +104,13 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
   - Season visual calendar (Schedule‑X) is Weekend Pro only; Insider users see a locked card and continue with Season List.
 - Stage 2.6D calendar grid polish: grid background softened to near-white (`--sx-color-background: #fbfcfd`); grid lines lightened (`--sx-color-outline-variant: #e9ecef`); day-of-week header row (`.sx__month-grid-week:first-child`) given a green-50 gradient with matching bottom border. Pure CSS, scoped to `.sxWrapper`.
 - Stage 2.6D calendar header + column gradients: custom Mon–Sun header bar rendered in `PlannerCalendar.tsx` above the SX grid (green gradient, SAT/SUN at 70% opacity); SX's internal day-name labels hidden; SX outer border/radius stripped and replaced by a `calendarFrame` container; weekday columns (1–5) get a cool-to-white gradient, weekend columns (6–7) get a green-50 gradient.
+- Global `Calendar | List` display-mode toggle (2026-05-31):
+  - Toggle is now visible for all three timeframe views (Upcoming, This Weekend, Season) on page load. Previously Season-only.
+  - Default is always `list`. Paid users (`canUseCalendar = props.isPaid`) see both buttons; non-paid users see the Weekend Pro upgrade card only in Season view.
+  - Internal renames: `seasonDisplayMode` → `displayMode`, `seasonDisplayTouched` → `displayModeTouched`, `canUseSeasonCalendar` → `canUseCalendar`, `SeasonDisplayMode` → `DisplayMode`.
+  - Three auto-default effects collapsed into one: reverts to list on entitlement revoke only (no longer auto-switches to calendar on view change).
+  - `PlannerCalendar` gains `scheduleView` prop; Upcoming calendar constrains next-month nav to the loaded 30-day window.
+  - `planner_view_toggle_clicked` analytics payload gains `toggle_type: "display_mode"`.
 - Stage 2.6D calendar bug fixes (2026-05-31):
   - `onRangeUpdate` label bug: was reading `range.start` (first day of first visible week row) to set the nav bar month/year label. Months that don't start on Monday caused a one-month-off label (e.g. July 2026 starts Wed → first row = Jun 29 → label showed "June"). Fixed: read `controls.getDate()` which returns the canonical displayed month.
   - `eventsService` not reactive: events were only seeded at `useNextCalendarApp` initialization; no `useEffect` kept `eventsService` in sync after mount. Added `useEffect(() => { eventsService.set(sxEvents) }, [sxEvents, eventsService])`.

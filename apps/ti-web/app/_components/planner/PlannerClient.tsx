@@ -29,7 +29,7 @@ type PlannerLens = "weekend" | "season";
 type SeasonRangePreset = "30d" | "6mo" | "12mo";
 type SeasonFilter = "all" | "games" | "practices" | "travel" | "other";
 type ScheduleView = "upcoming" | "weekend" | "season";
-type SeasonDisplayMode = "calendar" | "list";
+type DisplayMode = "calendar" | "list";
 
 type PlannerSourceRow = {
   id: string;
@@ -454,12 +454,10 @@ export default function PlannerClient(props: Props) {
   const [createOpen, setCreateOpen] = useState(false);
   const [calendarsOpen, setCalendarsOpen] = useState(false);
   const [dismissWeekendProForSession, setDismissWeekendProForSession] = useState(false);
-  const [seasonDisplayMode, setSeasonDisplayMode] = useState<SeasonDisplayMode>(() =>
-    (props.initialEvents ?? []).length ? "calendar" : "list"
-  );
-  const [seasonDisplayTouched, setSeasonDisplayTouched] = useState(false);
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("list");
+  const [displayModeTouched, setDisplayModeTouched] = useState(false);
   const [seasonCalendarTimeZone, setSeasonCalendarTimeZone] = useState(() => browserTimeZone() || "UTC");
-  const canUseSeasonCalendar = props.isPaid;
+  const canUseCalendar = props.isPaid;
 
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
@@ -952,37 +950,23 @@ export default function PlannerClient(props: Props) {
   }, [events, scheduleView]);
 
   useEffect(() => {
-    if (scheduleView !== "season") return;
-    setSeasonDisplayTouched(false);
-    setSeasonCalendarTimeZone(browserTimeZone() || "UTC");
-    setSeasonDisplayMode(canUseSeasonCalendar && events.length ? "calendar" : "list");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduleView]);
+    // If entitlement is revoked mid-session, force back to list.
+    if (displayModeTouched) return;
+    if (!canUseCalendar) setDisplayMode("list");
+  }, [canUseCalendar, displayModeTouched]);
 
   useEffect(() => {
-    if (scheduleView === "season" && !canUseSeasonCalendar) {
-      if (!gateViewedRef.current.has("visual_calendar")) {
-        gateViewedRef.current.add("visual_calendar");
-        trackPlannerEvent("planner_weekend_pro_gate_viewed", {
-          surface: "weekend_planner",
-          entitlement: entitlementForAnalytics,
-          gate_name: "visual_calendar",
-        });
-      }
+    // Fire gate analytics whenever non-paid user can see the calendar toggle.
+    if (canUseCalendar) return;
+    if (!gateViewedRef.current.has("visual_calendar")) {
+      gateViewedRef.current.add("visual_calendar");
+      trackPlannerEvent("planner_weekend_pro_gate_viewed", {
+        surface: "weekend_planner",
+        entitlement: entitlementForAnalytics,
+        gate_name: "visual_calendar",
+      });
     }
-  }, [canUseSeasonCalendar, entitlementForAnalytics, scheduleView]);
-
-  useEffect(() => {
-    if (scheduleView !== "season") return;
-    if (seasonDisplayTouched) return;
-    setSeasonDisplayMode(canUseSeasonCalendar && events.length ? "calendar" : "list");
-  }, [events.length, scheduleView, seasonDisplayTouched]);
-
-  useEffect(() => {
-    if (scheduleView !== "season") return;
-    if (canUseSeasonCalendar) return;
-    setSeasonDisplayMode("list");
-  }, [canUseSeasonCalendar, scheduleView]);
+  }, [canUseCalendar, entitlementForAnalytics]);
 
   const grouped = useMemo(() => {
 	    const groups = new Map<string, PlannerEventRow[]>();
@@ -2158,119 +2142,127 @@ export default function PlannerClient(props: Props) {
 	          ) : null
 	        ) : null}
 
-		        {scheduleView === "season" ? (
-		          <>
-		            {canUseSeasonCalendar ? (
-		              <div className={styles.calendarToggle} style={{ marginBottom: 10 }}>
-		                <button
-		                  className={seasonDisplayMode === "calendar" ? styles.primaryBtn : styles.secondaryBtn}
-		                  type="button"
-		                  onClick={() => {
-		                    setSeasonDisplayTouched(true);
-                        trackPlannerEvent("planner_view_toggle_clicked", {
-                          surface: "weekend_planner",
-                          entitlement: entitlementForAnalytics,
-                          from_view: seasonDisplayMode,
-                          to_view: "calendar",
-                        });
-		                    setSeasonDisplayMode("calendar");
-		                  }}
-		                  disabled={busy}
-		                >
-		                  Calendar
-		                </button>
-		                <button
-		                  className={seasonDisplayMode === "list" ? styles.primaryBtn : styles.secondaryBtn}
-		                  type="button"
-		                  onClick={() => {
-		                    setSeasonDisplayTouched(true);
-                        trackPlannerEvent("planner_view_toggle_clicked", {
-                          surface: "weekend_planner",
-                          entitlement: entitlementForAnalytics,
-                          from_view: seasonDisplayMode,
-                          to_view: "list",
-                        });
-		                    setSeasonDisplayMode("list");
-		                  }}
-		                  disabled={busy}
-		                >
-		                  List
-		                </button>
-		              </div>
-		            ) : (
-		              <div className={styles.card} style={{ marginTop: 0, marginBottom: 10, textAlign: "center" }}>
-		                <div className={styles.cardTitle}>Weekend Pro unlocks the visual season calendar</div>
-		                <div className={styles.muted} style={{ marginBottom: 10 }}>
-		                  View your season in a color-coded calendar and connect multiple team calendars.
-		                </div>
-		                <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
-		                  <Link
-                        href="/premium"
-                        className={styles.primaryBtn}
-                        style={{ display: "inline-flex", justifyContent: "center" }}
-                        onClick={() =>
-                          trackPlannerEvent("planner_weekend_pro_gate_clicked", {
-                            surface: "weekend_planner",
-                            entitlement: entitlementForAnalytics,
-                            gate_name: "visual_calendar",
-                          })
-                        }
-                      >
-		                    Unlock Weekend Pro
-		                  </Link>
-		                  <button className={styles.secondaryBtn} type="button" onClick={() => setSeasonDisplayMode("list")} disabled={busy}>
-		                    Continue with list
-		                  </button>
-		                </div>
-		              </div>
-		            )}
-
-		            {(() => {
-		              const conflictedEventCount = loadedConflictsByEventId.size;
-		              if (!conflictedEventCount) return null;
-		              const switchCopy = canUseSeasonCalendar && seasonDisplayMode === "calendar" ? " Switch to List to review details." : "";
-		              return (
-		                <div className={styles.scheduleOverlapNote} style={{ marginBottom: 10 }}>
-		                  <span style={{ fontWeight: 900 }}>Schedule overlaps:</span>{" "}
-		                  {conflictedEventCount} event{conflictedEventCount === 1 ? "" : "s"} overlap in the loaded schedule.{switchCopy}
-		                  {eventsHasMore ? " Conflicts only consider loaded events." : null}
-		                </div>
-		              );
-		            })()}
-
-		            {eventsHasMore ? (
-		              <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
-		                Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events. Load more to check
-		                additional events.
-	              </div>
-	            ) : events.length ? (
-	              <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
-	                All events in this range are loaded. Duplicate suggestions and schedule conflicts consider all events in this range.
-	              </div>
-	            ) : null}
-	          </>
-	        ) : null}
-
-	        {scheduleView === "season" && seasonDisplayMode === "calendar" ? (
-	          <CalendarErrorBoundary>
-	            <PlannerCalendar
-	              events={events}
-	              allSourceIds={seasonAllSourceIds}
-	              hasMore={eventsHasMore}
-	              activeTimezone={seasonCalendarTimeZone}
-                entitlement={entitlementForAnalytics}
-	              onTimezoneChange={(z) => {
-                  trackPlannerEvent("planner_calendar_timezone_changed", {
+        {/* Calendar | List toggle — visible for all views */}
+        {canUseCalendar ? (
+          <div className={styles.calendarToggle} style={{ marginBottom: 10 }}>
+            <button
+              className={displayMode === "list" ? styles.primaryBtn : styles.secondaryBtn}
+              type="button"
+              onClick={() => {
+                setDisplayModeTouched(true);
+                trackPlannerEvent("planner_view_toggle_clicked", {
+                  surface: "weekend_planner",
+                  entitlement: entitlementForAnalytics,
+                  toggle_type: "display_mode",
+                  from_view: displayMode,
+                  to_view: "list",
+                });
+                setDisplayMode("list");
+              }}
+              disabled={busy}
+            >
+              List
+            </button>
+            <button
+              className={displayMode === "calendar" ? styles.primaryBtn : styles.secondaryBtn}
+              type="button"
+              onClick={() => {
+                setDisplayModeTouched(true);
+                trackPlannerEvent("planner_view_toggle_clicked", {
+                  surface: "weekend_planner",
+                  entitlement: entitlementForAnalytics,
+                  toggle_type: "display_mode",
+                  from_view: displayMode,
+                  to_view: "calendar",
+                });
+                setDisplayMode("calendar");
+              }}
+              disabled={busy}
+            >
+              Calendar
+            </button>
+          </div>
+        ) : scheduleView === "season" ? (
+          <div className={styles.card} style={{ marginTop: 0, marginBottom: 10, textAlign: "center" }}>
+            <div className={styles.cardTitle}>Weekend Pro unlocks the visual calendar</div>
+            <div className={styles.muted} style={{ marginBottom: 10 }}>
+              View your schedule in a color-coded calendar and connect multiple team calendars.
+            </div>
+            <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
+              <Link
+                href="/premium"
+                className={styles.primaryBtn}
+                style={{ display: "inline-flex", justifyContent: "center" }}
+                onClick={() =>
+                  trackPlannerEvent("planner_weekend_pro_gate_clicked", {
                     surface: "weekend_planner",
                     entitlement: entitlementForAnalytics,
-                  });
-	                setSeasonCalendarTimeZone(z);
-                }}
-	            />
-	          </CalendarErrorBoundary>
-	        ) : null}
+                    gate_name: "visual_calendar",
+                  })
+                }
+              >
+                Unlock Weekend Pro
+              </Link>
+              <button
+                className={styles.secondaryBtn}
+                type="button"
+                onClick={() => { setDisplayModeTouched(true); setDisplayMode("list"); }}
+                disabled={busy}
+              >
+                Continue with list
+              </button>
+            </div>
+          </div>
+        ) : null}
 
-	        {scheduleView === "season" && seasonDisplayMode === "calendar" ? null : eventsForScheduleView.length === 0 ? (
+        {/* Season-only: conflict notice + loaded-scope disclosure */}
+        {scheduleView === "season" ? (
+          <>
+            {(() => {
+              const conflictedEventCount = loadedConflictsByEventId.size;
+              if (!conflictedEventCount) return null;
+              const switchCopy = canUseCalendar && displayMode === "calendar" ? " Switch to List to review details." : "";
+              return (
+                <div className={styles.scheduleOverlapNote} style={{ marginBottom: 10 }}>
+                  <span style={{ fontWeight: 900 }}>Schedule overlaps:</span>{" "}
+                  {conflictedEventCount} event{conflictedEventCount === 1 ? "" : "s"} overlap in the loaded schedule.{switchCopy}
+                  {eventsHasMore ? " Conflicts only consider loaded events." : null}
+                </div>
+              );
+            })()}
+            {eventsHasMore ? (
+              <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+                Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events. Load more to check additional events.
+              </div>
+            ) : events.length ? (
+              <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+                All events in this range are loaded. Duplicate suggestions and schedule conflicts consider all events in this range.
+              </div>
+            ) : null}
+          </>
+        ) : null}
+
+        {displayMode === "calendar" ? (
+          <CalendarErrorBoundary>
+            <PlannerCalendar
+              scheduleView={scheduleView}
+              events={events}
+              allSourceIds={seasonAllSourceIds}
+              hasMore={eventsHasMore}
+              activeTimezone={seasonCalendarTimeZone}
+              entitlement={entitlementForAnalytics}
+              onTimezoneChange={(z) => {
+                trackPlannerEvent("planner_calendar_timezone_changed", {
+                  surface: "weekend_planner",
+                  entitlement: entitlementForAnalytics,
+                });
+                setSeasonCalendarTimeZone(z);
+              }}
+            />
+          </CalendarErrorBoundary>
+        ) : null}
+
+        {displayMode === "calendar" ? null : eventsForScheduleView.length === 0 ? (
 	          scheduleView === "weekend" ? (
 	            <div className={styles.muted}>
 	              No events this weekend. Switch to <b>Upcoming</b> or <b>Season</b> to see more.

@@ -16,6 +16,7 @@ import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import styles from "./Planner.module.css";
 
 type Props = {
+  scheduleView: "upcoming" | "weekend" | "season";
   events: PlannerEventRow[];
   allSourceIds: string[];
   hasMore: boolean;
@@ -250,6 +251,19 @@ export default function PlannerCalendar(props: Props) {
     try { eventsService.set(sxEvents as any); } catch { /* ignore */ }
   }, [sxEvents, eventsService]);
 
+  const navNextDisabled = useMemo(() => {
+    if (props.scheduleView === "upcoming" && displayedMonth) {
+      const now = new Date();
+      const limitYear = now.getMonth() >= 10 ? now.getFullYear() + 1 : now.getFullYear();
+      const limitMonth = ((now.getMonth() + 2) % 12) + 1;
+      if (
+        displayedMonth.year > limitYear ||
+        (displayedMonth.year === limitYear && displayedMonth.month >= limitMonth)
+      ) return true;
+    }
+    return weeksToShow >= 6;
+  }, [props.scheduleView, displayedMonth, weeksToShow]);
+
   function goToAdjacentMonth(delta: 1 | -1) {
     try {
       const cur = controls.getDate();
@@ -356,6 +370,7 @@ export default function PlannerCalendar(props: Props) {
               className={styles.calendarNavBtn}
               type="button"
               aria-label="Next month"
+              disabled={navNextDisabled}
               onClick={() => goToAdjacentMonth(1)}
             >
               &#8250;
@@ -375,13 +390,18 @@ export default function PlannerCalendar(props: Props) {
                 className={styles.calendarNavBtn}
                 type="button"
                 aria-label="Show more weeks"
-                disabled={weeksToShow >= 6}
+                disabled={navNextDisabled}
                 onClick={() => setWeeksToShow((w) => Math.min(6, w + 1))}
               >
                 +
               </button>
             </div>
           </div>
+          {props.scheduleView === "upcoming" ? (
+            <div style={{ fontSize: 11, padding: "4px 14px 0", textAlign: "center", color: "#6b7280" }}>
+              Events loaded for next 30 days
+            </div>
+          ) : null}
           <div className={styles.calendarWeekdayBar} aria-hidden="true">
             {(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const).map((d) => (
               <span key={d} className={styles.calendarWeekdayCell}>{d}</span>

@@ -14,6 +14,13 @@ Maintenance rules:
 
 ## 2026-05-31
 
+- TI planner: global `Calendar | List` toggle — now visible on page load for all three timeframe views (Upcoming, This Weekend, Season). Previously the toggle only appeared after switching to Season.
+  - Default remains **list**. Paid users see List + Calendar buttons immediately; non-paid users see the upgrade card only in Season view (other views stay list-only without a gate prompt).
+  - `seasonDisplayMode` / `seasonDisplayTouched` / `canUseSeasonCalendar` / `SeasonDisplayMode` renamed to `displayMode` / `displayModeTouched` / `canUseCalendar` / `DisplayMode` — scope change from season-only to global.
+  - Three auto-default `useEffect` hooks collapsed into one: if entitlement is revoked mid-session and `displayModeTouched` is false, reverts to list; gate analytics fire on any view (not just Season).
+  - `PlannerCalendar` accepts new `scheduleView` prop; Upcoming calendar mode constrains the "next month" nav button to stay within the loaded 30-day window and shows an "Events loaded for next 30 days" disclosure.
+  - `analytics: planner_view_toggle_clicked` payload gains `toggle_type: "display_mode"` field to distinguish timeframe switches from Calendar/List switches.
+
 - TI planner (calendar bug fixes): two bugs in `PlannerCalendar.tsx` found and fixed.
   1. **Nav label off-by-one-month bug**: `onRangeUpdate` was reading `range.start` (the first day of the first visible week row) to set the month/year nav label. For months that don't start on Monday, the first visible row begins in the prior month, causing the label to show the wrong month (e.g. July 2026 starts Wednesday → first visible row = June 29 → label incorrectly showed "June 2026"). Fixed by reading `controls.getDate()` instead, which returns the canonical displayed month.
   2. **Events not re-syncing after mount**: `eventsService` was passed as a plugin but had no `useEffect` keeping it in sync with `sxEvents` after the calendar mounted. Events were only seeded once at initialization; subsequent prop changes were silently ignored. Fixed with `useEffect(() => { eventsService.set(sxEvents) }, [sxEvents, eventsService])`.
