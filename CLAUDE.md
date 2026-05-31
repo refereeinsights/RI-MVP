@@ -54,6 +54,7 @@ Login URL: https://www.tournamentinsights.com/login
 |------|-------|----------|
 | UAT Planner A | uat+planner-a@tournamentinsights.com | Password2026! |
 | UAT Planner B | uat+planner-b@tournamentinsights.com | Password2026! |
+| UAT Planner (Unverified fixture) | TBD (create one) | TBD |
 
 UAT usage note:
 - Use **UAT Planner A** for primary Weekend Planner UAT flows.
@@ -169,6 +170,20 @@ Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.
 - [ ] Analytics sanity (DevTools Network → `analytics`):
   - [ ] Key actions fire events once per click.
   - [ ] Payloads remain privacy-safe (no IDs/URLs/titles/notes/addresses/exact timestamps).
+
+#### Stage 2.8 Fixture note — Unverified email account (required)
+
+The “unverified email → Connect calendar shows verify-email prompt” item cannot be tested unless at least one UAT account has `email_confirmed_at = NULL` in Supabase Auth.
+
+Preferred approach (stable):
+- Create and keep a dedicated account permanently unverified (example: `uat+unverified@tournamentinsights.com`) and record its credentials above.
+
+Alternative approach (temporary / for one-off verification):
+- In Supabase dashboard (SQL editor), set an existing UAT user to unverified:
+  - `UPDATE auth.users SET email_confirmed_at = NULL WHERE email = 'uat+planner-b@tournamentinsights.com';`
+  - Revert by setting it back to a timestamp after testing.
+
+If no unverified fixture exists, Stage 2.8 sign-off must treat this as an **open item**.
 
 ### Weekend Planner (/weekend-planner) — Manual Events
 
