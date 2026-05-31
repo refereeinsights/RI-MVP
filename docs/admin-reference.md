@@ -123,6 +123,7 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
   - Removed fixed `height: 600px` / `height: 400px` from `.sxWrapper` so grid sizes naturally to its content.
 - Weekend Planner bottom-section cleanup: removed repetitive “planning tools”/empty-state blocks below the schedule so the page ends with the travel widgets + share link + affiliate disclosure (no duplicate Browse/Search/Add CTAs).
 - Stage 2.5: `GET /api/planner/events` supports bounded cursor pagination (stable order by `starts_at, id`) and returns `hasMore` + `nextCursor` so the UI can load additional season events without unbounded queries. While `hasMore=true`, duplicate suggestions are disclosed as “loaded events only”.
+- Safety: planner events returned by `GET /api/planner/events` treat any row with `(source_id, source_event_uid)` as source-linked/ICS for suppression + UI labeling, even if `source_type` was accidentally persisted incorrectly in older data.
 - `GET /api/planner/sources` returns source metadata only (does not return `source_url`).
 - Planner search routes are authenticated and query only the views (`venues_public`, `tournaments_search_public`), not base tables.
 - SSRF: URL scheme/host checks + DNS lookup + manual redirect chaining; DNS rebinding remains a known limitation with native `fetch` (acceptable for MVP; tighten later with an agent-based approach if needed).

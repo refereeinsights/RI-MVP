@@ -2318,7 +2318,7 @@ export default function PlannerClient(props: Props) {
                           <span className={styles.muted} style={{ fontWeight: 800 }}>
                             · {String(e.event_type || "game")}
                           </span>
-                          {String(e.source_type || "") === "ics" ? (
+                          {String(e.source_type || "") === "ics" || String((e as any)?.source_event_uid ?? "").trim() ? (
                             <span className={styles.muted} style={{ fontWeight: 900 }}>
                               {" "}
                               · Synced from calendar
@@ -2417,7 +2417,9 @@ export default function PlannerClient(props: Props) {
                               <button className={styles.secondaryBtn} onClick={() => beginEdit(e)} disabled={busy}>
                                 Edit
                               </button>
-                              {String(e.source_type || "") === "manual" && !String((e as any)?.source_id ?? "").trim() ? (
+                              {String(e.source_type || "") === "manual" &&
+                              !String((e as any)?.source_id ?? "").trim() &&
+                              !String((e as any)?.source_event_uid ?? "").trim() ? (
                                 <button className={styles.secondaryBtn} onClick={() => void onDuplicate(e)} disabled={busy}>
                                   Duplicate
                                 </button>

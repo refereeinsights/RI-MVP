@@ -227,10 +227,27 @@ export async function GET(req: Request) {
     return q;
   }
 
+  function normalizeSourceType(e: any) {
+    const sid = String(e?.source_id ?? "").trim();
+    const uid = String(e?.source_event_uid ?? "").trim();
+    if ((sid || uid) && String(e?.source_type ?? "") !== "ics") {
+      return { ...e, source_type: "ics" };
+    }
+    return e;
+  }
+
   async function filterSuppressed(events: any[]) {
     if (!events.length) return events;
 
-    const icsEvents = events.filter((e) => String(e?.source_type ?? "") === "ics");
+    // Fail-safe: treat any event with (source_id && source_event_uid) as ICS for suppression purposes,
+    // even if a prior import/version accidentally persisted source_type incorrectly.
+    const icsEvents = events.filter((e) => {
+      const st = String(e?.source_type ?? "");
+      if (st === "ics") return true;
+      const sid = String(e?.source_id ?? "").trim();
+      const uid = String(e?.source_event_uid ?? "").trim();
+      return Boolean(sid && uid);
+    });
     const sourceIds = Array.from(new Set(icsEvents.map((e) => String(e?.source_id ?? "").trim()).filter(Boolean)));
     const sourceUids = Array.from(new Set(icsEvents.map((e) => String(e?.source_event_uid ?? "").trim()).filter(Boolean)));
 
@@ -258,9 +275,10 @@ export async function GET(req: Request) {
     if (!suppressedKeys.size) return events;
 
     return events.filter((e) => {
-      if (String(e?.source_type ?? "") !== "ics") return true;
       const sid = String(e?.source_id ?? "").trim();
       const uid = String(e?.source_event_uid ?? "").trim();
+      const shouldConsiderIcs = String(e?.source_type ?? "") === "ics" || Boolean(sid && uid);
+      if (!shouldConsiderIcs) return true;
       if (!sid || !uid) return true;
       return !suppressedKeys.has(`${sid}:${uid}`);
     });
@@ -306,7 +324,7 @@ export async function GET(req: Request) {
 
     const filtered = await filterSuppressed(page);
     for (const e of filtered) {
-      visible.push(e);
+      visible.push(normalizeSourceType(e));
       if (visible.length >= limit + 1) break;
     }
 
@@ -325,7 +343,7 @@ export async function GET(req: Request) {
     scanCapHit = true;
   }
 
-  const out = visible.slice(0, limit);
+  const out = visible.slice(0, limit).map(normalizeSourceType);
   const hasMore = visible.length > limit || scanCapHit ? true : !rawExhausted ? true : false;
   const nextCursor = hasMore && out.length ? { starts_at: String(out[out.length - 1].starts_at), id: String(out[out.length - 1].id) } : null;
 

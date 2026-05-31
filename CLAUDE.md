@@ -218,6 +218,7 @@ Login as UAT Planner A.
   - original remains unchanged
   - duplicate flow opens edit UI and requires setting a new start time (starts_at field should be blank until set)
 - [ ] Duplicate restrictions — confirm Duplicate is not offered for “Synced from calendar” events (manual-only for now)
+  - [ ] If an event shows “Synced from calendar”, it must NOT show a Duplicate button.
 - [ ] Long list sanity — confirm ordering by start time ascending, stable grouping, and reasonable performance with dozens of events (no jank / no missing rows)
 
 ### Weekend Planner (/weekend-planner) — Stage 2.7 Analytics (privacy-safe + fail-open)

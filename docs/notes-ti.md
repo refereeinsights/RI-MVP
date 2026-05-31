@@ -33,6 +33,7 @@ Maintenance rules:
   - Remove global Weekend Pro upsell card from Upcoming/This Weekend; keep entitlement upgrade prompts scoped to Season.
   - Make Season calendar gate dismissal (“Continue with list”) persist for the session.
   - Tighten Duplicate button to manual-only events (`source_type="manual"` and no `source_id`).
+  - Fix F7: ensure ICS-linked events never render as manual/duplicable by treating rows with `source_event_uid` (and/or `source_id`) as synced in `GET /api/planner/events` and the planner UI.
 
 ## 2026-05-27
 
