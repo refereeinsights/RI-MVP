@@ -3,7 +3,6 @@
 import { Component, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { WEEKEND_PRO_FOUNDING_SHORT_COPY } from "@/lib/weekendProPricing";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import {
   computeDuplicateCandidates,
@@ -453,7 +452,7 @@ export default function PlannerClient(props: Props) {
   const [seasonFilter, setSeasonFilter] = useState<SeasonFilter>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [calendarsOpen, setCalendarsOpen] = useState(false);
-  const [dismissWeekendProForSession, setDismissWeekendProForSession] = useState(false);
+  const [dismissSeasonCalendarGateForSession, setDismissSeasonCalendarGateForSession] = useState(false);
   const [displayMode, setDisplayMode] = useState<DisplayMode>("list");
   const [displayModeTouched, setDisplayModeTouched] = useState(false);
   const [seasonCalendarTimeZone, setSeasonCalendarTimeZone] = useState(() => browserTimeZone() || "UTC");
@@ -958,6 +957,8 @@ export default function PlannerClient(props: Props) {
   useEffect(() => {
     // Fire gate analytics whenever non-paid user can see the calendar toggle.
     if (canUseCalendar) return;
+    if (scheduleView !== "season") return;
+    if (dismissSeasonCalendarGateForSession) return;
     if (!gateViewedRef.current.has("visual_calendar")) {
       gateViewedRef.current.add("visual_calendar");
       trackPlannerEvent("planner_weekend_pro_gate_viewed", {
@@ -966,7 +967,19 @@ export default function PlannerClient(props: Props) {
         gate_name: "visual_calendar",
       });
     }
-  }, [canUseCalendar, entitlementForAnalytics]);
+  }, [canUseCalendar, dismissSeasonCalendarGateForSession, entitlementForAnalytics, scheduleView]);
+
+  function openManualEventFromTop() {
+    if (busy) return;
+    setCreateOpen(true);
+    setTimeout(() => {
+      try {
+        document.getElementById("add-manual-event")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      } catch {
+        // ignore
+      }
+    }, 0);
+  }
 
   const grouped = useMemo(() => {
 	    const groups = new Map<string, PlannerEventRow[]>();
@@ -2114,6 +2127,9 @@ export default function PlannerClient(props: Props) {
 		              >
 		                Season
 		              </button>
+                  <button className={styles.secondaryBtn} type="button" onClick={openManualEventFromTop} disabled={busy}>
+                    Add event
+                  </button>
 		            </div>
 
 		          {scheduleView === "weekend" ? (
@@ -2182,7 +2198,7 @@ export default function PlannerClient(props: Props) {
               Calendar
             </button>
           </div>
-        ) : scheduleView === "season" ? (
+        ) : scheduleView === "season" && !dismissSeasonCalendarGateForSession ? (
           <div className={styles.card} style={{ marginTop: 0, marginBottom: 10, textAlign: "center" }}>
             <div className={styles.cardTitle}>Weekend Pro unlocks the visual calendar</div>
             <div className={styles.muted} style={{ marginBottom: 10 }}>
@@ -2206,7 +2222,11 @@ export default function PlannerClient(props: Props) {
               <button
                 className={styles.secondaryBtn}
                 type="button"
-                onClick={() => { setDisplayModeTouched(true); setDisplayMode("list"); }}
+                onClick={() => {
+                  setDisplayModeTouched(true);
+                  setDisplayMode("list");
+                  setDismissSeasonCalendarGateForSession(true);
+                }}
                 disabled={busy}
               >
                 Continue with list
@@ -2397,7 +2417,7 @@ export default function PlannerClient(props: Props) {
                               <button className={styles.secondaryBtn} onClick={() => beginEdit(e)} disabled={busy}>
                                 Edit
                               </button>
-                              {String(e.source_type || "") === "manual" ? (
+                              {String(e.source_type || "") === "manual" && !String((e as any)?.source_id ?? "").trim() ? (
                                 <button className={styles.secondaryBtn} onClick={() => void onDuplicate(e)} disabled={busy}>
                                   Duplicate
                                 </button>
@@ -2684,28 +2704,6 @@ export default function PlannerClient(props: Props) {
 	          </>
 	        )}
 	      </div>
-
-	      {!props.isPaid && !dismissWeekendProForSession ? (
-	        <div className={styles.card}>
-	          <div className={styles.cardTitle}>Weekend Pro</div>
-	          <div style={{ display: "grid", gap: 8, textAlign: "center" }}>
-	            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 10 }}>
-	              <div style={{ fontWeight: 900, fontSize: 16, width: "100%", textAlign: "center" }}>
-	                Unlock deeper venue intelligence for tournament weekends.
-	              </div>
-	              <button className={styles.secondaryBtn} type="button" onClick={() => setDismissWeekendProForSession(true)} disabled={busy}>
-	                Dismiss
-	              </button>
-	            </div>
-	            <div className={styles.muted}>{WEEKEND_PRO_FOUNDING_SHORT_COPY}</div>
-	            <div style={{ maxWidth: 420, marginLeft: "auto", marginRight: "auto" }}>
-	              <Link href="/premium" className={styles.primaryBtn} style={{ display: "inline-flex", justifyContent: "center" }}>
-	                Upgrade to Weekend Pro
-	              </Link>
-	            </div>
-	          </div>
-	        </div>
-	      ) : null}
 
 		      <div className={styles.card} id="add-manual-event">
 		        <div className={styles.cardTitle} style={{ textAlign: "center" }}>Add manual event</div>

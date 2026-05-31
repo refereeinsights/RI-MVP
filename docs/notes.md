@@ -44,6 +44,12 @@ Maintenance rules:
   - Current state: `docs/weekend-planner-current-state.md`.
   - Cross-doc links refreshed: `docs/weekend-planner-uat.md`, `docs/qa/ti-planner-ics-uat.md`, `docs/admin-reference.md`, and `CLAUDE.md` (local, gitignored).
 
+- TI planner (UAT follow-ups): address local UAT flags (F1/F2/F7/F8).
+  - Add top-of-page `Add event` entrypoint that opens/scrolls to the manual event form.
+  - Remove global Weekend Pro upsell card from Upcoming/This Weekend; keep entitlement upgrade prompts scoped to Season.
+  - Make Season calendar gate dismissal (“Continue with list”) persist for the session.
+  - Tighten Duplicate button to manual-only events (`source_type="manual"` and no `source_id`).
+
 ## 2026-05-29
 
 - TI planner: Stage 2.6B (loaded-event schedule conflict highlighting).

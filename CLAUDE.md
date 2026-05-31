@@ -155,6 +155,7 @@ Login as UAT Planner A.
 - [ ] `/weekend-planner` loads — planner app is visible for signed-in users
 - [ ] Redirect: `/planner` -> `/weekend-planner` (preserve allowlisted params like view/import if used)
 - [ ] Schedule view control — confirm “Upcoming” (default), “This Weekend”, and “Season” are visible and tappable
+- [ ] Quick add entrypoint — confirm an `Add event` button is reachable near the top (no 3+ screens of scroll)
 - [ ] Add Event starts collapsed — confirm the manual create form is not fully expanded by default
 - [ ] Create a manual event — click `Add event`, fill title + event type + start date + start time, submit; event appears in the timeline
 - [ ] Smart end default — when you set the start date/time, confirm End auto-populates to the same date and +1 hour (until you manually change End)
@@ -496,6 +497,7 @@ Login as UAT Planner A.
 
 ### What to Flag
 - Planner page inaccessible for Insider-tier UAT accounts
+- Add event CTA buried below the fold (schedule-first regression)
 - ICS import silently drops events without feedback
 - Notes or venue overwritten after ICS refresh
 - All-day events show "Invalid date" or wrong date
