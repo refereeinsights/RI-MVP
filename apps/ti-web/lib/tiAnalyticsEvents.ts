@@ -54,6 +54,27 @@ export type TiAnalyticsEventName =
   | "weekend_planner_saved_weekend_plan_clicked"
   | "weekend_planner_saved_venue_map_clicked"
   | "weekend_planner_saved_travel_clicked"
+  // Weekend Planner (Stage 2.7 UAT hardening)
+  | "planner_calendar_feed_connect_succeeded"
+  | "planner_calendar_feed_connect_failed"
+  | "planner_calendar_feed_limit_reached"
+  | "planner_calendar_feed_refresh_clicked"
+  | "planner_calendar_feed_refresh_succeeded"
+  | "planner_calendar_feed_refresh_failed"
+  | "planner_view_toggle_clicked"
+  | "planner_calendar_timezone_changed"
+  | "planner_load_more_clicked"
+  | "planner_manual_event_created"
+  | "planner_manual_event_updated"
+  | "planner_manual_event_deleted"
+  | "planner_duplicate_keep_separate_clicked"
+  | "planner_duplicate_merge_modal_opened"
+  | "planner_duplicate_merge_succeeded"
+  | "planner_duplicate_merge_failed"
+  | "planner_weekend_pro_gate_viewed"
+  | "planner_weekend_pro_gate_clicked"
+  | "planner_map_view_opened"
+  | "planner_calendar_event_detail_opened"
   | "book_travel_viewed"
   | "book_travel_hotels_clicked"
   | "book_travel_vrbo_clicked"
@@ -65,6 +86,21 @@ export type TiAnalyticsEventName =
   | "partner_click_clicked";
 
 type OwlsEyeMapCategory = "coffee" | "food" | "hotels" | "quick_eats" | "hangouts" | "sporting_goods";
+
+type PlannerEntitlement = "explorer" | "insider" | "weekend_pro" | "unknown";
+type PlannerSurface = "weekend_planner";
+type PlannerView = "upcoming" | "this_weekend" | "season" | "calendar" | "list";
+type PlannerGateName = "multi_calendar" | "visual_calendar" | "source_colors" | "conflicts" | "merge_cleanup" | "map";
+type PlannerReasonCode =
+  | "unknown"
+  | "email_verification_required"
+  | "calendar_feed_limit_reached"
+  | "invalid_calendar_url"
+  | "network_error"
+  | "server_error";
+
+type FeedCountBucket = "0" | "1" | "2_3" | "4_plus";
+type LoadedEventCountBucket = "0" | "1_10" | "11_50" | "51_100" | "101_plus";
 
 export type TiAnalyticsEventPropertiesByName = {
   map_viewed: {
@@ -503,6 +539,105 @@ export type TiAnalyticsEventPropertiesByName = {
     source_page: "weekend_planner";
     cta: "travel";
     href: string;
+  };
+  planner_calendar_feed_connect_succeeded: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    feed_count_bucket: FeedCountBucket;
+  };
+  planner_calendar_feed_connect_failed: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    feed_count_bucket: FeedCountBucket;
+    reason_code: PlannerReasonCode;
+  };
+  planner_calendar_feed_limit_reached: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    feed_count_bucket: FeedCountBucket;
+  };
+  planner_calendar_feed_refresh_clicked: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    feed_count_bucket: FeedCountBucket;
+  };
+  planner_calendar_feed_refresh_succeeded: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    feed_count_bucket: FeedCountBucket;
+  };
+  planner_calendar_feed_refresh_failed: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    feed_count_bucket: FeedCountBucket;
+    reason_code: PlannerReasonCode;
+  };
+  planner_view_toggle_clicked: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    from_view: PlannerView;
+    to_view: PlannerView;
+  };
+  planner_calendar_timezone_changed: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+  };
+  planner_load_more_clicked: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    view: PlannerView;
+    loaded_event_count_bucket: LoadedEventCountBucket;
+  };
+  planner_manual_event_created: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    event_type: string;
+  };
+  planner_manual_event_updated: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    event_type: string;
+  };
+  planner_manual_event_deleted: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    event_type: string;
+  };
+  planner_duplicate_keep_separate_clicked: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+  };
+  planner_duplicate_merge_modal_opened: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+  };
+  planner_duplicate_merge_succeeded: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+  };
+  planner_duplicate_merge_failed: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    reason_code: PlannerReasonCode;
+  };
+  planner_weekend_pro_gate_viewed: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    gate_name: PlannerGateName;
+  };
+  planner_weekend_pro_gate_clicked: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    gate_name: PlannerGateName;
+  };
+  planner_map_view_opened: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+  };
+  planner_calendar_event_detail_opened: {
+    surface: PlannerSurface;
+    entitlement: PlannerEntitlement;
+    event_source_type: "manual" | "ics" | "unknown";
   };
   book_travel_viewed: Record<string, never>;
   book_travel_hotels_clicked: {

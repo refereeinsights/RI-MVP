@@ -21,6 +21,13 @@ Maintenance rules:
   4. **Day number underline** — `border-bottom: 1px solid #e2e8f0` on `.sx__month-grid-day__header-date`; green (`#15803d`) for today via `.sx__is-today`.
   5. **Week-zoom control (1–6 weeks)** — `weeksToShow` state (default 6), +/− buttons in nav bar, CSS variable `--calendar-weeks-visible` passed via inline style on `sxWrapper`, `max-height: calc(var(...) * 90px)` with `transition: max-height 0.2s ease` clips visible rows; fixed `height: 600px` / `height: 400px` removed from `.sxWrapper` to let grid size naturally.
 
+- TI planner (Stage 2.7): UAT hardening + typed planner analytics.
+  - Prompt added: `docs/prompts/ti-planner-stage-2.7-uat-hardening-typed-analytics.md`.
+  - Typed events added to `apps/ti-web/lib/tiAnalyticsEvents.ts` and allowlisted for persistence via `PLANNER_EVENTS` in `apps/ti-web/app/api/analytics/route.ts` (stored in `public.ti_map_events`).
+  - Planner UI instrumentation added in `apps/ti-web/app/_components/planner/PlannerClient.tsx` + `apps/ti-web/app/_components/planner/PlannerCalendar.tsx` (fail-open, privacy-safe payloads).
+  - Admin clicks dashboard updated to include planner events: `apps/referee/app/admin/ti/clicks/page.tsx`.
+  - UAT docs alignment: `docs/weekend-planner-uat.md`, `docs/qa/ti-planner-ics-uat.md`, and `CLAUDE.md`.
+
 ## 2026-05-29
 
 - TI planner: Stage 2.6B (loaded-event schedule conflict highlighting).

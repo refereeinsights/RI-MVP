@@ -121,6 +121,14 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 - Import UX: after a successful import, the modal shows a success summary and switches the secondary action to “Done”.
 - UAT fixture note: `apps/ti-web/public/uat-fixtures/planner/test-calendar-conflict-uid.ics` intentionally overlaps `test-calendar-initial.ics` but uses a different ICS `UID`, to verify duplicate suggestions are not UID-dependent.
 
+## TI Planner (Stage 2.7 — UAT hardening + typed analytics)
+
+- Prompt: `docs/prompts/ti-planner-stage-2.7-uat-hardening-typed-analytics.md`
+- Typed event names: `apps/ti-web/lib/tiAnalyticsEvents.ts`
+- Analytics ingestion + allowlist persistence: `apps/ti-web/app/api/analytics/route.ts`
+  - Stage 2.7 planner events are allowlisted in `PLANNER_EVENTS` and persisted to `public.ti_map_events` (same storage as map/travel analytics).
+- Admin review surface: `apps/referee/app/admin/ti/clicks/page.tsx`
+
 ## TI Planner (Stage 2.1 — Local-first venue-aware polish)
 - Events remain valid with only `title`, `starts_at`, and `event_type`; venue/tournament/location remain optional.
 - Planner UI supports optional venue linking via “Find venue” and never exposes raw UUIDs to end users.

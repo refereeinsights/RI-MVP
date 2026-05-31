@@ -13,6 +13,16 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-05-31
+
+- TI planner (Stage 2.7): UAT hardening + typed planner analytics.
+  - Prompt: `docs/prompts/ti-planner-stage-2.7-uat-hardening-typed-analytics.md`.
+  - Typed events: `apps/ti-web/lib/tiAnalyticsEvents.ts`.
+  - Persistence allowlist: `apps/ti-web/app/api/analytics/route.ts` (`PLANNER_EVENTS` → `public.ti_map_events`).
+  - Instrumentation: `apps/ti-web/app/_components/planner/PlannerClient.tsx` and `apps/ti-web/app/_components/planner/PlannerCalendar.tsx` (fail-open, privacy-safe).
+  - Admin click dashboard list updated: `apps/referee/app/admin/ti/clicks/page.tsx`.
+  - UAT docs alignment: `CLAUDE.md`, `docs/weekend-planner-uat.md`, `docs/qa/ti-planner-ics-uat.md`.
+
 ## 2026-05-27
 
 ### Analytics: venue map panels fix — /admin/ti/clicks

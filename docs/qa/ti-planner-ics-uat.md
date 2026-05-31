@@ -5,7 +5,7 @@ Use this checklist to validate Stage 2 calendar import/refresh on a local dev se
 Production-only DB note: see `docs/weekend-planner-uat.md` for UAT accounts, hosted fixture strategy, and production-safe cleanup.
 
 ## Prereqs
-- TI dev server running (example): `PORT=3001 npm run dev --workspace ti-web`
+- TI dev server running (example): `npm run dev --workspace ti-web -- -p 3001`
 - A test user account you can log into
 - One public ICS/iCal URL for testing
   - Prefer one that redirects (HTTP 301/302) if you can find one

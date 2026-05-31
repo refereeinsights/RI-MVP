@@ -75,6 +75,30 @@ const TRAVEL_EVENTS = new Set([
   "book_travel_weekend_pro_upsell_clicked",
 ]);
 
+// Weekend Planner (Stage 2.7): allowlisted for persistence into ti_map_events (privacy-safe payloads only).
+const PLANNER_EVENTS = new Set([
+  "planner_calendar_feed_connect_succeeded",
+  "planner_calendar_feed_connect_failed",
+  "planner_calendar_feed_limit_reached",
+  "planner_calendar_feed_refresh_clicked",
+  "planner_calendar_feed_refresh_succeeded",
+  "planner_calendar_feed_refresh_failed",
+  "planner_view_toggle_clicked",
+  "planner_calendar_timezone_changed",
+  "planner_load_more_clicked",
+  "planner_manual_event_created",
+  "planner_manual_event_updated",
+  "planner_manual_event_deleted",
+  "planner_duplicate_keep_separate_clicked",
+  "planner_duplicate_merge_modal_opened",
+  "planner_duplicate_merge_succeeded",
+  "planner_duplicate_merge_failed",
+  "planner_weekend_pro_gate_viewed",
+  "planner_weekend_pro_gate_clicked",
+  "planner_map_view_opened",
+  "planner_calendar_event_detail_opened",
+]);
+
 function asText(value: unknown) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -299,6 +323,55 @@ export async function POST(request: Request) {
         old_value: sourcePage,
         new_value: travelType,
         cta: ctaLocation,
+      });
+    } catch {
+      // Ignore persistence failures; analytics must never block UX.
+    }
+  }
+
+  // Persist Weekend Planner events for UAT hardening + adoption review.
+  if (PLANNER_EVENTS.has(payload.event)) {
+    const host = asTextWithLimit(request.headers.get("x-forwarded-host") ?? request.headers.get("host"), 128);
+    const origin = asTextWithLimit(request.headers.get("origin"), 256);
+    const referer = asTextWithLimit(request.headers.get("referer"), 512);
+
+    // Avoid polluting analytics with local testing / admin poking around.
+    if (!shouldPersistMapEvents(request)) {
+      return NextResponse.json({ ok: true, skipped: "localhost" });
+    }
+
+    const propsRaw = payload.properties ?? {};
+    const props = asObject(propsRaw) ?? {};
+
+    const pagePath = asTextWithLimit((props as any).page_path, 128);
+    const entitlement = asTextWithLimit((props as any).entitlement, 32);
+    const view = asTextWithLimit((props as any).view, 32);
+    const fromView = asTextWithLimit((props as any).from_view, 32);
+    const toView = asTextWithLimit((props as any).to_view, 32);
+    const gateName = asTextWithLimit((props as any).gate_name, 32);
+    const target = asTextWithLimit((props as any).target, 64);
+    const reasonCode = asTextWithLimit((props as any).reason_code, 64);
+
+    const properties = {
+      ...(props as any),
+      ua: (props as any).ua ?? userAgent ?? null,
+      host: (props as any).host ?? host ?? null,
+      origin: (props as any).origin ?? origin ?? null,
+      referer: (props as any).referer ?? referer ?? null,
+    };
+
+    try {
+      await supabaseAdmin.from("ti_map_events" as any).insert({
+        event_name: payload.event,
+        properties,
+        page_type: "weekend_planner",
+        sport: null,
+        state: null,
+        href: pagePath ?? "/weekend-planner",
+        filter_name: view ?? gateName ?? null,
+        old_value: fromView ?? entitlement ?? null,
+        new_value: toView ?? reasonCode ?? null,
+        cta: target ?? null,
       });
     } catch {
       // Ignore persistence failures; analytics must never block UX.

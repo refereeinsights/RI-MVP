@@ -4,6 +4,8 @@ TournamentInsights currently has a **production-only** Supabase database environ
 
 This is **not** a feature spec. It is a **UAT framework**: accounts, naming conventions, fixtures, hosted URLs, and cleanup.
 
+Primary automated UAT runner: `CLAUDE.md` (Claude Desktop). Keep `CLAUDE.md` and this doc aligned.
+
 ## Rules (non-negotiable)
 
 - Use **dedicated UAT accounts** only.
@@ -12,6 +14,10 @@ This is **not** a feature spec. It is a **UAT framework**: accounts, naming conv
 - Do **not** insert fake venues or tournaments into production.
 - Do **not** add production bypass routes or dev-only fixture endpoints in production.
 - Do **not** weaken ICS URL validation (no `file://`, no localhost/private ranges).
+
+## Quick start (Smoke UAT)
+
+Use the **Smoke UAT (fast pass)** checklist in `CLAUDE.md` first. If Smoke UAT fails, stop and fix regressions before running deeper UAT.
 
 ## UAT accounts
 

@@ -4,6 +4,7 @@ import { Component, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { WEEKEND_PRO_FOUNDING_SHORT_COPY } from "@/lib/weekendProPricing";
+import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import {
   computeDuplicateCandidates,
   type PlannerDuplicateCandidate,
@@ -389,6 +390,49 @@ async function jsonFetch<T>(url: string, init: RequestInit) {
 export default function PlannerClient(props: Props) {
   const tz = useMemo(() => browserTimeZone(), []);
   const isUnverified = Boolean(props.isUnverified);
+
+  const entitlementForAnalytics = useMemo(() => {
+    if (props.isPaid) return "weekend_pro" as const;
+    if (isUnverified) return "explorer" as const;
+    return "insider" as const;
+  }, [isUnverified, props.isPaid]);
+
+  function bucketFeedCount(count: number) {
+    if (!Number.isFinite(count) || count <= 0) return "0" as const;
+    if (count === 1) return "1" as const;
+    if (count <= 3) return "2_3" as const;
+    return "4_plus" as const;
+  }
+
+  function bucketLoadedEventCount(count: number) {
+    if (!Number.isFinite(count) || count <= 0) return "0" as const;
+    if (count <= 10) return "1_10" as const;
+    if (count <= 50) return "11_50" as const;
+    if (count <= 100) return "51_100" as const;
+    return "101_plus" as const;
+  }
+
+  function reasonCodeFromError(err: any) {
+    const msg = String(err?.message ?? err ?? "").toLowerCase();
+    if (!msg) return "unknown" as const;
+    if (msg.includes("verify") || msg.includes("verification")) return "email_verification_required" as const;
+    if (msg.includes("limit")) return "calendar_feed_limit_reached" as const;
+    if (msg.includes("http://") || msg.includes("https://") || msg.includes("ics") || msg.includes("ical") || msg.includes("calendar url")) {
+      if (msg.includes("invalid") || msg.includes("must start") || msg.includes("not appear")) return "invalid_calendar_url" as const;
+    }
+    if (msg.includes("network") || msg.includes("timeout") || msg.includes("fetch")) return "network_error" as const;
+    return "server_error" as const;
+  }
+
+  function trackPlannerEvent<E extends Parameters<typeof trackTiEvent>[0]>(event: E, properties: any) {
+    try {
+      const pagePath = typeof window !== "undefined" ? window.location?.pathname ?? "" : "";
+      trackTiEvent(event, { page_path: pagePath || "/weekend-planner", ...properties } as any);
+    } catch {
+      // analytics must fail open
+    }
+  }
+
   const [events, setEvents] = useState<PlannerEventRow[]>(props.initialEvents ?? []);
   const [eventsTruncated, setEventsTruncated] = useState(false);
   const [eventsLimit, setEventsLimit] = useState(200);
@@ -433,6 +477,7 @@ export default function PlannerClient(props: Props) {
   const mergePanelRef = useRef<HTMLDivElement | null>(null);
   const lastCreateVenueLocationRef = useRef<{ address: string; city: string; state: string } | null>(null);
   const lastEditVenueLocationRef = useRef<{ address: string; city: string; state: string } | null>(null);
+  const gateViewedRef = useRef<Set<string>>(new Set());
 
   function closeMergeModal() {
     setMergeOpen(false);
@@ -455,6 +500,10 @@ export default function PlannerClient(props: Props) {
     setMergeCandidateEventId(args.candidateEventId);
     setMergeSelections({});
     setMergeOpen(true);
+    trackPlannerEvent("planner_duplicate_merge_modal_opened", {
+      surface: "weekend_planner",
+      entitlement: entitlementForAnalytics,
+    });
   }
 
   useEffect(() => {
@@ -592,6 +641,11 @@ export default function PlannerClient(props: Props) {
   function openMapForEvent(e: PlannerEventRow) {
     const loc = locationTextForEvent(e);
     if (!loc) return;
+
+    trackPlannerEvent("planner_map_view_opened", {
+      surface: "weekend_planner",
+      entitlement: entitlementForAnalytics,
+    });
 
     if (isLikelyMobile()) {
       setMapPickerQuery(loc);
@@ -804,6 +858,12 @@ export default function PlannerClient(props: Props) {
     const q = lastEventsQueryRef.current;
     if (!q) return;
     if (!eventsHasMore || !eventsNextCursor) return;
+    trackPlannerEvent("planner_load_more_clicked", {
+      surface: "weekend_planner",
+      entitlement: entitlementForAnalytics,
+      view: scheduleView === "weekend" ? "this_weekend" : scheduleView,
+      loaded_event_count_bucket: bucketLoadedEventCount(events.length),
+    });
     setEventsPagingBusy(true);
     try {
       const qs = new URLSearchParams();
@@ -900,6 +960,19 @@ export default function PlannerClient(props: Props) {
   }, [scheduleView]);
 
   useEffect(() => {
+    if (scheduleView === "season" && !canUseSeasonCalendar) {
+      if (!gateViewedRef.current.has("visual_calendar")) {
+        gateViewedRef.current.add("visual_calendar");
+        trackPlannerEvent("planner_weekend_pro_gate_viewed", {
+          surface: "weekend_planner",
+          entitlement: entitlementForAnalytics,
+          gate_name: "visual_calendar",
+        });
+      }
+    }
+  }, [canUseSeasonCalendar, entitlementForAnalytics, scheduleView]);
+
+  useEffect(() => {
     if (scheduleView !== "season") return;
     if (seasonDisplayTouched) return;
     setSeasonDisplayMode(canUseSeasonCalendar && events.length ? "calendar" : "list");
@@ -946,6 +1019,18 @@ export default function PlannerClient(props: Props) {
     if (props.isPaid) return true;
     return sources.length < 1;
   }, [busy, isUnverified, props.isPaid, sources.length]);
+
+  useEffect(() => {
+    const multiCalendarGateVisible = !canConnectAnotherCalendar && !isUnverified && !props.isPaid && sources.length >= 1;
+    if (!multiCalendarGateVisible) return;
+    if (gateViewedRef.current.has("multi_calendar")) return;
+    gateViewedRef.current.add("multi_calendar");
+    trackPlannerEvent("planner_weekend_pro_gate_viewed", {
+      surface: "weekend_planner",
+      entitlement: entitlementForAnalytics,
+      gate_name: "multi_calendar",
+    });
+  }, [canConnectAnotherCalendar, entitlementForAnalytics, isUnverified, props.isPaid, sources.length]);
 
   const duplicateCandidates = useMemo(() => {
     return computeDuplicateCandidates({
@@ -995,6 +1080,10 @@ export default function PlannerClient(props: Props) {
   }
 
   async function onKeepSeparate(eventId: string, candidateEventId: string) {
+    trackPlannerEvent("planner_duplicate_keep_separate_clicked", {
+      surface: "weekend_planner",
+      entitlement: entitlementForAnalytics,
+    });
     const key = `${eventId}:${candidateEventId}`;
     setDismissingPairs((prev) => new Set(prev).add(key));
     setError(null);
@@ -1077,11 +1166,20 @@ export default function PlannerClient(props: Props) {
 
       const warningText = (res.warnings ?? []).map((w) => String(w?.message ?? "").trim()).filter(Boolean);
       setNotice(warningText.length ? `Merged duplicate events into a new manual event. ${warningText.join(" ")}` : "Merged duplicate events into a new manual event.");
+      trackPlannerEvent("planner_duplicate_merge_succeeded", {
+        surface: "weekend_planner",
+        entitlement: entitlementForAnalytics,
+      });
       closeMergeModal();
       await loadEvents();
       await loadDismissedPairs();
     } catch (e: any) {
       setError(e?.message || "Merge failed.");
+      trackPlannerEvent("planner_duplicate_merge_failed", {
+        surface: "weekend_planner",
+        entitlement: entitlementForAnalytics,
+        reason_code: reasonCodeFromError(e),
+      });
       setMergeBusy(false);
     }
   }
@@ -1203,6 +1301,11 @@ export default function PlannerClient(props: Props) {
 	        method: "POST",
 	        body: JSON.stringify(body),
 	      });
+        trackPlannerEvent("planner_manual_event_created", {
+          surface: "weekend_planner",
+          entitlement: entitlementForAnalytics,
+          event_type: String(createType),
+        });
 	      setEvents((prev) => [...prev, res.event].sort((a, b) => a.starts_at.localeCompare(b.starts_at)));
 	      resetCreateForm();
 	      setCreateOpen(false);
@@ -1263,6 +1366,11 @@ export default function PlannerClient(props: Props) {
         method: "PATCH",
         body: JSON.stringify(body),
       });
+      trackPlannerEvent("planner_manual_event_updated", {
+        surface: "weekend_planner",
+        entitlement: entitlementForAnalytics,
+        event_type: String(editType),
+      });
       setEvents((prev) =>
         prev
           .map((e) => (e.id === editingEvent.id ? res.event : e))
@@ -1283,6 +1391,11 @@ export default function PlannerClient(props: Props) {
     setBusy(true);
     try {
       await jsonFetch<{ ok: true }>(`/api/planner/events/${e.id}`, { method: "DELETE" });
+      trackPlannerEvent("planner_manual_event_deleted", {
+        surface: "weekend_planner",
+        entitlement: entitlementForAnalytics,
+        event_type: String((e as any)?.event_type ?? "unknown"),
+      });
       setEvents((prev) => prev.filter((x) => x.id !== e.id));
       if (editingId === e.id) setEditingId(null);
     } catch (e: any) {
@@ -1296,6 +1409,13 @@ export default function PlannerClient(props: Props) {
     setImportError(null);
     setImportResult(null);
     if (!canConnectAnotherCalendar) {
+      if (!isUnverified && !props.isPaid) {
+        trackPlannerEvent("planner_calendar_feed_limit_reached", {
+          surface: "weekend_planner",
+          entitlement: entitlementForAnalytics,
+          feed_count_bucket: bucketFeedCount(sources.length),
+        });
+      }
       setImportError(
         isUnverified
           ? "Verify your email to connect a team calendar."
@@ -1328,10 +1448,21 @@ export default function PlannerClient(props: Props) {
           teamName: importTeamName.trim() || null,
         }),
       });
+      trackPlannerEvent("planner_calendar_feed_connect_succeeded", {
+        surface: "weekend_planner",
+        entitlement: entitlementForAnalytics,
+        feed_count_bucket: bucketFeedCount(sources.length + 1),
+      });
       setImportResult(`Imported ${res.imported} · Updated ${res.updated} · Skipped ${res.skipped}`);
       setImportError(null);
       await Promise.all([loadEvents(), loadSources()]);
     } catch (e: any) {
+      trackPlannerEvent("planner_calendar_feed_connect_failed", {
+        surface: "weekend_planner",
+        entitlement: entitlementForAnalytics,
+        feed_count_bucket: bucketFeedCount(sources.length),
+        reason_code: reasonCodeFromError(e),
+      });
       setImportError(e?.message || "Import failed.");
     } finally {
       setBusy(false);
@@ -1341,6 +1472,11 @@ export default function PlannerClient(props: Props) {
   async function onRefreshSource(sourceId: string) {
     setError(null);
     setNotice(null);
+    trackPlannerEvent("planner_calendar_feed_refresh_clicked", {
+      surface: "weekend_planner",
+      entitlement: entitlementForAnalytics,
+      feed_count_bucket: bucketFeedCount(sources.length),
+    });
     setBusy(true);
     try {
       const res = await jsonFetch<{
@@ -1355,9 +1491,20 @@ export default function PlannerClient(props: Props) {
       if (res.changed) parts.push(`${res.changed} changes`);
       if (res.skipped) parts.push(`${res.skipped} skipped`);
       setNotice(`Schedule refreshed · ${parts.join(" · ")}`);
+      trackPlannerEvent("planner_calendar_feed_refresh_succeeded", {
+        surface: "weekend_planner",
+        entitlement: entitlementForAnalytics,
+        feed_count_bucket: bucketFeedCount(sources.length),
+      });
       await Promise.all([loadEvents(), loadSources()]);
     } catch (e: any) {
       setError(e?.message || "Refresh failed.");
+      trackPlannerEvent("planner_calendar_feed_refresh_failed", {
+        surface: "weekend_planner",
+        entitlement: entitlementForAnalytics,
+        feed_count_bucket: bucketFeedCount(sources.length),
+        reason_code: reasonCodeFromError(e),
+      });
     } finally {
       setBusy(false);
     }
@@ -1935,31 +2082,55 @@ export default function PlannerClient(props: Props) {
 		          ) : null}
 
 		          <div className={styles.scheduleViewButtonsRow}>
-		            <button
-		              className={scheduleView === "upcoming" ? styles.primaryBtn : styles.secondaryBtn}
-		              type="button"
-		              onClick={() => setScheduleView("upcoming")}
-		              disabled={busy}
-		            >
-		              Upcoming
-		            </button>
-		            <button
-		              className={scheduleView === "weekend" ? styles.primaryBtn : styles.secondaryBtn}
-		              type="button"
-		              onClick={() => setScheduleView("weekend")}
-		              disabled={busy}
-		            >
-		              This Weekend
-		            </button>
-		            <button
-		              className={scheduleView === "season" ? styles.primaryBtn : styles.secondaryBtn}
-		              type="button"
-		              onClick={() => setScheduleView("season")}
-		              disabled={busy}
-		            >
-		              Season
-		            </button>
-		          </div>
+		              <button
+		                className={scheduleView === "upcoming" ? styles.primaryBtn : styles.secondaryBtn}
+		                type="button"
+		              onClick={() => {
+                    trackPlannerEvent("planner_view_toggle_clicked", {
+                      surface: "weekend_planner",
+                      entitlement: entitlementForAnalytics,
+                      from_view: scheduleView === "weekend" ? "this_weekend" : scheduleView,
+                      to_view: "upcoming",
+                    });
+		                setScheduleView("upcoming");
+                  }}
+		                disabled={busy}
+		              >
+		                Upcoming
+		              </button>
+		              <button
+		                className={scheduleView === "weekend" ? styles.primaryBtn : styles.secondaryBtn}
+		                type="button"
+		              onClick={() => {
+                    trackPlannerEvent("planner_view_toggle_clicked", {
+                      surface: "weekend_planner",
+                      entitlement: entitlementForAnalytics,
+                      from_view: scheduleView === "weekend" ? "this_weekend" : scheduleView,
+                      to_view: "this_weekend",
+                    });
+		                setScheduleView("weekend");
+                  }}
+		                disabled={busy}
+		              >
+		                This Weekend
+		              </button>
+		              <button
+		                className={scheduleView === "season" ? styles.primaryBtn : styles.secondaryBtn}
+		                type="button"
+		              onClick={() => {
+                    trackPlannerEvent("planner_view_toggle_clicked", {
+                      surface: "weekend_planner",
+                      entitlement: entitlementForAnalytics,
+                      from_view: scheduleView === "weekend" ? "this_weekend" : scheduleView,
+                      to_view: "season",
+                    });
+		                setScheduleView("season");
+                  }}
+		                disabled={busy}
+		              >
+		                Season
+		              </button>
+		            </div>
 
 		          {scheduleView === "weekend" ? (
 		            <div className={`${styles.muted} ${styles.scheduleMetaRow}`}>
@@ -1996,6 +2167,12 @@ export default function PlannerClient(props: Props) {
 		                  type="button"
 		                  onClick={() => {
 		                    setSeasonDisplayTouched(true);
+                        trackPlannerEvent("planner_view_toggle_clicked", {
+                          surface: "weekend_planner",
+                          entitlement: entitlementForAnalytics,
+                          from_view: seasonDisplayMode,
+                          to_view: "calendar",
+                        });
 		                    setSeasonDisplayMode("calendar");
 		                  }}
 		                  disabled={busy}
@@ -2007,6 +2184,12 @@ export default function PlannerClient(props: Props) {
 		                  type="button"
 		                  onClick={() => {
 		                    setSeasonDisplayTouched(true);
+                        trackPlannerEvent("planner_view_toggle_clicked", {
+                          surface: "weekend_planner",
+                          entitlement: entitlementForAnalytics,
+                          from_view: seasonDisplayMode,
+                          to_view: "list",
+                        });
 		                    setSeasonDisplayMode("list");
 		                  }}
 		                  disabled={busy}
@@ -2021,7 +2204,18 @@ export default function PlannerClient(props: Props) {
 		                  View your season in a color-coded calendar and connect multiple team calendars.
 		                </div>
 		                <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
-		                  <Link href="/premium" className={styles.primaryBtn} style={{ display: "inline-flex", justifyContent: "center" }}>
+		                  <Link
+                        href="/premium"
+                        className={styles.primaryBtn}
+                        style={{ display: "inline-flex", justifyContent: "center" }}
+                        onClick={() =>
+                          trackPlannerEvent("planner_weekend_pro_gate_clicked", {
+                            surface: "weekend_planner",
+                            entitlement: entitlementForAnalytics,
+                            gate_name: "visual_calendar",
+                          })
+                        }
+                      >
 		                    Unlock Weekend Pro
 		                  </Link>
 		                  <button className={styles.secondaryBtn} type="button" onClick={() => setSeasonDisplayMode("list")} disabled={busy}>
@@ -2064,7 +2258,14 @@ export default function PlannerClient(props: Props) {
 	              allSourceIds={seasonAllSourceIds}
 	              hasMore={eventsHasMore}
 	              activeTimezone={seasonCalendarTimeZone}
-	              onTimezoneChange={(z) => setSeasonCalendarTimeZone(z)}
+                entitlement={entitlementForAnalytics}
+	              onTimezoneChange={(z) => {
+                  trackPlannerEvent("planner_calendar_timezone_changed", {
+                    surface: "weekend_planner",
+                    entitlement: entitlementForAnalytics,
+                  });
+	                setSeasonCalendarTimeZone(z);
+                }}
 	            />
 	          </CalendarErrorBoundary>
 	        ) : null}
@@ -2823,7 +3024,17 @@ export default function PlannerClient(props: Props) {
 			            ) : props.isPaid ? null : sources.length >= 1 ? (
 			              <>
 			                You can connect 1 calendar on Insider.{" "}
-			                <Link href="/premium" className="secondaryLink">
+			                <Link
+                        href="/premium"
+                        className="secondaryLink"
+                        onClick={() =>
+                          trackPlannerEvent("planner_weekend_pro_gate_clicked", {
+                            surface: "weekend_planner",
+                            entitlement: entitlementForAnalytics,
+                            gate_name: "multi_calendar",
+                          })
+                        }
+                      >
 			                  Unlock Weekend Pro
 			                </Link>{" "}
 			                to add more.

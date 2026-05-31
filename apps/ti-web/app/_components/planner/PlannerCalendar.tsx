@@ -12,6 +12,7 @@ import "temporal-polyfill/global";
 import "@schedule-x/theme-shadcn/dist/index.css";
 import type { PlannerEventRow } from "@/lib/planner/types";
 import { getSourceColor } from "@/lib/planner/getSourceColor";
+import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import styles from "./Planner.module.css";
 
 type Props = {
@@ -20,6 +21,7 @@ type Props = {
   hasMore: boolean;
   activeTimezone: string;
   onTimezoneChange: (tz: string) => void;
+  entitlement: "explorer" | "insider" | "weekend_pro" | "unknown";
 };
 
 function safeBrowserTimeZone(): string {
@@ -222,6 +224,18 @@ export default function PlannerCalendar(props: Props) {
         const id = String(calendarEvent?.id ?? "").trim();
         if (!id) return;
         setDetail({ open: true, eventId: id });
+        try {
+          const eventRow = (props.events ?? []).find((e) => String(e.id) === id) ?? null;
+          const sourceType = String((eventRow as any)?.source_type ?? "").toLowerCase();
+          const eventSourceType = sourceType === "ics" ? "ics" : sourceType === "manual" ? "manual" : "unknown";
+          trackTiEvent("planner_calendar_event_detail_opened", {
+            surface: "weekend_planner",
+            entitlement: props.entitlement,
+            event_source_type: eventSourceType,
+          });
+        } catch {
+          // ignore; analytics must fail open
+        }
       },
     },
   });
