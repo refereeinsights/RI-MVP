@@ -35,6 +35,10 @@ Maintenance rules:
   - Tighten Duplicate button to manual-only events (`source_type="manual"` and no `source_id`).
   - Fix F7: ensure ICS-linked events never render as manual/duplicable by treating rows with `source_event_uid` (and/or `source_id`) as synced in `GET /api/planner/events` and the planner UI.
 
+- TI planner (UAT follow-ups): address remaining UAT flags (F3/F4).
+  - F3: calendar-limit UI gate now opens an actionable upgrade/verify prompt instead of a disabled/inert “Connect calendar” button.
+  - F4: added `/account/logout` redirect to canonical `/logout`.
+
 ## 2026-05-27
 
 ### Analytics: venue map panels fix — /admin/ti/clicks

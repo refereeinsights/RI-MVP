@@ -153,6 +153,10 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 - Compatibility alias: `/planner` redirects to `/weekend-planner` (preserves allowlisted query params like `view`/`import`).
 - During consolidation + UAT, the primary header nav may hide the Weekend Planner link; direct access via `/weekend-planner` remains supported.
 
+## TI Auth (logout)
+- Canonical signout route: `/logout` → `apps/ti-web/app/logout/route.ts`
+- Compatibility alias: `/account/logout` redirects to `/logout` → `apps/ti-web/app/account/logout/route.ts`
+
 ---
 
 ## TI SEO landing pages (tournaments)

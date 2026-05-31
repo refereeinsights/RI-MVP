@@ -344,7 +344,7 @@ Login as UAT Planner A.
 
 - [ ] Insider limits (non-paid):
   - [ ] Can connect **1** calendar successfully.
-  - [ ] Attempting to connect a second calendar is blocked in UI with upgrade copy.
+  - [ ] Attempting to connect a second calendar shows an upgrade prompt (modal or inline) with a clear CTA to `/premium`.
   - [ ] Bypassing UI still fails server-side with `calendar_feed_limit_reached` (403).
   - [ ] Season view remains usable in **List**.
   - [ ] Season visual calendar is locked with a Weekend Pro card (no broken/empty calendar).
@@ -566,7 +566,7 @@ Checks:
 - [ ] `/venues/reviews` — note whether accessible or gated; document actual behavior
 - [ ] Saved tournaments section — verify presence and functionality
 - [ ] Flag any UI elements that appear broken or reference undefined tier benefits
-- [ ] Logout behavior: direct navigation to `/account/logout` may be a no-op; prefer logging out via the in-page logout link/button and note if `/account/logout` does not work
+- [ ] Logout behavior: `/account/logout` should redirect to `/logout` and successfully sign out (then redirect to `/` unless a `returnTo` is provided).
 
 ### Tournament Insights — Venues → Internal Planning Map
 - Login as Insider (or Weekend Pro).

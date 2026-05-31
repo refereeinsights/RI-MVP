@@ -464,6 +464,7 @@ export default function PlannerClient(props: Props) {
   const [importTeamName, setImportTeamName] = useState("");
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importGate, setImportGate] = useState<"limit" | "unverified" | null>(null);
 
   const [mergeOpen, setMergeOpen] = useState(false);
   const [mergeAnchorEventId, setMergeAnchorEventId] = useState<string | null>(null);
@@ -1213,6 +1214,7 @@ export default function PlannerClient(props: Props) {
     setImportTeamName("");
     setImportResult(null);
     setImportError(null);
+    setImportGate(null);
   }
 
   function beginEdit(e: PlannerEventRow) {
@@ -1926,6 +1928,67 @@ export default function PlannerClient(props: Props) {
               planner.
             </div>
 
+            {importGate === "unverified" ? (
+              <div className={styles.card} style={{ marginTop: 0, marginBottom: 12, textAlign: "center" }}>
+                <div className={styles.cardTitle}>Verify your email to connect a calendar</div>
+                <div className={styles.muted} style={{ marginBottom: 10 }}>
+                  To protect your planner, connecting calendars requires a verified email.
+                </div>
+                <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
+                  <Link href="/verify-email" className={styles.primaryBtn} style={{ display: "inline-flex", justifyContent: "center" }}>
+                    Verify email
+                  </Link>
+                  <button
+                    className={styles.secondaryBtn}
+                    type="button"
+                    onClick={() => {
+                      if (busy) return;
+                      resetImportForm();
+                      setImportOpen(false);
+                    }}
+                    disabled={busy}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : importGate === "limit" ? (
+              <div className={styles.card} style={{ marginTop: 0, marginBottom: 12, textAlign: "center" }}>
+                <div className={styles.cardTitle}>Insider includes 1 connected calendar</div>
+                <div className={styles.muted} style={{ marginBottom: 10 }}>
+                  Upgrade to Weekend Pro to connect multiple calendars and see the visual season calendar.
+                </div>
+                <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
+                  <Link
+                    href="/premium"
+                    className={styles.primaryBtn}
+                    style={{ display: "inline-flex", justifyContent: "center" }}
+                    onClick={() =>
+                      trackPlannerEvent("planner_weekend_pro_gate_clicked", {
+                        surface: "weekend_planner",
+                        entitlement: entitlementForAnalytics,
+                        gate_name: "multi_calendar",
+                      })
+                    }
+                  >
+                    Unlock Weekend Pro
+                  </Link>
+                  <button
+                    className={styles.secondaryBtn}
+                    type="button"
+                    onClick={() => {
+                      if (busy) return;
+                      resetImportForm();
+                      setImportOpen(false);
+                    }}
+                    disabled={busy}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             <details style={{ marginBottom: 10 }}>
               <summary style={{ cursor: "pointer", fontWeight: 900 }}>Where do I find my calendar link?</summary>
               <div className={styles.muted} style={{ marginTop: 8, display: "grid", gap: 8 }}>
@@ -1968,6 +2031,7 @@ export default function PlannerClient(props: Props) {
               </div>
             ) : null}
 
+            {importGate ? null : (
             <div className={styles.formGrid}>
               <div>
                 <label className={styles.label}>Calendar URL *</label>
@@ -2021,6 +2085,7 @@ export default function PlannerClient(props: Props) {
                 Calendar import works best with public iCal links. If your platform only offers a private calendar, Weekend Planner may not be able to refresh it.
               </div>
             </div>
+            )}
           </div>
         </div>
           );
@@ -2041,12 +2106,27 @@ export default function PlannerClient(props: Props) {
 				              className={styles.secondaryBtn}
 				              type="button"
 				              onClick={() => {
-				                if (!canConnectAnotherCalendar) return;
+				                if (busy) return;
 				                setImportOpen(true);
-				                setImportResult(null);
-				                setImportError(null);
+                        resetImportForm();
+                        if (!canConnectAnotherCalendar) {
+                          if (isUnverified) {
+                            setImportGate("unverified");
+                            return;
+                          }
+                          if (!props.isPaid && sources.length >= 1) {
+                            setImportGate("limit");
+                            trackPlannerEvent("planner_calendar_feed_limit_reached", {
+                              surface: "weekend_planner",
+                              entitlement: entitlementForAnalytics,
+                              feed_count_bucket: bucketFeedCount(sources.length),
+                            });
+                            return;
+                          }
+                        }
+                        setImportGate(null);
 				              }}
-				              disabled={busy || !canConnectAnotherCalendar}
+				              disabled={busy}
 				            >
 				              Connect calendar
 				            </button>
@@ -2990,12 +3070,27 @@ export default function PlannerClient(props: Props) {
 			            className={styles.secondaryBtn}
 			            type="button"
 			            onClick={() => {
-			              if (!canConnectAnotherCalendar) return;
+			              if (busy) return;
 			              setImportOpen(true);
-			              setImportResult(null);
-			              setImportError(null);
+                    resetImportForm();
+                    if (!canConnectAnotherCalendar) {
+                      if (isUnverified) {
+                        setImportGate("unverified");
+                        return;
+                      }
+                      if (!props.isPaid && sources.length >= 1) {
+                        setImportGate("limit");
+                        trackPlannerEvent("planner_calendar_feed_limit_reached", {
+                          surface: "weekend_planner",
+                          entitlement: entitlementForAnalytics,
+                          feed_count_bucket: bucketFeedCount(sources.length),
+                        });
+                        return;
+                      }
+                    }
+                    setImportGate(null);
 		            }}
-		            disabled={busy || !canConnectAnotherCalendar}
+		            disabled={busy}
 			          >
 			            Connect calendar
 			          </button>
