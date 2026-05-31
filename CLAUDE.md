@@ -281,6 +281,14 @@ Login as UAT Planner A.
   - [ ] No raw IDs, UUIDs, raw source_id, source URLs, or source_event_uid appear in the detail UI.
 - [ ] Calendar failure fallback:
   - [ ] If calendar fails to load, UI shows: `Calendar view could not load. Use List view for now.` and planner remains usable.
+- [ ] Global Calendar | List toggle (2026-05-31):
+  - [ ] On page load (Upcoming view, before clicking anything), confirm `List` and `Calendar` buttons are visible for paid accounts.
+  - [ ] Switch to **This Weekend** — confirm `List` and `Calendar` buttons remain visible.
+  - [ ] Switch to **Season** — confirm `List` and `Calendar` buttons remain visible (same toggle, not re-created).
+  - [ ] Select **Calendar** in Upcoming — confirm calendar renders with events.
+  - [ ] Switch to **Season** without touching the toggle — confirm Calendar view is still active (toggle persists across view switch).
+  - [ ] Switch to **List** — confirm list view renders and toggle shows List as active.
+  - [ ] For non-paid (Insider) accounts: confirm no Calendar | List buttons appear, and the Weekend Pro upgrade card is shown only in Season view (not Upcoming or Weekend).
 - [ ] Month nav label correctness (bug fix 2026-05-31):
   - [ ] Open Season calendar — note which month is shown in the nav bar (e.g. "June 2026").
   - [ ] Click `›` (next month) — confirm the nav bar label advances by exactly one month (e.g. "July 2026"), not zero months.
