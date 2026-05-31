@@ -69,6 +69,8 @@ export default function PlannerCalendar(props: Props) {
 
   const [tzPickerOpen, setTzPickerOpen] = useState(false);
   const [detail, setDetail] = useState<DetailState>({ open: false, eventId: null });
+  const [displayedMonth, setDisplayedMonth] = useState<{ year: number; month: number } | null>(null);
+  const [weeksToShow, setWeeksToShow] = useState(6);
   const detailEvent = useMemo(() => {
     if (!detail.open || !detail.eventId) return null;
     return (props.events ?? []).find((e) => e.id === detail.eventId) ?? null;
@@ -157,12 +159,29 @@ export default function PlannerCalendar(props: Props) {
     calendars: sxCalendars as any,
     plugins: [eventsService as any, controls as any],
     callbacks: {
+      onRangeUpdate: (range: any) => {
+        try {
+          const raw = range?.start ?? "";
+          const str = typeof raw === "string" ? raw : String(raw);
+          const d = Temporal.PlainDate.from(str.slice(0, 10));
+          setDisplayedMonth({ year: d.year, month: d.month });
+        } catch {
+          // ignore
+        }
+      },
       onRender: () => {
         if (!initialViewWasSetRef.current) {
           initialViewWasSetRef.current = true;
           try {
             controls.setTimezone(calendarTz as any);
             controls.setView((window.innerWidth < 768 ? monthAgendaName : monthGridName) as any);
+          } catch {
+            // ignore
+          }
+          // Seed the displayed month label from controls on first render
+          try {
+            const d = controls.getDate();
+            if (d?.year && d?.month) setDisplayedMonth({ year: d.year, month: d.month });
           } catch {
             // ignore
           }
@@ -214,6 +233,15 @@ export default function PlannerCalendar(props: Props) {
       // ignore
     }
   }, [calendarTz, controls]);
+
+  function goToAdjacentMonth(delta: 1 | -1) {
+    try {
+      const cur = controls.getDate();
+      controls.setDate(cur.add({ months: delta }) as any);
+    } catch {
+      // ignore
+    }
+  }
 
   return (
     <div className={styles.calendarContainer}>
@@ -292,12 +320,61 @@ export default function PlannerCalendar(props: Props) {
         </div>
       ) : (
         <div className={styles.calendarFrame}>
+          <div className={styles.calendarNavBar}>
+            <button
+              className={styles.calendarNavBtn}
+              type="button"
+              aria-label="Previous month"
+              onClick={() => goToAdjacentMonth(-1)}
+            >
+              &#8249;
+            </button>
+            <span className={styles.calendarNavLabel}>
+              {displayedMonth
+                ? new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(
+                    new Date(displayedMonth.year, displayedMonth.month - 1, 1)
+                  )
+                : ""}
+            </span>
+            <button
+              className={styles.calendarNavBtn}
+              type="button"
+              aria-label="Next month"
+              onClick={() => goToAdjacentMonth(1)}
+            >
+              &#8250;
+            </button>
+            <div className={styles.calendarZoomRow}>
+              <button
+                className={styles.calendarNavBtn}
+                type="button"
+                aria-label="Show fewer weeks"
+                disabled={weeksToShow <= 1}
+                onClick={() => setWeeksToShow((w) => Math.max(1, w - 1))}
+              >
+                &minus;
+              </button>
+              <span className={styles.calendarZoomLabel}>{weeksToShow}w</span>
+              <button
+                className={styles.calendarNavBtn}
+                type="button"
+                aria-label="Show more weeks"
+                disabled={weeksToShow >= 6}
+                onClick={() => setWeeksToShow((w) => Math.min(6, w + 1))}
+              >
+                +
+              </button>
+            </div>
+          </div>
           <div className={styles.calendarWeekdayBar} aria-hidden="true">
             {(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const).map((d) => (
               <span key={d} className={styles.calendarWeekdayCell}>{d}</span>
             ))}
           </div>
-          <div className={`sx-react-calendar-wrapper ${styles.sxWrapper}`}>
+          <div
+            className={`sx-react-calendar-wrapper ${styles.sxWrapper}`}
+            style={{ "--calendar-weeks-visible": weeksToShow } as React.CSSProperties}
+          >
             <ScheduleXCalendar calendarApp={calendar} />
           </div>
         </div>

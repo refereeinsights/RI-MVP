@@ -104,6 +104,13 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
   - Season visual calendar (Schedule‑X) is Weekend Pro only; Insider users see a locked card and continue with Season List.
 - Stage 2.6D calendar grid polish: grid background softened to near-white (`--sx-color-background: #fbfcfd`); grid lines lightened (`--sx-color-outline-variant: #e9ecef`); day-of-week header row (`.sx__month-grid-week:first-child`) given a green-50 gradient with matching bottom border. Pure CSS, scoped to `.sxWrapper`.
 - Stage 2.6D calendar header + column gradients: custom Mon–Sun header bar rendered in `PlannerCalendar.tsx` above the SX grid (green gradient, SAT/SUN at 70% opacity); SX's internal day-name labels hidden; SX outer border/radius stripped and replaced by a `calendarFrame` container; weekday columns (1–5) get a cool-to-white gradient, weekend columns (6–7) get a green-50 gradient.
+- Stage 2.6D calendar nav + zoom polish (2026-05-31):
+  - Custom `calendarNavBar` (prev/next month + week-zoom) replaces SX's built-in `.sx__calendar-header` (hidden). Month/year label driven by `displayedMonth` state via `onRangeUpdate` + `onRender` seed. Month navigation uses `controls.getDate()` / `controls.setDate()`.
+  - Week-zoom control: `weeksToShow` state (default 6, range 1–6); CSS var `--calendar-weeks-visible` passed inline on `.sxWrapper`; `.sx__month-grid-wrapper` clips to `calc(var(...) * 90px)` with a 0.2s ease transition.
+  - Alternating week-row gradients: even rows use slightly cooler weekday (`#edf0f3 → #f6f8fa`) and deeper weekend (`#ddf0e7 → #e8faf0`) gradients vs. odd rows; targets `.sx__month-grid-week:nth-child(even) .sx__month-grid-day:nth-child(N)` to override at cell level.
+  - Consistent day cell height: `min-height: 80px` on `.sx__month-grid-day` prevents empty cells collapsing.
+  - Day number underline: `border-bottom: 1px solid #e2e8f0` on `.sx__month-grid-day__header-date`; green (`#15803d`) for today.
+  - Removed fixed `height: 600px` / `height: 400px` from `.sxWrapper` so grid sizes naturally to its content.
 - Weekend Planner bottom-section cleanup: removed repetitive “planning tools”/empty-state blocks below the schedule so the page ends with the travel widgets + share link + affiliate disclosure (no duplicate Browse/Search/Add CTAs).
 - Stage 2.5: `GET /api/planner/events` supports bounded cursor pagination (stable order by `starts_at, id`) and returns `hasMore` + `nextCursor` so the UI can load additional season events without unbounded queries. While `hasMore=true`, duplicate suggestions are disclosed as “loaded events only”.
 - `GET /api/planner/sources` returns source metadata only (does not return `source_url`).

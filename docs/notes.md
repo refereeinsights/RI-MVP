@@ -12,6 +12,15 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-05-31
+
+- TI planner (Stage 2.6D): Season calendar visual polish — 5 changes to `PlannerCalendar.tsx` + `Planner.module.css`:
+  1. **Custom month nav bar** — SX's built-in `.sx__calendar-header` hidden; replaced with a React-controlled `calendarNavBar` row (prev/next month buttons via `controls.getDate()` / `controls.setDate()`, month/year label driven by `displayedMonth` state seeded from `onRangeUpdate` + `onRender`).
+  2. **Alternating week-row gradients** — even rows get a slightly cooler weekday gradient (`#edf0f3 → #f6f8fa`) and a deeper weekend gradient (`#ddf0e7 → #e8faf0`) vs. odd rows; targets nested `.sx__month-grid-week:nth-child(even) .sx__month-grid-day:nth-child(N)` to override at cell level (row-level `background` is covered by child cells).
+  3. **Consistent day cell height** — `min-height: 80px` on `.sx__month-grid-day` prevents empty cells collapsing.
+  4. **Day number underline** — `border-bottom: 1px solid #e2e8f0` on `.sx__month-grid-day__header-date`; green (`#15803d`) for today via `.sx__is-today`.
+  5. **Week-zoom control (1–6 weeks)** — `weeksToShow` state (default 6), +/− buttons in nav bar, CSS variable `--calendar-weeks-visible` passed via inline style on `sxWrapper`, `max-height: calc(var(...) * 90px)` with `transition: max-height 0.2s ease` clips visible rows; fixed `height: 600px` / `height: 400px` removed from `.sxWrapper` to let grid size naturally.
+
 ## 2026-05-29
 
 - TI planner: Stage 2.6B (loaded-event schedule conflict highlighting).

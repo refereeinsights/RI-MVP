@@ -286,7 +286,6 @@
 
 .sxWrapper {
   width: 100%;
-  height: 600px;
   max-height: 80vh;
 
   /* Schedule‑X theme vars scoped to the calendar wrapper */
@@ -310,12 +309,41 @@
   border-radius: 0;
 }
 
+/* Hide SX's built-in calendar header — replaced by calendarNavBar */
+.sxWrapper :global(.sx__calendar-header) {
+  display: none;
+}
+
 /* Hide SX's internal day-of-week labels (replaced by calendarWeekdayBar) */
 .sxWrapper :global(.sx__month-grid-day__header-day-name) {
   display: none;
 }
 
-/* Weekday column gradient (Mon–Fri: cols 1–5) */
+/* Clip the grid to the weeksToShow CSS var (set via inline style) */
+.sxWrapper :global(.sx__month-grid-wrapper) {
+  overflow: hidden;
+  max-height: calc(var(--calendar-weeks-visible, 6) * 90px);
+  transition: max-height 0.2s ease;
+}
+
+/* Consistent day cell height even when empty */
+.sxWrapper :global(.sx__month-grid-day) {
+  min-height: 80px;
+}
+
+/* Day number underline */
+.sxWrapper :global(.sx__month-grid-day__header-date) {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 3px;
+  display: inline-block;
+  min-width: 1.4em;
+  text-align: center;
+}
+.sxWrapper :global(.sx__month-grid-day__header-date.sx__is-today) {
+  border-bottom-color: #15803d;
+}
+
+/* Weekday column gradient — odd rows (Mon–Fri: cols 1–5) */
 .sxWrapper :global(.sx__month-grid-day:nth-child(1)),
 .sxWrapper :global(.sx__month-grid-day:nth-child(2)),
 .sxWrapper :global(.sx__month-grid-day:nth-child(3)),
@@ -324,10 +352,25 @@
   background: linear-gradient(to bottom, #f4f6f8, #fbfcfd);
 }
 
-/* Weekend column gradient (Sat–Sun: cols 6–7) */
+/* Weekend column gradient — odd rows (Sat–Sun: cols 6–7) */
 .sxWrapper :global(.sx__month-grid-day:nth-child(6)),
 .sxWrapper :global(.sx__month-grid-day:nth-child(7)) {
   background: linear-gradient(to bottom, #e8f5ef, #f0fdf4);
+}
+
+/* Weekday column gradient — even rows (cooler shade) */
+.sxWrapper :global(.sx__month-grid-week:nth-child(even) .sx__month-grid-day:nth-child(1)),
+.sxWrapper :global(.sx__month-grid-week:nth-child(even) .sx__month-grid-day:nth-child(2)),
+.sxWrapper :global(.sx__month-grid-week:nth-child(even) .sx__month-grid-day:nth-child(3)),
+.sxWrapper :global(.sx__month-grid-week:nth-child(even) .sx__month-grid-day:nth-child(4)),
+.sxWrapper :global(.sx__month-grid-week:nth-child(even) .sx__month-grid-day:nth-child(5)) {
+  background: linear-gradient(to bottom, #edf0f3, #f6f8fa);
+}
+
+/* Weekend column gradient — even rows (deeper green tint) */
+.sxWrapper :global(.sx__month-grid-week:nth-child(even) .sx__month-grid-day:nth-child(6)),
+.sxWrapper :global(.sx__month-grid-week:nth-child(even) .sx__month-grid-day:nth-child(7)) {
+  background: linear-gradient(to bottom, #ddf0e7, #e8faf0);
 }
 
 .sxWrapper :global(.sx__date-picker-wrapper) {
@@ -378,6 +421,70 @@
 .calendarWeekdayCell:nth-child(6),
 .calendarWeekdayCell:nth-child(7) {
   color: rgba(255, 255, 255, 0.7);
+}
+
+/* Custom month nav bar — sits above the green weekday header */
+.calendarNavBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px 7px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.calendarNavLabel {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: 0.01em;
+  flex: 1;
+  text-align: center;
+}
+
+.calendarNavBtn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  color: #374151;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.calendarNavBtn:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.calendarNavBtn:focus-visible {
+  outline: 2px solid rgba(21, 128, 61, 0.4);
+  outline-offset: 2px;
+}
+
+.calendarNavBtn:disabled {
+  color: #d1d5db;
+  cursor: default;
+}
+
+.calendarNavBtn:disabled:hover {
+  background: none;
+}
+
+.calendarZoomRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.calendarZoomLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7280;
+  min-width: 2.2ch;
+  text-align: center;
 }
 
 .calendarLegend {
@@ -515,7 +622,5 @@
     grid-template-columns: 1fr;
   }
 
-  .sxWrapper {
-    height: 400px;
-  }
+  /* height removed — sxWrapper now sized by grid content */
 }
