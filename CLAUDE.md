@@ -218,6 +218,46 @@ Login as UAT Planner A.
   - duplicate flow opens edit UI and requires setting a new start time (starts_at field should be blank until set)
 - [ ] Duplicate restrictions — confirm Duplicate is not offered for “Synced from calendar” events (manual-only for now)
 - [ ] Long list sanity — confirm ordering by start time ascending, stable grouping, and reasonable performance with dozens of events (no jank / no missing rows)
+
+### Weekend Planner (/weekend-planner) — Stage 2.7 Analytics (privacy-safe + fail-open)
+
+Goal: confirm planner analytics events fire for meaningful actions, payloads are privacy-safe, and failures never break UX.
+
+Notes:
+- In production, planner events are persisted via `/api/analytics` allowlists.
+- In local dev, analytics may be skipped (localhost filtering) unless explicitly enabled.
+
+Client-side verification (DevTools → Network):
+- [ ] Open DevTools → Network and filter for `analytics`.
+- [ ] Perform each action below and confirm a `/api/analytics` request is sent with the expected `event` name.
+- [ ] Confirm `properties` do NOT include: raw event IDs, calendar feed IDs, source IDs, source URLs, `source_event_uid`, event titles, notes, addresses, or exact private timestamps.
+- [ ] Confirm planner still works if analytics fails (simulate by going offline briefly or blocking the request).
+
+Expected events (subset; not all need to be present if the UX doesn’t expose the trigger):
+- [ ] Connect calendar succeeds → `planner_calendar_feed_connect_succeeded`
+- [ ] Connect calendar fails (use `UAT_ICS_INVALID_URL`) → `planner_calendar_feed_connect_failed`
+- [ ] Calendar feed limit gate hit (Insider 2nd feed) → `planner_calendar_feed_limit_reached`
+- [ ] Refresh schedule click → `planner_calendar_feed_refresh_clicked`
+- [ ] Refresh schedule succeeds → `planner_calendar_feed_refresh_succeeded`
+- [ ] Refresh schedule fails (if possible) → `planner_calendar_feed_refresh_failed`
+- [ ] Switch tabs Upcoming / This Weekend / Season → `planner_view_toggle_clicked`
+- [ ] Load more events click (Season) → `planner_load_more_clicked`
+- [ ] Create manual event → `planner_manual_event_created`
+- [ ] Update manual event → `planner_manual_event_updated`
+- [ ] Delete manual event → `planner_manual_event_deleted`
+- [ ] Keep separate click → `planner_duplicate_keep_separate_clicked`
+- [ ] Merge modal opened → `planner_duplicate_merge_modal_opened`
+- [ ] Merge succeeds → `planner_duplicate_merge_succeeded`
+- [ ] Merge fails (if possible) → `planner_duplicate_merge_failed`
+- [ ] Weekend Pro gate viewed (Season Calendar locked card or multi-calendar gate) → `planner_weekend_pro_gate_viewed`
+- [ ] Weekend Pro gate clicked (Upgrade link) → `planner_weekend_pro_gate_clicked`
+- [ ] Map action click → `planner_map_view_opened`
+- [ ] Calendar event clicked (Season Calendar) → `planner_calendar_event_detail_opened`
+
+Admin verification (optional, production only):
+- [ ] Log in to RI admin (`https://www.refereeinsights.com/admin/login`).
+- [ ] Open TI click dashboard at `https://www.refereeinsights.com/admin/ti/clicks`.
+- [ ] Confirm the planner event keys are selectable and show counts over time (expect some delay; do not require real-time).
 - [ ] Empty states — confirm:
   - if no events this weekend but future events exist: “No events this weekend” (or similar, not an error)
   - season empty state copy encourages building season schedule / importing calendar link
@@ -419,6 +459,9 @@ Login as UAT Planner A.
 - [ ] Confirm both overlapping event cards show:
   - [ ] a subtle warning treatment (light red background/border is OK)
   - [ ] a text label/badge: `Schedule conflict` (must not be color-only)
+- [ ] Cross-timezone overlap check:
+  - [ ] Create one manual event with a venue in a different timezone than your browser (so the event timezone differs).
+  - [ ] Create another event that overlaps it in real time (same instant) and confirm the conflict is still detected in the loaded range.
 - [ ] Back-to-back check (end == start):
   - [ ] Create two events where one ends exactly when the next starts.
   - [ ] Confirm they are NOT flagged as a conflict.
