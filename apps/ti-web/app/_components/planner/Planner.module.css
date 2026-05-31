@@ -304,10 +304,30 @@
   --sx-color-on-background: #111827;
 }
 
-/* Green-50 gradient on the day-of-week header row */
-.sxWrapper :global(.sx__month-grid-week:first-child) {
-  background: linear-gradient(to bottom, #f0fdf4, #f8fffe);
-  border-bottom: 1px solid #d1fae5;
+/* Strip SX's own outer border/radius — calendarFrame owns the container */
+.sxWrapper :global(.sx__calendar) {
+  border: none;
+  border-radius: 0;
+}
+
+/* Hide SX's internal day-of-week labels (replaced by calendarWeekdayBar) */
+.sxWrapper :global(.sx__month-grid-day__header-day-name) {
+  display: none;
+}
+
+/* Weekday column gradient (Mon–Fri: cols 1–5) */
+.sxWrapper :global(.sx__month-grid-day:nth-child(1)),
+.sxWrapper :global(.sx__month-grid-day:nth-child(2)),
+.sxWrapper :global(.sx__month-grid-day:nth-child(3)),
+.sxWrapper :global(.sx__month-grid-day:nth-child(4)),
+.sxWrapper :global(.sx__month-grid-day:nth-child(5)) {
+  background: linear-gradient(to bottom, #f4f6f8, #fbfcfd);
+}
+
+/* Weekend column gradient (Sat–Sun: cols 6–7) */
+.sxWrapper :global(.sx__month-grid-day:nth-child(6)),
+.sxWrapper :global(.sx__month-grid-day:nth-child(7)) {
+  background: linear-gradient(to bottom, #e8f5ef, #f0fdf4);
 }
 
 .sxWrapper :global(.sx__date-picker-wrapper) {
@@ -327,6 +347,37 @@
 .sxWrapper :global(.sx__chevron-wrapper:focus-visible) {
   outline: 2px solid rgba(21, 128, 61, 0.35);
   outline-offset: 2px;
+}
+
+.calendarFrame {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.calendarWeekdayBar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: linear-gradient(135deg, #166534 0%, #15803d 100%);
+  padding: 9px 0 8px;
+  flex-shrink: 0;
+}
+
+.calendarWeekdayCell {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.calendarWeekdayCell:nth-child(6),
+.calendarWeekdayCell:nth-child(7) {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .calendarLegend {

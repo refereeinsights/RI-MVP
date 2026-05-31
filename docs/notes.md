@@ -3816,6 +3816,14 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Kept the lower travel widgets (Hotels + Vacation Rentals), share link widget, and affiliate disclosure.
   - Files: `apps/ti-web/app/weekend-planner/page.tsx`, `apps/ti-web/app/weekend-planner/WeekendPlannerClient.tsx`, `docs/admin-reference.md`.
 
+- 2026-05-30: Weekend Planner Season calendar — separate weekday header + column gradients.
+  - Added a custom green-gradient header bar (Mon–Sun) rendered as a 7-column grid above the Schedule‑X calendar; SX's own day-of-week labels are hidden via `:global(.sx__month-grid-day__header-day-name)`.
+  - Wrapped SX calendar in a `calendarFrame` div that owns the outer border/radius; SX's own `.sx__calendar` border and border-radius are stripped.
+  - Weekday columns (Mon–Fri) get a subtle cool-to-near-white vertical gradient; weekend columns (Sat–Sun) get a green-50 tinted gradient for visual differentiation.
+  - SAT and SUN labels in the header bar are rendered at 70% opacity to signal non-work days without adding color noise.
+  - Supersedes the previous `.sx__month-grid-week:first-child` gradient approach (removed).
+  - Files: `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`.
+
 - 2026-05-29: Weekend Planner Season calendar — grid visual polish.
   - Softened calendar grid background from stark white to near-white (`#fbfcfd`) via `--sx-color-background` CSS variable.
   - Reduced grid line prominence by lightening `--sx-color-outline-variant` from gray-300 (`#d1d5db`) to a softer `#e9ecef`.

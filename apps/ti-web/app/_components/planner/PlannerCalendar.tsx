@@ -291,8 +291,15 @@ export default function PlannerCalendar(props: Props) {
           <div className={styles.muted}>Connect a calendar or add events to get started.</div>
         </div>
       ) : (
-        <div className={`sx-react-calendar-wrapper ${styles.sxWrapper}`}>
-          <ScheduleXCalendar calendarApp={calendar} />
+        <div className={styles.calendarFrame}>
+          <div className={styles.calendarWeekdayBar} aria-hidden="true">
+            {(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const).map((d) => (
+              <span key={d} className={styles.calendarWeekdayCell}>{d}</span>
+            ))}
+          </div>
+          <div className={`sx-react-calendar-wrapper ${styles.sxWrapper}`}>
+            <ScheduleXCalendar calendarApp={calendar} />
+          </div>
         </div>
       )}
 
