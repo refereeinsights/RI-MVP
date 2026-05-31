@@ -22,8 +22,6 @@
 # Local editor/agent config
 .claude/
 
-# Local UAT notes / credentials (do not commit)
-CLAUDE.md
 
 # Env files
 .env.local
