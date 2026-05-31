@@ -148,6 +148,28 @@ If Smoke UAT fails, stop and report the first failure precisely (page + action +
 
 ---
 
+### Stage 2.8 UAT (polish + launch readiness)
+
+Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.
+
+- [ ] No dead primary actions:
+  - [ ] At calendar-feed limit (Insider), clicking **Connect calendar** shows an actionable upgrade prompt (not a disabled/inert button).
+  - [ ] Signed-in but unverified: **Connect calendar** shows verify-email prompt.
+- [ ] Add event stays schedule-first:
+  - [ ] `Add event` is reachable near the top without multi-screen scrolling.
+  - [ ] Clicking `Add event` opens the manual event form and scrolls to it.
+- [ ] Upsell scope:
+  - [ ] Upgrade prompts do not appear in Upcoming / This Weekend in a way that disrupts the schedule.
+  - [ ] Season calendar gate behavior is consistent and parent-friendly.
+- [ ] Loaded-scope honesty:
+  - [ ] When `Load more events` is present, disclosures explicitly say duplicates/conflicts consider loaded events only.
+  - [ ] When fully loaded, disclosures state all events in range are loaded.
+- [ ] Privacy regressions:
+  - [ ] No raw IDs/UUIDs/source URLs/source_event_uid appear in UI.
+- [ ] Analytics sanity (DevTools Network → `analytics`):
+  - [ ] Key actions fire events once per click.
+  - [ ] Payloads remain privacy-safe (no IDs/URLs/titles/notes/addresses/exact timestamps).
+
 ### Weekend Planner (/weekend-planner) — Manual Events
 
 Login as UAT Planner A.

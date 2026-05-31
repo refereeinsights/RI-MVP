@@ -39,6 +39,10 @@ Maintenance rules:
   - F3: calendar-limit UI gate now opens an actionable upgrade/verify prompt instead of a disabled/inert “Connect calendar” button.
   - F4: added `/account/logout` redirect to canonical `/logout`.
 
+- TI planner (Stage 2.8): landed repo-validated Stage 2.8 prompt + minor polish.
+  - Prompt: `docs/prompts/ti-planner-stage-2.8-uat-polish-launch-readiness.md`.
+  - UAT runner checklist section added: `CLAUDE.md` (“Stage 2.8 UAT (polish + launch readiness)”).
+
 ## 2026-05-27
 
 ### Analytics: venue map panels fix — /admin/ti/clicks

@@ -577,6 +577,7 @@ export type TiAnalyticsEventPropertiesByName = {
     entitlement: PlannerEntitlement;
     from_view: PlannerView;
     to_view: PlannerView;
+    toggle_type?: "schedule_view" | "display_mode";
   };
   planner_calendar_timezone_changed: {
     surface: PlannerSurface;

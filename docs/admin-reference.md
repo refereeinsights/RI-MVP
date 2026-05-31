@@ -142,6 +142,11 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
   - Stage 2.7 planner events are allowlisted in `PLANNER_EVENTS` and persisted to `public.ti_map_events` (same storage as map/travel analytics).
 - Admin review surface: `apps/referee/app/admin/ti/clicks/page.tsx`
 
+## TI Planner (Stage 2.8 — UAT findings polish + launch readiness)
+
+- Prompt: `docs/prompts/ti-planner-stage-2.8-uat-polish-launch-readiness.md`
+- UAT runner checklist: `CLAUDE.md` (see “Stage 2.8 UAT (polish + launch readiness)” section)
+
 ## TI Planner (Stage 2.1 — Local-first venue-aware polish)
 - Events remain valid with only `title`, `starts_at`, and `event_type`; venue/tournament/location remain optional.
 - Planner UI supports optional venue linking via “Find venue” and never exposes raw UUIDs to end users.

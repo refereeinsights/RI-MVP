@@ -1914,6 +1914,7 @@ export default function PlannerClient(props: Props) {
           }}
           onClick={() => {
             if (busy) return;
+            resetImportForm();
             setImportOpen(false);
           }}
         >
@@ -2166,6 +2167,7 @@ export default function PlannerClient(props: Props) {
                     trackPlannerEvent("planner_view_toggle_clicked", {
                       surface: "weekend_planner",
                       entitlement: entitlementForAnalytics,
+                      toggle_type: "schedule_view",
                       from_view: scheduleView === "weekend" ? "this_weekend" : scheduleView,
                       to_view: "upcoming",
                     });
@@ -2182,6 +2184,7 @@ export default function PlannerClient(props: Props) {
                     trackPlannerEvent("planner_view_toggle_clicked", {
                       surface: "weekend_planner",
                       entitlement: entitlementForAnalytics,
+                      toggle_type: "schedule_view",
                       from_view: scheduleView === "weekend" ? "this_weekend" : scheduleView,
                       to_view: "this_weekend",
                     });
@@ -2198,6 +2201,7 @@ export default function PlannerClient(props: Props) {
                     trackPlannerEvent("planner_view_toggle_clicked", {
                       surface: "weekend_planner",
                       entitlement: entitlementForAnalytics,
+                      toggle_type: "schedule_view",
                       from_view: scheduleView === "weekend" ? "this_weekend" : scheduleView,
                       to_view: "season",
                     });
