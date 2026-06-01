@@ -2355,7 +2355,7 @@ export default function PlannerClient(props: Props) {
               hasMore={eventsHasMore}
               activeTimezone={seasonCalendarTimeZone}
               entitlement={entitlementForAnalytics}
-              onTimezoneChange={(z) => {
+              onTimezoneChange={(z: string) => {
                 trackPlannerEvent("planner_calendar_timezone_changed", {
                   surface: "weekend_planner",
                   entitlement: entitlementForAnalytics,
