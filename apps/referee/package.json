@@ -8,6 +8,7 @@
     "prebuild": "node ../../scripts/copy-shared-svg.js",
     "build": "next build",
     "start": "next start",
+    "lint": "next lint --quiet",
     "test": "TMPDIR=../../tmp tsx --test src/server/enrichment/enrichment.test.ts"
   },
   "dependencies": {
