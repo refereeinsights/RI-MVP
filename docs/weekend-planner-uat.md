@@ -6,6 +6,7 @@ This is **not** a feature spec. It is a **UAT framework**: accounts, naming conv
 
 Primary automated UAT runner: `CLAUDE.md` (Claude Desktop). Keep `CLAUDE.md` and this doc aligned.
 Current product snapshot (post Stage 2.7): `docs/weekend-planner-current-state.md`.
+Stage 2.9A prompt (docs-first): `docs/prompts/ti-planner-stage-2.9a-ics-source-identity-audit-sports-family-uat-prep.md`.
 
 ## Rules (non-negotiable)
 
@@ -42,6 +43,56 @@ Examples:
 - `[UAT Planner] 12U Tigers Calendar`
 
 This prefix is **not** used for cleanup. Cleanup is user-id scoped only.
+
+## Stage 2.9 — Sports Family benchmark (real-platform UAT prep)
+
+Stage 2.9 is the real-world ICS compatibility pass. Stage 2.9A is docs-only scaffolding; Stage 2.9B is where you run real platform calendar feed tests.
+
+Compatibility matrix shell (fill in during Stage 2.9B):
+- `docs/qa/ti-planner-ics-uat.md`
+
+### Account requirement (important)
+
+If you plan to connect **more than 1** calendar feed (example: 12 team schedules), you need a **verified `weekend_pro`** UAT account.
+
+Why:
+- `insider` is enforced at **1** ICS source on the import route (`calendar_feed_limit_reached`).
+- `explorer` cannot connect calendars (and unverified explorers are blocked).
+
+### Sports Family checklist (Stage 2.9B)
+
+PII-safe setup conventions:
+- Team names start with `TI Test ...`
+- Event titles start with `TI Feed Test ...`
+- People use last name `Sports` only
+
+Test pattern per team schedule:
+1) Add **Practice A** (baseline create)
+2) Add **Game B** (control)
+3) Add **Team Event C** (used for cancel/delete validation)
+
+Steps:
+1) Create platform accounts/teams/schedules using dedicated UAT identities only.
+2) Capture the calendar subscription/export link (ICS/webcal/https) for each schedule.
+3) Import each feed into Weekend Planner as a private connected calendar source.
+4) Validate baseline import (events present, “Synced from calendar” labeling, no raw source identifiers in UI).
+5) Update Practice A (move by ~30 minutes; change location/field if available).
+6) Refresh feed and document upsert/update behavior.
+7) Cancel/delete Team Event C in the source platform.
+8) Refresh feed and document canceled/missing behavior (must not hard-delete source-linked events).
+9) Add local overlays in Weekend Planner:
+   - notes
+   - venue link
+   - suppressions / keep-separate dismissals
+   - merges where appropriate
+10) Refresh again and confirm overlays survive.
+11) Fill in the platform compatibility matrix rows in `docs/qa/ti-planner-ics-uat.md`.
+
+Reminder constraints:
+- Do not use OAuth.
+- Do not store platform credentials in the product.
+- Do not scrape.
+- Use public/subscription calendar links only.
 
 ## ICS fixtures (repo + hosting)
 

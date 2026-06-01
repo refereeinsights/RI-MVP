@@ -1,6 +1,6 @@
-# Weekend Planner — Current State (Post Stage 2.7)
+# Weekend Planner — Current State (Post Stage 2.8)
 
-This document is the durable snapshot of what the TI Weekend Planner is today (as of Stage 2.7), what is gated by entitlement, what must not regress, and what is intentionally deferred.
+This document is the durable snapshot of what the TI Weekend Planner is today (as of Stage 2.8), what is gated by entitlement, what must not regress, and what is intentionally deferred.
 
 Primary UAT runner: `CLAUDE.md` (Claude Desktop). UAT framework + production-safe cleanup: `docs/weekend-planner-uat.md`. ICS/iCal checklist: `docs/qa/ti-planner-ics-uat.md`.
 
@@ -30,7 +30,7 @@ Other TI surfaces related to weekend planning:
 
 ---
 
-## Completed Planner Stages Through 2.7
+## Completed Planner Stages Through 2.8
 
 Source prompts live in `docs/prompts/`.
 
@@ -74,6 +74,9 @@ Source prompts live in `docs/prompts/`.
 - **Stage 2.7 — UAT hardening + typed analytics**
   - Consolidates UAT documentation and adds typed analytics for meaningful planner actions.
   - Analytics must remain privacy-safe and fail open.
+- **Stage 2.8 — UAT findings polish + launch readiness**
+  - Fixes small UAT trust/clarity issues without changing planner semantics.
+  - Adds/updates UAT checklists (notably in `CLAUDE.md`) and reinforces “no dead primary actions”.
 
 ---
 
@@ -250,13 +253,27 @@ Non-goals:
 - schema changes
 - major sync architecture changes
 
-### Stage 2.9 — Real ICS Feed Compatibility + Source Identity Hardening
+### Stage 2.9A — ICS Source Identity Audit + Sports Family UAT Prep (docs-only)
 Scope:
-- validate real public/subscription ICS sources
-- document platform quirks
-- improve refresh identity handling as needed (without breaking suppressions/overlays)
+- audit and document current ICS import/refresh identity + overlay preservation behavior
+- add Sports Family benchmark checklist and a platform compatibility matrix shell
+- do not require real platform feeds yet
 
-Non-goals:
+Prompt archive:
+- `docs/prompts/ti-planner-stage-2.9a-ics-source-identity-audit-sports-family-uat-prep.md`
+
+### Stage 2.9B — Real platform feed UAT (TeamSnap/GameChanger/etc.)
+Scope:
+- import real public/subscription ICS feeds
+- fill in the compatibility matrix with observed behavior (UID stability, cancellation semantics, recurrence quirks, etc.)
+- capture update/move/cancel behavior and overlay preservation results
+
+### Stage 2.9C — Source identity hardening (code changes, based on 2.9B findings)
+Scope:
+- targeted refresh identity improvements only after real-platform results are captured
+- must preserve suppressions, overlays, merge semantics, and “no hard delete” rules
+
+Non-goals for 2.9A–2.9C:
 - OAuth/scraping/private credential storage
 
 ---
@@ -275,4 +292,3 @@ Non-goals:
 - Preserve Stage 2.6A timezone-safe manual event entry.
 - Preserve user edits through refresh.
 - Do not claim unbuilt features exist.
-

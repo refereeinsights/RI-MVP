@@ -185,6 +185,20 @@ Alternative approach (temporary / for one-off verification):
 
 If no unverified fixture exists, Stage 2.8 sign-off must treat this as an **open item**.
 
+---
+
+### Stage 2.9B UAT (real ICS platform feeds — Sports Family benchmark)
+
+Use this only once real platform team schedules and subscription links exist.
+
+Docs:
+- Sports Family checklist + production-safe framework: `docs/weekend-planner-uat.md`
+- Platform compatibility matrix (fill in): `docs/qa/ti-planner-ics-uat.md`
+
+Account requirement:
+- If connecting more than 1 calendar feed (example: 12 schedules), use a **verified `weekend_pro`** UAT account.
+  - `insider` is limited to 1 connected calendar feed (server-enforced).
+
 ### Weekend Planner (/weekend-planner) — Manual Events
 
 Login as UAT Planner A.
