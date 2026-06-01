@@ -3897,3 +3897,8 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Added a read-only “All venue candidates” expander per tournament to view multiple `tournament_venue_candidates` rows (confidence, reason code, evidence, source URL) without accepting/rejecting.
   - Route: `/admin/tournaments/missing-venues`.
   - Files: `apps/referee/app/admin/tournaments/missing-venues/page.tsx`, `docs/admin-reference.md`.
+
+- 2026-06-01: Weekend Planner (Stage 2.9B-0) — connected calendar feed labels.
+  - Added a one-line label editor for connected calendars (stored in `planner_event_sources.source_name`) with fallback `Connected calendar`.
+  - Imported event cards and Season calendar event detail now display the source label (or fallback) for ICS-linked events.
+  - Files: `apps/ti-web/app/api/planner/sources/[id]/route.ts`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `CLAUDE.md`, `docs/admin-reference.md`.

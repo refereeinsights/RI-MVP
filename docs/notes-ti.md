@@ -13,6 +13,13 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-06-01
+
+- Weekend Planner (Stage 2.9B-0) — connected calendar feed labels.
+  - Added a one-line label editor for connected calendars (stored in `planner_event_sources.source_name`) with fallback `Connected calendar`.
+  - Imported event cards and Season calendar event detail now display the source label (or fallback) for ICS-linked events.
+  - Files: `apps/ti-web/app/api/planner/sources/[id]/route.ts`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `CLAUDE.md`.
+
 ## 2026-05-31
 
 - TI planner (Stage 2.7): UAT hardening + typed planner analytics.

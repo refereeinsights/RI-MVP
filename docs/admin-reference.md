@@ -258,6 +258,23 @@ Admin API endpoints under `apps/referee/app/api/admin/**`. All use `supabaseAdmi
 - `/api/admin/venues/[id]/owls-eye/nearby` → nearby places lookup for a venue
 - `/api/admin/venues/[id]/refresh-coordinates` → re-geocode a venue
 - `/api/admin/venues/address-verify` → address verification (external API)
+
+---
+
+## TI Weekend Planner (internal reference)
+
+User-facing planner route:
+- `/weekend-planner` (TI app)
+
+Connected calendar sources (TI):
+- `GET /api/planner/sources` → list connected calendar sources (ICS)
+- `POST /api/planner/sources/import-ics` → connect an ICS/iCal feed
+- `POST /api/planner/sources/[id]/refresh` → refresh a connected feed
+- `PATCH /api/planner/sources/[id]` → update connected source label (`source_name`, single-line)
+
+Planner UI files:
+- `apps/ti-web/app/_components/planner/PlannerClient.tsx` (Connected calendars, label edit UI, list view display)
+- `apps/ti-web/app/_components/planner/PlannerCalendar.tsx` (calendar detail shows source label)
 - `/api/admin/venues/bulk-delete` → bulk venue delete
 - `/api/admin/venues/copy` → copy/clone a venue record
 - `/api/admin/venues/duplicate-overrides` → manage duplicate override flags

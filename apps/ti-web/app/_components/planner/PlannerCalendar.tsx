@@ -21,6 +21,7 @@ type Props = {
   allSourceIds: string[];
   hasMore: boolean;
   activeTimezone: string;
+  sourceLabelById: Record<string, string>;
   onTimezoneChange: (tz: string) => void;
   entitlement: "explorer" | "insider" | "weekend_pro" | "unknown";
 };
@@ -80,6 +81,18 @@ export default function PlannerCalendar(props: Props) {
   }, [detail.eventId, detail.open, props.events]);
 
   const calendarTz = isValidIanaTimeZone(props.activeTimezone) ? props.activeTimezone : "UTC";
+  function fallbackSourceLabel() {
+    return "Connected calendar";
+  }
+
+  function labelForEventSource(e: PlannerEventRow) {
+    if (String(e.source_type ?? "") !== "ics") return "Manual event";
+    const sid = String((e as any)?.source_id ?? "").trim();
+    if (!sid) return fallbackSourceLabel();
+    const label = String((props.sourceLabelById as any)?.[sid] ?? "").trim();
+    return label || fallbackSourceLabel();
+  }
+
   const allSourceIds = useMemo(
     () => Array.from(new Set((props.allSourceIds ?? []).map((id) => String(id ?? "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
     [props.allSourceIds]
@@ -450,7 +463,7 @@ export default function PlannerCalendar(props: Props) {
             </div>
 
             <div className={styles.eventDetailSource}>
-              Source: {String(detailEvent.source_type ?? "") === "ics" ? "Calendar source" : "Manual"}
+              Source: {labelForEventSource(detailEvent)}
             </div>
           </div>
         </div>

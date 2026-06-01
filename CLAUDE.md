@@ -199,6 +199,30 @@ Account requirement:
 - If connecting more than 1 calendar feed (example: 12 schedules), use a **verified `weekend_pro`** UAT account.
   - `insider` is limited to 1 connected calendar feed (server-enforced).
 
+### Stage 2.9B-0 UAT (feed labels / kid-team-sport prep)
+
+Goal: make imported events understandable **before** importing many Sports Family feeds by labeling each connected calendar.
+
+Checklist:
+- [ ] Label editing:
+  - [ ] Open `/weekend-planner` → Connected calendars → **Manage calendars**
+  - [ ] Click **Edit label** on a connected calendar
+  - [ ] Enter a one-line label (example: `Avery Sports · Baseball · TI Owls 12U · GameChanger`)
+  - [ ] Save, refresh the page, confirm the label persists
+- [ ] Fallback:
+  - [ ] Clear the label and confirm UI shows `Connected calendar` (not blank) for that source
+- [ ] List display:
+  - [ ] Imported events show the source label (or fallback) on the event card
+  - [ ] Manual events show “Manual event”
+  - [ ] Event title remains visible; conflicts/duplicates still render
+- [ ] Calendar detail:
+  - [ ] Season → Calendar view event detail shows the source label (or fallback)
+- [ ] Privacy:
+  - [ ] No raw source IDs, feed URLs, UUIDs, or `source_event_uid` appear in normal UI
+- [ ] Entitlements:
+  - [ ] Insider 1-feed limit still enforced
+  - [ ] Weekend Pro can connect multiple feeds
+
 ### Weekend Planner (/weekend-planner) — Manual Events
 
 Login as UAT Planner A.

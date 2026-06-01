@@ -447,6 +447,11 @@ export default function PlannerClient(props: Props) {
   const [busy, setBusy] = useState(false);
   const [sourcesBusy, setSourcesBusy] = useState(false);
 
+  const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
+  const [editingSourceLabel, setEditingSourceLabel] = useState("");
+  const [savingSourceLabel, setSavingSourceLabel] = useState(false);
+  const [sourceLabelError, setSourceLabelError] = useState<string | null>(null);
+
   const [scheduleView, setScheduleView] = useState<ScheduleView>("upcoming");
   const [seasonRange, setSeasonRange] = useState<SeasonRangePreset>("6mo");
   const [seasonFilter, setSeasonFilter] = useState<SeasonFilter>("all");
@@ -1011,6 +1016,16 @@ export default function PlannerClient(props: Props) {
     return m;
   }, [sources]);
 
+  const sourceLabelById = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const s of sources) {
+      const id = String(s.id ?? "").trim();
+      if (!id) continue;
+      out[id] = displayLabelForSource(s);
+    }
+    return out;
+  }, [sources]);
+
   const canConnectAnotherCalendar = useMemo(() => {
     if (busy) return false;
     if (isUnverified) return false;
@@ -1061,13 +1076,53 @@ export default function PlannerClient(props: Props) {
 	    return detectLoadedEventConflicts(eventsForScheduleView);
 	  }, [eventsForScheduleView]);
 
+  function sourceLabelFallback() {
+    return "Connected calendar";
+  }
+
+  function safeSourceLabel(value: string | null | undefined) {
+    const v = String(value ?? "").replace(/\s+/g, " ").trim();
+    return v || null;
+  }
+
+  function displayLabelForSource(s: PlannerSourceRow | null | undefined) {
+    if (!s) return sourceLabelFallback();
+    return safeSourceLabel(s.source_name) || safeSourceLabel(s.team_name) || sourceLabelFallback();
+  }
+
   function candidateLabelForSource(e: PlannerEventRow) {
     if (String(e.source_type ?? "") === "ics") {
       const sid = String(e.source_id ?? "").trim();
       const s = sid ? sourcesById.get(sid) : null;
-      return s?.source_name || s?.team_name || "Imported calendar";
+      return displayLabelForSource(s);
     }
     return "Manual event";
+  }
+
+  function labelForImportedEvent(e: PlannerEventRow) {
+    const sid = String((e as any)?.source_id ?? "").trim();
+    const s = sid ? sourcesById.get(sid) : null;
+    return displayLabelForSource(s);
+  }
+
+  async function onSaveSourceLabel(sourceId: string) {
+    if (busy || savingSourceLabel) return;
+    setSourceLabelError(null);
+    setSavingSourceLabel(true);
+    try {
+      const res = await jsonFetch<{ ok: true; source: PlannerSourceRow }>(
+        `/api/planner/sources/${encodeURIComponent(sourceId)}`,
+        { method: "PATCH", body: JSON.stringify({ source_name: editingSourceLabel }) }
+      );
+      setSources((prev) => prev.map((s) => (String(s.id) === String(sourceId) ? { ...s, ...res.source } : s)));
+      setEditingSourceId(null);
+      setEditingSourceLabel("");
+    } catch (e: any) {
+      const msg = String(e?.message ?? "Failed to save label.");
+      setSourceLabelError(msg === "label_too_long" ? "Label is too long (max 140 characters)." : msg);
+    } finally {
+      setSavingSourceLabel(false);
+    }
   }
 
   function formatDuplicateReasons(reasons: PlannerDuplicateReason[]) {
@@ -1752,9 +1807,9 @@ export default function PlannerClient(props: Props) {
                 allowCombine: Boolean(notesA) && Boolean(notesB),
               })
             );
-          }
+  }
 
-          return (
+  return (
             <div
               role="dialog"
               aria-modal="true"
@@ -2354,6 +2409,7 @@ export default function PlannerClient(props: Props) {
               allSourceIds={seasonAllSourceIds}
               hasMore={eventsHasMore}
               activeTimezone={seasonCalendarTimeZone}
+              sourceLabelById={sourceLabelById}
               entitlement={entitlementForAnalytics}
               onTimezoneChange={(z: string) => {
                 trackPlannerEvent("planner_calendar_timezone_changed", {
@@ -2405,7 +2461,7 @@ export default function PlannerClient(props: Props) {
                           {String(e.source_type || "") === "ics" || String((e as any)?.source_event_uid ?? "").trim() ? (
                             <span className={styles.muted} style={{ fontWeight: 900 }}>
                               {" "}
-                              · Synced from calendar
+                              · {labelForImportedEvent(e)}
                             </span>
                           ) : null}
                           {conflictCount ? <span className={styles.eventConflictBadge}>Schedule conflict</span> : null}
@@ -3134,19 +3190,78 @@ export default function PlannerClient(props: Props) {
 			          </div>
 			        ) : null}
 
-	        {calendarsOpen ? (
+			        {calendarsOpen ? (
 	          <>
 	            {sourcesBusy ? <div className={styles.muted} style={{ marginTop: 10 }}>Loading…</div> : null}
 	            {!sourcesBusy && sources.length > 0 ? (
 		              <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
 		                {sources.map((s) => (
 		                  <div key={s.id} className={styles.eventItem}>
-		                    <div className={styles.eventTitle}>{s.source_name || "Imported calendar"}</div>
+		                    <div className={styles.eventTitle}>{displayLabelForSource(s)}</div>
 		                    <div className={styles.eventMeta}>
 		                      {s.team_name ? `${s.team_name} · ` : ""}
 		                      {formatSourceStatusLabel(s)}
 		                      {s.last_synced_at ? ` · Last synced ${new Date(s.last_synced_at).toLocaleString()}` : ""}
 		                    </div>
+                        <div className={styles.eventActions} style={{ marginTop: 10 }}>
+                          {editingSourceId === s.id ? (
+                            <>
+                              <input
+                                className={styles.input}
+                                value={editingSourceLabel}
+                                onChange={(e) => setEditingSourceLabel(e.target.value)}
+                                placeholder="Avery Sports · Baseball · TI Owls 12U · GameChanger"
+                                maxLength={140}
+                                disabled={busy || savingSourceLabel}
+                              />
+                              <button
+                                className={styles.primaryBtn}
+                                type="button"
+                                onClick={() => void onSaveSourceLabel(s.id)}
+                                disabled={busy || savingSourceLabel}
+                              >
+                                Save label
+                              </button>
+                              <button
+                                className={styles.secondaryBtn}
+                                type="button"
+                                onClick={() => {
+                                  if (busy || savingSourceLabel) return;
+                                  setEditingSourceId(null);
+                                  setEditingSourceLabel("");
+                                  setSourceLabelError(null);
+                                }}
+                                disabled={busy || savingSourceLabel}
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className={styles.secondaryBtn}
+                              type="button"
+                              onClick={() => {
+                                if (busy) return;
+                                setSourceLabelError(null);
+                                setEditingSourceId(s.id);
+                                setEditingSourceLabel(safeSourceLabel(s.source_name) ?? "");
+                              }}
+                              disabled={busy}
+                            >
+                              Edit label
+                            </button>
+                          )}
+                        </div>
+                        {editingSourceId === s.id ? (
+                          <div className={styles.muted} style={{ marginTop: 6 }}>
+                            One-line label only. If left blank, planner shows “{sourceLabelFallback()}”.
+                          </div>
+                        ) : null}
+                        {editingSourceId === s.id && sourceLabelError ? (
+                          <div className={styles.eventMeta} style={{ color: "#b91c1c", fontWeight: 900 }}>
+                            {sourceLabelError}
+                          </div>
+                        ) : null}
 		                    {staleLabel(s.last_synced_at) && String(s.sync_status || "").toLowerCase() !== "error" ? (
 		                      <div className={styles.eventMeta} style={{ fontWeight: 800 }}>
 		                        {staleLabel(s.last_synced_at)} Refresh schedule to check for updates.
