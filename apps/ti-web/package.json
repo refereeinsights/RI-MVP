@@ -8,7 +8,7 @@
     "prebuild": "node scripts/copy-shared-svg-local.js",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "next lint --quiet",
     "seed:test-users": "tsx scripts/seed_test_users.ts",
     "seed:smoke-users": "tsx scripts/seed_smoke_test_users.ts"
   },
