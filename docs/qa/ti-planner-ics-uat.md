@@ -74,10 +74,53 @@ Important:
 - Many “platforms” do not host ICS directly; they may require exporting to a calendar client or generating a subscription link.
 - Calendar relays/clients (Google/Apple/Outlook) can re-emit ICS and may change UID/metadata behavior. Track these separately.
 
+## Stage 2.9B-1A — Single Team Connect Feed Baseline UAT
+
+### Team Connect / Team App — TI Owls 15U
+
+- Feed label: `SC-Casey`
+- Platform: Team Connect / Team App
+- Team: `TI Owls 15U`
+- Feed status: Imported
+- Baseline import: Passed
+- Full season loaded: Yes
+- Repeated refresh test: Passed
+- Refresh attempts: 3
+- Duplicate storm observed: No
+- Manual refresh required: Yes
+- Re-import required: No so far
+- Update test status: Pending source feed update
+- Action taken in source platform: Changed Practice A time/location
+- Update delay observed: Pending
+- Updated existing event after refresh: Pending
+- Duplicate created after update: Pending
+- Location update reflected: Pending
+- Local overlay preserved: Pending / not yet tested
+- Cancel/delete test: Pending
+- Notes: Waiting for Team Connect feed to publish the source change. Continue refreshing periodically before deciding whether re-import is required.
+
+#### Refresh attempt log
+
+| Timestamp | Action | Result | Updated existing event? | Duplicate created? | Location updated? | Notes |
+|---|---|---|---|---|---|---|
+| TBD | Baseline import | Passed | N/A | No | N/A | Full season loaded |
+| TBD | Manual refresh #1 | Passed | Pending | No | Pending | No duplicate storm |
+| TBD | Manual refresh #2 | Passed | Pending | No | Pending | No duplicate storm |
+| TBD | Manual refresh #3 | Passed | Pending | No | Pending | No duplicate storm |
+| TBD | Practice A changed in source platform | Waiting for feed publish | Pending | Pending | Pending | Refresh periodically |
+
+#### Privacy note (feeds)
+
+- Treat real calendar subscription URLs as private secrets (often tokenized).
+- Do not commit raw private feed URLs to the repo.
+- Public docs/screenshots should redact tokenized URLs.
+- Do not expose feed URLs or `source_event_uid` in normal UI or analytics.
+
 ### Source platforms (not yet tested)
 
 | Platform | Sports Family alias | Subscription URL available? | Feed type | Requires login cookies? | UID stability | SEQUENCE present? | LAST-MODIFIED present? | DTSTAMP present? | Cancel semantics observed | Missing/deleted semantics observed | Recurrence behavior observed | Location quality | Notes/description quality | Baseline import result | Update result | Cancel/delete result | Overlay preservation result | Known quirks | Recommendation |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Team Connect / Team App | TI Owls 15U / SC-Casey | yes (private/tokenized) | unknown | unknown | pending | pending | pending | pending | pending | pending | pending | present | pending | passed | pending | pending | pending | source feed update delay under observation | active UAT — supported with caveats pending update/cancel tests |
 | GameChanger |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | TeamSnap |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | SportsEngine / MySE |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |

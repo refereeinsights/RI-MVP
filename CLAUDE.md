@@ -223,6 +223,23 @@ Checklist:
   - [ ] Insider 1-feed limit still enforced
   - [ ] Weekend Pro can connect multiple feeds
 
+### Stage 2.9B-1A UAT (Team Connect feed update log)
+
+Active feed: Team Connect / Team App — `TI Owls 15U` (label: `SC-Casey`).
+
+Docs:
+- `docs/qa/ti-planner-ics-uat.md` → “Stage 2.9B-1A — Single Team Connect Feed Baseline UAT”
+
+Validate:
+- [ ] Full season imported (events visible in Season).
+- [ ] Refresh schedule 3x; confirm no “duplicate storm”.
+- [ ] Pending: after Practice A time/location change publishes in source feed:
+  - [ ] Refresh and confirm existing event updates in place (or document behavior).
+  - [ ] Confirm whether a duplicate is created.
+  - [ ] Confirm location update reflects.
+- [ ] Pending: add a local overlay (note or venue link), refresh, confirm overlay preserved.
+- [ ] Pending: cancel/delete a source event, refresh, document behavior.
+
 ### Weekend Planner (/weekend-planner) — Manual Events
 
 Login as UAT Planner A.
