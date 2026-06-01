@@ -219,7 +219,7 @@ Admin page routes are implemented as `page.tsx` under `apps/referee/app/admin/**
 **Tournaments:**
 - `/admin/tournaments/dashboard` → `apps/referee/app/admin/tournaments/dashboard/page.tsx` — tournament health/validation summary
 - `/admin/tournaments/enrichment` → `apps/referee/app/admin/tournaments/enrichment/page.tsx` — tournament enrichment queue and runner
-- `/admin/tournaments/missing-venues` → `apps/referee/app/admin/tournaments/missing-venues/page.tsx` — tournaments without venue links
+- `/admin/tournaments/missing-venues` → `apps/referee/app/admin/tournaments/missing-venues/page.tsx` — tournaments without confirmed venue links (includes read-only venue candidate expansion from `tournament_venue_candidates`)
 - `/admin/tournaments/discover-to-queue` → `apps/referee/app/admin/tournaments/discover-to-queue/page.tsx` — feed discovery → queue workflow
 - `/admin/tournaments/sources` → `apps/referee/app/admin/tournaments/sources/page.tsx` — tournament source management
 - `/admin/tournaments/sources/discover` → `apps/referee/app/admin/tournaments/sources/discover/page.tsx` — source discovery runner

@@ -291,12 +291,23 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
   }
 
   const bestVenueByTournament = new Map<string, VenueCandidate>();
+  const allVenueCandidatesByTournament = new Map<string, VenueCandidate[]>();
   for (const row of ((venueCandidatesResp.data ?? []) as VenueCandidate[]).filter((r) => r.tournament_id)) {
     const tid = String(row.tournament_id);
+    const arr = allVenueCandidatesByTournament.get(tid) ?? [];
+    arr.push(row);
+    allVenueCandidatesByTournament.set(tid, arr);
+
     const existing = bestVenueByTournament.get(tid);
     const existingScore = existing?.confidence ?? -1;
     const nextScore = row.confidence ?? 0;
     if (!existing || nextScore > existingScore) bestVenueByTournament.set(tid, row);
+  }
+  for (const [tid, list] of allVenueCandidatesByTournament.entries()) {
+    const sorted = list
+      .slice()
+      .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0) || String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+    allVenueCandidatesByTournament.set(tid, sorted);
   }
 
   const venueStatsByTournament = new Map<
@@ -483,6 +494,7 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                 const loc = [t.city, t.state].filter(Boolean).join(", ") || "—";
                 const bestAttr = bestAttrByTournament.get(t.id) ?? {};
                 const bestVenue = bestVenueByTournament.get(t.id) ?? null;
+                const allVenueCandidates = allVenueCandidatesByTournament.get(t.id) ?? [];
                 const addressCandidate = (bestAttr as any).address as AttrCandidate | undefined;
                 const venueUrlCandidate = (bestAttr as any).venue_url as AttrCandidate | undefined;
                 const venueStats = venueStatsByTournament.get(t.id) ?? null;
@@ -643,6 +655,79 @@ export default async function MissingVenuesPage({ searchParams }: { searchParams
                             ? `${trunc(venueUrlCandidate.attribute_value, 44)} (${(venueUrlCandidate.confidence ?? 0).toFixed(2)})`
                             : "—"}
                         </div>
+                        {allVenueCandidates.length ? (
+                          <details style={{ marginTop: 4 }}>
+                            <summary style={{ cursor: "pointer", fontSize: 12, color: "#1d4ed8", fontWeight: 700 }}>
+                              All venue candidates ({allVenueCandidates.length})
+                            </summary>
+                            <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                              {allVenueCandidates.slice(0, 12).map((cand, idx) => {
+                                const reason = reasonFromEvidence(cand.evidence_text) ?? "unknown";
+                                const label = `${trunc(clean(cand.venue_name) ?? "—", 40)} (${(cand.confidence ?? 0).toFixed(2)})`;
+                                return (
+                                  <div
+                                    key={`${t.id}:${idx}:${String(cand.created_at ?? "")}`}
+                                    style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 10px" }}
+                                  >
+                                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                                      <span style={{ fontWeight: 800, color: "#111827", fontSize: 12 }}>{label}</span>
+                                      <span
+                                        style={{
+                                          fontSize: 11,
+                                          padding: "1px 6px",
+                                          borderRadius: 999,
+                                          border: "1px solid #e5e7eb",
+                                          background: "#f8fafc",
+                                          color: "#334155",
+                                          fontWeight: 700,
+                                        }}
+                                        title={reason}
+                                      >
+                                        {reason.replaceAll("_", " ")}
+                                      </span>
+                                      {cand.created_at ? (
+                                        <span style={{ fontSize: 11, color: "#64748b" }}>{shortWhen(cand.created_at) ?? "—"}</span>
+                                      ) : null}
+                                    </div>
+                                    {hasText(cand.address_text) ? (
+                                      <div style={{ marginTop: 4, fontSize: 12, color: "#334155" }}>{trunc(clean(cand.address_text), 90)}</div>
+                                    ) : null}
+                                    <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
+                                      {hasText(cand.source_url) ? (
+                                        <a
+                                          href={String(cand.source_url)}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          style={{ fontSize: 12, color: "#1d4ed8", textDecoration: "none" }}
+                                        >
+                                          Source
+                                        </a>
+                                      ) : null}
+                                      {hasText(cand.venue_url) ? (
+                                        <a
+                                          href={String(cand.venue_url)}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          style={{ fontSize: 12, color: "#1d4ed8", textDecoration: "none" }}
+                                        >
+                                          Venue URL
+                                        </a>
+                                      ) : null}
+                                    </div>
+                                    {hasText(cand.evidence_text) ? (
+                                      <div style={{ marginTop: 6, fontSize: 11, color: "#475569" }}>{trunc(clean(cand.evidence_text), 140)}</div>
+                                    ) : null}
+                                  </div>
+                                );
+                              })}
+                              {allVenueCandidates.length > 12 ? (
+                                <div style={{ fontSize: 11, color: "#64748b" }}>
+                                  Showing 12 of {allVenueCandidates.length}. Use the enrichment queue for full detail.
+                                </div>
+                              ) : null}
+                            </div>
+                          </details>
+                        ) : null}
                       </div>
                     </td>
                     <td style={{ padding: "10px 12px" }}>

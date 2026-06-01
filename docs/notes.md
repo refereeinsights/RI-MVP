@@ -3892,3 +3892,8 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Server enforces the 1-feed limit in `POST /api/planner/sources/import-ics` using `getTiTierServer()`; unverified users receive `email_verification_required`.
   - No changes to duplicates, merge, cleanup, or conflict highlighting in this safe v1.x.
   - Files: `apps/ti-web/app/api/planner/sources/import-ics/route.ts`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/weekend-planner/page.tsx`, `docs/admin-reference.md`, `CLAUDE.md`.
+
+- 2026-06-01: Venue leads (step 1, read-only) — expand `tournament_venue_candidates` on Missing Venues admin page.
+  - Added a read-only “All venue candidates” expander per tournament to view multiple `tournament_venue_candidates` rows (confidence, reason code, evidence, source URL) without accepting/rejecting.
+  - Route: `/admin/tournaments/missing-venues`.
+  - Files: `apps/referee/app/admin/tournaments/missing-venues/page.tsx`, `docs/admin-reference.md`.
