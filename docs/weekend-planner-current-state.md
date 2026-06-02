@@ -586,7 +586,7 @@ Do not claim platform support before feed behavior is verified.
 
 ### Stage 2.9C — Source Identity Hardening Follow-Ups
 
-Status: ready-to-execute; prompted with 2.9C follow-up scope.
+Status: in-flight; Stage 2.9C follow-up currently has completed the temporary missing-source retention check for SportsEngine/MySE.
 
 Prompt:
 - `docs/prompts/ti-planner-stage-2.9c-source-identity-hardening-followups.md`
@@ -608,6 +608,7 @@ Current active open items carried into 2.9C:
 - F3 at-limit behavior still should show upgrade path before modal import.
 - Source name fallback stability (`Connected calendar`) needs final policy.
 - Hard-delete behavior on source cancel/delete remains unverified after real-feed baseline.
+- Missing-source handling behavior is now observed as retention during temporary source disable (events remained, no timestamp churn).
 
 Non-goals:
 

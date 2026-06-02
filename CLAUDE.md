@@ -338,7 +338,7 @@ Latest Stage 2.9B-2 run (2026-06-02, `weekendpro_test@example.com`, TI Owls 12U,
 - Open to close in 2.9C/F3 and follow-up:
   - Confirm hard-delete policy / retention for cancellation/removal vs source source removal.
   - F3 gate still opens modal as 4th feed on Insider (pre-existing issue).
-  - Missing-source behavior (source disabled/removal) still not yet tested in this pass.
+  - Missing-source behavior (source disabled/removal) was executed once: stale events remained and `last_synced_at` did not advance while source was disabled.
 
 ### Stage 2.9C UAT (Source identity hardening follow-ups)
 
@@ -353,11 +353,11 @@ Validate:
 - [ ] F3 limit gate behavior: Insider already-at-limit should surface upgrade prompt and not import modal.
 - [ ] Server-side limit enforcement: bypass paths still return `calendar_feed_limit_reached`.
 - [ ] Source name fallback and source color stability across runs (GC/TeamSnap + additional platforms when available).
-- [ ] Cancel/delete (and missing-in-feed) behavior is documented as non-destructive or intentionally constrained.
+- [x] Cancel/delete (and missing-in-feed) behavior is documented as retained events on source disable.
 - [ ] Overlay + linked venue persistence after cancel/delete and repeated refresh.
 - [ ] Loaded disclosure + privacy guardrails remain intact.
 
-Latest 2.9C follow-up note: 2.9C-4 SE run completed locally for update/move, cancel/delete presence, and `/account/logout`; remaining 2.9C items are F3 UX, hard-delete policy certainty, and missing-source handling.
+Latest 2.9C follow-up note: 2.9C-4 SE run completed locally for update/move, cancel/delete presence, and `/account/logout`; remaining 2.9C items are F3 UX and hard-delete policy certainty. Missing-source behavior is now observed as non-destructive retention for the temporary disable-path.
 
 ### Weekend Planner (/weekend-planner) — Manual Events
 

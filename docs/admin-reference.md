@@ -175,18 +175,19 @@ Current note: Stage 2.10 implemented (2026-06-02).
 
 - Purpose: baseline SportsEngine/MySE ICS import/update behavior with explicit source/team labeling and refresh semantics.
 - Run artifact: `docs/qa/ti-planner-ics-uat.md`
-- Current state: partial PASS on TI Red Robbins; update/move, cancel/delete, and F3 gate edge behavior still pending.
+- Current state: partial PASS on TI Red Robbins; update/move/cancel/delete observed with no hard-delete, and temporary missing-source path shows event retention (no source URL restore done yet).
 
 ## TI Planner (Stage 2.9C — Source Identity Hardening)
 
 - Purpose: close remaining 2.9B hardening gaps before wider platform claims.
 - Prompt: `docs/prompts/ti-planner-stage-2.9c-source-identity-hardening-followups.md`
-- Current state: ready-to-run.
+- Current state: in-flight (running 2.9C-4 follow-up).
 - Includes:
   - F3 limit-gate consistency checks (UI + API),
   - source label/fallback and color stability,
   - cancel/delete and missing-source behavior in real feeds,
   - optional SportsEngine/MySE follow-up if access is available.
+- 2.9C-4 latest result: missing-source path validated as retention (events remain visible after temporary source-disable); hard-delete certainty still pending.
 - Evidence target: `docs/qa/ti-planner-ics-uat.md`.
 
 ## TI Planner (Stage 2.1 — Local-first venue-aware polish)
