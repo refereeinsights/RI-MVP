@@ -16,6 +16,13 @@ Maintenance rules:
 
 - TI weather API hardening:
   - Fixed Next.js fetch cache options conflict in `apps/ti-web/app/api/weather/ten-day/route.ts` by removing `cache: "force-cache"` and keeping `next: { revalidate: ... }` in server-side `fetch`, eliminating the runtime warning during `GET /api/weather/ten-day`.
+- TI Planner Stage 2.10:
+  - Added linked-venue metadata hydration from `venues_public` in planner event reads/writes:
+    `GET /api/planner/events`, `PATCH /api/planner/events/[id]`, `POST /api/planner/events`, and SSR planner page load in `apps/ti-web/app/weekend-planner/page.tsx`.
+  - Added list + calendar UI consumption of linked venue display (`Venue Name · address · city, state`) with fallback to existing address text.
+  - Map action and duplicate-merge preview now reuse linked venue display text when available.
+- Documentation updates for Stage 2.10:
+  - Updated `CLAUDE.md`, `docs/weekend-planner-current-state.md`, and `docs/admin-reference.md` with Stage 2.10 execution notes.
 
 ## 2026-05-31
 

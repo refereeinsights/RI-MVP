@@ -12,6 +12,7 @@ import SavedTournamentActionsClient from "./SavedTournamentActionsClient";
 import { getActivePlansForUser } from "@/lib/weekendPlans";
 import WeekendPlanActionsClient from "./WeekendPlanActionsClient";
 import type { PlannerEventRow } from "@/lib/planner/types";
+import { enrichPlannerEventsWithLinkedVenue } from "@/lib/planner/enrichVenueMetadata";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -85,7 +86,9 @@ export default async function WeekendPlannerPage() {
       .order("starts_at", { ascending: true })
       .limit(250);
 
-    plannerEvents = (error ? [] : (data ?? [])) as PlannerEventRow[];
+    plannerEvents = error
+      ? []
+      : await enrichPlannerEventsWithLinkedVenue(supabase, ((data ?? []) as PlannerEventRow[]) as any);
   }
 
   let activePlans: WeekendPlanRow[] = [];

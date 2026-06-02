@@ -13,6 +13,18 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-06-02
+
+- TI planner (Stage 2.10): venue metadata hydration for linked events.
+  - Added shared planner event enrichment helper: `apps/ti-web/lib/planner/enrichVenueMetadata.ts`.
+  - Enrichment is now applied in:
+    - `GET /api/planner/events`
+    - `POST /api/planner/events`
+    - `PATCH /api/planner/events/[id]`
+    - `GET /weekend-planner` server render.
+  - List and calendar views now render linked venue-friendly location lines and use linked location for map action + merge-preview context.
+  - Docs aligned with this change in `CLAUDE.md`, `docs/weekend-planner-current-state.md`, and `docs/admin-reference.md`.
+
 ## 2026-06-01
 
 - Weekend Planner (Stage 2.9B-0) — connected calendar feed labels.

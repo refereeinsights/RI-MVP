@@ -98,7 +98,7 @@ Routes:
 - Canonical Weekend Planner app: https://www.tournamentinsights.com/weekend-planner
 - Compatibility alias: https://www.tournamentinsights.com/planner (should redirect)
 
-### Weekend Planner Current State (post Stage 2.7)
+### Weekend Planner Current State (post Stage 2.10)
 
 Canonical snapshot: `docs/weekend-planner-current-state.md`.
 
@@ -184,6 +184,13 @@ Alternative approach (temporary / for one-off verification):
   - Revert by setting it back to a timestamp after testing.
 
 If no unverified fixture exists, Stage 2.8 sign-off must treat this as an **open item**.
+
+### Stage 2.10 UAT (venue metadata hydration)
+
+- [x] In event list views, imported/manual events with `venue_id` and linked venue metadata show a venue-friendly line (`Venue Name · address · city, state`) instead of only raw address fields.
+- [x] Calendar detail panel shows the same venue-friendly location text from list view.
+- [x] Opening Map for a venue-linked event uses the linked venue location/text.
+- [x] Refreshing a source and reloading preserves venue display (no raw IDs exposed).
 
 ---
 

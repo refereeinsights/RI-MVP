@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { isUuid } from "@/lib/venues/isUuid";
 import type { PlannerEventCreateBody } from "@/lib/planner/types";
+import { enrichPlannerEventsWithLinkedVenue } from "@/lib/planner/enrichVenueMetadata";
 
 export const runtime = "nodejs";
 
@@ -166,7 +167,8 @@ export async function POST(req: Request) {
     .single();
 
   if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
-  return NextResponse.json({ ok: true, event: data });
+  const [event] = await enrichPlannerEventsWithLinkedVenue(supabase, [data as any]);
+  return NextResponse.json({ ok: true, event });
 }
 
 export async function GET(req: Request) {
@@ -344,9 +346,18 @@ export async function GET(req: Request) {
   }
 
   const out = visible.slice(0, limit).map(normalizeSourceType);
+  const enriched = await enrichPlannerEventsWithLinkedVenue(supabase, out as any[]);
   const hasMore = visible.length > limit || scanCapHit ? true : !rawExhausted ? true : false;
   const nextCursor = hasMore && out.length ? { starts_at: String(out[out.length - 1].starts_at), id: String(out[out.length - 1].id) } : null;
+  const lastOut = enriched.length ? enriched[enriched.length - 1] : null;
 
   // Back-compat: keep `truncated` for existing disclosure logic; map to hasMore.
-  return NextResponse.json({ ok: true, events: out, limit, hasMore, nextCursor, truncated: hasMore });
+  return NextResponse.json({
+    ok: true,
+    events: enriched,
+    limit,
+    hasMore,
+    nextCursor: hasMore && lastOut ? ({ starts_at: String(lastOut.starts_at), id: String(lastOut.id) } as { starts_at: string; id: string }) : null,
+    truncated: hasMore,
+  });
 }

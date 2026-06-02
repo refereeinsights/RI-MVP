@@ -93,6 +93,17 @@ export default function PlannerCalendar(props: Props) {
     return label || fallbackSourceLabel();
   }
 
+  function locationForEvent(e: PlannerEventRow) {
+    const venue = e.linkedVenue ?? null;
+    const name = String(venue?.name ?? "").trim();
+    const address = String(venue?.address ?? "").trim();
+    const cityState = [venue?.city, venue?.state].filter(Boolean).map((v) => String(v ?? "").trim()).filter(Boolean).join(", ");
+    if (name || address || cityState) {
+      return [name, address, cityState].filter(Boolean).join(" · ");
+    }
+    return [e.address_text, e.city, e.state].map((v) => String(v ?? "").trim()).filter(Boolean).join(", ");
+  }
+
   const allSourceIds = useMemo(
     () => Array.from(new Set((props.allSourceIds ?? []).map((id) => String(id ?? "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
     [props.allSourceIds]
@@ -454,9 +465,9 @@ export default function PlannerCalendar(props: Props) {
               </div>
 
               {(() => {
-                const parts = [detailEvent.address_text, detailEvent.city, detailEvent.state].map((v) => String(v ?? "").trim()).filter(Boolean);
-                if (!parts.length) return null;
-                return <div className={styles.eventDetailMeta}>{parts.join(", ")}</div>;
+                const parts = locationForEvent(detailEvent);
+                if (!parts) return null;
+                return <div className={styles.eventDetailMeta}>{parts}</div>;
               })()}
 
               {detailEvent.notes ? <div className={styles.eventDetailNotes}>{detailEvent.notes}</div> : null}

@@ -1,6 +1,6 @@
-# Weekend Planner — Current State (Post Stage 2.8)
+# Weekend Planner — Current State (Post Stage 2.10)
 
-This document is the durable snapshot of what the TI Weekend Planner is today (as of Stage 2.8), what is gated by entitlement, what must not regress, and what is intentionally deferred.
+This document is the durable snapshot of what the TI Weekend Planner is today (as of Stage 2.10), what is gated by entitlement, what must not regress, and what is intentionally deferred.
 
 Primary UAT runner: `CLAUDE.md` (Claude Desktop). UAT framework + production-safe cleanup: `docs/weekend-planner-uat.md`. ICS/iCal checklist: `docs/qa/ti-planner-ics-uat.md`.
 
@@ -30,7 +30,7 @@ Other TI surfaces related to weekend planning:
 
 ---
 
-## Completed Planner Stages Through 2.8
+## Completed Planner Stages Through 2.10
 
 Source prompts live in `docs/prompts/`.
 
@@ -77,6 +77,10 @@ Source prompts live in `docs/prompts/`.
 - **Stage 2.8 — UAT findings polish + launch readiness**
   - Fixes small UAT trust/clarity issues without changing planner semantics.
   - Adds/updates UAT checklists (notably in `CLAUDE.md`) and reinforces “no dead primary actions”.
+- **Stage 2.10 — Venue metadata hydration (linked-venue display)**
+  - Planner events now enrich optional `linkedVenue` metadata from `venues_public` in `GET /api/planner/events`, `PATCH /api/planner/events/[id]`, `POST /api/planner/events`, and `/weekend-planner` server-side render.
+  - List cards and calendar detail render linked venue name/address/city/state (`Venue Name · Address · City, State`) when available, with fallback to existing address text.
+  - Venue-linked events now reuse linked location text for map and duplicate-merge previews.
 
 ---
 
@@ -275,6 +279,14 @@ Scope:
 
 Non-goals for 2.9A–2.9C:
 - OAuth/scraping/private credential storage
+
+### Stage 2.10 — Venue metadata hydration + display parity (implemented)
+- Scope:
+  - server-side event payload enrichment for `linkedVenue` from `venues_public`;
+  - list/calendar UI uses linked venue metadata when present, with fallback to existing `address_text/city/state`;
+  - linked venue persists during edit and duplicate merge preview rendering.
+- Prompt:
+  - Noted as a Stage 2.10 implementation in this repository.
 
 ---
 

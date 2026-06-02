@@ -635,14 +635,25 @@ export default function PlannerClient(props: Props) {
 
   const effectiveTimeZoneForEvent = (e: PlannerEventRow) => safeTimeZone(e.timezone) || tz || "UTC";
   const locationTextForEvent = (e: PlannerEventRow) => [e.address_text, e.city, e.state].filter(Boolean).join(", ").trim();
+  const venueLabelForEvent = (e: PlannerEventRow) => {
+    const venue = e.linkedVenue ?? null;
+    const name = String(venue?.name ?? "").trim();
+    const address = String(venue?.address ?? "").trim();
+    const cityState = [venue?.city, venue?.state].filter(Boolean).map((v) => String(v ?? "").trim()).filter(Boolean).join(", ");
+    if (name || address || cityState) {
+      return [name, address, cityState].filter(Boolean).join(" · ");
+    }
+    return locationTextForEvent(e);
+  };
+  const venueDisplayLineForEvent = (e: PlannerEventRow) => (venueLabelForEvent(e) || "").trim();
   const mapsUrlForEvent = (e: PlannerEventRow) => {
-    const loc = locationTextForEvent(e);
+    const loc = venueDisplayLineForEvent(e);
     if (!loc) return null;
     return mapsSearchUrl(loc);
   };
 
   function openMapForEvent(e: PlannerEventRow) {
-    const loc = locationTextForEvent(e);
+    const loc = venueDisplayLineForEvent(e);
     if (!loc) return;
 
     trackPlannerEvent("planner_map_view_opened", {
@@ -1287,7 +1298,16 @@ export default function PlannerClient(props: Props) {
     setEditEndTime(endParts.time);
     setEditEndWasAuto(!endParts.date && !endParts.time);
     setEditVenueId(e.venue_id ?? "");
-    setEditSelectedVenue(null);
+    const linkedVenueForEdit = e.venue_id && e.linkedVenue
+      ? {
+          id: e.venue_id,
+          name: e.linkedVenue.name,
+          city: e.linkedVenue.city,
+          state: e.linkedVenue.state,
+          address: e.linkedVenue.address,
+        }
+      : null;
+    setEditSelectedVenue(linkedVenueForEdit);
     setEditVenueQuery("");
     setEditVenueResults([]);
     setEditVenueSearching(false);
@@ -1856,7 +1876,9 @@ export default function PlannerClient(props: Props) {
                     <div className={styles.eventMeta}>
                       {formatTimeRange({ startIso: primary.starts_at, endIso: primary.ends_at, timeZone: primaryTz })} · {candidateLabelForSource(primary)}
                     </div>
-                    {locationTextForEvent(primary) ? <div className={styles.eventMeta}>{locationTextForEvent(primary)}</div> : null}
+                    {venueDisplayLineForEvent(primary) ? (
+                      <div className={styles.eventMeta}>{venueDisplayLineForEvent(primary)}</div>
+                    ) : null}
                   </div>
 
                   <div className={styles.eventItem} style={{ padding: 10 }}>
@@ -1865,7 +1887,9 @@ export default function PlannerClient(props: Props) {
                     <div className={styles.eventMeta}>
                       {formatTimeRange({ startIso: candidate.starts_at, endIso: candidate.ends_at, timeZone: candTz })} · {candidateLabelForSource(candidate)}
                     </div>
-                    {locationTextForEvent(candidate) ? <div className={styles.eventMeta}>{locationTextForEvent(candidate)}</div> : null}
+                    {venueDisplayLineForEvent(candidate) ? (
+                      <div className={styles.eventMeta}>{venueDisplayLineForEvent(candidate)}</div>
+                    ) : null}
                   </div>
                 </div>
 
@@ -2476,9 +2500,9 @@ export default function PlannerClient(props: Props) {
                             Overlaps with {conflictCount} loaded {conflictCount === 1 ? "event" : "events"}.
                           </div>
                         ) : null}
-                        {locationTextForEvent(e) ? (
+                        {venueDisplayLineForEvent(e) ? (
                           <div className={styles.eventMeta}>
-                            {locationTextForEvent(e)}
+                            {venueDisplayLineForEvent(e)}
                           </div>
                         ) : e.venue_id ? (
                           <div className={styles.eventMeta}>Selected venue</div>
@@ -2624,7 +2648,7 @@ export default function PlannerClient(props: Props) {
                                 ) : editVenueId ? (
                                   <div className={styles.eventItem} style={{ padding: 10 }}>
                                     <div className={styles.eventTitle}>Venue selected</div>
-                                    <div className={styles.eventMeta}>Selected venue is stored (name not loaded in MVP).</div>
+                                    <div className={styles.eventMeta}>Venue details are loading.</div>
                                     <div className={styles.eventActions}>
 	                                      <button
 	                                        className={styles.secondaryBtn}

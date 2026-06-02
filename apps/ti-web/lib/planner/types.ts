@@ -31,6 +31,14 @@ export type PlannerEventRow = {
   source_type: PlannerSourceType | string;
   source_id: string | null;
   source_event_uid?: string | null;
+  linkedVenue?: {
+    id: string;
+    name: string | null;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    seo_slug: string | null;
+  } | null;
   created_at: string;
   updated_at: string;
 };

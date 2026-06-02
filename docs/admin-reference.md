@@ -147,6 +147,22 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 - Prompt: `docs/prompts/ti-planner-stage-2.8-uat-polish-launch-readiness.md`
 - UAT runner checklist: `CLAUDE.md` (see “Stage 2.8 UAT (polish + launch readiness)” section)
 
+## TI Planner (Stage 2.10 — Venue metadata hydration)
+
+- Purpose: surface authenticated linked venue data across planner list/calendar and duplicate/merge UI paths.
+- Files:
+  - `apps/ti-web/lib/planner/enrichVenueMetadata.ts` (event enrichment helper)
+  - `apps/ti-web/app/api/planner/events/route.ts`
+  - `apps/ti-web/app/api/planner/events/[id]/route.ts`
+  - `apps/ti-web/app/api/planner/events/route.ts` (cursor/`hasMore` path now uses enriched events)
+  - `apps/ti-web/app/weekend-planner/page.tsx`
+  - `apps/ti-web/app/_components/planner/PlannerClient.tsx`
+  - `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`
+  - `apps/ti-web/lib/planner/types.ts`
+  - `docs/weekend-planner-current-state.md`
+
+Current note: Stage 2.10 implemented (2026-06-02).
+
 ## TI Planner (Stage 2.1 — Local-first venue-aware polish)
 - Events remain valid with only `title`, `starts_at`, and `event_type`; venue/tournament/location remain optional.
 - Planner UI supports optional venue linking via “Find venue” and never exposes raw UUIDs to end users.
@@ -272,6 +288,10 @@ Connected calendar sources (TI):
 - `POST /api/planner/sources/[id]/refresh` → refresh a connected feed
 - `PATCH /api/planner/sources/[id]` → update connected source label (`source_name`, single-line, server-sanitized)
 - `source_name` fallback in UI is `Connected calendar` when label is empty/null
+
+Stage 2.10 status (2026-06-02): venue metadata hydration is live for linked ICS/manual events.
+- Planner APIs (`GET /api/planner/events`, `POST /api/planner/events`, `PATCH /api/planner/events/[id]`) and SSR `/weekend-planner` now enrich event payloads with `linkedVenue` from `venues_public`.
+- List and calendar views render `Venue Name · address · city, state` when `linkedVenue` is available and use this text for map and merge-preview actions.
 
 Stage 2.9B-0 UAT status (2026-06-02): labeling flow is validated for edit/save/persist and list/card display on Insider; manual-event fallback is working; refresh preserves labels. Not-yet-covered items are calendar detail (Weekend Pro gate) and source color marker visibility.
 

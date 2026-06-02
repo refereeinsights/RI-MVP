@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { isUuid } from "@/lib/venues/isUuid";
 import type { PlannerEventUpdateBody } from "@/lib/planner/types";
+import { enrichPlannerEventsWithLinkedVenue } from "@/lib/planner/enrichVenueMetadata";
 
 export const runtime = "nodejs";
 
@@ -147,7 +148,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     .single();
 
   if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
-  return NextResponse.json({ ok: true, event: data });
+  const [event] = await enrichPlannerEventsWithLinkedVenue(supabase, [data as any]);
+  return NextResponse.json({ ok: true, event });
 }
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
