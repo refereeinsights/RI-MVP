@@ -168,8 +168,20 @@ Current note: Stage 2.10 implemented (2026-06-02).
 
 - Purpose: baseline real-platform GameChanger import/update/cancel behavior before broader multi-platform 2.9B pass.
 - Prompt: `docs/prompts/ti-planner-stage-2.9b-2-gamechanger-single-feed-uat.md`
-- UAT log: `docs/qa/ti-planner-ics-uat.md` (append Stage 2.9B-2 run artifacts)
-- Current state: ready-to-run pending one verified GameChanger fixture feed.
+- UAT log: `docs/qa/ti-planner-ics-uat.md` (run artifacts: TI Owls 12U baseline + 3 refreshes at 2026-06-02)
+- Current state: partial PASS (import/update/overlay/privacy passed), with source-label persistence fallback and cancel/delete coverage deferred to 2.9C.
+
+## TI Planner (Stage 2.9C — Source Identity Hardening)
+
+- Purpose: close remaining 2.9B hardening gaps before wider platform claims.
+- Prompt: `docs/prompts/ti-planner-stage-2.9c-source-identity-hardening-followups.md`
+- Current state: ready-to-run.
+- Includes:
+  - F3 limit-gate consistency checks (UI + API),
+  - source label/fallback and color stability,
+  - cancel/delete and missing-source behavior in real feeds,
+  - optional SportsEngine/MySE follow-up if access is available.
+- Evidence target: `docs/qa/ti-planner-ics-uat.md`.
 
 ## TI Planner (Stage 2.1 — Local-first venue-aware polish)
 - Events remain valid with only `title`, `starts_at`, and `event_type`; venue/tournament/location remain optional.

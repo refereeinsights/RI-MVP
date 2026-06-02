@@ -296,7 +296,7 @@ Latest 2.9B-1B artifact (2026-06-02):
 
 ### Stage 2.9B-2 UAT (GameChanger single-feed baseline)
 
-Status: ready to run once one GameChanger ICS feed is available on verified `weekend_pro` fixture account.
+Status: partial PASS from first feed run (TI Owls 12U); source-name fallback + cancel/delete remain open items for 2.9C.
 
 Active feed targets:
 - TI Owls 12U
@@ -309,14 +309,36 @@ Docs:
 - New prompt (repo): `docs/prompts/ti-planner-stage-2.9b-2-gamechanger-single-feed-uat.md`
 
 Validate:
-- [ ] Baseline import (at least one full season window)
-- [ ] Repeated refresh behavior without duplicate storms
-- [ ] Update/move behavior in source feed with in-place update (no duplicate)
+- [x] Baseline import (at least one full season window)
+- [x] Repeated refresh behavior without duplicate storms
+- [x] Update/move behavior in source feed with in-place update (no duplicate)
 - [ ] Cancel/delete behavior and no unexpected hard-delete
 - [ ] Source label + color stability
-- [ ] Overlay + venue link persistence after refresh
-- [ ] Loaded disclosure honesty with partial ranges
-- [ ] No raw source identifiers in list/calendar/detail UI
+- [x] Overlay + venue link persistence after refresh
+- [x] Loaded disclosure honesty with partial ranges
+- [x] No raw source identifiers in list/calendar/detail UI
+
+Latest Stage 2.9B-2 run (2026-06-02, `weekendpro_test@example.com`, TI Owls 12U, 20:17:41Z):
+- PASS: baseline import (23 events, 0 errors), refresh dedupe (`imported=0`, `changed=23`), overlay/venue persistence, loaded disclosure honesty, and no raw identifiers in list/calendar/detail.
+- CARRY-FORWARD: source_name fallback is currently generic `Connected calendar`; cancel/delete behavior not covered due one-feed-only source checks.
+
+### Stage 2.9C UAT (Source identity hardening follow-ups)
+
+- Purpose: close remaining 2.9B open items before broader platform expansion.
+- Prompt: `docs/prompts/ti-planner-stage-2.9c-source-identity-hardening-followups.md`
+- Recommended preconditions:
+  - 2.9B-2 and 2.9B-3 baseline/import behaviors captured.
+  - Weekend Pro fixture account available for multi-source scenarios.
+
+Validate:
+- [ ] F3 limit gate behavior: Insider already-at-limit should surface upgrade prompt and not import modal.
+- [ ] Server-side limit enforcement: bypass paths still return `calendar_feed_limit_reached`.
+- [ ] Source name fallback and source color stability across runs (GC/TeamSnap + additional platforms when available).
+- [ ] Cancel/delete (and missing-in-feed) behavior is documented as non-destructive or intentionally constrained.
+- [ ] Overlay + linked venue persistence after cancel/delete and repeated refresh.
+- [ ] Loaded disclosure + privacy guardrails remain intact.
+
+Pending execution target (2.9C): TeamSnap + (optional) SportsEngine/MySE follow-up, unless feed access blocks; if blocked, mark `NOT AVAILABLE` explicitly.
 
 ### Weekend Planner (/weekend-planner) — Manual Events
 

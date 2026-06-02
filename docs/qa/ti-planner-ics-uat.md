@@ -120,32 +120,62 @@ Important:
 
 ### Stage 2.9B-2 — GameChanger Single-Feed Baseline UAT
 
-Status: **ready** — documentation and checklist updated; execution pending verified `weekend_pro` feed access.
+Status: **partial PASS** on TI Owls 12U (`weekendpro_test@example.com`).
 
-### GameChanger — TBD
+### GameChanger — TI Owls 12U
 
-- Feed alias: TBD
-- Team: TBD
-- Feed status: Pending
-- Baseline import: Pending
-- Full season loaded: Pending
-- Repeated refresh test: Pending
-- Refresh attempts: 0
-- Duplicate storm observed: Pending
-- Manual refresh required: Pending
-- Update test status: Pending
+- Feed alias: GameChanger / webcal ICS
+- Team: TI Owls 12U
+- Feed status: Imported
+- Baseline import: PASS
+- Full season loaded: Partial (core season window rendered; one out-of-window event observed)
+- Repeated refresh test: PASS
+- Refresh attempts: 3
+- Duplicate storm observed: No
+- Manual refresh required: Yes
+- Update test status: PASS (`changed=23`, `imported=0` on all refreshes)
 - Cancel/delete test: Pending
-- Overlay preservation: Pending
-- Notes: Ready to execute using one GameChanger schedule first.
+- Overlay preservation: PASS
+- Notes: Source label currently renders as fallback `Connected calendar` when incoming label is null; privacy checks for source URLs/IDs/UIDs in UI passed.
 
 #### Refresh attempt log
 
 | Timestamp | Action | Result | Updated existing event? | Duplicate created? | Location updated? | Notes |
 |---|---|---|---|---|---|---|
-| TBD | Baseline import | Pending | N/A | N/A | N/A | Not yet run |
-| TBD | Manual refresh #1 | Pending | Pending | Pending | Pending | Not yet run |
-| TBD | Manual refresh #2 | Pending | Pending | Pending | Pending | Not yet run |
+| 2026-06-02T20:17:41Z | Baseline import | PASS | Yes | No | Yes | Source ID `d1eb667a`; 23 events; ~1 out of import window |
+| 2026-06-02T20:20:12Z | Manual refresh #1 | PASS | Yes | No | Yes | imported=0 changed=23 |
+| 2026-06-02T20:20:14Z | Manual refresh #2 | PASS | Yes | No | Yes | imported=0 changed=23 |
+| 2026-06-02T20:20:16Z | Manual refresh #3 | PASS | Yes | No | Yes | imported=0 changed=23 |
 
+### Stage 2.9B-3 — TeamSnap Feed Baseline UAT
+
+Status: **partial PASS**, pending F3 and hard-delete follow-up.
+
+### TeamSnap — TI Strikers / TI Wolves (user schedule URL)
+
+- Feed alias: TeamSnap — user_schedule feed
+- Team: TI Strikers / TI Wolves (combined user feed)
+- Feed status: Imported
+- Baseline import: PASS (`Imported 10 · Updated 0 · Skipped 0`)
+- Full season loaded: Partial (calendar window coverage observed in current UAT scope)
+- Repeated refresh test: PASS
+- Refresh attempts: 3
+- Duplicate storm observed: No
+- Manual refresh required: Yes
+- Update test status: Pending (not yet run in this run)
+- Cancel/delete test: Pending
+- Overlay preservation: PASS
+- Source-label persistence after refresh: PASS
+- Notes: protocol normalization accepted `http://` URL directly; source labels persisted; F7 regression held (no Duplicate button on TeamSnap/GC events).
+
+#### Refresh attempt log
+
+| Timestamp | Action | Result | Updated existing event? | Duplicate created? | Location updated? | Notes |
+|---|---|---|---|---|---|---|
+| 2026-06-02T13:37:43Z | Manual refresh #1 | PASS | Yes | No | Yes | last synced advanced; labels persisted |
+| 2026-06-02T13:37:54Z | Manual refresh #2 | PASS | Yes | No | Yes | no duplicate storm |
+| 2026-06-02T13:37:59Z | Manual refresh #3 | PASS | Yes | No | Yes | no duplicate storm |
+ 
 ---
 
 ### Source platforms (not yet tested)
@@ -153,8 +183,8 @@ Status: **ready** — documentation and checklist updated; execution pending ver
 | Platform | Sports Family alias | Subscription URL available? | Feed type | Requires login cookies? | UID stability | SEQUENCE present? | LAST-MODIFIED present? | DTSTAMP present? | Cancel semantics observed | Missing/deleted semantics observed | Recurrence behavior observed | Location quality | Notes/description quality | Baseline import result | Update result | Cancel/delete result | Overlay preservation result | Known quirks | Recommendation |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Team Connect / Team App | TI Owls 15U / SC-Casey | yes (private/tokenized) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | pending | pending | pending | present | pending | passed | **passed (in-place)** | pending | pending | source feed publish + refresh delay observed | active UAT — passed for update/move; overlay/cancel paths pending |
-| GameChanger |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
-| TeamSnap |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
+| GameChanger | TI Owls 12U | available (webcal/https tokenized) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | mixed (real + placeholder locations) | fixture notes + description text | passed | in-place update (`changed=23`, `imported=0`) | pending | passed | source_name fallback appears as `Connected calendar` | proceed to 2.9C for cancel/delete/UID details |
+| TeamSnap | TI Strikers / TI Wolves | available (webcal/tokenized URL) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | pending | pending | pending | good | source notes as description text | passed | in-place update (not yet validated) | pending | passed | F7 resolved on source events; time default 00:00 for some items is an observed format edge | proceed to 2.9C for cancel/delete + F3 limit follow-up |
 | SportsEngine / MySE |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | Sports Connect / Blue Sombrero |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | PlayMetrics |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
@@ -169,6 +199,58 @@ Status: **ready** — documentation and checklist updated; execution pending ver
 | Apple Calendar |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | Outlook |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | Generic ICS/webcal |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
+
+## Stage 2.9C — Source Identity Hardening Follow-Ups (post-real-feed)
+
+### Cross-feed checks required
+
+Run these checks against at least one already-validated source (TeamConnect/GameChanger/TeamSnap) and optional SportsEngine/MySE if access allows:
+
+- [ ] F3 at-limit gate UX: Insider at limit should show upgrade path before modal import.
+- [ ] F3 API enforcement: bypass attempt should return `calendar_feed_limit_reached` (403).
+- [ ] Source name + color stability after refresh.
+- [ ] Cancel/delete (or source removal) behavior is non-destructive / documented by platform.
+- [ ] Missing-source behavior is recorded (stale event suppression/retention policy).
+- [ ] Overlay + linked venue retention after cancel/delete/re-refresh scenarios.
+- [ ] SportsEngine/MySE availability and baseline entry (if feed is available; otherwise mark Not Available and defer).
+- [ ] Privacy: no raw IDs/URLs/UIDs in list, calendar, detail.
+
+### Stage 2.9C Run Log (template)
+
+- Run date: ___________
+- Environment: ___________
+- Planner account: ___________
+- Sources exercised: ___________
+- UAT runner: ___________
+- Last artifact link / notes:
+  - ___________________________________________________________
+
+| Check | Result | Evidence |
+|---|---|---|
+| F3 UI gate works | PASS / PARTIAL / FAIL | |
+| F3 server enforcement works | PASS / PARTIAL / FAIL | |
+| Source label stability (GC/TeamSnap/SportsEngine) | PASS / PARTIAL / PENDING | |
+| Source color stability | PASS / PARTIAL / PENDING | |
+| Cancel/delete source event | PASS / PARTIAL / FAIL | |
+| Missing feed event handling | PASS / PARTIAL / PENDING | |
+| Hard-delete observed unexpectedly | PASS / PARTIAL / FAIL | |
+| Identity persistence after repeated refresh | PASS / PARTIAL / FAIL | |
+| Overlay and linked venue retained | PASS / PARTIAL / PENDING | |
+| Loaded disclosure still honest | PASS / PARTIAL / PENDING | |
+| Privacy check | PASS / PARTIAL / FAIL | |
+
+### 2.9C Compatibility Matrix updates
+
+- Update the matrix rows in this file for affected rows:
+  - Team Connect / Team App
+  - GameChanger
+  - TeamSnap
+  - SportsEngine / MySE (if tested)
+- Populate:
+  - `Cancel semantics observed`
+  - `Missing/deleted semantics observed`
+  - `Overlay preservation result`
+  - `Recommendation`
 
 ## Stage 2.9B-1B — Team Connect Lifecycle Validation
 

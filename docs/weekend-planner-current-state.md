@@ -1,6 +1,6 @@
 # TournamentInsights Weekend Planner — GPT / Codex Memory Snapshot
 
-Last updated: Post Stage 2.9B-0 validation
+Last updated: Post Stage 2.9B-2 partial validation (2026-06-02)
 
 This document is the canonical working memory for TournamentInsights Weekend Planner planning, Codex prompts, Claude UAT prompts, GPT knowledge ingestion, and roadmap alignment.
 
@@ -395,7 +395,7 @@ In progress:
 
 ### Stage 2.9B-2 — GameChanger Single-Feed Baseline UAT
 
-Status: ready-to-run once a GameChanger ICS/webcal feed is available on the `weekend_pro` UAT account.
+Status: partial PASS from first feed run; core UAT items complete with follow-up coverage for 2.9C.
 
 Known available feeds:
 
@@ -421,6 +421,17 @@ Scope:
 - Team Event C cancel/delete behavior
 - local note and linked venue preservation
 - no raw source URLs/source_event_uid in UI
+
+Observed (2026-06-02, TI Owls 12U):
+
+- Baseline import: PASS (23 events; 0 errors)
+- Repeated refresh storm checks: PASS (`imported=0`, `changed=23` x3)
+- In-place update/move behavior: PASS (no duplicate storm; updates re-render without duplication)
+- Overlay + venue persistence: PASS
+- Loaded-scope disclosure: PASS
+- Label display: Partial — rendered fallback `Connected calendar` (source label input was null)
+- Privacy exposure: PASS (no raw source identifiers visible)
+- Cancel/delete behavior: PENDING (not executed in this run)
 
 ### Stage 2.9B-3 — TeamSnap Feed UAT
 
@@ -559,7 +570,10 @@ Do not claim platform support before feed behavior is verified.
 
 ### Stage 2.9C — Source Identity Hardening Follow-Ups
 
-Status: future, dependent on 2.9B findings.
+Status: ready-to-execute; prompted with 2.9C follow-up scope.
+
+Prompt:
+- `docs/prompts/ti-planner-stage-2.9c-source-identity-hardening-followups.md`
 
 Likely scope:
 
@@ -572,6 +586,12 @@ Likely scope:
 - recurrence limits
 - duplicate-storm prevention
 - overlay/suppression preservation fixes
+
+Current active open items carried into 2.9C:
+
+- F3 at-limit behavior still should show upgrade path before modal import.
+- Source name fallback stability (`Connected calendar`) needs final policy.
+- Hard-delete behavior on source cancel/delete remains unverified after real-feed baseline.
 
 Non-goals:
 

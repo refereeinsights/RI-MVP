@@ -39,6 +39,17 @@ Maintenance rules:
   - Marked 2.9B-1B overlay (notes + linked venue) as passing after refresh; cancel/delete still pending.
   - Implemented source-label persistence fix in `apps/ti-web/lib/planner/ics-import.ts` so import/refresh keeps existing source labels instead of collapsing to `Connected calendar` when payload label is empty.
 
+- TI Planner Stage 2.9C planning pass:
+  - Added implementation prompt `docs/prompts/ti-planner-stage-2.9c-source-identity-hardening-followups.md`.
+  - Updated run-doc pointers for 2.9C in `CLAUDE.md`, `docs/admin-reference.md`, and `docs/weekend-planner-current-state.md`.
+  - Updated `docs/qa/ti-planner-ics-uat.md` with a 2.9C cross-feed follow-up template.
+
+- TI Planner Stage 2.9B-2 GameChanger baseline UAT (2026-06-02):
+  - Executed on `weekendpro_test@example.com` using TI Owls 12U; 1st baseline feed passed (`23` imported, `0` errors).
+  - Confirmed no duplicate-storm behavior on 3 rapid refreshes (`imported=0`, `changed=23`).
+  - Verified overlay note + venue link persist after refresh; calendar/list show correct venue-friendly text and no raw source IDs/URLs/UIDs.
+  - Carry-forwards for 2.9C: source label fallback remains `Connected calendar` when feed label is null, and cancel/delete hard-delete behavior not yet exercised.
+
 - Stage 2.9B-1B local implementation handoff (no runtime code changes in this commit):
   - Recorded implementation prompt + checklist in repo docs.
   - Confirmed update/move behavior is PASS with no duplicates and no hard deletes from refresh flow (based on current stage records).
