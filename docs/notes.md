@@ -31,6 +31,14 @@ Maintenance rules:
     - Updated `CLAUDE.md`, `docs/weekend-planner-current-state.md`, and `docs/admin-reference.md` with Stage 2.10 execution notes.
     - Updated `docs/admin-reference.md` and `docs/weekend-planner-current-state.md` with 2.10 evidence links.
 
+- TI Planner Stage 2.10A + 2.9B-2 status alignment:
+  - Confirmed 2.10A is implemented with `F-2.10-A/B/C` PASS from 2026-06-02 verification.
+  - Added Stage 2.9B-2 section/runner readiness in `CLAUDE.md`.
+  - Updated `docs/weekend-planner-current-state.md` to mark 2.10A complete and promote Stage 2.9B-2 readiness.
+  - Added Stage 2.9B-2 execution stub to `docs/qa/ti-planner-ics-uat.md`.
+  - Marked 2.9B-1B overlay (notes + linked venue) as passing after refresh; cancel/delete still pending.
+  - Implemented source-label persistence fix in `apps/ti-web/lib/planner/ics-import.ts` so import/refresh keeps existing source labels instead of collapsing to `Connected calendar` when payload label is empty.
+
 - Stage 2.9B-1B local implementation handoff (no runtime code changes in this commit):
   - Recorded implementation prompt + checklist in repo docs.
   - Confirmed update/move behavior is PASS with no duplicates and no hard deletes from refresh flow (based on current stage records).

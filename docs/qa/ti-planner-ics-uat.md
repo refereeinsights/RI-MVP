@@ -118,6 +118,36 @@ Important:
 - Public docs/screenshots should redact tokenized URLs.
 - Do not expose feed URLs or `source_event_uid` in normal UI or analytics.
 
+### Stage 2.9B-2 — GameChanger Single-Feed Baseline UAT
+
+Status: **ready** — documentation and checklist updated; execution pending verified `weekend_pro` feed access.
+
+### GameChanger — TBD
+
+- Feed alias: TBD
+- Team: TBD
+- Feed status: Pending
+- Baseline import: Pending
+- Full season loaded: Pending
+- Repeated refresh test: Pending
+- Refresh attempts: 0
+- Duplicate storm observed: Pending
+- Manual refresh required: Pending
+- Update test status: Pending
+- Cancel/delete test: Pending
+- Overlay preservation: Pending
+- Notes: Ready to execute using one GameChanger schedule first.
+
+#### Refresh attempt log
+
+| Timestamp | Action | Result | Updated existing event? | Duplicate created? | Location updated? | Notes |
+|---|---|---|---|---|---|---|
+| TBD | Baseline import | Pending | N/A | N/A | N/A | Not yet run |
+| TBD | Manual refresh #1 | Pending | Pending | Pending | Pending | Not yet run |
+| TBD | Manual refresh #2 | Pending | Pending | Pending | Pending | Not yet run |
+
+---
+
 ### Source platforms (not yet tested)
 
 | Platform | Sports Family alias | Subscription URL available? | Feed type | Requires login cookies? | UID stability | SEQUENCE present? | LAST-MODIFIED present? | DTSTAMP present? | Cancel semantics observed | Missing/deleted semantics observed | Recurrence behavior observed | Location quality | Notes/description quality | Baseline import result | Update result | Cancel/delete result | Overlay preservation result | Known quirks | Recommendation |
@@ -165,23 +195,21 @@ Important:
 
 ### Team Connect / Team App — TI Owls 15U (SC-Casey)
 
-### Team Connect / Team App — TI Owls 15U (SC-Casey)
-
-- Active scope: one imported source (Team Connect / Team App)
+- Active scope: one imported source (Team Connect / Team App), Weekend Pro UAT account (`weekendpro_test@example.com`)
 - Result summary:
   - Update/move behavior: **PASS**
-  - Local overlay preservation: **PENDING**
-  - Linked venue preservation: **PENDING**
+  - Local overlay preservation: **PASS**
+  - Linked venue preservation: **PASS**
   - Cancel/delete behavior: **PENDING**
   - Non-destructive retention of source-linked events: **PENDING (must stay false for PASS)**
-  - Source/feed color and label persistence: observed as stable through update checks
+  - Source/feed color and label persistence: fallback label `Connected calendar` remained stable through refresh; color not explicitly asserted
 
 Checklist (repo-aligned 2.9B-1B pass gates):
 
 - [x] Source update in `Practice A` scenario observed in source feed and reflected in Weekend Planner without duplicate creation.
 - [x] Labels persisted across refresh.
 - [x] Refresh behavior captured as in-place update for known supported fields.
-- [ ] Overlay: add local note and/or venue, refresh, confirm persistence.
+- [x] Overlay: add local note and/or venue, refresh, confirm persistence.
 - [ ] Overlay: confirm source color and source label remain stable.
 - [ ] Cancel/delete path: perform on Team Event C equivalent and document resulting planner behavior.
 - [ ] Ensure source-linked events are not unexpectedly hard-deleted.
@@ -192,6 +220,6 @@ Update the platform compatibility row in this file when overlay and cancel/delet
 - Team Connect / Team App row update:
   - `Update result`: passed
   - `Cancel/delete result`: pending/observed
-  - `Overlay preservation result`: pending
-  - `Known quirks`: source-feed publish/refresh delay (non-real-time, re-import not required in known tests)
-- Recommendation: Proceed to Stage 2.9B-2 after overlay + cancel/delete confirmation; otherwise escalate follow-up items to 2.9C.
+  - `Overlay preservation result`: passed
+  - `Known quirks`: source-feed publish/refresh delay (non-real-time, re-import not required in known tests); label import now preserves existing `source_name` when no replacement label is provided
+  - Recommendation: Proceed to Stage 2.9B-2 after overlay + cancel/delete confirmation; otherwise escalate follow-up items to 2.9C.

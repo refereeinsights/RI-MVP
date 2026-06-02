@@ -280,16 +280,43 @@ Docs:
 
 Validate:
 - [x] Update/move behavior remains PASS with no duplicate for Practice A scenario.
-- [ ] Pending: add local planner note +/or venue to imported event, refresh, confirm persistence.
-- [ ] Pending: confirm 2.10A venue label rendering survives refresh when venue linked.
+- [x] Overlay persistence check: local note + linked venue survive refresh (PASS, verified in 2.9B-1B run).
+- [x] Confirmed: 2.10A venue label rendering survives refresh when venue linked (`F-2.10-A` from 2026-06-02).
 - [ ] Pending: cancel/delete Team Event C equivalent in source, refresh, document behavior.
 - [ ] Pending: confirm no source-linked/ICS event hard-deletes during cancel/delete/refresh.
 - [ ] Pending: record refresh-delay behavior (no claim of real-time sync).
+- [x] Source label persistence: fixed in import path by preserving existing `planner_event_sources.source_name` when import request label is empty.
 
 Latest 2.9B-1B artifact (2026-06-02):
-- Update/move: PASS (in-place), labels persist, calendar/list remained consistent.
-- Duplicate behavior on update: PASS (no duplicate observed).
-- Overlay/cancel/delete/venue-override persistence: PENDING.
+- Update/move: PASS (in-place), no duplicates, calendar/list remained consistent.
+- Duplicate behavior on update: PASS (14 → 14; 0 imported).
+- Overlay/venue override persistence: PASS.
+- Overlay check details: Practice A preserved overlay note + linked Spokane Polo Fields venue through refresh.
+- Cancel/delete/hard-delete: still PENDING.
+
+### Stage 2.9B-2 UAT (GameChanger single-feed baseline)
+
+Status: ready to run once one GameChanger ICS feed is available on verified `weekend_pro` fixture account.
+
+Active feed targets:
+- TI Owls 12U
+- TI Owls 15U
+- TI Robins 12U
+- TI Robins 14U
+
+Docs:
+- `docs/qa/ti-planner-ics-uat.md` → “Stage 2.9B-2 — GameChanger Single-Feed Baseline UAT”
+- New prompt (repo): `docs/prompts/ti-planner-stage-2.9b-2-gamechanger-single-feed-uat.md`
+
+Validate:
+- [ ] Baseline import (at least one full season window)
+- [ ] Repeated refresh behavior without duplicate storms
+- [ ] Update/move behavior in source feed with in-place update (no duplicate)
+- [ ] Cancel/delete behavior and no unexpected hard-delete
+- [ ] Source label + color stability
+- [ ] Overlay + venue link persistence after refresh
+- [ ] Loaded disclosure honesty with partial ranges
+- [ ] No raw source identifiers in list/calendar/detail UI
 
 ### Weekend Planner (/weekend-planner) — Manual Events
 

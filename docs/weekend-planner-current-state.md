@@ -387,15 +387,15 @@ Latest evidence snapshot (2026-06-02):
 
 In progress:
 
-- Local note preservation after refresh: **pending** (document with concrete pass/fail if tested)
-- Linked venue preservation after refresh: **pending** (2.10A is implemented; test explicit persistence)
+- Local note preservation after refresh: **PASS** (UAT confirmed overlay note persists on Practice A after refresh)
+- Linked venue preservation after refresh: **PASS** (validated by Stage 2.10 recheck where linked venues persist after reload/refresh)
 - Cancel/delete behavior for Team Event C: **pending**
 - Whether canceled events are marked removed/unchanged: **pending**
 - Source-linked hard-delete confirmation: **pending** (must remain false for PASS)
 
 ### Stage 2.9B-2 — GameChanger Single-Feed Baseline UAT
 
-Status: next platform batch after Team Connect lifecycle is documented.
+Status: ready-to-run once a GameChanger ICS/webcal feed is available on the `weekend_pro` UAT account.
 
 Known available feeds:
 
@@ -585,11 +585,10 @@ Non-goals:
 
 Near term:
 
-1. 2.10A — display linked venue name if not yet committed
-2. 2.9B-1B — Team Connect update / overlay / cancel UAT
-3. 2.9B-2 — GameChanger single-feed baseline UAT
-4. 2.9B-3 — TeamSnap feed UAT
-5. 2.9B-4 — SportsEngine / MySE feed UAT
+1. 2.9B-1B — Team Connect update / overlay / cancel UAT (completion pass/follow-up)
+2. 2.9B-2 — GameChanger single-feed baseline UAT
+3. 2.9B-3 — TeamSnap feed UAT
+4. 2.9B-4 — SportsEngine / MySE feed UAT
 6. 2.9B-5 — Sports Connect / Blue Sombrero / Team Stack feed UAT
 7. 2.9B-6 — Google / Apple / Outlook / generic ICS
 8. 2.9B-Later — LeagueApps / PlayMetrics when access exists
@@ -695,7 +694,7 @@ This is assessment first, not automatic matching.
 
 ### Stage 2.10A — Display Linked Venue Name
 
-Status: next/small polish if not implemented.
+Status: implemented (2026-06-02), verified via Stage 2.10 UAT.
 
 Purpose:
 
@@ -924,13 +923,12 @@ Do not implement until current single-feed update/cancel behavior is better prov
 Current immediate path:
 
 1. Finish Team Connect update/overlay/cancel UAT
-2. Implement/confirm Stage 2.10A linked venue name display if not already done
-3. Document Team Connect compatibility result
-4. Import one GameChanger feed only
-5. Run GameChanger baseline/repeated-refresh/update/cancel tests
-6. Continue to TeamSnap and SportsEngine incrementally
-7. Capture venue/location quality during every feed test
-8. Defer full multi-child profiles until feed reliability and labels are stable
+2. Document Team Connect compatibility result
+3. Import one GameChanger feed only
+4. Run GameChanger baseline/repeated-refresh/update/cancel tests
+5. Continue to TeamSnap and SportsEngine incrementally
+6. Capture venue/location quality during every feed test
+7. Defer full multi-child profiles until feed reliability and labels are stable
 
 ---
 

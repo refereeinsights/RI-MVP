@@ -164,6 +164,13 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 
 Current note: Stage 2.10 implemented (2026-06-02).
 
+## TI Planner (Stage 2.9B-2 — GameChanger single-feed baseline)
+
+- Purpose: baseline real-platform GameChanger import/update/cancel behavior before broader multi-platform 2.9B pass.
+- Prompt: `docs/prompts/ti-planner-stage-2.9b-2-gamechanger-single-feed-uat.md`
+- UAT log: `docs/qa/ti-planner-ics-uat.md` (append Stage 2.9B-2 run artifacts)
+- Current state: ready-to-run pending one verified GameChanger fixture feed.
+
 ## TI Planner (Stage 2.1 — Local-first venue-aware polish)
 - Events remain valid with only `title`, `starts_at`, and `event_type`; venue/tournament/location remain optional.
 - Planner UI supports optional venue linking via “Find venue” and never exposes raw UUIDs to end users.

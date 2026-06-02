@@ -488,9 +488,11 @@ export async function importIcsToPlanner(params: {
     return { ok: false, status: 400, error: userSafeError("no_events") };
   }
 
-  // Find-or-create source (atomic via unique index)
-  const sourceName = clamp(input.sourceName, 100);
-  const teamName = clamp(input.teamName, 80);
+  // Find-or-create source (atomic via unique index).
+  const requestedSourceName = clamp(input.sourceName, 100);
+  const requestedTeamName = clamp(input.teamName, 80);
+  let finalSourceName = requestedSourceName;
+  let finalTeamName = requestedTeamName;
 
   const sourceId = input.sourceId ? String(input.sourceId).trim() : "";
   if (input.sourceId && !isUuid(sourceId)) return { ok: false, status: 400, error: "invalid_source_id" };
@@ -498,14 +500,32 @@ export async function importIcsToPlanner(params: {
   // Imports create/upsert the source row; refresh uses an existing source row and is updated by refreshIcsSource.
   let finalSourceId = sourceId;
   if (!finalSourceId) {
+    const existing = await (supabase.from("planner_event_sources" as any) as any)
+      .select("id,source_name,team_name")
+      .eq("user_id", input.userId)
+      .eq("source_type", "ics")
+      .eq("source_url", fetched.finalUrl)
+      .maybeSingle();
+
+    if (existing.error) {
+      logSupabaseError("select planner_event_sources before import failed", existing.error);
+      return { ok: false, status: 500, error: genericImportFailure() };
+    }
+
+    const existingSourceName = existing.data?.source_name ? String(existing.data.source_name).trim() : "";
+    const existingTeamName = existing.data?.team_name ? String(existing.data.team_name).trim() : "";
+
+    finalSourceName = requestedSourceName || (existingSourceName ? existingSourceName.slice(0, 100) : null);
+    finalTeamName = requestedTeamName || (existingTeamName ? existingTeamName.slice(0, 80) : null);
+
     const upsertSource = await (supabase.from("planner_event_sources" as any) as any)
       .upsert(
         {
           user_id: input.userId,
           source_type: "ics",
-          source_name: sourceName,
+          source_name: finalSourceName,
           source_url: fetched.finalUrl,
-          team_name: teamName,
+          team_name: finalTeamName,
           sync_status: "success",
           sync_error: null,
           last_synced_at: new Date().toISOString(),
@@ -697,7 +717,7 @@ export async function importIcsToPlanner(params: {
   return {
     ok: true,
     sourceId: finalSourceId,
-    sourceName,
+    sourceName: finalSourceName,
     imported,
     updated,
     changed,
