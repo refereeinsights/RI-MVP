@@ -46,7 +46,6 @@ async function fetchJsonWithTimeout(url: string, timeoutMs: number, revalidateSe
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
-      cache: "force-cache",
       next: { revalidate: revalidateSeconds },
       signal: controller.signal,
     });

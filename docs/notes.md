@@ -12,6 +12,11 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-06-02
+
+- TI weather API hardening:
+  - Fixed Next.js fetch cache options conflict in `apps/ti-web/app/api/weather/ten-day/route.ts` by removing `cache: "force-cache"` and keeping `next: { revalidate: ... }` in server-side `fetch`, eliminating the runtime warning during `GET /api/weather/ten-day`.
+
 ## 2026-05-31
 
 - TI monetization + analytics follow-through:
