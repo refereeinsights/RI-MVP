@@ -25,6 +25,14 @@ Maintenance rules:
   - List and calendar views now render linked venue-friendly location lines and use linked location for map action + merge-preview context.
   - Docs aligned with this change in `CLAUDE.md`, `docs/weekend-planner-current-state.md`, and `docs/admin-reference.md`.
 
+- TI planner (Stage 2.9C follow-up): Insider at-limit calendar connect UX and hardening.
+  - In `apps/ti-web/app/_components/planner/PlannerClient.tsx`, added centralized connect flow so `Connect calendar` now opens:
+    - unverified-email gate (`planner` import gate `unverified`) when signed-in but not confirmed,
+    - limit gate (`multi_calendar`) for Insider users who cannot add another source,
+    - the import modal only when the flow is actually allowed.
+  - Kept server-side enforcement intact by preserving limit handling in `onImportIcs`: `calendar_feed_limit_reached` now maps to the same limit gate UI instead of generic inline error text.
+  - Added gate-state hardening for concurrent loading (`busy`/`sourcesBusy`) to avoid race-opening import modal while source state is still loading.
+
 ## 2026-06-01
 
 - Weekend Planner (Stage 2.9B-0) — connected calendar feed labels.

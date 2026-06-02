@@ -1283,6 +1283,33 @@ export default function PlannerClient(props: Props) {
     setImportGate(null);
   }
 
+  function openConnectCalendarFlow() {
+    if (busy || sourcesBusy) {
+      setError("Calendar status is still loading. Please try again.");
+      return;
+    }
+
+    if (!canConnectAnotherCalendar) {
+      if (isUnverified) {
+        resetImportForm();
+        setImportGate("unverified");
+      } else if (!props.isPaid) {
+        resetImportForm();
+        setImportGate("limit");
+        trackPlannerEvent("planner_weekend_pro_gate_clicked", {
+          surface: "weekend_planner",
+          entitlement: entitlementForAnalytics,
+          gate_name: "multi_calendar",
+        });
+      }
+      return;
+    }
+
+    resetImportForm();
+    setImportGate(null);
+    setImportOpen(true);
+  }
+
   function beginEdit(e: PlannerEventRow) {
     const tzForEdit = effectiveTimeZoneForEvent(e);
     const startParts = utcIsoToZonedParts(e.starts_at, tzForEdit);
@@ -1484,19 +1511,17 @@ export default function PlannerClient(props: Props) {
     setImportResult(null);
     if (!canConnectAnotherCalendar) {
       if (!isUnverified && !props.isPaid) {
-        trackPlannerEvent("planner_calendar_feed_limit_reached", {
+        trackPlannerEvent("planner_weekend_pro_gate_clicked", {
           surface: "weekend_planner",
           entitlement: entitlementForAnalytics,
           feed_count_bucket: bucketFeedCount(sources.length),
         });
+        setImportGate("limit");
+        setImportError(null);
+        return;
       }
-      setImportError(
-        isUnverified
-          ? "Verify your email to connect a team calendar."
-          : props.isPaid
-            ? "Unable to connect calendar."
-            : "You can connect 1 calendar on Insider. Upgrade to Weekend Pro to add more."
-      );
+      setImportGate(isUnverified ? "unverified" : "limit");
+      setImportError(null);
       return;
     }
     const url = importUrl.trim();
@@ -1531,11 +1556,24 @@ export default function PlannerClient(props: Props) {
       setImportError(null);
       await Promise.all([loadEvents(), loadSources()]);
     } catch (e: any) {
+      const reason = reasonCodeFromError(e);
+      if (reason === "calendar_feed_limit_reached") {
+        trackPlannerEvent("planner_calendar_feed_connect_failed", {
+          surface: "weekend_planner",
+          entitlement: entitlementForAnalytics,
+          feed_count_bucket: bucketFeedCount(sources.length),
+          reason_code: reason,
+        });
+        setImportGate("limit");
+        setImportError(null);
+        return;
+      }
+
       trackPlannerEvent("planner_calendar_feed_connect_failed", {
         surface: "weekend_planner",
         entitlement: entitlementForAnalytics,
         feed_count_bucket: bucketFeedCount(sources.length),
-        reason_code: reasonCodeFromError(e),
+        reason_code: reason,
       });
       setImportError(e?.message || "Import failed.");
     } finally {
@@ -2186,28 +2224,11 @@ export default function PlannerClient(props: Props) {
 				              className={styles.secondaryBtn}
 				              type="button"
 				              onClick={() => {
-				                if (busy) return;
-				                setImportOpen(true);
-                        resetImportForm();
-                        if (!canConnectAnotherCalendar) {
-                          if (isUnverified) {
-                            setImportGate("unverified");
-                            return;
-                          }
-                          if (!props.isPaid && sources.length >= 1) {
-                            setImportGate("limit");
-                            trackPlannerEvent("planner_calendar_feed_limit_reached", {
-                              surface: "weekend_planner",
-                              entitlement: entitlementForAnalytics,
-                              feed_count_bucket: bucketFeedCount(sources.length),
-                            });
-                            return;
-                          }
-                        }
-                        setImportGate(null);
+                        if (busy) return;
+			                openConnectCalendarFlow();
 				              }}
-				              disabled={busy}
-				            >
+				              disabled={busy || sourcesBusy}
+			            >
 				              Connect calendar
 				            </button>
 				            <button className={styles.secondaryBtn} type="button" onClick={() => setCalendarsOpen(true)} disabled={busy}>
@@ -3150,31 +3171,14 @@ export default function PlannerClient(props: Props) {
 		              : "No connected calendars yet."}
 		        </div>
 			        <div className={`${styles.eventActions} ${styles.eventActionsCenter}`}>
-			          <button
+			              <button
 			            className={styles.secondaryBtn}
 			            type="button"
 			            onClick={() => {
 			              if (busy) return;
-			              setImportOpen(true);
-                    resetImportForm();
-                    if (!canConnectAnotherCalendar) {
-                      if (isUnverified) {
-                        setImportGate("unverified");
-                        return;
-                      }
-                      if (!props.isPaid && sources.length >= 1) {
-                        setImportGate("limit");
-                        trackPlannerEvent("planner_calendar_feed_limit_reached", {
-                          surface: "weekend_planner",
-                          entitlement: entitlementForAnalytics,
-                          feed_count_bucket: bucketFeedCount(sources.length),
-                        });
-                        return;
-                      }
-                    }
-                    setImportGate(null);
+			              openConnectCalendarFlow();
 		            }}
-		            disabled={busy}
+		            disabled={busy || sourcesBusy}
 			          >
 			            Connect calendar
 			          </button>
