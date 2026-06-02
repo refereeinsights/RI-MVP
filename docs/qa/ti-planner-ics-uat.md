@@ -142,6 +142,29 @@ Important:
 
 ## Stage 2.9B-1B — Team Connect Lifecycle Validation
 
+### Run log (fill in for each execution)
+
+- Run date: ___________
+- Environment: ___________
+- Tester: ___________
+- Planner account: ___________
+- Feed link used: TI Owls 15U / SC-Casey
+- Notes:
+  - ___________________________________________________________
+
+| Check | Result | Notes / evidence |
+|---|---|---|
+| Update/move for Practice A reflects in place | PASS / PARTIAL / PENDING | |
+| No duplicate created on update/move | PASS / PARTIAL / PENDING | |
+| Local note survives refresh | PASS / PARTIAL / PENDING | |
+| Local venue assignment survives refresh | PASS / PARTIAL / PENDING | |
+| Source color + label stable | PASS / PARTIAL / PENDING | |
+| Cancel/delete behavior observed | PASS / PARTIAL / PENDING | |
+| Source-linked hard-delete avoided | PASS / PARTIAL / PENDING | |
+| Refresh delay recorded | PASS / PENDING | |
+
+### Team Connect / Team App — TI Owls 15U (SC-Casey)
+
 ### Team Connect / Team App — TI Owls 15U (SC-Casey)
 
 - Active scope: one imported source (Team Connect / Team App)
