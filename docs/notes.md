@@ -57,6 +57,9 @@ Maintenance rules:
   - PASS checks for no duplicate storm, overlay/loaded-scope/privacy, and no raw IDs in UI.
   - Carry-forwards: F3 still opens modal at 4-feed attempt on Insider; update/move and cancel/delete for Team Event C not yet executed; `/account/logout 404` not tested in this run.
 
+- Added Stage 2.9C-4 SportsEngine/MySE follow-up prompt: `docs/prompts/ti-planner-stage-2.9c-4-sportsengine-followups.md`.
+  - 2.9C checklist now narrowed to SE update/move, cancel/delete, missing-source behavior, and source identity consistency.
+
 - Stage 2.9B-1B local implementation handoff (no runtime code changes in this commit):
   - Recorded implementation prompt + checklist in repo docs.
   - Confirmed update/move behavior is PASS with no duplicates and no hard deletes from refresh flow (based on current stage records).

@@ -284,6 +284,46 @@ Run these checks against at least one already-validated source (TeamConnect/Game
 | Loaded disclosure still honest | PASS / PARTIAL / PENDING | |
 | Privacy check | PASS / PARTIAL / FAIL | |
 
+### Stage 2.9C-4 — SportsEngine / MySE follow-up (TI Red Robbins control account)
+
+Focus scope: close the remaining 2.9B-4 carry-forwards only.
+
+- Source: TI Red Robbins (`src=myse`, https ical.sportngin feed)
+- Runner: ___________
+- Run date: ___________
+- Environment: ___________
+- Last artifact link: ___________
+
+#### Checks (explicitly for this run)
+
+- [ ] Update/move: edit `TI Feed Test Practice A` in SportsEngine admin (time or location), refresh source, confirm no duplicate storm and in-place change.
+- [ ] Cancel/delete path: remove/cancel `TI Feed Test Team Event C` in SportsEngine source (or move to canceled state if supported), refresh, confirm expected retention policy.
+- [ ] F3: verify Insider-at-limit prompt behavior in this platform path (upgrade path first, no raw modal fallback to connect).
+- [ ] Source name/color stability: confirm both `SportsEngine — TI Red Robbins` and `TI Red Robbins` remain stable across refreshes.
+- [ ] Hard-delete policy: record whether removal results in historical suppression vs. source-delete and ensure no unrelated source-linked rows are removed.
+- [ ] Missing-source behavior: temporarily disable/remove the source feed URL (or wait for source drop) and observe whether stale events are retained/preserved.
+- [ ] `/account/logout` path: confirm 404 remains remediated in this pass.
+- [ ] Control-plane sanity: check privacy and copy
+  - no feed URLs/IDs in UI
+  - `+0 new · 6 updated · 6 changes` continues as update signature when no semantic changes are made.
+
+#### Result snapshot
+
+- Update/move result: ___________
+- Cancel/delete result: ___________
+- Source removal result: ___________
+- F3 result: ___________
+- F4 result: ___________
+- Overall result: PASS / PARTIAL / FAIL
+
+#### Refresh detail (fill only if behavior executed)
+
+| Timestamp | Action | Result | Existing event updated? | Duplicate created? | Notes |
+|---|---|---|---|---|---|
+| ___________ | Practice A update/move | ___________ | ___________ | ___________ | ___________ |
+| ___________ | Team Event C cancel/delete | ___________ | ___________ | ___________ | ___________ |
+| ___________ | Source disabled / removed (if tested) | ___________ | ___________ | ___________ | ___________ |
+
 ### 2.9C Compatibility Matrix updates
 
 - Update the matrix rows in this file for affected rows:

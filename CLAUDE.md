@@ -341,6 +341,7 @@ Latest Stage 2.9B-2 run (2026-06-02, `weekendpro_test@example.com`, TI Owls 12U,
 
 - Purpose: close remaining 2.9B open items before broader platform expansion.
 - Prompt: `docs/prompts/ti-planner-stage-2.9c-source-identity-hardening-followups.md`
+- SportsEngine follow-up prompt: `docs/prompts/ti-planner-stage-2.9c-4-sportsengine-followups.md`
 - Recommended preconditions:
   - 2.9B-2 and 2.9B-3 baseline/import behaviors captured.
   - Weekend Pro fixture account available for multi-source scenarios.
@@ -353,7 +354,7 @@ Validate:
 - [ ] Overlay + linked venue persistence after cancel/delete and repeated refresh.
 - [ ] Loaded disclosure + privacy guardrails remain intact.
 
-Pending execution target (2.9C): TeamSnap + (optional) SportsEngine/MySE follow-up, unless feed access blocks; if blocked, mark `NOT AVAILABLE` explicitly.
+Pending execution target (2.9C): TeamSnap + SportsEngine/MySE follow-up (Stage 2.9C-4), unless feed access blocks; if blocked, mark `NOT AVAILABLE` explicitly.
 
 ### Weekend Planner (/weekend-planner) — Manual Events
 
