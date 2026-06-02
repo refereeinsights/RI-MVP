@@ -1,306 +1,967 @@
-# Weekend Planner — Current State (Post Stage 2.10)
+# TournamentInsights Weekend Planner — GPT / Codex Memory Snapshot
 
-This document is the durable snapshot of what the TI Weekend Planner is today (as of Stage 2.10), what is gated by entitlement, what must not regress, and what is intentionally deferred.
+Last updated: Post Stage 2.9B-0 validation
 
-Primary UAT runner: `CLAUDE.md` (Claude Desktop). UAT framework + production-safe cleanup: `docs/weekend-planner-uat.md`. ICS/iCal checklist: `docs/qa/ti-planner-ics-uat.md`.
+This document is the canonical working memory for TournamentInsights Weekend Planner planning, Codex prompts, Claude UAT prompts, GPT knowledge ingestion, and roadmap alignment.
 
-This is not a roadmap pitch. Keep “Implemented today” separate from “Future direction”.
+It separates:
+- implemented today
+- active UAT
+- near-term next steps
+- future roadmap direction
+- non-negotiable guardrails
 
----
-
-## Current Product Surfaces
-
-### Planner
-- Canonical route: `/weekend-planner` (planner app entrypoint).
-- Compatibility alias: `/planner` (should redirect to `/weekend-planner`).
-
-Planner UI surfaces (as implemented):
-- Schedule views: **Upcoming**, **This Weekend**, **Season**.
-- Season display modes: **Calendar** (Weekend Pro) and **List** (fallback and for non-Weekend-Pro).
-- Connected calendars: connect (ICS/iCal link) + refresh + status.
-- Manual events: create/edit/delete.
-- Duplicate management: suggestions, **Keep separate**, manual **merge** with explicit confirmation, optional manual-original cleanup flow.
-- Conflict highlighting: schedule overlap indication for loaded events.
-- Map behavior: **Map action** for an event location (external maps; mobile uses a map-picker modal). This is not a full in-planner map view unless explicitly added later.
-
-Other TI surfaces related to weekend planning:
-- `/weekend/[slug]` (weekend logistics / planning content).
-- `/tournaments/[slug]/map` (planning map).
-- `/book-travel` (travel booking surface).
+This is not public marketing copy. It is an internal product/engineering memory file.
 
 ---
 
-## Completed Planner Stages Through 2.10
+## 1. Product Identity
 
-Source prompts live in `docs/prompts/`.
+TournamentInsights Weekend Planner is a unified youth sports weekend operating system inside the existing TournamentInsights ecosystem.
 
-- **Stage 2.3 — ICS refresh behavior**
-  - Refresh updates source-managed fields without destructive deletes.
-  - Preserves user edits (notably: venue link + non-empty notes).
-  - Must not regress.
-- **Stage 2.4A — Duplicate/merge discovery**
-  - Discovery documentation only (foundation for later stages).
-- **Stage 2.4B — Suppression persistence + filtering**
-  - Adds suppression records to hide eligible source-linked originals (refresh-proof).
-  - Keep separate does not hide events.
-- **Stage 2.4C — Duplicate candidate detection + Keep separate**
-  - Candidate suggestions are advisory.
-  - Keep separate dismisses suggestions only (never hides events).
-- **Stage 2.4D — Manual merge endpoint + truncation disclosure**
-  - Manual merge endpoint creates a canonical manual event.
-  - When event sets are incomplete, UI discloses “loaded events only”.
-- **Stage 2.4E — Merge confirmation UI**
-  - Merge requires explicit user confirmation.
-  - Winner selection for conflicting fields is UI-mediated.
-- **Stage 2.4F — Manual-original cleanup after merge**
-  - Optional cleanup for just-merged manual originals only (explicit, bounded).
-- **Stage 2.5 — Bounded pagination + loaded-event reliability**
-  - Planner event queries remain bounded.
-  - “Load more” expands the loaded set without unbounded queries.
-- **Stage 2.6A — Manual events + timezone correctness**
-  - Date/time pickers (no `datetime-local` regression).
-  - Avoid calendar-day shifts across save/refresh.
-  - Smart end default (+1 hour) until user override.
-- **Stage 2.6B — Loaded-event conflict highlighting**
-  - Conflicts computed only across loaded events; disclosed honestly.
-- **Stage 2.6C — Schedule-first UX**
-  - Maintain the schedule-first hierarchy and parent flow.
-- **Stage 2.6D — Calendar view + source color coding**
-  - Season visual calendar uses loaded events only and does not refetch separately.
-  - Source colors are stable for the session; manual is neutral.
-- **Stage 2.6E — Weekend Pro entitlement alignment**
-  - Multi-feed and premium calendar surfaces are Weekend Pro gated.
-  - Insider retains core planner/manual functionality with 1 calendar limit.
-- **Stage 2.7 — UAT hardening + typed analytics**
-  - Consolidates UAT documentation and adds typed analytics for meaningful planner actions.
-  - Analytics must remain privacy-safe and fail open.
-- **Stage 2.8 — UAT findings polish + launch readiness**
-  - Fixes small UAT trust/clarity issues without changing planner semantics.
-  - Adds/updates UAT checklists (notably in `CLAUDE.md`) and reinforces “no dead primary actions”.
-- **Stage 2.10 — Venue metadata hydration (linked-venue display)**
-  - Planner events now enrich optional `linkedVenue` metadata from `venues_public` in `GET /api/planner/events`, `PATCH /api/planner/events/[id]`, `POST /api/planner/events`, and `/weekend-planner` server-side render.
-  - List cards and calendar detail render linked venue name/address/city/state (`Venue Name · Address · City, State`) when available, with fallback to existing address text.
-  - Venue-linked events now reuse linked location text for map and duplicate-merge previews.
+It is not a standalone startup product, not a separate native app, and not merely a calendar-sync tool.
+
+Weekend Planner lives inside the existing TournamentInsights web app and should continue using:
+
+- existing Next.js app
+- existing Vercel hosting
+- existing Supabase database
+- existing auth
+- existing entitlement model
+- existing TournamentInsights brand/system
+- existing venue/tournament/Owl’s Eye infrastructure
+
+Primary route:
+
+- /weekend-planner
+
+Compatibility route:
+
+- /planner should redirect to /weekend-planner if implemented.
 
 ---
 
-## Canonical Planner Entitlement Gates
+## 2. Core Product Principle
 
-Use exact tier strings: `explorer`, `insider`, `weekend_pro`.
+Reliability first. Responsive/mobile second. Family model third. Venue-aware intelligence fourth. Native app last.
 
-Notes:
-- `/weekend-planner` is not hard-gated.
-- Explorer messaging must be sign-in / verify-email oriented (not paid framing).
+The planner should evolve in this order:
 
-### Explorer
+1. Reliable feed sync and safe user overlays
+2. Readable multi-feed planner UI
+3. Mobile-first responsive command-center experience
+4. Multi-child/player/team model
+5. Venue-aware and travel-time intelligence
+6. PWA shell polish
+7. Native app only if usage proves the need
+
+---
+
+## 3. Entitlement Model
+
+Use exact entitlement strings:
+
+- explorer
+- insider
+- weekend_pro
+
+Do not create new tiers.
+
+### 3.1 /weekend-planner Access
+
+/weekend-planner is not hard-gated.
+
+The planner shell and public planning context should remain accessible according to existing auth behavior.
+
+### 3.2 Explorer
+
 Explorer includes:
+
 - signed-out users
 - signed-in but unverified users
 
 Explorer can:
-- view public TI surfaces (tournaments/venues/travel surfaces as implemented)
-- see the planner value proposition
+
+- view public TI surfaces where implemented
+- browse public tournaments and venues
+- use public travel/search surfaces where implemented
+- see Weekend Planner value proposition
 
 Explorer cannot:
-- connect calendars
-- create durable planner events
 
-### Insider
+- create durable planner events
+- connect calendars
+- save personalized planner data
+
+Explorer messaging:
+
+- signed-out: sign in or create an account
+- unverified: verify email
+
+Do not frame Explorer limitations as paid-upgrade limitations.
+
+### 3.3 Insider
+
 Insider can:
-- use basic planner list/manual-event functionality
+
+- use basic planner/list/manual-event functionality
 - create/edit/delete manual events
-- use Upcoming / This Weekend / Season (List)
-- connect up to **1** calendar feed (if verified)
-- refresh/manage the allowed calendar feed
+- use Upcoming / This Weekend / Season List
+- connect up to one calendar feed if verified
+- refresh/manage the allowed feed
+- use basic planning/travel/tournament/venue links
 
 Insider is gated from:
-- connecting more than 1 calendar feed
-- premium Season Calendar experience (if gated)
 
-### Weekend Pro
-Weekend Pro can:
-- connect multiple calendar feeds
-- use Season visual calendar
-- use source color coding and other premium planner intelligence as implemented
+- connecting more than one calendar feed
+- full multi-feed family calendar aggregation
+- source color coding where gated
+- premium conflict intelligence where gated
+- full Owl’s Eye / nearby venue intelligence
+- future multi-child/team intelligence
+
+### 3.4 Weekend Pro
+
+Weekend Pro unlocks:
+
+- multiple calendar feeds
+- premium Season Calendar where implemented
+- source/feed colors where implemented
+- premium conflict/schedule intelligence where implemented
+- richer calendar aggregation workflows
+- full Owl’s Eye / nearby venue intelligence where implemented
+- future multi-child/team planning tools
+- future venue-aware and travel-time intelligence
 
 Guardrails:
-- Existing over-limit feeds must not be deleted.
-- Imported/source-linked/ICS events must not be deleted.
+
+- existing over-limit feeds must not be deleted
+- imported/source-linked/ICS events must not be deleted
+- Weekend Pro users should not see irrelevant upgrade copy
 
 ---
 
-## Calendar and ICS Source Model
+## 4. Implemented Planner Foundation
 
-### Implemented today
-- Calendar feeds are private, user-owned sources.
-- ICS events are source-linked planner events (not public tournament sources).
-- Refresh updates source-managed fields; does not destructively delete missing feed events.
-- Refresh preserves user edits (notably: venue link + non-empty notes).
-- Suppressions are refresh-proof where implemented (hiding eligible merged originals without deleting them).
-- Merge does not delete source-linked originals.
-- Keep separate dismisses suggestions only and does not hide events.
+### Stage 2.3 — ICS Refresh Behavior
 
-### Future direction (not necessarily implemented)
-- Better compatibility testing across real-world ICS sources (TeamSnap/SportsEngine/GameChanger/Google/Apple/Outlook/etc.).
-- More robust handling of moved/canceled/removed events based on iCal semantics.
-- Explicit modeling of “removed from feed” without hard deletion.
+Implemented foundation for refreshing connected calendar feeds.
 
----
+Must preserve:
 
-## Duplicate Management Rules (Non-Negotiable)
+- source-linked events are not destructively deleted
+- user edits survive refresh where implemented
+- venue link and non-empty notes preservation where implemented
+- imported/source-linked events remain private user data
 
-- Duplicate detection is advisory only.
-- Merge is manual only and requires explicit confirmation.
-- No automatic merge.
-- No source event deletion.
-- Keep separate dismisses suggestions only (never hides events).
-- Suppressions hide eligible merged source-linked/ICS originals only.
-- Manual originals are not automatically hidden.
-- Manual cleanup is optional and explicit (bounded to just-merged IDs).
-- Duplicate/conflict detection is loaded-event scoped unless bounded full-coverage is explicitly implemented.
-- UI must disclose loaded-event scope when incomplete.
+### Stage 2.4A–2.4F — Duplicate Lifecycle
 
----
+Implemented duplicate lifecycle through:
 
-## Loaded-Event Scope and Pagination Rules
+- duplicate discovery
+- suppression persistence
+- duplicate candidate detection
+- Keep separate
+- manual merge endpoint
+- truncation disclosure
+- merge confirmation UI
+- optional manual-original cleanup
 
-- Planner event queries must remain bounded.
-- Pagination/load more expands the loaded set deterministically.
-- While more events exist, duplicates/conflicts must be described as “loaded events only”.
-- Calendar/List reflect loaded events only.
-- Do not imply full-season coverage when events remain unloaded.
+Canonical duplicate rules:
 
----
+- duplicate detection is advisory only
+- merge is manual only
+- merge requires explicit confirmation
+- no automatic merge
+- no source event deletion
+- Keep separate dismisses suggestions only
+- Keep separate never hides events
+- planner_event_duplicate_dismissals must never hide events from the main planner list
+- planner_event_suppressions with reason merged_duplicate hides eligible source-linked/ICS originals
+- manual originals are not automatically hidden
+- manual cleanup is optional, explicit, and bounded to just-merged IDs
 
-## Manual Events and Timezone Rules
+### Stage 2.5 — Bounded Pagination / Loaded-Event Reliability
 
-- Use date/time pickers; do not regress to `datetime-local`.
-- Do not reintroduce `new Date(datetimeLocal).toISOString()` patterns.
-- Store `starts_at`/`ends_at` as UTC instants; interpret input in the chosen event timezone.
-- Smart end defaults to start + 1 hour until user override.
-- Avoid calendar-day shifts on save + refresh.
+Implemented bounded event loading and Load more.
 
----
+Canonical rules:
 
-## Calendar, List, and Map Behavior
+- no unbounded planner event queries
+- duplicate and conflict logic are loaded-event scoped unless explicitly expanded later
+- UI must disclose loaded-event scope when incomplete
+- Calendar/List/Map reflect loaded events only unless all events are loaded
 
-- List is the durable fallback.
-- Season Calendar is gated by entitlement (Weekend Pro) where implemented.
-- Calendar uses loaded events only; it must not refetch planner events independently.
-- Source color coding must not expose raw source IDs/URLs.
-- Timezone override is session-only where implemented.
-- Empty state is helpful and does not hide toggles.
-- Failure fallback should keep planner usable.
-- Map behavior is an event-level action to open external maps (and a mobile map-picker), not a full planner map view unless explicitly added.
+### Stage 2.6A — Timezone-Correct Manual Events
 
----
+Implemented timezone-safe manual event entry.
 
-## Analytics Implemented in Stage 2.7
+Canonical rules:
 
-### Implemented today
-- Typed planner event names are defined in `apps/ti-web/lib/tiAnalyticsEvents.ts`.
-- Planner events are allowlisted for persistence in `apps/ti-web/app/api/analytics/route.ts` and stored in `public.ti_map_events`.
-- Admin review surface includes planner event keys in `apps/referee/app/admin/ti/clicks/page.tsx`.
+- use date/time pickers
+- do not regress to datetime-local
+- store starts_at and ends_at as UTC instants
+- interpret input in the event/display timezone
+- avoid date shifts on save/refresh
+- smart end defaults to start + one hour until user override
 
-### Privacy rules (non-negotiable)
-Analytics payloads must not include:
-- user IDs/emails
-- planner event IDs, calendar feed IDs, source IDs
-- source URLs or `source_event_uid`
-- event titles, notes, addresses
-- exact private timestamps
+### Stage 2.6B — Loaded-Event Conflict Highlighting
 
-Analytics must fail open (never block planner UX).
+Implemented schedule overlap highlighting for loaded events.
 
----
+Canonical rules:
 
-## UAT Status After Stage 2.7
+- conflict highlighting is advisory
+- not color-only
+- loaded-event scoped
+- disclose limitations when not all events are loaded
+- future child/team color coding must remain visually separate from conflict styling
 
-UAT docs are consolidated across:
-- `CLAUDE.md` (Smoke UAT + Deep UAT checklists)
-- `docs/weekend-planner-uat.md` (production-safe framework + cleanup)
-- `docs/qa/ti-planner-ics-uat.md` (ICS/iCal checklist)
+### Stage 2.6C — Schedule-First UX
 
-Recommended UAT account matrix:
-- Explorer signed-out
-- Explorer signed-in unverified
-- Insider: 0 feeds
-- Insider: 1 feed
-- Insider: over-limit state (if possible)
-- Weekend Pro: 0 feeds
-- Weekend Pro: 2–3 feeds
-- Weekend Pro: manual + ICS duplicates
-- Weekend Pro: conflicts
-- Weekend Pro: cross-timezone scenarios
+Implemented returning-parent information architecture.
 
----
+Canonical direction:
 
-## Launch Readiness Assessment
+- planner is schedule-first
+- Add Event is not dominant by default
+- connected calendar status is surfaced early
+- schedule/list/calendar is primary
+- travel/tools/upsells are secondary
+- Weekend Pro gates should not block basic schedule scanning
 
-Status: **Ready for limited UAT**.
+### Stage 2.6D — Calendar View + Source Color Coding
 
-Blockers to broader launch should be documented based on real-world ICS feed compatibility and any remaining UAT findings.
+Implemented visual Season Calendar for entitled users.
 
----
+Canonical rules:
 
-## Recommended Next Stages
+- calendar uses loaded events only
+- calendar must not independently fetch planner events
+- List remains durable fallback
+- source/feed color coding must not expose raw source IDs
+- manual events use neutral color
+- timezone override is session-only where implemented
+- no drag/drop or rescheduling
+
+### Stage 2.6E — Weekend Pro Entitlement Alignment
+
+Implemented planner monetization alignment.
+
+Canonical rules:
+
+- /weekend-planner is not hard-gated
+- Explorer messaging is sign-in/verify oriented
+- Insider has basic planner/manual/list and limited calendar access
+- Weekend Pro unlocks full calendar aggregation and premium schedule intelligence
+- existing over-limit feeds are not deleted
+- imported/source-linked/ICS events are not deleted
+
+### Stage 2.7 — UAT Hardening + Typed Analytics
+
+Implemented or finalized.
+
+Analytics rules:
+
+- typed analytics only
+- privacy-safe payloads
+- fail open
+- no raw IDs
+- no source URLs
+- no source_event_uid
+- no notes
+- no addresses
+- no event titles
+- no exact private event times
 
 ### Stage 2.8 — UAT Findings Polish + Launch Readiness
+
+Polish stage.
+
 Scope:
-- small fixes from UAT
-- copy clarity, empty states, loading states
-- mobile spacing/overflow fixes
+
+- copy clarity
+- empty states
+- loading states
+- mobile spacing/overflow
 - entitlement gate clarity
+- connected calendar status clarity
+- calendar/list/map usability
+- source color readability
+- conflict wording
 - loaded-event disclosure clarity
+- analytics sanity checks
 
 Non-goals:
-- schema changes
-- major sync architecture changes
 
-### Stage 2.9A — ICS Source Identity Audit + Sports Family UAT Prep (docs-only)
-Scope:
-- audit and document current ICS import/refresh identity + overlay preservation behavior
-- add Sports Family benchmark checklist and a platform compatibility matrix shell
-- do not require real platform feeds yet
-
-Prompt archive:
-- `docs/prompts/ti-planner-stage-2.9a-ics-source-identity-audit-sports-family-uat-prep.md`
-
-### Stage 2.9B — Real platform feed UAT (TeamSnap/GameChanger/etc.)
-Scope:
-- import real public/subscription ICS feeds
-- fill in the compatibility matrix with observed behavior (UID stability, cancellation semantics, recurrence quirks, etc.)
-- capture update/move/cancel behavior and overlay preservation results
-
-### Stage 2.9C — Source identity hardening (code changes, based on 2.9B findings)
-Scope:
-- targeted refresh identity improvements only after real-platform results are captured
-- must preserve suppressions, overlays, merge semantics, and “no hard delete” rules
-
-Non-goals for 2.9A–2.9C:
-- OAuth/scraping/private credential storage
-
-### Stage 2.10 — Venue metadata hydration + display parity (implemented)
-- Scope:
-  - server-side event payload enrichment for `linkedVenue` from `venues_public`;
-  - list/calendar UI uses linked venue metadata when present, with fallback to existing `address_text/city/state`;
-  - linked venue persists during edit and duplicate merge preview rendering.
-- Prompt:
-  - Noted as a Stage 2.10 implementation in this repository.
+- schema changes unless explicitly scoped
+- OAuth/scraping
+- multi-child profiles
+- major new features
 
 ---
 
-## Future Prompt Guardrails
+## 5. Current Stage 2.9 Feed Reliability Track
 
-- Do not hard-gate `/weekend-planner`.
-- Use exact entitlement strings `explorer`, `insider`, `weekend_pro`.
-- Explorer messaging is sign-in/verify oriented, not paid framing.
-- Do not delete source-linked/ICS events.
-- No automatic merge; no automatic cleanup.
-- Keep separate never hides events.
-- Disclose loaded-event scope when incomplete.
-- No unbounded planner event queries.
-- No raw IDs/source URLs/source_event_uid in UI or analytics.
-- Preserve Stage 2.6A timezone-safe manual event entry.
-- Preserve user edits through refresh.
-- Do not claim unbuilt features exist.
+### Stage 2.9A — ICS Source Identity Audit + Sports Family UAT Prep
+
+Status: complete.
+
+Purpose:
+
+- audit current ICS implementation
+- document source identity behavior
+- prepare compatibility matrix
+- prepare Sports Family UAT checklist
+- separate implemented behavior from future direction
+
+No live feeds were required.
+
+### Stage 2.9B-0 — Calendar Feed Labels + Kid/Team/Sport Identity Prep
+
+Status: implemented and validated.
+
+Purpose:
+
+- feed-level labels so imported events show kid/team/sport/platform
+- stable source/feed colors
+- source/feed color distinct from future child/team color
+- readable multi-feed UAT before importing additional Sports Family feeds
+
+Labels are feed-level metadata, not full child profiles.
+
+Current validated active feed:
+
+- Platform: Team Connect / Team App
+- Team: TI Owls 15U
+- Display label: SC-Casey
+- Recommended human labels:
+  - Child/player: Casey Sports
+  - Team: TI Owls 15U
+  - Sport: Volleyball
+  - Platform: Team Connect
+
+Visual rules:
+
+- source/feed color = calendar feed origin
+- child/team label = human meaning
+- conflict red = warning state
+- future child/team color = separate identity system
+
+Do not collapse these into one color system.
+
+### Stage 2.9B-1A — Single Team Connect Feed Baseline UAT
+
+Status: complete.
+
+Active feed:
+
+- Team Connect / Team App — TI Owls 15U
+
+Observed:
+
+- baseline import passed
+- full season loaded
+- three manual refreshes passed
+- duplicate storm not observed
+- event update landed in place
+- updated time reflected correctly
+- labels persisted after refresh
+- Calendar/List remained consistent
+
+Additional feeds were intentionally deferred until 2.9B-0 labels were implemented and validated.
+
+### Stage 2.9B-1B — Team Connect Update / Overlay / Cancel UAT
+
+Status: active / next.
+
+Already passed:
+
+- update in place
+- time update correct
+- labels persist
+- Calendar/List consistency
+- repeated refresh with no duplicate storm
+
+Still verify/document:
+
+- local note preservation
+- linked venue preservation after refresh
+- cancel/delete behavior for Team Event C
+- whether Team Connect removes canceled events, marks them canceled, or leaves unchanged
+- no unexpected source-linked event deletion
+
+### Stage 2.9B-2 — GameChanger Single-Feed Baseline UAT
+
+Status: next platform batch after Team Connect lifecycle is documented.
+
+Known available feeds:
+
+- TI Owls 12U
+- TI Owls 15U
+- TI Robins 12U
+- TI Robins 14U
+
+Scope:
+
+- import one feed only first
+- baseline import
+- repeated refresh
+- duplicate-storm behavior
+- update/move behavior
+- cancel/delete behavior
+- source_id + UID behavior where observable
+- label rendering (kid/team/sport/platform)
+- source/feed color stability
+- loaded-event disclosure
+- Practice A update/move control path
+- Game B stable control behavior
+- Team Event C cancel/delete behavior
+- local note and linked venue preservation
+- no raw source URLs/source_event_uid in UI
+
+### Stage 2.9B-3 — TeamSnap Feed UAT
+
+Status: after GameChanger single-feed baseline.
+
+Known available feed:
+
+- TeamSnap — TI Strikers / TI Wolves
+
+Scope:
+
+- verify import method and transport type (webcal / https / signed / login-dependent)
+- baseline import
+- repeated refresh
+- update/move behavior
+- cancel/delete behavior
+- UID stability
+- location quality
+- opponent/team/field quality
+- source labels and source/feed color
+- overlay and manual note preservation
+- no duplicate storm
+- no raw feed URL or source_event_uid in UI
+
+Document TeamSnap quirks (refresh delay, update latency, etc.).
+
+### Stage 2.9B-4 — SportsEngine / MySE Feed UAT
+
+Status: after TeamSnap or if TeamSnap is blocked.
+
+Known available feed:
+
+- SportsEngine / MySE — TI Red Robins and TI Owls
+
+Scope:
+
+- verify import method and transport type (webcal / https / signed / login-dependent)
+- baseline import
+- repeated refresh
+- update/move behavior
+- cancel/delete behavior
+- UID stability
+- SEQUENCE / LAST-MODIFIED / DTSTAMP when observable
+- location / venue text quality
+- opponent/team data quality
+- feed labels
+- source/feed color
+- overlay preservation
+- no duplicate storm
+- no raw feed URL or source_event_uid in UI
+
+Document SE/MySE quirks (calendar caching, URL structure, update timing).
+
+### Stage 2.9B-5 — Sports Connect / Blue Sombrero / Team Stack Feed UAT
+
+Status: only if clearly distinct from Team Connect / Team App.
+
+Scope:
+
+- determine if this is the same or distinct source family
+- if distinct, run same baseline/update/cancel/overlay checklist
+- document source family naming and ambiguity
+
+### Stage 2.9B-6 — Remaining Accessible Platforms
+
+Platforms:
+
+- Google Calendar
+- Apple Calendar
+- Outlook
+- generic ICS/webcal
+- Spond or Heja if accessible
+
+Scope:
+
+- baseline import
+- refresh behavior
+- update/move behavior
+- cancel/delete behavior
+- UID stability
+- overlay preservation
+- label and source/feed color behavior
+- no duplicate storm
+- no raw URL / source_event_uid in UI
+
+### Stage 2.9B-Later — Access-Blocked Platforms
+
+Platforms:
+
+- LeagueApps
+- PlayMetrics
+
+Current blockers:
+
+- LeagueApps has documented subscription support but is blocked without org/admin/demo or participant access.
+- PlayMetrics appears to require club/demo or participant-level access.
+
+Do not claim support until verified.
+
+### Stage 2.9B Incremental Platform Testing
+
+Do not import all feeds at once.
+
+Recommended order:
+
+1. 2.9B-1A — Single Team Connect / Team App Feed Baseline UAT
+2. 2.9B-1B — Team Connect Update / Overlay / Cancel UAT
+3. 2.9B-2 — GameChanger Single-Feed Baseline UAT
+4. 2.9B-3 — TeamSnap Feed UAT
+5. 2.9B-4 — SportsEngine / MySE Feed UAT
+6. 2.9B-5 — Sports Connect / Blue Sombrero / Team Stack Feed UAT
+7. 2.9B-6 — Remaining Accessible Platforms
+8. 2.9B-Later — Access-Blocked Platforms
+
+Each platform batch should validate:
+
+- can obtain usable ICS/webcal URL
+- baseline import
+- UID stability
+- repeated refresh
+- duplicate storm behavior
+- moved and renamed event behavior where applicable
+- location/field/court change behavior
+- canceled/deleted event behavior
+- SEQUENCE / LAST-MODIFIED / DTSTAMP if available
+- loaded-event disclosure
+- location/venue data quality
+- source/feed labels
+- source/feed colors
+- overlay preservation
+- suppressions and duplicate dismissals across refresh
+- raw URL/UID privacy
+- no unexpected source-linked/ICS hard deletes
+
+Do not claim platform support before feed behavior is verified.
+
+### Stage 2.9C — Source Identity Hardening Follow-Ups
+
+Status: future, dependent on 2.9B findings.
+
+Likely scope:
+
+- source_id + UID hardening
+- moved-event behavior
+- canceled-event handling
+- missing-from-feed / inactive state
+- SEQUENCE / LAST-MODIFIED / DTSTAMP
+- content-diff fallback
+- recurrence limits
+- duplicate-storm prevention
+- overlay/suppression preservation fixes
+
+Non-goals:
+
+- OAuth
+- scraping
+- private credentials
+- native platform APIs
+- push/live updates
+
+### Recommended Stage Order
+
+Near term:
+
+1. 2.10A — display linked venue name if not yet committed
+2. 2.9B-1B — Team Connect update / overlay / cancel UAT
+3. 2.9B-2 — GameChanger single-feed baseline UAT
+4. 2.9B-3 — TeamSnap feed UAT
+5. 2.9B-4 — SportsEngine / MySE feed UAT
+6. 2.9B-5 — Sports Connect / Blue Sombrero / Team Stack feed UAT
+7. 2.9B-6 — Google / Apple / Outlook / generic ICS
+8. 2.9B-Later — LeagueApps / PlayMetrics when access exists
+9. 2.9C — source identity hardening from real feed findings
+10. 2.10 — venue data capture from feed UAT
+11. 2.10B — assisted venue linking
+
+Product expansion:
+
+12. 3.0 — responsive planner layout foundation
+13. 3.0B — PWA shell / home-screen polish
+14. 3.0C / 3.4 — multi-child profiles + team assignment
+15. 3.1 — venue-aware planner integration
+16. 3.2 — mobile venue / weekend command actions
+17. Native app evaluation only if validated usage need exists
+
+---
+
+## 6. Sports Family Benchmark
+
+Sports Family is the canonical stress-case UAT family.
+
+Family:
+
+- two parents
+- six kids
+- twelve sports schedules
+- seven platform targets
+- last name: Sports
+
+Base inbox:
+
+- rdtest1970@gmail.com
+
+Use Gmail plus-addressing for parent/child/platform aliases.
+
+Target platforms:
+
+- GameChanger
+- TeamSnap
+- SportsEngine / MySE
+- Sports Connect / Blue Sombrero
+- PlayMetrics
+- LeagueApps
+- Spond or Heja
+- Google Calendar
+- Apple Calendar
+- Outlook
+- generic ICS/webcal
+
+Seed event pattern:
+
+- Practice A = baseline create/import and update/move test
+- Game B = stable control event
+- Team Event C = cancel/delete test
+
+Naming safety:
+
+- all team names start with TI Test
+- all event titles start with TI Feed Test
+
+Current platform notes:
+
+- Team Connect / Team App feed is active and baseline passed
+- GameChanger feeds exist but should be imported incrementally
+- TeamSnap URLs exist and should be tested after current feed is complete
+- SportsEngine URLs exist and should be tested after TeamSnap or as scheduled
+- LeagueApps has documented calendar subscription support but access is blocked without org/admin/demo or registered participant account
+- PlayMetrics likely requires club/demo access
+- Sports Connect / Blue Sombrero may require org/admin access depending on portal
+
+---
+
+## 7. Venue / Map Roadmap
+
+### Current Map Behavior
+
+Current map behavior is event-level:
+
+- external map/directions action
+- mobile map-picker modal
+- not a full in-planner map view unless explicitly added later
+
+### Stage 2.10 — Venue Data Capture from Feed UAT
+
+Runs alongside 2.9B.
+
+Purpose:
+
+- determine whether imported feed location data is good enough for venue linking
+
+Capture per platform:
+
+- venue name quality
+- address quality
+- city/state presence
+- field/court details
+- map URL if present
+- whether location changes survive refresh
+- whether user-selected venue override survives refresh
+
+This is assessment first, not automatic matching.
+
+### Stage 2.10A — Display Linked Venue Name
+
+Status: next/small polish if not implemented.
+
+Purpose:
+
+- if event already has selected TI venue, show venue name instead of MVP engineering placeholder
+
+Scope:
+
+- show linked venue name
+- show city/state if available
+- preserve Clear
+- preserve Find venue
+- preserve source location text
+- no automatic venue matching
+- no fuzzy matching
+- no full Owl’s Eye cards yet
+
+Product rule:
+
+- feed location text = source data
+- selected TI venue = planner context
+- user-selected venue context wins and must survive refresh
+
+### Stage 2.10B — Assisted Venue Linking
+
+Future.
+
+Scope:
+
+- Find venue / Link venue from event card/detail
+- prefill venue search from feed location text
+- search TI venues by name/address/city/state
+- user confirms selected venue
+- preserve linked venue through feed refresh
+- distinguish source location text from selected TI venue context
+
+Do not silently auto-link.
+
+### Stage 3.1 — Venue-Aware Planner Integration
+
+Future.
+
+Scope:
+
+- known TI venue on event details
+- venue page link
+- directions
+- parking / entrance / field notes where available
+- tournament map link where relevant
+- Owl’s Eye / nearby venue intelligence for Weekend Pro
+- venue action cards inside event/weekend views
+
+### Stage 3.2 — Mobile Venue / Weekend Command Actions
+
+Future mobile command layer.
+
+Mobile should answer:
+
+- What is next?
+- Where do we need to be?
+- When should we leave?
+- Which child/team is this?
+- What venue?
+- Where do we park?
+- Where is food/coffee?
+- What do we need to bring?
+
+---
+
+## 8. Responsive / PWA Roadmap
+
+Weekend Planner should evolve into a responsive, mobile-first planning experience while staying inside the existing TournamentInsights web app.
+
+This is not a separate native app or separate repo at this stage.
+
+Architecture principle:
+
+- same product
+- same repo
+- same database
+- same auth
+- same entitlement model
+- different responsive layouts for desktop and mobile
+
+### Stage 3.0 — Responsive Planner Layout Foundation
+
+Desktop/tablet:
+
+- season/calendar planning dashboard
+- month/week/season views
+- calendar source management
+- duplicate review
+- feed troubleshooting
+- broader planning/debug workflows
+
+Mobile:
+
+- sideline-ready weekend command center
+- scroll/card-based views
+- Today
+- This Weekend
+- Upcoming
+- later: By Child / By Team / By Venue
+- sticky header
+- bottom navigation
+- safe-area padding
+- touch-friendly cards
+
+### Stage 3.0B — PWA Shell / Home-Screen Polish
+
+Future.
+
+Scope:
+
+- web app manifest
+- app icons
+- theme color
+- standalone display mode testing
+- home-screen guidance
+- mobile browser polish
+
+Still same web app. No native repo.
+
+External implementation note:
+
+- PWA manifest details should be checked against current browser/Next.js guidance before implementation.
+- Vercel Cron Jobs are available for scheduled tasks and can support future daily feed refresh MVP if/when scoped.
+
+### Native App Stance
+
+Native iOS/Android remains deferred.
+
+Only consider native after usage proves need for:
+
+- push notifications
+- deeper offline support
+- device-specific features
+- app-store distribution
+- repeated mobile weekend usage that PWA cannot satisfy
+
+---
+
+## 9. Future Family Model Roadmap
+
+### Stage 3.0C / 3.4 — Multi-Child / Player Profiles + Team Assignment
+
+Future, after feed reliability and feed labels are stable.
+
+Scope:
+
+- child/player profiles
+- team assignment
+- feed assignment to child/team
+- manual event assignment to child/team
+- child/team color coding
+- filters by child/team
+- family schedule view
+- per-child view
+- same-child vs sibling vs parent-logistics conflicts
+
+Important visual rule:
+
+- source/feed color = calendar/feed origin
+- child/team color = identity
+- conflict red = warning state
+
+Do not collapse these into one system.
+
+---
+
+## 10. Tournament Schedule Integration Track
+
+Tourney Machine should be on the targeted roadmap, but separate from private family calendar-feed UAT.
+
+Tournament schedule source track includes:
+
+- Tourney Machine
+- Exposure Events
+- GotSport
+- SportsEngine tournament schedules
+- LeagueApps tournament/event schedules
+- other public tournament schedule providers
+
+Architecture priority:
+
+1. ICS/iCal subscription link if available
+2. public schedule parsing if stable and permitted
+3. official API/OAuth later only if justified
+
+Avoid fragile scraping as the primary MVP path.
+
+Purpose:
+
+- tournament schedules
+- bracket/game updates
+- venue/field assignments
+- multi-venue weekend context
+- public tournament planning intelligence
+
+---
+
+## 11. Daily Auto-Refresh Direction
+
+Daily auto-refresh is tabled for now.
+
+Future possible stage:
+
+- Scheduled Calendar Feed Refresh MVP
+
+Recommended model:
+
+- Vercel Cron hitting internal API route
+- cron secret required
+- bounded batch refresh
+- safe logging
+- no real-time claims
+- no source-linked/ICS deletion
+- preserve overlays/suppressions
+- Weekend Pro multi-feed auto-refresh; Insider manual refresh for one feed
+
+Do not implement until current single-feed update/cancel behavior is better proven.
+
+---
+
+## 12. Current Immediate Next Steps
+
+Current immediate path:
+
+1. Finish Team Connect update/overlay/cancel UAT
+2. Implement/confirm Stage 2.10A linked venue name display if not already done
+3. Document Team Connect compatibility result
+4. Import one GameChanger feed only
+5. Run GameChanger baseline/repeated-refresh/update/cancel tests
+6. Continue to TeamSnap and SportsEngine incrementally
+7. Capture venue/location quality during every feed test
+8. Defer full multi-child profiles until feed reliability and labels are stable
+
+---
+
+## 13. Future Prompt Guardrails
+
+Every future Weekend Planner Codex/GPT prompt should preserve these guardrails:
+
+- do not hard-gate /weekend-planner
+- use exact entitlement strings explorer, insider, weekend_pro
+- Explorer messaging is sign-in/verify oriented, not paid framing
+- Weekend Pro gates full calendar aggregation and premium intelligence
+- do not delete source-linked/ICS events
+- no automatic merge
+- no automatic cleanup
+- Keep separate never hides events
+- suppressions hide eligible merged source-linked/ICS originals only
+- manual cleanup is optional and explicit
+- duplicate/conflict detection must disclose loaded-event scope unless full bounded coverage exists
+- no unbounded planner event queries
+- no unbounded recurrence expansion
+- no raw IDs/source URLs/source_event_uid in UI or analytics
+- preserve Stage 2.6A timezone-safe manual event entry
+- preserve user edits through refresh
+- calendar feeds are private user sources
+- feed location text is source data
+- selected TI venue is planner context
+- no automatic venue matching until explicitly scoped
+- do not claim unbuilt features exist
+- no OAuth/scraping/private credential storage unless explicitly scoped later
+- native app is deferred until usage validates need
+
+---
+
+## 14. Canonical One-Line Roadmap Principle
+
+Reliability first. Responsive/mobile second. Family model third. Venue-aware intelligence fourth. Native app last.
