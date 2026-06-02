@@ -366,10 +366,10 @@ Validate:
   - duplicate merge suppression
   - explicit user delete only for hard-delete
 - [x] Evidence recorded that source-linked rows were retained on SportsEngine cancel/delete and temporary source-disable scenarios (no hard-delete observed).
-- [ ] Confirm the same policy holds for all canonical source-disconnect implementations (manual source removal, API-driven disconnect, and bulk source resets).
+- [x] API-driven disconnect implemented and validated as non-destructive (`DELETE /api/planner/sources/[id]` removes source only; existing events remain in query results immediately after disconnect).
 - [ ] Close remaining F3 UX gap and connect an explicit hard-delete policy validation item for a true cancel-delete-from-source workflow in one additional platform.
 
-Latest 2.9C follow-up note: 2.9C-4 SE run completed locally for update/move, cancel/delete presence, and `/account/logout`; remaining 2.9C items are F3 UX and full canonical-disconnect hard-delete confirmation. Missing-source behavior is now observed as non-destructive retention for the temporary disable-path.
+Latest 2.9C follow-up note: 2.9C-4 SE run completed locally for update/move, cancel/delete presence, and `/account/logout`; canonical API-driven disconnect is now implemented and retained source-linked rows. Remaining 2.9C items are F3 UX and broader cancel-delete validation on an additional platform. Missing-source behavior is now observed as non-destructive retention for the temporary disable-path.
 
 ### Weekend Planner (/weekend-planner) — Manual Events
 

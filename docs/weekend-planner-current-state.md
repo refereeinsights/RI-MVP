@@ -626,12 +626,13 @@ Evidence captured so far:
 
 - Stage 2.9C-4 (SportsEngine) follow-up did not hard-delete `TI Feed Test Team Event C` rows during cancel/delete scenario; rows remained after stale-source disable.
 - Source disconnect-equivalent temporary disable (`__UAT_DISABLED__`) retained events and did not remove source-linked rows.
+- 2.9C-0 API-driven disconnect implemented: `DELETE /api/planner/sources/[id]` now removes source metadata row and stops future refreshes while preserving already-imported source-linked events.
 
 Current active open items carried into 2.9C:
 
 - F3 at-limit behavior still should show upgrade path before modal import.
 - Source name fallback stability (`Connected calendar`) needs final policy.
-- Hard-delete behavior is documented as non-destructive in policy with remaining ambiguity only for full canonical disconnect path implementation.
+- Hard-delete behavior is documented as non-destructive in policy with remaining ambiguity only for broader platform cancel-delete validation.
 - Missing-source handling behavior is now observed as retention during temporary source disable (events remained, no timestamp churn).
 
 Non-goals:

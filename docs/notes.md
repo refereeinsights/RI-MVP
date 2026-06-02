@@ -47,6 +47,10 @@ Maintenance rules:
     - Added non-destructive retention policy for refresh/missing-feed/cancel/disconnect/merge to `docs/weekend-planner-current-state.md`.
     - Added 2.9C-0 UAT checklist items to `docs/qa/ti-planner-ics-uat.md` and marked SportsEngine cancel/delete removal evidence as non-destructive.
     - Updated `CLAUDE.md` with Stage 2.9C-0 checkboxes and evidence notes.
+  - Implemented 2.9C-0 canonical disconnect action:
+    - Added `DELETE /api/planner/sources/[id]` to `apps/ti-web/app/api/planner/sources/[id]/route.ts`.
+    - Added “Disconnect calendar” action with confirmation + source refresh in `apps/ti-web/app/_components/planner/PlannerClient.tsx`.
+    - Recorded canonical non-destructive disconnect evidence in `docs/admin-reference.md`, `docs/qa/ti-planner-ics-uat.md`, `docs/weekend-planner-current-state.md`, and `CLAUDE.md`.
 
 - TI Planner Stage 2.9B-2 GameChanger baseline UAT (2026-06-02):
   - Executed on `weekendpro_test@example.com` using TI Owls 12U; 1st baseline feed passed (`23` imported, `0` errors).

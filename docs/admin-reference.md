@@ -71,6 +71,8 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
 ### APIs
 - `POST /api/planner/sources/import-ics` → `apps/ti-web/app/api/planner/sources/import-ics/route.ts`
 - `POST /api/planner/sources/[id]/refresh` → `apps/ti-web/app/api/planner/sources/[id]/refresh/route.ts`
+- `PATCH /api/planner/sources/[id]` → `apps/ti-web/app/api/planner/sources/[id]/route.ts`
+- `DELETE /api/planner/sources/[id]` → `apps/ti-web/app/api/planner/sources/[id]/route.ts`
 - `GET /api/planner/sources` → `apps/ti-web/app/api/planner/sources/route.ts`
 - `GET /api/planner/search/venues?q=` → `apps/ti-web/app/api/planner/search/venues/route.ts`
 - `GET /api/planner/search/tournaments?q=` → `apps/ti-web/app/api/planner/search/tournaments/route.ts`
@@ -314,6 +316,7 @@ Connected calendar sources (TI):
 - `POST /api/planner/sources/import-ics` → connect an ICS/iCal feed
 - `POST /api/planner/sources/[id]/refresh` → refresh a connected feed
 - `PATCH /api/planner/sources/[id]` → update connected source label (`source_name`, single-line, server-sanitized)
+- `DELETE /api/planner/sources/[id]` → disconnect a calendar source without deleting source-linked events
 - `source_name` fallback in UI is `Connected calendar` when label is empty/null
 
 Stage 2.10 status (2026-06-02): venue metadata hydration is live for linked ICS/manual events.

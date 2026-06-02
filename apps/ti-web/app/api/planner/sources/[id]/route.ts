@@ -73,3 +73,28 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   return NextResponse.json({ ok: true, source: data });
 }
 
+export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+
+  const { id } = await ctx.params;
+  const sourceId = String(id ?? "").trim();
+  if (!sourceId) return NextResponse.json({ ok: false, error: "missing_source_id" }, { status: 400 });
+
+  const { data, error } = await (supabase.from("planner_event_sources" as any) as any)
+    .delete()
+    .eq("id", sourceId)
+    .eq("user_id", user.id)
+    .eq("source_type", "ics")
+    .select("id,source_type")
+    .single();
+
+  if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
+  if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+
+  return NextResponse.json({ ok: true });
+}

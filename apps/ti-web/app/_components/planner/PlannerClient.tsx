@@ -451,6 +451,7 @@ export default function PlannerClient(props: Props) {
   const [editingSourceLabel, setEditingSourceLabel] = useState("");
   const [savingSourceLabel, setSavingSourceLabel] = useState(false);
   const [sourceLabelError, setSourceLabelError] = useState<string | null>(null);
+  const [disconnectingSourceId, setDisconnectingSourceId] = useState<string | null>(null);
 
   const [scheduleView, setScheduleView] = useState<ScheduleView>("upcoming");
   const [seasonRange, setSeasonRange] = useState<SeasonRangePreset>("6mo");
@@ -1133,6 +1134,32 @@ export default function PlannerClient(props: Props) {
       setSourceLabelError(msg === "label_too_long" ? "Label is too long (max 140 characters)." : msg);
     } finally {
       setSavingSourceLabel(false);
+    }
+  }
+
+  async function onDisconnectSource(sourceId: string) {
+    if (busy || disconnectingSourceId) return;
+    const displayName = displayLabelForSource(sources.find((s) => String(s.id) === String(sourceId)) || null);
+    const confirmMessage = `Disconnect “${displayName}”? This stops future refreshes and preserves imported events.`;
+    if (!window.confirm(confirmMessage)) return;
+
+    setDisconnectingSourceId(sourceId);
+    setError(null);
+    setNotice(null);
+    try {
+      await jsonFetch<{ ok: true }>(`/api/planner/sources/${encodeURIComponent(sourceId)}`, { method: "DELETE" });
+      if (editingSourceId && String(editingSourceId) === String(sourceId)) {
+        setEditingSourceId(null);
+        setEditingSourceLabel("");
+        setSourceLabelError(null);
+      }
+      setSources((prev) => prev.filter((s) => String(s.id) !== String(sourceId)));
+      await Promise.all([loadEvents()]);
+      setNotice("Calendar disconnected. Existing imported events were preserved.");
+    } catch (e: any) {
+      setError(e?.message || "Disconnect failed.");
+    } finally {
+      setDisconnectingSourceId(null);
     }
   }
 
@@ -3279,6 +3306,14 @@ export default function PlannerClient(props: Props) {
                               Edit label
                             </button>
                           )}
+                          <button
+                            className={styles.dangerBtn}
+                            type="button"
+                            onClick={() => void onDisconnectSource(s.id)}
+                            disabled={busy || String(disconnectingSourceId ?? "") === String(s.id)}
+                          >
+                            Disconnect calendar
+                          </button>
                         </div>
                         {editingSourceId === s.id ? (
                           <div className={styles.muted} style={{ marginTop: 6 }}>

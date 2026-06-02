@@ -265,7 +265,8 @@ Run these checks against at least one already-validated source (TeamConnect/Game
 
 - [x] Source-linked/ICS rows are documented as non-destructive on refresh, missing-feed, and cancel/delete paths.
 - [x] 2.9C-4 follow-up produced no hard-delete in cancel/delete and temporary source-disable scenarios.
-- [ ] Confirm source disconnect implementation only stops future refresh and does not hard-delete imported source-linked events.
+- [x] Confirmed canonical disconnect behavior: API-driven disconnect removes source metadata only (`DELETE /api/planner/sources/[id]`) and preserves imported source-linked rows from prior imports.
+- 2026-06-02 implementation: adding “Disconnect calendar” in connected source cards plus DELETE endpoint in `apps/ti-web/app/api/planner/sources/[id]/route.ts`.
 - [ ] Confirm duplicate merge path uses suppression (`reason='merged_duplicate'`) and does not delete source-linked originals.
 - [ ] Confirm explicit user delete remains the only hard-delete path and is confirmation-gated.
 - [ ] Confirm `removed_from_feed`/inactive status is used if available; otherwise document schema limitation.
