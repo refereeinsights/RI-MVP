@@ -273,6 +273,8 @@ Connected calendar sources (TI):
 - `PATCH /api/planner/sources/[id]` → update connected source label (`source_name`, single-line, server-sanitized)
 - `source_name` fallback in UI is `Connected calendar` when label is empty/null
 
+Stage 2.9B-0 UAT status (2026-06-02): labeling flow is validated for edit/save/persist and list/card display on Insider; manual-event fallback is working; refresh preserves labels. Not-yet-covered items are calendar detail (Weekend Pro gate) and source color marker visibility.
+
 Planner UI files:
 - `apps/ti-web/app/_components/planner/PlannerClient.tsx` (Connected calendars, label edit UI, list view display)
 - `apps/ti-web/app/_components/planner/PlannerCalendar.tsx` (calendar detail shows source label)

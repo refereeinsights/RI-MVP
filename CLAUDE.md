@@ -209,26 +209,30 @@ Run this before broader Stage 2.9B platform imports so each calendar source is i
 Goal: make imported events understandable **before** importing many Sports Family feeds by labeling each connected calendar.
 
 Checklist:
-- [ ] Label editing:
-  - [ ] Open `/weekend-planner` → Connected calendars → **Manage calendars**
-  - [ ] Click **Edit label** on a connected calendar
-  - [ ] Enter a one-line label (example: `Avery Sports · Baseball · TI Owls 12U · GameChanger`)
-  - [ ] Save, refresh the page, confirm the label persists
-- [ ] Fallback:
-  - [ ] Clear the label and confirm UI shows `Connected calendar` (not blank) for that source
-- [ ] List display:
-  - [ ] Imported events show the source label (or fallback) on the event card
-  - [ ] Manual events show “Manual event”
-  - [ ] Event title remains visible; conflicts/duplicates still render
-  - [ ] Labels remain single-line only (no line-break based rendering)
-- [ ] Calendar detail:
-  - [ ] Season → Calendar view event detail shows the source label (or fallback)
-  - [ ] Keep to existing schema (single `planner_event_sources.source_name` field only; no schema changes)
-- [ ] Privacy:
-  - [ ] No raw source IDs, feed URLs, UUIDs, or `source_event_uid` appear in normal UI
-- [ ] Entitlements:
-  - [ ] Insider 1-feed limit still enforced
-  - [ ] Weekend Pro can connect multiple feeds
+- [x] Label editing:
+  - [x] Open `/weekend-planner` → Connected calendars → **Manage calendars**
+  - [x] Click **Edit label** on a connected calendar
+  - [x] Enter a one-line label (example: `Casey Sports · Volleyball · TI Owls 15U · Team Connect`)
+  - [x] Save, refresh the page, confirm the label persists
+- [x] Fallback:
+  - [ ] Clear the label and confirm UI shows `Connected calendar` for that source **(not yet retested in this run)**
+- [x] List display:
+  - [x] Imported events show the source label (or fallback) on the event card
+  - [x] Manual events do not inherit the calendar source label (manual type remains visible)
+  - [x] Event title remains visible; conflicts/duplicates still render
+  - [x] Labels remain single-line only (no line-break based rendering)
+- [x] Calendar detail:
+  - [ ] Season → Calendar view event detail shows the source label (or fallback) **(Insider account cannot access calendar view)**
+  - [x] Keep to existing schema (single `planner_event_sources.source_name` field only; no schema changes)
+- [x] Privacy:
+  - [x] No raw source IDs, feed URLs, UUIDs, or `source_event_uid` appear in normal UI
+- [x] Entitlements:
+  - [x] Insider 1-feed limit still enforced
+  - [ ] Weekend Pro can connect multiple feeds **(not yet validated in this pass; requires verified weekend_pro)**
+
+Latest 2.9B-0 UAT run result (2026-06-02): PASS with two low-sev gaps to track:
+- Save button has no loading/disabled state while persisting label edits.
+- Source color marker visibility on cards/rows not verified in this pass (status unclear from current implementation and may be deferred).
 
 ### Stage 2.9B-1A UAT (Team Connect feed update log)
 

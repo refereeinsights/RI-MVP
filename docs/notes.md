@@ -3907,3 +3907,8 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
   - Confirmed/locked behavior: label text is single-line only, with `Connected calendar` fallback when blank.
   - Reinforced CLAUDE and admin reference notes to reflect the same contract and schema scope (`planner_event_sources.source_name` only).
   - No additional schema/API changes required for v1.3; this is a docs and contract hardening pass.
+
+- 2026-06-02: Stage 2.9B-0 UAT execution — core pass.
+  - PASS: label editing (single-field), persistence after reload, list-card visibility, manual-event fallback (no inherited feed label), and refresh retention.
+  - PASS: no raw IDs/URLs/source UIDs observed in normal UI; privacy-safe rendering confirmed.
+  - Not fully covered: label fallback reset-to-`Connected calendar` was not re-run in this pass; Weekend Pro calendar detail path (`Season` calendar view) and source-color marker visibility were not validated due entitlement and implementation scope.
