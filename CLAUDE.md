@@ -191,6 +191,9 @@ If no unverified fixture exists, Stage 2.8 sign-off must treat this as an **open
 
 Use this only once real platform team schedules and subscription links exist.
 
+Recommended sequence:
+- Run Stage 2.9B-0 first so every imported feed has a clear label before full platform compatibility testing.
+
 Docs:
 - Sports Family checklist + production-safe framework: `docs/weekend-planner-uat.md`
 - Platform compatibility matrix (fill in): `docs/qa/ti-planner-ics-uat.md`
@@ -200,6 +203,8 @@ Account requirement:
   - `insider` is limited to 1 connected calendar feed (server-enforced).
 
 ### Stage 2.9B-0 UAT (feed labels / kid-team-sport prep)
+
+Run this before broader Stage 2.9B platform imports so each calendar source is identifiable at a glance.
 
 Goal: make imported events understandable **before** importing many Sports Family feeds by labeling each connected calendar.
 
@@ -215,8 +220,10 @@ Checklist:
   - [ ] Imported events show the source label (or fallback) on the event card
   - [ ] Manual events show “Manual event”
   - [ ] Event title remains visible; conflicts/duplicates still render
+  - [ ] Labels remain single-line only (no line-break based rendering)
 - [ ] Calendar detail:
   - [ ] Season → Calendar view event detail shows the source label (or fallback)
+  - [ ] Keep to existing schema (single `planner_event_sources.source_name` field only; no schema changes)
 - [ ] Privacy:
   - [ ] No raw source IDs, feed URLs, UUIDs, or `source_event_uid` appear in normal UI
 - [ ] Entitlements:
@@ -306,11 +313,11 @@ Login as UAT Planner A.
   - [ ] Other
 - [ ] Weekend algorithm — in **This Weekend**, confirm events shown are for next upcoming Fri–Sun (or current Fri–Sun if today is Fri/Sat/Sun) in the event’s timezone
 - [ ] Duplicate (manual) — create a manual Practice, duplicate it, change date/time, confirm:
-  - duplicate is a new manual event (not “Synced from calendar”)
+  - duplicate is a new manual event (not an imported-calendar source event)
   - original remains unchanged
   - duplicate flow opens edit UI and requires setting a new start time (starts_at field should be blank until set)
-- [ ] Duplicate restrictions — confirm Duplicate is not offered for “Synced from calendar” events (manual-only for now)
-  - [ ] If an event shows “Synced from calendar”, it must NOT show a Duplicate button.
+- [ ] Duplicate restrictions — confirm Duplicate is not offered for imported-calendar events (manual-only for now)
+  - [ ] If an event is linked to a calendar source, it must NOT show a Duplicate button.
 - [ ] Long list sanity — confirm ordering by start time ascending, stable grouping, and reasonable performance with dozens of events (no jank / no missing rows)
 
 ### Weekend Planner (/weekend-planner) — Stage 2.7 Analytics (privacy-safe + fail-open)

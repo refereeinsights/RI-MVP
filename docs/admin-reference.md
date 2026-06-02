@@ -270,7 +270,8 @@ Connected calendar sources (TI):
 - `GET /api/planner/sources` → list connected calendar sources (ICS)
 - `POST /api/planner/sources/import-ics` → connect an ICS/iCal feed
 - `POST /api/planner/sources/[id]/refresh` → refresh a connected feed
-- `PATCH /api/planner/sources/[id]` → update connected source label (`source_name`, single-line)
+- `PATCH /api/planner/sources/[id]` → update connected source label (`source_name`, single-line, server-sanitized)
+- `source_name` fallback in UI is `Connected calendar` when label is empty/null
 
 Planner UI files:
 - `apps/ti-web/app/_components/planner/PlannerClient.tsx` (Connected calendars, label edit UI, list view display)
