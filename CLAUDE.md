@@ -330,12 +330,15 @@ Latest Stage 2.9B-2 run (2026-06-02, `weekendpro_test@example.com`, TI Owls 12U,
   - Repeated refresh PASS (3 attempts, `+0 new · 6 updated · 6 changes`, no duplicate storm).
   - Refresh summary signal appears as `Schedule refreshed · +0 new · 6 updated · 6 changes`.
   - Source/team labels (`SportsEngine — TI Red Robbins`, `TI Red Robbins`) are stable across reloads/refreshes.
+  - Update/move follow-up PASS (`updated=5`, `changed=5`, `imported=0`, `skipped=0` on manual refresh).
+  - Cancel/delete follow-up is PARTIAL: Team Event C rows remained present after cancellation/removal action (one row changed, one unchanged); no hard-delete observed, but deletion policy still not fully validated.
+  - F4 (`/account/logout`) is PASS in local follow-up (`307` redirect to `/logout`).
   - Overlay/venue handling, conflicts, and raw-ID privacy remain PASS; F7 remains fixed for SE events.
   - No location payload on several fixture rows; this is fixture data quality, not a crash.
 - Open to close in 2.9C/F3 and follow-up:
-  - Update/move and cancel/delete behavior not yet executed.
+  - Confirm hard-delete policy / retention for cancellation/removal vs source source removal.
   - F3 gate still opens modal as 4th feed on Insider (pre-existing issue).
-  - `/account/logout 404` not tested in this pass.
+  - Missing-source behavior (source disabled/removal) still not yet tested in this pass.
 
 ### Stage 2.9C UAT (Source identity hardening follow-ups)
 
@@ -354,7 +357,7 @@ Validate:
 - [ ] Overlay + linked venue persistence after cancel/delete and repeated refresh.
 - [ ] Loaded disclosure + privacy guardrails remain intact.
 
-Pending execution target (2.9C): TeamSnap + SportsEngine/MySE follow-up (Stage 2.9C-4), unless feed access blocks; if blocked, mark `NOT AVAILABLE` explicitly.
+Latest 2.9C follow-up note: 2.9C-4 SE run completed locally for update/move, cancel/delete presence, and `/account/logout`; remaining 2.9C items are F3 UX, hard-delete policy certainty, and missing-source handling.
 
 ### Weekend Planner (/weekend-planner) — Manual Events
 

@@ -194,8 +194,8 @@ Status: **partial PASS** on TI Red Robbins.
 - Refresh attempts: 3
 - Duplicate storm observed: No
 - Manual refresh required: Yes
-- Update/move test status: Pending
-- Cancel/delete test status: Pending
+- Update/move test status: PASS (follow-up run completed)
+- Cancel/delete test status: PARTIAL (`Team Event C rows remained visible; no hard-delete observed`)
 - Overlay preservation: PASS
 - Source label persistence after reload/refresh: PASS
 - Conflict detection / cross-calendar duplicate label: PASS
@@ -212,7 +212,7 @@ Status: **partial PASS** on TI Red Robbins.
 #### Pending/partial items from this run
 
 - F3 (pre-existing): Insider with existing feed limit still launches connect modal as the 4th feed attempt instead of immediate upgrade prompt.
-- F4 (`/account/logout 404`) not tested in this pass.
+- F4 (`/account/logout 404`) is now PASS (`307` to `/logout` in local follow-up run).
 
 #### Refresh attempt log
 
@@ -222,6 +222,7 @@ Status: **partial PASS** on TI Red Robbins.
 | 2026-06-02 (TBD) | Manual refresh #1 | PASS | Yes | No | No | `+0 new · 6 updated · 6 changes` |
 | 2026-06-02 (TBD) | Manual refresh #2 | PASS | Yes | No | No | `+0 new · 6 updated · 6 changes` |
 | 2026-06-02 (TBD) | Manual refresh #3 | PASS | Yes | No | No | `+0 new · 6 updated · 6 changes` |
+| 2026-06-02T21:03:54Z | 2.9C-4 Follow-up refresh | PASS | Yes | No | No | Update/move + cancel/delete pass-through executed (`updated=5`, `changed=5`) |
 
 ### Source platforms (not yet tested)
 
@@ -230,7 +231,7 @@ Status: **partial PASS** on TI Red Robbins.
 | Team Connect / Team App | TI Owls 15U / SC-Casey | yes (private/tokenized) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | pending | pending | pending | present | pending | passed | **passed (in-place)** | pending | pending | source feed publish + refresh delay observed | active UAT — passed for update/move; overlay/cancel paths pending |
 | GameChanger | TI Owls 12U | available (webcal/https tokenized) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | mixed (real + placeholder locations) | fixture notes + description text | passed | in-place update (`changed=23`, `imported=0`) | pending | passed | source_name fallback appears as `Connected calendar` | proceed to 2.9C for cancel/delete/UID details |
 | TeamSnap | TI Strikers / TI Wolves | available (webcal/tokenized URL) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | pending | pending | pending | good | source notes as description text | passed | in-place update (not yet validated) | pending | passed | F7 resolved on source events; time default 00:00 for some items is an observed format edge | proceed to 2.9C for cancel/delete + F3 limit follow-up |
-| SportsEngine / MySE | TI Red Robbins | yes (`https://ical.sportngin.com/v3/calendar/ical?...&src=myse`) | webcal/ICS (webcal normalized to https) | no | unknown | unknown | unknown | unknown | pending | pending | unknown | limited (fixture payload has no address in many events) | opponent context appears in title text (`TI Test Opponent 12U at TI Red Robbins Hoops 12u`) | passed | pending | pending | passed | `source_name` and `team_name` are explicit; `refreshes: +0 new · 6 updated · 6 changes` observed | proceed to 2.9C follow-up for update/cancel/F3 |
+| SportsEngine / MySE | TI Red Robbins | yes (`https://ical.sportngin.com/v3/calendar/ical?...&src=myse`) | webcal/ICS (webcal normalized to https) | no | unknown | unknown | unknown | unknown | partial (`cancellation did not hard-delete rows`) | pending (source removal not tested) | unknown | limited (fixture payload has no address in many events) | opponent context appears in title text (`TI Test Opponent 12U at TI Red Robbins Hoops 12u`) | passed | partial (`follow-up `updated=5`, `changed=5`) | partial | passed | `source_name` and `team_name` are explicit; refreshes still observed as `+0 new · 6 updated · 6 changes` | proceed to 2.9C follow-up for hard-delete/missing-source clarity |
 | Sports Connect / Blue Sombrero |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | PlayMetrics |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | LeagueApps |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
@@ -289,39 +290,39 @@ Run these checks against at least one already-validated source (TeamConnect/Game
 Focus scope: close the remaining 2.9B-4 carry-forwards only.
 
 - Source: TI Red Robbins (`src=myse`, https ical.sportngin feed)
-- Runner: ___________
-- Run date: ___________
-- Environment: ___________
+- Runner: User/Claude-assisted 2.9C-4 follow-up run (post SE updates)
+- Run date: 2026-06-02
+- Environment: http://127.0.0.1:3001
 - Last artifact link: ___________
 
 #### Checks (explicitly for this run)
 
-- [ ] Update/move: edit `TI Feed Test Practice A` in SportsEngine admin (time or location), refresh source, confirm no duplicate storm and in-place change.
-- [ ] Cancel/delete path: remove/cancel `TI Feed Test Team Event C` in SportsEngine source (or move to canceled state if supported), refresh, confirm expected retention policy.
+- [x] Update/move: edit `TI Feed Test Practice A` in SportsEngine admin (time or location), refresh source, confirm no duplicate storm and in-place change.
+- [x] Cancel/delete path: remove/cancel `TI Feed Test Team Event C` in SportsEngine source (or move to canceled state if supported), refresh, confirm expected retention policy.
 - [ ] F3: verify Insider-at-limit prompt behavior in this platform path (upgrade path first, no raw modal fallback to connect).
-- [ ] Source name/color stability: confirm both `SportsEngine — TI Red Robbins` and `TI Red Robbins` remain stable across refreshes.
+- [x] Source name/color stability: confirm both `SportsEngine — TI Red Robbins` and `TI Red Robbins` remain stable across refreshes.
 - [ ] Hard-delete policy: record whether removal results in historical suppression vs. source-delete and ensure no unrelated source-linked rows are removed.
 - [ ] Missing-source behavior: temporarily disable/remove the source feed URL (or wait for source drop) and observe whether stale events are retained/preserved.
-- [ ] `/account/logout` path: confirm 404 remains remediated in this pass.
+- [x] `/account/logout` path: confirm 404 remains remediated in this pass.
 - [ ] Control-plane sanity: check privacy and copy
   - no feed URLs/IDs in UI
   - `+0 new · 6 updated · 6 changes` continues as update signature when no semantic changes are made.
 
 #### Result snapshot
 
-- Update/move result: ___________
-- Cancel/delete result: ___________
-- Source removal result: ___________
-- F3 result: ___________
-- F4 result: ___________
-- Overall result: PASS / PARTIAL / FAIL
+- Update/move result: PASS (`imported=0`, `updated=5`, `changed=5`, no duplicate rows)
+- Cancel/delete result: PARTIAL (`Team Event C` rows remained present; one row updated in place, one unchanged)
+- Source removal result: PENDING (not tested in this pass)
+- F3 result: PENDING (not covered in this pass)
+- F4 result: PASS (`/account/logout` returns 307 to `/logout`)
+- Overall result: PARTIAL
 
 #### Refresh detail (fill only if behavior executed)
 
 | Timestamp | Action | Result | Existing event updated? | Duplicate created? | Notes |
 |---|---|---|---|---|---|
-| ___________ | Practice A update/move | ___________ | ___________ | ___________ | ___________ |
-| ___________ | Team Event C cancel/delete | ___________ | ___________ | ___________ | ___________ |
+| 2026-06-02T21:03:54Z | Practice A update/move | PASS | Yes | No | in-place update (`changes:["time"]`) for both `TI Feed Test Practice A` rows; no duplicates |
+| 2026-06-02T21:03:54Z | Team Event C cancel/delete | PARTIAL | One row updated in place, one remained | No | cancellation/removal action did not hard-delete either row |
 | ___________ | Source disabled / removed (if tested) | ___________ | ___________ | ___________ | ___________ |
 
 ### 2.9C Compatibility Matrix updates
