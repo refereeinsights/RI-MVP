@@ -3921,4 +3921,9 @@ Second filtering pass on the hangouts enrichment pipeline. Goal: eliminate park/
 - 2026-06-02: Stage 2.9B-0 UAT execution — core pass.
   - PASS: label editing (single-field), persistence after reload, list-card visibility, manual-event fallback (no inherited feed label), and refresh retention.
   - PASS: no raw IDs/URLs/source UIDs observed in normal UI; privacy-safe rendering confirmed.
-  - Not fully covered: label fallback reset-to-`Connected calendar` was not re-run in this pass; Weekend Pro calendar detail path (`Season` calendar view) and source-color marker visibility were not validated due entitlement and implementation scope.
+  - Not fully covered: Weekend Pro calendar detail path (`Season` calendar view) and source-color marker visibility were not validated due entitlement and implementation scope.
+
+- 2026-06-02: Stage 2.9A docs-only execution + test scaffold alignment.
+  - Prepared repo-validated prompt at `docs/prompts/ti-planner-stage-2.9a-ics-source-identity-audit-sports-family-uat-prep.md`.
+  - Synced Stage 2.9A UAT references across `CLAUDE.md`, `docs/weekend-planner-uat.md`, `docs/weekend-planner-current-state.md`, and `docs/qa/ti-planner-ics-uat.md`.
+  - No runtime code changes were made in 2.9A; remaining 2.9B validation remains pending on real platform feeds.

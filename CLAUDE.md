@@ -215,7 +215,7 @@ Checklist:
   - [x] Enter a one-line label (example: `Casey Sports · Volleyball · TI Owls 15U · Team Connect`)
   - [x] Save, refresh the page, confirm the label persists
 - [x] Fallback:
-  - [ ] Clear the label and confirm UI shows `Connected calendar` for that source **(not yet retested in this run)**
+  - [x] Clear the label and confirm UI shows `Connected calendar` for that source
 - [x] List display:
   - [x] Imported events show the source label (or fallback) on the event card
   - [x] Manual events do not inherit the calendar source label (manual type remains visible)
@@ -233,6 +233,13 @@ Checklist:
 Latest 2.9B-0 UAT run result (2026-06-02): PASS with two low-sev gaps to track:
 - Save button has no loading/disabled state while persisting label edits.
 - Source color marker visibility on cards/rows not verified in this pass (status unclear from current implementation and may be deferred).
+
+### Stage 2.9A UAT (docs-only)
+
+- [x] Prompt prepared: `docs/prompts/ti-planner-stage-2.9a-ics-source-identity-audit-sports-family-uat-prep.md`.
+- [x] Documentation handoff completed in `docs/weekend-planner-current-state.md`, `docs/weekend-planner-uat.md`, and `docs/qa/ti-planner-ics-uat.md`.
+- [x] No runtime code changes in this stage.
+- [ ] 2.9B real-platform UAT remains open for external feed coverage.
 
 ### Stage 2.9B-1A UAT (Team Connect feed update log)
 
