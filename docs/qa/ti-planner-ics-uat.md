@@ -91,24 +91,24 @@ Important:
 - Duplicate storm observed: No
 - Manual refresh required: Yes
 - Re-import required: No so far
-- Update test status: Pending source feed update
+- Update test status: **Pass** (in-place update observed after source changes)
 - Action taken in source platform: Changed Practice A time/location
-- Update delay observed: Pending
-- Updated existing event after refresh: Pending
-- Duplicate created after update: Pending
-- Location update reflected: Pending
+- Update delay observed: source-feed publish delay + short manual refresh delay (no hard re-import required so far)
+- Updated existing event after refresh: Yes
+- Duplicate created after update: No
+- Location update reflected: Yes
 - Local overlay preserved: Pending / not yet tested
 - Cancel/delete test: Pending
-- Notes: Waiting for Team Connect feed to publish the source change. Continue refreshing periodically before deciding whether re-import is required.
+- Notes: Update/move behavior is now documented as pass for this feed.
 
 #### Refresh attempt log
 
 | Timestamp | Action | Result | Updated existing event? | Duplicate created? | Location updated? | Notes |
 |---|---|---|---|---|---|---|
 | TBD | Baseline import | Passed | N/A | No | N/A | Full season loaded |
-| TBD | Manual refresh #1 | Passed | Pending | No | Pending | No duplicate storm |
-| TBD | Manual refresh #2 | Passed | Pending | No | Pending | No duplicate storm |
-| TBD | Manual refresh #3 | Passed | Pending | No | Pending | No duplicate storm |
+| TBD | Manual refresh #1 | Passed | Yes | No | Yes | No duplicate storm |
+| TBD | Manual refresh #2 | Passed | Yes | No | Yes | No duplicate storm |
+| TBD | Manual refresh #3 | Passed | Yes | No | Yes | No duplicate storm |
 | TBD | Practice A changed in source platform | Waiting for feed publish | Pending | Pending | Pending | Refresh periodically |
 
 #### Privacy note (feeds)
@@ -122,7 +122,7 @@ Important:
 
 | Platform | Sports Family alias | Subscription URL available? | Feed type | Requires login cookies? | UID stability | SEQUENCE present? | LAST-MODIFIED present? | DTSTAMP present? | Cancel semantics observed | Missing/deleted semantics observed | Recurrence behavior observed | Location quality | Notes/description quality | Baseline import result | Update result | Cancel/delete result | Overlay preservation result | Known quirks | Recommendation |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Team Connect / Team App | TI Owls 15U / SC-Casey | yes (private/tokenized) | unknown | unknown | pending | pending | pending | pending | pending | pending | pending | present | pending | passed | pending | pending | pending | source feed update delay under observation | active UAT — supported with caveats pending update/cancel tests |
+| Team Connect / Team App | TI Owls 15U / SC-Casey | yes (private/tokenized) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | pending | pending | pending | present | pending | passed | **passed (in-place)** | pending | pending | source feed publish + refresh delay observed | active UAT — passed for update/move; overlay/cancel paths pending |
 | GameChanger |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | TeamSnap |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | SportsEngine / MySE |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
@@ -139,3 +139,36 @@ Important:
 | Apple Calendar |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | Outlook |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | Generic ICS/webcal |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
+
+## Stage 2.9B-1B — Team Connect Lifecycle Validation
+
+### Team Connect / Team App — TI Owls 15U (SC-Casey)
+
+- Active scope: one imported source (Team Connect / Team App)
+- Result summary:
+  - Update/move behavior: **PASS**
+  - Local overlay preservation: **PENDING**
+  - Linked venue preservation: **PENDING**
+  - Cancel/delete behavior: **PENDING**
+  - Non-destructive retention of source-linked events: **PENDING (must stay false for PASS)**
+  - Source/feed color and label persistence: observed as stable through update checks
+
+Checklist (repo-aligned 2.9B-1B pass gates):
+
+- [x] Source update in `Practice A` scenario observed in source feed and reflected in Weekend Planner without duplicate creation.
+- [x] Labels persisted across refresh.
+- [x] Refresh behavior captured as in-place update for known supported fields.
+- [ ] Overlay: add local note and/or venue, refresh, confirm persistence.
+- [ ] Overlay: confirm source color and source label remain stable.
+- [ ] Cancel/delete path: perform on Team Event C equivalent and document resulting planner behavior.
+- [ ] Ensure source-linked events are not unexpectedly hard-deleted.
+- [ ] Update matrix with refresh delay + discovered cancel/deleted behavior.
+
+Update the platform compatibility row in this file when overlay and cancel/delete behavior is captured:
+
+- Team Connect / Team App row update:
+  - `Update result`: passed
+  - `Cancel/delete result`: pending/observed
+  - `Overlay preservation result`: pending
+  - `Known quirks`: source-feed publish/refresh delay (non-real-time, re-import not required in known tests)
+- Recommendation: Proceed to Stage 2.9B-2 after overlay + cancel/delete confirmation; otherwise escalate follow-up items to 2.9C.

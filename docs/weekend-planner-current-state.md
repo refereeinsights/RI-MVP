@@ -373,23 +373,25 @@ Additional feeds were intentionally deferred until 2.9B-0 labels were implemente
 
 ### Stage 2.9B-1B — Team Connect Update / Overlay / Cancel UAT
 
-Status: active / next.
+Status: in progress (implemented pass/follow-up split).
 
-Already passed:
+Latest evidence snapshot (2026-06-02):
 
-- update in place
-- time update correct
-- labels persist
-- Calendar/List consistency
-- repeated refresh with no duplicate storm
+- Update/move baseline: **PASS**
+  - `Practice A` change re-import not required.
+  - Existing event updated in place; no duplicate created.
+  - Time/location updates reflected after refresh.
+  - Labels persisted after refresh.
+  - Calendar/List remained consistent.
+  - Repeated refreshes observed without duplicate storm.
 
-Still verify/document:
+In progress:
 
-- local note preservation
-- linked venue preservation after refresh
-- cancel/delete behavior for Team Event C
-- whether Team Connect removes canceled events, marks them canceled, or leaves unchanged
-- no unexpected source-linked event deletion
+- Local note preservation after refresh: **pending** (document with concrete pass/fail if tested)
+- Linked venue preservation after refresh: **pending** (2.10A is implemented; test explicit persistence)
+- Cancel/delete behavior for Team Event C: **pending**
+- Whether canceled events are marked removed/unchanged: **pending**
+- Source-linked hard-delete confirmation: **pending** (must remain false for PASS)
 
 ### Stage 2.9B-2 — GameChanger Single-Feed Baseline UAT
 

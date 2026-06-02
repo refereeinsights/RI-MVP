@@ -89,6 +89,12 @@ Steps:
    - merges where appropriate
 10) Refresh again and confirm overlays survive.
 11) Fill in the platform compatibility matrix rows in `docs/qa/ti-planner-ics-uat.md`.
+11a) For Stage 2.9B-1B (Team Connect lifecycle), explicitly document:
+   - update/move result (PASS/PARTIAL/PENDING),
+   - overlay persistence for notes/venue,
+   - cancel/delete behavior and non-destructive handling,
+   - refresh delay behavior and whether re-import was required,
+   - matrix row update in `docs/qa/ti-planner-ics-uat.md` under Team Connect / Team App.
 
 Reminder constraints:
 - Do not use OAuth.

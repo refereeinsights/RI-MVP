@@ -192,6 +192,12 @@ If no unverified fixture exists, Stage 2.8 sign-off must treat this as an **open
 - [x] Opening Map for a venue-linked event uses the linked venue location/text.
 - [x] Refreshing a source and reloading preserves venue display (no raw IDs exposed).
 
+Latest 2.10 UAT verification artifact:
+- 2026-06-02, Claude verification run (Stage 2.10 recheck): `F-2.10-A`, `F-2.10-B`, `F-2.10-C` all PASS.
+  - `F-2.10-A` sample display: `Spokane Polo Fields · 5700 W 16th Ave · Spokane, WA`
+  - `F-2.10-B` edit panel renders venue name/city/state immediately (no loading hang)
+  - `F-2.10-C` calendar detail uses the same venue-friendly formatting.
+
 ---
 
 ### Stage 2.9B UAT (real ICS platform feeds — Sports Family benchmark)
@@ -256,14 +262,34 @@ Docs:
 - `docs/qa/ti-planner-ics-uat.md` → “Stage 2.9B-1A — Single Team Connect Feed Baseline UAT”
 
 Validate:
-- [ ] Full season imported (events visible in Season).
-- [ ] Refresh schedule 3x; confirm no “duplicate storm”.
-- [ ] Pending: after Practice A time/location change publishes in source feed:
-  - [ ] Refresh and confirm existing event updates in place (or document behavior).
-  - [ ] Confirm whether a duplicate is created.
-  - [ ] Confirm location update reflects.
+- [x] Full season imported (events visible in Season).
+- [x] Refresh schedule 3x; confirm no “duplicate storm”.
+- [x] Update/move scenario in source feed:
+  - [x] Refresh and confirm existing event updates in place.
+  - [x] Confirm whether a duplicate is created (No).
+  - [x] Confirm location update reflects.
 - [ ] Pending: add a local overlay (note or venue link), refresh, confirm overlay preserved.
 - [ ] Pending: cancel/delete a source event, refresh, document behavior.
+
+### Stage 2.9B-1B UAT (Team Connect update/overlay/cancel)
+
+Active feed: Team Connect / Team App — `TI Owls 15U` (label: `SC-Casey`).
+
+Docs:
+- `docs/qa/ti-planner-ics-uat.md` → “Stage 2.9B-1B — Team Connect Lifecycle Validation”
+
+Validate:
+- [x] Update/move behavior remains PASS with no duplicate for Practice A scenario.
+- [ ] Pending: add local planner note +/or venue to imported event, refresh, confirm persistence.
+- [ ] Pending: confirm 2.10A venue label rendering survives refresh when venue linked.
+- [ ] Pending: cancel/delete Team Event C equivalent in source, refresh, document behavior.
+- [ ] Pending: confirm no source-linked/ICS event hard-deletes during cancel/delete/refresh.
+- [ ] Pending: record refresh-delay behavior (no claim of real-time sync).
+
+Latest 2.9B-1B artifact (2026-06-02):
+- Update/move: PASS (in-place), labels persist, calendar/list remained consistent.
+- Duplicate behavior on update: PASS (no duplicate observed).
+- Overlay/cancel/delete/venue-override persistence: PENDING.
 
 ### Weekend Planner (/weekend-planner) — Manual Events
 

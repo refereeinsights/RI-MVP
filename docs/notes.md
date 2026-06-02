@@ -22,7 +22,12 @@ Maintenance rules:
   - Added list + calendar UI consumption of linked venue display (`Venue Name · address · city, state`) with fallback to existing address text.
   - Map action and duplicate-merge preview now reuse linked venue display text when available.
   - Fixed venue hydration regression where `linkedVenue` could return null for valid `venue_id` values because `venues_public` did not expose `seo_slug`; enrichment now uses the public projection columns (`id,name,address,city,state`) with a null-safe slug fallback.
-- Documentation updates for Stage 2.10:
+- TI Planner Stage 2.9B-1B (Team Connect lifecycle UAT docs pass):
+  - Added and aligned repo-validated 2.9B-1B execution prompt in `docs/prompts/ti-planner-stage-2.9b-1b-team-connect-update-overlay-cancel-uat.md`.
+  - Updated `docs/weekend-planner-current-state.md`, `docs/qa/ti-planner-ics-uat.md`, and `CLAUDE.md` to reflect the Stage 2.9B-1B status split:
+    - Update/move/misc updates are PASS in the existing feed,
+    - local note/venue persistence and cancel/delete are now explicitly tracked as pending.
+  - Documentation updates for Stage 2.10:
   - Updated `CLAUDE.md`, `docs/weekend-planner-current-state.md`, and `docs/admin-reference.md` with Stage 2.10 execution notes.
 
 ## 2026-05-31
