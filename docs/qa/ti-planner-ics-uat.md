@@ -29,7 +29,7 @@ Stage 2.9A prompt (docs-first): `docs/prompts/ti-planner-stage-2.9a-ics-source-i
 7. Valid ICS import:
    - Paste a real public ICS URL, optionally enter Source name + Team name, submit.
    - Expect a success summary like “Imported X · Updated 0 · Skipped Y”.
-   - Confirm imported events appear in **Your events** and show “Synced from calendar”.
+   - Confirm imported events appear in **Your events** and show source labeling (fallback to "Connected calendar").
 8. Refresh:
    - In **Synced calendars**, click **Refresh schedule**.
    - Confirm it does not duplicate events; summary should show `+0 new` unless the source changed.
@@ -67,6 +67,8 @@ Stage 2.9A prompt (docs-first): `docs/prompts/ti-planner-stage-2.9a-ics-source-i
 ---
 
 ## Stage 2.9B — Platform Compatibility Matrix (Shell)
+
+Precondition: Stage 2.9B-0 should be validated first so imported source labels are in place before compatibility matrix population.
 
 Purpose: capture real-world ICS feed behavior **without overclaiming support**. Populate during Stage 2.9B as real platform feeds become available.
 

@@ -46,6 +46,8 @@ This prefix is **not** used for cleanup. Cleanup is user-id scoped only.
 
 ## Stage 2.9 — Sports Family benchmark (real-platform UAT prep)
 
+Recommended sequence: run Stage 2.9B-0 first so all connected calendars are labeled before broader platform feed testing.
+
 Stage 2.9 is the real-world ICS compatibility pass. Stage 2.9A is docs-only scaffolding; Stage 2.9B is where you run real platform calendar feed tests.
 
 Compatibility matrix shell (fill in during Stage 2.9B):
@@ -75,7 +77,7 @@ Steps:
 1) Create platform accounts/teams/schedules using dedicated UAT identities only.
 2) Capture the calendar subscription/export link (ICS/webcal/https) for each schedule.
 3) Import each feed into Weekend Planner as a private connected calendar source.
-4) Validate baseline import (events present, “Synced from calendar” labeling, no raw source identifiers in UI).
+4) Validate baseline import (events present, source-labeling present, no raw source identifiers in UI).
 5) Update Practice A (move by ~30 minutes; change location/field if available).
 6) Refresh feed and document upsert/update behavior.
 7) Cancel/delete Team Event C in the source platform.
