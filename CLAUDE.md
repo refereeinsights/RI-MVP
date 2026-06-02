@@ -357,7 +357,19 @@ Validate:
 - [ ] Overlay + linked venue persistence after cancel/delete and repeated refresh.
 - [ ] Loaded disclosure + privacy guardrails remain intact.
 
-Latest 2.9C follow-up note: 2.9C-4 SE run completed locally for update/move, cancel/delete presence, and `/account/logout`; remaining 2.9C items are F3 UX and hard-delete policy certainty. Missing-source behavior is now observed as non-destructive retention for the temporary disable-path.
+### Stage 2.9C-0 UAT (Source-linked event removal policy)
+
+- [x] Canonical non-destructive policy documented for:
+  - missing-from-feed
+  - `STATUS:CANCELLED`
+  - source disconnect
+  - duplicate merge suppression
+  - explicit user delete only for hard-delete
+- [x] Evidence recorded that source-linked rows were retained on SportsEngine cancel/delete and temporary source-disable scenarios (no hard-delete observed).
+- [ ] Confirm the same policy holds for all canonical source-disconnect implementations (manual source removal, API-driven disconnect, and bulk source resets).
+- [ ] Close remaining F3 UX gap and connect an explicit hard-delete policy validation item for a true cancel-delete-from-source workflow in one additional platform.
+
+Latest 2.9C follow-up note: 2.9C-4 SE run completed locally for update/move, cancel/delete presence, and `/account/logout`; remaining 2.9C items are F3 UX and full canonical-disconnect hard-delete confirmation. Missing-source behavior is now observed as non-destructive retention for the temporary disable-path.
 
 ### Weekend Planner (/weekend-planner) — Manual Events
 

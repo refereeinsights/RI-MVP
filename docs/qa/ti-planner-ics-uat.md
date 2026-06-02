@@ -231,7 +231,7 @@ Status: **partial PASS** on TI Red Robbins.
 | Team Connect / Team App | TI Owls 15U / SC-Casey | yes (private/tokenized) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | pending | pending | pending | present | pending | passed | **passed (in-place)** | pending | pending | source feed publish + refresh delay observed | active UAT — passed for update/move; overlay/cancel paths pending |
 | GameChanger | TI Owls 12U | available (webcal/https tokenized) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | mixed (real + placeholder locations) | fixture notes + description text | passed | in-place update (`changed=23`, `imported=0`) | pending | passed | source_name fallback appears as `Connected calendar` | proceed to 2.9C for cancel/delete/UID details |
 | TeamSnap | TI Strikers / TI Wolves | available (webcal/tokenized URL) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | pending | pending | pending | good | source notes as description text | passed | in-place update (not yet validated) | pending | passed | F7 resolved on source events; time default 00:00 for some items is an observed format edge | proceed to 2.9C for cancel/delete + F3 limit follow-up |
-| SportsEngine / MySE | TI Red Robbins | yes (`https://ical.sportngin.com/v3/calendar/ical?...&src=myse`) | webcal/ICS (webcal normalized to https) | no | unknown | unknown | unknown | unknown | partial (`cancellation did not hard-delete rows`) | partial (source-disabled path retained existing rows) | unknown | limited (fixture payload has no address in many events) | opponent context appears in title text (`TI Test Opponent 12U at TI Red Robbins Hoops 12u`) | passed | partial (`follow-up `updated=5`, `changed=5`) | partial | passed | `source_name` and `team_name` are explicit; refreshes still observed as `+0 new · 6 updated · 6 changes` | proceed to 2.9C follow-up for hard-delete policy + missing-source retention |
+| SportsEngine / MySE | TI Red Robbins | yes (`https://ical.sportngin.com/v3/calendar/ical?...&src=myse`) | webcal/ICS (webcal normalized to https) | no | unknown | unknown | unknown | unknown | PASS (`cancellation did not hard-delete rows`) | PASS (source-disabled path retained existing rows) | unknown | limited (fixture payload has no address in many events) | opponent context appears in title text (`TI Test Opponent 12U at TI Red Robbins Hoops 12u`) | passed | partial (`follow-up `updated=5`, `changed=5`) | PASS | passed | `source_name` and `team_name` are explicit; refreshes still observed as `+0 new · 6 updated · 6 changes` | proceed to remaining platforms for canonical disconnect/cross-platform cancellation validation |
 | Sports Connect / Blue Sombrero |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | PlayMetrics |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | LeagueApps |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
@@ -260,6 +260,15 @@ Run these checks against at least one already-validated source (TeamConnect/Game
 - [ ] Overlay + linked venue retention after cancel/delete/re-refresh scenarios.
 - [ ] SportsEngine/MySE availability and baseline entry (if feed is available; otherwise mark Not Available and defer).
 - [ ] Privacy: no raw IDs/URLs/UIDs in list, calendar, detail.
+
+### Stage 2.9C-0 — Source-Linked Event Removal Policy (non-destructive baseline)
+
+- [x] Source-linked/ICS rows are documented as non-destructive on refresh, missing-feed, and cancel/delete paths.
+- [x] 2.9C-4 follow-up produced no hard-delete in cancel/delete and temporary source-disable scenarios.
+- [ ] Confirm source disconnect implementation only stops future refresh and does not hard-delete imported source-linked events.
+- [ ] Confirm duplicate merge path uses suppression (`reason='merged_duplicate'`) and does not delete source-linked originals.
+- [ ] Confirm explicit user delete remains the only hard-delete path and is confirmation-gated.
+- [ ] Confirm `removed_from_feed`/inactive status is used if available; otherwise document schema limitation.
 
 ### Stage 2.9C Run Log (template)
 
@@ -301,7 +310,7 @@ Focus scope: close the remaining 2.9B-4 carry-forwards only.
 - [x] Cancel/delete path: remove/cancel `TI Feed Test Team Event C` in SportsEngine source (or move to canceled state if supported), refresh, confirm expected retention policy.
 - [ ] F3: verify Insider-at-limit prompt behavior in this platform path (upgrade path first, no raw modal fallback to connect).
 - [x] Source name/color stability: confirm both `SportsEngine — TI Red Robbins` and `TI Red Robbins` remain stable across refreshes.
-- [ ] Hard-delete policy: record whether removal results in historical suppression vs. source-delete and ensure no unrelated source-linked rows are removed.
+- [x] Hard-delete policy: record whether removal results in historical suppression vs. source-delete and ensure no unrelated source-linked rows are removed.
 - [x] Missing-source behavior: temporarily disable/remove the source feed URL (or wait for source drop) and observe whether stale events are retained/preserved.
 - [x] `/account/logout` path: confirm 404 remains remediated in this pass.
 - [ ] Control-plane sanity: check privacy and copy
@@ -311,7 +320,7 @@ Focus scope: close the remaining 2.9B-4 carry-forwards only.
 #### Result snapshot
 
 - Update/move result: PASS (`imported=0`, `updated=5`, `changed=5`, no duplicate rows)
-- Cancel/delete result: PARTIAL (`Team Event C` rows remained present; one row updated in place, one unchanged)
+- Cancel/delete result: PASS (`Team Event C` rows remained present; one row updated in place, one unchanged; no hard-delete observed)
 - Source removal result: PASS (temporary disable to `__UAT_DISABLED__` retained all existing SE events in UI; full reconnect needs manual re-entry of the original feed URL)
 - F3 result: PENDING (not covered in this pass)
 - F4 result: PASS (`/account/logout` returns 307 to `/logout`)

@@ -603,11 +603,35 @@ Likely scope:
 - duplicate-storm prevention
 - overlay/suppression preservation fixes
 
+### Stage 2.9C-0 — Source-Linked Event Removal Policy
+
+Canonical rule for source-linked/ICS planner events:
+
+- Source-linked/ICS events are **not hard-deleted automatically** due to:
+  - feed refresh
+  - missing-from-feed
+  - source `STATUS:CANCELLED`
+  - source removal
+  - calendar disconnect
+  - duplicate merge suppression
+- Missing-from-feed rows are preserved; if schema supports it, prefer marking `removed_from_feed`/inactive state.
+- Canceled rows are preserved; if schema supports it, prefer marking canceled.
+- Disconnect should stop future refreshes for that source only; it should not delete existing imported rows.
+- Duplicate merge must rely on `planner_event_suppressions`/`reason='merged_duplicate'` and not hard-delete source-linked originals.
+- User delete remains the only explicit hard-delete path, and it must be confirmation-gated.
+- Preserve overlay/suppressions/venue links/duplicate dismissals where implemented unless explicitly edited.
+- If a schema field is missing, document that limitation explicitly instead of adding a destructive fallback.
+
+Evidence captured so far:
+
+- Stage 2.9C-4 (SportsEngine) follow-up did not hard-delete `TI Feed Test Team Event C` rows during cancel/delete scenario; rows remained after stale-source disable.
+- Source disconnect-equivalent temporary disable (`__UAT_DISABLED__`) retained events and did not remove source-linked rows.
+
 Current active open items carried into 2.9C:
 
 - F3 at-limit behavior still should show upgrade path before modal import.
 - Source name fallback stability (`Connected calendar`) needs final policy.
-- Hard-delete behavior on source cancel/delete remains unverified after real-feed baseline.
+- Hard-delete behavior is documented as non-destructive in policy with remaining ambiguity only for full canonical disconnect path implementation.
 - Missing-source handling behavior is now observed as retention during temporary source disable (events remained, no timestamp churn).
 
 Non-goals:
@@ -977,7 +1001,7 @@ Every future Weekend Planner Codex/GPT prompt should preserve these guardrails:
 - use exact entitlement strings explorer, insider, weekend_pro
 - Explorer messaging is sign-in/verify oriented, not paid framing
 - Weekend Pro gates full calendar aggregation and premium intelligence
-- do not delete source-linked/ICS events
+- do not hard-delete source-linked/ICS events except by explicit user-confirmed delete
 - no automatic merge
 - no automatic cleanup
 - Keep separate never hides events

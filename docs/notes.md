@@ -43,6 +43,10 @@ Maintenance rules:
   - Added implementation prompt `docs/prompts/ti-planner-stage-2.9c-source-identity-hardening-followups.md`.
   - Updated run-doc pointers for 2.9C in `CLAUDE.md`, `docs/admin-reference.md`, and `docs/weekend-planner-current-state.md`.
   - Updated `docs/qa/ti-planner-ics-uat.md` with a 2.9C cross-feed follow-up template.
+  - Implemented Stage 2.9C-0 source-linked removal policy docs alignment:
+    - Added non-destructive retention policy for refresh/missing-feed/cancel/disconnect/merge to `docs/weekend-planner-current-state.md`.
+    - Added 2.9C-0 UAT checklist items to `docs/qa/ti-planner-ics-uat.md` and marked SportsEngine cancel/delete removal evidence as non-destructive.
+    - Updated `CLAUDE.md` with Stage 2.9C-0 checkboxes and evidence notes.
 
 - TI Planner Stage 2.9B-2 GameChanger baseline UAT (2026-06-02):
   - Executed on `weekendpro_test@example.com` using TI Owls 12U; 1st baseline feed passed (`23` imported, `0` errors).
