@@ -322,6 +322,21 @@ Latest Stage 2.9B-2 run (2026-06-02, `weekendpro_test@example.com`, TI Owls 12U,
 - PASS: baseline import (23 events, 0 errors), refresh dedupe (`imported=0`, `changed=23`), overlay/venue persistence, loaded disclosure honesty, and no raw identifiers in list/calendar/detail.
 - CARRY-FORWARD: source_name fallback is currently generic `Connected calendar`; cancel/delete behavior not covered due one-feed-only source checks.
 
+### Stage 2.9B-4 UAT (SportsEngine / MySE baseline)
+
+- Status: partial PASS on TI Red Robbins.
+- Result summary:
+  - Baseline import PASS (`Imported 6 · Updated 0 · Skipped 0`).
+  - Repeated refresh PASS (3 attempts, `+0 new · 6 updated · 6 changes`, no duplicate storm).
+  - Refresh summary signal appears as `Schedule refreshed · +0 new · 6 updated · 6 changes`.
+  - Source/team labels (`SportsEngine — TI Red Robbins`, `TI Red Robbins`) are stable across reloads/refreshes.
+  - Overlay/venue handling, conflicts, and raw-ID privacy remain PASS; F7 remains fixed for SE events.
+  - No location payload on several fixture rows; this is fixture data quality, not a crash.
+- Open to close in 2.9C/F3 and follow-up:
+  - Update/move and cancel/delete behavior not yet executed.
+  - F3 gate still opens modal as 4th feed on Insider (pre-existing issue).
+  - `/account/logout 404` not tested in this pass.
+
 ### Stage 2.9C UAT (Source identity hardening follow-ups)
 
 - Purpose: close remaining 2.9B open items before broader platform expansion.

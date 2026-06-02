@@ -50,6 +50,13 @@ Maintenance rules:
   - Verified overlay note + venue link persist after refresh; calendar/list show correct venue-friendly text and no raw source IDs/URLs/UIDs.
   - Carry-forwards for 2.9C: source label fallback remains `Connected calendar` when feed label is null, and cancel/delete hard-delete behavior not yet exercised.
 
+- TI Planner Stage 2.9B-4 UAT (SportsEngine/MySE — 2026-06-02):
+  - Executed on `weekendpro_test@example.com` with TI Red Robbins `src=myse` feed.
+  - PASS baseline import (`Imported 6 · Updated 0 · Skipped 0`) and 3 refresh pass with `+0 new · 6 updated · 6 changes` each time.
+  - Confirmed `webcal://` / `http://` normalized to `https://`; SE source/team labels persisted and cross-calendar conflict detection remained stable.
+  - PASS checks for no duplicate storm, overlay/loaded-scope/privacy, and no raw IDs in UI.
+  - Carry-forwards: F3 still opens modal at 4-feed attempt on Insider; update/move and cancel/delete for Team Event C not yet executed; `/account/logout 404` not tested in this run.
+
 - Stage 2.9B-1B local implementation handoff (no runtime code changes in this commit):
   - Recorded implementation prompt + checklist in repo docs.
   - Confirmed update/move behavior is PASS with no duplicates and no hard deletes from refresh flow (based on current stage records).

@@ -1,6 +1,6 @@
 # TournamentInsights Weekend Planner — GPT / Codex Memory Snapshot
 
-Last updated: Post Stage 2.9B-2 partial validation (2026-06-02)
+Last updated: Post Stage 2.9B-4 partial validation (2026-06-02)
 
 This document is the canonical working memory for TournamentInsights Weekend Planner planning, Codex prompts, Claude UAT prompts, GPT knowledge ingestion, and roadmap alignment.
 
@@ -460,7 +460,7 @@ Document TeamSnap quirks (refresh delay, update latency, etc.).
 
 ### Stage 2.9B-4 — SportsEngine / MySE Feed UAT
 
-Status: after TeamSnap or if TeamSnap is blocked.
+Status: partial PASS (SportsEngine/MySE coverage active for control baseline).
 
 Known available feed:
 
@@ -483,7 +483,23 @@ Scope:
 - no duplicate storm
 - no raw feed URL or source_event_uid in UI
 
-Document SE/MySE quirks (calendar caching, URL structure, update timing).
+Documented in this pass:
+
+- Protocol normalization: `webcal://` (and related `http://`) accepted and normalized to `https://`.
+- Baseline import PASS (`Imported 6 · Updated 0 · Skipped 0`) with explicit source/team labels (`SportsEngine — TI Red Robbins`).
+- Refresh dedupe: 3 rapid refreshes passed with `+0 new · 6 updated · 6 changes` pattern and no duplicate storm.
+- Overlay + duplicate conflict behavior: PASS (cross-platform conflict badges worked; no Duplicate button on SE events).
+- Loaded scope disclosure + privacy guardrails: PASS
+- `Schedule refreshed` summary signal now appears in ADD MANUAL EVENT section header after refresh.
+- Source-name fallback/collision handling: explicit source/team labels currently present when feed provides them.
+- F3 limit gate: pre-existing issue still open — adding as a 4th feed on Insider still opens connect modal instead of explicit upgrade prompt.
+- Open follow-ups: update/move, cancel/delete for Team Event C, and /account/logout 404 coverage remain pending.
+
+Document SE/MySE quirks:
+
+- Calendar cache/update timing: to be confirmed during update/delete actions.
+- Fixture note: two `TI Feed Test Team Event C` entries at 2:00/2:30 are fixture data variants (not duplicate storm).
+- Location quality: many fixture rows lacked address payloads.
 
 ### Stage 2.9B-5 — Sports Connect / Blue Sombrero / Team Stack Feed UAT
 

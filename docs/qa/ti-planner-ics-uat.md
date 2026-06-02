@@ -178,6 +178,51 @@ Status: **partial PASS**, pending F3 and hard-delete follow-up.
  
 ---
 
+### Stage 2.9B-4 — SportsEngine / MySE Feed Baseline UAT
+
+Status: **partial PASS** on TI Red Robbins.
+
+### SportsEngine / TI Red Robbins (MySE src=myse)
+
+- Feed alias: `webcal://` source converted to `https://ical.sportngin.com/v3/calendar/ical?...&src=myse`
+- Team name: `TI Red Robbins`
+- Team/source label: `SportsEngine — TI Red Robbins` / `TI Red Robbins`
+- Feed status: Imported
+- Baseline import: PASS (`Imported 6 · Updated 0 · Skipped 0`)
+- Full season loaded: Partial (current UAT window only)
+- Repeated refresh test: PASS
+- Refresh attempts: 3
+- Duplicate storm observed: No
+- Manual refresh required: Yes
+- Update/move test status: Pending
+- Cancel/delete test status: Pending
+- Overlay preservation: PASS
+- Source label persistence after reload/refresh: PASS
+- Conflict detection / cross-calendar duplicate label: PASS
+- Duplicate button exposure on SE events: PASS (`F7` regression held)
+- Loaded-scope disclosure: PASS
+- No raw IDs/URLs/UIDs in UI: PASS
+- Refresh summary copy: PASS (`+0 new · 6 updated · 6 changes`)
+- Location quality: limited for fixture events (no address fields on current feed payload)
+- Notes:
+  - `http://` and `webcal://` URLs normalized to `https://` import.
+  - Two `TI Feed Test Team Event C` rows at 2:00 PM and 2:30 PM are fixture-authored distinct events (same title, different times), not a duplicate storm.
+  - `Schedule refreshed · +0 new · 6 updated · 6 changes` appears in the ADD MANUAL EVENT header after refresh.
+
+#### Pending/partial items from this run
+
+- F3 (pre-existing): Insider with existing feed limit still launches connect modal as the 4th feed attempt instead of immediate upgrade prompt.
+- F4 (`/account/logout 404`) not tested in this pass.
+
+#### Refresh attempt log
+
+| Timestamp | Action | Result | Updated existing event? | Duplicate created? | Location updated? | Notes |
+|---|---|---|---|---|---|---|
+| 2026-06-02 (TBD) | Baseline import | PASS | Yes | No | No | URL normalized, 6 events imported |
+| 2026-06-02 (TBD) | Manual refresh #1 | PASS | Yes | No | No | `+0 new · 6 updated · 6 changes` |
+| 2026-06-02 (TBD) | Manual refresh #2 | PASS | Yes | No | No | `+0 new · 6 updated · 6 changes` |
+| 2026-06-02 (TBD) | Manual refresh #3 | PASS | Yes | No | No | `+0 new · 6 updated · 6 changes` |
+
 ### Source platforms (not yet tested)
 
 | Platform | Sports Family alias | Subscription URL available? | Feed type | Requires login cookies? | UID stability | SEQUENCE present? | LAST-MODIFIED present? | DTSTAMP present? | Cancel semantics observed | Missing/deleted semantics observed | Recurrence behavior observed | Location quality | Notes/description quality | Baseline import result | Update result | Cancel/delete result | Overlay preservation result | Known quirks | Recommendation |
@@ -185,7 +230,7 @@ Status: **partial PASS**, pending F3 and hard-delete follow-up.
 | Team Connect / Team App | TI Owls 15U / SC-Casey | yes (private/tokenized) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | pending | pending | pending | present | pending | passed | **passed (in-place)** | pending | pending | source feed publish + refresh delay observed | active UAT — passed for update/move; overlay/cancel paths pending |
 | GameChanger | TI Owls 12U | available (webcal/https tokenized) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | mixed (real + placeholder locations) | fixture notes + description text | passed | in-place update (`changed=23`, `imported=0`) | pending | passed | source_name fallback appears as `Connected calendar` | proceed to 2.9C for cancel/delete/UID details |
 | TeamSnap | TI Strikers / TI Wolves | available (webcal/tokenized URL) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | pending | pending | pending | good | source notes as description text | passed | in-place update (not yet validated) | pending | passed | F7 resolved on source events; time default 00:00 for some items is an observed format edge | proceed to 2.9C for cancel/delete + F3 limit follow-up |
-| SportsEngine / MySE |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
+| SportsEngine / MySE | TI Red Robbins | yes (`https://ical.sportngin.com/v3/calendar/ical?...&src=myse`) | webcal/ICS (webcal normalized to https) | no | unknown | unknown | unknown | unknown | pending | pending | unknown | limited (fixture payload has no address in many events) | opponent context appears in title text (`TI Test Opponent 12U at TI Red Robbins Hoops 12u`) | passed | pending | pending | passed | `source_name` and `team_name` are explicit; `refreshes: +0 new · 6 updated · 6 changes` observed | proceed to 2.9C follow-up for update/cancel/F3 |
 | Sports Connect / Blue Sombrero |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | PlayMetrics |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | LeagueApps |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |

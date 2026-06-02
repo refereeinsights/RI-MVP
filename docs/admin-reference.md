@@ -171,6 +171,12 @@ Current note: Stage 2.10 implemented (2026-06-02).
 - UAT log: `docs/qa/ti-planner-ics-uat.md` (run artifacts: TI Owls 12U baseline + 3 refreshes at 2026-06-02)
 - Current state: partial PASS (import/update/overlay/privacy passed), with source-label persistence fallback and cancel/delete coverage deferred to 2.9C.
 
+## TI Planner (Stage 2.9B-4 — SportsEngine/MySE baseline)
+
+- Purpose: baseline SportsEngine/MySE ICS import/update behavior with explicit source/team labeling and refresh semantics.
+- Run artifact: `docs/qa/ti-planner-ics-uat.md`
+- Current state: partial PASS on TI Red Robbins; update/move, cancel/delete, and F3 gate edge behavior still pending.
+
 ## TI Planner (Stage 2.9C — Source Identity Hardening)
 
 - Purpose: close remaining 2.9B hardening gaps before wider platform claims.
