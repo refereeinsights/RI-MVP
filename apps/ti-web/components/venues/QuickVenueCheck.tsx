@@ -337,10 +337,10 @@ export function QuickVenueCheck({ venueId, venueOptions, pageType, sourceTournam
     );
   }
 
-  if (done) {
+    if (done) {
     const signupHref = `/signup?returnTo=${encodeURIComponent("/account")}`;
     const loginHref = `/login?returnTo=${encodeURIComponent("/account")}`;
-    const upgradeHref = "/pricing";
+    const upgradeHref = "/premium";
 
     function dismissPrompt() {
       setPromptDismissed(true);

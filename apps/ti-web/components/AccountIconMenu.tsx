@@ -39,6 +39,7 @@ export default function AccountIconMenu({ tier, isAuthed, needsEmailVerify }: Ac
 
   const effectiveIsAuthed = authedOverride ?? isAuthed;
   const effectiveNeedsVerify = effectiveIsAuthed ? (needsVerifyOverride ?? needsEmailVerify) : false;
+  const shouldShowUpgrade = effectiveIsAuthed && !effectiveNeedsVerify && tier !== "weekend_pro";
 
   useEffect(() => {
     let alive = true;
@@ -142,6 +143,12 @@ export default function AccountIconMenu({ tier, isAuthed, needsEmailVerify }: Ac
             </>
           ) : (
             <>
+              {shouldShowUpgrade ? (
+                <Link className={styles.item} role="menuitem" href="/premium" onClick={() => setOpen(false)}>
+                  Upgrade to Weekend Pro
+                </Link>
+              ) : null}
+              {shouldShowUpgrade ? <div className={styles.divider} /> : null}
               <Link className={styles.item} role="menuitem" href="/account" onClick={() => setOpen(false)}>
                 Account
               </Link>

@@ -75,6 +75,15 @@ const TRAVEL_EVENTS = new Set([
   "book_travel_weekend_pro_upsell_clicked",
 ]);
 
+const SAVED_TOURNAMENT_EVENTS = new Set([
+  "Tournament Save Clicked",
+  "Tournament Save Auth Redirect",
+  "Tournament Saved",
+  "Saved Tournament Notify Prompt Shown",
+  "Saved Tournament Notify Enabled",
+  "Saved Tournament Notify Dismissed",
+]);
+
 // Weekend Planner (Stage 2.7): allowlisted for persistence into ti_map_events (privacy-safe payloads only).
 const PLANNER_EVENTS = new Set([
   "planner_calendar_feed_connect_succeeded",
@@ -163,6 +172,13 @@ function shouldPersistMapEvents(request: Request) {
 function asNumber(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function asBoolean(value: unknown) {
+  if (typeof value === "boolean") return value;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return null;
 }
 
 function asStringArray(value: unknown) {
@@ -372,6 +388,52 @@ export async function POST(request: Request) {
         old_value: fromView ?? entitlement ?? null,
         new_value: toView ?? reasonCode ?? null,
         cta: target ?? null,
+      });
+    } catch {
+      // Ignore persistence failures; analytics must never block UX.
+    }
+  }
+
+  // Persist saved tournament actions for TI engagement reporting.
+  if (SAVED_TOURNAMENT_EVENTS.has(payload.event)) {
+    // Avoid polluting analytics with local testing / admin poking around.
+    if (!shouldPersistMapEvents(request)) {
+      return NextResponse.json({ ok: true, skipped: "localhost" });
+    }
+
+    const propsRaw = payload.properties ?? {};
+    const props = asObject(propsRaw) ?? {};
+    const host = asTextWithLimit(request.headers.get("x-forwarded-host") ?? request.headers.get("host"), 128);
+    const origin = asTextWithLimit(request.headers.get("origin"), 256);
+    const referer = asTextWithLimit(request.headers.get("referer"), 512);
+
+    const tournamentId = asText((props as any).tournamentId);
+    const eventProperties = {
+      ...(props as any),
+      tournament_id: tournamentId ?? null,
+      saved_before: asBoolean((props as any).saved_before),
+      logged_in: asBoolean((props as any).logged_in),
+      verified: asBoolean((props as any).verified),
+      reason: asText((props as any).reason),
+      return_to: asText((props as any).returnTo),
+      ua: (props as any).ua ?? userAgent ?? null,
+      host: (props as any).host ?? host ?? null,
+      origin: (props as any).origin ?? origin ?? null,
+      referer: (props as any).referer ?? referer ?? null,
+    };
+
+    try {
+      await supabaseAdmin.from("ti_map_events" as any).insert({
+        event_name: payload.event,
+        properties: eventProperties,
+        page_type: "tournament_detail",
+        sport: null,
+        state: null,
+        href: null,
+        filter_name: null,
+        old_value: null,
+        new_value: null,
+        cta: null,
       });
     } catch {
       // Ignore persistence failures; analytics must never block UX.

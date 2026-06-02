@@ -693,6 +693,11 @@ Checks:
 
 ### TI Subscription & Conversion Sprint UAT (v1.4)
 
+Implementation update (2026-06-02):
+- `QuickVenueCheck` and TI alert email upgrade links now point to `/premium` (canonical entrypoint) instead of `/pricing`.
+- Logged-in Account menu now shows “Upgrade to Weekend Pro” (`/premium`) for non-Pro users.
+- Tournament-save interactions now use typed analytics event names in `SaveTournamentButton` and are added to `/api/analytics` allowlist for persistence.
+
 Logged-out:
 - [ ] From homepage, click “Upgrade to Weekend Pro” → lands on `/premium` (no auth loop)
 - [ ] `/premium` renders as marketing/pricing page when logged out (no broken redirect-to-login loop)

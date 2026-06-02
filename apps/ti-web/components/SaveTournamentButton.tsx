@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { sendTiAnalytics } from "@/lib/analytics";
+import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 
 type SaveTournamentButtonProps = {
   tournamentId: string;
@@ -50,28 +50,28 @@ export default function SaveTournamentButton({
   };
 
   async function onClick() {
-    sendTiAnalytics("Tournament Save Clicked", {
+    void trackTiEvent("Tournament Save Clicked", {
       tournamentId,
       saved_before: saved,
       logged_in: isLoggedIn,
       verified: isVerified,
-    }).catch(() => {});
+    });
 
     if (!isLoggedIn) {
-      sendTiAnalytics("Tournament Save Auth Redirect", {
+      void trackTiEvent("Tournament Save Auth Redirect", {
         tournamentId,
         reason: "not_logged_in",
         returnTo,
-      }).catch(() => {});
+      });
       window.location.href = `/signup?returnTo=${redirectPath}`;
       return;
     }
     if (!isVerified) {
-      sendTiAnalytics("Tournament Save Auth Redirect", {
+      void trackTiEvent("Tournament Save Auth Redirect", {
         tournamentId,
         reason: "email_unverified",
         returnTo,
-      }).catch(() => {});
+      });
       window.location.href = `/verify-email?returnTo=${redirectPath}`;
       return;
     }
@@ -95,7 +95,7 @@ export default function SaveTournamentButton({
         pushToast("Unable to update saved status.");
       } else {
         if (next) {
-          sendTiAnalytics("Tournament Saved", { tournamentId }).catch(() => {});
+          void trackTiEvent("Tournament Saved", { tournamentId });
         }
 
         pushToast(next ? "Saved to My Tournaments." : "Removed from My Tournaments.");
@@ -103,7 +103,7 @@ export default function SaveTournamentButton({
         // Post-save notification opt-in prompt (soft opt-in, per-tournament).
         if (next && !wasDismissedThisSession() && json?.notify_on_changes === false) {
           setNotifyPromptOpen(true);
-          sendTiAnalytics("Saved Tournament Notify Prompt Shown", { tournamentId }).catch(() => {});
+          void trackTiEvent("Saved Tournament Notify Prompt Shown", { tournamentId });
         } else {
           setNotifyPromptOpen(false);
         }
@@ -134,7 +134,7 @@ export default function SaveTournamentButton({
       markDismissedThisSession();
       setNotifyPromptOpen(false);
       pushToast("Updates turned on.");
-      sendTiAnalytics("Saved Tournament Notify Enabled", { tournamentId }).catch(() => {});
+      void trackTiEvent("Saved Tournament Notify Enabled", { tournamentId });
     } catch {
       pushToast("Unable to turn on updates.");
     } finally {
@@ -145,7 +145,7 @@ export default function SaveTournamentButton({
   function dismissNotificationsPrompt() {
     markDismissedThisSession();
     setNotifyPromptOpen(false);
-    sendTiAnalytics("Saved Tournament Notify Dismissed", { tournamentId }).catch(() => {});
+    void trackTiEvent("Saved Tournament Notify Dismissed", { tournamentId });
   }
 
   const label = saved ? "Saved" : "Save";

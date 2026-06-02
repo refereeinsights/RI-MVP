@@ -14,6 +14,11 @@ Maintenance rules:
 
 ## 2026-05-31
 
+- TI monetization + analytics follow-through:
+  - Removed remaining `/pricing` upgrade links by routing TI “upgrade” CTAs to canonical `/premium` (`QuickVenueCheck`, tournament alert email template).
+  - Logged-in account menu now includes a direct “Upgrade to Weekend Pro” entry for non-Pro users.
+  - `SaveTournamentButton` now uses typed `trackTiEvent` names and `tournament save` actions are allowlisted/persisted in `apps/ti-web/app/api/analytics/route.ts`.
+
 - TI planner: global `Calendar | List` toggle — now visible on page load for all three timeframe views (Upcoming, This Weekend, Season). Previously the toggle only appeared after switching to Season.
   - Default remains **list**. Paid users see List + Calendar buttons immediately; non-paid users see the upgrade card only in Season view (other views stay list-only without a gate prompt).
   - `seasonDisplayMode` / `seasonDisplayTouched` / `canUseSeasonCalendar` / `SeasonDisplayMode` renamed to `displayMode` / `displayModeTouched` / `canUseCalendar` / `DisplayMode` — scope change from season-only to global.

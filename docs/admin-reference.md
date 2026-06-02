@@ -327,6 +327,12 @@ Key UX rules:
 - Most “Upgrade to Weekend Pro” CTAs should route to `/premium` (marketing/pricing) rather than starting Stripe checkout directly.
 - The primary checkout CTA on `/premium` continues to start checkout directly.
 - The 30-day Founders Preview ($4.99) reuses the existing checkout wiring (`offer = weekend_pass_30d`) — do not add new Stripe products/prices.
+- Non-Pro logged-in account menu should expose a direct `/premium` upgrade path.
+- Legacy `/pricing` upgrade destinations in TI UI/email templates should be cleaned up to `/premium` for canonical routing.
+
+Analytics notes:
+- Saved tournament actions now emit typed event names in `apps/ti-web/components/SaveTournamentButton.tsx` and `apps/ti-web/lib/tiAnalyticsEvents.ts`.
+- `apps/ti-web/app/api/analytics/route.ts` allowlists these saved-tournament events for persistence in `ti_map_events` under the same privacy-safe flow as map/travel events.
 
 Copy constants:
 - `apps/ti-web/lib/weekendProPricing.ts`

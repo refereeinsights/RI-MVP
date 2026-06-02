@@ -75,6 +75,12 @@ export type TiAnalyticsEventName =
   | "planner_weekend_pro_gate_clicked"
   | "planner_map_view_opened"
   | "planner_calendar_event_detail_opened"
+  | "Tournament Save Clicked"
+  | "Tournament Save Auth Redirect"
+  | "Tournament Saved"
+  | "Saved Tournament Notify Prompt Shown"
+  | "Saved Tournament Notify Enabled"
+  | "Saved Tournament Notify Dismissed"
   | "book_travel_viewed"
   | "book_travel_hotels_clicked"
   | "book_travel_vrbo_clicked"
@@ -639,6 +645,29 @@ export type TiAnalyticsEventPropertiesByName = {
     surface: PlannerSurface;
     entitlement: PlannerEntitlement;
     event_source_type: "manual" | "ics" | "unknown";
+  };
+  "Tournament Save Clicked": {
+    tournamentId: string;
+    saved_before: boolean;
+    logged_in: boolean;
+    verified: boolean;
+  };
+  "Tournament Save Auth Redirect": {
+    tournamentId: string;
+    reason: "not_logged_in" | "email_unverified";
+    returnTo: string;
+  };
+  "Tournament Saved": {
+    tournamentId: string;
+  };
+  "Saved Tournament Notify Prompt Shown": {
+    tournamentId: string;
+  };
+  "Saved Tournament Notify Enabled": {
+    tournamentId: string;
+  };
+  "Saved Tournament Notify Dismissed": {
+    tournamentId: string;
   };
   book_travel_viewed: Record<string, never>;
   book_travel_hotels_clicked: {

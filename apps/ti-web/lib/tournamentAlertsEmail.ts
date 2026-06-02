@@ -39,7 +39,7 @@ export function buildTournamentAlertEmail(params: {
     : `${cadenceLabel} tournaments near ${escapeHtml(params.zip)}`;
 
   const manageUrl = `${SITE_ORIGIN}/account/alerts`;
-  const pricingUrl = `${SITE_ORIGIN}/pricing`;
+  const pricingUrl = `${SITE_ORIGIN}/premium`;
 
   const teaserEligibleTournamentIds = new Set<string>();
   if (params.tier === "insider") {
