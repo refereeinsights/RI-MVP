@@ -28,7 +28,13 @@ Maintenance rules:
     - Update/move/misc updates are PASS in the existing feed,
     - local note/venue persistence and cancel/delete are now explicitly tracked as pending.
   - Documentation updates for Stage 2.10:
-  - Updated `CLAUDE.md`, `docs/weekend-planner-current-state.md`, and `docs/admin-reference.md` with Stage 2.10 execution notes.
+    - Updated `CLAUDE.md`, `docs/weekend-planner-current-state.md`, and `docs/admin-reference.md` with Stage 2.10 execution notes.
+    - Updated `docs/admin-reference.md` and `docs/weekend-planner-current-state.md` with 2.10 evidence links.
+
+- Stage 2.9B-1B local implementation handoff (no runtime code changes in this commit):
+  - Recorded implementation prompt + checklist in repo docs.
+  - Confirmed update/move behavior is PASS with no duplicates and no hard deletes from refresh flow (based on current stage records).
+  - Left explicit follow-up checks for overlay persistence (notes/venue), cancel/delete, and non-destructive retention behavior to be executed in staging/UAT.
 
 ## 2026-05-31
 
