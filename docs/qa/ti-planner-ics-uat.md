@@ -224,6 +224,25 @@ Status: **partial PASS** on TI Red Robbins.
 | 2026-06-02 (TBD) | Manual refresh #3 | PASS | Yes | No | No | `+0 new · 6 updated · 6 changes` |
 | 2026-06-02T21:03:54Z | 2.9C-4 Follow-up refresh | PASS | Yes | No | No | Update/move + cancel/delete pass-through executed (`updated=5`, `changed=5`) |
 
+### Stage 2.9C-1 — Connected calendar card action-row polish
+
+Scope: UI polish only (no data model changes): one responsive action row for each connected source card.
+
+Validate:
+- [ ] Connected calendar card action row contains **exactly** these actions in order:
+  - `Edit label`
+  - `Refresh schedule`
+  - `Disconnect calendar`
+- [ ] Buttons are keyboard/focusable and wrap cleanly on narrow mobile widths.
+- [ ] `Edit label` + `Refresh schedule` + `Disconnect calendar` are disabled while a source mutation is in flight.
+- [ ] Disconnect requires explicit confirmation and states imported-event retention.
+- [ ] Disconnect succeeds without hard-deleting source-linked events.
+- [ ] No feed URLs, raw IDs, or source IDs are shown in this card UI.
+
+Latest run status:
+- Implementation updated in `PlannerClient.tsx` (single grouped action row, confirmation wording, and action disablement aligned).
+- UAT execution for this stage is pending.
+
 ### Source platforms (not yet tested)
 
 | Platform | Sports Family alias | Subscription URL available? | Feed type | Requires login cookies? | UID stability | SEQUENCE present? | LAST-MODIFIED present? | DTSTAMP present? | Cancel semantics observed | Missing/deleted semantics observed | Recurrence behavior observed | Location quality | Notes/description quality | Baseline import result | Update result | Cancel/delete result | Overlay preservation result | Known quirks | Recommendation |

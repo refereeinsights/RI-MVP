@@ -14,6 +14,11 @@ Maintenance rules:
 
 ## 2026-06-02
 
+- TI Planner Stage 2.9C-1: connected calendar card action-row polish.
+  - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` to use a single wrapped action row per connected source card (`Edit label`, `Refresh schedule`, `Disconnect calendar`) and lock actions during source mutation.
+  - Refined disconnect confirmation copy to explicitly state retained imported events.
+  - Added Stage 2.9C-1 UAT prompt/checklist references in `CLAUDE.md` and `docs/qa/ti-planner-ics-uat.md`.
+
 - TI weather API hardening:
   - Fixed Next.js fetch cache options conflict in `apps/ti-web/app/api/weather/ten-day/route.ts` by removing `cache: "force-cache"` and keeping `next: { revalidate: ... }` in server-side `fetch`, eliminating the runtime warning during `GET /api/weather/ten-day`.
 - TI Planner Stage 2.10:

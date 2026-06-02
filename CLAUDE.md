@@ -90,6 +90,29 @@ Use these keys consistently in the steps below:
 - `UAT_ICS_INVALID_URL`
 - `UAT_NOT_A_CALENDAR_URL`
 
+## Pre-Push Vercel Readiness (TI-web)
+
+Run this before handing changes to Claude or pushing for deployment:
+
+- Lint and build:
+  - `npm run lint --workspace ti-web`
+  - `npm run build --workspace ti-web`
+- Validate changeset only:
+  - `git status --short` (ensure only intended files are staged/uncommitted)
+  - confirm no new errors in changed files
+- Minimal planner regression smoke (local/staging):
+  - open `/weekend-planner` and confirm:
+    - one connected source can be renamed (PATCH flow),
+    - one source can be disconnected (new DELETE flow),
+    - existing imported events remain visible after disconnect.
+- Quick 2.9C policy check:
+  - open `docs/qa/ti-planner-ics-uat.md` and verify no unchecked “must-fix before deploy” items are introduced by the change.
+
+Gate outcomes:
+- **PASS**: lint/build pass + no blocking changes to unrelated flows.
+- **REVIEW**: existing repo-wide warnings only.
+- **BLOCK**: any new build/lint errors in touched files or new 2.9C blocker.
+
 ---
 
 ## Weekend Planner UAT
@@ -356,6 +379,24 @@ Validate:
 - [x] Cancel/delete (and missing-in-feed) behavior is documented as retained events on source disable.
 - [ ] Overlay + linked venue persistence after cancel/delete and repeated refresh.
 - [ ] Loaded disclosure + privacy guardrails remain intact.
+
+### Stage 2.9C-1 UAT (connected calendar card action-row polish)
+
+- Prompt: `docs/prompts/ti-planner-stage-2.9c-1-connected-calendar-card-actions-polish-v1.3.md`
+- [ ] Connected source card renders a single wrapped action row with:
+  - `Edit label`
+  - `Refresh schedule`
+  - `Disconnect calendar`
+- [ ] Row actions are mutually safe when source edit/refresh/disconnect is in progress.
+- [ ] Disconnect confirmation explains that imported events remain.
+- [ ] Cancel/edit/delete behavior remains non-destructive.
+- [ ] No raw source identifiers appear in connected-calendar cards.
+- [ ] `npm run lint --workspace ti-web` and `npm run build --workspace ti-web` pass after merge.
+
+Suggested evidence capture:
+- Note exact wording shown in disconnect confirmation.
+- Verify disconnect succeeds and existing imported rows remain visible.
+- Confirm action-row remains on one line when wide and wraps on mobile.
 
 ### Stage 2.9C-0 UAT (Source-linked event removal policy)
 

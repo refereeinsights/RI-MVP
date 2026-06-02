@@ -1140,7 +1140,8 @@ export default function PlannerClient(props: Props) {
   async function onDisconnectSource(sourceId: string) {
     if (busy || disconnectingSourceId) return;
     const displayName = displayLabelForSource(sources.find((s) => String(s.id) === String(sourceId)) || null);
-    const confirmMessage = `Disconnect “${displayName}”? This stops future refreshes and preserves imported events.`;
+    const confirmMessage =
+      `Disconnect this calendar?\n\nThis stops future refreshes from this calendar. Imported events from this feed will remain in your planner.\n\n${displayName}`;
     if (!window.confirm(confirmMessage)) return;
 
     setDisconnectingSourceId(sourceId);
@@ -3267,13 +3268,17 @@ export default function PlannerClient(props: Props) {
                                 onChange={(e) => setEditingSourceLabel(e.target.value)}
                                 placeholder="Avery Sports · Baseball · TI Owls 12U · GameChanger"
                                 maxLength={140}
-                                disabled={busy || savingSourceLabel}
+                                disabled={
+                                  busy || savingSourceLabel || String(disconnectingSourceId ?? "") === String(s.id)
+                                }
                               />
                               <button
                                 className={styles.primaryBtn}
                                 type="button"
                                 onClick={() => void onSaveSourceLabel(s.id)}
-                                disabled={busy || savingSourceLabel}
+                                disabled={
+                                  busy || savingSourceLabel || String(disconnectingSourceId ?? "") === String(s.id)
+                                }
                               >
                                 Save label
                               </button>
@@ -3281,12 +3286,17 @@ export default function PlannerClient(props: Props) {
                                 className={styles.secondaryBtn}
                                 type="button"
                                 onClick={() => {
-                                  if (busy || savingSourceLabel) return;
+                                  if (busy || savingSourceLabel || String(disconnectingSourceId ?? "") === String(s.id))
+                                    return;
                                   setEditingSourceId(null);
                                   setEditingSourceLabel("");
                                   setSourceLabelError(null);
                                 }}
-                                disabled={busy || savingSourceLabel}
+                                disabled={
+                                  busy ||
+                                  savingSourceLabel ||
+                                  String(disconnectingSourceId ?? "") === String(s.id)
+                                }
                               >
                                 Cancel
                               </button>
@@ -3296,21 +3306,46 @@ export default function PlannerClient(props: Props) {
                               className={styles.secondaryBtn}
                               type="button"
                               onClick={() => {
-                                if (busy) return;
+                                if (
+                                  busy ||
+                                  savingSourceLabel ||
+                                  String(disconnectingSourceId ?? "") === String(s.id)
+                                )
+                                  return;
                                 setSourceLabelError(null);
                                 setEditingSourceId(s.id);
                                 setEditingSourceLabel(safeSourceLabel(s.source_name) ?? "");
                               }}
-                              disabled={busy}
+                              disabled={
+                                busy ||
+                                savingSourceLabel ||
+                                String(disconnectingSourceId ?? "") === String(s.id)
+                              }
                             >
                               Edit label
                             </button>
                           )}
                           <button
+                            className={styles.primaryBtn}
+                            type="button"
+                            onClick={() => void onRefreshSource(s.id)}
+                            disabled={
+                              busy ||
+                              savingSourceLabel ||
+                              String(disconnectingSourceId ?? "") === String(s.id)
+                            }
+                          >
+                            Refresh schedule
+                          </button>
+                          <button
                             className={styles.dangerBtn}
                             type="button"
                             onClick={() => void onDisconnectSource(s.id)}
-                            disabled={busy || String(disconnectingSourceId ?? "") === String(s.id)}
+                            disabled={
+                              busy ||
+                              savingSourceLabel ||
+                              String(disconnectingSourceId ?? "") === String(s.id)
+                            }
                           >
                             Disconnect calendar
                           </button>
@@ -3325,19 +3360,18 @@ export default function PlannerClient(props: Props) {
                             {sourceLabelError}
                           </div>
                         ) : null}
-		                    {staleLabel(s.last_synced_at) && String(s.sync_status || "").toLowerCase() !== "error" ? (
-		                      <div className={styles.eventMeta} style={{ fontWeight: 800 }}>
-		                        {staleLabel(s.last_synced_at)} Refresh schedule to check for updates.
-		                      </div>
-		                    ) : null}
-		                    {s.sync_error ? <div className={styles.eventMeta} style={{ color: "#b91c1c", fontWeight: 800 }}>{s.sync_error}</div> : null}
-		                    <div className={styles.eventActions}>
-		                      <button className={styles.primaryBtn} onClick={() => onRefreshSource(s.id)} disabled={busy}>
-		                        Refresh schedule
-	                      </button>
-	                    </div>
-	                  </div>
-	                ))}
+                        {staleLabel(s.last_synced_at) && String(s.sync_status || "").toLowerCase() !== "error" ? (
+                          <div className={styles.eventMeta} style={{ fontWeight: 800 }}>
+                            {staleLabel(s.last_synced_at)} Refresh schedule to check for updates.
+                          </div>
+                        ) : null}
+                        {s.sync_error ? (
+                          <div className={styles.eventMeta} style={{ color: "#b91c1c", fontWeight: 800 }}>
+                            {s.sync_error}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
 	              </div>
 	            ) : null}
 	          </>

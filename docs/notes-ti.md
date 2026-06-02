@@ -15,6 +15,11 @@ Maintenance rules:
 
 ## 2026-06-02
 
+- TI planner (Stage 2.9C-1): connected calendar card action-row polish.
+  - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` so each connected source card uses one grouped action row (`Edit label`, `Refresh schedule`, `Disconnect calendar`) and refresh/disconnect actions are disabled while source-level work is in flight.
+  - Tightened disconnect confirmation copy to explicitly state that imported events from the feed remain.
+  - Added UAT pointer in `CLAUDE.md` and checklist section in `docs/qa/ti-planner-ics-uat.md`.
+
 - TI planner (Stage 2.10): venue metadata hydration for linked events.
   - Added shared planner event enrichment helper: `apps/ti-web/lib/planner/enrichVenueMetadata.ts`.
   - Enrichment is now applied in:
