@@ -31,14 +31,26 @@ export async function enrichPlannerEventsWithLinkedVenue<
   }
 
   const { data: venueRows, error } = await (supabase.from("venues_public" as any) as any)
-    .select("id,name,address,city,state,seo_slug")
+    .select("id,name,address,city,state")
     .in("id", venueIds);
 
   if (error) {
     return events.map((event) => ({ ...event, linkedVenue: null }));
   }
 
-  const venueById = new Map<string, VenueMetadataRow>((venueRows ?? []).map((v: VenueMetadataRow) => [String(v.id), v]));
+  const venueById = new Map<string, VenueMetadataRow>(
+    (venueRows ?? []).map((v: any) => [
+      String(v?.id ?? ""),
+      {
+        id: String(v?.id ?? ""),
+        name: v?.name ?? null,
+        address: v?.address ?? null,
+        city: v?.city ?? null,
+        state: v?.state ?? null,
+        seo_slug: v?.seo_slug ?? null,
+      },
+    ])
+  );
   return events.map((event) => {
     const venueId = String(event.venue_id ?? "").trim();
     return {

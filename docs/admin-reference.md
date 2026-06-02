@@ -160,6 +160,7 @@ Note: Route consolidation in progress — `/weekend-planner` is the canonical pl
   - `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`
   - `apps/ti-web/lib/planner/types.ts`
   - `docs/weekend-planner-current-state.md`
+- Operational note: `enrichPlannerEventsWithLinkedVenue` intentionally reads `venues_public` columns that are guaranteed available (`id,name,address,city,state`) and normalizes `seo_slug` to null when unavailable, avoiding API nulling when a migration variant omits `seo_slug`.
 
 Current note: Stage 2.10 implemented (2026-06-02).
 

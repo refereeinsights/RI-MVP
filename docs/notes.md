@@ -21,6 +21,7 @@ Maintenance rules:
     `GET /api/planner/events`, `PATCH /api/planner/events/[id]`, `POST /api/planner/events`, and SSR planner page load in `apps/ti-web/app/weekend-planner/page.tsx`.
   - Added list + calendar UI consumption of linked venue display (`Venue Name · address · city, state`) with fallback to existing address text.
   - Map action and duplicate-merge preview now reuse linked venue display text when available.
+  - Fixed venue hydration regression where `linkedVenue` could return null for valid `venue_id` values because `venues_public` did not expose `seo_slug`; enrichment now uses the public projection columns (`id,name,address,city,state`) with a null-safe slug fallback.
 - Documentation updates for Stage 2.10:
   - Updated `CLAUDE.md`, `docs/weekend-planner-current-state.md`, and `docs/admin-reference.md` with Stage 2.10 execution notes.
 
