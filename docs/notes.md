@@ -14,6 +14,10 @@ Maintenance rules:
 
 ## 2026-06-03
 
+- TI Planner Stage 2.10B exact-name venue search follow-up:
+  - Added a bounded exact venue-name pass ahead of tokenized fallback matching in `apps/ti-web/app/api/planner/search/venues/route.ts`.
+  - This fixes the known false-negative case where exact queries like `Spokane Polo Fields` could be dropped before token post-filtering when broad city matches filled the candidate limit.
+
 - TI Planner Stage 2.10B assisted venue linking follow-up:
   - Tightened `apps/ti-web/app/api/planner/search/venues/route.ts` so venue search results must satisfy all normalized query tokens across name/address/city/state before they are returned.
   - This closes the false-positive no-results case where broad partial matches could return unrelated venues instead of the expected empty-state path.

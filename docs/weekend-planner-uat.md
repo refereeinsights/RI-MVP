@@ -229,6 +229,7 @@ commit;
 - Stage 2.1 polish: verify “Find venue” works for events without a linked venue and that ICS refresh preserves user-linked `venue_id` (see the venue-linking steps in the Stage 2 checklist).
 - Stage 2.10B assisted venue linking:
   - confirm venue search can match by name, address, city, or state
+  - confirm an exact known venue name search returns the known venue (current regression example: `Spokane Polo Fields`)
   - confirm result rows show venue name + city/state + address when available
   - confirm a true no-match query shows `No matching TI venues found. Try a different search term.`
   - confirm linked venue persists after reload and calendar refresh

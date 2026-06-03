@@ -288,6 +288,7 @@ Run this on `/weekend-planner` with an event that has source location text but n
 
 - [ ] Click **Find venue** and confirm the query is prefilled from source location / city-state when available.
 - [ ] Edit the query and confirm venue search can match by name, address, city, or state.
+- [ ] Search for a known exact venue name (current regression example: `Spokane Polo Fields`) and confirm that venue appears in results.
 - [ ] Enter a true no-match query and confirm the UI shows `No matching TI venues found. Try a different search term.`
 - [ ] Confirm venue result rows show:
   - [ ] venue name

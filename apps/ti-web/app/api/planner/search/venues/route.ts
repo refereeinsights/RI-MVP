@@ -7,6 +7,7 @@ const MAX_QUERY_LENGTH = 80;
 const MAX_QUERY_TOKENS = 4;
 const MAX_RESULTS = 10;
 const MAX_CANDIDATES = 50;
+const MAX_EXACT_NAME_CANDIDATES = 10;
 
 function clampQuery(value: string) {
   const v = String(value ?? "").trim();
@@ -33,6 +34,18 @@ function searchableVenueText(venue: { name?: string | null; address?: string | n
     .join(" ");
 }
 
+function dedupeVenues(venues: Array<{ id?: string | null; name?: string | null; address?: string | null; city?: string | null; state?: string | null }>) {
+  const seen = new Set<string>();
+  const out: typeof venues = [];
+  for (const venue of venues) {
+    const id = String(venue?.id ?? "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(venue);
+  }
+  return out;
+}
+
 export async function GET(req: Request) {
   const supabase = createSupabaseServerClient();
   const {
@@ -54,18 +67,27 @@ export async function GET(req: Request) {
     `state.ilike.%${token}%`,
   ]);
 
-  const { data, error } = await (supabase.from("venues_public" as any) as any)
+  const exactNameQuery = (supabase.from("venues_public" as any) as any)
+    .select("id,name,address,city,state")
+    .ilike("name", `%${q}%`)
+    .order("name", { ascending: true })
+    .limit(MAX_EXACT_NAME_CANDIDATES);
+
+  const tokenQuery = (supabase.from("venues_public" as any) as any)
     .select("id,name,address,city,state")
     .or(filters.join(","))
     .order("name", { ascending: true })
     .limit(MAX_CANDIDATES);
 
-  if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
+  const [{ data: exactNameMatches, error: exactNameError }, { data, error }] = await Promise.all([exactNameQuery, tokenQuery]);
 
-  const venues = (data ?? []).filter((venue: any) => {
+  if (exactNameError || error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
+
+  const tokenMatches = (data ?? []).filter((venue: any) => {
     const haystack = searchableVenueText(venue);
     return tokens.every((token) => haystack.includes(token));
   });
 
-  return NextResponse.json({ ok: true, venues: venues.slice(0, MAX_RESULTS) });
+  const venues = dedupeVenues([...(exactNameMatches ?? []), ...tokenMatches]).slice(0, MAX_RESULTS);
+  return NextResponse.json({ ok: true, venues });
 }
