@@ -1,3 +1,5 @@
+import Link from "next/link";
+import type { Metadata } from "next";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { curatedSports, mapStateCodeToSlug, normalizeSportSlug, sportDisplayName } from "@/lib/seoHub";
 import { US_MAP_VIEWBOX, US_STATE_LABELS, US_STATE_PATHS } from "@/app/api/admin-dashboard-email/heatmap-us/usStatesMap";
@@ -7,6 +9,11 @@ import UsMapInteractions from "@/app/_components/UsMapInteractions";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+const HEATMAP_TITLE = "Youth Sports Tournament Heatmap | TournamentInsights";
+const HEATMAP_DESCRIPTION =
+  "Explore where youth sports tournaments are happening across the United States. Compare tournament activity by sport, state, and region using the TournamentInsights heatmap.";
+const HEATMAP_SPORT_LINKS = ["soccer", "baseball", "softball", "lacrosse", "basketball", "hockey"] as const;
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
@@ -39,6 +46,16 @@ function colorForCount(count: number, max: number) {
   const denom = Math.log(max + 1) || 1;
   const t = clamp(Math.log(count + 1) / denom, 0, 1);
   return lerpColor("#dcfce7", "#166534", t); // green-100 -> green-800
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: HEATMAP_TITLE,
+    description: HEATMAP_DESCRIPTION,
+    alternates: {
+      canonical: "/heatmap",
+    },
+  };
 }
 
 export default async function PublicHeatmapPage({
@@ -189,6 +206,33 @@ export default async function PublicHeatmapPage({
           sport={sportParam || "all"}
           defaultTip="Click a state to open the tournament directory."
         />
+
+        <div
+          style={{
+            marginTop: 18,
+            padding: "12px 14px",
+            borderRadius: 12,
+            background: "#ffffff",
+            border: "1px solid #e2e8f0",
+            display: "grid",
+            gap: 8,
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>Browse tournament hubs</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, fontSize: 13 }}>
+            <Link href="/tournaments">All tournaments</Link>
+            <Link href="/venues">Venue directory</Link>
+            {HEATMAP_SPORT_LINKS.map((sportSlug) => {
+              const sport = curatedSports.find((entry) => entry.slug === sportSlug);
+              if (!sport) return null;
+              return (
+                <Link key={sportSlug} href={`/tournaments/${sportSlug}`}>
+                  {sport.name}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </main>
   );

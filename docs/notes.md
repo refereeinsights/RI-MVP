@@ -14,6 +14,14 @@ Maintenance rules:
 
 ## 2026-06-03
 
+- TI SEO cleanup pass (post venue-SEO follow-through):
+  - Added route metadata and canonical consolidation for `apps/ti-web/app/heatmap/page.tsx`, with all `?sport=*` variants canonicalized to `/heatmap`.
+  - Added a compact crawlable link section beneath the public heatmap so `/heatmap` exposes text links to `/tournaments`, `/venues`, and existing sport hubs.
+  - Replaced static metadata on `apps/ti-web/app/tournaments/page.tsx` with query-aware metadata so clean `/tournaments` stays indexable while filter/query variants resolve to canonical `/tournaments` and `noindex,follow`.
+  - Added `BreadcrumbList` JSON-LD plus visible clean sport/state hub links on `apps/ti-web/app/tournaments/[slug]/page.tsx`, using existing sport/state slug helpers only.
+  - Updated `apps/ti-web/app/sitemaps/static.xml/route.ts` to remove redirect-only `/pricing` and add indexable `/tournaments/metro/*` entries without introducing any noindexed routes into sitemap coverage.
+  - Added `noindex,follow` metadata to `apps/ti-web/app/weekend/[slug]/page.tsx` and `apps/ti-web/app/weekend-planner/page.tsx` so weekend utility flows are no longer treated as SEO landing pages.
+
 - TI Planner Stage 2.10B exact-name venue search follow-up:
   - Added a bounded exact venue-name pass ahead of tokenized fallback matching in `apps/ti-web/app/api/planner/search/venues/route.ts`.
   - This fixes the known false-negative case where exact queries like `Spokane Polo Fields` could be dropped before token post-filtering when broad city matches filled the candidate limit.

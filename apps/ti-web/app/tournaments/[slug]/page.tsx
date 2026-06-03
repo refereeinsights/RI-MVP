@@ -30,6 +30,7 @@ import { formatEntityList, type SemanticListItem, type SemanticListPart } from "
 import { buildHotelsHref, canShowBookingCta, isValidZip5 } from "@/lib/booking/venueBooking";
 import { buildTournamentHotelsHref, buildTournamentVrboHref } from "@/lib/affiliates/tournamentTravelLinks";
 import { getWeekendPlanForTournament } from "@/lib/weekendPlans";
+import { mapStateCodeToName, mapStateCodeToSlug, normalizeSportSlug, sportDisplayName } from "@/lib/seoHub";
 import "../tournaments.css";
 
 type TournamentDetailCoreRow = {
@@ -135,6 +136,7 @@ export const revalidate = 3600;
 
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
 const DEMO_TOURNAMENT_SLUG = "refereeinsights-demo-tournament";
+const AVAILABLE_TOURNAMENT_SPORT_HUBS = new Set(["soccer", "baseball", "softball", "lacrosse", "basketball", "hockey", "ayso"]);
 const DC_METRO_STATES = new Set(["DC", "VA", "MD"]);
 const NEW_ENGLAND_STATES = new Set(["CT", "RI", "ME", "NH"]);
 const CALIFORNIA_STATES = new Set(["CA"]);
@@ -1709,7 +1711,7 @@ export default async function TournamentDetailPage({
 	    city: data.city ?? null,
 	    state: data.state ?? null,
 	  });
-	  const headerRentalsHref = buildTournamentVrboHref({
+  const headerRentalsHref = buildTournamentVrboHref({
 	    source: "tournament_detail",
 	    tournamentId: data.id,
 	    city: data.city ?? null,
@@ -1717,6 +1719,40 @@ export default async function TournamentDetailPage({
 	  });
 
   const canonicalUrl = buildCanonicalUrl(data.slug ?? params.slug);
+  const sportHubSlugCandidate = normalizeSportSlug(String(data.sport ?? ""));
+  const sportHubSlug =
+    sportHubSlugCandidate && AVAILABLE_TOURNAMENT_SPORT_HUBS.has(sportHubSlugCandidate) ? sportHubSlugCandidate : null;
+  const stateHubSlug = mapStateCodeToSlug(String(data.state ?? ""));
+  const stateHubName = mapStateCodeToName(String(data.state ?? ""));
+  const sportHubHref = sportHubSlug ? `/tournaments/${sportHubSlug}` : null;
+  const stateHubHref = sportHubSlug && stateHubSlug ? `/${sportHubSlug}/${stateHubSlug}` : null;
+  const sportHubLabel = sportHubSlug ? sportDisplayName(sportHubSlug) : null;
+  const breadcrumbItems = [
+    { name: "Home", item: "https://www.tournamentinsights.com/" },
+    { name: "Tournaments", item: "https://www.tournamentinsights.com/tournaments" },
+    ...(sportHubHref
+      ? [
+          {
+            name: `${sportHubLabel ?? "Sport"} Tournaments`,
+            item: `https://www.tournamentinsights.com${sportHubHref}`,
+          },
+        ]
+      : []),
+    ...(stateHubHref
+      ? [
+          {
+            name: `${stateHubName ?? String(data.state ?? "").trim()} ${sportHubLabel ?? "Sport"} Tournaments`,
+            item: `https://www.tournamentinsights.com${stateHubHref}`,
+          },
+        ]
+      : []),
+    { name: data.name, item: canonicalUrl },
+  ].map((entry, index) => ({
+    "@type": "ListItem",
+    position: index + 1,
+    name: entry.name,
+    item: entry.item,
+  }));
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "SportsEvent",
@@ -1737,6 +1773,11 @@ export default async function TournamentDetailPage({
     },
     sameAs: data.official_website_url || data.source_url || undefined,
   };
+  const breadcrumbStructuredData = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems,
+  };
 
   return (
     <main className="pitchWrap tournamentsWrap">
@@ -1756,6 +1797,11 @@ export default async function TournamentDetailPage({
             suppressHydrationWarning
             dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
           />
+          <script
+            type="application/ld+json"
+            suppressHydrationWarning
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
+          />
           <Link href="/tournaments" className="detailBackLink">
             ← Back to directory
           </Link>
@@ -1767,6 +1813,16 @@ export default async function TournamentDetailPage({
           </div>
           <div className="detailMeta">{dateLabel}</div>
           <div className="detailMeta">{locationLabel}</div>
+          {sportHubHref || stateHubHref ? (
+            <div className="detailLinksRow" style={{ marginTop: 12, justifyContent: "flex-start", gap: 10 }}>
+              {sportHubHref ? <Link href={sportHubHref}>More {sportHubLabel ?? "sport"} tournaments</Link> : null}
+              {stateHubHref ? (
+                <Link href={stateHubHref}>
+                  {(stateHubName ?? String(data.state ?? "").trim()) || "State"} {sportHubLabel ?? "sport"} hub
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
           <Suspense fallback={null}>
             <TournamentHeroTrustLineComponent viewerContext={viewerContext} showStaffVerified={showStaffVerified} />
           </Suspense>

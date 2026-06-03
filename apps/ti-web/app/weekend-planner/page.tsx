@@ -61,6 +61,7 @@ export async function generateMetadata() {
     description:
       "Save tournaments, plan travel, and organize venue logistics for your sports weekend with TournamentInsights.",
     alternates: { canonical: "/weekend-planner" },
+    robots: { index: false, follow: true },
   };
 }
 

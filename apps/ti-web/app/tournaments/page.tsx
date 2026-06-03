@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { TI_SPORT_LABELS } from "@/lib/tiSports";
 import { lookupZipLatLng } from "@/lib/lookupZipLatLng";
@@ -48,14 +49,6 @@ type OwlNearbyRow = {
 
 // Cache for 5 minutes.
 export const revalidate = 300;
-
-export const metadata = {
-  title: "Tournament Directory",
-  description: "Browse youth tournaments by sport, state, and month with official links and location details.",
-  alternates: {
-    canonical: "/tournaments",
-  },
-};
 
 const ISSUE_EMAIL = "tournamentinsights@gmail.com";
 const SITE_ORIGIN = "https://www.tournamentinsights.com";
@@ -131,6 +124,62 @@ function looksLikeLeagueListing(name: string) {
 
 function getSummarySportClass(sport: string) {
   return `summary-sport-${sport.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+}
+
+function hasActiveDirectoryFilters(searchParams?: {
+  q?: string;
+  state?: string | string[];
+  month?: string;
+  sports?: string | string[];
+  includePast?: string;
+  aysoOnly?: string;
+  includeLeagues?: string;
+  zip?: string;
+  radius?: string;
+}) {
+  const values = [
+    searchParams?.q,
+    searchParams?.state,
+    searchParams?.month,
+    searchParams?.sports,
+    searchParams?.includePast,
+    searchParams?.aysoOnly,
+    searchParams?.includeLeagues,
+    searchParams?.zip,
+    searchParams?.radius,
+  ];
+
+  return values.some((value) => {
+    if (Array.isArray(value)) return value.some((item) => String(item ?? "").trim().length > 0);
+    return String(value ?? "").trim().length > 0;
+  });
+}
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams?: {
+    q?: string;
+    state?: string | string[];
+    month?: string;
+    sports?: string | string[];
+    includePast?: string;
+    aysoOnly?: string;
+    includeLeagues?: string;
+    zip?: string;
+    radius?: string;
+  };
+}): Promise<Metadata> {
+  const hasActiveFilters = hasActiveDirectoryFilters(searchParams);
+
+  return {
+    title: "Tournament Directory",
+    description: "Browse youth tournaments by sport, state, and month with official links and location details.",
+    alternates: {
+      canonical: "/tournaments",
+    },
+    robots: hasActiveFilters ? { index: false, follow: true } : undefined,
+  };
 }
 
 export default async function TournamentsPage({

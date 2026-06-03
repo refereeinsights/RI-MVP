@@ -203,6 +203,8 @@ Current note: Stage 2.10 implemented (2026-06-02).
 - Canonical route for the planner app experience: `/weekend-planner`.
 - Compatibility alias: `/planner` redirects to `/weekend-planner` (preserves allowlisted query params like `view`/`import`).
 - During consolidation + UAT, the primary header nav may hide the Weekend Planner link; direct access via `/weekend-planner` remains supported.
+- SEO posture: `/weekend-planner` is a product utility route, not a search landing page; keep it `noindex,follow` unless a deliberate public acquisition strategy is approved.
+- Shared weekend detail pages under `/weekend/[slug]` are also `noindex,follow`; do not treat them as indexed marketing surfaces.
 
 ## TI Auth (logout)
 - Canonical signout route: `/logout` → `apps/ti-web/app/logout/route.ts`
@@ -217,6 +219,16 @@ Current note: Stage 2.10 implemented (2026-06-02).
   - Default scope: June 2026 (`start_date >= 2026-06-01` and `start_date < 2026-07-01`).
   - Headline tournament count uses a count-only aggregate query (do not use bounded list length like `results.length` from `/tournaments`).
   - Filtered variants (sports/state/q/date chips/etc.) should canonicalize back to the base June URL and use `noindex,follow` unless explicitly approved for indexing.
+- Heatmap route: `/heatmap`
+  - Base canonical URL is `/heatmap`.
+  - Query variants such as `/heatmap?sport=soccer` should not be treated as separate SEO pages; they must canonicalize to `/heatmap`.
+  - Keep a compact crawlable text-link section under the interactive map so the page exposes static links to core directory/hub routes.
+- Tournament directory: `/tournaments`
+  - Clean `/tournaments` remains indexable.
+  - Query/filter variants should canonicalize to `/tournaments` and use `noindex,follow` unless a cleaner hub route is intentionally introduced.
+- Static sitemap guardrails:
+  - Do not include noindexed or product-private routes in TI sitemaps.
+  - Do not include `/pricing` in sitemap coverage while it remains a redirect-only route to `/#pricing`.
 
 ## TI Planner (Stage 2.2 — Season Planner Reliability)
 - Adds a “This Weekend” / “Season” lens toggle with season range presets and lightweight type filters (mobile-first; no month grid).
