@@ -5,15 +5,19 @@ export const revalidate = 3600;
 const STATIC_PATHS = [
   "/",
   "/about",
+  "/book-travel",
   "/content-standards",
   "/disclaimer",
+  "/heatmap",
   "/how-it-works",
   "/list-your-tournament",
   "/premium",
+  "/pricing",
   "/privacy",
   "/terms",
   "/tournaments",
   "/venues",
+  "/youth-sports-tournaments/june-2026",
 ] as const;
 
 // TI sport hub routes that exist as `apps/ti-web/app/tournaments/<sport>/page.tsx`.
@@ -27,4 +31,3 @@ export async function GET() {
 
   return xmlResponse(buildSitemapXml(entries));
 }
-

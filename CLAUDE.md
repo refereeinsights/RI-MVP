@@ -256,7 +256,31 @@ If no unverified fixture exists, Stage 2.8 sign-off must treat this as an **open
   - SportsEngine / MySE — TI Red Robbins (fixture scope only; disconnected after test)
 - Uncaptured in 2.10 scope: Team Connect / Team App
 - No code changes were made in this stage; docs and prompt updates only.
-- Next: Stage 2.10B (assist-labeled venue linking refinements; no auto-matching added).
+- Next: Stage 2.10B venue SEO hardening (venue sitemap coverage, venue JSON-LD, canonical venue redirects, static sitemap additions; no auto-matching added).
+
+#### Stage 2.10B venue SEO UAT
+
+Run this after Stage 2.10B code is deployed locally or in preview.
+
+- [ ] Canonical venue slug loads normally:
+  - [ ] Open one canonical venue URL at `/venues/<seo-slug>`
+  - [ ] Confirm page loads with no redirect loop
+- [ ] UUID / legacy venue variants permanently normalize:
+  - [ ] Open the same venue by `/venues/<uuid>` if available
+  - [ ] Open a known legacy address-style venue URL if available
+  - [ ] Confirm final browser URL is the canonical slug URL
+- [ ] Venue sitemap coverage:
+  - [ ] `GET /sitemap.xml` includes one or more `/sitemaps/venues-N.xml` entries
+  - [ ] `GET /sitemaps/venues-1.xml` returns only slug-based venue detail URLs
+  - [ ] Confirm venue map pages and `/venues/reviews` are absent
+- [ ] Venue structured data:
+  - [ ] Open a canonical venue page and inspect JSON-LD
+  - [ ] Confirm `LocalBusiness` is present
+  - [ ] Confirm schema `url` matches the canonical slug URL
+  - [ ] Confirm address fields render when venue address data exists
+- [ ] Static sitemap additions:
+  - [ ] Confirm `/book-travel`, `/heatmap`, `/pricing`, and `/youth-sports-tournaments/june-2026` appear in the static sitemap
+  - [ ] Confirm `/weekend-planner`, `/account`, `/admin`, and `/venues/reviews` do not appear
 
 ---
 
@@ -455,7 +479,7 @@ Suggested evidence capture:
 - [x] API-driven disconnect implemented and validated as non-destructive (`DELETE /api/planner/sources/[id]` removes source only; existing events remain in query results immediately after disconnect).
 - [ ] Close remaining platform-specific hard-delete policy gaps by validating a true cancel/delete workflow on one additional source family.
 
-Latest 2.9C follow-up note (2026-06-03, Insider account): 2.9C-4 SE follow-up confirmed non-destructive retention on source-disable and cancel/delete scenarios, and 2.9C action-row hardening remains signed off. **F3 remains blocked**: Insider at-limit still opens the connect modal and a direct `/api/planner/sources/import-ics` POST imported a fourth source with HTTP 200 instead of 403. 2.9C closeout is paused pending F3 fix; other closeout checks can continue in parallel.
+Latest 2.9C follow-up note (2026-06-03, Insider account): 2.9C-4 SE follow-up confirmed non-destructive retention on source-disable and cancel/delete scenarios, and 2.9C action-row hardening remains signed off. **F3 is now closed**: Insider at-limit shows the correct upgrade gate, direct `/api/planner/sources/import-ics` POST is blocked with HTTP `403` and `calendar_feed_limit_reached`, and disconnect removes the source while preserving previously imported events.
 
 ### Weekend Planner (/weekend-planner) — Manual Events
 

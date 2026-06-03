@@ -7,6 +7,7 @@ export const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.tou
 
 // Keep well under the 50k URL per-sitemap limit.
 export const TOURNAMENT_SITEMAP_PAGE_SIZE = 500;
+export const VENUE_SITEMAP_PAGE_SIZE = 500;
 
 export type SitemapEntry = {
   url: string;
@@ -72,4 +73,3 @@ export function xmlResponse(xml: string) {
     },
   });
 }
-

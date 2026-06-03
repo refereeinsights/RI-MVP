@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { canAccessWeekendPro, getTier } from "@/lib/entitlements";
@@ -17,6 +17,7 @@ import {
   type VenueReviewChoiceRow,
 } from "@/lib/owlsEyeScores";
 import { isPremiumPreviewTournamentSlug } from "@/lib/premiumPreview";
+import { SITE_ORIGIN } from "@/lib/sitemaps";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
 import { isUuid } from "@/lib/venues/isUuid";
 import { getVenueCardClassFromSports } from "../sportSurface";
@@ -267,6 +268,35 @@ function buildMapLinks(query: string) {
   };
 }
 
+function buildVenueAbsoluteUrl(venue: { id: string; seo_slug?: string | null }) {
+  return `${SITE_ORIGIN}${getVenueHref(venue)}`;
+}
+
+function buildVenueStructuredData(venue: VenueRow) {
+  const url = buildVenueAbsoluteUrl(venue);
+  const hasAddress = [venue.address, venue.city, venue.state, venue.zip].some(Boolean);
+  const sameAs = (venue.venue_url ?? "").trim();
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "@id": `${url}#venue`,
+    name: venue.name ?? "Venue",
+    url,
+    address: hasAddress
+      ? {
+          "@type": "PostalAddress",
+          streetAddress: venue.address ?? undefined,
+          addressLocality: venue.city ?? undefined,
+          addressRegion: venue.state ?? undefined,
+          postalCode: venue.zip ?? undefined,
+          addressCountry: "US",
+        }
+      : undefined,
+    sameAs: sameAs || undefined,
+  };
+}
+
 function normalizeNearbyText(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -325,7 +355,7 @@ export async function generateMetadata({ params }: { params: { venueId: string }
   const { venue, redirectTo } = await fetchVenueByParam(params.venueId);
 
   if (redirectTo) {
-    return { alternates: { canonical: `https://www.tournamentinsights.com${redirectTo}` } };
+    return { alternates: { canonical: `${SITE_ORIGIN}${redirectTo}` } };
   }
 
   if (!venue) {
@@ -342,7 +372,7 @@ export async function generateMetadata({ params }: { params: { venueId: string }
   const description = `Youth sports venue details for ${data.name || "venue"} in ${[data.city, data.state]
     .filter(Boolean)
     .join(", ")}.`;
-  const canonical = getVenueHref(data);
+  const canonical = buildVenueAbsoluteUrl(data);
 
   return {
     title: { absolute: title },
@@ -405,7 +435,7 @@ export default async function VenueDetailsPage({
   searchParams?: { tournament?: string; venue_sport?: string };
 }) {
   const { venue: resolvedVenue, redirectTo } = await fetchVenueByParam(params.venueId);
-  if (redirectTo) redirect(redirectTo);
+  if (redirectTo) permanentRedirect(redirectTo);
   if (!resolvedVenue?.id) notFound();
 
   const supabase = createSupabaseServerClient();
@@ -854,9 +884,11 @@ export default async function VenueDetailsPage({
     reviews_last_updated_at: activeScoreSource.reviews_last_updated_at,
     reviewChoices: reviewChoiceRows,
   });
+  const venueStructuredData = buildVenueStructuredData(data);
 
   return (
     <main className="pitchWrap tournamentsWrap">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(venueStructuredData) }} />
       <VenuePageViewTracker
         pageType="venue_detail"
         venueId={data.id}

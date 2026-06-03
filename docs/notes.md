@@ -14,6 +14,25 @@ Maintenance rules:
 
 ## 2026-06-03
 
+- TI Venue SEO Stage 2.10B:
+  - Added paginated venue sitemap coverage to TI sitemap index and dynamic sitemap routing:
+    - `apps/ti-web/app/sitemap.xml/route.ts`
+    - `apps/ti-web/app/sitemaps/[name]/route.ts`
+    - `apps/ti-web/lib/sitemaps.ts`
+  - Added public static sitemap entries for already-indexable pages:
+    - `/book-travel`
+    - `/heatmap`
+    - `/pricing`
+    - `/youth-sports-tournaments/june-2026`
+    - via `apps/ti-web/app/sitemaps/static.xml/route.ts`
+  - Added venue detail JSON-LD (`LocalBusiness`) and aligned venue metadata canonical URLs to absolute slug URLs in `apps/ti-web/app/venues/[venueId]/page.tsx`.
+  - Hardened venue canonical normalization from temporary redirect to permanent redirect for UUID and legacy-address variants in `apps/ti-web/app/venues/[venueId]/page.tsx`.
+  - Intentionally deferred from this safe pass:
+    - heatmap query-param canonical strategy
+    - `/tournaments` query canonicalization
+    - venue aggregate-rating schema
+    - OG image work
+
 - TI Planner Stage 2.9C closeout docs sync (no runtime code changes):
   - Updated `CLAUDE.md` to reference `docs/prompts/ti-planner-stage-2.9c-closeout-open-items-v1.0.md`, with F3 now recorded as enforced and remaining 2.9C closeout scope narrowed.
   - Updated `docs/qa/ti-planner-ics-uat.md` with 2.9C-4 carry-forward corrections and added a Stage 2.9C-5 closeout template.
