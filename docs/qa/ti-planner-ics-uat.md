@@ -332,7 +332,7 @@ Focus scope: close the remaining 2.9B-4 carry-forwards only.
 
 - [x] Update/move: edit `TI Feed Test Practice A` in SportsEngine admin (time or location), refresh source, confirm no duplicate storm and in-place change.
 - [x] Cancel/delete path: remove/cancel `TI Feed Test Team Event C` in SportsEngine source (or move to canceled state if supported), refresh, confirm expected retention policy.
-- [x] F3: Insider-at-limit prompt behavior verified (upgrade path first; no raw connect modal fallback).
+- [ ] F3: Insider-at-limit prompt behavior was not revalidated in this run. (Subsequent 2026-06-03 run found regression.)
 - [x] Source name/color stability: confirm both `SportsEngine — TI Red Robbins` and `TI Red Robbins` remain stable across refreshes.
 - [x] Hard-delete policy: record whether removal results in historical suppression vs. source-delete and ensure no unrelated source-linked rows are removed.
 - [x] Missing-source behavior: temporarily disable/remove the source feed URL (or wait for source drop) and observe whether stale events are retained/preserved.
@@ -346,7 +346,8 @@ Focus scope: close the remaining 2.9B-4 carry-forwards only.
 - Update/move result: PASS (`imported=0`, `updated=5`, `changed=5`, no duplicate rows)
 - Cancel/delete result: PASS (`Team Event C` rows remained present; one row updated in place, one unchanged; no hard-delete observed)
 - Source removal result: PASS (temporary disable to `__UAT_DISABLED__` retained all existing SE events in UI; full reconnect needs manual re-entry of the original feed URL)
-- F3 result: PASS (`calendar_feed_limit_reached` enforcement + UI upgrade path confirmed from prior 2.9C run)
+- F3 result: INCONCLUSIVE for this run (`calendar_feed_limit_reached` / upgrade-path still needs recheck).  
+  Follow-up 2026-06-03 confirmed regression: Insider 4th connect attempt opened import modal and API imported successfully.
 - F4 result: PASS (`/account/logout` returns 307 to `/logout`)
 - Overall result: PARTIAL
 
@@ -375,9 +376,20 @@ Focus scope: close the remaining 2.9B-4 carry-forwards only.
 
 Purpose: close remaining 2.9C items after 2.9B feed validation.
 
-- Prompt: `docs/prompts/ti-planner-stage-2.9c-closeout-open-items-v1.0.md`
+- Prompts:
+  - `docs/prompts/ti-planner-stage-2.9c-closeout-open-items-v1.0.md`
+  - `docs/prompts/ti-planner-stage-2.9c-f3-limit-blocker-fix-v1.0.md` (focused F3 unblock task)
 - Scope: 1–2 additional source families with a real cancel/delete action each.
-- F3 is now completed as of 2026-06-03 in shared flow checks and API enforcement.
+- Latest run (2026-06-03, Insider account): **PARTIAL/BLOCKED on F3**.
+- 2.9C-5 artifact summary:
+  - **F3 UI upgrade prompt at calendar limit**: **FAIL** (connect modal opens; no upgrade CTA).
+  - **F3 API bypass check**: **FAIL** (POST returned HTTP 200 and imported a 4th source).
+  - Source identity + color stability (TeamSnap): PASS across refreshes; label remains `TeamSnap — TI Strikers & Wolves`.
+  - Non-destructive cancel/delete behavior (GC disconnect): PASS (21 events retained).
+  - Missing-source behavior: PASS (source rows removed but stale events stay visible with fallback label).
+  - Overlay + linked venue + source location: PASS.
+  - Loaded disclosure + privacy guardrails: PASS.
+- 2.10B planning is blocked until F3 is fixed.
 - Remaining gates tracked in this stage:
   - source color stability across refreshes/views on at least one additional family,
   - cancellation behavior on one additional family (non-destructive retention confirmed),
@@ -390,6 +402,21 @@ Acceptance:
 - [ ] Loaded disclosure remains accurate when partial events are in scope.
 - [ ] Privacy guardrails remain PASS (no raw IDs/URLs/UIDs).
 - [ ] `docs/weekend-planner-current-state.md` and `CLAUDE.md` updated with closure status for each family.
+
+### 2.9C-5 Results Matrix
+
+| Check | Result | Evidence |
+|---|---|---|
+| F3 UI upgrade prompt | **FAIL** | Modal opens at Insider limit; no upgrade-copy modal shown. |
+| F3 API enforcement | **FAIL** | `/api/planner/sources/import-ics` returned HTTP 200 and created a 4th source. |
+| TeamSnap source label/color stability | PASS | Label persisted across 2 refreshes; sync status updated. |
+| GC disconnect non-destructive | PASS | 21 GC events retained after disconnect. |
+| Missing-source visibility | PASS | Stale GC events stayed visible as `Connected calendar`. |
+| Overlay + venue persistence | PASS | UAT overlay note and linked venue remained after refresh. |
+| Source location visibility | PASS | Source location line renders distinctly from linked venue. |
+| Loaded disclosure scope | PASS | `"All events in this range are loaded..."` matched actual loaded state. |
+| Privacy guardrail — API | PASS | `/api/planner/sources` had no raw URLs/UIDs IDs. |
+| Privacy guardrail — UI | PASS | No raw IDs/URLs/UIDs visible in list/card views. |
 
 ## Stage 2.9B-1B — Team Connect Lifecycle Validation
 

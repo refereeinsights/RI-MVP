@@ -954,6 +954,17 @@ export default function PlannerClient(props: Props) {
     }
   }
 
+  async function loadSourcesForGate() {
+    try {
+      const res = await jsonFetch<{ ok: true; sources: PlannerSourceRow[] }>("/api/planner/sources", { method: "GET" });
+      const nextSources = res.sources ?? [];
+      setSources(nextSources);
+      return nextSources;
+    } catch {
+      return null;
+    }
+  }
+
   async function loadDismissedPairs() {
     try {
       const res = await jsonFetch<{ ok: true; dismissed: DuplicateDismissedRow[] }>("/api/planner/events/duplicates/dismissed", {
@@ -1338,17 +1349,26 @@ export default function PlannerClient(props: Props) {
     setImportGate(null);
   }
 
-  function openConnectCalendarFlow() {
+  async function openConnectCalendarFlow() {
     if (busy || sourcesBusy) {
       setError("Calendar status is still loading. Please try again.");
       return;
     }
 
-    if (!canConnectAnotherCalendar) {
-      if (isUnverified) {
-        resetImportForm();
-        setImportGate("unverified");
-      } else if (!props.isPaid) {
+    if (isUnverified) {
+      resetImportForm();
+      setImportGate("unverified");
+      return;
+    }
+
+    if (!props.isPaid) {
+      const latestSources = await loadSourcesForGate();
+      if (!latestSources) {
+        setError("Could not verify your calendar limit. Please try again.");
+        return;
+      }
+
+      if (latestSources.length >= 1) {
         resetImportForm();
         setImportGate("limit");
         trackPlannerEvent("planner_weekend_pro_gate_clicked", {
@@ -1356,8 +1376,8 @@ export default function PlannerClient(props: Props) {
           entitlement: entitlementForAnalytics,
           gate_name: "multi_calendar",
         });
+        return;
       }
-      return;
     }
 
     resetImportForm();
@@ -1564,8 +1584,20 @@ export default function PlannerClient(props: Props) {
   async function onImportIcs() {
     setImportError(null);
     setImportResult(null);
-    if (!canConnectAnotherCalendar) {
-      if (!isUnverified && !props.isPaid) {
+    if (isUnverified) {
+      resetImportForm();
+      setImportGate("unverified");
+      return;
+    }
+
+    if (!props.isPaid) {
+      const latestSources = await loadSourcesForGate();
+      if (!latestSources) {
+        setImportError("Could not verify your calendar limit. Please try again.");
+        return;
+      }
+
+      if (latestSources.length >= 1) {
         trackPlannerEvent("planner_weekend_pro_gate_clicked", {
           surface: "weekend_planner",
           entitlement: entitlementForAnalytics,
@@ -1575,10 +1607,8 @@ export default function PlannerClient(props: Props) {
         setImportError(null);
         return;
       }
-      setImportGate(isUnverified ? "unverified" : "limit");
-      setImportError(null);
-      return;
     }
+
     const url = importUrl.trim();
     if (!url) {
       setImportError("Enter a valid iCal/ICS calendar URL.");

@@ -405,13 +405,14 @@ Latest Stage 2.9B-2 run (2026-06-02, `weekendpro_test@example.com`, TI Owls 12U,
 - Prompt: `docs/prompts/ti-planner-stage-2.9c-source-identity-hardening-followups.md`
 - SportsEngine follow-up prompt: `docs/prompts/ti-planner-stage-2.9c-4-sportsengine-followups.md`
 - Source closeout prompt: `docs/prompts/ti-planner-stage-2.9c-closeout-open-items-v1.0.md`
+- Focused F3 fix prompt: `docs/prompts/ti-planner-stage-2.9c-f3-limit-blocker-fix-v1.0.md`
 - Recommended preconditions:
   - 2.9B-2 and 2.9B-3 baseline/import behaviors captured.
   - Weekend Pro fixture account available for multi-source scenarios.
 
 Validate:
-- [x] F3 limit gate behavior: Insider already-at-limit now surfaces upgrade prompt and not import modal.
-- [x] Server-side limit enforcement: bypass paths return `calendar_feed_limit_reached` (`403`) for over-limit insider attempts.
+- [ ] F3 limit gate behavior: Insider already-at-limit must surface upgrade prompt and not open import modal.
+- [ ] F3 API enforcement: over-limit bypass paths must return `calendar_feed_limit_reached` (`403`) for insider attempts.
 - [ ] Source color stability across runs (GC/TeamSnap + additional platforms when available).
 - [x] Cancel/delete (and missing-in-feed) behavior is documented as retained events on source disable.
 - [ ] Overlay + linked venue persistence after cancel/delete and repeated refresh across at least one additional platform.
@@ -454,7 +455,7 @@ Suggested evidence capture:
 - [x] API-driven disconnect implemented and validated as non-destructive (`DELETE /api/planner/sources/[id]` removes source only; existing events remain in query results immediately after disconnect).
 - [ ] Close remaining platform-specific hard-delete policy gaps by validating a true cancel/delete workflow on one additional source family.
 
-Latest 2.9C follow-up note: 2.9C-4 SE run completed locally for update/move, cancel/delete presence, and `/account/logout`; API disconnect is now implemented and confirmed as non-destructive. F3 API/UI enforcement is in place; remaining 2.9C closeout items are source-color stability and broader cancel-delete confirmation on at least one additional source family. Missing-source behavior remains observed as non-destructive retention for the temporary disable-path.
+Latest 2.9C follow-up note (2026-06-03, Insider account): 2.9C-4 SE follow-up confirmed non-destructive retention on source-disable and cancel/delete scenarios, and 2.9C action-row hardening remains signed off. **F3 remains blocked**: Insider at-limit still opens the connect modal and a direct `/api/planner/sources/import-ics` POST imported a fourth source with HTTP 200 instead of 403. 2.9C closeout is paused pending F3 fix; other closeout checks can continue in parallel.
 
 ### Weekend Planner (/weekend-planner) — Manual Events
 

@@ -37,11 +37,23 @@ export async function POST(req: Request) {
   }
 
   if (tierInfo.tier === "insider") {
-    const { count } = await (supabase.from("planner_event_sources" as any) as any)
+    const {
+      count,
+      error: limitCheckError,
+    } = await (supabase.from("planner_event_sources" as any) as any)
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
       .eq("source_type", "ics");
-    if (typeof count === "number" && count >= 1) {
+
+    if (limitCheckError) {
+      return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    }
+
+    if (typeof count !== "number") {
+      return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    }
+
+    if (count >= 1) {
       return NextResponse.json({ ok: false, error: "calendar_feed_limit_reached" }, { status: 403 });
     }
   }

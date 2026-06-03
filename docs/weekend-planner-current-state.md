@@ -1,6 +1,6 @@
 # TournamentInsights Weekend Planner — GPT / Codex Memory Snapshot
 
-Last updated: Post Stage 2.9B-4 partial validation (2026-06-02)
+Last updated: Post Stage 2.9C-5 F3 blocker verification (2026-06-03)
 
 This document is the canonical working memory for TournamentInsights Weekend Planner planning, Codex prompts, Claude UAT prompts, GPT knowledge ingestion, and roadmap alignment.
 
@@ -37,11 +37,13 @@ This is not public marketing copy. It is an internal product/engineering memory 
 - 2.10B assisted venue linking prompt: authored and ready for execution (docs in `docs/prompts/ti-planner-stage-2.10b-assisted-venue-linking-v1.1.md`).
 - SQL migration `20260528_ti_planner_stage2_sources_unique_url_full.sql` is present for source URL uniqueness constraints and was produced for Stage 2.9B/2.10 work.
 - Stage 2.9C-5 source identity closeout prompt: available in `docs/prompts/ti-planner-stage-2.9c-closeout-open-items-v1.0.md`.
+- Stage 2.9C-5 focused F3 blocker prompt: available in `docs/prompts/ti-planner-stage-2.9c-f3-limit-blocker-fix-v1.0.md`.
 
 ### Open roadmap items (not yet implemented)
 
 High-confidence next work:
 
+- Stage 2.9C-F3 blocker fix: prevent Insider users at feed limit from importing additional calendars and return 403 API bypass response.
 - 2.10B: implement user-confirmed assisted venue linking in UI + event update path.
 - 2.9B-1B (Team Connect): finalize explicit cancel/delete confirmation outcome and hard-delete confirmation for this path.
 - 2.9B-2 / 2.9B-3 / 2.9B-4: complete outstanding cancel/delete and platform-specific follow-up checks where marked pending.
@@ -635,11 +637,12 @@ Do not claim platform support before feed behavior is verified.
 
 ### Stage 2.9C — Source Identity Hardening Follow-Ups
 
-Status: in-flight; Stage 2.9C follow-up currently has completed the temporary missing-source retention check for SportsEngine/MySE.
+Status: in-flight and BLOCKED on F3 (Insider limit gate).
 
 Prompt:
 - `docs/prompts/ti-planner-stage-2.9c-source-identity-hardening-followups.md`
 - `docs/prompts/ti-planner-stage-2.9c-closeout-open-items-v1.0.md` (2.9C closeout tracker)
+- `docs/prompts/ti-planner-stage-2.9c-f3-limit-blocker-fix-v1.0.md` (F3 unblocks 2.10B)
 
 Likely scope:
 
@@ -682,6 +685,7 @@ Current active open items carried into 2.9C:
 
 - Source color stability across platforms/refresh cycles remains to be validated on at least one additional family.
 - Source name fallback stability (`Connected calendar`) needs final policy.
+- F3 limit-gate blocker remains open: Insider-at-limit UI/API path still allows 4th calendar import instead of upgrade gate.
 - Hard-delete behavior is documented as non-destructive in policy with remaining ambiguity only for broader platform cancel-delete validation.
 - Missing-source handling behavior is now observed as retention during temporary source disable (events remained, no timestamp churn).
 
