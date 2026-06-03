@@ -235,6 +235,15 @@ Current note: Stage 2.10 implemented (2026-06-02).
   - For DC Metro, canonical SEO coverage is anchored in Virginia (example route pattern: `/soccer/virginia/dc-metro` when indexable).
   - Do not add legacy `/tournaments/metro/*` pages to sitemap coverage while the canonical SEO family remains sport/state/metro.
   - Legacy `/tournaments/metro/*` pages may remain as directory/product views, but they are not the canonical metro SEO surface.
+- Production verification status (2026-06-03):
+  - Verified live on `https://www.tournamentinsights.com`:
+    - `/heatmap` title/canonical behavior,
+    - `/tournaments` filtered canonical + `noindex,follow`,
+    - tournament detail breadcrumb JSON-LD + clean hub links,
+    - sitemap cleanup (no `/pricing`, no noindexed utility pages),
+    - `/weekend-planner` defensive `noindex,follow`,
+    - Virginia-anchored `dc-metro` live under the canonical sport/state/metro family.
+  - `/weekend/[slug]` remains fixture-dependent for runtime verification; treat `UNVERIFIED` as non-blocking unless that route becomes an intentional public SEO surface.
 - Static sitemap guardrails:
   - Do not include noindexed or product-private routes in TI sitemaps.
   - Do not include `/pricing` in sitemap coverage while it remains a redirect-only route to `/#pricing`.

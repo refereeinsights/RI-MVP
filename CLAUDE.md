@@ -380,6 +380,17 @@ Checklist:
   - [ ] Only test `/weekend/<slug>` if you have a real valid shared-plan slug from the app under test
   - [ ] If no valid slug is available, report `UNVERIFIED — no valid fixture/shared slug available`
   - [ ] Do not mark `/weekend/<slug>` FAIL solely because a guessed slug 404s
+
+Latest production result (2026-06-03):
+- PASS:
+  - `/heatmap` title + canonical behavior
+  - `/tournaments` base vs filtered canonical/noindex behavior
+  - tournament detail `BreadcrumbList` + clean hub links
+  - sitemap cleanup (`/pricing` absent, no noindexed utility routes included)
+  - `/weekend-planner` defensive `noindex,follow`
+  - Virginia-anchored `dc-metro` live in canonical metro sitemap/page output
+- UNVERIFIED:
+  - `/weekend/[slug]` because no valid shared-plan fixture slug was available during production verification
   - [ ] Confirm these routes still function normally and were not converted into SEO landing pages
 
 ---

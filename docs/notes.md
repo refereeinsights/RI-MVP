@@ -14,6 +14,16 @@ Maintenance rules:
 
 ## 2026-06-03
 
+- TI production SEO verification:
+  - Claude production verification on `https://www.tournamentinsights.com` passed the deployed public SEO cleanup checks for:
+    - `/heatmap` metadata/canonical behavior,
+    - `/tournaments` base vs filtered canonical/noindex behavior,
+    - tournament detail `BreadcrumbList` + clean hub links,
+    - sitemap cleanup (including no `/pricing` redirect URL and no noindexed utility routes),
+    - `/weekend-planner` defensive `noindex,follow`,
+    - Virginia-anchored `dc-metro` live sitemap/page coverage.
+  - `/weekend/[slug]` remains `UNVERIFIED` in production because no valid shared-plan fixture slug was available during the live check; this is non-blocking while the route is not being SEO-enabled.
+
 - TI metro SEO canonicalization follow-up:
   - Chose `/{sport}/{state}/{metro}` as the canonical metro SEO route family and removed legacy `/tournaments/metro/*` entries from `apps/ti-web/app/sitemaps/static.xml/route.ts` so static sitemap coverage no longer advertises the non-canonical metro family.
   - Added `supabase/migrations/20260603_ti_dc_metro_va_anchor.sql` to anchor `dc-metro` under Virginia for canonical SEO hub generation, using Northern Virginia city rules for the existing city-metro sitemap pipeline.
