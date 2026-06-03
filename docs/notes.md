@@ -14,6 +14,11 @@ Maintenance rules:
 
 ## 2026-06-03
 
+- TI SEO title-template follow-up:
+  - Confirmed TI layout metadata already applies `"%s | TournamentInsights"` at the app shell level in `apps/ti-web/app/layout.tsx`.
+  - Removed duplicated page-level brand suffixing from `apps/ti-web/app/heatmap/page.tsx` and `apps/ti-web/app/weekend-planner/page.tsx` so those routes no longer render `| TournamentInsights | TournamentInsights`.
+  - Tightened the post-2.10B SEO verification checklist in `CLAUDE.md` so metro sitemap checks follow the app’s real route family and `/weekend/[slug]` is fixture-dependent rather than treated as an assumed public SEO page.
+
 - TI SEO cleanup pass (post venue-SEO follow-through):
   - Added route metadata and canonical consolidation for `apps/ti-web/app/heatmap/page.tsx`, with all `?sport=*` variants canonicalized to `/heatmap`.
   - Added a compact crawlable link section beneath the public heatmap so `/heatmap` exposes text links to `/tournaments`, `/venues`, and existing sport hubs.

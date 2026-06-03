@@ -303,6 +303,84 @@ Run this on `/weekend-planner` with an event that has source location text but n
 - [ ] Click **Clear** in the venue selector and confirm only linked venue context is removed.
 - [ ] Confirm no raw UUIDs, feed URLs, or `source_event_uid` are shown in the normal venue-linking UI.
 
+#### Post-2.10B public SEO cleanup UAT
+
+Run this after the public SEO cleanup pass is deployed locally or in preview.
+
+Copy/paste prompt for Claude Desktop / browser UAT:
+
+1) Use Brave on the TI app URL under test.
+2) Stay tightly scoped to this SEO cleanup pass only.
+3) Important test assumptions:
+   - `/weekend-planner` and `/weekend/[slug]` are NOT being SEO-enabled in this pass.
+   - Expected posture for those routes is defensive:
+     - `noindex,follow`
+     - excluded from sitemap
+   - Metro sitemap verification must follow the app’s actual canonical route family, not an assumed `/tournaments/metro/*` pattern, unless the implementation under test explicitly changed that.
+4) Verify:
+   - `/heatmap` metadata + canonical behavior
+   - `/tournaments` query-variant canonical / noindex behavior
+   - tournament detail breadcrumb JSON-LD + clean hub links
+   - sitemap cleanup (`/pricing` removed, metro coverage correct for the implemented route family, no noindexed routes included)
+   - `/weekend-planner` and `/weekend/[slug]` noindex behavior
+5) Report PASS / FAIL for each section with exact URL, expected behavior, and actual behavior.
+
+Checklist:
+
+- [ ] Heatmap SEO:
+  - [ ] Open `/heatmap` and confirm the page title is correct and does not double-append the site name
+  - [ ] Confirm the page has a canonical URL of `/heatmap`
+  - [ ] Confirm a compact text-link section is visible below the map with crawlable links to:
+    - [ ] `/tournaments`
+    - [ ] `/venues`
+    - [ ] sport hubs such as `/tournaments/soccer`
+  - [ ] Open `/heatmap?sport=soccer`
+  - [ ] Confirm the query variant does not behave like a separate SEO page and still resolves canonical to `/heatmap`
+
+- [ ] Tournament directory canonical / noindex behavior:
+  - [ ] Open `/tournaments`
+  - [ ] Confirm canonical URL is `/tournaments`
+  - [ ] Confirm base `/tournaments` remains indexable
+  - [ ] Open one filtered variant such as `/tournaments?state=CA` or `/tournaments?sports=soccer`
+  - [ ] Confirm the filtered variant still canonicalizes to `/tournaments`
+  - [ ] Confirm the filtered variant is `noindex,follow`
+
+- [ ] Tournament detail breadcrumbs and clean hub links:
+  - [ ] Open one tournament detail page at `/tournaments/<slug>`
+  - [ ] Inspect JSON-LD and confirm a `BreadcrumbList` is present
+  - [ ] Confirm breadcrumb path includes:
+    - [ ] Home
+    - [ ] Tournaments
+    - [ ] sport hub when supported
+    - [ ] sport/state hub when supported
+    - [ ] tournament detail page
+  - [ ] Confirm visible crawlable links are present for:
+    - [ ] sport hub
+    - [ ] sport/state hub
+    - [ ] venue detail pages when venues exist
+  - [ ] Accept the app’s real clean hub URL format if it is valid and indexable
+  - [ ] Do not fail this section merely because the route pattern differs from an older assumption
+
+- [ ] Sitemap cleanup:
+  - [ ] Open `/sitemap.xml`
+  - [ ] Confirm sitemap coverage still includes the expected child sitemaps
+  - [ ] Open `/sitemaps/static.xml`
+  - [ ] Confirm `/pricing` does not appear if it still redirects to `/#pricing`
+  - [ ] Confirm `/weekend-planner`, `/weekend/<slug>`, `/account`, `/admin`, and `/venues/reviews` do not appear
+  - [ ] Confirm no clearly noindexed route was added to sitemap coverage
+  - [ ] For metro coverage:
+    - [ ] verify the actual implemented canonical metro route pattern present in sitemap output
+    - [ ] do not assume `/tournaments/metro/dc-metro` unless that exact route family is what the app now uses
+
+- [ ] Weekend utility route indexation:
+  - [ ] Open `/weekend-planner`
+  - [ ] Confirm the page is `noindex,follow`
+  - [ ] Confirm the page still functions normally
+  - [ ] Only test `/weekend/<slug>` if you have a real valid shared-plan slug from the app under test
+  - [ ] If no valid slug is available, report `UNVERIFIED — no valid fixture/shared slug available`
+  - [ ] Do not mark `/weekend/<slug>` FAIL solely because a guessed slug 404s
+  - [ ] Confirm these routes still function normally and were not converted into SEO landing pages
+
 ---
 
 ### Stage 2.9B UAT (real ICS platform feeds — Sports Family benchmark)

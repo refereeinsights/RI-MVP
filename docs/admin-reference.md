@@ -214,6 +214,10 @@ Current note: Stage 2.10 implemented (2026-06-02).
 
 ## TI SEO landing pages (tournaments)
 
+- TI metadata title-template rule:
+  - TI app layout already applies the site-name suffix through `apps/ti-web/app/layout.tsx` using `"%s | TournamentInsights"`.
+  - For ordinary page-level metadata titles, do not manually append `| TournamentInsights` unless the route intentionally uses an absolute title override.
+  - If a page renders `... | TournamentInsights | TournamentInsights`, fix the page-level title first before changing the shared layout template.
 - June 2026 landing page: `/youth-sports-tournaments/june-2026`
   - Canonical URL: `/youth-sports-tournaments/june-2026` (any alias should 301 redirect).
   - Default scope: June 2026 (`start_date >= 2026-06-01` and `start_date < 2026-07-01`).

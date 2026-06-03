@@ -57,7 +57,7 @@ function formatDateRange(start: string | null, end: string | null) {
 
 export async function generateMetadata() {
   return {
-    title: "Weekend Planner | TournamentInsights",
+    title: "Weekend Planner",
     description:
       "Save tournaments, plan travel, and organize venue logistics for your sports weekend with TournamentInsights.",
     alternates: { canonical: "/weekend-planner" },

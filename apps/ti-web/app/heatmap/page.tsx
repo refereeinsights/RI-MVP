@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const HEATMAP_TITLE = "Youth Sports Tournament Heatmap | TournamentInsights";
+const HEATMAP_TITLE = "Youth Sports Tournament Heatmap";
 const HEATMAP_DESCRIPTION =
   "Explore where youth sports tournaments are happening across the United States. Compare tournament activity by sport, state, and region using the TournamentInsights heatmap.";
 const HEATMAP_SPORT_LINKS = ["soccer", "baseball", "softball", "lacrosse", "basketball", "hockey"] as const;
