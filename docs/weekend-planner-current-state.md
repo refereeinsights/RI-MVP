@@ -31,11 +31,12 @@ This is not public marketing copy. It is an internal product/engineering memory 
 - Stage 2.9B-0 source labels/kid-team-sport identity prep: implemented and validated.
 - Stage 2.9B-1A Team Connect baseline import/update checks: implemented.
 - Stage 2.9C-0 non-destructive event retention policy: documented and partially validated in follow-ups.
-- Stage 2.9C-1 connected calendar action-row hardening prompt: implemented or in progress (where present in code).
+- Stage 2.9C-1 connected calendar action-row hardening: implemented and signed off.
 - Stage 2.10 venue data capture from feeds: assessment pass completed.
 - Stage 2.10A linked venue name display: implemented and verified.
 - 2.10B assisted venue linking prompt: authored and ready for execution (docs in `docs/prompts/ti-planner-stage-2.10b-assisted-venue-linking-v1.1.md`).
 - SQL migration `20260528_ti_planner_stage2_sources_unique_url_full.sql` is present for source URL uniqueness constraints and was produced for Stage 2.9B/2.10 work.
+- Stage 2.9C-5 source identity closeout prompt: available in `docs/prompts/ti-planner-stage-2.9c-closeout-open-items-v1.0.md`.
 
 ### Open roadmap items (not yet implemented)
 
@@ -44,8 +45,8 @@ High-confidence next work:
 - 2.10B: implement user-confirmed assisted venue linking in UI + event update path.
 - 2.9B-1B (Team Connect): finalize explicit cancel/delete confirmation outcome and hard-delete confirmation for this path.
 - 2.9B-2 / 2.9B-3 / 2.9B-4: complete outstanding cancel/delete and platform-specific follow-up checks where marked pending.
-- F3: Insider at-limit gate UX should show upgrade flow explicitly before modal import.
 - Source name fallback policy: finalize final behavior for `Connected calendar` vs explicit labels.
+- Source color stability on additional families: validate cross-refresh persistence.
 - Stage 2.10B product boundary work:
   - show source location + linked TI venue distinctly in event surfaces.
   - implement safe search UI if not existing.
@@ -638,6 +639,7 @@ Status: in-flight; Stage 2.9C follow-up currently has completed the temporary mi
 
 Prompt:
 - `docs/prompts/ti-planner-stage-2.9c-source-identity-hardening-followups.md`
+- `docs/prompts/ti-planner-stage-2.9c-closeout-open-items-v1.0.md` (2.9C closeout tracker)
 
 Likely scope:
 
@@ -678,7 +680,7 @@ Evidence captured so far:
 
 Current active open items carried into 2.9C:
 
-- F3 at-limit behavior still should show upgrade path before modal import.
+- Source color stability across platforms/refresh cycles remains to be validated on at least one additional family.
 - Source name fallback stability (`Connected calendar`) needs final policy.
 - Hard-delete behavior is documented as non-destructive in policy with remaining ambiguity only for broader platform cancel-delete validation.
 - Missing-source handling behavior is now observed as retention during temporary source disable (events remained, no timestamp churn).

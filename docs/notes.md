@@ -12,6 +12,14 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-06-03
+
+- TI Planner Stage 2.9C closeout docs sync (no runtime code changes):
+  - Updated `CLAUDE.md` to reference `docs/prompts/ti-planner-stage-2.9c-closeout-open-items-v1.0.md`, with F3 now recorded as enforced and remaining 2.9C closeout scope narrowed.
+  - Updated `docs/qa/ti-planner-ics-uat.md` with 2.9C-4 carry-forward corrections and added a Stage 2.9C-5 closeout template.
+  - Synced `docs/weekend-planner-current-state.md` and `docs/admin-reference.md` to remove stale 2.9C/F3 blockers and carry forward only remaining cross-platform checks.
+  - Added corresponding notes for operational continuity across TI/RI planning.
+
 ## 2026-06-02
 
 - TI Planner Stage 2.9C-1: connected calendar card action-row polish.

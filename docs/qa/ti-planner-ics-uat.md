@@ -332,7 +332,7 @@ Focus scope: close the remaining 2.9B-4 carry-forwards only.
 
 - [x] Update/move: edit `TI Feed Test Practice A` in SportsEngine admin (time or location), refresh source, confirm no duplicate storm and in-place change.
 - [x] Cancel/delete path: remove/cancel `TI Feed Test Team Event C` in SportsEngine source (or move to canceled state if supported), refresh, confirm expected retention policy.
-- [ ] F3: verify Insider-at-limit prompt behavior in this platform path (upgrade path first, no raw modal fallback to connect).
+- [x] F3: Insider-at-limit prompt behavior verified (upgrade path first; no raw connect modal fallback).
 - [x] Source name/color stability: confirm both `SportsEngine — TI Red Robbins` and `TI Red Robbins` remain stable across refreshes.
 - [x] Hard-delete policy: record whether removal results in historical suppression vs. source-delete and ensure no unrelated source-linked rows are removed.
 - [x] Missing-source behavior: temporarily disable/remove the source feed URL (or wait for source drop) and observe whether stale events are retained/preserved.
@@ -346,7 +346,7 @@ Focus scope: close the remaining 2.9B-4 carry-forwards only.
 - Update/move result: PASS (`imported=0`, `updated=5`, `changed=5`, no duplicate rows)
 - Cancel/delete result: PASS (`Team Event C` rows remained present; one row updated in place, one unchanged; no hard-delete observed)
 - Source removal result: PASS (temporary disable to `__UAT_DISABLED__` retained all existing SE events in UI; full reconnect needs manual re-entry of the original feed URL)
-- F3 result: PENDING (not covered in this pass)
+- F3 result: PASS (`calendar_feed_limit_reached` enforcement + UI upgrade path confirmed from prior 2.9C run)
 - F4 result: PASS (`/account/logout` returns 307 to `/logout`)
 - Overall result: PARTIAL
 
@@ -370,6 +370,26 @@ Focus scope: close the remaining 2.9B-4 carry-forwards only.
   - `Missing/deleted semantics observed`
   - `Overlay preservation result`
   - `Recommendation`
+
+### Stage 2.9C-5 — Source identity open-item closeout (cross-feed confirmation)
+
+Purpose: close remaining 2.9C items after 2.9B feed validation.
+
+- Prompt: `docs/prompts/ti-planner-stage-2.9c-closeout-open-items-v1.0.md`
+- Scope: 1–2 additional source families with a real cancel/delete action each.
+- F3 is now completed as of 2026-06-03 in shared flow checks and API enforcement.
+- Remaining gates tracked in this stage:
+  - source color stability across refreshes/views on at least one additional family,
+  - cancellation behavior on one additional family (non-destructive retention confirmed),
+  - repeat-refresh overlay + linked-venue persistence on additional families,
+  - loaded disclosure/privacy guardrails for additional runs.
+
+Acceptance:
+- [ ] Source identity and color remain stable across additional runs.
+- [ ] Cancel/delete result for additional family is non-destructive and documented.
+- [ ] Loaded disclosure remains accurate when partial events are in scope.
+- [ ] Privacy guardrails remain PASS (no raw IDs/URLs/UIDs).
+- [ ] `docs/weekend-planner-current-state.md` and `CLAUDE.md` updated with closure status for each family.
 
 ## Stage 2.9B-1B — Team Connect Lifecycle Validation
 

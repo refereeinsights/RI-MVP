@@ -183,13 +183,14 @@ Current note: Stage 2.10 implemented (2026-06-02).
 
 - Purpose: close remaining 2.9B hardening gaps before wider platform claims.
 - Prompt: `docs/prompts/ti-planner-stage-2.9c-source-identity-hardening-followups.md`
+- Closeout tracker: `docs/prompts/ti-planner-stage-2.9c-closeout-open-items-v1.0.md`
 - Current state: in-flight (running 2.9C-4 follow-up).
 - Includes:
   - F3 limit-gate consistency checks (UI + API),
   - source label/fallback and color stability,
   - cancel/delete and missing-source behavior in real feeds,
   - optional SportsEngine/MySE follow-up if access is available.
-- 2.9C-4 latest result: missing-source path validated as retention (events remain visible after temporary source-disable); hard-delete certainty still pending.
+- 2.9C-4 latest result: missing-source path validated as retention (events remain visible after temporary source-disable); hard-delete certainty is now narrowed to cross-platform confirmation (additional family pending).
 - Evidence target: `docs/qa/ti-planner-ics-uat.md`.
 
 ## TI Planner (Stage 2.1 — Local-first venue-aware polish)
