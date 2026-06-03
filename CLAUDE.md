@@ -233,8 +233,8 @@ If no unverified fixture exists, Stage 2.8 sign-off must treat this as an **open
 - Linked venue persistence: PASS
   - Venue links survive refresh and remain visible in UI on Spokane Polo Fields scenario.
 - Source `address_text` remains preserved in DB after linking a venue.
-- Source location visibility in card + linked venue is currently **not shown together** (noted for 2.10B polish).
-- Clear venue action: not yet tested
+- Source location visibility in card + linked venue is now expected to render together when they differ.
+- Clear venue action: covered in Stage 2.10B UAT below.
 
 #### 4) Privacy and API surface checks
 
@@ -281,6 +281,25 @@ Run this after Stage 2.10B code is deployed locally or in preview.
 - [ ] Static sitemap additions:
   - [ ] Confirm `/book-travel`, `/heatmap`, `/pricing`, and `/youth-sports-tournaments/june-2026` appear in the static sitemap
   - [ ] Confirm `/weekend-planner`, `/account`, `/admin`, and `/venues/reviews` do not appear
+
+#### Stage 2.10B assisted venue-linking UAT
+
+Run this on `/weekend-planner` with an event that has source location text but no linked TI venue.
+
+- [ ] Click **Find venue** and confirm the query is prefilled from source location / city-state when available.
+- [ ] Edit the query and confirm venue search can match by name, address, city, or state.
+- [ ] Confirm venue result rows show:
+  - [ ] venue name
+  - [ ] city/state
+  - [ ] address when available
+- [ ] Select a venue and save the event.
+- [ ] Confirm the event shows:
+  - [ ] `Linked venue: ...`
+  - [ ] `Source location: ...` when source location exists and differs
+- [ ] Reload the page and confirm the linked venue persists.
+- [ ] Refresh the connected calendar and confirm the linked venue still persists.
+- [ ] Click **Clear** in the venue selector and confirm only linked venue context is removed.
+- [ ] Confirm no raw UUIDs, feed URLs, or `source_event_uid` are shown in the normal venue-linking UI.
 
 ---
 

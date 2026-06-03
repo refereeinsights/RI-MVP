@@ -358,6 +358,10 @@ function addMonthsLocal(d: Date, months: number) {
   return out;
 }
 
+function venueSearchEmptyCopy() {
+  return "No matching TI venues found. Try a different search term.";
+}
+
 function computeWeekendRangeLocal(now: Date) {
   const day = now.getDay(); // 0=Sun..6=Sat
   const todayStart = startOfDayLocal(now);
@@ -2777,11 +2781,11 @@ export default function PlannerClient(props: Props) {
                                       className={styles.input}
                                       value={editVenueQuery}
                                       onChange={(ev) => setEditVenueQuery(ev.target.value)}
-                                      placeholder="Search by venue name"
+                                      placeholder="Search by venue name, address, city, or state"
                                     />
                                     {editVenueSearching ? <div className={styles.muted}>Searching…</div> : null}
                                     {!editVenueSearching && editVenueQuery.trim().length >= 2 && editVenueResults.length === 0 ? (
-                                      <div className={styles.muted}>No matches found.</div>
+                                      <div className={styles.muted}>{venueSearchEmptyCopy()}</div>
                                     ) : null}
                                     {editVenueResults.length > 0 ? (
                                       <div style={{ border: "1px solid rgba(15,23,42,0.12)", borderRadius: 10, overflow: "hidden" }}>
@@ -2800,8 +2804,13 @@ export default function PlannerClient(props: Props) {
                                             }}
                                             disabled={busy}
                                           >
-                                            <span>{v.name || "Unnamed venue"}</span>
-                                            <span className={styles.muted}>{[v.city, v.state].filter(Boolean).join(", ")}</span>
+                                            <span style={{ display: "grid", justifyItems: "start", gap: 2, textAlign: "left" }}>
+                                              <span>{v.name || "Unnamed venue"}</span>
+                                              {[v.city, v.state].filter(Boolean).length ? (
+                                                <span className={styles.muted}>{[v.city, v.state].filter(Boolean).join(", ")}</span>
+                                              ) : null}
+                                              {v.address ? <span className={styles.muted}>{v.address}</span> : null}
+                                            </span>
                                           </button>
                                         ))}
                                       </div>
@@ -3041,11 +3050,11 @@ export default function PlannerClient(props: Props) {
 	                      className={styles.input}
 	                      value={createVenueQuery}
 	                      onChange={(e) => setCreateVenueQuery(e.target.value)}
-	                      placeholder="Search by venue name"
+	                      placeholder="Search by venue name, address, city, or state"
 	                    />
 	                    {createVenueSearching ? <div className={styles.muted}>Searching…</div> : null}
 	                    {!createVenueSearching && createVenueQuery.trim().length >= 2 && createVenueResults.length === 0 ? (
-	                      <div className={styles.muted}>No matches found.</div>
+	                      <div className={styles.muted}>{venueSearchEmptyCopy()}</div>
 	                    ) : null}
 	                    {createVenueResults.length > 0 ? (
 	                      <div style={{ border: "1px solid rgba(15,23,42,0.12)", borderRadius: 10, overflow: "hidden" }}>
@@ -3064,8 +3073,13 @@ export default function PlannerClient(props: Props) {
 	                            }}
 	                            disabled={busy}
 	                          >
-	                            <span>{v.name || "Unnamed venue"}</span>
-	                            <span className={styles.muted}>{[v.city, v.state].filter(Boolean).join(", ")}</span>
+	                            <span style={{ display: "grid", justifyItems: "start", gap: 2, textAlign: "left" }}>
+	                              <span>{v.name || "Unnamed venue"}</span>
+	                              {[v.city, v.state].filter(Boolean).length ? (
+	                                <span className={styles.muted}>{[v.city, v.state].filter(Boolean).join(", ")}</span>
+	                              ) : null}
+	                              {v.address ? <span className={styles.muted}>{v.address}</span> : null}
+	                            </span>
 	                          </button>
 	                        ))}
 	                      </div>

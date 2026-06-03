@@ -39,8 +39,12 @@ Stage 2.9A prompt (docs-first): `docs/prompts/ti-planner-stage-2.9a-ics-source-i
    - Confirm `notes` (non-empty) and selected Venue are not overwritten.
 10. Venue linking (local-first):
    - Pick an event with an address/location but no linked venue.
-   - Click **Find venue**, search for a real venue, and select it.
+   - Click **Find venue** and confirm the query is prefilled from the current source location / city-state context when available.
+   - Edit the query if needed, search for a real venue by name, address, city, or state, and select it.
+   - Confirm the result rows show venue name, city/state, and address when available.
    - Confirm no raw UUIDs are shown to the user.
+   - Confirm linked venue displays separately from source location text.
+   - Use **Clear** and confirm it removes only the linked venue context.
    - Refresh the calendar and confirm the selected venue remains linked.
 11. Manual events regression:
    - Create a manual event.

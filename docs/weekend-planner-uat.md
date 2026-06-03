@@ -227,6 +227,11 @@ commit;
 
 - Stage 2 ICS checklist: `docs/qa/ti-planner-ics-uat.md`
 - Stage 2.1 polish: verify “Find venue” works for events without a linked venue and that ICS refresh preserves user-linked `venue_id` (see the venue-linking steps in the Stage 2 checklist).
+- Stage 2.10B assisted venue linking:
+  - confirm venue search can match by name, address, city, or state
+  - confirm result rows show venue name + city/state + address when available
+  - confirm linked venue persists after reload and calendar refresh
+  - confirm Clear removes only linked venue context while source location remains visible
 - Route note: `/weekend-planner` is the canonical planner entrypoint; `/planner` should redirect to `/weekend-planner` during consolidation.
 
 ## Stage 2.4C (UAT) — Duplicate suggestions + Keep separate (no merge yet)

@@ -864,7 +864,7 @@ Product rule:
 
 ### Stage 2.10B — Assisted Venue Linking
 
-Future.
+Status: implemented (2026-06-03), built on top of the existing planner `venue_id` flow.
 
 Scope:
 
@@ -876,6 +876,14 @@ Scope:
 - distinguish source location text from selected TI venue context
 
 Do not silently auto-link.
+
+Boundary:
+
+- assisted + user-confirmed only
+- source location text remains source data
+- linked TI venue remains planner context
+- no automatic matching
+- no raw IDs/source identifiers in normal UI
 
 ### Stage 3.1 — Venue-Aware Planner Integration
 

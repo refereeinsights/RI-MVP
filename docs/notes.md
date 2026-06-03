@@ -14,6 +14,15 @@ Maintenance rules:
 
 ## 2026-06-03
 
+- TI Planner Stage 2.10B assisted venue linking:
+  - Upgraded planner venue search to match venues by name, address, city, or state while keeping authenticated access, a bounded result set, and the existing minimum query-length guard in `apps/ti-web/app/api/planner/search/venues/route.ts`.
+  - Refined planner venue search UI in `apps/ti-web/app/_components/planner/PlannerClient.tsx`:
+    - search placeholders now reflect multi-field matching,
+    - empty-state copy now says `No matching TI venues found. Try a different search term.`,
+    - venue result rows now show venue name, city/state, and address when available,
+    - existing linked venue vs source location display semantics are preserved.
+  - Updated `docs/weekend-planner-current-state.md`, `docs/weekend-planner-uat.md`, `docs/qa/ti-planner-ics-uat.md`, and `CLAUDE.md` to mark Stage 2.10B as implemented and capture the assisted-only / no-auto-match boundary.
+
 - TI Venue SEO Stage 2.10B:
   - Added paginated venue sitemap coverage to TI sitemap index and dynamic sitemap routing:
     - `apps/ti-web/app/sitemap.xml/route.ts`
