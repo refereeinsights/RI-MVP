@@ -172,6 +172,47 @@ If Smoke UAT fails, stop and report the first failure precisely (page + action +
 
 ---
 
+### Stage 3.0 UAT (responsive layout foundation)
+
+Use this after Smoke UAT passes. Verify both desktop/tablet and a narrow mobile viewport (375px wide if possible).
+
+- [ ] Desktop/tablet remains schedule-first:
+  - [ ] `Your schedule` remains the primary first section.
+  - [ ] Connected calendars remain visible and usable without burying the schedule.
+  - [ ] Calendar/List toggle still works where entitled.
+- [ ] Mobile becomes card/scroll-first:
+  - [ ] No horizontal overflow at 375px.
+  - [ ] Schedule actions, event actions, and connected-calendar actions remain tappable.
+  - [ ] Dense calendar grid is not the primary forced mobile path.
+- [ ] Summary + section navigation:
+  - [ ] Summary chips render without overlap.
+  - [ ] Mobile section buttons (`Schedule`, `Add Event`, `Calendars`) scroll to the expected section.
+- [ ] Add Event behavior:
+  - [ ] `Add event` remains collapsed by default on load.
+  - [ ] Expanding `Add event` still reveals the existing manual form and submission flow.
+- [ ] Event card clarity:
+  - [ ] Feed/source labels remain visible on imported events.
+  - [ ] Source/feed colors remain visible where already supported.
+  - [ ] Conflict badges remain visible and not color-only.
+  - [ ] Venue/map/directions actions remain usable on mobile.
+- [ ] Loaded-event honesty:
+  - [ ] Loaded-event disclosure remains visible in list views.
+  - [ ] When truncated, wording still says duplicates/conflicts only consider loaded events.
+  - [ ] When fully loaded, wording still says all events in range are loaded.
+- [ ] Connected calendars:
+  - [ ] Calendar cards remain readable on mobile.
+  - [ ] Rename / Refresh schedule / Disconnect actions remain usable on mobile without layout breakage.
+- [ ] Duplicate / merge / cleanup flows:
+  - [ ] Duplicate suggestion cards remain readable on mobile.
+  - [ ] Review merge / Keep separate / dismiss paths remain usable.
+  - [ ] Existing manual cleanup and suppression behavior is unchanged.
+- [ ] Entitlements / privacy:
+  - [ ] `/weekend-planner` is still not hard-gated.
+  - [ ] Explorer / Insider / Weekend Pro messaging remains intact.
+  - [ ] No raw IDs, source URLs, or `source_event_uid` values appear in UI.
+
+---
+
 ### Stage 2.8 UAT (polish + launch readiness)
 
 Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.

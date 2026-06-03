@@ -436,6 +436,17 @@ export default function PlannerClient(props: Props) {
     }
   }
 
+  function scrollToSection(sectionId: string) {
+    if (typeof document === "undefined") return;
+    const node = document.getElementById(sectionId);
+    if (!node) return;
+    try {
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch {
+      // ignore
+    }
+  }
+
   const [events, setEvents] = useState<PlannerEventRow[]>(props.initialEvents ?? []);
   const [eventsTruncated, setEventsTruncated] = useState(false);
   const [eventsLimit, setEventsLimit] = useState(200);
@@ -1086,6 +1097,18 @@ export default function PlannerClient(props: Props) {
     if (props.isPaid) return true;
     return sources.length < 1;
   }, [busy, isUnverified, props.isPaid, sources.length]);
+
+  const scheduleSummaryLabel = useMemo(() => {
+    if (scheduleView === "weekend") return "This Weekend";
+    if (scheduleView === "season") return "Season";
+    return "Upcoming";
+  }, [scheduleView]);
+
+  const sourceCountLabel = useMemo(() => {
+    if (sourcesBusy) return "Loading calendars…";
+    if (!sources.length) return "No calendars";
+    return `${sources.length} calendar${sources.length === 1 ? "" : "s"}`;
+  }, [sources.length, sourcesBusy]);
 
   useEffect(() => {
     const multiCalendarGateVisible = !canConnectAnotherCalendar && !isUnverified && !props.isPaid && sources.length >= 1;
@@ -2329,7 +2352,37 @@ export default function PlannerClient(props: Props) {
 			        </div>
 			      ) : null}
 
-		      <div className={styles.card}>
+          <div className={styles.plannerSummaryBar}>
+            <div className={styles.summaryChips}>
+              <div className={styles.summaryChip}>
+                <span className={styles.summaryChipLabel}>View</span>
+                <span className={styles.summaryChipValue}>{scheduleSummaryLabel}</span>
+              </div>
+              <div className={styles.summaryChip}>
+                <span className={styles.summaryChipLabel}>Loaded events</span>
+                <span className={styles.summaryChipValue}>{events.length}</span>
+              </div>
+              <div className={styles.summaryChip}>
+                <span className={styles.summaryChipLabel}>Calendars</span>
+                <span className={styles.summaryChipValue}>{sourceCountLabel}</span>
+              </div>
+            </div>
+            <div className={styles.mobileSectionNav} aria-label="Weekend Planner sections">
+              <button className={styles.secondaryBtn} type="button" onClick={() => scrollToSection("planner-schedule")} disabled={busy}>
+                Schedule
+              </button>
+              <button className={styles.secondaryBtn} type="button" onClick={() => scrollToSection("add-manual-event")} disabled={busy}>
+                Add Event
+              </button>
+              <button className={styles.secondaryBtn} type="button" onClick={() => scrollToSection("planner-calendars")} disabled={busy}>
+                Calendars
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.plannerLayout}>
+            <div className={styles.primaryColumn}>
+		      <div className={styles.card} id="planner-schedule">
 		        <div className={styles.cardTitle}>Your schedule</div>
 
 		        <div className={styles.scheduleHeader}>
@@ -2422,12 +2475,12 @@ export default function PlannerClient(props: Props) {
 
 		        {scheduleView === "upcoming" ? (
 		          eventsHasMore ? (
-	            <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+	            <div className={`${styles.muted} ${styles.loadedDisclosure}`}>
 	              Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events. Switch to Season and load
 	              more to check additional events.
 	            </div>
 	          ) : events.length ? (
-	            <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+	            <div className={`${styles.muted} ${styles.loadedDisclosure}`}>
 	              All events in this range are loaded. Duplicate suggestions and schedule conflicts consider all events in this range.
 	            </div>
 	          ) : null
@@ -2526,11 +2579,11 @@ export default function PlannerClient(props: Props) {
               );
             })()}
             {eventsHasMore ? (
-              <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+              <div className={`${styles.muted} ${styles.loadedDisclosure}`}>
                 Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events. Load more to check additional events.
               </div>
             ) : events.length ? (
-              <div className={styles.muted} style={{ fontWeight: 800, marginBottom: 10 }}>
+              <div className={`${styles.muted} ${styles.loadedDisclosure}`}>
                 All events in this range are loaded. Duplicate suggestions and schedule conflicts consider all events in this range.
               </div>
             ) : null}
@@ -2589,17 +2642,16 @@ export default function PlannerClient(props: Props) {
                         key={e.id}
                         className={`${styles.eventItem}${conflictCount ? ` ${styles.eventItemConflict}` : ""}`}
                       >
-                        <div className={styles.eventTitle}>
-                          {e.title}{" "}
-                          <span className={styles.muted} style={{ fontWeight: 800 }}>
-                            · {String(e.event_type || "game")}
-                          </span>
-                          {String(e.source_type || "") === "ics" || String((e as any)?.source_event_uid ?? "").trim() ? (
-                            <span className={styles.muted} style={{ fontWeight: 900 }}>
-                              {" "}
-                              · {labelForImportedEvent(e)}
-                            </span>
-                          ) : null}
+                        <div className={styles.eventHeaderRow}>
+                          <div className={styles.eventTitleBlock}>
+                            <div className={styles.eventTitle}>{e.title}</div>
+                            <div className={styles.eventLabelRow}>
+                              <span className={styles.eventPill}>{String(e.event_type || "game")}</span>
+                              {String(e.source_type || "") === "ics" || String((e as any)?.source_event_uid ?? "").trim() ? (
+                                <span className={styles.eventPill}>{labelForImportedEvent(e)}</span>
+                              ) : null}
+                            </div>
+                          </div>
                           {conflictCount ? <span className={styles.eventConflictBadge}>Schedule conflict</span> : null}
                         </div>
                         <div className={styles.eventMeta}>
@@ -2633,7 +2685,7 @@ export default function PlannerClient(props: Props) {
                         {dupesByEventId.get(e.id)?.length ? (
                           <div className={styles.eventMeta} style={{ marginTop: 8 }}>
                             <div style={{ fontWeight: 900 }}>Possible duplicate from another calendar</div>
-                            <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                            <div className={styles.duplicateList}>
                               {dupesByEventId.get(e.id)!.slice(0, 3).map((c) => {
                                 const cand = events.find((x) => x.id === c.candidateEventId) ?? null;
                                 if (!cand) return null;
@@ -2642,7 +2694,7 @@ export default function PlannerClient(props: Props) {
                                 const isDismissing = dismissingPairs.has(dismissKey);
                                 const mergeLabel = c.confidence === "high" ? "Merge (Recommended)" : "Review merge…";
                                 return (
-                                  <div key={`${c.eventId}:${c.candidateEventId}`} className={styles.eventItem} style={{ padding: 10 }}>
+                                  <div key={`${c.eventId}:${c.candidateEventId}`} className={`${styles.eventItem} ${styles.duplicateCard}`}>
                                     <div className={styles.eventTitle}>{cand.title}</div>
                                     <div className={styles.eventMeta}>
                                       {formatTimeRange({ startIso: cand.starts_at, endIso: cand.ends_at, timeZone: candTz })}
@@ -3264,8 +3316,10 @@ export default function PlannerClient(props: Props) {
 	          </div>
 	        )}
 	      </div>
+        </div>
 
-		      <div className={styles.card}>
+        <aside className={styles.secondaryColumn}>
+		      <div className={`${styles.card} ${styles.stickySidebarCard}`} id="planner-calendars">
 		        <div className={styles.cardTitle} style={{ textAlign: "center" }}>Connected calendars</div>
 		        <div className={styles.muted} style={{ marginBottom: 10, textAlign: "center" }}>
 		          {sourcesBusy
@@ -3326,9 +3380,9 @@ export default function PlannerClient(props: Props) {
 	          <>
 	            {sourcesBusy ? <div className={styles.muted} style={{ marginTop: 10 }}>Loading…</div> : null}
 	            {!sourcesBusy && sources.length > 0 ? (
-		              <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+		              <div className={styles.sourcesList}>
 		                {sources.map((s) => (
-		                  <div key={s.id} className={styles.eventItem}>
+		                  <div key={s.id} className={`${styles.eventItem} ${styles.sourceCard}`}>
 		                    <div className={styles.eventTitle}>{displayLabelForSource(s)}</div>
 		                    <div className={styles.eventMeta}>
 		                      {s.team_name ? `${s.team_name} · ` : ""}
@@ -3453,6 +3507,8 @@ export default function PlannerClient(props: Props) {
 	          </>
 	        ) : null}
 	      </div>
+        </aside>
+      </div>
 	    </div>
 	  );
 	}

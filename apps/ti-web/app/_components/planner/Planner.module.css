@@ -1,7 +1,65 @@
 .page {
-  max-width: 980px;
+  max-width: 1180px;
   margin: 0 auto;
   padding: 20px 16px 80px;
+}
+
+.plannerSummaryBar {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.summaryChips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summaryChip {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.summaryChipLabel {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.summaryChipValue {
+  font-size: 16px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.mobileSectionNav {
+  display: none;
+}
+
+.plannerLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 0.95fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.primaryColumn,
+.secondaryColumn {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
+.stickySidebarCard {
+  position: sticky;
+  top: 16px;
 }
 
 .headerRow {
@@ -143,9 +201,10 @@
 .eventItem {
   border: 1px solid #e2e8f0;
   border-radius: 14px;
-  padding: 12px;
+  padding: 14px;
   display: grid;
-  gap: 6px;
+  gap: 8px;
+  background: #ffffff;
 }
 
 .eventItemConflict {
@@ -155,7 +214,39 @@
 
 .eventTitle {
   font-weight: 900;
-  text-align: center;
+  text-align: left;
+  line-height: 1.35;
+}
+
+.eventHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.eventTitleBlock {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.eventLabelRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.eventPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .eventConflictBadge {
@@ -167,7 +258,7 @@
   color: #991b1b;
   font-size: 12px;
   font-weight: 900;
-  margin-left: 8px;
+  white-space: nowrap;
 }
 
 .eventConflictNote {
@@ -617,10 +708,120 @@
   justify-content: center;
 }
 
+.duplicateList,
+.sourcesList {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.duplicateCard {
+  padding: 10px;
+}
+
+.sourceCard {
+  gap: 10px;
+}
+
+.loadedDisclosure {
+  font-weight: 800;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
 @media (max-width: 640px) {
+  .page {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .summaryChips {
+    grid-template-columns: 1fr;
+  }
+
+  .mobileSectionNav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobileSectionNav > * {
+    justify-content: center;
+  }
+
   .row2 {
     grid-template-columns: 1fr;
   }
 
+  .headerActions,
+  .scheduleViewButtonsRow,
+  .calendarToggle,
+  .eventActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .headerActions > *,
+  .scheduleViewButtonsRow > *,
+  .calendarToggle > *,
+  .eventActions > * {
+    justify-content: center;
+  }
+
+  .eventActions > input {
+    grid-column: 1 / -1;
+  }
+
+  .eventHeaderRow {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .eventConflictBadge {
+    justify-self: start;
+  }
+
   /* height removed — sxWrapper now sized by grid content */
+}
+
+@media (max-width: 960px) {
+  .plannerLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .stickySidebarCard {
+    position: static;
+  }
+}
+
+@media (min-width: 961px) {
+  .headerRow {
+    align-items: flex-start;
+    justify-content: space-between;
+    text-align: left;
+    flex-direction: row;
+  }
+
+  .headerActions {
+    justify-content: flex-end;
+  }
+
+  .scheduleViewButtonsRow {
+    justify-content: flex-start;
+  }
+
+  .scheduleHeader {
+    align-items: flex-start;
+  }
+
+  .scheduleSelectRow,
+  .scheduleMetaRow,
+  .calendarToggle {
+    justify-content: flex-start;
+    text-align: left;
+  }
 }

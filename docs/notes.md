@@ -14,6 +14,12 @@ Maintenance rules:
 
 ## 2026-06-03
 
+- TI Weekend Planner Stage 3.0 responsive layout foundation:
+  - Reworked `apps/ti-web/app/_components/planner/PlannerClient.tsx` and `apps/ti-web/app/_components/planner/Planner.module.css` into a responsive two-column desktop/tablet layout with a stacked mobile layout.
+  - Added a compact planner summary bar and mobile section navigation (`Schedule`, `Add Event`, `Calendars`) without changing planner data flows, entitlement logic, duplicate logic, loaded-event boundaries, or venue-link persistence.
+  - Kept desktop schedule-first while making mobile card/scroll-first: event cards now surface source/event labels more cleanly, loaded-event disclosure is visually preserved, duplicate suggestions stay reachable, and connected calendars move into a right-side/sticky sidebar that collapses cleanly on smaller screens.
+  - Added Stage 3.0 Weekend Planner responsive-layout UAT guidance to `CLAUDE.md`.
+
 - TI Microsoft Clarity runtime wiring:
   - Added `apps/ti-web/components/ClarityScript.tsx` and mounted it in `apps/ti-web/app/layout.tsx`.
   - TI now loads Microsoft Clarity only when both `NEXT_PUBLIC_ANALYTICS_ENABLE_CLARITY=true` and `NEXT_PUBLIC_TI_CLARITY_PROJECT_ID` are set.
