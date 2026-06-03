@@ -19,6 +19,14 @@ Maintenance rules:
   - Updated `docs/qa/ti-planner-ics-uat.md` with 2.9C-4 carry-forward corrections and added a Stage 2.9C-5 closeout template.
   - Synced `docs/weekend-planner-current-state.md` and `docs/admin-reference.md` to remove stale 2.9C/F3 blockers and carry forward only remaining cross-platform checks.
   - Added corresponding notes for operational continuity across TI/RI planning.
+- Analytics tracking config (local-only):
+  - Added Microsoft Clarity env placeholders for safe local/off-by-default loading:
+    - `NEXT_PUBLIC_ANALYTICS_ENABLE_CLARITY`
+    - `NEXT_PUBLIC_TI_CLARITY_PROJECT_ID`
+    - `NEXT_PUBLIC_RI_CLARITY_PROJECT_ID`
+  - Default local state remains disabled (`NEXT_PUBLIC_ANALYTICS_ENABLE_CLARITY=false`) until deployment envs explicitly enable it.
+- Admin docs sync for telemetry rollout:
+  - Updated `docs/admin-reference.md` with the Microsoft Clarity env-gating policy, project-id split guidance (TI vs RI), and implementation target files (`apps/ti-web/app/layout.tsx`, `apps/referee/app/layout.tsx`).
 
 ## 2026-06-02
 

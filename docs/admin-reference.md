@@ -542,6 +542,23 @@ Partner links (Fanatics, future Scheels) are managed via:
 - Route: `apps/ti-web/app/go/partner/[partnerLinkId]/route.ts` — resolves link, writes `partner_click_clicked` to `ti_map_events` with full JSONB context, redirects to affiliate URL.
 - Helper: `apps/ti-web/lib/partners.ts` — `getPartnerLinkForSport()` (generic), `getFanaticsLinkAndDisclosure()` (Fanatics wrapper).
 
+### Microsoft Clarity (session replay / UX analytics)
+- Purpose: user-session recording and heatmap-style behavioral analytics for TI and RI web surfaces.
+- Environment controls (docs/ops):
+  - `NEXT_PUBLIC_ANALYTICS_ENABLE_CLARITY` (global on/off switch)
+  - `NEXT_PUBLIC_TI_CLARITY_PROJECT_ID` (TI project token)
+  - `NEXT_PUBLIC_RI_CLARITY_PROJECT_ID` (RI project token)
+- Safe defaults:
+  - Set `NEXT_PUBLIC_ANALYTICS_ENABLE_CLARITY=false` in local/dev `.env.local` to keep Clarity disabled for developer sessions.
+  - Use Vercel environment scopes to enable Clarity only on preview/production as needed.
+- Recommended implementation target:
+  - TI: inject Clarity in `apps/ti-web/app/layout.tsx` after auth-derived shell decisions so script load respects app-level gating.
+  - RI: inject Clarity in `apps/referee/app/layout.tsx` only if RI telemetry is intentionally enabled.
+- Design rule:
+  - Use project-id switch by app context so TI and RI can keep separate dashboards (no token sharing).
+  - Prefer a shared helper component (e.g., `components/ClarityScript.tsx`) with explicit runtime check against `NEXT_PUBLIC_ANALYTICS_ENABLE_CLARITY` and current app key to keep loading behavior deterministic.
+
+
 ---
 
 ## API Usage Tracking
