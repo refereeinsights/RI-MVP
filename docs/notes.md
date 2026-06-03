@@ -14,6 +14,11 @@ Maintenance rules:
 
 ## 2026-06-03
 
+- TI metro SEO canonicalization follow-up:
+  - Chose `/{sport}/{state}/{metro}` as the canonical metro SEO route family and removed legacy `/tournaments/metro/*` entries from `apps/ti-web/app/sitemaps/static.xml/route.ts` so static sitemap coverage no longer advertises the non-canonical metro family.
+  - Added `supabase/migrations/20260603_ti_dc_metro_va_anchor.sql` to anchor `dc-metro` under Virginia for canonical SEO hub generation, using Northern Virginia city rules for the existing city-metro sitemap pipeline.
+  - Left legacy `/tournaments/metro/*` directory views in place for now; this pass only aligns canonical SEO coverage and data configuration.
+
 - TI SEO title-template follow-up:
   - Confirmed TI layout metadata already applies `"%s | TournamentInsights"` at the app shell level in `apps/ti-web/app/layout.tsx`.
   - Removed duplicated page-level brand suffixing from `apps/ti-web/app/heatmap/page.tsx` and `apps/ti-web/app/weekend-planner/page.tsx` so those routes no longer render `| TournamentInsights | TournamentInsights`.

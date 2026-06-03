@@ -371,6 +371,7 @@ Checklist:
   - [ ] For metro coverage:
     - [ ] verify the actual implemented canonical metro route pattern present in sitemap output
     - [ ] do not assume `/tournaments/metro/dc-metro` unless that exact route family is what the app now uses
+    - [ ] current canonical example for DC Metro should be Virginia-anchored (for example `/soccer/virginia/dc-metro`) when the market is indexable
 
 - [ ] Weekend utility route indexation:
   - [ ] Open `/weekend-planner`

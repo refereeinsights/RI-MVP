@@ -230,6 +230,11 @@ Current note: Stage 2.10 implemented (2026-06-02).
 - Tournament directory: `/tournaments`
   - Clean `/tournaments` remains indexable.
   - Query/filter variants should canonicalize to `/tournaments` and use `noindex,follow` unless a cleaner hub route is intentionally introduced.
+- Canonical metro SEO route family:
+  - Use `/{sport}/{state}/{metro}` for indexable metro SEO hubs.
+  - For DC Metro, canonical SEO coverage is anchored in Virginia (example route pattern: `/soccer/virginia/dc-metro` when indexable).
+  - Do not add legacy `/tournaments/metro/*` pages to sitemap coverage while the canonical SEO family remains sport/state/metro.
+  - Legacy `/tournaments/metro/*` pages may remain as directory/product views, but they are not the canonical metro SEO surface.
 - Static sitemap guardrails:
   - Do not include noindexed or product-private routes in TI sitemaps.
   - Do not include `/pricing` in sitemap coverage while it remains a redirect-only route to `/#pricing`.
