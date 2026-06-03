@@ -13,6 +13,54 @@ It separates:
 
 This is not public marketing copy. It is an internal product/engineering memory file.
 
+## 1a. Implementation vs. Open Roadmap Snapshot (authoritative)
+
+### Implemented (completed or actively shipping)
+
+- Stage 2.3 ICS refresh: implemented; non-destructive source-linked behavior preserved.
+- Stage 2.4A–2.4F duplicate lifecycle: implemented (discovery, suppression, merge, cleanup).
+- Stage 2.5 bounded pagination + load-more: implemented.
+- Stage 2.6A manual-event timezone safety: implemented.
+- Stage 2.6B loaded-event conflict highlighting: implemented.
+- Stage 2.6C schedule-first UX: implemented.
+- Stage 2.6D calendar view + source color coding: implemented.
+- Stage 2.6E entitlement alignment: implemented.
+- Stage 2.7 typed analytics and privacy posture: implemented.
+- Stage 2.8 UAT polish pass: implemented.
+- Stage 2.9A source identity audit prep: implemented.
+- Stage 2.9B-0 source labels/kid-team-sport identity prep: implemented and validated.
+- Stage 2.9B-1A Team Connect baseline import/update checks: implemented.
+- Stage 2.9C-0 non-destructive event retention policy: documented and partially validated in follow-ups.
+- Stage 2.9C-1 connected calendar action-row hardening prompt: implemented or in progress (where present in code).
+- Stage 2.10 venue data capture from feeds: assessment pass completed.
+- Stage 2.10A linked venue name display: implemented and verified.
+- 2.10B assisted venue linking prompt: authored and ready for execution (docs in `docs/prompts/ti-planner-stage-2.10b-assisted-venue-linking-v1.1.md`).
+- SQL migration `20260528_ti_planner_stage2_sources_unique_url_full.sql` is present for source URL uniqueness constraints and was produced for Stage 2.9B/2.10 work.
+
+### Open roadmap items (not yet implemented)
+
+High-confidence next work:
+
+- 2.10B: implement user-confirmed assisted venue linking in UI + event update path.
+- 2.9B-1B (Team Connect): finalize explicit cancel/delete confirmation outcome and hard-delete confirmation for this path.
+- 2.9B-2 / 2.9B-3 / 2.9B-4: complete outstanding cancel/delete and platform-specific follow-up checks where marked pending.
+- F3: Insider at-limit gate UX should show upgrade flow explicitly before modal import.
+- Source name fallback policy: finalize final behavior for `Connected calendar` vs explicit labels.
+- Stage 2.10B product boundary work:
+  - show source location + linked TI venue distinctly in event surfaces.
+  - implement safe search UI if not existing.
+  - ensure mobile ergonomics for search modal.
+- 2.9B-4 / 2.9C: broader missing-source semantics confirmation matrix completion.
+- 2.9B-5 / 2.9B-6 / 2.9B-Later: remaining platform coverage.
+- Stage 3.0 / 3.0B / 3.1 / 3.2 venue-aware and responsive expansions.
+
+### Safety contracts that must never regress
+
+- No destructive delete behavior for imported/source-linked/ICS events.
+- No raw IDs, source URLs, or source_event_uid in normal user-facing surfaces.
+- No unbounded planner/venue queries.
+- No automatic venue matching.
+
 ---
 
 ## 1. Product Identity
@@ -753,6 +801,35 @@ Capture per platform:
 - whether user-selected venue override survives refresh
 
 This is assessment first, not automatic matching.
+
+Status: completed as docs+UAT review pass (2026-06-02); no schema/code changes in this update.
+
+Latest 2.10 capture summary:
+
+- Active feeds tested:
+  - GameChanger — TI Owls 12U (2 feeds: primary + fixture)
+  - TeamSnap — TI Strikers & Wolves (combined user feed)
+  - SportsEngine / MySE — TI Red Robbins (fixture scope only)
+- Location quality:
+  - GameChanger: mixed (7/21 primary events, 14/14 fixture events had address text; venue/court often in notes/title context)
+  - TeamSnap: 100% full street address coverage
+  - SportsEngine / MySE: 0% address in UAT fixture window
+- Refresh behavior:
+  - 3 refreshes confirmed with stable source location where present.
+  - Location fields preserved across refresh.
+- Linked venue policy observed:
+  - Linked venues survived refresh and remain visible.
+- `source_event.address_text` preserved in DB after linking.
+  - Display currently does not yet surface source location + linked venue together in one place (tracked for 2.10B).
+- Privacy and surfaced data checks:
+  - `/api/planner/sources` returns without raw URL / `source_event_uid`.
+  - List/calendar/detail UI shows no raw IDs/UUIDs/feed URLs.
+
+Canonical 2.10 policy (adopted):
+
+- source location = raw feed location context
+- linked TI venue = planner display priority
+- refresh must not overwrite a user-selected venue
 
 ### Stage 2.10A — Display Linked Venue Name
 

@@ -252,9 +252,9 @@ Latest run status:
 | Platform | Sports Family alias | Subscription URL available? | Feed type | Requires login cookies? | UID stability | SEQUENCE present? | LAST-MODIFIED present? | DTSTAMP present? | Cancel semantics observed | Missing/deleted semantics observed | Recurrence behavior observed | Location quality | Notes/description quality | Baseline import result | Update result | Cancel/delete result | Overlay preservation result | Known quirks | Recommendation |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Team Connect / Team App | TI Owls 15U / SC-Casey | yes (private/tokenized) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | pending | pending | pending | present | pending | passed | **passed (in-place)** | pending | pending | source feed publish + refresh delay observed | active UAT — passed for update/move; overlay/cancel paths pending |
-| GameChanger | TI Owls 12U | available (webcal/https tokenized) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | mixed (real + placeholder locations) | fixture notes + description text | passed | in-place update (`changed=23`, `imported=0`) | pending | passed | source_name fallback appears as `Connected calendar` | proceed to 2.9C for cancel/delete/UID details |
-| TeamSnap | TI Strikers / TI Wolves | available (webcal/tokenized URL) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | pending | pending | pending | good | source notes as description text | passed | in-place update (not yet validated) | pending | passed | F7 resolved on source events; time default 00:00 for some items is an observed format edge | proceed to 2.9C for cancel/delete + F3 limit follow-up |
-| SportsEngine / MySE | TI Red Robbins | yes (`https://ical.sportngin.com/v3/calendar/ical?...&src=myse`) | webcal/ICS (webcal normalized to https) | no | unknown | unknown | unknown | unknown | PASS (`cancellation did not hard-delete rows`) | PASS (source-disabled path retained existing rows) | unknown | limited (fixture payload has no address in many events) | opponent context appears in title text (`TI Test Opponent 12U at TI Red Robbins Hoops 12u`) | passed | partial (`follow-up `updated=5`, `changed=5`) | PASS | passed | `source_name` and `team_name` are explicit; refreshes still observed as `+0 new · 6 updated · 6 changes` | proceed to remaining platforms for canonical disconnect/cross-platform cancellation validation |
+| GameChanger | TI Owls 12U | available (webcal/https tokenized) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | mixed: 7/21 primary + 14/14 fixture have source locations; notes carry court info | fixture notes + description text | passed | in-place update (`changed=23`, `imported=0`) | pending | passed | source_name fallback appears as `Connected calendar` | proceed to 2.9C for cancel/delete/UID details |
+| TeamSnap | TI Strikers / TI Wolves | available (webcal/tokenized URL) | webcal/ICS | unknown | unknown | unknown | unknown | unknown | pending | pending | pending | 100% (full street addresses in UAT run) | source notes as description text | passed | in-place update (not yet validated) | pending | passed | F7 resolved on source events; time default 00:00 for some items is an observed format edge | proceed to 2.9C for cancel/delete + F3 limit follow-up |
+| SportsEngine / MySE | TI Red Robbins | yes (`https://ical.sportngin.com/v3/calendar/ical?...&src=myse`) | webcal/ICS (webcal normalized to https) | no | unknown | unknown | unknown | unknown | PASS (`cancellation did not hard-delete rows`) | PASS (source-disabled path retained existing rows) | unknown | insufficient (0% address in current UAT fixture payload) | opponent context appears in title text (`TI Test Opponent 12U at TI Red Robbins Hoops 12u`) | passed | partial (`follow-up `updated=5`, `changed=5`) | PASS | passed | `source_name` and `team_name` are explicit; refreshes still observed as `+0 new · 6 updated · 6 changes` | proceed to remaining platforms for canonical disconnect/cross-platform cancellation validation |
 | Sports Connect / Blue Sombrero |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | PlayMetrics |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
 | LeagueApps |  | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | not yet tested | not yet tested | not yet tested | not yet tested |  | not yet tested |
@@ -424,3 +424,51 @@ Update the platform compatibility row in this file when overlay and cancel/delet
   - `Overlay preservation result`: passed
   - `Known quirks`: source-feed publish/refresh delay (non-real-time, re-import not required in known tests); label import now preserves existing `source_name` when no replacement label is provided
   - Recommendation: Proceed to Stage 2.9B-2 after overlay + cancel/delete confirmation; otherwise escalate follow-up items to 2.9C.
+
+## Stage 2.10 — Venue / Location Data Capture from Feed UAT
+
+Status: **Complete (docs-only review pass; no code changes)**
+Date: **2026-06-02**
+
+### Active feeds used
+
+- GameChanger — TI Owls 12U (2 feeds: primary + fixture)
+- TeamSnap — TI Strikers & Wolves (combined user feed)
+- SportsEngine / MySE — TI Red Robbins (fixture scope only)
+- Team Connect / Team App — not yet captured in 2.10 scope
+
+### Source location capture
+
+| Feed | Location coverage | Representative behavior | Data caveats |
+|---|---:|---|---|
+| GameChanger | mixed | Real + fixture feeds show venue-like data when present | Primary: 7/21 events had address text; fixture: 14/14 had address text; notes may carry court/venue context |
+| TeamSnap | 100% | Full street address for all tested events | Best venue-quality signals among UAT feeds |
+| SportsEngine / MySE | 0% (fixture window) | No address in fixture payload | Re-test required with real schedule fixture for meaningful validation |
+| Team Connect / Team App | pending | Not yet in this stage | Pending |
+
+### Stability and propagation checks
+
+- Refresh stability: PASS (3 refreshes; location fields remained stable where present)
+- Source-side venue edits propagate on refresh: **PENDING**
+
+### Linked venue behavior
+
+- Linked venue persists across refreshes.
+- Source `address_text` is preserved in DB after linking.
+- `source location` + linked venue are not shown together in same card UI yet (tracked for 2.10B).
+- Clear venue action: not yet tested.
+
+### Privacy validation
+
+- `/api/planner/sources`: `hasRawUrl: false`, `hasSourceEventUid: false`.
+- List/calendar/detail UI: no raw IDs, UUIDs, source URLs, or `source_event_uid` visible.
+
+### Canonical rule (adopted)
+
+- Source location remains source-of-truth for raw feed location.
+- User-linked venue has display priority in planner cards.
+- Refresh must not overwrite a user-linked venue.
+
+### Open follow-up and recommendations
+
+- 2.10B recommendation: implement assisted venue-linking UX with user-confirmed matches only (no auto-matching in this stage).

@@ -635,8 +635,8 @@ export default function PlannerClient(props: Props) {
   const [editNotes, setEditNotes] = useState("");
 
   const effectiveTimeZoneForEvent = (e: PlannerEventRow) => safeTimeZone(e.timezone) || tz || "UTC";
-  const locationTextForEvent = (e: PlannerEventRow) => [e.address_text, e.city, e.state].filter(Boolean).join(", ").trim();
-  const venueLabelForEvent = (e: PlannerEventRow) => {
+  const sourceLocationForEvent = (e: PlannerEventRow) => [e.address_text, e.city, e.state].map((v) => String(v ?? "").trim()).filter(Boolean).join(", ");
+  const linkedVenueLabelForEvent = (e: PlannerEventRow) => {
     const venue = e.linkedVenue ?? null;
     const name = String(venue?.name ?? "").trim();
     const address = String(venue?.address ?? "").trim();
@@ -644,17 +644,44 @@ export default function PlannerClient(props: Props) {
     if (name || address || cityState) {
       return [name, address, cityState].filter(Boolean).join(" · ");
     }
-    return locationTextForEvent(e);
+    return "";
   };
-  const venueDisplayLineForEvent = (e: PlannerEventRow) => (venueLabelForEvent(e) || "").trim();
+  const venueDisplayLineForEvent = (e: PlannerEventRow) => (linkedVenueLabelForEvent(e) || sourceLocationForEvent(e) || "").trim();
+  const venueDisplayLinesForEvent = (e: PlannerEventRow) => {
+    const linked = linkedVenueLabelForEvent(e);
+    const source = sourceLocationForEvent(e);
+    const lines: { kind: "linkedVenue" | "sourceLocation"; text: string }[] = [];
+    if (linked) {
+      lines.push({ kind: "linkedVenue", text: linked });
+    }
+    if (source && source !== linked) {
+      lines.push({ kind: "sourceLocation", text: source });
+    }
+    return lines;
+  };
+  const venueSearchPrefillForEvent = (e: PlannerEventRow) => {
+    const source = sourceLocationForEvent(e);
+    if (source) return source;
+    const address = String(e.address_text ?? "").trim();
+    if (address) return address;
+    const cityState = [e.city, e.state].filter(Boolean).map((v) => String(v ?? "").trim()).filter(Boolean).join(", ");
+    if (cityState) return cityState;
+    const venue = e.linkedVenue ?? null;
+    const linkedName = String(venue?.name ?? "").trim();
+    return linkedName;
+  };
+  const mapLocationForEvent = (e: PlannerEventRow) => {
+    const linked = linkedVenueLabelForEvent(e);
+    return linked || sourceLocationForEvent(e);
+  };
   const mapsUrlForEvent = (e: PlannerEventRow) => {
-    const loc = venueDisplayLineForEvent(e);
+    const loc = mapLocationForEvent(e);
     if (!loc) return null;
     return mapsSearchUrl(loc);
   };
 
   function openMapForEvent(e: PlannerEventRow) {
-    const loc = venueDisplayLineForEvent(e);
+    const loc = mapLocationForEvent(e);
     if (!loc) return;
 
     trackPlannerEvent("planner_map_view_opened", {
@@ -1363,7 +1390,7 @@ export default function PlannerClient(props: Props) {
         }
       : null;
     setEditSelectedVenue(linkedVenueForEdit);
-    setEditVenueQuery("");
+    setEditVenueQuery(venueSearchPrefillForEvent(e));
     setEditVenueResults([]);
     setEditVenueSearching(false);
     setEditTournamentId(e.tournament_id ?? "");
@@ -1942,9 +1969,9 @@ export default function PlannerClient(props: Props) {
                     <div className={styles.eventMeta}>
                       {formatTimeRange({ startIso: primary.starts_at, endIso: primary.ends_at, timeZone: primaryTz })} · {candidateLabelForSource(primary)}
                     </div>
-                    {venueDisplayLineForEvent(primary) ? (
-                      <div className={styles.eventMeta}>{venueDisplayLineForEvent(primary)}</div>
-                    ) : null}
+                        {venueDisplayLineForEvent(primary) ? (
+                          <div className={styles.eventMeta}>{venueDisplayLineForEvent(primary)}</div>
+                        ) : null}
                   </div>
 
                   <div className={styles.eventItem} style={{ padding: 10 }}>
@@ -1953,9 +1980,9 @@ export default function PlannerClient(props: Props) {
                     <div className={styles.eventMeta}>
                       {formatTimeRange({ startIso: candidate.starts_at, endIso: candidate.ends_at, timeZone: candTz })} · {candidateLabelForSource(candidate)}
                     </div>
-                    {venueDisplayLineForEvent(candidate) ? (
-                      <div className={styles.eventMeta}>{venueDisplayLineForEvent(candidate)}</div>
-                    ) : null}
+                        {venueDisplayLineForEvent(candidate) ? (
+                          <div className={styles.eventMeta}>{venueDisplayLineForEvent(candidate)}</div>
+                        ) : null}
                   </div>
                 </div>
 
@@ -2549,9 +2576,14 @@ export default function PlannerClient(props: Props) {
                             Overlaps with {conflictCount} loaded {conflictCount === 1 ? "event" : "events"}.
                           </div>
                         ) : null}
-                        {venueDisplayLineForEvent(e) ? (
+                        {venueDisplayLinesForEvent(e).length ? (
                           <div className={styles.eventMeta}>
-                            {venueDisplayLineForEvent(e)}
+                            {venueDisplayLinesForEvent(e).map((line, index) => (
+                              <div key={`${e.id}-venue-${index}`} style={{ marginBottom: index === 0 && venueDisplayLinesForEvent(e).length > 1 ? 6 : 0 }}>
+                                {line.kind === "linkedVenue" ? "Linked venue: " : "Source location: "}
+                                {line.text}
+                              </div>
+                            ))}
                           </div>
                         ) : e.venue_id ? (
                           <div className={styles.eventMeta}>Selected venue</div>
@@ -2612,16 +2644,14 @@ export default function PlannerClient(props: Props) {
                         <div className={styles.eventActions}>
                           {!isEditing ? (
                             <>
-                              {!e.venue_id ? (
-                                <button
-                                  className={styles.secondaryBtn}
-                                  onClick={() => beginEdit(e)}
-                                  disabled={busy}
-                                  title="Optional: match this event to a known venue"
-                                >
-                                  Find venue
-                                </button>
-                              ) : null}
+                              <button
+                                className={styles.secondaryBtn}
+                                onClick={() => beginEdit(e)}
+                                disabled={busy}
+                                title="Optional: match this event to a known venue"
+                              >
+                                {e.venue_id ? "Change venue" : "Find venue"}
+                              </button>
                               {mapsUrlForEvent(e) ? (
                                 <button className={styles.secondaryBtn} type="button" onClick={() => openMapForEvent(e)} disabled={busy}>
                                   Map

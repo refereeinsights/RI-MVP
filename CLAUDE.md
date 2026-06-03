@@ -208,18 +208,55 @@ Alternative approach (temporary / for one-off verification):
 
 If no unverified fixture exists, Stage 2.8 sign-off must treat this as an **open item**.
 
-### Stage 2.10 UAT (venue metadata hydration)
+### Stage 2.10 UAT (Venue / Location Data Capture)
 
-- [x] In event list views, imported/manual events with `venue_id` and linked venue metadata show a venue-friendly line (`Venue Name · address · city, state`) instead of only raw address fields.
-- [x] Calendar detail panel shows the same venue-friendly location text from list view.
-- [x] Opening Map for a venue-linked event uses the linked venue location/text.
-- [x] Refreshing a source and reloading preserves venue display (no raw IDs exposed).
+#### 1) Source location capture per platform
 
-Latest 2.10 UAT verification artifact:
-- 2026-06-02, Claude verification run (Stage 2.10 recheck): `F-2.10-A`, `F-2.10-B`, `F-2.10-C` all PASS.
-  - `F-2.10-A` sample display: `Spokane Polo Fields · 5700 W 16th Ave · Spokane, WA`
-  - `F-2.10-B` edit panel renders venue name/city/state immediately (no loading hang)
-  - `F-2.10-C` calendar detail uses the same venue-friendly formatting.
+- GameChanger: address coverage mixed in this run
+  - Primary schedule: 7/21 events have address data
+  - Fixture schedule: 14/14 events have address data
+  - Venue name can be embedded in text; fields may be mixed across title/notes
+- TeamSnap: address coverage is complete (100%) across tested events
+  - Clean address field rendering observed
+- SportsEngine / MySE: 0% address in UAT fixture payload (insufficient data for validation)
+- Team Connect / Team App: pending UAT capture under Stage 2.10 scope
+
+#### 2) Refresh and location-update verification
+
+- Refresh stability: PASS
+  - 3 refreshes confirmed; source address text was preserved where present.
+- Source-side venue edit → refresh propagation: **PENDING**
+  - Not yet observed end-to-end with a real venue edit from feed platform.
+
+#### 3) Linked venue behavior
+
+- Linked venue persistence: PASS
+  - Venue links survive refresh and remain visible in UI on Spokane Polo Fields scenario.
+- Source `address_text` remains preserved in DB after linking a venue.
+- Source location visibility in card + linked venue is currently **not shown together** (noted for 2.10B polish).
+- Clear venue action: not yet tested
+
+#### 4) Privacy and API surface checks
+
+- `/api/planner/sources` checks: `hasRawUrl: false`, `hasSourceEventUid: false`
+- UI checks: no raw IDs/UUIDs/source URLs/user-visible token strings in list/calendar/detail.
+
+#### 5) Canonical linking policy
+
+- Canonical rule: source location is retained as feed data, while linked venue is the planner display priority.
+- Refresh must never overwrite a user-linked venue assignment.
+
+#### Stage 2.10 run artifact and notes
+
+- Date: 2026-06-02
+- Outcome: **PASS** for hydrated venue rendering checks and non-destructive linked-venue persistence
+- Active feeds tested:
+  - GameChanger — TI Owls 12U (2 feeds: primary + fixture)
+  - TeamSnap — TI Strikers & Wolves (combined user feed)
+  - SportsEngine / MySE — TI Red Robbins (fixture scope only; disconnected after test)
+- Uncaptured in 2.10 scope: Team Connect / Team App
+- No code changes were made in this stage; docs and prompt updates only.
+- Next: Stage 2.10B (assist-labeled venue linking refinements; no auto-matching added).
 
 ---
 

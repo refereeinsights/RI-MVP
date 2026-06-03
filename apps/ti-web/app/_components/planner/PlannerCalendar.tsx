@@ -93,7 +93,11 @@ export default function PlannerCalendar(props: Props) {
     return label || fallbackSourceLabel();
   }
 
-  function locationForEvent(e: PlannerEventRow) {
+  function sourceLocationForEvent(e: PlannerEventRow) {
+    return [e.address_text, e.city, e.state].map((v) => String(v ?? "").trim()).filter(Boolean).join(", ");
+  }
+
+  function linkedVenueLabelForEvent(e: PlannerEventRow) {
     const venue = e.linkedVenue ?? null;
     const name = String(venue?.name ?? "").trim();
     const address = String(venue?.address ?? "").trim();
@@ -101,7 +105,16 @@ export default function PlannerCalendar(props: Props) {
     if (name || address || cityState) {
       return [name, address, cityState].filter(Boolean).join(" · ");
     }
-    return [e.address_text, e.city, e.state].map((v) => String(v ?? "").trim()).filter(Boolean).join(", ");
+    return "";
+  }
+
+  function venueLinesForEvent(e: PlannerEventRow) {
+    const linked = linkedVenueLabelForEvent(e);
+    const source = sourceLocationForEvent(e);
+    const lines: string[] = [];
+    if (linked) lines.push(`Linked venue: ${linked}`);
+    if (source && source !== linked) lines.push(`Source location: ${source}`);
+    return lines;
   }
 
   const allSourceIds = useMemo(
@@ -465,9 +478,13 @@ export default function PlannerCalendar(props: Props) {
               </div>
 
               {(() => {
-                const parts = locationForEvent(detailEvent);
-                if (!parts) return null;
-                return <div className={styles.eventDetailMeta}>{parts}</div>;
+                const lines = venueLinesForEvent(detailEvent);
+                if (!lines.length) return null;
+                return lines.map((line) => (
+                  <div key={line} className={styles.eventDetailMeta}>
+                    {line}
+                  </div>
+                ));
               })()}
 
               {detailEvent.notes ? <div className={styles.eventDetailNotes}>{detailEvent.notes}</div> : null}
