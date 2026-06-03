@@ -6,6 +6,7 @@ const MIN_QUERY_LENGTH = 2;
 const MAX_QUERY_LENGTH = 80;
 const MAX_QUERY_TOKENS = 4;
 const MAX_RESULTS = 10;
+const MAX_CANDIDATES = 50;
 
 function clampQuery(value: string) {
   const v = String(value ?? "").trim();
@@ -24,6 +25,12 @@ function tokenizeQuery(value: string) {
         .filter((token) => token.length >= MIN_QUERY_LENGTH)
     )
   ).slice(0, MAX_QUERY_TOKENS);
+}
+
+function searchableVenueText(venue: { name?: string | null; address?: string | null; city?: string | null; state?: string | null }) {
+  return [venue.name, venue.address, venue.city, venue.state]
+    .map((value) => String(value ?? "").toLowerCase())
+    .join(" ");
 }
 
 export async function GET(req: Request) {
@@ -51,8 +58,14 @@ export async function GET(req: Request) {
     .select("id,name,address,city,state")
     .or(filters.join(","))
     .order("name", { ascending: true })
-    .limit(MAX_RESULTS);
+    .limit(MAX_CANDIDATES);
 
   if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
-  return NextResponse.json({ ok: true, venues: data ?? [] });
+
+  const venues = (data ?? []).filter((venue: any) => {
+    const haystack = searchableVenueText(venue);
+    return tokens.every((token) => haystack.includes(token));
+  });
+
+  return NextResponse.json({ ok: true, venues: venues.slice(0, MAX_RESULTS) });
 }

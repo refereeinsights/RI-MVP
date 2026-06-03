@@ -14,6 +14,10 @@ Maintenance rules:
 
 ## 2026-06-03
 
+- TI Planner Stage 2.10B assisted venue linking follow-up:
+  - Tightened `apps/ti-web/app/api/planner/search/venues/route.ts` so venue search results must satisfy all normalized query tokens across name/address/city/state before they are returned.
+  - This closes the false-positive no-results case where broad partial matches could return unrelated venues instead of the expected empty-state path.
+
 - TI Planner Stage 2.10B assisted venue linking:
   - Upgraded planner venue search to match venues by name, address, city, or state while keeping authenticated access, a bounded result set, and the existing minimum query-length guard in `apps/ti-web/app/api/planner/search/venues/route.ts`.
   - Refined planner venue search UI in `apps/ti-web/app/_components/planner/PlannerClient.tsx`:

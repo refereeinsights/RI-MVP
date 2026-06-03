@@ -230,6 +230,7 @@ commit;
 - Stage 2.10B assisted venue linking:
   - confirm venue search can match by name, address, city, or state
   - confirm result rows show venue name + city/state + address when available
+  - confirm a true no-match query shows `No matching TI venues found. Try a different search term.`
   - confirm linked venue persists after reload and calendar refresh
   - confirm Clear removes only linked venue context while source location remains visible
 - Route note: `/weekend-planner` is the canonical planner entrypoint; `/planner` should redirect to `/weekend-planner` during consolidation.
