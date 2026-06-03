@@ -383,15 +383,21 @@ Validate:
 ### Stage 2.9C-1 UAT (connected calendar card action-row polish)
 
 - Prompt: `docs/prompts/ti-planner-stage-2.9c-1-connected-calendar-card-actions-polish-v1.3.md`
-- [ ] Connected source card renders a single wrapped action row with:
+- [x] Connected source card renders a single wrapped action row with:
   - `Edit label`
   - `Refresh schedule`
   - `Disconnect calendar`
-- [ ] Row actions are mutually safe when source edit/refresh/disconnect is in progress.
-- [ ] Disconnect confirmation explains that imported events remain.
-- [ ] Cancel/edit/delete behavior remains non-destructive.
-- [ ] No raw source identifiers appear in connected-calendar cards.
-- [ ] `npm run lint --workspace ti-web` and `npm run build --workspace ti-web` pass after merge.
+- [x] Row actions are mutually safe when source edit/refresh/disconnect is in progress.
+- [x] Disconnect confirmation explains that imported events remain.
+- [x] Cancel/edit/delete behavior remains non-destructive.
+- [x] No raw source identifiers appear in connected-calendar cards.
+- [x] `npm run lint --workspace ti-web` and `npm run build --workspace ti-web` pass after merge.
+
+Latest Stage 2.9C-1 UAT run (2026-06-02): **Complete Sign-Off** ✅
+- Connected card action row (Edit label / Refresh schedule / Disconnect calendar) verified.
+- Desktop one-line row verified at ~1372px; mobile wrap verified at 375px.
+- Disconnect confirms non-destructive import retention and preserves source-linked rows after removal.
+- `/api/planner/sources` response inspection remains free of raw source URL/source_event_uid data.
 
 Suggested evidence capture:
 - Note exact wording shown in disconnect confirmation.

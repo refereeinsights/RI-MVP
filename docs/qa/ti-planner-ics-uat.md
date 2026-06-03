@@ -229,19 +229,23 @@ Status: **partial PASS** on TI Red Robbins.
 Scope: UI polish only (no data model changes): one responsive action row for each connected source card.
 
 Validate:
-- [ ] Connected calendar card action row contains **exactly** these actions in order:
+- [x] Connected calendar card action row contains **exactly** these actions in order:
   - `Edit label`
   - `Refresh schedule`
   - `Disconnect calendar`
-- [ ] Buttons are keyboard/focusable and wrap cleanly on narrow mobile widths.
-- [ ] `Edit label` + `Refresh schedule` + `Disconnect calendar` are disabled while a source mutation is in flight.
-- [ ] Disconnect requires explicit confirmation and states imported-event retention.
-- [ ] Disconnect succeeds without hard-deleting source-linked events.
-- [ ] No feed URLs, raw IDs, or source IDs are shown in this card UI.
+- [x] Buttons are keyboard/focusable and wrap cleanly on narrow mobile widths.
+- [x] `Edit label` + `Refresh schedule` + `Disconnect calendar` are disabled while a source mutation is in flight.
+- [x] Disconnect requires explicit confirmation and states imported-event retention.
+- [x] Disconnect succeeds without hard-deleting source-linked events.
+- [x] No feed URLs, raw IDs, or source IDs are shown in this card UI.
 
 Latest run status:
-- Implementation updated in `PlannerClient.tsx` (single grouped action row, confirmation wording, and action disablement aligned).
-- UAT execution for this stage is pending.
+- **Complete Sign-Off (2026-06-02):**
+  - All checklist items PASS.
+  - Desktop row integrity: one row at 1372px.
+  - Mobile behavior: wrapped into 2 lines at 375px (Edit + Refresh, Disconnect).
+  - Disconnect confirmation explicitly states retained imported events.
+- **Source/API check:** `/api/planner/sources` response contains no raw source URL or `source_event_uid`.
 
 ### Source platforms (not yet tested)
 
