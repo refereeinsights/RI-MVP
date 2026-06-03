@@ -14,6 +14,16 @@ Maintenance rules:
 
 ## 2026-06-03
 
+- TI Microsoft Clarity runtime wiring:
+  - Added `apps/ti-web/components/ClarityScript.tsx` and mounted it in `apps/ti-web/app/layout.tsx`.
+  - TI now loads Microsoft Clarity only when both `NEXT_PUBLIC_ANALYTICS_ENABLE_CLARITY=true` and `NEXT_PUBLIC_TI_CLARITY_PROJECT_ID` are set.
+  - Local/dev stays off by default; this pass does not enable RI Clarity or push any env changes.
+
+- RI Microsoft Clarity runtime wiring:
+  - Added `apps/referee/components/ClarityScript.tsx` and mounted it in `apps/referee/app/layout.tsx`.
+  - RI now loads Microsoft Clarity only when both `NEXT_PUBLIC_ANALYTICS_ENABLE_CLARITY=true` and `NEXT_PUBLIC_RI_CLARITY_PROJECT_ID` are set.
+  - TI and RI remain split across separate Clarity project IDs even though auth/Supabase are shared.
+
 - TI production SEO verification:
   - Claude production verification on `https://www.tournamentinsights.com` passed the deployed public SEO cleanup checks for:
     - `/heatmap` metadata/canonical behavior,

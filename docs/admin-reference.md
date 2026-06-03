@@ -587,6 +587,11 @@ Partner links (Fanatics, future Scheels) are managed via:
 - Design rule:
   - Use project-id switch by app context so TI and RI can keep separate dashboards (no token sharing).
   - Prefer a shared helper component (e.g., `components/ClarityScript.tsx`) with explicit runtime check against `NEXT_PUBLIC_ANALYTICS_ENABLE_CLARITY` and current app key to keep loading behavior deterministic.
+- Current implementation status:
+  - TI runtime wiring is present via `apps/ti-web/components/ClarityScript.tsx` and `apps/ti-web/app/layout.tsx`.
+  - TI Clarity remains off until deployment envs explicitly set `NEXT_PUBLIC_ANALYTICS_ENABLE_CLARITY=true` and a TI project ID.
+  - RI runtime wiring is present via `apps/referee/components/ClarityScript.tsx` and `apps/referee/app/layout.tsx`.
+  - RI Clarity remains off until deployment envs explicitly set `NEXT_PUBLIC_ANALYTICS_ENABLE_CLARITY=true` and an RI project ID.
 
 
 ---

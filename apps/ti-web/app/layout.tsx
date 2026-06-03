@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import ClarityScript from "../components/ClarityScript";
 import PlausibleScript from "../components/PlausibleScript";
 import { BRAND_TI } from "@/lib/brand";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
@@ -115,6 +116,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </nav>
             </div>
           </footer>
+          <ClarityScript />
           <PlausibleScript domain={PLAUSIBLE_DOMAIN} />
         </div>
       </body>

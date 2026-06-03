@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import PostHogClientProvider from "@/providers/PostHogProvider";
 import Header from "@/components/Header";
+import ClarityScript from "@/components/ClarityScript";
 import PlausibleAnalytics from "@/components/PlausibleAnalytics";
 import "./globals.css";
 import "@/components/header.css";
@@ -29,6 +30,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en">
       <body>
         <PlausibleAnalytics />
+        <ClarityScript />
         <PostHogClientProvider>
           <Header isAuthenticated={!!user} />
 
