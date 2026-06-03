@@ -1358,6 +1358,7 @@ export default function PlannerClient(props: Props) {
     if (isUnverified) {
       resetImportForm();
       setImportGate("unverified");
+      setImportOpen(true);
       return;
     }
 
@@ -1371,6 +1372,7 @@ export default function PlannerClient(props: Props) {
       if (latestSources.length >= 1) {
         resetImportForm();
         setImportGate("limit");
+        setImportOpen(true);
         trackPlannerEvent("planner_weekend_pro_gate_clicked", {
           surface: "weekend_planner",
           entitlement: entitlementForAnalytics,

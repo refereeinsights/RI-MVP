@@ -85,16 +85,29 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   const sourceId = String(id ?? "").trim();
   if (!sourceId) return NextResponse.json({ ok: false, error: "missing_source_id" }, { status: 400 });
 
-  const { data, error } = await (supabase.from("planner_event_sources" as any) as any)
-    .delete()
+  const { data: existing, error: fetchError } = await (supabase.from("planner_event_sources" as any) as any)
+    .select("id")
     .eq("id", sourceId)
     .eq("user_id", user.id)
     .eq("source_type", "ics")
-    .select("id,source_type")
-    .single();
+    .maybeSingle();
 
-  if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
-  if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  if (fetchError) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
+  if (!existing) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+
+  const { error: disconnectError } = await (supabase.from("planner_event_sources" as any) as any)
+    .update({
+      source_type: "ics_disconnected",
+      source_url: null,
+      last_synced_at: null,
+      sync_status: "disconnected",
+      sync_error: null,
+    })
+    .eq("id", sourceId)
+    .eq("user_id", user.id)
+    .eq("source_type", "ics");
+
+  if (disconnectError) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
 
   return NextResponse.json({ ok: true });
 }
