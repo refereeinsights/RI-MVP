@@ -266,6 +266,38 @@ Use this after Smoke UAT passes. Verify at least one event with both a linked TI
 
 ---
 
+### Stage 3.2 UAT (mobile next-event action hierarchy)
+
+Use this after Smoke UAT passes. Test on a narrow/mobile viewport if possible and verify at least one future loaded event.
+
+- [ ] Mobile next-event hierarchy:
+  - [ ] The next upcoming loaded event is easier to identify on mobile.
+  - [ ] The full schedule remains visible below the prioritized next-event treatment.
+  - [ ] The treatment stays schedule-first and does not become a sticky/modal-first command shell.
+- [ ] Timezone-safe ordering:
+  - [ ] The promoted next event reflects the earliest future loaded event using existing timezone-safe planner ordering.
+  - [ ] All-day events do not cause crashes or ambiguous broken promotion behavior.
+  - [ ] Loaded-event boundaries remain respected; no unbounded event expansion is implied.
+- [ ] Venue-aware actions:
+  - [ ] Linked venue remains distinguishable from source location.
+  - [ ] Existing linked venue navigation still works when present.
+  - [ ] Existing `Map` / directions behavior still works.
+  - [ ] Action rows wrap cleanly and remain usable at mobile widths.
+- [ ] Mobile readability:
+  - [ ] No horizontal overflow is introduced at narrow widths.
+  - [ ] Conflict badges remain readable.
+  - [ ] Source/feed labels remain readable.
+  - [ ] Venue context remains readable and tappable where applicable.
+- [ ] Safety / regressions:
+  - [ ] Desktop layout does not regress.
+  - [ ] Duplicate / merge / manual cleanup behavior is unchanged.
+  - [ ] Feed refresh and source-linked event behavior are unchanged.
+  - [ ] Entitlement behavior is unchanged.
+  - [ ] No raw venue IDs, planner event IDs, source URLs, `source_event_uid`, or database UUIDs appear in normal UI.
+  - [ ] No new auto-matching, venue-search expansion, route-planning, or travel-time behavior is visible.
+
+---
+
 ### Stage 2.8 UAT (polish + launch readiness)
 
 Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.

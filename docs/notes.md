@@ -14,6 +14,11 @@ Maintenance rules:
 
 ## 2026-06-03
 
+- TI Weekend Planner Stage 3.2 mobile next-event action hierarchy planning:
+  - Defined Stage 3.2 as a mobile next-event hierarchy pass rather than a broader command-shell rewrite.
+  - Locked the scope to enhancing the first upcoming loaded event card or a compact non-sticky `Next up` treatment using existing timezone-safe loaded-event ordering.
+  - Added Stage 3.2 UAT guidance to `CLAUDE.md` covering mobile next-event visibility, venue-action reachability, timezone-safe ordering, and no-regression checks for schedule, entitlements, and source/linked venue behavior.
+
 - TI Weekend Planner Stage 3.1 venue-aware event card integration:
   - Refined planner event-card venue presentation in `apps/ti-web/app/_components/planner/PlannerClient.tsx` and `apps/ti-web/app/_components/planner/Planner.module.css`.
   - Linked venue and source location now render in a compact labeled venue-context block so planner venue context remains primary while feed-derived source location stays visible when distinct.
