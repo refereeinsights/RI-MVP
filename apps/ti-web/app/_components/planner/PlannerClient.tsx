@@ -662,6 +662,12 @@ export default function PlannerClient(props: Props) {
     return "";
   };
   const venueDisplayLineForEvent = (e: PlannerEventRow) => (linkedVenueLabelForEvent(e) || sourceLocationForEvent(e) || "").trim();
+  const venueHrefForEvent = (e: PlannerEventRow) => {
+    const venue = e.linkedVenue ?? null;
+    const canonicalIdentifier = String(venue?.seo_slug ?? "").trim() || String(venue?.id ?? "").trim();
+    if (!canonicalIdentifier) return null;
+    return `/venues/${encodeURIComponent(canonicalIdentifier)}`;
+  };
   const venueDisplayLinesForEvent = (e: PlannerEventRow) => {
     const linked = linkedVenueLabelForEvent(e);
     const source = sourceLocationForEvent(e);
@@ -2669,7 +2675,13 @@ export default function PlannerClient(props: Props) {
                             {venueDisplayLinesForEvent(e).map((line, index) => (
                               <div key={`${e.id}-venue-${index}`} style={{ marginBottom: index === 0 && venueDisplayLinesForEvent(e).length > 1 ? 6 : 0 }}>
                                 {line.kind === "linkedVenue" ? "Linked venue: " : "Source location: "}
-                                {line.text}
+                                {line.kind === "linkedVenue" && venueHrefForEvent(e) ? (
+                                  <Link className={styles.venueLink} href={venueHrefForEvent(e) || "#"}>
+                                    {line.text}
+                                  </Link>
+                                ) : (
+                                  line.text
+                                )}
                               </div>
                             ))}
                           </div>

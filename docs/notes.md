@@ -14,6 +14,11 @@ Maintenance rules:
 
 ## 2026-06-03
 
+- TI Weekend Planner Stage 3.1A linked venue navigation:
+  - Added safe linked-venue navigation from event cards in `apps/ti-web/app/_components/planner/PlannerClient.tsx`.
+  - Linked venue rows now open the main TI venue detail page when an event already has a persisted linked venue identifier; source location text remains visible and map actions are unchanged.
+  - No venue matching, venue-link save semantics, duplicate logic, entitlement logic, or planner API behavior was expanded in this pass.
+
 - TI Weekend Planner Stage 3.0 responsive layout foundation:
   - Reworked `apps/ti-web/app/_components/planner/PlannerClient.tsx` and `apps/ti-web/app/_components/planner/Planner.module.css` into a responsive two-column desktop/tablet layout with a stacked mobile layout.
   - Added a compact planner summary bar and mobile section navigation (`Schedule`, `Add Event`, `Calendars`) without changing planner data flows, entitlement logic, duplicate logic, loaded-event boundaries, or venue-link persistence.

@@ -696,6 +696,17 @@
   text-align: left;
 }
 
+.venueLink {
+  color: #0f3d2e;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.venueLink:hover {
+  color: #166534;
+}
+
 .eventActions {
   display: flex;
   gap: 8px;

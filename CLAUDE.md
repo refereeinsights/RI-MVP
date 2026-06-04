@@ -213,6 +213,31 @@ Use this after Smoke UAT passes. Verify both desktop/tablet and a narrow mobile 
 
 ---
 
+### Stage 3.1A UAT (linked venue navigation)
+
+Use this after Smoke UAT passes. Verify linked-venue behavior on at least one event that already has a persisted linked TI venue and one event without a linked venue.
+
+- [ ] Linked venue navigation:
+  - [ ] For an event with a linked venue, the `Linked venue:` row is visible.
+  - [ ] The linked venue name/line is clickable.
+  - [ ] Clicking it opens the main TI venue detail page, not the maps-only route.
+- [ ] Conditional rendering:
+  - [ ] Events without a linked venue do not show a broken or invented venue link.
+  - [ ] Non-linked events otherwise preserve current behavior.
+- [ ] Source location clarity:
+  - [ ] Source location text remains visible when present.
+  - [ ] Linked venue text does not replace or hide distinct source location text unexpectedly.
+- [ ] Fast utility actions:
+  - [ ] Existing `Map` action still works.
+  - [ ] Venue navigation does not replace map/directions actions.
+  - [ ] Mobile layout remains stable when the linked venue row is clickable.
+- [ ] Safety / regressions:
+  - [ ] No raw IDs, source URLs, or `source_event_uid` values appear in normal UI.
+  - [ ] Duplicate / merge / cleanup behavior is unchanged.
+  - [ ] Entitlement behavior is unchanged.
+
+---
+
 ### Stage 2.8 UAT (polish + launch readiness)
 
 Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.
