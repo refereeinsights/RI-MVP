@@ -19,6 +19,7 @@ Maintenance rules:
   - Repointed app metadata in `apps/ti-web/app/layout.tsx` to the new planner icon routes, enabled `appleWebApp` metadata, and added `viewportFit: "cover"` for safe-area support on notched devices.
   - Added generated icon routes in `apps/ti-web/app/icons/*` backed by `apps/ti-web/lib/pwaIcon.tsx`, using the existing TI mark source rendered white on a dark-green background for 192, 512, and Apple-touch sizes.
   - Added standalone safe-area spacing polish in `apps/ti-web/app/globals.css` and `apps/ti-web/app/weekend-planner/WeekendPlanner.module.css` without changing Stage 3.2 next-event logic or planner card behavior.
+  - Followed up on local Stage 3.3 UAT by constraining the shared TI header logo container/image in `apps/ti-web/app/globals.css` so the intrinsic Next.js image dimensions no longer create horizontal overflow at narrow widths.
   - Added Stage 3.3 UAT guidance to `CLAUDE.md` covering manifest fetch, icon identity, add-to-home-screen metadata, safe-area behavior, and no-regression checks.
 
 ## 2026-06-03

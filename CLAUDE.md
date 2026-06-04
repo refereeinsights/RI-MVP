@@ -322,6 +322,7 @@ Use this after Smoke UAT passes. Verify the manifest directly first, then check 
   - [ ] Standalone mode has no bottom safe-area collision with footer or actions.
   - [ ] Sticky headers and bottom actions do not collide with safe areas.
   - [ ] No horizontal overflow is introduced.
+  - [ ] Shared TI header logo stays constrained within the viewport and does not create horizontal scrolling at narrow widths.
 - [ ] Planner regressions:
   - [ ] Stage 3.2 next-event treatment still works.
   - [ ] Linked venue actions still work.
