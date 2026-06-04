@@ -15,6 +15,9 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI Weekend Planner Stage `3.3C-4A` family color + assignment badge polish:
+  - Added deterministic child colors and applied them to planner list/calendar display so family ownership is easier to scan without changing assignment behavior.
+  - Replaced the list-view assignment row with a compact upper-right badge and added a compact family-color legend plus clearer calendar ownership display while preserving source identity and conflict separation.
 - TI Weekend Planner Stage `3.3C-3` family filter + import assignment:
   - Added a compact `All schedules` family filter to the planner header so users can narrow visible schedule events by child or exact child/team assignment in both list and calendar views.
   - Extended the ICS import flow to accept optional child/team selection at connect time, using the existing source-level assignment model and server-side child→team validation.

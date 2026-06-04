@@ -10,6 +10,7 @@ import {
   type PlannerDuplicateCandidate,
   type PlannerDuplicateReason,
 } from "@/lib/planner/duplicates";
+import { getFamilyColorToken } from "@/lib/planner/familyColors";
 import type {
   PlannerChildWithTeamsRow,
   PlannerEventCreateBody,
@@ -1148,16 +1149,6 @@ export default function PlannerClient(props: Props) {
     return String(nextFuture?.id ?? filteredEventsForScheduleView[0]?.id ?? "").trim() || null;
   }, [filteredEventsForScheduleView]);
 
-  const seasonAllSourceIds = useMemo(() => {
-    return Array.from(
-      new Set(
-        (filteredEventsForScheduleView ?? [])
-          .map((e) => String((e as any)?.source_id ?? "").trim())
-          .filter(Boolean)
-      )
-    ).sort((a, b) => a.localeCompare(b));
-  }, [filteredEventsForScheduleView]);
-
   const sourcesById = useMemo(() => {
     const m = new Map<string, PlannerSourceRow>();
     for (const s of sources) m.set(String(s.id), s);
@@ -1170,6 +1161,13 @@ export default function PlannerClient(props: Props) {
       profiles.set(String(childProfile.id), childProfile);
     }
     return profiles;
+  }, [familyProfiles]);
+
+  const activeFamilyChildIds = useMemo(() => {
+    return familyProfiles
+      .filter((childProfile) => !childProfile.is_archived)
+      .map((childProfile) => String(childProfile.id))
+      .filter(Boolean);
   }, [familyProfiles]);
 
   function teamLabel(teamId: string | null | undefined) {
@@ -1277,6 +1275,10 @@ export default function PlannerClient(props: Props) {
   const activeFamilyFilterLabel = useMemo(() => {
     return familyFilterOptions.find((option) => option.value === familyFilter)?.label ?? "All schedules";
   }, [familyFilter, familyFilterOptions]);
+
+  function familyColorTokenForChild(childProfileId: string | null | undefined) {
+    return getFamilyColorToken(childProfileId, activeFamilyChildIds);
+  }
 
   useEffect(() => {
     if (familyFilter === "all") return;
@@ -2964,10 +2966,11 @@ export default function PlannerClient(props: Props) {
               <PlannerCalendar
                 scheduleView={scheduleView}
                 events={filteredEventsForScheduleView}
-                allSourceIds={seasonAllSourceIds}
                 hasMore={eventsHasMore}
                 activeTimezone={seasonCalendarTimeZone}
                 sourceLabelById={sourceLabelById}
+                sources={sources}
+                familyProfiles={familyProfiles}
                 entitlement={entitlementForAnalytics}
                 onTimezoneChange={(z: string) => {
                   trackPlannerEvent("planner_calendar_timezone_changed", {
@@ -3031,6 +3034,8 @@ export default function PlannerClient(props: Props) {
                     const isNextUpcomingLoadedEvent = nextUpcomingLoadedEventId === e.id;
                     const timeRangeLabel = formatTimeRange({ startIso: e.starts_at, endIso: e.ends_at, timeZone: eTz });
                     const familyAssignmentLabel = assignmentLabelForEvent(e);
+                    const familyAssignmentIds = assignmentIdsForEvent(e);
+                    const familyColorToken = familyColorTokenForChild(familyAssignmentIds.childProfileId);
                     const venueRows = venueContextRowsForEvent(e);
                     const mapUrl = mapsUrlForEvent(e);
                     const nextUpSummaryParts = [timeRangeLabel];
@@ -3059,7 +3064,21 @@ export default function PlannerClient(props: Props) {
                               ) : null}
                             </div>
                           </div>
-                          {conflictCount ? <span className={styles.eventConflictBadge}>Schedule conflict</span> : null}
+                          <div className={styles.eventHeaderMeta}>
+                            {familyAssignmentLabel ? (
+                              <span
+                                className={styles.assignmentBadge}
+                                style={{
+                                  background: familyColorToken.soft,
+                                  borderColor: familyColorToken.border,
+                                  color: familyColorToken.text,
+                                }}
+                              >
+                                {familyAssignmentLabel}
+                              </span>
+                            ) : null}
+                            {conflictCount ? <span className={styles.eventConflictBadge}>Schedule conflict</span> : null}
+                          </div>
                         </div>
                         <div className={styles.eventMeta}>
                           {timeRangeLabel}
@@ -3069,12 +3088,6 @@ export default function PlannerClient(props: Props) {
                         {conflictCount ? (
                           <div className={styles.eventConflictNote}>
                             Overlaps with {conflictCount} loaded {conflictCount === 1 ? "event" : "events"}.
-                          </div>
-                        ) : null}
-                        {familyAssignmentLabel ? (
-                          <div className={styles.assignmentContext}>
-                            <span className={styles.assignmentContextLabel}>Assigned to</span>
-                            <span className={styles.assignmentContextValue}>{familyAssignmentLabel}</span>
                           </div>
                         ) : null}
                         {venueRows.length ? (

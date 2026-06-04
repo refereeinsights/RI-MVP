@@ -10,18 +10,19 @@ import { createEventsServicePlugin } from "@schedule-x/events-service";
 import { createCalendarControlsPlugin } from "@schedule-x/calendar-controls";
 import "temporal-polyfill/global";
 import "@schedule-x/theme-shadcn/dist/index.css";
-import type { PlannerEventRow } from "@/lib/planner/types";
-import { getSourceColor } from "@/lib/planner/getSourceColor";
+import type { PlannerChildWithTeamsRow, PlannerEventRow, PlannerSourceRow } from "@/lib/planner/types";
+import { getFamilyColorToken, getUnassignedFamilyColorToken } from "@/lib/planner/familyColors";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import styles from "./Planner.module.css";
 
 type Props = {
   scheduleView: "upcoming" | "weekend" | "season";
   events: PlannerEventRow[];
-  allSourceIds: string[];
   hasMore: boolean;
   activeTimezone: string;
   sourceLabelById: Record<string, string>;
+  sources: PlannerSourceRow[];
+  familyProfiles: PlannerChildWithTeamsRow[];
   onTimezoneChange: (tz: string) => void;
   entitlement: "explorer" | "insider" | "weekend_pro" | "unknown";
 };
@@ -43,19 +44,6 @@ function isValidIanaTimeZone(tz: string): boolean {
   } catch {
     return false;
   }
-}
-
-function blendWithWhite(hex: string, whiteRatio: number): string {
-  const m = hex.trim().match(/^#?([0-9a-f]{6})$/i);
-  if (!m) return "#ffffff";
-  const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  const rr = Math.round(r * (1 - whiteRatio) + 255 * whiteRatio);
-  const gg = Math.round(g * (1 - whiteRatio) + 255 * whiteRatio);
-  const bb = Math.round(b * (1 - whiteRatio) + 255 * whiteRatio);
-  return `#${((1 << 24) | (rr << 16) | (gg << 8) | bb).toString(16).slice(1)}`;
 }
 
 function formatEventTimeRange(args: { startIso: string; endIso: string; timeZone: string }) {
@@ -81,6 +69,21 @@ export default function PlannerCalendar(props: Props) {
   }, [detail.eventId, detail.open, props.events]);
 
   const calendarTz = isValidIanaTimeZone(props.activeTimezone) ? props.activeTimezone : "UTC";
+  const activeFamilyChildIds = useMemo(() => {
+    return (props.familyProfiles ?? [])
+      .filter((childProfile) => !childProfile.is_archived)
+      .map((childProfile) => String(childProfile.id))
+      .filter(Boolean);
+  }, [props.familyProfiles]);
+
+  const familyProfilesById = useMemo(() => {
+    const out = new Map<string, PlannerChildWithTeamsRow>();
+    for (const childProfile of props.familyProfiles ?? []) {
+      out.set(String(childProfile.id), childProfile);
+    }
+    return out;
+  }, [props.familyProfiles]);
+
   function fallbackSourceLabel() {
     return "Connected calendar";
   }
@@ -117,10 +120,53 @@ export default function PlannerCalendar(props: Props) {
     return lines;
   }
 
-  const allSourceIds = useMemo(
-    () => Array.from(new Set((props.allSourceIds ?? []).map((id) => String(id ?? "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
-    [props.allSourceIds]
-  );
+  const sourceAssignmentsById = useMemo(() => {
+    const out = new Map<string, PlannerSourceRow>();
+    for (const source of props.sources ?? []) {
+      out.set(String(source.id), source);
+    }
+    return out;
+  }, [props.sources]);
+
+  function sourceAssignmentForEvent(e: PlannerEventRow) {
+    const sourceId = String(e.source_id ?? "").trim();
+    const sourceAssignment = sourceId ? sourceAssignmentsById.get(sourceId) ?? null : null;
+    return {
+      childProfileId: String(sourceAssignment?.child_profile_id ?? e.child_profile_id ?? "").trim(),
+      teamProfileId: String(sourceAssignment?.team_profile_id ?? e.team_profile_id ?? "").trim(),
+    };
+  }
+
+  function childLabel(childId: string | null | undefined) {
+    const normalizedChildId = String(childId ?? "").trim();
+    if (!normalizedChildId) return null;
+    const childProfile = familyProfilesById.get(normalizedChildId) ?? null;
+    if (!childProfile) return null;
+    return childProfile.is_archived ? `${childProfile.display_name} (Archived)` : childProfile.display_name;
+  }
+
+  function teamLabel(teamId: string | null | undefined) {
+    const normalizedTeamId = String(teamId ?? "").trim();
+    if (!normalizedTeamId) return null;
+    for (const childProfile of props.familyProfiles ?? []) {
+      const teamProfile = childProfile.teams.find((team) => String(team.id) === normalizedTeamId);
+      if (!teamProfile) continue;
+      return teamProfile.is_archived ? `${teamProfile.display_name} (Archived)` : teamProfile.display_name;
+    }
+    return null;
+  }
+
+  function assignmentLabelForEvent(e: PlannerEventRow) {
+    const assignment = sourceAssignmentForEvent(e);
+    const childName = childLabel(assignment.childProfileId);
+    if (!childName) return null;
+    const teamName = teamLabel(assignment.teamProfileId);
+    return teamName ? `${childName} · ${teamName}` : childName;
+  }
+
+  function assignmentShortLabelForEvent(e: PlannerEventRow) {
+    return childLabel(sourceAssignmentForEvent(e).childProfileId);
+  }
 
   const timeZones = useMemo(() => {
     const base = [
@@ -150,36 +196,43 @@ export default function PlannerCalendar(props: Props) {
       }
     > = {};
 
-    out.manual = {
-      colorName: "manual",
-      label: "Manual",
-      lightColors: { main: "#6b7280", container: "#f3f4f6", onContainer: "#111827" },
+    out.unassigned = {
+      colorName: "unassigned",
+      label: "Unassigned",
+      lightColors: {
+        main: getUnassignedFamilyColorToken().main,
+        container: getUnassignedFamilyColorToken().soft,
+        onContainer: "#111827",
+      },
     };
 
-    for (const id of allSourceIds) {
-      const main = getSourceColor(id, allSourceIds);
-      out[id] = {
-        colorName: `s${id.replace(/[^a-z0-9_]/gi, "").slice(0, 24).toLowerCase() || "source"}`,
-        label: "Calendar source",
-        lightColors: { main, container: blendWithWhite(main, 0.86), onContainer: "#0f172a" },
+    for (const childId of activeFamilyChildIds) {
+      const childName = childLabel(childId) || "Assigned child";
+      const token = getFamilyColorToken(childId, activeFamilyChildIds);
+      out[`family:${childId}`] = {
+        colorName: `family_${childId.replace(/[^a-z0-9_]/gi, "").slice(0, 20).toLowerCase() || "child"}`,
+        label: childName,
+        lightColors: { main: token.main, container: token.soft, onContainer: "#0f172a" },
       };
     }
 
     return out;
-  }, [allSourceIds]);
+  }, [activeFamilyChildIds]);
 
   const sxEvents = useMemo(() => {
     const list = props.events ?? [];
     return list.map((e) => {
       const title = String(e.title ?? "").trim() || "Untitled event";
+      const shortFamilyLabel = assignmentShortLabelForEvent(e);
       const startInstant = Temporal.Instant.from(String(e.starts_at));
       const start = startInstant.toZonedDateTimeISO(calendarTz);
       const endInstant = e.ends_at ? Temporal.Instant.from(String(e.ends_at)) : startInstant.add({ hours: 1 });
       const end = endInstant.toZonedDateTimeISO(calendarTz);
-      const calendarId = String(e.source_id ?? "").trim() || "manual";
-      return { id: e.id, title, start, end, calendarId };
+      const childProfileId = String(e.child_profile_id ?? "").trim();
+      const calendarId = childProfileId ? `family:${childProfileId}` : "unassigned";
+      return { id: e.id, title: shortFamilyLabel ? `${shortFamilyLabel} · ${title}` : title, start, end, calendarId };
     });
-  }, [props.events, calendarTz]);
+  }, [props.events, calendarTz, props.familyProfiles]);
 
   const controls = useMemo(() => createCalendarControlsPlugin(), []);
   const eventsService = useMemo(() => createEventsServicePlugin(), []);
@@ -354,29 +407,22 @@ export default function PlannerCalendar(props: Props) {
         </div>
       </div>
 
-      {hasEvents && Object.keys(sxCalendars).length > 1 ? (
+      {hasEvents ? (
         <div className={styles.calendarLegend}>
-          {(() => {
-            const manualEntry = Object.entries(sxCalendars).find(([id]) => id === "manual") ?? null;
-            const importedEntries = Object.entries(sxCalendars)
-              .filter(([id]) => id !== "manual")
-              .sort(([a], [b]) => a.localeCompare(b));
-            const allEntries: Array<[string, (typeof sxCalendars)[string]]> = [
-              ...(manualEntry ? [manualEntry] : []),
-              ...importedEntries,
-            ];
-            let importedIndex = 0;
-            return allEntries.map(([id, cal]) => {
-              const label =
-                id === "manual" ? "Manual" : `Imported calendar${(importedIndex += 1) > 1 ? ` ${importedIndex}` : ""}`;
-              return (
-                <span key={id} className={styles.legendItem}>
-                  <span className={styles.legendDot} style={{ background: cal.lightColors.main }} aria-hidden="true" />
-                  <span>{label}</span>
-                </span>
-              );
-            });
-          })()}
+          <span className={styles.legendTitle}>Family colors</span>
+          {activeFamilyChildIds.map((childId) => {
+            const token = getFamilyColorToken(childId, activeFamilyChildIds);
+            return (
+              <span key={childId} className={styles.legendItem}>
+                <span className={styles.legendDot} style={{ background: token.main }} aria-hidden="true" />
+                <span>{childLabel(childId) || "Assigned child"}</span>
+              </span>
+            );
+          })}
+          <span className={styles.legendItem}>
+            <span className={styles.legendDot} style={{ background: getUnassignedFamilyColorToken().main }} aria-hidden="true" />
+            <span>Unassigned</span>
+          </span>
         </div>
       ) : null}
 
@@ -476,6 +522,21 @@ export default function PlannerCalendar(props: Props) {
                   timeZone: calendarTz,
                 })}
               </div>
+
+              {assignmentLabelForEvent(detailEvent) ? (
+                <div className={styles.eventDetailBadgeRow}>
+                  <span
+                    className={styles.assignmentBadge}
+                    style={{
+                      background: getFamilyColorToken(sourceAssignmentForEvent(detailEvent).childProfileId, activeFamilyChildIds).soft,
+                      borderColor: getFamilyColorToken(sourceAssignmentForEvent(detailEvent).childProfileId, activeFamilyChildIds).border,
+                      color: getFamilyColorToken(sourceAssignmentForEvent(detailEvent).childProfileId, activeFamilyChildIds).text,
+                    }}
+                  >
+                    {assignmentLabelForEvent(detailEvent)}
+                  </span>
+                </div>
+              ) : null}
 
               {(() => {
                 const lines = venueLinesForEvent(detailEvent);

@@ -415,6 +415,42 @@ Use this after Smoke UAT passes. Keep scope on source assignment, manual-event a
 
 ---
 
+### Stage 3.3C-4A UAT (family color + assignment badge polish)
+
+Use this after Stage `3.3C-3` is stable. Keep scope on display polish only: child-color rendering, assignment badges, calendar ownership readability, and legend clarity.
+
+- [ ] List card assignment badge:
+  - [ ] Assigned list events show a compact family badge in the upper-right area of the card.
+  - [ ] The badge uses child color and remains readable for child-only and child+team labels.
+  - [ ] The badge does not overlap title, source labels, conflict badges, venue rows, or action buttons.
+  - [ ] Unassigned events do not show a misleading family badge.
+- [ ] Calendar ownership display:
+  - [ ] Assigned calendar events are easier to scan by child than before.
+  - [ ] Child color is visible on assigned calendar events.
+  - [ ] Ownership display does not make small calendar events unreadable.
+  - [ ] Imported events still reflect source-derived assignment only.
+- [ ] Family legend:
+  - [ ] A compact family-color legend is visible in or near calendar view.
+  - [ ] Legend entries match rendered child colors.
+  - [ ] Unassigned events remain visually understandable.
+- [ ] Signal separation:
+  - [ ] Child color clearly means family ownership.
+  - [ ] Source identity remains visible as text/label and is not confused with child color.
+  - [ ] Conflict warnings remain visually distinct from both source identity and child color.
+- [ ] Mobile safety (`375px` if possible):
+  - [ ] Assignment badges wrap cleanly with no horizontal overflow.
+  - [ ] Event cards do not become excessively tall.
+  - [ ] Calendar controls and legend remain usable.
+- [ ] No regressions:
+  - [ ] Family filter still works.
+  - [ ] Import-time assignment still works.
+  - [ ] Source reassignment still works.
+  - [ ] Duplicate / merge behavior is unchanged.
+  - [ ] Venue / map behavior is unchanged.
+  - [ ] Entitlement behavior is unchanged.
+
+---
+
 ### Stage 2.8 UAT (polish + launch readiness)
 
 Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.

@@ -14,6 +14,9 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI Weekend Planner Stage `3.3C-4A` family color + assignment badge polish:
+  - Added deterministic child-color rendering in `apps/ti-web/lib/planner/familyColors.ts` and applied it across list and calendar views so assigned events now emphasize family ownership without changing assignment persistence.
+  - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, and `apps/ti-web/app/_components/planner/Planner.module.css` to replace the full-width assignment row with a compact upper-right badge, color calendar events by child assignment, and add a compact family-color legend while keeping source labels and conflict warnings distinct.
 - TI Weekend Planner Stage `3.3C-3` family filter + import assignment:
   - Added a compact top-level `All schedules` family filter in `apps/ti-web/app/_components/planner/PlannerClient.tsx` so schedule list/calendar views can narrow visible events by child or exact child/team assignment without changing the underlying source-derived import model.
   - Extended the ICS import flow in `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/api/planner/sources/import-ics/route.ts`, and `apps/ti-web/lib/planner/ics-import.ts` to accept optional `child_profile_id` / `team_profile_id` at import time, enforce child→team validation, and persist assignment directly onto the imported source row.

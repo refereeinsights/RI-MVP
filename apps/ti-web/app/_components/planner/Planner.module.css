@@ -225,6 +225,14 @@
   gap: 10px;
 }
 
+.eventHeaderMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .eventTitleBlock {
   min-width: 0;
   display: grid;
@@ -247,6 +255,22 @@
   color: #475569;
   font-size: 12px;
   font-weight: 800;
+}
+
+.assignmentBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: min(240px, 100%);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .eventConflictBadge {
@@ -587,6 +611,12 @@
   color: #6b7280;
 }
 
+.legendTitle {
+  font-weight: 900;
+  color: #334155;
+  margin-right: 4px;
+}
+
 .legendItem {
   display: inline-flex;
   align-items: center;
@@ -666,6 +696,11 @@
   font-size: 13px;
   color: #374151;
   line-height: 1.5;
+}
+
+.eventDetailBadgeRow {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .eventDetailSource {
@@ -818,31 +853,6 @@
   gap: 8px;
   flex-wrap: wrap;
   align-items: center;
-}
-
-.assignmentContext {
-  display: grid;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #f8fafc;
-}
-
-.assignmentContextLabel {
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #64748b;
-}
-
-.assignmentContextValue {
-  min-width: 0;
-  color: #334155;
-  font-size: 13px;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
 }
 
 .profileManager {
@@ -1008,8 +1018,18 @@
     display: grid;
   }
 
+  .eventHeaderMeta {
+    align-items: flex-start;
+  }
+
   .eventConflictBadge {
     justify-self: start;
+  }
+
+  .assignmentBadge {
+    max-width: 100%;
+    justify-content: flex-start;
+    text-align: left;
   }
 
   /* height removed — sxWrapper now sized by grid content */
