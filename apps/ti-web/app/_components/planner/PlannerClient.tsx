@@ -1087,6 +1087,16 @@ export default function PlannerClient(props: Props) {
 	    return sortedKeys.map((key) => ({ key, events: (groups.get(key) ?? []).slice() }));
   }, [eventsForScheduleView, tz]);
 
+  const nextUpcomingLoadedEventId = useMemo(() => {
+    const nowMs = Date.now();
+    const nextFuture = eventsForScheduleView.find((e) => {
+      const startMs = new Date(String(e.starts_at ?? "")).getTime();
+      if (Number.isNaN(startMs)) return false;
+      return startMs >= nowMs;
+    });
+    return String(nextFuture?.id ?? eventsForScheduleView[0]?.id ?? "").trim() || null;
+  }, [eventsForScheduleView]);
+
   const seasonAllSourceIds = useMemo(() => {
     return Array.from(
       new Set(
@@ -2659,11 +2669,26 @@ export default function PlannerClient(props: Props) {
                     const eTz = effectiveTimeZoneForEvent(e);
                     const isEditing = editingId === e.id;
                     const conflictCount = loadedConflictsByEventId.get(e.id)?.conflictCount ?? 0;
+                    const isNextUpcomingLoadedEvent = nextUpcomingLoadedEventId === e.id;
+                    const timeRangeLabel = formatTimeRange({ startIso: e.starts_at, endIso: e.ends_at, timeZone: eTz });
+                    const venueRows = venueContextRowsForEvent(e);
+                    const mapUrl = mapsUrlForEvent(e);
+                    const nextUpSummaryParts = [timeRangeLabel];
+                    const venueLine = venueDisplayLineForEvent(e);
+                    if (venueLine) nextUpSummaryParts.push(venueLine);
                     return (
                       <div
                         key={e.id}
-                        className={`${styles.eventItem}${conflictCount ? ` ${styles.eventItemConflict}` : ""}`}
+                        className={`${styles.eventItem}${conflictCount ? ` ${styles.eventItemConflict}` : ""}${isNextUpcomingLoadedEvent ? ` ${styles.nextUpEventItem}` : ""}`}
                       >
+                        {isNextUpcomingLoadedEvent ? (
+                          <div className={styles.nextUpCallout}>
+                            <span className={styles.nextUpLabel}>Next up</span>
+                            <span className={styles.nextUpSummary}>
+                              {nextUpSummaryParts.filter(Boolean).join(" · ") || "Next upcoming loaded event"}
+                            </span>
+                          </div>
+                        ) : null}
                         <div className={styles.eventHeaderRow}>
                           <div className={styles.eventTitleBlock}>
                             <div className={styles.eventTitle}>{e.title}</div>
@@ -2677,7 +2702,7 @@ export default function PlannerClient(props: Props) {
                           {conflictCount ? <span className={styles.eventConflictBadge}>Schedule conflict</span> : null}
                         </div>
                         <div className={styles.eventMeta}>
-                          {formatTimeRange({ startIso: e.starts_at, endIso: e.ends_at, timeZone: eTz })}
+                          {timeRangeLabel}
                           {e.venue_id ? " · Venue selected" : ""}
                           {e.tournament_id ? " · Tournament selected" : ""}
                         </div>
@@ -2686,9 +2711,9 @@ export default function PlannerClient(props: Props) {
                             Overlaps with {conflictCount} loaded {conflictCount === 1 ? "event" : "events"}.
                           </div>
                         ) : null}
-                        {venueContextRowsForEvent(e).length ? (
+                        {venueRows.length ? (
                           <div className={styles.venueContextBlock}>
-                            {venueContextRowsForEvent(e).map((row) => (
+                            {venueRows.map((row) => (
                               <div key={`${e.id}-${row.key}`} className={styles.venueContextRow}>
                                 <span className={styles.venueContextLabel}>{row.label}</span>
                                 <span className={styles.venueContextValue}>
@@ -2762,6 +2787,11 @@ export default function PlannerClient(props: Props) {
                         <div className={styles.eventActions}>
                           {!isEditing ? (
                             <>
+                              {mapUrl && isNextUpcomingLoadedEvent ? (
+                                <button className={styles.secondaryBtn} type="button" onClick={() => openMapForEvent(e)} disabled={busy}>
+                                  Map
+                                </button>
+                              ) : null}
                               <button
                                 className={styles.secondaryBtn}
                                 onClick={() => beginEdit(e)}
@@ -2770,7 +2800,7 @@ export default function PlannerClient(props: Props) {
                               >
                                 {e.venue_id ? "Change venue" : "Find venue"}
                               </button>
-                              {mapsUrlForEvent(e) ? (
+                              {mapUrl && !isNextUpcomingLoadedEvent ? (
                                 <button className={styles.secondaryBtn} type="button" onClick={() => openMapForEvent(e)} disabled={busy}>
                                   Map
                                 </button>

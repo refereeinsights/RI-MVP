@@ -271,6 +271,7 @@ Use this after Smoke UAT passes. Verify at least one event with both a linked TI
 Use this after Smoke UAT passes. Test on a narrow/mobile viewport if possible and verify at least one future loaded event.
 
 - [ ] Mobile next-event hierarchy:
+  - [ ] A compact `Next up` treatment appears on the first upcoming loaded event card rather than as a duplicated second event module.
   - [ ] The next upcoming loaded event is easier to identify on mobile.
   - [ ] The full schedule remains visible below the prioritized next-event treatment.
   - [ ] The treatment stays schedule-first and does not become a sticky/modal-first command shell.
