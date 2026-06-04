@@ -297,51 +297,55 @@ export default function ChildTeamManager() {
 
           {!loading ? (
             <div className={styles.profileList}>
-              {activeChildren.map((child) => (
-                <div key={child.id} className={styles.profileCard}>
-                  <div className={styles.profileHeader}>
-                    <div>
-                      <div className={styles.profileName}>{child.display_name}</div>
-                      <div className={styles.eventMeta}>
-                        {child.teams.filter((team) => !team.is_archived).length} active team{child.teams.filter((team) => !team.is_archived).length === 1 ? "" : "s"}
+              {activeChildren.map((child) => {
+                const activeTeams = child.teams.filter((team) => !team.is_archived);
+                const archivedTeams = child.teams.filter((team) => team.is_archived);
+
+                return (
+                  <div key={child.id} className={styles.profileCard}>
+                    <div className={styles.profileHeader}>
+                      <div>
+                        <div className={styles.profileName}>{child.display_name}</div>
+                        <div className={styles.eventMeta}>
+                          {activeTeams.length} active team{activeTeams.length === 1 ? "" : "s"}
+                        </div>
                       </div>
-                    </div>
-                    <div className={styles.eventActions}>
-                      {editingChildId === child.id ? (
-                        <>
-                          <button className={styles.primaryBtn} type="button" onClick={() => void onSaveChild(child.id)} disabled={saving}>
-                            Save
-                          </button>
+                      <div className={styles.eventActions}>
+                        {editingChildId === child.id ? (
+                          <>
+                            <button className={styles.primaryBtn} type="button" onClick={() => void onSaveChild(child.id)} disabled={saving}>
+                              Save
+                            </button>
+                            <button
+                              className={styles.secondaryBtn}
+                              type="button"
+                              onClick={() => {
+                                setEditingChildId(null);
+                                setEditingChildName("");
+                              }}
+                              disabled={saving}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
                           <button
                             className={styles.secondaryBtn}
                             type="button"
                             onClick={() => {
-                              setEditingChildId(null);
-                              setEditingChildName("");
+                              setEditingChildId(child.id);
+                              setEditingChildName(child.display_name);
                             }}
                             disabled={saving}
                           >
-                            Cancel
+                            Edit child
                           </button>
-                        </>
-                      ) : (
-                        <button
-                          className={styles.secondaryBtn}
-                          type="button"
-                          onClick={() => {
-                            setEditingChildId(child.id);
-                            setEditingChildName(child.display_name);
-                          }}
-                          disabled={saving}
-                        >
-                          Edit child
+                        )}
+                        <button className={styles.dangerBtn} type="button" onClick={() => void onToggleChildArchive(child, true)} disabled={saving}>
+                          Archive child
                         </button>
-                      )}
-                      <button className={styles.dangerBtn} type="button" onClick={() => void onToggleChildArchive(child, true)} disabled={saving}>
-                        Archive child
-                      </button>
+                      </div>
                     </div>
-                  </div>
 
                   {editingChildId === child.id ? (
                     <div className={styles.eventActions}>
@@ -359,10 +363,8 @@ export default function ChildTeamManager() {
                   <div className={styles.profileSection}>
                     <div className={styles.profileSectionTitle}>Teams</div>
                     <div className={styles.profileTeamList}>
-                      {child.teams.filter((team) => !team.is_archived).length ? (
-                        child.teams
-                          .filter((team) => !team.is_archived)
-                          .map((team) => (
+                      {activeTeams.length ? (
+                        activeTeams.map((team) => (
                             <div key={team.id} className={styles.profileTeamCard}>
                               {editingTeamId === team.id ? (
                                 <>
@@ -447,6 +449,33 @@ export default function ChildTeamManager() {
                       )}
                     </div>
 
+                    {showArchived && archivedTeams.length ? (
+                      <div className={styles.profileSection}>
+                        <div className={styles.profileSectionTitle}>Archived teams</div>
+                        <div className={styles.profileTeamList}>
+                          {archivedTeams.map((team) => (
+                            <div key={team.id} className={styles.profileTeamCard}>
+                              <div className={styles.profileTeamRow}>
+                                <div>
+                                  <div className={styles.profileTeamName}>{team.display_name}</div>
+                                  <div className={styles.eventMeta}>
+                                    {titleCaseSport(team.sport)}
+                                    {team.season_label ? ` · ${team.season_label}` : ""}
+                                    {" · Archived"}
+                                  </div>
+                                </div>
+                                <div className={styles.eventActions}>
+                                  <button className={styles.secondaryBtn} type="button" onClick={() => void onToggleTeamArchive(team, false)} disabled={saving}>
+                                    Restore team
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
                     {newTeamChildId === child.id ? (
                       <div className={styles.profileInlineForm}>
                         <input
@@ -511,7 +540,8 @@ export default function ChildTeamManager() {
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : null}
 

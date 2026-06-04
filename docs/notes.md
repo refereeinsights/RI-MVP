@@ -14,6 +14,8 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- Weekend Planner Stage `3.3C-1` archived-team restore follow-up:
+  - Updated the child/team manager so archived teams remain visible under active children when `Show archived profiles` is enabled, restoring the missing UI path for `Restore team` without adding any event or feed assignment behavior.
 - Weekend Planner Stage `3.3C-1` foundation:
   - Added planner child/team profile schema, RLS, typed planner profile models, authenticated CRUD routes, and a compact Weekend Planner management surface without adding any event or calendar assignment logic yet.
 - Weekend Planner Stage `3.3C-0` discovery:
