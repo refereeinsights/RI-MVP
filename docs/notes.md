@@ -14,6 +14,11 @@ Maintenance rules:
 
 ## 2026-06-03
 
+- TI Weekend Planner Stage 3.1 venue-aware event card integration:
+  - Refined planner event-card venue presentation in `apps/ti-web/app/_components/planner/PlannerClient.tsx` and `apps/ti-web/app/_components/planner/Planner.module.css`.
+  - Linked venue and source location now render in a compact labeled venue-context block so planner venue context remains primary while feed-derived source location stays visible when distinct.
+  - Preserved existing map behavior, linked venue navigation, duplicate/merge/manual cleanup behavior, feed refresh behavior, and entitlement logic without changing venue matching or search ranking.
+
 - TI Weekend Planner Stage 3.1A linked venue navigation:
   - Added safe linked-venue navigation from event cards in `apps/ti-web/app/_components/planner/PlannerClient.tsx`.
   - Linked venue rows now open the main TI venue detail page when an event already has a persisted linked venue identifier; source location text remains visible and map actions are unchanged.

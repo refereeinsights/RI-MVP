@@ -238,6 +238,34 @@ Use this after Smoke UAT passes. Verify linked-venue behavior on at least one ev
 
 ---
 
+### Stage 3.1 UAT (venue-aware event card integration)
+
+Use this after Smoke UAT passes. Verify at least one event with both a linked TI venue and a distinct source location, if available.
+
+- [ ] Venue display clarity:
+  - [ ] Venue context is easier to scan than a plain raw metadata stack.
+  - [ ] `Linked venue` is clearly distinguished from `Source location`.
+  - [ ] Linked venue remains the primary planner venue reference when present.
+- [ ] Source location preservation:
+  - [ ] Distinct source location text remains visible when present.
+  - [ ] Source location is not silently erased just because a linked venue exists.
+  - [ ] The UI does not imply the system auto-verified that linked venue and source location are the same.
+- [ ] Linked venue destination:
+  - [ ] Linked venue remains clickable when present.
+  - [ ] The destination remains the main TI venue detail page.
+- [ ] Venue-related actions:
+  - [ ] Existing `Map` action still works.
+  - [ ] Venue actions remain compact and usable.
+  - [ ] Mobile layout remains stable with venue context + actions visible.
+- [ ] Safety / regressions:
+  - [ ] No raw venue IDs, planner event IDs, source URLs, or `source_event_uid` values appear in normal UI.
+  - [ ] Duplicate / merge / manual cleanup behavior is unchanged.
+  - [ ] Feed refresh and source-linked event behavior are unchanged.
+  - [ ] Entitlement behavior is unchanged.
+  - [ ] No new auto-matching or broadened venue-search behavior is visible.
+
+---
+
 ### Stage 2.8 UAT (polish + launch readiness)
 
 Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.

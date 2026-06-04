@@ -668,17 +668,33 @@ export default function PlannerClient(props: Props) {
     if (!canonicalIdentifier) return null;
     return `/venues/${encodeURIComponent(canonicalIdentifier)}`;
   };
-  const venueDisplayLinesForEvent = (e: PlannerEventRow) => {
+  const venueContextRowsForEvent = (e: PlannerEventRow) => {
     const linked = linkedVenueLabelForEvent(e);
     const source = sourceLocationForEvent(e);
-    const lines: { kind: "linkedVenue" | "sourceLocation"; text: string }[] = [];
+    const linkedHref = venueHrefForEvent(e);
+    const rows: Array<{
+      key: "linkedVenue" | "sourceLocation";
+      label: "Linked venue" | "Source location";
+      text: string;
+      href?: string | null;
+    }> = [];
+
     if (linked) {
-      lines.push({ kind: "linkedVenue", text: linked });
+      rows.push({
+        key: "linkedVenue",
+        label: "Linked venue",
+        text: linked,
+        href: linkedHref,
+      });
     }
-    if (source && source !== linked) {
-      lines.push({ kind: "sourceLocation", text: source });
+    if (source && (!linked || source !== linked)) {
+      rows.push({
+        key: "sourceLocation",
+        label: "Source location",
+        text: source,
+      });
     }
-    return lines;
+    return rows;
   };
   const venueSearchPrefillForEvent = (e: PlannerEventRow) => {
     const source = sourceLocationForEvent(e);
@@ -2670,18 +2686,20 @@ export default function PlannerClient(props: Props) {
                             Overlaps with {conflictCount} loaded {conflictCount === 1 ? "event" : "events"}.
                           </div>
                         ) : null}
-                        {venueDisplayLinesForEvent(e).length ? (
-                          <div className={styles.eventMeta}>
-                            {venueDisplayLinesForEvent(e).map((line, index) => (
-                              <div key={`${e.id}-venue-${index}`} style={{ marginBottom: index === 0 && venueDisplayLinesForEvent(e).length > 1 ? 6 : 0 }}>
-                                {line.kind === "linkedVenue" ? "Linked venue: " : "Source location: "}
-                                {line.kind === "linkedVenue" && venueHrefForEvent(e) ? (
-                                  <Link className={styles.venueLink} href={venueHrefForEvent(e) || "#"}>
-                                    {line.text}
-                                  </Link>
-                                ) : (
-                                  line.text
-                                )}
+                        {venueContextRowsForEvent(e).length ? (
+                          <div className={styles.venueContextBlock}>
+                            {venueContextRowsForEvent(e).map((row) => (
+                              <div key={`${e.id}-${row.key}`} className={styles.venueContextRow}>
+                                <span className={styles.venueContextLabel}>{row.label}</span>
+                                <span className={styles.venueContextValue}>
+                                  {row.key === "linkedVenue" && row.href ? (
+                                    <Link className={styles.venueLink} href={row.href}>
+                                      {row.text}
+                                    </Link>
+                                  ) : (
+                                    row.text
+                                  )}
+                                </span>
                               </div>
                             ))}
                           </div>
