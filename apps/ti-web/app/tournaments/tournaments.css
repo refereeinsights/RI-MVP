@@ -1020,28 +1020,29 @@
   color: rgba(255,255,255,1);
 }
 
-.cardStretchLink::after {
-  content: "";
+.cardOverlayLink {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 1;
   border-radius: inherit;
 }
 
 .card .cardCtaGrid > *,
 .card .cardCtaGrid .cardCta--plan,
+.card .cardFooter > *,
 .card .venueMapPreviewStrip,
-.card .primaryLink:not(.cardStretchLink),
-.card .secondaryLink:not(.cardStretchLink) {
+.card .primaryLink:not(.cardOverlayLink),
+.card .secondaryLink:not(.cardOverlayLink),
+.card .cardDetailsLink {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
-.card:has(.cardStretchLink) {
+.card:has(.cardOverlayLink) {
   cursor: pointer;
 }
 
-.card:has(.cardStretchLink):hover h2 {
+.card:has(.cardOverlayLink):hover h2 {
   text-decoration: underline;
   text-decoration-color: rgba(255, 255, 255, 0.7);
   text-underline-offset: 3px;

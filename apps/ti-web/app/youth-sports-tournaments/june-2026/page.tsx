@@ -616,6 +616,9 @@ export default async function June2026TournamentsPage({
                       {t.level ? ` • ${t.level}` : ""}
                     </p>
                     <p className="dates">{dateLabelText}</p>
+                    <Link href={`/tournaments/${t.slug}`} className="cardOverlayLink" aria-label={`Open tournament details for ${t.name ?? "tournament"}`}>
+                      <span className="ti-srOnly">Open tournament details for {t.name ?? "tournament"}</span>
+                    </Link>
 
                     {showVenueMapPreview ? (
                       <VenueMapPreviewStrip tournamentName={t.name ?? "Tournament"} venueCount={venueCount} href={mapHref} />
@@ -663,7 +666,7 @@ export default async function June2026TournamentsPage({
                                 Rentals
                               </a>
                             ) : null}
-                            <Link className="secondaryLink cardStretchLink" href={`/tournaments/${t.slug}`}>
+                            <Link className="secondaryLink" href={`/tournaments/${t.slug}`}>
                               View tournament
                             </Link>
                           </div>

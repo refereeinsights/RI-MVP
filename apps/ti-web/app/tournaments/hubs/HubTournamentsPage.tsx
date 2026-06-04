@@ -440,6 +440,9 @@ export async function HubTournamentsPage({
                     </p>
 
                     <p className="dates">{dateLabel}</p>
+                    <Link href={`/tournaments/${t.slug}`} className="cardOverlayLink" aria-label={`Open tournament details for ${t.name ?? "tournament"}`}>
+                      <span className="ti-srOnly">Open tournament details for {t.name ?? "tournament"}</span>
+                    </Link>
 
                     <div className="cardFooter">
                       {hasVenuesForMap ? (
@@ -456,7 +459,7 @@ export async function HubTournamentsPage({
                       ) : (
                         <div />
                       )}
-                      <Link href={`/tournaments/${t.slug}`} className="primaryLink cardStretchLink">
+                      <Link href={`/tournaments/${t.slug}`} className="primaryLink">
                         View details
                       </Link>
                     </div>

@@ -188,6 +188,9 @@ export async function SportHubPage({ sport, page }: { sport: string; page: numbe
                       {locationLabel ? ` • ${locationLabel}` : ""}
                     </p>
                     <p className="dates">{dateLabel}</p>
+                    <Link href={`/tournaments/${t.slug}`} className="cardOverlayLink" aria-label={`Open tournament details for ${t.name ?? "tournament"}`}>
+                      <span className="ti-srOnly">Open tournament details for {t.name ?? "tournament"}</span>
+                    </Link>
                     {showVenueMapPreview ? (
                       <VenueMapPreviewStrip tournamentName={t.name ?? "Tournament"} venueCount={venueCount} href={mapHref} />
                     ) : null}
@@ -231,7 +234,7 @@ export async function SportHubPage({ sport, page }: { sport: string; page: numbe
                                   See Venues
                                 </Link>
                               ) : null}
-                              <Link href={`/tournaments/${t.slug}`} className="cardDetailsLink cardStretchLink">
+                              <Link href={`/tournaments/${t.slug}`} className="cardDetailsLink">
                                 Tournament Details
                               </Link>
                             </div>

@@ -323,6 +323,9 @@ export default async function SportStateHubPage({
                         {t.level ? ` • ${t.level}` : ""}
                       </p>
                       <p className="dates">{dateLabel}</p>
+                      <Link href={`/tournaments/${t.slug}`} className="cardOverlayLink" aria-label={`Open tournament details for ${t.name ?? "tournament"}`}>
+                        <span className="ti-srOnly">Open tournament details for {t.name ?? "tournament"}</span>
+                      </Link>
                       {showVenueMapPreview ? (
                         <VenueMapPreviewStrip tournamentName={t.name ?? "Tournament"} venueCount={venueCount} href={mapHref} />
                       ) : null}
@@ -366,7 +369,7 @@ export default async function SportStateHubPage({
                                   See Venues
                                 </Link>
                               ) : null}
-                              <Link href={`/tournaments/${t.slug}`} className="cardDetailsLink cardStretchLink">
+                              <Link href={`/tournaments/${t.slug}`} className="cardDetailsLink">
                                 Tournament Details
                               </Link>
                             </div>
