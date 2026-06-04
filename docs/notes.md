@@ -14,6 +14,8 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI tournament map teaser alignment follow-up:
+  - Centered the `Plan around the fields` heading under the map visual in `apps/ti-web/components/tournaments/TournamentMapTeaser.tsx` and `apps/ti-web/app/tournaments/tournaments.css`, moving the single-venue hint onto its own centered line for a cleaner detail-page teaser layout.
 - TI tournament funnel copy polish:
   - Replaced public-facing `Team Stays` rental copy with clearer parent-facing rental language, tightened venue/premium CTA labels around nearby hotels/food/coffee, and renamed the 30-day preview button copy to `Unlock premium access` without changing pricing, entitlement, Stripe, or auth behavior.
 - TI tournament directory card clickability follow-up:

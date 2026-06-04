@@ -58,12 +58,10 @@ export default function TournamentMapTeaser({
         <span className="tournamentMapTeaser__pin tournamentMapTeaser__pin--three" />
         <div className="tournamentMapTeaser__venueBadge">{venueCount === 1 ? "1 venue" : `${venueCount} venues`}</div>
       </div>
-      <div className="tournamentMapTeaser__titleRow">
-        <div className="tournamentMapTeaser__title">{title}</div>
-        {isSingleVenue && primaryVenueName ? (
-          <div className="tournamentMapTeaser__hint">Venue: {primaryVenueName}</div>
-        ) : null}
-      </div>
+      <div className="tournamentMapTeaser__title">{title}</div>
+      {isSingleVenue && primaryVenueName ? (
+        <div className="tournamentMapTeaser__hint">Venue: {primaryVenueName}</div>
+      ) : null}
       <div className="tournamentMapTeaser__context">{contextLine}</div>
       <div className="tournamentMapTeaser__body">{body}</div>
       <div className="tournamentMapTeaser__primary">
