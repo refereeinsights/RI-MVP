@@ -1204,8 +1204,9 @@ export default function PlannerClient(props: Props) {
 
   function assignmentLabelForEvent(event: PlannerEventRow) {
     const sourceId = String(event.source_id ?? "").trim();
-    const sourceAssignment =
-      String(event.source_type ?? "") === "ics" && sourceId ? sourcesById.get(sourceId) ?? null : null;
+    const isSourceLinkedEvent =
+      Boolean(sourceId) || Boolean(String((event as { source_event_uid?: string | null }).source_event_uid ?? "").trim());
+    const sourceAssignment = isSourceLinkedEvent && sourceId ? sourcesById.get(sourceId) ?? null : null;
     return assignmentLabelFromIds(
       sourceAssignment?.child_profile_id ?? event.child_profile_id,
       sourceAssignment?.team_profile_id ?? event.team_profile_id
@@ -3914,7 +3915,11 @@ export default function PlannerClient(props: Props) {
 
         <div className={styles.card}>
           <div className={styles.cardTitle} style={{ textAlign: "center" }}>Child &amp; team profiles</div>
-          <ChildTeamManager onProfilesChanged={() => void loadFamilyProfiles().catch(() => {})} />
+          <ChildTeamManager
+            initialChildren={familyProfiles}
+            initialLoading={familyProfilesBusy}
+            onProfilesChanged={() => void loadFamilyProfiles().catch(() => {})}
+          />
         </div>
         </aside>
       </div>

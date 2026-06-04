@@ -370,6 +370,51 @@ Use this after Smoke UAT passes. Keep scope strictly on child/team profile creat
 
 ---
 
+### Stage 3.3C-2 UAT (child/team assignment)
+
+Use this after Smoke UAT passes. Keep scope on source assignment, manual-event assignment, and family-context display. Imported events should inherit family context from their assigned source only.
+
+- [ ] Source assignment:
+  - [ ] A connected calendar can be left `Unassigned`.
+  - [ ] A connected calendar can be assigned to a child only.
+  - [ ] A connected calendar can be assigned to a child + team.
+  - [ ] Changing the child clears any invalid team selection.
+  - [ ] Refreshing an assigned source keeps the assignment intact.
+  - [ ] Disconnecting an assigned source still preserves imported events and does not break planner rendering.
+- [ ] Manual event assignment:
+  - [ ] A manual event can be created unassigned.
+  - [ ] A manual event can be created with child/team assignment if the create form exposes assignment.
+  - [ ] A manual event can be edited to add, change, or clear child/team assignment.
+  - [ ] Invalid child/team combinations are not possible through the visible UI.
+- [ ] Imported event behavior:
+  - [ ] Imported events do not expose per-event assignment controls.
+  - [ ] Imported events display family context only when their source is assigned.
+  - [ ] Changing a source assignment updates imported-event family context after reload/refresh.
+  - [ ] Imported event titles/descriptions are unchanged; family context is shown as separate UI, not injected into event text.
+- [ ] Planner card display:
+  - [ ] Assigned events show compact family context such as `Assigned: Child` or `Assigned: Child · Team`.
+  - [ ] Family context does not replace source labels on imported events.
+  - [ ] Family context does not replace linked venue or source location rows.
+  - [ ] Conflict badges remain visually distinct from family assignment.
+  - [ ] Source/feed color identity remains visually distinct from family assignment.
+- [ ] Archived profile safety:
+  - [ ] Existing assignments still render readable child/team names if an assigned child or team is later archived.
+  - [ ] Assignment selectors do not enter a broken or blank state after archive/restore changes.
+  - [ ] Child/team manager updates are reflected in planner assignment selectors without requiring a full logout/login cycle.
+- [ ] Mobile safety (375px if possible):
+  - [ ] Source assignment controls wrap without horizontal overflow.
+  - [ ] Manual-event assignment controls wrap without horizontal overflow.
+  - [ ] Assigned-family labels on event cards wrap cleanly and do not hide action buttons.
+- [ ] No regressions:
+  - [ ] Duplicate / merge behavior is unchanged.
+  - [ ] Linked venue behavior is unchanged.
+  - [ ] Map / directions behavior is unchanged.
+  - [ ] Entitlement behavior is unchanged.
+  - [ ] No planner filters were added in this stage.
+  - [ ] No raw IDs, source URLs, `source_event_uid`, or UUIDs appear in normal UI.
+
+---
+
 ### Stage 2.8 UAT (polish + launch readiness)
 
 Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.

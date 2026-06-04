@@ -14,6 +14,9 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI Weekend Planner Stage `3.3C-2` UAT follow-up:
+  - Fixed imported-event family-context rendering in `apps/ti-web/app/_components/planner/PlannerClient.tsx` so connected calendar events inherit and display their assigned child/team label from the linked source even when the card render path only has `source_id` / `source_event_uid`.
+  - Updated `apps/ti-web/app/_components/planner/ChildTeamManager.tsx` to use the planner's already-loaded child/team profiles for its closed-state summary so the `Child & team profiles` counter no longer misleadingly shows `0 child profiles · 0 active teams` before opening the manager.
 - TI Weekend Planner Stage `3.3C-2` assignment:
   - Added implementation prompt `docs/prompts/ti-planner-stage-3.3c-2-assignment.md`, explicitly verifying the `3.3C-1` prerequisite, deferring planner filters to `3.3C-3`, forbidding imported-event assignment/backfill, and locking child→team validation to both UI and API paths.
   - Added `supabase/migrations/20260604_ti_planner_stage_3_3c2_assignment.sql` so `planner_event_sources` and `planner_events` can store optional `child_profile_id` / `team_profile_id` references without changing entitlement, import, or duplicate semantics.

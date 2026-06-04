@@ -37,17 +37,19 @@ function titleCaseSport(value: string | null) {
 }
 
 type Props = {
+  initialChildren?: PlannerChildWithTeamsRow[];
+  initialLoading?: boolean;
   onProfilesChanged?: () => void;
 };
 
 export default function ChildTeamManager(props: Props) {
   const [open, setOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(props.initialLoading));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [children, setChildren] = useState<PlannerChildWithTeamsRow[]>([]);
+  const [children, setChildren] = useState<PlannerChildWithTeamsRow[]>(props.initialChildren ?? []);
 
   const [newChildName, setNewChildName] = useState("");
   const [editingChildId, setEditingChildId] = useState<string | null>(null);
@@ -82,6 +84,16 @@ export default function ChildTeamManager(props: Props) {
     if (!open) return;
     void loadProfiles(showArchived);
   }, [loadProfiles, open, showArchived]);
+
+  useEffect(() => {
+    if (open) return;
+    setChildren(props.initialChildren ?? []);
+  }, [open, props.initialChildren]);
+
+  useEffect(() => {
+    if (open) return;
+    setLoading(Boolean(props.initialLoading));
+  }, [open, props.initialLoading]);
 
   const activeChildren = useMemo(() => children.filter((child) => !child.is_archived), [children]);
   const archivedChildren = useMemo(() => children.filter((child) => child.is_archived), [children]);
@@ -269,7 +281,7 @@ export default function ChildTeamManager(props: Props) {
         </button>
       </div>
       <div className={styles.muted} style={{ marginTop: 10, textAlign: "center" }}>
-        Optional foundation only. Event and calendar assignment comes in the next stage.
+        Use child and team profiles to organize connected calendars and manual events.
       </div>
 
       {open ? (
