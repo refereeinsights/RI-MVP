@@ -34,6 +34,7 @@ export default function PremiumAutoCheckout({ enabled = false }: PremiumAutoChec
           entry_point: "premium_autocheckout",
           cta_label: "Upgrade to Weekend Pro",
           has_affiliate_visible: false,
+          pricing_option: "annual_weekend_pro",
         });
 
         const res = await fetch("/api/stripe/checkout", {

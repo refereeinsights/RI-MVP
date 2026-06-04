@@ -41,6 +41,7 @@ export default function UpgradeWeekendPassButton(props: UpgradeWeekendPassButton
       cta_label: props.cta_label || label,
       user_tier: props.user_tier || null,
       has_affiliate_visible: hasAffiliateVisible,
+      pricing_option: "weekend_pass_30d" as const,
     }),
     [
       props.source_page,

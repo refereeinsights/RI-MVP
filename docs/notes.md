@@ -14,6 +14,10 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI analytics cleanup alignment:
+  - Added typed TI analytics coverage for premium modal / CTA events and aligned live `book_travel_*` payload typing with the actual Weekend Planner emitters, including safe `pricing_option` normalization on premium CTA events.
+  - Extended `apps/ti-web/app/api/analytics/route.ts` allowlists so already-fired venue-map, venue-directory, Owl's Eye preview, venue-hotel CTA, and Quick Check login events now persist through the existing analytics pipelines without schema changes.
+  - Expanded the referee admin TI clicks inventory/grouping so the newly persisted venue intent and Owl's Eye preview events are visible in the dashboard while leaving partner breakdown and checkout-completion instrumentation for a later pass.
 - TI tournament map teaser alignment follow-up:
   - Centered the `Plan around the fields` heading under the map visual in `apps/ti-web/components/tournaments/TournamentMapTeaser.tsx` and `apps/ti-web/app/tournaments/tournaments.css`, moving the single-venue hint onto its own centered line for a cleaner detail-page teaser layout.
 - TI tournament funnel copy polish:

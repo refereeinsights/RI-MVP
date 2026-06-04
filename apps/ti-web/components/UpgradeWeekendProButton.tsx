@@ -47,6 +47,7 @@ export default function UpgradeWeekendProButton(props: UpgradeWeekendProButtonPr
       cta_label: props.cta_label || label,
       user_tier: props.user_tier || null,
       has_affiliate_visible: hasAffiliateVisible,
+      pricing_option: "annual_weekend_pro" as const,
     }),
     [
       props.source_page,

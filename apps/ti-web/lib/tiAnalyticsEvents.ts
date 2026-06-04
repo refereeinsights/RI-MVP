@@ -26,6 +26,8 @@ export type TiAnalyticsEventName =
   | "venue_directory_view_venue_click"
   | "nearest_airport_click"
   | "tier_gate_hit"
+  | "premium_modal_viewed"
+  | "premium_cta_clicked"
   | "owls_eye_limited_continue"
   | "owls_eye_preview_shown"
   | "owls_eye_preview_pin_click"
@@ -199,6 +201,29 @@ export type TiAnalyticsEventPropertiesByName = {
     tournament_id?: string;
     tournament_slug?: string | null;
     venue_id?: string | null;
+  };
+  premium_modal_viewed: {
+    source?: string;
+    source_context?: string;
+    tournament_slug?: string | null;
+    venue_slug?: string | null;
+    entry_point?: string;
+    cta_label?: string;
+    user_tier?: string;
+    has_affiliate_visible?: boolean;
+    pricing_option?: "annual_weekend_pro" | "weekend_pass_30d" | "unknown";
+  };
+  premium_cta_clicked: {
+    source?: string;
+    source_context?: string;
+    tournament_slug?: string | null;
+    venue_slug?: string | null;
+    entry_point?: string;
+    cta_label?: string;
+    user_tier?: string;
+    offer?: string;
+    has_affiliate_visible?: boolean;
+    pricing_option?: "annual_weekend_pro" | "weekend_pass_30d" | "unknown";
   };
   venue_page_viewed: {
     page_type: "venue_index" | "venue_detail";
@@ -669,16 +694,49 @@ export type TiAnalyticsEventPropertiesByName = {
   "Saved Tournament Notify Dismissed": {
     tournamentId: string;
   };
-  book_travel_viewed: Record<string, never>;
+  book_travel_viewed: {
+    page_path?: string;
+    source_page?: string;
+    referrer_path?: string;
+    has_destination?: boolean;
+    has_dates?: boolean;
+  };
   book_travel_hotels_clicked: {
-    destination_present: boolean;
-    has_dates: boolean;
+    source?: string;
+    source_page?: string;
+    page_path?: string;
+    referrer_path?: string;
+    ts?: string;
+    travel_type?: "hotel";
+    cta_location?: string;
+    destination?: string;
+    has_destination?: boolean;
+    check_in?: string;
+    check_out?: string;
+    has_dates?: boolean;
   };
   book_travel_vrbo_clicked: {
-    destination_present: boolean;
-    has_dates: boolean;
+    source?: string;
+    source_page?: string;
+    page_path?: string;
+    referrer_path?: string;
+    ts?: string;
+    travel_type?: "rental";
+    cta_location?: string;
+    destination?: string;
+    has_destination?: boolean;
+    check_in?: string;
+    check_out?: string;
+    has_dates?: boolean;
   };
   book_travel_shared: {
+    source?: string;
+    source_page?: string;
+    page_path?: string;
+    referrer_path?: string;
+    ts?: string;
+    travel_type?: "share";
+    cta_location?: string;
     channel: "copy" | "native";
     share_url: string;
   };

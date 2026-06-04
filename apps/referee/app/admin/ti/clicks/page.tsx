@@ -65,13 +65,23 @@ export default async function TiClicksPage() {
     { key: "tournament_card_plan_weekend_clicked", label: "Tournament directory card: plan weekend clicked" },
     // Tournament map
     { key: "tournament_map_cta_clicked", label: "Tournament map CTA clicked" },
+    { key: "tournament_map_loaded_from_venue", label: "Tournament map: loaded from venue" },
     { key: "tournament_map_back_to_tournament_clicked", label: "Tournament map: back to tournament clicked" },
     { key: "tournament_map_weekend_plan_clicked", label: "Tournament map: weekend plan clicked" },
     { key: "tournament_map_add_to_planner_clicked", label: "Tournament map: add to planner clicked" },
     // Venue map
     { key: "venue_map_opened", label: "Venue map opened" },
     { key: "venue_map_loaded", label: "Venue map loaded" },
+    { key: "venue_select", label: "Venue map: venue selected" },
+    { key: "directions_click", label: "Venue map: directions clicked" },
+    { key: "hotels_click", label: "Venue map: hotels clicked" },
+    { key: "venue_view_click", label: "Venue map: view venue clicked" },
+    { key: "nearest_airport_click", label: "Venue map: nearest airport clicked" },
     { key: "venue_map_hotels_clicked", label: "Map panel hotels clicked" },
+    { key: "venue_hotels_cta_clicked", label: "Venue hotels CTA clicked" },
+    // Venue directory
+    { key: "venue_directory_plan_map_click", label: "Venue directory: plan map clicked" },
+    { key: "venue_directory_view_venue_click", label: "Venue directory: view venue clicked" },
     // Weekend share
     { key: "weekend_share_clicked", label: "Weekend share clicked" },
     { key: "weekend_share_venue_map_clicked", label: "Weekend share: venue map clicked" },
@@ -118,6 +128,12 @@ export default async function TiClicksPage() {
     { key: "owls_eye_category_pins_enabled", label: "Owl's Eye category pins enabled" },
     { key: "owls_eye_result_selected", label: "Owl's Eye result selected" },
     { key: "owls_eye_directions_clicked", label: "Owl's Eye directions clicked" },
+    { key: "owls_eye_limited_continue", label: "Owl's Eye limited continue" },
+    { key: "owls_eye_preview_shown", label: "Owl's Eye preview shown" },
+    { key: "owls_eye_preview_pin_click", label: "Owl's Eye preview pin clicked" },
+    { key: "owls_eye_preview_directions_click", label: "Owl's Eye preview directions clicked" },
+    { key: "owls_eye_preview_upgrade_click", label: "Owl's Eye preview upgrade clicked" },
+    { key: "owls_eye_preview_hotel_booking_click", label: "Owl's Eye preview hotel booking clicked" },
     // Book Travel
     { key: "book_travel_viewed", label: "Book travel: page viewed" },
     { key: "book_travel_hotels_clicked", label: "Book travel: hotels clicked" },

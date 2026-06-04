@@ -17,8 +17,14 @@ const GROUPS: Array<{ label: string; match: (key: string) => boolean }> = [
   { label: "Discovery", match: (key) => ["map_viewed", "homepage_cta_clicked", "homepage_sport_chip_clicked", "venue_page_viewed", "weekend_page_opened"].includes(key) },
   { label: "Tournament Detail", match: (key) => key.startsWith("tournament_detail_") },
   { label: "Tournament Map", match: (key) => key.startsWith("tournament_map_") },
-  { label: "Directory", match: (key) => key.startsWith("tournament_directory_") },
-  { label: "Venue Map", match: (key) => key.startsWith("venue_map_") || key === "venue_page_viewed" },
+  { label: "Directory", match: (key) => key.startsWith("tournament_directory_") || key === "search_submitted" || key === "tournament_card_plan_weekend_clicked" },
+  { label: "Venue Directory", match: (key) => key.startsWith("venue_directory_") },
+  {
+    label: "Venue Map",
+    match: (key) =>
+      key.startsWith("venue_map_") ||
+      ["venue_page_viewed", "venue_select", "directions_click", "hotels_click", "venue_view_click", "nearest_airport_click", "venue_hotels_cta_clicked"].includes(key),
+  },
   { label: "Weekend Share", match: (key) => key.startsWith("weekend_share_") || key === "weekend_share_clicked" },
   { label: "Weekend Planner", match: (key) => key.startsWith("weekend_planner_") },
   { label: "Conversion", match: (key) => key.startsWith("premium_") || key.startsWith("partner_") || key === "tier_gate_hit" },

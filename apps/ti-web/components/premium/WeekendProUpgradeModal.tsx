@@ -37,6 +37,7 @@ export default function WeekendProUpgradeModal(props: WeekendProUpgradeModalProp
       cta_label: ctaLabel,
       user_tier: props.user_tier || null,
       has_affiliate_visible: hasAffiliateVisible,
+      pricing_option: "unknown" as const,
     }),
     [
       props.source_page,
