@@ -14,6 +14,8 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- Weekend Planner Stage `3.3C-0` discovery:
+  - Added `docs/weekend-planner-child-team-discovery.md` with the recommended child/team entity model, ownership model, migration strategy, and stage boundary between `3.3C-1` and `3.3C-2`.
 - TI Weekend Planner Stage 3.3 PWA shell / home-screen polish:
   - Added `apps/ti-web/app/manifest.ts` with a standalone `/weekend-planner` start URL, `TournamentInsights` app identity, `TI Planner` short name, and maskable icon declarations for install surfaces.
   - Repointed app metadata in `apps/ti-web/app/layout.tsx` to the new planner icon routes, enabled `appleWebApp` metadata, and added `viewportFit: "cover"` for safe-area support on notched devices.
