@@ -10,6 +10,55 @@ export type PlannerEventType =
 
 export type PlannerSourceType = "manual" | "ics" | "public_schedule" | "tournament" | "admin";
 
+export type PlannerChildRow = {
+  id: string;
+  user_id: string;
+  display_name: string;
+  sort_order: number;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PlannerTeamRow = {
+  id: string;
+  user_id: string;
+  child_id: string;
+  display_name: string;
+  sport: string;
+  season_label: string | null;
+  sort_order: number;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PlannerChildWithTeamsRow = PlannerChildRow & {
+  teams: PlannerTeamRow[];
+};
+
+export type PlannerChildCreateBody = {
+  display_name: string;
+  sort_order?: number | null;
+};
+
+export type PlannerChildUpdateBody = Partial<PlannerChildCreateBody> & {
+  is_archived?: boolean;
+};
+
+export type PlannerTeamCreateBody = {
+  child_id: string;
+  display_name: string;
+  sport: string;
+  season_label?: string | null;
+  sort_order?: number | null;
+};
+
+export type PlannerTeamUpdateBody = Partial<Omit<PlannerTeamCreateBody, "child_id">> & {
+  child_id?: string;
+  is_archived?: boolean;
+};
+
 export type PlannerEventRow = {
   id: string;
   user_id: string;

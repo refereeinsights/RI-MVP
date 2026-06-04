@@ -331,6 +331,35 @@ Use this after Smoke UAT passes. Verify the manifest directly first, then check 
   - [ ] Duplicate / merge / manual cleanup behavior is unchanged.
   - [ ] Feed refresh and source-linked event behavior are unchanged.
   - [ ] Entitlement behavior is unchanged.
+
+### Stage 3.3C-1 UAT (child/team profiles foundation)
+
+Use this after Smoke UAT passes. Keep scope strictly on child/team profile creation and management. This stage does not assign events or calendars yet.
+
+- [ ] Child profile management:
+  - [ ] A signed-in user can create a child profile.
+  - [ ] A signed-in user can edit a child profile.
+  - [ ] A signed-in user can archive a child profile.
+  - [ ] Restoring an archived child profile works if restore is exposed.
+- [ ] Team profile management:
+  - [ ] A signed-in user can create a team under a child.
+  - [ ] A signed-in user can edit a team.
+  - [ ] A signed-in user can archive a team.
+  - [ ] Restoring an archived team works if restore is exposed.
+- [ ] Optional rollout:
+  - [ ] Weekend Planner remains usable with zero child/team profiles.
+  - [ ] Child/team setup is reachable but not forced.
+- [ ] No assignment drift:
+  - [ ] No child/team assignment UI appears on planner events yet.
+  - [ ] No child/team assignment UI appears on connected calendars yet.
+  - [ ] Existing free-text `team_name` behavior is unchanged.
+- [ ] No regressions:
+  - [ ] Duplicate / merge behavior is unchanged.
+  - [ ] Linked venue behavior is unchanged.
+  - [ ] Map / directions behavior is unchanged.
+  - [ ] ICS source refresh/disconnect behavior is unchanged.
+  - [ ] Entitlement behavior is unchanged.
+  - [ ] No raw IDs or internal schema details leak into normal UI.
 - [ ] Auth and privacy:
   - [ ] Signed-out launch preserves return-to behavior back to `/weekend-planner` after login.
   - [ ] `/weekend-planner` remains accessible under existing auth behavior.

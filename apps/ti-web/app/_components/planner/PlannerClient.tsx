@@ -4,6 +4,7 @@ import { Component, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
+import ChildTeamManager from "./ChildTeamManager";
 import {
   computeDuplicateCandidates,
   type PlannerDuplicateCandidate,
@@ -3565,8 +3566,13 @@ export default function PlannerClient(props: Props) {
 	              </div>
 	            ) : null}
 	          </>
-	        ) : null}
+			        ) : null}
 	      </div>
+
+        <div className={styles.card}>
+          <div className={styles.cardTitle} style={{ textAlign: "center" }}>Child &amp; team profiles</div>
+          <ChildTeamManager />
+        </div>
         </aside>
       </div>
 	    </div>
