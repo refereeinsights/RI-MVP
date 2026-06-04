@@ -224,15 +224,16 @@ export default function PlannerCalendar(props: Props) {
     return list.map((e) => {
       const title = String(e.title ?? "").trim() || "Untitled event";
       const shortFamilyLabel = assignmentShortLabelForEvent(e);
+      const assignment = sourceAssignmentForEvent(e);
       const startInstant = Temporal.Instant.from(String(e.starts_at));
       const start = startInstant.toZonedDateTimeISO(calendarTz);
       const endInstant = e.ends_at ? Temporal.Instant.from(String(e.ends_at)) : startInstant.add({ hours: 1 });
       const end = endInstant.toZonedDateTimeISO(calendarTz);
-      const childProfileId = String(e.child_profile_id ?? "").trim();
+      const childProfileId = String(assignment.childProfileId ?? "").trim();
       const calendarId = childProfileId ? `family:${childProfileId}` : "unassigned";
       return { id: e.id, title: shortFamilyLabel ? `${shortFamilyLabel} · ${title}` : title, start, end, calendarId };
     });
-  }, [props.events, calendarTz, props.familyProfiles]);
+  }, [props.events, calendarTz, props.familyProfiles, props.sources]);
 
   const controls = useMemo(() => createCalendarControlsPlugin(), []);
   const eventsService = useMemo(() => createEventsServicePlugin(), []);
