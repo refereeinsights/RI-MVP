@@ -191,7 +191,7 @@ export default async function WeekendPlannerPage() {
     .slice(0, 25);
 
 	  return (
-	    <div className="pitchWrap tournamentsWrap">
+	    <div className={`pitchWrap tournamentsWrap ${styles.standaloneShell}`} data-weekend-planner-root="true">
 	      <section className="field tournamentsField">
 	        <div className="headerBlock">
 	          <h1 className="title">Weekend Planner</h1>

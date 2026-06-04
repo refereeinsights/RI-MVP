@@ -260,6 +260,21 @@ body {
   margin: 0 auto;
 }
 
+@media (display-mode: standalone) {
+  .ti-header {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .ti-main {
+    padding-top: 18px;
+    padding-bottom: calc(48px + env(safe-area-inset-bottom));
+  }
+
+  .ti-legal-footer {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+}
+
 .ti-srOnly {
   position: absolute;
   width: 1px;

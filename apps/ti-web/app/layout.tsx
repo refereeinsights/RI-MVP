@@ -14,6 +14,7 @@ const PLAUSIBLE_DOMAIN = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN || "tournament
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
+  manifest: "/manifest.webmanifest",
   title: {
     default: "TournamentInsights — Youth Sports Tournament Directory",
     template: "%s | TournamentInsights",
@@ -41,14 +42,19 @@ export const metadata: Metadata = {
     description: "Browse youth sports tournaments by sport, state, and date.",
     images: ["/og-default.png"],
   },
+  appleWebApp: {
+    capable: true,
+    title: "TI Planner",
+    statusBarStyle: "default",
+  },
   icons: {
     icon: [
-      { url: "/brand/ti-logo.svg", type: "image/svg+xml" },
-      { url: "/ti-logo.png", type: "image/png", sizes: "512x512" },
+      { url: "/icons/icon-192", type: "image/png", sizes: "192x192" },
+      { url: "/icons/icon-512", type: "image/png", sizes: "512x512" },
       { url: "/favicon.ico" },
     ],
-    apple: "/ti-logo.png",
-    shortcut: "/ti-logo.png",
+    apple: "/icons/apple-touch-icon",
+    shortcut: "/icons/icon-192",
   },
 };
 
@@ -56,6 +62,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#0f3d2e",
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

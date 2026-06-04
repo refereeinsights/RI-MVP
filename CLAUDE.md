@@ -299,6 +299,47 @@ Use this after Smoke UAT passes. Test on a narrow/mobile viewport if possible an
 
 ---
 
+### Stage 3.3 UAT (PWA shell / home-screen polish)
+
+Use this after Smoke UAT passes. Verify the manifest directly first, then check the Weekend Planner route in browser and standalone-like contexts where feasible.
+
+- [ ] Manifest and icons:
+  - [ ] `GET /manifest.webmanifest` returns `200` with valid JSON.
+  - [ ] Manifest `name` is `TournamentInsights`.
+  - [ ] Manifest `short_name` is `TI Planner`.
+  - [ ] Manifest `start_url` points to `/weekend-planner`.
+  - [ ] Manifest `display` is `standalone`.
+  - [ ] Manifest theme/background colors are configured.
+  - [ ] Manifest icon entries exist for planner install surfaces.
+  - [ ] Icon treatment is the TI mark in white on TI dark green background.
+- [ ] Platform metadata:
+  - [ ] Apple mobile-web-app metadata is present where expected.
+  - [ ] `viewport-fit=cover` is present so safe-area insets can work on notched devices.
+  - [ ] Android add-to-home-screen via browser menu has appropriate manifest data.
+- [ ] Standalone / shell polish:
+  - [ ] Mobile home-screen launch opens `/weekend-planner` cleanly.
+  - [ ] Standalone mode has no top safe-area overlap.
+  - [ ] Standalone mode has no bottom safe-area collision with footer or actions.
+  - [ ] Sticky headers and bottom actions do not collide with safe areas.
+  - [ ] No horizontal overflow is introduced.
+- [ ] Planner regressions:
+  - [ ] Stage 3.2 next-event treatment still works.
+  - [ ] Linked venue actions still work.
+  - [ ] Map / directions behavior still works.
+  - [ ] Conflict badges and source labels remain readable.
+  - [ ] Duplicate / merge / manual cleanup behavior is unchanged.
+  - [ ] Feed refresh and source-linked event behavior are unchanged.
+  - [ ] Entitlement behavior is unchanged.
+- [ ] Auth and privacy:
+  - [ ] Signed-out launch preserves return-to behavior back to `/weekend-planner` after login.
+  - [ ] `/weekend-planner` remains accessible under existing auth behavior.
+  - [ ] No raw IDs, source URLs, `source_event_uid`, or database UUIDs appear in normal UI.
+- [ ] Guidance and follow-up:
+  - [ ] If a home-screen hint exists, it is non-blocking, dismissible, and does not imply native app, push, or offline support.
+  - [ ] Note whether a maskable icon variant already exists, was added, or should remain a follow-up.
+
+---
+
 ### Stage 2.8 UAT (polish + launch readiness)
 
 Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.

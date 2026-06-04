@@ -12,6 +12,15 @@ Maintenance rules:
 - Add both RI and TI items here when relevant.
 - Do not treat `docs/notes-ti.md` as the source of truth for repo-wide history.
 
+## 2026-06-04
+
+- TI Weekend Planner Stage 3.3 PWA shell / home-screen polish:
+  - Added `apps/ti-web/app/manifest.ts` with a standalone `/weekend-planner` start URL, `TournamentInsights` app identity, `TI Planner` short name, and maskable icon declarations for install surfaces.
+  - Repointed app metadata in `apps/ti-web/app/layout.tsx` to the new planner icon routes, enabled `appleWebApp` metadata, and added `viewportFit: "cover"` for safe-area support on notched devices.
+  - Added generated icon routes in `apps/ti-web/app/icons/*` backed by `apps/ti-web/lib/pwaIcon.tsx`, using the existing TI mark source rendered white on a dark-green background for 192, 512, and Apple-touch sizes.
+  - Added standalone safe-area spacing polish in `apps/ti-web/app/globals.css` and `apps/ti-web/app/weekend-planner/WeekendPlanner.module.css` without changing Stage 3.2 next-event logic or planner card behavior.
+  - Added Stage 3.3 UAT guidance to `CLAUDE.md` covering manifest fetch, icon identity, add-to-home-screen metadata, safe-area behavior, and no-regression checks.
+
 ## 2026-06-03
 
 - TI Weekend Planner Stage 3.2 mobile next-event action hierarchy:
