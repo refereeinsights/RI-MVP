@@ -38,6 +38,13 @@ type PlannerSourceAssignmentDraft = {
   teamProfileId: string;
 };
 
+type FamilyFilterValue = "all" | `child:${string}` | `team:${string}:${string}`;
+
+type FamilyFilterOption = {
+  value: FamilyFilterValue;
+  label: string;
+};
+
 type DuplicateDismissedRow = { pair_key_a: string; pair_key_b: string; created_at?: string | null };
 
 function buildSourceAssignmentDrafts(sources: PlannerSourceRow[]) {
@@ -498,9 +505,12 @@ export default function PlannerClient(props: Props) {
   const [importUrl, setImportUrl] = useState("");
   const [importSourceName, setImportSourceName] = useState("");
   const [importTeamName, setImportTeamName] = useState("");
+  const [importChildProfileId, setImportChildProfileId] = useState("");
+  const [importTeamProfileId, setImportTeamProfileId] = useState("");
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importGate, setImportGate] = useState<"limit" | "unverified" | null>(null);
+  const [familyFilter, setFamilyFilter] = useState<FamilyFilterValue>("all");
 
   const [mergeOpen, setMergeOpen] = useState(false);
   const [mergeAnchorEventId, setMergeAnchorEventId] = useState<string | null>(null);
@@ -1077,6 +1087,11 @@ export default function PlannerClient(props: Props) {
 	      .slice(0, 20);
   }, [events, scheduleView]);
 
+  const filteredEventsForScheduleView = useMemo(() => {
+    if (familyFilter === "all") return eventsForScheduleView;
+    return eventsForScheduleView.filter((event) => familyFilterMatchesEvent(event, familyFilter));
+  }, [eventsForScheduleView, familyFilter]);
+
   useEffect(() => {
     // If entitlement is revoked mid-session, force back to list.
     if (displayModeTouched) return;
@@ -1112,7 +1127,7 @@ export default function PlannerClient(props: Props) {
 
   const grouped = useMemo(() => {
 	    const groups = new Map<string, PlannerEventRow[]>();
-	    for (const e of eventsForScheduleView) {
+	    for (const e of filteredEventsForScheduleView) {
 	      const groupTz = effectiveTimeZoneForEvent(e);
 	      const key = dayKey(e.starts_at, groupTz);
 	      const list = groups.get(key) ?? [];
@@ -1121,27 +1136,27 @@ export default function PlannerClient(props: Props) {
 	    }
 	    const sortedKeys = Array.from(groups.keys()).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 	    return sortedKeys.map((key) => ({ key, events: (groups.get(key) ?? []).slice() }));
-  }, [eventsForScheduleView, tz]);
+  }, [filteredEventsForScheduleView, tz]);
 
   const nextUpcomingLoadedEventId = useMemo(() => {
     const nowMs = Date.now();
-    const nextFuture = eventsForScheduleView.find((e) => {
+    const nextFuture = filteredEventsForScheduleView.find((e) => {
       const startMs = new Date(String(e.starts_at ?? "")).getTime();
       if (Number.isNaN(startMs)) return false;
       return startMs >= nowMs;
     });
-    return String(nextFuture?.id ?? eventsForScheduleView[0]?.id ?? "").trim() || null;
-  }, [eventsForScheduleView]);
+    return String(nextFuture?.id ?? filteredEventsForScheduleView[0]?.id ?? "").trim() || null;
+  }, [filteredEventsForScheduleView]);
 
   const seasonAllSourceIds = useMemo(() => {
     return Array.from(
       new Set(
-        (events ?? [])
+        (filteredEventsForScheduleView ?? [])
           .map((e) => String((e as any)?.source_id ?? "").trim())
           .filter(Boolean)
       )
     ).sort((a, b) => a.localeCompare(b));
-  }, [events]);
+  }, [filteredEventsForScheduleView]);
 
   const sourcesById = useMemo(() => {
     const m = new Map<string, PlannerSourceRow>();
@@ -1203,15 +1218,71 @@ export default function PlannerClient(props: Props) {
   }
 
   function assignmentLabelForEvent(event: PlannerEventRow) {
-    const sourceId = String(event.source_id ?? "").trim();
-    const isSourceLinkedEvent =
-      Boolean(sourceId) || Boolean(String((event as { source_event_uid?: string | null }).source_event_uid ?? "").trim());
-    const sourceAssignment = isSourceLinkedEvent && sourceId ? sourcesById.get(sourceId) ?? null : null;
+    const sourceAssignment = sourceAssignmentForEvent(event);
     return assignmentLabelFromIds(
       sourceAssignment?.child_profile_id ?? event.child_profile_id,
       sourceAssignment?.team_profile_id ?? event.team_profile_id
     );
   }
+
+  function sourceAssignmentForEvent(event: PlannerEventRow) {
+    const sourceId = String(event.source_id ?? "").trim();
+    const isSourceLinkedEvent =
+      Boolean(sourceId) || Boolean(String((event as { source_event_uid?: string | null }).source_event_uid ?? "").trim());
+    return isSourceLinkedEvent && sourceId ? sourcesById.get(sourceId) ?? null : null;
+  }
+
+  function assignmentIdsForEvent(event: PlannerEventRow) {
+    const sourceAssignment = sourceAssignmentForEvent(event);
+    return {
+      childProfileId: String(sourceAssignment?.child_profile_id ?? event.child_profile_id ?? "").trim(),
+      teamProfileId: String(sourceAssignment?.team_profile_id ?? event.team_profile_id ?? "").trim(),
+    };
+  }
+
+  function familyFilterMatchesEvent(event: PlannerEventRow, filterValue: FamilyFilterValue) {
+    if (filterValue === "all") return true;
+    const assignment = assignmentIdsForEvent(event);
+    if (!assignment.childProfileId) return false;
+    if (filterValue.startsWith("child:")) {
+      const childProfileId = filterValue.slice("child:".length);
+      return assignment.childProfileId === childProfileId;
+    }
+    if (filterValue.startsWith("team:")) {
+      const [, childProfileId, teamProfileId] = filterValue.split(":");
+      return assignment.childProfileId === childProfileId && assignment.teamProfileId === teamProfileId;
+    }
+    return true;
+  }
+
+  const familyFilterOptions = useMemo<FamilyFilterOption[]>(() => {
+    const options: FamilyFilterOption[] = [{ value: "all", label: "All schedules" }];
+    for (const childProfile of familyProfiles) {
+      if (childProfile.is_archived) continue;
+      options.push({
+        value: `child:${String(childProfile.id)}`,
+        label: childProfile.display_name,
+      });
+      for (const teamProfile of childProfile.teams) {
+        if (teamProfile.is_archived) continue;
+        options.push({
+          value: `team:${String(childProfile.id)}:${String(teamProfile.id)}`,
+          label: `${childProfile.display_name} · ${teamProfile.display_name}`,
+        });
+      }
+    }
+    return options;
+  }, [familyProfiles]);
+
+  const activeFamilyFilterLabel = useMemo(() => {
+    return familyFilterOptions.find((option) => option.value === familyFilter)?.label ?? "All schedules";
+  }, [familyFilter, familyFilterOptions]);
+
+  useEffect(() => {
+    if (familyFilter === "all") return;
+    if (familyFilterOptions.some((option) => option.value === familyFilter)) return;
+    setFamilyFilter("all");
+  }, [familyFilter, familyFilterOptions]);
 
   const sourceLabelById = useMemo(() => {
     const out: Record<string, string> = {};
@@ -1256,11 +1327,11 @@ export default function PlannerClient(props: Props) {
 
   const duplicateCandidates = useMemo(() => {
     return computeDuplicateCandidates({
-      events,
+      events: filteredEventsForScheduleView,
       dismissedPairs: dismissedPairs ?? [],
       timeZoneFallback: tz ?? undefined,
     });
-  }, [events, dismissedPairs, tz]);
+  }, [filteredEventsForScheduleView, dismissedPairs, tz]);
 
   const dupesByEventId = useMemo(() => {
     const m = new Map<string, PlannerDuplicateCandidate[]>();
@@ -1282,8 +1353,8 @@ export default function PlannerClient(props: Props) {
   }, [duplicateCandidates]);
 
 	  const loadedConflictsByEventId = useMemo(() => {
-	    return detectLoadedEventConflicts(eventsForScheduleView);
-	  }, [eventsForScheduleView]);
+	    return detectLoadedEventConflicts(filteredEventsForScheduleView);
+	  }, [filteredEventsForScheduleView]);
 
   function sourceLabelFallback() {
     return "Connected calendar";
@@ -1583,6 +1654,8 @@ export default function PlannerClient(props: Props) {
     setImportUrl("");
     setImportSourceName("");
     setImportTeamName("");
+    setImportChildProfileId("");
+    setImportTeamProfileId("");
     setImportResult(null);
     setImportError(null);
     setImportGate(null);
@@ -1881,6 +1954,8 @@ export default function PlannerClient(props: Props) {
           sourceUrl: url,
           sourceName: importSourceName.trim() || null,
           teamName: importTeamName.trim() || null,
+          child_profile_id: importChildProfileId.trim() || null,
+          team_profile_id: importTeamProfileId.trim() || null,
         }),
       });
       trackPlannerEvent("planner_calendar_feed_connect_succeeded", {
@@ -2519,6 +2594,56 @@ export default function PlannerClient(props: Props) {
                   />
                 </div>
               </div>
+              {familyProfiles.length ? (
+                <div className={styles.row2}>
+                  <div>
+                    <label className={styles.label}>Child profile (optional)</label>
+                    <select
+                      className={styles.select}
+                      value={importChildProfileId}
+                      onChange={(e) => {
+                        const nextChildProfileId = e.target.value;
+                        setImportChildProfileId(nextChildProfileId);
+                        setImportTeamProfileId("");
+                      }}
+                      disabled={busy || importSucceeded || familyProfilesBusy}
+                    >
+                      <option value="">Unassigned</option>
+                      {activeChildOptions(importChildProfileId).map((childProfile) => (
+                        <option key={childProfile.id} value={childProfile.id}>
+                          {childProfile.display_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={styles.label}>Team profile (optional)</label>
+                    <select
+                      className={styles.select}
+                      value={importTeamProfileId}
+                      onChange={(e) => setImportTeamProfileId(e.target.value)}
+                      disabled={
+                        busy ||
+                        importSucceeded ||
+                        familyProfilesBusy ||
+                        !importChildProfileId ||
+                        teamOptionsForChild(importChildProfileId, importTeamProfileId).length === 0
+                      }
+                    >
+                      <option value="">{importChildProfileId ? "No team" : "Select a child first"}</option>
+                      {teamOptionsForChild(importChildProfileId, importTeamProfileId).map((teamProfile) => (
+                        <option key={teamProfile.id} value={teamProfile.id}>
+                          {teamProfile.display_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ) : familyProfilesBusy ? (
+                <div className={styles.muted}>Loading child/team profiles…</div>
+              ) : (
+                <div className={styles.muted}>Add child/team profiles below if you want to assign this calendar during import.</div>
+              )}
               <div className={styles.actionsRow}>
                 <button className={styles.primaryBtn} onClick={onImportIcs} disabled={busy || importSucceeded}>
                   Import schedule
@@ -2682,6 +2807,24 @@ export default function PlannerClient(props: Props) {
                   </button>
 		            </div>
 
+              {familyFilterOptions.length > 1 ? (
+                <div className={styles.scheduleSelectRow}>
+                  <select
+                    className={styles.select}
+                    value={familyFilter}
+                    onChange={(e) => setFamilyFilter(e.target.value as FamilyFilterValue)}
+                    disabled={busy || familyProfilesBusy}
+                    aria-label="Filter schedule by child or team"
+                  >
+                    {familyFilterOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+
 		          {scheduleView === "weekend" ? (
 		            <div className={`${styles.muted} ${styles.scheduleMetaRow}`}>
 		              {(() => {
@@ -2693,17 +2836,20 @@ export default function PlannerClient(props: Props) {
 		          ) : scheduleView === "upcoming" ? (
 		            <div className={`${styles.muted} ${styles.scheduleMetaRow}`}>Next 30 days · loaded events only</div>
 		          ) : null}
+              {familyFilter !== "all" ? (
+                <div className={`${styles.muted} ${styles.scheduleMetaRow}`}>Filtered by {activeFamilyFilterLabel}</div>
+              ) : null}
 		        </div>
 
 		        {scheduleView === "upcoming" ? (
 		          eventsHasMore ? (
 	            <div className={`${styles.muted} ${styles.loadedDisclosure}`}>
-	              Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events. Switch to Season and load
+	              Showing {filteredEventsForScheduleView.length} loaded event{filteredEventsForScheduleView.length === 1 ? "" : "s"} in this range{familyFilter !== "all" ? " for this filter" : ""}. Duplicate suggestions and schedule conflicts only consider loaded events. Switch to Season and load
 	              more to check additional events.
 	            </div>
-	          ) : events.length ? (
+	          ) : filteredEventsForScheduleView.length ? (
 	            <div className={`${styles.muted} ${styles.loadedDisclosure}`}>
-	              All events in this range are loaded. Duplicate suggestions and schedule conflicts consider all events in this range.
+	              All events in this range{familyFilter !== "all" ? " for this filter" : ""} are loaded. Duplicate suggestions and schedule conflicts consider all loaded events in this range.
 	            </div>
 	          ) : null
 	        ) : null}
@@ -2802,49 +2948,68 @@ export default function PlannerClient(props: Props) {
             })()}
             {eventsHasMore ? (
               <div className={`${styles.muted} ${styles.loadedDisclosure}`}>
-                Showing {events.length} loaded events in this range. Duplicate suggestions and schedule conflicts only consider loaded events. Load more to check additional events.
+                Showing {filteredEventsForScheduleView.length} loaded event{filteredEventsForScheduleView.length === 1 ? "" : "s"} in this range{familyFilter !== "all" ? " for this filter" : ""}. Duplicate suggestions and schedule conflicts only consider loaded events. Load more to check additional events.
               </div>
-            ) : events.length ? (
+            ) : filteredEventsForScheduleView.length ? (
               <div className={`${styles.muted} ${styles.loadedDisclosure}`}>
-                All events in this range are loaded. Duplicate suggestions and schedule conflicts consider all events in this range.
+                All events in this range{familyFilter !== "all" ? " for this filter" : ""} are loaded. Duplicate suggestions and schedule conflicts consider all loaded events in this range.
               </div>
             ) : null}
           </>
         ) : null}
 
         {displayMode === "calendar" ? (
-          <CalendarErrorBoundary>
-            <PlannerCalendar
-              scheduleView={scheduleView}
-              events={events}
-              allSourceIds={seasonAllSourceIds}
-              hasMore={eventsHasMore}
-              activeTimezone={seasonCalendarTimeZone}
-              sourceLabelById={sourceLabelById}
-              entitlement={entitlementForAnalytics}
-              onTimezoneChange={(z: string) => {
-                trackPlannerEvent("planner_calendar_timezone_changed", {
-                  surface: "weekend_planner",
-                  entitlement: entitlementForAnalytics,
-                });
-                setSeasonCalendarTimeZone(z);
-              }}
-            />
-          </CalendarErrorBoundary>
+          <>
+            <CalendarErrorBoundary>
+              <PlannerCalendar
+                scheduleView={scheduleView}
+                events={filteredEventsForScheduleView}
+                allSourceIds={seasonAllSourceIds}
+                hasMore={eventsHasMore}
+                activeTimezone={seasonCalendarTimeZone}
+                sourceLabelById={sourceLabelById}
+                entitlement={entitlementForAnalytics}
+                onTimezoneChange={(z: string) => {
+                  trackPlannerEvent("planner_calendar_timezone_changed", {
+                    surface: "weekend_planner",
+                    entitlement: entitlementForAnalytics,
+                  });
+                  setSeasonCalendarTimeZone(z);
+                }}
+              />
+            </CalendarErrorBoundary>
+            {filteredEventsForScheduleView.length === 0 && familyFilter !== "all" ? (
+              <div className={styles.muted} style={{ marginTop: 10 }}>
+                No events match <b>{activeFamilyFilterLabel}</b> in this view. Try <b>All schedules</b> or another family filter.
+              </div>
+            ) : null}
+          </>
         ) : null}
 
-        {displayMode === "calendar" ? null : eventsForScheduleView.length === 0 ? (
+        {displayMode === "calendar" ? null : filteredEventsForScheduleView.length === 0 ? (
 	          scheduleView === "weekend" ? (
 	            <div className={styles.muted}>
-	              No events this weekend. Switch to <b>Upcoming</b> or <b>Season</b> to see more.
+	              {familyFilter === "all" ? (
+                  <>No events this weekend. Switch to <b>Upcoming</b> or <b>Season</b> to see more.</>
+                ) : (
+                  <>No events match <b>{activeFamilyFilterLabel}</b> this weekend. Try <b>All schedules</b> or another family filter.</>
+                )}
 	            </div>
 	          ) : scheduleView === "upcoming" ? (
 	            <div className={styles.muted}>
-	              No upcoming events yet. Connect a team calendar or add a manual event to start planning.
+	              {familyFilter === "all" ? (
+                  <>No upcoming events yet. Connect a team calendar or add a manual event to start planning.</>
+                ) : (
+                  <>No upcoming events match <b>{activeFamilyFilterLabel}</b>. Try <b>All schedules</b> or another family filter.</>
+                )}
 	            </div>
 	          ) : (
 	            <div className={styles.muted}>
-	              No season events yet. Connect a team calendar or add events manually to build your planner.
+	              {familyFilter === "all" ? (
+                  <>No season events yet. Connect a team calendar or add events manually to build your planner.</>
+                ) : (
+                  <>No season events match <b>{activeFamilyFilterLabel}</b>. Try <b>All schedules</b> or another family filter.</>
+                )}
 	            </div>
 	          )
 	        ) : (

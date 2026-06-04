@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { parseOptionalPlannerProfileId, validatePlannerAssignment } from "@/lib/planner/assignmentServer";
 import { importIcsToPlanner } from "@/lib/planner/ics-import";
 import { getTiTierServer } from "@/lib/entitlementsServer";
 
@@ -12,6 +13,8 @@ type Body = {
   source_url?: unknown;
   sourceName?: unknown;
   teamName?: unknown;
+  child_profile_id?: unknown;
+  team_profile_id?: unknown;
 };
 
 function asTrimmedString(value: unknown) {
@@ -68,10 +71,40 @@ export async function POST(req: Request) {
     "";
   const sourceName = asTrimmedString(body.sourceName);
   const teamName = asTrimmedString(body.teamName);
+  const parsedChildProfileId = parseOptionalPlannerProfileId(body.child_profile_id);
+  const parsedTeamProfileId = parseOptionalPlannerProfileId(body.team_profile_id);
+
+  if (parsedChildProfileId.invalid) {
+    return NextResponse.json({ ok: false, error: "invalid_child_profile_id" }, { status: 400 });
+  }
+  if (parsedTeamProfileId.invalid) {
+    return NextResponse.json({ ok: false, error: "invalid_team_profile_id" }, { status: 400 });
+  }
+
+  const assignmentProvided = parsedChildProfileId.provided || parsedTeamProfileId.provided;
+  const assignment = assignmentProvided
+    ? await validatePlannerAssignment({
+        supabase,
+        userId: user.id,
+        childProfileId: parsedChildProfileId.value,
+        teamProfileId: parsedTeamProfileId.value,
+      })
+    : null;
+  if (assignmentProvided && assignment && !assignment.ok) {
+    return NextResponse.json({ ok: false, error: assignment.error }, { status: assignment.status });
+  }
 
   const res = await importIcsToPlanner({
     supabase,
-    input: { userId: user.id, sourceUrl, sourceName, teamName, mode: "import" },
+    input: {
+      userId: user.id,
+      sourceUrl,
+      sourceName,
+      teamName,
+      childProfileId: assignmentProvided && assignment && assignment.ok ? assignment.childProfileId : undefined,
+      teamProfileId: assignmentProvided && assignment && assignment.ok ? assignment.teamProfileId : undefined,
+      mode: "import",
+    },
   });
 
   if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: res.status });

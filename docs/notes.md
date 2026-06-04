@@ -14,6 +14,12 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI Weekend Planner Stage `3.3C-3` family filter + import assignment:
+  - Added a compact top-level `All schedules` family filter in `apps/ti-web/app/_components/planner/PlannerClient.tsx` so schedule list/calendar views can narrow visible events by child or exact child/team assignment without changing the underlying source-derived import model.
+  - Extended the ICS import flow in `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/api/planner/sources/import-ics/route.ts`, and `apps/ti-web/lib/planner/ics-import.ts` to accept optional `child_profile_id` / `team_profile_id` at import time, enforce child→team validation, and persist assignment directly onto the imported source row.
+- TI Weekend Planner Stage `3.3C-2` sign-off:
+  - Re-run UAT on `localhost:3001` closed the remaining assignment concerns: manual-event clear-to-unassigned passed, imported connected-calendar events now display inherited family context correctly, and the child/team summary counter reads accurately.
+  - Final status: `Stage 3.3C-2 ready`; the remaining child/team manager affordance is treated as non-blocking inline-UI polish rather than a stage blocker.
 - TI Weekend Planner Stage `3.3C-2` UAT follow-up:
   - Fixed imported-event family-context rendering in `apps/ti-web/app/_components/planner/PlannerClient.tsx` so connected calendar events inherit and display their assigned child/team label from the linked source even when the card render path only has `source_id` / `source_event_uid`.
   - Updated `apps/ti-web/app/_components/planner/ChildTeamManager.tsx` to use the planner's already-loaded child/team profiles for its closed-state summary so the `Child & team profiles` counter no longer misleadingly shows `0 child profiles · 0 active teams` before opening the manager.

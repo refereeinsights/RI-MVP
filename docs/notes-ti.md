@@ -15,6 +15,12 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI Weekend Planner Stage `3.3C-3` family filter + import assignment:
+  - Added a compact `All schedules` family filter to the planner header so users can narrow visible schedule events by child or exact child/team assignment in both list and calendar views.
+  - Extended the ICS import flow to accept optional child/team selection at connect time, using the existing source-level assignment model and server-side child→team validation.
+- TI Weekend Planner Stage `3.3C-2` sign-off:
+  - Re-run UAT on `localhost:3001` passed the remaining assignment checks: manual-event clear flow, imported-event family-context inheritance, and corrected child/team summary counts.
+  - Final status: `Stage 3.3C-2 ready`; any remaining child/team manager affordance polish is non-blocking follow-up work.
 - TI Weekend Planner Stage `3.3C-2` UAT follow-up:
   - Fixed imported-event family-context rendering in `apps/ti-web/app/_components/planner/PlannerClient.tsx` so connected calendar events now inherit and display child/team assignment from their linked source.
   - Updated `apps/ti-web/app/_components/planner/ChildTeamManager.tsx` to reuse already-loaded planner child/team profiles for its closed-state counts, eliminating the misleading `0 / 0` summary before opening the manager.

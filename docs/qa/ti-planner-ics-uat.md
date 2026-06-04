@@ -6,6 +6,31 @@ Production-only DB note: see `docs/weekend-planner-uat.md` for UAT accounts, hos
 Current product snapshot: `docs/weekend-planner-current-state.md`.
 Stage 2.9A prompt (docs-first): `docs/prompts/ti-planner-stage-2.9a-ics-source-identity-audit-sports-family-uat-prep.md`.
 
+## Stage 3.3C-2 — Child/Team Assignment Sign-off
+
+- Date: `2026-06-04`
+- Environment: `localhost:3001`
+- Account: `UAT Planner A`
+- Overall result: `PASS`
+- Final readiness: `Stage 3.3C-2 ready`
+
+### Re-run summary
+
+| Finding | Re-run result | Notes |
+| --- | --- | --- |
+| `F-NEW-1` — Manual event edit → clear assignment | `PASS` | Clear to `Unassigned` resets team to `No team`; save persists and the card removes the `ASSIGNED TO` section after reload. |
+| `F-NEW-2` — Imported events not showing family context | `PASS` | Connected calendar events inherit source assignment and render `ASSIGNED TO` family context correctly; switching source assignment updates imported cards after reload. |
+| `F-NEW-3` — Child/team profiles counter + manage control | `PARTIAL / non-blocking` | Counter now reads correctly. `Manage child/team profiles` is an inline expander, not modal/navigation. No `3.3C-2` blocker remains. |
+
+### Sign-off notes
+
+- Source assignment: passed
+- Manual event assignment: passed
+- Imported event family-context inheritance: passed
+- Planner card assignment display: passed
+- No-regression checks: passed
+- Remaining affordance polish around the child/team manager can be handled in a later UX pass and does not block `3.3C-2`
+
 ## Prereqs
 - TI dev server running (example): `npm run dev --workspace ti-web -- -p 3001`
 - A test user account you can log into

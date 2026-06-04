@@ -23,6 +23,8 @@ export type IcsImportInput = {
   sourceUrl: string;
   sourceName: string | null;
   teamName: string | null;
+  childProfileId?: string | null;
+  teamProfileId?: string | null;
   mode: "import" | "refresh";
   sourceId?: string;
 };
@@ -493,6 +495,8 @@ export async function importIcsToPlanner(params: {
   const requestedTeamName = clamp(input.teamName, 80);
   let finalSourceName = requestedSourceName;
   let finalTeamName = requestedTeamName;
+  let finalChildProfileId = input.childProfileId ?? null;
+  let finalTeamProfileId = input.teamProfileId ?? null;
 
   const sourceId = input.sourceId ? String(input.sourceId).trim() : "";
   if (input.sourceId && !isUuid(sourceId)) return { ok: false, status: 400, error: "invalid_source_id" };
@@ -501,7 +505,7 @@ export async function importIcsToPlanner(params: {
   let finalSourceId = sourceId;
   if (!finalSourceId) {
     const existing = await (supabase.from("planner_event_sources" as any) as any)
-      .select("id,source_name,team_name")
+      .select("id,source_name,team_name,child_profile_id,team_profile_id")
       .eq("user_id", input.userId)
       .eq("source_type", "ics")
       .eq("source_url", fetched.finalUrl)
@@ -514,9 +518,13 @@ export async function importIcsToPlanner(params: {
 
     const existingSourceName = existing.data?.source_name ? String(existing.data.source_name).trim() : "";
     const existingTeamName = existing.data?.team_name ? String(existing.data.team_name).trim() : "";
+    const existingChildProfileId = existing.data?.child_profile_id ? String(existing.data.child_profile_id).trim() : null;
+    const existingTeamProfileId = existing.data?.team_profile_id ? String(existing.data.team_profile_id).trim() : null;
 
     finalSourceName = requestedSourceName || (existingSourceName ? existingSourceName.slice(0, 100) : null);
     finalTeamName = requestedTeamName || (existingTeamName ? existingTeamName.slice(0, 80) : null);
+    finalChildProfileId = input.childProfileId === undefined ? existingChildProfileId : input.childProfileId ?? null;
+    finalTeamProfileId = input.teamProfileId === undefined ? existingTeamProfileId : input.teamProfileId ?? null;
 
     const upsertSource = await (supabase.from("planner_event_sources" as any) as any)
       .upsert(
@@ -526,6 +534,8 @@ export async function importIcsToPlanner(params: {
           source_name: finalSourceName,
           source_url: fetched.finalUrl,
           team_name: finalTeamName,
+          child_profile_id: finalChildProfileId,
+          team_profile_id: finalTeamProfileId,
           sync_status: "success",
           sync_error: null,
           last_synced_at: new Date().toISOString(),
