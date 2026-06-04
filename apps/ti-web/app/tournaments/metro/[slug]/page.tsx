@@ -696,7 +696,7 @@ export default async function MetroMarketTournamentsPage({
                     ) : (
                       <div />
                     )}
-                    <Link href={`/tournaments/${t.slug}`} className="primaryLink">
+                    <Link href={`/tournaments/${t.slug}`} className="primaryLink cardStretchLink">
                       View details
                     </Link>
                   </div>

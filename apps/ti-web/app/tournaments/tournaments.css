@@ -1020,6 +1020,33 @@
   color: rgba(255,255,255,1);
 }
 
+.cardStretchLink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+.card .cardCtaGrid > *,
+.card .cardCtaGrid .cardCta--plan,
+.card .venueMapPreviewStrip,
+.card .primaryLink:not(.cardStretchLink),
+.card .secondaryLink:not(.cardStretchLink) {
+  position: relative;
+  z-index: 1;
+}
+
+.card:has(.cardStretchLink) {
+  cursor: pointer;
+}
+
+.card:has(.cardStretchLink):hover h2 {
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.7);
+  text-underline-offset: 3px;
+}
+
 /* Tournament card: lightweight venue map preview strip */
 .venueMapPreviewStrip {
   display: grid;

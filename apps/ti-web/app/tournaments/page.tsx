@@ -778,7 +778,7 @@ export default async function TournamentsPage({
                               See Venues
                             </Link>
                           ) : null}
-                          <Link href={`/tournaments/${t.slug}`} className="cardDetailsLink">
+                          <Link href={`/tournaments/${t.slug}`} className="cardDetailsLink cardStretchLink">
                             Tournament Details
                           </Link>
                         </div>

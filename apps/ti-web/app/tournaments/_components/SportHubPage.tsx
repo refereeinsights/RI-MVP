@@ -231,7 +231,7 @@ export async function SportHubPage({ sport, page }: { sport: string; page: numbe
                                   See Venues
                                 </Link>
                               ) : null}
-                              <Link href={`/tournaments/${t.slug}`} className="cardDetailsLink">
+                              <Link href={`/tournaments/${t.slug}`} className="cardDetailsLink cardStretchLink">
                                 Tournament Details
                               </Link>
                             </div>

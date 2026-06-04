@@ -663,7 +663,7 @@ export default async function June2026TournamentsPage({
                                 Rentals
                               </a>
                             ) : null}
-                            <Link className="secondaryLink" href={`/tournaments/${t.slug}`}>
+                            <Link className="secondaryLink cardStretchLink" href={`/tournaments/${t.slug}`}>
                               View tournament
                             </Link>
                           </div>

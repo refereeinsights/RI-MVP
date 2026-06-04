@@ -14,6 +14,8 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI tournament directory card clickability follow-up:
+  - Added a shared `cardStretchLink` pattern in `apps/ti-web/app/tournaments/tournaments.css` and applied it to tournament detail links on the main directory, sport hub, state hub, metro directory, hub directory, and June 2026 listing cards so the full card body now navigates without changing secondary CTA or venue-map behavior.
 - Weekend Planner Stage `3.3C-1` archived-team restore follow-up:
   - Updated the child/team manager so archived teams remain visible under active children when `Show archived profiles` is enabled, restoring the missing UI path for `Restore team` without adding any event or feed assignment behavior.
 - Weekend Planner Stage `3.3C-1` foundation:
