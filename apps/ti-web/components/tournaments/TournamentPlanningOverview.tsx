@@ -68,7 +68,7 @@ export default function TournamentPlanningOverview(props: {
           <div>
             <TournamentMapCta
               href={props.mapHref}
-              label="See the closest options →"
+              label="See closest hotels, food & coffee"
               sourceContext="tournament_page:overview_cta"
               tournamentSlug={props.tournamentSlug ?? null}
               sport={props.tournament.sport ?? null}

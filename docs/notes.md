@@ -14,6 +14,8 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI tournament funnel copy polish:
+  - Replaced public-facing `Team Stays` rental copy with clearer parent-facing rental language, tightened venue/premium CTA labels around nearby hotels/food/coffee, and renamed the 30-day preview button copy to `Unlock premium access` without changing pricing, entitlement, Stripe, or auth behavior.
 - TI tournament directory card clickability follow-up:
   - Replaced the failed CTA-stretch attempt with a dedicated `cardOverlayLink` pattern in `apps/ti-web/app/tournaments/tournaments.css` and on the affected listing surfaces so the card body can navigate to tournament details while secondary CTAs and venue-map links stay above the overlay.
 - Weekend Planner Stage `3.3C-1` archived-team restore follow-up:

@@ -1770,7 +1770,7 @@ export default function TournamentVenueMapClient({
               {owlEyePreviewMode ? (
                 <div className={styles.owlPreviewBanner} role="status" aria-live="polite">
                   <div className={styles.owlPreviewBannerCopy}>
-                    Showing a limited preview near this venue. Upgrade to see all nearby options.
+                    Showing a limited preview near this venue. Unlock nearby hotels, food, coffee, and rentals.
                   </div>
                   <div className={styles.owlPreviewBannerActions}>
                     <WeekendProUpgradeModalTrigger
@@ -1781,7 +1781,7 @@ export default function TournamentVenueMapClient({
                       venue_slug={selectedVenue.seo_slug ?? selectedVenue.id}
                       entry_point="limited_preview_banner_modal"
                       cta_label="Upgrade to Weekend Pro"
-                      label="Unlock full plan"
+                      label="See nearby options"
                       user_tier={entitlementTier}
                       has_affiliate_visible={false}
                       onContinueLimited={() => void handleContinueLimitedResults()}
@@ -1928,7 +1928,7 @@ export default function TournamentVenueMapClient({
                                   venue_slug={selectedVenue.seo_slug ?? selectedVenue.id}
                                   entry_point="limited_preview_card_upgrade_modal"
                                   cta_label="Upgrade to Weekend Pro"
-                                  label="Unlock full plan"
+                                  label="See nearby options"
                                   user_tier={entitlementTier}
                                   has_affiliate_visible={false}
                                   onContinueLimited={() => void handleContinueLimitedResults()}
@@ -1989,7 +1989,7 @@ export default function TournamentVenueMapClient({
                       target="_blank"
                       rel="noopener noreferrer sponsored"
                     >
-	                      Team Stays nearby
+	                      Rentals nearby
 	                    </a>
                     <Link
                       className={styles.affiliateCta}
@@ -2042,7 +2042,7 @@ export default function TournamentVenueMapClient({
                     venue_slug={selectedVenue.seo_slug ?? selectedVenue.id}
                     entry_point="map_primary_owlseye_unlock_modal"
                     cta_label="Upgrade to Weekend Pro"
-                    label="See the closest options →"
+                    label="See closest hotels, food & coffee"
                     user_tier={entitlementTier}
                     has_affiliate_visible={false}
                     onContinueLimited={() => void handleContinueLimitedResults()}

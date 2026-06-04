@@ -509,7 +509,7 @@ export default async function TournamentsPage({
               lineHeight: 1.5,
             }}
           >
-            Browse upcoming tournaments by sport, state, and month, then use the map to plan hotels and Team Stays by venue location.
+            Browse upcoming tournaments by sport, state, and month, then use the map to plan hotels and vacation rentals by venue location.
           </p>
         </div>
 
@@ -773,7 +773,7 @@ export default async function TournamentsPage({
                               target="_blank"
                               rel="noopener noreferrer sponsored"
                             >
-                              Team Stays
+                              Find Rentals
                             </a>
                           ) : null}
                           {!showVenueMapPreview && venueCount > 0 ? (

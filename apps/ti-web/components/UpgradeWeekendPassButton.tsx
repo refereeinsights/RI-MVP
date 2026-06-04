@@ -27,7 +27,7 @@ export default function UpgradeWeekendPassButton(props: UpgradeWeekendPassButton
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const label = (props.label || "Start 30-day Founders Preview").trim();
+  const label = (props.label || "Unlock premium access").trim();
   const hasAffiliateVisible = Boolean(props.has_affiliate_visible);
 
   const body = useMemo(

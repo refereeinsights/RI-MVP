@@ -22,8 +22,8 @@ export default function VenueMapTeaserCard({ tournamentName, slug, venueCount, c
     : null;
   const helper =
     venueCount === 1
-      ? "Find hotels and Team Stays near the venue."
-      : "Compare hotels and Team Stays by venue location.";
+      ? "Find hotels and vacation rentals near the venue."
+      : "Compare hotels and vacation rentals by venue location.";
 
   return (
     <Link
@@ -49,4 +49,3 @@ export default function VenueMapTeaserCard({ tournamentName, slug, venueCount, c
     </Link>
   );
 }
-

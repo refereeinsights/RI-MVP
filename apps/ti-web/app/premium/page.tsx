@@ -334,7 +334,7 @@ export default async function PremiumPage({
                   cta_label="Upgrade to Weekend Pro"
                 />
                 <div style={{ display: "grid", gap: 6, justifyItems: "center", textAlign: "center" }}>
-                  <div style={{ fontSize: 13, fontWeight: 950, opacity: 0.95 }}>Or try a 30-day preview</div>
+                  <div style={{ fontSize: 13, fontWeight: 950, opacity: 0.95 }}>Or get 30-day premium access</div>
                   <div className="muted" style={{ fontSize: 13, maxWidth: 520 }}>
                     Unlock Weekend Pro for your next tournament — <strong>$4.99</strong> for 30 days.
                   </div>
@@ -344,8 +344,8 @@ export default async function PremiumPage({
                       source_page="premium"
                       source_context="premium_preview"
                       entry_point="premium_preview"
-                      cta_label="Start 30-day Founders Preview"
-                      label="Start 30-day Founders Preview"
+                      cta_label="Unlock premium access"
+                      label="Unlock premium access"
                       has_affiliate_visible={false}
                     />
                   </div>

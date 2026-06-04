@@ -438,7 +438,7 @@ export default async function SportStateMetroHubPage({
                                 target="_blank"
                                 rel="noopener noreferrer sponsored"
                               >
-                                Team Stays
+                                Find Rentals
                               </a>
                             ) : null}
                             {!showVenueMapPreview && venueCount > 0 ? (

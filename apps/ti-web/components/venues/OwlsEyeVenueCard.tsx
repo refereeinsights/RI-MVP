@@ -441,7 +441,7 @@ export default function OwlsEyeVenueCard({
                   </div>
                 ) : null}
                 <div className="detailVenueNearbyPreview__teaser">
-                  Open Premium planning details to view full list and one-tap directions.
+                  Open nearby planning details to view full lists and one-tap directions.
                 </div>
               </>
             ) : (
@@ -550,7 +550,7 @@ export default function OwlsEyeVenueCard({
         ) : null}
 
         <details className="detailVenuePremium">
-          <summary className="detailVenuePremium__summary">Premium planning details</summary>
+          <summary className="detailVenuePremium__summary">See closest hotels, food & coffee</summary>
           <div className="detailVenuePremium__body">
             {demoScores ? (
               <div style={{ marginBottom: 12 }}>
@@ -610,15 +610,15 @@ export default function OwlsEyeVenueCard({
                   </Link>
                 </div>
                 <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
-                  <div style={{ fontSize: 13, fontWeight: 950, opacity: 0.95 }}>Or try a 30-day preview — $4.99</div>
+                  <div style={{ fontSize: 13, fontWeight: 950, opacity: 0.95 }}>Or get 30-day premium access — $4.99</div>
                   <UpgradeWeekendPassButton
                     className="secondaryLink"
                     source_page="venue_detail_locked_section"
                     source_context="venue_detail_locked_section"
                     venue_slug={(venue as any)?.seo_slug ?? null}
                     entry_point="venue_detail_locked_section"
-                    cta_label="Start 30-day Founders Preview"
-                    label="Start 30-day Founders Preview"
+                    cta_label="Unlock premium access"
+                    label="Unlock premium access"
                     has_affiliate_visible={false}
                   />
                   <div style={{ fontSize: 13, fontWeight: 900, opacity: 0.95 }}>{WEEKEND_PRO_FOUNDING_DEADLINE_COPY}</div>

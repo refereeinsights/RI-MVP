@@ -508,7 +508,7 @@ export default async function MetroMarketTournamentsPage({
               lineHeight: 1.5,
             }}
           >
-            Browse upcoming tournaments, then use the map to plan hotels and Team Stays by venue location.
+            Browse upcoming tournaments, then use the map to plan hotels and vacation rentals by venue location.
           </p>
         </div>
 

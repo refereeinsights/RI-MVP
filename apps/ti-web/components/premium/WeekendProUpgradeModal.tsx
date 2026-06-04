@@ -120,11 +120,11 @@ export default function WeekendProUpgradeModal(props: WeekendProUpgradeModalProp
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div>
               <div style={{ fontSize: 18, fontWeight: 950, lineHeight: 1.15 }}>
-                Unlock the full weekend plan
+                See the closest hotels, food, coffee, and rentals near this venue
               </div>
               <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9, lineHeight: 1.35 }}>
-                You’re viewing limited results for this venue. Unlock the full plan to see hotels, rentals, food, coffee,
-                quick eats, hangouts, and local options around the fields.
+                You’re viewing limited results for this venue. Unlock premium access to compare nearby hotels, rentals,
+                coffee, quick food, and local planning options around the fields.
               </div>
             </div>
             <button
@@ -146,9 +146,9 @@ export default function WeekendProUpgradeModal(props: WeekendProUpgradeModalProp
           </div>
 
           <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6, fontSize: 13, opacity: 0.95 }}>
-            <li>See hotels and rentals near the fields</li>
-            <li>Avoid long drives between games</li>
-            <li>Find coffee, food, and local spots fast</li>
+            <li>See nearby hotels and vacation rentals around the fields</li>
+            <li>Find coffee, quick food, and family-friendly local spots fast</li>
+            <li>Keep venue planning details in one place for the weekend</li>
           </ul>
 
           <div style={{ marginTop: 4, display: "grid", gap: 4 }}>
@@ -187,7 +187,7 @@ export default function WeekendProUpgradeModal(props: WeekendProUpgradeModalProp
               has_affiliate_visible={hasAffiliateVisible}
             />
             <div style={{ marginTop: -4, display: "grid", gap: 6 }}>
-              <div style={{ fontSize: 13, fontWeight: 950, opacity: 0.95 }}>Or try a 30-day preview</div>
+              <div style={{ fontSize: 13, fontWeight: 950, opacity: 0.95 }}>Or get 30-day premium access</div>
               <div style={{ fontSize: 12, opacity: 0.82, lineHeight: 1.35 }}>
                 Unlock Weekend Pro for your next tournament — <strong>$4.99</strong> for 30 days.
               </div>
@@ -214,8 +214,8 @@ export default function WeekendProUpgradeModal(props: WeekendProUpgradeModalProp
                 tournament_slug={props.tournament_slug ?? null}
                 venue_slug={props.venue_slug ?? null}
                 entry_point={props.entry_point}
-                cta_label="Start 30-day Founders Preview"
-                label="Start 30-day Founders Preview"
+                cta_label="Unlock premium access"
+                label="Unlock premium access"
                 user_tier={props.user_tier}
                 has_affiliate_visible={hasAffiliateVisible}
               />
@@ -242,7 +242,7 @@ export default function WeekendProUpgradeModal(props: WeekendProUpgradeModalProp
                 cursor: "pointer",
               }}
             >
-              Continue with limited results
+              Continue with limited preview
             </button>
             <div style={{ fontSize: 12, opacity: 0.85, textAlign: "center", fontWeight: 800 }}>
               Secure checkout powered by Stripe

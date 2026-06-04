@@ -138,7 +138,7 @@ export async function SportHubPage({ sport, page }: { sport: string; page: numbe
               className="subtitle"
               style={{ marginTop: 8, maxWidth: 720, fontSize: 14, lineHeight: 1.6 }}
             >
-              Browse upcoming tournaments, then use the map to plan hotels and Team Stays by venue location.
+              Browse upcoming tournaments, then use the map to plan hotels and vacation rentals by venue location.
             </p>
           </div>
 
@@ -226,7 +226,7 @@ export async function SportHubPage({ sport, page }: { sport: string; page: numbe
                                   target="_blank"
                                   rel="noopener noreferrer sponsored"
                                 >
-                                  Team Stays
+                                  Find Rentals
                                 </a>
                               ) : null}
                               {!showVenueMapPreview && venueCount > 0 ? (
