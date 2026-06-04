@@ -15,6 +15,9 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI Weekend Planner Stage `3.3C-4C` single-week calendar view:
+  - Added explicit `Month`, `Week`, and `Agenda` calendar modes so families can switch into a true one-week planner view without losing existing month/agenda behavior.
+  - Reused existing family filters, source-derived assignment, child colors, and event detail behavior in week view, with mobile-safe contained calendar overflow rather than page-level horizontal overflow.
 - TI Weekend Planner Stage `3.3C-4B` child color selection + badge consistency:
   - Added optional curated child-color persistence on planner child profiles so families can choose ownership colors in the child edit UI instead of relying only on deterministic defaults.
   - Updated planner list/calendar/legend rendering to honor selected child colors and tightened long family badges so labels like `Casey · Owls TC` stay in the same upper-right badge location as shorter labels.

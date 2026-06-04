@@ -488,6 +488,47 @@ Use this after Stage `3.3C-4A` is stable. Keep scope on child-owned color select
 
 ---
 
+### Stage 3.3C-4C UAT (single-week calendar view)
+
+Use this after Stage `3.3C-4B` is stable. Keep scope on the new `Week` calendar mode and on preserving existing month/agenda behavior.
+
+- [ ] Mode switching:
+  - [ ] Default planner behavior is unchanged before selecting `Week`.
+  - [ ] `Week` mode is available in the calendar controls.
+  - [ ] Switching from `Month` → `Week` works without a reload.
+  - [ ] Switching back to `Month` and `Agenda` still works.
+- [ ] Week rendering:
+  - [ ] `Week` shows a true single-week calendar, not a month slice.
+  - [ ] Previous / next week navigation works.
+  - [ ] The visible label reflects the active week range.
+  - [ ] Event detail open/close still works from week view.
+- [ ] Filters and ownership:
+  - [ ] `All schedules` works in week view.
+  - [ ] Child filter works in week view.
+  - [ ] Child/team filter works in week view.
+  - [ ] Imported events still reflect source-derived assignment only.
+  - [ ] Child colors remain visible and correct in week view.
+- [ ] Signal separation:
+  - [ ] Source labels remain visible/readable in week view.
+  - [ ] Conflict indicators remain visible/readable in week view.
+  - [ ] Child ownership color is not confused with source identity or conflicts.
+- [ ] Timezone:
+  - [ ] Changing timezone updates week view correctly.
+  - [ ] Switching modes does not reset or corrupt the active timezone.
+- [ ] Mobile safety (`375px` if possible):
+  - [ ] No horizontal page overflow is introduced.
+  - [ ] If the week grid scrolls horizontally, overflow stays contained inside the calendar frame only.
+  - [ ] Week controls remain reachable and readable.
+  - [ ] Event text remains usable enough to open details.
+- [ ] No regressions:
+  - [ ] Import-time assignment still works.
+  - [ ] Source reassignment still works.
+  - [ ] Duplicate / merge behavior is unchanged.
+  - [ ] Venue / map behavior is unchanged.
+  - [ ] Entitlement behavior is unchanged.
+
+---
+
 ### Stage 2.8 UAT (polish + launch readiness)
 
 Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.

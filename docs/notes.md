@@ -14,6 +14,9 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI Weekend Planner Stage `3.3C-4C` single-week calendar view:
+  - Extended `apps/ti-web/app/_components/planner/PlannerCalendar.tsx` with explicit `Month`, `Week`, and `Agenda` modes using Schedule-X's built-in week view so users can switch into a true single-week calendar without changing assignment, filter, or timezone behavior.
+  - Updated `apps/ti-web/app/_components/planner/Planner.module.css` to support the new mode controls, week-range navigation label, and mobile-safe contained horizontal scrolling inside the calendar frame so week view does not create page-level overflow on narrow screens.
 - TI Weekend Planner Stage `3.3C-4B` child color selection + badge consistency:
   - Added `supabase/migrations/20260604_ti_planner_child_colors.sql` plus planner child API/type support so each child profile can persist an optional curated `color_token` without changing assignment semantics.
   - Updated `apps/ti-web/app/_components/planner/ChildTeamManager.tsx`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, and `apps/ti-web/lib/planner/familyColors.ts` to let users choose child colors in the edit UI, apply those colors across list/calendar/legend ownership surfaces, and keep long family badges anchored in the same upper-right location with compact labels.

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScheduleXCalendar, useNextCalendarApp } from "@schedule-x/react";
 import {
+  createViewWeek,
   createViewMonthAgenda,
   createViewMonthGrid,
 } from "@schedule-x/calendar";
@@ -55,13 +56,18 @@ function formatEventTimeRange(args: { startIso: string; endIso: string; timeZone
 }
 
 type DetailState = { open: boolean; eventId: string | null };
+type CalendarMode = "month" | "week" | "agenda";
 
 export default function PlannerCalendar(props: Props) {
   const hasEvents = (props.events ?? []).length > 0;
+  const [calendarMode, setCalendarMode] = useState<CalendarMode>(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) return "agenda";
+    return "month";
+  });
 
   const [tzPickerOpen, setTzPickerOpen] = useState(false);
   const [detail, setDetail] = useState<DetailState>({ open: false, eventId: null });
-  const [displayedMonth, setDisplayedMonth] = useState<{ year: number; month: number } | null>(null);
+  const [displayedDate, setDisplayedDate] = useState<string | null>(null);
   const [weeksToShow, setWeeksToShow] = useState(6);
   const detailEvent = useMemo(() => {
     if (!detail.open || !detail.eventId) return null;
@@ -243,43 +249,43 @@ export default function PlannerCalendar(props: Props) {
   const initialViewWasSetRef = useRef(false);
   const initialJumpToEventMonthRef = useRef(false);
 
-  const views = useMemo(() => [createViewMonthGrid(), createViewMonthAgenda()] as any, []);
+  const views = useMemo(() => [createViewMonthGrid(), createViewWeek(), createViewMonthAgenda()] as any, []);
   const monthGridName = views.find((v: any) => v?.name?.includes?.("month") && v?.name?.includes?.("grid"))?.name ?? views[0]?.name;
+  const weekName = views.find((v: any) => v?.name?.includes?.("week") && !v?.name?.includes?.("agenda"))?.name ?? views[0]?.name;
   const monthAgendaName = views.find((v: any) => v?.name?.includes?.("month") && v?.name?.includes?.("agenda"))?.name ?? views[0]?.name;
+  const currentViewName = calendarMode === "week" ? weekName : calendarMode === "agenda" ? monthAgendaName : monthGridName;
+
+  function syncDisplayedDateFromControls() {
+    try {
+      const d = controls.getDate();
+      if (d?.year && d?.month && d?.day) setDisplayedDate(`${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`);
+    } catch {
+      // ignore
+    }
+  }
 
   const calendar = useNextCalendarApp({
     theme: "shadcn",
     views,
-    defaultView: window.innerWidth < 768 ? monthAgendaName : monthGridName,
+    defaultView: currentViewName,
     timezone: calendarTz,
     events: sxEvents as any,
     calendars: sxCalendars as any,
     plugins: [eventsService as any, controls as any],
     callbacks: {
       onRangeUpdate: (_range: any) => {
-        try {
-          const d = controls.getDate();
-          if (d?.year && d?.month) setDisplayedMonth({ year: d.year, month: d.month });
-        } catch {
-          // ignore
-        }
+        syncDisplayedDateFromControls();
       },
       onRender: () => {
         if (!initialViewWasSetRef.current) {
           initialViewWasSetRef.current = true;
           try {
             controls.setTimezone(calendarTz as any);
-            controls.setView((window.innerWidth < 768 ? monthAgendaName : monthGridName) as any);
+            controls.setView(currentViewName as any);
           } catch {
             // ignore
           }
-          // Seed the displayed month label from controls on first render
-          try {
-            const d = controls.getDate();
-            if (d?.year && d?.month) setDisplayedMonth({ year: d.year, month: d.month });
-          } catch {
-            // ignore
-          }
+          syncDisplayedDateFromControls();
         }
 
         try {
@@ -298,11 +304,14 @@ export default function PlannerCalendar(props: Props) {
               .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)) || String(a.id).localeCompare(String(b.id)))[0];
             if (earliest?.starts_at) {
               const zdt = Temporal.Instant.from(String(earliest.starts_at)).toZonedDateTimeISO(calendarTz);
-              const firstOfMonth = Temporal.PlainDate.from({ year: zdt.year, month: zdt.month, day: 1 });
+              const targetDate =
+                calendarMode === "week"
+                  ? Temporal.PlainDate.from({ year: zdt.year, month: zdt.month, day: zdt.day })
+                  : Temporal.PlainDate.from({ year: zdt.year, month: zdt.month, day: 1 });
               // Defer one tick so the calendar controls are definitely ready.
               setTimeout(() => {
                 try {
-                  controls.setDate(firstOfMonth as any);
+                  controls.setDate(targetDate as any);
                 } catch {
                   // ignore
                 }
@@ -335,6 +344,15 @@ export default function PlannerCalendar(props: Props) {
 
   useEffect(() => {
     try {
+      controls.setView(currentViewName as any);
+      syncDisplayedDateFromControls();
+    } catch {
+      // ignore
+    }
+  }, [controls, currentViewName]);
+
+  useEffect(() => {
+    try {
       controls.setTimezone(calendarTz as any);
     } catch {
       // ignore
@@ -346,26 +364,49 @@ export default function PlannerCalendar(props: Props) {
   }, [sxEvents, eventsService]);
 
   const navNextDisabled = useMemo(() => {
-    if (props.scheduleView === "upcoming" && displayedMonth) {
+    if (calendarMode === "week") return false;
+    if (props.scheduleView === "upcoming" && displayedDate) {
       const now = new Date();
       const limitYear = now.getMonth() >= 10 ? now.getFullYear() + 1 : now.getFullYear();
       const limitMonth = ((now.getMonth() + 2) % 12) + 1;
+      const date = new Date(`${displayedDate}T00:00:00`);
       if (
-        displayedMonth.year > limitYear ||
-        (displayedMonth.year === limitYear && displayedMonth.month >= limitMonth)
+        date.getFullYear() > limitYear ||
+        (date.getFullYear() === limitYear && date.getMonth() + 1 >= limitMonth)
       ) return true;
     }
-    return weeksToShow >= 6;
-  }, [props.scheduleView, displayedMonth, weeksToShow]);
+    return calendarMode === "month" && weeksToShow >= 6;
+  }, [calendarMode, props.scheduleView, displayedDate, weeksToShow]);
 
-  function goToAdjacentMonth(delta: 1 | -1) {
+  function goToAdjacentRange(delta: 1 | -1) {
     try {
       const cur = controls.getDate();
-      controls.setDate(cur.add({ months: delta }) as any);
+      controls.setDate(cur.add(calendarMode === "week" ? { weeks: delta } : { months: delta }) as any);
     } catch {
       // ignore
     }
   }
+
+  const displayedRangeLabel = useMemo(() => {
+    if (!displayedDate) return "";
+    const [yearText, monthText, dayText] = displayedDate.split("-");
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+    if (!year || !month || !day) return "";
+    const date = Temporal.PlainDate.from({ year, month, day });
+    if (calendarMode === "week") {
+      const weekStart = date.subtract({ days: date.dayOfWeek - 1 });
+      const weekEnd = weekStart.add({ days: 6 });
+      const startDate = new Date(weekStart.year, weekStart.month - 1, weekStart.day);
+      const endDate = new Date(weekEnd.year, weekEnd.month - 1, weekEnd.day);
+      const sameMonth = weekStart.month === weekEnd.month && weekStart.year === weekEnd.year;
+      const startFmt = new Intl.DateTimeFormat(undefined, sameMonth ? { month: "short", day: "numeric" } : { month: "short", day: "numeric" });
+      const endFmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
+      return `${startFmt.format(startDate)} – ${endFmt.format(endDate)}`;
+    }
+    return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
+  }, [calendarMode, displayedDate]);
 
   return (
     <div className={styles.calendarContainer}>
@@ -437,31 +478,44 @@ export default function PlannerCalendar(props: Props) {
         </div>
       ) : (
         <div className={styles.calendarFrame}>
+          <div className={styles.calendarModeRow}>
+            {([
+              { value: "month", label: "Month" },
+              { value: "week", label: "Week" },
+              { value: "agenda", label: "Agenda" },
+            ] as const).map((mode) => (
+              <button
+                key={mode.value}
+                type="button"
+                className={calendarMode === mode.value ? styles.calendarModeBtnActive : styles.calendarModeBtn}
+                aria-pressed={calendarMode === mode.value}
+                onClick={() => setCalendarMode(mode.value)}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
           <div className={styles.calendarNavBar}>
             <button
               className={styles.calendarNavBtn}
               type="button"
-              aria-label="Previous month"
-              onClick={() => goToAdjacentMonth(-1)}
+              aria-label={calendarMode === "week" ? "Previous week" : "Previous month"}
+              onClick={() => goToAdjacentRange(-1)}
             >
               &#8249;
             </button>
-            <span className={styles.calendarNavLabel}>
-              {displayedMonth
-                ? new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(
-                    new Date(displayedMonth.year, displayedMonth.month - 1, 1)
-                  )
-                : ""}
-            </span>
+            <span className={styles.calendarNavLabel}>{displayedRangeLabel}</span>
             <button
               className={styles.calendarNavBtn}
               type="button"
-              aria-label="Next month"
+              aria-label={calendarMode === "week" ? "Next week" : "Next month"}
               disabled={navNextDisabled}
-              onClick={() => goToAdjacentMonth(1)}
+              onClick={() => goToAdjacentRange(1)}
             >
               &#8250;
             </button>
+            <div className={styles.calendarNavSidecar}>
+            {calendarMode === "month" ? (
             <div className={styles.calendarZoomRow}>
               <button
                 className={styles.calendarNavBtn}
@@ -483,19 +537,23 @@ export default function PlannerCalendar(props: Props) {
                 +
               </button>
             </div>
+            ) : null}
+            </div>
           </div>
           {props.scheduleView === "upcoming" ? (
             <div style={{ fontSize: 11, padding: "4px 14px 0", textAlign: "center", color: "#6b7280" }}>
               Events loaded for next 30 days
             </div>
           ) : null}
+          {calendarMode === "month" ? (
           <div className={styles.calendarWeekdayBar} aria-hidden="true">
             {(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const).map((d) => (
               <span key={d} className={styles.calendarWeekdayCell}>{d}</span>
             ))}
           </div>
+          ) : null}
           <div
-            className={`sx-react-calendar-wrapper ${styles.sxWrapper}`}
+            className={`sx-react-calendar-wrapper ${styles.sxWrapper} ${calendarMode === "week" ? styles.sxWrapperWeek : ""}`}
             style={{ "--calendar-weeks-visible": weeksToShow } as React.CSSProperties}
           >
             <ScheduleXCalendar calendarApp={calendar} />

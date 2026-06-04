@@ -549,6 +549,32 @@
   flex-shrink: 0;
 }
 
+.calendarModeRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 14px 0;
+  background: #ffffff;
+}
+
+.calendarModeBtn,
+.calendarModeBtnActive {
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.calendarModeBtnActive {
+  background: #166534;
+  border-color: #166534;
+  color: #ffffff;
+}
+
 .calendarNavLabel {
   font-size: 14px;
   font-weight: 700;
@@ -594,6 +620,12 @@
   gap: 0;
 }
 
+.calendarNavSidecar {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 68px;
+}
+
 .calendarZoomLabel {
   font-size: 12px;
   font-weight: 700;
@@ -609,6 +641,35 @@
   padding: 6px 2px 4px;
   font-size: 11px;
   color: #6b7280;
+}
+
+.sxWrapperWeek {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.sxWrapperWeek :global(.sx__week-wrapper) {
+  min-width: 760px;
+}
+
+.sxWrapperWeek :global(.sx__week-header) {
+  background: #f8fafc;
+}
+
+.sxWrapperWeek :global(.sx__week-grid__day-name) {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sxWrapperWeek :global(.sx__week-grid__date-number) {
+  font-weight: 800;
+}
+
+.sxWrapperWeek :global(.sx__time-grid-event-title),
+.sxWrapperWeek :global(.sx__time-grid-event-time) {
+  line-height: 1.25;
 }
 
 .legendTitle {
@@ -1075,6 +1136,37 @@
     max-width: 100%;
     justify-content: flex-start;
     text-align: left;
+  }
+
+  .calendarModeRow {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding-top: 12px;
+  }
+
+  .calendarModeBtn,
+  .calendarModeBtnActive {
+    justify-content: center;
+  }
+
+  .calendarNavBar {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .calendarNavLabel {
+    font-size: 13px;
+  }
+
+  .calendarNavSidecar {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .sxWrapperWeek :global(.sx__week-wrapper) {
+    min-width: 680px;
   }
 
   /* height removed — sxWrapper now sized by grid content */
