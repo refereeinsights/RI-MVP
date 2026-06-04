@@ -36,7 +36,11 @@ function titleCaseSport(value: string | null) {
     .join(" ");
 }
 
-export default function ChildTeamManager() {
+type Props = {
+  onProfilesChanged?: () => void;
+};
+
+export default function ChildTeamManager(props: Props) {
   const [open, setOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -104,6 +108,7 @@ export default function ChildTeamManager() {
       setNewChildName("");
       setNotice("Child profile created.");
       await loadProfiles(showArchived);
+      props.onProfilesChanged?.();
     } catch (err: any) {
       setError(err?.message || "Failed to create child profile.");
     } finally {
@@ -129,6 +134,7 @@ export default function ChildTeamManager() {
       setEditingChildName("");
       setNotice("Child profile updated.");
       await loadProfiles(showArchived);
+      props.onProfilesChanged?.();
     } catch (err: any) {
       setError(err?.message || "Failed to update child profile.");
     } finally {
@@ -149,6 +155,7 @@ export default function ChildTeamManager() {
       setNotice(archived ? "Child archived. Teams under that child were archived too." : "Child restored.");
       await loadProfiles(true);
       setShowArchived(true);
+      props.onProfilesChanged?.();
     } catch (err: any) {
       setError(err?.message || "Failed to update child archive state.");
     } finally {
@@ -186,6 +193,7 @@ export default function ChildTeamManager() {
       setNewTeamSeason("");
       setNotice("Team profile created.");
       await loadProfiles(showArchived);
+      props.onProfilesChanged?.();
     } catch (err: any) {
       setError(err?.message || "Failed to create team profile.");
     } finally {
@@ -221,6 +229,7 @@ export default function ChildTeamManager() {
       setEditingTeamSeason("");
       setNotice("Team profile updated.");
       await loadProfiles(showArchived);
+      props.onProfilesChanged?.();
     } catch (err: any) {
       setError(err?.message || "Failed to update team profile.");
     } finally {
@@ -241,6 +250,7 @@ export default function ChildTeamManager() {
       setNotice(archived ? "Team archived." : "Team restored.");
       await loadProfiles(true);
       setShowArchived(true);
+      props.onProfilesChanged?.();
     } catch (err: any) {
       setError(err?.message || "Failed to update team archive state.");
     } finally {

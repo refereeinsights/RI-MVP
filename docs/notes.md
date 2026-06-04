@@ -14,6 +14,12 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI Weekend Planner Stage `3.3C-2` assignment:
+  - Added implementation prompt `docs/prompts/ti-planner-stage-3.3c-2-assignment.md`, explicitly verifying the `3.3C-1` prerequisite, deferring planner filters to `3.3C-3`, forbidding imported-event assignment/backfill, and locking child→team validation to both UI and API paths.
+  - Added `supabase/migrations/20260604_ti_planner_stage_3_3c2_assignment.sql` so `planner_event_sources` and `planner_events` can store optional `child_profile_id` / `team_profile_id` references without changing entitlement, import, or duplicate semantics.
+  - Extended TI planner source/event APIs and types to persist assignment safely for connected sources and manual events while rejecting invalid child/team combinations and leaving imported events source-derived only.
+  - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx` and `apps/ti-web/app/_components/planner/Planner.module.css` to add compact source assignment controls, manual-event assignment fields, and family-context card display while preserving source labels, source-color behavior, conflict visibility, venue flows, and mobile wrapping.
+  - Updated `apps/ti-web/app/_components/planner/ChildTeamManager.tsx` so child/team manager changes can refresh planner assignment selectors without a page reload.
 - TI analytics cleanup alignment:
   - Added typed TI analytics coverage for premium modal / CTA events and aligned live `book_travel_*` payload typing with the actual Weekend Planner emitters, including safe `pricing_option` normalization on premium CTA events.
   - Extended `apps/ti-web/app/api/analytics/route.ts` allowlists so already-fired venue-map, venue-directory, Owl's Eye preview, venue-hotel CTA, and Quick Check login events now persist through the existing analytics pipelines without schema changes.

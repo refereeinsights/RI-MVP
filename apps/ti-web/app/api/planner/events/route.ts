@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { isUuid } from "@/lib/venues/isUuid";
 import type { PlannerEventCreateBody } from "@/lib/planner/types";
 import { enrichPlannerEventsWithLinkedVenue } from "@/lib/planner/enrichVenueMetadata";
+import { parseOptionalPlannerProfileId, validatePlannerAssignment } from "@/lib/planner/assignmentServer";
 
 export const runtime = "nodejs";
 
@@ -124,6 +125,29 @@ export async function POST(req: Request) {
   }
 
   const timezone = normalizeTimeZone(asString((body as any).timezone));
+  const childProfileInput = parseOptionalPlannerProfileId((body as any).child_profile_id);
+  if (childProfileInput.invalid) {
+    return NextResponse.json({ ok: false, error: "invalid_child_profile_id" }, { status: 400 });
+  }
+
+  const teamProfileInput = parseOptionalPlannerProfileId((body as any).team_profile_id);
+  if (teamProfileInput.invalid) {
+    return NextResponse.json({ ok: false, error: "invalid_team_profile_id" }, { status: 400 });
+  }
+
+  const assignmentValidation = await validatePlannerAssignment({
+    supabase,
+    userId: user.id,
+    childProfileId: childProfileInput.value,
+    teamProfileId: teamProfileInput.value,
+  });
+
+  if (!assignmentValidation.ok) {
+    return NextResponse.json(
+      { ok: false, error: assignmentValidation.error },
+      { status: assignmentValidation.status }
+    );
+  }
 
   const venueIdRaw = asString((body as any).venue_id);
   const venueId = venueIdRaw && isUuid(venueIdRaw) ? venueIdRaw : null;
@@ -153,6 +177,8 @@ export async function POST(req: Request) {
       starts_at: startsAt,
       ends_at: endsAt,
       timezone,
+      child_profile_id: assignmentValidation.childProfileId,
+      team_profile_id: assignmentValidation.teamProfileId,
       tournament_id: tournamentId,
       venue_id: venueId,
       address_text: addressText,
@@ -162,7 +188,7 @@ export async function POST(req: Request) {
       source_type: "manual",
     })
     .select(
-      "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,source_type,source_id,created_at,updated_at"
+      "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,child_profile_id,team_profile_id,source_type,source_id,source_event_uid,created_at,updated_at"
     )
     .single();
 
@@ -218,7 +244,7 @@ export async function GET(req: Request) {
   function buildBaseQuery() {
     let q = (supabase.from("planner_events" as any) as any)
       .select(
-        "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,source_type,source_id,source_event_uid,created_at,updated_at"
+        "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,child_profile_id,team_profile_id,source_type,source_id,source_event_uid,created_at,updated_at"
       )
       .eq("user_id", userId);
 

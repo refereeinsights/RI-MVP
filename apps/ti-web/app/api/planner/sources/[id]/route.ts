@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { parseOptionalPlannerProfileId, validatePlannerAssignment } from "@/lib/planner/assignmentServer";
 
 export const runtime = "nodejs";
 
@@ -7,6 +8,8 @@ type PatchBody = {
   source_name?: unknown;
   sourceName?: unknown;
   label?: unknown;
+  child_profile_id?: unknown;
+  team_profile_id?: unknown;
 };
 
 function asSingleLineLabel(value: unknown) {
@@ -32,6 +35,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const body = (await req.json().catch(() => null)) as PatchBody | null;
   if (!body) return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
 
+  const childProfileInput = parseOptionalPlannerProfileId(body.child_profile_id);
+  if (childProfileInput.invalid) {
+    return NextResponse.json({ ok: false, error: "invalid_child_profile_id" }, { status: 400 });
+  }
+
+  const teamProfileInput = parseOptionalPlannerProfileId(body.team_profile_id);
+  if (teamProfileInput.invalid) {
+    return NextResponse.json({ ok: false, error: "invalid_team_profile_id" }, { status: 400 });
+  }
+
   const nextLabel =
     asSingleLineLabel(body.source_name) ??
     asSingleLineLabel(body.sourceName) ??
@@ -55,16 +68,57 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (cleaned.length > 140) {
       return NextResponse.json({ ok: false, error: "label_too_long" }, { status: 400 });
     }
-  } else if (!providedAnyString) {
-    return NextResponse.json({ ok: false, error: "missing_label" }, { status: 400 });
   }
 
-  const { data, error } = await (supabase.from("planner_event_sources" as any) as any)
-    .update({ source_name: nextLabel })
+  const providedAssignmentField = childProfileInput.provided || teamProfileInput.provided;
+  if (!providedAnyString && !providedAssignmentField) {
+    return NextResponse.json({ ok: false, error: "missing_patch_fields" }, { status: 400 });
+  }
+
+  const { data: existing, error: existingError } = await (supabase.from("planner_event_sources" as any) as any)
+    .select(
+      "id,source_type,source_name,team_name,child_profile_id,team_profile_id,last_synced_at,sync_status,sync_error,created_at,updated_at"
+    )
     .eq("id", sourceId)
     .eq("user_id", user.id)
     .eq("source_type", "ics")
-    .select("id,source_type,source_name,team_name,last_synced_at,sync_status,sync_error,created_at,updated_at")
+    .maybeSingle();
+
+  if (existingError) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
+  if (!existing) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+
+  const nextChildProfileId = childProfileInput.provided ? childProfileInput.value : (existing.child_profile_id ?? null);
+  const nextTeamProfileId = teamProfileInput.provided ? teamProfileInput.value : (existing.team_profile_id ?? null);
+
+  const assignmentValidation = await validatePlannerAssignment({
+    supabase,
+    userId: user.id,
+    childProfileId: nextChildProfileId,
+    teamProfileId: nextTeamProfileId,
+  });
+
+  if (!assignmentValidation.ok) {
+    return NextResponse.json(
+      { ok: false, error: assignmentValidation.error },
+      { status: assignmentValidation.status }
+    );
+  }
+
+  const patch: Record<string, unknown> = {};
+  if (providedAnyString) patch.source_name = nextLabel;
+  if (providedAssignmentField) {
+    patch.child_profile_id = assignmentValidation.childProfileId;
+    patch.team_profile_id = assignmentValidation.teamProfileId;
+  }
+
+  const { data, error } = await (supabase.from("planner_event_sources" as any) as any)
+    .update(patch)
+    .eq("id", sourceId)
+    .eq("user_id", user.id)
+    .eq("source_type", "ics")
+    .select(
+      "id,source_type,source_name,team_name,child_profile_id,team_profile_id,last_synced_at,sync_status,sync_error,created_at,updated_at"
+    )
     .maybeSingle();
 
   if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });

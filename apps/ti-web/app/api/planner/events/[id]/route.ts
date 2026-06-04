@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { isUuid } from "@/lib/venues/isUuid";
 import type { PlannerEventUpdateBody } from "@/lib/planner/types";
 import { enrichPlannerEventsWithLinkedVenue } from "@/lib/planner/enrichVenueMetadata";
+import { parseOptionalPlannerProfileId, validatePlannerAssignment } from "@/lib/planner/assignmentServer";
 
 export const runtime = "nodejs";
 
@@ -67,6 +68,15 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const body = (await req.json().catch(() => null)) as PlannerEventUpdateBody | null;
   if (!body) return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
 
+  const { data: existingEvent, error: existingEventError } = await (supabase.from("planner_events" as any) as any)
+    .select("id,user_id,source_type,child_profile_id,team_profile_id")
+    .eq("id", eventId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existingEventError) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
+  if (!existingEvent) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+
   const patch: Record<string, unknown> = {};
   let patchedStartsAt: string | null = null;
 
@@ -109,6 +119,41 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
   if ("timezone" in (body as any)) patch.timezone = normalizeTimeZone(asString((body as any).timezone));
 
+  const childProfileInput = parseOptionalPlannerProfileId((body as any).child_profile_id);
+  if (childProfileInput.invalid) {
+    return NextResponse.json({ ok: false, error: "invalid_child_profile_id" }, { status: 400 });
+  }
+
+  const teamProfileInput = parseOptionalPlannerProfileId((body as any).team_profile_id);
+  if (teamProfileInput.invalid) {
+    return NextResponse.json({ ok: false, error: "invalid_team_profile_id" }, { status: 400 });
+  }
+
+  const assignmentRequested = childProfileInput.provided || teamProfileInput.provided;
+  const isManualEvent = String(existingEvent.source_type ?? "") === "manual";
+  if (assignmentRequested && !isManualEvent) {
+    return NextResponse.json({ ok: false, error: "assignment_not_supported_for_imported_events" }, { status: 409 });
+  }
+
+  if (assignmentRequested) {
+    const assignmentValidation = await validatePlannerAssignment({
+      supabase,
+      userId: user.id,
+      childProfileId: childProfileInput.provided ? childProfileInput.value : (existingEvent.child_profile_id ?? null),
+      teamProfileId: teamProfileInput.provided ? teamProfileInput.value : (existingEvent.team_profile_id ?? null),
+    });
+
+    if (!assignmentValidation.ok) {
+      return NextResponse.json(
+        { ok: false, error: assignmentValidation.error },
+        { status: assignmentValidation.status }
+      );
+    }
+
+    patch.child_profile_id = assignmentValidation.childProfileId;
+    patch.team_profile_id = assignmentValidation.teamProfileId;
+  }
+
   if ("venue_id" in (body as any)) {
     const venueIdRaw = asString((body as any).venue_id);
     const venueId = venueIdRaw && isUuid(venueIdRaw) ? venueIdRaw : null;
@@ -143,7 +188,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     .eq("id", eventId)
     .eq("user_id", user.id)
     .select(
-      "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,source_type,source_id,created_at,updated_at"
+      "id,user_id,weekend_id,title,event_type,team_name,opponent_name,tournament_id,venue_id,field_label,address_text,city,state,starts_at,ends_at,timezone,notes,child_profile_id,team_profile_id,source_type,source_id,source_event_uid,created_at,updated_at"
     )
     .single();
 

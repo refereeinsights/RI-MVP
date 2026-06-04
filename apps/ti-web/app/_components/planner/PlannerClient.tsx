@@ -11,9 +11,11 @@ import {
   type PlannerDuplicateReason,
 } from "@/lib/planner/duplicates";
 import type {
+  PlannerChildWithTeamsRow,
   PlannerEventCreateBody,
   PlannerEventRow,
   PlannerEventType,
+  PlannerSourceRow,
   PlannerEventUpdateBody,
 } from "@/lib/planner/types";
 import styles from "./Planner.module.css";
@@ -31,18 +33,25 @@ type SeasonFilter = "all" | "games" | "practices" | "travel" | "other";
 type ScheduleView = "upcoming" | "weekend" | "season";
 type DisplayMode = "calendar" | "list";
 
-type PlannerSourceRow = {
-  id: string;
-  source_type: string;
-  source_name: string | null;
-  team_name: string | null;
-  last_synced_at: string | null;
-  sync_status: string | null;
-  sync_error: string | null;
-  created_at: string | null;
+type PlannerSourceAssignmentDraft = {
+  childProfileId: string;
+  teamProfileId: string;
 };
 
 type DuplicateDismissedRow = { pair_key_a: string; pair_key_b: string; created_at?: string | null };
+
+function buildSourceAssignmentDrafts(sources: PlannerSourceRow[]) {
+  const drafts: Record<string, PlannerSourceAssignmentDraft> = {};
+  for (const source of sources) {
+    const sourceId = String(source.id ?? "").trim();
+    if (!sourceId) continue;
+    drafts[sourceId] = {
+      childProfileId: String(source.child_profile_id ?? "").trim(),
+      teamProfileId: String(source.team_profile_id ?? "").trim(),
+    };
+  }
+  return drafts;
+}
 
 const PlannerCalendar = dynamic(() => import("./PlannerCalendar"), {
   ssr: false,
@@ -456,6 +465,9 @@ export default function PlannerClient(props: Props) {
   const [eventsPagingBusy, setEventsPagingBusy] = useState(false);
   const lastEventsQueryRef = useRef<{ from: string | null; to: string | null; types: string[] | null; limit: number } | null>(null);
   const [sources, setSources] = useState<PlannerSourceRow[]>([]);
+  const [familyProfiles, setFamilyProfiles] = useState<PlannerChildWithTeamsRow[]>([]);
+  const [familyProfilesBusy, setFamilyProfilesBusy] = useState(false);
+  const [sourceAssignmentDrafts, setSourceAssignmentDrafts] = useState<Record<string, PlannerSourceAssignmentDraft>>({});
   const [dismissedPairs, setDismissedPairs] = useState<DuplicateDismissedRow[]>([]);
   const [dismissingPairs, setDismissingPairs] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -467,6 +479,8 @@ export default function PlannerClient(props: Props) {
   const [editingSourceLabel, setEditingSourceLabel] = useState("");
   const [savingSourceLabel, setSavingSourceLabel] = useState(false);
   const [sourceLabelError, setSourceLabelError] = useState<string | null>(null);
+  const [savingSourceAssignmentId, setSavingSourceAssignmentId] = useState<string | null>(null);
+  const [sourceAssignmentErrorById, setSourceAssignmentErrorById] = useState<Record<string, string>>({});
   const [disconnectingSourceId, setDisconnectingSourceId] = useState<string | null>(null);
 
   const [scheduleView, setScheduleView] = useState<ScheduleView>("upcoming");
@@ -606,6 +620,8 @@ export default function PlannerClient(props: Props) {
   const [createEndWasAuto, setCreateEndWasAuto] = useState(true);
   const [createTimeZone, setCreateTimeZone] = useState<string>(() => safeTimeZone(browserTimeZone()) || "UTC");
   const [createTimeZoneLocked, setCreateTimeZoneLocked] = useState(false);
+  const [createChildProfileId, setCreateChildProfileId] = useState("");
+  const [createTeamProfileId, setCreateTeamProfileId] = useState("");
   const [createVenueId, setCreateVenueId] = useState("");
   const [createVenueQuery, setCreateVenueQuery] = useState("");
   const [createVenueResults, setCreateVenueResults] = useState<VenueSearchResult[]>([]);
@@ -634,6 +650,8 @@ export default function PlannerClient(props: Props) {
   const [editEndWasAuto, setEditEndWasAuto] = useState(true);
   const [editTimeZone, setEditTimeZone] = useState<string>(() => safeTimeZone(browserTimeZone()) || "UTC");
   const [editTimeZoneLocked, setEditTimeZoneLocked] = useState(false);
+  const [editChildProfileId, setEditChildProfileId] = useState("");
+  const [editTeamProfileId, setEditTeamProfileId] = useState("");
   const [editVenueId, setEditVenueId] = useState("");
   const [editVenueQuery, setEditVenueQuery] = useState("");
   const [editVenueResults, setEditVenueResults] = useState<VenueSearchResult[]>([]);
@@ -986,7 +1004,9 @@ export default function PlannerClient(props: Props) {
     setSourcesBusy(true);
     try {
       const res = await jsonFetch<{ ok: true; sources: PlannerSourceRow[] }>("/api/planner/sources", { method: "GET" });
-      setSources(res.sources ?? []);
+      const nextSources = res.sources ?? [];
+      setSources(nextSources);
+      setSourceAssignmentDrafts(buildSourceAssignmentDrafts(nextSources));
     } finally {
       setSourcesBusy(false);
     }
@@ -997,9 +1017,23 @@ export default function PlannerClient(props: Props) {
       const res = await jsonFetch<{ ok: true; sources: PlannerSourceRow[] }>("/api/planner/sources", { method: "GET" });
       const nextSources = res.sources ?? [];
       setSources(nextSources);
+      setSourceAssignmentDrafts(buildSourceAssignmentDrafts(nextSources));
       return nextSources;
     } catch {
       return null;
+    }
+  }
+
+  async function loadFamilyProfiles() {
+    setFamilyProfilesBusy(true);
+    try {
+      const res = await jsonFetch<{ ok: true; children: PlannerChildWithTeamsRow[] }>(
+        "/api/planner/children?include_archived=1",
+        { method: "GET" }
+      );
+      setFamilyProfiles(res.children ?? []);
+    } finally {
+      setFamilyProfilesBusy(false);
     }
   }
 
@@ -1018,6 +1052,7 @@ export default function PlannerClient(props: Props) {
   // Best-effort initial load of sources (planner page is authed; no sensitive URL returned).
   useEffect(() => {
     void loadSources().catch(() => {});
+    void loadFamilyProfiles().catch(() => {});
     void loadDismissedPairs().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1113,6 +1148,69 @@ export default function PlannerClient(props: Props) {
     for (const s of sources) m.set(String(s.id), s);
     return m;
   }, [sources]);
+
+  const familyProfilesById = useMemo(() => {
+    const profiles = new Map<string, PlannerChildWithTeamsRow>();
+    for (const childProfile of familyProfiles) {
+      profiles.set(String(childProfile.id), childProfile);
+    }
+    return profiles;
+  }, [familyProfiles]);
+
+  function teamLabel(teamId: string | null | undefined) {
+    const normalizedTeamId = String(teamId ?? "").trim();
+    if (!normalizedTeamId) return null;
+    for (const childProfile of familyProfiles) {
+      const teamProfile = childProfile.teams.find((team) => String(team.id) === normalizedTeamId);
+      if (!teamProfile) continue;
+      return teamProfile.is_archived ? `${teamProfile.display_name} (Archived)` : teamProfile.display_name;
+    }
+    return null;
+  }
+
+  function childLabel(childId: string | null | undefined) {
+    const normalizedChildId = String(childId ?? "").trim();
+    if (!normalizedChildId) return null;
+    const childProfile = familyProfilesById.get(normalizedChildId) ?? null;
+    if (!childProfile) return null;
+    return childProfile.is_archived ? `${childProfile.display_name} (Archived)` : childProfile.display_name;
+  }
+
+  function assignmentLabelFromIds(childId: string | null | undefined, teamId: string | null | undefined) {
+    const childName = childLabel(childId);
+    if (!childName) return null;
+    const teamName = teamLabel(teamId);
+    return teamName ? `${childName} · ${teamName}` : childName;
+  }
+
+  function activeChildOptions(selectedChildId: string | null | undefined) {
+    const normalizedChildId = String(selectedChildId ?? "").trim();
+    return familyProfiles.filter((childProfile) => !childProfile.is_archived || String(childProfile.id) === normalizedChildId);
+  }
+
+  function teamOptionsForChild(childId: string | null | undefined, selectedTeamId: string | null | undefined) {
+    const normalizedChildId = String(childId ?? "").trim();
+    const normalizedTeamId = String(selectedTeamId ?? "").trim();
+    if (!normalizedChildId) return [];
+    const childProfile = familyProfilesById.get(normalizedChildId) ?? null;
+    if (!childProfile) return [];
+    return childProfile.teams.filter((teamProfile) => !teamProfile.is_archived || String(teamProfile.id) === normalizedTeamId);
+  }
+
+  function assignmentLabelForSource(source: PlannerSourceRow | null | undefined) {
+    if (!source) return null;
+    return assignmentLabelFromIds(source.child_profile_id, source.team_profile_id);
+  }
+
+  function assignmentLabelForEvent(event: PlannerEventRow) {
+    const sourceId = String(event.source_id ?? "").trim();
+    const sourceAssignment =
+      String(event.source_type ?? "") === "ics" && sourceId ? sourcesById.get(sourceId) ?? null : null;
+    return assignmentLabelFromIds(
+      sourceAssignment?.child_profile_id ?? event.child_profile_id,
+      sourceAssignment?.team_profile_id ?? event.team_profile_id
+    );
+  }
 
   const sourceLabelById = useMemo(() => {
     const out: Record<string, string> = {};
@@ -1232,6 +1330,84 @@ export default function PlannerClient(props: Props) {
       setSourceLabelError(msg === "label_too_long" ? "Label is too long (max 140 characters)." : msg);
     } finally {
       setSavingSourceLabel(false);
+    }
+  }
+
+  function updateSourceAssignmentDraft(sourceId: string, nextDraft: PlannerSourceAssignmentDraft) {
+    setSourceAssignmentDrafts((prev) => ({ ...prev, [sourceId]: nextDraft }));
+    setSourceAssignmentErrorById((prev) => {
+      if (!prev[sourceId]) return prev;
+      const nextErrors = { ...prev };
+      delete nextErrors[sourceId];
+      return nextErrors;
+    });
+  }
+
+  function onSourceChildAssignmentChange(sourceId: string, childProfileId: string) {
+    const draft = sourceAssignmentDrafts[sourceId] ?? { childProfileId: "", teamProfileId: "" };
+    const teamOptions = teamOptionsForChild(childProfileId, draft.teamProfileId);
+    const selectedTeamStillValid = teamOptions.some((teamProfile) => String(teamProfile.id) === String(draft.teamProfileId));
+    updateSourceAssignmentDraft(sourceId, {
+      childProfileId,
+      teamProfileId: childProfileId && selectedTeamStillValid ? draft.teamProfileId : "",
+    });
+  }
+
+  function onSourceTeamAssignmentChange(sourceId: string, teamProfileId: string) {
+    const draft = sourceAssignmentDrafts[sourceId] ?? { childProfileId: "", teamProfileId: "" };
+    updateSourceAssignmentDraft(sourceId, { ...draft, teamProfileId });
+  }
+
+  function onCreateChildProfileChange(nextChildProfileId: string) {
+    const validTeams = teamOptionsForChild(nextChildProfileId, createTeamProfileId);
+    const keepTeam = validTeams.some((teamProfile) => String(teamProfile.id) === String(createTeamProfileId));
+    setCreateChildProfileId(nextChildProfileId);
+    if (!nextChildProfileId || !keepTeam) setCreateTeamProfileId("");
+  }
+
+  function onEditChildProfileChange(nextChildProfileId: string) {
+    const validTeams = teamOptionsForChild(nextChildProfileId, editTeamProfileId);
+    const keepTeam = validTeams.some((teamProfile) => String(teamProfile.id) === String(editTeamProfileId));
+    setEditChildProfileId(nextChildProfileId);
+    if (!nextChildProfileId || !keepTeam) setEditTeamProfileId("");
+  }
+
+  async function onSaveSourceAssignment(sourceId: string) {
+    if (busy || savingSourceAssignmentId) return;
+    const draft = sourceAssignmentDrafts[sourceId] ?? { childProfileId: "", teamProfileId: "" };
+
+    setSavingSourceAssignmentId(sourceId);
+    setSourceAssignmentErrorById((prev) => {
+      if (!prev[sourceId]) return prev;
+      const nextErrors = { ...prev };
+      delete nextErrors[sourceId];
+      return nextErrors;
+    });
+
+    try {
+      const res = await jsonFetch<{ ok: true; source: PlannerSourceRow }>(
+        `/api/planner/sources/${encodeURIComponent(sourceId)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            child_profile_id: draft.childProfileId || null,
+            team_profile_id: draft.teamProfileId || null,
+          }),
+        }
+      );
+      setSources((prev) => prev.map((row) => (String(row.id) === String(sourceId) ? { ...row, ...res.source } : row)));
+      setSourceAssignmentDrafts((prev) => ({
+        ...prev,
+        [sourceId]: {
+          childProfileId: String(res.source.child_profile_id ?? "").trim(),
+          teamProfileId: String(res.source.team_profile_id ?? "").trim(),
+        },
+      }));
+    } catch (sourceAssignmentError: any) {
+      const message = String(sourceAssignmentError?.message ?? "Failed to save assignment.");
+      setSourceAssignmentErrorById((prev) => ({ ...prev, [sourceId]: message }));
+    } finally {
+      setSavingSourceAssignmentId(null);
     }
   }
 
@@ -1384,6 +1560,8 @@ export default function PlannerClient(props: Props) {
     setCreateEndWasAuto(true);
     setCreateTimeZone(safeTimeZone(tz) || "UTC");
     setCreateTimeZoneLocked(false);
+    setCreateChildProfileId("");
+    setCreateTeamProfileId("");
     setCreateVenueId("");
     setCreateVenueQuery("");
     setCreateVenueResults([]);
@@ -1456,6 +1634,8 @@ export default function PlannerClient(props: Props) {
     setEditType((e.event_type as PlannerEventType) || "game");
     setEditTimeZone(tzForEdit);
     setEditTimeZoneLocked(false);
+    setEditChildProfileId(String(e.child_profile_id ?? "").trim());
+    setEditTeamProfileId(String(e.team_profile_id ?? "").trim());
     setEditStartDate(startParts.date);
     setEditStartTime(startParts.time);
     setEditEndDate(endParts.date);
@@ -1525,6 +1705,8 @@ export default function PlannerClient(props: Props) {
       starts_at: startsIso,
       ends_at: endsIso,
       timezone: safeTimeZone(createTimeZone) || safeTimeZone(tz) || "UTC",
+      child_profile_id: createChildProfileId.trim() || null,
+      team_profile_id: createTeamProfileId.trim() || null,
       tournament_id: createTournamentId.trim() || null,
       venue_id: createVenueId.trim() || null,
       address_text: createAddress.trim() || null,
@@ -1590,6 +1772,12 @@ export default function PlannerClient(props: Props) {
       starts_at: startsIso,
       ends_at: endsIso,
       timezone: safeTimeZone(editTimeZone) || safeTimeZone(tz) || "UTC",
+      ...(String(editingEvent.source_type ?? "") === "manual"
+        ? {
+            child_profile_id: editChildProfileId.trim() || null,
+            team_profile_id: editTeamProfileId.trim() || null,
+          }
+        : {}),
       tournament_id: editTournamentId.trim() || null,
       venue_id: editVenueId.trim() || null,
       address_text: editAddress.trim() || null,
@@ -2669,9 +2857,14 @@ export default function PlannerClient(props: Props) {
                   {g.events.map((e) => {
                     const eTz = effectiveTimeZoneForEvent(e);
                     const isEditing = editingId === e.id;
+                    const eventAllowsAssignment =
+                      String(e.source_type || "") === "manual" &&
+                      !String((e as any)?.source_id ?? "").trim() &&
+                      !String((e as any)?.source_event_uid ?? "").trim();
                     const conflictCount = loadedConflictsByEventId.get(e.id)?.conflictCount ?? 0;
                     const isNextUpcomingLoadedEvent = nextUpcomingLoadedEventId === e.id;
                     const timeRangeLabel = formatTimeRange({ startIso: e.starts_at, endIso: e.ends_at, timeZone: eTz });
+                    const familyAssignmentLabel = assignmentLabelForEvent(e);
                     const venueRows = venueContextRowsForEvent(e);
                     const mapUrl = mapsUrlForEvent(e);
                     const nextUpSummaryParts = [timeRangeLabel];
@@ -2710,6 +2903,12 @@ export default function PlannerClient(props: Props) {
                         {conflictCount ? (
                           <div className={styles.eventConflictNote}>
                             Overlaps with {conflictCount} loaded {conflictCount === 1 ? "event" : "events"}.
+                          </div>
+                        ) : null}
+                        {familyAssignmentLabel ? (
+                          <div className={styles.assignmentContext}>
+                            <span className={styles.assignmentContextLabel}>Assigned to</span>
+                            <span className={styles.assignmentContextValue}>{familyAssignmentLabel}</span>
                           </div>
                         ) : null}
                         {venueRows.length ? (
@@ -2809,9 +3008,7 @@ export default function PlannerClient(props: Props) {
                               <button className={styles.secondaryBtn} onClick={() => beginEdit(e)} disabled={busy}>
                                 Edit
                               </button>
-                              {String(e.source_type || "") === "manual" &&
-                              !String((e as any)?.source_id ?? "").trim() &&
-                              !String((e as any)?.source_event_uid ?? "").trim() ? (
+                              {eventAllowsAssignment ? (
                                 <button className={styles.secondaryBtn} onClick={() => void onDuplicate(e)} disabled={busy}>
                                   Duplicate
                                 </button>
@@ -2932,6 +3129,42 @@ export default function PlannerClient(props: Props) {
                                 )}
                               </div>
                             </div>
+                            {eventAllowsAssignment ? (
+                              <div className={styles.row2}>
+                                <div>
+                                  <label className={styles.label}>Child profile</label>
+                                  <select
+                                    className={styles.select}
+                                    value={editChildProfileId}
+                                    onChange={(ev) => onEditChildProfileChange(ev.target.value)}
+                                    disabled={busy || familyProfilesBusy || familyProfiles.length === 0}
+                                  >
+                                    <option value="">Unassigned</option>
+                                    {activeChildOptions(editChildProfileId).map((childProfile) => (
+                                      <option key={childProfile.id} value={childProfile.id}>
+                                        {childLabel(childProfile.id)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className={styles.label}>Team profile</label>
+                                  <select
+                                    className={styles.select}
+                                    value={editTeamProfileId}
+                                    onChange={(ev) => setEditTeamProfileId(ev.target.value)}
+                                    disabled={busy || !editChildProfileId || teamOptionsForChild(editChildProfileId, editTeamProfileId).length === 0}
+                                  >
+                                    <option value="">No team</option>
+                                    {teamOptionsForChild(editChildProfileId, editTeamProfileId).map((teamProfile) => (
+                                      <option key={teamProfile.id} value={teamProfile.id}>
+                                        {teamLabel(teamProfile.id)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            ) : null}
                             <div>
                               <label className={styles.label}>Tournament</label>
                               {editSelectedTournament ? (
@@ -3201,6 +3434,40 @@ export default function PlannerClient(props: Props) {
 	                )}
 	              </div>
 	            </div>
+	            <div className={styles.row2}>
+	              <div>
+	                <label className={styles.label}>Child profile</label>
+	                <select
+	                  className={styles.select}
+	                  value={createChildProfileId}
+	                  onChange={(e) => onCreateChildProfileChange(e.target.value)}
+	                  disabled={busy || familyProfilesBusy || familyProfiles.length === 0}
+	                >
+	                  <option value="">Unassigned</option>
+	                  {activeChildOptions(createChildProfileId).map((childProfile) => (
+	                    <option key={childProfile.id} value={childProfile.id}>
+	                      {childLabel(childProfile.id)}
+	                    </option>
+	                  ))}
+	                </select>
+	              </div>
+	              <div>
+	                <label className={styles.label}>Team profile</label>
+	                <select
+	                  className={styles.select}
+	                  value={createTeamProfileId}
+	                  onChange={(e) => setCreateTeamProfileId(e.target.value)}
+	                  disabled={busy || !createChildProfileId || teamOptionsForChild(createChildProfileId, createTeamProfileId).length === 0}
+	                >
+	                  <option value="">No team</option>
+	                  {teamOptionsForChild(createChildProfileId, createTeamProfileId).map((teamProfile) => (
+	                    <option key={teamProfile.id} value={teamProfile.id}>
+	                      {teamLabel(teamProfile.id)}
+	                    </option>
+	                  ))}
+	                </select>
+	              </div>
+	            </div>
 
 	            <div>
 	              <label className={styles.label}>Tournament</label>
@@ -3450,6 +3717,77 @@ export default function PlannerClient(props: Props) {
 		                      {formatSourceStatusLabel(s)}
 		                      {s.last_synced_at ? ` · Last synced ${new Date(s.last_synced_at).toLocaleString()}` : ""}
 		                    </div>
+                        <div className={styles.assignmentPanel}>
+                          <div className={styles.assignmentCurrent}>
+                            <span className={styles.assignmentContextLabel}>Assigned to</span>
+                            <span className={styles.assignmentContextValue}>{assignmentLabelForSource(s) || "Unassigned"}</span>
+                          </div>
+                          <div className={styles.assignmentControls}>
+                            <select
+                              className={styles.select}
+                              value={(sourceAssignmentDrafts[s.id]?.childProfileId ?? String(s.child_profile_id ?? "").trim()) || ""}
+                              onChange={(event) => onSourceChildAssignmentChange(s.id, event.target.value)}
+                              disabled={
+                                busy ||
+                                familyProfilesBusy ||
+                                savingSourceAssignmentId === s.id ||
+                                String(disconnectingSourceId ?? "") === String(s.id) ||
+                                familyProfiles.length === 0
+                              }
+                            >
+                              <option value="">Unassigned</option>
+                              {activeChildOptions(sourceAssignmentDrafts[s.id]?.childProfileId ?? s.child_profile_id).map((childProfile) => (
+                                <option key={childProfile.id} value={childProfile.id}>
+                                  {childLabel(childProfile.id)}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              className={styles.select}
+                              value={(sourceAssignmentDrafts[s.id]?.teamProfileId ?? String(s.team_profile_id ?? "").trim()) || ""}
+                              onChange={(event) => onSourceTeamAssignmentChange(s.id, event.target.value)}
+                              disabled={
+                                busy ||
+                                savingSourceAssignmentId === s.id ||
+                                String(disconnectingSourceId ?? "") === String(s.id) ||
+                                !String(sourceAssignmentDrafts[s.id]?.childProfileId ?? s.child_profile_id ?? "").trim() ||
+                                teamOptionsForChild(
+                                  sourceAssignmentDrafts[s.id]?.childProfileId ?? s.child_profile_id,
+                                  sourceAssignmentDrafts[s.id]?.teamProfileId ?? s.team_profile_id
+                                ).length === 0
+                              }
+                            >
+                              <option value="">No team</option>
+                              {teamOptionsForChild(
+                                sourceAssignmentDrafts[s.id]?.childProfileId ?? s.child_profile_id,
+                                sourceAssignmentDrafts[s.id]?.teamProfileId ?? s.team_profile_id
+                              ).map((teamProfile) => (
+                                <option key={teamProfile.id} value={teamProfile.id}>
+                                  {teamLabel(teamProfile.id)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className={styles.assignmentActionRow}>
+                            <button
+                              className={styles.secondaryBtn}
+                              type="button"
+                              onClick={() => void onSaveSourceAssignment(s.id)}
+                              disabled={
+                                busy ||
+                                savingSourceAssignmentId === s.id ||
+                                String(disconnectingSourceId ?? "") === String(s.id) ||
+                                (String(sourceAssignmentDrafts[s.id]?.childProfileId ?? "").trim() === String(s.child_profile_id ?? "").trim() &&
+                                  String(sourceAssignmentDrafts[s.id]?.teamProfileId ?? "").trim() === String(s.team_profile_id ?? "").trim())
+                              }
+                            >
+                              Save assignment
+                            </button>
+                            {!familyProfiles.length && !familyProfilesBusy ? (
+                              <div className={styles.muted}>Add child/team profiles below to start assigning calendars.</div>
+                            ) : null}
+                          </div>
+                        </div>
                         <div className={styles.eventActions} style={{ marginTop: 10 }}>
                           {editingSourceId === s.id ? (
                             <>
@@ -3551,6 +3889,11 @@ export default function PlannerClient(props: Props) {
                             {sourceLabelError}
                           </div>
                         ) : null}
+                        {sourceAssignmentErrorById[s.id] ? (
+                          <div className={styles.eventMeta} style={{ color: "#b91c1c", fontWeight: 900 }}>
+                            {sourceAssignmentErrorById[s.id]}
+                          </div>
+                        ) : null}
                         {staleLabel(s.last_synced_at) && String(s.sync_status || "").toLowerCase() !== "error" ? (
                           <div className={styles.eventMeta} style={{ fontWeight: 800 }}>
                             {staleLabel(s.last_synced_at)} Refresh schedule to check for updates.
@@ -3571,7 +3914,7 @@ export default function PlannerClient(props: Props) {
 
         <div className={styles.card}>
           <div className={styles.cardTitle} style={{ textAlign: "center" }}>Child &amp; team profiles</div>
-          <ChildTeamManager />
+          <ChildTeamManager onProfilesChanged={() => void loadFamilyProfiles().catch(() => {})} />
         </div>
         </aside>
       </div>

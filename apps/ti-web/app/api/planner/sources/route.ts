@@ -12,7 +12,9 @@ export async function GET() {
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
   const { data, error } = await (supabase.from("planner_event_sources" as any) as any)
-    .select("id,source_type,source_name,team_name,last_synced_at,sync_status,sync_error,created_at,updated_at")
+    .select(
+      "id,source_type,source_name,team_name,child_profile_id,team_profile_id,last_synced_at,sync_status,sync_error,created_at,updated_at"
+    )
     .eq("user_id", user.id)
     .eq("source_type", "ics")
     .order("created_at", { ascending: false })

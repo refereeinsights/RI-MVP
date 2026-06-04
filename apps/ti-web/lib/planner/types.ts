@@ -37,6 +37,21 @@ export type PlannerChildWithTeamsRow = PlannerChildRow & {
   teams: PlannerTeamRow[];
 };
 
+export type PlannerSourceRow = {
+  id: string;
+  source_type: string;
+  source_name: string | null;
+  source_url?: string | null;
+  team_name: string | null;
+  child_profile_id: string | null;
+  team_profile_id: string | null;
+  last_synced_at: string | null;
+  sync_status: string | null;
+  sync_error: string | null;
+  created_at: string | null;
+  updated_at?: string | null;
+};
+
 export type PlannerChildCreateBody = {
   display_name: string;
   sort_order?: number | null;
@@ -77,6 +92,8 @@ export type PlannerEventRow = {
   ends_at: string | null;
   timezone: string | null;
   notes: string | null;
+  child_profile_id: string | null;
+  team_profile_id: string | null;
   source_type: PlannerSourceType | string;
   source_id: string | null;
   source_event_uid?: string | null;
@@ -98,6 +115,8 @@ export type PlannerEventCreateBody = {
   starts_at: string;
   ends_at?: string | null;
   timezone: string | null;
+  child_profile_id?: string | null;
+  team_profile_id?: string | null;
   tournament_id?: string | null;
   venue_id?: string | null;
   address_text?: string | null;

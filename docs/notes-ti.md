@@ -13,6 +13,14 @@ Maintenance rules:
 - Do not add RI-only items here.
 - When a TI change is recorded here, keep the corresponding mixed-history entry in `docs/notes.md`.
 
+## 2026-06-04
+
+- TI Weekend Planner Stage `3.3C-2` assignment:
+  - Added implementation prompt `docs/prompts/ti-planner-stage-3.3c-2-assignment.md`, explicitly verifying the `3.3C-1` prerequisite, deferring planner filters to `3.3C-3`, forbidding imported-event assignment/backfill, and requiring child→team validation in both UI and API paths.
+  - Added `supabase/migrations/20260604_ti_planner_stage_3_3c2_assignment.sql` so `planner_event_sources` and `planner_events` can store optional `child_profile_id` / `team_profile_id` references without changing import or duplicate behavior.
+  - Extended TI planner source/event APIs and types to persist assignment for connected sources and manual events while rejecting invalid child/team combinations and keeping imported events source-derived only.
+  - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, and `apps/ti-web/app/_components/planner/ChildTeamManager.tsx` to add compact source assignment controls, manual-event assignment fields, family-context display on cards, and live selector refresh after child/team edits.
+
 ## 2026-06-02
 
 - TI planner (Stage 2.9C-1): connected calendar card action-row polish.

@@ -793,6 +793,58 @@
   gap: 10px;
 }
 
+.assignmentPanel {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.assignmentCurrent {
+  display: grid;
+  gap: 4px;
+}
+
+.assignmentControls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.assignmentActionRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.assignmentContext {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.assignmentContextLabel {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.assignmentContextValue {
+  min-width: 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .profileManager {
   display: grid;
   gap: 12px;
@@ -906,6 +958,10 @@
   }
 
   .row2 {
+    grid-template-columns: 1fr;
+  }
+
+  .assignmentControls {
     grid-template-columns: 1fr;
   }
 
