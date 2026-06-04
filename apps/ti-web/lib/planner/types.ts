@@ -14,6 +14,7 @@ export type PlannerChildRow = {
   id: string;
   user_id: string;
   display_name: string;
+  color_token: string | null;
   sort_order: number;
   is_archived: boolean;
   created_at: string;
@@ -54,6 +55,7 @@ export type PlannerSourceRow = {
 
 export type PlannerChildCreateBody = {
   display_name: string;
+  color_token?: string | null;
   sort_order?: number | null;
 };
 

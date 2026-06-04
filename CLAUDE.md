@@ -451,6 +451,43 @@ Use this after Stage `3.3C-3` is stable. Keep scope on display polish only: chil
 
 ---
 
+### Stage 3.3C-4B UAT (child color selection + badge consistency)
+
+Use this after Stage `3.3C-4A` is stable. Keep scope on child-owned color selection, consistent badge placement, and safe reuse of those colors across planner surfaces.
+
+- [ ] Child color selection:
+  - [ ] Edit child flow exposes a curated color picker.
+  - [ ] Saving a child without changing the color preserves the existing color.
+  - [ ] Saving a newly selected color persists after reload.
+  - [ ] Invalid/blank states fall back safely without breaking the child profile.
+- [ ] Ownership color reuse:
+  - [ ] Selected child colors appear on assigned list-card badges.
+  - [ ] Selected child colors appear on assigned calendar events.
+  - [ ] Selected child colors appear in the family legend.
+  - [ ] Unassigned events remain neutral/default.
+- [ ] Badge consistency:
+  - [ ] Short labels like `Avery` stay in the upper-right badge location.
+  - [ ] Longer labels like `Casey · Owls TC` stay in the same badge location.
+  - [ ] Long labels wrap or compact cleanly without reverting to a full-width assignment row.
+  - [ ] Badges do not overlap title, conflict badge, source labels, venue rows, or action buttons.
+- [ ] Signal separation:
+  - [ ] Child color still means family ownership only.
+  - [ ] Source identity remains visible as text/label and is not confused with child color.
+  - [ ] Conflict warnings remain visually distinct from ownership color.
+- [ ] Mobile safety (`375px` if possible):
+  - [ ] Child color picker remains tappable and readable.
+  - [ ] Long family badges wrap cleanly with no horizontal overflow.
+  - [ ] Cards do not become significantly taller from layout regressions.
+- [ ] No regressions:
+  - [ ] Family filter still works.
+  - [ ] Import-time assignment still works.
+  - [ ] Source reassignment still works.
+  - [ ] Duplicate / merge behavior is unchanged.
+  - [ ] Venue / map behavior is unchanged.
+  - [ ] Entitlement behavior is unchanged.
+
+---
+
 ### Stage 2.8 UAT (polish + launch readiness)
 
 Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.

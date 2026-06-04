@@ -11,7 +11,7 @@ import { createCalendarControlsPlugin } from "@schedule-x/calendar-controls";
 import "temporal-polyfill/global";
 import "@schedule-x/theme-shadcn/dist/index.css";
 import type { PlannerChildWithTeamsRow, PlannerEventRow, PlannerSourceRow } from "@/lib/planner/types";
-import { getFamilyColorToken, getUnassignedFamilyColorToken } from "@/lib/planner/familyColors";
+import { compactAssignmentLabel, getFamilyColorToken, getUnassignedFamilyColorToken } from "@/lib/planner/familyColors";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import styles from "./Planner.module.css";
 
@@ -156,12 +156,15 @@ export default function PlannerCalendar(props: Props) {
     return null;
   }
 
-  function assignmentLabelForEvent(e: PlannerEventRow) {
+  function compactAssignmentLabelForEvent(e: PlannerEventRow) {
     const assignment = sourceAssignmentForEvent(e);
-    const childName = childLabel(assignment.childProfileId);
-    if (!childName) return null;
-    const teamName = teamLabel(assignment.teamProfileId);
-    return teamName ? `${childName} · ${teamName}` : childName;
+    return compactAssignmentLabel(childLabel(assignment.childProfileId), teamLabel(assignment.teamProfileId));
+  }
+
+  function familyColorTokenForChild(childProfileId: string | null | undefined) {
+    const normalizedChildId = String(childProfileId ?? "").trim();
+    const childProfile = normalizedChildId ? familyProfilesById.get(normalizedChildId) ?? null : null;
+    return getFamilyColorToken(childProfileId, activeFamilyChildIds, childProfile?.color_token ?? null);
   }
 
   function assignmentShortLabelForEvent(e: PlannerEventRow) {
@@ -208,7 +211,7 @@ export default function PlannerCalendar(props: Props) {
 
     for (const childId of activeFamilyChildIds) {
       const childName = childLabel(childId) || "Assigned child";
-      const token = getFamilyColorToken(childId, activeFamilyChildIds);
+      const token = familyColorTokenForChild(childId);
       out[`family:${childId}`] = {
         colorName: `family_${childId.replace(/[^a-z0-9_]/gi, "").slice(0, 20).toLowerCase() || "child"}`,
         label: childName,
@@ -217,7 +220,7 @@ export default function PlannerCalendar(props: Props) {
     }
 
     return out;
-  }, [activeFamilyChildIds]);
+  }, [activeFamilyChildIds, familyProfilesById]);
 
   const sxEvents = useMemo(() => {
     const list = props.events ?? [];
@@ -412,7 +415,7 @@ export default function PlannerCalendar(props: Props) {
         <div className={styles.calendarLegend}>
           <span className={styles.legendTitle}>Family colors</span>
           {activeFamilyChildIds.map((childId) => {
-            const token = getFamilyColorToken(childId, activeFamilyChildIds);
+            const token = familyColorTokenForChild(childId);
             return (
               <span key={childId} className={styles.legendItem}>
                 <span className={styles.legendDot} style={{ background: token.main }} aria-hidden="true" />
@@ -524,17 +527,17 @@ export default function PlannerCalendar(props: Props) {
                 })}
               </div>
 
-              {assignmentLabelForEvent(detailEvent) ? (
+              {compactAssignmentLabelForEvent(detailEvent) ? (
                 <div className={styles.eventDetailBadgeRow}>
                   <span
                     className={styles.assignmentBadge}
                     style={{
-                      background: getFamilyColorToken(sourceAssignmentForEvent(detailEvent).childProfileId, activeFamilyChildIds).soft,
-                      borderColor: getFamilyColorToken(sourceAssignmentForEvent(detailEvent).childProfileId, activeFamilyChildIds).border,
-                      color: getFamilyColorToken(sourceAssignmentForEvent(detailEvent).childProfileId, activeFamilyChildIds).text,
+                      background: familyColorTokenForChild(sourceAssignmentForEvent(detailEvent).childProfileId).soft,
+                      borderColor: familyColorTokenForChild(sourceAssignmentForEvent(detailEvent).childProfileId).border,
+                      color: familyColorTokenForChild(sourceAssignmentForEvent(detailEvent).childProfileId).text,
                     }}
                   >
-                    {assignmentLabelForEvent(detailEvent)}
+                    {compactAssignmentLabelForEvent(detailEvent)}
                   </span>
                 </div>
               ) : null}

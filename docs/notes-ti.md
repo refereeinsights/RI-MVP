@@ -15,6 +15,9 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI Weekend Planner Stage `3.3C-4B` child color selection + badge consistency:
+  - Added optional curated child-color persistence on planner child profiles so families can choose ownership colors in the child edit UI instead of relying only on deterministic defaults.
+  - Updated planner list/calendar/legend rendering to honor selected child colors and tightened long family badges so labels like `Casey · Owls TC` stay in the same upper-right badge location as shorter labels.
 - TI Weekend Planner Stage `3.3C-4A` family color + assignment badge polish:
   - Added deterministic child colors and applied them to planner list/calendar display so family ownership is easier to scan without changing assignment behavior.
   - Replaced the list-view assignment row with a compact upper-right badge and added a compact family-color legend plus clearer calendar ownership display while preserving source identity and conflict separation.

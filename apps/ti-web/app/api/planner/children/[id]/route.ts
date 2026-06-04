@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import type { PlannerChildUpdateBody } from "@/lib/planner/types";
+import { isValidFamilyColorOption } from "@/lib/planner/familyColors";
 
 export const runtime = "nodejs";
 
@@ -49,6 +50,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     patch.display_name = displayName;
   }
 
+  if ("color_token" in (body as any)) {
+    const colorToken = asString((body as any).color_token);
+    if (colorToken && !isValidFamilyColorOption(colorToken)) {
+      return NextResponse.json({ ok: false, error: "invalid_color_token" }, { status: 400 });
+    }
+    patch.color_token = colorToken;
+  }
+
   if ("sort_order" in (body as any)) {
     const sortOrder = parseSortOrder((body as any).sort_order);
     if (sortOrder === null) return NextResponse.json({ ok: false, error: "invalid_sort_order" }, { status: 400 });
@@ -67,7 +76,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     .update(patch)
     .eq("id", childId)
     .eq("user_id", user.id)
-    .select("id,user_id,display_name,sort_order,is_archived,created_at,updated_at")
+    .select("id,user_id,display_name,color_token,sort_order,is_archived,created_at,updated_at")
     .single();
 
   if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });

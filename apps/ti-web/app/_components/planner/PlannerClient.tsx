@@ -10,7 +10,7 @@ import {
   type PlannerDuplicateCandidate,
   type PlannerDuplicateReason,
 } from "@/lib/planner/duplicates";
-import { getFamilyColorToken } from "@/lib/planner/familyColors";
+import { compactAssignmentLabel, getFamilyColorToken } from "@/lib/planner/familyColors";
 import type {
   PlannerChildWithTeamsRow,
   PlannerEventCreateBody,
@@ -1196,6 +1196,10 @@ export default function PlannerClient(props: Props) {
     return teamName ? `${childName} · ${teamName}` : childName;
   }
 
+  function compactAssignmentLabelFromIds(childId: string | null | undefined, teamId: string | null | undefined) {
+    return compactAssignmentLabel(childLabel(childId), teamLabel(teamId));
+  }
+
   function activeChildOptions(selectedChildId: string | null | undefined) {
     const normalizedChildId = String(selectedChildId ?? "").trim();
     return familyProfiles.filter((childProfile) => !childProfile.is_archived || String(childProfile.id) === normalizedChildId);
@@ -1215,9 +1219,9 @@ export default function PlannerClient(props: Props) {
     return assignmentLabelFromIds(source.child_profile_id, source.team_profile_id);
   }
 
-  function assignmentLabelForEvent(event: PlannerEventRow) {
+  function compactAssignmentLabelForEvent(event: PlannerEventRow) {
     const sourceAssignment = sourceAssignmentForEvent(event);
-    return assignmentLabelFromIds(
+    return compactAssignmentLabelFromIds(
       sourceAssignment?.child_profile_id ?? event.child_profile_id,
       sourceAssignment?.team_profile_id ?? event.team_profile_id
     );
@@ -1277,7 +1281,9 @@ export default function PlannerClient(props: Props) {
   }, [familyFilter, familyFilterOptions]);
 
   function familyColorTokenForChild(childProfileId: string | null | undefined) {
-    return getFamilyColorToken(childProfileId, activeFamilyChildIds);
+    const normalizedChildId = String(childProfileId ?? "").trim();
+    const childProfile = normalizedChildId ? familyProfilesById.get(normalizedChildId) ?? null : null;
+    return getFamilyColorToken(childProfileId, activeFamilyChildIds, childProfile?.color_token ?? null);
   }
 
   useEffect(() => {
@@ -3033,7 +3039,7 @@ export default function PlannerClient(props: Props) {
                     const conflictCount = loadedConflictsByEventId.get(e.id)?.conflictCount ?? 0;
                     const isNextUpcomingLoadedEvent = nextUpcomingLoadedEventId === e.id;
                     const timeRangeLabel = formatTimeRange({ startIso: e.starts_at, endIso: e.ends_at, timeZone: eTz });
-                    const familyAssignmentLabel = assignmentLabelForEvent(e);
+                    const familyAssignmentLabel = compactAssignmentLabelForEvent(e);
                     const familyAssignmentIds = assignmentIdsForEvent(e);
                     const familyColorToken = familyColorTokenForChild(familyAssignmentIds.childProfileId);
                     const venueRows = venueContextRowsForEvent(e);

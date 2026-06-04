@@ -14,6 +14,9 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI Weekend Planner Stage `3.3C-4B` child color selection + badge consistency:
+  - Added `supabase/migrations/20260604_ti_planner_child_colors.sql` plus planner child API/type support so each child profile can persist an optional curated `color_token` without changing assignment semantics.
+  - Updated `apps/ti-web/app/_components/planner/ChildTeamManager.tsx`, `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, and `apps/ti-web/lib/planner/familyColors.ts` to let users choose child colors in the edit UI, apply those colors across list/calendar/legend ownership surfaces, and keep long family badges anchored in the same upper-right location with compact labels.
 - TI Weekend Planner Stage `3.3C-4A` family color + assignment badge polish:
   - Added deterministic child-color rendering in `apps/ti-web/lib/planner/familyColors.ts` and applied it across list and calendar views so assigned events now emphasize family ownership without changing assignment persistence.
   - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, and `apps/ti-web/app/_components/planner/Planner.module.css` to replace the full-width assignment row with a compact upper-right badge, color calendar events by child assignment, and add a compact family-color legend while keeping source labels and conflict warnings distinct.

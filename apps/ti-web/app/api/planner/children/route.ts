@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import type { PlannerChildCreateBody, PlannerChildRow, PlannerChildWithTeamsRow, PlannerTeamRow } from "@/lib/planner/types";
+import { isValidFamilyColorOption } from "@/lib/planner/familyColors";
 
 export const runtime = "nodejs";
 
@@ -53,7 +54,7 @@ export async function GET(req: Request) {
   const includeArchived = asBool(url.searchParams.get("include_archived")) === true;
 
   let childQuery = (supabase.from("planner_children" as any) as any)
-    .select("id,user_id,display_name,sort_order,is_archived,created_at,updated_at")
+    .select("id,user_id,display_name,color_token,sort_order,is_archived,created_at,updated_at")
     .eq("user_id", user.id)
     .order("is_archived", { ascending: true })
     .order("sort_order", { ascending: true })
@@ -102,6 +103,10 @@ export async function POST(req: Request) {
 
   const displayName = clamp(asString((body as any).display_name), 80);
   if (!displayName) return NextResponse.json({ ok: false, error: "display_name_required" }, { status: 400 });
+  const colorToken = asString((body as any).color_token);
+  if (colorToken && !isValidFamilyColorOption(colorToken)) {
+    return NextResponse.json({ ok: false, error: "invalid_color_token" }, { status: 400 });
+  }
 
   const parsedSortOrder = parseSortOrder((body as any).sort_order);
   const sortOrder = parsedSortOrder ?? (await nextChildSortOrder(supabase, user.id));
@@ -110,10 +115,11 @@ export async function POST(req: Request) {
     .insert({
       user_id: user.id,
       display_name: displayName,
+      color_token: colorToken,
       sort_order: sortOrder,
       is_archived: false,
     })
-    .select("id,user_id,display_name,sort_order,is_archived,created_at,updated_at")
+    .select("id,user_id,display_name,color_token,sort_order,is_archived,created_at,updated_at")
     .single();
 
   if (error) return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });

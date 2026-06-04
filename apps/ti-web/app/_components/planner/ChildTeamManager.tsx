@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { FAMILY_COLOR_OPTIONS, getFamilyColorToken } from "@/lib/planner/familyColors";
 import type {
   PlannerChildRow,
   PlannerChildWithTeamsRow,
@@ -54,6 +55,7 @@ export default function ChildTeamManager(props: Props) {
   const [newChildName, setNewChildName] = useState("");
   const [editingChildId, setEditingChildId] = useState<string | null>(null);
   const [editingChildName, setEditingChildName] = useState("");
+  const [editingChildColorToken, setEditingChildColorToken] = useState<string | null>(null);
 
   const [newTeamChildId, setNewTeamChildId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
@@ -102,6 +104,11 @@ export default function ChildTeamManager(props: Props) {
     () => children.reduce((sum, child) => sum + child.teams.filter((team) => !team.is_archived).length, 0),
     [children]
   );
+  const orderedChildIds = useMemo(() => children.map((child) => String(child.id)).filter(Boolean), [children]);
+
+  function childColorTokenForChild(child: PlannerChildWithTeamsRow) {
+    return getFamilyColorToken(child.id, orderedChildIds, child.color_token ?? null);
+  }
 
   async function onCreateChild() {
     if (saving) return;
@@ -140,10 +147,11 @@ export default function ChildTeamManager(props: Props) {
     try {
       await jsonFetch(`/api/planner/children/${encodeURIComponent(childId)}`, {
         method: "PATCH",
-        body: JSON.stringify({ display_name: editingChildName.trim() }),
+        body: JSON.stringify({ display_name: editingChildName.trim(), color_token: editingChildColorToken }),
       });
       setEditingChildId(null);
       setEditingChildName("");
+      setEditingChildColorToken(null);
       setNotice("Child profile updated.");
       await loadProfiles(showArchived);
       props.onProfilesChanged?.();
@@ -327,7 +335,19 @@ export default function ChildTeamManager(props: Props) {
                   <div key={child.id} className={styles.profileCard}>
                     <div className={styles.profileHeader}>
                       <div>
-                        <div className={styles.profileName}>{child.display_name}</div>
+                        <div className={styles.profileName} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          <span
+                            className={styles.colorSwatchDot}
+                            aria-hidden="true"
+                            style={{
+                              width: 14,
+                              height: 14,
+                              background: childColorTokenForChild(child).main,
+                              borderColor: childColorTokenForChild(child).border,
+                            }}
+                          />
+                          <span>{child.display_name}</span>
+                        </div>
                         <div className={styles.eventMeta}>
                           {activeTeams.length} active team{activeTeams.length === 1 ? "" : "s"}
                         </div>
@@ -344,6 +364,7 @@ export default function ChildTeamManager(props: Props) {
                               onClick={() => {
                                 setEditingChildId(null);
                                 setEditingChildName("");
+                                setEditingChildColorToken(null);
                               }}
                               disabled={saving}
                             >
@@ -357,6 +378,7 @@ export default function ChildTeamManager(props: Props) {
                             onClick={() => {
                               setEditingChildId(child.id);
                               setEditingChildName(child.display_name);
+                              setEditingChildColorToken(child.color_token ?? null);
                             }}
                             disabled={saving}
                           >
@@ -370,15 +392,55 @@ export default function ChildTeamManager(props: Props) {
                     </div>
 
                   {editingChildId === child.id ? (
-                    <div className={styles.eventActions}>
-                      <input
-                        className={styles.input}
-                        value={editingChildName}
-                        onChange={(e) => setEditingChildName(e.target.value)}
-                        placeholder="Child name"
-                        maxLength={80}
-                        disabled={saving}
-                      />
+                    <div className={styles.profileEditBlock}>
+                      <div className={styles.eventActions}>
+                        <input
+                          className={styles.input}
+                          value={editingChildName}
+                          onChange={(e) => setEditingChildName(e.target.value)}
+                          placeholder="Child name"
+                          maxLength={80}
+                          disabled={saving}
+                        />
+                      </div>
+                      <div className={styles.profileSection}>
+                        <div className={styles.profileSectionTitle}>Child color</div>
+                        <div className={styles.colorSwatchGrid}>
+                          {FAMILY_COLOR_OPTIONS.map((option) => {
+                            const isSelected = (editingChildColorToken ?? "") === option.key;
+                            return (
+                              <button
+                                key={option.key}
+                                type="button"
+                                className={`${styles.colorSwatchButton}${isSelected ? ` ${styles.colorSwatchButtonSelected}` : ""}`}
+                                onClick={() => setEditingChildColorToken(option.key)}
+                                disabled={saving}
+                                aria-pressed={isSelected}
+                                title={option.label}
+                              >
+                                <span className={styles.colorSwatchDot} style={{ background: option.token.main, borderColor: option.token.border }} />
+                                <span>{option.label}</span>
+                              </button>
+                            );
+                          })}
+                          <button
+                            type="button"
+                            className={`${styles.colorSwatchButton}${!editingChildColorToken ? ` ${styles.colorSwatchButtonSelected}` : ""}`}
+                            onClick={() => setEditingChildColorToken(null)}
+                            disabled={saving}
+                            aria-pressed={!editingChildColorToken}
+                          >
+                            <span
+                              className={styles.colorSwatchDot}
+                              style={{
+                                background: getFamilyColorToken(child.id, orderedChildIds).soft,
+                                borderColor: getFamilyColorToken(child.id, orderedChildIds).border,
+                              }}
+                            />
+                            <span>Auto</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ) : null}
 
