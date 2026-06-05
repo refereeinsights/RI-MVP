@@ -636,6 +636,37 @@ Use this after Stage `3.3C-5` is stable. Keep scope on the compact `Dates` contr
 
 ---
 
+### Stage 3.3C-7 UAT (parent-friendly ICS normalization + TeamSnap One cleanup)
+
+Use this after Stage `3.3C-6` is stable. Keep scope on noisy ICS cleanup, structured TeamSnap One note extraction, safer venue matching, and cleaner parent-facing imported-event cards.
+
+- [ ] TeamSnap One description cleanup:
+  - [ ] TeamSnap One-style imported descriptions no longer render as one giant raw blob in the main planner card.
+  - [ ] Raw `Location:` text does not remain duplicated in notes when venue/source location already displays elsewhere.
+  - [ ] Raw `Duration:` text is not shown redundantly when start/end time already covers it.
+  - [ ] Raw long TeamSnap deep links do not appear in the collapsed planner card.
+- [ ] Useful notes preservation:
+  - [ ] `Arrival:` information is preserved as a concise parent-facing note such as `Arrive 40 minutes early`.
+  - [ ] `Uniform:` information is preserved as a concise parent-facing note such as `Uniform: Black advanced kits`.
+  - [ ] If both `Arrival` and `Uniform` exist, both remain visible without reintroducing the raw machine-generated blob.
+- [ ] Location + field extraction:
+  - [ ] Trailing field markers such as `#3`, `Field 3`, or `Court 1` are extracted into `field_label`.
+  - [ ] Extracted field labels appear inline near the event time row.
+  - [ ] Imported location cleanup still leaves the correct base venue/location available for directions and venue matching.
+- [ ] Conservative venue matching safety:
+  - [ ] Cleaned TeamSnap/ICS location text still links to the correct TI venue when the venue uniquely resolves.
+  - [ ] Weak one-token address candidates do not cause unrelated events to auto-link to the wrong TI venue.
+  - [ ] Existing non-null `venue_id` values are not overwritten during refresh/import.
+- [ ] Parent-facing event card cleanup:
+  - [ ] If a linked venue exists, the main card shows `Linked venue` and does not also show redundant raw source location.
+  - [ ] If no linked venue exists, the card still shows a usable source location and `Directions`.
+  - [ ] Notes remain readable on mobile and do not overflow with long unbroken import text.
+- [ ] Manual controls and debugging:
+  - [ ] Existing `Find venue` / `Change venue` flows still work after TeamSnap note cleanup.
+  - [ ] Edit/detail surfaces still retain enough source information to understand what was imported and why.
+
+---
+
 ### Stage 2.8 UAT (polish + launch readiness)
 
 Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.

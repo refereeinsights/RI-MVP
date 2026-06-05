@@ -246,6 +246,75 @@ function stripHtml(value: string) {
   return value.replace(/<[^>]*>/g, "");
 }
 
+type ParsedStructuredDescription = {
+  cleanedNotes: string | null;
+  locationText: string | null;
+  sourceLink: string | null;
+};
+
+function normalizeStructuredNoteLabel(label: string) {
+  const value = collapseWhitespace(label).toLowerCase();
+  if (value === "arrive") return "Arrival";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatStructuredArrival(value: string) {
+  const trimmed = collapseWhitespace(value);
+  if (!trimmed) return null;
+  if (/^arrive\b/i.test(trimmed)) return normalizeStructuredNoteLabel(trimmed);
+  return `Arrive ${trimmed}`;
+}
+
+function parseStructuredDescription(description: string): ParsedStructuredDescription {
+  const cleaned = collapseWhitespace(stripHtml(description));
+  if (!cleaned) return { cleanedNotes: null, locationText: null, sourceLink: null };
+
+  const labelPattern = /\b(Game|Practice|Location|Duration|Arrival|Uniform|Link):/gi;
+  const matches = Array.from(cleaned.matchAll(labelPattern));
+  if (!matches.length) {
+    return { cleanedNotes: cleaned, locationText: null, sourceLink: null };
+  }
+
+  const fields = new Map<string, string>();
+  for (let index = 0; index < matches.length; index += 1) {
+    const match = matches[index];
+    const next = matches[index + 1];
+    const key = String(match?.[1] ?? "").toLowerCase();
+    const value = collapseWhitespace(
+      cleaned.slice((match?.index ?? 0) + match?.[0].length, next?.index ?? cleaned.length),
+    );
+    if (!key || !value) continue;
+    fields.set(key, value);
+  }
+
+  const locationText = fields.get("location") ?? null;
+  const sourceLink = fields.get("link") ?? null;
+  const noteParts: string[] = [];
+
+  const arrival = fields.get("arrival");
+  if (arrival) {
+    const formattedArrival = formatStructuredArrival(arrival);
+    if (formattedArrival) noteParts.push(formattedArrival);
+  }
+
+  const uniform = fields.get("uniform");
+  if (uniform) {
+    noteParts.push(`Uniform: ${uniform}`);
+  }
+
+  const ignoredLabels = new Set(["game", "practice", "location", "duration", "arrival", "uniform", "link"]);
+  for (const [key, value] of fields.entries()) {
+    if (ignoredLabels.has(key)) continue;
+    noteParts.push(`${normalizeStructuredNoteLabel(key)}: ${value}`);
+  }
+
+  return {
+    cleanedNotes: noteParts.length ? noteParts.join(" · ") : null,
+    locationText,
+    sourceLink,
+  };
+}
+
 function hashStable(parts: string[]) {
   return crypto.createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 32);
 }
@@ -357,9 +426,11 @@ export function normalizeIcsEvents(params: {
     const locationRaw = String(ev.location ?? "").trim();
     const tzid = safeTimeZone(String(ev.tzid ?? ev.timezone ?? "") || null);
 
-    const normalizedLocation = extractFieldLabelFromLocationText(collapseWhitespace(stripHtml(locationRaw)));
+    const parsedDescription = parseStructuredDescription(descRaw);
+    const canonicalLocationText = collapseWhitespace(stripHtml(locationRaw || parsedDescription.locationText || ""));
+    const normalizedLocation = extractFieldLabelFromLocationText(canonicalLocationText);
     const title = clamp(collapseWhitespace(stripHtml(summaryRaw)), 140) || "Imported calendar event";
-    const notes = clamp(collapseWhitespace(stripHtml(descRaw)), 2000);
+    const notes = clamp(parsedDescription.cleanedNotes, 2000);
     const addressText = clamp(normalizedLocation.cleanedLocation, 200);
     const fieldLabel = clamp(normalizedLocation.fieldLabel, 80);
 

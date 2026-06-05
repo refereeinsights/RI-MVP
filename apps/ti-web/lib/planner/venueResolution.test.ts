@@ -152,3 +152,16 @@ test("resolvePlannerVenueMatches does not auto-link when multiple candidates sha
 
   assert.equal(matches.has("evt1"), false);
 });
+
+test("resolvePlannerVenueMatches does not globally match weak one-token addresses", async () => {
+  const supabase = mockSupabaseWithVenues([
+    { id: "v1", name: "Casper Events Center", address: "1", city: "Casper", state: "WY" },
+    { id: "v2", name: "Dwight Merkel Sports Complex", address: "5701 N Assembly St", city: "Spokane", state: "WA" },
+  ]);
+
+  const matches = await resolvePlannerVenueMatches(supabase as any, [
+    { id: "evt1", address_text: "Dwight Merkel Sports Complex 5701 N Assembly St, Spokane, WA 99205, USA", city: null, state: null },
+  ]);
+
+  assert.equal(matches.get("evt1"), "v2");
+});

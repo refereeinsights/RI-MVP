@@ -15,6 +15,10 @@ Maintenance rules:
 
 ## 2026-06-05
 
+- TI Weekend Planner Stage `3.3C-7` parent-friendly ICS normalization + TeamSnap One cleanup:
+  - Updated `apps/ti-web/lib/planner/ics-import.ts` to parse TeamSnap One-style labeled descriptions so imported events keep useful planning notes like `Arrive 40 minutes early` and `Uniform: ...`, while using structured `Location` data for venue matching and suppressing redundant `Location`, `Duration`, and raw TeamSnap link noise from the main planner notes.
+  - Tightened `apps/ti-web/lib/planner/venueResolution.ts` so weak one-token addresses no longer participate in global venue auto-linking, closing the false-positive path that was collapsing unrelated dry-run backfill rows onto `Casper Events Center`.
+  - Added coverage in `apps/ti-web/lib/planner/ics-import.test.ts` and `apps/ti-web/lib/planner/venueResolution.test.ts` for TeamSnap cleanup, field-marker extraction, and the global weak-address safety guard.
 - TI Weekend Planner Stage `3.3C-6` compact Season date-range filter:
   - Added a Season-only compact `Dates` control with start/end inputs, quick actions, and inclusive range handling so families can narrow loaded Season events without changing Upcoming / This Weekend behavior.
   - Wired the custom date range into the existing planner fetch path only for `Season`, preserving current family filters, calendar/list consistency, and the existing `seasonRange` presets as the default when no custom range is active.

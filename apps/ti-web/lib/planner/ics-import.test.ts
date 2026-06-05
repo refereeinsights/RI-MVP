@@ -103,6 +103,31 @@ test("normalizeIcsEvents: extracts trailing field markers from location text", (
   assert.equal(res.events[0]?.field_label, "Field 6");
 });
 
+test("normalizeIcsEvents: cleans TeamSnap-style descriptions into useful parent notes", () => {
+  const now = new Date();
+  const start = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+  const ics = buildSimpleCalendar([
+    {
+      uid: "teamsnap-1",
+      summary: "Game: 2627 90+ B09-10 Lewis vs Flathead Valley United",
+      description:
+        "Game: 2627 90+ B09-10 Lewis vs Flathead Valley United Location: Fort Missoula Regional Park 3401-3499 South Ave W, Missoula, MT 59804, USA #3 Duration: 1 hour 30 minutes Arrival: 40 minutes early Uniform: Black advanced kits Link: https://link.teamsnapone.com/example",
+      location: "",
+      start,
+      end: new Date(start.getTime() + 90 * 60 * 1000),
+    },
+  ]);
+
+  const res = normalizeIcsEvents({ icsText: ics, sourceUrl: "https://example.com/a.ics", teamName: null });
+  assert.equal(res.events.length, 1);
+  assert.equal(
+    res.events[0]?.address_text,
+    "Fort Missoula Regional Park 3401-3499 South Ave W, Missoula, MT 59804, USA",
+  );
+  assert.equal(res.events[0]?.field_label, "Field 3");
+  assert.equal(res.events[0]?.notes, "Arrive 40 minutes early · Uniform: Black advanced kits");
+});
+
 test("normalizeIcsEvents: generates deterministic fallback UID when UID is missing", () => {
   const now = new Date();
   const start = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);

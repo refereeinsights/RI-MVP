@@ -133,6 +133,19 @@ function looksLikeStreetAddress(value: string | null | undefined) {
   return /\b\d{1,6}\s+[a-z0-9]/i.test(String(value ?? ""));
 }
 
+function isStrongNormalizedAddress(value: string | null | undefined) {
+  const normalized = collapseWhitespace(String(value ?? ""));
+  if (!normalized) return false;
+  const parts = normalized.split(" ").filter(Boolean);
+  return looksLikeStreetAddress(normalized) && parts.length >= 3 && normalized.length >= 10;
+}
+
+function isSafeAddressCandidateMatch(eventAddress: string, candidateAddress: string) {
+  if (!candidateAddress) return false;
+  if (!isStrongNormalizedAddress(candidateAddress)) return false;
+  return candidateAddress === eventAddress || eventAddress.includes(candidateAddress);
+}
+
 function stripCountrySuffix(value: string) {
   return collapseWhitespace(
     value
@@ -381,8 +394,7 @@ export async function resolvePlannerVenueMatches(
         ? candidates.filter(
             (candidate) =>
               candidate.normalizedAddress &&
-              (candidate.normalizedAddress === row.context.normalizedBase ||
-                row.context.normalizedBase.includes(candidate.normalizedAddress)),
+              isSafeAddressCandidateMatch(row.context.normalizedBase, candidate.normalizedAddress),
           )
         : [];
 
@@ -397,7 +409,7 @@ export async function resolvePlannerVenueMatches(
             (candidate) =>
               candidate.normalizedAddress &&
               candidate.normalizedName &&
-              row.context.normalizedBase.includes(candidate.normalizedAddress) &&
+              isSafeAddressCandidateMatch(row.context.normalizedBase, candidate.normalizedAddress) &&
               row.context.normalizedBase.includes(candidate.normalizedName),
           )
         : [];
@@ -448,8 +460,7 @@ export async function resolvePlannerVenueMatches(
         const exactAddressMatches = globalCandidates.filter(
           (candidate) =>
             candidate.normalizedAddress &&
-            (candidate.normalizedAddress === row.context.normalizedBase ||
-              row.context.normalizedBase.includes(candidate.normalizedAddress)),
+            isSafeAddressCandidateMatch(row.context.normalizedBase, candidate.normalizedAddress),
         );
         if (exactAddressMatches.length === 1) {
           matches.set(row.event.id, exactAddressMatches[0]!.id);
