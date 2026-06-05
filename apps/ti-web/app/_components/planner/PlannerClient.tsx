@@ -1231,6 +1231,27 @@ export default function PlannerClient(props: Props) {
     );
   }
 
+  function sourceLabelOwnershipFallback(event: PlannerEventRow) {
+    const familyAssignmentLabel = compactAssignmentLabelForEvent(event);
+    if (familyAssignmentLabel) return null;
+    if (String(event.source_type ?? "") !== "ics") return null;
+
+    const sourceLabel = labelForImportedEvent(event);
+    const normalizedSourceLabel = String(sourceLabel ?? "").trim();
+    if (!normalizedSourceLabel) return null;
+
+    const matchingChild = familyProfiles.find((childProfile) => {
+      const childName = String(childProfile.display_name ?? "").trim();
+      return childName && normalizedSourceLabel.toLowerCase().startsWith(childName.toLowerCase());
+    });
+    if (!matchingChild) return null;
+
+    return {
+      text: normalizedSourceLabel,
+      color: familyColorTokenForChild(String(matchingChild.id)),
+    };
+  }
+
   function sourceAssignmentForEvent(event: PlannerEventRow) {
     const sourceId = String(event.source_id ?? "").trim();
     const isSourceLinkedEvent =
@@ -3046,6 +3067,7 @@ export default function PlannerClient(props: Props) {
                     const familyAssignmentLabel = compactAssignmentLabelForEvent(e);
                     const familyAssignmentIds = assignmentIdsForEvent(e);
                     const familyColorToken = familyColorTokenForChild(familyAssignmentIds.childProfileId);
+                    const sourceLabelBadgeFallback = sourceLabelOwnershipFallback(e);
                     const venueRows = venueContextRowsForEvent(e);
                     const mapUrl = mapsUrlForEvent(e);
                     const nextUpSummaryParts = [timeRangeLabel];
@@ -3069,7 +3091,7 @@ export default function PlannerClient(props: Props) {
                             <div className={styles.eventTitle}>{e.title}</div>
                             <div className={styles.eventLabelRow}>
                               <span className={styles.eventPill}>{String(e.event_type || "game")}</span>
-                              {String(e.source_type || "") === "ics" || String((e as any)?.source_event_uid ?? "").trim() ? (
+                              {(String(e.source_type || "") === "ics" || String((e as any)?.source_event_uid ?? "").trim()) && !sourceLabelBadgeFallback ? (
                                 <span className={styles.eventPill}>{labelForImportedEvent(e)}</span>
                               ) : null}
                             </div>
@@ -3085,6 +3107,17 @@ export default function PlannerClient(props: Props) {
                                 }}
                               >
                                 {familyAssignmentLabel}
+                              </span>
+                            ) : sourceLabelBadgeFallback ? (
+                              <span
+                                className={styles.assignmentBadge}
+                                style={{
+                                  background: sourceLabelBadgeFallback.color.soft,
+                                  borderColor: sourceLabelBadgeFallback.color.border,
+                                  color: sourceLabelBadgeFallback.color.text,
+                                }}
+                              >
+                                {sourceLabelBadgeFallback.text}
                               </span>
                             ) : null}
                             {conflictCount ? <span className={styles.eventConflictBadge}>Schedule conflict</span> : null}

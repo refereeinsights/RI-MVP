@@ -18,6 +18,7 @@ Maintenance rules:
 - TI Weekend Planner Stage `3.3C-5` conservative venue matching + venue/map click paths:
   - Added conservative batch venue matching for imported/refreshing ICS events using internal TI venue data only, with no backfill and no overwrite of any existing non-null `venue_id`.
   - Updated planner list/calendar event location behavior so linked venues open TI venue pages in new tabs, meaningful unmatched source locations open maps, field-only labels stay informational, and month-view event chips more clearly signal clickability.
+  - Tightened imported-event badge consistency so child-prefixed source labels like `Casey Owls 15U - TC` move into the same upper-right badge location already used by `Avery Sports · TI Owls 12U`, rather than rendering inline beside the event-type chip.
 
 ## 2026-06-04
 

@@ -588,6 +588,7 @@ Use this after Stage `3.3C-4D` is stable. Keep scope on conservative imported-ev
 - [ ] Signal preservation:
   - [ ] Existing Stage `3.1` linked-venue/source-location display hierarchy remains intact.
   - [ ] Source identity, child colors, and conflict indicators remain readable and distinct.
+  - [ ] Child-prefixed imported source labels such as `Casey ...` use the same upper-right ownership badge placement/pattern as `Avery ...` rather than dropping into the inline chip row.
 - [ ] Mobile safety (`375px` if possible):
   - [ ] Venue links and source-location fallback links remain tappable.
   - [ ] Directions/map actions remain reachable.
