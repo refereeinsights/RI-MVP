@@ -14,6 +14,9 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI Weekend Planner Stage `3.3C-4D` week-view time-window polish:
+  - Updated `apps/ti-web/app/_components/planner/PlannerCalendar.tsx` to open week view at `8:00 AM` by default, keep full-day coverage available by internal scroll, and modestly shrink the week grid hour height so more daytime hours fit without losing event readability.
+  - Updated `apps/ti-web/app/_components/planner/Planner.module.css` so week-view vertical scrolling stays contained inside the calendar frame, with mobile-safe height caps and touch-friendly internal scrolling instead of page-level overflow.
 - TI Weekend Planner Stage `3.3C-4C` single-week calendar view:
   - Extended `apps/ti-web/app/_components/planner/PlannerCalendar.tsx` with explicit `Month`, `Week`, and `Agenda` modes using Schedule-X's built-in week view so users can switch into a true single-week calendar without changing assignment, filter, or timezone behavior.
   - Updated `apps/ti-web/app/_components/planner/Planner.module.css` to support the new mode controls, week-range navigation label, and mobile-safe contained horizontal scrolling inside the calendar frame so week view does not create page-level overflow on narrow screens.

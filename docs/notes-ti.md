@@ -15,6 +15,9 @@ Maintenance rules:
 
 ## 2026-06-04
 
+- TI Weekend Planner Stage `3.3C-4D` week-view time-window polish:
+  - Week view now opens around `8:00 AM` instead of midnight and keeps later hours reachable through internal calendar scrolling.
+  - Reduced the week-grid hour height modestly and constrained week-view scrolling inside the calendar frame so mobile users can reach later times without page-level overflow.
 - TI Weekend Planner Stage `3.3C-4C` single-week calendar view:
   - Added explicit `Month`, `Week`, and `Agenda` calendar modes so families can switch into a true one-week planner view without losing existing month/agenda behavior.
   - Reused existing family filters, source-derived assignment, child colors, and event detail behavior in week view, with mobile-safe contained calendar overflow rather than page-level horizontal overflow.

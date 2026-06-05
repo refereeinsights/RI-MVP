@@ -529,6 +529,36 @@ Use this after Stage `3.3C-4B` is stable. Keep scope on the new `Week` calendar 
 
 ---
 
+### Stage 3.3C-4D UAT (week-view time-window polish)
+
+Use this after Stage `3.3C-4C` is stable. Keep scope on the week view’s default visible time window, internal scrolling, and hour-density polish.
+
+- [ ] Default visible time:
+  - [ ] Entering `Week` mode opens around `8:00 AM`, not midnight.
+  - [ ] Morning events near `8:00 AM` are visible without manual scrolling.
+  - [ ] Earlier times are still reachable if the user scrolls upward.
+- [ ] Internal week scrolling:
+  - [ ] Scrolling downward inside week view reveals later hours.
+  - [ ] Scroll is contained to the calendar frame rather than the page.
+  - [ ] Week view still reaches evening events reliably.
+  - [ ] Event detail open/close still works after scrolling.
+- [ ] Hour-density/readability:
+  - [ ] More of the daytime schedule is visible than before.
+  - [ ] Hour rows are smaller, but event labels remain readable/tappable.
+  - [ ] Overlapping events remain understandable.
+- [ ] Mobile safety (`375px` if possible):
+  - [ ] No horizontal page overflow is introduced.
+  - [ ] Vertical scrolling remains usable on touch devices.
+  - [ ] The calendar frame remains the only intended scroll region for later hours.
+- [ ] No regressions:
+  - [ ] Family filters still work in week view.
+  - [ ] Child colors still render correctly in week view.
+  - [ ] Source labels remain visible/readable.
+  - [ ] Conflict indicators remain visible/readable.
+  - [ ] Timezone changes still affect week view correctly.
+
+---
+
 ### Stage 2.8 UAT (polish + launch readiness)
 
 Use this after Smoke UAT passes. Focus on “trust and clarity” regressions.

@@ -648,8 +648,24 @@
   overflow-y: hidden;
 }
 
+.sxWrapperWeek :global(.sx__calendar) {
+  min-height: 720px;
+  max-height: min(78vh, 760px);
+}
+
+.sxWrapperWeek :global(.sx__view-container) {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 .sxWrapperWeek :global(.sx__week-wrapper) {
   min-width: 760px;
+}
+
+.sxWrapperWeek :global(.sx__week-grid) {
+  min-height: 1200px;
 }
 
 .sxWrapperWeek :global(.sx__week-header) {
@@ -1167,6 +1183,11 @@
 
   .sxWrapperWeek :global(.sx__week-wrapper) {
     min-width: 680px;
+  }
+
+  .sxWrapperWeek :global(.sx__calendar) {
+    min-height: 640px;
+    max-height: 72vh;
   }
 
   /* height removed — sxWrapper now sized by grid content */

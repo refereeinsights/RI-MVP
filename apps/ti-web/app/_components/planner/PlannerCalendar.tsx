@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScheduleXCalendar, useNextCalendarApp } from "@schedule-x/react";
 import {
   createViewWeek,
@@ -57,6 +57,8 @@ function formatEventTimeRange(args: { startIso: string; endIso: string; timeZone
 
 type DetailState = { open: boolean; eventId: string | null };
 type CalendarMode = "month" | "week" | "agenda";
+const WEEK_GRID_HEIGHT = 1200;
+const WEEK_DEFAULT_SCROLL_HOUR = 8;
 
 export default function PlannerCalendar(props: Props) {
   const hasEvents = (props.events ?? []).length > 0;
@@ -69,6 +71,7 @@ export default function PlannerCalendar(props: Props) {
   const [detail, setDetail] = useState<DetailState>({ open: false, eventId: null });
   const [displayedDate, setDisplayedDate] = useState<string | null>(null);
   const [weeksToShow, setWeeksToShow] = useState(6);
+  const calendarHostRef = useRef<HTMLDivElement | null>(null);
   const detailEvent = useMemo(() => {
     if (!detail.open || !detail.eventId) return null;
     return (props.events ?? []).find((e) => e.id === detail.eventId) ?? null;
@@ -255,20 +258,35 @@ export default function PlannerCalendar(props: Props) {
   const monthAgendaName = views.find((v: any) => v?.name?.includes?.("month") && v?.name?.includes?.("agenda"))?.name ?? views[0]?.name;
   const currentViewName = calendarMode === "week" ? weekName : calendarMode === "agenda" ? monthAgendaName : monthGridName;
 
-  function syncDisplayedDateFromControls() {
+  const syncDisplayedDateFromControls = useCallback(() => {
     try {
       const d = controls.getDate();
       if (d?.year && d?.month && d?.day) setDisplayedDate(`${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`);
     } catch {
       // ignore
     }
-  }
+  }, [controls]);
+
+  const scrollWeekViewToHour = useCallback((targetHour: number) => {
+    const host = calendarHostRef.current;
+    if (!host) return;
+    const viewContainer = host.querySelector<HTMLElement>(".sx__view-container");
+    const weekGrid = host.querySelector<HTMLElement>(".sx__week-grid");
+    if (!viewContainer || !weekGrid) return;
+    const totalHours = 24;
+    const hourHeight = weekGrid.scrollHeight > 0 ? weekGrid.scrollHeight / totalHours : WEEK_GRID_HEIGHT / totalHours;
+    viewContainer.scrollTop = Math.max(0, Math.round(targetHour * hourHeight));
+  }, []);
 
   const calendar = useNextCalendarApp({
     theme: "shadcn",
     views,
     defaultView: currentViewName,
     timezone: calendarTz,
+    weekOptions: {
+      gridHeight: WEEK_GRID_HEIGHT,
+      gridStep: 60,
+    },
     events: sxEvents as any,
     calendars: sxCalendars as any,
     plugins: [eventsService as any, controls as any],
@@ -362,6 +380,14 @@ export default function PlannerCalendar(props: Props) {
   useEffect(() => {
     try { eventsService.set(sxEvents as any); } catch { /* ignore */ }
   }, [sxEvents, eventsService]);
+
+  useEffect(() => {
+    if (calendarMode !== "week") return;
+    const timeoutId = window.setTimeout(() => {
+      scrollWeekViewToHour(WEEK_DEFAULT_SCROLL_HOUR);
+    }, 40);
+    return () => window.clearTimeout(timeoutId);
+  }, [calendarMode, displayedDate, scrollWeekViewToHour]);
 
   const navNextDisabled = useMemo(() => {
     if (calendarMode === "week") return false;
@@ -553,6 +579,7 @@ export default function PlannerCalendar(props: Props) {
           </div>
           ) : null}
           <div
+            ref={calendarHostRef}
             className={`sx-react-calendar-wrapper ${styles.sxWrapper} ${calendarMode === "week" ? styles.sxWrapperWeek : ""}`}
             style={{ "--calendar-weeks-visible": weeksToShow } as React.CSSProperties}
           >
