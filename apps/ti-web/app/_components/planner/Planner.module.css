@@ -48,6 +48,7 @@
   grid-template-columns: minmax(0, 1.7fr) minmax(300px, 0.95fr);
   gap: 18px;
   align-items: start;
+  min-width: 0;
 }
 
 .primaryColumn,
@@ -55,6 +56,7 @@
   display: grid;
   gap: 18px;
   align-content: start;
+  min-width: 0;
 }
 
 .stickySidebarCard {
@@ -97,6 +99,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   padding: 14px;
+  min-width: 0;
 }
 
 .cardTitle {
@@ -205,6 +208,7 @@
   display: grid;
   gap: 8px;
   background: #ffffff;
+  min-width: 0;
 }
 
 .eventItemConflict {
@@ -216,6 +220,8 @@
   font-weight: 900;
   text-align: left;
   line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .eventHeaderRow {
@@ -223,6 +229,7 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 10px;
+  min-width: 0;
 }
 
 .eventHeaderMeta {
@@ -231,6 +238,7 @@
   align-items: flex-end;
   gap: 6px;
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .eventTitleBlock {
@@ -880,6 +888,8 @@
   color: #475569;
   font-size: 13px;
   text-align: left;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .nextUpEventItem {
@@ -909,6 +919,7 @@
   font-size: 13px;
   font-weight: 700;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .venueContextBlock {
@@ -918,6 +929,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: #f8fafc;
+  min-width: 0;
 }
 
 .venueContextRow {
@@ -1163,6 +1175,8 @@
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 640px) {
@@ -1196,11 +1210,16 @@
   .headerActions,
   .scheduleViewButtonsRow,
   .calendarToggle,
-  .eventActions,
-  .eventActionSummaryRow,
   .dateFilterActions {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .eventActions,
+  .eventActionSummaryRow {
+    display: grid;
+    grid-template-columns: 1fr;
     width: 100%;
   }
 
@@ -1215,6 +1234,12 @@
 
   .eventActions > input {
     grid-column: 1 / -1;
+  }
+
+  .eventActions > *,
+  .eventActionSummaryRow > * {
+    width: 100%;
+    min-width: 0;
   }
 
   .profileHeader,
@@ -1248,6 +1273,10 @@
     align-items: flex-start;
   }
 
+  .eventItem {
+    padding: 12px;
+  }
+
   .eventConflictBadge {
     justify-self: start;
   }
@@ -1262,6 +1291,14 @@
     left: 0;
     right: 0;
     width: 100%;
+  }
+
+  .venueContextBlock {
+    padding: 10px;
+  }
+
+  .venueContextValue {
+    text-align: center;
   }
 
   .dateFilterFields {
