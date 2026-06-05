@@ -239,7 +239,7 @@ export async function resolvePlannerVenueMatches(
       if (!state || !city || !rawCity) return [key, [] as NormalizedVenueCandidate[]] as const;
 
       const { data, error } = await (supabase.from("venues_public" as any) as any)
-        .select("id,name,address,city,state,seo_slug")
+        .select("id,name,address,city,state")
         .eq("state", state)
         .ilike("city", rawCity)
         .limit(250);
@@ -253,7 +253,7 @@ export async function resolvePlannerVenueMatches(
           address: venue?.address ?? null,
           city: venue?.city ?? null,
           state: venue?.state ?? null,
-          seo_slug: venue?.seo_slug ?? null,
+          seo_slug: null,
         }))
         .filter((venue: NormalizedVenueCandidate) => venue.id && venue.normalizedCity === city && venue.normalizedState === state);
 
