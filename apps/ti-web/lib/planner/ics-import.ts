@@ -5,7 +5,7 @@ import ical from "node-ical";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isUuid } from "@/lib/venues/isUuid";
-import { resolvePlannerVenueMatches } from "@/lib/planner/venueResolution";
+import { extractFieldLabelFromLocationText, resolvePlannerVenueMatches } from "@/lib/planner/venueResolution";
 
 const MAX_URL_LEN = 2000;
 const MAX_ICS_CHARS = 2_000_000; // ~2MB
@@ -271,6 +271,7 @@ type NormalizedPlannerEvent = {
   timezone: string | null;
   notes: string | null;
   address_text: string | null;
+  field_label: string | null;
   team_name: string | null;
   source_event_uid: string;
 };
@@ -356,9 +357,11 @@ export function normalizeIcsEvents(params: {
     const locationRaw = String(ev.location ?? "").trim();
     const tzid = safeTimeZone(String(ev.tzid ?? ev.timezone ?? "") || null);
 
+    const normalizedLocation = extractFieldLabelFromLocationText(collapseWhitespace(stripHtml(locationRaw)));
     const title = clamp(collapseWhitespace(stripHtml(summaryRaw)), 140) || "Imported calendar event";
     const notes = clamp(collapseWhitespace(stripHtml(descRaw)), 2000);
-    const addressText = clamp(collapseWhitespace(stripHtml(locationRaw)), 200);
+    const addressText = clamp(normalizedLocation.cleanedLocation, 200);
+    const fieldLabel = clamp(normalizedLocation.fieldLabel, 80);
 
     const startDate: Date | null = (() => {
       const dt = instanceStart ?? ev.start;
@@ -405,6 +408,7 @@ export function normalizeIcsEvents(params: {
       timezone: tzid,
       notes,
       address_text: addressText,
+      field_label: fieldLabel,
       team_name: clamp(params.teamName, 80),
       source_event_uid: sourceEventUid,
     });
@@ -447,11 +451,12 @@ async function loadExistingEventsByUid(params: { supabase: SupabaseClient; userI
     ends_at: string | null;
     timezone: string | null;
     address_text: string | null;
+    field_label: string | null;
     team_name: string | null;
     venue_id: string | null;
   }>();
   const { data, error } = await (params.supabase.from("planner_events" as any) as any)
-    .select("id,source_event_uid,title,starts_at,ends_at,timezone,address_text,team_name,venue_id")
+    .select("id,source_event_uid,title,starts_at,ends_at,timezone,address_text,field_label,team_name,venue_id")
     .eq("user_id", params.userId)
     .eq("source_id", params.sourceId)
     .in("source_event_uid", params.uids.slice(0, MAX_EVENTS_PER_SYNC))
@@ -464,6 +469,7 @@ async function loadExistingEventsByUid(params: { supabase: SupabaseClient; userI
     ends_at: string | null;
     timezone: string | null;
     address_text: string | null;
+    field_label: string | null;
     team_name: string | null;
     venue_id: string | null;
   }>();
@@ -477,6 +483,7 @@ async function loadExistingEventsByUid(params: { supabase: SupabaseClient; userI
       ends_at: r?.ends_at ?? null,
       timezone: r?.timezone ?? null,
       address_text: r?.address_text ?? null,
+      field_label: r?.field_label ?? null,
       team_name: r?.team_name ?? null,
       venue_id: r?.venue_id ?? null,
     });
@@ -628,6 +635,7 @@ export async function importIcsToPlanner(params: {
       timezone: e.timezone,
       notes: e.notes,
       address_text: e.address_text,
+      field_label: e.field_label,
       team_name: e.team_name,
       venue_id: venueMatchesByUid.get(e.source_event_uid) ?? null,
       source_type: "ics",
@@ -647,6 +655,7 @@ export async function importIcsToPlanner(params: {
             ends_at: e.ends_at,
             timezone: e.timezone,
             address_text: e.address_text,
+            field_label: e.field_label,
             team_name: e.team_name,
             ...(matchedVenueId ? { venue_id: matchedVenueId } : {}),
             source_type: "ics",
@@ -681,7 +690,9 @@ export async function importIcsToPlanner(params: {
           const changeLabels: ("time" | "location" | "title" | "team" | "timezone")[] = [];
           if ((prev.title ?? null) !== (e.title ?? null)) changeLabels.push("title");
           if ((prev.starts_at ?? null) !== (e.starts_at ?? null) || (prev.ends_at ?? null) !== (e.ends_at ?? null)) changeLabels.push("time");
-          if ((prev.address_text ?? null) !== (e.address_text ?? null)) changeLabels.push("location");
+          if ((prev.address_text ?? null) !== (e.address_text ?? null) || (prev.field_label ?? null) !== (e.field_label ?? null)) {
+            changeLabels.push("location");
+          }
           if ((prev.team_name ?? null) !== (e.team_name ?? null)) changeLabels.push("team");
           if ((prev.timezone ?? null) !== (e.timezone ?? null)) changeLabels.push("timezone");
 
@@ -704,6 +715,7 @@ export async function importIcsToPlanner(params: {
         ends_at: e.ends_at,
         timezone: e.timezone,
         address_text: e.address_text,
+        field_label: e.field_label,
         team_name: e.team_name,
         ...(prev && !String(prev.venue_id ?? "").trim() && venueMatchesByUid.get(uid)
           ? { venue_id: venueMatchesByUid.get(uid) ?? null }

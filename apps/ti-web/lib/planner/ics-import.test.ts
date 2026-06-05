@@ -80,6 +80,27 @@ test("normalizeIcsEvents: strips basic HTML from summary/description/location", 
   assert.equal(res.events[0]?.title, "[UAT Planner] Game");
   assert.equal(res.events[0]?.notes, "Bold link");
   assert.equal(res.events[0]?.address_text, "Gym 1");
+  assert.equal(res.events[0]?.field_label, "Gym 1");
+});
+
+test("normalizeIcsEvents: extracts trailing field markers from location text", () => {
+  const now = new Date();
+  const start = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+  const ics = buildSimpleCalendar([
+    {
+      uid: "field-1",
+      summary: "Practice",
+      description: "Bring a ball",
+      location: "Fort Missoula Regional Park 3401-3499 South Ave W, Missoula, MT 59804, USA #6",
+      start,
+      end: new Date(start.getTime() + 60 * 60 * 1000),
+    },
+  ]);
+
+  const res = normalizeIcsEvents({ icsText: ics, sourceUrl: "https://example.com/a.ics", teamName: null });
+  assert.equal(res.events.length, 1);
+  assert.equal(res.events[0]?.address_text, "Fort Missoula Regional Park 3401-3499 South Ave W, Missoula, MT 59804, USA");
+  assert.equal(res.events[0]?.field_label, "Field 6");
 });
 
 test("normalizeIcsEvents: generates deterministic fallback UID when UID is missing", () => {

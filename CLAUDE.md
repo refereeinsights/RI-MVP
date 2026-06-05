@@ -569,6 +569,7 @@ Use this after Stage `3.3C-4D` is stable. Keep scope on conservative imported-ev
 - [ ] Conservative auto-matching:
   - [ ] Imported events with exact/strongly normalized address matches link to the correct TI venue.
   - [ ] Name-only matches only auto-link when city/state context uniquely supports the venue.
+  - [ ] Trailing sub-venue markers such as `#6`, `Field 3`, or `Court 1` do not block a unique TI venue match when the base venue/address clearly resolves.
   - [ ] If multiple similarly plausible candidates exist, no auto-link occurs.
   - [ ] No external geocoding or third-party matching flow appears in the product.
 - [ ] Refresh preservation:
@@ -592,6 +593,7 @@ Use this after Stage `3.3C-4D` is stable. Keep scope on conservative imported-ev
   - [ ] Existing Stage `3.1` linked-venue/source-location display hierarchy remains intact.
   - [ ] Source identity, child colors, and conflict indicators remain readable and distinct.
   - [ ] Child-prefixed imported source labels such as `Casey ...` use the same upper-right ownership badge placement/pattern as `Avery ...` rather than dropping into the inline chip row.
+  - [ ] When ICS location text includes a trailing field marker (`#6`, `Field 3`, `Court 1`), the planner surfaces it as a top-level field label near the event time instead of leaving it buried in raw location text.
 - [ ] Mobile safety (`375px` if possible):
   - [ ] Venue links and source-location fallback links remain tappable.
   - [ ] Directions/map actions remain reachable.

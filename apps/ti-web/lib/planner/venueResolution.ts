@@ -35,6 +35,7 @@ const US_STATE_ALIASES = new Map<string, string>([
 ]);
 
 const FIELD_ONLY_PATTERNS = [
+  /^#\s*[a-z0-9-]+$/i,
   /^(field|fld)\s*[a-z0-9-]+$/i,
   /^(gym|court|diamond|rink|room|mat|pool|track|pitch)\s*[a-z0-9-]+$/i,
 ];
@@ -83,8 +84,43 @@ function isFieldOnlyLabel(value: string | null | undefined) {
   return FIELD_ONLY_PATTERNS.some((pattern) => pattern.test(raw));
 }
 
+function normalizeExtractedFieldLabel(rawLabel: string) {
+  const trimmed = collapseWhitespace(rawLabel);
+  if (!trimmed) return "";
+  if (/^#\s*([a-z0-9-]+)$/i.test(trimmed)) {
+    const suffix = trimmed.match(/^#\s*([a-z0-9-]+)$/i)?.[1] ?? "";
+    return suffix ? `Field ${suffix.toUpperCase()}` : "";
+  }
+  return trimmed.replace(/\b(fld)\b/i, "Field");
+}
+
+export function extractFieldLabelFromLocationText(value: string | null | undefined) {
+  const trimmed = collapseWhitespace(String(value ?? ""));
+  if (!trimmed) return { cleanedLocation: "", fieldLabel: null as string | null };
+
+  const suffixMatch = trimmed.match(
+    /(?:^|[\s,|/–-])((?:field|fld|court|gym|diamond|rink|room|mat|pool|track|pitch)\s*[a-z0-9-]+|#\s*[a-z0-9-]+)$/i,
+  );
+  if (!suffixMatch?.[1]) return { cleanedLocation: trimmed, fieldLabel: null as string | null };
+
+  const rawLabel = collapseWhitespace(suffixMatch[1]);
+  if (!isFieldOnlyLabel(rawLabel)) return { cleanedLocation: trimmed, fieldLabel: null as string | null };
+
+  const cleanedLocation = collapseWhitespace(
+    trimmed
+      .slice(0, suffixMatch.index ?? trimmed.length)
+      .replace(/[\s,|/–-]+$/g, ""),
+  );
+
+  return {
+    cleanedLocation: cleanedLocation || trimmed,
+    fieldLabel: normalizeExtractedFieldLabel(rawLabel) || rawLabel,
+  };
+}
+
 function stripTrailingSubLocation(value: string) {
-  const trimmed = collapseWhitespace(value);
+  const extracted = extractFieldLabelFromLocationText(value);
+  const trimmed = extracted.cleanedLocation || collapseWhitespace(value);
   if (!trimmed) return "";
   const parts = trimmed.split(/\s+(?:\||\/|–|-)\s+/).map((part) => collapseWhitespace(part)).filter(Boolean);
   if (parts.length <= 1) return trimmed;
@@ -125,33 +161,34 @@ function stripTrailingAddressContext(value: string) {
 
 function parseCityStateFromAddressText(addressText: string) {
   const withoutCountry = stripCountrySuffix(stripTrailingAddressContext(addressText));
+  const withoutZip = collapseWhitespace(withoutCountry.replace(/\b\d{5}(?:-\d{4})?\b$/g, ""));
 
-  const combinedCityStateMatch = withoutCountry.match(/^(.*)(?:\s+|,\s*)([A-Za-z][A-Za-z\s.'-]+?),\s*([A-Za-z]{2})$/);
+  const combinedCityStateMatch = withoutZip.match(/^(.*)(?:\s+|,\s*)([A-Za-z][A-Za-z\s.'-]+?),\s*([A-Za-z]{2})$/);
   if (combinedCityStateMatch) {
     const normalizedState = normalizeStateToken(combinedCityStateMatch[3]);
     if (normalizedState) {
       return {
         city: collapseWhitespace(combinedCityStateMatch[2] ?? "") || null,
         state: normalizedState,
-        baseText: collapseWhitespace(combinedCityStateMatch[1] ?? "") || withoutCountry,
+        baseText: collapseWhitespace(combinedCityStateMatch[1] ?? "") || withoutZip,
       };
     }
   }
 
-  const compactCityStateMatch = withoutCountry.match(/^(.*)(?:\s+|,\s*)([A-Za-z][A-Za-z\s.'-]+?)\s+([A-Za-z]{2})$/);
+  const compactCityStateMatch = withoutZip.match(/^(.*)(?:\s+|,\s*)([A-Za-z][A-Za-z\s.'-]+?)\s+([A-Za-z]{2})$/);
   if (compactCityStateMatch) {
     const normalizedState = normalizeStateToken(compactCityStateMatch[3]);
     if (normalizedState) {
       return {
         city: collapseWhitespace(compactCityStateMatch[2] ?? "") || null,
         state: normalizedState,
-        baseText: collapseWhitespace(compactCityStateMatch[1] ?? "") || withoutCountry,
+        baseText: collapseWhitespace(compactCityStateMatch[1] ?? "") || withoutZip,
       };
     }
   }
 
-  const segments = withoutCountry.split(",").map((segment) => collapseWhitespace(segment)).filter(Boolean);
-  if (segments.length < 2) return { city: null as string | null, state: null as string | null, baseText: withoutCountry };
+  const segments = withoutZip.split(",").map((segment) => collapseWhitespace(segment)).filter(Boolean);
+  if (segments.length < 2) return { city: null as string | null, state: null as string | null, baseText: withoutZip };
 
   const last = segments[segments.length - 1] ?? "";
   const prev = segments[segments.length - 2] ?? "";
@@ -160,7 +197,7 @@ function parseCityStateFromAddressText(addressText: string) {
     return {
       city: prev || null,
       state: normalizedState,
-      baseText: segments.slice(0, -2).join(", ") || segments[0] || withoutCountry,
+      baseText: segments.slice(0, -2).join(", ") || segments[0] || withoutZip,
     };
   }
 
@@ -170,11 +207,11 @@ function parseCityStateFromAddressText(addressText: string) {
     return {
       city: collapseWhitespace(combinedMatch?.[1] ?? "") || prev || null,
       state: combinedState,
-      baseText: segments.slice(0, -1).join(", ") || withoutCountry,
+      baseText: segments.slice(0, -1).join(", ") || withoutZip,
     };
   }
 
-  return { city: null, state: null, baseText: withoutCountry };
+  return { city: null, state: null, baseText: withoutZip };
 }
 
 type ParsedLocationContext = {
@@ -341,7 +378,12 @@ export async function resolvePlannerVenueMatches(
 
     for (const row of grouped) {
       const exactAddressMatches = row.context.hasStreetAddress
-        ? candidates.filter((candidate) => candidate.normalizedAddress && candidate.normalizedAddress === row.context.normalizedBase)
+        ? candidates.filter(
+            (candidate) =>
+              candidate.normalizedAddress &&
+              (candidate.normalizedAddress === row.context.normalizedBase ||
+                row.context.normalizedBase.includes(candidate.normalizedAddress)),
+          )
         : [];
 
       if (exactAddressMatches.length === 1) {
@@ -349,6 +391,22 @@ export async function resolvePlannerVenueMatches(
         continue;
       }
       if (exactAddressMatches.length > 1) continue;
+
+      const combinedVenueAddressMatches = row.context.hasStreetAddress
+        ? candidates.filter(
+            (candidate) =>
+              candidate.normalizedAddress &&
+              candidate.normalizedName &&
+              row.context.normalizedBase.includes(candidate.normalizedAddress) &&
+              row.context.normalizedBase.includes(candidate.normalizedName),
+          )
+        : [];
+
+      if (combinedVenueAddressMatches.length === 1) {
+        matches.set(row.event.id, combinedVenueAddressMatches[0]!.id);
+        continue;
+      }
+      if (combinedVenueAddressMatches.length > 1) continue;
 
       if (row.context.hasStreetAddress) continue;
 
@@ -359,6 +417,43 @@ export async function resolvePlannerVenueMatches(
       );
       if (exactNameMatches.length === 1) {
         matches.set(row.event.id, exactNameMatches[0]!.id);
+      }
+    }
+  }
+
+  const unresolvedGlobalAddressRows = contexts.filter(
+    (row) => !matches.has(row.event.id) && row.context.hasStreetAddress && row.context.normalizedBase,
+  );
+
+  if (unresolvedGlobalAddressRows.length) {
+    const { data, error } = await (supabase.from("venues_public" as any) as any)
+      .select("id,name,address,city,state")
+      .limit(5000);
+
+    if (!error) {
+      const globalCandidates = ((data ?? []) as any[])
+        .map((venue: any) =>
+          normalizeVenueCandidate({
+            id: String(venue?.id ?? ""),
+            name: venue?.name ?? null,
+            address: venue?.address ?? null,
+            city: venue?.city ?? null,
+            state: venue?.state ?? null,
+            seo_slug: null,
+          }),
+        )
+        .filter((venue: NormalizedVenueCandidate) => venue.id && venue.normalizedAddress);
+
+      for (const row of unresolvedGlobalAddressRows) {
+        const exactAddressMatches = globalCandidates.filter(
+          (candidate) =>
+            candidate.normalizedAddress &&
+            (candidate.normalizedAddress === row.context.normalizedBase ||
+              row.context.normalizedBase.includes(candidate.normalizedAddress)),
+        );
+        if (exactAddressMatches.length === 1) {
+          matches.set(row.event.id, exactAddressMatches[0]!.id);
+        }
       }
     }
   }

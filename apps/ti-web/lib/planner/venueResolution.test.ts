@@ -113,15 +113,18 @@ test("resolvePlannerVenueMatches strips trailing sub-venue text from full street
   const supabase = mockSupabaseWithVenues([
     { id: "v1", name: "The Warehouse Athletic Facility", address: "800 N Hamilton St", city: "Spokane", state: "WA" },
     { id: "v2", name: "The Hub", address: "19619 E Cataldo Ave", city: "Liberty Lake", state: "WA" },
+    { id: "v3", name: "Fort Missoula Regional Park", address: "3401-3499 South Ave W", city: "Missoula", state: "MT" },
   ]);
 
   const matches = await resolvePlannerVenueMatches(supabase as any, [
     { id: "evt1", address_text: "800 N Hamilton St, Spokane, WA 99202, USA - Warehouse Court 3", city: null, state: null },
     { id: "evt2", address_text: "19619 E Cataldo Ave, Liberty Lake, WA 99016, USA - The Hub Court 1", city: null, state: null },
+    { id: "evt3", address_text: "Fort Missoula Regional Park 3401-3499 South Ave W, Missoula, MT 59804, USA #6", city: null, state: null },
   ]);
 
   assert.equal(matches.get("evt1"), "v1");
   assert.equal(matches.get("evt2"), "v2");
+  assert.equal(matches.get("evt3"), "v3");
 });
 
 test("resolvePlannerVenueMatches does not auto-link global name matches when multiple venues share the same name", async () => {

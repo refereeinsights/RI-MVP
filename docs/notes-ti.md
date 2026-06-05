@@ -37,6 +37,7 @@ Maintenance rules:
   - Added shared planner assignment inference in `apps/ti-web/lib/planner/inferAssignmentFromSourceLabel.ts` and applied it to both list and calendar rendering so source-linked Casey-style events no longer show a badge in list view but unassigned state in calendar view when explicit source assignment is absent.
   - Moved planner source/profile lookup memos earlier in `apps/ti-web/app/_components/planner/PlannerClient.tsx` to fix a local `sourcesById` initialization-order crash triggered by list filtering/sorting after the Casey assignment follow-up.
   - Expanded conservative planner venue matching to cover venue names embedded in source-location text and full street-address strings with trailing sub-venue suffixes, then applied local planner-event backfills that linked the remaining Dwight Merkel, Warehouse, and Hub rows once they resolved uniquely.
+  - Followed up on ICS location parsing so trailing field markers like `#6`, `Field 3`, and `Court 1` are promoted into `field_label` during import normalization and stripped before venue matching, allowing unique venue matches like `Fort Missoula Regional Park ... #6` while surfacing the extracted field inline on planner cards instead of burying it in raw location text.
 
 ## 2026-06-04
 
