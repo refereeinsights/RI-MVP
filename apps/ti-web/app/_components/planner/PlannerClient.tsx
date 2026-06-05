@@ -1416,6 +1416,7 @@ export default function PlannerClient(props: Props) {
   }
 
   function applySeasonDateFilter(nextStart: string, nextEnd: string) {
+    setScheduleView("season");
     setSeasonDateStart(nextStart);
     setSeasonDateEnd(nextEnd);
     setSeasonDateFilterOpen(false);
@@ -2935,8 +2936,7 @@ export default function PlannerClient(props: Props) {
                   </button>
 		            </div>
 
-              {familyFilterOptions.length > 1 || scheduleView === "season" ? (
-                <div className={styles.scheduleSelectRow}>
+              <div className={styles.scheduleSelectRow}>
                   {familyFilterOptions.length > 1 ? (
                     <select
                       className={styles.select}
@@ -2952,87 +2952,87 @@ export default function PlannerClient(props: Props) {
                       ))}
                     </select>
                   ) : null}
-                  {scheduleView === "season" ? (
-                    <div className={styles.dateFilterWrap}>
-                      <button
-                        className={`${styles.secondaryBtn}${seasonDateRangeLabel ? ` ${styles.dateFilterBtnActive}` : ""}`}
-                        type="button"
-                        onClick={() => {
-                          if (busy) return;
-                          if (seasonDateFilterOpen) {
-                            closeSeasonDateFilter();
-                            return;
-                          }
-                          openSeasonDateFilter();
-                        }}
-                        disabled={busy}
-                        aria-expanded={seasonDateFilterOpen}
-                        aria-controls="season-date-filter-panel"
-                      >
-                        {seasonDateRangeLabel ? `Dates: ${seasonDateRangeLabel}` : "Dates"}
-                      </button>
-                      {seasonDateFilterOpen ? (
-                        <div className={styles.dateFilterPanel} id="season-date-filter-panel">
-                          <div className={styles.dateFilterFields}>
-                            <div>
-                              <label className={styles.label} htmlFor="season-date-start">
-                                Start date
-                              </label>
-                              <input
-                                id="season-date-start"
-                                className={styles.input}
-                                type="date"
-                                value={seasonDateDraftStart}
-                                onChange={(e) => setSeasonDateDraftStart(e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <label className={styles.label} htmlFor="season-date-end">
-                                End date
-                              </label>
-                              <input
-                                id="season-date-end"
-                                className={styles.input}
-                                type="date"
-                                value={seasonDateDraftEnd}
-                                onChange={(e) => setSeasonDateDraftEnd(e.target.value)}
-                              />
-                            </div>
+                  <div className={styles.dateFilterWrap}>
+                    <button
+                      className={`${styles.secondaryBtn}${seasonDateRangeLabel ? ` ${styles.dateFilterBtnActive}` : ""}`}
+                      type="button"
+                      onClick={() => {
+                        if (busy) return;
+                        if (seasonDateFilterOpen) {
+                          closeSeasonDateFilter();
+                          return;
+                        }
+                        openSeasonDateFilter();
+                      }}
+                      disabled={busy}
+                      aria-expanded={seasonDateFilterOpen}
+                      aria-controls="season-date-filter-panel"
+                    >
+                      {seasonDateRangeLabel ? `Dates: ${seasonDateRangeLabel}` : "Dates"}
+                    </button>
+                    {seasonDateFilterOpen ? (
+                      <div className={styles.dateFilterPanel} id="season-date-filter-panel">
+                        <div className={styles.dateFilterFields}>
+                          <div>
+                            <label className={styles.label} htmlFor="season-date-start">
+                              Start date
+                            </label>
+                            <input
+                              id="season-date-start"
+                              className={styles.input}
+                              type="date"
+                              value={seasonDateDraftStart}
+                              onChange={(e) => setSeasonDateDraftStart(e.target.value)}
+                            />
                           </div>
-                          {seasonDateDraftError ? <div className={styles.dateFilterError}>{seasonDateDraftError}</div> : null}
-                          <div className={styles.dateFilterQuickActions}>
-                            <button className={styles.secondaryBtn} type="button" onClick={() => applySeasonDateQuickRange("weekend")}>
-                              This weekend
-                            </button>
-                            <button className={styles.secondaryBtn} type="button" onClick={() => applySeasonDateQuickRange("next30")}>
-                              Next 30 days
-                            </button>
-                            <button className={styles.secondaryBtn} type="button" onClick={clearSeasonDateFilter}>
-                              Clear
-                            </button>
-                            <button className={styles.secondaryBtn} type="button" onClick={clearSeasonDateFilter}>
-                              This season
-                            </button>
-                          </div>
-                          <div className={styles.dateFilterActions}>
-                            <button
-                              className={styles.primaryBtn}
-                              type="button"
-                              onClick={() => applySeasonDateFilter(seasonDateDraftStart, seasonDateDraftEnd)}
-                              disabled={Boolean(seasonDateDraftError)}
-                            >
-                              Apply
-                            </button>
-                            <button className={styles.secondaryBtn} type="button" onClick={closeSeasonDateFilter}>
-                              Cancel
-                            </button>
+                          <div>
+                            <label className={styles.label} htmlFor="season-date-end">
+                              End date
+                            </label>
+                            <input
+                              id="season-date-end"
+                              className={styles.input}
+                              type="date"
+                              value={seasonDateDraftEnd}
+                              onChange={(e) => setSeasonDateDraftEnd(e.target.value)}
+                            />
                           </div>
                         </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+                        {scheduleView !== "season" ? (
+                          <div className={styles.muted}>Applying a custom date range switches the planner to <b>Season</b>.</div>
+                        ) : null}
+                        {seasonDateDraftError ? <div className={styles.dateFilterError}>{seasonDateDraftError}</div> : null}
+                        <div className={styles.dateFilterQuickActions}>
+                          <button className={styles.secondaryBtn} type="button" onClick={() => applySeasonDateQuickRange("weekend")}>
+                            This weekend
+                          </button>
+                          <button className={styles.secondaryBtn} type="button" onClick={() => applySeasonDateQuickRange("next30")}>
+                            Next 30 days
+                          </button>
+                          <button className={styles.secondaryBtn} type="button" onClick={clearSeasonDateFilter}>
+                            Clear
+                          </button>
+                          <button className={styles.secondaryBtn} type="button" onClick={clearSeasonDateFilter}>
+                            This season
+                          </button>
+                        </div>
+                        <div className={styles.dateFilterActions}>
+                          <button
+                            className={styles.primaryBtn}
+                            type="button"
+                            onClick={() => applySeasonDateFilter(seasonDateDraftStart, seasonDateDraftEnd)}
+                            disabled={Boolean(seasonDateDraftError)}
+                          >
+                            Apply
+                          </button>
+                          <button className={styles.secondaryBtn} type="button" onClick={closeSeasonDateFilter}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+              </div>
 
 		          {scheduleView === "weekend" ? (
 		            <div className={`${styles.muted} ${styles.scheduleMetaRow}`}>

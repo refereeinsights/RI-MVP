@@ -598,18 +598,19 @@ Use this after Stage `3.3C-4D` is stable. Keep scope on conservative imported-ev
 
 ### Stage 3.3C-6 UAT (compact Season date-range filter)
 
-Use this after Stage `3.3C-5` is stable. Keep scope on the new compact `Dates` control in `Season`, its quick actions, and consistency between list and calendar filtering.
+Use this after Stage `3.3C-5` is stable. Keep scope on the compact `Dates` control, its Season-range behavior, quick actions, and consistency between list and calendar filtering.
 
-- [ ] Season-only control:
-  - [ ] `Season` view shows a compact `Dates` control near the family filter row.
-  - [ ] `Upcoming` does not expose the custom date-range control.
-  - [ ] `This Weekend` does not expose the custom date-range control.
+- [ ] Control visibility:
+  - [ ] All three planner views show a compact `Dates` control near the family filter row.
+  - [ ] Opening `Dates` from `Upcoming` or `This Weekend` is allowed and does not feel hidden behind the `Season` lens.
 - [ ] Date range entry:
   - [ ] Opening `Dates` reveals labeled `Start date` and `End date` fields.
+  - [ ] Opening `Dates` outside `Season` explains that applying a custom range switches the planner to `Season`.
   - [ ] Setting only `Start date` filters to events on/after that date.
   - [ ] Setting only `End date` filters to events on/before that date.
   - [ ] Setting both dates filters to the inclusive bounded range.
   - [ ] Invalid ranges (start after end) are blocked or clearly corrected.
+  - [ ] Applying any custom range switches the planner into `Season`.
 - [ ] Quick actions:
   - [ ] `This weekend` narrows `Season` to the current weekend date window.
   - [ ] `Next 30 days` narrows `Season` to the next 30-day window.
