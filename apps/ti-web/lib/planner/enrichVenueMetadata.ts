@@ -30,7 +30,7 @@ export async function enrichPlannerEventsWithLinkedVenue<
     return events.map((event) => ({ ...event, linkedVenue: null }));
   }
 
-  const { data: venueRows, error } = await (supabase.from("venues_public" as any) as any)
+  const { data: publicVenueRows, error } = await (supabase.from("venues_public" as any) as any)
     .select("id,name,address,city,state,seo_slug")
     .in("id", venueIds);
 
@@ -39,7 +39,7 @@ export async function enrichPlannerEventsWithLinkedVenue<
   }
 
   const venueById = new Map<string, VenueMetadataRow>(
-    (venueRows ?? []).map((v: any) => [
+    (publicVenueRows ?? []).map((v: any) => [
       String(v?.id ?? ""),
       {
         id: String(v?.id ?? ""),
@@ -51,6 +51,29 @@ export async function enrichPlannerEventsWithLinkedVenue<
       },
     ])
   );
+
+  const unresolvedVenueIds = venueIds.filter((venueId) => !venueById.has(venueId));
+  if (unresolvedVenueIds.length) {
+    const { data: privateVenueRows, error: privateVenueError } = await (supabase.from("venues" as any) as any)
+      .select("id,name,address,city,state,seo_slug")
+      .in("id", unresolvedVenueIds);
+
+    if (!privateVenueError) {
+      for (const venueRow of privateVenueRows ?? []) {
+        const venueId = String(venueRow?.id ?? "").trim();
+        if (!venueId || venueById.has(venueId)) continue;
+        venueById.set(venueId, {
+          id: venueId,
+          name: venueRow?.name ?? null,
+          address: venueRow?.address ?? null,
+          city: venueRow?.city ?? null,
+          state: venueRow?.state ?? null,
+          seo_slug: venueRow?.seo_slug ?? null,
+        });
+      }
+    }
+  }
+
   return events.map((event) => {
     const venueId = String(event.venue_id ?? "").trim();
     return {

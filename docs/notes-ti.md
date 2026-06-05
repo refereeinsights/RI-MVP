@@ -19,6 +19,7 @@ Maintenance rules:
   - Added conservative batch venue matching for imported/refreshing ICS events using internal TI venue data only, with no backfill and no overwrite of any existing non-null `venue_id`.
   - Updated planner list/calendar event location behavior so linked venues open TI venue pages in new tabs, meaningful unmatched source locations open maps, field-only labels stay informational, and month-view event chips more clearly signal clickability.
   - Tightened imported-event badge consistency so child-prefixed source labels like `Casey Owls 15U - TC` move into the same upper-right badge location already used by `Avery Sports · TI Owls 12U`, rather than rendering inline beside the event-type chip.
+  - Hardened linked-venue hydration in `apps/ti-web/lib/planner/enrichVenueMetadata.ts` so planner cards fall back to the canonical `venues` table when a matched `venue_id` is missing from `venues_public`, restoring the TI venue-name link on matched event cards while preserving the separate map/directions path.
 
 ## 2026-06-04
 

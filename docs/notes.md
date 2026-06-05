@@ -18,6 +18,7 @@ Maintenance rules:
   - Added conservative imported-event venue resolution in `apps/ti-web/lib/planner/venueResolution.ts` and wired `apps/ti-web/lib/planner/ics-import.ts` to batch-resolve venue candidates during import/refresh without external geocoding, without backfill, and without overwriting any existing non-null `venue_id`.
   - Updated `apps/ti-web/app/_components/planner/PlannerClient.tsx`, `apps/ti-web/app/_components/planner/PlannerCalendar.tsx`, `apps/ti-web/app/_components/planner/Planner.module.css`, and `apps/ti-web/lib/planner/enrichVenueMetadata.ts` so linked venues open TI venue pages in new tabs, unmatched meaningful source locations open maps, field-only labels stay non-clickable, month-view event chips advertise clickability, and linked venue rows preserve the existing Stage `3.1` display hierarchy.
   - Followed up on planner badge consistency in `apps/ti-web/app/_components/planner/PlannerClient.tsx` so child-prefixed imported source labels like `Casey Owls 15U - TC` render in the same upper-right ownership badge slot as `Avery Sports · TI Owls 12U` instead of falling back to the inline chip row.
+  - Followed up on localhost UAT by hardening `apps/ti-web/lib/planner/enrichVenueMetadata.ts` to fall back from `venues_public` to `venues` when a selected `venue_id` is not present in the public projection, so matched event cards can consistently surface the TI venue-name link instead of collapsing to address/maps-only behavior.
 
 ## 2026-06-04
 
