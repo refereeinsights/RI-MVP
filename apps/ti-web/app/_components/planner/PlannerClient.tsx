@@ -757,7 +757,7 @@ export default function PlannerClient(props: Props) {
         href: linkedHref,
       });
     }
-    if (source && (!linked || source !== linked)) {
+    if (!linked && source) {
       rows.push({
         key: "sourceLocation",
         label: "Source location",

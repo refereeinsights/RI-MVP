@@ -578,6 +578,9 @@ Use this after Stage `3.3C-4D` is stable. Keep scope on conservative imported-ev
   - [ ] Linked venue name opens the TI venue page in a new tab.
   - [ ] Linked venue new-tab links use safe browser behavior and do not hijack the event-card click action.
   - [ ] A separate `Map` / `Directions` action remains available for matched venues.
+- [ ] Linked venue display cleanup:
+  - [ ] When a TI venue is linked, the main planner card shows `Linked venue` and does not also repeat `Source location`.
+  - [ ] Raw source location remains available in the edit surface for verification/manual correction.
 - [ ] Unmatched source-location fallback:
   - [ ] A meaningful source address/location opens maps when clicked.
   - [ ] Ambiguous labels such as `Field 1`, `Gym B`, or `Court 3` do not become map links.
