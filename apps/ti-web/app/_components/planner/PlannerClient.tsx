@@ -11,6 +11,7 @@ import {
   type PlannerDuplicateReason,
 } from "@/lib/planner/duplicates";
 import { compactAssignmentLabel, getFamilyColorToken } from "@/lib/planner/familyColors";
+import { inferAssignmentFromSourceLabel } from "@/lib/planner/inferAssignmentFromSourceLabel";
 import { isMapLinkEligibleLocation, mapsSearchUrl, plannerEventLocationForMaps } from "@/lib/planner/venueResolution";
 import type {
   PlannerChildWithTeamsRow,
@@ -1092,6 +1093,27 @@ export default function PlannerClient(props: Props) {
 	      .slice(0, 20);
   }, [events, scheduleView]);
 
+  const sourcesById = useMemo(() => {
+    const m = new Map<string, PlannerSourceRow>();
+    for (const s of sources) m.set(String(s.id), s);
+    return m;
+  }, [sources]);
+
+  const familyProfilesById = useMemo(() => {
+    const profiles = new Map<string, PlannerChildWithTeamsRow>();
+    for (const childProfile of familyProfiles) {
+      profiles.set(String(childProfile.id), childProfile);
+    }
+    return profiles;
+  }, [familyProfiles]);
+
+  const activeFamilyChildIds = useMemo(() => {
+    return familyProfiles
+      .filter((childProfile) => !childProfile.is_archived)
+      .map((childProfile) => String(childProfile.id))
+      .filter(Boolean);
+  }, [familyProfiles]);
+
   const filteredEventsForScheduleView = useMemo(() => {
     if (familyFilter === "all") return eventsForScheduleView;
     return eventsForScheduleView.filter((event) => familyFilterMatchesEvent(event, familyFilter));
@@ -1153,27 +1175,6 @@ export default function PlannerClient(props: Props) {
     return String(nextFuture?.id ?? filteredEventsForScheduleView[0]?.id ?? "").trim() || null;
   }, [filteredEventsForScheduleView]);
 
-  const sourcesById = useMemo(() => {
-    const m = new Map<string, PlannerSourceRow>();
-    for (const s of sources) m.set(String(s.id), s);
-    return m;
-  }, [sources]);
-
-  const familyProfilesById = useMemo(() => {
-    const profiles = new Map<string, PlannerChildWithTeamsRow>();
-    for (const childProfile of familyProfiles) {
-      profiles.set(String(childProfile.id), childProfile);
-    }
-    return profiles;
-  }, [familyProfiles]);
-
-  const activeFamilyChildIds = useMemo(() => {
-    return familyProfiles
-      .filter((childProfile) => !childProfile.is_archived)
-      .map((childProfile) => String(childProfile.id))
-      .filter(Boolean);
-  }, [familyProfiles]);
-
   function teamLabel(teamId: string | null | undefined) {
     const normalizedTeamId = String(teamId ?? "").trim();
     if (!normalizedTeamId) return null;
@@ -1224,26 +1225,23 @@ export default function PlannerClient(props: Props) {
   }
 
   function compactAssignmentLabelForEvent(event: PlannerEventRow) {
-    const sourceAssignment = sourceAssignmentForEvent(event);
-    return compactAssignmentLabelFromIds(
-      sourceAssignment?.child_profile_id ?? event.child_profile_id,
-      sourceAssignment?.team_profile_id ?? event.team_profile_id
-    );
+    const assignment = assignmentIdsForEvent(event);
+    return compactAssignmentLabelFromIds(assignment.childProfileId, assignment.teamProfileId);
   }
 
   function sourceLabelOwnershipFallback(event: PlannerEventRow) {
     const familyAssignmentLabel = compactAssignmentLabelForEvent(event);
     if (familyAssignmentLabel) return null;
-    if (String(event.source_type ?? "") !== "ics") return null;
+    const isSourceLinkedEvent =
+      Boolean(String(event.source_id ?? "").trim()) ||
+      Boolean(String((event as { source_event_uid?: string | null }).source_event_uid ?? "").trim());
+    if (!isSourceLinkedEvent) return null;
 
     const sourceLabel = labelForImportedEvent(event);
     const normalizedSourceLabel = String(sourceLabel ?? "").trim();
     if (!normalizedSourceLabel) return null;
-
-    const matchingChild = familyProfiles.find((childProfile) => {
-      const childName = String(childProfile.display_name ?? "").trim();
-      return childName && normalizedSourceLabel.toLowerCase().startsWith(childName.toLowerCase());
-    });
+    const inferredAssignment = inferAssignmentFromSourceLabel({ sourceLabel: normalizedSourceLabel, familyProfiles });
+    const matchingChild = inferredAssignment?.childProfileId ? familyProfilesById.get(inferredAssignment.childProfileId) ?? null : null;
     if (!matchingChild) return null;
 
     return {
@@ -1261,9 +1259,22 @@ export default function PlannerClient(props: Props) {
 
   function assignmentIdsForEvent(event: PlannerEventRow) {
     const sourceAssignment = sourceAssignmentForEvent(event);
+    const explicitChildProfileId = String(sourceAssignment?.child_profile_id ?? event.child_profile_id ?? "").trim();
+    const explicitTeamProfileId = String(sourceAssignment?.team_profile_id ?? event.team_profile_id ?? "").trim();
+    if (explicitChildProfileId) {
+      return {
+        childProfileId: explicitChildProfileId,
+        teamProfileId: explicitTeamProfileId,
+      };
+    }
+
+    const inferredAssignment = inferAssignmentFromSourceLabel({
+      sourceLabel: labelForImportedEvent(event),
+      familyProfiles,
+    });
     return {
-      childProfileId: String(sourceAssignment?.child_profile_id ?? event.child_profile_id ?? "").trim(),
-      teamProfileId: String(sourceAssignment?.team_profile_id ?? event.team_profile_id ?? "").trim(),
+      childProfileId: String(inferredAssignment?.childProfileId ?? "").trim(),
+      teamProfileId: String(inferredAssignment?.teamProfileId ?? "").trim(),
     };
   }
 

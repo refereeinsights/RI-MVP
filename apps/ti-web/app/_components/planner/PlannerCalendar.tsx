@@ -13,6 +13,7 @@ import "temporal-polyfill/global";
 import "@schedule-x/theme-shadcn/dist/index.css";
 import type { PlannerChildWithTeamsRow, PlannerEventRow, PlannerSourceRow } from "@/lib/planner/types";
 import { compactAssignmentLabel, getFamilyColorToken, getUnassignedFamilyColorToken } from "@/lib/planner/familyColors";
+import { inferAssignmentFromSourceLabel } from "@/lib/planner/inferAssignmentFromSourceLabel";
 import { isMapLinkEligibleLocation, mapsSearchUrl, plannerEventLocationForMaps } from "@/lib/planner/venueResolution";
 import { trackTiEvent } from "@/lib/tiAnalyticsClient";
 import { getVenueHref } from "@/lib/venues/getVenueHref";
@@ -151,9 +152,22 @@ export default function PlannerCalendar(props: Props) {
   function sourceAssignmentForEvent(e: PlannerEventRow) {
     const sourceId = String(e.source_id ?? "").trim();
     const sourceAssignment = sourceId ? sourceAssignmentsById.get(sourceId) ?? null : null;
+    const explicitChildProfileId = String(sourceAssignment?.child_profile_id ?? e.child_profile_id ?? "").trim();
+    const explicitTeamProfileId = String(sourceAssignment?.team_profile_id ?? e.team_profile_id ?? "").trim();
+    if (explicitChildProfileId) {
+      return {
+        childProfileId: explicitChildProfileId,
+        teamProfileId: explicitTeamProfileId,
+      };
+    }
+
+    const inferredAssignment = inferAssignmentFromSourceLabel({
+      sourceLabel: labelForEventSource(e),
+      familyProfiles: props.familyProfiles ?? [],
+    });
     return {
-      childProfileId: String(sourceAssignment?.child_profile_id ?? e.child_profile_id ?? "").trim(),
-      teamProfileId: String(sourceAssignment?.team_profile_id ?? e.team_profile_id ?? "").trim(),
+      childProfileId: String(inferredAssignment?.childProfileId ?? "").trim(),
+      teamProfileId: String(inferredAssignment?.teamProfileId ?? "").trim(),
     };
   }
 

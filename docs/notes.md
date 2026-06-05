@@ -22,6 +22,8 @@ Maintenance rules:
   - Closed the remaining hydration gap by removing the planner's hard dependency on `seo_slug` being present on `venues_public`, adding `supabase/migrations/20260605_ti_venues_public_add_seo_slug.sql` for schema alignment, and covering both public-view hydration and `venues` fallback in `apps/ti-web/lib/planner/enrichVenueMetadata.test.ts`.
   - Re-run localhost UAT now passes the `Section 4` matched-venue click-path blocker, so `Stage 3.3C-5` is ready; the remaining `field label + real location` check is fixture-limited and mobile `375px` verification is tooling-limited rather than a known regression.
   - Added `supabase/migrations/20260605_ti_fix_venue_slug_generator.sql` to correct the venue SEO slug generator so uppercase letters are normalized instead of dropped, and to backfill any already-broken venue slugs before production.
+  - Followed up on Casey/Avery assignment consistency by adding `apps/ti-web/lib/planner/inferAssignmentFromSourceLabel.ts` and wiring both `apps/ti-web/app/_components/planner/PlannerClient.tsx` and `apps/ti-web/app/_components/planner/PlannerCalendar.tsx` to infer child/team ownership from source-linked labels when explicit assignment data is missing, so list badges, calendar colors, and family filters stay aligned.
+  - Fixed a local list-view runtime error by moving planner source/profile lookup memos ahead of family-filter evaluation in `apps/ti-web/app/_components/planner/PlannerClient.tsx`, preventing `ReferenceError: Cannot access 'sourcesById' before initialization` when sorting or filtering list view.
 
 ## 2026-06-04
 

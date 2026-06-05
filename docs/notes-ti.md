@@ -23,6 +23,8 @@ Maintenance rules:
   - Fixed the final localhost hydration mismatch by removing planner-side assumptions that `venues_public` already exposes `seo_slug`, adding `supabase/migrations/20260605_ti_venues_public_add_seo_slug.sql` for long-term schema parity, and adding tests that cover both public-view hydration and fallback-to-`venues` behavior.
   - Localhost follow-up UAT now passes the matched-venue click-path blocker, so `Stage 3.3C-5` is ready; the remaining field-label coexistence check is still fixture-limited and the `375px` check remains tooling-limited.
   - Added `supabase/migrations/20260605_ti_fix_venue_slug_generator.sql` to fix the venue SEO slug generator/backfill path after observing broken slugs like `ast-esa-ports-omplex-as-ruces` from uppercase-character stripping.
+  - Added shared planner assignment inference in `apps/ti-web/lib/planner/inferAssignmentFromSourceLabel.ts` and applied it to both list and calendar rendering so source-linked Casey-style events no longer show a badge in list view but unassigned state in calendar view when explicit source assignment is absent.
+  - Moved planner source/profile lookup memos earlier in `apps/ti-web/app/_components/planner/PlannerClient.tsx` to fix a local `sourcesById` initialization-order crash triggered by list filtering/sorting after the Casey assignment follow-up.
 
 ## 2026-06-04
 
